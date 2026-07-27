@@ -1,4 +1,2 @@
-inspection:
-  infrastructure:
-    storage:
-      environment: dev
+# Development profile intentionally supplies no infrastructure secrets or environment fallback.
+# Compose and other deployment environments must provide INSPECTION_ENVIRONMENT explicitly.

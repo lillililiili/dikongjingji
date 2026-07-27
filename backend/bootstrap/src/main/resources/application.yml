@@ -16,6 +16,10 @@ spring:
         enabled: ${INSPECTION_REDIS_SSL:false}
       timeout: ${INSPECTION_REDIS_TIMEOUT:2s}
 
+security:
+  jwt:
+    hmac-base64-secret: ${INSPECTION_JWT_HMAC_BASE64_SECRET}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

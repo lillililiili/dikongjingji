@@ -1,0 +1,16 @@
+.git
+.worktrees
+.superpowers
+.planning
+.runtime
+apps
+references
+docs
+node_modules
+dist
+coverage
+target
+**/target
+.env
+.env.*
+!.env.example
