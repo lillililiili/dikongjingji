@@ -10,6 +10,7 @@ output/
 .worktrees/
 audit-output/
 tmp/
+target/
 .idea/
 .vscode/
 *.local
