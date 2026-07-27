@@ -5,6 +5,8 @@ coverage/
 unpackage/
 output/
 .planning/
+.runtime/
+.superpowers/
 .worktrees/
 audit-output/
 tmp/
