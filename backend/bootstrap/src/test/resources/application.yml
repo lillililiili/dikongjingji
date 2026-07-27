@@ -1,0 +1,3 @@
+security:
+  jwt:
+    hmac-secret: test-only-hmac-secret-that-is-at-least-thirty-two-bytes

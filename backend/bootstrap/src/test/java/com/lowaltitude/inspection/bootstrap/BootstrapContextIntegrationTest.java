@@ -5,6 +5,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -12,6 +23,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,8 +32,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(BootstrapContextIntegrationTest.ErrorControllerTestConfiguration.class)
+@Import({
+        BootstrapContextIntegrationTest.ErrorControllerTestConfiguration.class,
+        BootstrapContextIntegrationTest.TokenVersionTestConfiguration.class
+})
 class BootstrapContextIntegrationTest {
+
+    private static final String HMAC_SECRET = "test-only-hmac-secret-that-is-at-least-thirty-two-bytes";
+    private static final UUID SUBJECT_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
     @Autowired
     private ApplicationContext applicationContext;
@@ -42,7 +61,9 @@ class BootstrapContextIntegrationTest {
 
     @Test
     void invalidArgumentUsesTheApiErrorContract() throws Exception {
-        mockMvc.perform(get("/test/invalid-request").accept(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/test/invalid-request")
+                        .header("Authorization", "Bearer " + validToken())
+                        .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"))
                 .andExpect(jsonPath("$.message").value("请求参数无效"))
@@ -51,7 +72,9 @@ class BootstrapContextIntegrationTest {
 
     @Test
     void unexpectedExceptionsUseTheStableApiErrorContract() throws Exception {
-        mockMvc.perform(get("/test/unexpected-request").accept(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/test/unexpected-request")
+                        .header("Authorization", "Bearer " + validToken())
+                        .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("COMMON_INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.message").value("系统繁忙，请稍后重试"))
@@ -61,6 +84,18 @@ class BootstrapContextIntegrationTest {
     @TestConfiguration(proxyBeanMethods = false)
     @Import(TestErrorController.class)
     static class ErrorControllerTestConfiguration {
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class TokenVersionTestConfiguration {
+
+        @Bean
+        @Primary
+        TokenVersionPort testTokenVersionPort() {
+            return subjectId -> SUBJECT_ID.equals(subjectId)
+                    ? java.util.OptionalInt.of(1)
+                    : java.util.OptionalInt.empty();
+        }
     }
 
     @RestController
@@ -75,5 +110,21 @@ class BootstrapContextIntegrationTest {
         String unexpectedRequest() {
             throw new IllegalStateException("internal implementation detail");
         }
+    }
+
+    private String validToken() throws Exception {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .subject(SUBJECT_ID.toString())
+                .claim("subjectId", SUBJECT_ID.toString())
+                .claim("roles", List.of())
+                .claim("organizationId", "44444444-4444-4444-4444-444444444444")
+                .claim("permissions", List.of())
+                .claim("tokenVersion", 1)
+                .issueTime(java.util.Date.from(Instant.now()))
+                .expirationTime(java.util.Date.from(Instant.now().plusSeconds(300)))
+                .build();
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+        jwt.sign(new MACSigner(HMAC_SECRET.getBytes(StandardCharsets.UTF_8)));
+        return jwt.serialize();
     }
 }
