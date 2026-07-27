@@ -1,0 +1,16 @@
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+unpackage/
+output/
+.planning/
+.worktrees/
+audit-output/
+tmp/
+.idea/
+.vscode/
+*.local
+.env
+.env.*
+!.env.example

@@ -1,0 +1,23 @@
+{
+  "name": "低空综合服务平台",
+  "appid": "__UNI__INSPECTION_I1",
+  "description": "全国化低空与机器人综合服务平台",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "uniStatistics": {
+    "enable": false
+  },
+  "app-plus": {
+    "usingComponents": true,
+    "splashscreen": {
+      "alwaysShowBeforeRender": true,
+      "waiting": true,
+      "autoclose": true,
+      "delay": 0
+    }
+  },
+  "h5": {
+    "title": "低空综合服务平台"
+  }
+}

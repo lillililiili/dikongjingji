@@ -1,0 +1,158 @@
+import type { InspectionServiceDetail } from '../../domain/inspection-service-detail'
+
+export const DEVELOPMENT_POWER_SERVICE_DETAIL: InspectionServiceDetail = {
+  serviceId: 'dev-power-line',
+  categoryLabel: '输电巡检',
+  title: '输电线路无人机巡检',
+  subtitle: '杆塔精细巡检 · 导线通道检测 · 缺陷报告',
+  heroImageUrl: '/static/images/inspection/inspection-hero-v1.png',
+  priceAmountMinor: 69900,
+  priceUnitLabel: '/公里起',
+  priceNote: '最终报价以现场评估为准',
+  ratingAverage: 4.9,
+  completedCountLabel: '已服务 8,560+',
+  capabilities: [
+    {
+      code: 'MODELING',
+      label: '高精度建模',
+      icon: 'checkbox-filled',
+      tone: 'green',
+    },
+    {
+      code: 'AI_DEFECT',
+      label: 'AI 缺陷识别',
+      icon: 'checkbox-filled',
+      tone: 'green',
+    },
+    {
+      code: 'REPORT',
+      label: '巡检报告',
+      icon: 'checkbox-filled',
+      tone: 'green',
+    },
+  ],
+  inspectionItems: [
+    {
+      code: 'TOWER',
+      label: '杆塔本体巡检',
+      icon: 'map-pin-ellipse',
+      tone: 'orange',
+    },
+    {
+      code: 'GROUND_WIRE',
+      label: '导线地线巡检',
+      icon: 'paperplane-filled',
+      tone: 'green',
+    },
+    {
+      code: 'INSULATOR',
+      label: '绝缘子及金具巡检',
+      icon: 'gear-filled',
+      tone: 'green',
+    },
+    {
+      code: 'CORRIDOR',
+      label: '通道环境巡检',
+      icon: 'map-filled',
+      tone: 'orange',
+    },
+  ],
+  processSteps: [
+    { code: 'REQUEST', label: '提交需求' },
+    { code: 'CONFIRM', label: '方案确认' },
+    { code: 'INSPECTION', label: '现场巡检' },
+    { code: 'DELIVERY', label: '报告交付' },
+  ],
+  deliverables: [
+    {
+      code: 'IMAGES',
+      label: '高清巡检影像',
+      icon: 'image-filled',
+      tone: 'orange',
+    },
+    {
+      code: 'DEFECT_LIST',
+      label: '缺陷清单',
+      icon: 'list',
+      tone: 'green',
+    },
+    {
+      code: 'POINT_MARKS',
+      label: '点位标注',
+      icon: 'location-filled',
+      tone: 'orange',
+    },
+    {
+      code: 'REPORT',
+      label: '巡检报告',
+      icon: 'compose',
+      tone: 'green',
+    },
+  ],
+  guarantees: [
+    {
+      code: 'PILOT',
+      label: '专业飞手',
+      icon: 'staff-filled',
+      tone: 'green',
+    },
+    {
+      code: 'COMPLIANCE',
+      label: '合规作业',
+      icon: 'auth-filled',
+      tone: 'orange',
+    },
+    {
+      code: 'SECURITY',
+      label: '数据保密',
+      icon: 'locked-filled',
+      tone: 'green',
+    },
+  ],
+  explanations: [
+    {
+      label: '作业方式',
+      value: '无人机现场采集、AI识别、专业人员复核',
+    },
+    {
+      label: '交付时效',
+      value: '现场作业完成后3个工作日内交付',
+    },
+    {
+      label: '计价规则',
+      value: '按实际巡检线路长度及现场条件核定',
+    },
+  ],
+  reviewCount: 328,
+  positiveRateLabel: '98%好评',
+  reviewFilters: [
+    { code: 'ALL', label: '全部', count: 328 },
+    { code: 'WITH_IMAGE', label: '有图', count: 86 },
+    { code: 'PROFESSIONAL', label: '专业', count: 126 },
+    { code: 'SERVICE', label: '服务好', count: 98 },
+    { code: 'ON_TIME', label: '交付及时', count: 73 },
+  ],
+  reviews: [
+    {
+      id: 'review-dev-001',
+      maskedUserName: '山***维',
+      rating: 5,
+      date: '2026-07-18',
+      context: '输电线路巡检 · 12.3公里',
+      content: '飞手很专业，现场沟通顺畅，报告中的缺陷位置标注得很清楚。',
+      imageUrls: [
+        '/static/images/inspection/inspection-hero-v1.png',
+        '/static/images/inspection/service-power-line.webp',
+      ],
+    },
+    {
+      id: 'review-dev-002',
+      maskedUserName: '济***力',
+      rating: 5,
+      date: '2026-06-26',
+      context: '输电线路巡检 · 8.6公里',
+      content: '报告交付及时，问题分类清晰，后续整改很方便。',
+      imageUrls: [],
+    },
+  ],
+}

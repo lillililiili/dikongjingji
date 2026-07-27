@@ -1,0 +1,308 @@
+{
+  "_meta": {
+    "purpose": "development-and-contract-test-only",
+    "productionAllowed": false,
+    "city": "东营",
+    "cityCode": "370500",
+    "note": "价格、评分和服务次数均为测试场景，不得自动导入生产。"
+  },
+  "portal": {
+    "city": {
+      "code": "370500",
+      "name": "东营",
+      "provinceCode": "370000"
+    },
+    "configVersion": "dev-2026-07-27-1",
+    "updatedAt": "2026-07-27T00:00:00Z",
+    "hero": {
+      "title": "专业巡检",
+      "highlightedText": "隐患早发现",
+      "subtitle": "无人机与智能设备，为您提供安全高效的巡检服务",
+      "sellingPoints": [
+        "专业团队",
+        "安全合规",
+        "报告清晰"
+      ],
+      "image": null,
+      "actionLabel": "发布巡检需求",
+      "action": {
+        "type": "HOST_ACTION",
+        "categoryCode": null,
+        "keyword": null,
+        "serviceId": null,
+        "hostAction": "START_INSPECTION_REQUEST"
+      }
+    },
+    "categories": [
+      {
+        "code": "POWER",
+        "name": "电力巡检",
+        "subtitle": "线路·杆塔·变电站",
+        "icon": null,
+        "sortOrder": 10,
+        "action": {
+          "type": "OPEN_CATALOG",
+          "categoryCode": "POWER",
+          "keyword": null,
+          "serviceId": null,
+          "hostAction": null
+        }
+      },
+      {
+        "code": "PHOTOVOLTAIC",
+        "name": "光伏巡检",
+        "subtitle": "热斑·组件·效率",
+        "icon": null,
+        "sortOrder": 20,
+        "action": {
+          "type": "OPEN_CATALOG",
+          "categoryCode": "PHOTOVOLTAIC",
+          "keyword": null,
+          "serviceId": null,
+          "hostAction": null
+        }
+      },
+      {
+        "code": "OIL_GAS",
+        "name": "油气巡检",
+        "subtitle": "管线·泄漏·安全",
+        "icon": null,
+        "sortOrder": 30,
+        "action": {
+          "type": "OPEN_CATALOG",
+          "categoryCode": "OIL_GAS",
+          "keyword": null,
+          "serviceId": null,
+          "hostAction": null
+        }
+      },
+      {
+        "code": "MORE",
+        "name": "更多场景",
+        "subtitle": "按需求定制方案",
+        "icon": null,
+        "sortOrder": 99,
+        "action": {
+          "type": "OPEN_FILTER",
+          "categoryCode": null,
+          "keyword": null,
+          "serviceId": null,
+          "hostAction": null
+        }
+      }
+    ],
+    "guarantees": [
+      {
+        "code": "QUALIFICATION",
+        "title": "资质审核",
+        "subtitle": "严格把关",
+        "icon": null,
+        "sortOrder": 10
+      },
+      {
+        "code": "EQUIPMENT",
+        "title": "专业设备",
+        "subtitle": "精准采集",
+        "icon": null,
+        "sortOrder": 20
+      },
+      {
+        "code": "REPORT",
+        "title": "数据报告",
+        "subtitle": "结果清晰",
+        "icon": null,
+        "sortOrder": 30
+      },
+      {
+        "code": "AFTER_SALES",
+        "title": "售后保障",
+        "subtitle": "全程跟进",
+        "icon": null,
+        "sortOrder": 40
+      }
+    ],
+    "hotServices": [],
+    "processSteps": [
+      {
+        "code": "SUBMIT_REQUEST",
+        "title": "提交需求",
+        "subtitle": null,
+        "icon": null,
+        "sortOrder": 10
+      },
+      {
+        "code": "QUOTE",
+        "title": "方案报价",
+        "subtitle": null,
+        "icon": null,
+        "sortOrder": 20
+      },
+      {
+        "code": "EXECUTE",
+        "title": "现场执行",
+        "subtitle": null,
+        "icon": null,
+        "sortOrder": 30
+      },
+      {
+        "code": "ACCEPT",
+        "title": "报告验收",
+        "subtitle": null,
+        "icon": null,
+        "sortOrder": 40
+      }
+    ]
+  },
+  "filters": {
+    "city": {
+      "code": "370500",
+      "name": "东营",
+      "provinceCode": "370000"
+    },
+    "configVersion": "dev-2026-07-27-1",
+    "categories": [],
+    "serviceMethods": [
+      {
+        "code": "ONSITE",
+        "name": "现场巡检"
+      },
+      {
+        "code": "PERIODIC",
+        "name": "周期巡检"
+      },
+      {
+        "code": "CUSTOM",
+        "name": "定制方案"
+      }
+    ],
+    "availability": [
+      {
+        "code": "AVAILABLE",
+        "name": "当前可服务"
+      },
+      {
+        "code": "RESERVABLE",
+        "name": "可预约"
+      }
+    ],
+    "priceModes": [
+      {
+        "code": "PER_DISTANCE",
+        "name": "按公里"
+      },
+      {
+        "code": "PER_VISIT",
+        "name": "按次"
+      },
+      {
+        "code": "PROJECT_QUOTE",
+        "name": "按项目报价"
+      }
+    ],
+    "sorts": [
+      "COMPREHENSIVE",
+      "PRICE_ASC",
+      "PRICE_DESC"
+    ],
+    "supportsReportFilter": true
+  },
+  "servicePageScenarios": {
+    "withVerifiedStats": {
+      "page": 1,
+      "size": 20,
+      "total": 1,
+      "hasMore": false,
+      "items": [
+        {
+          "serviceId": "11111111-1111-4111-8111-111111111111",
+          "serviceNo": "INS-SVC-DEV-0001",
+          "category": {
+            "code": "POWER",
+            "name": "电力"
+          },
+          "name": "电力输电线路无人机巡检",
+          "summary": "高精度巡检 · 缺陷识别 · 报告生成",
+          "coverImage": null,
+          "features": [
+            {
+              "code": "HD_CAPTURE",
+              "name": "高精度拍摄"
+            },
+            {
+              "code": "AI_DEFECT",
+              "name": "AI缺陷识别"
+            },
+            {
+              "code": "DATA_REPORT",
+              "name": "数据报告"
+            }
+          ],
+          "price": {
+            "mode": "PER_DISTANCE",
+            "startingAmountMinor": 69900,
+            "currency": "CNY",
+            "unitCode": "KILOMETER",
+            "unitLabel": "公里"
+          },
+          "rating": {
+            "average": 4.9,
+            "count": 128
+          },
+          "completedCount": 856,
+          "distanceMeters": null,
+          "availability": "AVAILABLE",
+          "primaryAction": "CONSULT"
+        }
+      ]
+    },
+    "withoutStatsAndProjectQuote": {
+      "page": 1,
+      "size": 20,
+      "total": 1,
+      "hasMore": false,
+      "items": [
+        {
+          "serviceId": "22222222-2222-4222-8222-222222222222",
+          "serviceNo": "INS-SVC-DEV-0002",
+          "category": {
+            "code": "PARK",
+            "name": "园区"
+          },
+          "name": "园区综合巡检服务",
+          "summary": "安防巡查 · 设备巡检 · 环境监测",
+          "coverImage": null,
+          "features": [
+            {
+              "code": "SECURITY",
+              "name": "安防巡查"
+            },
+            {
+              "code": "EQUIPMENT",
+              "name": "设备巡检"
+            }
+          ],
+          "price": {
+            "mode": "PROJECT_QUOTE",
+            "startingAmountMinor": null,
+            "currency": "CNY",
+            "unitCode": null,
+            "unitLabel": null
+          },
+          "rating": null,
+          "completedCount": null,
+          "distanceMeters": null,
+          "availability": "RESERVABLE",
+          "primaryAction": "REQUEST_QUOTE"
+        }
+      ]
+    },
+    "empty": {
+      "page": 1,
+      "size": 20,
+      "total": 0,
+      "hasMore": false,
+      "items": []
+    }
+  }
+}
+

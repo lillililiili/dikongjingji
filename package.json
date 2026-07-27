@@ -1,0 +1,15 @@
+{
+  "name": "low-altitude-economy-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:h5": "pnpm --filter @low-altitude/mobile dev:h5",
+    "build:h5": "pnpm --filter @low-altitude/mobile build:h5",
+    "type-check": "pnpm --filter @low-altitude/mobile type-check",
+    "test": "pnpm --filter @low-altitude/mobile test"
+  }
+}
