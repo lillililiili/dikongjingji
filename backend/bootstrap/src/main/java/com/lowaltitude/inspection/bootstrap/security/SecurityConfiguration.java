@@ -1,8 +1,9 @@
 package com.lowaltitude.inspection.bootstrap.security;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collection;
 import java.util.List;
 
 import javax.crypto.SecretKey;
@@ -10,7 +11,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 import com.lowaltitude.inspection.bootstrap.api.ApiError;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
-import com.lowaltitude.inspection.identity.infrastructure.FailClosedIdentityAccessAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -45,11 +45,6 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfiguration {
 
     @Bean
-    FailClosedIdentityAccessAdapter failClosedIdentityAccessAdapter() {
-        return new FailClosedIdentityAccessAdapter();
-    }
-
-    @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
@@ -65,7 +60,7 @@ public class SecurityConfiguration {
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
         OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefault(), new TokenVersionJwtValidator(tokenVersionPort)
+                JwtValidators.createDefault(), new IdentityClaimsJwtValidator(tokenVersionPort)
         );
         decoder.setJwtValidator(validator);
         return decoder;
@@ -105,20 +100,41 @@ public class SecurityConfiguration {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
             List<GrantedAuthority> authorities = new ArrayList<>();
-            jwt.getClaimAsStringList("roles").forEach(role ->
+            stringCollectionClaim(jwt, "roles").forEach(role ->
                     authorities.add(new SimpleGrantedAuthority("ROLE_" + role)));
-            jwt.getClaimAsStringList("permissions").forEach(permission ->
+            stringCollectionClaim(jwt, "permissions").forEach(permission ->
                     authorities.add(new SimpleGrantedAuthority(permission)));
             return authorities;
         });
         return converter;
     }
 
-    private SecretKey hmacKey(JwtProperties properties) {
-        if (properties.hmacSecret() == null || properties.hmacSecret().isBlank()) {
-            throw new IllegalStateException("security.jwt.hmac-secret must be configured");
+    private List<String> stringCollectionClaim(Jwt jwt, String claimName) {
+        Object claim = jwt.getClaims().get(claimName);
+        if (!(claim instanceof Collection<?> values)) {
+            return List.of();
         }
-        return new SecretKeySpec(properties.hmacSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        return values.stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .toList();
+    }
+
+    private SecretKey hmacKey(JwtProperties properties) {
+        String encodedSecret = properties.hmacBase64Secret();
+        if (encodedSecret == null || encodedSecret.isBlank()) {
+            throw new IllegalStateException("security.jwt.hmac-base64-secret must be configured");
+        }
+        byte[] secret;
+        try {
+            secret = Base64.getDecoder().decode(encodedSecret);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException("security.jwt.hmac-base64-secret must be valid Base64", exception);
+        }
+        if (secret.length < 32) {
+            throw new IllegalStateException("security.jwt.hmac-base64-secret must decode to at least 32 bytes");
+        }
+        return new SecretKeySpec(secret, "HmacSHA256");
     }
 
     private void writeApiError(

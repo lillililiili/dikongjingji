@@ -5,8 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 })
 class BootstrapContextIntegrationTest {
 
-    private static final String HMAC_SECRET = "test-only-hmac-secret-that-is-at-least-thirty-two-bytes";
+    private static final String HMAC_BASE64_SECRET = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
     private static final UUID SUBJECT_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
     @Autowired
@@ -124,7 +124,7 @@ class BootstrapContextIntegrationTest {
                 .expirationTime(java.util.Date.from(Instant.now().plusSeconds(300)))
                 .build();
         SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
-        jwt.sign(new MACSigner(HMAC_SECRET.getBytes(StandardCharsets.UTF_8)));
+        jwt.sign(new MACSigner(Base64.getDecoder().decode(HMAC_BASE64_SECRET)));
         return jwt.serialize();
     }
 }

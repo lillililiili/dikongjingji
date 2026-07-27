@@ -7,12 +7,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.identity.domain.IdentityAccount;
 import com.lowaltitude.inspection.identity.domain.IdentityAccountPort;
+import com.lowaltitude.inspection.identity.domain.IdentityAccountStatus;
+import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -24,12 +28,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,12 +48,18 @@ import org.springframework.test.web.servlet.MockMvc;
 })
 class AuthenticationSecurityIntegrationTest {
 
-    private static final String HMAC_SECRET = "test-only-hmac-secret-that-is-at-least-thirty-two-bytes";
+    private static final String HMAC_BASE64_SECRET = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
     private static final UUID SUBJECT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID ORGANIZATION_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JwtDecoder jwtDecoder;
+
+    @Autowired
+    private ApplicationContext applicationContext;
 
     @Test
     void loginUsesBcryptAndIssuesJwtWithIdentityClaims() throws Exception {
@@ -63,6 +75,7 @@ class AuthenticationSecurityIntegrationTest {
         String token = com.jayway.jsonpath.JsonPath.read(response, "$.accessToken");
         Map<String, Object> claims = SignedJWT.parse(token).getJWTClaimsSet().getClaims();
 
+        org.assertj.core.api.Assertions.assertThat(jwtDecoder.decode(token).getSubject()).isEqualTo(SUBJECT_ID.toString());
         org.assertj.core.api.Assertions.assertThat(claims)
                 .containsEntry("sub", SUBJECT_ID.toString())
                 .containsEntry("subjectId", SUBJECT_ID.toString())
@@ -84,6 +97,52 @@ class AuthenticationSecurityIntegrationTest {
     }
 
     @Test
+    void lockedAccountCannotLogIn() throws Exception {
+        assertLoginIsUnauthorized("locked-user");
+    }
+
+    @Test
+    void disabledAccountCannotLogIn() throws Exception {
+        assertLoginIsUnauthorized("disabled-user");
+    }
+
+    @Test
+    void blankLoginCredentialsUseTheInvalidArgumentApiError() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginName\":\"   \",\"password\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+    }
+
+    @Test
+    void loginNameLongerThanContractMaximumUsesTheInvalidArgumentApiError() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginName\":\"" + "a".repeat(81) + "\",\"password\":\"test-password\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+    }
+
+    @Test
+    void passwordLongerThanContractMaximumUsesTheInvalidArgumentApiError() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginName\":\"test-user\",\"password\":\"" + "a".repeat(257) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+    }
+
+    @Test
+    void malformedLoginJsonUsesTheInvalidArgumentApiError() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginName\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+    }
+
+    @Test
     void healthAndLoginArePublicButOtherRequestsRequireAuthentication() throws Exception {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk());
@@ -102,6 +161,18 @@ class AuthenticationSecurityIntegrationTest {
     }
 
     @Test
+    void tokenWithWrongSignatureIsRejected() throws Exception {
+        assertUnauthorized(signedToken(validClaims(List.of(), 7),
+                "fedcba9876543210fedcba9876543210".getBytes(StandardCharsets.UTF_8),
+                Instant.now().plusSeconds(300)));
+    }
+
+    @Test
+    void expiredTokenIsRejected() throws Exception {
+        assertUnauthorized(signedToken(validClaims(List.of(), 7), hmacKey(), Instant.now().minusSeconds(1)));
+    }
+
+    @Test
     void authenticatedSubjectWithoutPermissionIsForbidden() throws Exception {
         mockMvc.perform(get("/test/security/permission")
                         .header("Authorization", "Bearer " + signedToken(List.of(), 7)))
@@ -112,7 +183,7 @@ class AuthenticationSecurityIntegrationTest {
     @Test
     void authenticatedSubjectWithPermissionIsAllowed() throws Exception {
         mockMvc.perform(get("/test/security/permission")
-                        .header("Authorization", "Bearer " + signedToken(List.of("inspection.reservation.create"), 7)))
+                        .header("Authorization", "Bearer " + signedToken(List.of(PermissionCode.INSPECTION_RESERVATION_CREATE), 7)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.subjectId").value(SUBJECT_ID.toString()));
     }
@@ -125,20 +196,159 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
 
+    @Test
+    void mismatchedSubjectIdClaimIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.put("subjectId", "33333333-3333-3333-3333-333333333333");
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void missingSubjectIdClaimIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.remove("subjectId");
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void missingSubjectClaimIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.remove("sub");
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void nonUuidSubjectClaimIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.put("sub", "not-a-uuid");
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void invalidOrganizationIdClaimIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.put("organizationId", "not-a-uuid");
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void nonStringRoleCollectionIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.put("roles", List.of("CUSTOMER", 1));
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void missingRolesClaimIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.remove("roles");
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void nonStringPermissionCollectionIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.put("permissions", List.of(PermissionCode.INSPECTION_RESERVATION_CREATE, 1));
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void missingPermissionsClaimIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.remove("permissions");
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void fractionalTokenVersionIsRejected() throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.put("tokenVersion", 7.5D);
+
+        assertUnauthorized(signedToken(claims));
+    }
+
+    @Test
+    void negativeTokenVersionIsRejected() throws Exception {
+        assertUnauthorized(signedToken(validClaims(List.of(), -1)));
+    }
+
+    @Test
+    void testIdentityPortsReplaceTheProductionFallbackBeans() {
+        org.assertj.core.api.Assertions.assertThat(applicationContext.getBeansOfType(IdentityAccountPort.class))
+                .hasSize(1)
+                .containsKey("testIdentityAccountPort");
+        org.assertj.core.api.Assertions.assertThat(applicationContext.getBeansOfType(TokenVersionPort.class))
+                .hasSize(1)
+                .containsKey("testTokenVersionPort");
+    }
+
     private String signedToken(List<String> permissions, int tokenVersion) throws Exception {
-        JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                .subject(SUBJECT_ID.toString())
-                .claim("subjectId", SUBJECT_ID.toString())
-                .claim("roles", List.of("CUSTOMER"))
-                .claim("organizationId", ORGANIZATION_ID.toString())
-                .claim("permissions", permissions)
-                .claim("tokenVersion", tokenVersion)
+        return signedToken(validClaims(permissions, tokenVersion));
+    }
+
+    private void assertUnauthorized(String token) throws Exception {
+        mockMvc.perform(get("/test/security/authenticated")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    private void assertLoginIsUnauthorized(String loginName) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginName\":\"" + loginName + "\",\"password\":\"test-password\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    private Map<String, Object> validClaims(List<String> permissions, int tokenVersion) {
+        Map<String, Object> claims = new LinkedHashMap<>();
+        claims.put("sub", SUBJECT_ID.toString());
+        claims.put("subjectId", SUBJECT_ID.toString());
+        claims.put("roles", List.of("CUSTOMER"));
+        claims.put("organizationId", ORGANIZATION_ID.toString());
+        claims.put("permissions", permissions);
+        claims.put("tokenVersion", tokenVersion);
+        return claims;
+    }
+
+    private String signedToken(Map<String, Object> claims) throws Exception {
+        return signedToken(claims, hmacKey(), Instant.now().plusSeconds(300));
+    }
+
+    private String signedToken(
+            Map<String, Object> claims,
+            byte[] signingKey,
+            Instant expiresAt
+    ) throws Exception {
+        JWTClaimsSet.Builder claimBuilder = new JWTClaimsSet.Builder()
                 .issueTime(java.util.Date.from(Instant.now()))
-                .expirationTime(java.util.Date.from(Instant.now().plusSeconds(300)))
-                .build();
-        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
-        jwt.sign(new MACSigner(HMAC_SECRET.getBytes(StandardCharsets.UTF_8)));
+                .expirationTime(java.util.Date.from(expiresAt));
+        Object subject = claims.get("sub");
+        if (subject instanceof String subjectValue) {
+            claimBuilder.subject(subjectValue);
+        }
+        claims.forEach((name, value) -> {
+            if (!"sub".equals(name)) {
+                claimBuilder.claim(name, value);
+            }
+        });
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claimBuilder.build());
+        jwt.sign(new MACSigner(signingKey));
         return jwt.serialize();
+    }
+
+    private byte[] hmacKey() {
+        return Base64.getDecoder().decode(HMAC_BASE64_SECRET);
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -152,18 +362,12 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         @Primary
         IdentityAccountPort testIdentityAccountPort(PasswordEncoder passwordEncoder) {
-            IdentityAccount account = new IdentityAccount(
-                    SUBJECT_ID,
-                    "test-user",
-                    passwordEncoder.encode("test-password"),
-                    java.util.Set.of("CUSTOMER"),
-                    ORGANIZATION_ID,
-                    java.util.Set.of("inspection.reservation.create"),
-                    7
-            );
-            return loginName -> "test-user".equals(loginName)
-                    ? java.util.Optional.of(account)
-                    : java.util.Optional.empty();
+            return loginName -> switch (loginName) {
+                case "test-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.ACTIVE));
+                case "locked-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.LOCKED));
+                case "disabled-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.DISABLED));
+                default -> java.util.Optional.empty();
+            };
         }
 
         @Bean
@@ -172,6 +376,23 @@ class AuthenticationSecurityIntegrationTest {
             return subjectId -> SUBJECT_ID.equals(subjectId)
                     ? java.util.OptionalInt.of(7)
                     : java.util.OptionalInt.empty();
+        }
+
+        private IdentityAccount account(
+                PasswordEncoder passwordEncoder,
+                String loginName,
+                IdentityAccountStatus status
+        ) {
+            return new IdentityAccount(
+                    SUBJECT_ID,
+                    loginName,
+                    passwordEncoder.encode("test-password"),
+                    status,
+                    java.util.Set.of("CUSTOMER"),
+                    ORGANIZATION_ID,
+                    java.util.Set.of(PermissionCode.INSPECTION_RESERVATION_CREATE),
+                    7
+            );
         }
     }
 

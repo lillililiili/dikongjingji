@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import com.lowaltitude.inspection.identity.domain.IdentityAccount;
 import com.lowaltitude.inspection.identity.domain.IdentityAccountPort;
+import com.lowaltitude.inspection.identity.domain.IdentityAccountStatus;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -34,6 +35,7 @@ public class AuthenticationService {
 
     public Optional<LoginToken> authenticate(String loginName, String password) {
         return identityAccountPort.findByLoginName(loginName)
+                .filter(account -> account.status() == IdentityAccountStatus.ACTIVE)
                 .filter(account -> passwordEncoder.matches(password, account.passwordHash()))
                 .map(this::issueToken);
     }
