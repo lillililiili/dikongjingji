@@ -1,3 +1,42 @@
 spring:
+  datasource:
+    url: ${INSPECTION_DB_URL}
+    username: ${INSPECTION_DB_USERNAME}
+    password: ${INSPECTION_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
   flyway:
-    locations: classpath:db/migration/identity,classpath:db/migration/inspection
+    enabled: false
+  data:
+    redis:
+      host: ${INSPECTION_REDIS_HOST}
+      port: ${INSPECTION_REDIS_PORT:6379}
+      username: ${INSPECTION_REDIS_USERNAME:}
+      password: ${INSPECTION_REDIS_PASSWORD:}
+      ssl:
+        enabled: ${INSPECTION_REDIS_SSL:false}
+      timeout: ${INSPECTION_REDIS_TIMEOUT:2s}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+inspection:
+  infrastructure:
+    redis:
+      application-namespace: ${INSPECTION_REDIS_APPLICATION_NAMESPACE:low-altitude}
+      business-namespace: ${INSPECTION_REDIS_BUSINESS_NAMESPACE:inspection}
+      idempotency-ttl: ${INSPECTION_IDEMPOTENCY_TTL:24h}
+    storage:
+      enabled: ${INSPECTION_MINIO_ENABLED:false}
+      environment: ${INSPECTION_ENVIRONMENT:dev}
+      endpoint: ${INSPECTION_MINIO_ENDPOINT:}
+      access-key: ${INSPECTION_MINIO_ACCESS_KEY:}
+      secret-key: ${INSPECTION_MINIO_SECRET_KEY:}
+      upload-ttl: ${INSPECTION_MINIO_UPLOAD_TTL:5m}
+      download-ttl: ${INSPECTION_MINIO_DOWNLOAD_TTL:10m}
+      reservation-allowed-mime-types: ${INSPECTION_RESERVATION_ALLOWED_MIME_TYPES:}
+
+management:
+  endpoint:
+    health:
+      show-details: never
