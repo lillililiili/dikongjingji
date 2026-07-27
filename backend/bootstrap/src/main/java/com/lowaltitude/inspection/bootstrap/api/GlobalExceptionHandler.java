@@ -20,6 +20,12 @@ public class GlobalExceptionHandler {
                 .body(new ApiError("COMMON_INVALID_ARGUMENT", "请求参数无效", traceId(request)));
     }
 
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiError> handleUnexpectedException(HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ApiError("COMMON_INTERNAL_ERROR", "系统繁忙，请稍后重试", traceId(request)));
+    }
+
     private String traceId(HttpServletRequest request) {
         String requestId = request.getHeader("X-Request-Id");
         return requestId == null || requestId.isBlank() ? UUID.randomUUID().toString() : requestId;

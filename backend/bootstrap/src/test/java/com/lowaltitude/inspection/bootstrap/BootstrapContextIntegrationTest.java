@@ -7,21 +7,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Controller;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
-@SpringBootTest(classes = BootstrapContextIntegrationTest.TestApplication.class)
+@SpringBootTest
 @AutoConfigureMockMvc
+@Import(BootstrapContextIntegrationTest.ErrorControllerTestConfiguration.class)
 class BootstrapContextIntegrationTest {
 
     @Autowired
@@ -51,20 +49,31 @@ class BootstrapContextIntegrationTest {
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 
-    @SpringBootConfiguration
-    @EnableAutoConfiguration
-    @ComponentScan("com.lowaltitude.inspection")
-    @Import(InvalidArgumentController.class)
-    static class TestApplication {
+    @Test
+    void unexpectedExceptionsUseTheStableApiErrorContract() throws Exception {
+        mockMvc.perform(get("/test/unexpected-request").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("COMMON_INTERNAL_ERROR"))
+                .andExpect(jsonPath("$.message").value("系统繁忙，请稍后重试"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 
-    @Controller
-    static class InvalidArgumentController {
+    @TestConfiguration(proxyBeanMethods = false)
+    @Import(TestErrorController.class)
+    static class ErrorControllerTestConfiguration {
+    }
+
+    @RestController
+    static class TestErrorController {
 
         @GetMapping("/test/invalid-request")
-        @ResponseBody
         String invalidRequest() {
             throw new IllegalArgumentException("invalid test request");
+        }
+
+        @GetMapping("/test/unexpected-request")
+        String unexpectedRequest() {
+            throw new IllegalStateException("internal implementation detail");
         }
     }
 }

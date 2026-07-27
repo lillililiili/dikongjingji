@@ -24,7 +24,7 @@
 验证：
 
 ```text
-./mvnw -pl bootstrap -am test
+./mvnw -pl :bootstrap -am test
 ```
 
 ## Task 2｜JWT 登录、RBAC 与资源授权基础
