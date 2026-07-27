@@ -1,0 +1,4 @@
+inspection:
+  infrastructure:
+    storage:
+      environment: dev

@@ -8,4 +8,8 @@ public interface MinioGateway {
     URI presignPut(String bucket, String objectKey, String contentType, Duration ttl);
 
     URI presignGet(String bucket, String objectKey, Duration ttl);
+
+    StoredObjectMetadata statObject(String bucket, String objectKey);
+
+    void removeObject(String bucket, String objectKey);
 }

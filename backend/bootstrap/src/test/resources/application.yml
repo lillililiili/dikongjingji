@@ -10,3 +10,8 @@ spring:
 security:
   jwt:
     hmac-base64-secret: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+
+inspection:
+  infrastructure:
+    storage:
+      environment: test

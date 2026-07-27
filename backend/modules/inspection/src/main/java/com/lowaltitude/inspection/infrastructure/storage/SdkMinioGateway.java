@@ -7,6 +7,9 @@ import java.util.Map;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.Http.Method;
 import io.minio.MinioClient;
+import io.minio.RemoveObjectArgs;
+import io.minio.StatObjectArgs;
+import io.minio.StatObjectResponse;
 
 public final class SdkMinioGateway implements MinioGateway {
 
@@ -29,6 +32,31 @@ public final class SdkMinioGateway implements MinioGateway {
     @Override
     public URI presignGet(String bucket, String objectKey, Duration ttl) {
         return presign(Method.GET, bucket, objectKey, ttl, Map.of());
+    }
+
+    @Override
+    public StoredObjectMetadata statObject(String bucket, String objectKey) {
+        try {
+            StatObjectResponse response = client.statObject(
+                    StatObjectArgs.builder().bucket(bucket).object(objectKey).build());
+            return new StoredObjectMetadata(
+                    bucket,
+                    objectKey,
+                    response.size(),
+                    response.contentType());
+        } catch (Exception exception) {
+            throw new ObjectStorageException("Unable to inspect uploaded object", exception);
+        }
+    }
+
+    @Override
+    public void removeObject(String bucket, String objectKey) {
+        try {
+            client.removeObject(
+                    RemoveObjectArgs.builder().bucket(bucket).object(objectKey).build());
+        } catch (Exception exception) {
+            throw new ObjectStorageException("Unable to remove rejected object", exception);
+        }
     }
 
     private URI presign(

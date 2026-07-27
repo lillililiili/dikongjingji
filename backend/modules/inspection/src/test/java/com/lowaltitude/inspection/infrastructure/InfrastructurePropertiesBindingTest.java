@@ -1,6 +1,7 @@
 package com.lowaltitude.inspection.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.util.Map;
@@ -40,5 +41,21 @@ class InfrastructurePropertiesBindingTest {
         assertThat(storage.privateBucket()).isEqualTo("staging-inspection-private");
         assertThat(storage.downloadTtl()).isEqualTo(Duration.ofMinutes(8));
         assertThat(storage.reservationAllowedMimeTypes()).containsExactly("image/jpeg");
+    }
+
+    @Test
+    void storageSettingsFailClosedWithoutAnExplicitEnvironment() {
+        Binder binder = new Binder(new MapConfigurationPropertySource(Map.of(
+                "inspection.infrastructure.storage.endpoint", "https://minio.example.test",
+                "inspection.infrastructure.storage.access-key", "configured-access",
+                "inspection.infrastructure.storage.secret-key", "configured-secret",
+                "inspection.infrastructure.storage.upload-ttl", "PT3M",
+                "inspection.infrastructure.storage.download-ttl", "PT8M"
+        )));
+
+        assertThatThrownBy(() -> binder.bind(
+                "inspection.infrastructure.storage", MinioStorageProperties.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("environment must be safe for bucket names");
     }
 }

@@ -3,7 +3,10 @@ package com.lowaltitude.inspection.infrastructure.cache;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -59,6 +62,29 @@ class RedisIdempotencyRecordAdapterTest {
         assertThat(gateway.lastKey).contains(":reservation.create_v1:");
     }
 
+    @Test
+    void resolvesAllThreeStatesWithOneAtomicGatewayCall() {
+        List<String> gatewayCalls = new ArrayList<>();
+        RedisIdempotencyGateway gateway = (RedisIdempotencyGateway) Proxy.newProxyInstance(
+                RedisIdempotencyGateway.class.getClassLoader(),
+                new Class<?>[]{RedisIdempotencyGateway.class},
+                (proxy, method, args) -> {
+                    gatewayCalls.add(method.getName());
+                    return switch (method.getName()) {
+                        case "putIfAbsent" -> false;
+                        case "get" -> DIGEST;
+                        case "recordAtomically" -> IdempotencyRecordResult.REPLAY;
+                        default -> throw new AssertionError("Unexpected gateway method: " + method.getName());
+                    };
+                });
+        RedisIdempotencyRecordAdapter adapter = new RedisIdempotencyRecordAdapter(
+                gateway, new RedisIdempotencyProperties("app", "inspection", Duration.ofMinutes(30)));
+
+        assertThat(adapter.record("publish", ACTOR_ID, IDEMPOTENCY_KEY, DIGEST))
+                .isEqualTo(IdempotencyRecordResult.REPLAY);
+        assertThat(gatewayCalls).containsExactly("recordAtomically");
+    }
+
     private static final class RecordingRedisIdempotencyGateway implements RedisIdempotencyGateway {
 
         private final Map<String, String> values = new HashMap<>();
@@ -66,15 +92,16 @@ class RedisIdempotencyRecordAdapterTest {
         private Duration lastTtl;
 
         @Override
-        public boolean putIfAbsent(String key, String requestDigest, Duration ttl) {
+        public IdempotencyRecordResult recordAtomically(String key, String requestDigest, Duration ttl) {
             lastKey = key;
             lastTtl = ttl;
-            return values.putIfAbsent(key, requestDigest) == null;
-        }
-
-        @Override
-        public String get(String key) {
-            return values.get(key);
+            String existing = values.putIfAbsent(key, requestDigest);
+            if (existing == null) {
+                return IdempotencyRecordResult.ACQUIRED;
+            }
+            return existing.equals(requestDigest)
+                    ? IdempotencyRecordResult.REPLAY
+                    : IdempotencyRecordResult.CONFLICT;
         }
     }
 }

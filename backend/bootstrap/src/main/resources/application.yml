@@ -28,7 +28,7 @@ inspection:
       idempotency-ttl: ${INSPECTION_IDEMPOTENCY_TTL:24h}
     storage:
       enabled: ${INSPECTION_MINIO_ENABLED:false}
-      environment: ${INSPECTION_ENVIRONMENT:dev}
+      environment: ${INSPECTION_ENVIRONMENT}
       endpoint: ${INSPECTION_MINIO_ENDPOINT:}
       access-key: ${INSPECTION_MINIO_ACCESS_KEY:}
       secret-key: ${INSPECTION_MINIO_SECRET_KEY:}

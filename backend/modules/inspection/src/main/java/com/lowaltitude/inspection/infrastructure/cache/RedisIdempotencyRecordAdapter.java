@@ -39,12 +39,7 @@ public final class RedisIdempotencyRecordAdapter implements IdempotencyRecordPor
                 operationCode,
                 actorId.toString(),
                 idempotencyKey.toString());
-        if (gateway.putIfAbsent(key, requestDigest, properties.idempotencyTtl())) {
-            return IdempotencyRecordResult.ACQUIRED;
-        }
-        return requestDigest.equals(gateway.get(key))
-                ? IdempotencyRecordResult.REPLAY
-                : IdempotencyRecordResult.CONFLICT;
+        return gateway.recordAtomically(key, requestDigest, properties.idempotencyTtl());
     }
 
     private static void requireValid(

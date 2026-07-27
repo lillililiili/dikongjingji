@@ -2,9 +2,9 @@ package com.lowaltitude.inspection.infrastructure.cache;
 
 import java.time.Duration;
 
+import com.lowaltitude.inspection.domain.idempotency.IdempotencyRecordResult;
+
 public interface RedisIdempotencyGateway {
 
-    boolean putIfAbsent(String key, String requestDigest, Duration ttl);
-
-    String get(String key);
+    IdempotencyRecordResult recordAtomically(String key, String requestDigest, Duration ttl);
 }

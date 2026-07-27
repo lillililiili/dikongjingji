@@ -26,6 +26,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,6 +49,9 @@ class BootstrapContextIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private Environment environment;
+
     @Test
     void contextIncludesTheProductionBootstrapApplication() {
         assertThat(applicationContext.containsBean("bootstrapApplication")).isTrue();
@@ -61,6 +65,12 @@ class BootstrapContextIntegrationTest {
                 .andExpect(jsonPath("$.components").doesNotExist())
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("INSPECTION_MINIO_SECRET_KEY"))));
+    }
+
+    @Test
+    void testProfileProvidesAnExplicitStorageEnvironment() {
+        assertThat(environment.getRequiredProperty(
+                "inspection.infrastructure.storage.environment")).isEqualTo("test");
     }
 
     @Test

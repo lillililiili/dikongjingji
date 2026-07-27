@@ -13,6 +13,7 @@ import com.lowaltitude.inspection.domain.files.FilePurpose;
 import com.lowaltitude.inspection.domain.files.ObjectStoragePort;
 import com.lowaltitude.inspection.domain.files.PresignedObjectIntent;
 import com.lowaltitude.inspection.domain.files.UploadObjectRequest;
+import com.lowaltitude.inspection.domain.files.UploadVerificationResult;
 
 public final class MinioObjectStorageAdapter implements ObjectStoragePort {
 
@@ -38,6 +39,40 @@ public final class MinioObjectStorageAdapter implements ObjectStoragePort {
 
     @Override
     public PresignedObjectIntent createUploadIntent(UploadObjectRequest request) {
+        String objectKey = validatedObjectKey(request);
+        URI url = gateway.presignPut(
+                properties.quarantineBucket(),
+                objectKey,
+                request.contentType(),
+                properties.uploadTtl());
+        return new PresignedObjectIntent(
+                "PUT",
+                url,
+                Map.of("Content-Type", request.contentType()),
+                clock.instant().plus(properties.uploadTtl()));
+    }
+
+    @Override
+    public UploadVerificationResult verifyUpload(UploadObjectRequest request) {
+        String objectKey = validatedObjectKey(request);
+        String bucket = properties.quarantineBucket();
+        StoredObjectMetadata actual = Objects.requireNonNull(
+                gateway.statObject(bucket, objectKey),
+                "stored object metadata must not be null");
+        boolean verified = bucket.equals(actual.bucket())
+                && objectKey.equals(actual.objectKey())
+                && actual.sizeBytes() > 0
+                && actual.sizeBytes() <= MAX_UPLOAD_SIZE_BYTES
+                && actual.sizeBytes() == request.sizeBytes()
+                && request.contentType().equalsIgnoreCase(actual.contentType());
+        if (!verified) {
+            gateway.removeObject(bucket, objectKey);
+            return UploadVerificationResult.REJECTED;
+        }
+        return UploadVerificationResult.VERIFIED;
+    }
+
+    private String validatedObjectKey(UploadObjectRequest request) {
         Objects.requireNonNull(request, "request must not be null");
         if (request.sizeBytes() <= 0 || request.sizeBytes() > MAX_UPLOAD_SIZE_BYTES) {
             throw new IllegalArgumentException("upload size must be between 1 and 1073741824 bytes");
@@ -58,16 +93,7 @@ public final class MinioObjectStorageAdapter implements ObjectStoragePort {
             throw new IllegalArgumentException("unsupported file purpose");
         }
         ensureAllowedKey(objectKey);
-        URI url = gateway.presignPut(
-                properties.quarantineBucket(),
-                objectKey,
-                request.contentType(),
-                properties.uploadTtl());
-        return new PresignedObjectIntent(
-                "PUT",
-                url,
-                Map.of("Content-Type", request.contentType()),
-                clock.instant().plus(properties.uploadTtl()));
+        return objectKey;
     }
 
     @Override

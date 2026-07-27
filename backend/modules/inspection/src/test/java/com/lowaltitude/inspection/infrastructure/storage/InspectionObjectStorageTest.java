@@ -4,10 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -16,6 +20,8 @@ import com.lowaltitude.inspection.domain.files.DownloadObjectRequest;
 import com.lowaltitude.inspection.domain.files.FileObjectStatus;
 import com.lowaltitude.inspection.domain.files.PresignedObjectIntent;
 import com.lowaltitude.inspection.domain.files.UploadObjectRequest;
+import com.lowaltitude.inspection.domain.files.UploadVerificationResult;
+import io.minio.MinioClient;
 import org.junit.jupiter.api.Test;
 
 class InspectionObjectStorageTest {
@@ -76,6 +82,51 @@ class InspectionObjectStorageTest {
     }
 
     @Test
+    void verifiesCompletedUploadAndDeletesRejectedQuarantineObjects() {
+        RecordingMinioGateway gateway = new RecordingMinioGateway();
+        MinioObjectStorageAdapter adapter = adapter(properties(Set.of()), gateway);
+        UploadObjectRequest request = UploadObjectRequest.deliveryArtifact(
+                PROVIDER_ID, ORDER_ID, DELIVERY_ID, FILE_ID,
+                DeliveryFileType.INSPECTION_REPORT, "report.pdf", "application/pdf", 123L);
+        String key = new InspectionObjectKeyFactory().deliveryArtifact(
+                PROVIDER_ID, ORDER_ID, DELIVERY_ID, FILE_ID);
+
+        gateway.metadata = new StoredObjectMetadata(
+                "prod-inspection-quarantine", key, 123L, "application/pdf");
+        assertThat(adapter.verifyUpload(request)).isEqualTo(UploadVerificationResult.VERIFIED);
+        assertThat(gateway.deletedKeys).isEmpty();
+
+        List<StoredObjectMetadata> rejectedObjects = List.of(
+                new StoredObjectMetadata("prod-inspection-quarantine", key, 124L, "application/pdf"),
+                new StoredObjectMetadata("prod-inspection-quarantine", key, 1_073_741_825L, "application/pdf"),
+                new StoredObjectMetadata("prod-inspection-quarantine", key, 123L, "application/zip"));
+        for (StoredObjectMetadata rejected : rejectedObjects) {
+            gateway.metadata = rejected;
+            assertThat(adapter.verifyUpload(request)).isEqualTo(UploadVerificationResult.REJECTED);
+        }
+        assertThat(gateway.deletedKeys).containsExactly(key, key, key);
+    }
+
+    @Test
+    void minioNinePutPresignDoesNotSignExtraHeaders() {
+        MinioClient client = MinioClient.builder()
+                .endpoint("https://storage.example.test")
+                .credentials("access-key", "secret-key")
+                .region("us-east-1")
+                .build();
+
+        URI url = new SdkMinioGateway(client).presignPut(
+                "prod-inspection-quarantine",
+                "tenant/" + PROVIDER_ID + "/reservation/" + RESERVATION_ID + "/" + FILE_ID,
+                "application/pdf",
+                Duration.ofMinutes(5));
+
+        assertThat(URLDecoder.decode(url.getRawQuery(), StandardCharsets.UTF_8))
+                .contains("X-Amz-SignedHeaders=host")
+                .doesNotContain("content-length");
+    }
+
+    @Test
     void downloadRequiresPrivateReadyObjectAndAtMostTenMinutes() {
         RecordingMinioGateway gateway = new RecordingMinioGateway();
         MinioObjectStorageAdapter adapter = adapter(properties(Set.of()), gateway);
@@ -126,6 +177,8 @@ class InspectionObjectStorageTest {
         private String bucket;
         private String objectKey;
         private String contentType;
+        private StoredObjectMetadata metadata;
+        private final List<String> deletedKeys = new ArrayList<>();
 
         @Override
         public URI presignPut(String bucket, String objectKey, String contentType, Duration ttl) {
@@ -140,6 +193,19 @@ class InspectionObjectStorageTest {
             this.bucket = bucket;
             this.objectKey = objectKey;
             return URI.create("https://storage.test/download");
+        }
+
+        @Override
+        public StoredObjectMetadata statObject(String bucket, String objectKey) {
+            this.bucket = bucket;
+            this.objectKey = objectKey;
+            return metadata;
+        }
+
+        @Override
+        public void removeObject(String bucket, String objectKey) {
+            this.bucket = bucket;
+            deletedKeys.add(objectKey);
         }
     }
 }
