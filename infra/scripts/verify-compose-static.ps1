@@ -88,8 +88,8 @@ function Assert-ServiceNetwork {
         [string]$Service
     )
 
-    $serviceBlock = Get-ComposeServiceBlock $Compose $Service
-    Assert-True ([regex]::IsMatch($serviceBlock, '(?ms)^    networks:[ \t]*\r?\n(?:      - [^\r\n]+\r?\n)*      - inspection-internal[ \t]*$')) "Compose service must use inspection-internal: $Service"
+    $networks = @(Get-SectionListItems (Get-ServiceSection (Get-ComposeServiceBlock $Compose $Service) 'networks'))
+    Assert-True ($networks.Count -eq 1 -and $networks[0] -eq 'inspection-internal') "Compose service must use only inspection-internal: $Service"
 }
 
 function Assert-LoopbackPorts {

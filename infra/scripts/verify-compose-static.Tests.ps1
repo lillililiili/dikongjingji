@@ -80,6 +80,11 @@ try {
         $path = Join-Path $fixture 'infra\compose.yaml'
         (Get-Content -LiteralPath $path -Raw) -replace '(?ms)(^  backend:\s*\r?\n.*?^    networks:\s*\r?\n)      - inspection-internal', '${1}      - other-network' | Set-Content -LiteralPath $path -NoNewline
     }
+    Assert-ScopedCheckerRejects 'backend-has-second-network' {
+        param($fixture)
+        $path = Join-Path $fixture 'infra\compose.yaml'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?ms)(^  backend:\s*\r?\n.*?^    networks:\s*\r?\n      - inspection-internal)', ('${1}' + [Environment]::NewLine + '      - public-edge') | Set-Content -LiteralPath $path -NoNewline
+    }
     Assert-ScopedCheckerRejects 'backend-port-not-loopback' {
         param($fixture)
         $path = Join-Path $fixture 'infra\compose.yaml'
