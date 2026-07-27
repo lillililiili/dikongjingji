@@ -1,0 +1,1378 @@
+openapi: 3.1.0
+info:
+  title: Inspection Service Flow API
+  version: 1.0.0
+  description: 巡检预约、方案确认、服务履约、报告交付和验收的正式契约。
+servers:
+  - url: https://api.example.com
+    description: Production placeholder
+security:
+  - bearerAuth: []
+tags:
+  - name: CustomerInspectionFlow
+  - name: ProviderInspectionFlow
+  - name: InspectionFiles
+paths:
+  /api/v1/inspection/reservations:
+    post:
+      tags: [CustomerInspectionFlow]
+      operationId: createInspectionReservation
+      summary: 提交巡检预约
+      x-required-permission: inspection.reservation.create
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReservationRequest"
+      responses:
+        "201":
+          description: 预约已创建
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/inspection/reservations/{reservationId}:
+    get:
+      tags: [CustomerInspectionFlow]
+      operationId: getInspectionReservation
+      summary: 查询本人预约或服务商已分配预约
+      x-required-permissions:
+        - inspection.reservation.read.own
+        - inspection.reservation.read.assigned
+        - inspection.reservation.read.all
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "200":
+          description: 预约详情
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/inspection/file-objects/upload-intents:
+    post:
+      tags: [InspectionFiles]
+      operationId: createInspectionUploadIntent
+      summary: 创建私有文件上传意图
+      description: 服务端根据 purpose、ownerId、资源归属和调用者角色决定是否允许上传。
+      x-required-permissions:
+        - inspection.reservation.create
+        - inspection.delivery.publish.assigned
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUploadIntentRequest"
+      responses:
+        "201":
+          description: 短时效预签名 PUT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadIntent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+  /api/v1/inspection/file-objects/{fileId}/complete:
+    post:
+      tags: [InspectionFiles]
+      operationId: completeInspectionUpload
+      summary: 确认对象已上传并进入扫描
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteUploadRequest"
+      responses:
+        "200":
+          description: 文件状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileObject"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/inspection/plans/{planId}:
+    get:
+      tags: [CustomerInspectionFlow]
+      operationId: getInspectionPlan
+      summary: 查询本人有效方案
+      x-required-permissions:
+        - inspection.plan.read.own
+        - inspection.plan.read.all
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      responses:
+        "200":
+          description: 方案详情
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicePlan"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/inspection/plans/{planId}/confirm:
+    post:
+      tags: [CustomerInspectionFlow]
+      operationId: confirmInspectionPlan
+      summary: 确认方案并创建服务单
+      x-required-permission: inspection.plan.confirm.own
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmPlanRequest"
+      responses:
+        "200":
+          description: 已创建或返回同一服务单
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/inspection/service-orders/{serviceOrderId}:
+    get:
+      tags: [CustomerInspectionFlow]
+      operationId: getInspectionServiceOrder
+      summary: 查询本人或服务商已分配的服务单
+      x-required-permissions:
+        - inspection.order.read.own
+        - inspection.order.read.assigned
+        - inspection.order.read.all
+      parameters:
+        - $ref: "#/components/parameters/ServiceOrderId"
+      responses:
+        "200":
+          description: 服务单、安排和进度
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/inspection/service-orders/{serviceOrderId}/delivery:
+    get:
+      tags: [CustomerInspectionFlow]
+      operationId: getInspectionDelivery
+      summary: 查询已发布的报告交付
+      x-required-permissions:
+        - inspection.order.read.own
+        - inspection.order.read.all
+      parameters:
+        - $ref: "#/components/parameters/ServiceOrderId"
+      responses:
+        "200":
+          description: 交付摘要与文件元数据
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/inspection/service-orders/{serviceOrderId}/delivery-files/{fileId}/download-intent:
+    post:
+      tags: [InspectionFiles]
+      operationId: createInspectionDeliveryDownloadIntent
+      summary: 获取单个交付文件的短时效下载地址
+      x-required-permissions:
+        - inspection.delivery.download.own
+        - inspection.delivery.download.all
+      parameters:
+        - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/FileId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: 短时效预签名 GET
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadIntent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/inspection/service-orders/{serviceOrderId}/delivery-files/download-all-intent:
+    post:
+      tags: [InspectionFiles]
+      operationId: createInspectionDeliveryBundleDownloadIntent
+      summary: 获取全部交付物 ZIP 的短时效下载地址
+      x-required-permissions:
+        - inspection.delivery.download.own
+        - inspection.delivery.download.all
+      parameters:
+        - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "201":
+          description: ZIP 汇总下载意图
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadIntent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/inspection/service-orders/{serviceOrderId}/acceptance:
+    post:
+      tags: [CustomerInspectionFlow]
+      operationId: acceptInspectionDelivery
+      summary: 确认验收
+      x-required-permission: inspection.acceptance.create.own
+      parameters:
+        - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptDeliveryRequest"
+      responses:
+        "200":
+          description: 已验收或返回同一验收结果
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Acceptance"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+  /api/v1/provider/inspection/reservations/{reservationId}/plans:
+    post:
+      tags: [ProviderInspectionFlow]
+      operationId: publishInspectionPlan
+      summary: 为已分配预约发布方案
+      x-required-permission: inspection.plan.publish.assigned
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishPlanRequest"
+      responses:
+        "201":
+          description: 已发布方案
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicePlan"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+  /api/v1/provider/inspection/service-orders/{serviceOrderId}/arrangement:
+    put:
+      tags: [ProviderInspectionFlow]
+      operationId: putInspectionArrangement
+      summary: 保存服务团队和设备安排
+      x-required-permission: inspection.order.arrange.assigned
+      parameters:
+        - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutArrangementRequest"
+      responses:
+        "200":
+          description: 更新后的服务单
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+  /api/v1/provider/inspection/service-orders/{serviceOrderId}/progress-events:
+    post:
+      tags: [ProviderInspectionFlow]
+      operationId: appendInspectionProgressEvent
+      summary: 追加履约进度并按规则推进状态
+      x-required-permission: inspection.order.progress.assigned
+      parameters:
+        - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendProgressRequest"
+      responses:
+        "201":
+          description: 更新后的服务单
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+  /api/v1/provider/inspection/service-orders/{serviceOrderId}/delivery:
+    post:
+      tags: [ProviderInspectionFlow]
+      operationId: publishInspectionDelivery
+      summary: 发布报告交付并进入待验收
+      x-required-permission: inspection.delivery.publish.assigned
+      parameters:
+        - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishDeliveryRequest"
+      responses:
+        "201":
+          description: 已发布交付
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    ETag:
+      description: 当前资源版本，例如 `"7"`
+      schema:
+        type: string
+  parameters:
+    ReservationId:
+      name: reservationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PlanId:
+      name: planId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ServiceOrderId:
+      name: serviceOrderId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    FileId:
+      name: fileId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 调用者生成的 UUID；同一键只能对应同一请求摘要。
+      schema:
+        type: string
+        format: uuid
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: 上次读取的 ETag，用于乐观并发控制。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+  responses:
+    BadRequest:
+      description: 请求格式或字段校验失败
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 未登录或令牌无效
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          examples:
+            default:
+              value:
+                code: COMMON_UNAUTHORIZED
+                message: 请先登录
+                traceId: 01JEXAMPLETRACE
+    Forbidden:
+      description: 无权限或资源不属于当前主体
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 资源不存在或对当前主体不可见
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Conflict:
+      description: 幂等键、状态或唯一约束冲突
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    PreconditionFailed:
+      description: ETag 已过期
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unprocessable:
+      description: 当前业务状态不允许执行
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    PayloadTooLarge:
+      description: 文件超过用途限制
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    UnsupportedMediaType:
+      description: 文件类型不受支持
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ServiceUnavailable:
+      description: ZIP 汇总或对象存储暂不可用
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, traceId]
+      properties:
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type: [object, "null"]
+          additionalProperties: true
+    ErrorCode:
+      type: string
+      enum:
+        - COMMON_INVALID_ARGUMENT
+        - COMMON_UNAUTHORIZED
+        - COMMON_FORBIDDEN
+        - COMMON_NOT_FOUND
+        - INS_IDEMPOTENCY_KEY_REUSED
+        - INS_VERSION_CONFLICT
+        - INS_RESERVATION_STATE_INVALID
+        - INS_ATTACHMENT_NOT_READY
+        - INS_PLAN_NOT_PUBLISHED
+        - INS_PLAN_EXPIRED
+        - INS_PLAN_ALREADY_CONFIRMED
+        - INS_ORDER_STATE_INVALID
+        - INS_DELIVERY_NOT_PUBLISHED
+        - INS_DELIVERY_FILE_NOT_READY
+        - INS_DELIVERY_ALREADY_ACCEPTED
+        - INS_FILE_TYPE_UNSUPPORTED
+        - INS_FILE_TOO_LARGE
+        - INS_FILE_COUNT_EXCEEDED
+        - INS_FILE_SCAN_FAILED
+        - INS_STORAGE_UNAVAILABLE
+    CreateReservationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - serviceId
+        - cityCode
+        - location
+        - preferredServiceDate
+        - inspectionItemCodes
+        - contact
+        - agreementVersion
+        - agreementAccepted
+      properties:
+        serviceId:
+          type: string
+          format: uuid
+        cityCode:
+          type: string
+          minLength: 4
+          maxLength: 16
+        location:
+          $ref: "#/components/schemas/InspectionLocation"
+        lineLengthMeters:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 10000000
+        preferredServiceDate:
+          type: string
+          format: date
+        inspectionItemCodes:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+        attachmentFileIds:
+          type: array
+          maxItems: 9
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        note:
+          type: [string, "null"]
+          maxLength: 1000
+        contact:
+          $ref: "#/components/schemas/Contact"
+        agreementVersion:
+          type: string
+          maxLength: 32
+        agreementAccepted:
+          const: true
+    InspectionLocation:
+      type: object
+      additionalProperties: false
+      required: [address]
+      properties:
+        address:
+          type: string
+          minLength: 2
+          maxLength: 240
+        longitude:
+          type: [number, "null"]
+          minimum: -180
+          maximum: 180
+        latitude:
+          type: [number, "null"]
+          minimum: -90
+          maximum: 90
+    Contact:
+      type: object
+      additionalProperties: false
+      required: [name, mobile]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        mobile:
+          type: string
+          pattern: "^1[3-9][0-9]{9}$"
+    Reservation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - reservationNo
+        - customerId
+        - serviceId
+        - cityCode
+        - status
+        - location
+        - preferredServiceDate
+        - inspectionItems
+        - contact
+        - attachments
+        - submittedAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        reservationNo:
+          type: string
+        customerId:
+          type: string
+          format: uuid
+        providerId:
+          type: [string, "null"]
+          format: uuid
+        serviceId:
+          type: string
+          format: uuid
+        serviceTitle:
+          type: string
+        serviceCoverUrl:
+          type: [string, "null"]
+          format: uri
+        cityCode:
+          type: string
+        status:
+          $ref: "#/components/schemas/ReservationStatus"
+        location:
+          $ref: "#/components/schemas/InspectionLocation"
+        lineLengthMeters:
+          type: [integer, "null"]
+        preferredServiceDate:
+          type: string
+          format: date
+        inspectionItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/CodeLabel"
+        note:
+          type: [string, "null"]
+        contact:
+          $ref: "#/components/schemas/Contact"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileObject"
+        submittedAt:
+          type: string
+          format: date-time
+        currentPlanId:
+          type: [string, "null"]
+          format: uuid
+        version:
+          type: integer
+          minimum: 0
+    ReservationStatus:
+      type: string
+      enum: [SUBMITTED, PLAN_PUBLISHED, CANCELLED]
+    CreateUploadIntentRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose, ownerId, originalName, contentType, sizeBytes, sha256]
+      properties:
+        purpose:
+          $ref: "#/components/schemas/FilePurpose"
+        ownerId:
+          type: string
+          format: uuid
+        deliveryFileType:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryFileType"
+            - type: "null"
+        originalName:
+          type: string
+          minLength: 1
+          maxLength: 180
+        contentType:
+          type: string
+          minLength: 3
+          maxLength: 120
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 1073741824
+        sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    CompleteUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [etag, sizeBytes, sha256]
+      properties:
+        etag:
+          type: string
+          minLength: 1
+          maxLength: 160
+        sizeBytes:
+          type: integer
+          minimum: 1
+        sha256:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    UploadIntent:
+      type: object
+      additionalProperties: false
+      required: [fileId, method, uploadUrl, requiredHeaders, expiresAt]
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        method:
+          const: PUT
+        uploadUrl:
+          type: string
+          format: uri
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+    FileObject:
+      type: object
+      additionalProperties: false
+      required: [id, originalName, contentType, sizeBytes, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/FileStatus"
+        scanFailureReason:
+          type: [string, "null"]
+    FilePurpose:
+      type: string
+      enum: [RESERVATION_ATTACHMENT, DELIVERY_ARTIFACT]
+    FileStatus:
+      type: string
+      enum: [PENDING_UPLOAD, UPLOADED, SCANNING, READY, REJECTED, DELETED]
+    PublishPlanRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - validUntil
+        - serviceDate
+        - planItems
+        - deliverables
+        - currency
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        validUntil:
+          type: string
+          format: date-time
+        serviceDate:
+          type: string
+          format: date
+        summary:
+          type: [string, "null"]
+          maxLength: 1000
+        planItems:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/PlanItemInput"
+        deliverables:
+          type: array
+          minItems: 4
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/DeliverableInput"
+        currency:
+          const: CNY
+    ConfirmPlanRequest:
+      type: object
+      additionalProperties: false
+      required: [agreementVersion, agreementAccepted]
+      properties:
+        agreementVersion:
+          type: string
+          maxLength: 32
+        agreementAccepted:
+          const: true
+    PlanItemInput:
+      type: object
+      additionalProperties: false
+      required: [code, name, quantity, unit, unitPriceMinor]
+      properties:
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 120
+        quantity:
+          type: integer
+          minimum: 1
+        unit:
+          type: string
+          maxLength: 24
+        unitPriceMinor:
+          type: integer
+          minimum: 0
+    DeliverableInput:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 120
+    ServicePlan:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - planNo
+        - reservationId
+        - providerId
+        - status
+        - planVersion
+        - validUntil
+        - serviceDate
+        - planItems
+        - deliverables
+        - totalAmountMinor
+        - currency
+        - publishedAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        planNo:
+          type: string
+        reservationId:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        planVersion:
+          type: integer
+          minimum: 1
+        validUntil:
+          type: string
+          format: date-time
+        serviceDate:
+          type: string
+          format: date
+        summary:
+          type: [string, "null"]
+        planItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanItem"
+        deliverables:
+          type: array
+          items:
+            $ref: "#/components/schemas/CodeLabel"
+        totalAmountMinor:
+          type: integer
+          minimum: 0
+        currency:
+          const: CNY
+        publishedAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type: [string, "null"]
+          format: date-time
+        serviceOrderId:
+          type: [string, "null"]
+          format: uuid
+        version:
+          type: integer
+          minimum: 0
+    PlanItem:
+      allOf:
+        - $ref: "#/components/schemas/PlanItemInput"
+        - type: object
+          required: [lineAmountMinor]
+          properties:
+            lineAmountMinor:
+              type: integer
+              minimum: 0
+    PlanStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, CONFIRMED, EXPIRED, WITHDRAWN]
+    PutArrangementRequest:
+      type: object
+      additionalProperties: false
+      required: [plannedStartAt, assignments]
+      properties:
+        plannedStartAt:
+          type: string
+          format: date-time
+        assignments:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/AssignmentInput"
+    AssignmentInput:
+      type: object
+      additionalProperties: false
+      required: [type, resourceId, displayName]
+      properties:
+        type:
+          $ref: "#/components/schemas/AssignmentType"
+        resourceId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        roleLabel:
+          type: [string, "null"]
+          maxLength: 80
+    AssignmentType:
+      type: string
+      enum: [TEAM_MEMBER, DEVICE]
+    AppendProgressRequest:
+      type: object
+      additionalProperties: false
+      required: [eventCode, occurredAt, message]
+      properties:
+        eventCode:
+          type: string
+          enum: [ARRANGEMENT_READY, SERVICE_STARTED, SERVICE_PROGRESS, SERVICE_COMPLETED]
+        occurredAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+    ServiceOrder:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - serviceOrderNo
+        - reservationId
+        - planId
+        - customerId
+        - providerId
+        - status
+        - serviceSnapshot
+        - assignments
+        - progress
+        - createdAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        serviceOrderNo:
+          type: string
+        reservationId:
+          type: string
+          format: uuid
+        planId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/ServiceOrderStatus"
+        serviceSnapshot:
+          $ref: "#/components/schemas/ServiceSnapshot"
+        plannedStartAt:
+          type: [string, "null"]
+          format: date-time
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssignmentInput"
+        progress:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgressEvent"
+        createdAt:
+          type: string
+          format: date-time
+        deliveredAt:
+          type: [string, "null"]
+          format: date-time
+        acceptedAt:
+          type: [string, "null"]
+          format: date-time
+        version:
+          type: integer
+          minimum: 0
+    ServiceSnapshot:
+      type: object
+      additionalProperties: false
+      required: [serviceId, serviceTitle, cityCode, location, serviceDate, inspectionItems]
+      properties:
+        serviceId:
+          type: string
+          format: uuid
+        serviceTitle:
+          type: string
+        serviceCoverUrl:
+          type: [string, "null"]
+          format: uri
+        cityCode:
+          type: string
+        location:
+          $ref: "#/components/schemas/InspectionLocation"
+        lineLengthMeters:
+          type: [integer, "null"]
+        serviceDate:
+          type: string
+          format: date
+        inspectionItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/CodeLabel"
+    ProgressEvent:
+      type: object
+      additionalProperties: false
+      required: [id, eventCode, occurredAt, message]
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventCode:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+    ServiceOrderStatus:
+      type: string
+      enum: [ARRANGING, IN_PROGRESS, DELIVERED, ACCEPTED]
+    PublishDeliveryRequest:
+      type: object
+      additionalProperties: false
+      required: [towerCount, inspectedLengthMeters, issueCount, issueSummary, files]
+      properties:
+        towerCount:
+          type: integer
+          minimum: 0
+        inspectedLengthMeters:
+          type: integer
+          minimum: 0
+        issueCount:
+          type: integer
+          minimum: 0
+        issueSummary:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/IssueSummary"
+        files:
+          type: array
+          minItems: 4
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/DeliveryFileInput"
+    IssueSummary:
+      type: object
+      additionalProperties: false
+      required: [severityCode, severityName, count]
+      properties:
+        severityCode:
+          type: string
+          maxLength: 32
+        severityName:
+          type: string
+          maxLength: 40
+        count:
+          type: integer
+          minimum: 0
+    DeliveryFileInput:
+      type: object
+      additionalProperties: false
+      required: [fileId, type, displayName]
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/DeliveryFileType"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        pointCount:
+          type: [integer, "null"]
+          minimum: 0
+    Delivery:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - serviceOrderId
+        - status
+        - towerCount
+        - inspectedLengthMeters
+        - issueCount
+        - issueSummary
+        - files
+        - publishedAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        serviceOrderId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PUBLISHED, ACCEPTED]
+        towerCount:
+          type: integer
+        inspectedLengthMeters:
+          type: integer
+        issueCount:
+          type: integer
+        issueSummary:
+          type: array
+          items:
+            $ref: "#/components/schemas/IssueSummary"
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryFile"
+        publishedAt:
+          type: string
+          format: date-time
+        acceptedAt:
+          type: [string, "null"]
+          format: date-time
+        version:
+          type: integer
+          minimum: 0
+    DeliveryFile:
+      allOf:
+        - $ref: "#/components/schemas/DeliveryFileInput"
+        - type: object
+          required: [contentType, sizeBytes, status]
+          properties:
+            contentType:
+              type: string
+            sizeBytes:
+              type: integer
+              minimum: 1
+            status:
+              $ref: "#/components/schemas/FileStatus"
+    DeliveryFileType:
+      type: string
+      enum: [IMAGE_ARCHIVE, DEFECT_LIST, POINT_KML, INSPECTION_REPORT]
+    DownloadIntent:
+      type: object
+      additionalProperties: false
+      required: [method, downloadUrl, suggestedFileName, expiresAt]
+      properties:
+        method:
+          const: GET
+        downloadUrl:
+          type: string
+          format: uri
+        suggestedFileName:
+          type: string
+          maxLength: 180
+        expiresAt:
+          type: string
+          format: date-time
+    AcceptDeliveryRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmed]
+      properties:
+        confirmed:
+          const: true
+        note:
+          type: [string, "null"]
+          maxLength: 500
+    Acceptance:
+      type: object
+      additionalProperties: false
+      required: [id, serviceOrderId, deliveryId, acceptedBy, acceptedAt, orderStatus]
+      properties:
+        id:
+          type: string
+          format: uuid
+        serviceOrderId:
+          type: string
+          format: uuid
+        deliveryId:
+          type: string
+          format: uuid
+        acceptedBy:
+          type: string
+          format: uuid
+        acceptedAt:
+          type: string
+          format: date-time
+        orderStatus:
+          const: ACCEPTED
+    CodeLabel:
+      type: object
+      additionalProperties: false
+      required: [code, label]
+      properties:
+        code:
+          type: string
+        label:
+          type: string

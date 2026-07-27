@@ -1,0 +1,210 @@
+{
+  "meta": {
+    "environment": "test-fixture-only",
+    "note": "用于契约与验收测试，生产代码不得引用"
+  },
+  "reservation": {
+    "id": "10000000-0000-4000-8000-000000000001",
+    "reservationNo": "YY202607270001",
+    "customerId": "20000000-0000-4000-8000-000000000001",
+    "providerId": "30000000-0000-4000-8000-000000000001",
+    "serviceId": "40000000-0000-4000-8000-000000000001",
+    "serviceTitle": "输电线路无人机巡检",
+    "serviceCoverUrl": "https://cdn.example.com/inspection/power-line.webp",
+    "cityCode": "370500",
+    "status": "PLAN_PUBLISHED",
+    "location": {
+      "address": "测试地址，仅用于自动化验收",
+      "longitude": 118.5,
+      "latitude": 37.4
+    },
+    "lineLengthMeters": 18600,
+    "preferredServiceDate": "2026-08-02",
+    "inspectionItems": [
+      {
+        "code": "TOWER",
+        "label": "杆塔巡检"
+      },
+      {
+        "code": "CONDUCTOR",
+        "label": "导线巡检"
+      }
+    ],
+    "note": null,
+    "contact": {
+      "name": "测试用户",
+      "mobile": "13800000000"
+    },
+    "attachments": [],
+    "submittedAt": "2026-07-27T02:00:00Z",
+    "currentPlanId": "50000000-0000-4000-8000-000000000001",
+    "version": 1
+  },
+  "plan": {
+    "id": "50000000-0000-4000-8000-000000000001",
+    "planNo": "FA202607270001",
+    "reservationId": "10000000-0000-4000-8000-000000000001",
+    "providerId": "30000000-0000-4000-8000-000000000001",
+    "status": "CONFIRMED",
+    "planVersion": 1,
+    "validUntil": "2026-07-30T16:00:00Z",
+    "serviceDate": "2026-08-02",
+    "summary": "测试方案",
+    "planItems": [
+      {
+        "code": "POWER_LINE_INSPECTION",
+        "name": "输电线路无人机巡检",
+        "quantity": 18600,
+        "unit": "米",
+        "unitPriceMinor": 100,
+        "lineAmountMinor": 1860000
+      }
+    ],
+    "deliverables": [
+      {
+        "code": "HD_MEDIA",
+        "label": "高清巡检影像"
+      },
+      {
+        "code": "DEFECT_LIST",
+        "label": "缺陷清单"
+      },
+      {
+        "code": "POINT_MARKS",
+        "label": "点位标注"
+      },
+      {
+        "code": "REPORT",
+        "label": "巡检报告"
+      }
+    ],
+    "totalAmountMinor": 1860000,
+    "currency": "CNY",
+    "publishedAt": "2026-07-27T03:00:00Z",
+    "confirmedAt": "2026-07-27T03:15:00Z",
+    "serviceOrderId": "60000000-0000-4000-8000-000000000001",
+    "version": 2
+  },
+  "serviceOrder": {
+    "id": "60000000-0000-4000-8000-000000000001",
+    "serviceOrderNo": "FW202607270001",
+    "reservationId": "10000000-0000-4000-8000-000000000001",
+    "planId": "50000000-0000-4000-8000-000000000001",
+    "customerId": "20000000-0000-4000-8000-000000000001",
+    "providerId": "30000000-0000-4000-8000-000000000001",
+    "status": "DELIVERED",
+    "serviceSnapshot": {
+      "serviceId": "40000000-0000-4000-8000-000000000001",
+      "serviceTitle": "输电线路无人机巡检",
+      "serviceCoverUrl": "https://cdn.example.com/inspection/power-line.webp",
+      "cityCode": "370500",
+      "location": {
+        "address": "测试地址，仅用于自动化验收",
+        "longitude": 118.5,
+        "latitude": 37.4
+      },
+      "lineLengthMeters": 18600,
+      "serviceDate": "2026-08-02",
+      "inspectionItems": [
+        {
+          "code": "TOWER",
+          "label": "杆塔巡检"
+        }
+      ]
+    },
+    "plannedStartAt": "2026-08-02T01:00:00Z",
+    "assignments": [
+      {
+        "type": "TEAM_MEMBER",
+        "resourceId": "70000000-0000-4000-8000-000000000001",
+        "displayName": "验收测试飞手",
+        "roleLabel": "项目负责人"
+      },
+      {
+        "type": "DEVICE",
+        "resourceId": "80000000-0000-4000-8000-000000000001",
+        "displayName": "验收测试无人机",
+        "roleLabel": null
+      }
+    ],
+    "progress": [
+      {
+        "id": "90000000-0000-4000-8000-000000000001",
+        "eventCode": "ARRANGEMENT_READY",
+        "occurredAt": "2026-07-27T04:00:00Z",
+        "message": "服务资源已安排"
+      },
+      {
+        "id": "90000000-0000-4000-8000-000000000002",
+        "eventCode": "SERVICE_COMPLETED",
+        "occurredAt": "2026-08-02T06:00:00Z",
+        "message": "现场巡检完成"
+      }
+    ],
+    "createdAt": "2026-07-27T03:15:00Z",
+    "deliveredAt": "2026-08-03T02:00:00Z",
+    "acceptedAt": null,
+    "version": 5
+  },
+  "delivery": {
+    "id": "a0000000-0000-4000-8000-000000000001",
+    "serviceOrderId": "60000000-0000-4000-8000-000000000001",
+    "status": "PUBLISHED",
+    "towerCount": 24,
+    "inspectedLengthMeters": 18600,
+    "issueCount": 3,
+    "issueSummary": [
+      {
+        "severityCode": "GENERAL",
+        "severityName": "一般问题",
+        "count": 2
+      },
+      {
+        "severityCode": "IMPORTANT",
+        "severityName": "重要问题",
+        "count": 1
+      }
+    ],
+    "files": [
+      {
+        "fileId": "b0000000-0000-4000-8000-000000000001",
+        "type": "IMAGE_ARCHIVE",
+        "displayName": "高清巡检影像.zip",
+        "pointCount": null,
+        "contentType": "application/zip",
+        "sizeBytes": 104857600,
+        "status": "READY"
+      },
+      {
+        "fileId": "b0000000-0000-4000-8000-000000000002",
+        "type": "DEFECT_LIST",
+        "displayName": "缺陷清单.xlsx",
+        "pointCount": null,
+        "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sizeBytes": 204800,
+        "status": "READY"
+      },
+      {
+        "fileId": "b0000000-0000-4000-8000-000000000003",
+        "type": "POINT_KML",
+        "displayName": "点位标注.kml",
+        "pointCount": 24,
+        "contentType": "application/vnd.google-earth.kml+xml",
+        "sizeBytes": 40960,
+        "status": "READY"
+      },
+      {
+        "fileId": "b0000000-0000-4000-8000-000000000004",
+        "type": "INSPECTION_REPORT",
+        "displayName": "巡检报告.pdf",
+        "pointCount": null,
+        "contentType": "application/pdf",
+        "sizeBytes": 3145728,
+        "status": "READY"
+      }
+    ],
+    "publishedAt": "2026-08-03T02:00:00Z",
+    "acceptedAt": null,
+    "version": 1
+  }
+}
