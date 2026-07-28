@@ -11,7 +11,9 @@ import {
 } from '../../../application/detail/inspection-detail-actions'
 import {
   EMPTY_INSPECTION_SERVICE_DETAIL,
+  toInspectionServiceDetail,
 } from '../../../application/detail/resolve-inspection-service-detail'
+import { inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
 import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
 import InspectionScope from '../components/InspectionScope.vue'
 import ServiceDeliverables from '../components/ServiceDeliverables.vue'
@@ -34,8 +36,10 @@ const detail = ref<InspectionServiceDetail>(
 )
 const routeServiceId = ref('')
 const selectedReviewFilter = ref('ALL')
+const isLoading = ref(true)
+const loadError = ref('')
 const hasDetail = computed(() => Boolean(detail.value.serviceId))
-const canReserve = computed(() => Boolean(routeServiceId.value))
+const canReserve = computed(() => Boolean(routeServiceId.value && hasDetail.value))
 const emit = defineEmits<{
   reserve: [intent: ReserveServiceIntent]
 }>()
@@ -49,18 +53,31 @@ onLoad((query: DetailRouteQuery | undefined) => {
       name: currentCityStore.currentCity?.name ?? cityCode,
     })
   }
-  if (import.meta.env.DEV) {
-    void loadDevelopmentDetail(routeServiceId.value)
+  const resolvedCityCode = cityCode ?? currentCityStore.currentCity?.code
+  if (!routeServiceId.value || !resolvedCityCode) {
+    isLoading.value = false
+    loadError.value = '未找到可预约的巡检服务'
+    return
   }
+  void loadDetail(routeServiceId.value, resolvedCityCode)
 })
 
-async function loadDevelopmentDetail(serviceId: string): Promise<void> {
-  const { DEVELOPMENT_POWER_SERVICE_DETAIL } = await import(
-    '../../../data/fixtures/inspection-service-detail.fixture'
-  )
-  detail.value = serviceId
-    ? { ...DEVELOPMENT_POWER_SERVICE_DETAIL, serviceId }
-    : DEVELOPMENT_POWER_SERVICE_DETAIL
+async function loadDetail(serviceId: string, cityCode: string): Promise<void> {
+  isLoading.value = true
+  loadError.value = ''
+  try {
+    const snapshot = await inspectionBookingApi.loadServiceSnapshot(
+      serviceId,
+      cityCode,
+    )
+    detail.value = toInspectionServiceDetail(snapshot)
+  } catch (error) {
+    loadError.value = error instanceof Error
+      ? error.message
+      : '巡检服务详情加载失败'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 function returnToCatalog(): void {
@@ -106,11 +123,26 @@ function reserveService(): void {
       class="inspection-service-detail__content"
     >
       <ServiceDetailHero :detail="detail" />
-      <InspectionScope :items="detail.inspectionItems" />
-      <ServiceProcess :steps="detail.processSteps" />
-      <ServiceDeliverables :items="detail.deliverables" />
-      <ServiceGuarantees :items="detail.guarantees" />
-      <ServiceExplanation :items="detail.explanations" />
+      <InspectionScope
+        v-if="detail.inspectionItems.length"
+        :items="detail.inspectionItems"
+      />
+      <ServiceProcess
+        v-if="detail.processSteps.length"
+        :steps="detail.processSteps"
+      />
+      <ServiceDeliverables
+        v-if="detail.deliverables.length"
+        :items="detail.deliverables"
+      />
+      <ServiceGuarantees
+        v-if="detail.guarantees.length"
+        :items="detail.guarantees"
+      />
+      <ServiceExplanation
+        v-if="detail.explanations.length"
+        :items="detail.explanations"
+      />
       <ServiceReviews
         v-if="
           detail.ratingAverage !== null &&
@@ -131,10 +163,10 @@ function reserveService(): void {
     <view v-else class="inspection-service-detail__empty">
       <UniIcons type="info-filled" size="42" color="#b5bac1" />
       <text class="inspection-service-detail__empty-title">
-        服务详情暂未开放
+        {{ isLoading ? '正在加载服务详情' : '服务详情暂不可用' }}
       </text>
       <text class="inspection-service-detail__empty-copy">
-        正式详情数据接入后将在这里展示
+        {{ isLoading ? '正在读取真实服务数据…' : loadError }}
       </text>
     </view>
 

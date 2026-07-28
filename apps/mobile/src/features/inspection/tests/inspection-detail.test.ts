@@ -10,10 +10,9 @@ import {
   resolveDetailServiceId,
 } from '../application/detail/inspection-detail-actions'
 import {
-  EMPTY_INSPECTION_SERVICE_DETAIL,
-  resolveInspectionServiceDetail,
+  toInspectionServiceDetail,
 } from '../application/detail/resolve-inspection-service-detail'
-import { DEVELOPMENT_POWER_SERVICE_DETAIL } from '../data/fixtures/inspection-service-detail.fixture'
+import type { BookingServiceSnapshot } from '../domain/service-flow/booking'
 
 describe('M03 route and data boundary', () => {
   it('registers only one service-detail route with a custom navigation bar', () => {
@@ -48,22 +47,38 @@ describe('M03 route and data boundary', () => {
     )
     expect(detailPageSource).toContain('routeServiceId.value')
     expect(detailPageSource).toContain(':disabled="!canReserve"')
-    expect(detailPageSource).toContain('if (import.meta.env.DEV)')
+    expect(detailPageSource).toContain('inspectionBookingApi.loadServiceSnapshot')
+    expect(detailPageSource).not.toContain('import.meta.env.DEV')
+    expect(detailPageSource).not.toContain('data/fixtures')
   })
 
-  it('keeps reference data inside development only', () => {
-    expect(
-      resolveInspectionServiceDetail(
-        'development',
-        DEVELOPMENT_POWER_SERVICE_DETAIL,
-      ),
-    ).toBe(DEVELOPMENT_POWER_SERVICE_DETAIL)
-    expect(
-      resolveInspectionServiceDetail(
-        'production',
-        DEVELOPMENT_POWER_SERVICE_DETAIL,
-      ),
-    ).toEqual(EMPTY_INSPECTION_SERVICE_DETAIL)
+  it('maps only the real catalog snapshot and leaves unavailable sections empty', () => {
+    const snapshot: BookingServiceSnapshot = {
+      serviceId: '33333333-3333-3333-3333-333333333333',
+      categoryName: '电力巡检',
+      title: '输电线路无人机巡检',
+      summary: '真实目录摘要',
+      coverImageUrl: 'https://assets.example.test/service.webp',
+      cityCode: '370500',
+      inspectionItems: [{ code: 'TOWER', label: '杆塔设备巡检' }],
+      priceMode: 'STARTING_PRICE',
+      priceAmountMinor: 69900,
+      priceUnitLabel: '公里',
+      priceLabel: '¥699/公里',
+    }
+
+    expect(toInspectionServiceDetail(snapshot)).toMatchObject({
+      serviceId: snapshot.serviceId,
+      title: snapshot.title,
+      subtitle: snapshot.summary,
+      heroImageUrl: snapshot.coverImageUrl,
+      priceAmountMinor: 69900,
+      processSteps: [],
+      deliverables: [],
+      guarantees: [],
+      explanations: [],
+      reviews: [],
+    })
   })
 })
 

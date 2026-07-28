@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
+import { inspectionCatalogApi } from '../../../data/service-flow/uni-booking-http-client'
 import {
   buildPortalCategoryUrl,
   buildPortalHotServiceUrl,
@@ -24,7 +25,8 @@ import InspectionHero from '../components/InspectionHero.vue'
 import InspectionProcess from '../components/InspectionProcess.vue'
 import PortalServiceHeader from '../components/PortalServiceHeader.vue'
 
-const { currentCity } = storeToRefs(useCurrentCityStore())
+const currentCityStore = useCurrentCityStore()
+const { currentCity } = storeToRefs(currentCityStore)
 const content = ref<InspectionPortalContent>(EMPTY_PORTAL_CONTENT)
 const keyword = ref('')
 const isLoading = ref(true)
@@ -39,6 +41,16 @@ const displayCityName = computed(
 )
 
 onMounted(() => {
+  if (!currentCity.value) {
+    const defaultCityCode = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_CODE?.trim()
+    const defaultCityName = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_NAME?.trim()
+    if (defaultCityCode && defaultCityName) {
+      currentCityStore.setCurrentCity({
+        code: defaultCityCode,
+        name: defaultCityName,
+      })
+    }
+  }
   void loadPortalContent()
 })
 
@@ -47,14 +59,9 @@ async function loadPortalContent(): Promise<void> {
   loadError.value = ''
 
   try {
-    if (import.meta.env.DEV) {
-      const { DEVELOPMENT_PORTAL_CONTENT } = await import(
-        '../../../data/fixtures/inspection-portal.fixture'
-      )
-      content.value = DEVELOPMENT_PORTAL_CONTENT
-    } else {
-      content.value = EMPTY_PORTAL_CONTENT
-    }
+    const cityCode = currentCity.value?.code
+    if (!cityCode) throw new Error('CITY_REQUIRED')
+    content.value = await inspectionCatalogApi.loadPortal(cityCode)
   } catch {
     content.value = EMPTY_PORTAL_CONTENT
     loadError.value = '巡检入口加载失败，请稍后重试'

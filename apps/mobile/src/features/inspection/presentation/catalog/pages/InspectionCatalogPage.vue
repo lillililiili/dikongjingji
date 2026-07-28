@@ -7,6 +7,7 @@ import { storeToRefs } from 'pinia'
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
+import { inspectionCatalogApi } from '../../../data/service-flow/uni-booking-http-client'
 import type {
   ActionResult,
   InspectionHostActionPort,
@@ -26,7 +27,6 @@ import {
   createOpenServiceDetailIntent,
   normalizeCatalogEntry,
   normalizeCatalogQuery,
-  resolveCatalogContent,
   selectCatalogServices,
   type CatalogCategory,
   type CatalogSort,
@@ -152,19 +152,11 @@ async function loadCatalogContent(): Promise<void> {
   loadError.value = ''
 
   try {
-    if (import.meta.env.DEV) {
-      const { DEVELOPMENT_POWER_CATALOG } = await import(
-        '../fixtures/power-inspection-catalog.fixture'
-      )
-
-      if (revision === loadRevision) {
-        content.value = resolveCatalogContent(
-          'development',
-          DEVELOPMENT_POWER_CATALOG,
-        )
-      }
-    } else {
-      content.value = EMPTY_CATALOG_CONTENT
+    const cityCode = currentCity.value?.code
+    if (!cityCode) throw new Error('CITY_REQUIRED')
+    const loaded = await inspectionCatalogApi.loadCatalog(cityCode)
+    if (revision === loadRevision) {
+      content.value = loaded
     }
   } catch {
     if (revision === loadRevision) {

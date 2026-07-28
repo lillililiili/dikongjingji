@@ -14,6 +14,9 @@ export interface BookingServiceSnapshot {
   coverImageUrl: string | null
   cityCode: string
   inspectionItems: readonly BookingCodeLabel[]
+  priceMode: string
+  priceAmountMinor: number | null
+  priceUnitLabel: string | null
   priceLabel: string | null
 }
 

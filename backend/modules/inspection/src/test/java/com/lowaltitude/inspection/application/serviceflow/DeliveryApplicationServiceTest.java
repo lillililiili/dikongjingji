@@ -215,6 +215,23 @@ class DeliveryApplicationServiceTest {
     }
 
     @Test
+    void customerAcceptanceAllowsAnEmptyNote() {
+        publish();
+
+        AcceptanceView accepted = service.accept(
+                customer(CUSTOMER),
+                ORDER,
+                UUID.randomUUID(),
+                5,
+                new AcceptDeliveryCommand(true, null),
+                "accept-without-note");
+
+        assertThat(accepted.orderStatus()).isEqualTo(ServiceOrderStatus.ACCEPTED);
+        assertThat(store.order.status()).isEqualTo(ServiceOrderStatus.ACCEPTED);
+        assertThat(store.acceptCount).isEqualTo(1);
+    }
+
+    @Test
     void staleVersionAndOtherProviderCannotPublish() {
         assertThatThrownBy(() -> service.publish(
                 provider(Set.of("inspection.delivery.publish.assigned")),

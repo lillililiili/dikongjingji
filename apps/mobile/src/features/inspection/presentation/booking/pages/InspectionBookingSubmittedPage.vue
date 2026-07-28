@@ -4,6 +4,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
 import type { BookingReservation } from '../../../data/service-flow/inspection-booking-api'
+import { buildInspectionPlanConfirmationUrl } from '../../../navigation/inspection-routes'
 import BookingProgress from '../components/BookingProgress.vue'
 
 interface SubmittedRouteQuery { reservationId?: string }
@@ -25,6 +26,15 @@ async function loadReservation(reservationId: string): Promise<void> {
 }
 
 function returnHome(): void { uni.reLaunch({ url: '/pages/home/index' }) }
+function handlePrimaryAction(): void {
+  if (reservation.value?.currentPlanId) {
+    uni.navigateTo({
+      url: buildInspectionPlanConfirmationUrl(reservation.value.currentPlanId),
+    })
+    return
+  }
+  returnHome()
+}
 function copyReservationNo(): void {
   if (!reservation.value) return
   uni.setClipboardData({ data: reservation.value.reservationNo })
@@ -74,7 +84,7 @@ function maskMobile(value: string): string {
         <view class="booking-submitted__timeline-row"><UniIcons type="circle" size="18" color="#b5bac1" /><text>安排现场服务</text></view>
       </view>
     </main>
-    <view class="booking-submitted__footer"><view><UniIcons type="info-filled" size="18" color="#ff6a00" /><text>请保持手机畅通，方案确认前不会收取任何费用。</text></view><button @click="returnHome">返回首页</button></view>
+    <view class="booking-submitted__footer"><view><UniIcons type="info-filled" size="18" color="#ff6a00" /><text>请保持手机畅通，方案确认前不会收取任何费用。</text></view><button @click="handlePrimaryAction">{{ reservation?.currentPlanId ? '查看服务方案' : '返回首页' }}</button></view>
   </view>
 </template>
 

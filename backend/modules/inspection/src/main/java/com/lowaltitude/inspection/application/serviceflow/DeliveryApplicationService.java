@@ -264,7 +264,7 @@ public class DeliveryApplicationService {
             throw new PlanResourceNotFoundException();
         }
 
-        String requestDigest = digest(List.of(
+        String requestDigest = digest(java.util.Arrays.asList(
                 command.confirmed(),
                 normalize(command.note())));
         Optional<DeliveryIdempotencyEntry> prior = store.findDeliveryIdempotency(

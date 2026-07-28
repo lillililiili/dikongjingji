@@ -1,4 +1,5 @@
 import type { InspectionServiceDetail } from '../../domain/inspection-service-detail'
+import type { BookingServiceSnapshot } from '../../domain/service-flow/booking'
 
 export type DetailRuntimeEnvironment = 'development' | 'production'
 
@@ -32,4 +33,49 @@ export function resolveInspectionServiceDetail(
   return environment === 'development'
     ? developmentDetail
     : EMPTY_INSPECTION_SERVICE_DETAIL
+}
+
+export function toInspectionServiceDetail(
+  snapshot: BookingServiceSnapshot,
+): InspectionServiceDetail {
+  return {
+    serviceId: snapshot.serviceId,
+    categoryLabel: snapshot.categoryName,
+    title: snapshot.title,
+    subtitle: snapshot.summary,
+    heroImageUrl: snapshot.coverImageUrl ?? '',
+    priceAmountMinor: snapshot.priceMode === 'PROJECT_QUOTE'
+      ? null
+      : snapshot.priceAmountMinor,
+    priceUnitLabel: snapshot.priceUnitLabel
+      ? `/${snapshot.priceUnitLabel}`
+      : '',
+    priceNote: '',
+    ratingAverage: null,
+    completedCountLabel: null,
+    capabilities: [],
+    inspectionItems: snapshot.inspectionItems.map((item, index) => ({
+      code: item.code,
+      label: item.label,
+      icon: inspectionItemIcon(item.code),
+      tone: index % 2 === 0 ? 'orange' : 'green',
+    })),
+    processSteps: [],
+    deliverables: [],
+    guarantees: [],
+    explanations: [],
+    reviewCount: null,
+    positiveRateLabel: null,
+    reviewFilters: [],
+    reviews: [],
+  }
+}
+
+function inspectionItemIcon(code: string): string {
+  return {
+    POWER_LINE: 'paperplane-filled',
+    TOWER: 'flag-filled',
+    INSULATOR_FITTINGS: 'settings-filled',
+    CORRIDOR_ENV: 'map-filled',
+  }[code] ?? 'navigate-filled'
 }

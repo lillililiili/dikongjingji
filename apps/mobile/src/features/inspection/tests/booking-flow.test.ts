@@ -69,6 +69,9 @@ describe('F04 booking form boundary', () => {
     coverImageUrl: 'https://cdn.example.com/cover.webp',
     cityCode: '370500',
     inspectionItems: [{ code: 'TOWER', label: '杆塔本体巡检' }],
+    priceMode: 'STARTING_PRICE',
+    priceAmountMinor: 69900,
+    priceUnitLabel: '公里',
     priceLabel: '¥699/公里起',
   }
 
@@ -219,10 +222,13 @@ describe('F04 booking page contract', () => {
     expect(bookingPageSource).toContain('提交后由服务商评估方案并联系确认，暂不收取费用')
   })
 
-  it('keeps only the approved home-return action on the submitted page', () => {
+  it('keeps the approved footer structure and opens a published real plan', () => {
     expect(submittedPageSource).toContain('返回首页')
     expect(submittedPageSource).not.toContain('查看预约进度')
     expect(submittedPageSource).toContain('inspectionBookingApi.getReservation(reservationId)')
+    expect(submittedPageSource).toContain('reservation.value?.currentPlanId')
+    expect(submittedPageSource).toContain('buildInspectionPlanConfirmationUrl')
+    expect(submittedPageSource).toContain('查看服务方案')
   })
 
   it('advances the submitted state to plan confirmation and renders DTO-backed details', () => {

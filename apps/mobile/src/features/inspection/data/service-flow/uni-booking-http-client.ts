@@ -1,5 +1,6 @@
 import { createBookingUuid } from '../../application/service-flow/booking-crypto'
 import { getBookingAuthContext } from '../../application/service-flow/booking-auth-context'
+import { createInspectionCatalogApi } from '../catalog/inspection-catalog-api'
 import type { BookingHttpClient, InspectionBookingApi } from './inspection-booking-api'
 import { createInspectionBookingApi } from './inspection-booking-api'
 import { createInspectionPlanApi } from './inspection-plan-api'
@@ -62,6 +63,7 @@ function putFile(input: { url: string; filePath: string; headers: Record<string,
 }
 
 const http: BookingHttpClient = { request, putFile }
+export const inspectionCatalogApi = createInspectionCatalogApi(http)
 export const inspectionBookingApi: InspectionBookingApi = createInspectionBookingApi(http, {
   getAccessToken: () => getBookingAuthContext().getAccessToken(),
 })

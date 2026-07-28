@@ -97,7 +97,37 @@ public interface ReservationPersistenceMapper {
             @Param("key") UUID key
     );
 
-    @Insert("INSERT INTO inspection_reservation (id,reservation_no,customer_id,provider_id,service_id,service_title_snapshot,service_cover_url_snapshot,city_code,address_ciphertext,location,line_length_meters,preferred_service_date,note_ciphertext,contact_name_ciphertext,contact_mobile_ciphertext,agreement_version,created_by,updated_by,submitted_at) VALUES (#{id},#{reservationNo},#{customerId},#{providerId},#{serviceId},#{title},#{coverUrl},#{cityCode},#{addressCiphertext},CASE WHEN #{longitude} IS NULL OR #{latitude} IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint(#{longitude},#{latitude}),4326)::geography END,#{lineLengthMeters},#{preferredServiceDate},#{noteCiphertext},#{contactNameCiphertext},#{contactMobileCiphertext},#{agreementVersion},#{customerId},#{customerId},#{submittedAt})")
+    @Insert("""
+            INSERT INTO inspection_reservation (
+                id, reservation_no, customer_id, provider_id, service_id,
+                service_title_snapshot, service_cover_url_snapshot, city_code,
+                address_ciphertext, location, line_length_meters,
+                preferred_service_date, note_ciphertext,
+                contact_name_ciphertext, contact_mobile_ciphertext,
+                agreement_version, created_by, updated_by, submitted_at
+            )
+            VALUES (
+                #{id}, #{reservationNo}, #{customerId}, #{providerId},
+                #{serviceId}, #{title}, #{coverUrl}, #{cityCode},
+                #{addressCiphertext},
+                CASE
+                    WHEN CAST(#{longitude} AS double precision) IS NULL
+                      OR CAST(#{latitude} AS double precision) IS NULL
+                    THEN NULL
+                    ELSE ST_SetSRID(
+                        ST_MakePoint(
+                            CAST(#{longitude} AS double precision),
+                            CAST(#{latitude} AS double precision)
+                        ),
+                        4326
+                    )::geography
+                END,
+                #{lineLengthMeters}, #{preferredServiceDate},
+                #{noteCiphertext}, #{contactNameCiphertext},
+                #{contactMobileCiphertext}, #{agreementVersion},
+                #{customerId}, #{customerId}, #{submittedAt}
+            )
+            """)
     void insertReservation(ReservationRow row);
 
     @Insert("INSERT INTO inspection_reservation_item (id,reservation_id,item_code,item_name_snapshot,display_order) VALUES (#{id},#{reservationId},#{code},#{label},#{displayOrder})")

@@ -127,6 +127,9 @@ export function createInspectionBookingApi(
           code: feature.code,
           label: feature.name,
         })),
+        priceMode: service.price.mode,
+        priceAmountMinor: service.price.startingAmountMinor ?? null,
+        priceUnitLabel: service.price.unitLabel ?? null,
         priceLabel: service.price.mode === 'PROJECT_QUOTE' || service.price.startingAmountMinor == null
           ? '按项目报价'
           : `¥${Math.round(service.price.startingAmountMinor / 100)}${service.price.unitLabel ? `/${service.price.unitLabel}` : ''}`,

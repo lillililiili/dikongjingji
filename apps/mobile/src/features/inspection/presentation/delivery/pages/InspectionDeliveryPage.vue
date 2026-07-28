@@ -382,7 +382,7 @@ function formatDateTime(value: string | null): string {
         <UniIcons type="info-filled" size="17" color="#ff6a00" />
         <text>请核对巡检结果，确认后本次服务将完成。</text>
       </view>
-      <button v-if="isAccepted" class="delivery__accepted" disabled>已验收 · 待评价</button>
+      <button v-if="isAccepted" class="delivery__accepted" disabled>验收已完成</button>
       <button v-else :disabled="isAccepting" @click="acceptDelivery">
         {{ isAccepting ? '验收确认中' : '确认验收' }}
       </button>
