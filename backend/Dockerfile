@@ -9,12 +9,10 @@ COPY backend/bootstrap/pom.xml backend/bootstrap/pom.xml
 COPY backend/modules/identity/pom.xml backend/modules/identity/pom.xml
 COPY backend/modules/inspection/pom.xml backend/modules/inspection/pom.xml
 
-RUN chmod +x mvnw \
-    && ./mvnw -B -pl :bootstrap -am dependency:go-offline
-
 COPY backend backend
 
-RUN ./mvnw -B -pl :bootstrap -am package -DskipTests
+RUN chmod +x mvnw \
+    && ./mvnw -B -pl :bootstrap -am package -DskipTests
 
 FROM eclipse-temurin:21-jre-jammy
 

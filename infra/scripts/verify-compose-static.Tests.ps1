@@ -28,7 +28,7 @@ function Test-LegacyGlobalFragments {
     $applicationDev = Get-Content -LiteralPath (Join-Path $Fixture 'backend\bootstrap\src\main\resources\application-dev.yml') -Raw
     $env = Get-Content -LiteralPath (Join-Path $Fixture '.env.example') -Raw
 
-    $composeFragments = @('postgis/postgis:16-3.5', 'redis:7.2.4-alpine', 'minio/minio:RELEASE.2025-04-22T22-12-26Z', 'minio/mc:RELEASE.2025-04-16T18-13-26Z', 'internal: true', 'condition: service_healthy', 'condition: service_completed_successfully', 'mc mb --ignore-existing', 'mc anonymous set none', 'inspection-quarantine', 'inspection-private', '127.0.0.1')
+    $composeFragments = @('postgis/postgis:16-3.5', 'redis:7.2.4-alpine', 'minio/minio:RELEASE.2025-04-22T22-12-26Z', 'minio/mc:RELEASE.2025-04-16T18-13-26Z', 'driver: bridge', 'condition: service_healthy', 'condition: service_completed_successfully', 'mc mb --ignore-existing', 'mc anonymous set none', 'inspection-quarantine', 'inspection-private', '127.0.0.1')
     $missingComposeFragments = @($composeFragments | Where-Object { -not $compose.Contains($_) })
     return $missingComposeFragments.Count -eq 0 `
         -and $docker.Contains('eclipse-temurin:21-jdk-jammy') `

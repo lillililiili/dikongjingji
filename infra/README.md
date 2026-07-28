@@ -5,9 +5,9 @@
 3. 从仓库根目录运行：
 
    ```powershell
-   docker compose -f infra/compose.yaml config
-   docker compose -f infra/compose.yaml up -d --build
-   docker compose -f infra/compose.yaml ps
+   docker compose --env-file .env -f infra/compose.yaml config
+   docker compose --env-file .env -f infra/compose.yaml up -d --build
+   docker compose --env-file .env -f infra/compose.yaml ps
    Invoke-WebRequest http://127.0.0.1:8080/actuator/health
    ```
 

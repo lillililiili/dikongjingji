@@ -107,7 +107,7 @@ services:
 
 networks:
   inspection-internal:
-    internal: true
+    driver: bridge
 
 volumes:
   inspection-postgres-data:

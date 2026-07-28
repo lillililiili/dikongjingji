@@ -154,8 +154,8 @@ foreach ($service in @('postgres', 'redis', 'minio', 'backend')) {
     Assert-LoopbackPorts $compose $service
 }
 
-$networkBlock = [regex]::Match($compose, '(?ms)^networks:[ \t]*\n  inspection-internal:[ \t]*\n    internal:[ \t]*true[ \t]*$')
-Assert-True $networkBlock.Success 'Compose network inspection-internal must be private.'
+$networkBlock = [regex]::Match($compose, '(?ms)^networks:[ \t]*\n  inspection-internal:[ \t]*\n    driver:[ \t]*bridge[ \t]*$')
+Assert-True $networkBlock.Success 'Compose network inspection-internal must use an isolated bridge that permits loopback port publishing.'
 
 $backend = Get-ComposeServiceBlock $compose 'backend'
 Assert-True ([regex]::IsMatch($backend, '(?ms)^    build:[ \t]*\n      context:[ \t]*\.\.[ \t]*\n      dockerfile:[ \t]*backend/Dockerfile[ \t]*$')) 'Backend build context or Dockerfile is incorrect.'
