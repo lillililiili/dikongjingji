@@ -64,6 +64,13 @@
         "navigationBarTitleText": "预约结果",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/service/inspection/plan-confirmation",
+      "style": {
+        "navigationBarTitleText": "方案确认",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

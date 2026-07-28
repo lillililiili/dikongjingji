@@ -11,6 +11,7 @@ import com.lowaltitude.inspection.application.reservation.FileUploadValidationEx
 import com.lowaltitude.inspection.application.reservation.IdempotencyConflictException;
 import com.lowaltitude.inspection.application.reservation.ReservationNotFoundException;
 import com.lowaltitude.inspection.application.reservation.ReservationValidationException;
+import com.lowaltitude.inspection.application.serviceflow.PlanFlowException;
 import com.lowaltitude.inspection.infrastructure.storage.ObjectStorageException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -99,6 +100,67 @@ public class GlobalExceptionHandler {
     ) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ApiError("COMMON_NOT_FOUND", "资源不存在", traceId(request)));
+    }
+
+    @ExceptionHandler(PlanFlowException.class)
+    public ResponseEntity<ApiError> handlePlanFlow(
+            PlanFlowException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case INVALID_ARGUMENT -> {
+                status = HttpStatus.BAD_REQUEST;
+                code = "COMMON_INVALID_ARGUMENT";
+                message = "方案信息无效";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.PRECONDITION_FAILED;
+                code = "INS_VERSION_CONFLICT";
+                message = "页面数据已更新，请刷新后重试";
+            }
+            case RESERVATION_STATE_INVALID -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_RESERVATION_STATE_INVALID";
+                message = "预约状态不允许发布方案";
+            }
+            case PLAN_NOT_PUBLISHED -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_PLAN_NOT_PUBLISHED";
+                message = "方案尚未发布或已失效";
+            }
+            case PLAN_EXPIRED -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_PLAN_EXPIRED";
+                message = "方案已过期";
+            }
+            case PLAN_ALREADY_CONFIRMED -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_PLAN_ALREADY_CONFIRMED";
+                message = "方案已确认";
+            }
+            default -> throw new IllegalStateException(
+                    "unhandled plan error " + exception.error());
+        }
+        return ResponseEntity.status(status)
+                .body(new ApiError(code, message, traceId(request)));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

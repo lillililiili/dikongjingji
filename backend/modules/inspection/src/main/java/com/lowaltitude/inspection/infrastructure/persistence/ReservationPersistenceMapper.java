@@ -20,6 +20,23 @@ public interface ReservationPersistenceMapper {
     @Select("SELECT r.id,r.reservation_no,r.customer_id,r.provider_id,r.service_id,r.service_title_snapshot title,r.service_cover_url_snapshot cover_url,r.city_code,r.address_ciphertext,ST_X(r.location::geometry) longitude,ST_Y(r.location::geometry) latitude,r.line_length_meters,r.preferred_service_date,r.note_ciphertext,r.contact_name_ciphertext,r.contact_mobile_ciphertext,r.agreement_version,r.submitted_at,r.version FROM inspection_reservation r WHERE r.id=#{id}")
     Optional<ReservationRow> findReservation(@Param("id") UUID id);
 
+    @Select("""
+            SELECT r.status,
+                   (
+                       SELECT p.id
+                       FROM inspection_service_plan p
+                       WHERE p.reservation_id = r.id
+                         AND p.status IN ('PUBLISHED', 'CONFIRMED')
+                       ORDER BY p.plan_version DESC
+                       LIMIT 1
+                   ) current_plan_id,
+                   r.version
+            FROM inspection_reservation r
+            WHERE r.id = #{reservationId}
+            """)
+    Optional<ReservationFlowStateRow> findReservationFlowState(
+            @Param("reservationId") UUID reservationId);
+
     @Select("SELECT item_code code, item_name_snapshot label FROM inspection_reservation_item WHERE reservation_id=#{id} ORDER BY display_order, id")
     List<ItemRow> findItems(@Param("id") UUID id);
 
@@ -204,6 +221,7 @@ public interface ReservationPersistenceMapper {
             String failureReason
     ) { }
     record ReservationOwnerRow(UUID reservationId, UUID customerId, UUID providerId) { }
+    record ReservationFlowStateRow(String status, UUID currentPlanId, int version) { }
     record FileIdempotencyRow(String requestDigest, UUID fileId) { }
     record FileRow(
             UUID id,

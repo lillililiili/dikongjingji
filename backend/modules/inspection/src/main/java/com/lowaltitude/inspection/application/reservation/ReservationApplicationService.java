@@ -112,6 +112,8 @@ public class ReservationApplicationService {
         if (!own && !assigned && !platform) {
             throw new ReservationNotFoundException();
         }
+        ReservationFlowState flowState = store.findFlowState(id)
+                .orElse(new ReservationFlowState("SUBMITTED", null, value.version()));
         return new ReservationDetails(
                 value.id(),
                 value.reservationNo(),
@@ -129,7 +131,9 @@ public class ReservationApplicationService {
                 value.items(),
                 value.agreementVersion(),
                 value.submittedAt(),
-                value.version(),
+                flowState.status(),
+                flowState.currentPlanId(),
+                flowState.version(),
                 store.findAttachments(value.id()));
     }
 
@@ -276,7 +280,8 @@ record StoredReservation(UUID id, String reservationNo, UUID customerId, Inspect
 record ReservationDetails(UUID id, String reservationNo, UUID customerId, InspectionServiceSnapshot snapshot,
                           String cityCode, String address, Double longitude, Double latitude, Long lineLengthMeters,
                           LocalDate preferredServiceDate, String note, String contactName, String contactMobile,
-                          List<InspectionItemSnapshot> items, String agreementVersion, Instant submittedAt, int version,
+                          List<InspectionItemSnapshot> items, String agreementVersion, Instant submittedAt,
+                          String status, UUID currentPlanId, int version,
                           List<ReservationFileView> attachments) { }
 record ReservationFileView(UUID id, String originalName, String contentType, long sizeBytes,
                            com.lowaltitude.inspection.domain.files.FileObjectStatus status,
@@ -287,6 +292,10 @@ interface ReservationStore {
     Optional<IdempotencyEntry> findIdempotency(UUID actorId, UUID key);
     void save(StoredReservation reservation, IdempotencyEntry entry);
     Optional<StoredReservation> findById(UUID id);
+    default Optional<ReservationFlowState> findFlowState(UUID reservationId) {
+        return Optional.empty();
+    }
     default List<ReservationFileView> findAttachments(UUID reservationId) { return List.of(); }
 }
+record ReservationFlowState(String status, UUID currentPlanId, int version) { }
 interface SensitiveDataCipher { String encrypt(String value); String decrypt(String value); default String encryptNullable(String value) { return value == null ? null : encrypt(value); } }

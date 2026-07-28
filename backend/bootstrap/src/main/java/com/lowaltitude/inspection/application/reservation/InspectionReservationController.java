@@ -193,7 +193,7 @@ public final class InspectionReservationController {
                     details.snapshot().title(),
                     details.snapshot().coverUrl(),
                     details.cityCode(),
-                    "SUBMITTED",
+                    details.status(),
                     new Location(
                             details.address(),
                             details.longitude(),
@@ -215,7 +215,7 @@ public final class InspectionReservationController {
                                     file.failureReason()))
                             .toList(),
                     details.submittedAt(),
-                    null,
+                    details.currentPlanId(),
                     details.version());
         }
     }

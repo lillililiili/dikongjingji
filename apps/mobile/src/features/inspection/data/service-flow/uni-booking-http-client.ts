@@ -2,6 +2,7 @@ import { createBookingUuid } from '../../application/service-flow/booking-crypto
 import { getBookingAuthContext } from '../../application/service-flow/booking-auth-context'
 import type { BookingHttpClient, InspectionBookingApi } from './inspection-booking-api'
 import { createInspectionBookingApi } from './inspection-booking-api'
+import { createInspectionPlanApi } from './inspection-plan-api'
 
 export class ApiRequestError extends Error {
   constructor(
@@ -62,5 +63,8 @@ function putFile(input: { url: string; filePath: string; headers: Record<string,
 
 const http: BookingHttpClient = { request, putFile }
 export const inspectionBookingApi: InspectionBookingApi = createInspectionBookingApi(http, {
+  getAccessToken: () => getBookingAuthContext().getAccessToken(),
+})
+export const inspectionPlanApi = createInspectionPlanApi(http, {
   getAccessToken: () => getBookingAuthContext().getAccessToken(),
 })

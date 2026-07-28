@@ -76,6 +76,13 @@ final class PostgresReservationStore
                 row.submittedAt(),
                 row.version()));
     }
+    @Override public Optional<ReservationFlowState> findFlowState(UUID reservationId) {
+        return mapper.findReservationFlowState(reservationId)
+                .map(row -> new ReservationFlowState(
+                        row.status(),
+                        row.currentPlanId(),
+                        row.version()));
+    }
     @Override public List<ReservationFileView> findAttachments(UUID reservationId) {
         return mapper.findReservationFiles(reservationId).stream()
                 .map(row -> new ReservationFileView(

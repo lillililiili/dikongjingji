@@ -3,6 +3,10 @@ export const INSPECTION_CATALOG_PATH = '/pages/service/inspection/catalog'
 export const INSPECTION_BOOKING_PATH = '/pages/service/inspection/booking'
 export const INSPECTION_BOOKING_SUBMITTED_PATH =
   '/pages/service/inspection/booking-submitted'
+export const INSPECTION_PLAN_CONFIRMATION_PATH =
+  '/pages/service/inspection/plan-confirmation'
+export const INSPECTION_FULFILLMENT_PATH =
+  '/pages/service/inspection/fulfillment'
 
 export const INSPECTION_ROUTES = [
   {
@@ -20,6 +24,10 @@ export const INSPECTION_ROUTES = [
   {
     name: 'InspectionBookingSubmitted',
     path: INSPECTION_BOOKING_SUBMITTED_PATH,
+  },
+  {
+    name: 'InspectionPlanConfirmation',
+    path: INSPECTION_PLAN_CONFIRMATION_PATH,
   },
 ] as const
 
@@ -39,6 +47,20 @@ export function buildInspectionBookingSubmittedUrl(
 ): string {
   return `${INSPECTION_BOOKING_SUBMITTED_PATH}?reservationId=${encodeURIComponent(
     reservationId.trim(),
+  )}`
+}
+
+export function buildInspectionPlanConfirmationUrl(planId: string): string {
+  return `${INSPECTION_PLAN_CONFIRMATION_PATH}?planId=${encodeURIComponent(
+    planId.trim(),
+  )}`
+}
+
+export function buildInspectionFulfillmentUrl(
+  serviceOrderId: string,
+): string {
+  return `${INSPECTION_FULFILLMENT_PATH}?serviceOrderId=${encodeURIComponent(
+    serviceOrderId.trim(),
   )}`
 }
 
