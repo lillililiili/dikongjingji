@@ -19,10 +19,35 @@ F09 尚未完成，不能给出“可以进入领导验收”的最终结论。
 
 当前外部阻塞：
 
-- `adb devices -l` 没有列出设备，当前未连接真实 Android 设备。
+- 当前未连接真实 Android 设备。
+- 现有 `LowAltitude_API35` 模拟器可以启动并被 ADB 识别，但当前工作树只有 `apps/mobile/dist/build/app` App 资源，没有可安装 APK；Android 15 又禁止 ADB 直接覆盖 HBuilder 调试基座的应用资源目录，因此未能部署固定基线 `28dc0ce`，不能执行或宣称安卓模拟器黄金路径通过。
 - 当前 Windows 主机没有可用于 iOS 真机打包、签名和安装的 macOS/真实 iPhone 资源。
 
-## 2. Android 真机待执行
+## 2. Android 模拟器检查记录
+
+2026-07-28 使用现有环境完成以下检查，没有安装新环境：
+
+- AVD：`LowAltitude_API35`
+- ADB 序列号：`emulator-5554`
+- 系统：Android 15
+- 分辨率：`1080 × 2400`
+- 密度：`420 dpi`
+- 启动状态：`sys.boot_completed=1`
+- 已安装调试基座：`io.dcloud.HBuilder`
+- 基座内 AppID：`__UNI__INSPECTION_I1`
+- 工作树 APK：无
+- 已有 App 资源：`apps/mobile/dist/build/app`
+
+部署结果：
+
+1. ADB 直接覆盖调试基座资源时返回 `Permission denied`。
+2. 使用调试包自身 `run-as io.dcloud.HBuilder` 调整目录写权限时仍返回 `Permission denied`。
+3. 按“两次失败停止重复尝试”的约束停止继续处理。
+4. 读取基座目录确认其仅包含 M01、M02、M03 页面资源，不是固定基线 `28dc0ce` 的五页面构建。
+
+结论：本轮状态为“安卓模拟器环境可启动，但当前固定基线无可安装 APK且调试基座资源无法受控覆盖”，未执行模拟器黄金路径，不得记录为模拟器验收通过，也不得替代 Android 真机验收。
+
+## 3. Android 真机待执行
 
 设备连接并授权 USB 调试后，必须记录设备型号、Android 版本、逻辑分辨率和安装包/调试基座版本，再执行：
 
@@ -36,7 +61,7 @@ F09 尚未完成，不能给出“可以进入领导验收”的最终结论。
 8. 检查状态栏、底部安全区、系统返回、键盘遮挡和权限弹窗。
 9. 保存同状态真机截图，并与同视口自动截图和 PDF 参考逐页对比。
 
-## 3. Android 联调命令
+## 4. Android 联调命令
 
 设备连接后：
 
@@ -55,6 +80,6 @@ adb reverse --remove tcp:19000
 
 如果真实设备不能使用 USB reverse，必须把 API 与 MinIO 短时下载入口改为设备可达的受控局域网地址；不得把数据库、Redis 或 MinIO 控制台直接暴露给设备。
 
-## 4. iOS 如实阻塞
+## 5. iOS 如实阻塞
 
 iOS 需要 macOS/云构建、有效签名和真实 iPhone。当前缺少这些外部资源，状态保持“未验收/外部阻塞”，浏览器响应式视口和 Android 设备均不能替代 iPhone 真机证据。
