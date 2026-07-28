@@ -271,7 +271,12 @@ function formatDateTime(value: string | null): string {
               size="38"
               color="#ffffff"
             />
-            <view v-else class="delivery__clipboard-icon" aria-hidden="true" />
+            <UniIcons
+              v-else
+              type="compose"
+              size="34"
+              color="#ffffff"
+            />
           </view>
           <view>
             <text class="delivery__status-title">{{ isAccepted ? '服务已验收' : '报告已交付' }}</text>
@@ -406,9 +411,6 @@ function formatDateTime(value: string | null): string {
 .delivery__status,.delivery__card{padding:9px 10px;border:1px solid #eceef1;border-radius:12px;background:#fff}
 .delivery__status-main{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center}
 .delivery__status-icon{display:grid;width:54px;height:54px;place-items:center;border-radius:50%;background:#22b95c}
-.delivery__clipboard-icon{position:relative;width:25px;height:29px;border:2px solid #fff;border-radius:3px;box-sizing:border-box}
-.delivery__clipboard-icon::before{position:absolute;top:-5px;left:6px;width:9px;height:6px;border:2px solid #fff;border-radius:3px;background:#22b95c;box-sizing:border-box;content:""}
-.delivery__clipboard-icon::after{position:absolute;right:-3px;bottom:4px;width:10px;height:5px;border-bottom:2px solid #fff;border-left:2px solid #fff;transform:rotate(-45deg);content:""}
 .delivery__status-main>view:last-child{display:flex;align-items:flex-start;flex-direction:column}
 .delivery__status-title{font-size:17px;font-weight:700}
 .delivery__status-copy{margin-top:2px;color:#717983;font-size:10px}

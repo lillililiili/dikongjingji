@@ -40,6 +40,15 @@ npm exec -- vite preview --host 127.0.0.1 --port 4173 --outDir dist/build/h5
 
 访问 `http://127.0.0.1:4173`。开发账号只用于本地验收，生产环境必须接入正式身份源。
 
+生成 App 本地资源（不等于已生成 APK 或已完成真机验收）：
+
+```powershell
+Set-Location apps/mobile
+.\node_modules\.bin\uni.cmd build -p app
+```
+
+构建成功后资源位于 `apps/mobile/dist/build/app`，再由已批准的 HBuilderX/原生打包流程安装到真实 Android 设备。
+
 ## 3. 最小回归
 
 后端和移动端：
@@ -93,4 +102,5 @@ node .\infra\scripts\verify-f08-golden-e2e.cjs
 ## 6. 真机边界
 
 - Android 必须使用已连接的真实设备完成关键路径、安全区、键盘、权限、上传下载和弱网检查。
+- 本地联调可在设备连接后执行 `adb reverse tcp:8080 tcp:8080` 和 `adb reverse tcp:19000 tcp:19000`，使 App 访问本机 API 与短时 MinIO 地址；验收后应移除对应 reverse 规则。
 - iOS 必须依赖 macOS/云构建、签名和真实 iPhone；缺少外部资源时只能记录阻塞，不能以浏览器或 Android 冒充。

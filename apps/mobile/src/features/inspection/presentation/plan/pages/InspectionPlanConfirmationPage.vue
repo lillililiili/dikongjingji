@@ -163,11 +163,14 @@ function formatUnitPrice(amountMinor: number, unit: string): string {
     >
       <view class="plan-confirmation__status-card">
         <view class="plan-confirmation__status-main">
-          <view class="plan-confirmation__status-icon">
+          <view
+            class="plan-confirmation__status-icon"
+            :class="{ 'plan-confirmation__status-icon--confirmed': isConfirmed }"
+          >
             <UniIcons
-              type="checkmarkempty"
+              :type="isConfirmed ? 'checkmarkempty' : 'info-filled'"
               size="42"
-              color="#08a942"
+              :color="isConfirmed ? '#08a942' : '#ff7900'"
             />
           </view>
           <view class="plan-confirmation__status-copy">
@@ -249,18 +252,25 @@ function formatUnitPrice(amountMinor: number, unit: string): string {
         <UniIcons type="info-filled" size="18" color="#ff6a00" />
         <text>确认方案后进入服务安排，本页面不会立即扣款。</text>
       </view>
-      <button
-        v-if="!isConfirmed"
-        class="plan-confirmation__agreement"
-        @click="agreementAccepted = !agreementAccepted"
-      >
-        <UniIcons
-          :type="agreementAccepted ? 'checkbox-filled' : 'circle'"
-          size="18"
-          :color="agreementAccepted ? '#ff5a00' : '#9ba1a9'"
-        />
-        <text>我已阅读并确认服务方案及报价</text>
-      </button>
+      <view v-if="!isConfirmed" class="plan-confirmation__agreement-row">
+        <button
+          class="plan-confirmation__agreement"
+          @click="agreementAccepted = !agreementAccepted"
+        >
+          <UniIcons
+            :type="agreementAccepted ? 'checkbox-filled' : 'circle'"
+            size="18"
+            :color="agreementAccepted ? '#ff5a00' : '#9ba1a9'"
+          />
+          <text>我已阅读并确认服务方案及报价</text>
+        </button>
+        <button
+          class="plan-confirmation__adjust"
+          @click="showCustomerService"
+        >
+          申请调整
+        </button>
+      </view>
       <text v-if="actionError" class="plan-confirmation__error">
         {{ actionError }}
       </text>
@@ -282,5 +292,5 @@ function formatUnitPrice(amountMinor: number, unit: string): string {
 </template>
 
 <style scoped>
-.plan-confirmation{min-height:100vh;background:#f7f8fa;color:#25282d}.plan-confirmation__header{display:grid;min-height:calc(44px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);grid-template-columns:44px 1fr 64px;align-items:center;background:#fff;font-size:16px;font-weight:700;text-align:center;box-sizing:border-box}.plan-confirmation__header button{height:44px;margin:0;padding:0;border:0;background:transparent}.plan-confirmation__header button::after,.plan-confirmation__number::after,.plan-confirmation__agreement::after,.plan-confirmation__actions button::after{border:0}.plan-confirmation__header button:last-child{display:flex;width:64px;align-items:center;justify-content:center;gap:3px;font-size:11px}.plan-confirmation :deep(.booking-progress){padding:10px 24px 8px}.plan-confirmation :deep(.booking-progress__dot){width:18px;height:18px}.plan-confirmation :deep(.booking-progress__line){top:8px}.plan-confirmation :deep(.booking-progress__label){margin-top:4px;font-size:10px}.plan-confirmation__content{max-width:600px;margin:0 auto;padding:5px 8px 136px}.plan-confirmation__status-card,.plan-confirmation__card{padding:9px 11px 7px;border:1px solid #eceef1;border-radius:13px;background:#fff}.plan-confirmation__status-main{display:grid;grid-template-columns:68px minmax(0,1fr);align-items:center}.plan-confirmation__status-icon{display:grid;width:56px;height:56px;place-items:center;border-radius:50%;background:#e7f8e9}.plan-confirmation__status-copy{display:flex;align-items:flex-start;flex-direction:column;color:#737b85;font-size:10px}.plan-confirmation__status-title{color:#25282d;font-size:16px;font-weight:700;letter-spacing:.5px}.plan-confirmation__status-tag{margin-top:3px;padding:1px 7px;border:1px solid #16af55;border-radius:10px;color:#16a34a;font-size:9px}.plan-confirmation__status-tag--confirmed{background:#eaf8ef}.plan-confirmation__number{display:grid;width:100%;min-height:31px;margin-top:6px;padding:0 9px;grid-template-columns:70px 1fr 20px;align-items:center;border:1px solid #e2e5e8;border-radius:7px;background:#fff;color:#25282d;font-size:11px;text-align:left}.plan-confirmation__number text:nth-child(2){font-weight:600;letter-spacing:.5px}.plan-confirmation__valid-until{display:block;margin-top:4px;color:#737a83;font-size:9px}.plan-confirmation__card{margin-top:6px;padding:7px 10px 5px;font-size:10px}.plan-confirmation__card-title{display:block;margin-bottom:3px;font-size:13px;font-weight:700}.plan-confirmation__detail-row{display:grid;min-height:22px;grid-template-columns:82px minmax(0,1fr);align-items:start;border-top:1px solid #eceef1}.plan-confirmation__detail-row:first-of-type{border-top:0}.plan-confirmation__detail-row>text{padding-top:4px}.plan-confirmation__detail-row>text:last-child{line-height:14px}.plan-confirmation__quote-row{display:grid;min-height:29px;grid-template-columns:74px minmax(0,1fr) auto;align-items:center;border-top:1px solid #eceef1;gap:5px}.plan-confirmation__quote-row>text:nth-child(2){color:#5e646d}.plan-confirmation__quote-row>text:last-child{text-align:right}.plan-confirmation__quote-total{display:flex;padding:7px 0 3px;align-items:center;justify-content:space-between;border-top:1px solid #dfe2e5}.plan-confirmation__quote-total>view{display:flex;flex-direction:column;font-size:12px;font-weight:700}.plan-confirmation__quote-total>view text:last-child{margin-top:2px;color:#777e87;font-size:8px;font-weight:400}.plan-confirmation__quote-total>text{color:#ff5200;font-size:20px}.plan-confirmation__state{display:flex;min-height:420px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#7e858e;font-size:14px}.plan-confirmation__footer{position:fixed;right:0;bottom:0;left:0;padding:0 8px calc(6px + env(safe-area-inset-bottom));background:#fff}.plan-confirmation__notice{display:flex;margin:0 -8px;padding:5px 11px;align-items:center;gap:5px;color:#a65c2e;background:#fff5ea;font-size:9px}.plan-confirmation__agreement{display:flex;height:31px;margin:0;padding:0 3px;align-items:center;gap:6px;border:0;background:#fff;color:#343940;font-size:11px}.plan-confirmation__error{display:block;padding:0 3px 4px;color:#d73928;font-size:10px}.plan-confirmation__actions{display:grid;grid-template-columns:56px minmax(0,1fr);gap:6px}.plan-confirmation__actions button{height:40px;margin:0;border:0}.plan-confirmation__support{display:flex;padding:0;align-items:center;justify-content:center;flex-direction:column;background:#fff;color:#25282d;font-size:9px}.plan-confirmation__confirm{border-radius:22px!important;color:#fff!important;background:linear-gradient(90deg,#ff8a00,#ff4d00)!important;font-size:16px!important;font-weight:700}.plan-confirmation__confirm[disabled]{color:#fff!important;background:#ffb483!important;opacity:1}
+.plan-confirmation{min-height:100vh;background:#f7f8fa;color:#25282d}.plan-confirmation__header{display:grid;min-height:calc(44px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);grid-template-columns:44px 1fr 64px;align-items:center;background:#fff;font-size:16px;font-weight:700;text-align:center;box-sizing:border-box}.plan-confirmation__header button{height:44px;margin:0;padding:0;border:0;background:transparent}.plan-confirmation__header button::after,.plan-confirmation__number::after,.plan-confirmation__agreement::after,.plan-confirmation__adjust::after,.plan-confirmation__actions button::after{border:0}.plan-confirmation__header button:last-child{display:flex;width:64px;align-items:center;justify-content:center;gap:3px;font-size:11px}.plan-confirmation :deep(.booking-progress){padding:10px 24px 8px}.plan-confirmation :deep(.booking-progress__dot){width:18px;height:18px}.plan-confirmation :deep(.booking-progress__line){top:8px}.plan-confirmation :deep(.booking-progress__label){margin-top:4px;font-size:10px}.plan-confirmation__content{max-width:600px;margin:0 auto;padding:5px 8px 136px}.plan-confirmation__status-card,.plan-confirmation__card{padding:9px 11px 7px;border:1px solid #eceef1;border-radius:13px;background:#fff}.plan-confirmation__status-main{display:grid;grid-template-columns:68px minmax(0,1fr);align-items:center}.plan-confirmation__status-icon{display:grid;width:56px;height:56px;place-items:center;border-radius:50%;background:#fff1e5}.plan-confirmation__status-icon--confirmed{background:#e7f8e9}.plan-confirmation__status-copy{display:flex;align-items:flex-start;flex-direction:column;color:#737b85;font-size:10px}.plan-confirmation__status-title{color:#25282d;font-size:16px;font-weight:700;letter-spacing:.5px}.plan-confirmation__status-tag{margin-top:3px;padding:1px 7px;border:1px solid #ff7900;border-radius:10px;color:#ff6a00;background:#fff8f1;font-size:9px}.plan-confirmation__status-tag--confirmed{border-color:#16af55;color:#16a34a;background:#eaf8ef}.plan-confirmation__number{display:grid;width:100%;min-height:31px;margin-top:6px;padding:0 9px;grid-template-columns:70px 1fr 20px;align-items:center;border:1px solid #e2e5e8;border-radius:7px;background:#fff;color:#25282d;font-size:11px;text-align:left}.plan-confirmation__number text:nth-child(2){font-weight:600;letter-spacing:.5px}.plan-confirmation__valid-until{display:block;margin-top:4px;color:#737a83;font-size:9px}.plan-confirmation__card{margin-top:6px;padding:7px 10px 5px;font-size:10px}.plan-confirmation__card-title{display:block;margin-bottom:3px;font-size:13px;font-weight:700}.plan-confirmation__detail-row{display:grid;min-height:22px;grid-template-columns:82px minmax(0,1fr);align-items:start;border-top:1px solid #eceef1}.plan-confirmation__detail-row:first-of-type{border-top:0}.plan-confirmation__detail-row>text{padding-top:4px}.plan-confirmation__detail-row>text:last-child{line-height:14px}.plan-confirmation__quote-row{display:grid;min-height:29px;grid-template-columns:74px minmax(0,1fr) auto;align-items:center;border-top:1px solid #eceef1;gap:5px}.plan-confirmation__quote-row>text:nth-child(2){color:#5e646d}.plan-confirmation__quote-row>text:last-child{text-align:right}.plan-confirmation__quote-total{display:flex;padding:7px 0 3px;align-items:center;justify-content:space-between;border-top:1px solid #dfe2e5}.plan-confirmation__quote-total>view{display:flex;flex-direction:column;font-size:12px;font-weight:700}.plan-confirmation__quote-total>view text:last-child{margin-top:2px;color:#777e87;font-size:8px;font-weight:400}.plan-confirmation__quote-total>text{color:#ff5200;font-size:20px}.plan-confirmation__state{display:flex;min-height:420px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#7e858e;font-size:14px}.plan-confirmation__footer{position:fixed;right:0;bottom:0;left:0;padding:0 8px calc(6px + env(safe-area-inset-bottom));background:#fff}.plan-confirmation__notice{display:flex;margin:0 -8px;padding:5px 11px;align-items:center;gap:5px;color:#a65c2e;background:#fff5ea;font-size:9px}.plan-confirmation__agreement-row{display:grid;height:31px;grid-template-columns:minmax(0,1fr) auto;align-items:center}.plan-confirmation__agreement{display:flex;height:31px;margin:0;padding:0 3px;align-items:center;gap:6px;border:0;background:#fff;color:#343940;font-size:11px}.plan-confirmation__adjust{height:31px;margin:0;padding:0 4px;border:0;color:#ff6500;background:#fff;font-size:10px}.plan-confirmation__error{display:block;padding:0 3px 4px;color:#d73928;font-size:10px}.plan-confirmation__actions{display:grid;grid-template-columns:56px minmax(0,1fr);gap:6px}.plan-confirmation__actions button{height:40px;margin:0;border:0}.plan-confirmation__support{display:flex;padding:0;align-items:center;justify-content:center;flex-direction:column;background:#fff;color:#25282d;font-size:9px}.plan-confirmation__confirm{border-radius:22px!important;color:#fff!important;background:linear-gradient(90deg,#ff8a00,#ff4d00)!important;font-size:16px!important;font-weight:700}.plan-confirmation__confirm[disabled]{color:#fff!important;background:#ffb483!important;opacity:1}
 </style>

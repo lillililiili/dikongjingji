@@ -67,6 +67,7 @@ describe('F07 delivery page contract', () => {
     expect(deliveryPageSource).toContain('服务进度')
     expect(deliveryPageSource).toContain('验收已完成')
     expect(deliveryPageSource).not.toContain('待评价')
+    expect(deliveryPageSource).not.toContain('delivery__clipboard-icon')
     expect(deliveryPageSource).toContain('delivery__files-grid')
     expect(deliveryPageSource).toContain('min-height:44px')
     expect(deliveryPageSource).toContain('env(safe-area-inset-bottom)')

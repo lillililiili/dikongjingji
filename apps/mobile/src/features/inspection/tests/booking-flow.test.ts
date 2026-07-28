@@ -222,6 +222,13 @@ describe('F04 booking page contract', () => {
     expect(bookingPageSource).toContain('提交后由服务商评估方案并联系确认，暂不收取费用')
   })
 
+  it('keeps all approved booking sections within the calibrated phone density', () => {
+    expect(bookingPageSource).toContain('min-height:27px')
+    expect(bookingPageSource).toContain('height:42px')
+    expect(bookingPageSource).toContain(':deep(.booking-progress){padding:4px 24px 1px}')
+    expect(bookingPageSource).toContain(':deep(.booking-service-card__image){width:90px;height:90px}')
+  })
+
   it('keeps the approved footer structure and opens a published real plan', () => {
     expect(submittedPageSource).toContain('返回首页')
     expect(submittedPageSource).not.toContain('查看预约进度')
