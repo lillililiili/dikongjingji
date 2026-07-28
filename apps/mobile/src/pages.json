@@ -50,6 +50,20 @@
         "navigationBarTitleText": "服务详情",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/service/inspection/booking",
+      "style": {
+        "navigationBarTitleText": "填写需求",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/service/inspection/booking-submitted",
+      "style": {
+        "navigationBarTitleText": "预约结果",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

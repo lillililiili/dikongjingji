@@ -11,7 +11,8 @@ COPY backend/modules/inspection/pom.xml backend/modules/inspection/pom.xml
 
 COPY backend backend
 
-RUN chmod +x mvnw \
+RUN --mount=type=cache,target=/root/.m2 \
+    chmod +x mvnw \
     && ./mvnw -B -pl :bootstrap -am package -DskipTests
 
 FROM eclipse-temurin:21-jre-jammy

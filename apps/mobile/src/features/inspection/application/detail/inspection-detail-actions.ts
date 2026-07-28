@@ -3,6 +3,7 @@ const MAX_SERVICE_ID_LENGTH = 96
 export interface ReserveServiceIntent {
   type: 'RESERVE_SERVICE'
   serviceId: string
+  cityCode?: string
 }
 
 export function resolveDetailServiceId(
@@ -15,9 +16,11 @@ export function resolveDetailServiceId(
 
 export function createReservationIntent(
   serviceId: string,
+  cityCode?: string,
 ): ReserveServiceIntent {
   return {
     type: 'RESERVE_SERVICE',
     serviceId: resolveDetailServiceId(serviceId),
+    ...(cityCode?.trim() ? { cityCode: cityCode.trim() } : {}),
   }
 }

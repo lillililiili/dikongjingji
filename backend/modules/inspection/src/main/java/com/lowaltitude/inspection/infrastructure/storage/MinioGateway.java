@@ -1,7 +1,9 @@
 package com.lowaltitude.inspection.infrastructure.storage;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Optional;
 
 public interface MinioGateway {
 
@@ -9,7 +11,18 @@ public interface MinioGateway {
 
     URI presignGet(String bucket, String objectKey, Duration ttl);
 
-    StoredObjectMetadata statObject(String bucket, String objectKey);
+    Optional<StoredObjectMetadata> statObjectIfPresent(
+            String bucket,
+            String objectKey
+    );
+
+    InputStream openObject(String bucket, String objectKey);
+
+    void copyObject(
+            String sourceBucket,
+            String targetBucket,
+            String objectKey
+    );
 
     void removeObject(String bucket, String objectKey);
 }

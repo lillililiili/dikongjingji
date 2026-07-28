@@ -13,6 +13,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record MinioStorageProperties(
         String environment,
         URI endpoint,
+        URI publicEndpoint,
+        String region,
         String accessKey,
         String secretKey,
         Duration uploadTtl,
@@ -22,12 +24,21 @@ public record MinioStorageProperties(
 
     private static final Pattern ENVIRONMENT = Pattern.compile("[a-z0-9][a-z0-9-]{0,31}");
     private static final Duration MAX_DOWNLOAD_TTL = Duration.ofMinutes(10);
+    private static final Set<String> LOCAL_ENVIRONMENTS = Set.of("dev", "test", "local");
 
     public MinioStorageProperties {
         if (environment == null || !ENVIRONMENT.matcher(environment).matches()) {
             throw new IllegalArgumentException("environment must be safe for bucket names");
         }
         Objects.requireNonNull(endpoint, "endpoint must not be null");
+        Objects.requireNonNull(publicEndpoint, "publicEndpoint must not be null");
+        requireHttpEndpoint(endpoint, "endpoint");
+        requireHttpEndpoint(publicEndpoint, "publicEndpoint");
+        if (!LOCAL_ENVIRONMENTS.contains(environment)
+                && !"https".equalsIgnoreCase(publicEndpoint.getScheme())) {
+            throw new IllegalArgumentException("non-local publicEndpoint must use HTTPS");
+        }
+        requireText(region, "region");
         requireText(accessKey, "accessKey");
         requireText(secretKey, "secretKey");
         requirePositive(uploadTtl, "uploadTtl");
@@ -60,6 +71,14 @@ public record MinioStorageProperties(
         Objects.requireNonNull(value, name + " must not be null");
         if (value.isZero() || value.isNegative()) {
             throw new IllegalArgumentException(name + " must be positive");
+        }
+    }
+
+    private static void requireHttpEndpoint(URI value, String name) {
+        String scheme = value.getScheme();
+        if (value.getHost() == null
+                || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
+            throw new IllegalArgumentException(name + " must be an absolute HTTP(S) URI");
         }
     }
 }

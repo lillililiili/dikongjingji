@@ -19,8 +19,11 @@ spring:
 security:
   jwt:
     hmac-base64-secret: ${INSPECTION_JWT_HMAC_BASE64_SECRET}
+  cors:
+    allowed-origins: ${INSPECTION_CORS_ALLOWED_ORIGINS:}
 
 mybatis-plus:
+  type-handlers-package: com.lowaltitude.inspection.infrastructure.persistence
   configuration:
     map-underscore-to-camel-case: true
 
@@ -34,6 +37,8 @@ inspection:
       enabled: ${INSPECTION_MINIO_ENABLED:false}
       environment: ${INSPECTION_ENVIRONMENT}
       endpoint: ${INSPECTION_MINIO_ENDPOINT:}
+      public-endpoint: ${INSPECTION_MINIO_PUBLIC_ENDPOINT:}
+      region: ${INSPECTION_MINIO_REGION:us-east-1}
       access-key: ${INSPECTION_MINIO_ACCESS_KEY:}
       secret-key: ${INSPECTION_MINIO_SECRET_KEY:}
       upload-ttl: ${INSPECTION_MINIO_UPLOAD_TTL:5m}

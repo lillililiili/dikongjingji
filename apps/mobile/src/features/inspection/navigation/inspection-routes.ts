@@ -1,5 +1,8 @@
 export const INSPECTION_PORTAL_PATH = '/pages/service/inspection/index'
 export const INSPECTION_CATALOG_PATH = '/pages/service/inspection/catalog'
+export const INSPECTION_BOOKING_PATH = '/pages/service/inspection/booking'
+export const INSPECTION_BOOKING_SUBMITTED_PATH =
+  '/pages/service/inspection/booking-submitted'
 
 export const INSPECTION_ROUTES = [
   {
@@ -10,7 +13,34 @@ export const INSPECTION_ROUTES = [
     name: 'InspectionCatalog',
     path: INSPECTION_CATALOG_PATH,
   },
+  {
+    name: 'InspectionBooking',
+    path: INSPECTION_BOOKING_PATH,
+  },
+  {
+    name: 'InspectionBookingSubmitted',
+    path: INSPECTION_BOOKING_SUBMITTED_PATH,
+  },
 ] as const
+
+export function buildInspectionBookingUrl(
+  serviceId: string,
+  cityCode?: string,
+): string {
+  const parameters = [
+    `serviceId=${encodeURIComponent(serviceId.trim())}`,
+  ]
+  appendParameter(parameters, 'cityCode', cityCode?.trim())
+  return `${INSPECTION_BOOKING_PATH}?${parameters.join('&')}`
+}
+
+export function buildInspectionBookingSubmittedUrl(
+  reservationId: string,
+): string {
+  return `${INSPECTION_BOOKING_SUBMITTED_PATH}?reservationId=${encodeURIComponent(
+    reservationId.trim(),
+  )}`
+}
 
 export type InspectionCatalogSort =
   | 'COMPREHENSIVE'

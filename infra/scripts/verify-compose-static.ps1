@@ -160,12 +160,13 @@ Assert-True $networkBlock.Success 'Compose network inspection-internal must use 
 $backend = Get-ComposeServiceBlock $compose 'backend'
 Assert-True ([regex]::IsMatch($backend, '(?ms)^    build:[ \t]*\n      context:[ \t]*\.\.[ \t]*\n      dockerfile:[ \t]*backend/Dockerfile[ \t]*$')) 'Backend build context or Dockerfile is incorrect.'
 $backendEnvironment = Get-ServiceSection $backend 'environment'
-foreach ($key in @('SPRING_PROFILES_ACTIVE', 'INSPECTION_ENVIRONMENT', 'INSPECTION_DB_URL', 'INSPECTION_DB_USERNAME', 'INSPECTION_DB_PASSWORD', 'INSPECTION_REDIS_HOST', 'INSPECTION_REDIS_PORT', 'INSPECTION_REDIS_PASSWORD', 'INSPECTION_MINIO_ENABLED', 'INSPECTION_MINIO_ENDPOINT', 'INSPECTION_MINIO_ACCESS_KEY', 'INSPECTION_MINIO_SECRET_KEY', 'INSPECTION_JWT_HMAC_BASE64_SECRET')) {
+foreach ($key in @('SPRING_PROFILES_ACTIVE', 'INSPECTION_ENVIRONMENT', 'INSPECTION_DB_URL', 'INSPECTION_DB_USERNAME', 'INSPECTION_DB_PASSWORD', 'INSPECTION_REDIS_HOST', 'INSPECTION_REDIS_PORT', 'INSPECTION_REDIS_PASSWORD', 'INSPECTION_MINIO_ENABLED', 'INSPECTION_MINIO_ENDPOINT', 'INSPECTION_MINIO_PUBLIC_ENDPOINT', 'INSPECTION_MINIO_ACCESS_KEY', 'INSPECTION_MINIO_SECRET_KEY', 'INSPECTION_JWT_HMAC_BASE64_SECRET', 'INSPECTION_DATA_ENCRYPTION_BASE64_KEY', 'INSPECTION_RESERVATION_ALLOWED_MIME_TYPES', 'INSPECTION_CORS_ALLOWED_ORIGINS')) {
     $null = Get-EnvironmentValue $backendEnvironment $key
 }
 Assert-True ((Get-EnvironmentValue $backendEnvironment 'SPRING_PROFILES_ACTIVE') -eq 'dev') 'Backend must run the dev profile locally.'
 Assert-True ((Get-EnvironmentValue $backendEnvironment 'INSPECTION_REDIS_HOST') -eq 'redis') 'Backend Redis host must be the redis service.'
 Assert-True ((Get-EnvironmentValue $backendEnvironment 'INSPECTION_MINIO_ENDPOINT') -eq 'http://minio:9000') 'Backend MinIO endpoint must be the minio service.'
+Assert-True ((Get-EnvironmentValue $backendEnvironment 'INSPECTION_MINIO_PUBLIC_ENDPOINT') -eq '${INSPECTION_MINIO_PUBLIC_ENDPOINT:?set INSPECTION_MINIO_PUBLIC_ENDPOINT in .env}') 'Backend public MinIO endpoint must be supplied explicitly.'
 Assert-DependencyCondition $backend 'postgres' 'service_healthy'
 Assert-DependencyCondition $backend 'redis' 'service_healthy'
 Assert-DependencyCondition $backend 'minio-init' 'service_completed_successfully'
@@ -187,9 +188,10 @@ Assert-True ([regex]::IsMatch($docker, '(?m)^HEALTHCHECK\b.*GET /actuator/health
 Assert-True ($application -match '(?m)^    hmac-base64-secret:[ \t]*\$\{INSPECTION_JWT_HMAC_BASE64_SECRET\}[ \t]*$') 'The shared application configuration must bind INSPECTION_JWT_HMAC_BASE64_SECRET.'
 Assert-True ($applicationDev -notmatch '(?m)^\s*environment:\s*dev\s*$') 'The dev profile must not supply a fallback inspection environment.'
 
-foreach ($key in @('INSPECTION_DB_USERNAME', 'INSPECTION_DB_PASSWORD', 'INSPECTION_MINIO_ACCESS_KEY', 'INSPECTION_MINIO_SECRET_KEY', 'INSPECTION_JWT_HMAC_BASE64_SECRET')) {
+foreach ($key in @('INSPECTION_DB_USERNAME', 'INSPECTION_DB_PASSWORD', 'INSPECTION_MINIO_ACCESS_KEY', 'INSPECTION_MINIO_SECRET_KEY', 'INSPECTION_JWT_HMAC_BASE64_SECRET', 'INSPECTION_DATA_ENCRYPTION_BASE64_KEY')) {
     Assert-True ((Get-EnvExampleValue $envWithoutComments $key) -match '^REPLACE_WITH_[A-Z0-9_]+$') "Environment example must use a non-secret placeholder: $key"
 }
 Assert-True ($env -match '(?m)^# Replace with Base64 encoding of at least 32 random bytes\. This invalid placeholder is not a secret\.$') 'The JWT placeholder must explain the 32-byte minimum without providing a secret.'
+Assert-True ((Get-EnvExampleValue $envWithoutComments 'INSPECTION_RESERVATION_ALLOWED_MIME_TYPES') -eq 'image/jpeg,image/png,application/pdf') 'Reservation upload MIME policy must be explicit in the environment example.'
 
 Write-Output 'Compose static invariants passed.'

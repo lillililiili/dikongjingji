@@ -12,7 +12,8 @@ public record UploadObjectRequest(
         DeliveryFileType deliveryFileType,
         String originalName,
         String contentType,
-        long sizeBytes
+        long sizeBytes,
+        String sha256
 ) {
 
     public static UploadObjectRequest reservationAttachment(
@@ -33,7 +34,8 @@ public record UploadObjectRequest(
                 null,
                 originalName,
                 contentType,
-                sizeBytes);
+                sizeBytes,
+                null);
     }
 
     public static UploadObjectRequest deliveryArtifact(
@@ -56,18 +58,25 @@ public record UploadObjectRequest(
                 deliveryFileType,
                 originalName,
                 contentType,
-                sizeBytes);
+                sizeBytes,
+                null);
     }
 
     public UploadObjectRequest withSizeBytes(long newSizeBytes) {
         return new UploadObjectRequest(
                 purpose, providerId, reservationId, serviceOrderId, deliveryId, fileId,
-                deliveryFileType, originalName, contentType, newSizeBytes);
+                deliveryFileType, originalName, contentType, newSizeBytes, sha256);
     }
 
     public UploadObjectRequest withContentType(String newContentType) {
         return new UploadObjectRequest(
                 purpose, providerId, reservationId, serviceOrderId, deliveryId, fileId,
-                deliveryFileType, originalName, newContentType, sizeBytes);
+                deliveryFileType, originalName, newContentType, sizeBytes, sha256);
+    }
+
+    public UploadObjectRequest withSha256(String expectedSha256) {
+        return new UploadObjectRequest(
+                purpose, providerId, reservationId, serviceOrderId, deliveryId, fileId,
+                deliveryFileType, originalName, contentType, sizeBytes, expectedSha256);
     }
 }

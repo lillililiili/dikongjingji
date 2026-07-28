@@ -1,0 +1,276 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import { storeToRefs } from 'pinia'
+
+import { submitBookingReservation, createBookingSubmissionSession, uploadReservationAttachments } from '../../../application/service-flow/submit-booking-reservation'
+import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
+import { inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
+import { createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot } from '../../../domain/service-flow/booking'
+import { buildInspectionBookingSubmittedUrl } from '../../../navigation/inspection-routes'
+import { useCurrentCityStore } from '@/shared/city/state/current-city'
+import BookingProgress from '../components/BookingProgress.vue'
+import BookingServiceSnapshotCard from '../components/BookingServiceSnapshotCard.vue'
+
+interface BookingRouteQuery {
+  serviceId?: string
+  cityCode?: string
+}
+
+const currentCityStore = useCurrentCityStore()
+const { currentCity } = storeToRefs(currentCityStore)
+const service = ref<BookingServiceSnapshot | null>(null)
+const draft = ref(createEmptyBookingDraft())
+const isLoading = ref(true)
+const isSubmitting = ref(false)
+const loadError = ref('')
+const submitError = ref('')
+const submission = createBookingSubmissionSession()
+
+const availableItems = computed(() => service.value?.inspectionItems ?? [])
+const canAddAttachment = computed(
+  () => draft.value.attachments.length < 9,
+)
+
+onLoad((query: BookingRouteQuery | undefined) => {
+  const serviceId = query?.serviceId?.trim() ?? ''
+  if (!serviceId) {
+    isLoading.value = false
+    loadError.value = '未找到要预约的巡检服务'
+    return
+  }
+
+  const cityCode = query?.cityCode?.trim()
+  if (cityCode) {
+    currentCityStore.setCurrentCity({
+      code: cityCode,
+      name: currentCity.value?.name ?? cityCode,
+    })
+  }
+  void loadService(serviceId, cityCode)
+})
+
+async function loadService(
+  serviceId: string,
+  routeCityCode?: string,
+): Promise<void> {
+  const cityCode = routeCityCode ?? currentCity.value?.code
+  if (!cityCode) {
+    isLoading.value = false
+    loadError.value = '请从巡检服务页面进入并选择服务城市'
+    return
+  }
+
+  isLoading.value = true
+  loadError.value = ''
+  try {
+    service.value = await inspectionBookingApi.loadServiceSnapshot(
+      serviceId,
+      cityCode,
+    )
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '服务信息加载失败'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+function toggleItem(code: string): void {
+  const selected = draft.value.inspectionItemCodes
+  draft.value.inspectionItemCodes = selected.includes(code)
+    ? selected.filter((item) => item !== code)
+    : [...selected, code]
+}
+
+function itemIcon(code: string): string {
+  return {
+    POWER_LINE: 'paperplane-filled',
+    TOWER: 'flag-filled',
+    INSULATOR_FITTINGS: 'settings-filled',
+    CORRIDOR_ENV: 'map-filled',
+  }[code] ?? 'navigate-filled'
+}
+
+function chooseAttachments(): void {
+  if (!canAddAttachment.value) {
+    return
+  }
+
+  uni.showActionSheet({ itemList: ['拍照或选择图片', '选择 PDF 文件'], success: ({ tapIndex }) => {
+    if (tapIndex === 0) chooseImages()
+    else choosePdfFiles()
+  } })
+}
+
+function chooseImages(): void {
+  uni.chooseImage({
+    count: 9 - draft.value.attachments.length,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: async ({ tempFilePaths, tempFiles }) => {
+      const paths = (Array.isArray(tempFilePaths)
+        ? tempFilePaths
+        : [tempFilePaths]) as string[]
+      const files = Array.isArray(tempFiles) ? tempFiles : [tempFiles]
+      const attachments = await Promise.all(
+        paths.map(async (filePath: string, index: number) => {
+          const file = files[index] as { name?: string; size?: number } | undefined
+          const attachment: BookingAttachment = {
+            localId: createBookingUuid(),
+            filePath,
+            originalName: file?.name ?? `巡检附件-${index + 1}.jpg`,
+            contentType: 'image/jpeg',
+            sizeBytes: file?.size ?? 0,
+            sha256: '',
+            status: 'PENDING_UPLOAD',
+          }
+          return attachment
+        }),
+      )
+      draft.value.attachments.push(...attachments)
+    },
+  })
+}
+
+function choosePdfFiles(): void {
+  uni.chooseMessageFile({
+    count: 9 - draft.value.attachments.length,
+    type: 'file',
+    extension: ['pdf'],
+    success: ({ tempFiles }) => {
+      const files = Array.isArray(tempFiles) ? tempFiles : [tempFiles]
+      draft.value.attachments.push(...files.map((file, index) => ({
+        localId: createBookingUuid(), filePath: file.path, originalName: file.name ?? `巡检附件-${index + 1}.pdf`, contentType: 'application/pdf', sizeBytes: file.size ?? 0, sha256: '', status: 'PENDING_UPLOAD' as const,
+      })))
+    },
+  })
+}
+
+function retryAttachment(attachment: BookingAttachment): void {
+  attachment.status = 'PENDING_UPLOAD'
+  attachment.errorMessage = undefined
+}
+
+function removeAttachment(localId: string): void {
+  draft.value.attachments = draft.value.attachments.filter(
+    (attachment) => attachment.localId !== localId,
+  )
+}
+
+async function submit(): Promise<void> {
+  if (isSubmitting.value || !service.value) {
+    return
+  }
+
+  isSubmitting.value = true
+  submitError.value = ''
+  try {
+    const result = await submitBookingReservation(
+      inspectionBookingApi,
+      submission,
+      service.value,
+      draft.value,
+    )
+    const attachmentsReady = await uploadReservationAttachments(
+      inspectionBookingApi,
+      submission,
+      draft.value,
+    )
+    if (!attachmentsReady) {
+      submitError.value = '附件仍在扫描或上传失败，请重试后再提交'
+      return
+    }
+    uni.redirectTo({ url: buildInspectionBookingSubmittedUrl(result.reservationId) })
+  } catch (error) {
+    submitError.value = error instanceof Error ? error.message : '预约提交失败，请重试'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+function goBack(): void { uni.navigateBack() }
+function showCustomerService(): void { uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' }) }
+
+</script>
+
+<template>
+  <view class="inspection-booking">
+    <view class="inspection-booking__header">
+      <button class="inspection-booking__back" aria-label="返回" @click="goBack"><UniIcons type="back" size="22" color="#25282d" /></button>
+      <text class="inspection-booking__title">预约服务</text>
+      <button class="inspection-booking__customer" aria-label="联系客服" @click="showCustomerService"><UniIcons type="headphones" size="20" color="#25282d" /><text>客服</text></button>
+    </view>
+    <BookingProgress :active="1" />
+
+    <scroll-view scroll-y class="inspection-booking__scroll" :show-scrollbar="false">
+      <view v-if="isLoading" class="booking-state"><text>正在加载服务信息…</text></view>
+      <view v-else-if="loadError" class="booking-state">
+        <UniIcons type="info-filled" size="40" color="#b5bac1" />
+        <text>{{ loadError }}</text>
+      </view>
+      <main v-else-if="service" class="inspection-booking__content">
+        <BookingServiceSnapshotCard :service="service" />
+        <view class="booking-section">
+          <text class="booking-section__title">预约信息</text>
+          <view class="booking-row">
+            <UniIcons type="location-filled" size="19" color="#ff6a00" />
+            <text class="booking-row__label">巡检地点</text>
+            <input v-model="draft.locationAddress" class="booking-row__input" placeholder="请选择巡检地点" maxlength="240" />
+            <UniIcons type="right" size="15" color="#8e949c" />
+          </view>
+          <view class="booking-row">
+            <UniIcons type="paperplane-filled" size="18" color="#ff6a00" />
+            <text class="booking-row__label">线路长度</text>
+            <input v-model="draft.lineLengthKm" class="booking-row__input" type="digit" placeholder="请输入预计公里数" />
+            <text class="booking-row__suffix">公里</text>
+          </view>
+          <picker mode="date" :value="draft.preferredServiceDate" @change="draft.preferredServiceDate = $event.detail.value">
+            <view class="booking-row">
+              <UniIcons type="calendar" size="19" color="#ff6a00" />
+              <text class="booking-row__label">期望时间</text>
+              <text :class="['booking-row__date', { 'booking-row__date--empty': !draft.preferredServiceDate }]">{{ draft.preferredServiceDate || '请选择服务日期' }}</text>
+              <UniIcons type="right" size="15" color="#8e949c" />
+            </view>
+          </picker>
+        </view>
+        <view class="booking-section">
+          <text class="booking-section__title">巡检项目（可多选）</text>
+          <view class="booking-items">
+            <button v-for="item in availableItems" :key="item.code" :class="['booking-item', { 'booking-item--selected': draft.inspectionItemCodes.includes(item.code) }]" @click="toggleItem(item.code)">
+              <UniIcons :type="itemIcon(item.code)" size="20" :color="draft.inspectionItemCodes.includes(item.code) ? '#ff6500' : '#18a84f'" />
+              <text>{{ item.label }}</text>
+              <UniIcons :type="draft.inspectionItemCodes.includes(item.code) ? 'checkbox-filled' : 'circle'" size="18" :color="draft.inspectionItemCodes.includes(item.code) ? '#ff6500' : '#c6cbd1'" />
+            </button>
+          </view>
+        </view>
+        <view class="booking-section">
+          <text class="booking-section__title">现场资料</text>
+          <view class="booking-attachments">
+            <view v-for="attachment in draft.attachments" :key="attachment.localId" class="booking-attachment">
+              <text class="booking-attachment__name">{{ attachment.originalName }}</text>
+              <text class="booking-attachment__status">{{ attachment.status === 'FAILED' ? attachment.errorMessage : attachment.status === 'SCANNING' ? '安全扫描中' : attachment.status === 'READY' ? '已完成' : '上传中' }}</text>
+              <button v-if="attachment.status === 'FAILED'" class="booking-attachment__action" @click="retryAttachment(attachment)">重试</button>
+              <button class="booking-attachment__action" @click="removeAttachment(attachment.localId)">移除</button>
+            </view>
+            <button v-if="canAddAttachment" class="booking-attachment-add" @click="chooseAttachments"><UniIcons type="cloud-upload" size="27" color="#8c939c" /><view><text>上传线路图或现场照片</text><text>支持图片、PDF，最多9个文件</text></view></button>
+          </view>
+        </view>
+        <view class="booking-section"><text class="booking-section__title">补充说明</text><textarea v-model="draft.note" class="booking-note" placeholder="请补充线路情况、现场环境或其他需求（选填）" maxlength="1000" /></view>
+        <view class="booking-section">
+          <text class="booking-section__title">联系人信息</text>
+          <view class="booking-row"><UniIcons type="person-filled" size="19" color="#ff6a00" /><text class="booking-row__label">联系人</text><input v-model="draft.contactName" class="booking-row__input" placeholder="请输入联系人姓名" maxlength="40" /></view>
+          <view class="booking-row"><UniIcons type="phone-filled" size="19" color="#ff6a00" /><text class="booking-row__label">手机号</text><input v-model="draft.contactMobile" class="booking-row__input" type="number" placeholder="请输入联系人手机号" maxlength="11" /></view>
+        </view>
+        <text v-if="submitError" class="booking-submit-error">{{ submitError }}</text>
+      </main>
+    </scroll-view>
+    <view v-if="service" class="inspection-booking__footer"><view class="inspection-booking__tip"><UniIcons type="shield-filled" size="17" color="#ff6a00" /><text>提交后由服务商评估方案并联系确认，暂不收取费用。</text></view><label class="booking-agreement"><checkbox :checked="draft.agreementAccepted" color="#ff6a00" @click="draft.agreementAccepted = !draft.agreementAccepted" /><text>我已阅读并同意 <text class="booking-agreement__link">《预约服务须知》</text></text></label><button class="inspection-booking__submit" :loading="isSubmitting" :disabled="isSubmitting" @click="submit">提交预约</button></view>
+  </view>
+</template>
+
+<style scoped>
+.inspection-booking { min-height: 100vh; color: #25282d; background: #f7f8fa; box-sizing: border-box; }
+.inspection-booking__header { display: grid; min-height: calc(48px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); grid-template-columns: 44px 1fr 64px; align-items: center; background: #fff; box-sizing: border-box; }
+.inspection-booking__back,.inspection-booking__customer { height: 44px; margin: 0; padding: 0; border: 0; background: transparent; line-height: 44px; }.inspection-booking__back{width:44px}.inspection-booking__customer{display:flex;width:64px;align-items:center;justify-content:center;gap:3px;font-size:12px}.inspection-booking__back::after,.inspection-booking__customer::after,.inspection-booking__submit::after,.booking-item::after,.booking-attachment-add::after,.booking-attachment__action::after{border:0}.inspection-booking__title{text-align:center;font-size:17px;font-weight:700}.inspection-booking__scroll{height:calc(100vh - 172px - env(safe-area-inset-top) - env(safe-area-inset-bottom));}.inspection-booking__content{display:flex;max-width:600px;margin:0 auto;padding:8px 8px 18px;flex-direction:column;gap:7px;box-sizing:border-box}.booking-section{padding:11px 12px;border:1px solid #eceef1;border-radius:12px;background:#fff}.booking-section__title{display:block;margin-bottom:4px;color:#25282d;font-size:15px;font-weight:700}.booking-row{display:grid;min-height:39px;grid-template-columns:24px 72px minmax(0,1fr) auto;align-items:center;border-bottom:1px solid #eceef1;color:#24282e;font-size:13px}.booking-row:last-child{border-bottom:0}.booking-row__label{font-weight:600}.booking-row__input{width:100%;height:38px;color:#25282d;font-size:13px}.booking-row__date{overflow:hidden;color:#25282d;text-overflow:ellipsis;white-space:nowrap}.booking-row__date--empty,.booking-row__input::placeholder{color:#a4a9b0}.booking-row__suffix{color:#848b94}.booking-note{width:100%;height:60px;margin-top:6px;padding:9px 10px;border:1px solid #eceef1;border-radius:7px;background:#fff;box-sizing:border-box;color:#25282d;font-size:12px}.booking-items{display:grid;margin-top:7px;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.booking-item{display:grid;min-height:44px;margin:0;padding:0 7px;grid-template-columns:24px minmax(0,1fr) 20px;align-items:center;border:1px solid #dfe3e7;border-radius:7px;color:#3f454d;background:#fff;font-size:12px;line-height:1.25}.booking-item--selected{border-color:#ff6a00;color:#25282d;background:#fff8f3}.booking-attachments{display:flex;margin-top:7px;gap:7px;flex-wrap:wrap}.booking-attachment{display:flex;width:86px;min-height:64px;padding:6px;align-items:center;justify-content:center;flex-direction:column;border:1px solid #eceef1;border-radius:7px;background:#fafbfc;box-sizing:border-box;overflow:hidden}.booking-attachment-add{display:flex;width:100%;min-height:54px;margin:0;padding:7px 12px;align-items:center;justify-content:center;gap:10px;border:1px dashed #c7ccd2;border-radius:7px;color:#4c535c;background:#fff;font-size:12px}.booking-attachment-add view{display:flex;align-items:flex-start;flex-direction:column}.booking-attachment-add view text:last-child{margin-top:2px;color:#969ca4;font-size:10px}.booking-attachment__name{width:100%;overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.booking-attachment__status{margin-top:3px;color:#9298a0;font-size:9px;text-align:center}.booking-attachment__action{margin:3px 0 0;padding:0;border:0;color:#ff6a00;background:transparent;font-size:9px}.booking-agreement{display:flex;margin-top:4px;align-items:center;gap:4px;color:#707780;font-size:10px}.booking-agreement__link{color:#ff5a00}.booking-submit-error{padding:0 4px;color:#df3e21;font-size:12px}.inspection-booking__footer{position:fixed;right:0;bottom:0;left:0;padding:0 8px calc(7px + env(safe-area-inset-bottom));background:rgba(255,255,255,.99);box-shadow:0 -3px 14px rgba(22,30,40,.08)}.inspection-booking__tip{display:flex;margin:0 -8px;padding:6px 12px;align-items:center;gap:6px;color:#a65c2e;background:#fff5ea;font-size:10px}.inspection-booking__submit{display:block;width:min(100%,584px);height:40px;margin:4px auto 0;border:0;border-radius:22px;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff4d00);font-size:16px;font-weight:700}.booking-state{display:flex;min-height:340px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#7e858e;font-size:14px;text-align:center}
+</style>

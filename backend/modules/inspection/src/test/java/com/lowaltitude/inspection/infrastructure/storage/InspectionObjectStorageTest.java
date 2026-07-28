@@ -5,13 +5,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.net.URI;
 import java.net.URLDecoder;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -19,6 +23,7 @@ import com.lowaltitude.inspection.domain.files.DeliveryFileType;
 import com.lowaltitude.inspection.domain.files.DownloadObjectRequest;
 import com.lowaltitude.inspection.domain.files.FileObjectStatus;
 import com.lowaltitude.inspection.domain.files.PresignedObjectIntent;
+import com.lowaltitude.inspection.domain.files.PreparedObjectUpload;
 import com.lowaltitude.inspection.domain.files.UploadObjectRequest;
 import com.lowaltitude.inspection.domain.files.UploadVerificationResult;
 import io.minio.MinioClient;
@@ -65,7 +70,8 @@ class InspectionObjectStorageTest {
                 PROVIDER_ID, ORDER_ID, DELIVERY_ID, FILE_ID,
                 DeliveryFileType.INSPECTION_REPORT, "report.pdf", "application/pdf", 1_073_741_824L);
 
-        PresignedObjectIntent intent = adapter.createUploadIntent(valid);
+        PreparedObjectUpload prepared = adapter.createUploadIntent(valid);
+        PresignedObjectIntent intent = prepared.intent();
 
         assertThat(gateway.bucket).isEqualTo("prod-inspection-quarantine");
         assertThat(gateway.objectKey).isEqualTo(
@@ -88,13 +94,20 @@ class InspectionObjectStorageTest {
         UploadObjectRequest request = UploadObjectRequest.deliveryArtifact(
                 PROVIDER_ID, ORDER_ID, DELIVERY_ID, FILE_ID,
                 DeliveryFileType.INSPECTION_REPORT, "report.pdf", "application/pdf", 123L);
+        byte[] content = pdfContent(123);
+        request = request.withSha256(sha256(content));
         String key = new InspectionObjectKeyFactory().deliveryArtifact(
                 PROVIDER_ID, ORDER_ID, DELIVERY_ID, FILE_ID);
 
+        gateway.content = content;
         gateway.metadata = new StoredObjectMetadata(
                 "prod-inspection-quarantine", key, 123L, "application/pdf");
         assertThat(adapter.verifyUpload(request)).isEqualTo(UploadVerificationResult.VERIFIED);
-        assertThat(gateway.deletedKeys).isEmpty();
+        assertThat(gateway.copiedKeys).containsExactly(key);
+        assertThat(gateway.deletedKeys).containsExactly(key);
+        assertThat(adapter.verifyUpload(request)).isEqualTo(UploadVerificationResult.VERIFIED);
+        assertThat(gateway.copiedKeys).containsExactly(key);
+        assertThat(gateway.deletedKeys).containsExactly(key);
 
         List<StoredObjectMetadata> rejectedObjects = List.of(
                 new StoredObjectMetadata("prod-inspection-quarantine", key, 124L, "application/pdf"),
@@ -104,23 +117,29 @@ class InspectionObjectStorageTest {
             gateway.metadata = rejected;
             assertThat(adapter.verifyUpload(request)).isEqualTo(UploadVerificationResult.REJECTED);
         }
-        assertThat(gateway.deletedKeys).containsExactly(key, key, key);
+        assertThat(gateway.deletedKeys).containsExactly(key, key, key, key);
     }
 
     @Test
     void minioNinePutPresignDoesNotSignExtraHeaders() {
-        MinioClient client = MinioClient.builder()
-                .endpoint("https://storage.example.test")
+        MinioClient internalClient = MinioClient.builder()
+                .endpoint("https://storage.internal.example.test")
+                .credentials("access-key", "secret-key")
+                .region("us-east-1")
+                .build();
+        MinioClient publicClient = MinioClient.builder()
+                .endpoint("https://storage.public.example.test")
                 .credentials("access-key", "secret-key")
                 .region("us-east-1")
                 .build();
 
-        URI url = new SdkMinioGateway(client).presignPut(
+        URI url = new SdkMinioGateway(internalClient, publicClient).presignPut(
                 "prod-inspection-quarantine",
                 "tenant/" + PROVIDER_ID + "/reservation/" + RESERVATION_ID + "/" + FILE_ID,
                 "application/pdf",
                 Duration.ofMinutes(5));
 
+        assertThat(url.getHost()).isEqualTo("storage.public.example.test");
         assertThat(URLDecoder.decode(url.getRawQuery(), StandardCharsets.UTF_8))
                 .contains("X-Amz-SignedHeaders=host")
                 .doesNotContain("content-length");
@@ -168,8 +187,25 @@ class InspectionObjectStorageTest {
 
     private static MinioStorageProperties properties(Set<String> reservationMimes) {
         return new MinioStorageProperties(
-                "prod", URI.create("https://minio.internal"), "access", "secret",
+                "prod", URI.create("https://minio.internal"), URI.create("https://minio.public"),
+                "us-east-1", "access", "secret",
                 Duration.ofMinutes(5), Duration.ofMinutes(10), reservationMimes);
+    }
+
+    private static byte[] pdfContent(int size) {
+        byte[] content = new byte[size];
+        byte[] prefix = "%PDF-1.7".getBytes(StandardCharsets.US_ASCII);
+        System.arraycopy(prefix, 0, content, 0, prefix.length);
+        return content;
+    }
+
+    private static String sha256(byte[] content) {
+        try {
+            return java.util.HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(content));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private static final class RecordingMinioGateway implements MinioGateway {
@@ -178,7 +214,10 @@ class InspectionObjectStorageTest {
         private String objectKey;
         private String contentType;
         private StoredObjectMetadata metadata;
+        private StoredObjectMetadata privateMetadata;
+        private byte[] content = new byte[0];
         private final List<String> deletedKeys = new ArrayList<>();
+        private final List<String> copiedKeys = new ArrayList<>();
 
         @Override
         public URI presignPut(String bucket, String objectKey, String contentType, Duration ttl) {
@@ -196,15 +235,48 @@ class InspectionObjectStorageTest {
         }
 
         @Override
-        public StoredObjectMetadata statObject(String bucket, String objectKey) {
+        public Optional<StoredObjectMetadata> statObjectIfPresent(
+                String bucket,
+                String objectKey
+        ) {
             this.bucket = bucket;
             this.objectKey = objectKey;
-            return metadata;
+            if (metadata != null && metadata.bucket().equals(bucket)) {
+                return Optional.of(metadata);
+            }
+            return Optional.ofNullable(privateMetadata)
+                    .filter(value -> value.bucket().equals(bucket));
+        }
+
+        @Override
+        public InputStream openObject(String bucket, String objectKey) {
+            this.bucket = bucket;
+            this.objectKey = objectKey;
+            return new ByteArrayInputStream(content);
+        }
+
+        @Override
+        public void copyObject(
+                String sourceBucket,
+                String targetBucket,
+                String objectKey
+        ) {
+            this.bucket = targetBucket;
+            this.objectKey = objectKey;
+            privateMetadata = new StoredObjectMetadata(
+                    targetBucket,
+                    objectKey,
+                    metadata.sizeBytes(),
+                    metadata.contentType());
+            copiedKeys.add(objectKey);
         }
 
         @Override
         public void removeObject(String bucket, String objectKey) {
             this.bucket = bucket;
+            if (metadata != null && metadata.bucket().equals(bucket)) {
+                metadata = null;
+            }
             deletedKeys.add(objectKey);
         }
     }

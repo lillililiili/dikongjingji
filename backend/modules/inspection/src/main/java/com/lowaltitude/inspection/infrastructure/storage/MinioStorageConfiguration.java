@@ -21,17 +21,10 @@ public class MinioStorageConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    MinioClient minioClient(MinioStorageProperties properties) {
-        return MinioClient.builder()
-                .endpoint(properties.endpoint().toString())
-                .credentials(properties.accessKey(), properties.secretKey())
-                .build();
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    MinioGateway minioGateway(MinioClient client) {
-        return new SdkMinioGateway(client);
+    MinioGateway minioGateway(MinioStorageProperties properties) {
+        return new SdkMinioGateway(
+                client(properties.endpoint(), properties),
+                client(properties.publicEndpoint(), properties));
     }
 
     @Bean
@@ -45,5 +38,16 @@ public class MinioStorageConfiguration {
                 properties,
                 new InspectionObjectKeyFactory(),
                 Clock.systemUTC());
+    }
+
+    private MinioClient client(
+            java.net.URI endpoint,
+            MinioStorageProperties properties
+    ) {
+        return MinioClient.builder()
+                .endpoint(endpoint.toString())
+                .credentials(properties.accessKey(), properties.secretKey())
+                .region(properties.region())
+                .build();
     }
 }

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 
+import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import {
   createReservationIntent,
   resolveDetailServiceId,
@@ -10,9 +11,7 @@ import {
 } from '../../../application/detail/inspection-detail-actions'
 import {
   EMPTY_INSPECTION_SERVICE_DETAIL,
-  resolveInspectionServiceDetail,
 } from '../../../application/detail/resolve-inspection-service-detail'
-import { DEVELOPMENT_POWER_SERVICE_DETAIL } from '../../../data/fixtures/inspection-service-detail.fixture'
 import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
 import InspectionScope from '../components/InspectionScope.vue'
 import ServiceDeliverables from '../components/ServiceDeliverables.vue'
@@ -26,31 +25,43 @@ import ServiceReviews from '../components/ServiceReviews.vue'
 
 interface DetailRouteQuery {
   serviceId?: string
+  cityCode?: string
 }
 
+const currentCityStore = useCurrentCityStore()
 const detail = ref<InspectionServiceDetail>(
   EMPTY_INSPECTION_SERVICE_DETAIL,
 )
+const routeServiceId = ref('')
 const selectedReviewFilter = ref('ALL')
 const hasDetail = computed(() => Boolean(detail.value.serviceId))
+const canReserve = computed(() => Boolean(routeServiceId.value))
 const emit = defineEmits<{
   reserve: [intent: ReserveServiceIntent]
 }>()
 
 onLoad((query: DetailRouteQuery | undefined) => {
-  const routeServiceId = resolveDetailServiceId(query?.serviceId)
-  const developmentDetail = routeServiceId
-    ? {
-        ...DEVELOPMENT_POWER_SERVICE_DETAIL,
-        serviceId: routeServiceId,
-      }
-    : DEVELOPMENT_POWER_SERVICE_DETAIL
-
-  detail.value = resolveInspectionServiceDetail(
-    import.meta.env.DEV ? 'development' : 'production',
-    developmentDetail,
-  )
+  routeServiceId.value = resolveDetailServiceId(query?.serviceId)
+  const cityCode = query?.cityCode?.trim()
+  if (cityCode) {
+    currentCityStore.setCurrentCity({
+      code: cityCode,
+      name: currentCityStore.currentCity?.name ?? cityCode,
+    })
+  }
+  if (import.meta.env.DEV) {
+    void loadDevelopmentDetail(routeServiceId.value)
+  }
 })
+
+async function loadDevelopmentDetail(serviceId: string): Promise<void> {
+  const { DEVELOPMENT_POWER_SERVICE_DETAIL } = await import(
+    '../../../data/fixtures/inspection-service-detail.fixture'
+  )
+  detail.value = serviceId
+    ? { ...DEVELOPMENT_POWER_SERVICE_DETAIL, serviceId }
+    : DEVELOPMENT_POWER_SERVICE_DETAIL
+}
 
 function returnToCatalog(): void {
   if (getCurrentPages().length > 1) {
@@ -71,11 +82,14 @@ function showUnavailable(title: string): void {
 }
 
 function reserveService(): void {
-  if (!detail.value.serviceId) {
+  if (!routeServiceId.value) {
     return
   }
 
-  const intent = createReservationIntent(detail.value.serviceId)
+  const intent = createReservationIntent(
+    routeServiceId.value,
+    currentCityStore.currentCity?.code,
+  )
   emit('reserve', intent)
 }
 </script>
@@ -125,7 +139,7 @@ function reserveService(): void {
     </view>
 
     <ServiceDetailBottomBar
-      :disabled="!hasDetail"
+      :disabled="!canReserve"
       @customer-service="showUnavailable('客服能力由平台统一接入')"
       @reserve="reserveService"
     />

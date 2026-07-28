@@ -10,6 +10,9 @@ spring:
 security:
   jwt:
     hmac-base64-secret: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+  cors:
+    allowed-origins:
+      - http://127.0.0.1:4173
 
 inspection:
   infrastructure:

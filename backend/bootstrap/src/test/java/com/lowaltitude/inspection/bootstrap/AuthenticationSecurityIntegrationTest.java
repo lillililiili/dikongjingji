@@ -1,7 +1,9 @@
 package com.lowaltitude.inspection.bootstrap;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -18,6 +20,8 @@ import com.lowaltitude.inspection.identity.domain.IdentityAccountPort;
 import com.lowaltitude.inspection.identity.domain.IdentityAccountStatus;
 import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
+import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -150,6 +154,17 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(get("/test/security/authenticated"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @Test
+    void configuredBrowserOriginCanCompleteAuthenticatedApiPreflight() throws Exception {
+        mockMvc.perform(options("/api/v1/inspection/reservations")
+                        .header("Origin", "http://127.0.0.1:4173")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers",
+                                "authorization,content-type,idempotency-key,x-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://127.0.0.1:4173"));
     }
 
     @Test
@@ -376,6 +391,16 @@ class AuthenticationSecurityIntegrationTest {
             return subjectId -> SUBJECT_ID.equals(subjectId)
                     ? java.util.OptionalInt.of(7)
                     : java.util.OptionalInt.empty();
+        }
+
+        @Bean
+        ReservationApplicationService testReservationApplicationService() {
+            return org.mockito.Mockito.mock(ReservationApplicationService.class);
+        }
+
+        @Bean
+        InspectionServiceCatalogReadService testInspectionServiceCatalogReadService() {
+            return org.mockito.Mockito.mock(InspectionServiceCatalogReadService.class);
         }
 
         private IdentityAccount account(

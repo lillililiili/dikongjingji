@@ -106,7 +106,11 @@ const hostActionGateway: Pick<
       uni.navigateTo({
         url: `/pages/service/inspection/detail?serviceId=${encodeURIComponent(
           serviceId,
-        )}`,
+        )}${
+          currentCity.value?.code
+            ? `&cityCode=${encodeURIComponent(currentCity.value.code)}`
+            : ''
+        }`,
         success: () => resolve({ status: 'OPENED' }),
         fail: () =>
           resolve({

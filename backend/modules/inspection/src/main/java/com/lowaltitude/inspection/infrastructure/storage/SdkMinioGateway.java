@@ -1,22 +1,30 @@
 package com.lowaltitude.inspection.infrastructure.storage;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 
+import io.minio.CopyObjectArgs;
+import io.minio.GetObjectArgs;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.Http.Method;
 import io.minio.MinioClient;
 import io.minio.RemoveObjectArgs;
+import io.minio.SourceObject;
 import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
+import io.minio.errors.ErrorResponseException;
 
 public final class SdkMinioGateway implements MinioGateway {
 
-    private final MinioClient client;
+    private final MinioClient internalClient;
+    private final MinioClient presignClient;
 
-    public SdkMinioGateway(MinioClient client) {
-        this.client = client;
+    public SdkMinioGateway(MinioClient internalClient, MinioClient presignClient) {
+        this.internalClient = internalClient;
+        this.presignClient = presignClient;
     }
 
     @Override
@@ -35,24 +43,70 @@ public final class SdkMinioGateway implements MinioGateway {
     }
 
     @Override
-    public StoredObjectMetadata statObject(String bucket, String objectKey) {
+    public Optional<StoredObjectMetadata> statObjectIfPresent(
+            String bucket,
+            String objectKey
+    ) {
         try {
-            StatObjectResponse response = client.statObject(
+            StatObjectResponse response = internalClient.statObject(
                     StatObjectArgs.builder().bucket(bucket).object(objectKey).build());
-            return new StoredObjectMetadata(
+            return Optional.of(new StoredObjectMetadata(
                     bucket,
                     objectKey,
                     response.size(),
-                    response.contentType());
+                    response.contentType()));
+        } catch (ErrorResponseException exception) {
+            String code = exception.errorResponse().code();
+            if ("NoSuchKey".equals(code) || "NoSuchObject".equals(code)) {
+                return Optional.empty();
+            }
+            throw new ObjectStorageException("Unable to inspect uploaded object", exception);
         } catch (Exception exception) {
             throw new ObjectStorageException("Unable to inspect uploaded object", exception);
         }
     }
 
     @Override
+    public InputStream openObject(String bucket, String objectKey) {
+        try {
+            return internalClient.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .build());
+        } catch (Exception exception) {
+            throw new ObjectStorageException("Unable to read uploaded object", exception);
+        }
+    }
+
+    @Override
+    public void copyObject(
+            String sourceBucket,
+            String targetBucket,
+            String objectKey
+    ) {
+        try {
+            internalClient.copyObject(
+                    CopyObjectArgs.builder()
+                            .bucket(targetBucket)
+                            .object(objectKey)
+                            .source(
+                                    SourceObject.builder()
+                                            .bucket(sourceBucket)
+                                            .object(objectKey)
+                                            .build())
+                            .build());
+        } catch (Exception exception) {
+            throw new ObjectStorageException(
+                    "Unable to promote uploaded object",
+                    exception);
+        }
+    }
+
+    @Override
     public void removeObject(String bucket, String objectKey) {
         try {
-            client.removeObject(
+            internalClient.removeObject(
                     RemoveObjectArgs.builder().bucket(bucket).object(objectKey).build());
         } catch (Exception exception) {
             throw new ObjectStorageException("Unable to remove rejected object", exception);
@@ -67,7 +121,7 @@ public final class SdkMinioGateway implements MinioGateway {
             Map<String, String> headers
     ) {
         try {
-            String url = client.getPresignedObjectUrl(
+            String url = presignClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(method)
                             .bucket(bucket)

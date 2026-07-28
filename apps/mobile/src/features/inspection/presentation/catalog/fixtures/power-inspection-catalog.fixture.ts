@@ -6,7 +6,7 @@ import type { InspectionCatalogContent } from '../model/inspection-catalog'
 export const DEVELOPMENT_POWER_CATALOG: InspectionCatalogContent = {
   services: [
     {
-      id: 'power-transmission-uav',
+      id: '33333333-3333-3333-3333-333333333333',
       category: 'TRANSMISSION',
       categoryLabel: '输电',
       title: '输电线路无人机巡检',

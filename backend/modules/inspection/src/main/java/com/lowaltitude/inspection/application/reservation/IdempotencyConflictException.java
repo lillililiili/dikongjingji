@@ -1,0 +1,8 @@
+package com.lowaltitude.inspection.application.reservation;
+
+public final class IdempotencyConflictException extends RuntimeException {
+
+    public IdempotencyConflictException() {
+        super("idempotency key reused with a different request");
+    }
+}

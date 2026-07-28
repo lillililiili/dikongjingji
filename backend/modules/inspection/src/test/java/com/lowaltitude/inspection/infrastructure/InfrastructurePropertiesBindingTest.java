@@ -16,17 +16,19 @@ class InfrastructurePropertiesBindingTest {
 
     @Test
     void bindsRedisAndMinioSettingsWithoutEmbeddingConnectionDefaults() {
-        Binder binder = new Binder(new MapConfigurationPropertySource(Map.of(
-                "inspection.infrastructure.redis.application-namespace", "low-altitude",
-                "inspection.infrastructure.redis.business-namespace", "inspection",
-                "inspection.infrastructure.redis.idempotency-ttl", "PT45M",
-                "inspection.infrastructure.storage.environment", "staging",
-                "inspection.infrastructure.storage.endpoint", "https://minio.example.test",
-                "inspection.infrastructure.storage.access-key", "configured-access",
-                "inspection.infrastructure.storage.secret-key", "configured-secret",
-                "inspection.infrastructure.storage.upload-ttl", "PT3M",
-                "inspection.infrastructure.storage.download-ttl", "PT8M",
-                "inspection.infrastructure.storage.reservation-allowed-mime-types[0]", "image/jpeg"
+        Binder binder = new Binder(new MapConfigurationPropertySource(Map.ofEntries(
+                Map.entry("inspection.infrastructure.redis.application-namespace", "low-altitude"),
+                Map.entry("inspection.infrastructure.redis.business-namespace", "inspection"),
+                Map.entry("inspection.infrastructure.redis.idempotency-ttl", "PT45M"),
+                Map.entry("inspection.infrastructure.storage.environment", "staging"),
+                Map.entry("inspection.infrastructure.storage.endpoint", "https://minio.example.test"),
+                Map.entry("inspection.infrastructure.storage.public-endpoint", "https://files.example.test"),
+                Map.entry("inspection.infrastructure.storage.region", "us-east-1"),
+                Map.entry("inspection.infrastructure.storage.access-key", "configured-access"),
+                Map.entry("inspection.infrastructure.storage.secret-key", "configured-secret"),
+                Map.entry("inspection.infrastructure.storage.upload-ttl", "PT3M"),
+                Map.entry("inspection.infrastructure.storage.download-ttl", "PT8M"),
+                Map.entry("inspection.infrastructure.storage.reservation-allowed-mime-types[0]", "image/jpeg")
         )));
 
         RedisIdempotencyProperties redis = binder.bind(
@@ -39,6 +41,8 @@ class InfrastructurePropertiesBindingTest {
         assertThat(redis.idempotencyTtl()).isEqualTo(Duration.ofMinutes(45));
         assertThat(storage.quarantineBucket()).isEqualTo("staging-inspection-quarantine");
         assertThat(storage.privateBucket()).isEqualTo("staging-inspection-private");
+        assertThat(storage.publicEndpoint()).isEqualTo(java.net.URI.create("https://files.example.test"));
+        assertThat(storage.region()).isEqualTo("us-east-1");
         assertThat(storage.downloadTtl()).isEqualTo(Duration.ofMinutes(8));
         assertThat(storage.reservationAllowedMimeTypes()).containsExactly("image/jpeg");
     }
@@ -47,6 +51,8 @@ class InfrastructurePropertiesBindingTest {
     void storageSettingsFailClosedWithoutAnExplicitEnvironment() {
         Binder binder = new Binder(new MapConfigurationPropertySource(Map.of(
                 "inspection.infrastructure.storage.endpoint", "https://minio.example.test",
+                "inspection.infrastructure.storage.public-endpoint", "https://files.example.test",
+                "inspection.infrastructure.storage.region", "us-east-1",
                 "inspection.infrastructure.storage.access-key", "configured-access",
                 "inspection.infrastructure.storage.secret-key", "configured-secret",
                 "inspection.infrastructure.storage.upload-ttl", "PT3M",
@@ -57,5 +63,24 @@ class InfrastructurePropertiesBindingTest {
                 "inspection.infrastructure.storage", MinioStorageProperties.class))
                 .hasRootCauseInstanceOf(IllegalArgumentException.class)
                 .hasRootCauseMessage("environment must be safe for bucket names");
+    }
+
+    @Test
+    void nonLocalStoragePublicEndpointRequiresHttps() {
+        Binder binder = new Binder(new MapConfigurationPropertySource(Map.of(
+                "inspection.infrastructure.storage.environment", "staging",
+                "inspection.infrastructure.storage.endpoint", "http://minio.internal:9000",
+                "inspection.infrastructure.storage.public-endpoint", "http://files.example.test",
+                "inspection.infrastructure.storage.region", "us-east-1",
+                "inspection.infrastructure.storage.access-key", "configured-access",
+                "inspection.infrastructure.storage.secret-key", "configured-secret",
+                "inspection.infrastructure.storage.upload-ttl", "PT3M",
+                "inspection.infrastructure.storage.download-ttl", "PT8M"
+        )));
+
+        assertThatThrownBy(() -> binder.bind(
+                "inspection.infrastructure.storage", MinioStorageProperties.class))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class)
+                .hasRootCauseMessage("non-local publicEndpoint must use HTTPS");
     }
 }

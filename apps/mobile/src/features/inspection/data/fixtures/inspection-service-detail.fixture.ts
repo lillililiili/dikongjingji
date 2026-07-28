@@ -1,7 +1,7 @@
 import type { InspectionServiceDetail } from '../../domain/inspection-service-detail'
 
 export const DEVELOPMENT_POWER_SERVICE_DETAIL: InspectionServiceDetail = {
-  serviceId: 'dev-power-line',
+  serviceId: '33333333-3333-3333-3333-333333333333',
   categoryLabel: '输电巡检',
   title: '输电线路无人机巡检',
   subtitle: '杆塔精细巡检 · 导线通道检测 · 缺陷报告',

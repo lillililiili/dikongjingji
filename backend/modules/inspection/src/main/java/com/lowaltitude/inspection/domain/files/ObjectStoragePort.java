@@ -2,7 +2,7 @@ package com.lowaltitude.inspection.domain.files;
 
 public interface ObjectStoragePort {
 
-    PresignedObjectIntent createUploadIntent(UploadObjectRequest request);
+    PreparedObjectUpload createUploadIntent(UploadObjectRequest request);
 
     UploadVerificationResult verifyUpload(UploadObjectRequest request);
 

@@ -46,6 +46,9 @@ describe('M03 route and data boundary', () => {
     expect(detailShellSource).toContain(
       'intent: ReserveServiceIntent',
     )
+    expect(detailPageSource).toContain('routeServiceId.value')
+    expect(detailPageSource).toContain(':disabled="!canReserve"')
+    expect(detailPageSource).toContain('if (import.meta.env.DEV)')
   })
 
   it('keeps reference data inside development only', () => {

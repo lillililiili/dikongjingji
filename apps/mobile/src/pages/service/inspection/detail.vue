@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { ReserveServiceIntent } from '@/features/inspection/application/detail/inspection-detail-actions'
+import { buildInspectionBookingUrl } from '@/features/inspection/navigation/inspection-routes'
 import InspectionServiceDetailPage from '@/features/inspection/presentation/detail/pages/InspectionServiceDetailPage.vue'
 
 function handleReserve(intent: ReserveServiceIntent): void {
-  uni.showToast({
-    title: `已选择服务 ${intent.serviceId}，需求流程待接入`,
-    icon: 'none',
+  uni.navigateTo({
+    url: buildInspectionBookingUrl(intent.serviceId, intent.cityCode),
   })
 }
 </script>
