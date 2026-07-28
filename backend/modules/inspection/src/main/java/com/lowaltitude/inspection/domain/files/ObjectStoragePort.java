@@ -7,4 +7,10 @@ public interface ObjectStoragePort {
     UploadVerificationResult verifyUpload(UploadObjectRequest request);
 
     PresignedObjectIntent createDownloadIntent(DownloadObjectRequest request);
+
+    default PresignedObjectIntent createBundleDownloadIntent(
+            BundleDownloadRequest request
+    ) {
+        throw new UnsupportedOperationException("bundle download is unavailable");
+    }
 }

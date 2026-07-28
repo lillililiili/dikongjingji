@@ -56,6 +56,8 @@ describe('F06 fulfillment page contract', () => {
     expect(fulfillmentPageSource).toContain('服务进度')
     expect(fulfillmentPageSource).toContain('@click="reload"')
     expect(fulfillmentPageSource).toContain('env(safe-area-inset-bottom)')
+    expect(fulfillmentPageSource).toContain('buildInspectionDeliveryUrl(order.value.id)')
+    expect(fulfillmentPageSource).toContain("order.status === 'DELIVERED' || order.status === 'ACCEPTED'")
     expect(fulfillmentPageSource).not.toContain('立即支付')
   })
 })

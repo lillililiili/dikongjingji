@@ -78,6 +78,13 @@
         "navigationBarTitleText": "服务安排",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/service/inspection/delivery",
+      "style": {
+        "navigationBarTitleText": "报告交付",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

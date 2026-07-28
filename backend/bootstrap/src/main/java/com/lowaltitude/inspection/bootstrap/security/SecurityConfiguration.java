@@ -110,6 +110,7 @@ public class SecurityConfiguration {
                 "Authorization",
                 "Content-Type",
                 "Idempotency-Key",
+                "If-Match",
                 "X-Request-Id"));
         configuration.setExposedHeaders(List.of("X-Request-Id"));
         configuration.setAllowCredentials(false);

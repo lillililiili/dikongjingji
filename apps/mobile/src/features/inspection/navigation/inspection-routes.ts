@@ -7,6 +7,8 @@ export const INSPECTION_PLAN_CONFIRMATION_PATH =
   '/pages/service/inspection/plan-confirmation'
 export const INSPECTION_FULFILLMENT_PATH =
   '/pages/service/inspection/fulfillment'
+export const INSPECTION_DELIVERY_PATH =
+  '/pages/service/inspection/delivery'
 
 export const INSPECTION_ROUTES = [
   {
@@ -28,6 +30,10 @@ export const INSPECTION_ROUTES = [
   {
     name: 'InspectionPlanConfirmation',
     path: INSPECTION_PLAN_CONFIRMATION_PATH,
+  },
+  {
+    name: 'InspectionDelivery',
+    path: INSPECTION_DELIVERY_PATH,
   },
 ] as const
 
@@ -62,6 +68,10 @@ export function buildInspectionFulfillmentUrl(
   return `${INSPECTION_FULFILLMENT_PATH}?serviceOrderId=${encodeURIComponent(
     serviceOrderId.trim(),
   )}`
+}
+
+export function buildInspectionDeliveryUrl(serviceOrderId: string): string {
+  return `${INSPECTION_DELIVERY_PATH}?serviceOrderId=${encodeURIComponent(serviceOrderId.trim())}`
 }
 
 export type InspectionCatalogSort =

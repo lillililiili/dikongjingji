@@ -4,6 +4,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import com.lowaltitude.inspection.domain.files.DeliveryObjectKeys;
+
 public final class InspectionObjectKeyFactory {
 
     private static final String UUID_PATTERN =
@@ -24,13 +26,15 @@ public final class InspectionObjectKeyFactory {
             UUID deliveryId,
             UUID fileId
     ) {
-        return "tenant/" + required(providerId) + "/order/" + required(serviceOrderId)
-                + "/delivery/" + required(deliveryId) + "/" + required(fileId);
+        return DeliveryObjectKeys.artifact(
+                providerId,
+                serviceOrderId,
+                deliveryId,
+                fileId);
     }
 
     public String deliveryBundle(UUID providerId, UUID serviceOrderId, UUID deliveryId) {
-        return "tenant/" + required(providerId) + "/order/" + required(serviceOrderId)
-                + "/bundle/" + required(deliveryId) + ".zip";
+        return DeliveryObjectKeys.bundle(providerId, serviceOrderId, deliveryId);
     }
 
     public boolean isAllowed(String objectKey) {

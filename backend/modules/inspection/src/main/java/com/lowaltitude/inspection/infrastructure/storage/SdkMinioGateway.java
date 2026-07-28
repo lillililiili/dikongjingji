@@ -2,9 +2,16 @@ package com.lowaltitude.inspection.infrastructure.storage;
 
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import io.minio.CopyObjectArgs;
 import io.minio.GetObjectArgs;
@@ -15,6 +22,7 @@ import io.minio.RemoveObjectArgs;
 import io.minio.SourceObject;
 import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
+import io.minio.UploadObjectArgs;
 import io.minio.errors.ErrorResponseException;
 
 public final class SdkMinioGateway implements MinioGateway {
@@ -110,6 +118,54 @@ public final class SdkMinioGateway implements MinioGateway {
                     RemoveObjectArgs.builder().bucket(bucket).object(objectKey).build());
         } catch (Exception exception) {
             throw new ObjectStorageException("Unable to remove rejected object", exception);
+        }
+    }
+
+    @Override
+    public void createZipBundle(
+            String bucket,
+            String objectKey,
+            List<ZipBundleEntry> entries
+    ) {
+        Path temporary = null;
+        try {
+            temporary = Files.createTempFile("inspection-delivery-", ".zip");
+            Set<String> names = new HashSet<>();
+            try (ZipOutputStream output =
+                         new ZipOutputStream(Files.newOutputStream(temporary))) {
+                for (ZipBundleEntry entry : entries) {
+                    if (!names.add(entry.archiveName())) {
+                        throw new IllegalArgumentException(
+                                "bundle archive names must be unique");
+                    }
+                    output.putNextEntry(new ZipEntry(entry.archiveName()));
+                    try (InputStream input = openObject(bucket, entry.objectKey())) {
+                        input.transferTo(output);
+                    }
+                    output.closeEntry();
+                }
+            }
+            internalClient.uploadObject(
+                    UploadObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .filename(temporary.toString())
+                            .contentType("application/zip")
+                            .build());
+        } catch (RuntimeException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ObjectStorageException(
+                    "Unable to create delivery ZIP bundle",
+                    exception);
+        } finally {
+            if (temporary != null) {
+                try {
+                    Files.deleteIfExists(temporary);
+                } catch (java.io.IOException ignored) {
+                    // The OS temp cleaner is the fallback; do not mask the storage result.
+                }
+            }
         }
     }
 

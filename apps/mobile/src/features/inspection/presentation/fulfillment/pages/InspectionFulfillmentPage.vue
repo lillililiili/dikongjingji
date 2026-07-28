@@ -6,6 +6,7 @@ import type { InspectionPlan, InspectionServiceOrder } from '../../../data/servi
 import { inspectionPlanApi } from '../../../data/service-flow/uni-booking-http-client'
 import { formatPlanAmount } from '../../../domain/service-flow/plan'
 import BookingProgress from '../../booking/components/BookingProgress.vue'
+import { buildInspectionDeliveryUrl } from '../../../navigation/inspection-routes'
 
 interface FulfillmentRouteQuery { serviceOrderId?: string }
 
@@ -56,6 +57,10 @@ async function reload(): Promise<void> {
 }
 
 function returnHome(): void { uni.reLaunch({ url: '/pages/home/index' }) }
+function openDelivery(): void {
+  if (!order.value) return
+  uni.navigateTo({ url: buildInspectionDeliveryUrl(order.value.id) })
+}
 function copyOrderNo(): void { if (order.value) uni.setClipboardData({ data: order.value.serviceOrderNo }) }
 function showCustomerService(): void { uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' }) }
 function formatDateTime(value: string | null): string {
@@ -128,10 +133,12 @@ function formatLineLength(value: number | null): string {
         </view>
       </view>
     </main>
+    <button v-if="order && (order.status === 'DELIVERED' || order.status === 'ACCEPTED')" class="fulfillment__delivery-link" @click="openDelivery">查看报告与验收</button>
     <view v-if="order" class="fulfillment__footer"><view><UniIcons type="info-filled" size="18" color="#ff6a00" /><text>服务安排会随服务商实际进度更新，请保持联系方式畅通。</text></view><button @click="returnHome">返回首页</button></view>
   </view>
 </template>
 
 <style scoped>
 .fulfillment{min-height:100vh;background:#f7f8fa;color:#25282d}.fulfillment__header{display:grid;min-height:calc(43px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);grid-template-columns:42px 1fr 62px;align-items:center;background:#fff;font-size:17px;font-weight:700;text-align:center;box-sizing:border-box}.fulfillment__header button{height:42px;margin:0;padding:0;border:0;background:transparent}.fulfillment__header button::after,.fulfillment__number::after,.fulfillment__footer button::after{border:0}.fulfillment__header button:last-child{display:flex;width:62px;align-items:center;justify-content:center;gap:3px;font-size:12px}.fulfillment :deep(.booking-progress){padding:6px 24px 5px}.fulfillment :deep(.booking-progress__line--active){background:#16ad55}.fulfillment__content{max-width:600px;margin:0 auto;padding:4px 8px 77px}.fulfillment__status-card,.fulfillment__card{padding:8px 11px 6px;border:1px solid #eceef1;border-radius:12px;background:#fff}.fulfillment__status-main{display:grid;grid-template-columns:65px minmax(0,1fr);align-items:center}.fulfillment__status-icon{display:grid;width:55px;height:55px;place-items:center;border-radius:50%;background:#fff0e6}.fulfillment__status-main>view:last-child{display:flex;align-items:flex-start;flex-direction:column}.fulfillment__status-title{font-size:17px;font-weight:700}.fulfillment__copy{margin-top:2px;color:#737b85;font-size:10px}.fulfillment__tag{margin-top:3px;padding:0 7px;border:1px solid #ff6a00;border-radius:10px;color:#ff5a00;font-size:10px}.fulfillment__number{display:grid;width:100%;min-height:31px;margin-top:5px;padding:0 9px;grid-template-columns:72px 1fr 18px;align-items:center;border:1px solid #e2e5e8;border-radius:7px;background:#fff;color:#25282d;font-size:11px;text-align:left}.fulfillment__number text:nth-child(2){font-weight:600;letter-spacing:.4px}.fulfillment__time{display:block;margin-top:3px;color:#737a83;font-size:9px}.fulfillment__card{margin-top:5px;padding:7px 10px 5px;font-size:10px}.fulfillment__card-title{display:block;margin-bottom:4px;font-size:13px;font-weight:700}.fulfillment__service{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:center}.fulfillment__service image{width:80px;height:94px;border-radius:7px;background:#edf0f2}.fulfillment__service-details{display:flex;min-width:0;flex-direction:column}.fulfillment__service-title{overflow:hidden;padding-bottom:3px;font-size:13px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.fulfillment__service-details>view{display:grid;min-height:18px;grid-template-columns:60px minmax(0,1fr);align-items:center;border-top:1px solid #eceef1}.fulfillment__service-details>view text:last-child{overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap}.fulfillment__service-details .fulfillment__service-quote{font-weight:700}.fulfillment__service-quote text:last-child{color:#ff5200;font-size:14px}.fulfillment__row{display:grid;min-height:22px;grid-template-columns:72px minmax(0,1fr);align-items:center;border-top:1px solid #eceef1}.fulfillment__row text:last-child{overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap}.fulfillment__progress{display:grid;min-height:20px;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;color:#7d858d;font-size:10px}.fulfillment__progress>text:last-child{font-size:9px}.fulfillment__progress--current{color:#ff5a00!important;font-weight:700}.fulfillment__state{display:flex;min-height:360px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#7e858e;font-size:14px}.fulfillment__state button{border:0;border-radius:18px;color:#fff;background:#ff6a00;font-size:13px}.fulfillment__footer{position:fixed;right:0;bottom:0;left:0;padding:0 8px calc(5px + env(safe-area-inset-bottom));background:#fff}.fulfillment__footer>view{display:flex;margin:0 -8px;padding:4px 11px;align-items:center;gap:5px;color:#a65c2e;background:#fff5ea;font-size:9px}.fulfillment__footer button{display:block;width:min(100%,584px);height:36px;margin:3px auto 0;border:0;border-radius:21px;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff4d00);font-size:15px;font-weight:700}
+.fulfillment__delivery-link{display:block;width:calc(100% - 16px);height:36px;margin:8px auto 0;border:0;border-radius:18px;color:#ff5a00;background:#fff1e8;font-size:14px;font-weight:700}
 </style>

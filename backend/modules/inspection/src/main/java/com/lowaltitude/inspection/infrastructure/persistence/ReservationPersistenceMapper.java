@@ -78,6 +78,12 @@ public interface ReservationPersistenceMapper {
             """)
     int countReservationFiles(@Param("reservationId") UUID reservationId);
 
+    @Select("SELECT id service_order_id, customer_id, provider_id, status order_status FROM inspection_service_order WHERE id=#{serviceOrderId}")
+    Optional<DeliveryFileOwnerRow> findDeliveryFileOwner(@Param("serviceOrderId") UUID serviceOrderId);
+
+    @Select("SELECT count(*) FROM inspection_file_object WHERE owner_id=#{serviceOrderId} AND purpose='DELIVERY_ARTIFACT' AND file_status <> 'DELETED'")
+    int countDeliveryFiles(@Param("serviceOrderId") UUID serviceOrderId);
+
     @Select("""
             SELECT request_hash request_digest, resource_id file_id
             FROM inspection_idempotency_record
@@ -221,6 +227,7 @@ public interface ReservationPersistenceMapper {
             String failureReason
     ) { }
     record ReservationOwnerRow(UUID reservationId, UUID customerId, UUID providerId) { }
+    record DeliveryFileOwnerRow(UUID serviceOrderId, UUID customerId, UUID providerId, String orderStatus) { }
     record ReservationFlowStateRow(String status, UUID currentPlanId, int version) { }
     record FileIdempotencyRow(String requestDigest, UUID fileId) { }
     record FileRow(

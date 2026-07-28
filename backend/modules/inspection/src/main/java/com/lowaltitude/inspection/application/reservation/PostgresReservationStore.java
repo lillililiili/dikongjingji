@@ -104,6 +104,14 @@ final class PostgresReservationStore
     @Override public int countReservationFiles(UUID reservationId) {
         return mapper.countReservationFiles(reservationId);
     }
+    @Override public Optional<DeliveryFileOwner> findDeliveryFileOwner(UUID serviceOrderId) {
+        return mapper.findDeliveryFileOwner(serviceOrderId)
+                .map(row -> new DeliveryFileOwner(
+                        row.serviceOrderId(), row.customerId(), row.providerId(), row.orderStatus()));
+    }
+    @Override public int countDeliveryFiles(UUID serviceOrderId) {
+        return mapper.countDeliveryFiles(serviceOrderId);
+    }
     @Override public Optional<FileIdempotencyEntry> findIdempotency(
             UUID actorId,
             String operation,

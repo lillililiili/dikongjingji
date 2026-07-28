@@ -161,6 +161,16 @@ public class GlobalExceptionHandler {
                 code = "INS_ORDER_STATE_INVALID";
                 message = "服务单当前状态不允许此操作";
             }
+            case DELIVERY_STATE_INVALID -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_DELIVERY_STATE_INVALID";
+                message = "交付当前状态不允许此操作";
+            }
+            case DELIVERY_FILES_INVALID -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "INS_DELIVERY_FILES_INVALID";
+                message = "交付文件不完整或无效";
+            }
             default -> throw new IllegalStateException(
                     "unhandled plan error " + exception.error());
         }

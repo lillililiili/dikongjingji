@@ -72,9 +72,60 @@ export interface InspectionServiceOrder {
   version: number
 }
 
+export type InspectionDeliveryFileType =
+  | 'IMAGE_ARCHIVE'
+  | 'DEFECT_LIST'
+  | 'POINT_KML'
+  | 'INSPECTION_REPORT'
+
+type InspectionDeliveryBase = {
+  id: string
+  serviceOrderId: string
+  towerCount: number
+  inspectedLengthMeters: number
+  issueCount: number
+  issueSummary: Array<{ severityCode: string; severityName: string; count: number }>
+  files: Array<{
+    fileId: string
+    type: InspectionDeliveryFileType
+    displayName: string
+    pointCount: number | null
+    contentType: string
+    sizeBytes: number
+    status: 'PENDING_UPLOAD' | 'UPLOADED' | 'SCANNING' | 'READY' | 'REJECTED' | 'DELETED'
+  }>
+  publishedAt: string
+  version: number
+}
+
+export type InspectionDelivery = InspectionDeliveryBase & (
+  | { status: 'PUBLISHED'; acceptedAt: null }
+  | { status: 'ACCEPTED'; acceptedAt: string }
+)
+
+export interface InspectionDownloadIntent {
+  method: 'GET'
+  downloadUrl: string
+  suggestedFileName: string
+  expiresAt: string
+}
+
+export interface InspectionAcceptance {
+  id: string
+  serviceOrderId: string
+  deliveryId: string
+  acceptedBy: string
+  acceptedAt: string
+  orderStatus: 'ACCEPTED'
+}
+
 export interface InspectionPlanApi {
   getPlan(planId: string): Promise<InspectionPlan>
   getServiceOrder(serviceOrderId: string): Promise<InspectionServiceOrder>
+  getDelivery(serviceOrderId: string): Promise<InspectionDelivery>
+  createDownloadIntent(serviceOrderId: string, fileId: string, idempotencyKey: string): Promise<InspectionDownloadIntent>
+  createDownloadAllIntent(serviceOrderId: string, idempotencyKey: string): Promise<InspectionDownloadIntent>
+  acceptDelivery(serviceOrderId: string, version: number, idempotencyKey: string): Promise<InspectionAcceptance>
   confirmPlan(
     planId: string,
     version: number,
@@ -109,6 +160,27 @@ export function createInspectionPlanApi(
         url: `/api/v1/inspection/service-orders/${encodeURIComponent(serviceOrderId)}`,
         method: 'GET',
         headers: authenticatedHeaders(),
+      })
+    },
+    getDelivery(serviceOrderId) {
+      return http.request<InspectionDelivery>({
+        url: `/api/v1/inspection/service-orders/${encodeURIComponent(serviceOrderId)}/delivery`, method: 'GET', headers: authenticatedHeaders(),
+      })
+    },
+    createDownloadIntent(serviceOrderId, fileId, idempotencyKey) {
+      return http.request<InspectionDownloadIntent>({
+        url: `/api/v1/inspection/service-orders/${encodeURIComponent(serviceOrderId)}/delivery-files/${encodeURIComponent(fileId)}/download-intent`, method: 'POST', headers: authenticatedHeaders({ 'Idempotency-Key': idempotencyKey }),
+      })
+    },
+    createDownloadAllIntent(serviceOrderId, idempotencyKey) {
+      return http.request<InspectionDownloadIntent>({
+        url: `/api/v1/inspection/service-orders/${encodeURIComponent(serviceOrderId)}/delivery-files/download-all-intent`, method: 'POST', headers: authenticatedHeaders({ 'Idempotency-Key': idempotencyKey }),
+      })
+    },
+    acceptDelivery(serviceOrderId, version, idempotencyKey) {
+      return http.request<InspectionAcceptance>({
+        url: `/api/v1/inspection/service-orders/${encodeURIComponent(serviceOrderId)}/acceptance`, method: 'POST', data: { confirmed: true, note: null },
+        headers: authenticatedHeaders({ 'Idempotency-Key': idempotencyKey, 'If-Match': `"${version}"` }),
       })
     },
     confirmPlan(planId, version, idempotencyKey) {

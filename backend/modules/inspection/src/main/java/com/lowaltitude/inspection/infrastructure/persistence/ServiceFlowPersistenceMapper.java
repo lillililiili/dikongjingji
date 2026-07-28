@@ -87,6 +87,78 @@ public interface ServiceFlowPersistenceMapper {
     Optional<ServiceOrderRow> findOrder(@Param("orderId") UUID orderId);
 
     @Select("""
+            SELECT id, service_order_id, status, tower_count,
+                   inspected_length_meters, issue_count, published_at,
+                   accepted_at, version
+            FROM inspection_delivery
+            WHERE id = #{deliveryId}
+            """)
+    Optional<DeliveryRow> findDelivery(@Param("deliveryId") UUID deliveryId);
+
+    @Select("""
+            SELECT id, service_order_id, status, tower_count,
+                   inspected_length_meters, issue_count, published_at,
+                   accepted_at, version
+            FROM inspection_delivery
+            WHERE service_order_id = #{orderId}
+            """)
+    Optional<DeliveryRow> findDeliveryByOrder(@Param("orderId") UUID orderId);
+
+    @Select("""
+            SELECT item->>'severityCode' severity_code,
+                   item->>'severityName' severity_name,
+                   CAST(item->>'count' AS integer) count
+            FROM inspection_delivery d
+            CROSS JOIN LATERAL jsonb_array_elements(d.issue_summary) item
+            WHERE d.id = #{deliveryId}
+            """)
+    List<DeliveryIssueRow> findDeliveryIssues(
+            @Param("deliveryId") UUID deliveryId);
+
+    @Select("""
+            SELECT df.file_id, df.file_type type, df.display_name,
+                   df.point_count, f.content_type, f.size_bytes,
+                   f.file_status status, f.bucket_name bucket, f.object_key
+            FROM inspection_delivery_file df
+            JOIN inspection_file_object f ON f.id = df.file_id
+            WHERE df.delivery_id = #{deliveryId}
+            ORDER BY df.display_order, df.id
+            """)
+    List<DeliveryFileRow> findDeliveryFiles(
+            @Param("deliveryId") UUID deliveryId);
+
+    @Select("""
+            SELECT id, owner_id service_order_id, provider_id, extension,
+                   content_type, size_bytes, bucket_name bucket, object_key,
+                   file_status status
+            FROM inspection_file_object
+            WHERE id = #{fileId}
+              AND purpose = 'DELIVERY_ARTIFACT'
+            """)
+    Optional<DeliveryFileObjectRow> findDeliveryFileObject(
+            @Param("fileId") UUID fileId);
+
+    @Select("""
+            SELECT a.id, a.service_order_id, a.delivery_id, a.accepted_by,
+                   a.accepted_at, a.note_ciphertext, o.version order_version
+            FROM inspection_acceptance a
+            JOIN inspection_service_order o ON o.id = a.service_order_id
+            WHERE a.id = #{acceptanceId}
+            """)
+    Optional<AcceptanceRow> findAcceptance(
+            @Param("acceptanceId") UUID acceptanceId);
+
+    @Select("""
+            SELECT a.id, a.service_order_id, a.delivery_id, a.accepted_by,
+                   a.accepted_at, a.note_ciphertext, o.version order_version
+            FROM inspection_acceptance a
+            JOIN inspection_service_order o ON o.id = a.service_order_id
+            WHERE a.service_order_id = #{orderId}
+            """)
+    Optional<AcceptanceRow> findAcceptanceByOrder(
+            @Param("orderId") UUID orderId);
+
+    @Select("""
             SELECT assignment_type type, resource_id,
                    display_name_snapshot display_name, role_label
             FROM inspection_order_assignment
@@ -369,6 +441,117 @@ public interface ServiceFlowPersistenceMapper {
             @Param("actorId") UUID actorId,
             @Param("updatedAt") Instant updatedAt);
 
+    @Update("""
+            UPDATE inspection_service_order
+            SET status = 'DELIVERED',
+                delivered_at = #{deliveredAt},
+                version = version + 1,
+                updated_by = #{actorId},
+                updated_at = #{deliveredAt}
+            WHERE id = #{orderId}
+              AND status = 'IN_PROGRESS'
+              AND version = #{expectedVersion}
+            """)
+    int updateOrderDelivered(
+            @Param("orderId") UUID orderId,
+            @Param("expectedVersion") int expectedVersion,
+            @Param("deliveredAt") Instant deliveredAt,
+            @Param("actorId") UUID actorId);
+
+    @Insert("""
+            INSERT INTO inspection_delivery (
+                id, service_order_id, status, tower_count,
+                inspected_length_meters, issue_count, issue_summary,
+                published_by, published_at, version, created_at, updated_at
+            )
+            VALUES (
+                #{id}, #{orderId}, 'PUBLISHED', #{towerCount},
+                #{inspectedLengthMeters}, #{issueCount},
+                CAST(#{issueSummaryJson} AS jsonb), #{actorId},
+                #{publishedAt}, #{version}, #{publishedAt}, #{publishedAt}
+            )
+            """)
+    void insertDelivery(
+            @Param("id") UUID id,
+            @Param("orderId") UUID orderId,
+            @Param("towerCount") int towerCount,
+            @Param("inspectedLengthMeters") long inspectedLengthMeters,
+            @Param("issueCount") int issueCount,
+            @Param("issueSummaryJson") String issueSummaryJson,
+            @Param("actorId") UUID actorId,
+            @Param("publishedAt") Instant publishedAt,
+            @Param("version") int version);
+
+    @Insert("""
+            INSERT INTO inspection_delivery_file (
+                id, delivery_id, file_id, file_type, display_name,
+                point_count, display_order, created_at
+            )
+            VALUES (
+                gen_random_uuid(), #{deliveryId}, #{fileId}, #{type},
+                #{displayName}, #{pointCount}, #{displayOrder}, #{createdAt}
+            )
+            """)
+    void insertDeliveryFile(
+            @Param("deliveryId") UUID deliveryId,
+            @Param("fileId") UUID fileId,
+            @Param("type") String type,
+            @Param("displayName") String displayName,
+            @Param("pointCount") Integer pointCount,
+            @Param("displayOrder") int displayOrder,
+            @Param("createdAt") Instant createdAt);
+
+    @Update("""
+            UPDATE inspection_service_order
+            SET status = 'ACCEPTED',
+                accepted_at = #{acceptedAt},
+                version = version + 1,
+                updated_by = #{actorId},
+                updated_at = #{acceptedAt}
+            WHERE id = #{orderId}
+              AND status = 'DELIVERED'
+              AND version = #{expectedVersion}
+            """)
+    int updateOrderAccepted(
+            @Param("orderId") UUID orderId,
+            @Param("expectedVersion") int expectedVersion,
+            @Param("acceptedAt") Instant acceptedAt,
+            @Param("actorId") UUID actorId);
+
+    @Update("""
+            UPDATE inspection_delivery
+            SET status = 'ACCEPTED',
+                accepted_at = #{acceptedAt},
+                version = version + 1,
+                updated_at = #{acceptedAt}
+            WHERE id = #{deliveryId}
+              AND status = 'PUBLISHED'
+              AND version = #{expectedVersion}
+            """)
+    int updateDeliveryAccepted(
+            @Param("deliveryId") UUID deliveryId,
+            @Param("expectedVersion") int expectedVersion,
+            @Param("acceptedAt") Instant acceptedAt);
+
+    @Insert("""
+            INSERT INTO inspection_acceptance (
+                id, service_order_id, delivery_id, accepted_by,
+                accepted_at, note_ciphertext, idempotency_key, created_at
+            )
+            VALUES (
+                #{id}, #{orderId}, #{deliveryId}, #{acceptedBy},
+                #{acceptedAt}, #{noteCiphertext}, #{idempotencyKey}, #{acceptedAt}
+            )
+            """)
+    void insertAcceptance(
+            @Param("id") UUID id,
+            @Param("orderId") UUID orderId,
+            @Param("deliveryId") UUID deliveryId,
+            @Param("acceptedBy") UUID acceptedBy,
+            @Param("acceptedAt") Instant acceptedAt,
+            @Param("noteCiphertext") byte[] noteCiphertext,
+            @Param("idempotencyKey") UUID idempotencyKey);
+
     @Insert("""
             INSERT INTO inspection_order_progress (
                 id, service_order_id, event_code, occurred_at,
@@ -505,6 +688,59 @@ public interface ServiceFlowPersistenceMapper {
             String eventCode,
             Instant occurredAt,
             String message
+    ) {
+    }
+
+    record DeliveryRow(
+            UUID id,
+            UUID serviceOrderId,
+            String status,
+            int towerCount,
+            long inspectedLengthMeters,
+            int issueCount,
+            Instant publishedAt,
+            Instant acceptedAt,
+            int version
+    ) {
+    }
+
+    record DeliveryIssueRow(String severityCode, String severityName, int count) {
+    }
+
+    record DeliveryFileRow(
+            UUID fileId,
+            String type,
+            String displayName,
+            Integer pointCount,
+            String contentType,
+            long sizeBytes,
+            String status,
+            String bucket,
+            String objectKey
+    ) {
+    }
+
+    record DeliveryFileObjectRow(
+            UUID id,
+            UUID serviceOrderId,
+            UUID providerId,
+            String extension,
+            String contentType,
+            long sizeBytes,
+            String bucket,
+            String objectKey,
+            String status
+    ) {
+    }
+
+    record AcceptanceRow(
+            UUID id,
+            UUID serviceOrderId,
+            UUID deliveryId,
+            UUID acceptedBy,
+            Instant acceptedAt,
+            byte[] noteCiphertext,
+            int orderVersion
     ) {
     }
 

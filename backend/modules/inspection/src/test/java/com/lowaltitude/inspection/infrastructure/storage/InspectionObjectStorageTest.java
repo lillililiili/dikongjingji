@@ -19,6 +19,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.domain.files.BundleDownloadRequest;
+import com.lowaltitude.inspection.domain.files.BundleObjectSource;
 import com.lowaltitude.inspection.domain.files.DeliveryFileType;
 import com.lowaltitude.inspection.domain.files.DownloadObjectRequest;
 import com.lowaltitude.inspection.domain.files.FileObjectStatus;
@@ -173,6 +175,107 @@ class InspectionObjectStorageTest {
                 .hasMessageContaining("10");
     }
 
+    @Test
+    void bundleUsesPrivateReadySourcesSafeUniqueNamesAndShortPresign() {
+        RecordingMinioGateway gateway = new RecordingMinioGateway();
+        MinioObjectStorageAdapter adapter = adapter(properties(Set.of()), gateway);
+        InspectionObjectKeyFactory keyFactory = new InspectionObjectKeyFactory();
+        UUID secondFileId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        String bundleKey = keyFactory.deliveryBundle(PROVIDER_ID, ORDER_ID, DELIVERY_ID);
+        String firstSourceKey = keyFactory.deliveryArtifact(
+                PROVIDER_ID, ORDER_ID, DELIVERY_ID, FILE_ID);
+        String secondSourceKey = keyFactory.deliveryArtifact(
+                PROVIDER_ID, ORDER_ID, DELIVERY_ID, secondFileId);
+        List<BundleObjectSource> sources = List.of(
+                new BundleObjectSource(
+                        "prod-inspection-private", firstSourceKey,
+                        FileObjectStatus.READY, "巡检报告.pdf"),
+                new BundleObjectSource(
+                        "prod-inspection-private", secondSourceKey,
+                        FileObjectStatus.READY, "缺陷清单.xlsx"));
+
+        PresignedObjectIntent intent = adapter.createBundleDownloadIntent(
+                new BundleDownloadRequest(
+                        "prod-inspection-private", bundleKey, sources, Duration.ofMinutes(5)));
+
+        assertThat(gateway.zipBucket).isEqualTo("prod-inspection-private");
+        assertThat(gateway.zipObjectKey).isEqualTo(bundleKey);
+        assertThat(gateway.zipEntries).containsExactly(
+                new ZipBundleEntry(firstSourceKey, "巡检报告.pdf"),
+                new ZipBundleEntry(secondSourceKey, "缺陷清单.xlsx"));
+        assertThat(gateway.presignGetTtl).isEqualTo(Duration.ofMinutes(5));
+        assertThat(intent.method()).isEqualTo("GET");
+        assertThat(intent.expiresAt()).isEqualTo(NOW.plus(Duration.ofMinutes(5)));
+    }
+
+    @Test
+    void bundleRejectsNonPrivateNonReadyUnsafeOrDuplicatedSources() {
+        MinioObjectStorageAdapter adapter = adapter(properties(Set.of()));
+        InspectionObjectKeyFactory keyFactory = new InspectionObjectKeyFactory();
+        UUID secondFileId = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        String bundleKey = keyFactory.deliveryBundle(PROVIDER_ID, ORDER_ID, DELIVERY_ID);
+        String firstSourceKey = keyFactory.deliveryArtifact(
+                PROVIDER_ID, ORDER_ID, DELIVERY_ID, FILE_ID);
+        String secondSourceKey = keyFactory.deliveryArtifact(
+                PROVIDER_ID, ORDER_ID, DELIVERY_ID, secondFileId);
+
+        assertThatThrownBy(() -> adapter.createBundleDownloadIntent(
+                bundleRequest(
+                        bundleKey,
+                        new BundleObjectSource(
+                                "prod-inspection-quarantine", firstSourceKey,
+                                FileObjectStatus.READY, "report.pdf"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("private READY");
+        assertThatThrownBy(() -> adapter.createBundleDownloadIntent(
+                bundleRequest(
+                        bundleKey,
+                        new BundleObjectSource(
+                                "prod-inspection-private", firstSourceKey,
+                                FileObjectStatus.UPLOADED, "report.pdf"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("private READY");
+        assertThatThrownBy(() -> adapter.createBundleDownloadIntent(
+                bundleRequest(
+                        bundleKey,
+                        new BundleObjectSource(
+                                "prod-inspection-private", firstSourceKey,
+                                FileObjectStatus.READY, "../report.pdf"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unsafe or duplicated");
+        assertThatThrownBy(() -> adapter.createBundleDownloadIntent(
+                new BundleDownloadRequest(
+                        "prod-inspection-private",
+                        bundleKey,
+                        List.of(
+                                new BundleObjectSource(
+                                        "prod-inspection-private", firstSourceKey,
+                                        FileObjectStatus.READY, "report.pdf"),
+                                new BundleObjectSource(
+                                        "prod-inspection-private", secondSourceKey,
+                                        FileObjectStatus.READY, "report.pdf")),
+                        Duration.ofMinutes(5))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unsafe or duplicated");
+        assertThatThrownBy(() -> adapter.createBundleDownloadIntent(
+                new BundleDownloadRequest(
+                        "prod-inspection-private",
+                        firstSourceKey,
+                        List.of(new BundleObjectSource(
+                                "prod-inspection-private", firstSourceKey,
+                                FileObjectStatus.READY, "report.pdf")),
+                        Duration.ofMinutes(5))))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static BundleDownloadRequest bundleRequest(
+            String bundleKey,
+            BundleObjectSource source
+    ) {
+        return new BundleDownloadRequest(
+                "prod-inspection-private", bundleKey, List.of(source), Duration.ofMinutes(5));
+    }
+
     private static MinioObjectStorageAdapter adapter(MinioStorageProperties properties) {
         return adapter(properties, new RecordingMinioGateway());
     }
@@ -218,6 +321,10 @@ class InspectionObjectStorageTest {
         private byte[] content = new byte[0];
         private final List<String> deletedKeys = new ArrayList<>();
         private final List<String> copiedKeys = new ArrayList<>();
+        private String zipBucket;
+        private String zipObjectKey;
+        private List<ZipBundleEntry> zipEntries = List.of();
+        private Duration presignGetTtl;
 
         @Override
         public URI presignPut(String bucket, String objectKey, String contentType, Duration ttl) {
@@ -231,6 +338,7 @@ class InspectionObjectStorageTest {
         public URI presignGet(String bucket, String objectKey, Duration ttl) {
             this.bucket = bucket;
             this.objectKey = objectKey;
+            this.presignGetTtl = ttl;
             return URI.create("https://storage.test/download");
         }
 
@@ -278,6 +386,17 @@ class InspectionObjectStorageTest {
                 metadata = null;
             }
             deletedKeys.add(objectKey);
+        }
+
+        @Override
+        public void createZipBundle(
+                String bucket,
+                String objectKey,
+                List<ZipBundleEntry> entries
+        ) {
+            this.zipBucket = bucket;
+            this.zipObjectKey = objectKey;
+            this.zipEntries = List.copyOf(entries);
         }
     }
 }

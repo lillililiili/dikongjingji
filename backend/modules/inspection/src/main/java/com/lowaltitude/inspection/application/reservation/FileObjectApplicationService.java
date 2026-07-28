@@ -17,6 +17,8 @@ import java.util.UUID;
 
 import com.lowaltitude.inspection.domain.files.FileObjectStatus;
 import com.lowaltitude.inspection.domain.files.FilePurpose;
+import com.lowaltitude.inspection.domain.files.DeliveryFileType;
+import com.lowaltitude.inspection.domain.files.DeliveryIdentity;
 import com.lowaltitude.inspection.domain.files.ObjectStoragePort;
 import com.lowaltitude.inspection.domain.files.PreparedObjectUpload;
 import com.lowaltitude.inspection.domain.files.UploadObjectRequest;
@@ -27,9 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class FileObjectApplicationService {
 
     private static final String RESERVATION_PURPOSE = "RESERVATION_ATTACHMENT";
+    private static final String DELIVERY_PURPOSE = "DELIVERY_ARTIFACT";
     private static final String CREATE_OPERATION = "inspection.file.upload-intent";
     private static final String COMPLETE_OPERATION = "inspection.file.complete";
     private static final int MAX_RESERVATION_FILES = 9;
+    private static final int MAX_DELIVERY_FILES = 20;
     private static final long MAX_FILE_SIZE_BYTES = 1_073_741_824L;
     private static final Set<String> SUPPORTED_RESERVATION_MIMES = Set.of(
             "image/jpeg",
@@ -56,7 +60,6 @@ public class FileObjectApplicationService {
             UUID idempotencyKey,
             CreateUploadIntentCommand command
     ) {
-        requireCustomerUpload(subject);
         validateCreate(idempotencyKey, command);
         String digest = digest(java.util.Arrays.asList(
                 command.purpose(),
@@ -72,6 +75,11 @@ public class FileObjectApplicationService {
             requireSameDigest(prior.get(), digest);
             return reissueIntent(visibleFile(subject, prior.get().fileId()));
         }
+
+        if (DELIVERY_PURPOSE.equals(command.purpose())) {
+            return createDeliveryUploadIntent(subject, idempotencyKey, command, digest);
+        }
+        requireCustomerUpload(subject);
 
         ReservationFileOwner owner = store.findReservationOwner(command.ownerId())
                 .filter(value -> value.customerId().equals(subject.subjectId()))
@@ -128,13 +136,53 @@ public class FileObjectApplicationService {
         return UploadIntentView.from(fileId, prepared);
     }
 
+    private UploadIntentView createDeliveryUploadIntent(
+            CurrentSubject subject, UUID idempotencyKey,
+            CreateUploadIntentCommand command, String digest
+    ) {
+        requireProviderDeliveryUpload(subject);
+        DeliveryFileOwner owner = store.findDeliveryFileOwner(command.ownerId())
+                .filter(value -> value.providerId().equals(subject.organizationId()))
+                .orElseThrow(ReservationNotFoundException::new);
+        if (!"IN_PROGRESS".equals(owner.orderStatus())) {
+            throw new FileUploadConflictException();
+        }
+        if (store.countDeliveryFiles(owner.serviceOrderId()) >= MAX_DELIVERY_FILES) {
+            throw new FileCountExceededException();
+        }
+        DeliveryFileType type = deliveryFileType(command.deliveryFileType());
+        UUID fileId = UUID.randomUUID();
+        UploadObjectRequest storageRequest = UploadObjectRequest.deliveryArtifact(
+                        owner.providerId(), owner.serviceOrderId(),
+                        DeliveryIdentity.forServiceOrder(owner.serviceOrderId()), fileId, type,
+                        command.originalName().trim(),
+                        command.contentType().toLowerCase(Locale.ROOT), command.sizeBytes())
+                .withSha256(command.sha256());
+        PreparedObjectUpload prepared = storage.createUploadIntent(storageRequest);
+        StoredFileObject file = new StoredFileObject(
+                fileId, FilePurpose.DELIVERY_ARTIFACT, owner.serviceOrderId(), owner.providerId(),
+                prepared.finalBucket(), prepared.objectKey(), command.originalName().trim(),
+                command.contentType().toLowerCase(Locale.ROOT), extension(command.originalName()),
+                command.sizeBytes(), command.sha256(), null, FileObjectStatus.PENDING_UPLOAD,
+                null, subject.subjectId(), clock.instant(), 0);
+        try {
+            store.saveIntent(file, new FileIdempotencyEntry(
+                    subject.subjectId(), CREATE_OPERATION, idempotencyKey, digest, fileId));
+        } catch (DuplicateIdempotencyKeyException conflict) {
+            FileIdempotencyEntry concurrent = store.findIdempotency(
+                    subject.subjectId(), CREATE_OPERATION, idempotencyKey).orElseThrow(() -> conflict);
+            requireSameDigest(concurrent, digest);
+            return reissueIntent(visibleFile(subject, concurrent.fileId()));
+        }
+        return UploadIntentView.from(fileId, prepared);
+    }
+
     public FileObjectView completeUpload(
             CurrentSubject subject,
             UUID idempotencyKey,
             UUID fileId,
             CompleteUploadCommand command
     ) {
-        requireCustomerUpload(subject);
         validateComplete(idempotencyKey, fileId, command);
         StoredFileObject file = visibleFile(subject, fileId);
         String digest = digest(java.util.Arrays.asList(
@@ -234,6 +282,17 @@ public class FileObjectApplicationService {
     private StoredFileObject visibleFile(CurrentSubject subject, UUID fileId) {
         StoredFileObject file = store.findFile(fileId)
                 .orElseThrow(ReservationNotFoundException::new);
+        if (file.purpose() == FilePurpose.DELIVERY_ARTIFACT) {
+            DeliveryFileOwner owner = store.findDeliveryFileOwner(file.ownerId())
+                    .orElseThrow(ReservationNotFoundException::new);
+            if (!file.uploadedBy().equals(subject.subjectId())
+                    || !owner.providerId().equals(subject.organizationId())
+                    || !subject.roles().contains("PROVIDER_OPERATOR")
+                    || !subject.permissions().contains("inspection.delivery.publish.assigned")) {
+                throw new ReservationNotFoundException();
+            }
+            return file;
+        }
         ReservationFileOwner owner = store.findReservationOwner(file.ownerId())
                 .orElseThrow(ReservationNotFoundException::new);
         if (!file.uploadedBy().equals(subject.subjectId())
@@ -251,15 +310,24 @@ public class FileObjectApplicationService {
         }
     }
 
+    private static void requireProviderDeliveryUpload(CurrentSubject subject) {
+        if (subject == null
+                || !subject.roles().contains("PROVIDER_OPERATOR")
+                || !subject.permissions().contains("inspection.delivery.publish.assigned")
+                || subject.organizationId() == null) {
+            throw new FileAccessDeniedException();
+        }
+    }
+
     private static void validateCreate(
             UUID idempotencyKey,
             CreateUploadIntentCommand command
     ) {
         if (idempotencyKey == null
                 || command == null
-                || !RESERVATION_PURPOSE.equals(command.purpose())
+                || (!RESERVATION_PURPOSE.equals(command.purpose())
+                    && !DELIVERY_PURPOSE.equals(command.purpose()))
                 || command.ownerId() == null
-                || command.deliveryFileType() != null
                 || !validText(command.originalName(), 1, 180)
                 || !validText(command.contentType(), 3, 120)
                 || command.sha256() == null
@@ -269,12 +337,18 @@ public class FileObjectApplicationService {
         if (command.sizeBytes() <= 0 || command.sizeBytes() > MAX_FILE_SIZE_BYTES) {
             throw new FileTooLargeException();
         }
-        if (!SUPPORTED_RESERVATION_MIMES.contains(
-                        command.contentType().toLowerCase(Locale.ROOT))
-                || !extensionMatchesMime(
-                        extension(command.originalName()),
-                        command.contentType())) {
+        if (RESERVATION_PURPOSE.equals(command.purpose())
+                && (command.deliveryFileType() != null
+                || !SUPPORTED_RESERVATION_MIMES.contains(command.contentType().toLowerCase(Locale.ROOT))
+                || !extensionMatchesMime(extension(command.originalName()), command.contentType()))) {
             throw new FileTypeUnsupportedException();
+        }
+        if (DELIVERY_PURPOSE.equals(command.purpose())) {
+            DeliveryFileType type = deliveryFileType(command.deliveryFileType());
+            if (!type.extension().substring(1).equals(extension(command.originalName()))
+                    || !type.mimeType().equals(command.contentType().toLowerCase(Locale.ROOT))) {
+                throw new FileTypeUnsupportedException();
+            }
         }
     }
 
@@ -303,6 +377,17 @@ public class FileObjectApplicationService {
             case "application/pdf" -> extension.equals("pdf");
             default -> false;
         };
+    }
+
+    private static DeliveryFileType deliveryFileType(String value) {
+        if (!validText(value, 1, 40)) {
+            throw new FileUploadValidationException();
+        }
+        try {
+            return DeliveryFileType.valueOf(value);
+        } catch (IllegalArgumentException exception) {
+            throw new FileTypeUnsupportedException();
+        }
     }
 
     private static String extension(String originalName) {
@@ -394,8 +479,9 @@ record FileObjectView(
     }
 }
 
-record ReservationFileOwner(UUID reservationId, UUID customerId, UUID providerId) {
-}
+record ReservationFileOwner(UUID reservationId, UUID customerId, UUID providerId) { }
+
+record DeliveryFileOwner(UUID serviceOrderId, UUID customerId, UUID providerId, String orderStatus) { }
 
 record FileIdempotencyEntry(
         UUID actorId,
@@ -452,8 +538,12 @@ record StoredFileObject(
     }
 
     UploadObjectRequest toStorageRequest() {
-        if (purpose != FilePurpose.RESERVATION_ATTACHMENT) {
-            throw new IllegalStateException("unsupported file purpose");
+        if (purpose == FilePurpose.DELIVERY_ARTIFACT) {
+            return UploadObjectRequest.deliveryArtifact(
+                            providerId, ownerId, DeliveryIdentity.forServiceOrder(ownerId), id,
+                            deliveryFileTypeFor(extension, contentType), originalName, contentType,
+                            sizeBytes)
+                    .withSha256(sha256);
         }
         return UploadObjectRequest.reservationAttachment(
                         providerId,
@@ -464,6 +554,16 @@ record StoredFileObject(
                         sizeBytes)
                 .withSha256(sha256);
     }
+
+    private static DeliveryFileType deliveryFileTypeFor(String extension, String contentType) {
+        for (DeliveryFileType type : DeliveryFileType.values()) {
+            if (type.extension().substring(1).equals(extension)
+                    && type.mimeType().equals(contentType)) {
+                return type;
+            }
+        }
+        throw new IllegalStateException("unsupported delivery file metadata");
+    }
 }
 
 interface FileObjectStore {
@@ -471,6 +571,10 @@ interface FileObjectStore {
     Optional<ReservationFileOwner> findReservationOwner(UUID reservationId);
 
     int countReservationFiles(UUID reservationId);
+
+    Optional<DeliveryFileOwner> findDeliveryFileOwner(UUID serviceOrderId);
+
+    int countDeliveryFiles(UUID serviceOrderId);
 
     Optional<FileIdempotencyEntry> findIdempotency(
             UUID actorId,

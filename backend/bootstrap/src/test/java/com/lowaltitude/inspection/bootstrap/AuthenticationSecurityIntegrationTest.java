@@ -22,6 +22,9 @@ import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
 import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
+import com.lowaltitude.inspection.application.serviceflow.DeliveryApplicationService;
+import com.lowaltitude.inspection.application.serviceflow.OrderApplicationService;
+import com.lowaltitude.inspection.application.serviceflow.PlanApplicationService;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -32,6 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Bean;
@@ -46,6 +50,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@MockBean({
+        PlanApplicationService.class,
+        OrderApplicationService.class,
+        DeliveryApplicationService.class
+})
 @Import({
         AuthenticationSecurityIntegrationTest.SecurityProbeConfiguration.class,
         AuthenticationSecurityIntegrationTest.TestIdentityConfiguration.class
@@ -162,9 +171,14 @@ class AuthenticationSecurityIntegrationTest {
                         .header("Origin", "http://127.0.0.1:4173")
                         .header("Access-Control-Request-Method", "POST")
                         .header("Access-Control-Request-Headers",
-                                "authorization,content-type,idempotency-key,x-request-id"))
+                                "authorization,content-type,idempotency-key,if-match,x-request-id"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://127.0.0.1:4173"));
+                .andExpect(header().string(
+                        "Access-Control-Allow-Origin",
+                        "http://127.0.0.1:4173"))
+                .andExpect(header().string(
+                        "Access-Control-Allow-Headers",
+                        org.hamcrest.Matchers.containsString("if-match")));
     }
 
     @Test

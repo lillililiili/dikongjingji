@@ -3,6 +3,7 @@ package com.lowaltitude.inspection.infrastructure.storage;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 public interface MinioGateway {
@@ -25,4 +26,12 @@ public interface MinioGateway {
     );
 
     void removeObject(String bucket, String objectKey);
+
+    default void createZipBundle(
+            String bucket,
+            String objectKey,
+            List<ZipBundleEntry> entries
+    ) {
+        throw new UnsupportedOperationException("ZIP bundle creation is unavailable");
+    }
 }

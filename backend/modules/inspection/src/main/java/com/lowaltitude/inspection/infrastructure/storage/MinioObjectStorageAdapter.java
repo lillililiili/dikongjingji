@@ -8,12 +8,17 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
+import com.lowaltitude.inspection.domain.files.BundleDownloadRequest;
+import com.lowaltitude.inspection.domain.files.BundleObjectSource;
 import com.lowaltitude.inspection.domain.files.DownloadObjectRequest;
 import com.lowaltitude.inspection.domain.files.FileObjectStatus;
 import com.lowaltitude.inspection.domain.files.FilePurpose;
@@ -228,6 +233,72 @@ public final class MinioObjectStorageAdapter implements ObjectStoragePort {
         }
         URI url = gateway.presignGet(request.bucket(), request.objectKey(), ttl);
         return new PresignedObjectIntent("GET", url, Map.of(), clock.instant().plus(ttl));
+    }
+
+    @Override
+    public PresignedObjectIntent createBundleDownloadIntent(
+            BundleDownloadRequest request
+    ) {
+        Objects.requireNonNull(request, "request must not be null");
+        if (!properties.privateBucket().equals(request.bucket())) {
+            throw new IllegalArgumentException("bundles require the private bucket");
+        }
+        ensureAllowedKey(request.objectKey());
+        if (!request.objectKey().contains("/bundle/")
+                || request.sources() == null
+                || request.sources().isEmpty()) {
+            throw new IllegalArgumentException("delivery bundle sources are required");
+        }
+        Duration ttl = Objects.requireNonNull(request.ttl(), "ttl must not be null");
+        if (ttl.isZero()
+                || ttl.isNegative()
+                || ttl.compareTo(MAX_DOWNLOAD_TTL) > 0
+                || ttl.compareTo(properties.downloadTtl()) > 0) {
+            throw new IllegalArgumentException(
+                    "download ttl must be positive and not exceed 10 minutes");
+        }
+        Set<String> names = new HashSet<>();
+        List<ZipBundleEntry> entries = request.sources().stream()
+                .map(source -> validatedBundleSource(request.bucket(), source, names))
+                .toList();
+        if (gateway.statObjectIfPresent(request.bucket(), request.objectKey()).isEmpty()) {
+            gateway.createZipBundle(request.bucket(), request.objectKey(), entries);
+        }
+        URI url = gateway.presignGet(
+                request.bucket(),
+                request.objectKey(),
+                ttl);
+        return new PresignedObjectIntent(
+                "GET",
+                url,
+                Map.of(),
+                clock.instant().plus(ttl));
+    }
+
+    private ZipBundleEntry validatedBundleSource(
+            String bucket,
+            BundleObjectSource source,
+            Set<String> names
+    ) {
+        if (source == null
+                || !bucket.equals(source.bucket())
+                || source.status() != FileObjectStatus.READY) {
+            throw new IllegalArgumentException(
+                    "bundle sources must be private READY objects");
+        }
+        ensureAllowedKey(source.objectKey());
+        String archiveName = source.archiveName();
+        if (archiveName == null
+                || archiveName.isBlank()
+                || archiveName.contains("/")
+                || archiveName.contains("\\")
+                || ".".equals(archiveName)
+                || "..".equals(archiveName)
+                || !names.add(archiveName)) {
+            throw new IllegalArgumentException(
+                    "bundle archive name is unsafe or duplicated");
+        }
+        return new ZipBundleEntry(source.objectKey(), archiveName);
     }
 
     private void validateReservationMime(String contentType) {

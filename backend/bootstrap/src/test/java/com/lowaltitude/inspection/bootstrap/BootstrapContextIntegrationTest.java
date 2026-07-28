@@ -12,6 +12,11 @@ import java.util.List;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
+import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
+import com.lowaltitude.inspection.application.serviceflow.DeliveryApplicationService;
+import com.lowaltitude.inspection.application.serviceflow.OrderApplicationService;
+import com.lowaltitude.inspection.application.serviceflow.PlanApplicationService;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -22,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Bean;
@@ -34,6 +40,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@MockBean({
+        ReservationApplicationService.class,
+        InspectionServiceCatalogReadService.class,
+        PlanApplicationService.class,
+        OrderApplicationService.class,
+        DeliveryApplicationService.class
+})
 @Import({
         BootstrapContextIntegrationTest.ErrorControllerTestConfiguration.class,
         BootstrapContextIntegrationTest.TokenVersionTestConfiguration.class
