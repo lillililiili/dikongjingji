@@ -71,6 +71,13 @@
         "navigationBarTitleText": "方案确认",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/service/inspection/fulfillment",
+      "style": {
+        "navigationBarTitleText": "服务安排",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

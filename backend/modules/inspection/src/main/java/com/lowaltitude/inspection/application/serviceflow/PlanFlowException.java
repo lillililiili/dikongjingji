@@ -22,6 +22,7 @@ public class PlanFlowException extends RuntimeException {
         RESERVATION_STATE_INVALID,
         PLAN_NOT_PUBLISHED,
         PLAN_EXPIRED,
-        PLAN_ALREADY_CONFIRMED
+        PLAN_ALREADY_CONFIRMED,
+        ORDER_STATE_INVALID
     }
 }

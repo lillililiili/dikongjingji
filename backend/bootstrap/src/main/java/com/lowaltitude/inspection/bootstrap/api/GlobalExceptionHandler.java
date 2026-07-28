@@ -156,6 +156,11 @@ public class GlobalExceptionHandler {
                 code = "INS_PLAN_ALREADY_CONFIRMED";
                 message = "方案已确认";
             }
+            case ORDER_STATE_INVALID -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_ORDER_STATE_INVALID";
+                message = "服务单当前状态不允许此操作";
+            }
             default -> throw new IllegalStateException(
                     "unhandled plan error " + exception.error());
         }

@@ -39,11 +39,42 @@ export interface InspectionServiceOrder {
   customerId: string
   providerId: string
   status: 'ARRANGING' | 'IN_PROGRESS' | 'DELIVERED' | 'ACCEPTED'
+  serviceSnapshot: {
+    serviceId: string
+    serviceTitle: string
+    serviceCoverUrl: string | null
+    cityCode: string
+    location: {
+      address: string
+      longitude: number | null
+      latitude: number | null
+    }
+    lineLengthMeters: number | null
+    serviceDate: string
+    inspectionItems: Array<{ code: string; label: string }>
+  }
+  plannedStartAt: string | null
+  assignments: Array<{
+    type: 'TEAM_MEMBER' | 'DEVICE'
+    resourceId: string
+    displayName: string
+    roleLabel: string | null
+  }>
+  progress: Array<{
+    id: string
+    eventCode: 'ARRANGEMENT_READY' | 'SERVICE_STARTED' | 'SERVICE_PROGRESS' | 'SERVICE_COMPLETED'
+    occurredAt: string
+    message: string
+  }>
+  createdAt: string
+  deliveredAt: string | null
+  acceptedAt: string | null
   version: number
 }
 
 export interface InspectionPlanApi {
   getPlan(planId: string): Promise<InspectionPlan>
+  getServiceOrder(serviceOrderId: string): Promise<InspectionServiceOrder>
   confirmPlan(
     planId: string,
     version: number,
@@ -69,6 +100,13 @@ export function createInspectionPlanApi(
     getPlan(planId) {
       return http.request<InspectionPlan>({
         url: `/api/v1/inspection/plans/${encodeURIComponent(planId)}`,
+        method: 'GET',
+        headers: authenticatedHeaders(),
+      })
+    },
+    getServiceOrder(serviceOrderId) {
+      return http.request<InspectionServiceOrder>({
+        url: `/api/v1/inspection/service-orders/${encodeURIComponent(serviceOrderId)}`,
         method: 'GET',
         headers: authenticatedHeaders(),
       })

@@ -61,7 +61,24 @@ final class PostgresPlanStore implements PlanStore {
                                                 reservation.lineLengthMeters(),
                                                 plan.serviceDate(),
                                                 reservation.inspectionItems()),
+                                        row.plannedStartAt(),
+                                        mapper.findOrderAssignments(row.id()).stream()
+                                                .map(item -> new OrderAssignment(
+                                                        AssignmentType.valueOf(item.type()),
+                                                        item.resourceId(),
+                                                        item.displayName(),
+                                                        item.roleLabel()))
+                                                .toList(),
+                                        mapper.findOrderProgress(row.id()).stream()
+                                                .map(item -> new OrderProgressEvent(
+                                                        item.id(),
+                                                        OrderProgressCode.valueOf(item.eventCode()),
+                                                        item.occurredAt(),
+                                                        item.message()))
+                                                .toList(),
                                         row.createdAt(),
+                                        row.deliveredAt(),
+                                        row.acceptedAt(),
                                         row.version()))));
     }
 
@@ -228,6 +245,122 @@ final class PostgresPlanStore implements PlanStore {
         return PlanWriteResult.SAVED;
     }
 
+    @Override
+    public PlanWriteResult arrange(
+            StoredServiceOrder expectedOrder,
+            StoredServiceOrder arrangedOrder,
+            PlanIdempotencyEntry entry,
+            CurrentSubject actor,
+            String requestId
+    ) {
+        if (mapper.insertIdempotency(
+                entry.actorId(),
+                entry.operation(),
+                entry.key(),
+                entry.requestDigest(),
+                "SERVICE_ORDER",
+                entry.resourceId(),
+                200) == 0) {
+            return PlanWriteResult.IDEMPOTENCY_EXISTS;
+        }
+        Instant updatedAt = arrangedOrder.progress()
+                .get(arrangedOrder.progress().size() - 1)
+                .occurredAt();
+        if (mapper.updateOrderArrangement(
+                expectedOrder.id(),
+                expectedOrder.version(),
+                arrangedOrder.plannedStartAt(),
+                actor.subjectId(),
+                updatedAt) == 0) {
+            return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
+        }
+        mapper.deleteOrderAssignments(expectedOrder.id());
+        for (OrderAssignment assignment : arrangedOrder.assignments()) {
+            mapper.insertOrderAssignment(
+                    expectedOrder.id(),
+                    assignment.type().name(),
+                    assignment.resourceId(),
+                    assignment.displayName(),
+                    assignment.roleLabel(),
+                    actor.subjectId(),
+                    updatedAt);
+        }
+        OrderProgressEvent event =
+                arrangedOrder.progress().get(arrangedOrder.progress().size() - 1);
+        mapper.insertOrderProgress(
+                event.id(),
+                expectedOrder.id(),
+                event.eventCode().name(),
+                event.occurredAt(),
+                event.message(),
+                actor.subjectId(),
+                updatedAt);
+        mapper.insertOutbox(
+                "SERVICE_ORDER",
+                expectedOrder.id(),
+                "INSPECTION_ORDER_ARRANGED",
+                updatedAt);
+        return PlanWriteResult.SAVED;
+    }
+
+    @Override
+    public PlanWriteResult appendProgress(
+            StoredServiceOrder expectedOrder,
+            StoredServiceOrder updatedOrder,
+            PlanIdempotencyEntry entry,
+            CurrentSubject actor,
+            String requestId
+    ) {
+        if (mapper.insertIdempotency(
+                entry.actorId(),
+                entry.operation(),
+                entry.key(),
+                entry.requestDigest(),
+                "SERVICE_ORDER",
+                entry.resourceId(),
+                201) == 0) {
+            return PlanWriteResult.IDEMPOTENCY_EXISTS;
+        }
+        OrderProgressEvent event =
+                updatedOrder.progress().get(updatedOrder.progress().size() - 1);
+        if (mapper.updateOrderProgress(
+                expectedOrder.id(),
+                expectedOrder.status().name(),
+                updatedOrder.status().name(),
+                expectedOrder.version(),
+                event.eventCode().name(),
+                event.occurredAt(),
+                actor.subjectId(),
+                event.occurredAt()) == 0) {
+            return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
+        }
+        mapper.insertOrderProgress(
+                event.id(),
+                expectedOrder.id(),
+                event.eventCode().name(),
+                event.occurredAt(),
+                event.message(),
+                actor.subjectId(),
+                event.occurredAt());
+        if (expectedOrder.status() != updatedOrder.status()) {
+            mapper.insertTransition(
+                    "SERVICE_ORDER",
+                    expectedOrder.id(),
+                    expectedOrder.status().name(),
+                    updatedOrder.status().name(),
+                    "PROVIDER_OPERATOR",
+                    actor.subjectId(),
+                    requestId,
+                    event.occurredAt());
+        }
+        mapper.insertOutbox(
+                "SERVICE_ORDER",
+                expectedOrder.id(),
+                "INSPECTION_ORDER_" + event.eventCode().name(),
+                event.occurredAt());
+        return PlanWriteResult.SAVED;
+    }
+
     private PlanWriteResult resolveConfirmConflict(UUID planId, Instant now) {
         Optional<ServiceFlowPersistenceMapper.PlanRow> current = mapper.findPlan(planId);
         if (current.isEmpty()) {
@@ -238,6 +371,15 @@ final class PostgresPlanStore implements PlanStore {
             return PlanWriteResult.EXPIRED;
         }
         if ("PUBLISHED".equals(current.get().status())) {
+            return PlanWriteResult.VERSION_CONFLICT;
+        }
+        return PlanWriteResult.STATE_CONFLICT;
+    }
+
+    private PlanWriteResult resolveOrderConflict(UUID orderId, int expectedVersion) {
+        Optional<ServiceFlowPersistenceMapper.ServiceOrderRow> current =
+                mapper.findOrder(orderId);
+        if (current.isPresent() && current.get().version() != expectedVersion) {
             return PlanWriteResult.VERSION_CONFLICT;
         }
         return PlanWriteResult.STATE_CONFLICT;

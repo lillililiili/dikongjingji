@@ -80,7 +80,7 @@ public final class InspectionPlanController {
                 .body(ServiceOrderResponse.from(order));
     }
 
-    private static int parseIfMatch(String value) {
+    static int parseIfMatch(String value) {
         if (value == null || value.isBlank() || value.startsWith("W/")) {
             throw new IllegalArgumentException("If-Match must be a strong numeric ETag");
         }
@@ -101,11 +101,11 @@ public final class InspectionPlanController {
         }
     }
 
-    private static String requestId(String value) {
+    static String requestId(String value) {
         return value == null || value.isBlank() ? UUID.randomUUID().toString() : value;
     }
 
-    private static CurrentSubject currentSubject(Authentication authentication) {
+    static CurrentSubject currentSubject(Authentication authentication) {
         Object principal = authentication == null ? null : authentication.getPrincipal();
         if (principal instanceof CurrentSubject current) {
             return current;
@@ -316,8 +316,8 @@ public final class InspectionPlanController {
             String status,
             ServiceSnapshotResponse serviceSnapshot,
             Instant plannedStartAt,
-            List<Object> assignments,
-            List<Object> progress,
+            List<OrderAssignmentResponse> assignments,
+            List<OrderProgressResponse> progress,
             Instant createdAt,
             Instant deliveredAt,
             Instant acceptedAt,
@@ -333,13 +333,47 @@ public final class InspectionPlanController {
                     order.providerId(),
                     order.status().name(),
                     ServiceSnapshotResponse.from(order.serviceSnapshot()),
-                    null,
-                    List.of(),
-                    List.of(),
+                    order.plannedStartAt(),
+                    order.assignments().stream()
+                            .map(OrderAssignmentResponse::from)
+                            .toList(),
+                    order.progress().stream()
+                            .map(OrderProgressResponse::from)
+                            .toList(),
                     order.createdAt(),
-                    null,
-                    null,
+                    order.deliveredAt(),
+                    order.acceptedAt(),
                     order.version());
+        }
+    }
+
+    public record OrderAssignmentResponse(
+            String type,
+            UUID resourceId,
+            String displayName,
+            String roleLabel
+    ) {
+        static OrderAssignmentResponse from(OrderAssignment assignment) {
+            return new OrderAssignmentResponse(
+                    assignment.type().name(),
+                    assignment.resourceId(),
+                    assignment.displayName(),
+                    assignment.roleLabel());
+        }
+    }
+
+    public record OrderProgressResponse(
+            UUID id,
+            String eventCode,
+            Instant occurredAt,
+            String message
+    ) {
+        static OrderProgressResponse from(OrderProgressEvent progress) {
+            return new OrderProgressResponse(
+                    progress.id(),
+                    progress.eventCode().name(),
+                    progress.occurredAt(),
+                    progress.message());
         }
     }
 }

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -78,11 +79,29 @@ public interface ServiceFlowPersistenceMapper {
 
     @Select("""
             SELECT id, service_order_no, reservation_id, plan_id, customer_id,
-                   provider_id, status, created_at, version
+                   provider_id, status, planned_start_at, created_at,
+                   delivered_at, accepted_at, version
             FROM inspection_service_order
             WHERE id = #{orderId}
             """)
     Optional<ServiceOrderRow> findOrder(@Param("orderId") UUID orderId);
+
+    @Select("""
+            SELECT assignment_type type, resource_id,
+                   display_name_snapshot display_name, role_label
+            FROM inspection_order_assignment
+            WHERE service_order_id = #{orderId}
+            ORDER BY assigned_at, id
+            """)
+    List<OrderAssignmentRow> findOrderAssignments(@Param("orderId") UUID orderId);
+
+    @Select("""
+            SELECT id, event_code, occurred_at, message
+            FROM inspection_order_progress
+            WHERE service_order_id = #{orderId}
+            ORDER BY occurred_at, id
+            """)
+    List<OrderProgressRow> findOrderProgress(@Param("orderId") UUID orderId);
 
     @Select("""
             SELECT request_hash request_digest, resource_id
@@ -284,6 +303,91 @@ public interface ServiceFlowPersistenceMapper {
             @Param("actorId") UUID actorId,
             @Param("createdAt") Instant createdAt);
 
+    @Update("""
+            UPDATE inspection_service_order
+            SET planned_start_at = #{plannedStartAt},
+                version = version + 1,
+                updated_by = #{actorId},
+                updated_at = #{updatedAt}
+            WHERE id = #{orderId}
+              AND status = 'ARRANGING'
+              AND version = #{expectedVersion}
+            """)
+    int updateOrderArrangement(
+            @Param("orderId") UUID orderId,
+            @Param("expectedVersion") int expectedVersion,
+            @Param("plannedStartAt") Instant plannedStartAt,
+            @Param("actorId") UUID actorId,
+            @Param("updatedAt") Instant updatedAt);
+
+    @Delete("""
+            DELETE FROM inspection_order_assignment
+            WHERE service_order_id = #{orderId}
+            """)
+    void deleteOrderAssignments(@Param("orderId") UUID orderId);
+
+    @Insert("""
+            INSERT INTO inspection_order_assignment (
+                id, service_order_id, assignment_type, resource_id,
+                display_name_snapshot, role_label, assigned_by, assigned_at
+            )
+            VALUES (
+                gen_random_uuid(), #{orderId}, #{type}, #{resourceId},
+                #{displayName}, #{roleLabel}, #{actorId}, #{assignedAt}
+            )
+            """)
+    void insertOrderAssignment(
+            @Param("orderId") UUID orderId,
+            @Param("type") String type,
+            @Param("resourceId") UUID resourceId,
+            @Param("displayName") String displayName,
+            @Param("roleLabel") String roleLabel,
+            @Param("actorId") UUID actorId,
+            @Param("assignedAt") Instant assignedAt);
+
+    @Update("""
+            UPDATE inspection_service_order
+            SET status = #{nextStatus},
+                started_at = CASE
+                    WHEN #{eventCode} = 'SERVICE_STARTED' THEN #{occurredAt}
+                    ELSE started_at
+                END,
+                version = version + 1,
+                updated_by = #{actorId},
+                updated_at = #{updatedAt}
+            WHERE id = #{orderId}
+              AND status = #{expectedStatus}
+              AND version = #{expectedVersion}
+            """)
+    int updateOrderProgress(
+            @Param("orderId") UUID orderId,
+            @Param("expectedStatus") String expectedStatus,
+            @Param("nextStatus") String nextStatus,
+            @Param("expectedVersion") int expectedVersion,
+            @Param("eventCode") String eventCode,
+            @Param("occurredAt") Instant occurredAt,
+            @Param("actorId") UUID actorId,
+            @Param("updatedAt") Instant updatedAt);
+
+    @Insert("""
+            INSERT INTO inspection_order_progress (
+                id, service_order_id, event_code, occurred_at,
+                message, operator_id, created_at
+            )
+            VALUES (
+                #{id}, #{orderId}, #{eventCode}, #{occurredAt},
+                #{message}, #{actorId}, #{createdAt}
+            )
+            """)
+    void insertOrderProgress(
+            @Param("id") UUID id,
+            @Param("orderId") UUID orderId,
+            @Param("eventCode") String eventCode,
+            @Param("occurredAt") Instant occurredAt,
+            @Param("message") String message,
+            @Param("actorId") UUID actorId,
+            @Param("createdAt") Instant createdAt);
+
     @Insert("""
             INSERT INTO inspection_state_transition (
                 id, aggregate_type, aggregate_id, from_status, to_status,
@@ -380,8 +484,27 @@ public interface ServiceFlowPersistenceMapper {
             UUID customerId,
             UUID providerId,
             String status,
+            Instant plannedStartAt,
             Instant createdAt,
+            Instant deliveredAt,
+            Instant acceptedAt,
             int version
+    ) {
+    }
+
+    record OrderAssignmentRow(
+            String type,
+            UUID resourceId,
+            String displayName,
+            String roleLabel
+    ) {
+    }
+
+    record OrderProgressRow(
+            UUID id,
+            String eventCode,
+            Instant occurredAt,
+            String message
     ) {
     }
 

@@ -14,14 +14,22 @@ import org.springframework.context.annotation.Configuration;
 public class PlanApplicationConfiguration {
 
     @Bean
-    PlanApplicationService planApplicationService(
+    PlanStore planStore(
             ServiceFlowPersistenceMapper mapper,
             @Value("${INSPECTION_DATA_ENCRYPTION_BASE64_KEY}") String encryptionKey
     ) {
-        return new PlanApplicationService(
-                new PostgresPlanStore(
-                        mapper,
-                        new AesGcmSensitiveDataCipher(encryptionKey)),
-                Clock.systemUTC());
+        return new PostgresPlanStore(
+                mapper,
+                new AesGcmSensitiveDataCipher(encryptionKey));
+    }
+
+    @Bean
+    PlanApplicationService planApplicationService(PlanStore store) {
+        return new PlanApplicationService(store, Clock.systemUTC());
+    }
+
+    @Bean
+    OrderApplicationService orderApplicationService(PlanStore store) {
+        return new OrderApplicationService(store, Clock.systemUTC());
     }
 }

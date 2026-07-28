@@ -472,7 +472,12 @@ public class PlanApplicationService {
                 order.providerId(),
                 order.status(),
                 order.serviceSnapshot(),
+                order.plannedStartAt(),
+                order.assignments(),
+                order.progress(),
                 order.createdAt(),
+                order.deliveredAt(),
+                order.acceptedAt(),
                 order.version());
     }
 }
@@ -695,9 +700,43 @@ record StoredServiceOrder(
         UUID providerId,
         ServiceOrderStatus status,
         ServiceSnapshot serviceSnapshot,
+        Instant plannedStartAt,
+        List<OrderAssignment> assignments,
+        List<OrderProgressEvent> progress,
         Instant createdAt,
+        Instant deliveredAt,
+        Instant acceptedAt,
         int version
 ) {
+    StoredServiceOrder(
+            UUID id,
+            String serviceOrderNo,
+            UUID reservationId,
+            UUID planId,
+            UUID customerId,
+            UUID providerId,
+            ServiceOrderStatus status,
+            ServiceSnapshot serviceSnapshot,
+            Instant createdAt,
+            int version
+    ) {
+        this(
+                id,
+                serviceOrderNo,
+                reservationId,
+                planId,
+                customerId,
+                providerId,
+                status,
+                serviceSnapshot,
+                null,
+                List.of(),
+                List.of(),
+                createdAt,
+                null,
+                null,
+                version);
+    }
 }
 
 record ServiceOrderView(
@@ -709,8 +748,41 @@ record ServiceOrderView(
         UUID providerId,
         ServiceOrderStatus status,
         ServiceSnapshot serviceSnapshot,
+        Instant plannedStartAt,
+        List<OrderAssignment> assignments,
+        List<OrderProgressEvent> progress,
         Instant createdAt,
+        Instant deliveredAt,
+        Instant acceptedAt,
         int version
+) {
+}
+
+enum AssignmentType {
+    TEAM_MEMBER,
+    DEVICE
+}
+
+record OrderAssignment(
+        AssignmentType type,
+        UUID resourceId,
+        String displayName,
+        String roleLabel
+) {
+}
+
+enum OrderProgressCode {
+    ARRANGEMENT_READY,
+    SERVICE_STARTED,
+    SERVICE_PROGRESS,
+    SERVICE_COMPLETED
+}
+
+record OrderProgressEvent(
+        UUID id,
+        OrderProgressCode eventCode,
+        Instant occurredAt,
+        String message
 ) {
 }
 
@@ -763,6 +835,26 @@ interface PlanStore {
             String agreementVersion,
             CurrentSubject actor,
             String requestId);
+
+    default PlanWriteResult arrange(
+            StoredServiceOrder expectedOrder,
+            StoredServiceOrder arrangedOrder,
+            PlanIdempotencyEntry entry,
+            CurrentSubject actor,
+            String requestId
+    ) {
+        return PlanWriteResult.STATE_CONFLICT;
+    }
+
+    default PlanWriteResult appendProgress(
+            StoredServiceOrder expectedOrder,
+            StoredServiceOrder updatedOrder,
+            PlanIdempotencyEntry entry,
+            CurrentSubject actor,
+            String requestId
+    ) {
+        return PlanWriteResult.STATE_CONFLICT;
+    }
 }
 
 final class PlanValidationException extends PlanFlowException {
@@ -816,5 +908,11 @@ final class PlanExpiredException extends PlanFlowException {
 final class PlanAlreadyConfirmedException extends PlanFlowException {
     PlanAlreadyConfirmedException() {
         super(PlanFlowError.PLAN_ALREADY_CONFIRMED);
+    }
+}
+
+final class OrderStateInvalidException extends PlanFlowException {
+    OrderStateInvalidException() {
+        super(PlanFlowError.ORDER_STATE_INVALID);
     }
 }
