@@ -1,5 +1,5 @@
 {
-    "name" : "低空综合服务平台",
+    "name" : "飞享",
     "appid" : "__UNI__A608B14",
     "description" : "全国化低空与机器人综合服务平台",
     "versionName" : "0.1.0",
@@ -17,6 +17,14 @@
             "Camera" : {}
         },
         "distribute" : {
+            "icons" : {
+                "android" : {
+                    "hdpi" : "src/static/app-icons/feixiang-hdpi.png",
+                    "xhdpi" : "src/static/app-icons/feixiang-xhdpi.png",
+                    "xxhdpi" : "src/static/app-icons/feixiang-xxhdpi.png",
+                    "xxxhdpi" : "src/static/app-icons/feixiang-xxxhdpi.png"
+                }
+            },
             "sdkConfigs" : {
                 "maps" : {
                     "amap" : {
@@ -50,6 +58,6 @@
         }
     },
     "h5" : {
-        "title" : "低空综合服务平台"
+        "title" : "飞享"
     }
 }
