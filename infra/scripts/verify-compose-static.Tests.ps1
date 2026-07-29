@@ -88,7 +88,67 @@ try {
     Assert-ScopedCheckerRejects 'backend-port-not-loopback' {
         param($fixture)
         $path = Join-Path $fixture 'infra\compose.yaml'
-        (Get-Content -LiteralPath $path -Raw) -replace '(?ms)(  backend:.*?INSPECTION_APP_BIND_ADDRESS:-)127\.0\.0\.1', '${1}0.0.0.0' | Set-Content -LiteralPath $path -NoNewline
+        (Get-Content -LiteralPath $path -Raw) -replace '(?ms)(  backend:.*?INSPECTION_BACKEND_BIND_ADDRESS:-)127\.0\.0\.1', '${1}0.0.0.0' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'backend-uses-shared-bind-address' {
+        param($fixture)
+        $path = Join-Path $fixture 'infra\compose.yaml'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?ms)(  backend:.*?\$\{)INSPECTION_BACKEND_BIND_ADDRESS', '${1}INSPECTION_APP_BIND_ADDRESS' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'minio-uses-shared-bind-address' {
+        param($fixture)
+        $path = Join-Path $fixture 'infra\compose.yaml'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?ms)(  minio:.*?\$\{)INSPECTION_MINIO_BIND_ADDRESS', '${1}INSPECTION_APP_BIND_ADDRESS' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'minio-console-uses-shared-bind-address' {
+        param($fixture)
+        $path = Join-Path $fixture 'infra\compose.yaml'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)(^      - "\$\{)INSPECTION_MINIO_BIND_ADDRESS(?=:-127\.0\.0\.1\}:\$\{INSPECTION_MINIO_CONSOLE_PORT)', '${1}INSPECTION_APP_BIND_ADDRESS' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'minio-api-port-mapping-missing' {
+        param($fixture)
+        $path = Join-Path $fixture 'infra\compose.yaml'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^      - "\$\{INSPECTION_MINIO_BIND_ADDRESS:-127\.0\.0\.1\}:\$\{INSPECTION_MINIO_API_PORT:-9000\}:9000"\r?\n', '' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'minio-console-port-mapping-missing' {
+        param($fixture)
+        $path = Join-Path $fixture 'infra\compose.yaml'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^      - "\$\{INSPECTION_MINIO_BIND_ADDRESS:-127\.0\.0\.1\}:\$\{INSPECTION_MINIO_CONSOLE_PORT:-9001\}:9001"\r?\n', '' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'postgres-uses-backend-bind-address' {
+        param($fixture)
+        $path = Join-Path $fixture 'infra\compose.yaml'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?ms)(  postgres:.*?\$\{)INSPECTION_APP_BIND_ADDRESS', '${1}INSPECTION_BACKEND_BIND_ADDRESS' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'redis-uses-minio-bind-address' {
+        param($fixture)
+        $path = Join-Path $fixture 'infra\compose.yaml'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?ms)(  redis:.*?\$\{)INSPECTION_APP_BIND_ADDRESS', '${1}INSPECTION_MINIO_BIND_ADDRESS' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'env-example-missing-backend-bind-address' {
+        param($fixture)
+        $path = Join-Path $fixture '.env.example'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^INSPECTION_BACKEND_BIND_ADDRESS=127\.0\.0\.1\r?\n', '' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'env-example-missing-app-bind-address' {
+        param($fixture)
+        $path = Join-Path $fixture '.env.example'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^INSPECTION_APP_BIND_ADDRESS=127\.0\.0\.1\r?\n', '' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'env-example-app-bind-address-not-loopback' {
+        param($fixture)
+        $path = Join-Path $fixture '.env.example'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^INSPECTION_APP_BIND_ADDRESS=127\.0\.0\.1$', 'INSPECTION_APP_BIND_ADDRESS=0.0.0.0' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'env-example-missing-minio-bind-address' {
+        param($fixture)
+        $path = Join-Path $fixture '.env.example'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^INSPECTION_MINIO_BIND_ADDRESS=127\.0\.0\.1\r?\n', '' | Set-Content -LiteralPath $path -NoNewline
+    }
+    Assert-ScopedCheckerRejects 'env-example-minio-bind-address-not-loopback' {
+        param($fixture)
+        $path = Join-Path $fixture '.env.example'
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^INSPECTION_MINIO_BIND_ADDRESS=127\.0\.0\.1$', 'INSPECTION_MINIO_BIND_ADDRESS=0.0.0.0' | Set-Content -LiteralPath $path -NoNewline
     }
     Assert-ScopedCheckerRejects 'backend-jwt-environment-missing' {
         param($fixture)

@@ -166,6 +166,17 @@ class AuthenticationSecurityIntegrationTest {
     }
 
     @Test
+    void anonymousCatalogGetIsPublicButOtherCatalogMethodsRequireAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/inspection/services")
+                        .param("cityCode", "370500"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/inspection/services"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @Test
     void configuredBrowserOriginCanCompleteAuthenticatedApiPreflight() throws Exception {
         mockMvc.perform(options("/api/v1/inspection/reservations")
                         .header("Origin", "http://127.0.0.1:4173")

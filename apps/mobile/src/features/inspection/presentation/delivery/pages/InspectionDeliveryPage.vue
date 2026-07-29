@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onBackPress, onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import {
   createAcceptanceCoordinator,
@@ -14,6 +14,7 @@ import type {
   InspectionServiceOrder,
 } from '../../../data/service-flow/inspection-plan-api'
 import { inspectionPlanApi } from '../../../data/service-flow/uni-booking-http-client'
+import { buildInspectionFulfillmentUrl } from '../../../navigation/inspection-routes'
 
 interface DeliveryRouteQuery { serviceOrderId?: string }
 type DeliveryFile = InspectionDelivery['files'][number]
@@ -109,6 +110,12 @@ onLoad((query: DeliveryRouteQuery | undefined) => {
   void reload()
 })
 
+onBackPress((event) => {
+  if (event.from === 'navigateBack') return false
+  returnToFulfillment()
+  return true
+})
+
 async function reload(): Promise<void> {
   if (!serviceOrderId.value) return
   isLoading.value = true
@@ -197,12 +204,14 @@ async function acceptDelivery(): Promise<void> {
 }
 
 function returnToFulfillment(): void {
-  if (getCurrentPages().length > 1) {
+  const pages = getCurrentPages()
+  const previousPage = pages[pages.length - 2]
+  if (previousPage?.route === 'pages/service/inspection/fulfillment') {
     uni.navigateBack({ delta: 1 })
     return
   }
   uni.reLaunch({
-    url: `/pages/service/inspection/fulfillment?serviceOrderId=${encodeURIComponent(serviceOrderId.value)}`,
+    url: buildInspectionFulfillmentUrl(serviceOrderId.value),
   })
 }
 function showCustomerService(): void {
@@ -397,7 +406,7 @@ function formatDateTime(value: string | null): string {
 
 <style scoped>
 .delivery{min-height:100vh;background:#f7f8fa;color:#25282d}
-.delivery__header{display:grid;height:calc(44px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);grid-template-columns:44px 1fr 62px;align-items:center;overflow:hidden;background:#fff;font-size:17px;font-weight:700;text-align:center;box-sizing:border-box}
+.delivery__header{display:grid;height:calc(44px + var(--status-bar-height));padding-top:var(--status-bar-height);grid-template-columns:44px 1fr 62px;align-items:center;overflow:hidden;background:#fff;font-size:17px;font-weight:700;text-align:center;box-sizing:border-box}
 .delivery__header button{height:44px;min-height:44px;margin:0;padding:0;border:0;background:transparent;line-height:1}
 .delivery__customer-service{display:flex;align-items:center;justify-content:center;gap:3px;color:#25282d;font-size:11px;font-weight:400}
 .delivery__header button::after,.delivery__order-no::after,.delivery__file-head button::after,.delivery__file-action button::after,.delivery__footer button::after{border:0}

@@ -1,5 +1,6 @@
 export const INSPECTION_PORTAL_PATH = '/pages/service/inspection/index'
 export const INSPECTION_CATALOG_PATH = '/pages/service/inspection/catalog'
+export const INSPECTION_LOGIN_PATH = '/pages/service/inspection/login'
 export const INSPECTION_BOOKING_PATH = '/pages/service/inspection/booking'
 export const INSPECTION_BOOKING_SUBMITTED_PATH =
   '/pages/service/inspection/booking-submitted'
@@ -20,6 +21,10 @@ export const INSPECTION_ROUTES = [
     path: INSPECTION_CATALOG_PATH,
   },
   {
+    name: 'InspectionLogin',
+    path: INSPECTION_LOGIN_PATH,
+  },
+  {
     name: 'InspectionBooking',
     path: INSPECTION_BOOKING_PATH,
   },
@@ -32,10 +37,64 @@ export const INSPECTION_ROUTES = [
     path: INSPECTION_PLAN_CONFIRMATION_PATH,
   },
   {
+    name: 'InspectionFulfillment',
+    path: INSPECTION_FULFILLMENT_PATH,
+  },
+  {
     name: 'InspectionDelivery',
     path: INSPECTION_DELIVERY_PATH,
   },
 ] as const
+
+const INSPECTION_PROTECTED_RETURN_KEYS: Record<
+  string,
+  { required: string; allowed: readonly string[] }
+> = {
+  [INSPECTION_BOOKING_PATH]: {
+    required: 'serviceId',
+    allowed: ['serviceId', 'cityCode'],
+  },
+  [INSPECTION_BOOKING_SUBMITTED_PATH]: {
+    required: 'reservationId',
+    allowed: ['reservationId'],
+  },
+  [INSPECTION_PLAN_CONFIRMATION_PATH]: {
+    required: 'planId',
+    allowed: ['planId'],
+  },
+  [INSPECTION_FULFILLMENT_PATH]: {
+    required: 'serviceOrderId',
+    allowed: ['serviceOrderId'],
+  },
+  [INSPECTION_DELIVERY_PATH]: {
+    required: 'serviceOrderId',
+    allowed: ['serviceOrderId'],
+  },
+}
+
+export function buildInspectionLoginUrl(returnUrl: string): string {
+  return `${INSPECTION_LOGIN_PATH}?returnUrl=${encodeURIComponent(
+    normalizeInspectionReturnUrl(returnUrl),
+  )}`
+}
+
+export function normalizeInspectionReturnUrl(returnUrl: string): string {
+  const candidate = decodeReturnUrl(returnUrl.trim())
+  const separator = candidate.indexOf('?')
+  const path = separator >= 0 ? candidate.slice(0, separator) : candidate
+  const query = separator >= 0 ? candidate.slice(separator + 1) : ''
+  const rule = INSPECTION_PROTECTED_RETURN_KEYS[path]
+  if (!rule) return '/pages/home/index'
+
+  const values = parseQuery(query)
+  if (!values[rule.required]) return '/pages/home/index'
+
+  const parameters = rule.allowed.flatMap((key) => {
+    const value = values[key]?.trim()
+    return value ? [`${key}=${encodeURIComponent(value)}`] : []
+  })
+  return `${path}?${parameters.join('&')}`
+}
 
 export function buildInspectionBookingUrl(
   serviceId: string,
@@ -123,5 +182,27 @@ function appendParameter(
   }
 
   parameters.push(`${key}=${encodeURIComponent(value)}`)
+}
+
+function decodeReturnUrl(value: string): string {
+  if (value.startsWith('/')) return value
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return ''
+  }
+}
+
+function parseQuery(query: string): Record<string, string> {
+  return query.split('&').reduce<Record<string, string>>((values, part) => {
+    const [rawKey, ...rawValue] = part.split('=')
+    if (!rawKey) return values
+    try {
+      values[decodeURIComponent(rawKey)] = decodeURIComponent(rawValue.join('='))
+    } catch {
+      return values
+    }
+    return values
+  }, {})
 }
 

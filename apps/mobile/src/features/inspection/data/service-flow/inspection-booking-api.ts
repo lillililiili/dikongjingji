@@ -32,7 +32,11 @@ export interface BookingReservation {
   serviceCoverUrl: string | null
   cityCode: string
   status: 'SUBMITTED' | 'PLAN_PUBLISHED' | 'CANCELLED'
-  location: { address: string }
+  location: {
+    address: string
+    longitude: number | null
+    latitude: number | null
+  }
   lineLengthMeters: number | null
   preferredServiceDate: string
   inspectionItems: BookingCodeLabel[]
@@ -81,6 +85,7 @@ export interface InspectionBookingApi {
 export function createInspectionBookingApi(
   http: BookingHttpClient,
   accessToken: AccessTokenPort = { getAccessToken: () => null },
+  publicReadHttp: Pick<BookingHttpClient, 'request'> = http,
 ): InspectionBookingApi {
   const headers = (idempotencyKey?: string): Record<string, string> => {
     const token = accessToken.getAccessToken()
@@ -92,7 +97,7 @@ export function createInspectionBookingApi(
 
   return {
     async loadServiceSnapshot(serviceId, cityCode) {
-      const page = await http.request<{
+      const page = await publicReadHttp.request<{
         items: Array<{
           serviceId: string
           category: { name: string }

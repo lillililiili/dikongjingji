@@ -191,10 +191,61 @@ try {
         '<?xml version="1.0" encoding="UTF-8"?><kml><Document/></kml>',
         [Text.UTF8Encoding]::new($false))
     $pdfPath = Join-Path $tempRoot 'inspection-report.pdf'
-    [IO.File]::WriteAllBytes(
-        $pdfPath,
-        [Text.Encoding]::ASCII.GetBytes(
-            "%PDF-1.4`n1 0 obj<</Type/Catalog>>endobj`n%%EOF"))
+    # Stable one-page fixture verified with pypdf and a rendered PNG. The hash guard
+    # prevents an accidentally truncated or edited payload from reaching MinIO.
+    $pdfFixtureBase64 = @'
+JVBERi0xLjQKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgKG9wZW5zb3Vy
+Y2UpCjEgMCBvYmoKPDwKL0YxIDIgMCBSIC9GMiAzIDAgUgo+PgplbmRvYmoKMiAwIG9iago8PAov
+QmFzZUZvbnQgL0hlbHZldGljYSAvRW5jb2RpbmcgL1dpbkFuc2lFbmNvZGluZyAvTmFtZSAvRjEg
+L1N1YnR5cGUgL1R5cGUxIC9UeXBlIC9Gb250Cj4+CmVuZG9iagozIDAgb2JqCjw8Ci9CYXNlRm9u
+dCAvSGVsdmV0aWNhLUJvbGQgL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcgL05hbWUgL0YyIC9T
+dWJ0eXBlIC9UeXBlMSAvVHlwZSAvRm9udAo+PgplbmRvYmoKNCAwIG9iago8PAovQ29udGVudHMg
+OCAwIFIgL01lZGlhQm94IFsgMCAwIDU5NS4yNzU2IDg0MS44ODk4IF0gL1BhcmVudCA3IDAgUiAv
+UmVzb3VyY2VzIDw8Ci9Gb250IDEgMCBSIC9Qcm9jU2V0IFsgL1BERiAvVGV4dCAvSW1hZ2VCIC9J
+bWFnZUMgL0ltYWdlSSBdCj4+IC9Sb3RhdGUgMCAvVHJhbnMgPDwKCj4+IAogIC9UeXBlIC9QYWdl
+Cj4+CmVuZG9iago1IDAgb2JqCjw8Ci9QYWdlTW9kZSAvVXNlTm9uZSAvUGFnZXMgNyAwIFIgL1R5
+cGUgL0NhdGFsb2cKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL0F1dGhvciAoYW5vbnltb3VzKSAvQ3Jl
+YXRpb25EYXRlIChEOjIwMDAwMTAxMDAwMDAwKzAwJzAwJykgL0NyZWF0b3IgKGFub255bW91cykg
+L0tleXdvcmRzICgpIC9Nb2REYXRlIChEOjIwMDAwMTAxMDAwMDAwKzAwJzAwJykgL1Byb2R1Y2Vy
+IChSZXBvcnRMYWIgUERGIExpYnJhcnkgLSBcKG9wZW5zb3VyY2VcKSkgCiAgL1N1YmplY3QgKHVu
+c3BlY2lmaWVkKSAvVGl0bGUgKEluc3BlY3Rpb24gU2VydmljZSBSZXBvcnQpIC9UcmFwcGVkIC9G
+YWxzZQo+PgplbmRvYmoKNyAwIG9iago8PAovQ291bnQgMSAvS2lkcyBbIDQgMCBSIF0gL1R5cGUg
+L1BhZ2VzCj4+CmVuZG9iago4IDAgb2JqCjw8Ci9GaWx0ZXIgWyAvQVNDSUk4NURlY29kZSAvRmxh
+dGVEZWNvZGUgXSAvTGVuZ3RoIDcwMQo+PgpzdHJlYW0KR2F0PWk7L2IvQidTWUg5LydkMDVGXWs2
+UUVVcTBUOVBDUGNCXCRtWT1ebj4tP3E2NGJnVjk/b09xOilfJ25jX1IsK2o0cidDLnBBZmJcQVtv
+LkJHbGBNWV1zbldCdD82OHE7WU1jbz5QRiEmLUpibCxxUkY5NDkjTVw3dC9QOE5PIm1oVzQzR10m
+MXRHaTNscUVmTG08UFcldW1yXlFhWDNEU0xlS0xUcmwnaW5cNCEuLjVFNkJpTERbXCxxR3FKODhF
+bl9nbyZVbjdQUVtcajYpYWVGay9rYCskbk87OHNYclFfRF5MPFFFTGg4aG90KEs2QzdaLzssOStl
+Zk8sY20tSi5qai4tYGEuP1hGaCRdQGA0JnUtT1VzWjFuSCVDUjZAYFMuSzwxPDdZaGRcODtRdE9b
+YTlDK0FkWVwnKU85L2xELlx0ZllTTlM5VThWXUohdTcoU1daPWUhaFlPZVw7VnB0WS4+PFciPz0n
+Py1nJUY4YD9YUDJsSCMmUm5qXS48KjVIKT1UPmwjV1E/YkhcWWdeZzE5P1ZeNWhuVEREbXBeYDtH
+KDxqX0ZNIVIvT09eMTE5OjAhUDxzM2hZdEBCPmZdN1FjJzxmaFY5b0hMR0c8Lzg3cVBHXDVNPnBO
+J1syYz5MTzRKaSErJ1VjNVgyayshNlJjWjFkL0BqSVswaUImNUxeamdNRmRuKXA+YiI9ZUhKOlxc
+WWJlPj8iM2NAdDJSMSFXQE4qXWE6PikvTlVgakFoQ181N3M4WFg0NnFAXiM7ZDo/Y05nLlxxOE1N
+S2g8NSo9PiQ7Q048LSRXKFtgXzk/TiNmWUtGam1aZ10/LCwkaEEsYjttcyhoM1ZGY3AzM05sKydt
+SmZLKEhXVmVYcjdJJ1M2OCVcJ1c0YWBePGpZRm5BPiw4OnFTakttS18jXWAiSihlfj5lbmRzdHJl
+YW0KZW5kb2JqCnhyZWYKMCA5CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDA2MSAwMDAwMCBu
+IAowMDAwMDAwMTAyIDAwMDAwIG4gCjAwMDAwMDAyMDkgMDAwMDAgbiAKMDAwMDAwMDMyMSAwMDAw
+MCBuIAowMDAwMDAwNTI0IDAwMDAwIG4gCjAwMDAwMDA1OTIgMDAwMDAgbiAKMDAwMDAwMDg3MCAw
+MDAwMCBuIAowMDAwMDAwOTI5IDAwMDAwIG4gCnRyYWlsZXIKPDwKL0lEIApbPGE2ZWExOTc4YzE3
+MjNhMjY2MDc4MDg0ODlkMmRkYmIxPjxhNmVhMTk3OGMxNzIzYTI2NjA3ODA4NDg5ZDJkZGJiMT5d
+CiUgUmVwb3J0TGFiIGdlbmVyYXRlZCBQREYgZG9jdW1lbnQgLS0gZGlnZXN0IChvcGVuc291cmNl
+KQoKL0luZm8gNiAwIFIKL1Jvb3QgNSAwIFIKL1NpemUgOQo+PgpzdGFydHhyZWYKMTcyMAolJUVP
+Rgo=
+'@
+    $pdfBytes = [Convert]::FromBase64String($pdfFixtureBase64)
+    $pdfHasher = [Security.Cryptography.SHA256]::Create()
+    try {
+        $pdfSha256 = [BitConverter]::ToString(
+            $pdfHasher.ComputeHash($pdfBytes)
+        ).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $pdfHasher.Dispose()
+    }
+    if ($pdfSha256 -ne '4eda54e6a8e49fb3bd4f29058687c4f4ff8bb04058504a1b12b424fe2aa17f7f') {
+        throw 'Inspection report PDF fixture integrity check failed.'
+    }
+    [IO.File]::WriteAllBytes($pdfPath, $pdfBytes)
 
     $deliveryFiles = @(
         (New-DeliveryFile `

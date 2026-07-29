@@ -54,6 +54,28 @@ describe('F07 delivery API and route', () => {
 })
 
 describe('F07 delivery page contract', () => {
+  it('keeps the page back action below the Android status bar', () => {
+    expect(deliveryPageSource).toContain(
+      'height:calc(44px + var(--status-bar-height))',
+    )
+    expect(deliveryPageSource).toContain('padding-top:var(--status-bar-height)')
+    expect(deliveryPageSource).not.toContain(
+      'height:calc(44px + env(safe-area-inset-top))',
+    )
+  })
+
+  it('allows its own navigateBack call instead of intercepting it recursively', () => {
+    expect(deliveryPageSource).toContain(
+      "previousPage?.route === 'pages/service/inspection/fulfillment'",
+    )
+    expect(deliveryPageSource).toContain(
+      'buildInspectionFulfillmentUrl(serviceOrderId.value)',
+    )
+    expect(deliveryPageSource).toMatch(
+      /onBackPress\(\(event\) => \{\s*if \(event\.from === 'navigateBack'\) return false\s*returnToFulfillment\(\)\s*return true\s*\}\)/,
+    )
+  })
+
   it('loads real delivery, creates controlled download intents and guards duplicate acceptance', () => {
     expect(deliveryPageSource).toContain('inspectionPlanApi.getDelivery(serviceOrderId.value)')
     expect(deliveryPageSource).toContain('inspectionPlanApi.createDownloadIntent(')

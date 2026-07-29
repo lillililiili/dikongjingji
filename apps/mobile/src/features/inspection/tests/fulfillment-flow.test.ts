@@ -59,7 +59,12 @@ describe('F06 fulfillment page contract', () => {
     expect(fulfillmentPageSource).toContain('buildInspectionDeliveryUrl(order.value.id)')
     expect(fulfillmentPageSource).toContain("order.value?.status === 'DELIVERED' || order.value?.status === 'ACCEPTED'")
     expect(fulfillmentPageSource).toContain('@click="handlePrimaryAction"')
-    expect(fulfillmentPageSource).toContain("canOpenDelivery ? '查看报告与验收' : '返回首页'")
+    expect(fulfillmentPageSource).toContain(
+      "order.value?.status === 'ACCEPTED' ? '查看报告'",
+    )
+    expect(fulfillmentPageSource).toContain(
+      "canOpenDelivery.value ? '查看报告与验收' : '返回首页'",
+    )
     expect(fulfillmentPageSource).not.toContain('class="fulfillment__delivery-link"')
     expect(fulfillmentPageSource).not.toContain('立即支付')
   })

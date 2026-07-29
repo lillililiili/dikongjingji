@@ -1,5 +1,8 @@
 import { createBookingUuid } from '../../application/service-flow/booking-crypto'
-import { getBookingAuthContext } from '../../application/service-flow/booking-auth-context'
+import {
+  beginBookingAuthenticationRecovery,
+  getBookingAuthContext,
+} from '../../application/service-flow/booking-auth-context'
 import { createInspectionCatalogApi } from '../catalog/inspection-catalog-api'
 import type { BookingHttpClient, InspectionBookingApi } from './inspection-booking-api'
 import { createInspectionBookingApi } from './inspection-booking-api'
@@ -13,12 +16,37 @@ export class ApiRequestError extends Error {
   ) { super(message) }
 }
 
+function isPrivateLanIpv4(hostname: string): boolean {
+  const octets = hostname.split('.')
+  if (octets.length !== 4 || octets.some((octet) => !/^\d{1,3}$/.test(octet)
+    || (octet.length > 1 && octet.startsWith('0')))) return false
+
+  const [first, second, third, fourth] = octets.map(Number)
+  if ([first, second, third, fourth].some((octet) => octet > 255)) return false
+  return first === 10 || (first === 172 && second >= 16 && second <= 31) || (first === 192 && second === 168)
+}
+
+function parseApiBaseUrl(baseUrl: string): { protocol: string; hostname: string } | null {
+  const match = /^(https?):\/\/([^/?#]+)(?:[/?#].*)?$/i.exec(baseUrl)
+  if (!match || /[\s\\]/.test(baseUrl) || match[2].includes('@')) return null
+
+  const authority = /^(\[[0-9a-f:.]+\]|[^:]+)(?::(\d+))?$/i.exec(match[2])
+  if (!authority || (authority[2] && Number(authority[2]) > 65_535)) return null
+  return { protocol: `${match[1].toLowerCase()}:`, hostname: authority[1].toLowerCase() }
+}
+
 function apiUrl(path: string): string {
   const baseUrl = import.meta.env.VITE_INSPECTION_API_BASE_URL?.trim()
   if (!baseUrl) throw new ApiRequestError('缺少 VITE_INSPECTION_API_BASE_URL，无法连接巡检服务', 0, 'API_BASE_URL_MISSING')
+  const parsedBaseUrl = parseApiBaseUrl(baseUrl)
+  if (!parsedBaseUrl) throw new ApiRequestError('API base URL is invalid', 0, 'INSECURE_API_BASE_URL')
   const insecureLoopbackAllowed = import.meta.env.VITE_INSPECTION_ALLOW_INSECURE_LOCAL_API === 'true'
-    && /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?(?:\/|$)/i.test(baseUrl)
-  if (!/^https:\/\//i.test(baseUrl) && !import.meta.env.DEV && !insecureLoopbackAllowed) {
+    && parsedBaseUrl.protocol === 'http:'
+    && (parsedBaseUrl.hostname === '127.0.0.1' || parsedBaseUrl.hostname === 'localhost')
+  const insecureLanAllowed = import.meta.env.VITE_INSPECTION_ALLOW_INSECURE_LAN_API === 'true'
+    && parsedBaseUrl.protocol === 'http:'
+    && isPrivateLanIpv4(parsedBaseUrl.hostname)
+  if (parsedBaseUrl.protocol !== 'https:' && !import.meta.env.DEV && !insecureLoopbackAllowed && !insecureLanAllowed) {
     throw new ApiRequestError('生产环境巡检 API 必须使用 HTTPS', 0, 'INSECURE_API_BASE_URL')
   }
   return `${baseUrl.replace(/\/$/, '')}${path}`
@@ -33,19 +61,66 @@ function errorFromResponse(data: unknown, status: number): ApiRequestError {
   )
 }
 
-function request<T>(input: { url: string; method: 'GET' | 'POST'; data?: unknown; headers?: Record<string, string> }): Promise<T> {
-  const token = getBookingAuthContext().getAccessToken()
-  if (!token) return Promise.reject(new ApiRequestError('请先登录后再进行预约操作', 401, 'COMMON_UNAUTHORIZED'))
+function publicRequest<T>(input: {
+  url: string
+  method: 'GET' | 'POST'
+  data?: unknown
+  headers?: Record<string, string>
+}): Promise<T> {
   return new Promise((resolve, reject) => {
     uni.request({
-      url: apiUrl(input.url), method: input.method, data: input.data as object,
-      header: { Authorization: `Bearer ${token}`, 'X-Request-Id': createBookingUuid(), ...input.headers },
+      url: apiUrl(input.url),
+      method: input.method,
+      data: input.data as object,
+      header: { 'X-Request-Id': createBookingUuid(), ...input.headers },
       success: (response) => response.statusCode >= 200 && response.statusCode < 300
         ? resolve(response.data as T)
         : reject(errorFromResponse(response.data, response.statusCode)),
       fail: () => reject(new ApiRequestError('网络连接失败，请稍后重试', 0, 'NETWORK_ERROR')),
     })
   })
+}
+
+function request<T>(input: { url: string; method: 'GET' | 'POST'; data?: unknown; headers?: Record<string, string> }): Promise<T> {
+  const token = getBookingAuthContext().getAccessToken()
+  if (!token) {
+    beginBookingAuthenticationRecovery()
+    return Promise.reject(new ApiRequestError('请先登录后再进行预约操作', 401, 'COMMON_UNAUTHORIZED'))
+  }
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: apiUrl(input.url), method: input.method, data: input.data as object,
+      header: { Authorization: `Bearer ${token}`, 'X-Request-Id': createBookingUuid(), ...input.headers },
+      success: (response) => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          resolve(response.data as T)
+          return
+        }
+        const error = errorFromResponse(response.data, response.statusCode)
+        if (response.statusCode === 401 || error.code === 'COMMON_UNAUTHORIZED') {
+          beginBookingAuthenticationRecovery()
+        }
+        reject(error)
+      },
+      fail: () => reject(new ApiRequestError('网络连接失败，请稍后重试', 0, 'NETWORK_ERROR')),
+    })
+  })
+}
+
+export interface InspectionLoginResponse {
+  accessToken: string
+  tokenType: 'Bearer'
+  expiresInSeconds: number
+}
+
+export const inspectionAuthApi = {
+  login(loginName: string, password: string): Promise<InspectionLoginResponse> {
+    return publicRequest<InspectionLoginResponse>({
+      url: '/api/v1/auth/login',
+      method: 'POST',
+      data: { loginName, password },
+    })
+  },
 }
 
 function putFile(input: { url: string; filePath: string; headers: Record<string, string> }): Promise<{ etag: string }> {
@@ -63,10 +138,10 @@ function putFile(input: { url: string; filePath: string; headers: Record<string,
 }
 
 const http: BookingHttpClient = { request, putFile }
-export const inspectionCatalogApi = createInspectionCatalogApi(http)
+export const inspectionCatalogApi = createInspectionCatalogApi({ request: publicRequest })
 export const inspectionBookingApi: InspectionBookingApi = createInspectionBookingApi(http, {
   getAccessToken: () => getBookingAuthContext().getAccessToken(),
-})
+}, { request: publicRequest })
 export const inspectionPlanApi = createInspectionPlanApi(http, {
   getAccessToken: () => getBookingAuthContext().getAccessToken(),
 })

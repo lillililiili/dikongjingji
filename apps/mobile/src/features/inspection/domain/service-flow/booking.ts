@@ -42,6 +42,8 @@ export interface BookingAttachment {
 
 export interface BookingDraft {
   locationAddress: string
+  locationLongitude: number | null
+  locationLatitude: number | null
   lineLengthKm: string
   preferredServiceDate: string
   inspectionItemCodes: string[]
@@ -55,7 +57,11 @@ export interface BookingDraft {
 export interface CreateReservationPayload {
   serviceId: string
   cityCode: string
-  location: { address: string }
+  location: {
+    address: string
+    longitude: number | null
+    latitude: number | null
+  }
   lineLengthMeters: number
   preferredServiceDate: string
   inspectionItemCodes: string[]
@@ -69,6 +75,8 @@ export interface CreateReservationPayload {
 export function createEmptyBookingDraft(): BookingDraft {
   return {
     locationAddress: '',
+    locationLongitude: null,
+    locationLatitude: null,
     lineLengthKm: '',
     preferredServiceDate: '',
     inspectionItemCodes: [],
@@ -80,6 +88,43 @@ export function createEmptyBookingDraft(): BookingDraft {
   }
 }
 
+export interface BookingLocationSelection {
+  address: string
+  longitude: number
+  latitude: number
+}
+
+export function createBookingLocationSelection(input: {
+  name?: string
+  address?: string
+  longitude: number
+  latitude: number
+}): BookingLocationSelection {
+  const name = input.name?.trim() ?? ''
+  const address = input.address?.trim() ?? ''
+  const displayAddress = !name || address.endsWith(name)
+    ? address || name
+    : `${address} ${name}`.trim()
+
+  if (
+    displayAddress.length < 2
+    || !Number.isFinite(input.longitude)
+    || input.longitude < -180
+    || input.longitude > 180
+    || !Number.isFinite(input.latitude)
+    || input.latitude < -90
+    || input.latitude > 90
+  ) {
+    throw new Error('INVALID_BOOKING_LOCATION')
+  }
+
+  return {
+    address: displayAddress.slice(0, 240),
+    longitude: input.longitude,
+    latitude: input.latitude,
+  }
+}
+
 export function validateBookingDraft(
   draft: BookingDraft,
   options: { allowPendingAttachments?: boolean } = {},
@@ -88,6 +133,11 @@ export function validateBookingDraft(
 
   if (draft.locationAddress.trim().length < 2) {
     errors.push('请填写巡检地点')
+  } else if (!hasValidLocationCoordinates(
+    draft.locationLongitude,
+    draft.locationLatitude,
+  )) {
+    errors.push('请重新选择巡检地点')
   }
 
   if (!toLineLengthMeters(draft.lineLengthKm)) {
@@ -142,7 +192,11 @@ export function createReservationPayload(
   return {
     serviceId: service.serviceId,
     cityCode: service.cityCode,
-    location: { address: draft.locationAddress.trim() },
+    location: {
+      address: draft.locationAddress.trim(),
+      longitude: draft.locationLongitude,
+      latitude: draft.locationLatitude,
+    },
     lineLengthMeters,
     preferredServiceDate: draft.preferredServiceDate,
     inspectionItemCodes: [...new Set(draft.inspectionItemCodes)],
@@ -172,4 +226,21 @@ function toLineLengthMeters(value: string): number | null {
 
   const metres = Math.round(kilometres * 1000)
   return metres <= 10_000_000 ? metres : null
+}
+
+function hasValidLocationCoordinates(
+  longitude: number | null,
+  latitude: number | null,
+): boolean {
+  if (longitude === null || latitude === null) {
+    return false
+  }
+  return (
+    Number.isFinite(longitude)
+    && longitude >= -180
+    && longitude <= 180
+    && Number.isFinite(latitude)
+    && latitude >= -90
+    && latitude <= 90
+  )
 }

@@ -7,7 +7,7 @@ import { storeToRefs } from 'pinia'
 import { submitBookingReservation, createBookingSubmissionSession, uploadReservationAttachments } from '../../../application/service-flow/submit-booking-reservation'
 import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
 import { inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
-import { createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot } from '../../../domain/service-flow/booking'
+import { createBookingLocationSelection, createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot } from '../../../domain/service-flow/booking'
 import { buildInspectionBookingSubmittedUrl } from '../../../navigation/inspection-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import BookingProgress from '../components/BookingProgress.vue'
@@ -24,6 +24,7 @@ const service = ref<BookingServiceSnapshot | null>(null)
 const draft = ref(createEmptyBookingDraft())
 const isLoading = ref(true)
 const isSubmitting = ref(false)
+const isChoosingLocation = ref(false)
 const loadError = ref('')
 const submitError = ref('')
 const submission = createBookingSubmissionSession()
@@ -92,6 +93,42 @@ function itemIcon(code: string): string {
   }[code] ?? 'navigate-filled'
 }
 
+function chooseInspectionLocation(): void {
+  if (isChoosingLocation.value) {
+    return
+  }
+
+  isChoosingLocation.value = true
+  uni.chooseLocation({
+    success: (result) => {
+      try {
+        const location = createBookingLocationSelection(result)
+        draft.value.locationAddress = location.address
+        draft.value.locationLongitude = location.longitude
+        draft.value.locationLatitude = location.latitude
+      } catch {
+        showLocationPickerError()
+      }
+    },
+    fail: ({ errMsg }) => {
+      if (!errMsg.toLowerCase().includes('cancel')) {
+        showLocationPickerError()
+      }
+    },
+    complete: () => {
+      isChoosingLocation.value = false
+    },
+  })
+}
+
+function showLocationPickerError(): void {
+  uni.showModal({
+    title: '无法选择巡检地点',
+    content: '请开启手机定位并授予应用位置权限后重试；如仍无法使用，请联系客服。',
+    showCancel: false,
+  })
+}
+
 function chooseAttachments(): void {
   if (!canAddAttachment.value) {
     return
@@ -104,31 +141,24 @@ function chooseAttachments(): void {
 }
 
 function chooseImages(): void {
-  uni.chooseImage({
+  uni.chooseMedia({
     count: 9 - draft.value.attachments.length,
-    sizeType: ['compressed'],
+    mediaType: ['image'],
     sourceType: ['album', 'camera'],
-    success: async ({ tempFilePaths, tempFiles }) => {
-      const paths = (Array.isArray(tempFilePaths)
-        ? tempFilePaths
-        : [tempFilePaths]) as string[]
+    success: ({ tempFiles }) => {
       const files = Array.isArray(tempFiles) ? tempFiles : [tempFiles]
-      const attachments = await Promise.all(
-        paths.map(async (filePath: string, index: number) => {
-          const file = files[index] as { name?: string; size?: number } | undefined
-          const attachment: BookingAttachment = {
+      draft.value.attachments.push(...files.map((file, index) => {
+        const attachment: BookingAttachment = {
             localId: createBookingUuid(),
-            filePath,
-            originalName: file?.name ?? `巡检附件-${index + 1}.jpg`,
+            filePath: file.tempFilePath,
+            originalName: `巡检附件-${index + 1}.jpg`,
             contentType: 'image/jpeg',
-            sizeBytes: file?.size ?? 0,
+            sizeBytes: file.size ?? 0,
             sha256: '',
             status: 'PENDING_UPLOAD',
-          }
-          return attachment
-        }),
-      )
-      draft.value.attachments.push(...attachments)
+        }
+        return attachment
+      }))
     },
   })
 }
@@ -213,10 +243,10 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
         <BookingServiceSnapshotCard :service="service" />
         <view class="booking-section">
           <text class="booking-section__title">预约信息</text>
-          <view class="booking-row">
+          <view class="booking-row booking-row--selectable" @tap="chooseInspectionLocation">
             <UniIcons type="location-filled" size="19" color="#ff6a00" />
             <text class="booking-row__label">巡检地点</text>
-            <input v-model="draft.locationAddress" class="booking-row__input" placeholder="请选择巡检地点" maxlength="240" />
+            <text :class="['booking-row__location', { 'booking-row__location--empty': !draft.locationAddress }]">{{ draft.locationAddress || (isChoosingLocation ? '正在打开地图…' : '请选择巡检地点') }}</text>
             <UniIcons type="right" size="15" color="#8e949c" />
           </view>
           <view class="booking-row">
@@ -249,7 +279,7 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
           <view class="booking-attachments">
             <view v-for="attachment in draft.attachments" :key="attachment.localId" class="booking-attachment">
               <text class="booking-attachment__name">{{ attachment.originalName }}</text>
-              <text class="booking-attachment__status">{{ attachment.status === 'FAILED' ? attachment.errorMessage : attachment.status === 'SCANNING' ? '安全扫描中' : attachment.status === 'READY' ? '已完成' : '上传中' }}</text>
+              <text class="booking-attachment__status">{{ attachment.status === 'PENDING_UPLOAD' ? '已选择，提交时上传' : attachment.status === 'FAILED' ? attachment.errorMessage : attachment.status === 'SCANNING' ? '安全扫描中' : attachment.status === 'READY' ? '已完成' : '上传中' }}</text>
               <button v-if="attachment.status === 'FAILED'" class="booking-attachment__action" @click="retryAttachment(attachment)">重试</button>
               <button class="booking-attachment__action" @click="removeAttachment(attachment.localId)">移除</button>
             </view>
@@ -272,6 +302,6 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
 <style scoped>
 .inspection-booking { min-height: 100vh; color: #25282d; background: #f7f8fa; box-sizing: border-box; }
 .inspection-booking__header { display: grid; min-height: calc(44px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); grid-template-columns: 44px 1fr 64px; align-items: center; background: #fff; box-sizing: border-box; }
-.inspection-booking__back,.inspection-booking__customer { height: 42px; margin: 0; padding: 0; border: 0; background: transparent; line-height: 42px; }.inspection-booking__back{width:44px}.inspection-booking__customer{display:flex;width:64px;align-items:center;justify-content:center;gap:3px;font-size:11px}.inspection-booking__back::after,.inspection-booking__customer::after,.inspection-booking__submit::after,.booking-item::after,.booking-attachment-add::after,.booking-attachment__action::after{border:0}.inspection-booking__title{text-align:center;font-size:16px;font-weight:700}.inspection-booking :deep(.booking-progress){padding:4px 24px 1px}.inspection-booking :deep(.booking-progress__label){margin-top:3px}.inspection-booking__scroll{height:calc(100vh - 172px - env(safe-area-inset-top) - env(safe-area-inset-bottom));}.inspection-booking__content{display:flex;max-width:600px;margin:0 auto;padding:4px 8px 6px;flex-direction:column;gap:4px;box-sizing:border-box}.inspection-booking :deep(.booking-service-card){grid-template-columns:90px minmax(0,1fr);min-height:90px;padding:6px}.inspection-booking :deep(.booking-service-card__image){width:90px;height:90px}.inspection-booking :deep(.booking-service-card__copy){padding-left:9px}.booking-section{padding:4px 10px;border:1px solid #eceef1;border-radius:12px;background:#fff}.booking-section__title{display:block;margin-bottom:2px;color:#25282d;font-size:13px;font-weight:700}.booking-row{display:grid;min-height:27px;grid-template-columns:22px 67px minmax(0,1fr) auto;align-items:center;border-bottom:1px solid #eceef1;color:#24282e;font-size:11px}.booking-row:last-child{border-bottom:0}.booking-section--contact .booking-row{min-height:21px}.booking-section--contact .booking-row__input{height:21px}.booking-row__label{font-weight:600}.booking-row__input{width:100%;height:27px;color:#25282d;font-size:11px}.booking-row__date{overflow:hidden;color:#25282d;text-overflow:ellipsis;white-space:nowrap}.booking-row__date--empty,.booking-row__input::placeholder{color:#a4a9b0}.booking-row__suffix{color:#848b94}.booking-note{width:100%;height:42px;margin-top:3px;padding:5px 7px;border:1px solid #eceef1;border-radius:7px;background:#fff;box-sizing:border-box;color:#25282d;font-size:10px}.booking-items{display:grid;margin-top:3px;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.booking-item{display:grid;min-height:38px;margin:0;padding:0 5px;grid-template-columns:22px minmax(0,1fr) 19px;align-items:center;border:1px solid #dfe3e7;border-radius:7px;color:#3f454d;background:#fff;font-size:10px;line-height:1.2}.booking-item--selected{border-color:#ff6a00;color:#25282d;background:#fff8f3}.booking-attachments{display:flex;margin-top:3px;gap:4px;flex-wrap:wrap}.booking-attachment{display:flex;width:86px;height:44px;min-height:44px;padding:4px;align-items:center;justify-content:center;flex-direction:column;border:1px solid #eceef1;border-radius:7px;background:#fafbfc;box-sizing:border-box;overflow:hidden}.booking-attachment-add{display:flex;width:100%;height:44px;min-height:44px;margin:0;padding:0 10px;align-items:center;justify-content:center;gap:8px;border:1px dashed #c7ccd2;border-radius:7px;color:#4c535c;background:#fff;font-size:10px;line-height:1.2}.booking-attachment-add view{display:flex;align-items:flex-start;flex-direction:column}.booking-attachment-add view text:last-child{margin-top:1px;color:#969ca4;font-size:9px}.booking-attachment__name{width:100%;overflow:hidden;font-size:9px;text-overflow:ellipsis;white-space:nowrap}.booking-attachment__status{margin-top:2px;color:#9298a0;font-size:8px;text-align:center}.booking-attachment__action{margin:2px 0 0;padding:0;border:0;color:#ff6a00;background:transparent;font-size:8px}.booking-agreement{display:flex;height:21px;margin-top:1px;align-items:center;gap:3px;color:#707780;font-size:9px}.booking-agreement :deep(.uni-checkbox-input){width:15px;height:15px;margin-right:2px}.booking-agreement__link{color:#ff5a00}.booking-submit-error{padding:0 4px;color:#df3e21;font-size:12px}.inspection-booking__footer{position:fixed;right:0;bottom:0;left:0;padding:0 8px calc(2px + env(safe-area-inset-bottom));background:rgba(255,255,255,.99);box-shadow:0 -3px 14px rgba(22,30,40,.08)}.inspection-booking__tip{display:flex;margin:0 -8px;padding:3px 12px;align-items:center;gap:5px;color:#a65c2e;background:#fff5ea;font-size:9px}.inspection-booking__submit{display:block;width:min(100%,584px);height:32px;margin:1px auto 0;border:0;border-radius:17px;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff4d00);font-size:14px;font-weight:700;line-height:32px}.booking-state{display:flex;min-height:340px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#7e858e;font-size:14px;text-align:center}
+.inspection-booking__back,.inspection-booking__customer { height: 42px; margin: 0; padding: 0; border: 0; background: transparent; line-height: 42px; }.inspection-booking__back{width:44px}.inspection-booking__customer{display:flex;width:64px;align-items:center;justify-content:center;gap:3px;font-size:11px}.inspection-booking__back::after,.inspection-booking__customer::after,.inspection-booking__submit::after,.booking-item::after,.booking-attachment-add::after,.booking-attachment__action::after{border:0}.inspection-booking__title{text-align:center;font-size:16px;font-weight:700}.inspection-booking :deep(.booking-progress){padding:4px 24px 1px}.inspection-booking :deep(.booking-progress__label){margin-top:3px}.inspection-booking__scroll{height:calc(100vh - 172px - env(safe-area-inset-top) - env(safe-area-inset-bottom));}.inspection-booking__content{display:flex;max-width:600px;margin:0 auto;padding:4px 8px 6px;flex-direction:column;gap:4px;box-sizing:border-box}.inspection-booking :deep(.booking-service-card){grid-template-columns:90px minmax(0,1fr);min-height:90px;padding:6px}.inspection-booking :deep(.booking-service-card__image){width:90px;height:90px}.inspection-booking :deep(.booking-service-card__copy){padding-left:9px}.booking-section{padding:4px 10px;border:1px solid #eceef1;border-radius:12px;background:#fff}.booking-section__title{display:block;margin-bottom:2px;color:#25282d;font-size:13px;font-weight:700}.booking-row{display:grid;min-height:27px;grid-template-columns:22px 67px minmax(0,1fr) auto;align-items:center;border-bottom:1px solid #eceef1;color:#24282e;font-size:11px}.booking-row:last-child{border-bottom:0}.booking-row--selectable{cursor:pointer}.booking-section--contact .booking-row{min-height:21px}.booking-section--contact .booking-row__input{height:21px}.booking-row__label{font-weight:600}.booking-row__input{width:100%;height:27px;color:#25282d;font-size:11px}.booking-row__date,.booking-row__location{overflow:hidden;color:#25282d;text-overflow:ellipsis;white-space:nowrap}.booking-row__date--empty,.booking-row__location--empty,.booking-row__input::placeholder{color:#a4a9b0}.booking-row__suffix{color:#848b94}.booking-note{width:100%;height:42px;margin-top:3px;padding:5px 7px;border:1px solid #eceef1;border-radius:7px;background:#fff;box-sizing:border-box;color:#25282d;font-size:10px}.booking-items{display:grid;margin-top:3px;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.booking-item{display:grid;min-height:38px;margin:0;padding:0 5px;grid-template-columns:22px minmax(0,1fr) 19px;align-items:center;border:1px solid #dfe3e7;border-radius:7px;color:#3f454d;background:#fff;font-size:10px;line-height:1.2}.booking-item--selected{border-color:#ff6a00;color:#25282d;background:#fff8f3}.booking-attachments{display:flex;margin-top:3px;gap:4px;flex-wrap:wrap}.booking-attachment{display:flex;width:86px;height:44px;min-height:44px;padding:4px;align-items:center;justify-content:center;flex-direction:column;border:1px solid #eceef1;border-radius:7px;background:#fafbfc;box-sizing:border-box;overflow:hidden}.booking-attachment-add{display:flex;width:100%;height:44px;min-height:44px;margin:0;padding:0 10px;align-items:center;justify-content:center;gap:8px;border:1px dashed #c7ccd2;border-radius:7px;color:#4c535c;background:#fff;font-size:10px;line-height:1.2}.booking-attachment-add view{display:flex;align-items:flex-start;flex-direction:column}.booking-attachment-add view text:last-child{margin-top:1px;color:#969ca4;font-size:9px}.booking-attachment__name{width:100%;overflow:hidden;font-size:9px;text-overflow:ellipsis;white-space:nowrap}.booking-attachment__status{margin-top:2px;color:#9298a0;font-size:8px;text-align:center}.booking-attachment__action{margin:2px 0 0;padding:0;border:0;color:#ff6a00;background:transparent;font-size:8px}.booking-agreement{display:flex;height:21px;margin-top:1px;align-items:center;gap:3px;color:#707780;font-size:9px}.booking-agreement :deep(.uni-checkbox-input){width:15px;height:15px;margin-right:2px}.booking-agreement__link{color:#ff5a00}.booking-submit-error{padding:0 4px;color:#df3e21;font-size:12px}.inspection-booking__footer{position:fixed;right:0;bottom:0;left:0;padding:0 8px calc(2px + env(safe-area-inset-bottom));background:rgba(255,255,255,.99);box-shadow:0 -3px 14px rgba(22,30,40,.08)}.inspection-booking__tip{display:flex;margin:0 -8px;padding:3px 12px;align-items:center;gap:5px;color:#a65c2e;background:#fff5ea;font-size:9px}.inspection-booking__submit{display:block;width:min(100%,584px);height:32px;margin:1px auto 0;border:0;border-radius:17px;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff4d00);font-size:14px;font-weight:700;line-height:32px}.booking-state{display:flex;min-height:340px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#7e858e;font-size:14px;text-align:center}
 .booking-section--contact{padding-top:2px;padding-bottom:2px}.booking-section--contact .booking-section__title{margin-bottom:0}.booking-section--contact .booking-row{min-height:20px}.booking-section--contact .booking-row__input{height:20px}
 </style>

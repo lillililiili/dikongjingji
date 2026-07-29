@@ -92,16 +92,31 @@ function Assert-ServiceNetwork {
     Assert-True ($networks.Count -eq 1 -and $networks[0] -eq 'inspection-internal') "Compose service must use only inspection-internal: $Service"
 }
 
-function Assert-LoopbackPorts {
+function Assert-ScopedLoopbackPorts {
     param(
         [string]$Compose,
-        [string]$Service
+        [string]$Service,
+        [string]$BindAddressVariable
     )
 
     $ports = @(Get-SectionListItems (Get-ServiceSection (Get-ComposeServiceBlock $Compose $Service) 'ports'))
     Assert-True ($ports.Count -gt 0) "Compose service has no development port binding: $Service"
+    $expectedPrefix = '${' + $BindAddressVariable + ':-127.0.0.1}:'
     foreach ($port in $ports) {
-        Assert-True $port.Contains('${INSPECTION_APP_BIND_ADDRESS:-127.0.0.1}:') "Compose service port must default to loopback: $Service"
+        Assert-True ($port.Trim('"').StartsWith($expectedPrefix)) "Compose service port must use $BindAddressVariable with a loopback default: $Service"
+    }
+}
+
+function Assert-RequiredPortBindings {
+    param(
+        [string]$Compose,
+        [string]$Service,
+        [string[]]$RequiredPorts
+    )
+
+    $ports = @(Get-SectionListItems (Get-ServiceSection (Get-ComposeServiceBlock $Compose $Service) 'ports') | ForEach-Object { $_.Trim('"') })
+    foreach ($requiredPort in $RequiredPorts) {
+        Assert-True ($ports -contains $requiredPort) "Compose service is missing required port binding: $Service -> $requiredPort"
     }
 }
 
@@ -150,9 +165,18 @@ foreach ($service in $expectedImages.Keys) {
 }
 Assert-ServiceNetwork $compose 'backend'
 
-foreach ($service in @('postgres', 'redis', 'minio', 'backend')) {
-    Assert-LoopbackPorts $compose $service
+foreach ($serviceBinding in @(
+    @{ Service = 'postgres'; BindAddressVariable = 'INSPECTION_APP_BIND_ADDRESS' },
+    @{ Service = 'redis'; BindAddressVariable = 'INSPECTION_APP_BIND_ADDRESS' },
+    @{ Service = 'minio'; BindAddressVariable = 'INSPECTION_MINIO_BIND_ADDRESS' },
+    @{ Service = 'backend'; BindAddressVariable = 'INSPECTION_BACKEND_BIND_ADDRESS' }
+)) {
+    Assert-ScopedLoopbackPorts $compose $serviceBinding.Service $serviceBinding.BindAddressVariable
 }
+Assert-RequiredPortBindings $compose 'minio' @(
+    '${INSPECTION_MINIO_BIND_ADDRESS:-127.0.0.1}:${INSPECTION_MINIO_API_PORT:-9000}:9000',
+    '${INSPECTION_MINIO_BIND_ADDRESS:-127.0.0.1}:${INSPECTION_MINIO_CONSOLE_PORT:-9001}:9001'
+)
 
 $networkBlock = [regex]::Match($compose, '(?ms)^networks:[ \t]*\n  inspection-internal:[ \t]*\n    driver:[ \t]*bridge[ \t]*$')
 Assert-True $networkBlock.Success 'Compose network inspection-internal must use an isolated bridge that permits loopback port publishing.'
@@ -193,5 +217,9 @@ foreach ($key in @('INSPECTION_DB_USERNAME', 'INSPECTION_DB_PASSWORD', 'INSPECTI
 }
 Assert-True ($env -match '(?m)^# Replace with Base64 encoding of at least 32 random bytes\. This invalid placeholder is not a secret\.$') 'The JWT placeholder must explain the 32-byte minimum without providing a secret.'
 Assert-True ((Get-EnvExampleValue $envWithoutComments 'INSPECTION_RESERVATION_ALLOWED_MIME_TYPES') -eq 'image/jpeg,image/png,application/pdf') 'Reservation upload MIME policy must be explicit in the environment example.'
+foreach ($key in @('INSPECTION_APP_BIND_ADDRESS', 'INSPECTION_BACKEND_BIND_ADDRESS', 'INSPECTION_MINIO_BIND_ADDRESS')) {
+    Assert-True ((Get-EnvExampleValue $envWithoutComments $key) -eq '127.0.0.1') "Environment example bind address must default to loopback: $key"
+}
+Assert-True ($env -match '(?m)^# All host bindings default to loopback\. Backend and MinIO may be changed to 0\.0\.0\.0 only for temporary LAN acceptance; PostgreSQL and Redis must remain loopback\.$') 'Environment example must limit LAN exposure to backend and MinIO.'
 
 Write-Output 'Compose static invariants passed.'

@@ -1,24 +1,53 @@
 {
-  "name": "低空综合服务平台",
-  "appid": "__UNI__INSPECTION_I1",
-  "description": "全国化低空与机器人综合服务平台",
-  "versionName": "0.1.0",
-  "versionCode": "100",
-  "vueVersion": "3",
-  "transformPx": false,
-  "uniStatistics": {
-    "enable": false
-  },
-  "app-plus": {
-    "usingComponents": true,
-    "splashscreen": {
-      "alwaysShowBeforeRender": true,
-      "waiting": true,
-      "autoclose": true,
-      "delay": 0
+    "name" : "低空综合服务平台",
+    "appid" : "__UNI__A608B14",
+    "description" : "全国化低空与机器人综合服务平台",
+    "versionName" : "0.1.0",
+    "versionCode" : "100",
+    "vueVersion" : "3",
+    "transformPx" : false,
+    "uniStatistics" : {
+        "enable" : false
+    },
+    "app-plus" : {
+        "usingComponents" : true,
+        "modules" : {
+            "Maps" : {},
+            "Geolocation" : {},
+            "Camera" : {}
+        },
+        "distribute" : {
+            "sdkConfigs" : {
+                "maps" : {
+                    "amap" : {
+                        "appkey_android" : "f053008999fdd1e4f910a445424df882"
+                    }
+                },
+                "geolocation" : {
+                    "amap" : {
+                        "__platform__" : [ "android" ],
+                        "appkey_android" : "f053008999fdd1e4f910a445424df882"
+                    }
+                }
+            },
+            "android" : {
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.ACCESS_COARSE_LOCATION\" />",
+                    "<uses-permission android:name=\"android.permission.ACCESS_FINE_LOCATION\" />"
+                ]
+            },
+            "ios" : {
+                "dSYMs" : false
+            }
+        },
+        "splashscreen" : {
+            "alwaysShowBeforeRender" : true,
+            "waiting" : true,
+            "autoclose" : true,
+            "delay" : 0
+        }
+    },
+    "h5" : {
+        "title" : "低空综合服务平台"
     }
-  },
-  "h5": {
-    "title": "低空综合服务平台"
-  }
 }

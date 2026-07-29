@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import * as inspectionRoutes from '../navigation/inspection-routes'
 import pagesSource from '../../../pages.json?raw'
+import manifestSource from '../../../manifest.json?raw'
 import bookingPageSource from '../presentation/booking/pages/InspectionBookingPage.vue?raw'
 import submittedPageSource from '../presentation/booking/pages/InspectionBookingSubmittedPage.vue?raw'
 import bookingApiSource from '../data/service-flow/uni-booking-http-client.ts?raw'
 import {
+  createBookingLocationSelection,
   createBookingIdempotencyKey,
   createEmptyBookingDraft,
   createReservationPayload,
@@ -100,6 +102,8 @@ describe('F04 booking form boundary', () => {
     const payload = createReservationPayload(service, {
       ...createEmptyBookingDraft(),
       locationAddress: '东营市垦利区黄河路 88 号',
+      locationLongitude: 118.674767,
+      locationLatitude: 37.434751,
       lineLengthKm: '12.3',
       preferredServiceDate: '2026-08-02',
       inspectionItemCodes: ['TOWER'],
@@ -117,6 +121,82 @@ describe('F04 booking form boundary', () => {
     })
     expect(payload).not.toHaveProperty('serviceTitle')
     expect(payload).not.toHaveProperty('serviceCoverUrl')
+  })
+
+  it('normalizes a native map selection and submits its coordinates', () => {
+    const location = createBookingLocationSelection({
+      name: '黄河路 88 号',
+      address: '山东省东营市东营区黄河路',
+      longitude: 118.674767,
+      latitude: 37.434751,
+    })
+    const payload = createReservationPayload(service, {
+      ...createEmptyBookingDraft(),
+      locationAddress: location.address,
+      locationLongitude: location.longitude,
+      locationLatitude: location.latitude,
+      lineLengthKm: '12.3',
+      preferredServiceDate: '2026-08-02',
+      inspectionItemCodes: ['TOWER'],
+      contactName: '王先生',
+      contactMobile: '13800138000',
+      agreementAccepted: true,
+    })
+
+    expect(payload.location).toEqual({
+      address: '山东省东营市东营区黄河路 黄河路 88 号',
+      longitude: 118.674767,
+      latitude: 37.434751,
+    })
+  })
+
+  it('rejects a typed address when map coordinates are unavailable', () => {
+    const draft = {
+      ...createEmptyBookingDraft(),
+      locationAddress: '东营市黄河路 88 号',
+      lineLengthKm: '12.3',
+      preferredServiceDate: '2026-08-02',
+      inspectionItemCodes: ['TOWER'],
+      contactName: '王先生',
+      contactMobile: '13800138000',
+      agreementAccepted: true,
+    }
+
+    expect(validateBookingDraft(draft)).toEqual(['请重新选择巡检地点'])
+  })
+
+  it('rejects a location when only one coordinate is present', () => {
+    const draft = {
+      ...createEmptyBookingDraft(),
+      locationAddress: '东营市黄河路 88 号',
+      locationLongitude: 118.674767,
+      lineLengthKm: '12.3',
+      preferredServiceDate: '2026-08-02',
+      inspectionItemCodes: ['TOWER'],
+      contactName: '王先生',
+      contactMobile: '13800138000',
+      agreementAccepted: true,
+    }
+
+    expect(validateBookingDraft(draft)).toEqual(['请重新选择巡检地点'])
+  })
+
+  it('rejects an invalid coordinate returned by the native map picker', () => {
+    expect(() => createBookingLocationSelection({
+      name: '黄河路 88 号',
+      address: '山东省东营市东营区黄河路',
+      longitude: 181,
+      latitude: 37.434751,
+    })).toThrowError('INVALID_BOOKING_LOCATION')
+  })
+
+  it('rejects a native map selection without a usable address', () => {
+    expect(() => createBookingLocationSelection({
+      name: ' ',
+      address: '',
+      longitude: 118.674767,
+      latitude: 37.434751,
+    })).toThrowError('INVALID_BOOKING_LOCATION')
   })
 
   it('keeps one generated idempotency key stable for a retry attempt', () => {
@@ -208,6 +288,47 @@ describe('F04 booking API workflow', () => {
 })
 
 describe('F04 booking page contract', () => {
+  it('opens the native map picker and stores its address and coordinates', () => {
+    expect(bookingPageSource).toContain('uni.chooseLocation({')
+    expect(bookingPageSource).toContain('createBookingLocationSelection(result)')
+    expect(bookingPageSource).toContain('@tap="chooseInspectionLocation"')
+    expect(bookingPageSource).toContain('正在打开地图…')
+    expect(bookingPageSource).not.toContain('editable: true')
+    expect(bookingPageSource).not.toContain('uni.getLocation({')
+    expect(bookingPageSource).not.toContain('v-model="draft.locationAddress"')
+  })
+
+  it('configures AMap for the independently packaged Android acceptance build', () => {
+    const manifest = JSON.parse(manifestSource) as {
+      'app-plus': {
+        distribute?: {
+          sdkConfigs?: {
+            maps?: { amap?: { appkey_android?: string } }
+            geolocation?: { amap?: { appkey_android?: string } }
+          }
+        }
+      }
+    }
+    const sdkConfigs = manifest['app-plus'].distribute?.sdkConfigs
+    const mapKey = sdkConfigs?.maps?.amap?.appkey_android
+
+    expect(mapKey).toMatch(/^[a-f0-9]{32}$/)
+    expect(sdkConfigs?.geolocation?.amap?.appkey_android).toBe(mapKey)
+  })
+
+  it('uses the Android system media picker and describes pending files accurately', () => {
+    const manifest = JSON.parse(manifestSource) as {
+      'app-plus': { modules: Record<string, unknown> }
+    }
+
+    expect(bookingPageSource).toContain('uni.chooseMedia({')
+    expect(bookingPageSource).toContain("mediaType: ['image']")
+    expect(bookingPageSource).toContain('file.tempFilePath')
+    expect(bookingPageSource).toContain('已选择，提交时上传')
+    expect(bookingPageSource).not.toContain('uni.chooseImage({')
+    expect(manifest['app-plus'].modules).toHaveProperty('Camera')
+  })
+
   it('keeps the three-stage flow, safe-area footer and no preselected project', () => {
     expect(bookingPageSource).toContain('<BookingProgress :active="1"')
     expect(bookingPageSource).toContain('env(safe-area-inset-bottom)')

@@ -24,6 +24,10 @@ const statusCopy = computed(() => order.value?.status === 'ARRANGING' ? '服务�
 const canOpenDelivery = computed(() =>
   order.value?.status === 'DELIVERED' || order.value?.status === 'ACCEPTED',
 )
+const primaryActionLabel = computed(() =>
+  order.value?.status === 'ACCEPTED' ? '查看报告'
+    : canOpenDelivery.value ? '查看报告与验收' : '返回首页',
+)
 const progressSteps = computed(() => {
   const current = order.value
   if (!current) return []
@@ -143,7 +147,7 @@ function formatLineLength(value: number | null): string {
         </view>
       </view>
     </main>
-    <view v-if="order" class="fulfillment__footer"><view><UniIcons type="info-filled" size="18" color="#ff6a00" /><text>服务安排会随服务商实际进度更新，请保持联系方式畅通。</text></view><button @click="handlePrimaryAction">{{ canOpenDelivery ? '查看报告与验收' : '返回首页' }}</button></view>
+    <view v-if="order" class="fulfillment__footer"><view><UniIcons type="info-filled" size="18" color="#ff6a00" /><text>服务安排会随服务商实际进度更新，请保持联系方式畅通。</text></view><button @click="handlePrimaryAction">{{ primaryActionLabel }}</button></view>
   </view>
 </template>
 

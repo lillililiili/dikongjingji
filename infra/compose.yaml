@@ -41,8 +41,8 @@ services:
       MINIO_ROOT_USER: ${INSPECTION_MINIO_ACCESS_KEY:?set INSPECTION_MINIO_ACCESS_KEY in .env}
       MINIO_ROOT_PASSWORD: ${INSPECTION_MINIO_SECRET_KEY:?set INSPECTION_MINIO_SECRET_KEY in .env}
     ports:
-      - "${INSPECTION_APP_BIND_ADDRESS:-127.0.0.1}:${INSPECTION_MINIO_API_PORT:-9000}:9000"
-      - "${INSPECTION_APP_BIND_ADDRESS:-127.0.0.1}:${INSPECTION_MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${INSPECTION_MINIO_BIND_ADDRESS:-127.0.0.1}:${INSPECTION_MINIO_API_PORT:-9000}:9000"
+      - "${INSPECTION_MINIO_BIND_ADDRESS:-127.0.0.1}:${INSPECTION_MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - inspection-minio-data:/data
     networks:
@@ -105,7 +105,7 @@ services:
       minio-init:
         condition: service_completed_successfully
     ports:
-      - "${INSPECTION_APP_BIND_ADDRESS:-127.0.0.1}:${INSPECTION_APP_PORT:-8080}:8080"
+      - "${INSPECTION_BACKEND_BIND_ADDRESS:-127.0.0.1}:${INSPECTION_APP_PORT:-8080}:8080"
     networks:
       - inspection-internal
 
