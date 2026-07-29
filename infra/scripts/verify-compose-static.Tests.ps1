@@ -138,7 +138,7 @@ try {
     Assert-ScopedCheckerRejects 'env-example-app-bind-address-not-loopback' {
         param($fixture)
         $path = Join-Path $fixture '.env.example'
-        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^INSPECTION_APP_BIND_ADDRESS=127\.0\.0\.1$', 'INSPECTION_APP_BIND_ADDRESS=0.0.0.0' | Set-Content -LiteralPath $path -NoNewline
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^INSPECTION_APP_BIND_ADDRESS=127\.0\.0\.1\r?$', 'INSPECTION_APP_BIND_ADDRESS=0.0.0.0' | Set-Content -LiteralPath $path -NoNewline
     }
     Assert-ScopedCheckerRejects 'env-example-missing-minio-bind-address' {
         param($fixture)
@@ -148,7 +148,7 @@ try {
     Assert-ScopedCheckerRejects 'env-example-minio-bind-address-not-loopback' {
         param($fixture)
         $path = Join-Path $fixture '.env.example'
-        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^INSPECTION_MINIO_BIND_ADDRESS=127\.0\.0\.1$', 'INSPECTION_MINIO_BIND_ADDRESS=0.0.0.0' | Set-Content -LiteralPath $path -NoNewline
+        (Get-Content -LiteralPath $path -Raw) -replace '(?m)^INSPECTION_MINIO_BIND_ADDRESS=127\.0\.0\.1\r?$', 'INSPECTION_MINIO_BIND_ADDRESS=0.0.0.0' | Set-Content -LiteralPath $path -NoNewline
     }
     Assert-ScopedCheckerRejects 'backend-jwt-environment-missing' {
         param($fixture)

@@ -36,7 +36,7 @@ function parseApiBaseUrl(baseUrl: string): { protocol: string; hostname: string 
   return { protocol: `${match[1].toLowerCase()}:`, hostname: authority[1].toLowerCase() }
 }
 
-async function apiUrl(path: string): Promise<string> {
+export async function resolveInspectionApiRequestUrl(path: string): Promise<string> {
   const configuredBaseUrl = import.meta.env.VITE_INSPECTION_API_BASE_URL?.trim()
   if (!configuredBaseUrl) throw new ApiRequestError('缺少 VITE_INSPECTION_API_BASE_URL，无法连接巡检服务', 0, 'API_BASE_URL_MISSING')
   const baseUrl = await resolveInspectionApiBaseUrl(configuredBaseUrl)
@@ -73,7 +73,7 @@ async function publicRequest<T>(input: {
   data?: unknown
   headers?: Record<string, string>
 }): Promise<T> {
-  const url = await apiUrl(input.url)
+  const url = await resolveInspectionApiRequestUrl(input.url)
   return new Promise((resolve, reject) => {
     uni.request({
       url,
@@ -94,7 +94,7 @@ async function request<T>(input: { url: string; method: 'GET' | 'POST'; data?: u
     beginBookingAuthenticationRecovery()
     throw new ApiRequestError('请先登录后再进行预约操作', 401, 'COMMON_UNAUTHORIZED')
   }
-  const url = await apiUrl(input.url)
+  const url = await resolveInspectionApiRequestUrl(input.url)
   return new Promise((resolve, reject) => {
     uni.request({
       url, method: input.method, data: input.data as object,

@@ -87,7 +87,7 @@ describe('platform mine presentation state', () => {
     if (state.kind !== 'ready') return
 
     expect(state.content.user?.certificationLabel).toBe('已认证企业用户')
-    expect(state.content.statusCounts.COMPLETED).toBe(8)
+    expect(state.content.statusCounts?.COMPLETED).toBe(8)
     expect(state.content.featureEntries[0]?.valueText).toBe('3个项目')
     expect(state.content.recentOrders[0]?.amount).toEqual({ label: '报价', text: '¥699' })
   })

@@ -46,14 +46,14 @@ export interface PlatformMineOrder {
 export interface PlatformMineFeatureEntry {
   code: string
   title: string
-  valueText: string
+  valueText?: string
   imageUrl: string
   availability: PlatformAvailability
 }
 
 export interface PlatformMineContent {
   user?: PlatformMineUser
-  statusCounts: Record<InspectionMineStatus, number>
+  statusCounts?: Record<InspectionMineStatus, number>
   recentOrders: PlatformMineOrder[]
   featureEntries: PlatformMineFeatureEntry[]
 }

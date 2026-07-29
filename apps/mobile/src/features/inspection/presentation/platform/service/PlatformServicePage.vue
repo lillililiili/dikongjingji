@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import PlatformUnavailableDialog from '../shared/PlatformUnavailableDialog.vue'
 import { resolvePlatformAvailabilityAction } from '../shared/platform-availability'
@@ -28,6 +28,12 @@ const emit = defineEmits<{
 }>()
 
 const unavailableDialogVisible = ref(false)
+const unreadLabel = computed(() => {
+  if (props.state.kind !== 'ready') return ''
+  const count = props.state.content.unreadCount
+  if (!count || count < 1) return ''
+  return count > 99 ? '99+' : String(count)
+})
 
 const proceedOrShowUnavailable = (
   availability: PlatformServiceAvailability,
@@ -111,8 +117,8 @@ const capabilityIcons: Record<string, string> = {
           </button>
           <button class="platform-service__message" aria-label="消息" @click="emit('message')">
             <UniIcons type="chatboxes" size="28" color="#1e2227" />
-            <text class="platform-service__badge">
-              {{ props.state.content.unreadCount > 99 ? '99+' : props.state.content.unreadCount }}
+            <text v-if="unreadLabel" class="platform-service__badge">
+              {{ unreadLabel }}
             </text>
           </button>
         </view>
@@ -209,14 +215,14 @@ const capabilityIcons: Record<string, string> = {
                   {{ service.subtitle }}
                 </text>
                 <view class="platform-service__service-meta">
-                  <text class="platform-service__quote">{{ service.quoteLabel }}</text>
+                  <text v-if="service.quoteLabel" class="platform-service__quote">{{ service.quoteLabel }}</text>
                 </view>
                 <view class="platform-service__service-stats">
-                  <text class="platform-service__rating">
+                  <text v-if="service.rating !== undefined" class="platform-service__rating">
                     <UniIcons type="star-filled" size="11" color="#ffad00" />
                     {{ service.rating.toFixed(1) }}
                   </text>
-                  <text class="platform-service__metric">{{ service.soldCountText }}</text>
+                  <text v-if="service.soldCountText" class="platform-service__metric">{{ service.soldCountText }}</text>
                 </view>
                 <view class="platform-service__service-action">{{ service.actionLabel }}</view>
               </button>

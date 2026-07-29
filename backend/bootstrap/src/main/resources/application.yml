@@ -49,3 +49,8 @@ management:
   endpoint:
     health:
       show-details: never
+
+platform:
+  weather:
+    enabled: ${PLATFORM_WEATHER_ENABLED:false}
+    api-key: ${PLATFORM_WEATHER_API_KEY:}

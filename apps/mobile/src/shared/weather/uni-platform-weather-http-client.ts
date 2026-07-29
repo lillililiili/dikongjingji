@@ -1,3 +1,5 @@
+import { resolveInspectionApiRequestUrl } from '../../features/inspection/data/service-flow/uni-booking-http-client'
+
 import type { PlatformWeatherHttpClient } from './platform-weather'
 
 export interface PlatformWeatherAccessTokenPort {
@@ -14,27 +16,6 @@ export class PlatformWeatherRequestError extends Error {
   }
 }
 
-function apiUrl(path: string): string {
-  const baseUrl = import.meta.env.VITE_INSPECTION_API_BASE_URL?.trim()
-  if (!baseUrl) {
-    throw new PlatformWeatherRequestError(
-      '缺少 VITE_INSPECTION_API_BASE_URL，无法查询天气',
-      0,
-      'API_BASE_URL_MISSING',
-    )
-  }
-  const insecureLoopbackAllowed = import.meta.env.DEV
-    && /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?(?:\/|$)/i.test(baseUrl)
-  if (!/^https:\/\//i.test(baseUrl) && !insecureLoopbackAllowed) {
-    throw new PlatformWeatherRequestError(
-      '生产环境天气 API 必须使用 HTTPS',
-      0,
-      'INSECURE_API_BASE_URL',
-    )
-  }
-  return `${baseUrl.replace(/\/$/, '')}${path}`
-}
-
 function responseError(data: unknown, status: number): PlatformWeatherRequestError {
   const payload = data as { message?: unknown; code?: unknown }
   return new PlatformWeatherRequestError(
@@ -48,19 +29,20 @@ export function createUniPlatformWeatherHttpClient(
   accessToken: PlatformWeatherAccessTokenPort,
 ): PlatformWeatherHttpClient {
   return {
-    request<T>(input: { url: string; method: 'GET' }): Promise<T> {
+    async request<T>(input: { url: string; method: 'GET' }): Promise<T> {
       const token = accessToken.getAccessToken()
       if (!token) {
-        return Promise.reject(new PlatformWeatherRequestError(
+        throw new PlatformWeatherRequestError(
           '请先登录',
           401,
           'COMMON_UNAUTHORIZED',
-        ))
+        )
       }
+      const url = await resolveInspectionApiRequestUrl(input.url)
 
       return new Promise((resolve, reject) => {
         uni.request({
-          url: apiUrl(input.url),
+          url,
           method: input.method,
           header: { Authorization: `Bearer ${token}` },
           success: (response) => {

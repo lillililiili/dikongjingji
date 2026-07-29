@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import PlatformUnavailableDialog from '../shared/PlatformUnavailableDialog.vue'
 import type { PlatformAvailability } from '../shared/platform-availability'
@@ -29,6 +29,12 @@ const emit = defineEmits<{
 }>()
 
 const unavailableDialogVisible = ref(false)
+const unreadLabel = computed(() => {
+  if (props.state.kind !== 'ready') return ''
+  const count = props.state.content.unreadCount
+  if (!count || count < 1) return ''
+  return count > 99 ? '99+' : String(count)
+})
 
 const proceedOrShowUnavailable = (
   availability: PlatformAvailability,
@@ -106,8 +112,8 @@ const tabs = [
           </button>
           <button class="platform-home__message" aria-label="消息" @click="emit('message')">
             <UniIcons type="chatboxes" size="28" color="#1e2227" />
-            <text class="platform-home__badge">
-              {{ props.state.content.unreadCount > 99 ? '99+' : props.state.content.unreadCount }}
+            <text v-if="unreadLabel" class="platform-home__badge">
+              {{ unreadLabel }}
             </text>
           </button>
         </view>
@@ -166,14 +172,14 @@ const tabs = [
                   {{ service.subtitle }}
                 </text>
                 <view class="platform-home__featured-meta">
-                  <text class="platform-home__quote">{{ service.quoteLabel }}</text>
+                  <text v-if="service.quoteLabel" class="platform-home__quote">{{ service.quoteLabel }}</text>
                 </view>
                 <view class="platform-home__featured-stats">
-                  <text class="platform-home__rating">
+                  <text v-if="service.rating !== undefined" class="platform-home__rating">
                     <UniIcons type="star-filled" size="11" color="#ffad00" />
                     {{ service.rating.toFixed(1) }}
                   </text>
-                  <text class="platform-home__metric">{{ service.soldCountText }}</text>
+                  <text v-if="service.soldCountText" class="platform-home__metric">{{ service.soldCountText }}</text>
                 </view>
               </button>
             </view>

@@ -184,7 +184,7 @@ Assert-True $networkBlock.Success 'Compose network inspection-internal must use 
 $backend = Get-ComposeServiceBlock $compose 'backend'
 Assert-True ([regex]::IsMatch($backend, '(?ms)^    build:[ \t]*\n      context:[ \t]*\.\.[ \t]*\n      dockerfile:[ \t]*backend/Dockerfile[ \t]*$')) 'Backend build context or Dockerfile is incorrect.'
 $backendEnvironment = Get-ServiceSection $backend 'environment'
-foreach ($key in @('SPRING_PROFILES_ACTIVE', 'INSPECTION_ENVIRONMENT', 'INSPECTION_DB_URL', 'INSPECTION_DB_USERNAME', 'INSPECTION_DB_PASSWORD', 'INSPECTION_REDIS_HOST', 'INSPECTION_REDIS_PORT', 'INSPECTION_REDIS_PASSWORD', 'INSPECTION_MINIO_ENABLED', 'INSPECTION_MINIO_ENDPOINT', 'INSPECTION_MINIO_PUBLIC_ENDPOINT', 'INSPECTION_MINIO_ACCESS_KEY', 'INSPECTION_MINIO_SECRET_KEY', 'INSPECTION_JWT_HMAC_BASE64_SECRET', 'INSPECTION_DATA_ENCRYPTION_BASE64_KEY', 'INSPECTION_RESERVATION_ALLOWED_MIME_TYPES', 'INSPECTION_CORS_ALLOWED_ORIGINS')) {
+foreach ($key in @('SPRING_PROFILES_ACTIVE', 'INSPECTION_ENVIRONMENT', 'INSPECTION_DB_URL', 'INSPECTION_DB_USERNAME', 'INSPECTION_DB_PASSWORD', 'INSPECTION_REDIS_HOST', 'INSPECTION_REDIS_PORT', 'INSPECTION_REDIS_PASSWORD', 'INSPECTION_MINIO_ENABLED', 'INSPECTION_MINIO_ENDPOINT', 'INSPECTION_MINIO_PUBLIC_ENDPOINT', 'INSPECTION_MINIO_ACCESS_KEY', 'INSPECTION_MINIO_SECRET_KEY', 'INSPECTION_JWT_HMAC_BASE64_SECRET', 'INSPECTION_DATA_ENCRYPTION_BASE64_KEY', 'INSPECTION_RESERVATION_ALLOWED_MIME_TYPES', 'INSPECTION_CORS_ALLOWED_ORIGINS', 'PLATFORM_WEATHER_ENABLED', 'PLATFORM_WEATHER_API_KEY')) {
     $null = Get-EnvironmentValue $backendEnvironment $key
 }
 Assert-True ((Get-EnvironmentValue $backendEnvironment 'SPRING_PROFILES_ACTIVE') -eq 'dev') 'Backend must run the dev profile locally.'
@@ -210,16 +210,18 @@ Assert-True ([regex]::IsMatch($docker, '(?m)^USER\s+spring\s*$')) 'Dockerfile mu
 Assert-True ([regex]::IsMatch($docker, '(?m)^HEALTHCHECK\b.*GET /actuator/health.*$')) 'Dockerfile healthcheck must request /actuator/health.'
 
 Assert-True ($application -match '(?m)^    hmac-base64-secret:[ \t]*\$\{INSPECTION_JWT_HMAC_BASE64_SECRET\}[ \t]*$') 'The shared application configuration must bind INSPECTION_JWT_HMAC_BASE64_SECRET.'
+Assert-True ($application -match '(?m)^    enabled:[ \t]*\$\{PLATFORM_WEATHER_ENABLED:false\}[ \t]*$') 'The shared application configuration must bind PLATFORM_WEATHER_ENABLED.'
+Assert-True ($application -match '(?m)^    api-key:[ \t]*\$\{PLATFORM_WEATHER_API_KEY:\}[ \t]*$') 'The shared application configuration must bind PLATFORM_WEATHER_API_KEY without a fallback secret.'
 Assert-True ($applicationDev -notmatch '(?m)^\s*environment:\s*dev\s*$') 'The dev profile must not supply a fallback inspection environment.'
 
 foreach ($key in @('INSPECTION_DB_USERNAME', 'INSPECTION_DB_PASSWORD', 'INSPECTION_MINIO_ACCESS_KEY', 'INSPECTION_MINIO_SECRET_KEY', 'INSPECTION_JWT_HMAC_BASE64_SECRET', 'INSPECTION_DATA_ENCRYPTION_BASE64_KEY')) {
     Assert-True ((Get-EnvExampleValue $envWithoutComments $key) -match '^REPLACE_WITH_[A-Z0-9_]+$') "Environment example must use a non-secret placeholder: $key"
 }
-Assert-True ($env -match '(?m)^# Replace with Base64 encoding of at least 32 random bytes\. This invalid placeholder is not a secret\.$') 'The JWT placeholder must explain the 32-byte minimum without providing a secret.'
+Assert-True ($env -match '(?m)^# Replace with Base64 encoding of at least 32 random bytes\. This invalid placeholder is not a secret\.\r?$') 'The JWT placeholder must explain the 32-byte minimum without providing a secret.'
 Assert-True ((Get-EnvExampleValue $envWithoutComments 'INSPECTION_RESERVATION_ALLOWED_MIME_TYPES') -eq 'image/jpeg,image/png,application/pdf') 'Reservation upload MIME policy must be explicit in the environment example.'
 foreach ($key in @('INSPECTION_APP_BIND_ADDRESS', 'INSPECTION_BACKEND_BIND_ADDRESS', 'INSPECTION_MINIO_BIND_ADDRESS')) {
     Assert-True ((Get-EnvExampleValue $envWithoutComments $key) -eq '127.0.0.1') "Environment example bind address must default to loopback: $key"
 }
-Assert-True ($env -match '(?m)^# All host bindings default to loopback\. Backend and MinIO may be changed to 0\.0\.0\.0 only for temporary LAN acceptance; PostgreSQL and Redis must remain loopback\.$') 'Environment example must limit LAN exposure to backend and MinIO.'
+Assert-True ($env -match '(?m)^# All host bindings default to loopback\. Backend and MinIO may be changed to 0\.0\.0\.0 only for temporary LAN acceptance; PostgreSQL and Redis must remain loopback\.\r?$') 'Environment example must limit LAN exposure to backend and MinIO.'
 
 Write-Output 'Compose static invariants passed.'

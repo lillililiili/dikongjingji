@@ -1,4 +1,5 @@
 import type { PlatformWeatherPresentation } from '../../../../../shared/weather/platform-weather'
+import type { InspectionPortalContent } from '../../../domain/inspection-portal-content'
 import type { PlatformAvailability } from '../shared/platform-availability'
 
 export {
@@ -27,9 +28,9 @@ export interface PlatformHomeFeaturedService {
   subtitle?: string
   imageUrl: string
   availability: PlatformAvailability
-  quoteLabel: string
-  rating: number
-  soldCountText: string
+  quoteLabel?: string
+  rating?: number
+  soldCountText?: string
 }
 
 export interface PlatformHomeActivity {
@@ -59,7 +60,7 @@ export interface PlatformHomeEnterpriseBenefit {
 export interface PlatformHomeContent {
   cityName: string
   weather: PlatformWeatherPresentation
-  unreadCount: number
+  unreadCount?: number
   searchPlaceholder?: string
   hero?: PlatformHomeHero
   serviceEntries: PlatformHomeServiceEntry[]
@@ -97,4 +98,42 @@ export const resolvePlatformHomeState = (input: PlatformHomeInput): PlatformHome
   return hasVisibleContent(input.content)
     ? { kind: 'ready', content: input.content }
     : { kind: 'empty' }
+}
+
+export function createPlatformHomeContentFromPortal(
+  cityName: string,
+  weather: PlatformWeatherPresentation,
+  portal: InspectionPortalContent,
+): PlatformHomeContent {
+  return {
+    cityName,
+    weather,
+    serviceEntries: portal.categories.map((category) => ({
+      code: category.code,
+      title: category.name,
+      subtitle: category.subtitle,
+      imageUrl: category.imageUrl,
+      availability: 'AVAILABLE',
+    })),
+    featuredServices: portal.hotServices.map((service) => ({
+      id: service.id,
+      title: service.title,
+      subtitle: service.tag,
+      imageUrl: service.imageUrl
+        ?? '/static/images/inspection/platform/industrial-inspection-robot-v2.png',
+      availability: 'AVAILABLE',
+      quoteLabel: service.priceLabel,
+      rating: service.rating,
+      soldCountText: service.servedCountLabel,
+    })),
+    activities: [],
+    ...(portal.hero ? {
+      hero: {
+        imageUrl: portal.hero.imageUrl,
+        title: portal.hero.title,
+        highlight: portal.hero.accent,
+        description: portal.hero.description,
+      },
+    } : {}),
+  }
 }

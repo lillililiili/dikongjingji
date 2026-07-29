@@ -30,6 +30,8 @@ const emit = defineEmits<{
 
 const content = computed(() => props.state.kind === 'ready' ? props.state.content : undefined)
 const unavailableDialogVisible = ref(false)
+const hasFeatureValue = (entry: PlatformMineFeatureEntry): boolean =>
+  Boolean(entry.valueText?.trim())
 
 const selectFeature = (entry: PlatformMineFeatureEntry): void => {
   if (resolvePlatformAvailabilityAction(entry.availability) === 'SHOW_UNAVAILABLE') {
@@ -120,7 +122,7 @@ const tabs = [
           </view>
         </view>
 
-        <view class="platform-mine__status-card">
+        <view v-if="content.statusCounts" class="platform-mine__status-card">
           <button
             v-for="item in INSPECTION_STATUS_ITEMS"
             :key="item.code"
@@ -199,7 +201,7 @@ const tabs = [
               />
             </view>
             <text class="platform-mine__feature-title">{{ entry.title }}</text>
-            <text class="platform-mine__feature-value">{{ entry.valueText }}</text>
+            <text v-if="hasFeatureValue(entry)" class="platform-mine__feature-value">{{ entry.valueText }}</text>
           </button>
         </view>
       </view>

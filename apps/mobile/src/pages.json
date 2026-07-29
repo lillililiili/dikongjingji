@@ -3,13 +3,15 @@
     {
       "path": "pages/home/index",
       "style": {
-        "navigationBarTitleText": "首页"
+        "navigationBarTitleText": "首页",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/service/index",
       "style": {
-        "navigationBarTitleText": "服务"
+        "navigationBarTitleText": "服务",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -27,7 +29,8 @@
     {
       "path": "pages/mine/index",
       "style": {
-        "navigationBarTitleText": "我的"
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
       }
     },
     {

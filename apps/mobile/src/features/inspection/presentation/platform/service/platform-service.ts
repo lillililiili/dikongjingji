@@ -1,4 +1,5 @@
 import type { PlatformWeatherPresentation } from '../../../../../shared/weather/platform-weather'
+import type { InspectionPortalContent } from '../../../domain/inspection-portal-content'
 import type { PlatformAvailability } from '../shared/platform-availability'
 
 export type PlatformServiceAvailability = PlatformAvailability
@@ -36,16 +37,16 @@ export interface PlatformRecommendedService {
   subtitle?: string
   imageUrl: string
   availability: PlatformServiceAvailability
-  quoteLabel: string
-  rating: number
-  soldCountText: string
+  quoteLabel?: string
+  rating?: number
+  soldCountText?: string
   actionLabel: string
 }
 
 export interface PlatformServiceContent {
   cityName: string
   weather: PlatformWeatherPresentation
-  unreadCount: number
+  unreadCount?: number
   searchPlaceholder?: string
   activeChannelCode: string
   channels: PlatformServiceChannel[]
@@ -89,4 +90,53 @@ export const resolvePlatformServiceState = (
   return hasContent(input.content)
     ? { kind: 'ready', content: input.content }
     : { kind: 'empty' }
+}
+
+export function createPlatformServiceContentFromPortal(
+  cityName: string,
+  weather: PlatformWeatherPresentation,
+  portal: InspectionPortalContent,
+): PlatformServiceContent {
+  return {
+    cityName,
+    weather,
+    activeChannelCode: 'INSPECTION',
+    channels: [{
+      code: 'INSPECTION',
+      label: '我要巡检',
+      availability: 'AVAILABLE',
+    }],
+    scenarios: portal.categories.map((category) => ({
+      code: category.code,
+      title: category.name,
+      subtitle: category.subtitle,
+      imageUrl: category.imageUrl,
+      availability: 'AVAILABLE',
+    })),
+    capabilities: portal.guarantees.map((guarantee) => ({
+      code: guarantee.code,
+      title: guarantee.title,
+      description: guarantee.description,
+    })),
+    recommendedServices: portal.hotServices.map((service) => ({
+      id: service.id,
+      title: service.title,
+      subtitle: service.tag,
+      imageUrl: service.imageUrl
+        ?? '/static/images/inspection/platform/industrial-inspection-robot-v2.png',
+      availability: 'AVAILABLE',
+      quoteLabel: service.priceLabel,
+      rating: service.rating,
+      soldCountText: service.servedCountLabel,
+      actionLabel: '查看服务',
+    })),
+    ...(portal.hero ? {
+      hero: {
+        imageUrl: portal.hero.imageUrl,
+        title: portal.hero.title,
+        highlight: portal.hero.accent,
+        description: portal.hero.description,
+      },
+    } : {}),
+  }
 }
