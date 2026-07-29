@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Profile;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
@@ -26,5 +27,18 @@ public class ModuleFlywayConfiguration {
     @DependsOn("identityFlyway")
     Flyway inspectionFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
         return factory.inspection(dataSource);
+    }
+
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn("inspectionFlyway")
+    Flyway inspectionDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/inspection")
+                .table("flyway_history_inspection_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
     }
 }
