@@ -177,6 +177,13 @@ class AuthenticationSecurityIntegrationTest {
     }
 
     @Test
+    void inspectionLanDiscoveryIsPublicAndIdentifiesThisService() throws Exception {
+        mockMvc.perform(get("/api/v1/inspection/discovery"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.service").value("low-altitude-inspection"))
+                .andExpect(jsonPath("$.contract").value("inspection-lan-discovery-v1"));
+    }
+    @Test
     void configuredBrowserOriginCanCompleteAuthenticatedApiPreflight() throws Exception {
         mockMvc.perform(options("/api/v1/inspection/reservations")
                         .header("Origin", "http://127.0.0.1:4173")

@@ -7,6 +7,7 @@ import { createInspectionCatalogApi } from '../catalog/inspection-catalog-api'
 import type { BookingHttpClient, InspectionBookingApi } from './inspection-booking-api'
 import { createInspectionBookingApi } from './inspection-booking-api'
 import { createInspectionPlanApi } from './inspection-plan-api'
+import { resolveInspectionApiBaseUrl } from './inspection-lan-endpoint'
 
 export class ApiRequestError extends Error {
   constructor(
@@ -35,9 +36,15 @@ function parseApiBaseUrl(baseUrl: string): { protocol: string; hostname: string 
   return { protocol: `${match[1].toLowerCase()}:`, hostname: authority[1].toLowerCase() }
 }
 
-function apiUrl(path: string): string {
-  const baseUrl = import.meta.env.VITE_INSPECTION_API_BASE_URL?.trim()
-  if (!baseUrl) throw new ApiRequestError('缺少 VITE_INSPECTION_API_BASE_URL，无法连接巡检服务', 0, 'API_BASE_URL_MISSING')
+async function apiUrl(path: string): Promise<string> {
+  const configuredBaseUrl = import.meta.env.VITE_INSPECTION_API_BASE_URL?.trim()
+  if (!configuredBaseUrl) throw new ApiRequestError('缺少 VITE_INSPECTION_API_BASE_URL，无法连接巡检服务', 0, 'API_BASE_URL_MISSING')
+  const baseUrl = await resolveInspectionApiBaseUrl(configuredBaseUrl)
+  assertAllowedApiBaseUrl(baseUrl)
+  return `${baseUrl.replace(/\/$/, '')}${path}`
+}
+
+function assertAllowedApiBaseUrl(baseUrl: string): void {
   const parsedBaseUrl = parseApiBaseUrl(baseUrl)
   if (!parsedBaseUrl) throw new ApiRequestError('API base URL is invalid', 0, 'INSECURE_API_BASE_URL')
   const insecureLoopbackAllowed = import.meta.env.VITE_INSPECTION_ALLOW_INSECURE_LOCAL_API === 'true'
@@ -49,7 +56,6 @@ function apiUrl(path: string): string {
   if (parsedBaseUrl.protocol !== 'https:' && !import.meta.env.DEV && !insecureLoopbackAllowed && !insecureLanAllowed) {
     throw new ApiRequestError('生产环境巡检 API 必须使用 HTTPS', 0, 'INSECURE_API_BASE_URL')
   }
-  return `${baseUrl.replace(/\/$/, '')}${path}`
 }
 
 function errorFromResponse(data: unknown, status: number): ApiRequestError {
@@ -61,15 +67,16 @@ function errorFromResponse(data: unknown, status: number): ApiRequestError {
   )
 }
 
-function publicRequest<T>(input: {
+async function publicRequest<T>(input: {
   url: string
   method: 'GET' | 'POST'
   data?: unknown
   headers?: Record<string, string>
 }): Promise<T> {
+  const url = await apiUrl(input.url)
   return new Promise((resolve, reject) => {
     uni.request({
-      url: apiUrl(input.url),
+      url,
       method: input.method,
       data: input.data as object,
       header: { 'X-Request-Id': createBookingUuid(), ...input.headers },
@@ -81,15 +88,16 @@ function publicRequest<T>(input: {
   })
 }
 
-function request<T>(input: { url: string; method: 'GET' | 'POST'; data?: unknown; headers?: Record<string, string> }): Promise<T> {
+async function request<T>(input: { url: string; method: 'GET' | 'POST'; data?: unknown; headers?: Record<string, string> }): Promise<T> {
   const token = getBookingAuthContext().getAccessToken()
   if (!token) {
     beginBookingAuthenticationRecovery()
-    return Promise.reject(new ApiRequestError('请先登录后再进行预约操作', 401, 'COMMON_UNAUTHORIZED'))
+    throw new ApiRequestError('请先登录后再进行预约操作', 401, 'COMMON_UNAUTHORIZED')
   }
+  const url = await apiUrl(input.url)
   return new Promise((resolve, reject) => {
     uni.request({
-      url: apiUrl(input.url), method: input.method, data: input.data as object,
+      url, method: input.method, data: input.data as object,
       header: { Authorization: `Bearer ${token}`, 'X-Request-Id': createBookingUuid(), ...input.headers },
       success: (response) => {
         if (response.statusCode >= 200 && response.statusCode < 300) {

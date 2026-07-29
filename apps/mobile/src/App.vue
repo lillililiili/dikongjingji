@@ -1,5 +1,11 @@
 <script setup lang="ts">
-// App-level lifecycle hooks will be added only when a real shared capability needs them.
+import { onLaunch } from '@dcloudio/uni-app'
+
+import { warmUpInspectionLanEndpoint } from './features/inspection/data/service-flow/inspection-lan-endpoint'
+
+onLaunch(() => {
+  warmUpInspectionLanEndpoint()
+})
 </script>
 
 <style>
