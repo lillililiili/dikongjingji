@@ -7,6 +7,8 @@ import {
 
 const content = (): PlatformServiceContent => ({
   cityName: '济南',
+  weatherText: '多云 26℃',
+  unreadCount: 3,
   activeChannelCode: 'ROBOT',
   channels: [
     { code: 'INSPECTION', label: '我要巡检', availability: 'AVAILABLE' },
@@ -24,19 +26,33 @@ const content = (): PlatformServiceContent => ({
       code: 'INDUSTRIAL_INSPECTION',
       title: '巡检机器人',
       subtitle: '电力 · 石化 · 园区',
-      imageUrl: '/static/images/inspection/platform/industrial-inspection-robot.png',
+      iconType: 'auth-filled',
+      iconColor: '#16a34a',
+      iconBackground: '#dcfce7',
       availability: 'AVAILABLE',
     },
     {
       code: 'MORE',
       title: '更多场景',
       subtitle: '定制化解决方案',
-      imageUrl: '/static/images/inspection/platform/enterprise-solution.png',
+      iconType: 'more-filled',
+      iconColor: '#64748b',
+      iconBackground: '#e2e8f0',
       availability: 'UNAVAILABLE',
     },
   ],
   capabilities: [],
-  recommendedServices: [],
+  recommendedServices: [{
+    id: 'inspection-robot',
+    title: '电力巡检服务',
+    subtitle: '线路巡检｜隐患识别',
+    imageUrl: '/static/images/inspection/platform/industrial-inspection-robot.png',
+    availability: 'AVAILABLE',
+    quoteLabel: '¥699起',
+    rating: 4.9,
+    soldCountText: '已售8560+',
+    actionLabel: '立即预约',
+  }],
 })
 
 describe('platform service presentation state', () => {
@@ -47,6 +63,8 @@ describe('platform service presentation state', () => {
       status: 'ready',
       content: {
         cityName: '济南',
+        weatherText: '多云 26℃',
+        unreadCount: 0,
         activeChannelCode: 'ROBOT',
         channels: [],
         scenarios: [],
@@ -60,27 +78,36 @@ describe('platform service presentation state', () => {
     })
   })
 
-  it('does not invent weather, unread, rating, sales or prices', () => {
+  it('keeps weather, unread, rating, sales and prices visible from content', () => {
     const state = resolvePlatformServiceState({ status: 'ready', content: content() })
     expect(state.kind).toBe('ready')
     if (state.kind !== 'ready') return
 
-    expect(state.content.weatherText).toBeUndefined()
-    expect(state.content.unreadCount).toBeUndefined()
-    expect(state.content.recommendedServices).toEqual([])
+    expect(state.content.weatherText).toBe('多云 26℃')
+    expect(state.content.unreadCount).toBe(3)
+    expect(state.content.recommendedServices[0]).toMatchObject({
+      quoteLabel: '¥699起',
+      rating: 4.9,
+      soldCountText: '已售8560+',
+      actionLabel: '立即预约',
+    })
     expect(state.content.scenarios[1]?.availability).toBe('UNAVAILABLE')
   })
 })
 
 describe('platform service component contract', () => {
-  it('uses props/events and labels unavailable items without navigation or fixtures', () => {
+  it('uses props/events, visible metrics and owned icons without navigation or fixtures', () => {
     expect(servicePageSource).toContain('defineProps')
     expect(servicePageSource).toContain('defineEmits')
+    expect(servicePageSource).toContain("import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'")
+    expect(servicePageSource).toContain(':type="scenario.iconType"')
     expect(servicePageSource).toContain('暂未开放')
     expect(servicePageSource).toContain("availability === 'UNAVAILABLE'")
-    expect(servicePageSource).toContain('v-if="service.quoteLabel"')
-    expect(servicePageSource).toContain('v-if="service.rating"')
-    expect(servicePageSource).toContain('v-if="service.soldCountText"')
+    expect(servicePageSource).not.toContain('v-if="service.quoteLabel"')
+    expect(servicePageSource).not.toContain('v-if="service.rating"')
+    expect(servicePageSource).not.toContain('v-if="service.soldCountText"')
+    expect(servicePageSource).not.toContain('platform-service__search-icon::after')
+    expect(servicePageSource).toContain('platform-service__service-action')
     expect(servicePageSource).not.toContain('fixture')
     expect(servicePageSource).not.toContain('uni.request')
     expect(servicePageSource).not.toContain('navigateTo')

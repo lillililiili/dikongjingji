@@ -11,20 +11,32 @@ const content = (): PlatformMineContent => ({
   user: {
     displayName: '飞行探索者',
     avatarUrl: '/static/images/inspection/platform/robot-avatar.png',
+    levelName: 'Lv.3',
+    locationText: '济南市历下区',
+    certificationLabel: '已认证企业用户',
   },
-  statusCounts: {},
+  statusCounts: {
+    AWAITING_PLAN: 2,
+    AWAITING_CONFIRMATION: 1,
+    IN_PROGRESS: 1,
+    AWAITING_ACCEPTANCE: 1,
+    COMPLETED: 8,
+  },
   recentOrders: [
     {
       id: 'inspection-order-1',
       title: '电力巡检',
       status: 'IN_PROGRESS',
       imageUrl: '/static/images/inspection/platform/industrial-inspection-robot.png',
-      amount: { label: '报价', text: '待服务商确认' },
+      locationText: '济南市历下区奥体中心',
+      scheduledAtText: '2026-07-31 09:30',
+      orderNumber: 'DI202607310930001',
+      amount: { label: '报价', text: '¥699' },
     },
   ],
   featureEntries: [
-    { code: 'PROJECTS', title: '我的项目', availability: 'AVAILABLE' },
-    { code: 'EQUIPMENT', title: '我的设备', availability: 'UNAVAILABLE' },
+    { code: 'PROJECTS', title: '我的项目', valueText: '3个项目', iconType: 'folder-add-filled', iconColor: '#4e8cff', iconBackground: '#e7f0ff', availability: 'AVAILABLE' },
+    { code: 'EQUIPMENT', title: '我的设备', valueText: '2台设备', iconType: 'paperplane-filled', iconColor: '#22c55e', iconBackground: '#dcfce7', availability: 'UNAVAILABLE' },
   ],
 })
 
@@ -34,7 +46,17 @@ describe('platform mine presentation state', () => {
     expect(resolvePlatformMineState({ status: 'ready', content: content() }).kind).toBe('ready')
     expect(resolvePlatformMineState({
       status: 'ready',
-      content: { statusCounts: {}, recentOrders: [], featureEntries: [] },
+      content: {
+        statusCounts: {
+          AWAITING_PLAN: 0,
+          AWAITING_CONFIRMATION: 0,
+          IN_PROGRESS: 0,
+          AWAITING_ACCEPTANCE: 0,
+          COMPLETED: 0,
+        },
+        recentOrders: [],
+        featureEntries: [],
+      },
     })).toEqual({ kind: 'empty' })
     expect(resolvePlatformMineState({ status: 'error' })).toEqual({
       kind: 'error',
@@ -58,14 +80,30 @@ describe('platform mine presentation state', () => {
     expect(isPlatformAmountLabel('实付')).toBe(false)
     expect(isPlatformAmountLabel('退款')).toBe(false)
   })
+
+  it('keeps certification, counters, feature values and order amount visible', () => {
+    const state = resolvePlatformMineState({ status: 'ready', content: content() })
+    expect(state.kind).toBe('ready')
+    if (state.kind !== 'ready') return
+
+    expect(state.content.user?.certificationLabel).toBe('已认证企业用户')
+    expect(state.content.statusCounts.COMPLETED).toBe(8)
+    expect(state.content.featureEntries[0]?.valueText).toBe('3个项目')
+    expect(state.content.recentOrders[0]?.amount).toEqual({ label: '报价', text: '¥699' })
+  })
 })
 
 describe('platform mine component contract', () => {
-  it('guards optional user data and marks unavailable features', () => {
+  it('uses owned icons, visible business counters and marks unavailable features', () => {
     expect(minePageSource).toContain('defineProps')
     expect(minePageSource).toContain('defineEmits')
+    expect(minePageSource).toContain("import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'")
     expect(minePageSource).toContain('v-if="content.user?.avatarUrl"')
-    expect(minePageSource).toContain('v-if="content.user?.certificationLabel"')
+    expect(minePageSource).not.toContain('v-if="content.user?.certificationLabel"')
+    expect(minePageSource).toContain(':type="entry.iconType"')
+    expect(minePageSource).not.toContain('v-if="entry.valueText"')
+    expect(minePageSource).not.toContain('v-if="order.amount"')
+    expect(minePageSource).not.toContain('platform-mine__headset-icon::')
     expect(minePageSource).toContain('暂未开放')
     expect(minePageSource).toContain("entry.availability === 'UNAVAILABLE'")
     expect(minePageSource).not.toContain('fixture')

@@ -17,7 +17,9 @@ export interface PlatformRobotScenario {
   code: string
   title: string
   subtitle: string
-  imageUrl: string
+  iconType: string
+  iconColor: string
+  iconBackground: string
   availability: PlatformServiceAvailability
 }
 
@@ -33,15 +35,16 @@ export interface PlatformRecommendedService {
   subtitle?: string
   imageUrl: string
   availability: PlatformServiceAvailability
-  quoteLabel?: string
-  rating?: number
-  soldCountText?: string
+  quoteLabel: string
+  rating: number
+  soldCountText: string
+  actionLabel: string
 }
 
 export interface PlatformServiceContent {
   cityName: string
-  weatherText?: string
-  unreadCount?: number
+  weatherText: string
+  unreadCount: number
   searchPlaceholder?: string
   activeChannelCode: string
   channels: PlatformServiceChannel[]

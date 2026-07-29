@@ -11,7 +11,9 @@ export interface PlatformHomeServiceEntry {
   code: string
   title: string
   subtitle: string
-  imageUrl: string
+  iconType: string
+  iconColor: string
+  iconBackground: string
   availability: PlatformAvailability
 }
 
@@ -21,9 +23,9 @@ export interface PlatformHomeFeaturedService {
   subtitle?: string
   imageUrl: string
   availability: PlatformAvailability
-  quoteLabel?: string
-  rating?: number
-  soldCountText?: string
+  quoteLabel: string
+  rating: number
+  soldCountText: string
 }
 
 export interface PlatformHomeActivity {
@@ -44,8 +46,8 @@ export interface PlatformHomeEnterpriseSolution {
 
 export interface PlatformHomeContent {
   cityName: string
-  weatherText?: string
-  unreadCount?: number
+  weatherText: string
+  unreadCount: number
   searchPlaceholder?: string
   hero?: PlatformHomeHero
   serviceEntries: PlatformHomeServiceEntry[]

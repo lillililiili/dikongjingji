@@ -24,9 +24,9 @@ export const isPlatformAmountLabel = (value: string): value is PlatformAmountLab
 export interface PlatformMineUser {
   displayName: string
   avatarUrl?: string
-  levelName?: string
-  locationText?: string
-  certificationLabel?: string
+  levelName: string
+  locationText: string
+  certificationLabel: string
 }
 
 export interface PlatformMineOrder {
@@ -34,10 +34,10 @@ export interface PlatformMineOrder {
   title: string
   status: InspectionMineStatus
   imageUrl: string
-  locationText?: string
-  scheduledAtText?: string
-  orderNumber?: string
-  amount?: {
+  locationText: string
+  scheduledAtText: string
+  orderNumber: string
+  amount: {
     label: PlatformAmountLabel
     text: string
   }
@@ -46,13 +46,16 @@ export interface PlatformMineOrder {
 export interface PlatformMineFeatureEntry {
   code: string
   title: string
-  valueText?: string
+  valueText: string
+  iconType: string
+  iconColor: string
+  iconBackground: string
   availability: 'AVAILABLE' | 'UNAVAILABLE'
 }
 
 export interface PlatformMineContent {
   user?: PlatformMineUser
-  statusCounts: Partial<Record<InspectionMineStatus, number>>
+  statusCounts: Record<InspectionMineStatus, number>
   recentOrders: PlatformMineOrder[]
   featureEntries: PlatformMineFeatureEntry[]
 }
