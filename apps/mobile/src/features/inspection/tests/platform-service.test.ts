@@ -7,7 +7,13 @@ import {
 
 const content = (): PlatformServiceContent => ({
   cityName: '济南',
-  weatherText: '多云 26℃',
+  weather: {
+    available: true,
+    text: '多云 26℃',
+    iconUrl: '/static/images/inspection/platform/weather-partly-cloudy-v2.png',
+    conditionCode: 'PARTLY_CLOUDY',
+    observedAt: '2026-07-29T02:30:00Z',
+  },
   unreadCount: 3,
   activeChannelCode: 'ROBOT',
   channels: [
@@ -26,18 +32,14 @@ const content = (): PlatformServiceContent => ({
       code: 'INDUSTRIAL_INSPECTION',
       title: '巡检机器人',
       subtitle: '电力 · 石化 · 园区',
-      iconType: 'auth-filled',
-      iconColor: '#16a34a',
-      iconBackground: '#dcfce7',
+      imageUrl: '/static/images/inspection/platform/industrial-inspection-robot.png',
       availability: 'AVAILABLE',
     },
     {
       code: 'MORE',
       title: '更多场景',
       subtitle: '定制化解决方案',
-      iconType: 'more-filled',
-      iconColor: '#64748b',
-      iconBackground: '#e2e8f0',
+      imageUrl: '/static/images/inspection/platform/enterprise-solution.png',
       availability: 'UNAVAILABLE',
     },
   ],
@@ -63,7 +65,13 @@ describe('platform service presentation state', () => {
       status: 'ready',
       content: {
         cityName: '济南',
-        weatherText: '多云 26℃',
+        weather: {
+          available: false,
+          text: '天气暂不可用',
+          iconUrl: '/static/images/inspection/platform/weather-unknown.png',
+          conditionCode: 'UNKNOWN',
+          observedAt: null,
+        },
         unreadCount: 0,
         activeChannelCode: 'ROBOT',
         channels: [],
@@ -83,7 +91,7 @@ describe('platform service presentation state', () => {
     expect(state.kind).toBe('ready')
     if (state.kind !== 'ready') return
 
-    expect(state.content.weatherText).toBe('多云 26℃')
+    expect(state.content.weather.text).toBe('多云 26℃')
     expect(state.content.unreadCount).toBe(3)
     expect(state.content.recommendedServices[0]).toMatchObject({
       quoteLabel: '¥699起',
@@ -96,13 +104,17 @@ describe('platform service presentation state', () => {
 })
 
 describe('platform service component contract', () => {
-  it('uses props/events, visible metrics and owned icons without navigation or fixtures', () => {
+  it('uses approved scenario photos, weather asset and an unavailable dialog', () => {
     expect(servicePageSource).toContain('defineProps')
     expect(servicePageSource).toContain('defineEmits')
     expect(servicePageSource).toContain("import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'")
-    expect(servicePageSource).toContain(':type="scenario.iconType"')
-    expect(servicePageSource).toContain('暂未开放')
-    expect(servicePageSource).toContain("availability === 'UNAVAILABLE'")
+    expect(servicePageSource).toContain(':src="scenario.imageUrl"')
+    expect(servicePageSource).not.toContain(':type="scenario.iconType"')
+    expect(servicePageSource).toContain(':src="props.state.content.weather.iconUrl"')
+    expect(servicePageSource).toContain('<PlatformUnavailableDialog')
+    expect(servicePageSource).toContain('resolvePlatformAvailabilityAction')
+    expect(servicePageSource).not.toContain('platform-service__unavailable')
+    expect(servicePageSource).not.toContain('platform-service__channel-status')
     expect(servicePageSource).not.toContain('v-if="service.quoteLabel"')
     expect(servicePageSource).not.toContain('v-if="service.rating"')
     expect(servicePageSource).not.toContain('v-if="service.soldCountText"')
@@ -119,5 +131,10 @@ describe('platform service component contract', () => {
     expect(servicePageSource).toContain('overflow-wrap:break-word')
     expect(servicePageSource).toContain('env(safe-area-inset-bottom)')
     expect(servicePageSource).toContain('@media (min-width:420px)')
+    expect(servicePageSource).toContain('font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif')
+    expect(servicePageSource).toContain('button{margin:0;padding:0;border:0;background:transparent;font-family:inherit')
+    expect(servicePageSource).toContain('.platform-service__scenario-image-wrap{width:100%;height:112rpx')
+    expect(servicePageSource).toContain('.platform-service__scenario-title{display:block;margin-top:6rpx;overflow-wrap:break-word;font-size:24rpx;font-weight:700')
+    expect(servicePageSource).toContain('.platform-service__scenario-subtitle{display:block;margin-top:2rpx;overflow:hidden;color:#737c87;font-size:18rpx')
   })
 })

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import PlatformUnavailableDialog from '../shared/PlatformUnavailableDialog.vue'
+import { resolvePlatformAvailabilityAction } from '../shared/platform-availability'
 import {
   getInspectionStatusLabel,
   INSPECTION_STATUS_ITEMS,
@@ -27,21 +29,22 @@ const emit = defineEmits<{
 }>()
 
 const content = computed(() => props.state.kind === 'ready' ? props.state.content : undefined)
+const unavailableDialogVisible = ref(false)
 
-const statusIcons: Record<InspectionMineStatus, string> = {
-  AWAITING_PLAN: 'compose',
-  AWAITING_CONFIRMATION: 'checkbox',
-  IN_PROGRESS: 'calendar-filled',
-  AWAITING_ACCEPTANCE: 'auth-filled',
-  COMPLETED: 'checkbox-filled',
+const selectFeature = (entry: PlatformMineFeatureEntry): void => {
+  if (resolvePlatformAvailabilityAction(entry.availability) === 'SHOW_UNAVAILABLE') {
+    unavailableDialogVisible.value = true
+    return
+  }
+  emit('selectFeature', entry)
 }
 
-const statusColors: Record<InspectionMineStatus, string> = {
-  AWAITING_PLAN: '#ff8a1f',
-  AWAITING_CONFIRMATION: '#4e8cff',
-  IN_PROGRESS: '#ffb020',
-  AWAITING_ACCEPTANCE: '#45c978',
-  COMPLETED: '#65d58a',
+const statusImageUrls: Record<InspectionMineStatus, string> = {
+  AWAITING_PLAN: '/static/images/inspection/platform/mine-status-plan-v2.png',
+  AWAITING_CONFIRMATION: '/static/images/inspection/platform/mine-status-confirm-v2.png',
+  IN_PROGRESS: '/static/images/inspection/platform/mine-status-progress-v2.png',
+  AWAITING_ACCEPTANCE: '/static/images/inspection/platform/mine-status-acceptance-v2.png',
+  COMPLETED: '/static/images/inspection/platform/mine-status-completed-v2.png',
 }
 
 const tabs = [
@@ -125,7 +128,11 @@ const tabs = [
             @click="emit('selectStatus', item.code)"
           >
             <view class="platform-mine__status-icon">
-              <UniIcons :type="statusIcons[item.code]" size="27" :color="statusColors[item.code]" />
+              <image
+                class="platform-mine__status-image"
+                :src="statusImageUrls[item.code]"
+                mode="aspectFit"
+              />
               <text class="platform-mine__status-count">
                 {{ content.statusCounts[item.code] > 99 ? '99+' : content.statusCounts[item.code] }}
               </text>
@@ -182,22 +189,17 @@ const tabs = [
             v-for="entry in content.featureEntries"
             :key="entry.code"
             class="platform-mine__feature"
-            @click="emit('selectFeature', entry)"
+            @click="selectFeature(entry)"
           >
-            <view
-              class="platform-mine__feature-icon"
-              :style="{ backgroundColor: entry.iconBackground }"
-            >
-              <UniIcons :type="entry.iconType" size="28" :color="entry.iconColor" />
+            <view class="platform-mine__feature-icon">
+              <image
+                class="platform-mine__feature-image"
+                :src="entry.imageUrl"
+                mode="aspectFit"
+              />
             </view>
             <text class="platform-mine__feature-title">{{ entry.title }}</text>
             <text class="platform-mine__feature-value">{{ entry.valueText }}</text>
-            <text
-              v-if="entry.availability === 'UNAVAILABLE'"
-              class="platform-mine__feature-unavailable"
-            >
-              暂未开放
-            </text>
           </button>
         </view>
       </view>
@@ -227,13 +229,17 @@ const tabs = [
           <text>{{ tab.label }}</text>
         </button>
       </view>
+      <PlatformUnavailableDialog
+        :visible="unavailableDialogVisible"
+        @close="unavailableDialogVisible = false"
+      />
     </template>
   </view>
 </template>
 
 <style scoped>
-.platform-mine{min-height:100vh;color:#17191d;background:#f7f8fa;font-family:"PingFang SC","Microsoft YaHei",sans-serif}
-button{margin:0;padding:0;border:0;background:transparent;line-height:1.2}
+.platform-mine{min-height:100vh;color:#17191d;background:#f7f8fa;font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
+button{margin:0;padding:0;border:0;background:transparent;font-family:inherit;line-height:1.2}
 button::after{border:0}
 .platform-mine__scroll{padding-bottom:calc(108rpx + env(safe-area-inset-bottom))}
 .platform-mine__profile{position:relative;min-height:260rpx;overflow:hidden;padding:calc(env(safe-area-inset-top) + 76rpx) 34rpx 24rpx;background:linear-gradient(145deg,#dfeeff,#f7fbff)}
@@ -247,19 +253,20 @@ button::after{border:0}
 .platform-mine__avatar-fallback{display:flex;width:100%;height:100%;align-items:center;justify-content:center}
 .platform-mine__identity-copy{display:flex;min-width:0;flex-direction:column;align-items:flex-start}
 .platform-mine__name-line{display:flex;max-width:100%;align-items:center;gap:14rpx}
-.platform-mine__name{overflow:hidden;font-size:31rpx;font-weight:850;text-overflow:ellipsis;white-space:nowrap}
+.platform-mine__name{overflow:hidden;font-size:31rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
 .platform-mine__level{padding:2rpx 9rpx;border:1rpx solid #8ab7e8;border-radius:13rpx;color:#347ec6;font-size:15rpx}
 .platform-mine__certification{display:flex;align-items:center;gap:4rpx;margin-top:8rpx;padding:4rpx 10rpx;border-radius:10rpx;color:#9b5b0a;background:#fff0dc;font-size:16rpx}
 .platform-mine__location{margin-top:7rpx;color:#67717d;font-size:17rpx}
 .platform-mine__status-card{position:relative;z-index:3;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4rpx;margin:-18rpx 22rpx 12rpx;padding:31rpx 8rpx 29rpx;border-radius:24rpx;background:#fff;box-shadow:0 7rpx 22rpx rgba(43,66,94,.07)}
 .platform-mine__status-item{display:flex;min-width:0;flex-direction:column;align-items:center}
 .platform-mine__status-icon{position:relative;display:flex;width:54rpx;height:48rpx;align-items:center;justify-content:center}
+.platform-mine__status-image{width:48rpx;height:48rpx;border-radius:13rpx}
 .platform-mine__status-count{position:absolute;right:-9rpx;top:-8rpx;min-width:27rpx;height:27rpx;padding:0 6rpx;border:3rpx solid #fff;border-radius:20rpx;color:#fff;background:#ff463b;font-size:15rpx;font-weight:700;line-height:24rpx}
-.platform-mine__status-label{margin-top:3rpx;overflow-wrap:break-word;font-size:18rpx;white-space:nowrap}
-.platform-mine__status-value{margin-top:2rpx;color:#7d8590;font-size:14rpx;white-space:nowrap}
+.platform-mine__status-label{margin-top:4rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600;white-space:nowrap}
+.platform-mine__status-value{margin-top:3rpx;color:#7d8590;font-size:17rpx;white-space:nowrap}
 .platform-mine__orders{margin:0 22rpx 12rpx;padding:14rpx 20rpx 8rpx;border-radius:24rpx;background:#fff}
 .platform-mine__section-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:10rpx}
-.platform-mine__section-title{font-size:24rpx;font-weight:800}
+.platform-mine__section-title{font-size:24rpx;font-weight:700}
 .platform-mine__view-all{min-height:38rpx;color:#6d7681;font-size:17rpx;line-height:38rpx}
 .platform-mine__order-list{display:flex;flex-direction:column}
 .platform-mine__order{display:grid;grid-template-columns:176rpx minmax(0,1fr) 104rpx;gap:14rpx;align-items:center;padding:20rpx 0;border-bottom:1rpx solid #edf0f3;text-align:left}
@@ -267,7 +274,7 @@ button::after{border:0}
 .platform-mine__order-image{width:176rpx;height:128rpx;border-radius:19rpx}
 .platform-mine__order-copy{display:flex;min-width:0;flex-direction:column}
 .platform-mine__order-title-line{display:flex;min-width:0;align-items:center;gap:9rpx}
-.platform-mine__order-title{overflow:hidden;font-size:21rpx;font-weight:750;text-overflow:ellipsis;white-space:nowrap}
+.platform-mine__order-title{overflow:hidden;font-size:21rpx;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
 .platform-mine__order-status{flex:0 0 auto;padding:3rpx 7rpx;border-radius:10rpx;color:#228b53;background:#e8f8ee;font-size:14rpx}
 .platform-mine__order-meta{display:flex;align-items:center;gap:3rpx;margin-top:4rpx;overflow:hidden;color:#76808c;font-size:15rpx;text-overflow:ellipsis;white-space:nowrap}
 .platform-mine__order-number{font-size:13rpx}
@@ -276,14 +283,14 @@ button::after{border:0}
 .platform-mine__amount-text{max-width:104rpx;overflow-wrap:break-word;color:#ff6508;font-size:25rpx;font-weight:800;text-align:right}
 .platform-mine__order-action{min-width:94rpx;height:33rpx;margin-top:7rpx;border:1rpx solid #8a929c;border-radius:17rpx;color:#353b42;font-size:14rpx;line-height:31rpx;text-align:center}
 .platform-mine__orders-empty{padding:46rpx 0;color:#8a929c;font-size:22rpx;text-align:center}
-.platform-mine__feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15rpx 8rpx;margin:0 22rpx;padding:26rpx 14rpx 24rpx;border-radius:24rpx;background:#fff}
+.platform-mine__feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4rpx;margin:0 22rpx;padding:12rpx 14rpx;border-radius:24rpx;background:#fff}
 .platform-mine__feature{position:relative;display:flex;min-width:0;flex-direction:column;align-items:center}
-.platform-mine__feature-icon{display:flex;width:48rpx;height:48rpx;align-items:center;justify-content:center;border-radius:14rpx}
-.platform-mine__feature-title{margin-top:6rpx;overflow-wrap:break-word;font-size:18rpx;font-weight:700;text-align:center}
-.platform-mine__feature-value{margin-top:2rpx;color:#7d8590;font-size:14rpx}
-.platform-mine__feature-unavailable{position:absolute;right:0;top:-6rpx;padding:1rpx 4rpx;border-radius:7rpx;color:#ff6508;background:#fff3ea;font-size:11rpx}
+.platform-mine__feature-icon{display:flex;width:44rpx;height:44rpx;align-items:center;justify-content:center;overflow:hidden;border-radius:13rpx}
+.platform-mine__feature-image{width:100%;height:100%}
+.platform-mine__feature-title{margin-top:7rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600;text-align:center}
+.platform-mine__feature-value{margin-top:3rpx;color:#7d8590;font-size:17rpx}
 .platform-mine__tabbar{position:fixed;right:0;bottom:0;left:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);padding:7rpx 14rpx calc(7rpx + env(safe-area-inset-bottom));border-top:1rpx solid #e7e9ed;background:rgba(255,255,255,.97)}
-.platform-mine__tab{display:flex;min-height:82rpx;flex-direction:column;align-items:center;justify-content:center;gap:4rpx;color:#4c535c;font-size:18rpx}
+.platform-mine__tab{display:flex;min-height:82rpx;flex-direction:column;align-items:center;justify-content:center;gap:4rpx;color:#4c535c;font-size:20rpx;font-weight:500}
 .platform-mine__tab--active{color:#ff6508;font-weight:700}
 .platform-mine__service-tab-icon{display:grid;width:50rpx;height:50rpx;grid-template-columns:repeat(2,20rpx);grid-template-rows:repeat(2,20rpx);place-content:center;gap:3rpx;line-height:1}
 .platform-mine__state{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:40rpx}

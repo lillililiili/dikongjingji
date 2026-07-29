@@ -1,4 +1,10 @@
-export type PlatformAvailability = 'AVAILABLE' | 'UNAVAILABLE'
+import type { PlatformWeatherPresentation } from '../../../../../shared/weather/platform-weather'
+import type { PlatformAvailability } from '../shared/platform-availability'
+
+export {
+  resolvePlatformAvailabilityAction,
+} from '../shared/platform-availability'
+export type { PlatformAvailability } from '../shared/platform-availability'
 
 export interface PlatformHomeHero {
   imageUrl: string
@@ -11,9 +17,7 @@ export interface PlatformHomeServiceEntry {
   code: string
   title: string
   subtitle: string
-  iconType: string
-  iconColor: string
-  iconBackground: string
+  imageUrl: string
   availability: PlatformAvailability
 }
 
@@ -42,11 +46,19 @@ export interface PlatformHomeEnterpriseSolution {
   description: string
   imageUrl: string
   availability: PlatformAvailability
+  benefits: PlatformHomeEnterpriseBenefit[]
+}
+
+export interface PlatformHomeEnterpriseBenefit {
+  title: string
+  description: string
+  iconType: string
+  color: string
 }
 
 export interface PlatformHomeContent {
   cityName: string
-  weatherText: string
+  weather: PlatformWeatherPresentation
   unreadCount: number
   searchPlaceholder?: string
   hero?: PlatformHomeHero

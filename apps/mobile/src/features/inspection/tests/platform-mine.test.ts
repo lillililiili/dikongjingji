@@ -35,8 +35,8 @@ const content = (): PlatformMineContent => ({
     },
   ],
   featureEntries: [
-    { code: 'PROJECTS', title: '我的项目', valueText: '3个项目', iconType: 'folder-add-filled', iconColor: '#4e8cff', iconBackground: '#e7f0ff', availability: 'AVAILABLE' },
-    { code: 'EQUIPMENT', title: '我的设备', valueText: '2台设备', iconType: 'paperplane-filled', iconColor: '#22c55e', iconBackground: '#dcfce7', availability: 'UNAVAILABLE' },
+    { code: 'PROJECTS', title: '我的项目', valueText: '3个项目', imageUrl: '/static/images/inspection/platform/mine-feature-projects-v2.png', availability: 'AVAILABLE' },
+    { code: 'EQUIPMENT', title: '我的设备', valueText: '2台设备', imageUrl: '/static/images/inspection/platform/mine-feature-equipment-v2.png', availability: 'UNAVAILABLE' },
   ],
 })
 
@@ -94,18 +94,22 @@ describe('platform mine presentation state', () => {
 })
 
 describe('platform mine component contract', () => {
-  it('uses owned icons, visible business counters and marks unavailable features', () => {
+  it('uses approved raster assets, visible counters and a unified unavailable dialog', () => {
     expect(minePageSource).toContain('defineProps')
     expect(minePageSource).toContain('defineEmits')
     expect(minePageSource).toContain("import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'")
     expect(minePageSource).toContain('v-if="content.user?.avatarUrl"')
     expect(minePageSource).not.toContain('v-if="content.user?.certificationLabel"')
-    expect(minePageSource).toContain(':type="entry.iconType"')
+    expect(minePageSource).toContain(':src="entry.imageUrl"')
+    expect(minePageSource).toContain('mine-status-plan-v2.png')
+    expect(minePageSource).toContain('mine-status-completed-v2.png')
+    expect(minePageSource).not.toContain(':type="entry.iconType"')
     expect(minePageSource).not.toContain('v-if="entry.valueText"')
     expect(minePageSource).not.toContain('v-if="order.amount"')
     expect(minePageSource).not.toContain('platform-mine__headset-icon::')
-    expect(minePageSource).toContain('暂未开放')
-    expect(minePageSource).toContain("entry.availability === 'UNAVAILABLE'")
+    expect(minePageSource).toContain('<PlatformUnavailableDialog')
+    expect(minePageSource).toContain('resolvePlatformAvailabilityAction')
+    expect(minePageSource).not.toContain('platform-mine__feature-unavailable')
     expect(minePageSource).not.toContain('fixture')
     expect(minePageSource).not.toContain('uni.request')
     expect(minePageSource).not.toContain('navigateTo')
@@ -118,5 +122,11 @@ describe('platform mine component contract', () => {
     expect(minePageSource).toContain('env(safe-area-inset-bottom)')
     expect(minePageSource).toContain('grid-template-columns:repeat(5,minmax(0,1fr))')
     expect(minePageSource).toContain('@media (min-width:420px)')
+    expect(minePageSource).toContain('font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif')
+    expect(minePageSource).toContain('button{margin:0;padding:0;border:0;background:transparent;font-family:inherit')
+    expect(minePageSource).toContain('.platform-mine__status-label{margin-top:4rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600')
+    expect(minePageSource).toContain('.platform-mine__feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4rpx')
+    expect(minePageSource).toContain('padding:12rpx 14rpx')
+    expect(minePageSource).toContain('.platform-mine__feature-title{margin-top:7rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600')
   })
 })

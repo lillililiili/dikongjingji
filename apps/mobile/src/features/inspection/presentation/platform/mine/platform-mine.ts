@@ -47,10 +47,8 @@ export interface PlatformMineFeatureEntry {
   code: string
   title: string
   valueText: string
-  iconType: string
-  iconColor: string
-  iconBackground: string
-  availability: 'AVAILABLE' | 'UNAVAILABLE'
+  imageUrl: string
+  availability: PlatformAvailability
 }
 
 export interface PlatformMineContent {
@@ -90,3 +88,4 @@ export const resolvePlatformMineState = (input: PlatformMineInput): PlatformMine
 
 export const getInspectionStatusLabel = (status: InspectionMineStatus): string =>
   INSPECTION_STATUS_ITEMS.find((item) => item.code === status)?.label || status
+import type { PlatformAvailability } from '../shared/platform-availability'

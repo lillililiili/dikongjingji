@@ -1,4 +1,7 @@
-export type PlatformServiceAvailability = 'AVAILABLE' | 'UNAVAILABLE'
+import type { PlatformWeatherPresentation } from '../../../../../shared/weather/platform-weather'
+import type { PlatformAvailability } from '../shared/platform-availability'
+
+export type PlatformServiceAvailability = PlatformAvailability
 
 export interface PlatformServiceChannel {
   code: string
@@ -17,9 +20,7 @@ export interface PlatformRobotScenario {
   code: string
   title: string
   subtitle: string
-  iconType: string
-  iconColor: string
-  iconBackground: string
+  imageUrl: string
   availability: PlatformServiceAvailability
 }
 
@@ -43,7 +44,7 @@ export interface PlatformRecommendedService {
 
 export interface PlatformServiceContent {
   cityName: string
-  weatherText: string
+  weather: PlatformWeatherPresentation
   unreadCount: number
   searchPlaceholder?: string
   activeChannelCode: string

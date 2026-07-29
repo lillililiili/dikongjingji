@@ -4,10 +4,17 @@ import {
   resolvePlatformHomeState,
   type PlatformHomeContent,
 } from '../presentation/platform/home/platform-home'
+import * as homeModel from '../presentation/platform/home/platform-home'
 
 const content = (): PlatformHomeContent => ({
   cityName: '济南',
-  weatherText: '多云 26℃',
+  weather: {
+    available: true,
+    text: '多云 26℃',
+    iconUrl: '/static/images/inspection/platform/weather-partly-cloudy-v2.png',
+    conditionCode: 'PARTLY_CLOUDY',
+    observedAt: '2026-07-29T02:30:00Z',
+  },
   unreadCount: 3,
   hero: {
     imageUrl: '/static/images/inspection/platform/home-hero.png',
@@ -20,18 +27,14 @@ const content = (): PlatformHomeContent => ({
       code: 'INSPECTION',
       title: '巡检服务',
       subtitle: '专业高效安全',
-      iconType: 'checkbox-filled',
-      iconColor: '#16a34a',
-      iconBackground: '#dcfce7',
+      imageUrl: '/static/images/inspection/platform/home-inspection-service-v2.png',
       availability: 'AVAILABLE',
     },
     {
       code: 'AERIAL_TOUR',
       title: '低空旅游',
       subtitle: '空中观光体验',
-      iconType: 'paperplane-filled',
-      iconColor: '#06b6d4',
-      iconBackground: '#cffafe',
+      imageUrl: '/static/images/inspection/platform/home-low-altitude-tour-v2.png',
       availability: 'UNAVAILABLE',
     },
   ],
@@ -46,6 +49,17 @@ const content = (): PlatformHomeContent => ({
     soldCountText: '已售8560+',
   }],
   activities: [],
+  enterpriseSolution: {
+    title: '企业解决方案',
+    description: '降本增效 · 安全可靠 · 定制服务',
+    imageUrl: '/static/images/inspection/platform/enterprise-solution.png',
+    availability: 'UNAVAILABLE',
+    benefits: [
+      { title: '行业解决方案', description: '多行业覆盖', iconType: 'map-filled', color: '#4e8cff' },
+      { title: '数据智能分析', description: '洞察更精准', iconType: 'list', color: '#23b26f' },
+      { title: '一站式服务', description: '省心更高效', iconType: 'wallet-filled', color: '#ff8a1f' },
+    ],
+  },
 })
 
 describe('platform home presentation state', () => {
@@ -56,7 +70,13 @@ describe('platform home presentation state', () => {
       status: 'ready',
       content: {
         cityName: '济南',
-        weatherText: '多云 26℃',
+        weather: {
+          available: false,
+          text: '天气暂不可用',
+          iconUrl: '/static/images/inspection/platform/weather-unknown.png',
+          conditionCode: 'UNKNOWN',
+          observedAt: null,
+        },
         unreadCount: 0,
         serviceEntries: [],
         featuredServices: [],
@@ -74,7 +94,7 @@ describe('platform home presentation state', () => {
     expect(state.kind).toBe('ready')
     if (state.kind !== 'ready') return
 
-    expect(state.content.weatherText).toBe('多云 26℃')
+    expect(state.content.weather.text).toBe('多云 26℃')
     expect(state.content.unreadCount).toBe(3)
     expect(state.content.featuredServices[0]).toMatchObject({
       quoteLabel: '¥699起',
@@ -86,14 +106,17 @@ describe('platform home presentation state', () => {
 })
 
 describe('platform home component contract', () => {
-  it('is a pure prop/event presentation component with visible metrics and owned icons', () => {
+  it('shows approved raster assets and the code-built unavailable dialog', () => {
     expect(homePageSource).toContain('defineProps')
     expect(homePageSource).toContain('defineEmits')
     expect(homePageSource).toContain("import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'")
-    expect(homePageSource).toContain(':type="entry.iconType"')
-    expect(homePageSource).toContain("entry.availability === 'UNAVAILABLE'")
-    expect(homePageSource).toContain('暂未开放')
-    expect(homePageSource).not.toContain('v-if="props.state.content.weatherText"')
+    expect(homePageSource).toContain(':src="entry.imageUrl"')
+    expect(homePageSource).not.toContain(':type="entry.iconType"')
+    expect(homePageSource).toContain(':src="props.state.content.weather.iconUrl"')
+    expect(homePageSource).toContain('<PlatformUnavailableDialog')
+    expect(homePageSource).toContain('resolvePlatformAvailabilityAction')
+    expect(homePageSource).not.toContain('platform-home__unavailable')
+    expect(homePageSource).not.toContain('v-if="props.state.content.weather')
     expect(homePageSource).not.toContain('v-if="props.state.content.unreadCount')
     expect(homePageSource).not.toContain('platform-home__search-icon::after')
     expect(homePageSource).not.toContain('fixture')
@@ -101,10 +124,29 @@ describe('platform home component contract', () => {
     expect(homePageSource).not.toContain('navigateTo')
   })
 
+  it('routes unavailable entries to the prompt instead of their original event', () => {
+    const resolveAction = Reflect.get(homeModel, 'resolvePlatformAvailabilityAction')
+    expect(typeof resolveAction).toBe('function')
+    if (typeof resolveAction !== 'function') return
+
+    expect(resolveAction('AVAILABLE')).toBe('PROCEED')
+    expect(resolveAction('UNAVAILABLE')).toBe('SHOW_UNAVAILABLE')
+  })
+
+  it('uses the structured enterprise solution hierarchy from the approved reference', () => {
+    expect(homePageSource).toContain('enterpriseSolution.benefits')
+    expect(homePageSource).toContain('platform-home__enterprise-benefit-description')
+    expect(homePageSource).toContain('platform-home__enterprise-illustration')
+  })
+
   it('contains narrow-width protection and safe-area spacing', () => {
     expect(homePageSource).toContain('grid-template-columns:repeat(4,minmax(0,1fr))')
     expect(homePageSource).toContain('overflow-wrap:break-word')
     expect(homePageSource).toContain('env(safe-area-inset-bottom)')
     expect(homePageSource).toContain('@media (min-width:420px)')
+    expect(homePageSource).toContain('font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif')
+    expect(homePageSource).toContain('button{margin:0;padding:0;border:0;background:transparent;font-family:inherit')
+    expect(homePageSource).toContain('.platform-home__entry-title{display:block;margin-top:5rpx;overflow-wrap:break-word;font-size:24rpx;font-weight:700')
+    expect(homePageSource).toContain('.platform-home__entry-subtitle{display:block;margin-top:2rpx;overflow:hidden;color:#747c87;font-size:18rpx')
   })
 })

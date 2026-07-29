@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import { ref } from 'vue'
 
+import PlatformUnavailableDialog from '../shared/PlatformUnavailableDialog.vue'
+import type { PlatformAvailability } from '../shared/platform-availability'
 import type {
   PlatformHomeActivity,
   PlatformHomeFeaturedService,
   PlatformHomeServiceEntry,
   PlatformHomeViewState,
 } from './platform-home'
+import { resolvePlatformAvailabilityAction } from './platform-home'
 
 const props = defineProps<{
   state: PlatformHomeViewState
@@ -24,8 +28,30 @@ const emit = defineEmits<{
   selectTab: [tab: 'HOME' | 'SERVICE' | 'DISCOVER' | 'MALL' | 'MINE']
 }>()
 
-const unavailable = (availability: 'AVAILABLE' | 'UNAVAILABLE'): boolean =>
-  availability === 'UNAVAILABLE'
+const unavailableDialogVisible = ref(false)
+
+const proceedOrShowUnavailable = (
+  availability: PlatformAvailability,
+  proceed: () => void,
+): void => {
+  if (resolvePlatformAvailabilityAction(availability) === 'SHOW_UNAVAILABLE') {
+    unavailableDialogVisible.value = true
+    return
+  }
+  proceed()
+}
+
+const selectServiceEntry = (entry: PlatformHomeServiceEntry): void =>
+  proceedOrShowUnavailable(entry.availability, () => emit('selectServiceEntry', entry))
+
+const selectFeaturedService = (service: PlatformHomeFeaturedService): void =>
+  proceedOrShowUnavailable(service.availability, () => emit('selectFeaturedService', service))
+
+const selectActivity = (activity: PlatformHomeActivity): void =>
+  proceedOrShowUnavailable(activity.availability, () => emit('selectActivity', activity))
+
+const selectEnterpriseSolution = (availability: PlatformAvailability): void =>
+  proceedOrShowUnavailable(availability, () => emit('selectEnterpriseSolution'))
 
 const tabs = [
   { code: 'HOME', label: '首页', icon: 'home' },
@@ -35,8 +61,6 @@ const tabs = [
   { code: 'MINE', label: '我的', icon: 'person' },
 ] as const
 
-const enterpriseBenefits = (description: string): string[] =>
-  description.split(/[·｜|]/).map((item) => item.trim()).filter(Boolean).slice(0, 3)
 </script>
 
 <template>
@@ -67,7 +91,14 @@ const enterpriseBenefits = (description: string): string[] =>
               <text class="platform-home__city">{{ props.state.content.cityName }}</text>
               <UniIcons type="down" size="13" color="#17191d" />
             </view>
-            <text class="platform-home__weather">{{ props.state.content.weatherText }}</text>
+            <view class="platform-home__weather-row">
+              <text class="platform-home__weather">{{ props.state.content.weather.text }}</text>
+              <image
+                class="platform-home__weather-icon"
+                :src="props.state.content.weather.iconUrl"
+                mode="aspectFit"
+              />
+            </view>
           </view>
           <button class="platform-home__search" @click="emit('search')">
             <UniIcons type="search" size="20" color="#23272c" />
@@ -100,19 +131,14 @@ const enterpriseBenefits = (description: string): string[] =>
             v-for="entry in props.state.content.serviceEntries"
             :key="entry.code"
             class="platform-home__service-entry"
-            @click="emit('selectServiceEntry', entry)"
+            @click="selectServiceEntry(entry)"
           >
-            <view
-              class="platform-home__entry-icon-wrap"
-              :style="{ backgroundColor: entry.iconBackground }"
-            >
-              <UniIcons :type="entry.iconType" size="31" :color="entry.iconColor" />
-              <text
-                v-if="entry.availability === 'UNAVAILABLE'"
-                class="platform-home__unavailable"
-              >
-                暂未开放
-              </text>
+            <view class="platform-home__entry-icon-wrap">
+              <image
+                class="platform-home__entry-image"
+                :src="entry.imageUrl"
+                mode="aspectFit"
+              />
             </view>
             <text class="platform-home__entry-title">{{ entry.title }}</text>
             <text class="platform-home__entry-subtitle">{{ entry.subtitle }}</text>
@@ -130,13 +156,10 @@ const enterpriseBenefits = (description: string): string[] =>
                 v-for="service in props.state.content.featuredServices"
                 :key="service.id"
                 class="platform-home__featured-card"
-                @click="emit('selectFeaturedService', service)"
+                @click="selectFeaturedService(service)"
               >
                 <view class="platform-home__featured-image-wrap">
                   <image class="platform-home__featured-image" :src="service.imageUrl" mode="aspectFill" />
-                  <text v-if="unavailable(service.availability)" class="platform-home__unavailable">
-                    暂未开放
-                  </text>
                 </view>
                 <text class="platform-home__featured-title">{{ service.title }}</text>
                 <text v-if="service.subtitle" class="platform-home__featured-subtitle">
@@ -172,7 +195,7 @@ const enterpriseBenefits = (description: string): string[] =>
                 v-for="activity in props.state.content.activities"
                 :key="activity.id"
                 class="platform-home__activity-card"
-                @click="emit('selectActivity', activity)"
+                @click="selectActivity(activity)"
               >
                 <image class="platform-home__activity-image" :src="activity.imageUrl" mode="aspectFill" />
                 <view class="platform-home__activity-copy">
@@ -183,9 +206,6 @@ const enterpriseBenefits = (description: string): string[] =>
                   <text v-if="activity.distanceText" class="platform-home__metric">
                     {{ activity.distanceText }}
                   </text>
-                  <text v-if="unavailable(activity.availability)" class="platform-home__inline-unavailable">
-                    暂未开放
-                  </text>
                 </view>
               </button>
             </view>
@@ -195,38 +215,42 @@ const enterpriseBenefits = (description: string): string[] =>
         <button
           v-if="props.state.content.enterpriseSolution"
           class="platform-home__enterprise"
-          @click="emit('selectEnterpriseSolution')"
+          @click="selectEnterpriseSolution(props.state.content.enterpriseSolution.availability)"
         >
+          <image
+            class="platform-home__enterprise-illustration"
+            :src="props.state.content.enterpriseSolution.imageUrl"
+            mode="aspectFill"
+          />
           <view class="platform-home__enterprise-copy">
-            <text class="platform-home__enterprise-title">
-              {{ props.state.content.enterpriseSolution.title }}
-            </text>
+            <view class="platform-home__enterprise-heading">
+              <text class="platform-home__enterprise-title">
+                {{ props.state.content.enterpriseSolution.title }}
+              </text>
+              <text class="platform-home__enterprise-description">
+                {{ props.state.content.enterpriseSolution.description }}
+              </text>
+            </view>
             <view class="platform-home__enterprise-benefits">
               <view
-                v-for="(benefit, index) in enterpriseBenefits(props.state.content.enterpriseSolution.description)"
-                :key="benefit"
+                v-for="benefit in props.state.content.enterpriseSolution.benefits"
+                :key="benefit.title"
                 class="platform-home__enterprise-benefit"
               >
                 <UniIcons
-                  :type="['map-filled', 'bars', 'folder-add-filled'][index] || 'checkbox-filled'"
-                  size="19"
-                  :color="['#4e8cff', '#2bbf72', '#ff8a1f'][index] || '#4e8cff'"
+                  :type="benefit.iconType"
+                  size="20"
+                  :color="benefit.color"
                 />
-                <text>{{ benefit }}</text>
+                <view class="platform-home__enterprise-benefit-copy">
+                  <text class="platform-home__enterprise-benefit-title">{{ benefit.title }}</text>
+                  <text class="platform-home__enterprise-benefit-description">
+                    {{ benefit.description }}
+                  </text>
+                </view>
               </view>
             </view>
-            <text
-              v-if="unavailable(props.state.content.enterpriseSolution.availability)"
-              class="platform-home__inline-unavailable"
-            >
-              暂未开放
-            </text>
           </view>
-          <image
-            class="platform-home__enterprise-image"
-            :src="props.state.content.enterpriseSolution.imageUrl"
-            mode="aspectFit"
-          />
         </button>
       </view>
 
@@ -249,19 +273,25 @@ const enterpriseBenefits = (description: string): string[] =>
           <text>{{ tab.label }}</text>
         </button>
       </view>
+      <PlatformUnavailableDialog
+        :visible="unavailableDialogVisible"
+        @close="unavailableDialogVisible = false"
+      />
     </template>
   </view>
 </template>
 
 <style scoped>
-.platform-home{min-height:100vh;color:#17191d;background:#f7f8fa;font-family:"PingFang SC","Microsoft YaHei",sans-serif}
-button{margin:0;padding:0;border:0;background:transparent;line-height:1.2}
+.platform-home{min-height:100vh;color:#17191d;background:#f7f8fa;font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
+button{margin:0;padding:0;border:0;background:transparent;font-family:inherit;line-height:1.2}
 button::after{border:0}
 .platform-home__scroll{padding:calc(env(safe-area-inset-top) + 10px) 18rpx calc(108rpx + env(safe-area-inset-bottom))}
-.platform-home__top{display:grid;grid-template-columns:142rpx minmax(0,1fr) 54rpx;gap:18rpx;align-items:center;margin-bottom:14rpx}
+.platform-home__top{display:grid;grid-template-columns:146rpx minmax(0,1fr) 54rpx;gap:14rpx;align-items:center;margin-bottom:14rpx}
 .platform-home__city-line{display:flex;align-items:center;gap:8rpx}
-.platform-home__city{font-size:31rpx;font-weight:800;white-space:nowrap}
-.platform-home__weather{display:block;margin-top:3rpx;color:#4f5966;font-size:19rpx;white-space:nowrap}
+.platform-home__city{font-size:31rpx;font-weight:700;white-space:nowrap}
+.platform-home__weather-row{display:flex;align-items:center;gap:7rpx;margin-top:3rpx}
+.platform-home__weather{display:block;color:#4f5966;font-size:19rpx;white-space:nowrap}
+.platform-home__weather-icon{width:34rpx;height:34rpx;flex:0 0 auto}
 .platform-home__search{display:flex;min-width:0;height:58rpx;align-items:center;gap:12rpx;padding:0 18rpx;border:2rpx solid #2c2f33;border-radius:31rpx;color:#8a9099;font-size:21rpx;text-align:left}
 .platform-home__search text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .platform-home__message{position:relative;display:flex;width:54rpx;height:58rpx;align-items:center;justify-content:center}
@@ -275,14 +305,14 @@ button::after{border:0}
 .platform-home__hero-action{min-width:138rpx;min-height:48rpx;margin-top:13rpx;padding:0 20rpx;border-radius:25rpx;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff5b00);font-size:21rpx;font-weight:700;line-height:48rpx}
 .platform-home__service-grid{display:grid;height:288rpx;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:10rpx 12rpx;padding:14rpx 15rpx 10rpx;border-radius:24rpx;background:#fff;box-shadow:0 6rpx 18rpx rgba(36,58,88,.05)}
 .platform-home__service-entry{min-width:0;text-align:center}
-.platform-home__entry-icon-wrap{position:relative;display:flex;width:76rpx;height:76rpx;align-items:center;justify-content:center;margin:0 auto;border-radius:21rpx}
-.platform-home__entry-title{display:block;margin-top:5rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:700;line-height:1.05;white-space:nowrap}
-.platform-home__entry-subtitle{display:block;margin-top:1rpx;overflow:hidden;color:#747c87;font-size:16rpx;line-height:1.05;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__unavailable{position:absolute;right:-3rpx;bottom:-3rpx;padding:3rpx 6rpx;border-radius:9rpx;color:#fff;background:rgba(30,35,42,.72);font-size:13rpx;white-space:nowrap}
-.platform-home__section{margin-top:14rpx;padding:16rpx 15rpx;border-radius:24rpx;background:#fff}
+.platform-home__entry-icon-wrap{position:relative;display:flex;width:76rpx;height:76rpx;align-items:center;justify-content:center;overflow:hidden;margin:0 auto;border-radius:21rpx}
+.platform-home__entry-image{width:100%;height:100%}
+.platform-home__entry-title{display:block;margin-top:5rpx;overflow-wrap:break-word;font-size:24rpx;font-weight:700;line-height:1.18;white-space:nowrap}
+.platform-home__entry-subtitle{display:block;margin-top:2rpx;overflow:hidden;color:#747c87;font-size:18rpx;line-height:1.08;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__section{margin-top:12rpx;padding:14rpx 15rpx;border-radius:24rpx;background:#fff}
 .platform-home__section--activities{padding-top:12rpx;padding-bottom:12rpx}
-.platform-home__section-heading{display:flex;align-items:center;gap:8rpx;margin-bottom:12rpx}
-.platform-home__section-title{font-size:27rpx;font-weight:800}
+.platform-home__section-heading{display:flex;align-items:center;gap:8rpx;margin-bottom:9rpx}
+.platform-home__section-title{font-size:27rpx;font-weight:700}
 .platform-home__section-copy{color:#78818d;font-size:18rpx}
 .platform-home__featured-scroll,.platform-home__activity-scroll{width:100%;white-space:nowrap}
 .platform-home__featured-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10rpx}
@@ -290,8 +320,8 @@ button::after{border:0}
 .platform-home__featured-card{min-width:0;text-align:left}
 .platform-home__featured-image-wrap{position:relative;height:100rpx;overflow:hidden;border-radius:14rpx}
 .platform-home__featured-image{width:100%;height:100%}
-.platform-home__featured-title{display:block;margin-top:7rpx;overflow:hidden;font-size:19rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__featured-subtitle{display:block;margin-top:2rpx;overflow:hidden;color:#69727e;font-size:15rpx;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__featured-title{display:block;margin-top:7rpx;overflow:hidden;font-size:21rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__featured-subtitle{display:block;margin-top:2rpx;overflow:hidden;color:#69727e;font-size:17rpx;text-overflow:ellipsis;white-space:nowrap}
 .platform-home__featured-meta{display:flex;min-height:25rpx;align-items:center;margin-top:4rpx}
 .platform-home__featured-stats{display:flex;align-items:center;justify-content:space-between;margin-top:2rpx}
 .platform-home__quote{color:#ff5d00;font-size:19rpx;font-weight:800}
@@ -301,15 +331,21 @@ button::after{border:0}
 .platform-home__activity-image{width:84rpx;height:74rpx;flex:0 0 auto;border-radius:12rpx}
 .platform-home__activity-copy{display:flex;min-width:0;flex-direction:column;justify-content:center}
 .platform-home__activity-title{overflow:hidden;font-size:18rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__inline-unavailable{margin-top:4rpx;color:#ff6508;font-size:14rpx}
-.platform-home__enterprise{position:relative;display:flex;width:100%;height:106rpx;overflow:hidden;margin-top:14rpx;padding:11rpx 16rpx;border-radius:24rpx;background:#edf6ff;text-align:left}
-.platform-home__enterprise-image{position:absolute;right:0;bottom:0;width:245rpx;height:108rpx}
-.platform-home__enterprise-copy{position:relative;z-index:1;display:flex;width:72%;flex-direction:column}
-.platform-home__enterprise-title{font-size:25rpx;font-weight:800}
-.platform-home__enterprise-benefits{display:flex;gap:16rpx;margin-top:9rpx}
-.platform-home__enterprise-benefit{display:flex;min-width:0;align-items:center;gap:4rpx;color:#536070;font-size:15rpx;white-space:nowrap}
+.platform-home__enterprise{position:relative;display:flex;width:100%;height:106rpx;overflow:hidden;margin-top:8rpx;padding:8rpx 16rpx;border-radius:24rpx;background:#edf6ff;text-align:left}
+.platform-home__enterprise::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,#edf6ff 0%,#edf6ff 58%,rgba(237,246,255,.94) 67%,rgba(237,246,255,.08) 83%)}
+.platform-home__enterprise::after{content:"";position:absolute;top:0;right:29%;bottom:0;width:1rpx;background:rgba(116,157,205,.16)}
+.platform-home__enterprise-illustration{position:absolute;inset:0;width:100%;height:100%;object-position:right center}
+.platform-home__enterprise-copy{position:relative;z-index:2;display:flex;width:70%;min-width:0;flex-direction:column}
+.platform-home__enterprise-heading{display:flex;align-items:baseline;gap:9rpx;white-space:nowrap}
+.platform-home__enterprise-title{font-size:24rpx;font-weight:700}
+.platform-home__enterprise-description{overflow:hidden;color:#6f7c8c;font-size:13rpx;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__enterprise-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5rpx;margin-top:7rpx}
+.platform-home__enterprise-benefit{display:flex;min-width:0;align-items:center;gap:4rpx;color:#536070}
+.platform-home__enterprise-benefit-copy{display:flex;min-width:0;flex-direction:column}
+.platform-home__enterprise-benefit-title{overflow:hidden;font-size:16rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__enterprise-benefit-description{overflow:hidden;margin-top:1rpx;color:#8793a0;font-size:12rpx;text-overflow:ellipsis;white-space:nowrap}
 .platform-home__tabbar{position:fixed;right:0;bottom:0;left:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);padding:7rpx 14rpx calc(7rpx + env(safe-area-inset-bottom));border-top:1rpx solid #e7e9ed;background:rgba(255,255,255,.97)}
-.platform-home__tab{display:flex;min-height:82rpx;flex-direction:column;align-items:center;justify-content:center;gap:4rpx;color:#4c535c;font-size:18rpx}
+.platform-home__tab{display:flex;min-height:82rpx;flex-direction:column;align-items:center;justify-content:center;gap:4rpx;color:#4c535c;font-size:20rpx;font-weight:500}
 .platform-home__tab--active{color:#ff6508;font-weight:700}
 .platform-home__service-tab-icon{display:grid;width:50rpx;height:50rpx;grid-template-columns:repeat(2,20rpx);grid-template-rows:repeat(2,20rpx);place-content:center;gap:3rpx;line-height:1}
 .platform-home__state{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:40rpx}

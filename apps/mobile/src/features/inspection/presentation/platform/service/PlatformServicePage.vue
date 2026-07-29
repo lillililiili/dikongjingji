@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import { ref } from 'vue'
 
+import PlatformUnavailableDialog from '../shared/PlatformUnavailableDialog.vue'
+import { resolvePlatformAvailabilityAction } from '../shared/platform-availability'
 import type {
   PlatformRecommendedService,
   PlatformRobotScenario,
+  PlatformServiceAvailability,
   PlatformServiceChannel,
   PlatformServiceViewState,
 } from './platform-service'
@@ -23,8 +27,30 @@ const emit = defineEmits<{
   selectTab: [tab: 'HOME' | 'SERVICE' | 'DISCOVER' | 'MALL' | 'MINE']
 }>()
 
-const unavailable = (availability: 'AVAILABLE' | 'UNAVAILABLE'): boolean =>
-  availability === 'UNAVAILABLE'
+const unavailableDialogVisible = ref(false)
+
+const proceedOrShowUnavailable = (
+  availability: PlatformServiceAvailability,
+  proceed: () => void,
+): void => {
+  if (resolvePlatformAvailabilityAction(availability) === 'SHOW_UNAVAILABLE') {
+    unavailableDialogVisible.value = true
+    return
+  }
+  proceed()
+}
+
+const selectChannel = (channel: PlatformServiceChannel): void =>
+  proceedOrShowUnavailable(channel.availability, () => emit('selectChannel', channel))
+
+const selectScenario = (scenario: PlatformRobotScenario): void =>
+  proceedOrShowUnavailable(scenario.availability, () => emit('selectScenario', scenario))
+
+const selectRecommendedService = (service: PlatformRecommendedService): void =>
+  proceedOrShowUnavailable(
+    service.availability,
+    () => emit('selectRecommendedService', service),
+  )
 
 const tabs = [
   { code: 'HOME', label: '首页', icon: 'home' },
@@ -70,7 +96,14 @@ const capabilityIcons: Record<string, string> = {
               <text class="platform-service__city">{{ props.state.content.cityName }}</text>
               <UniIcons type="down" size="13" color="#17191d" />
             </view>
-            <text class="platform-service__weather">{{ props.state.content.weatherText }}</text>
+            <view class="platform-service__weather-row">
+              <text class="platform-service__weather">{{ props.state.content.weather.text }}</text>
+              <image
+                class="platform-service__weather-icon"
+                :src="props.state.content.weather.iconUrl"
+                mode="aspectFit"
+              />
+            </view>
           </view>
           <button class="platform-service__search" @click="emit('search')">
             <UniIcons type="search" size="20" color="#23272c" />
@@ -93,12 +126,9 @@ const capabilityIcons: Record<string, string> = {
                 'platform-service__channel',
                 { 'platform-service__channel--active': channel.code === props.state.content.activeChannelCode },
               ]"
-              @click="emit('selectChannel', channel)"
+              @click="selectChannel(channel)"
             >
               <text>{{ channel.label }}</text>
-              <text v-if="unavailable(channel.availability)" class="platform-service__channel-status">
-                暂未开放
-              </text>
             </button>
           </view>
         </scroll-view>
@@ -118,16 +148,14 @@ const capabilityIcons: Record<string, string> = {
             v-for="scenario in props.state.content.scenarios"
             :key="scenario.code"
             class="platform-service__scenario"
-            @click="emit('selectScenario', scenario)"
+            @click="selectScenario(scenario)"
           >
-            <view
-              class="platform-service__scenario-icon-wrap"
-              :style="{ backgroundColor: scenario.iconBackground }"
-            >
-              <UniIcons :type="scenario.iconType" size="31" :color="scenario.iconColor" />
-              <text v-if="scenario.availability === 'UNAVAILABLE'" class="platform-service__unavailable">
-                暂未开放
-              </text>
+            <view class="platform-service__scenario-image-wrap">
+              <image
+                class="platform-service__scenario-image"
+                :src="scenario.imageUrl"
+                mode="aspectFill"
+              />
             </view>
             <text class="platform-service__scenario-title">{{ scenario.title }}</text>
             <text class="platform-service__scenario-subtitle">{{ scenario.subtitle }}</text>
@@ -171,13 +199,10 @@ const capabilityIcons: Record<string, string> = {
                 v-for="service in props.state.content.recommendedServices"
                 :key="service.id"
                 class="platform-service__service-card"
-                @click="emit('selectRecommendedService', service)"
+                @click="selectRecommendedService(service)"
               >
                 <view class="platform-service__service-image-wrap">
                   <image class="platform-service__service-image" :src="service.imageUrl" mode="aspectFill" />
-                  <text v-if="unavailable(service.availability)" class="platform-service__unavailable">
-                    暂未开放
-                  </text>
                 </view>
                 <text class="platform-service__service-title">{{ service.title }}</text>
                 <text v-if="service.subtitle" class="platform-service__service-subtitle">
@@ -231,30 +256,34 @@ const capabilityIcons: Record<string, string> = {
           <text>{{ tab.label }}</text>
         </button>
       </view>
+      <PlatformUnavailableDialog
+        :visible="unavailableDialogVisible"
+        @close="unavailableDialogVisible = false"
+      />
     </template>
   </view>
 </template>
 
 <style scoped>
-.platform-service{min-height:100vh;color:#16191d;background:#f7f8fa;font-family:"PingFang SC","Microsoft YaHei",sans-serif}
-button{margin:0;padding:0;border:0;background:transparent;line-height:1.2}
+.platform-service{min-height:100vh;color:#16191d;background:#f7f8fa;font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
+button{margin:0;padding:0;border:0;background:transparent;font-family:inherit;line-height:1.2}
 button::after{border:0}
 .platform-service__scroll{padding:calc(env(safe-area-inset-top) + 10px) 18rpx calc(108rpx + env(safe-area-inset-bottom))}
-.platform-service__top{display:grid;grid-template-columns:132rpx minmax(0,1fr) 54rpx;gap:16rpx;align-items:center;margin-bottom:10rpx}
+.platform-service__top{display:grid;grid-template-columns:146rpx minmax(0,1fr) 54rpx;gap:12rpx;align-items:center;margin-bottom:10rpx}
 .platform-service__city-line{display:flex;align-items:center;gap:8rpx}
-.platform-service__city{font-size:31rpx;font-weight:800;white-space:nowrap}
-.platform-service__weather{display:block;margin-top:3rpx;color:#4f5966;font-size:19rpx;white-space:nowrap}
+.platform-service__city{font-size:31rpx;font-weight:700;white-space:nowrap}
+.platform-service__weather-row{display:flex;align-items:center;gap:7rpx;margin-top:3rpx}
+.platform-service__weather{display:block;color:#4f5966;font-size:19rpx;white-space:nowrap}
+.platform-service__weather-icon{width:34rpx;height:34rpx;flex:0 0 auto}
 .platform-service__search{display:flex;min-width:0;height:58rpx;align-items:center;gap:12rpx;padding:0 18rpx;border:2rpx solid #2c2f33;border-radius:31rpx;color:#8a9099;font-size:21rpx;text-align:left}
 .platform-service__search text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .platform-service__message{position:relative;display:flex;width:54rpx;height:58rpx;align-items:center;justify-content:center}
 .platform-service__badge{position:absolute;right:-4rpx;top:-6rpx;min-width:28rpx;height:28rpx;padding:0 6rpx;border:3rpx solid #fff;border-radius:20rpx;color:#fff;background:#ff4136;font-size:16rpx;font-weight:700;line-height:25rpx}
 .platform-service__channels{width:100%;margin-bottom:10rpx;white-space:nowrap}
 .platform-service__channel-row{display:grid;min-width:100%;grid-template-columns:repeat(5,max-content);align-items:center;justify-content:space-between;gap:8rpx}
-.platform-service__channel{position:relative;min-height:52rpx;padding:0 16rpx;border-radius:20rpx;color:#30353b;background:#fff;font-size:20rpx;line-height:52rpx;white-space:nowrap}
-.platform-service__channel--active{color:#fff;background:linear-gradient(90deg,#ff9c00,#ff6200);font-weight:800}
+.platform-service__channel{position:relative;min-height:52rpx;padding:0 16rpx;border-radius:20rpx;color:#30353b;background:#fff;font-size:22rpx;font-weight:600;line-height:52rpx;white-space:nowrap}
+.platform-service__channel--active{color:#fff;background:linear-gradient(90deg,#ff9c00,#ff6200);font-weight:700}
 .platform-service__channel--active::after{content:"";position:absolute;right:28%;bottom:-5rpx;left:28%;height:5rpx;border-radius:50%;background:#fff;box-shadow:0 3rpx 0 #ff7200}
-.platform-service__channel-status{position:absolute;right:5rpx;bottom:1rpx;color:#ff6508;font-size:11rpx;line-height:1}
-.platform-service__channel--active .platform-service__channel-status{color:#fff}
 .platform-service__hero{position:relative;height:246rpx;overflow:hidden;border-radius:23rpx;background:#dfefff}
 .platform-service__hero-image{width:100%;height:100%}
 .platform-service__hero-copy{position:absolute;top:31rpx;left:32rpx;display:flex;width:46%;flex-direction:column;align-items:flex-start}
@@ -262,16 +291,16 @@ button::after{border:0}
 .platform-service__hero-highlight{color:#ff5d00}
 .platform-service__hero-description{margin-top:9rpx;color:#394451;font-size:17rpx;line-height:1.35}
 .platform-service__hero-action{min-width:138rpx;min-height:46rpx;margin-top:11rpx;padding:0 20rpx;border-radius:25rpx;color:#fff;background:linear-gradient(90deg,#ff9000,#ff5e00);font-size:20rpx;font-weight:700;line-height:46rpx}
-.platform-service__scenario-grid{display:grid;height:350rpx;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:10rpx 12rpx;margin-top:12rpx;padding:14rpx 15rpx 10rpx;border-radius:24rpx;background:#fff}
+.platform-service__scenario-grid{display:grid;height:386rpx;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12rpx;margin-top:12rpx;padding:14rpx 15rpx 12rpx;border-radius:24rpx;background:#fff}
 .platform-service__scenario{min-width:0;text-align:center}
-.platform-service__scenario-icon-wrap{position:relative;display:flex;width:82rpx;height:72rpx;align-items:center;justify-content:center;margin:0 auto;border-radius:18rpx}
-.platform-service__scenario-title{display:block;margin-top:5rpx;overflow-wrap:break-word;font-size:20rpx;font-weight:750;line-height:1.05;white-space:nowrap}
-.platform-service__scenario-subtitle{display:block;margin-top:1rpx;overflow:hidden;color:#737c87;font-size:14rpx;line-height:1.05;text-overflow:ellipsis;white-space:nowrap}
-.platform-service__unavailable{position:absolute;right:-4rpx;bottom:-3rpx;padding:3rpx 6rpx;border-radius:9rpx;color:#fff;background:rgba(30,35,42,.72);font-size:11rpx;white-space:nowrap}
+.platform-service__scenario-image-wrap{width:100%;height:112rpx;overflow:hidden;border-radius:17rpx;background:#eef4fa}
+.platform-service__scenario-image{width:100%;height:100%}
+.platform-service__scenario-title{display:block;margin-top:6rpx;overflow-wrap:break-word;font-size:24rpx;font-weight:700;line-height:1.18;white-space:nowrap}
+.platform-service__scenario-subtitle{display:block;margin-top:2rpx;overflow:hidden;color:#737c87;font-size:18rpx;line-height:1.08;text-overflow:ellipsis;white-space:nowrap}
 .platform-service__capabilities,.platform-service__recommendations{margin-top:12rpx;padding:14rpx 15rpx;border-radius:24rpx;background:#fff}
 .platform-service__section-heading{display:flex;align-items:center;gap:8rpx;margin-bottom:10rpx}
-.platform-service__section-title{font-size:24rpx;font-weight:800}
-.platform-service__section-copy{color:#77808c;font-size:16rpx}
+.platform-service__section-title{font-size:27rpx;font-weight:700}
+.platform-service__section-copy{color:#77808c;font-size:18rpx}
 .platform-service__capability-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8rpx}
 .platform-service__capability{display:flex;min-width:0;align-items:center;gap:6rpx}
 .platform-service__capability-icon{display:flex;width:34rpx;height:34rpx;flex:0 0 auto;align-items:center;justify-content:center;border-radius:50%;background:#e8faef}
@@ -283,8 +312,8 @@ button::after{border:0}
 .platform-service__service-card{min-width:0;text-align:left}
 .platform-service__service-image-wrap{position:relative;height:104rpx;overflow:hidden;border-radius:13rpx}
 .platform-service__service-image{width:100%;height:100%}
-.platform-service__service-title{display:block;margin-top:6rpx;overflow:hidden;font-size:17rpx;font-weight:750;text-overflow:ellipsis;white-space:nowrap}
-.platform-service__service-subtitle{display:block;margin-top:1rpx;overflow:hidden;color:#707986;font-size:13rpx;text-overflow:ellipsis;white-space:nowrap}
+.platform-service__service-title{display:block;margin-top:6rpx;overflow:hidden;font-size:20rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.platform-service__service-subtitle{display:block;margin-top:2rpx;overflow:hidden;color:#707986;font-size:15rpx;text-overflow:ellipsis;white-space:nowrap}
 .platform-service__service-meta{display:flex;min-height:22rpx;align-items:center;margin-top:3rpx}
 .platform-service__service-stats{display:flex;align-items:center;justify-content:space-between}
 .platform-service__quote{color:#ff5d00;font-size:18rpx;font-weight:800}
@@ -293,7 +322,7 @@ button::after{border:0}
 .platform-service__service-action{height:28rpx;margin-top:3rpx;border-radius:14rpx;color:#fff;background:linear-gradient(90deg,#ff9300,#ff6508);font-size:14rpx;line-height:28rpx;text-align:center}
 .platform-service__guarantees{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8rpx;margin-top:8rpx;padding-top:7rpx;border-top:1rpx solid #edf0f3;color:#626c79;font-size:13rpx;text-align:center}
 .platform-service__tabbar{position:fixed;right:0;bottom:0;left:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);padding:7rpx 14rpx calc(7rpx + env(safe-area-inset-bottom));border-top:1rpx solid #e7e9ed;background:rgba(255,255,255,.97)}
-.platform-service__tab{display:flex;min-height:82rpx;flex-direction:column;align-items:center;justify-content:center;gap:4rpx;color:#4c535c;font-size:18rpx}
+.platform-service__tab{display:flex;min-height:82rpx;flex-direction:column;align-items:center;justify-content:center;gap:4rpx;color:#4c535c;font-size:20rpx;font-weight:500}
 .platform-service__tab--active{color:#ff6508;font-weight:700}
 .platform-service__service-tab-icon{display:grid;width:50rpx;height:50rpx;grid-template-columns:repeat(2,20rpx);grid-template-rows:repeat(2,20rpx);place-content:center;gap:3rpx;line-height:1}
 .platform-service__state{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:40rpx}
