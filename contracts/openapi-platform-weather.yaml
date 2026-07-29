@@ -1,0 +1,71 @@
+openapi: 3.1.0
+info:
+  title: Platform Weather API
+  version: 1.0.0
+paths:
+  /api/v1/platform/weather/current:
+    get:
+      summary: Query live weather for the selected platform city
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cityCode
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{6}$'
+          description: Six-digit Chinese administrative division code (adcode).
+      responses:
+        '200':
+          description: Current weather from the configured provider.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentWeather'
+        '400':
+          description: Invalid city code.
+        '401':
+          description: Authentication required.
+        '503':
+          description: Weather provider is disabled or temporarily unavailable.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CurrentWeather:
+      type: object
+      additionalProperties: false
+      required:
+        - cityCode
+        - cityName
+        - conditionCode
+        - conditionText
+        - temperatureCelsius
+        - observedAt
+      properties:
+        cityCode:
+          type: string
+        cityName:
+          type: string
+        conditionCode:
+          type: string
+          enum:
+            - CLEAR
+            - PARTLY_CLOUDY
+            - OVERCAST
+            - RAIN
+            - THUNDERSTORM
+            - SNOW
+            - FOG
+            - UNKNOWN
+        conditionText:
+          type: string
+        temperatureCelsius:
+          type: number
+        observedAt:
+          type: string
+          format: date-time
