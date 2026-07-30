@@ -34,13 +34,22 @@ function parseCities(value: unknown): PlatformCity[] {
   }
 }
 
+function normalizeCities(cities: PlatformCity[]): PlatformCity[] {
+  const cityCodes = new Set<string>()
+  return cities.filter((city) => {
+    if (cityCodes.has(city.code)) return false
+    cityCodes.add(city.code)
+    return true
+  }).slice(0, MAX_RECENT_CITIES)
+}
+
 export function createRecentCityStorage(
   storage: CityStorage,
   key = STORAGE_KEY,
 ): RecentCityStorage {
   return {
     load(): PlatformCity[] {
-      return parseCities(storage.get(key))
+      return normalizeCities(parseCities(storage.get(key)))
     },
     save(city: PlatformCity): void {
       const next = [

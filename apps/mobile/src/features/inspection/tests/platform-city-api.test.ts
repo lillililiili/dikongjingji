@@ -8,15 +8,39 @@ import {
 describe('platform city API adapter', () => {
   it('loads the public city directory and records selected search results', async () => {
     const calls: Array<{ url: string; method: 'GET' | 'POST' }> = []
+    const directory = {
+      hotCities: [{
+        code: '370100',
+        name: '济南市',
+        pinyin: 'jinanshi',
+        initials: 'jns',
+        provinceCode: '370000',
+        provinceName: '山东省',
+      }],
+      provinces: [{
+        code: '370000',
+        name: '山东省',
+        pinyin: 'shandongsheng',
+        initials: 'sds',
+        cities: [{
+          code: '370100',
+          name: '济南市',
+          pinyin: 'jinanshi',
+          initials: 'jns',
+          provinceCode: '370000',
+          provinceName: '山东省',
+        }],
+      }],
+    }
     const http: PlatformCityHttpClient = {
       request: async <T,>(input: { url: string; method: 'GET' | 'POST' }) => {
         calls.push(input)
-        return { hotCities: [], provinces: [] } as T
+        return directory as T
       },
     }
     const api = createCityDirectoryApi(http)
 
-    await api.load()
+    await expect(api.load()).resolves.toEqual(directory)
     await api.recordSearchSelection('370100')
 
     expect(calls).toEqual([
@@ -26,5 +50,28 @@ describe('platform city API adapter', () => {
         method: 'POST',
       },
     ])
+  })
+
+  it.each([
+    null,
+    { hotCities: [], provinces: {} },
+    { hotCities: [{}], provinces: [] },
+    {
+      hotCities: [],
+      provinces: [{
+        code: '370000',
+        name: '山东省',
+        pinyin: 'shandongsheng',
+        initials: 'sds',
+        cities: [{ code: '370100' }],
+      }],
+    },
+  ])('rejects a malformed city directory response: %#', async (payload) => {
+    const http: PlatformCityHttpClient = {
+      request: async <T,>() => payload as T,
+    }
+
+    await expect(createCityDirectoryApi(http).load())
+      .rejects.toThrow('CITY_DIRECTORY_INVALID')
   })
 })
