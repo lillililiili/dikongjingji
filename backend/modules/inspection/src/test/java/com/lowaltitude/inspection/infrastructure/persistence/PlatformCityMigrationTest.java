@@ -41,8 +41,8 @@ class PlatformCityMigrationTest {
             provinceCodes.add(rows.group("provinceCode"));
         }
 
-        assertThat(cityCodes).hasSizeGreaterThanOrEqualTo(330);
-        assertThat(provinceCodes).hasSizeGreaterThanOrEqualTo(34);
+        assertThat(cityCodes).hasSize(340);
+        assertThat(provinceCodes).hasSize(34);
     }
 
     @Test
@@ -55,6 +55,23 @@ class PlatformCityMigrationTest {
                 .doesNotContain("'310100', '市辖区'")
                 .doesNotContain("'500100', '市辖区'")
                 .doesNotContain("'500200', '县'");
+    }
+
+    @Test
+    void excludesAndDeactivatesDirectAdministeredCountyPlaceholders() throws Exception {
+        String reference = resource("/db/migration/inspection/R__platform_city_reference.sql");
+
+        assertThat(reference)
+                .doesNotContain("'419000', '省直辖县级行政区划'")
+                .doesNotContain("'429000', '省直辖县级行政区划'")
+                .doesNotContain("'469000', '省直辖县级行政区划'")
+                .doesNotContain("'659000', '自治区直辖县级行政区划'")
+                .containsPattern(
+                        "(?s)UPDATE platform_city\\s+"
+                                + "SET status = 'INACTIVE'.*?"
+                                + "WHERE city_code IN \\(\\s*"
+                                + "'419000',\\s*'429000',\\s*'469000',\\s*'659000'\\s*"
+                                + "\\)");
     }
 
     @Test

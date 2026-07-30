@@ -341,8 +341,6 @@ INSERT INTO platform_city (
      '410000', '河南省', 'henansheng', 'hns', 'ACTIVE'),
     ('411700', '驻马店市', 'zhumadianshi', 'zmds',
      '410000', '河南省', 'henansheng', 'hns', 'ACTIVE'),
-    ('419000', '省直辖县级行政区划', 'shengzhixiaxianjixingzhengquhua', 'szxxjxzqh',
-     '410000', '河南省', 'henansheng', 'hns', 'ACTIVE'),
     ('420100', '武汉市', 'wuhanshi', 'whs',
      '420000', '湖北省', 'hubeisheng', 'hbs', 'ACTIVE'),
     ('420200', '黄石市', 'huangshishi', 'hss',
@@ -368,8 +366,6 @@ INSERT INTO platform_city (
     ('421300', '随州市', 'suizhoushi', 'szs',
      '420000', '湖北省', 'hubeisheng', 'hbs', 'ACTIVE'),
     ('422800', '恩施土家族苗族自治州', 'enshitujiazumiaozuzizhizhou', 'estjzmzzzz',
-     '420000', '湖北省', 'hubeisheng', 'hbs', 'ACTIVE'),
-    ('429000', '省直辖县级行政区划', 'shengzhixiaxianjixingzhengquhua', 'szxxjxzqh',
      '420000', '湖北省', 'hubeisheng', 'hbs', 'ACTIVE'),
     ('430100', '长沙市', 'changshashi', 'css',
      '430000', '湖南省', 'hunansheng', 'hns', 'ACTIVE'),
@@ -476,8 +472,6 @@ INSERT INTO platform_city (
     ('460300', '三沙市', 'sanshashi', 'sss',
      '460000', '海南省', 'hainansheng', 'hns', 'ACTIVE'),
     ('460400', '儋州市', 'danzhoushi', 'dzs',
-     '460000', '海南省', 'hainansheng', 'hns', 'ACTIVE'),
-    ('469000', '省直辖县级行政区划', 'shengzhixiaxianjixingzhengquhua', 'szxxjxzqh',
      '460000', '海南省', 'hainansheng', 'hns', 'ACTIVE'),
     ('500000', '重庆市', 'chongqingshi', 'cqs',
      '500000', '重庆市', 'chongqingshi', 'cqs', 'ACTIVE'),
@@ -689,8 +683,6 @@ INSERT INTO platform_city (
      '650000', '新疆维吾尔自治区', 'xinjiangweiwuerzizhiqu', 'xjwwezzq', 'ACTIVE'),
     ('654300', '阿勒泰地区', 'aletaidiqu', 'altdq',
      '650000', '新疆维吾尔自治区', 'xinjiangweiwuerzizhiqu', 'xjwwezzq', 'ACTIVE'),
-    ('659000', '自治区直辖县级行政区划', 'zizhiquzhixiaxianjixingzhengquhua', 'zzqzxxjxzqh',
-     '650000', '新疆维吾尔自治区', 'xinjiangweiwuerzizhiqu', 'xjwwezzq', 'ACTIVE'),
     ('710000', '台湾省', 'taiwansheng', 'tws',
      '710000', '台湾省', 'taiwansheng', 'tws', 'ACTIVE'),
     ('810000', '香港特别行政区', 'xianggangtebiexingzhengqu', 'xgtbxzq',
@@ -707,3 +699,12 @@ SET city_name = EXCLUDED.city_name,
     province_initials = EXCLUDED.province_initials,
     status = EXCLUDED.status,
     updated_at = now();
+
+UPDATE platform_city
+SET status = 'INACTIVE',
+    version = version + 1,
+    updated_at = now()
+WHERE city_code IN (
+    '419000', '429000', '469000', '659000'
+)
+  AND status <> 'INACTIVE';

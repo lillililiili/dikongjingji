@@ -25,6 +25,24 @@ class CityDirectoryReadServiceTest {
     }
 
     @Test
+    void returnsSixDeterministicHotCitiesWhenAllSearchCountsAreZero() {
+        List<CityDirectoryReadService.StoredCity> zeroCountCities = rows().stream()
+                .map(city -> city(
+                        city.cityCode(),
+                        city.cityName(),
+                        city.cityPinyin(),
+                        city.cityInitials(),
+                        0))
+                .toList();
+        CityDirectoryReadService service = new CityDirectoryReadService(new FakeStore(zeroCountCities));
+
+        CityDirectoryReadService.DirectoryView view = service.directory();
+
+        assertThat(view.hotCities()).extracting(CityDirectoryReadService.CityView::code)
+                .containsExactly("370500", "340100", "370100", "371300", "370200", "370700");
+    }
+
+    @Test
     void incrementsOnlyValidSixDigitActiveCity() {
         FakeStore store = new FakeStore(rows());
         CityDirectoryReadService service = new CityDirectoryReadService(store);
