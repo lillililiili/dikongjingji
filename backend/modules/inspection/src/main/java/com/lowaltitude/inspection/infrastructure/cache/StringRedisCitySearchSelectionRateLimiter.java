@@ -17,7 +17,7 @@ public final class StringRedisCitySearchSelectionRateLimiter
               redis.call('PEXPIRE', KEYS[1], ARGV[1])
             end
             if current <= tonumber(ARGV[2]) then
-              return 0
+              return -3
             end
             return redis.call('PTTL', KEYS[1])
             """,
@@ -55,12 +55,15 @@ public final class StringRedisCitySearchSelectionRateLimiter
                     List.of(key),
                     Long.toString(properties.window().toMillis()),
                     Integer.toString(properties.limit()));
-            if (result == null || result < 0L) {
+            if (result == null) {
                 return Decision.unavailable();
             }
-            return result == 0L
-                    ? Decision.allowed()
-                    : Decision.rateLimited(Duration.ofMillis(result));
+            if (result == -3L) {
+                return Decision.allowed();
+            }
+            return result >= 0L
+                    ? Decision.rateLimited(Duration.ofMillis(result))
+                    : Decision.unavailable();
         } catch (RuntimeException exception) {
             return Decision.unavailable();
         }

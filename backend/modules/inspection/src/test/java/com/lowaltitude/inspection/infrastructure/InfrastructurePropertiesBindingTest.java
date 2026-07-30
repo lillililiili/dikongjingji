@@ -71,6 +71,18 @@ class InfrastructurePropertiesBindingTest {
     }
 
     @Test
+    void citySearchSelectionRateLimitWindowMustConvertToAtLeastOneMillisecond() {
+        assertThatThrownBy(() -> new CitySearchSelectionRateLimitProperties(
+                20, Duration.ofNanos(999_999)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("window must be at least one millisecond");
+        assertThatThrownBy(() -> new CitySearchSelectionRateLimitProperties(
+                20, Duration.ofSeconds(Long.MAX_VALUE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("window must fit in milliseconds");
+    }
+
+    @Test
     void storageSettingsFailClosedWithoutAnExplicitEnvironment() {
         Binder binder = new Binder(new MapConfigurationPropertySource(Map.of(
                 "inspection.infrastructure.storage.endpoint", "https://minio.example.test",

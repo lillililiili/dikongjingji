@@ -16,5 +16,14 @@ public record CitySearchSelectionRateLimitProperties(int limit, Duration window)
         if (window.isZero() || window.isNegative()) {
             throw new IllegalArgumentException("window must be positive");
         }
+        long windowMillis;
+        try {
+            windowMillis = window.toMillis();
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("window must fit in milliseconds", exception);
+        }
+        if (windowMillis < 1L) {
+            throw new IllegalArgumentException("window must be at least one millisecond");
+        }
     }
 }

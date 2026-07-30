@@ -19,7 +19,7 @@ class StringRedisCitySearchSelectionRateLimiterTest {
 
     @Test
     void allowsSelectionsWithinTheFixedWindowLimit() {
-        StubStringRedisTemplate redisTemplate = new StubStringRedisTemplate(0L);
+        StubStringRedisTemplate redisTemplate = new StubStringRedisTemplate(-3L);
         StringRedisCitySearchSelectionRateLimiter limiter =
                 new StringRedisCitySearchSelectionRateLimiter(redisTemplate, NAMESPACES, RATE_LIMIT);
 
@@ -44,9 +44,29 @@ class StringRedisCitySearchSelectionRateLimiterTest {
     }
 
     @Test
+    void failsClosedWhenRedisReportsAMissingWindowKey() {
+        StringRedisCitySearchSelectionRateLimiter limiter =
+                new StringRedisCitySearchSelectionRateLimiter(
+                        new StubStringRedisTemplate(-2L), NAMESPACES, RATE_LIMIT);
+
+        assertThat(limiter.check("203.0.113.7"))
+                .isEqualTo(CitySearchSelectionRateLimiter.Decision.unavailable());
+    }
+
+    @Test
+    void failsClosedForAnyOtherNegativeScriptResult() {
+        StringRedisCitySearchSelectionRateLimiter limiter =
+                new StringRedisCitySearchSelectionRateLimiter(
+                        new StubStringRedisTemplate(-4L), NAMESPACES, RATE_LIMIT);
+
+        assertThat(limiter.check("203.0.113.7"))
+                .isEqualTo(CitySearchSelectionRateLimiter.Decision.unavailable());
+    }
+
+    @Test
     void groupsMissingContainerAddressesIntoAControlledUnknownBucket() {
-        StubStringRedisTemplate blankAddressRedis = new StubStringRedisTemplate(0L);
-        StubStringRedisTemplate nullAddressRedis = new StubStringRedisTemplate(0L);
+        StubStringRedisTemplate blankAddressRedis = new StubStringRedisTemplate(-3L);
+        StubStringRedisTemplate nullAddressRedis = new StubStringRedisTemplate(-3L);
 
         assertThat(new StringRedisCitySearchSelectionRateLimiter(
                 blankAddressRedis, NAMESPACES, RATE_LIMIT).check("  "))
@@ -70,6 +90,16 @@ class StringRedisCitySearchSelectionRateLimiterTest {
 
         assertThat(decision).isEqualTo(CitySearchSelectionRateLimiter.Decision.rateLimited(
                 Duration.ofMillis(2345)));
+    }
+
+    @Test
+    void treatsZeroRemainingPttlAsRateLimited() {
+        StringRedisCitySearchSelectionRateLimiter limiter =
+                new StringRedisCitySearchSelectionRateLimiter(
+                        new StubStringRedisTemplate(0L), NAMESPACES, RATE_LIMIT);
+
+        assertThat(limiter.check("203.0.113.7"))
+                .isEqualTo(CitySearchSelectionRateLimiter.Decision.rateLimited(Duration.ZERO));
     }
 
     @Test
