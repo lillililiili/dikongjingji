@@ -54,4 +54,19 @@ class DevelopmentInspectionCatalogMigrationTest {
                 .contains("'PHOTOVOLTAIC'")
                 .contains("'PARK'");
     }
+
+    @Test
+    void developmentSeedDefinesSimulatedPlatformCityPopularity() throws Exception {
+        String sql;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/development/inspection/R__dev_platform_city_popularity.sql")) {
+            assertThat(stream).isNotNull();
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(sql)
+                .contains("'370100', 1260::bigint")
+                .contains("'370200', 1120::bigint")
+                .contains("'370500', 980::bigint");
+    }
 }
