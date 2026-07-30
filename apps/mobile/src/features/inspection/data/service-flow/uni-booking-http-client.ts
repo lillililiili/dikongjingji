@@ -1,4 +1,5 @@
 import { createBookingUuid } from '../../application/service-flow/booking-crypto'
+import { createCityDirectoryApi } from '@/shared/city/data/city-directory-api'
 import {
   beginBookingAuthenticationRecovery,
   getBookingAuthContext,
@@ -147,6 +148,7 @@ function putFile(input: { url: string; filePath: string; headers: Record<string,
 
 const http: BookingHttpClient = { request, putFile }
 export const inspectionCatalogApi = createInspectionCatalogApi({ request: publicRequest })
+export const platformCityApi = createCityDirectoryApi({ request: publicRequest })
 export const inspectionBookingApi: InspectionBookingApi = createInspectionBookingApi(http, {
   getAccessToken: () => getBookingAuthContext().getAccessToken(),
 }, { request: publicRequest })

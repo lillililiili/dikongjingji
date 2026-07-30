@@ -4,6 +4,7 @@ import {
   createInspectionCatalogApi,
   type InspectionCatalogHttpClient,
 } from '../data/catalog/inspection-catalog-api'
+import bookingHttpClientSource from '../data/service-flow/uni-booking-http-client.ts?raw'
 import catalogPageSource from '../presentation/catalog/pages/InspectionCatalogPage.vue?raw'
 import portalPageSource from '../presentation/portal/pages/InspectionPortalPage.vue?raw'
 
@@ -36,6 +37,15 @@ const response = {
 }
 
 describe('real inspection catalog adapter', () => {
+  it('exports the public platform city API through the shared public request', () => {
+    expect(bookingHttpClientSource).toContain(
+      "import { createCityDirectoryApi } from '@/shared/city/data/city-directory-api'",
+    )
+    expect(bookingHttpClientSource).toContain(
+      'export const platformCityApi = createCityDirectoryApi({ request: publicRequest })',
+    )
+  })
+
   it('keeps production page code independent from development fixtures', () => {
     expect(portalPageSource).toContain('inspectionCatalogApi.loadPortal')
     expect(catalogPageSource).toContain('inspectionCatalogApi.loadCatalog')

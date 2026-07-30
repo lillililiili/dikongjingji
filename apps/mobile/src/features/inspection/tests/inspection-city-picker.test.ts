@@ -22,6 +22,7 @@ import {
   type PlatformCity,
   type PlatformProvince,
 } from '../../../shared/city/domain/city-directory'
+import catalogPageSource from '../presentation/catalog/pages/InspectionCatalogPage.vue?raw'
 import source from '../../../shared/city/presentation/CitySelectionSheet.vue?raw'
 import type { CurrentCity } from '../../../shared/city/state/current-city'
 
@@ -582,5 +583,19 @@ describe('city selection sheet static visual contract', () => {
     expect(source).not.toContain('showActionSheet')
     expect(source).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
     expect(source).not.toContain('<svg')
+  })
+})
+
+describe('inspection catalog city selection integration', () => {
+  it('uses the production city sheet and refreshes the selected city', () => {
+    expect(catalogPageSource).toContain('<CitySelectionSheet')
+    expect(catalogPageSource).toContain('platformCityApi.load')
+    expect(catalogPageSource).toContain('currentCityStore.setCurrentCity')
+    expect(catalogPageSource).toContain('recentCityStorage.save')
+    expect(catalogPageSource).toContain("source === 'SEARCH'")
+    expect(catalogPageSource).toContain('loadCatalogContent')
+    expect(catalogPageSource).not.toContain('DEVELOPMENT_CITIES')
+    expect(catalogPageSource).not.toContain('showActionSheet')
+    expect(catalogPageSource).not.toContain('import.meta.env.DEV')
   })
 })

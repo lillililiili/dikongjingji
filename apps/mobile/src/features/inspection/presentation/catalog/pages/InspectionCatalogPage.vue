@@ -5,9 +5,22 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { storeToRefs } from 'pinia'
 
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
+import { createRecentCityStorage } from '@/shared/city/data/recent-city-storage'
+import { locateCurrentCityName } from '@/shared/city/data/uni-city-location'
+import {
+  findCityByLocatedName,
+  type CityDirectory,
+  type PlatformCity,
+} from '@/shared/city/domain/city-directory'
+import CitySelectionSheet, {
+  type CitySelectionSource,
+} from '@/shared/city/presentation/CitySelectionSheet.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
-import { inspectionCatalogApi } from '../../../data/service-flow/uni-booking-http-client'
+import {
+  inspectionCatalogApi,
+  platformCityApi,
+} from '../../../data/service-flow/uni-booking-http-client'
 import type {
   ActionResult,
   InspectionHostActionPort,
@@ -42,14 +55,12 @@ interface CatalogRouteQuery {
   openFilter?: string
 }
 
-const DEVELOPMENT_CITIES = [
-  { code: '370500', name: '东营市' },
-  { code: '370100', name: '济南市' },
-  { code: '370200', name: '青岛市' },
-] as const
-
 const currentCityStore = useCurrentCityStore()
 const { currentCity } = storeToRefs(currentCityStore)
+const recentCityStorage = createRecentCityStorage({
+  get: (key) => uni.getStorageSync(key),
+  set: (key, value) => uni.setStorageSync(key, value),
+})
 const content = ref<InspectionCatalogContent>(EMPTY_CATALOG_CONTENT)
 const query = ref({ ...DEFAULT_CATALOG_QUERY })
 const keywordInput = ref('')
@@ -63,12 +74,16 @@ const isRefreshing = ref(false)
 const loadError = ref('')
 const filterSheetOpen = ref(false)
 const hasValidLocation = ref(false)
+const citySheetOpen = ref(false)
+const cityDirectory = ref<CityDirectory | null>(null)
+const cityDirectoryLoading = ref(false)
+const cityDirectoryError = ref('')
+const recentCities = ref(loadRecentCities())
+const relocating = ref(false)
 let loadRevision = 0
 
 const displayCityName = computed(
-  () =>
-    currentCity.value?.name ??
-    (import.meta.env.DEV ? '东营市' : '选择城市'),
+  () => currentCity.value?.name ?? '选择城市',
 )
 
 const matchedServices = computed(() => {
@@ -142,7 +157,6 @@ onLoad((routeQuery: CatalogRouteQuery | undefined) => {
   })
   keywordInput.value = query.value.keyword
   filterSheetOpen.value = routeQuery?.openFilter === 'true'
-  restoreDevelopmentCity(routeQuery?.cityCode)
   void loadCatalogContent()
 })
 
@@ -284,43 +298,92 @@ async function openServiceDetail(serviceId: string): Promise<void> {
   }
 }
 
-function selectCity(): void {
-  if (!import.meta.env.DEV) {
-    uni.showToast({
-      title: '城市选择能力待平台接入',
-      icon: 'none',
-    })
-    return
+function loadRecentCities(): PlatformCity[] {
+  try {
+    return recentCityStorage.load()
+  } catch {
+    return []
   }
-
-  uni.showActionSheet({
-    itemList: DEVELOPMENT_CITIES.map((city) => city.name),
-    success: ({ tapIndex }) => {
-      const city = DEVELOPMENT_CITIES[tapIndex]
-
-      if (!city) {
-        return
-      }
-
-      currentCityStore.setCurrentCity({ ...city })
-      query.value = {
-        ...query.value,
-        page: 1,
-      }
-      loadRevision += 1
-    },
-  })
 }
 
-function restoreDevelopmentCity(cityCode: string | undefined): void {
-  if (!import.meta.env.DEV || currentCity.value || !cityCode) {
+async function loadCityDirectory(): Promise<void> {
+  if (cityDirectoryLoading.value) {
     return
   }
 
-  const city = DEVELOPMENT_CITIES.find((item) => item.code === cityCode)
+  cityDirectoryLoading.value = true
+  cityDirectoryError.value = ''
 
-  if (city) {
-    currentCityStore.setCurrentCity({ ...city })
+  try {
+    cityDirectory.value = await platformCityApi.load()
+  } catch {
+    cityDirectoryError.value = '城市目录加载失败，请稍后重试'
+  } finally {
+    cityDirectoryLoading.value = false
+  }
+}
+
+async function openCitySheet(): Promise<void> {
+  citySheetOpen.value = true
+  if (cityDirectory.value || cityDirectoryLoading.value) {
+    return
+  }
+  await loadCityDirectory()
+}
+
+async function applyCitySelection(payload: {
+  city: PlatformCity
+  source: CitySelectionSource
+}): Promise<void> {
+  currentCityStore.setCurrentCity({
+    code: payload.city.code,
+    name: payload.city.name,
+    provinceCode: payload.city.provinceCode,
+  })
+
+  try {
+    recentCityStorage.save(payload.city)
+    recentCities.value = recentCityStorage.load()
+  } catch {
+    uni.showToast({
+      title: '最近城市保存失败',
+      icon: 'none',
+    })
+  }
+
+  citySheetOpen.value = false
+  query.value = {
+    ...query.value,
+    page: 1,
+  }
+
+  if (payload.source === 'SEARCH') {
+    void platformCityApi.recordSearchSelection(payload.city.code)
+      .catch(() => undefined)
+  }
+  await loadCatalogContent()
+}
+
+async function relocateCity(): Promise<void> {
+  if (!cityDirectory.value || relocating.value) {
+    return
+  }
+
+  relocating.value = true
+  try {
+    const locatedName = await locateCurrentCityName()
+    const city = findCityByLocatedName(cityDirectory.value, locatedName)
+    if (!city) {
+      throw new Error('CITY_NOT_IN_DIRECTORY')
+    }
+    await applyCitySelection({ city, source: 'CURRENT' })
+  } catch {
+    uni.showToast({
+      title: '定位失败，请手动选择城市',
+      icon: 'none',
+    })
+  } finally {
+    relocating.value = false
   }
 }
 
@@ -359,7 +422,7 @@ function showCustomerService(): void {
         :city-name="displayCityName"
         @category="selectCategory"
         @sort="selectSort"
-        @city="selectCity"
+        @city="openCitySheet"
       />
 
       <scroll-view
@@ -453,6 +516,19 @@ function showCustomerService(): void {
       @close="filterSheetOpen = false"
       @apply="applyFilters"
       @reset="resetFilters"
+    />
+    <CitySelectionSheet
+      v-if="citySheetOpen"
+      :directory="cityDirectory"
+      :current-city="currentCity"
+      :recent-cities="recentCities"
+      :loading="cityDirectoryLoading"
+      :error="cityDirectoryError"
+      :relocating="relocating"
+      @close="citySheetOpen = false"
+      @retry="loadCityDirectory"
+      @relocate="relocateCity"
+      @select="applyCitySelection"
     />
     <RootAppTabBar active="SERVICE" />
   </view>
