@@ -34,8 +34,33 @@ paths:
           description: Search selection recorded
         '404':
           description: City not found or inactive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
 components:
   schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - traceId
+      properties:
+        code:
+          type: string
+          enum:
+            - COMMON_NOT_FOUND
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type:
+            - object
+            - 'null'
+          additionalProperties: true
     CityDirectory:
       type: object
       additionalProperties: false

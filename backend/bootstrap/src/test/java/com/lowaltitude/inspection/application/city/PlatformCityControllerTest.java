@@ -49,7 +49,18 @@ class PlatformCityControllerTest {
 
     @Test
     void rejectsAnUnknownCitySearchSelection() throws Exception {
-        mockMvc.perform(post("/api/v1/platform/cities/999999/search-selections"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/v1/platform/cities/999999/search-selections")
+                        .header("X-Request-Id", "city-not-found-test"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("资源不存在"))
+                .andExpect(jsonPath("$.traceId").value("city-not-found-test"));
+    }
+
+    @Test
+    void generatesATraceIdForAnUnknownCitySearchSelectionWithoutRequestId() throws Exception {
+        mockMvc.perform(post("/api/v1/platform/cities/999998/search-selections"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 }
