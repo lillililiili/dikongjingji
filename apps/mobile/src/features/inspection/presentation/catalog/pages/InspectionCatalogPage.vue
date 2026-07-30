@@ -1,3 +1,142 @@
+<script lang="ts">
+import {
+  findCityByLocatedName as findControllerCityByLocatedName,
+  type CityDirectory as ControllerCityDirectory,
+  type PlatformCity as ControllerPlatformCity,
+} from '@/shared/city/domain/city-directory'
+import type { CitySelectionSource } from '@/shared/city/presentation/CitySelectionSheet.vue'
+import type { CurrentCity as ControllerCurrentCity } from '@/shared/city/state/current-city'
+
+export interface CatalogCityControllerOptions {
+  setCurrentCity(city: ControllerCurrentCity): void
+  saveRecentCity(city: ControllerPlatformCity): void
+  loadRecentCities(): ControllerPlatformCity[]
+  setRecentCities(cities: ControllerPlatformCity[]): void
+  closeCitySheet(): void
+  setPage(page: number): void
+  reloadCatalog(): Promise<void>
+  recordSearchSelection(cityCode: string): Promise<void>
+  getDirectory(): ControllerCityDirectory | null
+  isDirectoryLoading(): boolean
+  loadDirectory(): Promise<void>
+  isRelocating(): boolean
+  setRelocating(value: boolean): void
+  locateCityName(): Promise<string>
+  showToast(title: string): void
+}
+
+export function createCatalogCityController(
+  options: CatalogCityControllerOptions,
+) {
+  async function applyCitySelection(payload: {
+    city: ControllerPlatformCity
+    source: CitySelectionSource
+  }): Promise<void> {
+    options.setCurrentCity({
+      code: payload.city.code,
+      name: payload.city.name,
+      provinceCode: payload.city.provinceCode,
+    })
+
+    try {
+      options.saveRecentCity(payload.city)
+      options.setRecentCities(options.loadRecentCities())
+    } catch {
+      options.showToast('最近城市保存失败')
+    }
+
+    options.closeCitySheet()
+    options.setPage(1)
+    if (payload.source === 'SEARCH') {
+      void options.recordSearchSelection(payload.city.code)
+        .catch(() => undefined)
+    }
+    await options.reloadCatalog()
+  }
+
+  async function relocateCity(): Promise<void> {
+    if (options.isRelocating()) {
+      return
+    }
+    if (options.isDirectoryLoading()) {
+      options.showToast('城市加载中，请稍候')
+      return
+    }
+    if (!options.getDirectory()) {
+      try {
+        await options.loadDirectory()
+      } catch {
+        // The controlled directory prompt below covers unexpected adapters.
+      }
+    }
+
+    const directory = options.getDirectory()
+    if (!directory) {
+      options.showToast('请先重新加载城市目录')
+      return
+    }
+
+    options.setRelocating(true)
+    try {
+      const locatedName = await options.locateCityName()
+      const city = findControllerCityByLocatedName(directory, locatedName)
+      if (!city) {
+        throw new Error('CITY_NOT_IN_DIRECTORY')
+      }
+      await applyCitySelection({ city, source: 'CURRENT' })
+    } catch {
+      options.showToast('定位失败，请手动选择城市')
+    } finally {
+      options.setRelocating(false)
+    }
+  }
+
+  return { applyCitySelection, relocateCity }
+}
+
+export interface LatestCatalogLoaderOptions<T> {
+  getCityCode(): string | undefined
+  load(cityCode: string): Promise<T>
+  emptyContent: T
+  setContent(content: T): void
+  setError(message: string): void
+  setLoading(loading: boolean): void
+  setRefreshing(refreshing: boolean): void
+  errorMessage: string
+}
+
+export function createLatestCatalogLoader<T>(
+  options: LatestCatalogLoaderOptions<T>,
+): () => Promise<void> {
+  let revision = 0
+
+  return async (): Promise<void> => {
+    const currentRevision = ++revision
+    options.setLoading(true)
+    options.setError('')
+
+    try {
+      const cityCode = options.getCityCode()
+      if (!cityCode) throw new Error('CITY_REQUIRED')
+      const loaded = await options.load(cityCode)
+      if (currentRevision === revision) {
+        options.setContent(loaded)
+      }
+    } catch {
+      if (currentRevision === revision) {
+        options.setContent(options.emptyContent)
+        options.setError(options.errorMessage)
+      }
+    } finally {
+      if (currentRevision === revision) {
+        options.setLoading(false)
+        options.setRefreshing(false)
+      }
+    }
+  }
+}
+</script>
+
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
@@ -7,14 +146,11 @@ import { storeToRefs } from 'pinia'
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { createRecentCityStorage } from '@/shared/city/data/recent-city-storage'
 import { locateCurrentCityName } from '@/shared/city/data/uni-city-location'
-import {
-  findCityByLocatedName,
-  type CityDirectory,
-  type PlatformCity,
+import type {
+  CityDirectory,
+  PlatformCity,
 } from '@/shared/city/domain/city-directory'
-import CitySelectionSheet, {
-  type CitySelectionSource,
-} from '@/shared/city/presentation/CitySelectionSheet.vue'
+import CitySelectionSheet from '@/shared/city/presentation/CitySelectionSheet.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
 import {
@@ -80,7 +216,6 @@ const cityDirectoryLoading = ref(false)
 const cityDirectoryError = ref('')
 const recentCities = ref(loadRecentCities())
 const relocating = ref(false)
-let loadRevision = 0
 
 const displayCityName = computed(
   () => currentCity.value?.name ?? '选择城市',
@@ -137,6 +272,57 @@ const hostActionGateway: Pick<
   },
 }
 
+const runLatestCatalogLoad = createLatestCatalogLoader({
+  getCityCode: () => currentCity.value?.code,
+  load: (cityCode) => inspectionCatalogApi.loadCatalog(cityCode),
+  emptyContent: EMPTY_CATALOG_CONTENT,
+  setContent: (loaded) => {
+    content.value = loaded
+  },
+  setError: (message) => {
+    loadError.value = message
+  },
+  setLoading: (loading) => {
+    isLoading.value = loading
+  },
+  setRefreshing: (refreshing) => {
+    isRefreshing.value = refreshing
+  },
+  errorMessage: '巡检服务加载失败，请检查网络后重试',
+})
+
+const catalogCityController = createCatalogCityController({
+  setCurrentCity: (city) => currentCityStore.setCurrentCity(city),
+  saveRecentCity: (city) => recentCityStorage.save(city),
+  loadRecentCities: () => recentCityStorage.load(),
+  setRecentCities: (cities) => {
+    recentCities.value = cities
+  },
+  closeCitySheet: () => {
+    citySheetOpen.value = false
+  },
+  setPage: (page) => {
+    query.value = {
+      ...query.value,
+      page,
+    }
+  },
+  reloadCatalog: loadCatalogContent,
+  recordSearchSelection: (cityCode) =>
+    platformCityApi.recordSearchSelection(cityCode),
+  getDirectory: () => cityDirectory.value,
+  isDirectoryLoading: () => cityDirectoryLoading.value,
+  loadDirectory: loadCityDirectory,
+  isRelocating: () => relocating.value,
+  setRelocating: (value) => {
+    relocating.value = value
+  },
+  locateCityName: locateCurrentCityName,
+  showToast: (title) => {
+    uni.showToast({ title, icon: 'none' })
+  },
+})
+
 onLoad((routeQuery: CatalogRouteQuery | undefined) => {
   const entry = normalizeCatalogEntry(routeQuery?.categoryCode)
 
@@ -161,28 +347,7 @@ onLoad((routeQuery: CatalogRouteQuery | undefined) => {
 })
 
 async function loadCatalogContent(): Promise<void> {
-  const revision = ++loadRevision
-  isLoading.value = true
-  loadError.value = ''
-
-  try {
-    const cityCode = currentCity.value?.code
-    if (!cityCode) throw new Error('CITY_REQUIRED')
-    const loaded = await inspectionCatalogApi.loadCatalog(cityCode)
-    if (revision === loadRevision) {
-      content.value = loaded
-    }
-  } catch {
-    if (revision === loadRevision) {
-      content.value = EMPTY_CATALOG_CONTENT
-      loadError.value = '巡检服务加载失败，请检查网络后重试'
-    }
-  } finally {
-    if (revision === loadRevision) {
-      isLoading.value = false
-      isRefreshing.value = false
-    }
-  }
+  await runLatestCatalogLoad()
 }
 
 async function refreshCatalog(): Promise<void> {
@@ -333,58 +498,13 @@ async function openCitySheet(): Promise<void> {
 
 async function applyCitySelection(payload: {
   city: PlatformCity
-  source: CitySelectionSource
+  source: 'CURRENT' | 'RECENT' | 'HOT' | 'SEARCH' | 'TREE'
 }): Promise<void> {
-  currentCityStore.setCurrentCity({
-    code: payload.city.code,
-    name: payload.city.name,
-    provinceCode: payload.city.provinceCode,
-  })
-
-  try {
-    recentCityStorage.save(payload.city)
-    recentCities.value = recentCityStorage.load()
-  } catch {
-    uni.showToast({
-      title: '最近城市保存失败',
-      icon: 'none',
-    })
-  }
-
-  citySheetOpen.value = false
-  query.value = {
-    ...query.value,
-    page: 1,
-  }
-
-  if (payload.source === 'SEARCH') {
-    void platformCityApi.recordSearchSelection(payload.city.code)
-      .catch(() => undefined)
-  }
-  await loadCatalogContent()
+  await catalogCityController.applyCitySelection(payload)
 }
 
 async function relocateCity(): Promise<void> {
-  if (!cityDirectory.value || relocating.value) {
-    return
-  }
-
-  relocating.value = true
-  try {
-    const locatedName = await locateCurrentCityName()
-    const city = findCityByLocatedName(cityDirectory.value, locatedName)
-    if (!city) {
-      throw new Error('CITY_NOT_IN_DIRECTORY')
-    }
-    await applyCitySelection({ city, source: 'CURRENT' })
-  } catch {
-    uni.showToast({
-      title: '定位失败，请手动选择城市',
-      icon: 'none',
-    })
-  } finally {
-    relocating.value = false
-  }
+  await catalogCityController.relocateCity()
 }
 
 function returnToPortal(): void {

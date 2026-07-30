@@ -17,6 +17,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  findCityByLocatedName,
   searchCities,
   type CityDirectory,
   type PlatformCity,
@@ -41,6 +42,78 @@ interface SheetProps {
   loading: boolean
   error: string
   relocating: boolean
+}
+
+type TestCitySelectionSource =
+  | 'CURRENT'
+  | 'RECENT'
+  | 'HOT'
+  | 'SEARCH'
+  | 'TREE'
+
+interface CatalogCityControllerOptions {
+  setCurrentCity(city: CurrentCity): void
+  saveRecentCity(city: PlatformCity): void
+  loadRecentCities(): PlatformCity[]
+  setRecentCities(cities: PlatformCity[]): void
+  closeCitySheet(): void
+  setPage(page: number): void
+  reloadCatalog(): Promise<void>
+  recordSearchSelection(cityCode: string): Promise<void>
+  getDirectory(): CityDirectory | null
+  isDirectoryLoading(): boolean
+  loadDirectory(): Promise<void>
+  isRelocating(): boolean
+  setRelocating(value: boolean): void
+  locateCityName(): Promise<string>
+  showToast(title: string): void
+}
+
+interface CatalogCityController {
+  applyCitySelection(payload: {
+    city: PlatformCity
+    source: TestCitySelectionSource
+  }): Promise<void>
+  relocateCity(): Promise<void>
+}
+
+type CatalogCityControllerFactory = (
+  options: CatalogCityControllerOptions,
+) => CatalogCityController
+
+async function loadCatalogCityControllerFactory():
+Promise<CatalogCityControllerFactory> {
+  const parsed = parse(catalogPageSource, {
+    filename: 'InspectionCatalogPage.vue',
+  })
+  expect(parsed.descriptor.script).not.toBeNull()
+  if (!parsed.descriptor.script) {
+    throw new Error('Catalog page runtime script is unavailable')
+  }
+  const output = transpileModule(parsed.descriptor.script.content, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ModuleKind.CommonJS,
+      target: ScriptTarget.ES2020,
+    },
+  }).outputText
+  const testModule: {
+    exports: {
+      createCatalogCityController?: CatalogCityControllerFactory
+    }
+  } = { exports: {} }
+  const testRequire = (request: string): unknown => {
+    if (request === '@/shared/city/domain/city-directory') {
+      return { findCityByLocatedName }
+    }
+    throw new Error(`Unexpected catalog runtime dependency: ${request}`)
+  }
+  const evaluate = new Function('require', 'module', 'exports', output)
+  evaluate(testRequire, testModule, testModule.exports)
+  const factory = testModule.exports.createCatalogCityController
+  expect(factory).toBeTypeOf('function')
+  if (!factory) throw new Error('Catalog city controller is unavailable')
+  return factory
 }
 
 const UniIconsMock = defineComponent({
@@ -597,5 +670,149 @@ describe('inspection catalog city selection integration', () => {
     expect(catalogPageSource).not.toContain('DEVELOPMENT_CITIES')
     expect(catalogPageSource).not.toContain('showActionSheet')
     expect(catalogPageSource).not.toContain('import.meta.env.DEV')
+  })
+
+  it('records only SEARCH selections and always resets and reloads', async () => {
+    const createController = await loadCatalogCityControllerFactory()
+    const recordSearchSelection = vi.fn(async () => undefined)
+    const reloadCatalog = vi.fn(async () => undefined)
+    const setCurrentCity = vi.fn()
+    let page = 5
+    const setPage = vi.fn((nextPage: number) => {
+      page = nextPage
+    })
+    const controller = createController({
+      setCurrentCity,
+      saveRecentCity: vi.fn(),
+      loadRecentCities: () => [],
+      setRecentCities: vi.fn(),
+      closeCitySheet: vi.fn(),
+      setPage,
+      reloadCatalog,
+      recordSearchSelection,
+      getDirectory: () => directory,
+      isDirectoryLoading: () => false,
+      loadDirectory: vi.fn(async () => undefined),
+      isRelocating: () => false,
+      setRelocating: vi.fn(),
+      locateCityName: vi.fn(async () => jinan.name),
+      showToast: vi.fn(),
+    })
+
+    for (const source of ['CURRENT', 'RECENT', 'HOT', 'TREE'] as const) {
+      await controller.applyCitySelection({ city: jinan, source })
+    }
+    expect(recordSearchSelection).not.toHaveBeenCalled()
+
+    await controller.applyCitySelection({ city: yantai, source: 'SEARCH' })
+    expect(recordSearchSelection).toHaveBeenCalledTimes(1)
+    expect(recordSearchSelection).toHaveBeenCalledWith(yantai.code)
+    expect(setCurrentCity).toHaveBeenLastCalledWith({
+      code: yantai.code,
+      name: yantai.name,
+      provinceCode: yantai.provinceCode,
+    })
+    expect(setPage).toHaveBeenCalledTimes(5)
+    expect(setPage).toHaveBeenLastCalledWith(1)
+    expect(page).toBe(1)
+    expect(reloadCatalog).toHaveBeenCalledTimes(5)
+  })
+
+  it.each(['read', 'write'] as const)(
+    'keeps selection and reload working when storage %s fails',
+    async (failure) => {
+      const createController = await loadCatalogCityControllerFactory()
+      const setCurrentCity = vi.fn()
+      const setPage = vi.fn()
+      const reloadCatalog = vi.fn(async () => undefined)
+      const showToast = vi.fn()
+      const controller = createController({
+        setCurrentCity,
+        saveRecentCity: () => {
+          if (failure === 'write') {
+            throw new Error('STORAGE_WRITE_FAILED')
+          }
+        },
+        loadRecentCities: () => {
+          if (failure === 'read') {
+            throw new Error('STORAGE_READ_FAILED')
+          }
+          return []
+        },
+        setRecentCities: vi.fn(),
+        closeCitySheet: vi.fn(),
+        setPage,
+        reloadCatalog,
+        recordSearchSelection: vi.fn(async () => {
+          throw new Error('COUNT_FAILED')
+        }),
+        getDirectory: () => directory,
+        isDirectoryLoading: () => false,
+        loadDirectory: vi.fn(async () => undefined),
+        isRelocating: () => false,
+        setRelocating: vi.fn(),
+        locateCityName: vi.fn(async () => jinan.name),
+        showToast,
+      })
+
+      await controller.applyCitySelection({
+        city: yantai,
+        source: 'SEARCH',
+      })
+
+      expect(setCurrentCity).toHaveBeenCalledOnce()
+      expect(setPage).toHaveBeenCalledWith(1)
+      expect(reloadCatalog).toHaveBeenCalledOnce()
+      expect(showToast).toHaveBeenCalledWith('最近城市保存失败')
+    },
+  )
+
+  it('keeps the current city on location failure and explains unavailable directories', async () => {
+    const createController = await loadCatalogCityControllerFactory()
+    const setCurrentCity = vi.fn()
+    const reloadCatalog = vi.fn(async () => undefined)
+    const showToast = vi.fn()
+    let activeDirectory: CityDirectory | null = directory
+    let loading = false
+    const loadDirectory = vi.fn(async () => undefined)
+    const baseOptions: CatalogCityControllerOptions = {
+      setCurrentCity,
+      saveRecentCity: vi.fn(),
+      loadRecentCities: () => [],
+      setRecentCities: vi.fn(),
+      closeCitySheet: vi.fn(),
+      setPage: vi.fn(),
+      reloadCatalog,
+      recordSearchSelection: vi.fn(async () => undefined),
+      getDirectory: () => activeDirectory,
+      isDirectoryLoading: () => loading,
+      loadDirectory,
+      isRelocating: () => false,
+      setRelocating: vi.fn(),
+      locateCityName: vi.fn(async () => {
+        throw new Error('LOCATION_UNAVAILABLE')
+      }),
+      showToast,
+    }
+    const controller = createController(baseOptions)
+
+    await controller.relocateCity()
+    expect(setCurrentCity).not.toHaveBeenCalled()
+    expect(reloadCatalog).not.toHaveBeenCalled()
+    expect(showToast).toHaveBeenLastCalledWith(
+      '定位失败，请手动选择城市',
+    )
+
+    activeDirectory = null
+    loading = true
+    await controller.relocateCity()
+    expect(showToast).toHaveBeenLastCalledWith('城市加载中，请稍候')
+
+    loading = false
+    await controller.relocateCity()
+    expect(loadDirectory).toHaveBeenCalledOnce()
+    expect(showToast).toHaveBeenLastCalledWith(
+      '请先重新加载城市目录',
+    )
   })
 })
