@@ -33,6 +33,9 @@ inspection:
       application-namespace: ${INSPECTION_REDIS_APPLICATION_NAMESPACE:low-altitude}
       business-namespace: ${INSPECTION_REDIS_BUSINESS_NAMESPACE:inspection}
       idempotency-ttl: ${INSPECTION_IDEMPOTENCY_TTL:24h}
+      city-search-selection-rate-limit:
+        limit: ${INSPECTION_CITY_SEARCH_SELECTION_RATE_LIMIT:20}
+        window: ${INSPECTION_CITY_SEARCH_SELECTION_RATE_WINDOW:60s}
     storage:
       enabled: ${INSPECTION_MINIO_ENABLED:false}
       environment: ${INSPECTION_ENVIRONMENT}

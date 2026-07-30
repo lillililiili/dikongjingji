@@ -32,8 +32,33 @@ paths:
       responses:
         '204':
           description: Search selection recorded
+        '400':
+          description: City code is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '404':
           description: City not found or inactive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Anonymous client exceeded the fixed-window selection limit
+          headers:
+            Retry-After:
+              description: Whole seconds until the client can retry
+              required: true
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Selection counting is unavailable because rate limiting cannot be enforced
           content:
             application/json:
               schema:
@@ -52,6 +77,9 @@ components:
           type: string
           enum:
             - COMMON_NOT_FOUND
+            - COMMON_INVALID_ARGUMENT
+            - COMMON_RATE_LIMITED
+            - COMMON_SERVICE_UNAVAILABLE
         message:
           type: string
         traceId:

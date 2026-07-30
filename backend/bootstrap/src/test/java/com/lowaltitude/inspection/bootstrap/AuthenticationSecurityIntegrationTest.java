@@ -183,7 +183,8 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/v1/platform/cities/370100/search-selections"))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("COMMON_SERVICE_UNAVAILABLE"));
 
         mockMvc.perform(post("/api/v1/platform/cities"))
                 .andExpect(status().isUnauthorized())
