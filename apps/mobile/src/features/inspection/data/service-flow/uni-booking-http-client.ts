@@ -1,5 +1,5 @@
 import { createBookingUuid } from '../../application/service-flow/booking-crypto'
-import { createCityDirectoryApi } from '@/shared/city/data/city-directory-api'
+import { createCityDirectoryApi } from '../../../../shared/city/data/city-directory-api'
 import {
   beginBookingAuthenticationRecovery,
   getBookingAuthContext,

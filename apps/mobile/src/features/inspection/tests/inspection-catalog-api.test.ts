@@ -114,7 +114,7 @@ const response = {
 describe('real inspection catalog adapter', () => {
   it('exports the public platform city API through the shared public request', () => {
     expect(bookingHttpClientSource).toContain(
-      "import { createCityDirectoryApi } from '@/shared/city/data/city-directory-api'",
+      "import { createCityDirectoryApi } from '../../../../shared/city/data/city-directory-api'",
     )
     expect(bookingHttpClientSource).toContain(
       'export const platformCityApi = createCityDirectoryApi({ request: publicRequest })',
