@@ -28,10 +28,20 @@ export interface CatalogCityControllerOptions {
 export function createCatalogCityController(
   options: CatalogCityControllerOptions,
 ) {
+  let locationInteractionRevision = 0
+
+  function cancelRelocation(): void {
+    locationInteractionRevision += 1
+    if (options.isRelocating()) {
+      options.setRelocating(false)
+    }
+  }
+
   async function applyCitySelection(payload: {
     city: ControllerPlatformCity
     source: CitySelectionSource
-  }): Promise<void> {
+  }, cancelPendingRelocation = true): Promise<void> {
+    if (cancelPendingRelocation) cancelRelocation()
     options.setCurrentCity({
       code: payload.city.code,
       name: payload.city.name,
@@ -54,6 +64,11 @@ export function createCatalogCityController(
     await options.reloadCatalog()
   }
 
+  function closeCitySheet(): void {
+    cancelRelocation()
+    options.closeCitySheet()
+  }
+
   async function relocateCity(): Promise<void> {
     if (options.isRelocating()) {
       return
@@ -62,6 +77,7 @@ export function createCatalogCityController(
       options.showToast('城市加载中，请稍候')
       return
     }
+    const relocationRevision = ++locationInteractionRevision
     if (!options.getDirectory()) {
       try {
         await options.loadDirectory()
@@ -69,6 +85,7 @@ export function createCatalogCityController(
         // The controlled directory prompt below covers unexpected adapters.
       }
     }
+    if (relocationRevision !== locationInteractionRevision) return
 
     const directory = options.getDirectory()
     if (!directory) {
@@ -79,19 +96,24 @@ export function createCatalogCityController(
     options.setRelocating(true)
     try {
       const locatedName = await options.locateCityName()
+      if (relocationRevision !== locationInteractionRevision) return
       const city = findControllerCityByLocatedName(directory, locatedName)
       if (!city) {
         throw new Error('CITY_NOT_IN_DIRECTORY')
       }
-      await applyCitySelection({ city, source: 'CURRENT' })
+      await applyCitySelection({ city, source: 'CURRENT' }, false)
     } catch {
-      options.showToast('定位失败，请手动选择城市')
+      if (relocationRevision === locationInteractionRevision) {
+        options.showToast('定位失败，请手动选择城市')
+      }
     } finally {
-      options.setRelocating(false)
+      if (relocationRevision === locationInteractionRevision) {
+        options.setRelocating(false)
+      }
     }
   }
 
-  return { applyCitySelection, relocateCity }
+  return { applyCitySelection, relocateCity, closeCitySheet }
 }
 
 export interface LatestCatalogLoaderOptions<T> {
@@ -645,7 +667,7 @@ function showCustomerService(): void {
       :loading="cityDirectoryLoading"
       :error="cityDirectoryError"
       :relocating="relocating"
-      @close="citySheetOpen = false"
+      @close="catalogCityController.closeCitySheet"
       @retry="loadCityDirectory"
       @relocate="relocateCity"
       @select="applyCitySelection"

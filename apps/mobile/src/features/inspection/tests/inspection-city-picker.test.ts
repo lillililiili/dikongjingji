@@ -75,6 +75,7 @@ interface CatalogCityController {
     source: TestCitySelectionSource
   }): Promise<void>
   relocateCity(): Promise<void>
+  closeCitySheet(): void
 }
 
 type CatalogCityControllerFactory = (
@@ -667,6 +668,9 @@ describe('inspection catalog city selection integration', () => {
     expect(catalogPageSource).toContain('recentCityStorage.save')
     expect(catalogPageSource).toContain("source === 'SEARCH'")
     expect(catalogPageSource).toContain('loadCatalogContent')
+    expect(catalogPageSource).toContain(
+      '@close="catalogCityController.closeCitySheet"',
+    )
     expect(catalogPageSource).not.toContain('DEVELOPMENT_CITIES')
     expect(catalogPageSource).not.toContain('showActionSheet')
     expect(catalogPageSource).not.toContain('import.meta.env.DEV')
@@ -814,5 +818,139 @@ describe('inspection catalog city selection integration', () => {
     expect(showToast).toHaveBeenLastCalledWith(
       '请先重新加载城市目录',
     )
+  })
+
+  it('keeps a manual city selected when an earlier relocation returns late', async () => {
+    const createController = await loadCatalogCityControllerFactory()
+    let resolveLocatedName: ((name: string) => void) | undefined
+    let relocating = false
+    const setCurrentCity = vi.fn()
+    const reloadCatalog = vi.fn(async () => undefined)
+    const showToast = vi.fn()
+    const controller = createController({
+      setCurrentCity,
+      saveRecentCity: vi.fn(),
+      loadRecentCities: () => [],
+      setRecentCities: vi.fn(),
+      closeCitySheet: vi.fn(),
+      setPage: vi.fn(),
+      reloadCatalog,
+      recordSearchSelection: vi.fn(async () => undefined),
+      getDirectory: () => directory,
+      isDirectoryLoading: () => false,
+      loadDirectory: vi.fn(async () => undefined),
+      isRelocating: () => relocating,
+      setRelocating: (value) => {
+        relocating = value
+      },
+      locateCityName: () => new Promise((resolve) => {
+        resolveLocatedName = resolve
+      }),
+      showToast,
+    })
+
+    const pendingRelocation = controller.relocateCity()
+    await Promise.resolve()
+    expect(relocating).toBe(true)
+
+    await controller.applyCitySelection({
+      city: yantai,
+      source: 'TREE',
+    })
+    expect(relocating).toBe(false)
+
+    resolveLocatedName?.(jinan.name)
+    await pendingRelocation
+
+    expect(setCurrentCity).toHaveBeenCalledOnce()
+    expect(setCurrentCity).toHaveBeenCalledWith({
+      code: yantai.code,
+      name: yantai.name,
+      provinceCode: yantai.provinceCode,
+    })
+    expect(reloadCatalog).toHaveBeenCalledOnce()
+    expect(showToast).not.toHaveBeenCalled()
+    expect(relocating).toBe(false)
+  })
+
+  it('ignores a relocation result after the city sheet closes', async () => {
+    const createController = await loadCatalogCityControllerFactory()
+    let resolveLocatedName: ((name: string) => void) | undefined
+    let relocating = false
+    const setCurrentCity = vi.fn()
+    const reloadCatalog = vi.fn(async () => undefined)
+    const closeCitySheet = vi.fn()
+    const showToast = vi.fn()
+    const controller = createController({
+      setCurrentCity,
+      saveRecentCity: vi.fn(),
+      loadRecentCities: () => [],
+      setRecentCities: vi.fn(),
+      closeCitySheet,
+      setPage: vi.fn(),
+      reloadCatalog,
+      recordSearchSelection: vi.fn(async () => undefined),
+      getDirectory: () => directory,
+      isDirectoryLoading: () => false,
+      loadDirectory: vi.fn(async () => undefined),
+      isRelocating: () => relocating,
+      setRelocating: (value) => {
+        relocating = value
+      },
+      locateCityName: () => new Promise((resolve) => {
+        resolveLocatedName = resolve
+      }),
+      showToast,
+    })
+
+    const pendingRelocation = controller.relocateCity()
+    await Promise.resolve()
+    expect(relocating).toBe(true)
+
+    controller.closeCitySheet()
+    expect(closeCitySheet).toHaveBeenCalledOnce()
+    expect(relocating).toBe(false)
+
+    resolveLocatedName?.(jinan.name)
+    await pendingRelocation
+
+    expect(setCurrentCity).not.toHaveBeenCalled()
+    expect(reloadCatalog).not.toHaveBeenCalled()
+    expect(showToast).not.toHaveBeenCalled()
+    expect(relocating).toBe(false)
+  })
+
+  it('applies a relocation result when no newer city interaction occurs', async () => {
+    const createController = await loadCatalogCityControllerFactory()
+    let relocating = false
+    const setCurrentCity = vi.fn()
+    const reloadCatalog = vi.fn(async () => undefined)
+    const showToast = vi.fn()
+    const controller = createController({
+      setCurrentCity,
+      saveRecentCity: vi.fn(),
+      loadRecentCities: () => [],
+      setRecentCities: vi.fn(),
+      closeCitySheet: vi.fn(),
+      setPage: vi.fn(),
+      reloadCatalog,
+      recordSearchSelection: vi.fn(async () => undefined),
+      getDirectory: () => directory,
+      isDirectoryLoading: () => false,
+      loadDirectory: vi.fn(async () => undefined),
+      isRelocating: () => relocating,
+      setRelocating: (value) => {
+        relocating = value
+      },
+      locateCityName: vi.fn(async () => jinan.name),
+      showToast,
+    })
+
+    await controller.relocateCity()
+
+    expect(setCurrentCity).toHaveBeenCalledOnce()
+    expect(reloadCatalog).toHaveBeenCalledOnce()
+    expect(showToast).not.toHaveBeenCalled()
+    expect(relocating).toBe(false)
   })
 })
