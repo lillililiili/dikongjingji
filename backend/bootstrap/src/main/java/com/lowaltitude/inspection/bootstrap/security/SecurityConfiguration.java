@@ -86,6 +86,10 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/inspection/services",
                                 "/api/v1/inspection/discovery").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/platform/cities").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/platform/cities/*/search-selections").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(errors -> errors

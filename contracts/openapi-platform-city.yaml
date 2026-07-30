@@ -1,0 +1,101 @@
+openapi: 3.1.0
+info:
+  title: Platform City API
+  version: 1.0.0
+servers:
+  - url: /
+paths:
+  /api/v1/platform/cities:
+    get:
+      operationId: getPlatformCityDirectory
+      summary: Get the nationwide platform city directory
+      security: []
+      responses:
+        '200':
+          description: Nationwide city directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CityDirectory'
+  /api/v1/platform/cities/{cityCode}/search-selections:
+    post:
+      operationId: recordPlatformCitySearchSelection
+      summary: Record an active city selected from search
+      security: []
+      parameters:
+        - name: cityCode
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9]{6}$'
+      responses:
+        '204':
+          description: Search selection recorded
+        '404':
+          description: City not found or inactive
+components:
+  schemas:
+    CityDirectory:
+      type: object
+      additionalProperties: false
+      required:
+        - hotCities
+        - provinces
+      properties:
+        hotCities:
+          type: array
+          items:
+            $ref: '#/components/schemas/City'
+        provinces:
+          type: array
+          items:
+            $ref: '#/components/schemas/Province'
+    Province:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - pinyin
+        - initials
+        - cities
+      properties:
+        code:
+          type: string
+          pattern: '^[0-9]{6}$'
+        name:
+          type: string
+        pinyin:
+          type: string
+        initials:
+          type: string
+        cities:
+          type: array
+          items:
+            $ref: '#/components/schemas/City'
+    City:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - pinyin
+        - initials
+        - provinceCode
+        - provinceName
+      properties:
+        code:
+          type: string
+          pattern: '^[0-9]{6}$'
+        name:
+          type: string
+        pinyin:
+          type: string
+        initials:
+          type: string
+        provinceCode:
+          type: string
+          pattern: '^[0-9]{6}$'
+        provinceName:
+          type: string
