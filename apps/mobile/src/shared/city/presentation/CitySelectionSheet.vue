@@ -108,7 +108,7 @@ const currentPlatformCity = computed(() => props.directory?.provinces
               <button
                 class="city-sheet__relocate"
                 :disabled="relocating"
-                @click="$emit('relocate')"
+                @click="!relocating && emit('relocate')"
               >
                 <text>{{ relocating ? '定位中…' : '重新定位' }}</text>
                 <view v-if="!relocating" class="city-sheet__selected-mark">
@@ -132,7 +132,7 @@ const currentPlatformCity = computed(() => props.directory?.provinces
               <button
                 class="city-sheet__relocate"
                 :disabled="relocating"
-                @click="$emit('relocate')"
+                @click="!relocating && emit('relocate')"
               >
                 {{ relocating ? '定位中…' : '立即定位' }}
               </button>
@@ -303,6 +303,20 @@ const currentPlatformCity = computed(() => props.directory?.provinces
                 </view>
               </view>
             </section>
+
+            <text
+              v-if="
+                directory &&
+                  !loading &&
+                  !error &&
+                  recentCities.length === 0 &&
+                  directory.hotCities.length === 0 &&
+                  directory.provinces.length === 0
+              "
+              class="city-sheet__empty"
+            >
+              暂无可选城市
+            </text>
           </template>
         </view>
       </scroll-view>
@@ -518,10 +532,16 @@ const currentPlatformCity = computed(() => props.directory?.provinces
   gap: 10px;
 }
 
+.city-sheet__hot .city-sheet__city,
+.city-sheet__province-cities .city-sheet__city {
+  width: 100%;
+}
+
 .city-sheet__city {
   position: relative;
   min-width: 0;
   min-height: 44px;
+  margin: 0;
   padding: 0 10px;
   overflow: hidden;
   border: 1px solid #d8dadd;
