@@ -104,6 +104,37 @@ class ReservationApplicationServiceTest {
     }
 
     @Test
+    void replaysSuccessfulRequestAfterItsBookingDateLeavesTheAllowedWindow() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        InspectionServiceCatalog catalog =
+                new InMemoryServiceCatalog(
+                        SERVICE_ID, PROVIDER_ID, "服务端巡检标题", null);
+        ReservationApplicationService bookingService =
+                new ReservationApplicationService(
+                        catalog, store, new PlainTestCipher(), BOOKING_CLOCK);
+        ReservationView first = bookingService.create(
+                CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+        int locksAfterCreate = store.lockCount();
+        int countsAfterCreate = store.bookedCountQueryCount();
+        ReservationApplicationService replayService =
+                new ReservationApplicationService(
+                        catalog,
+                        store,
+                        new PlainTestCipher(),
+                        Clock.fixed(
+                                Instant.parse("2026-09-01T01:00:00Z"),
+                                ZoneOffset.UTC));
+
+        ReservationView replay = replayService.create(
+                CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+
+        assertThat(replay.id()).isEqualTo(first.id());
+        assertThat(store.lockCount()).isEqualTo(locksAfterCreate);
+        assertThat(store.bookedCountQueryCount()).isEqualTo(countsAfterCreate);
+        assertThat(store.saveCount()).isEqualTo(1);
+    }
+
+    @Test
     void acceptsNineReservationsAndRejectsTheTenthForOneSlot() {
         InMemoryReservationStore store = new InMemoryReservationStore();
         ReservationApplicationService service = new ReservationApplicationService(
@@ -235,6 +266,8 @@ final class InMemoryReservationStore implements ReservationStore {
     private List<BookedTimeSlotCount> bookedTimeSlotCounts = List.of();
     private StoredReservation lastSaved;
     private int saveCount;
+    private int lockCount;
+    private int bookedCountQueryCount;
 
     @Override public Optional<IdempotencyEntry> findIdempotency(UUID actorId, UUID key) {
         return Optional.ofNullable(idempotency.get(actorId + ":" + key));
@@ -247,12 +280,14 @@ final class InMemoryReservationStore implements ReservationStore {
     }
     @Override public Optional<StoredReservation> findById(UUID id) { return Optional.ofNullable(reservations.get(id.toString())); }
     @Override public void lockActiveService(UUID serviceId, String cityCode) {
+        lockCount++;
         if (serviceId == null || cityCode == null) {
             throw new ReservationValidationException("service is invalid");
         }
     }
     @Override public List<BookedTimeSlotCount> findBookedTimeSlotCounts(
             UUID serviceId, String cityCode, LocalDate startDate, LocalDate endDate) {
+        bookedCountQueryCount++;
         if (!bookedTimeSlotCounts.isEmpty()) {
             return bookedTimeSlotCounts;
         }
@@ -274,6 +309,8 @@ final class InMemoryReservationStore implements ReservationStore {
     }
     StoredReservation lastSaved() { return lastSaved; }
     int saveCount() { return saveCount; }
+    int lockCount() { return lockCount; }
+    int bookedCountQueryCount() { return bookedCountQueryCount; }
     void setBookedTimeSlotCounts(List<BookedTimeSlotCount> bookedTimeSlotCounts) {
         this.bookedTimeSlotCounts = List.copyOf(bookedTimeSlotCounts);
     }

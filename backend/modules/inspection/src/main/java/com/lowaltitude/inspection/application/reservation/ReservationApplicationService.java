@@ -50,9 +50,6 @@ public class ReservationApplicationService {
             throw new ReservationValidationException("authenticated customer and idempotency key are required");
         }
         validate(command);
-        InspectionTimeSlotPolicy.validateDateRange(
-                command.preferredServiceDate(), 1, clock);
-        InspectionTimeSlotPolicy.slot(command.preferredTimeSlotCode());
         String digest = digest(command);
         Optional<IdempotencyEntry> prior = store.findIdempotency(customerId, idempotencyKey);
         if (prior.isPresent()) {
@@ -61,6 +58,9 @@ public class ReservationApplicationService {
             }
             return toView(store.findById(prior.get().reservationId()).orElseThrow());
         }
+        InspectionTimeSlotPolicy.validateDateRange(
+                command.preferredServiceDate(), 1, clock);
+        InspectionTimeSlotPolicy.slot(command.preferredTimeSlotCode());
         InspectionServiceSnapshot snapshot = services.findActive(command.serviceId(), command.cityCode())
                 .orElseThrow(() -> new ReservationValidationException("service is unknown or disabled"));
         store.lockActiveService(command.serviceId(), command.cityCode());
