@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   createEmptyBookingDraft,
   createReservationPayload,
+  isBookingTimeSelectionWithinDateRange,
   validateBookingDraft,
+  type BookingTimeSelection,
   type BookingServiceSnapshot,
 } from '../domain/service-flow/booking'
 import {
@@ -152,5 +154,34 @@ describe('booking time selection', () => {
     expect(sheetSource).toContain('async function openSheet(): Promise<void> {\n  today.value = shanghaiToday()')
     expect(bookingPageSource).toContain('booking-row--time')
     expect(bookingPageSource).toContain('.booking-row--time{min-height:44px}')
+  })
+
+  it('drops only the stale panel copy after midnight and never reloads its past date', () => {
+    const confirmedSelection = Object.freeze<BookingTimeSelection>({
+      serviceDate: '2026-07-31',
+      slotCode: 'MORNING',
+      startTime: '09:00',
+      endTime: '12:00',
+    })
+
+    expect(isBookingTimeSelectionWithinDateRange(
+      confirmedSelection,
+      '2026-08-01',
+      '2026-08-31',
+    )).toBe(false)
+    const openSheetSource = sheetSource.match(
+      /async function openSheet\(\): Promise<void> \{[\s\S]*?\n\}/,
+    )?.[0]
+    expect(openSheetSource).toContain('temporarySelection.value = modelValueIsSelectable')
+    expect(openSheetSource).toContain('&& temporarySelection.value')
+    expect(confirmedSelection.serviceDate).toBe('2026-07-31')
+  })
+
+  it('clears a stale load error when selecting an already cached date', () => {
+    const selectDateSource = sheetSource.match(
+      /function selectDate\(serviceDate: string\): void \{[\s\S]*?\n\}/,
+    )?.[0]
+
+    expect(selectDateSource).toContain("loadError.value = ''")
   })
 })

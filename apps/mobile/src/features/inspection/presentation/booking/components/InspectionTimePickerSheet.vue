@@ -8,8 +8,9 @@ import type {
   BookingAvailableDate,
   BookingAvailableTimeSlot,
 } from '../../../data/service-flow/inspection-booking-api'
-import type {
-  BookingTimeSelection,
+import {
+  isBookingTimeSelectionWithinDateRange,
+  type BookingTimeSelection,
 } from '../../../domain/service-flow/booking'
 
 type LoadSlots = (
@@ -88,11 +89,18 @@ watch(
 
 async function openSheet(): Promise<void> {
   today.value = shanghaiToday()
-  temporarySelection.value = props.modelValue
+  const modelValueIsSelectable = isBookingTimeSelectionWithinDateRange(
+    props.modelValue,
+    today.value,
+    lastSelectableDate.value,
+  )
+  temporarySelection.value = modelValueIsSelectable
     ? { ...props.modelValue }
     : null
-  selectedDate.value = props.modelValue?.serviceDate ?? today.value
-  selectionError.value = ''
+  selectedDate.value = temporarySelection.value?.serviceDate ?? today.value
+  selectionError.value = props.modelValue && !modelValueIsSelectable
+    ? '日期已更新，请重新选择服务时间'
+    : ''
 
   const loaded = await loadAvailability(today.value, 4, selectedDate.value)
   if (
@@ -178,6 +186,7 @@ function selectDate(serviceDate: string): void {
     return
   }
   selectedDate.value = serviceDate
+  loadError.value = ''
   selectionError.value = ''
   if (temporarySelection.value?.serviceDate !== serviceDate) {
     temporarySelection.value = null

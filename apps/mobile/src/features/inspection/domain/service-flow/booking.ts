@@ -52,6 +52,16 @@ export interface BookingTimeSelection {
   endTime: string
 }
 
+export function isBookingTimeSelectionWithinDateRange(
+  selection: BookingTimeSelection | null,
+  firstSelectableDate: string,
+  lastSelectableDate: string,
+): selection is BookingTimeSelection {
+  return !!selection
+    && selection.serviceDate >= firstSelectableDate
+    && selection.serviceDate <= lastSelectableDate
+}
+
 export interface BookingDraft {
   locationAddress: string
   locationLongitude: number | null
