@@ -128,9 +128,9 @@ class ReservationApplicationServiceTest {
                 SERVICE_ID,
                 "370500",
                 LocalDate.of(2026, 8, 1),
-                1);
+                2);
 
-        assertThat(dates).hasSize(1);
+        assertThat(dates).hasSize(2);
         assertThat(dates.getFirst().slots())
                 .extracting(
                         InspectionTimeSlotView::slotCode,
@@ -140,6 +140,10 @@ class ReservationApplicationServiceTest {
                         org.assertj.core.groups.Tuple.tuple("MORNING", 0, "FULL"),
                         org.assertj.core.groups.Tuple.tuple("AFTERNOON", 7, "AVAILABLE"),
                         org.assertj.core.groups.Tuple.tuple("EVENING", 9, "AVAILABLE"));
+        assertThat(dates.get(1).serviceDate()).isEqualTo(LocalDate.of(2026, 8, 2));
+        assertThat(dates.get(1).slots())
+                .extracting(InspectionTimeSlotView::remainingCount)
+                .containsExactly(9, 9, 9);
     }
 
     private static CreateReservationCommand command(UUID serviceId) {

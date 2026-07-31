@@ -1,137 +1,140 @@
 package com.lowaltitude.inspection.application.reservation;
 
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.time.LocalTime;
+import java.util.Base64;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
-import com.lowaltitude.inspection.bootstrap.api.GlobalExceptionHandler;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.lowaltitude.inspection.bootstrap.BootstrapApplication;
+import com.lowaltitude.inspection.application.serviceflow.DeliveryApplicationService;
+import com.lowaltitude.inspection.application.serviceflow.OrderApplicationService;
+import com.lowaltitude.inspection.application.serviceflow.PlanApplicationService;
+import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 
+@SpringBootTest(classes = BootstrapApplication.class)
+@AutoConfigureMockMvc
+@MockBean({
+        ReservationApplicationService.class,
+        InspectionServiceCatalogReadService.class,
+        PlanApplicationService.class,
+        OrderApplicationService.class,
+        DeliveryApplicationService.class
+})
+@Import(InspectionTimeSlotControllerTest.TokenVersionTestConfiguration.class)
 class InspectionTimeSlotControllerTest {
 
+    private static final String HMAC_BASE64_SECRET =
+            "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
     private static final UUID CUSTOMER =
             UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final UUID ORGANIZATION =
+            UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID SERVICE =
             UUID.fromString("33333333-3333-3333-3333-333333333333");
-    private static final UUID PROVIDER =
-            UUID.fromString("22222222-2222-2222-2222-222222222222");
-    private static final Clock BOOKING_CLOCK = Clock.fixed(
-            Instant.parse("2026-07-31T01:00:00Z"), ZoneOffset.UTC);
+    private static final LocalDate START_DATE = LocalDate.of(2026, 8, 1);
+
+    @Autowired
+    private MockMvc mvc;
+
+    @Autowired
+    private ReservationApplicationService reservationService;
 
     @Test
-    void authenticatedCustomerReadsAvailableTimeSlots() throws Exception {
-        ReservationApplicationService service = new ReservationApplicationService(
-                new TimeSlotServiceCatalog(),
-                new TimeSlotReservationStore(),
-                new TimeSlotCipher(),
-                BOOKING_CLOCK);
-        MockMvc mvc = MockMvcBuilders
-                .standaloneSetup(new InspectionTimeSlotController(service))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .setMessageConverters(new MappingJackson2HttpMessageConverter(
-                        JsonMapper.builder()
-                                .addModule(new JavaTimeModule())
-                                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                                .build()))
-                .build();
+    void anonymousCustomerCannotReadAvailableTimeSlots() throws Exception {
+        mvc.perform(get(
+                        "/api/v1/inspection/services/{serviceId}/available-time-slots",
+                        SERVICE)
+                        .param("cityCode", "370500")
+                        .param("startDate", START_DATE.toString())
+                        .param("days", "1"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @Test
+    void authenticatedCustomerReadsAvailableTimeSlotsWithRequestedParameters() throws Exception {
+        given(reservationService.availableTimeSlots(SERVICE, "370500", START_DATE, 1))
+                .willReturn(availability());
 
         mvc.perform(get(
                         "/api/v1/inspection/services/{serviceId}/available-time-slots",
                         SERVICE)
                         .param("cityCode", "370500")
-                        .param("startDate", "2026-08-01")
+                        .param("startDate", START_DATE.toString())
                         .param("days", "1")
-                        .principal(customerJwt()))
+                        .header("Authorization", "Bearer " + validToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].serviceDate").value("2026-08-01"))
                 .andExpect(jsonPath("$[0].slots[0].slotCode").value("MORNING"))
                 .andExpect(jsonPath("$[0].slots[0].remainingCount").value(9));
+
+        then(reservationService).should().availableTimeSlots(
+                SERVICE,
+                "370500",
+                START_DATE,
+                1);
     }
 
-    private static UsernamePasswordAuthenticationToken customerJwt() {
-        Jwt jwt = Jwt.withTokenValue("test")
-                .header("alg", "none")
+    private static List<InspectionServiceDateAvailabilityView> availability() {
+        return List.of(new InspectionServiceDateAvailabilityView(
+                START_DATE,
+                List.of(
+                        new InspectionTimeSlotView(
+                                "MORNING", LocalTime.of(9, 0), LocalTime.of(12, 0), 9, "AVAILABLE"),
+                        new InspectionTimeSlotView(
+                                "AFTERNOON", LocalTime.of(14, 0), LocalTime.of(17, 0), 9, "AVAILABLE"),
+                        new InspectionTimeSlotView(
+                                "EVENING", LocalTime.of(18, 0), LocalTime.of(21, 0), 9, "AVAILABLE"))));
+    }
+
+    private String validToken() throws Exception {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .subject(CUSTOMER.toString())
+                .claim("subjectId", CUSTOMER.toString())
+                .claim("roles", List.of("CUSTOMER"))
+                .claim("organizationId", ORGANIZATION.toString())
+                .claim("permissions", List.of())
+                .claim("tokenVersion", 1)
+                .issueTime(java.util.Date.from(Instant.now()))
+                .expirationTime(java.util.Date.from(Instant.now().plusSeconds(300)))
                 .build();
-        return new UsernamePasswordAuthenticationToken(jwt, "n/a");
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+        jwt.sign(new MACSigner(Base64.getDecoder().decode(HMAC_BASE64_SECRET)));
+        return jwt.serialize();
     }
 
-    private static final class TimeSlotServiceCatalog implements InspectionServiceCatalog {
+    @TestConfiguration(proxyBeanMethods = false)
+    static class TokenVersionTestConfiguration {
 
-        @Override
-        public Optional<InspectionServiceSnapshot> findActive(UUID serviceId, String cityCode) {
-            if (!SERVICE.equals(serviceId)) {
-                return Optional.empty();
-            }
-            return Optional.of(new InspectionServiceSnapshot(
-                    SERVICE,
-                    PROVIDER,
-                    "服务端巡检标题",
-                    null,
-                    cityCode,
-                    List.of()));
-        }
-    }
-
-    private static final class TimeSlotReservationStore implements ReservationStore {
-
-        @Override
-        public Optional<IdempotencyEntry> findIdempotency(UUID actorId, UUID key) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void save(StoredReservation reservation, IdempotencyEntry entry) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<StoredReservation> findById(UUID id) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void lockActiveService(UUID serviceId, String cityCode) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<BookedTimeSlotCount> findBookedTimeSlotCounts(
-                UUID serviceId,
-                String cityCode,
-                LocalDate startDate,
-                LocalDate endDate
-        ) {
-            return List.of();
-        }
-    }
-
-    private static final class TimeSlotCipher implements SensitiveDataCipher {
-
-        @Override
-        public String encrypt(String value) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public String decrypt(String value) {
-            throw new UnsupportedOperationException();
+        @Bean
+        @Primary
+        TokenVersionPort testTokenVersionPort() {
+            return subjectId -> CUSTOMER.equals(subjectId)
+                    ? java.util.OptionalInt.of(1)
+                    : java.util.OptionalInt.empty();
         }
     }
 }
