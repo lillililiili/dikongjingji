@@ -17,8 +17,39 @@ public interface ReservationPersistenceMapper {
     @Select("SELECT request_hash request_digest, resource_id reservation_id FROM inspection_idempotency_record WHERE actor_id=#{actorId} AND operation_code='inspection.reservation.create' AND idempotency_key=#{key}")
     Optional<IdempotencyRow> findIdempotency(@Param("actorId") UUID actorId, @Param("key") UUID key);
 
-    @Select("SELECT r.id,r.reservation_no,r.customer_id,r.provider_id,r.service_id,r.service_title_snapshot title,r.service_cover_url_snapshot cover_url,r.city_code,r.address_ciphertext,ST_X(r.location::geometry) longitude,ST_Y(r.location::geometry) latitude,r.line_length_meters,r.preferred_service_date,r.note_ciphertext,r.contact_name_ciphertext,r.contact_mobile_ciphertext,r.agreement_version,r.submitted_at,r.version FROM inspection_reservation r WHERE r.id=#{id}")
+    @Select("SELECT r.id,r.reservation_no,r.customer_id,r.provider_id,r.service_id,r.service_title_snapshot title,r.service_cover_url_snapshot cover_url,r.city_code,r.address_ciphertext,ST_X(r.location::geometry) longitude,ST_Y(r.location::geometry) latitude,r.line_length_meters,r.preferred_service_date,r.preferred_time_slot_code,r.note_ciphertext,r.contact_name_ciphertext,r.contact_mobile_ciphertext,r.agreement_version,r.submitted_at,r.version FROM inspection_reservation r WHERE r.id=#{id}")
     Optional<ReservationRow> findReservation(@Param("id") UUID id);
+
+    @Select("""
+            SELECT id
+            FROM inspection_service
+            WHERE id = #{serviceId}
+              AND city_code = #{cityCode}
+              AND status = 'ACTIVE'
+            FOR UPDATE
+            """)
+    UUID lockActiveService(
+            @Param("serviceId") UUID serviceId,
+            @Param("cityCode") String cityCode
+    );
+
+    @Select("""
+            SELECT preferred_service_date service_date,
+                   preferred_time_slot_code slot_code,
+                   count(*) booked_count
+            FROM inspection_reservation
+            WHERE service_id = #{serviceId}
+              AND city_code = #{cityCode}
+              AND preferred_service_date BETWEEN #{startDate} AND #{endDate}
+              AND status <> 'CANCELLED'
+            GROUP BY preferred_service_date, preferred_time_slot_code
+            """)
+    List<TimeSlotCountRow> findBookedTimeSlotCounts(
+            @Param("serviceId") UUID serviceId,
+            @Param("cityCode") String cityCode,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
 
     @Select("""
             SELECT r.status,
@@ -102,7 +133,7 @@ public interface ReservationPersistenceMapper {
                 id, reservation_no, customer_id, provider_id, service_id,
                 service_title_snapshot, service_cover_url_snapshot, city_code,
                 address_ciphertext, location, line_length_meters,
-                preferred_service_date, note_ciphertext,
+                preferred_service_date, preferred_time_slot_code, note_ciphertext,
                 contact_name_ciphertext, contact_mobile_ciphertext,
                 agreement_version, created_by, updated_by, submitted_at
             )
@@ -122,7 +153,7 @@ public interface ReservationPersistenceMapper {
                         4326
                     )::geography
                 END,
-                #{lineLengthMeters}, #{preferredServiceDate},
+                #{lineLengthMeters}, #{preferredServiceDate}, #{preferredTimeSlotCode},
                 #{noteCiphertext}, #{contactNameCiphertext},
                 #{contactMobileCiphertext}, #{agreementVersion},
                 #{customerId}, #{customerId}, #{submittedAt}
@@ -279,8 +310,9 @@ public interface ReservationPersistenceMapper {
             Instant createdAt,
             int version
     ) { }
+    record TimeSlotCountRow(LocalDate serviceDate, String slotCode, int bookedCount) { }
     record ReservationRow(UUID id, String reservationNo, UUID customerId, UUID providerId, UUID serviceId, String title, String coverUrl,
                           String cityCode, byte[] addressCiphertext, Double longitude, Double latitude, Long lineLengthMeters,
-                          LocalDate preferredServiceDate, byte[] noteCiphertext, byte[] contactNameCiphertext, byte[] contactMobileCiphertext,
+                          LocalDate preferredServiceDate, String preferredTimeSlotCode, byte[] noteCiphertext, byte[] contactNameCiphertext, byte[] contactMobileCiphertext,
                           String agreementVersion, Instant submittedAt, int version) { }
 }

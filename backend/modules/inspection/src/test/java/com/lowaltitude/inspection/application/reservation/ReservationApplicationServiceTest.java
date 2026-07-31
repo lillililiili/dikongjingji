@@ -20,18 +20,21 @@ class ReservationApplicationServiceTest {
     private static final UUID SERVICE_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID PROVIDER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID IDEMPOTENCY_KEY = UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final Clock BOOKING_CLOCK = Clock.fixed(
+            Instant.parse("2026-07-31T01:00:00Z"), ZoneOffset.UTC);
 
     @Test
     void createsReservationWithServerOwnedServiceSnapshotAndEncryptedSensitiveFields() {
         InMemoryReservationStore store = new InMemoryReservationStore();
         ReservationApplicationService service = new ReservationApplicationService(
                 new InMemoryServiceCatalog(SERVICE_ID, PROVIDER_ID, "服务端巡检标题", "https://cdn.example/cover.jpg"),
-                store, new PlainTestCipher(), Clock.fixed(Instant.parse("2026-07-28T00:00:00Z"), ZoneOffset.UTC));
+                store, new PlainTestCipher(), BOOKING_CLOCK);
 
         ReservationView created = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
 
         assertThat(created.serviceTitle()).isEqualTo("服务端巡检标题");
         assertThat(created.serviceCoverUrl()).isEqualTo("https://cdn.example/cover.jpg");
+        assertThat(created.preferredTimeSlotCode()).isEqualTo("MORNING");
         assertThat(created.reservationNo()).startsWith("IR");
         assertThat(store.lastSaved().contactMobileCiphertext()).doesNotContain("13800138000");
         assertThat(store.lastSaved().addressCiphertext()).doesNotContain("东营市开发区测试路1号");
@@ -41,7 +44,7 @@ class ReservationApplicationServiceTest {
     void rejectsUnknownOrDisabledServiceRatherThanTrustingClientData() {
         ReservationApplicationService service = new ReservationApplicationService(
                 new InMemoryServiceCatalog(null, PROVIDER_ID, "ignored", null),
-                new InMemoryReservationStore(), new PlainTestCipher(), Clock.systemUTC());
+                new InMemoryReservationStore(), new PlainTestCipher(), BOOKING_CLOCK);
 
         assertThatThrownBy(() -> service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID)))
                 .isInstanceOf(ReservationValidationException.class)
@@ -58,7 +61,7 @@ class ReservationApplicationServiceTest {
                         null),
                 new InMemoryReservationStore(),
                 new PlainTestCipher(),
-                Clock.systemUTC());
+                BOOKING_CLOCK);
         CreateReservationCommand unsupported = new CreateReservationCommand(
                 SERVICE_ID,
                 "370500",
@@ -67,6 +70,7 @@ class ReservationApplicationServiceTest {
                 37.4,
                 1200L,
                 LocalDate.of(2026, 8, 1),
+                "MORNING",
                 List.of("UNSUPPORTED"),
                 List.of(),
                 null,
@@ -88,7 +92,7 @@ class ReservationApplicationServiceTest {
         InMemoryReservationStore store = new InMemoryReservationStore();
         ReservationApplicationService service = new ReservationApplicationService(
                 new InMemoryServiceCatalog(SERVICE_ID, PROVIDER_ID, "服务端巡检标题", null),
-                store, new PlainTestCipher(), Clock.systemUTC());
+                store, new PlainTestCipher(), BOOKING_CLOCK);
 
         ReservationView first = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
         ReservationView replay = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
@@ -102,15 +106,15 @@ class ReservationApplicationServiceTest {
     @Test
     void replaysExistingReservationAfterDatabaseIdempotencyUniqueConflict() {
         InMemoryReservationStore store = new InMemoryReservationStore();
-        ReservationApplicationService service = new ReservationApplicationService(new InMemoryServiceCatalog(SERVICE_ID, PROVIDER_ID, "服务端标题", null), store, new PlainTestCipher(), Clock.systemUTC());
+        ReservationApplicationService service = new ReservationApplicationService(new InMemoryServiceCatalog(SERVICE_ID, PROVIDER_ID, "服务端标题", null), store, new PlainTestCipher(), BOOKING_CLOCK);
         ReservationView first = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
-        ReservationApplicationService racing = new ReservationApplicationService(new InMemoryServiceCatalog(SERVICE_ID, PROVIDER_ID, "服务端标题", null), new ConflictStore(store), new PlainTestCipher(), Clock.systemUTC());
+        ReservationApplicationService racing = new ReservationApplicationService(new InMemoryServiceCatalog(SERVICE_ID, PROVIDER_ID, "服务端标题", null), new ConflictStore(store), new PlainTestCipher(), BOOKING_CLOCK);
         assertThat(racing.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID)).id()).isEqualTo(first.id());
     }
 
     private static CreateReservationCommand command(UUID serviceId) {
         return new CreateReservationCommand(serviceId, "370500", "东营市开发区测试路1号", 118.5, 37.4,
-                1200L, LocalDate.of(2026, 8, 1), List.of("PIPELINE"), List.of(), "现场需要重点查看",
+                1200L, LocalDate.of(2026, 8, 1), "MORNING", List.of("PIPELINE"), List.of(), "现场需要重点查看",
                 "张三", "13800138000", "v1", true);
     }
 }
@@ -158,6 +162,29 @@ final class InMemoryReservationStore implements ReservationStore {
         saveCount++;
     }
     @Override public Optional<StoredReservation> findById(UUID id) { return Optional.ofNullable(reservations.get(id.toString())); }
+    @Override public void lockActiveService(UUID serviceId, String cityCode) {
+        if (serviceId == null || cityCode == null) {
+            throw new ReservationValidationException("service is invalid");
+        }
+    }
+    @Override public List<BookedTimeSlotCount> findBookedTimeSlotCounts(
+            UUID serviceId, String cityCode, LocalDate startDate, LocalDate endDate) {
+        return reservations.values().stream()
+                .filter(value -> value.snapshot().serviceId().equals(serviceId))
+                .filter(value -> value.cityCode().equals(cityCode))
+                .filter(value -> !value.preferredServiceDate().isBefore(startDate))
+                .filter(value -> !value.preferredServiceDate().isAfter(endDate))
+                .collect(java.util.stream.Collectors.groupingBy(
+                        value -> value.preferredServiceDate() + ":" + value.preferredTimeSlotCode(),
+                        java.util.stream.Collectors.counting()))
+                .entrySet().stream()
+                .map(entry -> {
+                    String[] key = entry.getKey().split(":", 2);
+                    return new BookedTimeSlotCount(
+                            LocalDate.parse(key[0]), key[1], entry.getValue().intValue());
+                })
+                .toList();
+    }
     StoredReservation lastSaved() { return lastSaved; }
     int saveCount() { return saveCount; }
 }
@@ -166,4 +193,4 @@ final class PlainTestCipher implements SensitiveDataCipher {
     @Override public String encrypt(String value) { return "encrypted:" + Integer.toHexString(value.hashCode()); }
     @Override public String decrypt(String value) { throw new UnsupportedOperationException(); }
 }
-final class ConflictStore implements ReservationStore { private final InMemoryReservationStore delegate; ConflictStore(InMemoryReservationStore delegate){this.delegate=delegate;} public Optional<IdempotencyEntry> findIdempotency(UUID actor,UUID key){return delegate.findIdempotency(actor,key);} public void save(StoredReservation value,IdempotencyEntry entry){throw new DuplicateIdempotencyKeyException();} public Optional<StoredReservation> findById(UUID id){return delegate.findById(id);} }
+final class ConflictStore implements ReservationStore { private final InMemoryReservationStore delegate; ConflictStore(InMemoryReservationStore delegate){this.delegate=delegate;} public Optional<IdempotencyEntry> findIdempotency(UUID actor,UUID key){return delegate.findIdempotency(actor,key);} public void save(StoredReservation value,IdempotencyEntry entry){throw new DuplicateIdempotencyKeyException();} public Optional<StoredReservation> findById(UUID id){return delegate.findById(id);} public void lockActiveService(UUID serviceId, String cityCode){delegate.lockActiveService(serviceId, cityCode);} public List<BookedTimeSlotCount> findBookedTimeSlotCounts(UUID serviceId, String cityCode, LocalDate startDate, LocalDate endDate){return delegate.findBookedTimeSlotCounts(serviceId, cityCode, startDate, endDate);} }

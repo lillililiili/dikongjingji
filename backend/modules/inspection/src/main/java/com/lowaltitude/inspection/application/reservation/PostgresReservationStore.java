@@ -35,7 +35,7 @@ final class PostgresReservationStore
                 entry.reservationId()) == 0) {
             throw new DuplicateIdempotencyKeyException();
         }
-        mapper.insertReservation(new ReservationPersistenceMapper.ReservationRow(value.id(), value.reservationNo(), value.customerId(), value.snapshot().providerId(), value.snapshot().serviceId(), value.snapshot().title(), value.snapshot().coverUrl(), value.cityCode(), bytes(value.addressCiphertext()), value.longitude(), value.latitude(), value.lineLengthMeters(), value.preferredServiceDate(), bytes(value.noteCiphertext()), bytes(value.contactNameCiphertext()), bytes(value.contactMobileCiphertext()), value.agreementVersion(), value.submittedAt(), value.version()));
+        mapper.insertReservation(new ReservationPersistenceMapper.ReservationRow(value.id(), value.reservationNo(), value.customerId(), value.snapshot().providerId(), value.snapshot().serviceId(), value.snapshot().title(), value.snapshot().coverUrl(), value.cityCode(), bytes(value.addressCiphertext()), value.longitude(), value.latitude(), value.lineLengthMeters(), value.preferredServiceDate(), value.preferredTimeSlotCode(), bytes(value.noteCiphertext()), bytes(value.contactNameCiphertext()), bytes(value.contactMobileCiphertext()), value.agreementVersion(), value.submittedAt(), value.version()));
         for (int index = 0; index < value.items().size(); index++) {
             InspectionItemSnapshot item = value.items().get(index);
             mapper.insertItem(
@@ -64,6 +64,7 @@ final class PostgresReservationStore
                 row.latitude(),
                 row.lineLengthMeters(),
                 row.preferredServiceDate(),
+                row.preferredTimeSlotCode(),
                 text(row.noteCiphertext()),
                 text(row.contactNameCiphertext()),
                 text(row.contactMobileCiphertext()),
@@ -75,6 +76,18 @@ final class PostgresReservationStore
                 row.agreementVersion(),
                 row.submittedAt(),
                 row.version()));
+    }
+    @Override public void lockActiveService(UUID serviceId, String cityCode) {
+        if (mapper.lockActiveService(serviceId, cityCode) == null) {
+            throw new ReservationValidationException("service is unknown or disabled");
+        }
+    }
+    @Override public List<BookedTimeSlotCount> findBookedTimeSlotCounts(
+            UUID serviceId, String cityCode, java.time.LocalDate startDate, java.time.LocalDate endDate) {
+        return mapper.findBookedTimeSlotCounts(serviceId, cityCode, startDate, endDate).stream()
+                .map(row -> new BookedTimeSlotCount(
+                        row.serviceDate(), row.slotCode(), row.bookedCount()))
+                .toList();
     }
     @Override public Optional<ReservationFlowState> findFlowState(UUID reservationId) {
         return mapper.findReservationFlowState(reservationId)

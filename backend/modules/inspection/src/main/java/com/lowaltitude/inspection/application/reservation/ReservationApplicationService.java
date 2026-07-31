@@ -49,6 +49,9 @@ public class ReservationApplicationService {
             throw new ReservationValidationException("authenticated customer and idempotency key are required");
         }
         validate(command);
+        InspectionTimeSlotPolicy.validateDateRange(
+                command.preferredServiceDate(), 1, clock);
+        InspectionTimeSlotPolicy.slot(command.preferredTimeSlotCode());
         String digest = digest(command);
         Optional<IdempotencyEntry> prior = store.findIdempotency(customerId, idempotencyKey);
         if (prior.isPresent()) {
@@ -74,6 +77,7 @@ public class ReservationApplicationService {
                 command.latitude(),
                 command.lineLengthMeters(),
                 command.preferredServiceDate(),
+                command.preferredTimeSlotCode(),
                 cipher.encryptNullable(normalizeNullable(command.note())),
                 cipher.encrypt(command.contactName().trim()),
                 cipher.encrypt(command.contactMobile().trim()),
@@ -125,6 +129,7 @@ public class ReservationApplicationService {
                 value.latitude(),
                 value.lineLengthMeters(),
                 value.preferredServiceDate(),
+                value.preferredTimeSlotCode(),
                 value.noteCiphertext() == null ? null : cipher.decrypt(value.noteCiphertext()),
                 cipher.decrypt(value.contactNameCiphertext()),
                 cipher.decrypt(value.contactMobileCiphertext()),
@@ -144,6 +149,7 @@ public class ReservationApplicationService {
                 || !command.cityCode().matches("[A-Z0-9]{4,16}")
                 || !validText(command.address(), 2, MAX_ADDRESS_LENGTH)
                 || command.preferredServiceDate() == null
+                || command.preferredTimeSlotCode() == null
                 || !validItems(command.inspectionItemCodes())
                 || !validUniqueIds(command.attachmentFileIds(), MAX_ATTACHMENT_COUNT)
                 || !validText(command.contactName(), 1, MAX_CONTACT_NAME_LENGTH)
@@ -170,6 +176,7 @@ public class ReservationApplicationService {
             updateDigest(digest, command.latitude());
             updateDigest(digest, command.lineLengthMeters());
             updateDigest(digest, command.preferredServiceDate());
+            updateDigest(digest, command.preferredTimeSlotCode());
             updateDigest(digest, command.inspectionItemCodes());
             updateDigest(digest, command.attachmentFileIds());
             updateDigest(digest, command.note());
@@ -253,16 +260,16 @@ public class ReservationApplicationService {
 
     private static ReservationView toView(StoredReservation value) {
         return new ReservationView(value.id(), value.reservationNo(), value.customerId(), value.snapshot().serviceId(),
-                value.snapshot().title(), value.snapshot().coverUrl(), value.snapshot().providerId(), value.cityCode(), value.preferredServiceDate());
+                value.snapshot().title(), value.snapshot().coverUrl(), value.snapshot().providerId(), value.cityCode(), value.preferredServiceDate(), value.preferredTimeSlotCode());
     }
 }
 
 record CreateReservationCommand(UUID serviceId, String cityCode, String address, Double longitude, Double latitude,
-                                Long lineLengthMeters, LocalDate preferredServiceDate, List<String> inspectionItemCodes,
+                                Long lineLengthMeters, LocalDate preferredServiceDate, String preferredTimeSlotCode, List<String> inspectionItemCodes,
                                 List<UUID> attachmentFileIds, String note, String contactName, String contactMobile,
                                 String agreementVersion, boolean agreementAccepted) { }
 record ReservationView(UUID id, String reservationNo, UUID customerId, UUID serviceId, String serviceTitle,
-                       String serviceCoverUrl, UUID providerId, String cityCode, LocalDate preferredServiceDate) { }
+                       String serviceCoverUrl, UUID providerId, String cityCode, LocalDate preferredServiceDate, String preferredTimeSlotCode) { }
 record InspectionServiceSnapshot(
         UUID serviceId,
         UUID providerId,
@@ -274,12 +281,12 @@ record InspectionServiceSnapshot(
 record InspectionItemSnapshot(String code, String label) { }
 record StoredReservation(UUID id, String reservationNo, UUID customerId, InspectionServiceSnapshot snapshot, String cityCode,
                          String addressCiphertext, Double longitude, Double latitude, Long lineLengthMeters,
-                         LocalDate preferredServiceDate, String noteCiphertext, String contactNameCiphertext,
+                         LocalDate preferredServiceDate, String preferredTimeSlotCode, String noteCiphertext, String contactNameCiphertext,
                          String contactMobileCiphertext, List<InspectionItemSnapshot> items, String agreementVersion,
                          Instant submittedAt, int version) { }
 record ReservationDetails(UUID id, String reservationNo, UUID customerId, InspectionServiceSnapshot snapshot,
                           String cityCode, String address, Double longitude, Double latitude, Long lineLengthMeters,
-                          LocalDate preferredServiceDate, String note, String contactName, String contactMobile,
+                          LocalDate preferredServiceDate, String preferredTimeSlotCode, String note, String contactName, String contactMobile,
                           List<InspectionItemSnapshot> items, String agreementVersion, Instant submittedAt,
                           String status, UUID currentPlanId, int version,
                           List<ReservationFileView> attachments) { }
@@ -292,10 +299,14 @@ interface ReservationStore {
     Optional<IdempotencyEntry> findIdempotency(UUID actorId, UUID key);
     void save(StoredReservation reservation, IdempotencyEntry entry);
     Optional<StoredReservation> findById(UUID id);
+    void lockActiveService(UUID serviceId, String cityCode);
+    List<BookedTimeSlotCount> findBookedTimeSlotCounts(
+            UUID serviceId, String cityCode, LocalDate startDate, LocalDate endDate);
     default Optional<ReservationFlowState> findFlowState(UUID reservationId) {
         return Optional.empty();
     }
     default List<ReservationFileView> findAttachments(UUID reservationId) { return List.of(); }
 }
+record BookedTimeSlotCount(LocalDate serviceDate, String slotCode, int bookedCount) { }
 record ReservationFlowState(String status, UUID currentPlanId, int version) { }
 interface SensitiveDataCipher { String encrypt(String value); String decrypt(String value); default String encryptNullable(String value) { return value == null ? null : encrypt(value); } }

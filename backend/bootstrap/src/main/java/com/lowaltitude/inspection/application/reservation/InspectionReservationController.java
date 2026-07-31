@@ -115,6 +115,7 @@ public final class InspectionReservationController {
             Location location,
             Long lineLengthMeters,
             LocalDate preferredServiceDate,
+            String preferredTimeSlotCode,
             List<String> inspectionItemCodes,
             List<UUID> attachmentFileIds,
             String note,
@@ -132,6 +133,7 @@ public final class InspectionReservationController {
                     location == null ? null : location.latitude(),
                     lineLengthMeters,
                     preferredServiceDate,
+                    preferredTimeSlotCode,
                     inspectionItemCodes,
                     attachmentFileIds == null ? List.of() : attachmentFileIds,
                     note,
@@ -174,6 +176,7 @@ public final class InspectionReservationController {
             Location location,
             Long lineLengthMeters,
             LocalDate preferredServiceDate,
+            String preferredTimeSlotCode,
             List<CodeLabel> inspectionItems,
             String note,
             Contact contact,
@@ -200,6 +203,7 @@ public final class InspectionReservationController {
                             details.latitude()),
                     details.lineLengthMeters(),
                     details.preferredServiceDate(),
+                    details.preferredTimeSlotCode(),
                     details.items().stream()
                             .map(item -> new CodeLabel(item.code(), item.label()))
                             .toList(),
