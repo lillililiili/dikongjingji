@@ -104,6 +104,55 @@ class ReservationApplicationServiceTest {
     }
 
     @Test
+    void acceptsNineReservationsAndRejectsTheTenthForOneSlot() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        ReservationApplicationService service = new ReservationApplicationService(
+                new InMemoryServiceCatalog(
+                        SERVICE_ID, PROVIDER_ID, "服务端巡检标题", null),
+                store,
+                new PlainTestCipher(),
+                BOOKING_CLOCK);
+
+        for (int index = 0; index < 9; index++) {
+            service.create(
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    command(SERVICE_ID));
+        }
+
+        assertThatThrownBy(() -> service.create(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                command(SERVICE_ID)))
+                .isInstanceOf(TimeSlotFullException.class);
+    }
+
+    @Test
+    void idempotentReplayDoesNotConsumeASecondSlot() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        ReservationApplicationService service = new ReservationApplicationService(
+                new InMemoryServiceCatalog(
+                        SERVICE_ID, PROVIDER_ID, "服务端巡检标题", null),
+                store,
+                new PlainTestCipher(),
+                BOOKING_CLOCK);
+
+        service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+        service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+
+        assertThat(store.findBookedTimeSlotCounts(
+                SERVICE_ID,
+                "370500",
+                LocalDate.of(2026, 8, 1),
+                LocalDate.of(2026, 8, 1)))
+                .extracting(
+                        BookedTimeSlotCount::slotCode,
+                        BookedTimeSlotCount::bookedCount)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("MORNING", 1));
+    }
+
+    @Test
     void replaysExistingReservationAfterDatabaseIdempotencyUniqueConflict() {
         InMemoryReservationStore store = new InMemoryReservationStore();
         ReservationApplicationService service = new ReservationApplicationService(new InMemoryServiceCatalog(SERVICE_ID, PROVIDER_ID, "服务端标题", null), store, new PlainTestCipher(), BOOKING_CLOCK);

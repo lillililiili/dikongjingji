@@ -63,6 +63,29 @@ public class ReservationApplicationService {
         }
         InspectionServiceSnapshot snapshot = services.findActive(command.serviceId(), command.cityCode())
                 .orElseThrow(() -> new ReservationValidationException("service is unknown or disabled"));
+        store.lockActiveService(command.serviceId(), command.cityCode());
+        Optional<IdempotencyEntry> concurrentPrior =
+                store.findIdempotency(customerId, idempotencyKey);
+        if (concurrentPrior.isPresent()) {
+            if (!concurrentPrior.get().requestDigest().equals(digest)) {
+                throw new IdempotencyConflictException();
+            }
+            return toView(store.findById(concurrentPrior.get().reservationId())
+                    .orElseThrow());
+        }
+        int booked = store.findBookedTimeSlotCounts(
+                        command.serviceId(),
+                        command.cityCode(),
+                        command.preferredServiceDate(),
+                        command.preferredServiceDate()).stream()
+                .filter(count -> count.slotCode().equals(
+                        command.preferredTimeSlotCode()))
+                .mapToInt(BookedTimeSlotCount::bookedCount)
+                .findFirst()
+                .orElse(0);
+        if (booked >= InspectionTimeSlotPolicy.CAPACITY) {
+            throw new TimeSlotFullException();
+        }
         List<InspectionItemSnapshot> selectedItems =
                 selectSupportedItems(snapshot, command.inspectionItemCodes());
         UUID id = UUID.randomUUID();

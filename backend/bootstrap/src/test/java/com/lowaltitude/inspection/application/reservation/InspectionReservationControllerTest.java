@@ -169,6 +169,28 @@ class InspectionReservationControllerTest {
                 .andExpect(jsonPath("$.traceId").value(REQUEST_ID));
     }
 
+    @Test
+    void returnsConflictWhenTimeSlotCapacityIsFull() throws Exception {
+        for (int index = 0; index < 9; index++) {
+            mvc.perform(post("/api/v1/inspection/reservations")
+                            .header("Idempotency-Key", UUID.randomUUID())
+                            .contentType("application/json")
+                            .content(requestJson("东营市容量测试路"))
+                            .principal(customerJwt()))
+                    .andExpect(status().isCreated());
+        }
+
+        mvc.perform(post("/api/v1/inspection/reservations")
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("X-Request-Id", REQUEST_ID)
+                        .contentType("application/json")
+                        .content(requestJson("东营市容量测试路"))
+                        .principal(customerJwt()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INS_TIME_SLOT_FULL"))
+                .andExpect(jsonPath("$.traceId").value(REQUEST_ID));
+    }
+
     private String createReservation(
             UsernamePasswordAuthenticationToken principal,
             String requestBody

@@ -11,6 +11,7 @@ import com.lowaltitude.inspection.application.reservation.FileUploadValidationEx
 import com.lowaltitude.inspection.application.reservation.IdempotencyConflictException;
 import com.lowaltitude.inspection.application.reservation.ReservationNotFoundException;
 import com.lowaltitude.inspection.application.reservation.ReservationValidationException;
+import com.lowaltitude.inspection.application.reservation.TimeSlotFullException;
 import com.lowaltitude.inspection.application.serviceflow.PlanFlowException;
 import com.lowaltitude.inspection.infrastructure.storage.ObjectStorageException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -90,6 +91,18 @@ public class GlobalExceptionHandler {
                 .body(new ApiError(
                         "INS_IDEMPOTENCY_KEY_REUSED",
                         "幂等键已用于不同请求",
+                        traceId(request)));
+    }
+
+    @ExceptionHandler(TimeSlotFullException.class)
+    public ResponseEntity<ApiError> handleTimeSlotFull(
+            TimeSlotFullException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(
+                        "INS_TIME_SLOT_FULL",
+                        "该时段刚刚约满，请重新选择",
                         traceId(request)));
     }
 
