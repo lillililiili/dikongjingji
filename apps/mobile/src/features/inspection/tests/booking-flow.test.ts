@@ -361,6 +361,13 @@ describe('F04 booking page contract', () => {
     expect(bookingPageSource).toContain('提交预约')
   })
 
+  it('reopens time selection without clearing the draft when the slot fills during submit', () => {
+    expect(bookingPageSource).toContain("error.code === 'INS_TIME_SLOT_FULL'")
+    expect(bookingPageSource).toContain("submitError.value = '该时段刚刚约满，请重新选择'")
+    expect(bookingPageSource).toContain('isTimePickerVisible.value = true')
+    expect(bookingPageSource).not.toContain('draft.value = createEmptyBookingDraft()')
+  })
+
   it('matches the approved booking structure including customer service and PDF-capable attachments', () => {
     expect(bookingPageSource).toContain('客服')
     expect(bookingPageSource).toContain('chooseMessageFile')

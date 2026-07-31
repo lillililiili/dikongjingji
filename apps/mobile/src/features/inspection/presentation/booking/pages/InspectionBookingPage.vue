@@ -6,12 +6,13 @@ import { storeToRefs } from 'pinia'
 
 import { submitBookingReservation, createBookingSubmissionSession, uploadReservationAttachments } from '../../../application/service-flow/submit-booking-reservation'
 import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
-import { inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
-import { createBookingLocationSelection, createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot } from '../../../domain/service-flow/booking'
+import { ApiRequestError, inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
+import { createBookingLocationSelection, createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot, type BookingTimeSelection } from '../../../domain/service-flow/booking'
 import { buildInspectionBookingSubmittedUrl } from '../../../navigation/inspection-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import BookingProgress from '../components/BookingProgress.vue'
 import BookingServiceSnapshotCard from '../components/BookingServiceSnapshotCard.vue'
+import InspectionTimePickerSheet from '../components/InspectionTimePickerSheet.vue'
 
 interface BookingRouteQuery {
   serviceId?: string
@@ -27,6 +28,8 @@ const isSubmitting = ref(false)
 const isChoosingLocation = ref(false)
 const loadError = ref('')
 const submitError = ref('')
+const isTimePickerVisible = ref(false)
+const preferredServiceTimeText = ref('')
 const submission = createBookingSubmissionSession()
 
 const availableItems = computed(() => service.value?.inspectionItems ?? [])
@@ -188,6 +191,22 @@ function removeAttachment(localId: string): void {
   )
 }
 
+function openTimePicker(): void {
+  if (!service.value || !currentCity.value) {
+    return
+  }
+  isTimePickerVisible.value = true
+}
+
+function confirmPreferredTime(
+  selection: BookingTimeSelection,
+  displayText: string,
+): void {
+  draft.value.preferredServiceTime = selection
+  preferredServiceTimeText.value = displayText
+  isTimePickerVisible.value = false
+}
+
 async function submit(): Promise<void> {
   if (isSubmitting.value || !service.value) {
     return
@@ -213,6 +232,14 @@ async function submit(): Promise<void> {
     }
     uni.redirectTo({ url: buildInspectionBookingSubmittedUrl(result.reservationId) })
   } catch (error) {
+    if (
+      error instanceof ApiRequestError
+      && error.code === 'INS_TIME_SLOT_FULL'
+    ) {
+      submitError.value = '该时段刚刚约满，请重新选择'
+      isTimePickerVisible.value = true
+      return
+    }
     submitError.value = error instanceof Error ? error.message : '预约提交失败，请重试'
   } finally {
     isSubmitting.value = false
@@ -255,14 +282,19 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
             <input v-model="draft.lineLengthKm" class="booking-row__input" type="digit" placeholder="请输入预计公里数" />
             <text class="booking-row__suffix">公里</text>
           </view>
-          <picker mode="date" :value="draft.preferredServiceDate" @change="draft.preferredServiceDate = $event.detail.value">
-            <view class="booking-row">
-              <UniIcons type="calendar" size="19" color="#ff6a00" />
-              <text class="booking-row__label">期望时间</text>
-              <text :class="['booking-row__date', { 'booking-row__date--empty': !draft.preferredServiceDate }]">{{ draft.preferredServiceDate || '请选择服务日期' }}</text>
-              <UniIcons type="right" size="15" color="#8e949c" />
-            </view>
-          </picker>
+          <view class="booking-row booking-row--selectable" @tap="openTimePicker">
+            <UniIcons type="calendar" size="19" color="#ff6a00" />
+            <text class="booking-row__label">期望时间</text>
+            <text
+              :class="[
+                'booking-row__date',
+                { 'booking-row__date--empty': !preferredServiceTimeText },
+              ]"
+            >
+              {{ preferredServiceTimeText || '请选择服务时间' }}
+            </text>
+            <UniIcons type="right" size="15" color="#8e949c" />
+          </view>
         </view>
         <view class="booking-section">
           <text class="booking-section__title">巡检项目（可多选）</text>
@@ -296,6 +328,16 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
       </main>
     </scroll-view>
     <view v-if="service" class="inspection-booking__footer"><view class="inspection-booking__tip"><UniIcons type="shield-filled" size="17" color="#ff6a00" /><text>提交后由服务商评估方案并联系确认，暂不收取费用。</text></view><label class="booking-agreement"><checkbox :checked="draft.agreementAccepted" color="#ff6a00" @click="draft.agreementAccepted = !draft.agreementAccepted" /><text>我已阅读并同意 <text class="booking-agreement__link">《预约服务须知》</text></text></label><button class="inspection-booking__submit" :loading="isSubmitting" :disabled="isSubmitting" @click="submit">提交预约</button></view>
+    <InspectionTimePickerSheet
+      v-if="service && currentCity"
+      :visible="isTimePickerVisible"
+      :service-id="service.serviceId"
+      :city-code="currentCity.code"
+      :model-value="draft.preferredServiceTime"
+      :load-slots="inspectionBookingApi.loadAvailableTimeSlots"
+      @close="isTimePickerVisible = false"
+      @confirm="confirmPreferredTime"
+    />
   </view>
 </template>
 

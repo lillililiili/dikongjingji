@@ -10,6 +10,8 @@ import {
   createInspectionBookingApi,
   type BookingHttpClient,
 } from '../data/service-flow/inspection-booking-api'
+import bookingPageSource from '../presentation/booking/pages/InspectionBookingPage.vue?raw'
+import sheetSource from '../presentation/booking/components/InspectionTimePickerSheet.vue?raw'
 
 const SERVICE_ID = '40000000-0000-4000-8000-000000000001'
 
@@ -122,5 +124,20 @@ describe('booking time selection', () => {
       method: 'GET',
       headers: { Authorization: 'Bearer token' },
     }])
+  })
+
+  it('renders the approved time sheet and replaces the native date picker', () => {
+    expect(sheetSource).toContain('选择服务时间')
+    expect(sheetSource).toContain('选择日期')
+    expect(sheetSource).toContain('选择时段')
+    expect(sheetSource).toContain('预计服务时长3小时')
+    expect(sheetSource).toContain('更多日期')
+    expect(sheetSource).toContain('已约满')
+    expect(sheetSource).toContain('env(safe-area-inset-bottom)')
+    expect(sheetSource).toContain('UniCalendar')
+    expect(bookingPageSource).toContain('<InspectionTimePickerSheet')
+    expect(bookingPageSource).toContain('openTimePicker')
+    expect(bookingPageSource).not.toContain('<picker mode="date"')
+    expect(bookingPageSource).not.toContain('draft.preferredServiceDate')
   })
 })
