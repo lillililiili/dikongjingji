@@ -111,6 +111,58 @@ function Wait-BackendHealth {
     throw 'Backend did not return a healthy response after restart.'
 }
 
+function ConvertTo-SmokeClock {
+    param([string]$Value)
+
+    if ($Value -notmatch '^(\d{2}:\d{2})(?::\d{2})?$') {
+        throw "Unexpected time-slot clock value: $Value"
+    }
+    return $Matches[1]
+}
+
+function Set-SmokeReservationsCancelled {
+    param([Guid[]]$ReservationIds)
+
+    if ($null -eq $ReservationIds -or $ReservationIds.Count -eq 0) {
+        return
+    }
+    $sqlIds = ($ReservationIds | ForEach-Object { "'$($_.ToString())'::uuid" }) -join ', '
+    $cleanupSql = @"
+UPDATE inspection_reservation
+SET status = 'CANCELLED',
+    cancelled_at = COALESCE(cancelled_at, now()),
+    version = version + 1,
+    updated_by = '$customerId'::uuid,
+    updated_at = now()
+WHERE id IN ($sqlIds)
+  AND customer_id = '$customerId'::uuid
+  AND service_id = '$serviceId'::uuid
+  AND status <> 'CANCELLED';
+
+SELECT count(*)
+FROM inspection_reservation
+WHERE id IN ($sqlIds)
+  AND customer_id = '$customerId'::uuid
+  AND service_id = '$serviceId'::uuid
+  AND status = 'CANCELLED';
+"@
+    $cleanupRows = @(
+        $cleanupSql | & $DockerPath exec -i inspection-local-postgres-1 `
+            psql -At -v ON_ERROR_STOP=1 -U $databaseUser -d $databaseName
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to cancel this F04 run reservations.'
+    }
+    $verifiedCount = [int](
+        $cleanupRows `
+        | Where-Object { $_ -match '^\d+$' } `
+        | Select-Object -Last 1
+    )
+    if ($verifiedCount -ne $ReservationIds.Count) {
+        throw "F04 cleanup verified $verifiedCount of $($ReservationIds.Count) reservations."
+    }
+}
+
 Wait-BackendHealth
 
 $seedSql = @'
@@ -260,6 +312,8 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Unable to seed the local F04 smoke identities and service.'
 }
 
+$createdReservationIds = [Collections.Generic.HashSet[Guid]]::new()
+try {
 $customerToken = Get-AccessToken -LoginName 'smoke-customer'
 $otherCustomerToken = Get-AccessToken -LoginName 'smoke-other'
 $providerToken = Get-AccessToken -LoginName 'smoke-provider'
@@ -316,6 +370,22 @@ $availability = Invoke-RestMethod `
 if ($availability[0].slots.Count -ne 3) {
     throw 'Time-slot availability did not return three fixed slots.'
 }
+$expectedSlots = @(
+    @{ code = 'MORNING'; start = '09:00'; end = '12:00' }
+    @{ code = 'AFTERNOON'; start = '14:00'; end = '17:00' }
+    @{ code = 'EVENING'; start = '18:00'; end = '21:00' }
+)
+foreach ($expectedSlot in $expectedSlots) {
+    $actualSlots = @(
+        $availability[0].slots `
+        | Where-Object { $_.slotCode -eq $expectedSlot.code }
+    )
+    if ($actualSlots.Count -ne 1 `
+            -or (ConvertTo-SmokeClock $actualSlots[0].startTime) -ne $expectedSlot.start `
+            -or (ConvertTo-SmokeClock $actualSlots[0].endTime) -ne $expectedSlot.end) {
+        throw "Unexpected fixed time slot: $($expectedSlot.code)"
+    }
+}
 if (@($availability[0].slots | Where-Object { $_.remainingCount -ne 9 }).Count -ne 0) {
     throw 'Every initial time slot must expose capacity nine.'
 }
@@ -326,6 +396,7 @@ $reservation = Invoke-RestMethod `
     -ContentType 'application/json; charset=utf-8' `
     -Body $reservationBody `
     -Headers $createHeaders
+[void]$createdReservationIds.Add([Guid]::Parse($reservation.id))
 $reservationReplay = Invoke-RestMethod `
     -Method Post `
     -Uri "$BaseUrl/api/v1/inspection/reservations" `
@@ -353,7 +424,7 @@ $capacityObject.preferredTimeSlotCode = 'EVENING'
 $capacityBody = $capacityObject | ConvertTo-Json -Depth 6 -Compress
 
 for ($index = 1; $index -lt $capacitySlot.remainingCount; $index++) {
-    Invoke-RestMethod `
+    $capacityReservation = Invoke-RestMethod `
         -Method Post `
         -Uri "$BaseUrl/api/v1/inspection/reservations" `
         -ContentType 'application/json; charset=utf-8' `
@@ -362,7 +433,8 @@ for ($index = 1; $index -lt $capacitySlot.remainingCount; $index++) {
             Authorization = "Bearer $customerToken"
             'Idempotency-Key' = [Guid]::NewGuid().ToString()
             'X-Request-Id' = [Guid]::NewGuid().ToString()
-        } | Out-Null
+        }
+    [void]$createdReservationIds.Add([Guid]::Parse($capacityReservation.id))
 }
 
 $client = [System.Net.Http.HttpClient]::new()
@@ -417,6 +489,21 @@ try {
         throw "Unexpected capacity conflict code: $($conflictBody.code)"
     }
 } finally {
+    foreach ($task in $tasks) {
+        if ($task.Status -eq [Threading.Tasks.TaskStatus]::RanToCompletion) {
+            $completedResponse = $task.Result
+            if ($null -ne $completedResponse -and -not $responses.Contains($completedResponse)) {
+                $responses += $completedResponse
+            }
+        }
+    }
+    foreach ($response in $responses) {
+        if ([int]$response.StatusCode -eq 201) {
+            $createdBody = $response.Content.ReadAsStringAsync().Result `
+                | ConvertFrom-Json
+            [void]$createdReservationIds.Add([Guid]::Parse($createdBody.id))
+        }
+    }
     foreach ($request in $requests) {
         $request.Dispose()
     }
@@ -638,3 +725,6 @@ if ($afterRestart.id -ne $reservation.id `
     CrossFileStatus = $crossFileStatus
     RestartRecovery = $true
 } | ConvertTo-Json -Compress
+} finally {
+    Set-SmokeReservationsCancelled -ReservationIds @($createdReservationIds)
+}

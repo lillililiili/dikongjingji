@@ -283,9 +283,11 @@ async function main() {
     await bookingInputs.nth(0).fill('12')
     await page.getByText('期望时间', { exact: true }).click()
     await page.locator('.inspection-time-sheet__panel').waitFor()
-    const firstDate = page.locator('.inspection-time-sheet__date').first()
+    const firstDate = page.locator(
+      '.inspection-time-sheet__date:not(.inspection-time-sheet__date--more)',
+    ).first()
     await firstDate.waitFor()
-    await firstDate.dispatchEvent('click')
+    await firstDate.click()
     const morningSlot = page.locator('.inspection-time-sheet__slot')
       .filter({ hasText: '09:00–12:00' })
     await morningSlot.waitFor()
