@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.transaction.annotation.Transactional;
 
@@ -140,6 +141,49 @@ public class ReservationApplicationService {
                 flowState.currentPlanId(),
                 flowState.version(),
                 store.findAttachments(value.id()));
+    }
+
+    public List<InspectionServiceDateAvailabilityView> availableTimeSlots(
+            UUID serviceId,
+            String cityCode,
+            LocalDate startDate,
+            int days
+    ) {
+        if (serviceId == null
+                || cityCode == null
+                || !cityCode.matches("[A-Z0-9]{4,16}")) {
+            throw new IllegalArgumentException("time slot query is invalid");
+        }
+        InspectionTimeSlotPolicy.validateDateRange(startDate, days, clock);
+        services.findActive(serviceId, cityCode)
+                .orElseThrow(() -> new ReservationValidationException(
+                        "service is unknown or disabled"));
+        LocalDate endDate = startDate.plusDays(days - 1L);
+        Map<String, Integer> counts = store.findBookedTimeSlotCounts(
+                        serviceId, cityCode, startDate, endDate).stream()
+                .collect(Collectors.toMap(
+                        value -> value.serviceDate() + ":" + value.slotCode(),
+                        BookedTimeSlotCount::bookedCount));
+
+        return startDate.datesUntil(endDate.plusDays(1))
+                .map(date -> new InspectionServiceDateAvailabilityView(
+                        date,
+                        InspectionTimeSlotPolicy.slots().stream()
+                                .map(slot -> {
+                                    int booked = counts.getOrDefault(
+                                            date + ":" + slot.code(), 0);
+                                    int remaining = Math.max(
+                                            0,
+                                            InspectionTimeSlotPolicy.CAPACITY - booked);
+                                    return new InspectionTimeSlotView(
+                                            slot.code(),
+                                            slot.startTime(),
+                                            slot.endTime(),
+                                            remaining,
+                                            remaining == 0 ? "FULL" : "AVAILABLE");
+                                })
+                                .toList()))
+                .toList();
     }
 
     private static void validate(CreateReservationCommand command) {

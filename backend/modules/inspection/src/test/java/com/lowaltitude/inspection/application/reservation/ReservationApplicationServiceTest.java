@@ -112,6 +112,36 @@ class ReservationApplicationServiceTest {
         assertThat(racing.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID)).id()).isEqualTo(first.id());
     }
 
+    @Test
+    void exposesBookedAndAvailableCountsForEveryFixedTimeSlot() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        store.setBookedTimeSlotCounts(List.of(
+                new BookedTimeSlotCount(LocalDate.of(2026, 8, 1), "MORNING", 9),
+                new BookedTimeSlotCount(LocalDate.of(2026, 8, 1), "AFTERNOON", 2)));
+        ReservationApplicationService service = new ReservationApplicationService(
+                new InMemoryServiceCatalog(SERVICE_ID, PROVIDER_ID, "服务端巡检标题", null),
+                store,
+                new PlainTestCipher(),
+                BOOKING_CLOCK);
+
+        List<InspectionServiceDateAvailabilityView> dates = service.availableTimeSlots(
+                SERVICE_ID,
+                "370500",
+                LocalDate.of(2026, 8, 1),
+                1);
+
+        assertThat(dates).hasSize(1);
+        assertThat(dates.getFirst().slots())
+                .extracting(
+                        InspectionTimeSlotView::slotCode,
+                        InspectionTimeSlotView::remainingCount,
+                        InspectionTimeSlotView::availability)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("MORNING", 0, "FULL"),
+                        org.assertj.core.groups.Tuple.tuple("AFTERNOON", 7, "AVAILABLE"),
+                        org.assertj.core.groups.Tuple.tuple("EVENING", 9, "AVAILABLE"));
+    }
+
     private static CreateReservationCommand command(UUID serviceId) {
         return new CreateReservationCommand(serviceId, "370500", "东营市开发区测试路1号", 118.5, 37.4,
                 1200L, LocalDate.of(2026, 8, 1), "MORNING", List.of("PIPELINE"), List.of(), "现场需要重点查看",
@@ -149,6 +179,7 @@ final class InMemoryServiceCatalog implements InspectionServiceCatalog {
 final class InMemoryReservationStore implements ReservationStore {
     private final Map<String, StoredReservation> reservations = new java.util.HashMap<>();
     private final Map<String, IdempotencyEntry> idempotency = new java.util.HashMap<>();
+    private List<BookedTimeSlotCount> bookedTimeSlotCounts = List.of();
     private StoredReservation lastSaved;
     private int saveCount;
 
@@ -169,6 +200,9 @@ final class InMemoryReservationStore implements ReservationStore {
     }
     @Override public List<BookedTimeSlotCount> findBookedTimeSlotCounts(
             UUID serviceId, String cityCode, LocalDate startDate, LocalDate endDate) {
+        if (!bookedTimeSlotCounts.isEmpty()) {
+            return bookedTimeSlotCounts;
+        }
         return reservations.values().stream()
                 .filter(value -> value.snapshot().serviceId().equals(serviceId))
                 .filter(value -> value.cityCode().equals(cityCode))
@@ -187,6 +221,9 @@ final class InMemoryReservationStore implements ReservationStore {
     }
     StoredReservation lastSaved() { return lastSaved; }
     int saveCount() { return saveCount; }
+    void setBookedTimeSlotCounts(List<BookedTimeSlotCount> bookedTimeSlotCounts) {
+        this.bookedTimeSlotCounts = List.copyOf(bookedTimeSlotCounts);
+    }
 }
 
 final class PlainTestCipher implements SensitiveDataCipher {
