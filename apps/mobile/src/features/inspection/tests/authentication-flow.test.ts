@@ -440,6 +440,7 @@ describe('inspection authentication session', () => {
         location: { address: '东营市测试地点', longitude: 118.67, latitude: 37.43 },
         lineLengthMeters: 1000,
         preferredServiceDate: '2026-08-01',
+        preferredTimeSlotCode: 'MORNING',
         inspectionItemCodes: ['LINE'],
         attachmentFileIds: [],
         note: null,
