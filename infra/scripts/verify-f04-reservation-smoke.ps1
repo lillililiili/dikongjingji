@@ -5,6 +5,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+Add-Type -AssemblyName System.Net.Http
+
 $baseUri = [Uri]$BaseUrl
 if (-not $baseUri.IsLoopback) {
     throw 'F04 smoke is intentionally limited to a loopback development environment.'
@@ -284,6 +286,7 @@ $createHeaders = @{
 $smokeAddress = 'Dongying smoke line 1'
 $smokeNote = 'F04 real flow smoke'
 $smokeContactName = 'Zhang'
+$serviceDate = (Get-Date).Date.AddDays(1).ToString('yyyy-MM-dd')
 $reservationBody = @{
     serviceId = $serviceId
     cityCode = '370500'
@@ -293,7 +296,8 @@ $reservationBody = @{
         latitude = 37.4348
     }
     lineLengthMeters = 3200
-    preferredServiceDate = '2026-07-30'
+    preferredServiceDate = $serviceDate
+    preferredTimeSlotCode = 'MORNING'
     inspectionItemCodes = @('POWER_LINE', 'TOWER')
     attachmentFileIds = @()
     note = $smokeNote
@@ -304,6 +308,17 @@ $reservationBody = @{
     agreementVersion = 'v1.0'
     agreementAccepted = $true
 } | ConvertTo-Json -Depth 6 -Compress
+
+$availability = Invoke-RestMethod `
+    -Method Get `
+    -Uri "$BaseUrl/api/v1/inspection/services/$serviceId/available-time-slots?cityCode=370500&startDate=$serviceDate&days=1" `
+    -Headers @{ Authorization = "Bearer $customerToken" }
+if ($availability[0].slots.Count -ne 3) {
+    throw 'Time-slot availability did not return three fixed slots.'
+}
+if (@($availability[0].slots | Where-Object { $_.remainingCount -ne 9 }).Count -ne 0) {
+    throw 'Every initial time slot must expose capacity nine.'
+}
 
 $reservation = Invoke-RestMethod `
     -Method Post `
@@ -319,6 +334,96 @@ $reservationReplay = Invoke-RestMethod `
     -Headers $createHeaders
 if ($reservation.id -ne $reservationReplay.id) {
     throw 'Reservation idempotency replay created a second resource.'
+}
+
+$capacityDate = (Get-Date).Date.AddDays(2).ToString('yyyy-MM-dd')
+$capacityAvailability = Invoke-RestMethod `
+    -Method Get `
+    -Uri "$BaseUrl/api/v1/inspection/services/$serviceId/available-time-slots?cityCode=370500&startDate=$capacityDate&days=1" `
+    -Headers @{ Authorization = "Bearer $customerToken" }
+$capacitySlot = $capacityAvailability[0].slots `
+    | Where-Object { $_.slotCode -eq 'EVENING' }
+if ($null -eq $capacitySlot -or $capacitySlot.remainingCount -lt 2) {
+    throw 'Capacity smoke requires at least two remaining EVENING slots.'
+}
+
+$capacityObject = $reservationBody | ConvertFrom-Json
+$capacityObject.preferredServiceDate = $capacityDate
+$capacityObject.preferredTimeSlotCode = 'EVENING'
+$capacityBody = $capacityObject | ConvertTo-Json -Depth 6 -Compress
+
+for ($index = 1; $index -lt $capacitySlot.remainingCount; $index++) {
+    Invoke-RestMethod `
+        -Method Post `
+        -Uri "$BaseUrl/api/v1/inspection/reservations" `
+        -ContentType 'application/json; charset=utf-8' `
+        -Body $capacityBody `
+        -Headers @{
+            Authorization = "Bearer $customerToken"
+            'Idempotency-Key' = [Guid]::NewGuid().ToString()
+            'X-Request-Id' = [Guid]::NewGuid().ToString()
+        } | Out-Null
+}
+
+$client = [System.Net.Http.HttpClient]::new()
+$requests = @()
+$responses = @()
+try {
+    $client.DefaultRequestHeaders.Authorization =
+        [System.Net.Http.Headers.AuthenticationHeaderValue]::new(
+            'Bearer',
+            $customerToken
+        )
+    $requests = 1..2 | ForEach-Object {
+        $request = [System.Net.Http.HttpRequestMessage]::new(
+            [System.Net.Http.HttpMethod]::Post,
+            "$BaseUrl/api/v1/inspection/reservations"
+        )
+        $request.Headers.Add(
+            'Idempotency-Key',
+            [Guid]::NewGuid().ToString()
+        )
+        $request.Headers.Add(
+            'X-Request-Id',
+            [Guid]::NewGuid().ToString()
+        )
+        $request.Content = [System.Net.Http.StringContent]::new(
+            $capacityBody,
+            [System.Text.Encoding]::UTF8,
+            'application/json'
+        )
+        $request
+    }
+    $tasks = @(
+        $client.SendAsync($requests[0]),
+        $client.SendAsync($requests[1])
+    )
+    [System.Threading.Tasks.Task]::WaitAll(
+        [System.Threading.Tasks.Task[]]$tasks
+    )
+    $responses = $tasks | ForEach-Object { $_.Result }
+    $statuses = $responses `
+        | ForEach-Object { [int]$_.StatusCode } `
+        | Sort-Object
+    if (($statuses -join ',') -ne '201,409') {
+        throw "Concurrent capacity result was $($statuses -join ',')."
+    }
+    $conflict = $responses `
+        | Where-Object { [int]$_.StatusCode -eq 409 } `
+        | Select-Object -First 1
+    $conflictBody = $conflict.Content.ReadAsStringAsync().Result `
+        | ConvertFrom-Json
+    if ($conflictBody.code -ne 'INS_TIME_SLOT_FULL') {
+        throw "Unexpected capacity conflict code: $($conflictBody.code)"
+    }
+} finally {
+    foreach ($request in $requests) {
+        $request.Dispose()
+    }
+    foreach ($response in $responses) {
+        $response.Dispose()
+    }
+    $client.Dispose()
 }
 
 $pngBytes = [Convert]::FromBase64String(
@@ -520,6 +625,10 @@ if ($afterRestart.id -ne $reservation.id `
     ReservationId = $reservation.id
     FileId = $intent.fileId
     ReservationReplaySameId = $true
+    AvailabilitySlotCount = $availability[0].slots.Count
+    AvailabilityCapacity = 9
+    CapacityConcurrentStatuses = $statuses -join ','
+    CapacityConflictCode = $conflictBody.code
     CatalogServiceLoaded = $true
     AttachmentStatus = $completed.status
     PrivateObjectVerified = $true
