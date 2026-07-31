@@ -140,4 +140,11 @@ describe('booking time selection', () => {
     expect(bookingPageSource).not.toContain('<picker mode="date"')
     expect(bookingPageSource).not.toContain('draft.preferredServiceDate')
   })
+
+  it('refreshes Shanghai date bounds on every open and exposes a 44px time trigger', () => {
+    expect(sheetSource).toContain('const today = ref(shanghaiToday())')
+    expect(sheetSource).toContain('async function openSheet(): Promise<void> {\n  today.value = shanghaiToday()')
+    expect(bookingPageSource).toContain('booking-row--time')
+    expect(bookingPageSource).toContain('.booking-row--time{min-height:44px}')
+  })
 })

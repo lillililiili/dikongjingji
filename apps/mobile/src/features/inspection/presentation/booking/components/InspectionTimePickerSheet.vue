@@ -52,7 +52,7 @@ const requestId = ref(0)
 const lastStartDate = ref('')
 const lastDays = ref(4)
 
-const today = computed(shanghaiToday)
+const today = ref(shanghaiToday())
 const lastSelectableDate = computed(() => addCalendarDays(today.value, 30))
 const currentSlots = computed(
   () => availableDates.value.find(
@@ -87,6 +87,7 @@ watch(
 )
 
 async function openSheet(): Promise<void> {
+  today.value = shanghaiToday()
   temporarySelection.value = props.modelValue
     ? { ...props.modelValue }
     : null
