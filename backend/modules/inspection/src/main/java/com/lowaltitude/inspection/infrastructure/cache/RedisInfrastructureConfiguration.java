@@ -2,7 +2,6 @@ package com.lowaltitude.inspection.infrastructure.cache;
 
 import com.lowaltitude.inspection.domain.idempotency.IdempotencyRecordPort;
 import com.lowaltitude.inspection.application.city.CitySearchSelectionRateLimiter;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -34,7 +33,6 @@ public class RedisInfrastructureConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(StringRedisTemplate.class)
     @ConditionalOnMissingBean(CitySearchSelectionRateLimiter.class)
     CitySearchSelectionRateLimiter citySearchSelectionRateLimiter(
             StringRedisTemplate redisTemplate,

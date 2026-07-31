@@ -11,12 +11,10 @@ public final class CityDirectoryReadService {
 
     private static final Pattern CITY_CODE = Pattern.compile("^[0-9]{6}$");
     private static final Comparator<ProvinceView> PROVINCE_ORDER = Comparator
-            .comparing(ProvinceView::initials)
-            .thenComparing(ProvinceView::pinyin)
+            .comparing(ProvinceView::pinyin)
             .thenComparing(ProvinceView::code);
     private static final Comparator<StoredCity> CITY_ORDER = Comparator
-            .comparing(StoredCity::cityInitials)
-            .thenComparing(StoredCity::cityPinyin)
+            .comparing(StoredCity::cityPinyin)
             .thenComparing(StoredCity::cityCode);
 
     private final CityDirectoryStore store;

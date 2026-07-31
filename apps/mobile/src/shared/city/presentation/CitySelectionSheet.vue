@@ -193,7 +193,7 @@ const currentPlatformCity = computed(() => props.directory?.provinces
               </button>
             </view>
             <text v-else class="city-sheet__empty">
-              未找到匹配城市
+              未找到相关城市
             </text>
           </section>
 
@@ -344,7 +344,7 @@ const currentPlatformCity = computed(() => props.directory?.provinces
   display: flex;
   width: 100%;
   max-width: 600px;
-  height: min(72vh, 760px);
+  height: min(68vh, 760px);
   max-height: min(82vh, 760px);
   margin: 0 auto;
   padding-bottom: env(safe-area-inset-bottom);

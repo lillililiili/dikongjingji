@@ -43,6 +43,34 @@ class CityDirectoryReadServiceTest {
     }
 
     @Test
+    void sortsProvincesAndCitiesByFullPinyinWithinTheSameInitial() {
+        CityDirectoryReadService service = new CityDirectoryReadService(new FakeStore(List.of(
+                storedCity("510100", "chengdushi", "cds",
+                        "510000", "sichuansheng", "scs"),
+                storedCity("370500", "dongyingshi", "dys",
+                        "370000", "shandongsheng", "sds"),
+                storedCity("371400", "dezhoushi", "dzs",
+                        "370000", "shandongsheng", "sds"),
+                storedCity("310000", "shanghaishi", "shs",
+                        "310000", "shanghaishi", "shs"),
+                storedCity("140100", "taiyuanshi", "tys",
+                        "140000", "shanxisheng", "sxs"))));
+
+        CityDirectoryReadService.DirectoryView view = service.directory();
+
+        assertThat(view.provinces())
+                .extracting(CityDirectoryReadService.ProvinceView::pinyin)
+                .containsExactly(
+                        "shandongsheng",
+                        "shanghaishi",
+                        "shanxisheng",
+                        "sichuansheng");
+        assertThat(view.provinces().getFirst().cities())
+                .extracting(CityDirectoryReadService.CityView::pinyin)
+                .containsExactly("dezhoushi", "dongyingshi");
+    }
+
+    @Test
     void incrementsOnlyValidSixDigitActiveCity() {
         FakeStore store = new FakeStore(rows());
         CityDirectoryReadService service = new CityDirectoryReadService(store);
@@ -83,6 +111,26 @@ class CityDirectoryReadServiceTest {
                 isAnhui ? "anhuisheng" : "shandongsheng",
                 isAnhui ? "ahs" : "sds",
                 searchCount);
+    }
+
+    private static CityDirectoryReadService.StoredCity storedCity(
+            String cityCode,
+            String cityPinyin,
+            String cityInitials,
+            String provinceCode,
+            String provincePinyin,
+            String provinceInitials
+    ) {
+        return new CityDirectoryReadService.StoredCity(
+                cityCode,
+                cityPinyin,
+                cityPinyin,
+                cityInitials,
+                provinceCode,
+                provincePinyin,
+                provincePinyin,
+                provinceInitials,
+                0);
     }
 
     private static final class FakeStore implements CityDirectoryReadService.CityDirectoryStore {

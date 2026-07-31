@@ -620,6 +620,14 @@ describe('city selection sheet runtime behavior', () => {
     expect(textOf(emptyMount.root)).toContain('暂无可选城市')
   })
 
+  it('uses the approved copy when a city search has no results', async () => {
+    const { root } = mountSheet()
+
+    await typeKeyword(root, 'zzzznotfound')
+
+    expect(textOf(root)).toContain('未找到相关城市')
+  })
+
   it('blocks relocation and current selection while unavailable', async () => {
     const { events, root } = mountSheet({
       currentCity: {
@@ -645,6 +653,7 @@ describe('city selection sheet runtime behavior', () => {
 describe('city selection sheet static visual contract', () => {
   it('keeps the safe area, grid, and button sizing constraints', () => {
     expect(source).toContain('env(safe-area-inset-bottom)')
+    expect(source).toContain('height: min(68vh, 760px)')
     expect(source).toContain(
       'grid-template-columns: repeat(3, minmax(0, 1fr))',
     )
