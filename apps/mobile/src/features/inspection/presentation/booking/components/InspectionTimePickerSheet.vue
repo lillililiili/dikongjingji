@@ -61,7 +61,7 @@ const currentSlots = computed(
 )
 const summaryText = computed(
   () => temporarySelection.value
-    ? `已选择：${formatMonthDay(temporarySelection.value.serviceDate)} ${temporarySelection.value.startTime}–${temporarySelection.value.endTime}`
+    ? `已选择：${formatMonthDay(temporarySelection.value.serviceDate)} ${formatClockTime(temporarySelection.value.startTime)}–${formatClockTime(temporarySelection.value.endTime)}`
     : '请选择日期和时段',
 )
 
@@ -259,7 +259,7 @@ async function confirmSelection(): Promise<void> {
   emit(
     'confirm',
     refreshedSelection,
-    `${formatMonthDay(refreshedSelection.serviceDate)} ${refreshedSelection.startTime}–${refreshedSelection.endTime}`,
+    `${formatMonthDay(refreshedSelection.serviceDate)} ${formatClockTime(refreshedSelection.startTime)}–${formatClockTime(refreshedSelection.endTime)}`,
   )
 }
 
@@ -297,6 +297,10 @@ function formatMonthDay(value: string): string {
   return `${Number(month)}月${Number(day)}日`
 }
 
+function formatClockTime(value: string): string {
+  return /^\d{2}:\d{2}:\d{2}$/.test(value) ? value.slice(0, 5) : value
+}
+
 function formatDateHeading(value: string): string {
   if (value === today.value) {
     return '今天'
@@ -317,6 +321,7 @@ function formatDateHeading(value: string): string {
       @touchmove.stop.prevent
     />
     <view class="inspection-time-sheet__panel" @tap.stop>
+      <view class="inspection-time-sheet__handle" />
       <view class="inspection-time-sheet__header">
         <text class="inspection-time-sheet__title">选择服务时间</text>
         <button
@@ -394,7 +399,9 @@ function formatDateHeading(value: string): string {
             @tap="selectSlot(slot)"
           >
             <text v-if="slot.availability === 'FULL'">已约满</text>
-            <text v-else>{{ slot.startTime }}–{{ slot.endTime }}</text>
+            <text v-else>
+              {{ formatClockTime(slot.startTime) }}–{{ formatClockTime(slot.endTime) }}
+            </text>
           </button>
         </view>
         <text class="inspection-time-sheet__duration">预计服务时长3小时</text>
@@ -451,24 +458,36 @@ function formatDateHeading(value: string): string {
   margin: 0 auto;
   overflow: hidden;
   flex-direction: column;
-  border-radius: 20px 20px 0 0;
+  border-radius: 18px 18px 0 0;
   color: #202124;
   background: #fff;
   box-sizing: border-box;
+}
+
+.inspection-time-sheet__handle {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 1;
+  width: min(8.45vw, 36px);
+  height: 4px;
+  border-radius: 2px;
+  background: #d1d1d1;
+  transform: translateX(-50%);
 }
 
 .inspection-time-sheet__header {
   position: relative;
   display: flex;
   min-height: 62px;
-  padding: 10px 20px 0;
+  padding: 18px 20px 0;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
 }
 
 .inspection-time-sheet__title {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -496,13 +515,13 @@ function formatDateHeading(value: string): string {
 
 .inspection-time-sheet__body {
   max-height: 460px;
-  padding: 14px 20px 18px;
+  padding: 2px 20px 10px;
   box-sizing: border-box;
 }
 
 .inspection-time-sheet__section-title {
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   font-size: 17px;
   font-weight: 600;
 }
@@ -519,26 +538,26 @@ function formatDateHeading(value: string): string {
 .inspection-time-sheet__dates {
   display: inline-flex;
   min-width: 100%;
-  gap: 8px;
+  gap: 6px;
 }
 
 .inspection-time-sheet__date {
   display: inline-flex;
-  width: 68px;
-  min-width: 68px;
-  min-height: 58px;
+  width: min(16.8vw, 72px);
+  min-width: min(16.8vw, 72px);
+  min-height: 52px;
   margin: 0;
-  padding: 7px 4px;
+  padding: 5px 4px;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   border: 1px solid #dedede;
   border-radius: 9px;
   color: #202124;
   background: #fff;
   box-sizing: border-box;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
   line-height: 1.2;
 }
@@ -550,7 +569,7 @@ function formatDateHeading(value: string): string {
 }
 
 .inspection-time-sheet__date-heading {
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .inspection-time-sheet__date--selected .inspection-time-sheet__date-heading {
@@ -558,19 +577,20 @@ function formatDateHeading(value: string): string {
 }
 
 .inspection-time-sheet__date--more {
-  width: 76px;
-  min-width: 76px;
+  width: 68px;
+  min-width: 68px;
 }
 
 .inspection-time-sheet__slots {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  column-gap: 14px;
+  row-gap: 8px;
 }
 
 .inspection-time-sheet__slot {
   min-width: 0;
-  min-height: 50px;
+  min-height: 44px;
   margin: 0;
   padding: 8px;
   border: 1px solid #dedede;
@@ -621,7 +641,7 @@ function formatDateHeading(value: string): string {
 
 .inspection-time-sheet__duration {
   display: block;
-  margin-top: 16px;
+  margin-top: 8px;
   color: #777d84;
   font-size: 14px;
 }
@@ -634,7 +654,7 @@ function formatDateHeading(value: string): string {
 }
 
 .inspection-time-sheet__footer {
-  padding: 14px 20px calc(18px + env(safe-area-inset-bottom));
+  padding: 14px 20px calc(25px + env(safe-area-inset-bottom));
   border-top: 1px solid #eeeeee;
   background: #fff;
 }
@@ -642,7 +662,7 @@ function formatDateHeading(value: string): string {
 .inspection-time-sheet__summary {
   display: block;
   min-height: 24px;
-  margin-bottom: 12px;
+  margin-bottom: 5px;
   overflow: hidden;
   font-size: 16px;
   text-overflow: ellipsis;
@@ -674,15 +694,4 @@ function formatDateHeading(value: string): string {
   z-index: 1020;
 }
 
-@media (max-width: 389px) {
-  .inspection-time-sheet__body {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
-
-  .inspection-time-sheet__footer {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
-}
 </style>
