@@ -47,22 +47,22 @@
       "slots": [
         {
           "slotCode": "MORNING",
-          "startTime": "09:00",
-          "endTime": "12:00",
+          "startTime": "09:00:00",
+          "endTime": "12:00:00",
           "remainingCount": 9,
           "availability": "AVAILABLE"
         },
         {
           "slotCode": "AFTERNOON",
-          "startTime": "14:00",
-          "endTime": "17:00",
+          "startTime": "14:00:00",
+          "endTime": "17:00:00",
           "remainingCount": 0,
           "availability": "FULL"
         },
         {
           "slotCode": "EVENING",
-          "startTime": "18:00",
-          "endTime": "21:00",
+          "startTime": "18:00:00",
+          "endTime": "21:00:00",
           "remainingCount": 4,
           "availability": "AVAILABLE"
         }

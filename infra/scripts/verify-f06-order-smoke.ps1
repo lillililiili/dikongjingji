@@ -1,6 +1,7 @@
 param(
     [string]$DockerPath = 'D:\DevTools\DockerDesktop\resources\bin\docker.exe',
-    [string]$BaseUrl = 'http://127.0.0.1:8080'
+    [string]$BaseUrl = 'http://127.0.0.1:8080',
+    [switch]$DeferCleanup
 )
 
 $ErrorActionPreference = 'Stop'
@@ -95,12 +96,17 @@ function Get-HttpFailureStatus {
     }
 }
 
+$reservationIdForCleanup = $null
+$completed = $false
+try {
 Wait-BackendHealth
 $f05Json = & "$PSScriptRoot\verify-f05-plan-smoke.ps1" `
     -DockerPath $DockerPath `
-    -BaseUrl $BaseUrl |
+    -BaseUrl $BaseUrl `
+    -DeferCleanup |
     Select-Object -Last 1
 $f05 = $f05Json | ConvertFrom-Json
+$reservationIdForCleanup = [Guid]::Parse($f05.ReservationId)
 Wait-BackendHealth
 
 $customerToken = Get-AccessToken -LoginName 'smoke-customer'
@@ -108,6 +114,13 @@ $otherCustomerToken = Get-AccessToken -LoginName 'smoke-other'
 $providerToken = Get-AccessToken -LoginName 'smoke-provider'
 $platformToken = Get-AccessToken -LoginName 'smoke-platform'
 $orderId = $f05.ServiceOrderId
+$reservationDuringOrderFlow = Invoke-RestMethod `
+    -Method Get `
+    -Uri "$BaseUrl/api/v1/inspection/reservations/$($f05.ReservationId)" `
+    -Headers @{ Authorization = "Bearer $customerToken" }
+if ($reservationDuringOrderFlow.status -ne 'PLAN_PUBLISHED') {
+    throw 'F05 reservation was cleaned before the order smoke took ownership.'
+}
 
 $arrangeKey = [Guid]::NewGuid().ToString()
 $arrangeObject = @{
@@ -318,8 +331,10 @@ if ($afterRestart.version -ne 4 `
     throw 'Order arrangement and progress did not survive backend restart.'
 }
 
-[pscustomobject]@{
+$result = [pscustomobject]@{
+    ReservationId = $f05.ReservationId
     ServiceOrderId = $orderId
+    ReservationActiveDuringOrderFlow = $true
     ArrangementReplaySameId = $true
     ProgressReplaySameId = $true
     IllegalJumpStatus = $invalidJumpStatus
@@ -328,3 +343,14 @@ if ($afterRestart.version -ne 4 `
     DatabaseEvidence = $databaseCheck
     RestartRecovery = $true
 } | ConvertTo-Json -Compress
+$completed = $true
+$result
+} finally {
+    if ($null -ne $reservationIdForCleanup `
+            -and (-not $DeferCleanup -or -not $completed)) {
+        & "$PSScriptRoot\verify-f05-plan-smoke.ps1" `
+            -DockerPath $DockerPath `
+            -BaseUrl $BaseUrl `
+            -CleanupReservationId $reservationIdForCleanup
+    }
+}

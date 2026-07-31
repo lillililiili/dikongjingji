@@ -157,12 +157,16 @@ function New-DeliveryFile {
     }
 }
 
+$reservationIdForCleanup = $null
+try {
 Wait-BackendHealth
 $f06Json = & "$PSScriptRoot\verify-f06-order-smoke.ps1" `
     -DockerPath $DockerPath `
-    -BaseUrl $BaseUrl |
+    -BaseUrl $BaseUrl `
+    -DeferCleanup |
     Select-Object -Last 1
 $f06 = $f06Json | ConvertFrom-Json
+$reservationIdForCleanup = [Guid]::Parse($f06.ReservationId)
 Wait-BackendHealth
 
 $customerToken = Get-AccessToken -LoginName 'smoke-customer'
@@ -170,6 +174,13 @@ $otherCustomerToken = Get-AccessToken -LoginName 'smoke-other'
 $providerToken = Get-AccessToken -LoginName 'smoke-provider'
 $platformToken = Get-AccessToken -LoginName 'smoke-platform'
 $orderId = $f06.ServiceOrderId
+$reservationDuringDeliveryFlow = Invoke-RestMethod `
+    -Method Get `
+    -Uri "$BaseUrl/api/v1/inspection/reservations/$($f06.ReservationId)" `
+    -Headers @{ Authorization = "Bearer $customerToken" }
+if ($reservationDuringDeliveryFlow.status -ne 'PLAN_PUBLISHED') {
+    throw 'F06 reservation was cleaned before the delivery smoke took ownership.'
+}
 
 $systemTemp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $tempRoot = Join-Path $systemTemp ("inspection-f07-" + [Guid]::NewGuid().ToString('N'))
@@ -496,6 +507,7 @@ SELECT
     [pscustomobject]@{
         ServiceOrderId = $orderId
         DeliveryId = $published.id
+        ReservationActiveDuringDeliveryFlow = $true
         PublishReplaySameId = $true
         PublishConflictStatus = $publishConflictStatus
         CrossCustomerReadStatus = $otherCustomerReadStatus
@@ -513,5 +525,13 @@ SELECT
                 'inspection-f07-',
                 [StringComparison]::Ordinal)) {
         Remove-Item -LiteralPath $resolvedTemp -Recurse -Force
+    }
+}
+} finally {
+    if ($null -ne $reservationIdForCleanup) {
+        & "$PSScriptRoot\verify-f05-plan-smoke.ps1" `
+            -DockerPath $DockerPath `
+            -BaseUrl $BaseUrl `
+            -CleanupReservationId $reservationIdForCleanup
     }
 }
