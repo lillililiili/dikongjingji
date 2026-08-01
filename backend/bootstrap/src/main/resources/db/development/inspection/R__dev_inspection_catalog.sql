@@ -131,6 +131,28 @@ SET provider_id = EXCLUDED.provider_id,
     primary_action = EXCLUDED.primary_action,
     updated_at = now();
 
+INSERT INTO inspection_service_city (
+    service_id,
+    city_code
+)
+SELECT service_id, city_code
+FROM (
+    VALUES
+        ('33333333-3333-3333-3333-333333333333'::uuid, '370500'),
+        ('33333333-3333-3333-3333-333333333333'::uuid, '370100'),
+        ('44444444-4444-4444-4444-444444444444'::uuid, '370500'),
+        ('44444444-4444-4444-4444-444444444444'::uuid, '370100'),
+        ('55555555-5555-5555-5555-555555555555'::uuid, '370500'),
+        ('55555555-5555-5555-5555-555555555555'::uuid, '370100'),
+        ('66666666-6666-6666-6666-666666666666'::uuid, '370500'),
+        ('66666666-6666-6666-6666-666666666666'::uuid, '370100'),
+        ('77777777-7777-7777-7777-777777777777'::uuid, '370500'),
+        ('77777777-7777-7777-7777-777777777777'::uuid, '370100')
+) coverage(service_id, city_code)
+ON CONFLICT (service_id, city_code) DO UPDATE
+SET status = 'ACTIVE',
+    updated_at = now();
+
 INSERT INTO inspection_service_booking_item (
     service_id,
     item_code,

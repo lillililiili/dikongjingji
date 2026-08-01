@@ -14,23 +14,25 @@ const TAB_ICON_TYPES: Partial<Record<RootTabCode, string>> = {
   HOME: 'home',
   SERVICE: 'smallcircle-filled',
   DISCOVER: 'navigate',
+  MALL: 'shop',
   MINE: 'person',
 }
 
-const MALL_ICON_ASSET = '/static/icons/root-tabs/shopping-bag.png'
-const MALL_ICON_ACTIVE_ASSET =
-  '/static/icons/root-tabs/shopping-bag-active.png'
+const ACTIVE_TAB_ICON_TYPES: Partial<Record<RootTabCode, string>> = {
+  HOME: 'home-filled',
+  DISCOVER: 'navigate-filled',
+  MALL: 'shop-filled',
+  MINE: 'person-filled',
+}
 
 function iconColor(code: RootTabCode, active: RootTabCode): string {
-  return code === active ? '#ff5a00' : '#5d626a'
+  return code === active ? '#d04700' : '#4f5863'
 }
 
-function tabIconType(code: RootTabCode): string {
-  return TAB_ICON_TYPES[code] ?? ''
-}
-
-function mallIconAsset(active: RootTabCode): string {
-  return active === 'MALL' ? MALL_ICON_ACTIVE_ASSET : MALL_ICON_ASSET
+function tabIconType(code: RootTabCode, active: RootTabCode): string {
+  return code === active
+    ? ACTIVE_TAB_ICON_TYPES[code] ?? TAB_ICON_TYPES[code] ?? ''
+    : TAB_ICON_TYPES[code] ?? ''
 }
 
 function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
@@ -65,17 +67,10 @@ function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
           :color="iconColor(tab.code, active)"
         />
       </view>
-      <image
-        v-else-if="tab.code === 'MALL'"
-        class="root-tab-bar__asset-icon"
-        :src="mallIconAsset(active)"
-        mode="aspectFit"
-        aria-hidden="true"
-      />
       <UniIcons
         v-else
         class="root-tab-bar__icon"
-        :type="tabIconType(tab.code)"
+        :type="tabIconType(tab.code, active)"
         size="30"
         :color="iconColor(tab.code, active)"
         aria-hidden="true"
@@ -104,6 +99,7 @@ function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
 
 .root-tab-bar__item {
   display: flex;
+  width: 100%;
   min-width: 0;
   min-height: 48px;
   padding: 0;
@@ -111,8 +107,10 @@ function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
   align-items: center;
   justify-content: center;
   border: 0;
-  color: #5d626a;
+  border-radius: 14px;
+  color: #4f5863;
   background: transparent;
+  box-sizing: border-box;
   line-height: 1;
 }
 
@@ -121,18 +119,13 @@ function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
 }
 
 .root-tab-bar__item--active {
-  color: #ff5a00;
+  color: #d04700;
+  background: #fff2e8;
 }
 
 .root-tab-bar__icon {
   display: block;
   line-height: 1;
-}
-
-.root-tab-bar__asset-icon {
-  display: block;
-  width: 30px;
-  height: 30px;
 }
 
 .root-tab-bar__service-icon {
@@ -155,6 +148,11 @@ function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
 
 .root-tab-bar__label {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 14px;
+}
+
+.root-tab-bar__item--active .root-tab-bar__label {
+  font-weight: 800;
 }
 </style>

@@ -5,6 +5,7 @@
   "scripts": {
     "dev:h5": "uni",
     "build:h5": "uni build",
+    "verify:public-production-preview": "node scripts/verify-public-production-preview.mjs",
     "type-check": "vue-tsc --noEmit",
     "test": "vitest run"
   },

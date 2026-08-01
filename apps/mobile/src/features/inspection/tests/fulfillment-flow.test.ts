@@ -48,6 +48,11 @@ describe('F06 fulfillment API and route', () => {
 })
 
 describe('F06 fulfillment page contract', () => {
+  it('falls back to the shared order center instead of Home without valid history', () => {
+    expect(fulfillmentPageSource).toContain("buildInspectionOrderCenterUrl('ALL')")
+    expect(fulfillmentPageSource).not.toContain("uni.reLaunch({ url: '/pages/home/index' })")
+  })
+
   it('renders real order progress and allows retry without payment actions', () => {
     expect(fulfillmentPageSource).toContain('inspectionPlanApi.getServiceOrder(serviceOrderId.value)')
     expect(fulfillmentPageSource).toContain('inspectionPlanApi.getPlan(current.planId)')

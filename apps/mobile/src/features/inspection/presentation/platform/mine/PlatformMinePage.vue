@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
+import AppHeader from '@/app-shell/components/AppHeader.vue'
+import type { PlatformWeatherPresentation } from '@/shared/weather/platform-weather'
 import PlatformUnavailableDialog from '../shared/PlatformUnavailableDialog.vue'
 import { resolvePlatformAvailabilityAction } from '../shared/platform-availability'
 import {
@@ -14,10 +16,18 @@ import {
 
 const props = defineProps<{
   state: PlatformMineViewState
+  cityName: string
+  weather: PlatformWeatherPresentation
+  searchPlaceholder: string
+  unreadCount?: number
+  showMessage?: boolean
   activeTab?: 'HOME' | 'SERVICE' | 'DISCOVER' | 'MALL' | 'MINE'
 }>()
 
 const emit = defineEmits<{
+  location: []
+  search: []
+  message: []
   retry: []
   customerService: []
   settings: []
@@ -80,6 +90,18 @@ const tabs = [
 
     <template v-else-if="content">
       <view class="platform-mine__scroll">
+        <view class="platform-mine__header">
+          <AppHeader
+            :city-name="cityName"
+            :weather="weather"
+            :search-placeholder="searchPlaceholder"
+            :unread-count="unreadCount"
+            :show-message="showMessage"
+            @location="emit('location')"
+            @search="emit('search')"
+            @message="emit('message')"
+          />
+        </view>
         <view class="platform-mine__profile">
           <image
             class="platform-mine__profile-background"
@@ -243,11 +265,12 @@ const tabs = [
 .platform-mine{min-height:100vh;color:#17191d;background:#f7f8fa;font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
 button{margin:0;padding:0;border:0;background:transparent;font-family:inherit;line-height:1.2}
 button::after{border:0}
-.platform-mine__scroll{padding-bottom:calc(108rpx + env(safe-area-inset-bottom))}
-.platform-mine__profile{position:relative;min-height:260rpx;overflow:hidden;padding:calc(env(safe-area-inset-top) + 76rpx) 34rpx 24rpx;background:linear-gradient(145deg,#dfeeff,#f7fbff)}
+.platform-mine__scroll{padding-top:calc(var(--status-bar-height) + 10px);padding-bottom:var(--app-root-tabbar-content-offset)}
+.platform-mine__header{width:100%;padding:0 var(--app-page-horizontal-gutter);box-sizing:border-box}
+.platform-mine__profile{position:relative;min-height:260rpx;overflow:hidden;padding:32rpx 34rpx 24rpx;background:linear-gradient(145deg,#dfeeff,#f7fbff)}
 .platform-mine__profile-background{position:absolute;inset:0;width:100%;height:100%;opacity:.38;object-position:right center}
 .platform-mine__profile::after{content:"";position:absolute;right:-70rpx;bottom:-50rpx;width:390rpx;height:210rpx;border-radius:50%;background:radial-gradient(circle,rgba(99,173,255,.26),rgba(99,173,255,0) 68%)}
-.platform-mine__profile-actions{position:absolute;top:calc(env(safe-area-inset-top) + 20rpx);right:28rpx;z-index:2;display:flex;gap:22rpx}
+.platform-mine__profile-actions{position:absolute;top:20rpx;right:28rpx;z-index:2;display:flex;gap:22rpx}
 .platform-mine__headset,.platform-mine__settings{display:flex;width:54rpx;height:54rpx;align-items:center;justify-content:center}
 .platform-mine__identity{position:relative;z-index:1;display:flex;align-items:center;gap:22rpx}
 .platform-mine__avatar{width:122rpx;height:122rpx;flex:0 0 auto;overflow:hidden;border:7rpx solid rgba(255,255,255,.94);border-radius:50%;background:#e9edf2;box-shadow:0 10rpx 26rpx rgba(69,106,149,.14)}
@@ -256,8 +279,8 @@ button::after{border:0}
 .platform-mine__identity-copy{display:flex;min-width:0;flex-direction:column;align-items:flex-start}
 .platform-mine__name-line{display:flex;max-width:100%;align-items:center;gap:14rpx}
 .platform-mine__name{overflow:hidden;font-size:31rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
-.platform-mine__level{padding:2rpx 9rpx;border:1rpx solid #8ab7e8;border-radius:13rpx;color:#347ec6;font-size:15rpx}
-.platform-mine__certification{display:flex;align-items:center;gap:4rpx;margin-top:8rpx;padding:4rpx 10rpx;border-radius:10rpx;color:#9b5b0a;background:#fff0dc;font-size:16rpx}
+.platform-mine__level{padding:2rpx 9rpx;border:1rpx solid #8ab7e8;border-radius:13rpx;color:#347ec6;font-size:22rpx}
+.platform-mine__certification{display:flex;align-items:center;gap:4rpx;margin-top:8rpx;padding:4rpx 10rpx;border-radius:10rpx;color:#855009;background:#fff0dc;font-size:22rpx}
 .platform-mine__location{margin-top:7rpx;color:#67717d;font-size:17rpx}
 .platform-mine__status-card{position:relative;z-index:3;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4rpx;margin:-18rpx 22rpx 12rpx;padding:31rpx 8rpx 29rpx;border-radius:24rpx;background:#fff;box-shadow:0 7rpx 22rpx rgba(43,66,94,.07)}
 .platform-mine__status-item{display:flex;min-width:0;flex-direction:column;align-items:center}
@@ -277,13 +300,13 @@ button::after{border:0}
 .platform-mine__order-copy{display:flex;min-width:0;flex-direction:column}
 .platform-mine__order-title-line{display:flex;min-width:0;align-items:center;gap:9rpx}
 .platform-mine__order-title{overflow:hidden;font-size:21rpx;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
-.platform-mine__order-status{flex:0 0 auto;padding:3rpx 7rpx;border-radius:10rpx;color:#228b53;background:#e8f8ee;font-size:14rpx}
+.platform-mine__order-status{flex:0 0 auto;padding:3rpx 7rpx;border-radius:10rpx;color:#19733f;background:#e8f8ee;font-size:20rpx}
 .platform-mine__order-meta{display:flex;align-items:center;gap:3rpx;margin-top:4rpx;overflow:hidden;color:#76808c;font-size:15rpx;text-overflow:ellipsis;white-space:nowrap}
 .platform-mine__order-number{font-size:13rpx}
 .platform-mine__amount{display:flex;min-width:0;flex-direction:column;align-items:flex-end}
 .platform-mine__amount-label{margin-top:2rpx;color:#7a838e;font-size:14rpx}
 .platform-mine__amount-text{max-width:104rpx;overflow-wrap:break-word;color:#ff6508;font-size:25rpx;font-weight:800;text-align:right}
-.platform-mine__order-action{min-width:94rpx;height:33rpx;margin-top:7rpx;border:1rpx solid #8a929c;border-radius:17rpx;color:#353b42;font-size:14rpx;line-height:31rpx;text-align:center}
+.platform-mine__order-action{min-width:94rpx;height:38rpx;margin-top:7rpx;border:1rpx solid #737d88;border-radius:19rpx;color:#353b42;font-size:20rpx;line-height:36rpx;text-align:center}
 .platform-mine__orders-empty{padding:46rpx 0;color:#8a929c;font-size:22rpx;text-align:center}
 .platform-mine__feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4rpx;margin:0 22rpx;padding:12rpx 14rpx;border-radius:24rpx;background:#fff}
 .platform-mine__feature{position:relative;display:flex;min-width:0;flex-direction:column;align-items:center}
@@ -293,7 +316,7 @@ button::after{border:0}
 .platform-mine__feature-value{margin-top:3rpx;color:#7d8590;font-size:17rpx}
 .platform-mine__tabbar{position:fixed;right:0;bottom:0;left:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);padding:7rpx 14rpx calc(7rpx + env(safe-area-inset-bottom));border-top:1rpx solid #e7e9ed;background:rgba(255,255,255,.97)}
 .platform-mine__tab{display:flex;min-height:82rpx;flex-direction:column;align-items:center;justify-content:center;gap:4rpx;color:#4c535c;font-size:20rpx;font-weight:500}
-.platform-mine__tab--active{color:#ff6508;font-weight:700}
+.platform-mine__tab--active{border-radius:10px;color:#d04700;background:#fff2e8;font-weight:800}
 .platform-mine__service-tab-icon{display:grid;width:50rpx;height:50rpx;grid-template-columns:repeat(2,20rpx);grid-template-rows:repeat(2,20rpx);place-content:center;gap:3rpx;line-height:1}
 .platform-mine__state{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:40rpx}
 .platform-mine__state-title{margin-top:24rpx;color:#4f5966;font-size:28rpx;font-weight:700;text-align:center}

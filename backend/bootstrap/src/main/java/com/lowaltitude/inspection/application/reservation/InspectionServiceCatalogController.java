@@ -1,6 +1,9 @@
 package com.lowaltitude.inspection.application.reservation;
 
+import java.util.UUID;
+
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,5 +25,13 @@ public final class InspectionServiceCatalogController {
             @RequestParam(defaultValue = "20") int size
     ) {
         return service.search(cityCode.trim(), page, size);
+    }
+
+    @GetMapping("/api/v1/inspection/services/{serviceId}")
+    public InspectionServiceDetailView detail(
+            @PathVariable UUID serviceId,
+            @RequestParam String cityCode
+    ) {
+        return service.findDetail(serviceId, cityCode.trim());
     }
 }

@@ -41,6 +41,24 @@ class PlatformWeatherControllerTest {
     }
 
     @Test
+    void resolvesLocatedCityNameToAdcodeAndLiveWeather() throws Exception {
+        MockMvc mvc = controller(cityQuery -> new CurrentWeather(
+                "370500",
+                "\u4e1c\u8425\u5e02",
+                WeatherConditionCode.CLEAR,
+                "\u6674",
+                new BigDecimal("28"),
+                NOW));
+
+        mvc.perform(get("/api/v1/platform/weather/current")
+                        .queryParam("cityName", "\u4e1c\u8425\u5e02"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cityCode").value("370500"))
+                .andExpect(jsonPath("$.cityName").value("\u4e1c\u8425\u5e02"))
+                .andExpect(jsonPath("$.conditionText").value("\u6674"));
+    }
+
+    @Test
     void returnsAStableUnavailableErrorWhenTheProviderFails() throws Exception {
         MockMvc mvc = controller(cityCode -> {
             throw new PlatformWeatherUnavailableException("provider failed");

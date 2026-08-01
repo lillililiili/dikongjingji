@@ -27,7 +27,7 @@ defineEmits<{
         :disabled="disabled"
         @click="$emit('reserve')"
       >
-        预约服务
+        立即预约
       </button>
     </view>
   </view>
@@ -51,10 +51,10 @@ defineEmits<{
   display: grid;
   width: 100%;
   max-width: 600px;
-  min-height: 58px;
+  min-height: 66px;
   margin: 0 auto;
-  padding: 7px 10px;
-  grid-template-columns: 48px minmax(0, 1fr);
+  padding: 8px 12px;
+  grid-template-columns: 56px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   box-sizing: border-box;
@@ -79,7 +79,7 @@ defineEmits<{
 
 .service-detail-bottom-bar__primary {
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
   margin: 0;
   padding: 0 20px;
   border: 0;
@@ -88,9 +88,9 @@ defineEmits<{
   background: linear-gradient(90deg, #ff8a00 0%, #ff4d00 100%);
   box-sizing: border-box;
   box-shadow: 0 5px 13px rgba(255, 91, 0, 0.24);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 44px;
+  line-height: 48px;
 }
 
 .service-detail-bottom-bar__secondary::after,

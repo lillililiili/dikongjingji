@@ -31,20 +31,13 @@ export function createUniPlatformWeatherHttpClient(
   return {
     async request<T>(input: { url: string; method: 'GET' }): Promise<T> {
       const token = accessToken.getAccessToken()
-      if (!token) {
-        throw new PlatformWeatherRequestError(
-          '请先登录',
-          401,
-          'COMMON_UNAUTHORIZED',
-        )
-      }
       const url = await resolveInspectionApiRequestUrl(input.url)
 
       return new Promise((resolve, reject) => {
         uni.request({
           url,
           method: input.method,
-          header: { Authorization: `Bearer ${token}` },
+          header: token ? { Authorization: `Bearer ${token}` } : {},
           success: (response) => {
             if (response.statusCode >= 200 && response.statusCode < 300) {
               resolve(response.data as T)

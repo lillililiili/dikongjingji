@@ -101,9 +101,15 @@ describe('F05 plan API and navigation', () => {
 })
 
 describe('F05 plan page contract', () => {
+  it('falls back to the shared order center instead of Home without valid history', () => {
+    expect(planPageSource).toContain("buildInspectionOrderCenterUrl('ALL')")
+    expect(planPageSource).not.toContain("uni.reLaunch({ url: '/pages/home/index' })")
+  })
+
   it('matches the approved pending-confirmation structure and real DTO actions', () => {
     expect(planPageSource).toContain('<BookingProgress :active="2"')
-    expect(planPageSource).toContain('服务方案待确认')
+    expect(planPageSource).toContain('巡检方案已生成')
+    expect(planPageSource).toContain('plan-confirmation__route-preview')
     expect(planPageSource).toContain('报价明细')
     expect(planPageSource).toContain('最终报价')
     expect(planPageSource).toContain('申请调整')

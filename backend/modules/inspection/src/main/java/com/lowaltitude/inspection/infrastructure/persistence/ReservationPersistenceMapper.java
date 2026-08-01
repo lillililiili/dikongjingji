@@ -37,6 +37,91 @@ public interface ReservationPersistenceMapper {
     Optional<ReservationFlowStateRow> findReservationFlowState(
             @Param("reservationId") UUID reservationId);
 
+    @Select("""
+            SELECT r.id reservation_id,
+                   r.reservation_no,
+                   r.service_id,
+                   r.service_title_snapshot service_title,
+                   r.service_cover_url_snapshot service_cover_url,
+                   r.city_code,
+                   r.address_ciphertext location_ciphertext,
+                   r.preferred_service_date,
+                   r.submitted_at,
+                   lifecycle.stage,
+                   r.status reservation_status,
+                   p.id current_plan_id,
+                   o.id service_order_id,
+                   o.status service_order_status,
+                   p.total_amount_minor quote_amount_minor
+            FROM inspection_reservation r
+            LEFT JOIN LATERAL (
+                SELECT current_plan.id,
+                       current_plan.status,
+                       current_plan.total_amount_minor,
+                       current_plan.updated_at
+                FROM inspection_service_plan current_plan
+                WHERE current_plan.reservation_id = r.id
+                  AND current_plan.status IN ('PUBLISHED', 'CONFIRMED')
+                ORDER BY current_plan.plan_version DESC
+                LIMIT 1
+            ) p ON true
+            LEFT JOIN inspection_service_order o ON o.reservation_id = r.id
+            CROSS JOIN LATERAL (
+                SELECT CASE
+                           WHEN r.status = 'CANCELLED' THEN 'CANCELLED'
+                           WHEN o.status = 'ACCEPTED' THEN 'COMPLETED'
+                           WHEN o.status = 'DELIVERED' THEN 'AWAITING_ACCEPTANCE'
+                           WHEN o.status IN ('ARRANGING', 'IN_PROGRESS') THEN 'IN_PROGRESS'
+                           WHEN p.status = 'PUBLISHED' THEN 'AWAITING_CONFIRMATION'
+                           ELSE 'AWAITING_PLAN'
+                       END stage,
+                       GREATEST(r.updated_at, p.updated_at, o.updated_at) lifecycle_updated_at
+            ) lifecycle
+            WHERE r.customer_id = #{customerId}
+              AND (#{stage} = 'ALL' OR lifecycle.stage = #{stage})
+            ORDER BY lifecycle_updated_at DESC, r.id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<CustomerReservationSummaryRow> findCustomerReservations(
+            @Param("customerId") UUID customerId,
+            @Param("stage") String stage,
+            @Param("limit") int limit,
+            @Param("offset") int offset);
+
+    @Select("""
+            WITH order_projection AS (
+                SELECT r.id,
+                       CASE
+                           WHEN r.status = 'CANCELLED' THEN 'CANCELLED'
+                           WHEN o.status = 'ACCEPTED' THEN 'COMPLETED'
+                           WHEN o.status = 'DELIVERED' THEN 'AWAITING_ACCEPTANCE'
+                           WHEN o.status IN ('ARRANGING', 'IN_PROGRESS') THEN 'IN_PROGRESS'
+                           WHEN p.status = 'PUBLISHED' THEN 'AWAITING_CONFIRMATION'
+                           ELSE 'AWAITING_PLAN'
+                       END stage
+                FROM inspection_reservation r
+                LEFT JOIN LATERAL (
+                    SELECT current_plan.id, current_plan.status
+                    FROM inspection_service_plan current_plan
+                    WHERE current_plan.reservation_id = r.id
+                      AND current_plan.status IN ('PUBLISHED', 'CONFIRMED')
+                    ORDER BY current_plan.plan_version DESC
+                    LIMIT 1
+                ) p ON true
+                LEFT JOIN inspection_service_order o ON o.reservation_id = r.id
+                WHERE r.customer_id = #{customerId}
+            )
+            SELECT count(*) all_count,
+                   count(*) FILTER (WHERE stage = 'AWAITING_PLAN') awaiting_plan,
+                   count(*) FILTER (WHERE stage = 'AWAITING_CONFIRMATION') awaiting_confirmation,
+                   count(*) FILTER (WHERE stage = 'IN_PROGRESS') in_progress,
+                   count(*) FILTER (WHERE stage = 'AWAITING_ACCEPTANCE') awaiting_acceptance,
+                   count(*) FILTER (WHERE stage = 'COMPLETED') completed
+            FROM order_projection
+            """)
+    CustomerReservationCountsRow countCustomerReservations(
+            @Param("customerId") UUID customerId);
+
     @Select("SELECT item_code code, item_name_snapshot label FROM inspection_reservation_item WHERE reservation_id=#{id} ORDER BY display_order, id")
     List<ItemRow> findItems(@Param("id") UUID id);
 
@@ -259,6 +344,31 @@ public interface ReservationPersistenceMapper {
     record ReservationOwnerRow(UUID reservationId, UUID customerId, UUID providerId) { }
     record DeliveryFileOwnerRow(UUID serviceOrderId, UUID customerId, UUID providerId, String orderStatus) { }
     record ReservationFlowStateRow(String status, UUID currentPlanId, int version) { }
+    record CustomerReservationSummaryRow(
+            UUID reservationId,
+            String reservationNo,
+            UUID serviceId,
+            String serviceTitle,
+            String serviceCoverUrl,
+            String cityCode,
+            byte[] locationCiphertext,
+            LocalDate preferredServiceDate,
+            Instant submittedAt,
+            String stage,
+            String reservationStatus,
+            UUID currentPlanId,
+            UUID serviceOrderId,
+            String serviceOrderStatus,
+            Long quoteAmountMinor
+    ) { }
+    record CustomerReservationCountsRow(
+            long allCount,
+            long awaitingPlan,
+            long awaitingConfirmation,
+            long inProgress,
+            long awaitingAcceptance,
+            long completed
+    ) { }
     record FileIdempotencyRow(String requestDigest, UUID fileId) { }
     record FileRow(
             UUID id,

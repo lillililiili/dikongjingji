@@ -19,10 +19,32 @@ import {
   type BookingHttpClient,
 } from '../data/service-flow/inspection-booking-api'
 import { sha256 } from '../application/service-flow/booking-crypto'
+import {
+  createLatestRequestCoordinator,
+  runLatestRequest,
+  shouldNavigateBackToInspectionOrderCenter,
+} from '../application/service-flow/inspection-order-navigation'
 
 const SERVICE_ID = '40000000-0000-4000-8000-000000000001'
 
 describe('F04 booking navigation', () => {
+  it('keeps only the latest submitted-reservation response and detects order-center history', async () => {
+    const coordinator = createLatestRequestCoordinator()
+    let resolveFirst: ((value: string) => void) | undefined
+    const first = runLatestRequest(
+      coordinator,
+      () => new Promise<string>((resolve) => { resolveFirst = resolve }),
+    )
+    const second = runLatestRequest(coordinator, async () => 'latest reservation')
+    resolveFirst?.('stale reservation')
+
+    expect(await second).toEqual({ status: 'success', value: 'latest reservation' })
+    expect(await first).toEqual({ status: 'discarded' })
+    expect(shouldNavigateBackToInspectionOrderCenter('pages/mine/inspection-orders')).toBe(true)
+    expect(shouldNavigateBackToInspectionOrderCenter('pages/service/inspection/booking-submitted')).toBe(false)
+    expect(shouldNavigateBackToInspectionOrderCenter(undefined)).toBe(false)
+  })
+
   it('opens the booking page with only the stable service ID', () => {
     const routes = inspectionRoutes as typeof inspectionRoutes & {
       buildInspectionBookingUrl(serviceId: string): string
@@ -329,29 +351,39 @@ describe('F04 booking page contract', () => {
     expect(manifest['app-plus'].modules).toHaveProperty('Camera')
   })
 
-  it('keeps the three-stage flow, safe-area footer and no preselected project', () => {
-    expect(bookingPageSource).toContain('<BookingProgress :active="1"')
+  it('keeps the confirm-order flow, safe-area footer and no preselected project', () => {
+    expect(bookingPageSource).not.toContain('<BookingProgress')
     expect(bookingPageSource).toContain('env(safe-area-inset-bottom)')
     expect(bookingPageSource).toContain('draft.value.inspectionItemCodes = selected.includes(code)')
-    expect(bookingPageSource).toContain('提交预约')
+    expect(bookingPageSource).toContain('提交订单')
   })
 
-  it('matches the approved booking structure including customer service and PDF-capable attachments', () => {
-    expect(bookingPageSource).toContain('客服')
+  it('restores the approved expanded confirm-order hierarchy', () => {
+    expect(bookingPageSource).toContain('<button class="inspection-booking__customer"')
+    expect(bookingPageSource).toContain('<text class="booking-section__title">预约信息</text>')
+    expect(bookingPageSource).toContain('<text class="booking-section__title">巡检项目（可多选）</text>')
+    expect(bookingPageSource).toContain('<text class="booking-section__title">现场资料</text>')
+    expect(bookingPageSource).toContain('<view class="inspection-booking__tip"')
+    expect(bookingPageSource).not.toContain('class="booking-arrangement"')
+    expect(bookingPageSource).not.toContain('class="booking-requirements-summary"')
+    expect(bookingPageSource).not.toContain('requirementsExpanded')
+  })
+
+  it('keeps PDF-capable attachments and the no-charge platform guarantee', () => {
     expect(bookingPageSource).toContain('chooseMessageFile')
     expect(bookingPageSource).toContain('图片、PDF，最多9个文件')
-    expect(bookingPageSource).toContain('提交后由服务商评估方案并联系确认，暂不收取费用')
+    expect(bookingPageSource).toContain('平台保障 · 方案确认前不收取费用')
   })
 
   it('keeps all approved booking sections within the calibrated phone density', () => {
-    expect(bookingPageSource).toContain('min-height:27px')
-    expect(bookingPageSource).toContain('height:42px')
-    expect(bookingPageSource).toContain(':deep(.booking-progress){padding:4px 24px 1px}')
-    expect(bookingPageSource).toContain(':deep(.booking-service-card__image){width:90px;height:90px}')
+    expect(bookingPageSource).toContain('min-height:50px')
+    expect(bookingPageSource).toContain('height:82px')
+    expect(bookingPageSource).toContain(':deep(.booking-service-card__image){width:126px;height:116px}')
+    expect(bookingPageSource).toContain('.booking-section{padding:17px 16px')
   })
 
   it('keeps the approved footer structure and opens a published real plan', () => {
-    expect(submittedPageSource).toContain('返回首页')
+    expect(submittedPageSource).toContain('返回订单')
     expect(submittedPageSource).not.toContain('查看预约进度')
     expect(submittedPageSource).toContain('inspectionBookingApi.getReservation(reservationId)')
     expect(submittedPageSource).toContain('reservation.value?.currentPlanId')
@@ -360,10 +392,9 @@ describe('F04 booking page contract', () => {
   })
 
   it('advances the submitted state to plan confirmation and renders DTO-backed details', () => {
-    expect(submittedPageSource).toContain('<BookingProgress :active="2"')
-    expect(submittedPageSource).toContain('待方案确认')
+    expect(submittedPageSource).not.toContain('<BookingProgress')
+    expect(submittedPageSource).toContain('订单已提交')
     expect(submittedPageSource).toContain('uni.setClipboardData')
-    expect(submittedPageSource).toContain('reservation.inspectionItems')
     expect(submittedPageSource).toContain('reservation.contact.mobile')
   })
 

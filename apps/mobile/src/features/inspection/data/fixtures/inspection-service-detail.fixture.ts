@@ -9,8 +9,11 @@ export const DEVELOPMENT_POWER_SERVICE_DETAIL: InspectionServiceDetail = {
   priceAmountMinor: 69900,
   priceUnitLabel: '/公里起',
   priceNote: '最终报价以现场评估为准',
+  availability: 'RESERVABLE',
+  primaryAction: 'RESERVE',
   ratingAverage: 4.9,
   completedCountLabel: '已服务 8,560+',
+  provider: null,
   capabilities: [
     {
       code: 'MODELING',
@@ -107,20 +110,6 @@ export const DEVELOPMENT_POWER_SERVICE_DETAIL: InspectionServiceDetail = {
       label: '数据保密',
       icon: 'locked-filled',
       tone: 'green',
-    },
-  ],
-  explanations: [
-    {
-      label: '作业方式',
-      value: '无人机现场采集、AI识别、专业人员复核',
-    },
-    {
-      label: '交付时效',
-      value: '现场作业完成后3个工作日内交付',
-    },
-    {
-      label: '计价规则',
-      value: '按实际巡检线路长度及现场条件核定',
     },
   ],
   reviewCount: 328,

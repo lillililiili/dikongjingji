@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -41,15 +42,19 @@ class InspectionReservationControllerTest {
     private static final String REQUEST_ID = "f04-controller-test";
 
     private InMemoryReservationStore store;
+    private InMemoryCustomerReservationQueryStore queryStore;
     private ReservationApplicationService service;
+    private CustomerReservationQueryService queryService;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
         store = new InMemoryReservationStore();
         service = service(store);
+        queryStore = new InMemoryCustomerReservationQueryStore();
+        queryService = new CustomerReservationQueryService(queryStore, new ReversibleTestCipher());
         mvc = MockMvcBuilders
-                .standaloneSetup(new InspectionReservationController(service))
+                .standaloneSetup(new InspectionReservationController(service, queryService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -162,6 +167,82 @@ class InspectionReservationControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INS_IDEMPOTENCY_KEY_REUSED"))
                 .andExpect(jsonPath("$.traceId").value(REQUEST_ID));
+    }
+
+    @Test
+    void customerListsOnlyOwnOrdersWithStableStageCounts() throws Exception {
+        queryStore.rows = List.of(stored(
+                CustomerReservationStage.AWAITING_PLAN,
+                "x:东营市测试路8号",
+                null,
+                null,
+                null));
+        queryStore.counts = new CustomerReservationCountSnapshot(1, 1, 0, 0, 0, 0);
+
+        mvc.perform(get("/api/v1/inspection/reservations")
+                        .param("page", "1")
+                        .param("size", "20")
+                        .param("stage", "ALL")
+                        .principal(customerJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].reservationId").exists())
+                .andExpect(jsonPath("$.items[0].stage").value("AWAITING_PLAN"))
+                .andExpect(jsonPath("$.items[0].quoteAmountMinor").doesNotExist())
+                .andExpect(jsonPath("$.stageCounts.AWAITING_PLAN").value(1))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.hasMore").value(false));
+
+        assertThat(queryStore.customerId).isEqualTo(CUSTOMER);
+    }
+
+    @Test
+    void customerOrderCollectionRejectsInvalidStageAndMissingPermission() throws Exception {
+        mvc.perform(get("/api/v1/inspection/reservations")
+                        .param("stage", "CANCELLED")
+                        .principal(customerJwt()))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(get("/api/v1/inspection/reservations")
+                        .principal(subject(
+                                CUSTOMER,
+                                Set.of("CUSTOMER"),
+                                null,
+                                Set.of())))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void customerOrderCollectionRejectsPageWithUnrepresentableOffset() throws Exception {
+        mvc.perform(get("/api/v1/inspection/reservations")
+                        .param("page", Integer.toString(Integer.MAX_VALUE))
+                        .param("size", "50")
+                        .principal(customerJwt()))
+                .andExpect(status().isBadRequest());
+    }
+
+    private static StoredCustomerReservationSummary stored(
+            CustomerReservationStage stage,
+            String locationCiphertext,
+            UUID currentPlanId,
+            UUID serviceOrderId,
+            Long quoteAmountMinor
+    ) {
+        return new StoredCustomerReservationSummary(
+                UUID.randomUUID(),
+                "IR202607310001",
+                SERVICE,
+                "服务端标题",
+                "https://cdn.example.com/power-line.jpg",
+                "370500",
+                locationCiphertext,
+                LocalDate.of(2026, 8, 1),
+                Instant.parse("2026-07-31T00:00:00Z"),
+                stage,
+                "SUBMITTED",
+                currentPlanId,
+                serviceOrderId,
+                null,
+                quoteAmountMinor);
     }
 
     private String createReservation(
@@ -294,6 +375,36 @@ final class InMemoryReservationStore implements ReservationStore {
 
     int saveCount() {
         return saveCount;
+    }
+}
+
+final class InMemoryCustomerReservationQueryStore implements CustomerReservationQueryStore {
+
+    UUID customerId;
+    List<StoredCustomerReservationSummary> rows = List.of();
+    CustomerReservationCountSnapshot counts =
+            new CustomerReservationCountSnapshot(0, 0, 0, 0, 0, 0);
+
+    @Override
+    public List<StoredCustomerReservationSummary> findOwn(
+            UUID customerId,
+            CustomerReservationFilter filter,
+            int limit,
+            int offset
+    ) {
+        this.customerId = customerId;
+        return rows.stream()
+                .filter(row -> filter == CustomerReservationFilter.ALL
+                        || row.stage().name().equals(filter.name()))
+                .skip(offset)
+                .limit(limit)
+                .toList();
+    }
+
+    @Override
+    public CustomerReservationCountSnapshot countOwn(UUID customerId) {
+        this.customerId = customerId;
+        return counts;
     }
 }
 

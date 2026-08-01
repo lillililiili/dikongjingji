@@ -3,9 +3,11 @@ package com.lowaltitude.inspection.application.reservation;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -24,11 +27,18 @@ import org.springframework.web.bind.annotation.RestController;
 public final class InspectionReservationController {
 
     private static final String CREATE_PERMISSION = "inspection.reservation.create";
+    private static final String READ_OWN_PERMISSION = "inspection.reservation.read.own";
+    private static final int MAX_PAGE_SIZE = 50;
 
     private final ReservationApplicationService service;
+    private final CustomerReservationQueryService queryService;
 
-    public InspectionReservationController(ReservationApplicationService service) {
+    public InspectionReservationController(
+            ReservationApplicationService service,
+            CustomerReservationQueryService queryService
+    ) {
         this.service = service;
+        this.queryService = queryService;
     }
 
     @PostMapping
@@ -62,6 +72,34 @@ public final class InspectionReservationController {
                 .ok()
                 .eTag(Integer.toString(details.version()))
                 .body(ReservationResponse.from(details));
+    }
+
+    @GetMapping
+    public CustomerReservationPageResponse list(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "ALL") String stage,
+            Authentication authentication
+    ) {
+        CurrentSubject subject = currentSubject(authentication);
+        if (!subject.roles().contains("CUSTOMER")
+                || !subject.permissions().contains(READ_OWN_PERMISSION)) {
+            throw new AccessDeniedException("customer own reservation permission is required");
+        }
+        validatePageRequest(page, size);
+        return CustomerReservationPageResponse.from(
+                queryService.listOwn(
+                        subject.subjectId(),
+                        CustomerReservationFilter.parse(stage),
+                        page,
+                        size));
+    }
+
+    private static void validatePageRequest(int page, int size) {
+        if (page < 1 || size < 1 || size > MAX_PAGE_SIZE
+                || (long) (page - 1) * size > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("customer order page is invalid");
+        }
     }
 
     static CurrentSubject currentSubject(Authentication authentication) {
@@ -159,6 +197,75 @@ public final class InspectionReservationController {
             String status,
             String scanFailureReason
     ) {
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record CustomerReservationSummaryResponse(
+            UUID reservationId,
+            String reservationNo,
+            UUID serviceId,
+            String serviceTitle,
+            String serviceCoverUrl,
+            String cityCode,
+            String locationSummary,
+            LocalDate preferredServiceDate,
+            Instant submittedAt,
+            String stage,
+            String reservationStatus,
+            UUID currentPlanId,
+            UUID serviceOrderId,
+            String serviceOrderStatus,
+            Long quoteAmountMinor,
+            String currency
+    ) {
+
+        static CustomerReservationSummaryResponse from(CustomerReservationSummary value) {
+            return new CustomerReservationSummaryResponse(
+                    value.reservationId(),
+                    value.reservationNo(),
+                    value.serviceId(),
+                    value.serviceTitle(),
+                    value.serviceCoverUrl(),
+                    value.cityCode(),
+                    value.locationSummary(),
+                    value.preferredServiceDate(),
+                    value.submittedAt(),
+                    value.stage().name(),
+                    value.reservationStatus(),
+                    value.currentPlanId(),
+                    value.serviceOrderId(),
+                    value.serviceOrderStatus(),
+                    value.quoteAmountMinor(),
+                    value.currency());
+        }
+    }
+
+    public record CustomerReservationPageResponse(
+            List<CustomerReservationSummaryResponse> items,
+            int page,
+            int size,
+            long total,
+            boolean hasMore,
+            Map<String, Long> stageCounts
+    ) {
+
+        static CustomerReservationPageResponse from(CustomerReservationPage value) {
+            CustomerReservationStageCounts counts = value.stageCounts();
+            return new CustomerReservationPageResponse(
+                    value.items().stream()
+                            .map(CustomerReservationSummaryResponse::from)
+                            .toList(),
+                    value.page(),
+                    value.size(),
+                    value.total(),
+                    value.hasMore(),
+                    Map.of(
+                            "AWAITING_PLAN", counts.awaitingPlan(),
+                            "AWAITING_CONFIRMATION", counts.awaitingConfirmation(),
+                            "IN_PROGRESS", counts.inProgress(),
+                            "AWAITING_ACCEPTANCE", counts.awaitingAcceptance(),
+                            "COMPLETED", counts.completed()));
+        }
     }
 
     public record ReservationResponse(

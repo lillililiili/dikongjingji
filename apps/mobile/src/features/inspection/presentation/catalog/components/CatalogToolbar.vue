@@ -104,6 +104,8 @@ function nextPriceSort(sort: CatalogSort): CatalogSort {
 .catalog-categories {
   width: 100%;
   padding: 3px 0 2px;
+  scroll-padding-inline: clamp(13px, 3.4vw, 18px);
+  scroll-snap-type: x mandatory;
   white-space: nowrap;
   box-sizing: border-box;
 }
@@ -111,8 +113,8 @@ function nextPriceSort(sort: CatalogSort): CatalogSort {
 .catalog-categories__track {
   display: inline-flex;
   min-width: max-content;
-  padding: 0 clamp(12px, 3.2vw, 18px);
-  gap: 8px;
+  padding: 0 clamp(13px, 3.4vw, 18px);
+  gap: 10px;
   box-sizing: border-box;
 }
 
@@ -129,6 +131,7 @@ function nextPriceSort(sort: CatalogSort): CatalogSort {
   background: #f4f5f6;
   font-size: 13px;
   line-height: 1;
+  scroll-snap-align: start;
   white-space: nowrap;
 }
 
@@ -139,7 +142,7 @@ function nextPriceSort(sort: CatalogSort): CatalogSort {
 
 .catalog-categories__chip--active {
   color: #ffffff;
-  background: #ff6a00;
+  background: var(--app-action-orange-end);
   font-weight: 650;
 }
 
@@ -169,7 +172,7 @@ function nextPriceSort(sort: CatalogSort): CatalogSort {
 }
 
 .catalog-sort__item--active {
-  color: #ff5a00;
+  color: var(--app-action-orange-start);
   font-weight: 650;
 }
 

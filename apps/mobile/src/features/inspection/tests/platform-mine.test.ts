@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import minePageSource from '../presentation/platform/mine/PlatformMinePage.vue?raw'
 import {
+  createLatestRequestCoordinator,
+  requestLatestInspectionOrders,
+} from '../application/service-flow/inspection-order-navigation'
+import type { InspectionOrderPage } from '../domain/service-flow/order-center'
+import {
   INSPECTION_STATUS_ITEMS,
   isPlatformAmountLabel,
+  resolveAuthenticatedMineUser,
   resolvePlatformMineState,
   type PlatformMineContent,
 } from '../presentation/platform/mine/platform-mine'
@@ -40,7 +46,87 @@ const content = (): PlatformMineContent => ({
   ],
 })
 
+const orderPage = (): InspectionOrderPage => ({
+  items: [],
+  page: 1,
+  size: 3,
+  total: 0,
+  hasMore: false,
+  stageCounts: {
+    AWAITING_PLAN: 1,
+    AWAITING_CONFIRMATION: 2,
+    IN_PROGRESS: 3,
+    AWAITING_ACCEPTANCE: 4,
+    COMPLETED: 5,
+  },
+})
+
 describe('platform mine presentation state', () => {
+  it('shows a neutral signed-in identity only while an access token is valid', () => {
+    expect(resolveAuthenticatedMineUser(true, '济南市')).toEqual({
+      displayName: '已登录用户',
+      levelName: 'Lv.0',
+      locationText: '济南市',
+      certificationLabel: '身份待完善',
+    })
+    expect(resolveAuthenticatedMineUser(false, '济南市')).toBeUndefined()
+  })
+
+  it('does not request authenticated orders without a token and preserves ready Mine content on failure', async () => {
+    const coordinator = createLatestRequestCoordinator()
+    let calls = 0
+    const list = async (): Promise<InspectionOrderPage> => {
+      calls++
+      throw new Error('should not be requested')
+    }
+
+    const unauthenticated = await requestLatestInspectionOrders(
+      coordinator,
+      () => null,
+      list,
+    )
+
+    expect(unauthenticated).toEqual({ status: 'unauthenticated' })
+    expect(calls).toBe(0)
+    expect(resolvePlatformMineState({ status: 'ready', content: content() }).kind).toBe('ready')
+    const failed = await requestLatestInspectionOrders(
+      coordinator,
+      () => 'customer-token',
+      async () => { throw new Error('network down') },
+    )
+    expect(failed.status).toBe('error')
+    expect(resolvePlatformMineState({ status: 'ready', content: content() }).kind).toBe('ready')
+  })
+
+  it('requests three real orders and discards an older response after token removal', async () => {
+    const coordinator = createLatestRequestCoordinator()
+    let resolveFirst: ((value: InspectionOrderPage) => void) | undefined
+    const first = requestLatestInspectionOrders(
+      coordinator,
+      () => 'customer-token',
+      (input) => {
+        expect(input).toEqual({ stage: 'ALL', page: 1, size: 3 })
+        return new Promise((resolve) => { resolveFirst = resolve })
+      },
+    )
+    const unauthenticated = await requestLatestInspectionOrders(
+      coordinator,
+      () => null,
+      async () => orderPage(),
+    )
+    resolveFirst?.(orderPage())
+
+    expect(unauthenticated).toEqual({ status: 'unauthenticated' })
+    expect(await first).toEqual({ status: 'discarded' })
+
+    const loaded = await requestLatestInspectionOrders(
+      coordinator,
+      () => 'customer-token',
+      async () => orderPage(),
+    )
+    expect(loaded).toEqual({ status: 'success', value: orderPage() })
+  })
+
   it('supports loading, ready, empty and error states', () => {
     expect(resolvePlatformMineState({ status: 'loading' })).toEqual({ kind: 'loading' })
     expect(resolvePlatformMineState({ status: 'ready', content: content() }).kind).toBe('ready')

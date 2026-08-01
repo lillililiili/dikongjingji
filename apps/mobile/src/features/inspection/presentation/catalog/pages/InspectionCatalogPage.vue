@@ -477,7 +477,7 @@ function showCustomerService(): void {
 .inspection-catalog__scroll {
   width: 100%;
   height: calc(
-    100vh - env(safe-area-inset-top) - 121px -
+    100vh - var(--status-bar-height) - 121px -
       env(safe-area-inset-bottom)
   );
   background: #f7f8fa;

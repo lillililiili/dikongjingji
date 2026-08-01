@@ -9,19 +9,15 @@ defineProps<{
 </script>
 
 <template>
-  <section class="detail-section service-guarantees">
-    <text class="detail-section__title">服务保障</text>
+  <section class="service-guarantees">
+    <text class="service-guarantees__title">服务保障</text>
     <view class="service-guarantees__row">
       <view
         v-for="item in items"
         :key="item.code"
         class="service-guarantees__item"
       >
-        <UniIcons
-          :type="item.icon"
-          size="24"
-          :color="item.tone === 'green' ? '#18b85b' : '#ff6a00'"
-        />
+        <UniIcons :type="item.icon" size="25" color="#ff6200" />
         <text>{{ item.label }}</text>
       </view>
     </view>
@@ -29,47 +25,52 @@ defineProps<{
 </template>
 
 <style scoped>
-.detail-section {
-  margin: 0 7px;
-  padding: 9px;
-  border: 1px solid #edf0f2;
-  border-radius: 11px;
-  background: #ffffff;
+.service-guarantees {
+  margin: 0 12px;
+  padding: 12px 14px;
+  border: 1px solid #f0f1f3;
+  border-radius: 18px;
+  background: #fff;
   box-sizing: border-box;
-  box-shadow: 0 3px 14px rgba(28, 36, 46, 0.055);
+  box-shadow: 0 6px 20px rgba(30, 38, 48, 0.055);
 }
 
-.detail-section__title {
+.service-guarantees__title {
   display: block;
-  color: #1d2024;
-  font-size: 14px;
-  font-weight: 700;
+  color: #16191e;
+  font-size: 17px;
+  font-weight: 740;
 }
 
 .service-guarantees__row {
   display: grid;
-  margin-top: 6px;
+  margin-top: 7px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .service-guarantees__item {
   display: flex;
   min-width: 0;
-  min-height: 38px;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  color: #454a52;
+  gap: 8px;
+  border-right: 1px solid #eceff2;
+  color: #354052;
   font-size: 11px;
   white-space: nowrap;
 }
 
+.service-guarantees__item:last-child {
+  border-right: 0;
+}
+
 @media (max-width: 359px) {
-  .detail-section {
-    margin-right: 6px;
-    margin-left: 6px;
-    padding-right: 7px;
-    padding-left: 7px;
+  .service-guarantees {
+    margin-right: 9px;
+    margin-left: 9px;
+    padding-right: 10px;
+    padding-left: 10px;
   }
 
   .service-guarantees__item {

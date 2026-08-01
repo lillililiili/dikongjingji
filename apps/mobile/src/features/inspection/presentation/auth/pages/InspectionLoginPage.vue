@@ -77,41 +77,53 @@ function exitLogin(): void {
       <button aria-label="返回首页" @click="exitLogin">
         <UniIcons type="back" size="22" color="#25282d" />
       </button>
-      <text>登录</text>
+      <text />
       <view />
     </view>
 
     <main class="inspection-login__content">
-      <view class="inspection-login__brand">
-        <view class="inspection-login__brand-icon">
-          <UniIcons type="paperplane-filled" size="30" color="#ff6500" />
+      <view class="inspection-login__skyline">
+        <view class="inspection-login__headline">
+          <text class="inspection-login__eyebrow">飞享低空服务平台</text>
+          <text class="inspection-login__title">欢迎回来</text>
+          <text class="inspection-login__subtitle">登录后继续您的巡检服务</text>
         </view>
-        <text class="inspection-login__title">继续巡检服务</text>
-        <text class="inspection-login__subtitle">登录后将返回刚才的服务进度</text>
+        <image
+          class="inspection-login__robot"
+          src="/static/images/inspection/platform/robot-avatar.png"
+          mode="aspectFit"
+        />
       </view>
 
       <view class="inspection-login__form">
+        <text class="inspection-login__form-title">账号登录</text>
         <label>
           <text>用户名</text>
-          <input
-            v-model="loginName"
-            type="text"
-            maxlength="80"
-            placeholder="请输入用户名"
-            confirm-type="next"
-          />
+          <view class="inspection-login__input">
+            <UniIcons type="person" size="20" color="#8b929b" />
+            <input
+              v-model="loginName"
+              type="text"
+              maxlength="80"
+              placeholder="请输入用户名"
+              confirm-type="next"
+            />
+          </view>
         </label>
         <label>
           <text>密码</text>
-          <input
-            v-model="password"
-            type="text"
-            password
-            maxlength="256"
-            placeholder="请输入密码"
-            confirm-type="done"
-            @confirm="submitLogin"
-          />
+          <view class="inspection-login__input">
+            <UniIcons type="locked" size="20" color="#8b929b" />
+            <input
+              v-model="password"
+              type="text"
+              password
+              maxlength="256"
+              placeholder="请输入密码"
+              confirm-type="done"
+              @confirm="submitLogin"
+            />
+          </view>
         </label>
         <text v-if="errorMessage" class="inspection-login__error">{{ errorMessage }}</text>
         <button
@@ -119,34 +131,44 @@ function exitLogin(): void {
           :disabled="isSubmitting"
           @click="submitLogin"
         >
-          {{ isSubmitting ? '正在登录…' : '登录并继续' }}
+          {{ isSubmitting ? '正在登录…' : '登录' }}
         </button>
+        <view class="inspection-login__secure">
+          <UniIcons type="shield-filled" size="16" color="#20b55a" />
+          <text>账号信息已加密传输</text>
+        </view>
       </view>
 
       <text class="inspection-login__notice">
-        账号权限由平台统一分配，客户只能查看和操作自己的巡检业务。
+        当前仅支持平台已开通账号，登录后只能查看本人巡检业务。
       </text>
     </main>
   </view>
 </template>
 
 <style scoped>
-.inspection-login{min-height:100vh;background:#f7f8fa;color:#25282d}
-.inspection-login__header{display:grid;height:calc(44px + var(--status-bar-height));padding-top:var(--status-bar-height);grid-template-columns:44px 1fr 44px;align-items:center;background:#fff;font-size:17px;font-weight:700;text-align:center;box-sizing:border-box}
+.inspection-login{position:relative;min-height:100vh;overflow:hidden;background:linear-gradient(180deg,#cfe8ff 0,#eef7ff 42%,#f8fafc 72%);color:#171b22}
+.inspection-login::before{position:absolute;top:76px;right:-90px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.55);filter:blur(4px);content:''}
+.inspection-login__header{position:relative;z-index:2;display:grid;height:calc(44px + var(--status-bar-height));padding-top:var(--status-bar-height);grid-template-columns:44px 1fr 44px;align-items:center;background:transparent;box-sizing:border-box}
 .inspection-login__header button{height:44px;min-height:44px;margin:0;padding:0;border:0;background:transparent;line-height:1}
 .inspection-login__header button::after,.inspection-login__submit::after{border:0}
-.inspection-login__content{max-width:480px;margin:0 auto;padding:54px 24px calc(24px + env(safe-area-inset-bottom))}
-.inspection-login__brand{display:flex;align-items:center;flex-direction:column}
-.inspection-login__brand-icon{display:grid;width:62px;height:62px;place-items:center;border-radius:18px;background:#fff0e6}
-.inspection-login__title{margin-top:18px;font-size:24px;font-weight:700}
-.inspection-login__subtitle{margin-top:8px;color:#7a8189;font-size:14px}
-.inspection-login__form{margin-top:36px;padding:22px 18px;border:1px solid #eceef1;border-radius:16px;background:#fff}
+.inspection-login__content{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:18px 20px calc(28px + env(safe-area-inset-bottom))}
+.inspection-login__skyline{position:relative;height:230px;border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(255,255,255,.12));box-shadow:0 20px 55px rgba(65,128,180,.12)}
+.inspection-login__headline{position:absolute;z-index:2;top:34px;left:24px;display:flex;align-items:flex-start;flex-direction:column}
+.inspection-login__eyebrow{color:#2274d9;font-size:13px;font-weight:600;letter-spacing:1px}
+.inspection-login__title{margin-top:9px;font-size:34px;font-weight:800;letter-spacing:1px}
+.inspection-login__subtitle{margin-top:8px;color:#566b80;font-size:15px}
+.inspection-login__robot{position:absolute;right:-2px;bottom:0;width:190px;height:160px}
+.inspection-login__form{position:relative;margin-top:-16px;padding:26px 22px 22px;border:1px solid rgba(255,255,255,.9);border-radius:24px;background:rgba(255,255,255,.96);box-shadow:0 16px 42px rgba(39,79,112,.14)}
+.inspection-login__form-title{display:block;margin-bottom:22px;font-size:22px;font-weight:800}
 .inspection-login__form label{display:block;margin-top:18px}
 .inspection-login__form label:first-child{margin-top:0}
-.inspection-login__form label>text{display:block;margin-bottom:8px;font-size:13px;font-weight:600}
-.inspection-login__form input{height:46px;padding:0 14px;border:1px solid #dfe3e7;border-radius:10px;background:#fafbfc;font-size:15px;box-sizing:border-box}
+.inspection-login__form label>text{display:block;margin-bottom:9px;font-size:14px;font-weight:600}
+.inspection-login__input{display:flex;height:52px;padding:0 15px;align-items:center;gap:10px;border:1px solid #dde4eb;border-radius:14px;background:#f8fafc;box-sizing:border-box}
+.inspection-login__form input{width:100%;height:50px;font-size:15px}
 .inspection-login__error{display:block;margin-top:14px;color:#d73928;font-size:13px}
-.inspection-login__submit{height:46px;min-height:46px;margin-top:22px;border:0;border-radius:23px;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff4d00);font-size:16px;font-weight:700}
+.inspection-login__submit{height:52px;min-height:52px;margin-top:24px;border:0;border-radius:16px;color:#fff;background:linear-gradient(90deg,#ff9518,#ff5700);box-shadow:0 10px 24px rgba(255,99,0,.22);font-size:17px;font-weight:700}
 .inspection-login__submit[disabled]{opacity:.62}
-.inspection-login__notice{display:block;margin-top:18px;color:#8a9199;font-size:12px;line-height:1.7;text-align:center}
+.inspection-login__secure{display:flex;margin-top:15px;align-items:center;justify-content:center;gap:6px;color:#75808a;font-size:12px}
+.inspection-login__notice{display:block;margin:18px 16px 0;color:#75808a;font-size:12px;line-height:1.7;text-align:center}
 </style>

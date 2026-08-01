@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 
+import AppHeader from '@/app-shell/components/AppHeader.vue'
+import PlatformHeroBanner from '@/shared/presentation/PlatformHeroBanner.vue'
 import PlatformUnavailableDialog from '../shared/PlatformUnavailableDialog.vue'
 import type { PlatformAvailability } from '../shared/platform-availability'
 import type {
@@ -21,6 +23,7 @@ const emit = defineEmits<{
   retry: []
   search: []
   message: []
+  location: []
   selectServiceEntry: [entry: PlatformHomeServiceEntry]
   selectFeaturedService: [service: PlatformHomeFeaturedService]
   selectActivity: [activity: PlatformHomeActivity]
@@ -29,12 +32,6 @@ const emit = defineEmits<{
 }>()
 
 const unavailableDialogVisible = ref(false)
-const unreadLabel = computed(() => {
-  if (props.state.kind !== 'ready') return ''
-  const count = props.state.content.unreadCount
-  if (!count || count < 1) return ''
-  return count > 99 ? '99+' : String(count)
-})
 
 const proceedOrShowUnavailable = (
   availability: PlatformAvailability,
@@ -91,46 +88,30 @@ const tabs = [
 
     <template v-else>
       <view class="platform-home__scroll">
-        <view class="platform-home__top">
-          <view class="platform-home__location">
-            <view class="platform-home__city-line">
-              <text class="platform-home__city">{{ props.state.content.cityName }}</text>
-              <UniIcons type="down" size="13" color="#17191d" />
-            </view>
-            <view class="platform-home__weather-row">
-              <text class="platform-home__weather">{{ props.state.content.weather.text }}</text>
-              <image
-                class="platform-home__weather-icon"
-                :src="props.state.content.weather.iconUrl"
-                mode="aspectFit"
-              />
-            </view>
-          </view>
-          <button class="platform-home__search" @click="emit('search')">
-            <UniIcons type="search" size="20" color="#23272c" />
-            <text>{{ props.state.content.searchPlaceholder || '搜索无人机服务、景点、活动等' }}</text>
-          </button>
-          <button class="platform-home__message" aria-label="消息" @click="emit('message')">
-            <UniIcons type="chatboxes" size="28" color="#1e2227" />
-            <text v-if="unreadLabel" class="platform-home__badge">
-              {{ unreadLabel }}
-            </text>
-          </button>
+        <view class="platform-home__header">
+          <AppHeader
+            :city-name="props.state.content.cityName"
+            :weather="props.state.content.weather"
+            :search-placeholder="props.state.content.searchPlaceholder || '搜索服务、活动或设备'"
+            :unread-count="props.state.content.unreadCount"
+            @location="emit('location')"
+            @search="emit('search')"
+            @message="emit('message')"
+          />
         </view>
 
-        <view v-if="props.state.content.hero" class="platform-home__hero">
-          <image
-            class="platform-home__hero-image"
-            :src="props.state.content.hero.imageUrl"
-            mode="aspectFill"
-          />
-          <view class="platform-home__hero-copy">
-            <text class="platform-home__hero-title">{{ props.state.content.hero.title }}</text>
-            <text class="platform-home__hero-highlight">{{ props.state.content.hero.highlight }}</text>
-            <text class="platform-home__hero-description">{{ props.state.content.hero.description }}</text>
-            <button class="platform-home__hero-action" @click="emit('search')">立即体验</button>
-          </view>
-        </view>
+        <PlatformHeroBanner
+          v-if="props.state.content.hero"
+          class="platform-home__hero"
+          :image-url="props.state.content.hero.imageUrl"
+          :image-alt="`${props.state.content.hero.title}${props.state.content.hero.highlight}`"
+          :title="props.state.content.hero.title"
+          :highlight="props.state.content.hero.highlight"
+          :description="props.state.content.hero.description"
+          :highlights="props.state.content.hero.highlights"
+          :action-label="props.state.content.hero.actionLabel"
+          @action="emit('search')"
+        />
 
         <view v-if="props.state.content.serviceEntries.length" class="platform-home__service-grid">
           <button
@@ -175,10 +156,10 @@ const tabs = [
                   <text v-if="service.quoteLabel" class="platform-home__quote">{{ service.quoteLabel }}</text>
                 </view>
                 <view class="platform-home__featured-stats">
-                  <text v-if="service.rating !== undefined" class="platform-home__rating">
-                    <UniIcons type="star-filled" size="11" color="#ffad00" />
-                    {{ service.rating.toFixed(1) }}
-                  </text>
+                  <view v-if="service.rating !== undefined" class="platform-home__rating">
+                    <UniIcons type="star-filled" size="12" color="#e18400" />
+                    <text>{{ service.rating.toFixed(1) }}</text>
+                  </view>
                   <text v-if="service.soldCountText" class="platform-home__metric">{{ service.soldCountText }}</text>
                 </view>
               </button>
@@ -291,68 +272,53 @@ const tabs = [
 .platform-home{min-height:100vh;color:#17191d;background:#f7f8fa;font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
 button{margin:0;padding:0;border:0;background:transparent;font-family:inherit;line-height:1.2}
 button::after{border:0}
-.platform-home__scroll{padding:calc(env(safe-area-inset-top) + 10px) 18rpx calc(108rpx + env(safe-area-inset-bottom))}
-.platform-home__top{display:grid;grid-template-columns:146rpx minmax(0,1fr) 54rpx;gap:14rpx;align-items:center;margin-bottom:14rpx}
-.platform-home__city-line{display:flex;align-items:center;gap:8rpx}
-.platform-home__city{font-size:31rpx;font-weight:700;white-space:nowrap}
-.platform-home__weather-row{display:flex;align-items:center;gap:7rpx;margin-top:3rpx}
-.platform-home__weather{display:block;color:#4f5966;font-size:19rpx;white-space:nowrap}
-.platform-home__weather-icon{width:34rpx;height:34rpx;flex:0 0 auto}
-.platform-home__search{display:flex;min-width:0;height:58rpx;align-items:center;gap:12rpx;padding:0 18rpx;border:2rpx solid #2c2f33;border-radius:31rpx;color:#8a9099;font-size:21rpx;text-align:left}
-.platform-home__search text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__message{position:relative;display:flex;width:54rpx;height:58rpx;align-items:center;justify-content:center}
-.platform-home__badge{position:absolute;right:-4rpx;top:-6rpx;min-width:28rpx;height:28rpx;padding:0 6rpx;border:3rpx solid #fff;border-radius:20rpx;color:#fff;background:#ff4136;font-size:16rpx;font-weight:700;line-height:25rpx}
-.platform-home__hero{position:relative;height:248rpx;overflow:hidden;margin-bottom:14rpx;border-radius:22rpx;background:#dff0ff}
-.platform-home__hero-image{width:100%;height:100%}
-.platform-home__hero-copy{position:absolute;top:34rpx;left:32rpx;display:flex;width:44%;flex-direction:column;align-items:flex-start}
-.platform-home__hero-title,.platform-home__hero-highlight{font-size:36rpx;font-weight:900;line-height:1.08;letter-spacing:-1rpx}
-.platform-home__hero-highlight{color:#ff5e00}
-.platform-home__hero-description{margin-top:10rpx;color:#3e4752;font-size:18rpx;line-height:1.35}
-.platform-home__hero-action{min-width:138rpx;min-height:48rpx;margin-top:13rpx;padding:0 20rpx;border-radius:25rpx;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff5b00);font-size:21rpx;font-weight:700;line-height:48rpx}
-.platform-home__service-grid{display:grid;height:288rpx;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:10rpx 12rpx;padding:14rpx 15rpx 10rpx;border-radius:24rpx;background:#fff;box-shadow:0 6rpx 18rpx rgba(36,58,88,.05)}
+.platform-home__scroll{padding:calc(var(--status-bar-height) + 10px) var(--app-page-horizontal-gutter) var(--app-root-tabbar-content-offset)}
+.platform-home__header{margin-bottom:0}
+.platform-home__hero{margin-bottom:14rpx}
+.platform-home__service-grid{display:grid;height:auto;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12px 9px;padding:10px;border-radius:24rpx;background:#fff;box-shadow:0 6rpx 18rpx rgba(36,58,88,.05)}
 .platform-home__service-entry{min-width:0;text-align:center}
-.platform-home__entry-icon-wrap{position:relative;display:flex;width:76rpx;height:76rpx;align-items:center;justify-content:center;overflow:hidden;margin:0 auto;border-radius:21rpx}
+.platform-home__entry-icon-wrap{position:relative;display:flex;width:100%;height:73px;align-items:center;justify-content:center;overflow:hidden;margin:0 auto;border-radius:12px}
 .platform-home__entry-image{width:100%;height:100%}
-.platform-home__entry-title{display:block;margin-top:5rpx;overflow-wrap:break-word;font-size:24rpx;font-weight:700;line-height:1.18;white-space:nowrap}
-.platform-home__entry-subtitle{display:block;margin-top:2rpx;overflow:hidden;color:#747c87;font-size:18rpx;line-height:1.08;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__section{margin-top:12rpx;padding:14rpx 15rpx;border-radius:24rpx;background:#fff}
-.platform-home__section--activities{padding-top:12rpx;padding-bottom:12rpx}
-.platform-home__section-heading{display:flex;align-items:center;gap:8rpx;margin-bottom:9rpx}
-.platform-home__section-title{font-size:27rpx;font-weight:700}
-.platform-home__section-copy{color:#78818d;font-size:18rpx}
+.platform-home__entry-title{display:block;margin-top:7px;overflow-wrap:break-word;font-size:14px;font-weight:700;line-height:1.18;white-space:nowrap}
+.platform-home__entry-subtitle{display:block;margin-top:3px;overflow:hidden;color:var(--app-secondary-text);font-size:11px;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__section{margin-top:12rpx;padding:12px 10px 10px;border-radius:24rpx;background:#fff}
+.platform-home__section--activities{padding-top:12px;padding-bottom:12px}
+.platform-home__section-heading{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.platform-home__section-title{font-size:17px;font-weight:700}
+.platform-home__section-copy{color:var(--app-secondary-text);font-size:12px}
 .platform-home__featured-scroll,.platform-home__activity-scroll{width:100%;white-space:nowrap}
-.platform-home__featured-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10rpx}
-.platform-home__activity-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10rpx}
+.platform-home__featured-row{display:grid;width:max-content;min-width:100%;grid-auto-columns:calc((100vw - 49px)/2);grid-auto-flow:column;gap:10px;padding-right:2px;box-sizing:border-box}
+.platform-home__activity-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 .platform-home__featured-card{min-width:0;text-align:left}
-.platform-home__featured-image-wrap{position:relative;height:100rpx;overflow:hidden;border-radius:14rpx}
+.platform-home__featured-image-wrap{position:relative;height:108px;overflow:hidden;border-radius:10px}
 .platform-home__featured-image{width:100%;height:100%}
-.platform-home__featured-title{display:block;margin-top:7rpx;overflow:hidden;font-size:21rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__featured-subtitle{display:block;margin-top:2rpx;overflow:hidden;color:#69727e;font-size:17rpx;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__featured-meta{display:flex;min-height:25rpx;align-items:center;margin-top:4rpx}
-.platform-home__featured-stats{display:flex;align-items:center;justify-content:space-between;margin-top:2rpx}
-.platform-home__quote{color:#ff5d00;font-size:19rpx;font-weight:800}
-.platform-home__rating{display:flex;align-items:center;color:#6f7782;font-size:14rpx}
-.platform-home__metric{color:#7a838e;font-size:14rpx}
-.platform-home__activity-card{display:flex;min-width:0;gap:9rpx;text-align:left}
-.platform-home__activity-image{width:84rpx;height:74rpx;flex:0 0 auto;border-radius:12rpx}
+.platform-home__featured-title{display:block;margin-top:6px;overflow:hidden;font-size:14px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__featured-subtitle{display:block;margin-top:3px;overflow:hidden;color:var(--app-secondary-text);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__featured-meta{display:flex;min-height:18px;align-items:center;margin-top:4px}
+.platform-home__featured-stats{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+.platform-home__quote{color:#d84b00;font-size:14px;font-weight:800}
+.platform-home__rating{display:flex;align-items:center;gap:2px;color:var(--app-secondary-text);font-size:11px}
+.platform-home__metric{color:var(--app-secondary-text);font-size:11px}
+.platform-home__activity-card{display:flex;min-width:0;gap:9px;text-align:left}
+.platform-home__activity-image{width:70px;height:62px;flex:0 0 auto;border-radius:10px}
 .platform-home__activity-copy{display:flex;min-width:0;flex-direction:column;justify-content:center}
-.platform-home__activity-title{overflow:hidden;font-size:18rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__enterprise{position:relative;display:flex;width:100%;height:106rpx;overflow:hidden;margin-top:8rpx;padding:8rpx 16rpx;border-radius:24rpx;background:#edf6ff;text-align:left}
+.platform-home__activity-title{overflow:hidden;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__enterprise{position:relative;display:flex;width:100%;height:126px;overflow:hidden;margin-top:8px;padding:12px 16px;border-radius:24rpx;background:#edf6ff;text-align:left}
 .platform-home__enterprise::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,#edf6ff 0%,#edf6ff 58%,rgba(237,246,255,.94) 67%,rgba(237,246,255,.08) 83%)}
 .platform-home__enterprise::after{content:"";position:absolute;top:0;right:29%;bottom:0;width:1rpx;background:rgba(116,157,205,.16)}
 .platform-home__enterprise-illustration{position:absolute;inset:0;width:100%;height:100%;object-position:right center}
 .platform-home__enterprise-copy{position:relative;z-index:2;display:flex;width:70%;min-width:0;flex-direction:column}
-.platform-home__enterprise-heading{display:flex;align-items:baseline;gap:9rpx;white-space:nowrap}
-.platform-home__enterprise-title{font-size:24rpx;font-weight:700}
-.platform-home__enterprise-description{overflow:hidden;color:#6f7c8c;font-size:13rpx;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__enterprise-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5rpx;margin-top:7rpx}
-.platform-home__enterprise-benefit{display:flex;min-width:0;align-items:center;gap:4rpx;color:#536070}
+.platform-home__enterprise-heading{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.platform-home__enterprise-title{font-size:17px;font-weight:700}
+.platform-home__enterprise-description{overflow:hidden;color:var(--app-secondary-text);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__enterprise-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:12px}
+.platform-home__enterprise-benefit{display:flex;min-width:0;align-items:center;gap:5px;color:#536070}
 .platform-home__enterprise-benefit-copy{display:flex;min-width:0;flex-direction:column}
-.platform-home__enterprise-benefit-title{overflow:hidden;font-size:16rpx;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
-.platform-home__enterprise-benefit-description{overflow:hidden;margin-top:1rpx;color:#8793a0;font-size:12rpx;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__enterprise-benefit-title{overflow:hidden;font-size:11px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.platform-home__enterprise-benefit-description{overflow:hidden;margin-top:2px;color:var(--app-secondary-text);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
 .platform-home__tabbar{position:fixed;right:0;bottom:0;left:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);padding:7rpx 14rpx calc(7rpx + env(safe-area-inset-bottom));border-top:1rpx solid #e7e9ed;background:rgba(255,255,255,.97)}
 .platform-home__tab{display:flex;min-height:82rpx;flex-direction:column;align-items:center;justify-content:center;gap:4rpx;color:#4c535c;font-size:20rpx;font-weight:500}
-.platform-home__tab--active{color:#ff6508;font-weight:700}
+.platform-home__tab--active{border-radius:10px;color:#d04700;background:#fff2e8;font-weight:800}
 .platform-home__service-tab-icon{display:grid;width:50rpx;height:50rpx;grid-template-columns:repeat(2,20rpx);grid-template-rows:repeat(2,20rpx);place-content:center;gap:3rpx;line-height:1}
 .platform-home__state{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:40rpx}
 .platform-home__state-title{margin-top:24rpx;color:#4f5966;font-size:28rpx;font-weight:700;text-align:center}
@@ -363,5 +329,5 @@ button::after{border:0}
 .platform-home__skeleton--hero{height:316rpx;margin-top:26rpx}
 .platform-home__skeleton--cards{height:300rpx;margin-top:26rpx}
 @keyframes home-skeleton{0%{background-position:100% 0}100%{background-position:0 0}}
-@media (min-width:420px){.platform-home__scroll{padding-right:28rpx;padding-left:28rpx}.platform-home__hero{height:330rpx}.platform-home__service-grid{gap:24rpx}}
+@media (min-width:420px){.platform-home__entry-icon-wrap{height:82px}.platform-home__featured-image-wrap{height:116px}}
 </style>

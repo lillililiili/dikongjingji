@@ -17,13 +17,15 @@
     {
       "path": "pages/discover/index",
       "style": {
-        "navigationBarTitleText": "发现"
+        "navigationBarTitleText": "发现",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/mall/index",
       "style": {
-        "navigationBarTitleText": "商城"
+        "navigationBarTitleText": "商城",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -31,6 +33,14 @@
       "style": {
         "navigationBarTitleText": "我的",
         "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/inspection-orders",
+      "style": {
+        "navigationBarTitleText": "我的订单",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
       }
     },
     {

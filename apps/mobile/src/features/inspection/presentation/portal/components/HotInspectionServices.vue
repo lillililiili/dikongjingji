@@ -81,10 +81,7 @@ function priceUnit(label: string): string {
 
 <style scoped>
 .hot-services {
-  padding:
-    clamp(7px, 1.4vw, 8px)
-    clamp(7px, 1.9vw, 11px)
-    clamp(8px, 1.7vw, 10px);
+  padding: 12px 10px 10px;
   border: 1px solid #ebedf0;
   border-radius: clamp(11px, 2.8vw, 17px);
   background: #ffffff;
@@ -92,26 +89,23 @@ function priceUnit(label: string): string {
 
 .hot-services__heading {
   display: flex;
-  min-height: clamp(24px, 5.4vw, 32px);
-  padding:
-    0
-    clamp(2px, 0.5vw, 3px)
-    clamp(7px, 1.2vw, 7px);
+  min-height: 28px;
+  padding: 0 2px 10px;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(8px, 2.1vw, 13px);
+  gap: 8px;
 }
 
 .hot-services__title-row {
   display: flex;
   min-width: 0;
   align-items: baseline;
-  gap: clamp(6px, 1.6vw, 10px);
+  gap: 8px;
 }
 
 .hot-services__title {
   color: #191919;
-  font-size: clamp(15px, 3.4vw, 20px);
+  font-size: 17px;
   font-weight: 750;
   white-space: nowrap;
 }
@@ -119,15 +113,15 @@ function priceUnit(label: string): string {
 .hot-services__meta {
   overflow: hidden;
   color: #969ba3;
-  font-size: clamp(9px, 2.4vw, 14px);
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .hot-services__all {
   display: flex;
-  min-width: clamp(58px, 15.5vw, 93px);
-  min-height: clamp(24px, 5.4vw, 32px);
+  min-width: 64px;
+  min-height: 28px;
   padding: 0;
   align-items: center;
   justify-content: flex-end;
@@ -135,7 +129,7 @@ function priceUnit(label: string): string {
   border: 0;
   color: #666b73;
   background: transparent;
-  font-size: clamp(10px, 2.6vw, 15px);
+  font-size: 12px;
   line-height: 1;
 }
 
@@ -147,7 +141,7 @@ function priceUnit(label: string): string {
 .hot-services__track {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(6px, 1.6vw, 10px);
+  gap: 8px;
 }
 
 .hot-service-card {
@@ -165,16 +159,13 @@ function priceUnit(label: string): string {
 .hot-service-card__visual {
   display: block;
   width: 100%;
-  height: clamp(48px, 12.8vw, 77px);
+  height: 82px;
 }
 
 .hot-service-card__body {
   display: flex;
-  min-height: clamp(57px, 15.2vw, 91px);
-  padding:
-    clamp(5px, 1.3vw, 8px)
-    clamp(5px, 1.3vw, 8px)
-    clamp(6px, 1.6vw, 10px);
+  min-height: 100px;
+  padding: 6px;
   flex-direction: column;
   box-sizing: border-box;
 }
@@ -183,7 +174,7 @@ function priceUnit(label: string): string {
   display: block;
   overflow: hidden;
   color: #20242a;
-  font-size: clamp(11px, 2.9vw, 17px);
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -194,22 +185,20 @@ function priceUnit(label: string): string {
   display: inline-block;
   max-width: 100%;
   align-self: flex-start;
-  margin-top: clamp(3px, 0.8vw, 5px);
+  margin-top: 4px;
   overflow: hidden;
-  padding:
-    clamp(1px, 0.3vw, 2px)
-    clamp(4px, 1.1vw, 7px);
+  padding: 1px 4px;
   border: 0.5px solid #7eb2ff;
   border-radius: clamp(3px, 0.8vw, 5px);
   color: #347dd9;
-  font-size: clamp(7px, 1.8vw, 11px);
+  font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .hot-service-card__price {
   display: block;
-  margin-top: clamp(4px, 1.1vw, 7px);
+  margin-top: 5px;
   overflow: hidden;
   color: #ff5a00;
   font-weight: 750;
@@ -218,13 +207,13 @@ function priceUnit(label: string): string {
 }
 
 .hot-service-card__price-main {
-  font-size: clamp(10px, 2.6vw, 15px);
+  font-size: 12px;
 }
 
 .hot-service-card__price-unit {
   margin-left: 2px;
   color: #7f858d;
-  font-size: clamp(6.5px, 1.7vw, 10px);
+  font-size: 8px;
   font-weight: 500;
 }
 
@@ -234,7 +223,7 @@ function priceUnit(label: string): string {
   justify-content: space-between;
   gap: 2px;
   color: #969ba3;
-  font-size: clamp(6.5px, 1.7vw, 10px);
+  font-size: 8px;
   white-space: nowrap;
 }
 
@@ -261,7 +250,13 @@ function priceUnit(label: string): string {
   }
 
   .hot-service-card__stats {
-    font-size: 5.8px;
+    font-size: 7px;
+  }
+}
+
+@media (min-width: 420px) {
+  .hot-service-card__visual {
+    height: 92px;
   }
 }
 </style>

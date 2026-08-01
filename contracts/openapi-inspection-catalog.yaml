@@ -142,6 +142,37 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "404":
           $ref: "#/components/responses/CityNotEnabled"
+  /api/v1/inspection/services/{serviceId}:
+    get:
+      operationId: getInspectionServiceDetail
+      summary: Get the complete inspection service detail
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: Inspection service detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InspectionServiceDetail"
+        "400":
+          description: Invalid service or city parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Service is unavailable in the requested city
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   parameters:
     CityCode:
@@ -477,6 +508,231 @@ components:
             - UNAVAILABLE
         primaryAction:
           $ref: "#/components/schemas/ServiceAction"
+    DetailItem:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type:
+            - string
+            - "null"
+        iconKey:
+          type:
+            - string
+            - "null"
+        image:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        imageAssetCode:
+          type:
+            - string
+            - "null"
+    ServiceProvider:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - name
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        logo:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        logoAssetCode:
+          type:
+            - string
+            - "null"
+        certificationLabel:
+          type:
+            - string
+            - "null"
+        teamDescription:
+          type:
+            - string
+            - "null"
+    ReviewTag:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - count
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+    ReviewImage:
+      type: object
+      additionalProperties: false
+      properties:
+        image:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        assetCode:
+          type:
+            - string
+            - "null"
+    ServiceReview:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - maskedUserName
+        - rating
+        - date
+        - content
+        - imageAssets
+      properties:
+        id:
+          type: string
+          format: uuid
+        maskedUserName:
+          type: string
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        date:
+          type: string
+          format: date
+        content:
+          type: string
+        imageAssets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewImage"
+    ReviewSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - total
+        - tags
+        - items
+      properties:
+        average:
+          type:
+            - number
+            - "null"
+          minimum: 0
+          maximum: 5
+        total:
+          type: integer
+          minimum: 0
+        positiveRate:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          maximum: 100
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewTag"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceReview"
+    InspectionServiceDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - serviceId
+        - serviceNo
+        - category
+        - name
+        - summary
+        - price
+        - availability
+        - primaryAction
+        - completedCount
+        - capabilities
+        - inspectionItems
+        - processSteps
+        - deliverables
+        - guarantees
+        - reviews
+      properties:
+        serviceId:
+          type: string
+          format: uuid
+        serviceNo:
+          type: string
+        category:
+          type: object
+          additionalProperties: false
+          required:
+            - code
+            - name
+          properties:
+            code:
+              type: string
+            name:
+              type: string
+        name:
+          type: string
+        summary:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        price:
+          $ref: "#/components/schemas/ServicePrice"
+        priceNote:
+          type:
+            - string
+            - "null"
+        availability:
+          type: string
+        primaryAction:
+          $ref: "#/components/schemas/ServiceAction"
+        completedCount:
+          type: integer
+          minimum: 0
+        provider:
+          anyOf:
+            - $ref: "#/components/schemas/ServiceProvider"
+            - type: "null"
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetailItem"
+        inspectionItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetailItem"
+        processSteps:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetailItem"
+        deliverables:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetailItem"
+        guarantees:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetailItem"
+        reviews:
+          $ref: "#/components/schemas/ReviewSummary"
     InspectionPortal:
       type: object
       additionalProperties: false

@@ -36,7 +36,9 @@ defineEmits<{
 .category-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 9px;
   overflow: hidden;
+  padding: 10px;
   border: 1px solid #ebedf0;
   border-radius: clamp(11px, 2.8vw, 17px);
   background: #ffffff;
@@ -45,20 +47,15 @@ defineEmits<{
 .category-grid__item {
   position: relative;
   display: flex;
-  height: clamp(76px, 20.25vw, 121px);
+  min-height: 108px;
   min-width: 0;
   margin: 0;
-  padding:
-    clamp(4px, 1.1vw, 7px)
-    clamp(3px, 0.8vw, 5px)
-    clamp(3px, 0.8vw, 5px);
+  padding: 0;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   border: 0;
-  border-right: 1px solid #f0f1f3;
-  border-bottom: 1px solid #f0f1f3;
-  border-radius: 0;
+  border-radius: 12px;
   background: #ffffff;
   line-height: 1.2;
 }
@@ -77,9 +74,10 @@ defineEmits<{
 
 .category-grid__icon {
   display: block;
-  width: clamp(42px, 11.2vw, 67px);
-  height: clamp(38px, 10.1vw, 61px);
-  flex: 0 0 clamp(38px, 10.1vw, 61px);
+  width: 100%;
+  height: 73px;
+  flex: 0 0 73px;
+  border-radius: 12px;
 }
 
 .category-grid__name,
@@ -91,38 +89,49 @@ defineEmits<{
 }
 
 .category-grid__name {
-  margin-top: clamp(1px, 0.3vw, 2px);
+  margin-top: 7px;
   color: #191919;
-  font-size: clamp(12px, 3.1vw, 18px);
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .category-grid__subtitle {
-  margin-top: clamp(1px, 0.3vw, 2px);
+  margin-top: 3px;
   color: #969ba3;
-  font-size: clamp(8px, 2.1vw, 12px);
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 @media (max-width: 359px) {
-  .category-grid__item {
-    padding-right: 2px;
-    padding-left: 2px;
+  .category-grid {
+    gap: 10px 7px;
+    padding: 8px;
   }
 
   .category-grid__icon {
-    width: 38px;
-    height: 36px;
+    height: 64px;
+    flex-basis: 64px;
   }
 
   .category-grid__name {
-    font-size: 11px;
+    font-size: 13px;
   }
 
   .category-grid__subtitle {
-    font-size: 7px;
+    font-size: 9px;
+  }
+}
+
+@media (min-width: 420px) {
+  .category-grid__item {
+    min-height: 117px;
+  }
+
+  .category-grid__icon {
+    height: 82px;
+    flex-basis: 82px;
   }
 }
 </style>

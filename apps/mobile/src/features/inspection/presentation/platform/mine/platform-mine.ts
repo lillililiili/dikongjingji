@@ -5,6 +5,10 @@ export type InspectionMineStatus =
   | 'AWAITING_ACCEPTANCE'
   | 'COMPLETED'
 
+export type InspectionMineOrderStatus =
+  | InspectionMineStatus
+  | 'CANCELLED'
+
 export const INSPECTION_STATUS_ITEMS: ReadonlyArray<{
   code: InspectionMineStatus
   label: string
@@ -29,10 +33,23 @@ export interface PlatformMineUser {
   certificationLabel: string
 }
 
+export function resolveAuthenticatedMineUser(
+  authenticated: boolean,
+  locationText?: string,
+): PlatformMineUser | undefined {
+  if (!authenticated) return undefined
+  return {
+    displayName: '已登录用户',
+    levelName: 'Lv.0',
+    locationText: locationText?.trim() || '未设置所在地区',
+    certificationLabel: '身份待完善',
+  }
+}
+
 export interface PlatformMineOrder {
   id: string
   title: string
-  status: InspectionMineStatus
+  status: InspectionMineOrderStatus
   imageUrl: string
   locationText: string
   scheduledAtText: string
@@ -86,6 +103,8 @@ export const resolvePlatformMineState = (input: PlatformMineInput): PlatformMine
   return hasContent ? { kind: 'ready', content: input.content } : { kind: 'empty' }
 }
 
-export const getInspectionStatusLabel = (status: InspectionMineStatus): string =>
-  INSPECTION_STATUS_ITEMS.find((item) => item.code === status)?.label || status
+export const getInspectionStatusLabel = (status: InspectionMineOrderStatus): string =>
+  status === 'CANCELLED'
+    ? '已取消'
+    : INSPECTION_STATUS_ITEMS.find((item) => item.code === status)?.label || status
 import type { PlatformAvailability } from '../shared/platform-availability'

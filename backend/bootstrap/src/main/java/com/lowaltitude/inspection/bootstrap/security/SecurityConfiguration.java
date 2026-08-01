@@ -85,7 +85,9 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/auth/login", "/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/inspection/services",
-                                "/api/v1/inspection/discovery").permitAll()
+                                "/api/v1/inspection/services/*",
+                                "/api/v1/inspection/discovery",
+                                "/api/v1/platform/weather/current").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(errors -> errors

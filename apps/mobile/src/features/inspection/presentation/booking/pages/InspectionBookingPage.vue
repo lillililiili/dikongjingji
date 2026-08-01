@@ -10,7 +10,6 @@ import { inspectionBookingApi } from '../../../data/service-flow/uni-booking-htt
 import { createBookingLocationSelection, createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot } from '../../../domain/service-flow/booking'
 import { buildInspectionBookingSubmittedUrl } from '../../../navigation/inspection-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
-import BookingProgress from '../components/BookingProgress.vue'
 import BookingServiceSnapshotCard from '../components/BookingServiceSnapshotCard.vue'
 
 interface BookingRouteQuery {
@@ -228,11 +227,9 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
   <view class="inspection-booking">
     <view class="inspection-booking__header">
       <button class="inspection-booking__back" aria-label="返回" @click="goBack"><UniIcons type="back" size="22" color="#25282d" /></button>
-      <text class="inspection-booking__title">预约服务</text>
+      <text class="inspection-booking__title">确认订单</text>
       <button class="inspection-booking__customer" aria-label="联系客服" @click="showCustomerService"><UniIcons type="headphones" size="20" color="#25282d" /><text>客服</text></button>
     </view>
-    <BookingProgress :active="1" />
-
     <scroll-view scroll-y class="inspection-booking__scroll" :show-scrollbar="false">
       <view v-if="isLoading" class="booking-state"><text>正在加载服务信息…</text></view>
       <view v-else-if="loadError" class="booking-state">
@@ -295,7 +292,11 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
         <text v-if="submitError" class="booking-submit-error">{{ submitError }}</text>
       </main>
     </scroll-view>
-    <view v-if="service" class="inspection-booking__footer"><view class="inspection-booking__tip"><UniIcons type="shield-filled" size="17" color="#ff6a00" /><text>提交后由服务商评估方案并联系确认，暂不收取费用。</text></view><label class="booking-agreement"><checkbox :checked="draft.agreementAccepted" color="#ff6a00" @click="draft.agreementAccepted = !draft.agreementAccepted" /><text>我已阅读并同意 <text class="booking-agreement__link">《预约服务须知》</text></text></label><button class="inspection-booking__submit" :loading="isSubmitting" :disabled="isSubmitting" @click="submit">提交预约</button></view>
+    <view v-if="service" class="inspection-booking__footer">
+      <view class="inspection-booking__tip"><UniIcons type="shield-filled" size="17" color="#20ad56" /><text>平台保障 · 方案确认前不收取费用</text></view>
+      <label class="booking-agreement"><checkbox :checked="draft.agreementAccepted" color="#ff6a00" @click="draft.agreementAccepted = !draft.agreementAccepted" /><text>我已阅读并同意 <text class="booking-agreement__link">《服务协议》《隐私政策》</text></text></label>
+      <button class="inspection-booking__submit" :loading="isSubmitting" :disabled="isSubmitting" @click="submit">提交订单</button>
+    </view>
   </view>
 </template>
 
@@ -304,4 +305,34 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
 .inspection-booking__header { display: grid; min-height: calc(44px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); grid-template-columns: 44px 1fr 64px; align-items: center; background: #fff; box-sizing: border-box; }
 .inspection-booking__back,.inspection-booking__customer { height: 42px; margin: 0; padding: 0; border: 0; background: transparent; line-height: 42px; }.inspection-booking__back{width:44px}.inspection-booking__customer{display:flex;width:64px;align-items:center;justify-content:center;gap:3px;font-size:11px}.inspection-booking__back::after,.inspection-booking__customer::after,.inspection-booking__submit::after,.booking-item::after,.booking-attachment-add::after,.booking-attachment__action::after{border:0}.inspection-booking__title{text-align:center;font-size:16px;font-weight:700}.inspection-booking :deep(.booking-progress){padding:4px 24px 1px}.inspection-booking :deep(.booking-progress__label){margin-top:3px}.inspection-booking__scroll{height:calc(100vh - 172px - env(safe-area-inset-top) - env(safe-area-inset-bottom));}.inspection-booking__content{display:flex;max-width:600px;margin:0 auto;padding:4px 8px 6px;flex-direction:column;gap:4px;box-sizing:border-box}.inspection-booking :deep(.booking-service-card){grid-template-columns:90px minmax(0,1fr);min-height:90px;padding:6px}.inspection-booking :deep(.booking-service-card__image){width:90px;height:90px}.inspection-booking :deep(.booking-service-card__copy){padding-left:9px}.booking-section{padding:4px 10px;border:1px solid #eceef1;border-radius:12px;background:#fff}.booking-section__title{display:block;margin-bottom:2px;color:#25282d;font-size:13px;font-weight:700}.booking-row{display:grid;min-height:27px;grid-template-columns:22px 67px minmax(0,1fr) auto;align-items:center;border-bottom:1px solid #eceef1;color:#24282e;font-size:11px}.booking-row:last-child{border-bottom:0}.booking-row--selectable{cursor:pointer}.booking-section--contact .booking-row{min-height:21px}.booking-section--contact .booking-row__input{height:21px}.booking-row__label{font-weight:600}.booking-row__input{width:100%;height:27px;color:#25282d;font-size:11px}.booking-row__date,.booking-row__location{overflow:hidden;color:#25282d;text-overflow:ellipsis;white-space:nowrap}.booking-row__date--empty,.booking-row__location--empty,.booking-row__input::placeholder{color:#a4a9b0}.booking-row__suffix{color:#848b94}.booking-note{width:100%;height:42px;margin-top:3px;padding:5px 7px;border:1px solid #eceef1;border-radius:7px;background:#fff;box-sizing:border-box;color:#25282d;font-size:10px}.booking-items{display:grid;margin-top:3px;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}.booking-item{display:grid;min-height:38px;margin:0;padding:0 5px;grid-template-columns:22px minmax(0,1fr) 19px;align-items:center;border:1px solid #dfe3e7;border-radius:7px;color:#3f454d;background:#fff;font-size:10px;line-height:1.2}.booking-item--selected{border-color:#ff6a00;color:#25282d;background:#fff8f3}.booking-attachments{display:flex;margin-top:3px;gap:4px;flex-wrap:wrap}.booking-attachment{display:flex;width:86px;height:44px;min-height:44px;padding:4px;align-items:center;justify-content:center;flex-direction:column;border:1px solid #eceef1;border-radius:7px;background:#fafbfc;box-sizing:border-box;overflow:hidden}.booking-attachment-add{display:flex;width:100%;height:44px;min-height:44px;margin:0;padding:0 10px;align-items:center;justify-content:center;gap:8px;border:1px dashed #c7ccd2;border-radius:7px;color:#4c535c;background:#fff;font-size:10px;line-height:1.2}.booking-attachment-add view{display:flex;align-items:flex-start;flex-direction:column}.booking-attachment-add view text:last-child{margin-top:1px;color:#969ca4;font-size:9px}.booking-attachment__name{width:100%;overflow:hidden;font-size:9px;text-overflow:ellipsis;white-space:nowrap}.booking-attachment__status{margin-top:2px;color:#9298a0;font-size:8px;text-align:center}.booking-attachment__action{margin:2px 0 0;padding:0;border:0;color:#ff6a00;background:transparent;font-size:8px}.booking-agreement{display:flex;height:21px;margin-top:1px;align-items:center;gap:3px;color:#707780;font-size:9px}.booking-agreement :deep(.uni-checkbox-input){width:15px;height:15px;margin-right:2px}.booking-agreement__link{color:#ff5a00}.booking-submit-error{padding:0 4px;color:#df3e21;font-size:12px}.inspection-booking__footer{position:fixed;right:0;bottom:0;left:0;padding:0 8px calc(2px + env(safe-area-inset-bottom));background:rgba(255,255,255,.99);box-shadow:0 -3px 14px rgba(22,30,40,.08)}.inspection-booking__tip{display:flex;margin:0 -8px;padding:3px 12px;align-items:center;gap:5px;color:#a65c2e;background:#fff5ea;font-size:9px}.inspection-booking__submit{display:block;width:min(100%,584px);height:32px;margin:1px auto 0;border:0;border-radius:17px;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff4d00);font-size:14px;font-weight:700;line-height:32px}.booking-state{display:flex;min-height:340px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#7e858e;font-size:14px;text-align:center}
 .booking-section--contact{padding-top:2px;padding-bottom:2px}.booking-section--contact .booking-section__title{margin-bottom:0}.booking-section--contact .booking-row{min-height:20px}.booking-section--contact .booking-row__input{height:20px}
+
+/* Candidate visual shell: preserve the reservation logic, expand it into the
+   approved confirm-order hierarchy and mobile touch sizes. */
+.inspection-booking__header{min-height:calc(52px + var(--status-bar-height));padding-top:var(--status-bar-height);grid-template-columns:52px 1fr 64px}
+.inspection-booking__title{font-size:18px}
+.inspection-booking__scroll{height:calc(100vh - 142px - var(--status-bar-height) - env(safe-area-inset-bottom))}
+.inspection-booking__content{padding:12px 14px 160px;gap:12px}
+.inspection-booking :deep(.booking-service-card){grid-template-columns:126px minmax(0,1fr);min-height:140px;padding:12px;border:0;border-radius:20px;box-shadow:0 8px 28px rgba(35,45,55,.07)}
+.inspection-booking :deep(.booking-service-card__image){width:126px;height:116px}
+.inspection-booking :deep(.booking-service-card__copy){padding-left:14px}
+.booking-section{padding:17px 16px;border:0;border-radius:20px;box-shadow:0 8px 28px rgba(35,45,55,.06)}
+.booking-section__title{margin-bottom:8px;font-size:17px}
+.booking-row,.booking-section--contact .booking-row{min-height:50px;grid-template-columns:26px 78px minmax(0,1fr) auto;font-size:13px}
+.booking-row__input,.booking-section--contact .booking-row__input{height:48px;font-size:13px}
+.booking-row__date,.booking-row__location{text-align:right}
+.booking-note{height:82px;margin-top:7px;padding:10px;border-radius:12px;background:#fafbfc;font-size:13px}
+.booking-items{margin-top:8px;gap:8px}
+.booking-item{min-height:52px;padding:0 9px;border-radius:12px;font-size:12px}
+.booking-attachments{margin-top:8px;gap:8px}
+.booking-attachment{width:104px;height:auto;min-height:68px;border-radius:10px}
+.booking-attachment-add{height:68px;min-height:68px;border-radius:12px;font-size:12px}
+.inspection-booking__price-summary{padding:16px;border-radius:20px;background:#fff;box-shadow:0 8px 28px rgba(35,45,55,.06)}
+.inspection-booking__price-summary>view{display:flex;min-height:34px;align-items:center;justify-content:space-between;color:#646b74;font-size:13px}
+.inspection-booking__price-summary>view text:last-child{color:#25282d}
+.inspection-booking__price-total{margin-top:6px;padding-top:10px;border-top:1px solid #eceef1;color:#17191d!important;font-size:16px!important;font-weight:700}
+.inspection-booking__price-total text:last-child{color:#ff5a00!important;font-size:22px}
+.inspection-booking__footer{padding:0 14px calc(8px + env(safe-area-inset-bottom))}
+.inspection-booking__tip{margin:0 -14px;padding:7px 16px;justify-content:center;color:#5f6b65;background:#f3fbf5;font-size:10px}
+.booking-agreement{height:30px;font-size:10px}
+.inspection-booking__submit{height:48px;margin-top:2px;border-radius:16px;font-size:16px;line-height:48px}
 </style>

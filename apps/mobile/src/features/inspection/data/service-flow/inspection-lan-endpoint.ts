@@ -18,6 +18,7 @@ interface InspectionLanEndpointResolverOptions {
 
 interface InspectionLanEndpointResolver {
   resolve: () => Promise<string>
+  invalidate: () => void
 }
 
 const PROBE_CONCURRENCY = 24
@@ -32,6 +33,9 @@ export function createInspectionLanEndpointResolver(
       pendingResolution ??= resolveInspectionLanEndpoint(options)
       return pendingResolution
     },
+    invalidate(): void {
+      pendingResolution = null
+    },
   }
 }
 
@@ -44,6 +48,7 @@ async function resolveInspectionLanEndpoint(
   const automaticCandidates: string[] = []
   const lastKnown = options.loadLastKnownBaseUrl()
   if (lastKnown && parsePrivateHttpBaseUrl(lastKnown)) automaticCandidates.push(lastKnown)
+  automaticCandidates.push(options.configuredBaseUrl)
 
   const localAddresses = await options.getPrivateIpv4Candidates()
   automaticCandidates.push(...buildSubnetCandidates(localAddresses, configured.port))
@@ -178,6 +183,10 @@ let runtimeResolver: {
 
 export function resolveInspectionApiBaseUrl(configuredBaseUrl: string): Promise<string> {
   return getRuntimeResolver(configuredBaseUrl).resolve()
+}
+
+export function invalidateInspectionApiBaseUrl(): void {
+  runtimeResolver?.resolver.invalidate()
 }
 
 export function warmUpInspectionLanEndpoint(): void {

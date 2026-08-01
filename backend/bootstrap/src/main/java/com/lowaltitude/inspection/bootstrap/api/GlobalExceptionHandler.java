@@ -11,6 +11,7 @@ import com.lowaltitude.inspection.application.reservation.FileUploadValidationEx
 import com.lowaltitude.inspection.application.reservation.IdempotencyConflictException;
 import com.lowaltitude.inspection.application.reservation.ReservationNotFoundException;
 import com.lowaltitude.inspection.application.reservation.ReservationValidationException;
+import com.lowaltitude.inspection.application.reservation.InspectionServiceNotFoundException;
 import com.lowaltitude.inspection.application.serviceflow.PlanFlowException;
 import com.lowaltitude.inspection.infrastructure.storage.ObjectStorageException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -93,9 +94,12 @@ public class GlobalExceptionHandler {
                         traceId(request)));
     }
 
-    @ExceptionHandler(ReservationNotFoundException.class)
+    @ExceptionHandler({
+            ReservationNotFoundException.class,
+            InspectionServiceNotFoundException.class
+    })
     public ResponseEntity<ApiError> handleReservationNotFound(
-            ReservationNotFoundException exception,
+            RuntimeException exception,
             HttpServletRequest request
     ) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)

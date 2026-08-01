@@ -5,6 +5,7 @@ defineProps<{
   cityName: string
   keyword: string
   weatherLabel?: string
+  weatherIconUrl?: string
   unreadCount?: number
 }>()
 
@@ -42,11 +43,11 @@ function handleInput(event: Event): void {
         </view>
         <view v-if="weatherLabel" class="portal-header__weather-row">
           <text class="portal-header__weather">{{ weatherLabel }}</text>
-          <UniIcons
+          <image
+            v-if="weatherIconUrl"
             class="portal-header__weather-icon"
-            type="smallcircle-filled"
-            size="26"
-            color="#f7b638"
+            :src="weatherIconUrl"
+            mode="aspectFit"
           />
         </view>
       </button>
@@ -111,7 +112,7 @@ function handleInput(event: Event): void {
 <style scoped>
 .portal-header {
   padding:
-    calc(env(safe-area-inset-top) + clamp(4px, 1vw, 6px))
+    calc(var(--status-bar-height) + clamp(4px, 1vw, 6px))
     clamp(12px, 3vw, 18px)
     clamp(2px, 0.6vw, 4px);
   background: #ffffff;
@@ -183,7 +184,9 @@ function handleInput(event: Event): void {
 }
 
 .portal-header__weather-icon {
-  font-size: clamp(22px, 4.3vw, 26px) !important;
+  width: clamp(20px, 4.3vw, 26px);
+  height: clamp(20px, 4.3vw, 26px);
+  flex: 0 0 auto;
 }
 
 .portal-header__search {

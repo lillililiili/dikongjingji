@@ -4,6 +4,7 @@ import { ref } from 'vue'
 
 import { ROOT_TABS, type RootTabCode } from '@/app-shell/navigation/root-tabs'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
+import { createPlatformHomePreviewContent } from '@/features/inspection/data/preview/platform-home-preview'
 import { inspectionCatalogApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import PlatformHomePage from '@/features/inspection/presentation/platform/home/PlatformHomePage.vue'
 import {
@@ -13,20 +14,28 @@ import {
   type PlatformHomeServiceEntry,
   type PlatformHomeViewState,
 } from '@/features/inspection/presentation/platform/home/platform-home'
-import { useCurrentCityStore } from '@/shared/city/state/current-city'
+import {
+  resolveLocatedCityName,
+  useCurrentCityStore,
+  type CurrentCity,
+} from '@/shared/city/state/current-city'
 import {
   createCurrentCityWeatherLoader,
   createPlatformWeatherApi,
+  toPlatformWeatherPresentation,
+  type PlatformWeatherPresentation,
 } from '@/shared/weather/platform-weather'
 import { createUniPlatformWeatherHttpClient } from '@/shared/weather/uni-platform-weather-http-client'
 
 const currentCityStore = useCurrentCityStore()
 const state = ref<PlatformHomeViewState>({ kind: 'loading' })
-const weatherLoader = createCurrentCityWeatherLoader(
-  createPlatformWeatherApi(createUniPlatformWeatherHttpClient({
-    getAccessToken: () => getBookingAuthContext().getAccessToken(),
-  })),
-)
+const homePreviewEnabled =
+  import.meta.env.DEV ||
+  import.meta.env.VITE_PLATFORM_PREVIEW_ENABLED === 'true'
+const weatherApi = createPlatformWeatherApi(createUniPlatformWeatherHttpClient({
+  getAccessToken: () => getBookingAuthContext().getAccessToken(),
+}))
+const weatherLoader = createCurrentCityWeatherLoader(weatherApi)
 
 function restoreDefaultCity(): void {
   if (currentCityStore.currentCity) return
@@ -35,26 +44,69 @@ function restoreDefaultCity(): void {
   if (code && name) currentCityStore.setCurrentCity({ code, name })
 }
 
-async function loadPage(): Promise<void> {
-  restoreDefaultCity()
-  const city = currentCityStore.currentCity
-  if (!city) {
-    state.value = { kind: 'error', message: '请先选择当前城市' }
-    return
-  }
+function isNativeAppRuntime(): boolean {
+  return uni.getSystemInfoSync().uniPlatform === 'app'
+}
 
+function locateCurrentCityName(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    uni.getLocation({
+      type: 'gcj02',
+      geocode: true,
+      isHighAccuracy: true,
+      highAccuracyExpireTime: 5000,
+      success: (result) => {
+        try {
+          resolve(resolveLocatedCityName(result.address))
+        } catch (error) {
+          reject(error)
+        }
+      },
+      fail: reject,
+    })
+  })
+}
+
+async function resolveCurrentCityContext(): Promise<{
+  city: CurrentCity
+  weather: PlatformWeatherPresentation
+}> {
+  try {
+    const locatedCityName = await locateCurrentCityName()
+    const weatherDto = await weatherApi.loadCurrentByCityName(locatedCityName)
+    const city = { code: weatherDto.cityCode, name: weatherDto.cityName }
+    currentCityStore.setCurrentCity(city)
+    return {
+      city,
+      weather: toPlatformWeatherPresentation(weatherDto),
+    }
+  } catch (error) {
+    if (!homePreviewEnabled || isNativeAppRuntime()) throw error
+    restoreDefaultCity()
+    const city = currentCityStore.currentCity
+    if (!city) throw error
+    return {
+      city,
+      weather: await weatherLoader.load(city),
+    }
+  }
+}
+
+async function loadPage(): Promise<void> {
   if (state.value.kind !== 'ready') state.value = { kind: 'loading' }
   try {
-    const [portal, weather] = await Promise.all([
-      inspectionCatalogApi.loadPortal(city.code),
-      weatherLoader.load(city),
-    ])
+    const { city, weather } = await resolveCurrentCityContext()
+    const portal = await inspectionCatalogApi.loadPortal(city.code)
+    let content = createPlatformHomeContentFromPortal(city.name, weather, portal)
+    if (homePreviewEnabled) {
+      content = createPlatformHomePreviewContent(city.name, weather, portal)
+    }
     state.value = resolvePlatformHomeState({
       status: 'ready',
-      content: createPlatformHomeContentFromPortal(city.name, weather, portal),
+      content,
     })
   } catch {
-    state.value = { kind: 'error', message: '首页加载失败，请稍后重试' }
+    state.value = { kind: 'error', message: '无法获取当前位置，请开启定位权限后重试' }
   }
 }
 
@@ -105,6 +157,7 @@ onHide(() => {
     :state="state"
     active-tab="HOME"
     @retry="loadPage"
+    @location="loadPage"
     @search="openCatalog()"
     @message="showUnavailable"
     @select-service-entry="selectEntry"

@@ -22,6 +22,7 @@ import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
 import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
+import com.lowaltitude.inspection.application.reservation.CustomerReservationQueryService;
 import com.lowaltitude.inspection.application.serviceflow.DeliveryApplicationService;
 import com.lowaltitude.inspection.application.serviceflow.OrderApplicationService;
 import com.lowaltitude.inspection.application.serviceflow.PlanApplicationService;
@@ -53,7 +54,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @MockBean({
         PlanApplicationService.class,
         OrderApplicationService.class,
-        DeliveryApplicationService.class
+        DeliveryApplicationService.class,
+        CustomerReservationQueryService.class
 })
 @Import({
         AuthenticationSecurityIntegrationTest.SecurityProbeConfiguration.class,
@@ -171,6 +173,11 @@ class AuthenticationSecurityIntegrationTest {
                         .param("cityCode", "370500"))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(get(
+                        "/api/v1/inspection/services/33333333-3333-3333-3333-333333333333")
+                        .param("cityCode", "370500"))
+                .andExpect(status().isOk());
+
         mockMvc.perform(post("/api/v1/inspection/services"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
@@ -183,6 +190,15 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(jsonPath("$.service").value("low-altitude-inspection"))
                 .andExpect(jsonPath("$.contract").value("inspection-lan-discovery-v1"));
     }
+
+    @Test
+    void platformWeatherGetIsPublicCityInformation() throws Exception {
+        mockMvc.perform(get("/api/v1/platform/weather/current")
+                        .param("cityName", "济南市"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("PLATFORM_WEATHER_UNAVAILABLE"));
+    }
+
     @Test
     void configuredBrowserOriginCanCompleteAuthenticatedApiPreflight() throws Exception {
         mockMvc.perform(options("/api/v1/inspection/reservations")

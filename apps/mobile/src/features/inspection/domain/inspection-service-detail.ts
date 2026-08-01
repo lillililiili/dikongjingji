@@ -1,8 +1,10 @@
 export interface DetailCapability {
   code: string
   label: string
+  description?: string
   icon: string
   tone: 'orange' | 'green'
+  imageUrl?: string
 }
 
 export interface DetailProcessStep {
@@ -10,9 +12,12 @@ export interface DetailProcessStep {
   label: string
 }
 
-export interface DetailExplanation {
-  label: string
-  value: string
+export interface DetailProvider {
+  id: string
+  name: string
+  logoUrl: string
+  certificationLabel: string
+  teamDescription: string
 }
 
 export interface DetailReviewFilter {
@@ -40,14 +45,16 @@ export interface InspectionServiceDetail {
   priceAmountMinor: number | null
   priceUnitLabel: string
   priceNote: string
+  availability: string
+  primaryAction: string
   ratingAverage: number | null
   completedCountLabel: string | null
+  provider: DetailProvider | null
   capabilities: readonly DetailCapability[]
   inspectionItems: readonly DetailCapability[]
   processSteps: readonly DetailProcessStep[]
   deliverables: readonly DetailCapability[]
   guarantees: readonly DetailCapability[]
-  explanations: readonly DetailExplanation[]
   reviewCount: number | null
   positiveRateLabel: string | null
   reviewFilters: readonly DetailReviewFilter[]

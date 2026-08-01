@@ -1,3 +1,5 @@
+import type { InspectionOrderFilter } from '../domain/service-flow/order-center'
+
 export const INSPECTION_PORTAL_PATH = '/pages/service/inspection/index'
 export const INSPECTION_CATALOG_PATH = '/pages/service/inspection/catalog'
 export const INSPECTION_LOGIN_PATH = '/pages/service/inspection/login'
@@ -10,6 +12,16 @@ export const INSPECTION_FULFILLMENT_PATH =
   '/pages/service/inspection/fulfillment'
 export const INSPECTION_DELIVERY_PATH =
   '/pages/service/inspection/delivery'
+export const INSPECTION_ORDER_CENTER_PATH = '/pages/mine/inspection-orders'
+
+const INSPECTION_ORDER_RETURN_STAGES: readonly InspectionOrderFilter[] = [
+  'ALL',
+  'AWAITING_PLAN',
+  'AWAITING_CONFIRMATION',
+  'IN_PROGRESS',
+  'AWAITING_ACCEPTANCE',
+  'COMPLETED',
+]
 
 export const INSPECTION_ROUTES = [
   {
@@ -48,7 +60,7 @@ export const INSPECTION_ROUTES = [
 
 const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   string,
-  { required: string; allowed: readonly string[] }
+  { required?: string; allowed: readonly string[] }
 > = {
   [INSPECTION_BOOKING_PATH]: {
     required: 'serviceId',
@@ -70,6 +82,9 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
     required: 'serviceOrderId',
     allowed: ['serviceOrderId'],
   },
+  [INSPECTION_ORDER_CENTER_PATH]: {
+    allowed: ['stage'],
+  },
 }
 
 export function buildInspectionLoginUrl(returnUrl: string): string {
@@ -87,13 +102,24 @@ export function normalizeInspectionReturnUrl(returnUrl: string): string {
   if (!rule) return '/pages/home/index'
 
   const values = parseQuery(query)
-  if (!values[rule.required]) return '/pages/home/index'
+  if (rule.required && !values[rule.required]) return '/pages/home/index'
 
   const parameters = rule.allowed.flatMap((key) => {
     const value = values[key]?.trim()
-    return value ? [`${key}=${encodeURIComponent(value)}`] : []
+    if (!value || (path === INSPECTION_ORDER_CENTER_PATH
+      && key === 'stage'
+      && !INSPECTION_ORDER_RETURN_STAGES.includes(value as InspectionOrderFilter))) {
+      return []
+    }
+    return [`${key}=${encodeURIComponent(value)}`]
   })
-  return `${path}?${parameters.join('&')}`
+  return parameters.length === 0 ? path : `${path}?${parameters.join('&')}`
+}
+
+export function buildInspectionOrderCenterUrl(
+  stage: InspectionOrderFilter = 'ALL',
+): string {
+  return `${INSPECTION_ORDER_CENTER_PATH}?stage=${encodeURIComponent(stage)}`
 }
 
 export function buildInspectionBookingUrl(

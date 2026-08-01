@@ -50,10 +50,7 @@ const PROCESS_ICONS: Record<string, string> = {
 
 <style scoped>
 .inspection-process {
-  padding:
-    clamp(6px, 1.2vw, 7px)
-    clamp(8px, 2.2vw, 13px)
-    clamp(7px, 1.2vw, 7px);
+  padding: 10px;
   border: 1px solid #dbe8fb;
   border-radius: clamp(11px, 2.8vw, 17px);
   background: linear-gradient(135deg, #ffffff, #f2f7ff);
@@ -67,21 +64,21 @@ const PROCESS_ICONS: Record<string, string> = {
 
 .inspection-process__title {
   color: #191919;
-  font-size: clamp(14px, 3.1vw, 18px);
+  font-size: 17px;
   font-weight: 750;
 }
 
 .inspection-process__note {
   display: flex;
   align-items: center;
-  gap: clamp(2px, 0.5vw, 3px);
+  gap: 3px;
   color: #7a828d;
-  font-size: clamp(9px, 2vw, 12px);
+  font-size: 11px;
 }
 
 .inspection-process__steps {
   display: flex;
-  margin-top: clamp(4px, 0.7vw, 4px);
+  margin-top: 8px;
   align-items: center;
   justify-content: space-between;
 }
@@ -96,8 +93,8 @@ const PROCESS_ICONS: Record<string, string> = {
 
 .inspection-process__icon {
   display: flex;
-  width: clamp(25px, 6.1vw, 36px);
-  height: clamp(25px, 6.1vw, 36px);
+  width: 34px;
+  height: 34px;
   align-items: center;
   justify-content: center;
   border: 1px solid #c8dcfa;
@@ -110,9 +107,9 @@ const PROCESS_ICONS: Record<string, string> = {
 }
 
 .inspection-process__label {
-  margin-top: clamp(3px, 0.5vw, 3px);
+  margin-top: 4px;
   color: #3b4149;
-  font-size: clamp(9px, 2vw, 12px);
+  font-size: 10px;
   text-align: center;
   white-space: nowrap;
 }
@@ -128,8 +125,8 @@ const PROCESS_ICONS: Record<string, string> = {
   }
 
   .inspection-process__icon {
-    width: 23px;
-    height: 23px;
+    width: 30px;
+    height: 30px;
   }
 
 }

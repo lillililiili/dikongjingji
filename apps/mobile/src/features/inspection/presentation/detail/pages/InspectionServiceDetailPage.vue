@@ -11,16 +11,14 @@ import {
 } from '../../../application/detail/inspection-detail-actions'
 import {
   EMPTY_INSPECTION_SERVICE_DETAIL,
-  toInspectionServiceDetail,
 } from '../../../application/detail/resolve-inspection-service-detail'
-import { inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
+import { inspectionServiceDetailApi } from '../../../data/service-flow/uni-booking-http-client'
 import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
 import InspectionScope from '../components/InspectionScope.vue'
 import ServiceDeliverables from '../components/ServiceDeliverables.vue'
 import ServiceDetailBottomBar from '../components/ServiceDetailBottomBar.vue'
 import ServiceDetailHeader from '../components/ServiceDetailHeader.vue'
 import ServiceDetailHero from '../components/ServiceDetailHero.vue'
-import ServiceExplanation from '../components/ServiceExplanation.vue'
 import ServiceGuarantees from '../components/ServiceGuarantees.vue'
 import ServiceProcess from '../components/ServiceProcess.vue'
 import ServiceReviews from '../components/ServiceReviews.vue'
@@ -66,11 +64,10 @@ async function loadDetail(serviceId: string, cityCode: string): Promise<void> {
   isLoading.value = true
   loadError.value = ''
   try {
-    const snapshot = await inspectionBookingApi.loadServiceSnapshot(
+    detail.value = await inspectionServiceDetailApi.loadDetail(
       serviceId,
       cityCode,
     )
-    detail.value = toInspectionServiceDetail(snapshot)
   } catch (error) {
     loadError.value = error instanceof Error
       ? error.message
@@ -127,6 +124,16 @@ function reserveService(): void {
         v-if="detail.inspectionItems.length"
         :items="detail.inspectionItems"
       />
+      <ServiceReviews
+        :average="detail.ratingAverage"
+        :total="detail.reviewCount ?? 0"
+        :positive-rate-label="detail.positiveRateLabel"
+        :filters="detail.reviewFilters"
+        :reviews="detail.reviews"
+        :selected-filter="selectedReviewFilter"
+        @select-filter="selectedReviewFilter = $event"
+        @view-all="showUnavailable('全部评价功能正在完善')"
+      />
       <ServiceProcess
         v-if="detail.processSteps.length"
         :steps="detail.processSteps"
@@ -138,25 +145,6 @@ function reserveService(): void {
       <ServiceGuarantees
         v-if="detail.guarantees.length"
         :items="detail.guarantees"
-      />
-      <ServiceExplanation
-        v-if="detail.explanations.length"
-        :items="detail.explanations"
-      />
-      <ServiceReviews
-        v-if="
-          detail.ratingAverage !== null &&
-          detail.reviewCount !== null &&
-          detail.positiveRateLabel
-        "
-        :average="detail.ratingAverage"
-        :total="detail.reviewCount"
-        :positive-rate-label="detail.positiveRateLabel"
-        :filters="detail.reviewFilters"
-        :reviews="detail.reviews"
-        :selected-filter="selectedReviewFilter"
-        @select-filter="selectedReviewFilter = $event"
-        @view-all="showUnavailable('全部评价能力待接入')"
       />
     </main>
 
@@ -193,9 +181,9 @@ function reserveService(): void {
   min-height: 100vh;
   margin: 0 auto;
   padding:
-    calc(36px + env(safe-area-inset-top))
+    calc(50px + var(--status-bar-height))
     0
-    calc(72px + env(safe-area-inset-bottom));
+    calc(82px + env(safe-area-inset-bottom));
   flex-direction: column;
   gap: 6px;
   background: #f7f8fa;
@@ -206,7 +194,7 @@ function reserveService(): void {
   display: flex;
   min-height: 100vh;
   padding:
-    calc(90px + env(safe-area-inset-top))
+    calc(90px + var(--status-bar-height))
     24px
     calc(110px + env(safe-area-inset-bottom));
   align-items: center;

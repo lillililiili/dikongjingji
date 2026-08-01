@@ -6,16 +6,23 @@ paths:
   /api/v1/platform/weather/current:
     get:
       summary: Query live weather for the selected platform city
-      security:
-        - bearerAuth: []
+      security: []
       parameters:
         - in: query
           name: cityCode
-          required: true
+          required: false
           schema:
             type: string
             pattern: '^\d{6}$'
-          description: Six-digit Chinese administrative division code (adcode).
+          description: Six-digit Chinese administrative division code (adcode). Exactly one of cityCode or cityName is required.
+        - in: query
+          name: cityName
+          required: false
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 40
+          description: Located city name resolved by the native client. Exactly one of cityCode or cityName is required.
       responses:
         '200':
           description: Current weather from the configured provider.
@@ -24,17 +31,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/CurrentWeather'
         '400':
-          description: Invalid city code.
+          description: Invalid city query or both city query parameters were provided.
         '401':
           description: Authentication required.
         '503':
           description: Weather provider is disabled or temporarily unavailable.
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
   schemas:
     CurrentWeather:
       type: object

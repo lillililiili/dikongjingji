@@ -23,8 +23,18 @@ public final class PlatformWeatherController {
     }
 
     @GetMapping("/api/v1/platform/weather/current")
-    CurrentWeatherView current(@RequestParam String cityCode) {
-        return CurrentWeatherView.from(service.current(cityCode));
+    CurrentWeatherView current(
+            @RequestParam(required = false) String cityCode,
+            @RequestParam(required = false) String cityName
+    ) {
+        boolean hasCityCode = cityCode != null && !cityCode.isBlank();
+        boolean hasCityName = cityName != null && !cityName.isBlank();
+        if (hasCityCode == hasCityName) {
+            throw new IllegalArgumentException(
+                    "exactly one of cityCode or cityName is required");
+        }
+        return CurrentWeatherView.from(
+                hasCityCode ? service.current(cityCode) : service.currentByCityName(cityName));
     }
 
     @ExceptionHandler(PlatformWeatherUnavailableException.class)

@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
+import {
+  createCurrentCityWeatherLoader,
+  createPlatformWeatherApi,
+  type PlatformWeatherPresentation,
+} from '@/shared/weather/platform-weather'
+import { createUniPlatformWeatherHttpClient } from '@/shared/weather/uni-platform-weather-http-client'
 
+import { composeInspectionPortalContentForRuntime } from '../../../data/preview/inspection-portal-preview'
 import { inspectionCatalogApi } from '../../../data/service-flow/uni-booking-http-client'
 import {
   buildPortalCategoryUrl,
@@ -12,7 +19,10 @@ import {
   buildPortalSearchUrl,
   buildPortalViewAllUrl,
 } from '../../../application/portal/build-portal-navigation'
-import { EMPTY_PORTAL_CONTENT } from '../../../application/portal/resolve-portal-content'
+import {
+  EMPTY_PORTAL_CONTENT,
+  createInspectionPortalContentLoader,
+} from '../../../application/portal/resolve-portal-content'
 import type {
   InspectionPortalCategory,
   InspectionPortalContent,
@@ -25,15 +35,39 @@ import InspectionHero from '../components/InspectionHero.vue'
 import InspectionProcess from '../components/InspectionProcess.vue'
 import PortalServiceHeader from '../components/PortalServiceHeader.vue'
 
+const props = withDefaults(defineProps<{
+  embedded?: boolean
+}>(), {
+  embedded: false,
+})
+
 const currentCityStore = useCurrentCityStore()
 const { currentCity } = storeToRefs(currentCityStore)
 const content = ref<InspectionPortalContent>(EMPTY_PORTAL_CONTENT)
 const keyword = ref('')
 const isLoading = ref(true)
 const loadError = ref('')
+const weather = ref<PlatformWeatherPresentation>({
+  available: false,
+  text: '',
+  iconUrl: '/static/images/inspection/platform/weather-unknown.png',
+  conditionCode: 'UNKNOWN',
+  observedAt: null,
+})
 const showRequestAction = import.meta.env.DEV
-const developmentWeatherLabel = import.meta.env.DEV ? '晴 28°C' : ''
 const developmentUnreadCount = import.meta.env.DEV ? 3 : undefined
+const portalPreviewEnabled =
+  import.meta.env.DEV ||
+  import.meta.env.VITE_PLATFORM_PREVIEW_ENABLED === 'true'
+const portalContentLoader = createInspectionPortalContentLoader(
+  (cityCode) => inspectionCatalogApi.loadPortal(cityCode),
+)
+const weatherLoader = createCurrentCityWeatherLoader(
+  createPlatformWeatherApi(createUniPlatformWeatherHttpClient({
+    getAccessToken: () => null,
+  })),
+)
+let weatherRequestVersion = 0
 const displayCityName = computed(
   () =>
     currentCity.value?.name ??
@@ -49,25 +83,52 @@ onMounted(() => {
         code: defaultCityCode,
         name: defaultCityName,
       })
+      return
     }
   }
   void loadPortalContent()
+  void loadWeather()
 })
+
+watch(
+  () => currentCity.value?.code,
+  () => {
+    void loadPortalContent()
+    void loadWeather()
+  },
+  { flush: 'sync' },
+)
+
+async function loadWeather(): Promise<void> {
+  const requestVersion = ++weatherRequestVersion
+  const loadedWeather = await weatherLoader.load(currentCity.value)
+  if (requestVersion === weatherRequestVersion) weather.value = loadedWeather
+}
 
 async function loadPortalContent(): Promise<void> {
   isLoading.value = true
   loadError.value = ''
 
-  try {
-    const cityCode = currentCity.value?.code
-    if (!cityCode) throw new Error('CITY_REQUIRED')
-    content.value = await inspectionCatalogApi.loadPortal(cityCode)
-  } catch {
+  const cityCode = currentCity.value?.code
+  if (!cityCode) {
+    portalContentLoader.invalidate()
     content.value = EMPTY_PORTAL_CONTENT
     loadError.value = '巡检入口加载失败，请稍后重试'
-  } finally {
     isLoading.value = false
+    return
   }
+
+  const result = await portalContentLoader.load(cityCode)
+  if (result.kind === 'stale') return
+  content.value = result.kind === 'loaded'
+    ? portalPreviewEnabled
+      ? composeInspectionPortalContentForRuntime(result.content)
+      : result.content
+    : EMPTY_PORTAL_CONTENT
+  loadError.value = result.kind === 'error'
+    ? '巡检入口加载失败，请稍后重试'
+    : ''
+  isLoading.value = false
 }
 
 function navigateToCatalog(url: string): void {
@@ -108,12 +169,20 @@ function showUnavailable(message: string): void {
 </script>
 
 <template>
-  <view class="inspection-portal" data-testid="inspection-portal">
+  <view
+    :class="[
+      'inspection-portal',
+      { 'inspection-portal--embedded': props.embedded },
+    ]"
+    data-testid="inspection-portal"
+  >
     <view class="inspection-portal__surface">
       <PortalServiceHeader
+        v-if="!props.embedded"
         v-model:keyword="keyword"
         :city-name="displayCityName"
-        :weather-label="developmentWeatherLabel"
+        :weather-label="weather.available ? weather.text : undefined"
+        :weather-icon-url="weather.available ? weather.iconUrl : undefined"
         :unread-count="developmentUnreadCount"
         @search="submitSearch"
         @select-city="showUnavailable('城市选择能力待平台接入')"
@@ -162,7 +231,7 @@ function showUnavailable(message: string): void {
       </main>
     </view>
 
-    <RootAppTabBar active="SERVICE" />
+    <RootAppTabBar v-if="!props.embedded" active="SERVICE" />
   </view>
 </template>
 
@@ -173,6 +242,15 @@ function showUnavailable(message: string): void {
     calc(clamp(58px, 11.5vw, 68px) + env(safe-area-inset-bottom));
   background: #f7f8fa;
   box-sizing: border-box;
+}
+
+.inspection-portal--embedded {
+  min-height: auto;
+  padding-bottom: 0;
+}
+
+.inspection-portal--embedded .inspection-portal__content {
+  padding: 0 0 clamp(12px, 3vw, 18px);
 }
 
 .inspection-portal__surface {
@@ -215,7 +293,7 @@ function showUnavailable(message: string): void {
 }
 
 .portal-skeleton__hero {
-  height: clamp(132px, 35.1vw, 210px);
+  height: 248rpx;
 }
 
 .portal-skeleton__grid {

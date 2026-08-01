@@ -85,7 +85,7 @@ function handleKeywordInput(event: Event): void {
 <style scoped>
 .catalog-header {
   padding:
-    env(safe-area-inset-top)
+    var(--status-bar-height)
     clamp(12px, 3.2vw, 18px)
     0;
   border-bottom: 1px solid #eff1f3;

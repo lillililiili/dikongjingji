@@ -27,55 +27,88 @@ const priceLabel = computed(() => {
         lazy-load
         :aria-label="`${detail.title}服务现场`"
       />
-      <text class="service-detail-hero__category">
-        {{ detail.categoryLabel }}
-      </text>
+      <view class="service-detail-hero__category">
+        <UniIcons type="auth-filled" size="15" color="#fff" />
+        <text>{{ detail.categoryLabel }}</text>
+      </view>
     </view>
 
     <view class="service-detail-hero__card">
       <text class="service-detail-hero__title">{{ detail.title }}</text>
       <text class="service-detail-hero__subtitle">{{ detail.subtitle }}</text>
 
+      <view class="service-detail-hero__price-row">
+        <text
+          class="service-detail-hero__price"
+          :class="{ 'service-detail-hero__price--quote': detail.priceAmountMinor === null }"
+        >
+          {{ priceLabel }}
+        </text>
+        <text
+          v-if="detail.priceAmountMinor !== null"
+          class="service-detail-hero__unit"
+        >
+          {{ detail.priceUnitLabel }}
+        </text>
+      </view>
+
       <view class="service-detail-hero__metrics">
-        <view class="service-detail-hero__price-row">
-          <text class="service-detail-hero__price">{{ priceLabel }}</text>
-          <text
-            v-if="detail.priceAmountMinor !== null"
-            class="service-detail-hero__unit"
-          >
-            {{ detail.priceUnitLabel }}
-          </text>
-        </view>
         <view
           v-if="detail.ratingAverage !== null"
           class="service-detail-hero__rating"
         >
-          <UniIcons type="star-filled" size="14" color="#ffad00" />
-          <text>{{ detail.ratingAverage.toFixed(1) }}</text>
+          <UniIcons type="star-filled" size="17" color="#ff8a00" />
+          <text>{{ detail.ratingAverage.toFixed(1) }}分</text>
         </view>
-        <text
-          v-if="detail.completedCountLabel"
-          class="service-detail-hero__served"
-        >
-          {{ detail.completedCountLabel }}
+        <text v-if="detail.reviewCount !== null">
+          ·　{{ detail.reviewCount }}条评价
+        </text>
+        <text v-if="detail.completedCountLabel">
+          ·　{{ detail.completedCountLabel }}
         </text>
       </view>
+      <text v-if="detail.priceNote" class="service-detail-hero__note">
+        {{ detail.priceNote }}
+      </text>
 
-      <view class="service-detail-hero__capabilities">
+      <view
+        v-if="detail.capabilities.length"
+        class="service-detail-hero__capabilities"
+      >
         <view
           v-for="capability in detail.capabilities"
           :key="capability.code"
           class="service-detail-hero__capability"
         >
-          <UniIcons
-            :type="capability.icon"
-            size="14"
-            color="#18b85b"
-          />
+          <UniIcons type="checkbox-filled" size="16" color="#12af59" />
           <text>{{ capability.label }}</text>
         </view>
       </view>
-      <text class="service-detail-hero__note">{{ detail.priceNote }}</text>
+
+      <view v-if="detail.provider" class="service-detail-hero__provider">
+        <image
+          class="service-detail-hero__provider-logo"
+          :src="detail.provider.logoUrl"
+          mode="aspectFill"
+          :aria-label="`${detail.provider.name}服务商标识`"
+        />
+        <view class="service-detail-hero__provider-copy">
+          <view class="service-detail-hero__provider-name">
+            <text>{{ detail.provider.name }}</text>
+            <text
+              v-if="detail.provider.certificationLabel"
+              class="service-detail-hero__certification"
+            >
+              {{ detail.provider.certificationLabel }}
+            </text>
+          </view>
+          <text class="service-detail-hero__team">
+            {{ detail.provider.teamDescription }}
+          </text>
+        </view>
+        <text class="service-detail-hero__provider-link">查看服务商</text>
+        <UniIcons type="right" size="17" color="#303744" />
+      </view>
     </view>
   </view>
 </template>
@@ -84,7 +117,7 @@ const priceLabel = computed(() => {
 .service-detail-hero__image-wrap {
   position: relative;
   overflow: hidden;
-  height: clamp(168px, 45vw, 210px);
+  height: clamp(208px, 56vw, 240px);
   background: #eaf4fb;
 }
 
@@ -95,135 +128,198 @@ const priceLabel = computed(() => {
 
 .service-detail-hero__category {
   position: absolute;
-  top: 11px;
-  left: 11px;
-  padding: 6px 11px;
-  border-radius: 6px;
-  color: #ffffff;
-  background: #18be5b;
-  font-size: 12px;
+  top: 18px;
+  left: 18px;
+  display: flex;
+  height: 32px;
+  padding: 0 12px;
+  align-items: center;
+  gap: 5px;
+  border-radius: 8px;
+  color: #fff;
+  background: #08ac58;
+  box-shadow: 0 5px 14px rgba(4, 132, 66, 0.2);
+  box-sizing: border-box;
+  font-size: 14px;
   font-weight: 650;
-  line-height: 1;
 }
 
 .service-detail-hero__card {
   position: relative;
   z-index: 2;
   display: flex;
-  margin: -36px 7px 0;
-  padding: 8px 12px 7px;
+  margin: -28px 12px 0;
+  padding: 12px 16px 10px;
   flex-direction: column;
-  border: 1px solid #edf0f2;
-  border-radius: 12px;
-  background: #ffffff;
+  border: 1px solid #f0f1f3;
+  border-radius: 20px;
+  background: #fff;
   box-sizing: border-box;
-  box-shadow: 0 5px 18px rgba(28, 36, 46, 0.08);
+  box-shadow: 0 9px 26px rgba(32, 39, 48, 0.09);
 }
 
 .service-detail-hero__title {
-  color: #17191d;
-  font-size: clamp(17px, 4.55vw, 20px);
-  font-weight: 750;
+  display: block;
+  color: #101216;
+  font-size: clamp(19px, 5vw, 22px);
+  font-weight: 760;
   letter-spacing: 0.01em;
   line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .service-detail-hero__subtitle {
+  display: block;
   margin-top: 4px;
-  color: #656b74;
-  font-size: clamp(10px, 2.8vw, 12px);
-  line-height: 1.25;
+  color: #536176;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.service-detail-hero__price-row {
+  display: flex;
+  min-height: 40px;
+  margin-top: 8px;
+  align-items: flex-end;
+}
+
+.service-detail-hero__price {
+  color: #ff5900;
+  font-size: 33px;
+  font-weight: 760;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.service-detail-hero__price--quote {
+  font-size: 23px;
+  letter-spacing: 0;
+}
+
+.service-detail-hero__unit {
+  margin: 0 0 3px 5px;
+  color: #ff5900;
+  font-size: 14px;
 }
 
 .service-detail-hero__metrics {
   display: flex;
   min-width: 0;
+  margin-top: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+  color: #4f5d70;
+  font-size: 12px;
+  row-gap: 3px;
+}
+
+.service-detail-hero__rating {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.service-detail-hero__note {
   margin-top: 6px;
-  align-items: center;
-  gap: clamp(10px, 3vw, 16px);
-  color: #5f6670;
+  color: #7c8798;
   font-size: 11px;
-}
-
-.service-detail-hero__price-row,
-.service-detail-hero__rating {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-}
-
-.service-detail-hero__price {
-  color: #ff5a00;
-  font-size: clamp(22px, 5.8vw, 26px);
-  font-weight: 750;
-  line-height: 1;
-}
-
-.service-detail-hero__unit {
-  margin-left: 4px;
-  color: #686e77;
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.service-detail-hero__rating {
-  gap: 3px;
-  white-space: nowrap;
-}
-
-.service-detail-hero__served {
-  overflow: hidden;
-  min-width: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .service-detail-hero__capabilities {
   display: grid;
-  margin-top: 7px;
+  margin-top: 10px;
+  padding-bottom: 10px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
+  border-bottom: 1px solid #eceff2;
 }
 
 .service-detail-hero__capability {
   display: flex;
   min-width: 0;
-  min-height: 25px;
-  padding: 5px 5px;
+  min-height: 32px;
+  padding: 0 8px;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  border-radius: 7px;
-  color: #535962;
-  background: #f8f9fa;
+  gap: 5px;
+  border: 1px solid #e6eaee;
+  border-radius: 9px;
+  color: #354054;
+  background: #fff;
   box-sizing: border-box;
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
-.service-detail-hero__note {
-  margin-top: 5px;
-  color: #9a9fa6;
+.service-detail-hero__provider {
+  display: grid;
+  min-height: 54px;
+  padding-top: 8px;
+  grid-template-columns: 40px minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 9px;
+}
+
+.service-detail-hero__provider-logo {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #eceff1;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.service-detail-hero__provider-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.service-detail-hero__provider-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #20252c;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.service-detail-hero__certification {
+  padding: 1px 5px;
+  border: 1px solid #24b767;
+  border-radius: 3px;
+  color: #14a758;
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.service-detail-hero__team {
+  color: #7a8595;
   font-size: 10px;
+}
+
+.service-detail-hero__provider-link {
+  color: #2f3948;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 @media (max-width: 359px) {
   .service-detail-hero__card {
-    margin-right: 7px;
-    margin-left: 7px;
-    padding-right: 10px;
-    padding-left: 10px;
+    margin-right: 9px;
+    margin-left: 9px;
+    padding-right: 14px;
+    padding-left: 14px;
   }
 
-  .service-detail-hero__metrics {
-    gap: 7px;
-    font-size: 10px;
+  .service-detail-hero__capabilities {
+    gap: 5px;
   }
 
   .service-detail-hero__capability {
-    padding-right: 4px;
-    padding-left: 4px;
-    font-size: 9px;
+    padding: 0 4px;
+    font-size: 10px;
   }
 }
 </style>

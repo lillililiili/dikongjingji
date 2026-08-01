@@ -45,24 +45,18 @@ const GUARANTEE_ICONS: Record<string, { type: string; color: string }> = {
 <style scoped>
 .guarantee-strip {
   display: flex;
-  height: clamp(38px, 10.1vw, 60px);
-  align-items: center;
-  padding:
-    clamp(4px, 1.1vw, 7px)
-    clamp(8px, 2.1vw, 13px);
+  flex-direction: column;
+  padding: 12px;
   border: 1px solid #e7eef9;
   border-radius: clamp(11px, 2.8vw, 17px);
   background: linear-gradient(90deg, #f7faff, #fffdfb);
   box-sizing: border-box;
+  gap: 10px;
 }
 
 .guarantee-strip__heading {
-  width: clamp(70px, 18.7vw, 112px);
-  flex: 0 0 clamp(70px, 18.7vw, 112px);
-  padding-right: clamp(8px, 2.1vw, 13px);
-  border-right: 1px solid #e4e7ec;
   color: #191919;
-  font-size: clamp(11px, 2.9vw, 17px);
+  font-size: 16px;
   font-weight: 750;
   white-space: nowrap;
 }
@@ -70,27 +64,28 @@ const GUARANTEE_ICONS: Record<string, { type: string; color: string }> = {
 .guarantee-strip__items {
   display: grid;
   min-width: 0;
-  padding-left: clamp(7px, 1.9vw, 11px);
-  flex: 1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(3px, 0.8vw, 5px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
 }
 
 .guarantee-strip__item {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: clamp(3px, 0.8vw, 5px);
+  padding: 8px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 76%);
+  gap: 8px;
 }
 
 .guarantee-strip__icon {
   display: block;
-  width: clamp(24px, 6.4vw, 38px);
-  height: clamp(24px, 6.4vw, 38px);
-  flex: 0 0 clamp(24px, 6.4vw, 38px);
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   border-radius: 50%;
   background: #eef5ff;
-  line-height: clamp(24px, 6.4vw, 38px);
+  line-height: 34px;
   text-align: center;
 }
 
@@ -100,37 +95,35 @@ const GUARANTEE_ICONS: Record<string, { type: string; color: string }> = {
   flex-direction: column;
 }
 
-.guarantee-strip__title,
-.guarantee-strip__description {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .guarantee-strip__title {
   color: #2c3036;
-  font-size: clamp(8px, 2.1vw, 12px);
+  font-size: 13px;
   font-weight: 700;
+  line-height: 18px;
 }
 
 .guarantee-strip__description {
-  margin-top: clamp(1px, 0.3vw, 2px);
-  color: #969ba3;
-  font-size: clamp(7px, 1.8vw, 11px);
+  margin-top: 2px;
+  color: #66707c;
+  font-size: 11px;
+  line-height: 16px;
 }
 
 @media (max-width: 359px) {
+  .guarantee-strip {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
   .guarantee-strip__heading {
-    width: 60px;
-    flex-basis: 60px;
-    font-size: 10px;
+    font-size: 15px;
   }
 
   .guarantee-strip__icon {
-    width: 21px;
-    height: 21px;
-    flex-basis: 21px;
-    line-height: 21px;
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
+    line-height: 30px;
   }
 }
 </style>

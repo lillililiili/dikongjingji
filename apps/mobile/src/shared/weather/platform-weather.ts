@@ -33,6 +33,7 @@ export interface PlatformWeatherHttpClient {
 
 export interface PlatformWeatherApi {
   loadCurrent(cityCode: string): Promise<PlatformWeatherDto>
+  loadCurrentByCityName(cityName: string): Promise<PlatformWeatherDto>
 }
 
 const WEATHER_ICON_BY_CODE: Record<PlatformWeatherCode, string> = {
@@ -82,6 +83,20 @@ export function createPlatformWeatherApi(
       return http.request<PlatformWeatherDto>({
         method: 'GET',
         url: `/api/v1/platform/weather/current?cityCode=${encodeURIComponent(normalizedCityCode)}`,
+      })
+    },
+    loadCurrentByCityName(cityName: string): Promise<PlatformWeatherDto> {
+      const normalizedCityName = cityName.trim()
+      if (
+        normalizedCityName.length < 2
+        || normalizedCityName.length > 40
+        || /[/?#&=\u0000-\u001f]/.test(normalizedCityName)
+      ) {
+        return Promise.reject(new Error('city name is invalid'))
+      }
+      return http.request<PlatformWeatherDto>({
+        method: 'GET',
+        url: `/api/v1/platform/weather/current?cityName=${encodeURIComponent(normalizedCityName)}`,
       })
     },
   }

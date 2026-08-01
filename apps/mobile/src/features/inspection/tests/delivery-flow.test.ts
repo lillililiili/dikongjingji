@@ -9,6 +9,7 @@ import {
 } from '../data/service-flow/inspection-plan-api'
 import type { BookingHttpClient } from '../data/service-flow/inspection-booking-api'
 import { buildInspectionDeliveryUrl } from '../navigation/inspection-routes'
+import { resolveInspectionDeliveryBackAction } from '../application/service-flow/inspection-order-navigation'
 
 const ORDER_ID = '60000000-0000-4000-8000-000000000001'
 const FILE_ID = '70000000-0000-4000-8000-000000000001'
@@ -64,16 +65,10 @@ describe('F07 delivery page contract', () => {
     )
   })
 
-  it('allows its own navigateBack call instead of intercepting it recursively', () => {
-    expect(deliveryPageSource).toContain(
-      "previousPage?.route === 'pages/service/inspection/fulfillment'",
-    )
-    expect(deliveryPageSource).toContain(
-      'buildInspectionFulfillmentUrl(serviceOrderId.value)',
-    )
-    expect(deliveryPageSource).toMatch(
-      /onBackPress\(\(event\) => \{\s*if \(event\.from === 'navigateBack'\) return false\s*returnToFulfillment\(\)\s*return true\s*\}\)/,
-    )
+  it('keeps real workflow history and otherwise returns delivery to the shared order center', () => {
+    expect(resolveInspectionDeliveryBackAction('pages/mine/inspection-orders')).toBe('navigateBack')
+    expect(resolveInspectionDeliveryBackAction('pages/service/inspection/fulfillment')).toBe('navigateBack')
+    expect(resolveInspectionDeliveryBackAction(undefined)).toBe('reLaunchOrderCenter')
   })
 
   it('loads real delivery, creates controlled download intents and guards duplicate acceptance', () => {

@@ -4,10 +4,15 @@ import {
   getBookingAuthContext,
 } from '../../application/service-flow/booking-auth-context'
 import { createInspectionCatalogApi } from '../catalog/inspection-catalog-api'
+import { createInspectionServiceDetailApi } from '../detail/inspection-service-detail-api'
 import type { BookingHttpClient, InspectionBookingApi } from './inspection-booking-api'
 import { createInspectionBookingApi } from './inspection-booking-api'
+import { createInspectionOrderApi } from './inspection-order-api'
 import { createInspectionPlanApi } from './inspection-plan-api'
-import { resolveInspectionApiBaseUrl } from './inspection-lan-endpoint'
+import {
+  invalidateInspectionApiBaseUrl,
+  resolveInspectionApiBaseUrl,
+} from './inspection-lan-endpoint'
 
 export class ApiRequestError extends Error {
   constructor(
@@ -68,6 +73,21 @@ function errorFromResponse(data: unknown, status: number): ApiRequestError {
 }
 
 async function publicRequest<T>(input: {
+  url: string
+  method: 'GET' | 'POST'
+  data?: unknown
+  headers?: Record<string, string>
+}): Promise<T> {
+  try {
+    return await sendPublicRequest<T>(input)
+  } catch (error) {
+    if (!(error instanceof ApiRequestError) || error.code !== 'NETWORK_ERROR') throw error
+    invalidateInspectionApiBaseUrl()
+    return sendPublicRequest<T>(input)
+  }
+}
+
+async function sendPublicRequest<T>(input: {
   url: string
   method: 'GET' | 'POST'
   data?: unknown
@@ -147,9 +167,13 @@ function putFile(input: { url: string; filePath: string; headers: Record<string,
 
 const http: BookingHttpClient = { request, putFile }
 export const inspectionCatalogApi = createInspectionCatalogApi({ request: publicRequest })
+export const inspectionServiceDetailApi = createInspectionServiceDetailApi({ request: publicRequest })
 export const inspectionBookingApi: InspectionBookingApi = createInspectionBookingApi(http, {
   getAccessToken: () => getBookingAuthContext().getAccessToken(),
 }, { request: publicRequest })
 export const inspectionPlanApi = createInspectionPlanApi(http, {
+  getAccessToken: () => getBookingAuthContext().getAccessToken(),
+})
+export const inspectionOrderApi = createInspectionOrderApi(http, {
   getAccessToken: () => getBookingAuthContext().getAccessToken(),
 })

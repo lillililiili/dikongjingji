@@ -45,6 +45,34 @@ describe('platform weather presentation', () => {
 })
 
 describe('current city weather loading', () => {
+  it('resolves the located city name to an adcode and live weather', async () => {
+    const request = vi.fn().mockResolvedValue({
+      cityCode: '370500',
+      cityName: '\u4e1c\u8425\u5e02',
+      conditionCode: 'CLEAR',
+      conditionText: '\u6674',
+      temperatureCelsius: 28,
+      observedAt: '2026-07-30T08:00:00Z',
+    })
+    const api = createPlatformWeatherApi({ request }) as ReturnType<
+      typeof createPlatformWeatherApi
+    > & {
+      loadCurrentByCityName?: (cityName: string) => Promise<unknown>
+    }
+
+    expect(api.loadCurrentByCityName).toBeTypeOf('function')
+    if (!api.loadCurrentByCityName) return
+
+    await expect(api.loadCurrentByCityName('\u4e1c\u8425\u5e02')).resolves.toMatchObject({
+      cityCode: '370500',
+      cityName: '\u4e1c\u8425\u5e02',
+    })
+    expect(request).toHaveBeenCalledWith({
+      method: 'GET',
+      url: '/api/v1/platform/weather/current?cityName=%E4%B8%9C%E8%90%A5%E5%B8%82',
+    })
+  })
+
   it('queries the selected city code instead of phone weather-app data', async () => {
     const request = vi.fn().mockResolvedValue({
       cityCode: '370100',

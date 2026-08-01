@@ -36,7 +36,7 @@ defineEmits<{
   top: 0;
   right: 0;
   left: 0;
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--status-bar-height);
   border-bottom: 1px solid rgba(235, 237, 240, 0.74);
   background: rgba(255, 255, 255, 0.97);
   box-sizing: border-box;
@@ -46,7 +46,7 @@ defineEmits<{
   display: grid;
   width: 100%;
   max-width: 600px;
-  height: 36px;
+  height: 50px;
   margin: 0 auto;
   padding: 0 10px;
   grid-template-columns: 48px minmax(0, 1fr) 48px;
@@ -73,7 +73,7 @@ defineEmits<{
 .service-detail-header__title {
   overflow: hidden;
   color: #17191d;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-align: center;

@@ -28,6 +28,16 @@ public class ReservationApplicationConfiguration {
     }
 
     @Bean
+    CustomerReservationQueryService customerReservationQueryService(
+            ReservationPersistenceMapper mapper,
+            @Value("${INSPECTION_DATA_ENCRYPTION_BASE64_KEY}") String key
+    ) {
+        return new CustomerReservationQueryService(
+                new PostgresCustomerReservationQueryStore(mapper),
+                new AesGcmSensitiveDataCipher(key));
+    }
+
+    @Bean
     @ConditionalOnProperty(
             prefix = "inspection.infrastructure.storage",
             name = "enabled",

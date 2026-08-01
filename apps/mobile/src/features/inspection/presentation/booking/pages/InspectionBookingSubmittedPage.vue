@@ -1,31 +1,59 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
 import type { BookingReservation } from '../../../data/service-flow/inspection-booking-api'
-import { buildInspectionPlanConfirmationUrl } from '../../../navigation/inspection-routes'
-import BookingProgress from '../components/BookingProgress.vue'
+import {
+  createLatestRequestCoordinator,
+  getPreviousInspectionPageRoute,
+  runLatestRequest,
+  shouldNavigateBackToInspectionOrderCenter,
+} from '../../../application/service-flow/inspection-order-navigation'
+import {
+  buildInspectionOrderCenterUrl,
+  buildInspectionPlanConfirmationUrl,
+} from '../../../navigation/inspection-routes'
 
 interface SubmittedRouteQuery { reservationId?: string }
 const reservation = ref<BookingReservation | null>(null)
 const isLoading = ref(true)
 const loadError = ref('')
+const reservationId = ref('')
+const reservationRequest = createLatestRequestCoordinator()
 
 onLoad((query: SubmittedRouteQuery | undefined) => {
-  const reservationId = query?.reservationId?.trim() ?? ''
-  if (!reservationId) { isLoading.value = false; loadError.value = '未找到预约记录'; return }
-  void loadReservation(reservationId)
+  reservationId.value = query?.reservationId?.trim() ?? ''
+  if (!reservationId.value) {
+    isLoading.value = false
+    loadError.value = '未找到预约记录'
+  }
+})
+
+onShow(() => {
+  if (reservationId.value) void loadReservation(reservationId.value)
 })
 
 async function loadReservation(reservationId: string): Promise<void> {
   isLoading.value = true; loadError.value = ''
-  try { reservation.value = await inspectionBookingApi.getReservation(reservationId) }
-  catch (error) { loadError.value = error instanceof Error ? error.message : '预约记录加载失败' }
-  finally { isLoading.value = false }
+  const result = await runLatestRequest(
+    reservationRequest,
+    () => inspectionBookingApi.getReservation(reservationId),
+  )
+  if (result.status === 'discarded') return
+  if (result.status === 'success') reservation.value = result.value
+  else loadError.value = result.error instanceof Error ? result.error.message : '预约记录加载失败'
+  isLoading.value = false
 }
 
-function returnHome(): void { uni.reLaunch({ url: '/pages/home/index' }) }
+function returnOrders(): void {
+  const previousRoute = getPreviousInspectionPageRoute(getCurrentPages())
+  if (shouldNavigateBackToInspectionOrderCenter(previousRoute)) {
+    uni.navigateBack({ delta: 1 })
+    return
+  }
+  uni.redirectTo({ url: buildInspectionOrderCenterUrl('ALL') })
+}
 function handlePrimaryAction(): void {
   if (reservation.value?.currentPlanId) {
     uni.navigateTo({
@@ -33,7 +61,7 @@ function handlePrimaryAction(): void {
     })
     return
   }
-  returnHome()
+  returnOrders()
 }
 function copyReservationNo(): void {
   if (!reservation.value) return
@@ -54,37 +82,37 @@ function maskMobile(value: string): string {
 
 <template>
   <view class="booking-submitted">
-    <view class="booking-submitted__header"><button aria-label="返回" @click="returnHome"><UniIcons type="back" size="22" color="#25282d" /></button><text>预约结果</text><button aria-label="联系客服" @click="showCustomerService"><UniIcons type="headphones" size="20" color="#25282d" /><text>客服</text></button></view>
-    <BookingProgress :active="2" />
+    <view class="booking-submitted__header">
+      <button aria-label="返回" @click="returnOrders"><UniIcons type="back" size="24" color="#17191d" /></button>
+      <text>提交成功</text>
+      <text class="booking-submitted__page-step">1/5</text>
+    </view>
     <view v-if="isLoading" class="booking-submitted__state">正在恢复预约记录…</view>
     <view v-else-if="loadError" class="booking-submitted__state"><UniIcons type="info-filled" size="40" color="#b5bac1" /><text>{{ loadError }}</text></view>
     <main v-else-if="reservation" class="booking-submitted__content">
       <view class="booking-submitted__success">
-        <view class="booking-submitted__success-main">
-          <view class="booking-submitted__success-icon"><UniIcons type="checkmarkempty" size="42" color="#08a942" /></view>
-          <view class="booking-submitted__success-copy"><text class="booking-submitted__title">预约申请已提交</text><text class="booking-submitted__copy">服务商将尽快联系您确认方案和最终报价</text><text class="booking-submitted__status">待方案确认</text></view>
-        </view>
-        <button class="booking-submitted__number" @click="copyReservationNo"><text>预约编号</text><text>{{ reservation.reservationNo }}</text><UniIcons type="copy" size="16" color="#50565f" /></button>
-        <text class="booking-submitted__time">提交时间：{{ formatSubmittedAt(reservation.submittedAt) }}</text>
+        <view class="booking-submitted__success-icon"><UniIcons type="checkmarkempty" size="62" color="#18a947" /></view>
+        <text class="booking-submitted__title">订单已提交</text>
+        <text class="booking-submitted__copy">预约申请已提交，服务商将在 <text>30分钟</text> 内联系您</text>
       </view>
       <view class="booking-submitted__card">
-        <text class="booking-submitted__card-title">预约信息</text>
-        <view class="booking-submitted__service"><image :src="reservation.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'" mode="aspectFill" /><text>{{ reservation.serviceTitle }}</text><UniIcons type="right" size="18" color="#626973" /></view>
+        <view class="booking-submitted__service"><image :src="reservation.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'" mode="aspectFill" /><view><text>{{ reservation.serviceTitle }}</text><text>云翼科技</text></view></view>
+        <button class="booking-submitted__number" @click="copyReservationNo"><text>预约编号</text><text>{{ reservation.reservationNo }}</text><UniIcons type="copy" size="16" color="#50565f" /></button>
         <view class="booking-submitted__detail-row"><text>巡检地点</text><text>{{ reservation.location.address }}</text></view>
         <view class="booking-submitted__detail-row"><text>线路长度</text><text>{{ formatLength(reservation.lineLengthMeters) }}</text></view>
         <view class="booking-submitted__detail-row"><text>期望时间</text><text>{{ reservation.preferredServiceDate }}</text></view>
-        <view class="booking-submitted__detail-row"><text>巡检项目</text><text>{{ reservation.inspectionItems.map((item) => item.label).join('、') }}</text></view>
         <view class="booking-submitted__detail-row"><text>联系人</text><text>{{ reservation.contact.name }}　{{ maskMobile(reservation.contact.mobile) }}</text></view>
+        <text class="booking-submitted__time">提交时间：{{ formatSubmittedAt(reservation.submittedAt) }}</text>
       </view>
-      <view class="booking-submitted__timeline">
-        <text class="booking-submitted__timeline-title">后续流程</text>
+      <view class="booking-submitted__next-steps">
+        <text class="booking-submitted__timeline-title">接下来</text>
         <view class="booking-submitted__timeline-row booking-submitted__timeline-row--done"><UniIcons type="checkbox-filled" size="18" color="#16af55" /><view><text>需求已提交</text><text>{{ formatSubmittedAt(reservation.submittedAt) }}</text></view></view>
         <view class="booking-submitted__timeline-row booking-submitted__timeline-row--current"><UniIcons type="circle-filled" size="18" color="#ff6a00" /><view><text>服务商确认需求</text><text>等待联系</text></view></view>
         <view class="booking-submitted__timeline-row"><UniIcons type="circle" size="18" color="#b5bac1" /><text>确认方案与报价</text></view>
-        <view class="booking-submitted__timeline-row"><UniIcons type="circle" size="18" color="#b5bac1" /><text>安排现场服务</text></view>
+        <view class="booking-submitted__timeline-row"><UniIcons type="circle" size="18" color="#b5bac1" /><text>现场巡检与报告交付</text></view>
       </view>
     </main>
-    <view class="booking-submitted__footer"><view><UniIcons type="info-filled" size="18" color="#ff6a00" /><text>请保持手机畅通，方案确认前不会收取任何费用。</text></view><button @click="handlePrimaryAction">{{ reservation?.currentPlanId ? '查看服务方案' : '返回首页' }}</button></view>
+    <view class="booking-submitted__footer"><button class="booking-submitted__contact" @click="showCustomerService"><UniIcons type="chat" size="20" color="#17191d" />联系商家</button><button @click="handlePrimaryAction">{{ reservation?.currentPlanId ? '查看服务方案' : '返回订单' }}</button></view>
   </view>
 </template>
 
@@ -113,4 +141,32 @@ function maskMobile(value: string): string {
 .booking-submitted__footer{padding-bottom:calc(6px + env(safe-area-inset-bottom))}
 .booking-submitted__footer>view{padding:5px 11px;gap:5px;font-size:9px}
 .booking-submitted__footer button{height:38px;margin-top:4px;border-radius:21px;font-size:15px}
+
+.booking-submitted{background:#fff}
+.booking-submitted__header{min-height:calc(56px + var(--status-bar-height));padding-top:var(--status-bar-height);grid-template-columns:56px 1fr 56px;background:#fff;font-size:19px}
+.booking-submitted__header button{width:56px;height:56px}
+.booking-submitted__page-step{justify-self:center;padding:5px 11px;border-radius:16px;background:#f3f4f5;font-size:13px;font-weight:500}
+.booking-submitted__content{padding:42px 22px 124px}
+.booking-submitted__success{display:flex;padding:0 0 34px;align-items:center;flex-direction:column;border:0;background:transparent}
+.booking-submitted__success-icon{width:94px;height:94px;border:5px solid #20aa49;background:#fff}
+.booking-submitted__title{margin-top:24px;font-size:30px}
+.booking-submitted__copy{margin-top:12px;color:#737985;font-size:15px;text-align:center}
+.booking-submitted__copy>text{color:#20ad4f}
+.booking-submitted__card{margin-top:0;padding:14px;border:0;border-radius:22px;box-shadow:0 10px 32px rgba(32,43,55,.08);font-size:13px}
+.booking-submitted__service{min-height:92px;padding-bottom:12px;grid-template-columns:110px minmax(0,1fr);gap:14px}
+.booking-submitted__service image{width:110px;height:92px;border-radius:14px}
+.booking-submitted__service>view{display:flex;min-width:0;flex-direction:column}
+.booking-submitted__service>view text:first-child{font-size:17px;font-weight:700}
+.booking-submitted__service>view text:last-child{margin-top:8px;color:#7f858d;font-size:13px}
+.booking-submitted__number{min-height:44px;margin-top:4px;font-size:13px}
+.booking-submitted__detail-row{min-height:40px;grid-template-columns:86px minmax(0,1fr);font-size:13px}
+.booking-submitted__time{margin-top:8px;font-size:11px}
+.booking-submitted__next-steps{margin-top:24px;padding:20px 18px;border-radius:22px;background:#fff;box-shadow:0 10px 32px rgba(32,43,55,.08)}
+.booking-submitted__timeline-title{margin-bottom:16px;font-size:20px}
+.booking-submitted__timeline-row{min-height:64px;grid-template-columns:34px minmax(0,1fr);font-size:16px}
+.booking-submitted__timeline-row:not(:last-child)::after{top:20px;bottom:-8px;left:8px}
+.booking-submitted__timeline-row>view text:last-child{margin-top:7px;font-size:12px}
+.booking-submitted__footer{display:grid;padding:10px 22px calc(12px + env(safe-area-inset-bottom));grid-template-columns:1fr 1fr;gap:12px;box-shadow:0 -7px 24px rgba(25,35,48,.07)}
+.booking-submitted__footer button{width:100%;height:52px;margin:0;border-radius:16px;font-size:16px}
+.booking-submitted__footer .booking-submitted__contact{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #aeb3ba;color:#17191d;background:#fff}
 </style>

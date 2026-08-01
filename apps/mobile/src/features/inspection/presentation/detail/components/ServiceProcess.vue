@@ -15,9 +15,7 @@ defineProps<{
         :key="step.code"
         class="service-process__step"
       >
-        <view class="service-process__marker">
-          <text>{{ index + 1 }}</text>
-        </view>
+        <view class="service-process__marker">{{ index + 1 }}</view>
         <text class="service-process__label">{{ step.label }}</text>
       </view>
     </view>
@@ -26,36 +24,36 @@ defineProps<{
 
 <style scoped>
 .detail-section {
-  margin: 0 7px;
-  padding: 6px;
-  border: 1px solid #edf0f2;
-  border-radius: 11px;
-  background: #ffffff;
+  margin: 0 12px;
+  padding: 13px 14px;
+  border: 1px solid #f0f1f3;
+  border-radius: 18px;
+  background: #fff;
   box-sizing: border-box;
-  box-shadow: 0 3px 14px rgba(28, 36, 46, 0.055);
+  box-shadow: 0 6px 20px rgba(30, 38, 48, 0.055);
 }
 
 .detail-section__title {
   display: block;
-  color: #1d2024;
-  font-size: 14px;
-  font-weight: 700;
+  color: #16191e;
+  font-size: 17px;
+  font-weight: 740;
 }
 
 .service-process__track {
   position: relative;
   display: grid;
-  margin-top: 3px;
+  margin-top: 10px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .service-process__track::before {
   position: absolute;
-  top: 9px;
+  top: 12px;
   right: 12.5%;
   left: 12.5%;
   height: 2px;
-  background: #ff6a00;
+  background: #ff6500;
   content: "";
 }
 
@@ -70,24 +68,24 @@ defineProps<{
 
 .service-process__marker {
   display: flex;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   align-items: center;
   justify-content: center;
-  border: 3px solid #ffffff;
+  border: 3px solid #fff;
   border-radius: 50%;
-  color: #ffffff;
-  background: #ff6a00;
+  color: #fff;
+  background: #ff6500;
   box-sizing: border-box;
-  box-shadow: 0 0 0 1px rgba(255, 106, 0, 0.18);
-  font-size: 11px;
+  box-shadow: 0 0 0 1px rgba(255, 101, 0, 0.16);
+  font-size: 12px;
   font-weight: 700;
 }
 
 .service-process__label {
-  margin-top: 3px;
-  color: #42474f;
-  font-size: 9px;
+  margin-top: 5px;
+  color: #3f4753;
+  font-size: 11px;
   line-height: 1.35;
   text-align: center;
   white-space: nowrap;
@@ -95,14 +93,14 @@ defineProps<{
 
 @media (max-width: 359px) {
   .detail-section {
-    margin-right: 6px;
-    margin-left: 6px;
-    padding-right: 7px;
-    padding-left: 7px;
+    margin-right: 9px;
+    margin-left: 9px;
+    padding-right: 10px;
+    padding-left: 10px;
   }
 
   .service-process__label {
-    font-size: 9px;
+    font-size: 10px;
   }
 }
 </style>

@@ -8,6 +8,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
@@ -49,6 +52,42 @@ class PlatformWeatherServiceTest {
 
         assertThatThrownBy(() -> service.current("../370100"))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void resolvesAndCachesWeatherByLocatedCityName() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        CurrentWeatherGateway gateway = cityQuery -> {
+            calls.incrementAndGet();
+            return new CurrentWeather(
+                    "370500",
+                    "\u4e1c\u8425\u5e02",
+                    WeatherConditionCode.CLEAR,
+                    "\u6674",
+                    new BigDecimal("28"),
+                    NOW);
+        };
+        PlatformWeatherService service = new PlatformWeatherService(
+                gateway,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                Duration.ofMinutes(15));
+        Optional<Method> method = Arrays.stream(PlatformWeatherService.class.getDeclaredMethods())
+                .filter(candidate -> candidate.getName().equals("currentByCityName"))
+                .findFirst();
+
+        assertThat(method).isPresent();
+        if (method.isEmpty()) {
+            return;
+        }
+
+        CurrentWeather first = (CurrentWeather) method.orElseThrow()
+                .invoke(service, "  \u4e1c\u8425\u5e02  ");
+        CurrentWeather second = (CurrentWeather) method.orElseThrow()
+                .invoke(service, "\u4e1c\u8425\u5e02");
+
+        assertThat(first.cityCode()).isEqualTo("370500");
+        assertThat(second).isEqualTo(first);
+        assertThat(calls).hasValue(1);
     }
 
     @Test

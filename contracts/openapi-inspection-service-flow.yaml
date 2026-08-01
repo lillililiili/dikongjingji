@@ -38,6 +38,35 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
   /api/v1/inspection/reservations:
+    get:
+      tags: [CustomerInspectionFlow]
+      operationId: listMyInspectionReservations
+      summary: 分页查询当前客户自己的巡检订单
+      x-required-permission: inspection.reservation.read.own
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: stage
+          in: query
+          schema:
+            $ref: "#/components/schemas/CustomerReservationFilter"
+      responses:
+        "200":
+          description: 当前客户的巡检订单分页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerReservationPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       tags: [CustomerInspectionFlow]
       operationId: createInspectionReservation
@@ -850,6 +879,112 @@ components:
     ReservationStatus:
       type: string
       enum: [SUBMITTED, PLAN_PUBLISHED, CANCELLED]
+    CustomerReservationFilter:
+      type: string
+      default: ALL
+      enum: [ALL, AWAITING_PLAN, AWAITING_CONFIRMATION, IN_PROGRESS, AWAITING_ACCEPTANCE, COMPLETED]
+    CustomerReservationStage:
+      type: string
+      enum: [AWAITING_PLAN, AWAITING_CONFIRMATION, IN_PROGRESS, AWAITING_ACCEPTANCE, COMPLETED, CANCELLED]
+    CustomerReservationSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - reservationId
+        - reservationNo
+        - serviceId
+        - serviceTitle
+        - cityCode
+        - locationSummary
+        - preferredServiceDate
+        - submittedAt
+        - stage
+        - reservationStatus
+        - currency
+      properties:
+        reservationId:
+          type: string
+          format: uuid
+        reservationNo:
+          type: string
+        serviceId:
+          type: string
+          format: uuid
+        serviceTitle:
+          type: string
+        serviceCoverUrl:
+          type: string
+          format: uri
+        cityCode:
+          type: string
+        locationSummary:
+          type: string
+        preferredServiceDate:
+          type: string
+          format: date
+        submittedAt:
+          type: string
+          format: date-time
+        stage:
+          $ref: "#/components/schemas/CustomerReservationStage"
+        reservationStatus:
+          $ref: "#/components/schemas/ReservationStatus"
+        currentPlanId:
+          type: string
+          format: uuid
+        serviceOrderId:
+          type: string
+          format: uuid
+        serviceOrderStatus:
+          $ref: "#/components/schemas/ServiceOrderStatus"
+        quoteAmountMinor:
+          type: integer
+          minimum: 0
+        currency:
+          const: CNY
+    CustomerReservationStageCounts:
+      type: object
+      additionalProperties: false
+      required: [AWAITING_PLAN, AWAITING_CONFIRMATION, IN_PROGRESS, AWAITING_ACCEPTANCE, COMPLETED]
+      properties:
+        AWAITING_PLAN:
+          type: integer
+          minimum: 0
+        AWAITING_CONFIRMATION:
+          type: integer
+          minimum: 0
+        IN_PROGRESS:
+          type: integer
+          minimum: 0
+        AWAITING_ACCEPTANCE:
+          type: integer
+          minimum: 0
+        COMPLETED:
+          type: integer
+          minimum: 0
+    CustomerReservationPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, size, total, hasMore, stageCounts]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerReservationSummary"
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        stageCounts:
+          $ref: "#/components/schemas/CustomerReservationStageCounts"
     CreateUploadIntentRequest:
       type: object
       additionalProperties: false

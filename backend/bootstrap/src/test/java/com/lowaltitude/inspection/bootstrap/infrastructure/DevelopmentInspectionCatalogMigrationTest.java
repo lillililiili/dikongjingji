@@ -38,7 +38,7 @@ class DevelopmentInspectionCatalogMigrationTest {
     }
 
     @Test
-    void developmentSeedDefinesTheFiveDongyingCatalogCategories() throws Exception {
+    void developmentSeedDefinesCatalogCoverageForDongyingAndJinan() throws Exception {
         String sql;
         try (var stream = getClass().getResourceAsStream(
                 "/db/development/inspection/R__dev_inspection_catalog.sql")) {
@@ -47,11 +47,36 @@ class DevelopmentInspectionCatalogMigrationTest {
         }
 
         assertThat(sql)
+                .contains("inspection_service_city")
                 .contains("'370500'")
+                .contains("'370100'")
                 .contains("'POWER'")
                 .contains("'THERMAL'")
                 .contains("'OIL_GAS'")
                 .contains("'PHOTOVOLTAIC'")
                 .contains("'PARK'");
+    }
+
+    @Test
+    void developmentSeedDefinesCompletePowerServiceDetail() throws Exception {
+        String sql;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/development/inspection/R__dev_inspection_detail.sql")) {
+            assertThat(stream).isNotNull();
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(sql)
+                .contains("'33333333-3333-3333-3333-333333333333'")
+                .contains("inspection_provider_profile")
+                .contains("'CAPABILITY'")
+                .contains("'PROCESS'")
+                .contains("'DELIVERABLE'")
+                .contains("'GUARANTEE'")
+                .contains("inspection_service_review")
+                .contains("inspection_service_review_tag")
+                .contains("inspection_service_review_image")
+                .contains("WHEN series_no <= 322 THEN 4")
+                .contains("ELSE 3");
     }
 }
