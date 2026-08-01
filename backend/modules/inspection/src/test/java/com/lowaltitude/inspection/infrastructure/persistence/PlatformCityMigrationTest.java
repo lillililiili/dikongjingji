@@ -13,7 +13,7 @@ class PlatformCityMigrationTest {
 
     @Test
     void createsVersionedCityDirectoryWithZeroProductionPopularity() throws Exception {
-        String schema = resource("/db/migration/inspection/V006__platform_city_directory.sql");
+        String schema = resource("/db/migration/inspection/V007__platform_city_directory.sql");
         String reference = resource("/db/migration/inspection/R__platform_city_reference.sql");
 
         assertThat(schema)
