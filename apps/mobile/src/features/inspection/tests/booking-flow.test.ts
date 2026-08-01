@@ -348,7 +348,8 @@ describe('F04 booking page contract', () => {
 
     expect(bookingPageSource).toContain('uni.chooseMedia({')
     expect(bookingPageSource).toContain("mediaType: ['image']")
-    expect(bookingPageSource).toContain('file.tempFilePath')
+    expect(bookingPageSource).toContain('createBookingImageAttachments(files')
+    expect(bookingPageSource).toContain('showImagePickerError')
     expect(bookingPageSource).toContain('已选择，提交时上传')
     expect(bookingPageSource).not.toContain('uni.chooseImage({')
     expect(manifest['app-plus'].modules).toHaveProperty('Camera')
@@ -368,9 +369,19 @@ describe('F04 booking page contract', () => {
     expect(bookingPageSource).not.toContain('draft.value = createEmptyBookingDraft()')
   })
 
-  it('matches the approved booking structure including customer service and PDF-capable attachments', () => {
+  it('uses the typed PDF picker and keeps picker failures visible', () => {
     expect(bookingPageSource).toContain('客服')
-    expect(bookingPageSource).toContain('chooseMessageFile')
+    expect(bookingPageSource).toContain('bookingDocumentPicker')
+    expect(bookingPageSource).toContain('pickInspectionPdfDocuments')
+    expect(bookingPageSource).toContain('await pickBookingPdfAttachments')
+    expect(bookingPageSource).toContain('showDocumentPickerError')
+    expect(bookingPageSource).toContain('releasePdfAttachments')
+    expect(bookingPageSource).toContain('bookingDocumentPicker.releasePdfFiles')
+    expect(bookingPageSource).toContain('isPageActive = true')
+    expect(bookingPageSource).toContain('isPageActive = false')
+    expect(bookingPageSource).toContain('isPageActive: () => isPageActive')
+    expect(bookingPageSource).toContain('onUnload(() =>')
+    expect(bookingPageSource).not.toContain('chooseMessageFile')
     expect(bookingPageSource).toContain('图片、PDF，最多9个文件')
     expect(bookingPageSource).toContain('提交后由服务商评估方案并联系确认，暂不收取费用')
   })

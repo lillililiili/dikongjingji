@@ -1,0 +1,288 @@
+import { DispatchQueue } from 'Dispatch'
+import {
+  FileAttributeKey,
+  FileAttributeType,
+  FileManager,
+  NSObject,
+  URL,
+  UUID,
+} from 'Foundation'
+import {
+  UIDocumentPickerDelegate,
+  UIDocumentPickerMode,
+  UIDocumentPickerViewController,
+} from 'UIKit'
+
+import {
+  InspectionPickedPdfDocument,
+  PickInspectionPdfDocuments,
+  PickInspectionPdfDocumentsOptions,
+  ReleaseInspectionPdfDocuments,
+} from '../interface.uts'
+
+const MAX_PDF_SIZE_BYTES = 1_073_741_824
+const PRIVATE_TEMPORARY_DIRECTORY = 'inspection-pdf'
+let pickerInFlight = false
+let activePickerDelegate: InspectionDocumentPickerDelegate | null = null
+let activePickerController: UIDocumentPickerViewController | null = null
+
+function errorMessage(code: string, message: string): string {
+  return `${code}: ${message}`
+}
+
+function privateTemporaryDirectory(): URL {
+  return FileManager.default.temporaryDirectory
+    .appendingPathComponent(PRIVATE_TEMPORARY_DIRECTORY)
+    .standardizedFileURL
+}
+
+function preparePrivateTemporaryDirectory(): URL {
+  const directory = privateTemporaryDirectory()
+  FileManager.default.createDirectory(
+    url = directory,
+    createIntermediates = true,
+    attributes = null,
+  )
+  return directory
+}
+
+function fileSizeBytes(filePath: string): number {
+  const attributes = FileManager.default.attributesOfItem(path = filePath)
+  if (attributes[FileAttributeKey.type] != FileAttributeType.typeRegular) {
+    throw new Error(errorMessage(
+      'BOOKING_DOCUMENT_PICKER_FAILED',
+      '所选 PDF 不是可读取的普通文件',
+    ))
+  }
+  return Number(attributes[FileAttributeKey.size])
+}
+
+function validatePdfSize(sizeBytes: number): void {
+  if (!Number.isFinite(sizeBytes) || sizeBytes < 1 || sizeBytes > MAX_PDF_SIZE_BYTES) {
+    throw new Error(errorMessage(
+      'BOOKING_DOCUMENT_SIZE_INVALID',
+      'PDF 文件大小必须在 1 字节到 1 GiB 之间',
+    ))
+  }
+}
+
+function copyToPrivateTemporaryDirectory(source: URL): InspectionPickedPdfDocument {
+  const originalName = source.lastPathComponent.trim()
+  if (!source.isFileURL || !originalName.toLowerCase().endsWith('.pdf')) {
+    throw new Error(errorMessage(
+      'BOOKING_DOCUMENT_NOT_PDF',
+      '请选择 PDF 格式的文件',
+    ))
+  }
+
+  const securityScopeStarted = source.startAccessingSecurityScopedResource()
+  const target = preparePrivateTemporaryDirectory().appendingPathComponent(
+    `inspection-${new UUID().uuidString}.pdf`,
+  )
+  try {
+    validatePdfSize(fileSizeBytes(source.path))
+    FileManager.default.copyItem(srcURL = source, dstURL = target)
+    const sizeBytes = fileSizeBytes(target.path)
+    validatePdfSize(sizeBytes)
+    return {
+      filePath: target.path,
+      originalName,
+      contentType: 'application/pdf',
+      sizeBytes,
+    }
+  } catch (error) {
+    try {
+      if (FileManager.default.fileExists(path = target.path)) {
+        FileManager.default.removeItem(URL = target)
+      }
+    } catch (_) {
+      // The original error is more useful; later cleanup remains best effort.
+    }
+    throw error
+  } finally {
+    if (securityScopeStarted) {
+      source.stopAccessingSecurityScopedResource()
+    }
+  }
+}
+
+function isPrivateInspectionPdfFile(filePath: string): boolean {
+  try {
+    const rootPath = privateTemporaryDirectory().standardizedFileURL.path
+    const candidateURL = new URL(fileURLWithPath = filePath).standardizedFileURL
+    const candidatePath = candidateURL.path
+    return candidateURL.pathExtension.toLowerCase() == 'pdf'
+      && candidatePath.startsWith(`${rootPath}/`)
+  } catch (_) {
+    return false
+  }
+}
+
+function removeCopiedDocuments(documents: InspectionPickedPdfDocument[]): void {
+  releaseInspectionPdfDocuments(documents.map(
+    (document: InspectionPickedPdfDocument): string => document.filePath,
+  ))
+}
+
+function processSelection(
+  urls: URL[],
+  @escaping onSuccess: (documents: InspectionPickedPdfDocument[]) => void,
+  @escaping onFailure: (message: string) => void,
+): void {
+  DispatchQueue.global(priority = DispatchQueue.GlobalQueuePriority.default).async(
+    execute = (): void => {
+      const documents = [] as InspectionPickedPdfDocument[]
+      try {
+        for (let index = 0; index < urls.length; index++) {
+          documents.push(copyToPrivateTemporaryDirectory(urls[index]))
+        }
+        DispatchQueue.main.async(execute = (): void => onSuccess(documents))
+      } catch (error) {
+        removeCopiedDocuments(documents)
+        const message = error instanceof Error
+          ? error.message
+          : errorMessage('BOOKING_DOCUMENT_PICKER_FAILED', '无法读取所选 PDF 文件')
+        DispatchQueue.main.async(execute = (): void => onFailure(message))
+      }
+    },
+  )
+}
+
+class InspectionDocumentPickerDelegate extends NSObject implements UIDocumentPickerDelegate {
+  private completed = false
+  private processingSelection = false
+
+  constructor(
+    private options: PickInspectionPdfDocumentsOptions,
+  ) {
+    super()
+  }
+
+  private dispose(): void {
+    if (activePickerController != null) {
+      activePickerController!.delegate = null
+    }
+    activePickerController = null
+    activePickerDelegate = null
+    pickerInFlight = false
+  }
+
+  private completeFailure(message: string): void {
+    if (this.completed) {
+      return
+    }
+    this.completed = true
+    this.dispose()
+    this.options.fail?.({ errMsg: message })
+  }
+
+  private completeSuccess(documents: InspectionPickedPdfDocument[]): void {
+    if (this.completed) {
+      removeCopiedDocuments(documents)
+      return
+    }
+    this.completed = true
+    this.dispose()
+    this.options.success?.({ documents })
+  }
+
+  failOpening(message: string): void {
+    this.completeFailure(message)
+  }
+
+  documentPicker(
+    controller: UIDocumentPickerViewController,
+    @argumentLabel('didPickDocumentsAt') urls: URL[],
+  ): void {
+    if (this.completed || this.processingSelection) {
+      return
+    }
+    if (urls.length == 0) {
+      this.completeFailure('pickInspectionPdfDocuments:fail cancel')
+      return
+    }
+    if (urls.length > this.options.count) {
+      this.completeFailure(errorMessage(
+        'BOOKING_DOCUMENT_SELECTION_LIMIT',
+        `一次最多选择 ${this.options.count} 个 PDF 文件`,
+      ))
+      return
+    }
+
+    this.processingSelection = true
+    processSelection(
+      urls,
+      (documents: InspectionPickedPdfDocument[]): void => this.completeSuccess(documents),
+      (message: string): void => this.completeFailure(message),
+    )
+  }
+
+  documentPickerWasCancelled(controller: UIDocumentPickerViewController): void {
+    if (!this.processingSelection) {
+      this.completeFailure('pickInspectionPdfDocuments:fail cancel')
+    }
+  }
+}
+
+export const releaseInspectionPdfDocuments: ReleaseInspectionPdfDocuments = function (
+  filePaths: string[],
+): void {
+  const handledPaths = [] as string[]
+  for (let index = 0; index < filePaths.length; index++) {
+    const filePath = filePaths[index].trim()
+    if (!filePath || handledPaths.indexOf(filePath) >= 0 || !isPrivateInspectionPdfFile(filePath)) {
+      continue
+    }
+    handledPaths.push(filePath)
+    try {
+      const candidateURL = new URL(fileURLWithPath = filePath).standardizedFileURL
+      const attributes = FileManager.default.attributesOfItem(path = candidateURL.path)
+      if (attributes[FileAttributeKey.type] == FileAttributeType.typeRegular) {
+        FileManager.default.removeItem(URL = candidateURL)
+      }
+    } catch (_) {
+      // Missing, already released, and inaccessible files are all safe to ignore.
+    }
+  }
+}
+
+export const pickInspectionPdfDocuments: PickInspectionPdfDocuments = function (
+  options: PickInspectionPdfDocumentsOptions,
+): void {
+  DispatchQueue.main.async(execute = (): void => {
+    if (pickerInFlight) {
+      options.fail?.({
+        errMsg: errorMessage(
+          'BOOKING_DOCUMENT_PICKER_UNAVAILABLE',
+          '正在处理已选择的 PDF 文件，请稍后再试',
+        ),
+      })
+      return
+    }
+    if (options.count < 1) {
+      options.fail?.({
+        errMsg: errorMessage(
+          'BOOKING_DOCUMENT_SELECTION_LIMIT',
+          '可选择的附件数量不足',
+        ),
+      })
+      return
+    }
+
+    pickerInFlight = true
+    const delegate = new InspectionDocumentPickerDelegate(options)
+    activePickerDelegate = delegate
+    try {
+      const picker = new UIDocumentPickerViewController(allowedUTIs = ['com.adobe.pdf'], mode = UIDocumentPickerMode.import)
+      picker.allowsMultipleSelection = options.count > 1
+      picker.delegate = delegate
+      activePickerController = picker
+      UTSiOS.getCurrentViewController().present(picker, animated = true, completion = null)
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : errorMessage('BOOKING_DOCUMENT_PICKER_FAILED', '无法打开 PDF 文件选择器')
+      delegate.failOpening(message)
+    }
+  })
+}
