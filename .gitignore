@@ -16,4 +16,5 @@ target/
 *.local
 .env
 .env.*
+!apps/mobile/.env.production
 !.env.example
