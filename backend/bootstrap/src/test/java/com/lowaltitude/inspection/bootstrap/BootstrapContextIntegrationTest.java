@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.CustomerReservationQueryService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
 import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
@@ -42,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
 @SpringBootTest
 @AutoConfigureMockMvc
 @MockBean({
+        CityDirectoryReadService.class,
         ReservationApplicationService.class,
         CustomerReservationQueryService.class,
         InspectionServiceCatalogReadService.class,

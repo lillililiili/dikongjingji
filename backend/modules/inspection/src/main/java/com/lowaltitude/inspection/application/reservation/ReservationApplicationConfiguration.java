@@ -1,8 +1,11 @@
 package com.lowaltitude.inspection.application.reservation;
 
 import java.time.Clock;
+import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
+import com.lowaltitude.inspection.application.city.PostgresCityDirectoryStore;
 import com.lowaltitude.inspection.domain.files.ObjectStoragePort;
 import com.lowaltitude.inspection.infrastructure.persistence.InspectionServiceCatalogMapper;
+import com.lowaltitude.inspection.infrastructure.persistence.PlatformCityMapper;
 import com.lowaltitude.inspection.infrastructure.persistence.ReservationPersistenceMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +38,11 @@ public class ReservationApplicationConfiguration {
         return new CustomerReservationQueryService(
                 new PostgresCustomerReservationQueryStore(mapper),
                 new AesGcmSensitiveDataCipher(key));
+    }
+
+    @Bean
+    CityDirectoryReadService cityDirectoryReadService(PlatformCityMapper mapper) {
+        return new CityDirectoryReadService(new PostgresCityDirectoryStore(mapper));
     }
 
     @Bean

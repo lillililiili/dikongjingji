@@ -20,6 +20,7 @@ import com.lowaltitude.inspection.identity.domain.IdentityAccountPort;
 import com.lowaltitude.inspection.identity.domain.IdentityAccountStatus;
 import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
 import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
 import com.lowaltitude.inspection.application.reservation.CustomerReservationQueryService;
@@ -179,6 +180,20 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/v1/inspection/services"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @Test
+    void anonymousCityDirectoryOperationsArePublicButOtherCityOperationsRequireAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/platform/cities"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/platform/cities/370100/search-selections"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("COMMON_SERVICE_UNAVAILABLE"));
+
+        mockMvc.perform(post("/api/v1/platform/cities"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
@@ -449,6 +464,22 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         InspectionServiceCatalogReadService testInspectionServiceCatalogReadService() {
             return org.mockito.Mockito.mock(InspectionServiceCatalogReadService.class);
+        }
+
+        @Bean
+        CityDirectoryReadService testCityDirectoryReadService() {
+            return new CityDirectoryReadService(new CityDirectoryReadService.CityDirectoryStore() {
+                @Override
+                public List<CityDirectoryReadService.StoredCity> findActiveCities() {
+                    return List.of(new CityDirectoryReadService.StoredCity(
+                            "370100", "济南", "jinan", "J", "370000", "山东", "shandong", "S", 1));
+                }
+
+                @Override
+                public int incrementSearchCount(String cityCode) {
+                    return "370100".equals(cityCode) ? 1 : 0;
+                }
+            });
         }
 
         private IdentityAccount account(
