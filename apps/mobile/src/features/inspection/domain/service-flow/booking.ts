@@ -40,12 +40,34 @@ export interface BookingAttachment {
   errorMessage?: string
 }
 
+export type BookingTimeSlotCode =
+  | 'MORNING'
+  | 'AFTERNOON'
+  | 'EVENING'
+
+export interface BookingTimeSelection {
+  serviceDate: string
+  slotCode: BookingTimeSlotCode
+  startTime: string
+  endTime: string
+}
+
+export function isBookingTimeSelectionWithinDateRange(
+  selection: BookingTimeSelection | null,
+  firstSelectableDate: string,
+  lastSelectableDate: string,
+): selection is BookingTimeSelection {
+  return !!selection
+    && selection.serviceDate >= firstSelectableDate
+    && selection.serviceDate <= lastSelectableDate
+}
+
 export interface BookingDraft {
   locationAddress: string
   locationLongitude: number | null
   locationLatitude: number | null
   lineLengthKm: string
-  preferredServiceDate: string
+  preferredServiceTime: BookingTimeSelection | null
   inspectionItemCodes: string[]
   contactName: string
   contactMobile: string
@@ -64,6 +86,7 @@ export interface CreateReservationPayload {
   }
   lineLengthMeters: number
   preferredServiceDate: string
+  preferredTimeSlotCode: BookingTimeSlotCode
   inspectionItemCodes: string[]
   attachmentFileIds: string[]
   note: string | null
@@ -78,7 +101,7 @@ export function createEmptyBookingDraft(): BookingDraft {
     locationLongitude: null,
     locationLatitude: null,
     lineLengthKm: '',
-    preferredServiceDate: '',
+    preferredServiceTime: null,
     inspectionItemCodes: [],
     contactName: '',
     contactMobile: '',
@@ -144,8 +167,8 @@ export function validateBookingDraft(
     errors.push('请填写有效的线路长度')
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.preferredServiceDate)) {
-    errors.push('请选择期望巡检日期')
+  if (!draft.preferredServiceTime) {
+    errors.push('请选择期望巡检时间')
   }
 
   if (draft.inspectionItemCodes.length === 0) {
@@ -189,6 +212,10 @@ export function createReservationPayload(
     throw new Error('line length is invalid')
   }
 
+  if (!draft.preferredServiceTime) {
+    throw new Error('preferred service time is invalid')
+  }
+
   return {
     serviceId: service.serviceId,
     cityCode: service.cityCode,
@@ -198,7 +225,8 @@ export function createReservationPayload(
       latitude: draft.locationLatitude,
     },
     lineLengthMeters,
-    preferredServiceDate: draft.preferredServiceDate,
+    preferredServiceDate: draft.preferredServiceTime.serviceDate,
+    preferredTimeSlotCode: draft.preferredServiceTime.slotCode,
     inspectionItemCodes: [...new Set(draft.inspectionItemCodes)],
     attachmentFileIds: [],
     note: draft.note.trim() || null,

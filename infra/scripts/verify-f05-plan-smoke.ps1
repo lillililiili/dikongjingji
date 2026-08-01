@@ -1,6 +1,8 @@
 param(
     [string]$DockerPath = 'D:\DevTools\DockerDesktop\resources\bin\docker.exe',
-    [string]$BaseUrl = 'http://127.0.0.1:8080'
+    [string]$BaseUrl = 'http://127.0.0.1:8080',
+    [switch]$DeferCleanup,
+    [Guid]$CleanupReservationId = [Guid]::Empty
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,6 +16,7 @@ if (-not (Test-Path -LiteralPath $DockerPath -PathType Leaf)) {
 }
 
 $testPassword = 'test-password'
+$customerId = '11111111-1111-1111-1111-111111111111'
 $providerId = '22222222-2222-2222-2222-222222222222'
 $serviceId = '33333333-3333-3333-3333-333333333333'
 $databaseUser = (
@@ -102,8 +105,55 @@ function Get-HttpFailureStatus {
     }
 }
 
+function Set-F05ReservationCancelled {
+    param([Guid]$ReservationId)
+
+    $cleanupSql = @"
+UPDATE inspection_reservation
+SET status = 'CANCELLED',
+    cancelled_at = COALESCE(cancelled_at, now()),
+    version = version + 1,
+    updated_by = '$customerId'::uuid,
+    updated_at = now()
+WHERE id = '$($ReservationId.ToString())'::uuid
+  AND customer_id = '$customerId'::uuid
+  AND service_id = '$serviceId'::uuid
+  AND status <> 'CANCELLED';
+
+SELECT count(*)
+FROM inspection_reservation
+WHERE id = '$($ReservationId.ToString())'::uuid
+  AND customer_id = '$customerId'::uuid
+  AND service_id = '$serviceId'::uuid
+  AND status = 'CANCELLED';
+"@
+    $cleanupRows = @(
+        $cleanupSql | & $DockerPath exec -i inspection-local-postgres-1 `
+            psql -At -v ON_ERROR_STOP=1 -U $databaseUser -d $databaseName
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to cancel this F05 run reservation.'
+    }
+    $verifiedCount = [int](
+        $cleanupRows |
+        Where-Object { $_ -match '^\d+$' } |
+        Select-Object -Last 1
+    )
+    if ($verifiedCount -ne 1) {
+        throw "F05 cleanup did not verify reservation $ReservationId."
+    }
+}
+
+if ($CleanupReservationId -ne [Guid]::Empty) {
+    Set-F05ReservationCancelled -ReservationId $CleanupReservationId
+    return
+}
+
 Wait-BackendHealth
 
+$reservationIdForCleanup = $null
+$completed = $false
+try {
 $customerToken = Get-AccessToken -LoginName 'smoke-customer'
 $otherCustomerToken = Get-AccessToken -LoginName 'smoke-other'
 $providerToken = Get-AccessToken -LoginName 'smoke-provider'
@@ -119,6 +169,7 @@ $reservationBody = @{
     }
     lineLengthMeters = 18600
     preferredServiceDate = [DateTime]::UtcNow.AddDays(7).ToString('yyyy-MM-dd')
+    preferredTimeSlotCode = 'MORNING'
     inspectionItemCodes = @('POWER_LINE', 'TOWER')
     attachmentFileIds = @()
     note = 'F05 real plan smoke'
@@ -139,6 +190,7 @@ $reservation = Invoke-RestMethod `
         'Idempotency-Key' = [Guid]::NewGuid().ToString()
         'X-Request-Id' = 'f05-smoke-reservation'
     }
+$reservationIdForCleanup = [Guid]::Parse($reservation.id)
 
 $publishKey = [Guid]::NewGuid().ToString()
 $publishBodyObject = @{
@@ -333,7 +385,7 @@ if ($afterRestart.status -ne 'CONFIRMED' `
     throw 'Confirmed plan and service-order link did not survive backend restart.'
 }
 
-[pscustomobject]@{
+$result = [pscustomobject]@{
     ReservationId = $reservation.id
     PlanId = $plan.id
     ServiceOrderId = $order.id
@@ -345,3 +397,11 @@ if ($afterRestart.status -ne 'CONFIRMED' `
     DatabaseEvidence = $databaseCheck
     RestartRecovery = $true
 } | ConvertTo-Json -Compress
+$completed = $true
+$result
+} finally {
+    if ($null -ne $reservationIdForCleanup `
+            -and (-not $DeferCleanup -or -not $completed)) {
+        Set-F05ReservationCancelled -ReservationId $reservationIdForCleanup
+    }
+}

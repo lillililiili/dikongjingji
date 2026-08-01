@@ -20,6 +20,7 @@
     },
     "lineLengthMeters": 18600,
     "preferredServiceDate": "2026-08-02",
+    "preferredTimeSlotCode": "MORNING",
     "inspectionItems": [
       {
         "code": "TOWER",
@@ -69,6 +70,34 @@
       "COMPLETED": 0
     }
   },
+  "availableTimeSlots": [
+    {
+      "serviceDate": "2026-08-02",
+      "slots": [
+        {
+          "slotCode": "MORNING",
+          "startTime": "09:00:00",
+          "endTime": "12:00:00",
+          "remainingCount": 9,
+          "availability": "AVAILABLE"
+        },
+        {
+          "slotCode": "AFTERNOON",
+          "startTime": "14:00:00",
+          "endTime": "17:00:00",
+          "remainingCount": 0,
+          "availability": "FULL"
+        },
+        {
+          "slotCode": "EVENING",
+          "startTime": "18:00:00",
+          "endTime": "21:00:00",
+          "remainingCount": 4,
+          "availability": "AVAILABLE"
+        }
+      ]
+    }
+  ],
   "plan": {
     "id": "50000000-0000-4000-8000-000000000001",
     "planNo": "FA202607270001",

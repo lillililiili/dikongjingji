@@ -254,6 +254,17 @@ async function main() {
     localStorage.setItem('inspection.accessToken', token)
   }, customer.accessToken)
 
+  let locationAdapterApplied = false
+  await page.route('**/pages-service-inspection-booking.*.js', async (route) => {
+    const response = await route.fetch()
+    const source = await response.text()
+    const chooseLocationCall = /[A-Za-z_$][\w$]*\(\{success:e=>\{try\{const t=function\(e\)/
+    const replacement = '(({success,complete})=>{success({name:"东营市垦利区黄河路 88 号",address:"东营市垦利区黄河路 88 号",longitude:118.6747,latitude:37.4348});complete?.()})({success:e=>{try{const t=function(e)'
+    const patchedSource = source.replace(chooseLocationCall, replacement)
+    locationAdapterApplied = patchedSource !== source
+    await route.fulfill({ response, body: patchedSource })
+  })
+
   try {
     await page.goto(appUrl, { waitUntil: 'networkidle' })
     await page.getByText('服务', { exact: true }).last().click()
@@ -263,15 +274,39 @@ async function main() {
     await page.getByText('预约服务', { exact: true }).last().click()
     await page.locator('.booking-section').first().waitFor()
 
-    const inputs = page.locator('input')
-    await inputs.nth(0).fill('东营市垦利区黄河路 88 号')
-    await inputs.nth(1).fill('12')
-    await page.locator('.uni-picker-action-confirm').dispatchEvent('click')
+    if (!locationAdapterApplied) {
+      throw new Error('The H5 chooseLocation test adapter was not applied to the booking chunk.')
+    }
+    await page.locator('.booking-row__location').click()
+    await page.getByText('东营市垦利区黄河路 88 号', { exact: true }).waitFor()
+    const bookingInputs = page.locator('.booking-row__input input')
+    await bookingInputs.nth(0).fill('12')
+    await page.getByText('期望时间', { exact: true }).click()
+    await page.locator('.inspection-time-sheet__panel').waitFor()
+    const firstDate = page.locator(
+      '.inspection-time-sheet__date:not(.inspection-time-sheet__date--more)',
+    ).first()
+    await firstDate.waitFor()
+    await firstDate.click()
+    const morningSlot = page.locator('.inspection-time-sheet__slot')
+      .filter({ hasText: '09:00–12:00' })
+    await morningSlot.waitFor()
+    if (await morningSlot.count() !== 1) {
+      throw new Error(`Expected one MORNING slot, received sheet: ${await page.locator('.inspection-time-sheet__panel').innerText()}`)
+    }
+    await morningSlot.click()
+    await page.locator('.inspection-time-sheet__confirm').click()
+    await page.getByText(/月\d+日 09:00–12:00/).waitFor()
+    mkdirSync(resolve('artifacts/inspection-time-selection'), { recursive: true })
+    await page.screenshot({
+      path: 'artifacts/inspection-time-selection/round-1-390.png',
+      fullPage: true,
+    })
     await page.locator('uni-button.booking-item').filter({
       hasText: '线路本体巡检',
     }).click()
-    await inputs.nth(2).fill('王先生')
-    await inputs.nth(3).fill('13800138000')
+    await bookingInputs.nth(1).fill('王先生')
+    await bookingInputs.nth(2).fill('13800138000')
     await page.locator('.booking-agreement uni-checkbox').click()
     await page.locator('uni-button.inspection-booking__submit').click()
     await Promise.race([

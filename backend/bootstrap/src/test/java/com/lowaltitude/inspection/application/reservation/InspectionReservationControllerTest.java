@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,8 @@ class InspectionReservationControllerTest {
     private static final UUID IDEMPOTENCY_KEY =
             UUID.fromString("44444444-4444-4444-4444-444444444444");
     private static final String REQUEST_ID = "f04-controller-test";
+    private static final Clock BOOKING_CLOCK = Clock.fixed(
+            Instant.parse("2026-07-31T01:00:00Z"), ZoneOffset.UTC);
 
     private InMemoryReservationStore store;
     private InMemoryCustomerReservationQueryStore queryStore;
@@ -68,6 +71,7 @@ class InspectionReservationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("ETag", "\"0\""))
                 .andExpect(jsonPath("$.status").value("SUBMITTED"))
+                .andExpect(jsonPath("$.preferredTimeSlotCode").value("MORNING"))
                 .andExpect(jsonPath("$.attachments").isArray())
                 .andExpect(jsonPath("$.inspectionItems[0].code").value("PIPELINE"))
                 .andExpect(jsonPath("$.location.address").value("东营市测试路1号"))
@@ -245,6 +249,28 @@ class InspectionReservationControllerTest {
                 quoteAmountMinor);
     }
 
+    @Test
+    void returnsConflictWhenTimeSlotCapacityIsFull() throws Exception {
+        for (int index = 0; index < 9; index++) {
+            mvc.perform(post("/api/v1/inspection/reservations")
+                            .header("Idempotency-Key", UUID.randomUUID())
+                            .contentType("application/json")
+                            .content(requestJson("东营市容量测试路"))
+                            .principal(customerJwt()))
+                    .andExpect(status().isCreated());
+        }
+
+        mvc.perform(post("/api/v1/inspection/reservations")
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("X-Request-Id", REQUEST_ID)
+                        .contentType("application/json")
+                        .content(requestJson("东营市容量测试路"))
+                        .principal(customerJwt()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INS_TIME_SLOT_FULL"))
+                .andExpect(jsonPath("$.traceId").value(REQUEST_ID));
+    }
+
     private String createReservation(
             UsernamePasswordAuthenticationToken principal,
             String requestBody
@@ -258,6 +284,7 @@ class InspectionReservationControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("ETag", "\"0\""))
                 .andExpect(jsonPath("$.serviceTitle").value("服务端标题"))
+                .andExpect(jsonPath("$.preferredTimeSlotCode").value("MORNING"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -269,7 +296,7 @@ class InspectionReservationControllerTest {
                 new InMemoryServiceCatalog(SERVICE, PROVIDER, "服务端标题", null),
                 store,
                 new ReversibleTestCipher(),
-                Clock.systemUTC());
+                BOOKING_CLOCK);
     }
 
     private static String requestJson(String address) {
@@ -284,6 +311,7 @@ class InspectionReservationControllerTest {
                   },
                   "lineLengthMeters": 12,
                   "preferredServiceDate": "2026-08-01",
+                  "preferredTimeSlotCode": "MORNING",
                   "inspectionItemCodes": ["PIPELINE"],
                   "contact": {"name": "张三", "mobile": "13800138000"},
                   "agreementVersion": "v1",
@@ -371,6 +399,41 @@ final class InMemoryReservationStore implements ReservationStore {
     @Override
     public Optional<StoredReservation> findById(UUID id) {
         return Optional.ofNullable(values.get(id));
+    }
+
+    @Override
+    public void lockActiveService(UUID serviceId, String cityCode) {
+        if (serviceId == null || cityCode == null) {
+            throw new ReservationValidationException("service is invalid");
+        }
+    }
+
+    @Override
+    public List<BookedTimeSlotCount> findBookedTimeSlotCounts(
+            UUID serviceId,
+            String cityCode,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        return values.values().stream()
+                .filter(value -> value.snapshot().serviceId().equals(serviceId))
+                .filter(value -> value.cityCode().equals(cityCode))
+                .filter(value -> !value.preferredServiceDate().isBefore(startDate))
+                .filter(value -> !value.preferredServiceDate().isAfter(endDate))
+                .collect(java.util.stream.Collectors.groupingBy(
+                        value -> value.preferredServiceDate()
+                                + ":"
+                                + value.preferredTimeSlotCode(),
+                        java.util.stream.Collectors.counting()))
+                .entrySet().stream()
+                .map(entry -> {
+                    String[] key = entry.getKey().split(":", 2);
+                    return new BookedTimeSlotCount(
+                            LocalDate.parse(key[0]),
+                            key[1],
+                            entry.getValue().intValue());
+                })
+                .toList();
     }
 
     int saveCount() {

@@ -1,6 +1,7 @@
 import type {
   BookingCodeLabel,
   BookingServiceSnapshot,
+  BookingTimeSlotCode,
   CreateReservationPayload,
 } from '../../domain/service-flow/booking'
 
@@ -39,6 +40,7 @@ export interface BookingReservation {
   }
   lineLengthMeters: number | null
   preferredServiceDate: string
+  preferredTimeSlotCode: BookingTimeSlotCode
   inspectionItems: BookingCodeLabel[]
   note: string | null
   contact: { name: string; mobile: string }
@@ -55,6 +57,19 @@ export interface BookingReservation {
   version: number
 }
 
+export interface BookingAvailableTimeSlot {
+  slotCode: BookingTimeSlotCode
+  startTime: string
+  endTime: string
+  remainingCount: number
+  availability: 'AVAILABLE' | 'FULL'
+}
+
+export interface BookingAvailableDate {
+  serviceDate: string
+  slots: BookingAvailableTimeSlot[]
+}
+
 interface UploadIntent {
   fileId: string
   uploadUrl: string
@@ -69,6 +84,12 @@ interface CompletedFile {
 
 export interface InspectionBookingApi {
   loadServiceSnapshot(serviceId: string, cityCode: string): Promise<BookingServiceSnapshot>
+  loadAvailableTimeSlots(
+    serviceId: string,
+    cityCode: string,
+    startDate: string,
+    days: number,
+  ): Promise<BookingAvailableDate[]>
   createReservation(payload: CreateReservationPayload, idempotencyKey: string): Promise<BookingReservation>
   getReservation(reservationId: string): Promise<BookingReservation>
   uploadReservationAttachment(input: {
@@ -139,6 +160,24 @@ export function createInspectionBookingApi(
           ? '按项目报价'
           : `¥${Math.round(service.price.startingAmountMinor / 100)}${service.price.unitLabel ? `/${service.price.unitLabel}` : ''}`,
       }
+    },
+    async loadAvailableTimeSlots(serviceId, cityCode, startDate, days) {
+      const dates = await http.request<BookingAvailableDate[]>({
+        url: `/api/v1/inspection/services/${encodeURIComponent(serviceId)}/available-time-slots?cityCode=${encodeURIComponent(cityCode)}&startDate=${encodeURIComponent(startDate)}&days=${encodeURIComponent(days)}`,
+        method: 'GET',
+        headers: headers(),
+      })
+
+      return dates.map((date) => ({
+        serviceDate: date.serviceDate,
+        slots: date.slots.map((slot) => ({
+          slotCode: slot.slotCode,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          remainingCount: slot.remainingCount,
+          availability: slot.availability,
+        })),
+      }))
     },
     createReservation(payload, idempotencyKey) {
       return http.request<BookingReservation>({

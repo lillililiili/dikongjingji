@@ -106,7 +106,7 @@ describe('F04 booking form boundary', () => {
     expect(validateBookingDraft(draft)).toEqual([
       '请填写巡检地点',
       '请填写有效的线路长度',
-      '请选择期望巡检日期',
+      '请选择期望巡检时间',
       '请至少选择一个巡检项目',
       '请填写联系人',
       '请填写正确的手机号',
@@ -127,7 +127,12 @@ describe('F04 booking form boundary', () => {
       locationLongitude: 118.674767,
       locationLatitude: 37.434751,
       lineLengthKm: '12.3',
-      preferredServiceDate: '2026-08-02',
+      preferredServiceTime: {
+        serviceDate: '2026-08-02',
+        slotCode: 'MORNING',
+        startTime: '09:00',
+        endTime: '12:00',
+      },
       inspectionItemCodes: ['TOWER'],
       contactName: '王先生',
       contactMobile: '13800138000',
@@ -158,7 +163,12 @@ describe('F04 booking form boundary', () => {
       locationLongitude: location.longitude,
       locationLatitude: location.latitude,
       lineLengthKm: '12.3',
-      preferredServiceDate: '2026-08-02',
+      preferredServiceTime: {
+        serviceDate: '2026-08-02',
+        slotCode: 'MORNING',
+        startTime: '09:00',
+        endTime: '12:00',
+      },
       inspectionItemCodes: ['TOWER'],
       contactName: '王先生',
       contactMobile: '13800138000',
@@ -177,7 +187,12 @@ describe('F04 booking form boundary', () => {
       ...createEmptyBookingDraft(),
       locationAddress: '东营市黄河路 88 号',
       lineLengthKm: '12.3',
-      preferredServiceDate: '2026-08-02',
+      preferredServiceTime: {
+        serviceDate: '2026-08-02',
+        slotCode: 'MORNING' as const,
+        startTime: '09:00',
+        endTime: '12:00',
+      },
       inspectionItemCodes: ['TOWER'],
       contactName: '王先生',
       contactMobile: '13800138000',
@@ -193,7 +208,12 @@ describe('F04 booking form boundary', () => {
       locationAddress: '东营市黄河路 88 号',
       locationLongitude: 118.674767,
       lineLengthKm: '12.3',
-      preferredServiceDate: '2026-08-02',
+      preferredServiceTime: {
+        serviceDate: '2026-08-02',
+        slotCode: 'MORNING' as const,
+        startTime: '09:00',
+        endTime: '12:00',
+      },
       inspectionItemCodes: ['TOWER'],
       contactName: '王先生',
       contactMobile: '13800138000',
@@ -235,7 +255,12 @@ describe('F04 booking form boundary', () => {
       ...createEmptyBookingDraft(),
       locationAddress: '东营市垦利区黄河路 88 号',
       lineLengthKm: '1',
-      preferredServiceDate: '2026-08-02',
+      preferredServiceTime: {
+        serviceDate: '2026-08-02',
+        slotCode: 'MORNING' as const,
+        startTime: '09:00',
+        endTime: '12:00',
+      },
       inspectionItemCodes: ['TOWER'],
       contactName: '王先生',
       contactMobile: '13800138000',
@@ -373,6 +398,13 @@ describe('F04 booking page contract', () => {
     expect(bookingPageSource).toContain('chooseMessageFile')
     expect(bookingPageSource).toContain('图片、PDF，最多9个文件')
     expect(bookingPageSource).toContain('平台保障 · 方案确认前不收取费用')
+  })
+
+  it('reopens time selection without clearing the draft when the slot fills during submit', () => {
+    expect(bookingPageSource).toContain("error.code === 'INS_TIME_SLOT_FULL'")
+    expect(bookingPageSource).toContain("submitError.value = '该时段刚刚约满，请重新选择'")
+    expect(bookingPageSource).toContain('isTimePickerVisible.value = true')
+    expect(bookingPageSource).not.toContain('draft.value = createEmptyBookingDraft()')
   })
 
   it('keeps all approved booking sections within the calibrated phone density', () => {
