@@ -1,0 +1,22 @@
+export type InspectionPickedPdfDocument = {
+  filePath: string
+  originalName: string
+  contentType: string
+  sizeBytes: number
+}
+
+export type PickInspectionPdfDocumentsResult = {
+  documents: InspectionPickedPdfDocument[]
+}
+
+export type PickInspectionPdfDocumentsOptions = {
+  count: number
+  success?: (result: PickInspectionPdfDocumentsResult) => void
+  fail?: (error: { errMsg: string }) => void
+}
+
+export type PickInspectionPdfDocuments = (
+  options: PickInspectionPdfDocumentsOptions,
+) => void
+
+export type ReleaseInspectionPdfDocuments = (filePaths: string[]) => void

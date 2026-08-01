@@ -1,0 +1,14 @@
+{
+  "id": "inspection-document-picker",
+  "displayName": "Inspection document picker",
+  "version": "1.0.0",
+  "description": "Repository-owned Android and iOS PDF document picker for inspection bookings.",
+  "keywords": ["inspection", "document", "pdf", "uts"],
+  "engines": {
+    "HBuilderX": "^3.6.8",
+    "uni-app": "^3.6.8"
+  },
+  "dcloudext": {
+    "type": "uts"
+  }
+}

@@ -1,17 +1,30 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { storeToRefs } from 'pinia'
 
 import { submitBookingReservation, createBookingSubmissionSession, uploadReservationAttachments } from '../../../application/service-flow/submit-booking-reservation'
-import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
+import { createBookingFileHashPort, createBookingUuid } from '../../../application/service-flow/booking-crypto'
+import { createBookingImageAttachments, pickBookingPdfAttachments } from '../../../application/service-flow/booking-attachment-selection'
+import { uniBookingFileAccessPort } from '../../../data/service-flow/booking-file-access'
+import { createUniBookingDocumentPicker, uniBookingDocumentPicker } from '../../../data/service-flow/uni-booking-document-picker'
 import { ApiRequestError, inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
 import { createBookingLocationSelection, createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot, type BookingTimeSelection } from '../../../domain/service-flow/booking'
 import { buildInspectionBookingSubmittedUrl } from '../../../navigation/inspection-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import BookingServiceSnapshotCard from '../components/BookingServiceSnapshotCard.vue'
 import InspectionTimePickerSheet from '../components/InspectionTimePickerSheet.vue'
+
+// #ifdef APP-ANDROID
+// @ts-ignore Android UTS module is compiled only into the App-Android bundle.
+import { pickInspectionPdfDocuments, releaseInspectionPdfDocuments } from '@/uni_modules/inspection-document-picker'
+// #endif
+
+// #ifdef APP-IOS
+// @ts-ignore iOS UTS module is compiled only into the App-iOS bundle.
+import { pickInspectionPdfDocuments, releaseInspectionPdfDocuments } from '@/uni_modules/inspection-document-picker'
+// #endif
 
 interface BookingRouteQuery {
   serviceId?: string
@@ -30,6 +43,25 @@ const submitError = ref('')
 const isTimePickerVisible = ref(false)
 const preferredServiceTimeText = ref('')
 const submission = createBookingSubmissionSession()
+const bookingFileHashPort = createBookingFileHashPort(uniBookingFileAccessPort)
+const releasedPdfPaths = new Set<string>()
+let cleanupRequested = false
+let isPageActive = false
+let bookingDocumentPicker = uniBookingDocumentPicker
+// #ifdef APP-ANDROID
+bookingDocumentPicker = createUniBookingDocumentPicker(
+  undefined,
+  pickInspectionPdfDocuments,
+  releaseInspectionPdfDocuments,
+)
+// #endif
+// #ifdef APP-IOS
+bookingDocumentPicker = createUniBookingDocumentPicker(
+  undefined,
+  pickInspectionPdfDocuments,
+  releaseInspectionPdfDocuments,
+)
+// #endif
 
 const availableItems = computed(() => service.value?.inspectionItems ?? [])
 const canAddAttachment = computed(
@@ -37,6 +69,7 @@ const canAddAttachment = computed(
 )
 
 onLoad((query: BookingRouteQuery | undefined) => {
+  isPageActive = true
   const serviceId = query?.serviceId?.trim() ?? ''
   if (!serviceId) {
     isLoading.value = false
@@ -52,6 +85,12 @@ onLoad((query: BookingRouteQuery | undefined) => {
     })
   }
   void loadService(serviceId, cityCode)
+})
+
+onUnload(() => {
+  isPageActive = false
+  cleanupRequested = true
+  releasePdfAttachmentsWhenSafe()
 })
 
 async function loadService(
@@ -149,33 +188,45 @@ function chooseImages(): void {
     sourceType: ['album', 'camera'],
     success: ({ tempFiles }) => {
       const files = Array.isArray(tempFiles) ? tempFiles : [tempFiles]
-      draft.value.attachments.push(...files.map((file, index) => {
-        const attachment: BookingAttachment = {
-            localId: createBookingUuid(),
-            filePath: file.tempFilePath,
-            originalName: `巡检附件-${index + 1}.jpg`,
-            contentType: 'image/jpeg',
-            sizeBytes: file.size ?? 0,
-            sha256: '',
-            status: 'PENDING_UPLOAD',
-        }
-        return attachment
-      }))
+      try {
+        draft.value.attachments.push(...createBookingImageAttachments(files, {
+          count: 9 - draft.value.attachments.length,
+          createLocalId: () => createBookingUuid(),
+        }))
+      } catch (error) {
+        showImagePickerError(error)
+      }
     },
   })
 }
 
-function choosePdfFiles(): void {
-  uni.chooseMessageFile({
-    count: 9 - draft.value.attachments.length,
-    type: 'file',
-    extension: ['pdf'],
-    success: ({ tempFiles }) => {
-      const files = Array.isArray(tempFiles) ? tempFiles : [tempFiles]
-      draft.value.attachments.push(...files.map((file, index) => ({
-        localId: createBookingUuid(), filePath: file.path, originalName: file.name ?? `巡检附件-${index + 1}.pdf`, contentType: 'application/pdf', sizeBytes: file.size ?? 0, sha256: '', status: 'PENDING_UPLOAD' as const,
-      })))
-    },
+function showImagePickerError(error: unknown): void {
+  uni.showModal({
+    title: '无法添加图片',
+    content: error instanceof Error ? error.message : '图片无法读取，请重新选择',
+    showCancel: false,
+  })
+}
+
+async function choosePdfFiles(): Promise<void> {
+  try {
+    const attachments = await pickBookingPdfAttachments({
+      picker: bookingDocumentPicker,
+      count: 9 - draft.value.attachments.length,
+      isPageActive: () => isPageActive,
+      createLocalId: () => createBookingUuid(),
+    })
+    draft.value.attachments.push(...attachments)
+  } catch (error) {
+    showDocumentPickerError(error)
+  }
+}
+
+function showDocumentPickerError(error: unknown): void {
+  uni.showModal({
+    title: '无法选择 PDF 文件',
+    content: error instanceof Error ? error.message : '无法打开 PDF 文件选择器，请稍后重试',
+    showCancel: false,
   })
 }
 
@@ -185,9 +236,39 @@ function retryAttachment(attachment: BookingAttachment): void {
 }
 
 function removeAttachment(localId: string): void {
+  if (isSubmitting.value) {
+    return
+  }
+  const attachment = draft.value.attachments.find(
+    (candidate) => candidate.localId === localId,
+  )
+  if (attachment) {
+    releasePdfAttachments([attachment])
+  }
   draft.value.attachments = draft.value.attachments.filter(
     (attachment) => attachment.localId !== localId,
   )
+}
+
+function releasePdfAttachments(attachments: readonly BookingAttachment[]): void {
+  const filePaths = attachments
+    .filter((attachment) => attachment.contentType === 'application/pdf')
+    .map((attachment) => attachment.filePath.trim())
+    .filter((filePath) => filePath && !releasedPdfPaths.has(filePath))
+
+  if (filePaths.length === 0) {
+    return
+  }
+  filePaths.forEach((filePath) => releasedPdfPaths.add(filePath))
+  bookingDocumentPicker.releasePdfFiles(filePaths)
+}
+
+function releasePdfAttachmentsWhenSafe(): void {
+  if (!cleanupRequested || isSubmitting.value) {
+    return
+  }
+  releasePdfAttachments(draft.value.attachments)
+  cleanupRequested = false
 }
 
 function openTimePicker(): void {
@@ -224,11 +305,13 @@ async function submit(): Promise<void> {
       inspectionBookingApi,
       submission,
       draft.value,
+      bookingFileHashPort,
     )
     if (!attachmentsReady) {
       submitError.value = '附件仍在扫描或上传失败，请重试后再提交'
       return
     }
+    releasePdfAttachments(draft.value.attachments)
     uni.redirectTo({ url: buildInspectionBookingSubmittedUrl(result.reservationId) })
   } catch (error) {
     if (
@@ -242,6 +325,7 @@ async function submit(): Promise<void> {
     submitError.value = error instanceof Error ? error.message : '预约提交失败，请重试'
   } finally {
     isSubmitting.value = false
+    releasePdfAttachmentsWhenSafe()
   }
 }
 

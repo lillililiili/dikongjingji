@@ -14,6 +14,7 @@ import {
   invalidateInspectionApiBaseUrl,
   resolveInspectionApiBaseUrl,
 } from './inspection-lan-endpoint'
+import { BookingFileAccessError, uniBookingFileAccessPort } from './booking-file-access'
 
 export class ApiRequestError extends Error {
   constructor(
@@ -152,17 +153,24 @@ export const inspectionAuthApi = {
   },
 }
 
-function putFile(input: { url: string; filePath: string; headers: Record<string, string> }): Promise<{ etag: string }> {
+async function putFile(input: { url: string; filePath: string; headers: Record<string, string> }): Promise<{ etag: string }> {
+  let bytes: Uint8Array
+  try {
+    bytes = await uniBookingFileAccessPort.readBytes(input.filePath)
+  } catch (error) {
+    if (error instanceof BookingFileAccessError && error.code === 'UNAVAILABLE') {
+      throw new ApiRequestError('当前平台未配置文件上传能力', 0, 'FILE_UPLOAD_UNAVAILABLE')
+    }
+    throw new ApiRequestError('无法读取待上传附件', 0, 'FILE_READ_FAILED')
+  }
+
+  const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
   return new Promise((resolve, reject) => {
-    const manager = uni.getFileSystemManager?.()
-    if (!manager) { reject(new ApiRequestError('当前平台未配置文件上传能力', 0, 'FILE_UPLOAD_UNAVAILABLE')); return }
-    manager.readFile({ filePath: input.filePath, success: ({ data }) => {
-      uni.request({ url: input.url, method: 'PUT', data, header: input.headers, success: (response) => {
-        if (response.statusCode < 200 || response.statusCode >= 300) { reject(errorFromResponse(response.data, response.statusCode)); return }
-        const headers = response.header as Record<string, string>; const etag = headers.etag ?? headers.ETag
-        etag ? resolve({ etag }) : reject(new ApiRequestError('附件上传未返回 ETag', response.statusCode, 'UPLOAD_ETAG_MISSING'))
-      }, fail: () => reject(new ApiRequestError('附件上传失败，请重试', 0, 'NETWORK_ERROR')) })
-    }, fail: () => reject(new ApiRequestError('无法读取待上传附件', 0, 'FILE_READ_FAILED')) })
+    uni.request({ url: input.url, method: 'PUT', data: body, header: input.headers, success: (response) => {
+      if (response.statusCode < 200 || response.statusCode >= 300) { reject(errorFromResponse(response.data, response.statusCode)); return }
+      const headers = response.header as Record<string, string>; const etag = headers.etag ?? headers.ETag
+      etag ? resolve({ etag }) : reject(new ApiRequestError('附件上传未返回 ETag', response.statusCode, 'UPLOAD_ETAG_MISSING'))
+    }, fail: () => reject(new ApiRequestError('附件上传失败，请重试', 0, 'NETWORK_ERROR')) })
   })
 }
 

@@ -2,6 +2,10 @@ export interface BookingFileHashPort {
   sha256(filePath: string): Promise<string>
 }
 
+export interface BookingFileAccessPort {
+  readBytes(filePath: string): Promise<Uint8Array>
+}
+
 export function createBookingUuid(): string {
   const timestamp = Date.now().toString(16).padStart(12, '0')
   const random = Array.from({ length: 20 }, () =>
@@ -11,21 +15,12 @@ export function createBookingUuid(): string {
   return `${timestamp.slice(0, 8)}-${timestamp.slice(8)}-4${random.slice(0, 3)}-8${random.slice(3, 6)}-${random.slice(6, 18)}`
 }
 
-export const uniBookingFileHashPort: BookingFileHashPort = {
-  sha256(filePath) {
-    return new Promise((resolve, reject) => {
-      const manager = uni.getFileSystemManager?.()
-      if (!manager) {
-        reject(new Error('当前平台未配置 SHA-256 文件哈希能力'))
-        return
-      }
-      manager.readFile({
-        filePath,
-        success: ({ data }) => resolve(sha256(new Uint8Array(data as ArrayBuffer))),
-        fail: () => reject(new Error('无法读取待上传附件')),
-      })
-    })
-  },
+export function createBookingFileHashPort(fileAccess: BookingFileAccessPort): BookingFileHashPort {
+  return {
+    async sha256(filePath) {
+      return sha256(await fileAccess.readBytes(filePath))
+    },
+  }
 }
 
 export function sha256(bytes: Uint8Array): string {

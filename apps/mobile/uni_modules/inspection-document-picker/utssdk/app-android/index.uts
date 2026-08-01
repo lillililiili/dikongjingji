@@ -1,0 +1,300 @@
+import { Activity } from 'android.app.Activity'
+import { Intent } from 'android.content.Intent'
+import { Uri } from 'android.net.Uri'
+import { File } from 'java.io.File'
+import { FileOutputStream } from 'java.io.FileOutputStream'
+import { OpenableColumns } from 'android.provider.OpenableColumns'
+
+import {
+  PickInspectionPdfDocuments,
+  PickInspectionPdfDocumentsOptions,
+  InspectionPickedPdfDocument,
+  ReleaseInspectionPdfDocuments,
+} from '../interface.uts'
+
+const REQUEST_CODE = 28_721
+const MAX_PDF_SIZE_BYTES = 1_073_741_824
+const PRIVATE_CACHE_DIRECTORY = 'inspection-pdf'
+let pickerInFlight = false
+
+function runOnMain(action: () => void): void {
+  UTSAndroid.getDispatcher('main').async(() => action())
+}
+
+function fail(
+  options: PickInspectionPdfDocumentsOptions,
+  errMsg: string,
+  clearInFlight: boolean = true,
+): void {
+  if (clearInFlight) {
+    pickerInFlight = false
+  }
+  runOnMain(() => options.fail?.({ errMsg }))
+}
+
+function succeed(
+  options: PickInspectionPdfDocumentsOptions,
+  documents: InspectionPickedPdfDocument[],
+): void {
+  pickerInFlight = false
+  runOnMain(() => options.success?.({ documents }))
+}
+
+function errorMessage(code: string, message: string): string {
+  return `${code}: ${message}`
+}
+
+function privateCacheDirectory(): File | null {
+  const context = UTSAndroid.getAppContext()
+  return context == null ? null : new File(context.getCacheDir(), PRIVATE_CACHE_DIRECTORY)
+}
+
+function readDocumentNameAndSize(uri: Uri): { name: string, size: number } {
+  const context = UTSAndroid.getAppContext()
+  if (context == null) {
+    throw new Error(errorMessage('BOOKING_DOCUMENT_PICKER_UNAVAILABLE', '当前应用上下文不可用'))
+  }
+  const cursor = context.getContentResolver().query(uri, null, null, null, null)
+  if (cursor == null) {
+    throw new Error(errorMessage('BOOKING_DOCUMENT_PICKER_FAILED', '无法读取所选 PDF 文件信息'))
+  }
+  try {
+    if (!cursor.moveToFirst()) {
+      throw new Error(errorMessage('BOOKING_DOCUMENT_PICKER_FAILED', '无法读取所选 PDF 文件信息'))
+    }
+    const nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+    const sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+    const name = nameIndex >= 0 ? cursor.getString(nameIndex) : ''
+    const size = sizeIndex >= 0 ? cursor.getLong(sizeIndex) : 0
+    return { name, size }
+  } finally {
+    cursor.close()
+  }
+}
+
+function copyToPrivateCache(uri: Uri): InspectionPickedPdfDocument {
+  const context = UTSAndroid.getAppContext()
+  if (context == null) {
+    throw new Error(errorMessage('BOOKING_DOCUMENT_PICKER_UNAVAILABLE', '当前应用上下文不可用'))
+  }
+  const resolver = context.getContentResolver()
+  const resolverContentType = resolver.getType(uri)
+  const metadata = readDocumentNameAndSize(uri)
+  if (
+    resolverContentType == null
+    || resolverContentType != 'application/pdf'
+    || !metadata.name.toLowerCase().endsWith('.pdf')
+  ) {
+    throw new Error(errorMessage('BOOKING_DOCUMENT_NOT_PDF', '请选择 PDF 格式的文件'))
+  }
+  if (metadata.size < 1 || metadata.size > MAX_PDF_SIZE_BYTES) {
+    throw new Error(errorMessage('BOOKING_DOCUMENT_SIZE_INVALID', 'PDF 文件大小必须在 1 字节到 1 GiB 之间'))
+  }
+
+  const cacheDirectory = privateCacheDirectory()
+  if (cacheDirectory == null || (!cacheDirectory.exists() && !cacheDirectory.mkdirs())) {
+    throw new Error(errorMessage('BOOKING_DOCUMENT_PICKER_UNAVAILABLE', '无法准备 PDF 临时存储目录'))
+  }
+  const target = File.createTempFile('inspection-', '.pdf', cacheDirectory)
+  const input = resolver.openInputStream(uri)
+  if (input == null) {
+    target.delete()
+    throw new Error(errorMessage('BOOKING_DOCUMENT_PICKER_FAILED', '无法读取所选 PDF 文件'))
+  }
+  let output: FileOutputStream | null = null
+  try {
+    output = new FileOutputStream(target)
+    const buffer = new ByteArray(8_192)
+    let bytesRead = input.read(buffer)
+    let copiedBytes = 0
+    while (bytesRead > 0) {
+      copiedBytes += bytesRead
+      if (copiedBytes > MAX_PDF_SIZE_BYTES) {
+        throw new Error(errorMessage('BOOKING_DOCUMENT_SIZE_INVALID', 'PDF 文件大小不能超过 1 GiB'))
+      }
+      output.write(buffer, 0, bytesRead)
+      bytesRead = input.read(buffer)
+    }
+  } catch (error) {
+    target.delete()
+    throw error
+  } finally {
+    output?.close()
+    input.close()
+  }
+  const sizeBytes = target.length()
+  if (sizeBytes < 1 || sizeBytes > MAX_PDF_SIZE_BYTES) {
+    target.delete()
+    throw new Error(errorMessage('BOOKING_DOCUMENT_SIZE_INVALID', 'PDF 文件大小必须在 1 字节到 1 GiB 之间'))
+  }
+  return {
+    filePath: target.getAbsolutePath(),
+    originalName: metadata.name,
+    contentType: resolverContentType,
+    sizeBytes,
+  }
+}
+
+function isPrivateInspectionPdfFile(filePath: string): boolean {
+  const cacheDirectory = privateCacheDirectory()
+  if (cacheDirectory == null) {
+    return false
+  }
+  try {
+    const rootPath = cacheDirectory.getCanonicalPath()
+    const candidatePath = new File(filePath).getCanonicalPath()
+    return candidatePath.startsWith(`${rootPath}/`)
+  } catch (_) {
+    return false
+  }
+}
+
+function removeCopiedDocuments(documents: InspectionPickedPdfDocument[]): void {
+  releaseInspectionPdfDocuments(documents.map((document) => document.filePath))
+}
+
+function processSelection(
+  uris: Uri[],
+  onSuccess: (documents: InspectionPickedPdfDocument[]) => void,
+  onFailure: (message: string) => void,
+): void {
+  UTSAndroid.getDispatcher('io').async(() => {
+    const documents = [] as InspectionPickedPdfDocument[]
+    try {
+      for (let index = 0; index < uris.length; index++) {
+        documents.push(copyToPrivateCache(uris[index]))
+      }
+      onSuccess(documents)
+    } catch (error) {
+      removeCopiedDocuments(documents)
+      onFailure(error instanceof Error
+        ? error.message
+        : errorMessage('BOOKING_DOCUMENT_PICKER_FAILED', '无法读取所选 PDF 文件'))
+    }
+  })
+}
+
+export const releaseInspectionPdfDocuments: ReleaseInspectionPdfDocuments = function (
+  filePaths: string[],
+): void {
+  const handledPaths = [] as string[]
+  for (let index = 0; index < filePaths.length; index++) {
+    const filePath = filePaths[index].trim()
+    if (!filePath || handledPaths.indexOf(filePath) >= 0 || !isPrivateInspectionPdfFile(filePath)) {
+      continue
+    }
+    handledPaths.push(filePath)
+    try {
+      const file = new File(filePath)
+      if (file.exists()) {
+        file.delete()
+      }
+    } catch (_) {
+      // Cleanup is best effort. A missing or already released file is safe to ignore.
+    }
+  }
+}
+
+export const pickInspectionPdfDocuments: PickInspectionPdfDocuments = function (
+  options: PickInspectionPdfDocumentsOptions,
+): void {
+  if (pickerInFlight) {
+    fail(options, errorMessage('BOOKING_DOCUMENT_PICKER_UNAVAILABLE', '正在处理已选择的 PDF 文件，请稍后再试'), false)
+    return
+  }
+  if (options.count < 1) {
+    fail(options, errorMessage('BOOKING_DOCUMENT_SELECTION_LIMIT', '可选择的附件数量不足'))
+    return
+  }
+  const activity = UTSAndroid.getUniActivity()
+  if (activity == null) {
+    fail(options, errorMessage('BOOKING_DOCUMENT_PICKER_UNAVAILABLE', '当前页面不可用，无法打开 PDF 文件选择器'))
+    return
+  }
+
+  pickerInFlight = true
+  let completed = false
+  let resultListener: (requestCode: Int, resultCode: Int, data: Intent?) => void
+  let destroyListener: () => void
+
+  const disposeListeners = (): void => {
+    UTSAndroid.offAppActivityResult(resultListener)
+    UTSAndroid.offAppActivityDestroy(destroyListener)
+  }
+  const completeFailure = (message: string): void => {
+    if (completed) {
+      return
+    }
+    completed = true
+    disposeListeners()
+    fail(options, message)
+  }
+  const completeSuccess = (documents: InspectionPickedPdfDocument[]): void => {
+    if (completed) {
+      removeCopiedDocuments(documents)
+      return
+    }
+    completed = true
+    disposeListeners()
+    succeed(options, documents)
+  }
+
+  destroyListener = () => {
+    completeFailure(errorMessage('BOOKING_DOCUMENT_PICKER_UNAVAILABLE', '页面已销毁，无法继续选择 PDF 文件'))
+  }
+  resultListener = (requestCode, resultCode, data) => {
+    if (requestCode != REQUEST_CODE || completed) {
+      return
+    }
+    UTSAndroid.offAppActivityResult(resultListener)
+    if (resultCode != Activity.RESULT_OK || data == null) {
+      completeFailure('pickInspectionPdfDocuments:fail cancel')
+      return
+    }
+    try {
+      const uris = [] as Uri[]
+      const clipData = data.getClipData()
+      if (clipData != null) {
+        for (let index = 0; index < clipData.getItemCount(); index++) {
+          uris.push(clipData.getItemAt(index).getUri())
+        }
+      } else {
+        const uri = data.getData()
+        if (uri != null) {
+          uris.push(uri)
+        }
+      }
+      if (uris.length === 0) {
+        completeFailure('pickInspectionPdfDocuments:fail cancel')
+        return
+      }
+      if (uris.length > options.count) {
+        completeFailure(errorMessage('BOOKING_DOCUMENT_SELECTION_LIMIT', `一次最多选择 ${options.count} 个 PDF 文件`))
+        return
+      }
+      processSelection(
+        uris,
+        completeSuccess,
+        (message) => completeFailure(message),
+      )
+    } catch (error) {
+      completeFailure(error instanceof Error
+        ? error.message
+        : errorMessage('BOOKING_DOCUMENT_PICKER_FAILED', '无法读取所选 PDF 文件'))
+    }
+  }
+
+  try {
+    UTSAndroid.onAppActivityResult(resultListener)
+    UTSAndroid.onAppActivityDestroy(destroyListener)
+    const intent = new Intent(Intent.ACTION_OPEN_DOCUMENT)
+    intent.addCategory(Intent.CATEGORY_OPENABLE)
+    intent.setType('application/pdf')
+    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, options.count > 1)
+    activity.startActivityForResult(intent, REQUEST_CODE)
+  } catch (error) {
+    completeFailure(error instanceof Error
+      ? error.message
+      : errorMessage('BOOKING_DOCUMENT_PICKER_FAILED', '无法打开 PDF 文件选择器'))
+  }
+}

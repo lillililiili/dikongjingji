@@ -1,7 +1,7 @@
 import type { InspectionBookingApi } from '../../data/service-flow/inspection-booking-api'
 import {
   createBookingUuid,
-  uniBookingFileHashPort,
+  type BookingFileHashPort,
 } from './booking-crypto'
 import {
   createBookingIdempotencyKey,
@@ -48,6 +48,7 @@ export async function uploadReservationAttachments(
   api: InspectionBookingApi,
   session: BookingSubmissionSession,
   draft: BookingDraft,
+  fileHashPort: BookingFileHashPort,
 ): Promise<boolean> {
   if (!session.reservationId) {
     throw new Error('预约尚未创建')
@@ -58,7 +59,7 @@ export async function uploadReservationAttachments(
     attachment.status = 'UPLOADING'
     attachment.errorMessage = undefined
     try {
-      attachment.sha256 ||= await uniBookingFileHashPort.sha256(attachment.filePath)
+      attachment.sha256 ||= await fileHashPort.sha256(attachment.filePath)
       attachment.idempotencyKey ??= createBookingUuid()
       const result = await api.uploadReservationAttachment({
         reservationId: session.reservationId,

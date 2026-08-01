@@ -370,7 +370,8 @@ describe('F04 booking page contract', () => {
 
     expect(bookingPageSource).toContain('uni.chooseMedia({')
     expect(bookingPageSource).toContain("mediaType: ['image']")
-    expect(bookingPageSource).toContain('file.tempFilePath')
+    expect(bookingPageSource).toContain('createBookingImageAttachments(files')
+    expect(bookingPageSource).toContain('showImagePickerError')
     expect(bookingPageSource).toContain('已选择，提交时上传')
     expect(bookingPageSource).not.toContain('uni.chooseImage({')
     expect(manifest['app-plus'].modules).toHaveProperty('Camera')
@@ -395,7 +396,7 @@ describe('F04 booking page contract', () => {
   })
 
   it('keeps PDF-capable attachments and the no-charge platform guarantee', () => {
-    expect(bookingPageSource).toContain('chooseMessageFile')
+    expect(bookingPageSource).toContain('pickInspectionPdfDocuments')
     expect(bookingPageSource).toContain('图片、PDF，最多9个文件')
     expect(bookingPageSource).toContain('平台保障 · 方案确认前不收取费用')
   })
@@ -405,6 +406,23 @@ describe('F04 booking page contract', () => {
     expect(bookingPageSource).toContain("submitError.value = '该时段刚刚约满，请重新选择'")
     expect(bookingPageSource).toContain('isTimePickerVisible.value = true')
     expect(bookingPageSource).not.toContain('draft.value = createEmptyBookingDraft()')
+  })
+
+  it('uses the typed PDF picker and keeps picker failures visible', () => {
+    expect(bookingPageSource).toContain('客服')
+    expect(bookingPageSource).toContain('bookingDocumentPicker')
+    expect(bookingPageSource).toContain('pickInspectionPdfDocuments')
+    expect(bookingPageSource).toContain('await pickBookingPdfAttachments')
+    expect(bookingPageSource).toContain('showDocumentPickerError')
+    expect(bookingPageSource).toContain('releasePdfAttachments')
+    expect(bookingPageSource).toContain('bookingDocumentPicker.releasePdfFiles')
+    expect(bookingPageSource).toContain('isPageActive = true')
+    expect(bookingPageSource).toContain('isPageActive = false')
+    expect(bookingPageSource).toContain('isPageActive: () => isPageActive')
+    expect(bookingPageSource).toContain('onUnload(() =>')
+    expect(bookingPageSource).not.toContain('chooseMessageFile')
+    expect(bookingPageSource).toContain('图片、PDF，最多9个文件')
+    expect(bookingPageSource).toContain('平台保障 · 方案确认前不收取费用')
   })
 
   it('keeps all approved booking sections within the calibrated phone density', () => {
