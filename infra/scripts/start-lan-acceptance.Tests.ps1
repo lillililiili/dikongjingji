@@ -74,6 +74,9 @@ try {
     if ($source -match 'Set-Content[^\r\n]*\.env') {
         throw 'Startup script must not rewrite the local .env file.'
     }
+    if (-not $source.Contains('verify-runtime-readiness.ps1')) {
+        throw 'Startup script must run the runtime readiness check after Docker startup.'
+    }
 
     Write-Output 'LAN acceptance startup tests passed.'
 } finally {

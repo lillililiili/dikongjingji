@@ -150,6 +150,7 @@ $plan = [pscustomobject]@{
     EnvFile = $resolvedEnvFile
     MobileEnvFile = $resolvedMobileEnvFile
     ComposeFile = $composeFile
+    Readiness = $null
 }
 
 if ($PlanOnly) {
@@ -177,6 +178,22 @@ try {
     & $DockerPath compose --env-file $resolvedEnvFile -f $composeFile up -d --build
     if ($LASTEXITCODE -ne 0) {
         throw "Docker Compose failed with exit code $LASTEXITCODE."
+    }
+
+    $verifyScript = Join-Path $PSScriptRoot 'verify-runtime-readiness.ps1'
+    $readiness = & $verifyScript `
+        -BackendBaseUrl $plan.BackendBaseUrl `
+        -ComposeFile $composeFile `
+        -EnvFile $resolvedEnvFile `
+        -DockerPath $DockerPath
+    $plan.Readiness = $readiness
+    if ($readiness.Status -eq 'BLOCKED') {
+        throw 'Runtime readiness is BLOCKED: the backend health check failed.'
+    }
+    if ($readiness.Status -eq 'DEGRADED') {
+        Write-Warning 'Runtime readiness is DEGRADED: core APIs can be tested, but the live weather path is degraded and the App fallback must be expected.'
+    } else {
+        Write-Host 'Runtime readiness: READY'
     }
 } finally {
     foreach ($name in $overrides.Keys) {
