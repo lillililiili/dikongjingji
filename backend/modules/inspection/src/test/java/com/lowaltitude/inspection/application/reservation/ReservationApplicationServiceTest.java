@@ -226,10 +226,60 @@ class ReservationApplicationServiceTest {
                 .containsExactly(9, 9, 9);
     }
 
+    @Test
+    void marksTodaySlotsTooSoonWithoutPretendingTheyAreFull() {
+        ReservationApplicationService service = new ReservationApplicationService(
+                new InMemoryServiceCatalog(
+                        SERVICE_ID, PROVIDER_ID, "服务端巡检标题", null),
+                new InMemoryReservationStore(),
+                new PlainTestCipher(),
+                Clock.fixed(Instant.parse("2026-08-01T09:00:01Z"), ZoneOffset.UTC));
+
+        List<InspectionTimeSlotView> slots = service.availableTimeSlots(
+                        SERVICE_ID, "370500", LocalDate.of(2026, 8, 1), 1)
+                .getFirst()
+                .slots();
+
+        assertThat(slots)
+                .extracting(
+                        InspectionTimeSlotView::slotCode,
+                        InspectionTimeSlotView::remainingCount,
+                        InspectionTimeSlotView::availability)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("MORNING", 9, "TOO_SOON"),
+                        org.assertj.core.groups.Tuple.tuple("AFTERNOON", 9, "TOO_SOON"),
+                        org.assertj.core.groups.Tuple.tuple("EVENING", 9, "TOO_SOON"));
+    }
+
+    @Test
+    void rejectsCreatingAReservationLessThanOneHourBeforeSlotStart() {
+        ReservationApplicationService service = new ReservationApplicationService(
+                new InMemoryServiceCatalog(
+                        SERVICE_ID, PROVIDER_ID, "服务端巡检标题", null),
+                new InMemoryReservationStore(),
+                new PlainTestCipher(),
+                Clock.fixed(Instant.parse("2026-08-01T09:00:01Z"), ZoneOffset.UTC));
+        CreateReservationCommand tooSoon = command(
+                SERVICE_ID, LocalDate.of(2026, 8, 1), "EVENING");
+
+        assertThatThrownBy(() -> service.create(
+                CUSTOMER_ID, IDEMPOTENCY_KEY, tooSoon))
+                .isInstanceOf(TimeSlotTooSoonException.class);
+    }
+
     private static CreateReservationCommand command(UUID serviceId) {
-        return new CreateReservationCommand(serviceId, "370500", "东营市开发区测试路1号", 118.5, 37.4,
-                1200L, LocalDate.of(2026, 8, 1), "MORNING", List.of("PIPELINE"), List.of(), "现场需要重点查看",
-                "张三", "13800138000", "v1", true);
+        return command(serviceId, LocalDate.of(2026, 8, 1), "MORNING");
+    }
+
+    private static CreateReservationCommand command(
+            UUID serviceId,
+            LocalDate serviceDate,
+            String slotCode
+    ) {
+        return new CreateReservationCommand(
+                serviceId, "370500", "东营市开发区测试路1号", 118.5, 37.4,
+                1200L, serviceDate, slotCode, List.of("PIPELINE"), List.of(),
+                "现场需要重点查看", "张三", "13800138000", "v1", true);
     }
 }
 

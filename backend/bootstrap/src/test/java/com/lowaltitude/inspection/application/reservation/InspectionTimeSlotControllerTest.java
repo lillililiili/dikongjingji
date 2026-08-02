@@ -92,7 +92,8 @@ class InspectionTimeSlotControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].serviceDate").value("2026-08-01"))
                 .andExpect(jsonPath("$[0].slots[0].slotCode").value("MORNING"))
-                .andExpect(jsonPath("$[0].slots[0].remainingCount").value(9));
+                .andExpect(jsonPath("$[0].slots[0].remainingCount").value(9))
+                .andExpect(jsonPath("$[0].slots[0].availability").value("TOO_SOON"));
 
         then(reservationService).should().availableTimeSlots(
                 SERVICE,
@@ -106,7 +107,7 @@ class InspectionTimeSlotControllerTest {
                 START_DATE,
                 List.of(
                         new InspectionTimeSlotView(
-                                "MORNING", LocalTime.of(9, 0), LocalTime.of(12, 0), 9, "AVAILABLE"),
+                                "MORNING", LocalTime.of(9, 0), LocalTime.of(12, 0), 9, "TOO_SOON"),
                         new InspectionTimeSlotView(
                                 "AFTERNOON", LocalTime.of(14, 0), LocalTime.of(17, 0), 9, "AVAILABLE"),
                         new InspectionTimeSlotView(

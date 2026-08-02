@@ -60,9 +60,14 @@ public class ReservationApplicationService {
         }
         InspectionTimeSlotPolicy.validateDateRange(
                 command.preferredServiceDate(), 1, clock);
-        InspectionTimeSlotPolicy.slot(command.preferredTimeSlotCode());
+        InspectionTimeSlotDefinition selectedSlot = InspectionTimeSlotPolicy.slot(
+                command.preferredTimeSlotCode());
         InspectionServiceSnapshot snapshot = services.findActive(command.serviceId(), command.cityCode())
                 .orElseThrow(() -> new ReservationValidationException("service is unknown or disabled"));
+        if (!InspectionTimeSlotPolicy.satisfiesLeadTime(
+                command.preferredServiceDate(), selectedSlot, clock)) {
+            throw new TimeSlotTooSoonException();
+        }
         store.lockActiveService(command.serviceId(), command.cityCode());
         Optional<IdempotencyEntry> concurrentPrior =
                 store.findIdempotency(customerId, idempotencyKey);
@@ -198,12 +203,17 @@ public class ReservationApplicationService {
                                     int remaining = Math.max(
                                             0,
                                             InspectionTimeSlotPolicy.CAPACITY - booked);
+                                    boolean leadTimeSatisfied = InspectionTimeSlotPolicy.satisfiesLeadTime(
+                                            date, slot, clock);
+                                    String availability = !leadTimeSatisfied
+                                            ? "TOO_SOON"
+                                            : remaining == 0 ? "FULL" : "AVAILABLE";
                                     return new InspectionTimeSlotView(
                                             slot.code(),
                                             slot.startTime(),
                                             slot.endTime(),
                                             remaining,
-                                            remaining == 0 ? "FULL" : "AVAILABLE");
+                                            availability);
                                 })
                                 .toList()))
                 .toList();
@@ -256,6 +266,7 @@ public class ReservationApplicationService {
             throw new IllegalStateException(exception);
         }
     }
+
 
     private static void updateDigest(MessageDigest digest, Object value) {
         if (value instanceof Collection<?> collection) {

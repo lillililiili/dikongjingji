@@ -271,6 +271,31 @@ class InspectionReservationControllerTest {
                 .andExpect(jsonPath("$.traceId").value(REQUEST_ID));
     }
 
+    @Test
+    void returnsConflictWhenTimeSlotDoesNotMeetOneHourLeadTime() throws Exception {
+        service = new ReservationApplicationService(
+                new InMemoryServiceCatalog(SERVICE, PROVIDER, "服务端标题", null),
+                store,
+                new ReversibleTestCipher(),
+                Clock.fixed(Instant.parse("2026-08-01T09:00:01Z"), ZoneOffset.UTC));
+        mvc = MockMvcBuilders
+                .standaloneSetup(new InspectionReservationController(service, queryService))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mvc.perform(post("/api/v1/inspection/reservations")
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("X-Request-Id", REQUEST_ID)
+                        .contentType("application/json")
+                        .content(requestJson(
+                                "东营市提前量测试路", "2026-08-01", "EVENING"))
+                        .principal(customerJwt()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INS_TIME_SLOT_TOO_SOON"))
+                .andExpect(jsonPath("$.message").value("该时段需提前1小时预约，请重新选择"))
+                .andExpect(jsonPath("$.traceId").value(REQUEST_ID));
+    }
+
     private String createReservation(
             UsernamePasswordAuthenticationToken principal,
             String requestBody
@@ -300,6 +325,14 @@ class InspectionReservationControllerTest {
     }
 
     private static String requestJson(String address) {
+        return requestJson(address, "2026-08-01", "MORNING");
+    }
+
+    private static String requestJson(
+            String address,
+            String serviceDate,
+            String slotCode
+    ) {
         return """
                 {
                   "serviceId": "%s",
@@ -310,14 +343,14 @@ class InspectionReservationControllerTest {
                     "latitude": 37.4
                   },
                   "lineLengthMeters": 12,
-                  "preferredServiceDate": "2026-08-01",
-                  "preferredTimeSlotCode": "MORNING",
+                  "preferredServiceDate": "%s",
+                  "preferredTimeSlotCode": "%s",
                   "inspectionItemCodes": ["PIPELINE"],
                   "contact": {"name": "张三", "mobile": "13800138000"},
                   "agreementVersion": "v1",
                   "agreementAccepted": true
                 }
-                """.formatted(SERVICE, address);
+                """.formatted(SERVICE, address, serviceDate, slotCode);
     }
 
     private static UsernamePasswordAuthenticationToken customerJwt() {
@@ -439,6 +472,7 @@ final class InMemoryReservationStore implements ReservationStore {
     int saveCount() {
         return saveCount;
     }
+
 }
 
 final class InMemoryCustomerReservationQueryStore implements CustomerReservationQueryStore {

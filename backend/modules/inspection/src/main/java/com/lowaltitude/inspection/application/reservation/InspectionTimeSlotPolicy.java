@@ -1,14 +1,17 @@
 package com.lowaltitude.inspection.application.reservation;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 final class InspectionTimeSlotPolicy {
     static final int CAPACITY = 9;
     static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final Duration MINIMUM_LEAD_TIME = Duration.ofHours(1);
     private static final List<InspectionTimeSlotDefinition> SLOTS = List.of(
             new InspectionTimeSlotDefinition("MORNING", LocalTime.of(9, 0), LocalTime.of(12, 0)),
             new InspectionTimeSlotDefinition("AFTERNOON", LocalTime.of(14, 0), LocalTime.of(17, 0)),
@@ -26,6 +29,17 @@ final class InspectionTimeSlotPolicy {
                 .filter(value -> value.code().equals(code))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("time slot code is invalid"));
+    }
+
+    static boolean satisfiesLeadTime(
+            LocalDate serviceDate,
+            InspectionTimeSlotDefinition slot,
+            Clock clock
+    ) {
+        ZonedDateTime slotStart = ZonedDateTime.of(
+                serviceDate, slot.startTime(), BUSINESS_ZONE);
+        return !slotStart.toInstant().isBefore(
+                clock.instant().plus(MINIMUM_LEAD_TIME));
     }
 
     static void validateDateRange(LocalDate startDate, int days, Clock clock) {

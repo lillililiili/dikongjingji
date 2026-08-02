@@ -79,7 +79,7 @@
           "startTime": "09:00:00",
           "endTime": "12:00:00",
           "remainingCount": 9,
-          "availability": "AVAILABLE"
+          "availability": "TOO_SOON"
         },
         {
           "slotCode": "AFTERNOON",

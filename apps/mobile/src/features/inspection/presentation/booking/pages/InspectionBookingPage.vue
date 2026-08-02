@@ -322,6 +322,16 @@ async function submit(): Promise<void> {
       isTimePickerVisible.value = true
       return
     }
+    if (
+      error instanceof ApiRequestError
+      && error.code === 'INS_TIME_SLOT_TOO_SOON'
+    ) {
+      draft.value.preferredServiceTime = null
+      preferredServiceTimeText.value = ''
+      submitError.value = '该时段需提前1小时预约，请重新选择'
+      isTimePickerVisible.value = true
+      return
+    }
     submitError.value = error instanceof Error ? error.message : '预约提交失败，请重试'
   } finally {
     isSubmitting.value = false

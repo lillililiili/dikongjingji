@@ -62,7 +62,7 @@ export interface BookingAvailableTimeSlot {
   startTime: string
   endTime: string
   remainingCount: number
-  availability: 'AVAILABLE' | 'FULL'
+  availability: 'AVAILABLE' | 'FULL' | 'TOO_SOON'
 }
 
 export interface BookingAvailableDate {

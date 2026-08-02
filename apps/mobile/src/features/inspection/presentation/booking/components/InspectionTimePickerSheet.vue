@@ -175,9 +175,31 @@ function reconcileTemporarySelection(dates: BookingAvailableDate[]): void {
   const refreshedSlot = dates
     .find((date) => date.serviceDate === selection.serviceDate)
     ?.slots.find((slot) => slot.slotCode === selection.slotCode)
-  if (refreshedSlot?.availability === 'FULL') {
+  if (refreshedSlot && refreshedSlot.availability !== 'AVAILABLE') {
     temporarySelection.value = null
-    selectionError.value = '该时段已约满，请重新选择'
+    selectionError.value = slotSelectionError(refreshedSlot)
+  }
+}
+
+function slotUnavailableLabel(slot: BookingAvailableTimeSlot): string {
+  switch (slot.availability) {
+    case 'FULL':
+      return '已约满'
+    case 'TOO_SOON':
+      return '需提前1小时预约'
+    default:
+      return ''
+  }
+}
+
+function slotSelectionError(slot: BookingAvailableTimeSlot): string {
+  switch (slot.availability) {
+    case 'FULL':
+      return '该时段已约满，请重新选择'
+    case 'TOO_SOON':
+      return '该时段需提前1小时预约，请重新选择'
+    default:
+      return ''
   }
 }
 
@@ -194,7 +216,7 @@ function selectDate(serviceDate: string): void {
 }
 
 function selectSlot(slot: BookingAvailableTimeSlot): void {
-  if (isLoading.value || slot.availability === 'FULL') {
+  if (isLoading.value || slot.availability !== 'AVAILABLE') {
     return
   }
   temporarySelection.value = {
@@ -253,9 +275,11 @@ async function confirmSelection(): Promise<void> {
   const refreshedSlot = currentSlots.value.find(
     (slot) => slot.slotCode === selection.slotCode,
   )
-  if (!refreshedSlot || refreshedSlot.availability === 'FULL') {
+  if (!refreshedSlot || refreshedSlot.availability !== 'AVAILABLE') {
     temporarySelection.value = null
-    selectionError.value = '该时段已约满，请重新选择'
+    selectionError.value = refreshedSlot
+      ? slotSelectionError(refreshedSlot)
+      : '该时段已不可用，请重新选择'
     return
   }
 
@@ -401,13 +425,15 @@ function formatDateHeading(value: string): string {
                 'inspection-time-sheet__slot--selected':
                   isSelectedSlot(slot),
                 'inspection-time-sheet__slot--full':
-                  slot.availability === 'FULL',
+                  slot.availability !== 'AVAILABLE',
               },
             ]"
-            :disabled="isLoading || slot.availability === 'FULL'"
+            :disabled="isLoading || slot.availability !== 'AVAILABLE'"
             @tap="selectSlot(slot)"
           >
-            <text v-if="slot.availability === 'FULL'">已约满</text>
+            <text v-if="slot.availability !== 'AVAILABLE'">
+              {{ slotUnavailableLabel(slot) }}
+            </text>
             <text v-else>
               {{ formatClockTime(slot.startTime) }}–{{ formatClockTime(slot.endTime) }}
             </text>

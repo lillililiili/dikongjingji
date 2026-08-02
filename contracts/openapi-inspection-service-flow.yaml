@@ -772,6 +772,7 @@ components:
         - INS_FILE_SCAN_FAILED
         - INS_STORAGE_UNAVAILABLE
         - INS_TIME_SLOT_FULL
+        - INS_TIME_SLOT_TOO_SOON
     CreateReservationRequest:
       type: object
       additionalProperties: false
@@ -972,7 +973,7 @@ components:
           maximum: 9
         availability:
           type: string
-          enum: [AVAILABLE, FULL]
+          enum: [AVAILABLE, FULL, TOO_SOON]
     ReservationStatus:
       type: string
       enum: [SUBMITTED, PLAN_PUBLISHED, CANCELLED]

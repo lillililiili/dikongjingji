@@ -38,4 +38,19 @@ class InspectionTimeSlotPolicyTest {
         assertThatThrownBy(() -> InspectionTimeSlotPolicy.slot("NIGHT"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void acceptsExactlyOneHourLeadTimeAndRejectsOneSecondLess() {
+        LocalDate serviceDate = LocalDate.of(2026, 8, 1);
+        InspectionTimeSlotDefinition evening = InspectionTimeSlotPolicy.slot("EVENING");
+        Clock exactlyOneHour = Clock.fixed(
+                Instant.parse("2026-08-01T09:00:00Z"), ZoneOffset.UTC);
+        Clock oneSecondTooLate = Clock.fixed(
+                Instant.parse("2026-08-01T09:00:01Z"), ZoneOffset.UTC);
+
+        assertThat(InspectionTimeSlotPolicy.satisfiesLeadTime(
+                serviceDate, evening, exactlyOneHour)).isTrue();
+        assertThat(InspectionTimeSlotPolicy.satisfiesLeadTime(
+                serviceDate, evening, oneSecondTooLate)).isFalse();
+    }
 }

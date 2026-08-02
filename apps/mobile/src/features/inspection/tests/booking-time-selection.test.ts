@@ -92,6 +92,12 @@ describe('booking time selection', () => {
             endTime: '21:00',
             remainingCount: 0,
             availability: 'FULL',
+          }, {
+            slotCode: 'MORNING',
+            startTime: '09:00',
+            endTime: '12:00',
+            remainingCount: 9,
+            availability: 'TOO_SOON',
           }],
         }] as T
       },
@@ -120,6 +126,12 @@ describe('booking time selection', () => {
         endTime: '21:00',
         remainingCount: 0,
         availability: 'FULL',
+      }, {
+        slotCode: 'MORNING',
+        startTime: '09:00',
+        endTime: '12:00',
+        remainingCount: 9,
+        availability: 'TOO_SOON',
       }],
     }])
     expect(calls).toEqual([{
@@ -136,6 +148,10 @@ describe('booking time selection', () => {
     expect(normalizedSheetSource).toContain('预计服务时长3小时')
     expect(normalizedSheetSource).toContain('更多日期')
     expect(normalizedSheetSource).toContain('已约满')
+    expect(normalizedSheetSource).toContain('需提前1小时预约')
+    expect(normalizedSheetSource).toContain("slot.availability !== 'AVAILABLE'")
+    expect(normalizedSheetSource).toContain("case 'TOO_SOON':")
+    expect(normalizedSheetSource).toContain('该时段需提前1小时预约，请重新选择')
     expect(normalizedSheetSource).toContain('formatClockTime(slot.startTime)')
     expect(normalizedSheetSource).toContain('formatClockTime(slot.endTime)')
     expect(normalizedSheetSource).toContain('<view class="inspection-time-sheet__handle" />')
@@ -184,5 +200,14 @@ describe('booking time selection', () => {
     )?.[0]
 
     expect(selectDateSource).toContain("loadError.value = ''")
+  })
+
+  it('recovers a too-soon submit without clearing the rest of the booking draft', () => {
+    expect(bookingPageSource).toContain("error.code === 'INS_TIME_SLOT_TOO_SOON'")
+    expect(bookingPageSource).toContain("submitError.value = '该时段需提前1小时预约，请重新选择'")
+    expect(bookingPageSource).toContain('draft.value.preferredServiceTime = null')
+    expect(bookingPageSource).toContain("preferredServiceTimeText.value = ''")
+    expect(bookingPageSource).toContain('isTimePickerVisible.value = true')
+    expect(bookingPageSource).not.toContain('draft.value = createEmptyBookingDraft()')
   })
 })

@@ -13,6 +13,7 @@ import com.lowaltitude.inspection.application.reservation.InspectionServiceNotFo
 import com.lowaltitude.inspection.application.reservation.ReservationNotFoundException;
 import com.lowaltitude.inspection.application.reservation.ReservationValidationException;
 import com.lowaltitude.inspection.application.reservation.TimeSlotFullException;
+import com.lowaltitude.inspection.application.reservation.TimeSlotTooSoonException;
 import com.lowaltitude.inspection.application.serviceflow.PlanFlowException;
 import com.lowaltitude.inspection.infrastructure.storage.ObjectStorageException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -106,6 +107,20 @@ public class GlobalExceptionHandler {
                         "该时段刚刚约满，请重新选择",
                         traceId(request)));
     }
+
+    @ExceptionHandler(TimeSlotTooSoonException.class)
+    public ResponseEntity<ApiError> handleTimeSlotTooSoon(
+            TimeSlotTooSoonException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(
+                        "INS_TIME_SLOT_TOO_SOON",
+                        "该时段需提前1小时预约，请重新选择",
+                        traceId(request)));
+    }
+
+
 
     @ExceptionHandler({
             ReservationNotFoundException.class,
