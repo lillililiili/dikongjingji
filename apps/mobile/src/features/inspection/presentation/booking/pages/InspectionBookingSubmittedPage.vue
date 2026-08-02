@@ -1,15 +1,208 @@
+<script lang="ts">
+export interface SubmittedBookingReservation {
+  status: 'SUBMITTED' | 'PLAN_PUBLISHED' | 'CANCELLED'
+  currentPlanId: string | null
+}
+
+export interface SubmittedBookingPlan {
+  status: 'DRAFT' | 'PUBLISHED' | 'CONFIRMED' | 'EXPIRED' | 'WITHDRAWN'
+  serviceOrderId: string | null
+}
+
+export function canCancelSubmittedBooking(
+  reservation: SubmittedBookingReservation | null,
+  plan: SubmittedBookingPlan | null,
+  actionsReady: boolean,
+): boolean {
+  if (!actionsReady || !reservation) return false
+  if (reservation.status === 'SUBMITTED') return true
+  return reservation.status === 'PLAN_PUBLISHED'
+    && plan?.status === 'PUBLISHED'
+    && !plan.serviceOrderId
+}
+
+export function getSubmittedBookingFooterMode(
+  reservation: SubmittedBookingReservation | null,
+): 'CONTACT_AND_PRIMARY' | 'RETURN_ORDERS_ONLY' {
+  return reservation?.status === 'CANCELLED'
+    ? 'RETURN_ORDERS_ONLY'
+    : 'CONTACT_AND_PRIMARY'
+}
+
+export type SubmittedCancellationResult<Reservation extends SubmittedBookingReservation> =
+  | { kind: 'dismissed' }
+  | { kind: 'cancelled'; reservation: Reservation }
+  | { kind: 'refresh-required' }
+  | { kind: 'failed'; message: string }
+
+export interface SubmittedReservationLoaderOptions<
+  Reservation extends SubmittedBookingReservation,
+  Plan extends SubmittedBookingPlan,
+> {
+  load(): Promise<Reservation>
+  loadPlan?(planId: string): Promise<Plan>
+  setReservation(reservation: Reservation): void
+  setPlan?(plan: Plan | null): void
+  setLoadError(message: string): void
+  setLoading(loading: boolean): void
+  getLoadError(error: unknown): string
+}
+
+export function createSubmittedReservationLoader<
+  Reservation extends SubmittedBookingReservation,
+  Plan extends SubmittedBookingPlan = SubmittedBookingPlan,
+>(
+  options: SubmittedReservationLoaderOptions<Reservation, Plan>,
+) {
+  let latestRequestId = 0
+
+  function begin(): number {
+    latestRequestId += 1
+    return latestRequestId
+  }
+
+  function isLatest(requestId: number): boolean {
+    return requestId === latestRequestId
+  }
+
+  async function loadReservation(): Promise<boolean> {
+    const requestId = begin()
+    if (isLatest(requestId)) {
+      options.setLoading(true)
+      options.setLoadError('')
+    }
+    try {
+      const reservation = await options.load()
+      if (!isLatest(requestId)) return false
+      let currentPlan: Plan | null = null
+      if (reservation.status === 'PLAN_PUBLISHED'
+        && reservation.currentPlanId
+        && options.loadPlan) {
+        try {
+          currentPlan = await options.loadPlan(reservation.currentPlanId)
+        } catch {
+          if (!isLatest(requestId)) return false
+          options.setPlan?.(null)
+          options.setReservation(reservation)
+          return true
+        }
+      }
+      if (!isLatest(requestId)) return false
+      options.setPlan?.(currentPlan)
+      options.setReservation(reservation)
+      return true
+    } catch (error) {
+      if (!isLatest(requestId)) return false
+      options.setLoadError(options.getLoadError(error))
+      return false
+    } finally {
+      if (isLatest(requestId)) {
+        options.setLoading(false)
+      }
+    }
+  }
+
+  function invalidate(): void {
+    const requestId = begin()
+    if (isLatest(requestId)) {
+      options.setLoading(false)
+    }
+  }
+
+  return { loadReservation, invalidate, isLatest }
+}
+
+export interface SubmittedBookingControllerOptions<Reservation extends SubmittedBookingReservation> {
+  getReservation(): Reservation | null
+  setReservation(reservation: Reservation): void
+  isCancelling(): boolean
+  setCancelling(value: boolean): void
+  requestCancellation(reservation: Reservation): Promise<SubmittedCancellationResult<Reservation>>
+  loadReservation(): Promise<boolean>
+  invalidateReservationLoad(): void
+  showToast(title: string, icon: 'success' | 'none'): void
+  returnOrders(): void
+  openPlan(planId: string): void
+}
+
+export function createSubmittedBookingController<Reservation extends SubmittedBookingReservation>(
+  options: SubmittedBookingControllerOptions<Reservation>,
+) {
+  async function cancelOrder(): Promise<void> {
+    const currentReservation = options.getReservation()
+    if (!currentReservation || options.isCancelling()) return
+
+    options.invalidateReservationLoad()
+    options.setCancelling(true)
+    try {
+      const result = await options.requestCancellation(currentReservation)
+      if (result.kind === 'cancelled') {
+        options.setReservation(result.reservation)
+        options.showToast('订单已取消', 'success')
+        return
+      }
+      if (result.kind === 'refresh-required') {
+        try {
+          if (await options.loadReservation()) {
+            options.showToast('订单状态已更新', 'none')
+          }
+        } catch {
+          // The page loader retains its error state when the refresh cannot complete.
+        }
+        return
+      }
+      if (result.kind === 'failed') {
+        options.showToast(result.message, 'none')
+      }
+    } catch {
+      options.showToast('取消失败，请检查网络后重试', 'none')
+    } finally {
+      options.setCancelling(false)
+    }
+  }
+
+  function handlePrimaryAction(): void {
+    const currentReservation = options.getReservation()
+    if (currentReservation?.status === 'CANCELLED') {
+      options.returnOrders()
+      return
+    }
+    if (currentReservation?.currentPlanId) {
+      options.openPlan(currentReservation.currentPlanId)
+      return
+    }
+    options.returnOrders()
+  }
+
+  function reloadOnShow(): Promise<boolean> {
+    if (options.isCancelling()) return Promise.resolve(false)
+    return options.loadReservation()
+  }
+
+  return { cancelOrder, handlePrimaryAction, reloadOnShow }
+}
+</script>
+
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
-import type { BookingReservation } from '../../../data/service-flow/inspection-booking-api'
 import {
-  createLatestRequestCoordinator,
+  inspectionBookingApi,
+  inspectionPlanApi,
+} from '../../../data/service-flow/uni-booking-http-client'
+import type { BookingReservation } from '../../../data/service-flow/inspection-booking-api'
+import type { InspectionPlan } from '../../../data/service-flow/inspection-plan-api'
+import {
   getPreviousInspectionPageRoute,
-  runLatestRequest,
   shouldNavigateBackToInspectionOrderCenter,
 } from '../../../application/service-flow/inspection-order-navigation'
+import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
+import {
+  canCancelInspectionOrder,
+  requestInspectionOrderCancellation,
+} from '../../../application/service-flow/inspection-order-cancellation'
+import { confirmInspectionOrderCancellation } from '../../shared/inspection-cancellation-ui'
 import {
   buildInspectionOrderCenterUrl,
   buildInspectionPlanConfirmationUrl,
@@ -17,10 +210,26 @@ import {
 
 interface SubmittedRouteQuery { reservationId?: string }
 const reservation = ref<BookingReservation | null>(null)
+const plan = ref<InspectionPlan | null>(null)
 const isLoading = ref(true)
 const loadError = ref('')
 const reservationId = ref('')
-const reservationRequest = createLatestRequestCoordinator()
+const isCancelling = ref(false)
+const isCancelled = computed(() => {
+  const currentReservation = reservation.value
+  return currentReservation !== null && currentReservation.status === 'CANCELLED'
+})
+const footerMode = computed(() => getSubmittedBookingFooterMode(reservation.value))
+const showCustomerContact = computed(() => footerMode.value === 'CONTACT_AND_PRIMARY')
+const canCancel = computed(() =>
+  reservation.value !== null
+  && canCancelSubmittedBooking(
+    reservation.value,
+    plan.value,
+    !isLoading.value && !loadError.value,
+  )
+  && canCancelInspectionOrder(reservation.value.status),
+)
 
 onLoad((query: SubmittedRouteQuery | undefined) => {
   reservationId.value = query?.reservationId?.trim() ?? ''
@@ -30,20 +239,17 @@ onLoad((query: SubmittedRouteQuery | undefined) => {
   }
 })
 
-onShow(() => {
-  if (reservationId.value) void loadReservation(reservationId.value)
+const reservationLoader = createSubmittedReservationLoader<BookingReservation, InspectionPlan>({
+  load: () => inspectionBookingApi.getReservation(reservationId.value),
+  loadPlan: inspectionPlanApi.getPlan,
+  setReservation: (value) => { reservation.value = value },
+  setPlan: (value) => { plan.value = value },
+  setLoadError: (value) => { loadError.value = value },
+  setLoading: (value) => { isLoading.value = value },
+  getLoadError: (error) => error instanceof Error ? error.message : '预约记录加载失败',
 })
-
-async function loadReservation(reservationId: string): Promise<void> {
-  isLoading.value = true; loadError.value = ''
-  const result = await runLatestRequest(
-    reservationRequest,
-    () => inspectionBookingApi.getReservation(reservationId),
-  )
-  if (result.status === 'discarded') return
-  if (result.status === 'success') reservation.value = result.value
-  else loadError.value = result.error instanceof Error ? result.error.message : '预约记录加载失败'
-  isLoading.value = false
+function loadReservation(): Promise<boolean> {
+  return reservationLoader.loadReservation()
 }
 
 function returnOrders(): void {
@@ -54,14 +260,36 @@ function returnOrders(): void {
   }
   uni.redirectTo({ url: buildInspectionOrderCenterUrl('ALL') })
 }
-function handlePrimaryAction(): void {
-  if (reservation.value?.currentPlanId) {
+function openPlan(planId: string): void {
     uni.navigateTo({
-      url: buildInspectionPlanConfirmationUrl(reservation.value.currentPlanId),
+      url: buildInspectionPlanConfirmationUrl(planId),
     })
-    return
-  }
-  returnOrders()
+}
+const submittedBookingController = createSubmittedBookingController<BookingReservation>({
+  getReservation: () => reservation.value,
+  setReservation: (value) => { reservation.value = value },
+  isCancelling: () => isCancelling.value,
+  setCancelling: (value) => { isCancelling.value = value },
+  requestCancellation: (currentReservation) => requestInspectionOrderCancellation({
+    reservation: currentReservation,
+    cancelReservation: inspectionBookingApi.cancelReservation,
+    confirm: confirmInspectionOrderCancellation,
+    idempotencyKey: createBookingUuid,
+  }),
+  loadReservation,
+  invalidateReservationLoad: reservationLoader.invalidate,
+  showToast: (title, icon) => uni.showToast({ title, icon }),
+  returnOrders,
+  openPlan,
+})
+onShow(() => {
+  if (reservationId.value) void submittedBookingController.reloadOnShow()
+})
+function handlePrimaryAction(): void {
+  submittedBookingController.handlePrimaryAction()
+}
+async function cancelOrder(): Promise<void> {
+  await submittedBookingController.cancelOrder()
 }
 function copyReservationNo(): void {
   if (!reservation.value) return
@@ -92,8 +320,8 @@ function maskMobile(value: string): string {
     <main v-else-if="reservation" class="booking-submitted__content">
       <view class="booking-submitted__success">
         <view class="booking-submitted__success-icon"><UniIcons type="checkmarkempty" size="62" color="#18a947" /></view>
-        <text class="booking-submitted__title">订单已提交</text>
-        <text class="booking-submitted__copy">预约申请已提交，服务商将在 <text>30分钟</text> 内联系您</text>
+        <text class="booking-submitted__title">{{ isCancelled ? '订单已取消' : '订单已提交' }}</text>
+        <text class="booking-submitted__copy">{{ isCancelled ? '本次服务已停止安排，订单记录将继续保留' : '预约申请已提交，服务商将在 30分钟内联系您' }}</text>
       </view>
       <view class="booking-submitted__card">
         <view class="booking-submitted__service"><image :src="reservation.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'" mode="aspectFill" /><view><text>{{ reservation.serviceTitle }}</text><text>云翼科技</text></view></view>
@@ -104,15 +332,20 @@ function maskMobile(value: string): string {
         <view class="booking-submitted__detail-row"><text>联系人</text><text>{{ reservation.contact.name }}　{{ maskMobile(reservation.contact.mobile) }}</text></view>
         <text class="booking-submitted__time">提交时间：{{ formatSubmittedAt(reservation.submittedAt) }}</text>
       </view>
-      <view class="booking-submitted__next-steps">
+      <view v-if="isCancelled" class="booking-submitted__next-steps">
+        <text class="booking-submitted__timeline-title">订单状态</text>
+        <view class="booking-submitted__timeline-row booking-submitted__timeline-row--cancelled"><UniIcons type="info-filled" size="18" color="#7d8590" /><view><text>订单已取消</text><text>服务已停止安排</text></view></view>
+      </view>
+      <view v-else class="booking-submitted__next-steps">
         <text class="booking-submitted__timeline-title">接下来</text>
         <view class="booking-submitted__timeline-row booking-submitted__timeline-row--done"><UniIcons type="checkbox-filled" size="18" color="#16af55" /><view><text>需求已提交</text><text>{{ formatSubmittedAt(reservation.submittedAt) }}</text></view></view>
         <view class="booking-submitted__timeline-row booking-submitted__timeline-row--current"><UniIcons type="circle-filled" size="18" color="#ff6a00" /><view><text>服务商确认需求</text><text>等待联系</text></view></view>
         <view class="booking-submitted__timeline-row"><UniIcons type="circle" size="18" color="#b5bac1" /><text>确认方案与报价</text></view>
         <view class="booking-submitted__timeline-row"><UniIcons type="circle" size="18" color="#b5bac1" /><text>现场巡检与报告交付</text></view>
       </view>
+      <button v-if="canCancel" class="booking-submitted__cancel" :disabled="isCancelling" @click="cancelOrder">{{ isCancelling ? '取消中…' : '取消订单' }}</button>
     </main>
-    <view class="booking-submitted__footer"><button class="booking-submitted__contact" @click="showCustomerService"><UniIcons type="chat" size="20" color="#17191d" />联系商家</button><button @click="handlePrimaryAction">{{ reservation?.currentPlanId ? '查看服务方案' : '返回订单' }}</button></view>
+    <view class="booking-submitted__footer" :class="{ 'booking-submitted__footer--single': footerMode === 'RETURN_ORDERS_ONLY' }"><button v-if="showCustomerContact" class="booking-submitted__contact" @click="showCustomerService"><UniIcons type="chat" size="20" color="#17191d" />联系商家</button><button @click="handlePrimaryAction">{{ isCancelled ? '返回订单' : (reservation?.currentPlanId ? '查看服务方案' : '返回订单') }}</button></view>
   </view>
 </template>
 
@@ -162,11 +395,13 @@ function maskMobile(value: string): string {
 .booking-submitted__detail-row{min-height:40px;grid-template-columns:86px minmax(0,1fr);font-size:13px}
 .booking-submitted__time{margin-top:8px;font-size:11px}
 .booking-submitted__next-steps{margin-top:24px;padding:20px 18px;border-radius:22px;background:#fff;box-shadow:0 10px 32px rgba(32,43,55,.08)}
+.booking-submitted__cancel{display:block;width:100%;height:44px;margin-top:16px;border:1px solid #d9dde2;border-radius:14px;color:#c74432;background:#fff;font-size:16px;font-weight:600}.booking-submitted__cancel::after{border:0}
 .booking-submitted__timeline-title{margin-bottom:16px;font-size:20px}
 .booking-submitted__timeline-row{min-height:64px;grid-template-columns:34px minmax(0,1fr);font-size:16px}
 .booking-submitted__timeline-row:not(:last-child)::after{top:20px;bottom:-8px;left:8px}
 .booking-submitted__timeline-row>view text:last-child{margin-top:7px;font-size:12px}
 .booking-submitted__footer{display:grid;padding:10px 22px calc(12px + env(safe-area-inset-bottom));grid-template-columns:1fr 1fr;gap:12px;box-shadow:0 -7px 24px rgba(25,35,48,.07)}
+.booking-submitted__footer--single{grid-template-columns:1fr}
 .booking-submitted__footer button{width:100%;height:52px;margin:0;border-radius:16px;font-size:16px}
 .booking-submitted__footer .booking-submitted__contact{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #aeb3ba;color:#17191d;background:#fff}
 </style>

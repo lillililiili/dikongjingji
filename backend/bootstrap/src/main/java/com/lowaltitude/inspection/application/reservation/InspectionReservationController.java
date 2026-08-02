@@ -74,6 +74,27 @@ public final class InspectionReservationController {
                 .body(ReservationResponse.from(details));
     }
 
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ReservationResponse> cancel(
+            @PathVariable UUID id,
+            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @RequestHeader("If-Match") String ifMatch,
+            @RequestHeader(name = "X-Request-Id", required = false) String requestId,
+            Authentication authentication
+    ) {
+        ReservationDetails cancelled = service.cancel(
+                currentSubject(authentication),
+                id,
+                idempotencyKey,
+                parseIfMatch(ifMatch),
+                requestId == null || requestId.isBlank()
+                        ? UUID.randomUUID().toString()
+                        : requestId.trim());
+        return ResponseEntity.ok()
+                .eTag(Integer.toString(cancelled.version()))
+                .body(ReservationResponse.from(cancelled));
+    }
+
     @GetMapping
     public CustomerReservationPageResponse list(
             @RequestParam(defaultValue = "1") int page,
@@ -99,6 +120,21 @@ public final class InspectionReservationController {
         if (page < 1 || size < 1 || size > MAX_PAGE_SIZE
                 || (long) (page - 1) * size > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("customer order page is invalid");
+        }
+    }
+
+    private static int parseIfMatch(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (!normalized.matches("^\"(0|[1-9][0-9]*)\"$")) {
+            throw new IllegalArgumentException("If-Match must be a strong numeric ETag");
+        }
+        String version = normalized.substring(1, normalized.length() - 1);
+        try {
+            return Integer.parseInt(version);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(
+                    "If-Match must be a strong numeric ETag",
+                    exception);
         }
     }
 

@@ -92,6 +92,11 @@ export interface InspectionBookingApi {
   ): Promise<BookingAvailableDate[]>
   createReservation(payload: CreateReservationPayload, idempotencyKey: string): Promise<BookingReservation>
   getReservation(reservationId: string): Promise<BookingReservation>
+  cancelReservation(
+    reservationId: string,
+    version: number,
+    idempotencyKey: string,
+  ): Promise<BookingReservation>
   uploadReservationAttachment(input: {
     reservationId: string
     originalName: string
@@ -192,6 +197,16 @@ export function createInspectionBookingApi(
         url: `/api/v1/inspection/reservations/${encodeURIComponent(reservationId)}`,
         method: 'GET',
         headers: headers(),
+      })
+    },
+    cancelReservation(reservationId, version, idempotencyKey) {
+      return http.request<BookingReservation>({
+        url: `/api/v1/inspection/reservations/${encodeURIComponent(reservationId)}/cancel`,
+        method: 'POST',
+        headers: {
+          ...headers(idempotencyKey),
+          'If-Match': `"${version}"`,
+        },
       })
     },
     async uploadReservationAttachment(input) {

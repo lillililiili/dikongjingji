@@ -171,6 +171,73 @@ public class ReservationApplicationService {
                 store.findAttachments(value.id()));
     }
 
+    @Transactional
+    public ReservationDetails cancel(
+            com.lowaltitude.inspection.identity.domain.CurrentSubject subject,
+            UUID reservationId,
+            UUID idempotencyKey,
+            int expectedVersion,
+            String requestId
+    ) {
+        if (!subject.roles().contains("CUSTOMER")
+                || !subject.permissions().contains("inspection.reservation.cancel.own")) {
+            throw new ReservationAccessDeniedException(
+                    "customer reservation cancellation permission is required");
+        }
+        StoredReservation reservation = store.findById(reservationId)
+                .orElseThrow(ReservationNotFoundException::new);
+        if (!reservation.customerId().equals(subject.subjectId())) {
+            throw new ReservationNotFoundException();
+        }
+        String requestDigest = cancellationDigest(reservationId);
+        Optional<CancellationIdempotencyEntry> prior =
+                store.findCancellationIdempotency(subject.subjectId(), idempotencyKey);
+        if (prior.isPresent()) {
+            if (!prior.get().requestDigest().equals(requestDigest)) {
+                throw new IdempotencyConflictException();
+            }
+            return read(subject, prior.get().reservationId());
+        }
+        ReservationFlowState state = store.findFlowState(reservationId)
+                .orElse(new ReservationFlowState("SUBMITTED", null, reservation.version()));
+        if (state.version() != expectedVersion) {
+            throw new ReservationVersionConflictException();
+        }
+        if ("CANCELLED".equals(state.status())) {
+            return read(subject, reservationId);
+        }
+        if (!"SUBMITTED".equals(state.status())
+                && !"PLAN_PUBLISHED".equals(state.status())) {
+            throw new ReservationCancellationNotAllowedException();
+        }
+        CancellationWriteResult result = store.cancel(new CancellationCommand(
+                reservationId,
+                reservation.customerId(),
+                state.status(),
+                state.currentPlanId(),
+                expectedVersion,
+                new CancellationIdempotencyEntry(
+                        subject.subjectId(), idempotencyKey, requestDigest, reservationId),
+                subject.subjectId(),
+                requestId == null || requestId.isBlank() ? UUID.randomUUID().toString() : requestId.trim(),
+                clock.instant()));
+        if (result == CancellationWriteResult.VERSION_CONFLICT) {
+            throw new ReservationVersionConflictException();
+        }
+        if (result == CancellationWriteResult.STATE_CONFLICT) {
+            throw new ReservationCancellationNotAllowedException();
+        }
+        if (result == CancellationWriteResult.IDEMPOTENCY_EXISTS) {
+            CancellationIdempotencyEntry replay =
+                    store.findCancellationIdempotency(subject.subjectId(), idempotencyKey)
+                            .orElseThrow(IdempotencyConflictException::new);
+            if (!replay.requestDigest().equals(requestDigest)) {
+                throw new IdempotencyConflictException();
+            }
+        }
+        return read(subject, reservationId);
+    }
+
     public List<InspectionServiceDateAvailabilityView> availableTimeSlots(
             UUID serviceId,
             String cityCode,
@@ -267,6 +334,15 @@ public class ReservationApplicationService {
         }
     }
 
+    private static String cancellationDigest(UUID reservationId) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return java.util.HexFormat.of().formatHex(
+                    digest.digest(reservationId.toString().getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
 
     private static void updateDigest(MessageDigest digest, Object value) {
         if (value instanceof Collection<?> collection) {
@@ -372,6 +448,29 @@ record ReservationFileView(UUID id, String originalName, String contentType, lon
                            com.lowaltitude.inspection.domain.files.FileObjectStatus status,
                            String failureReason) { }
 record IdempotencyEntry(UUID actorId, UUID key, String requestDigest, UUID reservationId) { }
+record CancellationIdempotencyEntry(
+        UUID actorId,
+        UUID key,
+        String requestDigest,
+        UUID reservationId
+) { }
+record CancellationCommand(
+        UUID reservationId,
+        UUID customerId,
+        String expectedStatus,
+        UUID currentPlanId,
+        int expectedVersion,
+        CancellationIdempotencyEntry idempotency,
+        UUID actorId,
+        String requestId,
+        Instant cancelledAt
+) { }
+enum CancellationWriteResult {
+    SAVED,
+    IDEMPOTENCY_EXISTS,
+    VERSION_CONFLICT,
+    STATE_CONFLICT
+}
 interface InspectionServiceCatalog { Optional<InspectionServiceSnapshot> findActive(UUID serviceId, String cityCode); }
 interface ReservationStore {
     Optional<IdempotencyEntry> findIdempotency(UUID actorId, UUID key);
@@ -384,6 +483,13 @@ interface ReservationStore {
         return Optional.empty();
     }
     default List<ReservationFileView> findAttachments(UUID reservationId) { return List.of(); }
+    default Optional<CancellationIdempotencyEntry> findCancellationIdempotency(
+            UUID actorId, UUID key) {
+        return Optional.empty();
+    }
+    default CancellationWriteResult cancel(CancellationCommand command) {
+        throw new UnsupportedOperationException("reservation cancellation is not implemented");
+    }
 }
 record BookedTimeSlotCount(LocalDate serviceDate, String slotCode, int bookedCount) { }
 record ReservationFlowState(String status, UUID currentPlanId, int version) { }

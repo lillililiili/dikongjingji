@@ -1,4 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { parse } from '@vue/compiler-sfc'
+import {
+  ModuleKind,
+  ScriptTarget,
+  transpileModule,
+} from 'typescript'
 
 import pagesSource from '../../../pages.json?raw'
 import bookingHttpClientSource from '../data/service-flow/uni-booking-http-client.ts?raw'
@@ -172,7 +178,8 @@ describe('order center page', () => {
     expect(orderCenterPageSource).toContain('onPullDownRefresh')
     expect(orderCenterPageSource).toContain('onReachBottom')
     expect(orderCenterPageSource).toContain('createInspectionOrderCenterController')
-    expect(orderCenterPageSource).toContain('api: inspectionOrderApi')
+    expect(orderCenterPageSource).toContain('inspectionOrderApi.list')
+    expect(orderCenterPageSource).toContain('api: latestOrderApi')
     expect(orderCenterPageSource).toContain('resolveInspectionOrderDestination')
     expect(orderCenterPageSource).toContain('订单加载失败')
     expect(orderCenterPageSource).toContain('暂无巡检订单')
@@ -187,6 +194,56 @@ describe('order center page', () => {
     expect(bookingHttpClientSource).toContain('export const inspectionOrderApi')
     expect(orderCenterPageSource).not.toContain('立即支付')
     expect(orderCenterPageSource).not.toContain('退款')
+  })
+
+  it('reloads orders and stage counts whenever the order center becomes visible', async () => {
+    const { createOrderCenterVisibilityController: reloadOnShow } = loadOrderCenterPageFactories()
+    const first = deferred<void>()
+    let reloads = 0
+    const visibility = reloadOnShow(() => {
+      reloads += 1
+      return reloads === 1 ? first.promise : Promise.resolve()
+    })
+
+    const initialShow = visibility.reloadOnShow()
+    const duplicateShow = visibility.reloadOnShow()
+    expect(reloads).toBe(1)
+    first.resolve()
+    await Promise.all([initialShow, duplicateShow])
+    await visibility.reloadOnShow()
+
+    expect(reloads).toBe(2)
+    expect(orderCenterPageSource).toContain('onShow(() =>')
+    expect(orderCenterPageSource).toContain(
+      'state.selectedStage = normalizeInspectionOrderFilter(query?.stage)',
+    )
+    expect(orderCenterPageSource).not.toContain(
+      'state.selectedStage = normalizeInspectionOrderFilter(query?.stage)\n  void controller.reload()',
+    )
+  })
+
+  it('applies stage counts only from the latest server response', async () => {
+    const { createLatestOrderCenterApi } = loadOrderCenterPageFactories()
+    const first = deferred<InspectionOrderPage>()
+    const second = deferred<InspectionOrderPage>()
+    const appliedCounts: number[] = []
+    let requests = 0
+    const api = createLatestOrderCenterApi(
+      () => {
+        requests += 1
+        return requests === 1 ? first.promise : second.promise
+      },
+      (response) => appliedCounts.push(response.stageCounts.AWAITING_CONFIRMATION),
+    )
+
+    const older = api.list({ stage: 'ALL', page: 1, size: 20 })
+    const latest = api.list({ stage: 'ALL', page: 1, size: 20 })
+    second.resolve(orderPage([], 1, false, 2))
+    await latest
+    first.resolve(orderPage([], 1, false, 1))
+    await older
+
+    expect(appliedCounts).toEqual([2])
   })
 })
 
@@ -434,6 +491,72 @@ interface OrderCenterController {
   returnMine(): Promise<void>
 }
 
+interface OrderCenterVisibilityController {
+  reloadOnShow(): Promise<void>
+}
+
+type OrderCenterVisibilityFactory = (
+  reload: () => Promise<void>,
+) => OrderCenterVisibilityController
+
+type LatestOrderCenterApiFactory = (
+  list: (input: {
+    stage: import('../domain/service-flow/order-center').InspectionOrderFilter
+    page: number
+    size: number
+  }) => Promise<InspectionOrderPage>,
+  applyResponse: (response: InspectionOrderPage) => void,
+) => {
+  list(input: {
+    stage: import('../domain/service-flow/order-center').InspectionOrderFilter
+    page: number
+    size: number
+  }): Promise<InspectionOrderPage>
+}
+
+function loadOrderCenterPageFactories(): {
+  createOrderCenterVisibilityController: OrderCenterVisibilityFactory
+  createLatestOrderCenterApi: LatestOrderCenterApiFactory
+} {
+  const parsed = parse(orderCenterPageSource, {
+    filename: 'InspectionOrderCenterPage.vue',
+  })
+  expect(parsed.descriptor.script).not.toBeNull()
+  if (!parsed.descriptor.script) {
+    throw new Error('Order center visibility controller script is unavailable')
+  }
+  const output = transpileModule(parsed.descriptor.script.content, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ModuleKind.CommonJS,
+      target: ScriptTarget.ES2020,
+    },
+  }).outputText
+  const testModule: {
+    exports: {
+      createOrderCenterVisibilityController?: OrderCenterVisibilityFactory
+      createLatestOrderCenterApi?: LatestOrderCenterApiFactory
+    }
+  } = { exports: {} }
+  const evaluate = new Function('require', 'module', 'exports', output)
+  evaluate(
+    () => { throw new Error('The order center visibility controller has no runtime dependencies') },
+    testModule,
+    testModule.exports,
+  )
+  const factory = testModule.exports.createOrderCenterVisibilityController
+  const createLatestOrderCenterApi = testModule.exports.createLatestOrderCenterApi
+  expect(factory).toBeTypeOf('function')
+  expect(createLatestOrderCenterApi).toBeTypeOf('function')
+  if (!factory || !createLatestOrderCenterApi) {
+    throw new Error('Order center page controllers are unavailable')
+  }
+  return {
+    createOrderCenterVisibilityController: factory,
+    createLatestOrderCenterApi,
+  }
+}
+
 function getOrderCenterViewContract(): OrderCenterViewContract {
   return orderCenterView as OrderCenterViewContract
 }
@@ -496,14 +619,17 @@ function orderPage(
   items: InspectionOrderSummary[],
   page = 1,
   hasMore = false,
+  awaitingConfirmationCount = 0,
 ): InspectionOrderPage {
-  return {
+  const response = {
     ...emptyOrderPage(),
     items,
     page,
     hasMore,
     total: items.length,
   }
+  response.stageCounts.AWAITING_CONFIRMATION = awaitingConfirmationCount
+  return response
 }
 
 function deferred<T>(): {

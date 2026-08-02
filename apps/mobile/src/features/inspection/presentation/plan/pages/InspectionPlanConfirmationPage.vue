@@ -1,8 +1,150 @@
+<script lang="ts">
+export interface PlanCancellationReservation {
+  id: string
+  status: 'SUBMITTED' | 'PLAN_PUBLISHED' | 'CANCELLED'
+}
+
+export type PlanCancellationResult<Reservation extends PlanCancellationReservation> =
+  | { kind: 'dismissed' }
+  | { kind: 'cancelled'; reservation: Reservation }
+  | { kind: 'refresh-required' }
+  | { kind: 'failed'; message: string }
+
+export interface PlanCancellationControllerOptions<Reservation extends PlanCancellationReservation> {
+  getReservation(): Reservation | null
+  setReservation(reservation: Reservation): void
+  isPlanConfirmed(): boolean
+  isCancelling(): boolean
+  setCancelling(value: boolean): void
+  requestCancellation(reservation: Reservation): Promise<PlanCancellationResult<Reservation>>
+  refreshReservation(reservationId: string): Promise<Reservation>
+  reloadPlan(): Promise<boolean>
+  lockActions(message: string): void
+  redirectToCancelledDetail(reservationId: string): void
+  showToast(message: string): void
+}
+
+export interface PlanPageLoaderOptions<Plan extends { reservationId: string }, Reservation> {
+  loadPlan(planId: string): Promise<Plan>
+  loadReservation(reservationId: string): Promise<Reservation>
+  setPlan(plan: Plan): void
+  setReservation(reservation: Reservation): void
+  setLoading(value: boolean): void
+  setLoadError(message: string): void
+  getLoadError(error: unknown): string
+}
+
+export function canConfirmInspectionPlan(
+  planConfirmable: boolean,
+  reservationStatus: PlanCancellationReservation['status'] | undefined,
+  isCancelling: boolean,
+  actionsReady = true,
+): boolean {
+  return planConfirmable
+    && reservationStatus === 'PLAN_PUBLISHED'
+    && !isCancelling
+    && actionsReady
+}
+
+export function canCancelInspectionPlan(
+  reservationStatus: PlanCancellationReservation['status'] | undefined,
+  actionsReady: boolean,
+): boolean {
+  return reservationStatus === 'PLAN_PUBLISHED' && actionsReady
+}
+
+export function createPlanPageLoader<
+  Plan extends { reservationId: string },
+  Reservation,
+>(options: PlanPageLoaderOptions<Plan, Reservation>) {
+  let latestRequestId = 0
+
+  async function loadPlan(planId: string): Promise<boolean> {
+    const requestId = ++latestRequestId
+    options.setLoading(true)
+    try {
+      const currentPlan = await options.loadPlan(planId)
+      const currentReservation = await options.loadReservation(
+        currentPlan.reservationId,
+      )
+      if (requestId !== latestRequestId) return false
+      options.setPlan(currentPlan)
+      options.setReservation(currentReservation)
+      options.setLoadError('')
+      return true
+    } catch (error) {
+      if (requestId !== latestRequestId) return false
+      options.setLoadError(options.getLoadError(error))
+      return false
+    } finally {
+      if (requestId === latestRequestId) options.setLoading(false)
+    }
+  }
+
+  return { loadPlan }
+}
+
+export function createPlanCancellationController<Reservation extends PlanCancellationReservation>(
+  options: PlanCancellationControllerOptions<Reservation>,
+) {
+  async function cancelOrder(): Promise<void> {
+    const currentReservation = options.getReservation()
+    if (!currentReservation
+      || currentReservation.status !== 'PLAN_PUBLISHED'
+      || options.isPlanConfirmed()
+      || options.isCancelling()) return
+
+    options.setCancelling(true)
+    try {
+      const result = await options.requestCancellation(currentReservation)
+      if (result.kind === 'cancelled') {
+        if (result.reservation.status !== 'CANCELLED') {
+          options.showToast('订单状态异常，请刷新后重试')
+          return
+        }
+        options.setReservation(result.reservation)
+        options.redirectToCancelledDetail(result.reservation.id)
+        return
+      }
+      if (result.kind === 'refresh-required') {
+        try {
+          const latest = await options.refreshReservation(currentReservation.id)
+          if (latest.status === 'CANCELLED') {
+            options.setReservation(latest)
+            options.redirectToCancelledDetail(latest.id)
+            return
+          }
+          if (!await options.reloadPlan()) {
+            options.lockActions('状态刷新失败，请重试')
+            return
+          }
+          options.showToast('订单状态已更新')
+        } catch {
+          options.lockActions('状态刷新失败，请重试')
+        }
+        return
+      }
+      if (result.kind === 'failed') options.showToast(result.message)
+    } catch {
+      options.showToast('取消失败，请检查网络后重试')
+    } finally {
+      options.setCancelling(false)
+    }
+  }
+
+  return { cancelOrder }
+}
+</script>
+
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
+import {
+  canCancelInspectionOrder,
+  requestInspectionOrderCancellation,
+} from '../../../application/service-flow/inspection-order-cancellation'
 import type { BookingReservation } from '../../../data/service-flow/inspection-booking-api'
 import type { InspectionPlan } from '../../../data/service-flow/inspection-plan-api'
 import {
@@ -14,10 +156,12 @@ import {
   isPlanConfirmable,
 } from '../../../domain/service-flow/plan'
 import {
+  buildInspectionBookingSubmittedUrl,
   buildInspectionFulfillmentUrl,
   buildInspectionOrderCenterUrl,
 } from '../../../navigation/inspection-routes'
 import BookingProgress from '../../booking/components/BookingProgress.vue'
+import { confirmInspectionOrderCancellation } from '../../shared/inspection-cancellation-ui'
 
 interface PlanRouteQuery { planId?: string }
 
@@ -25,17 +169,37 @@ const plan = ref<InspectionPlan | null>(null)
 const reservation = ref<BookingReservation | null>(null)
 const isLoading = ref(true)
 const isSubmitting = ref(false)
+const isCancelling = ref(false)
 const loadError = ref('')
 const actionError = ref('')
 const agreementAccepted = ref(false)
 const confirmationKey = ref('')
 
-const confirmable = computed(() =>
+const actionsReady = computed(() => !isLoading.value && !loadError.value)
+const confirmable = computed(() => canConfirmInspectionPlan(
   plan.value !== null && isPlanConfirmable(plan.value),
+  reservation.value?.status,
+  isCancelling.value,
+  actionsReady.value,
+))
+const canCancel = computed(() =>
+  canCancelInspectionPlan(reservation.value?.status, actionsReady.value)
+  && reservation.value !== null
+  && canCancelInspectionOrder(reservation.value.status),
 )
 const isConfirmed = computed(() =>
   plan.value?.status === 'CONFIRMED' && Boolean(plan.value.serviceOrderId),
 )
+
+const planLoader = createPlanPageLoader<InspectionPlan, BookingReservation>({
+  loadPlan: inspectionPlanApi.getPlan,
+  loadReservation: inspectionBookingApi.getReservation,
+  setPlan: (value) => { plan.value = value },
+  setReservation: (value) => { reservation.value = value },
+  setLoading: (value) => { isLoading.value = value },
+  setLoadError: (value) => { loadError.value = value },
+  getLoadError: (error) => error instanceof Error ? error.message : '方案加载失败',
+})
 
 onLoad((query: PlanRouteQuery | undefined) => {
   const planId = query?.planId?.trim() ?? ''
@@ -47,24 +211,13 @@ onLoad((query: PlanRouteQuery | undefined) => {
   void loadPlan(planId)
 })
 
-async function loadPlan(planId: string): Promise<void> {
-  isLoading.value = true
-  loadError.value = ''
-  try {
-    const current = await inspectionPlanApi.getPlan(planId)
-    plan.value = current
-    reservation.value = await inspectionBookingApi.getReservation(
-      current.reservationId,
-    )
-  } catch (error) {
-    loadError.value = error instanceof Error ? error.message : '方案加载失败'
-  } finally {
-    isLoading.value = false
-  }
+function loadPlan(planId: string): Promise<boolean> {
+  return planLoader.loadPlan(planId)
 }
 
 async function confirmPlan(): Promise<void> {
   if (!plan.value) return
+  if (isCancelling.value) return
   if (isConfirmed.value && plan.value.serviceOrderId) {
     openFulfillment(plan.value.serviceOrderId)
     return
@@ -94,6 +247,31 @@ async function confirmPlan(): Promise<void> {
   } finally {
     isSubmitting.value = false
   }
+}
+
+const cancellationController = createPlanCancellationController<BookingReservation>({
+  getReservation: () => reservation.value,
+  setReservation: (value) => { reservation.value = value },
+  isPlanConfirmed: () => isConfirmed.value || isSubmitting.value,
+  isCancelling: () => isCancelling.value,
+  setCancelling: (value) => { isCancelling.value = value },
+  requestCancellation: (currentReservation) => requestInspectionOrderCancellation({
+    reservation: currentReservation,
+    cancelReservation: inspectionBookingApi.cancelReservation,
+    confirm: confirmInspectionOrderCancellation,
+    idempotencyKey: createBookingUuid,
+  }),
+  refreshReservation: inspectionBookingApi.getReservation,
+  reloadPlan: () => plan.value ? loadPlan(plan.value.id) : Promise.resolve(false),
+  lockActions: (message) => { loadError.value = message },
+  redirectToCancelledDetail: (reservationId) => {
+    uni.redirectTo({ url: buildInspectionBookingSubmittedUrl(reservationId) })
+  },
+  showToast: (title) => uni.showToast({ title, icon: 'none' }),
+})
+
+async function cancelOrder(): Promise<void> {
+  await cancellationController.cancelOrder()
 }
 
 function openFulfillment(serviceOrderId: string): void {
@@ -266,6 +444,14 @@ function formatUnitPrice(amountMinor: number, unit: string): string {
           <text>{{ formatPlanAmount(plan.totalAmountMinor) }}</text>
         </view>
       </view>
+      <button
+        v-if="!isConfirmed && canCancel"
+        class="plan-confirmation__cancel"
+        :disabled="isCancelling || isSubmitting"
+        @click="cancelOrder"
+      >
+        {{ isCancelling ? '取消中…' : '取消订单' }}
+      </button>
     </main>
 
     <view
@@ -355,4 +541,5 @@ function formatUnitPrice(amountMinor: number, unit: string): string {
 .plan-confirmation__actions button{height:52px}
 .plan-confirmation__support{border:1px solid #aeb3ba!important;border-radius:16px!important;flex-direction:row;gap:8px;font-size:15px}
 .plan-confirmation__confirm{border-radius:16px!important;font-size:17px!important}
+.plan-confirmation__cancel{display:block;width:100%;height:44px;margin-top:16px;border:1px solid #d9dde2;border-radius:14px;color:#c74432;background:#fff;font-size:16px;font-weight:600}.plan-confirmation__cancel::after{border:0}
 </style>

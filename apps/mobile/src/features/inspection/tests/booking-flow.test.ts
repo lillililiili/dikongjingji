@@ -1,4 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { parse } from '@vue/compiler-sfc'
+import {
+  ModuleKind,
+  ScriptTarget,
+  transpileModule,
+} from 'typescript'
 
 import * as inspectionRoutes from '../navigation/inspection-routes'
 import pagesSource from '../../../pages.json?raw'
@@ -26,6 +32,113 @@ import {
 } from '../application/service-flow/inspection-order-navigation'
 
 const SERVICE_ID = '40000000-0000-4000-8000-000000000001'
+
+type SubmittedReservation = {
+  status: 'SUBMITTED' | 'PLAN_PUBLISHED' | 'CANCELLED'
+  currentPlanId: string | null
+  marker: string
+}
+type SubmittedPlan = {
+  status: 'PUBLISHED' | 'CONFIRMED'
+  serviceOrderId: string | null
+  marker: string
+}
+type SubmittedCancellationResult =
+  | { kind: 'dismissed' }
+  | { kind: 'cancelled'; reservation: SubmittedReservation }
+  | { kind: 'refresh-required' }
+  | { kind: 'failed'; message: string }
+type SubmittedBookingControllerFactory = (options: {
+  getReservation(): SubmittedReservation | null
+  setReservation(reservation: SubmittedReservation): void
+  isCancelling(): boolean
+  setCancelling(value: boolean): void
+  requestCancellation(reservation: SubmittedReservation): Promise<SubmittedCancellationResult>
+  loadReservation(): Promise<boolean>
+  invalidateReservationLoad(): void
+  showToast(title: string, icon: 'success' | 'none'): void
+  returnOrders(): void
+  openPlan(planId: string): void
+}) => {
+  cancelOrder(): Promise<void>
+  handlePrimaryAction(): void
+  reloadOnShow(): Promise<boolean>
+}
+type SubmittedReservationLoaderFactory = (options: {
+  load(): Promise<SubmittedReservation>
+  loadPlan?(planId: string): Promise<SubmittedPlan>
+  setReservation(reservation: SubmittedReservation): void
+  setPlan?(plan: SubmittedPlan | null): void
+  setLoadError(message: string): void
+  setLoading(loading: boolean): void
+  getLoadError(error: unknown): string
+}) => {
+  loadReservation(): Promise<boolean>
+  invalidate(): void
+}
+
+async function loadSubmittedBookingControllerFactories(): Promise<{
+  createSubmittedBookingController: SubmittedBookingControllerFactory
+  createSubmittedReservationLoader: SubmittedReservationLoaderFactory
+  canCancelSubmittedBooking(
+    reservation: SubmittedReservation | null,
+    plan: SubmittedPlan | null,
+    actionsReady: boolean,
+  ): boolean
+  getSubmittedBookingFooterMode(
+    reservation: SubmittedReservation | null,
+  ): 'CONTACT_AND_PRIMARY' | 'RETURN_ORDERS_ONLY'
+}> {
+  const parsed = parse(submittedPageSource, {
+    filename: 'InspectionBookingSubmittedPage.vue',
+  })
+  expect(parsed.descriptor.script).not.toBeNull()
+  if (!parsed.descriptor.script) {
+    throw new Error('Submitted booking controller script is unavailable')
+  }
+  const output = transpileModule(parsed.descriptor.script.content, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ModuleKind.CommonJS,
+      target: ScriptTarget.ES2020,
+    },
+  }).outputText
+  const testModule: {
+    exports: {
+      createSubmittedBookingController?: SubmittedBookingControllerFactory
+      createSubmittedReservationLoader?: SubmittedReservationLoaderFactory
+      canCancelSubmittedBooking?: (
+        reservation: SubmittedReservation | null,
+        plan: SubmittedPlan | null,
+        actionsReady: boolean,
+      ) => boolean
+      getSubmittedBookingFooterMode?: (
+        reservation: SubmittedReservation | null,
+      ) => 'CONTACT_AND_PRIMARY' | 'RETURN_ORDERS_ONLY'
+    }
+  } = { exports: {} }
+  const evaluate = new Function('require', 'module', 'exports', output)
+  evaluate(() => { throw new Error('The submitted booking controller has no runtime dependencies') }, testModule, testModule.exports)
+  const factory = testModule.exports.createSubmittedBookingController
+  expect(factory).toBeTypeOf('function')
+  if (!factory) throw new Error('Submitted booking controller is unavailable')
+  const loaderFactory = testModule.exports.createSubmittedReservationLoader
+  expect(loaderFactory).toBeTypeOf('function')
+  if (!loaderFactory) throw new Error('Submitted reservation loader is unavailable')
+  const canCancelSubmittedBooking = testModule.exports.canCancelSubmittedBooking
+  const getSubmittedBookingFooterMode = testModule.exports.getSubmittedBookingFooterMode
+  expect(canCancelSubmittedBooking).toBeTypeOf('function')
+  expect(getSubmittedBookingFooterMode).toBeTypeOf('function')
+  if (!canCancelSubmittedBooking || !getSubmittedBookingFooterMode) {
+    throw new Error('Submitted booking state rules are unavailable')
+  }
+  return {
+    createSubmittedBookingController: factory,
+    createSubmittedReservationLoader: loaderFactory,
+    canCancelSubmittedBooking,
+    getSubmittedBookingFooterMode,
+  }
+}
 
 describe('F04 booking navigation', () => {
   it('keeps only the latest submitted-reservation response and detects order-center history', async () => {
@@ -435,10 +548,21 @@ describe('F04 booking page contract', () => {
   it('keeps the approved footer structure and opens a published real plan', () => {
     expect(submittedPageSource).toContain('返回订单')
     expect(submittedPageSource).not.toContain('查看预约进度')
-    expect(submittedPageSource).toContain('inspectionBookingApi.getReservation(reservationId)')
-    expect(submittedPageSource).toContain('reservation.value?.currentPlanId')
+    expect(submittedPageSource).toContain('inspectionBookingApi.getReservation(reservationId.value)')
+    expect(submittedPageSource).toContain('currentReservation?.currentPlanId')
     expect(submittedPageSource).toContain('buildInspectionPlanConfirmationUrl')
     expect(submittedPageSource).toContain('查看服务方案')
+  })
+
+  it('shows the approved cancellation entry and a read-only cancelled state', () => {
+    expect(submittedPageSource).toContain('取消订单')
+    expect(submittedPageSource).toContain('requestInspectionOrderCancellation')
+    expect(submittedPageSource).toContain('confirmInspectionOrderCancellation')
+    expect(submittedPageSource).toContain("status === 'CANCELLED'")
+    expect(submittedPageSource).toContain('订单已取消')
+    expect(submittedPageSource).toContain("isCancelling ? '取消中…' : '取消订单'")
+    expect(submittedPageSource).toContain('v-if="showCustomerContact"')
+    expect(submittedPageSource).not.toContain('退款成功')
   })
 
   it('advances the submitted state to plan confirmation and renders DTO-backed details', () => {
@@ -453,5 +577,400 @@ describe('F04 booking page contract', () => {
     expect(bookingApiSource).toContain("'X-Request-Id'")
     expect(bookingApiSource).toContain('ApiRequestError')
     expect(bookingApiSource).toContain('INSECURE_API_BASE_URL')
+  })
+})
+
+describe('submitted booking cancellation controller', () => {
+  it('allows cancellation only before the published plan is confirmed or creates an order', async () => {
+    const { canCancelSubmittedBooking } = await loadSubmittedBookingControllerFactories()
+    const submitted: SubmittedReservation = {
+      status: 'SUBMITTED', currentPlanId: null, marker: 'submitted',
+    }
+    const planPublished: SubmittedReservation = {
+      status: 'PLAN_PUBLISHED', currentPlanId: 'plan-1', marker: 'published',
+    }
+
+    expect(canCancelSubmittedBooking(submitted, null, true)).toBe(true)
+    expect(canCancelSubmittedBooking(planPublished, {
+      status: 'PUBLISHED', serviceOrderId: null, marker: 'open',
+    }, true)).toBe(true)
+    expect(canCancelSubmittedBooking(planPublished, {
+      status: 'CONFIRMED', serviceOrderId: null, marker: 'confirmed',
+    }, true)).toBe(false)
+    expect(canCancelSubmittedBooking(planPublished, {
+      status: 'PUBLISHED', serviceOrderId: 'order-1', marker: 'ordered',
+    }, true)).toBe(false)
+    expect(canCancelSubmittedBooking(planPublished, null, true)).toBe(false)
+    expect(canCancelSubmittedBooking(submitted, null, false)).toBe(false)
+  })
+
+  it('keeps cancellation hidden when the current plan cannot be loaded', async () => {
+    const {
+      canCancelSubmittedBooking,
+      createSubmittedReservationLoader,
+    } = await loadSubmittedBookingControllerFactories()
+    let reservation: SubmittedReservation | null = null
+    let plan: SubmittedPlan | null = {
+      status: 'PUBLISHED', serviceOrderId: null, marker: 'stale',
+    }
+    const loader = createSubmittedReservationLoader({
+      load: async () => ({
+        status: 'PLAN_PUBLISHED', currentPlanId: 'plan-1', marker: 'server',
+      }),
+      loadPlan: async () => { throw new Error('PLAN_LOAD_FAILED') },
+      setReservation: (value) => { reservation = value },
+      setPlan: (value) => { plan = value },
+      setLoadError: () => undefined,
+      setLoading: () => undefined,
+      getLoadError: () => '预约记录加载失败',
+    })
+
+    expect(await loader.loadReservation()).toBe(true)
+    expect(reservation).toMatchObject({ marker: 'server' })
+    expect(plan).toBeNull()
+    expect(canCancelSubmittedBooking(reservation, plan, true)).toBe(false)
+  })
+
+  it('does not let an older plan GET overwrite the latest confirmed state', async () => {
+    const { createSubmittedReservationLoader } = await loadSubmittedBookingControllerFactories()
+    let resolveOldPlan: ((value: SubmittedPlan) => void) | undefined
+    let oldPlanStarted: (() => void) | undefined
+    const oldPlanIsLoading = new Promise<void>((resolve) => { oldPlanStarted = resolve })
+    let loadIndex = 0
+    let reservation: SubmittedReservation | null = null
+    let plan: SubmittedPlan | null = null
+    const loader = createSubmittedReservationLoader({
+      load: async () => ({
+        status: 'PLAN_PUBLISHED',
+        currentPlanId: loadIndex++ === 0 ? 'plan-old' : 'plan-latest',
+        marker: loadIndex === 1 ? 'old' : 'latest',
+      }),
+      loadPlan: (planId) => {
+        if (planId === 'plan-old') {
+          oldPlanStarted?.()
+          return new Promise((resolve) => { resolveOldPlan = resolve })
+        }
+        return Promise.resolve({
+          status: 'CONFIRMED', serviceOrderId: 'order-1', marker: 'latest',
+        })
+      },
+      setReservation: (value) => { reservation = value },
+      setPlan: (value) => { plan = value },
+      setLoadError: () => undefined,
+      setLoading: () => undefined,
+      getLoadError: () => '预约记录加载失败',
+    })
+
+    const oldRequest = loader.loadReservation()
+    await oldPlanIsLoading
+    const latestRequest = loader.loadReservation()
+    await latestRequest
+    resolveOldPlan?.({ status: 'PUBLISHED', serviceOrderId: null, marker: 'old' })
+    await oldRequest
+
+    expect(reservation).toMatchObject({ marker: 'latest' })
+    expect(plan).toMatchObject({ status: 'CONFIRMED', marker: 'latest' })
+  })
+
+  it('renders a cancelled footer with only the return-orders action', async () => {
+    const { getSubmittedBookingFooterMode } = await loadSubmittedBookingControllerFactories()
+
+    expect(getSubmittedBookingFooterMode({
+      status: 'CANCELLED', currentPlanId: 'plan-1', marker: 'cancelled',
+    })).toBe('RETURN_ORDERS_ONLY')
+    expect(getSubmittedBookingFooterMode({
+      status: 'PLAN_PUBLISHED', currentPlanId: 'plan-1', marker: 'active',
+    })).toBe('CONTACT_AND_PRIMARY')
+  })
+
+  it('keeps loading true when an old GET finishes before the latest GET', async () => {
+    const { createSubmittedReservationLoader } = await loadSubmittedBookingControllerFactories()
+    let resolveOld: ((value: SubmittedReservation) => void) | undefined
+    let resolveLatest: ((value: SubmittedReservation) => void) | undefined
+    const requests = [
+      new Promise<SubmittedReservation>((resolve) => { resolveOld = resolve }),
+      new Promise<SubmittedReservation>((resolve) => { resolveLatest = resolve }),
+    ]
+    let requestIndex = 0
+    let reservation: SubmittedReservation | null = null
+    const loading: boolean[] = []
+    const loader = createSubmittedReservationLoader({
+      load: () => requests[requestIndex++]!,
+      setReservation: (value) => { reservation = value },
+      setLoadError: () => undefined,
+      setLoading: (value) => { loading.push(value) },
+      getLoadError: () => '预约记录加载失败',
+    })
+
+    const oldRequest = loader.loadReservation()
+    const latestRequest = loader.loadReservation()
+    resolveOld?.({ status: 'SUBMITTED', currentPlanId: null, marker: 'old' })
+    await oldRequest
+
+    expect(reservation).toBeNull()
+    expect(loading.at(-1)).toBe(true)
+    resolveLatest?.({ status: 'PLAN_PUBLISHED', currentPlanId: 'plan-2', marker: 'latest' })
+    await latestRequest
+
+    expect(reservation).toMatchObject({ marker: 'latest' })
+    expect(loading.at(-1)).toBe(false)
+  })
+
+  it('invalidates an in-flight GET after cancellation and skips on-show reload while busy', async () => {
+    const {
+      createSubmittedBookingController: factory,
+      createSubmittedReservationLoader,
+    } = await loadSubmittedBookingControllerFactories()
+    let resolveOld: ((value: SubmittedReservation) => void) | undefined
+    let loadCalls = 0
+    let current: SubmittedReservation | null = {
+      status: 'SUBMITTED', currentPlanId: null, marker: 'initial',
+    }
+    let cancelling = false
+    const loader = createSubmittedReservationLoader({
+      load: () => {
+        loadCalls += 1
+        return new Promise((resolve) => { resolveOld = resolve })
+      },
+      setReservation: (value) => { current = value },
+      setLoadError: () => undefined,
+      setLoading: () => undefined,
+      getLoadError: () => '预约记录加载失败',
+    })
+    const oldRequest = loader.loadReservation()
+    const serverReservation: SubmittedReservation = {
+      status: 'CANCELLED', currentPlanId: null, marker: 'server',
+    }
+    const controller = factory({
+      getReservation: () => current,
+      setReservation: (value) => { current = value },
+      isCancelling: () => cancelling,
+      setCancelling: (value) => { cancelling = value },
+      requestCancellation: async () => ({ kind: 'cancelled', reservation: serverReservation }),
+      loadReservation: loader.loadReservation,
+      invalidateReservationLoad: loader.invalidate,
+      showToast: () => undefined,
+      returnOrders: () => undefined,
+      openPlan: () => undefined,
+    })
+
+    await controller.cancelOrder()
+    resolveOld?.({ status: 'PLAN_PUBLISHED', currentPlanId: 'stale-plan', marker: 'old' })
+    await oldRequest
+
+    expect(current).toBe(serverReservation)
+    cancelling = true
+    await controller.reloadOnShow()
+    expect(loadCalls).toBe(1)
+  })
+
+  it('prevents a double cancel and adopts the server reservation unchanged', async () => {
+    const { createSubmittedBookingController: factory } = await loadSubmittedBookingControllerFactories()
+    let reservation: SubmittedReservation | null = {
+      status: 'SUBMITTED', currentPlanId: null, marker: 'initial',
+    }
+    const serverReservation: SubmittedReservation = {
+      status: 'CANCELLED', currentPlanId: null, marker: 'server',
+    }
+    let cancelling = false
+    let cancelCalls = 0
+    let resolveCancellation: ((result: SubmittedCancellationResult) => void) | undefined
+    const controller = factory({
+      getReservation: () => reservation,
+      setReservation: (value) => { reservation = value },
+      isCancelling: () => cancelling,
+      setCancelling: (value) => { cancelling = value },
+      requestCancellation: () => {
+        cancelCalls += 1
+        return new Promise((resolve) => { resolveCancellation = resolve })
+      },
+      loadReservation: async () => true,
+      invalidateReservationLoad: () => undefined,
+      showToast: () => undefined,
+      returnOrders: () => undefined,
+      openPlan: () => undefined,
+    })
+
+    const first = controller.cancelOrder()
+    const second = controller.cancelOrder()
+    expect(cancelCalls).toBe(1)
+    expect(cancelling).toBe(true)
+    resolveCancellation?.({ kind: 'cancelled', reservation: serverReservation })
+    await Promise.all([first, second])
+
+    expect(reservation).toBe(serverReservation)
+    expect(cancelling).toBe(false)
+  })
+
+  it('releases the busy state when the confirmation path rejects', async () => {
+    const { createSubmittedBookingController: factory } = await loadSubmittedBookingControllerFactories()
+    const reservation: SubmittedReservation = {
+      status: 'SUBMITTED', currentPlanId: null, marker: 'initial',
+    }
+    let current = reservation
+    let cancelling = false
+    const toasts: string[] = []
+    const controller = factory({
+      getReservation: () => current,
+      setReservation: (value) => { current = value },
+      isCancelling: () => cancelling,
+      setCancelling: (value) => { cancelling = value },
+      requestCancellation: async () => { throw new Error('CONFIRMATION_FAILED') },
+      loadReservation: async () => true,
+      invalidateReservationLoad: () => undefined,
+      showToast: (title) => { toasts.push(title) },
+      returnOrders: () => undefined,
+      openPlan: () => undefined,
+    })
+
+    await controller.cancelOrder()
+
+    expect(current).toBe(reservation)
+    expect(cancelling).toBe(false)
+    expect(toasts).toEqual(['取消失败，请检查网络后重试'])
+  })
+
+  it('does not announce an updated order when the required refresh fails', async () => {
+    const { createSubmittedBookingController: factory } = await loadSubmittedBookingControllerFactories()
+    const reservation: SubmittedReservation = {
+      status: 'SUBMITTED', currentPlanId: null, marker: 'initial',
+    }
+    let current = reservation
+    let cancelling = false
+    const toasts: string[] = []
+    const controller = factory({
+      getReservation: () => current,
+      setReservation: (value) => { current = value },
+      isCancelling: () => cancelling,
+      setCancelling: (value) => { cancelling = value },
+      requestCancellation: async () => ({ kind: 'refresh-required' }),
+      loadReservation: async () => false,
+      invalidateReservationLoad: () => undefined,
+      showToast: (title) => { toasts.push(title) },
+      returnOrders: () => undefined,
+      openPlan: () => undefined,
+    })
+
+    await controller.cancelOrder()
+
+    expect(current).toBe(reservation)
+    expect(toasts).toEqual([])
+    expect(cancelling).toBe(false)
+  })
+
+  it('keeps cancellation hidden when a conflict refresh discovers a confirmed plan', async () => {
+    const {
+      canCancelSubmittedBooking,
+      createSubmittedBookingController: factory,
+      createSubmittedReservationLoader,
+    } = await loadSubmittedBookingControllerFactories()
+    let reservation: SubmittedReservation | null = {
+      status: 'PLAN_PUBLISHED', currentPlanId: 'plan-1', marker: 'initial',
+    }
+    let plan: SubmittedPlan | null = {
+      status: 'PUBLISHED', serviceOrderId: null, marker: 'initial',
+    }
+    let cancelling = false
+    const loader = createSubmittedReservationLoader({
+      load: async () => ({
+        status: 'PLAN_PUBLISHED', currentPlanId: 'plan-1', marker: 'refreshed',
+      }),
+      loadPlan: async () => ({
+        status: 'CONFIRMED', serviceOrderId: 'order-1', marker: 'refreshed',
+      }),
+      setReservation: (value) => { reservation = value },
+      setPlan: (value) => { plan = value },
+      setLoadError: () => undefined,
+      setLoading: () => undefined,
+      getLoadError: () => '预约记录加载失败',
+    })
+    const controller = factory({
+      getReservation: () => reservation,
+      setReservation: (value) => { reservation = value },
+      isCancelling: () => cancelling,
+      setCancelling: (value) => { cancelling = value },
+      requestCancellation: async () => ({ kind: 'refresh-required' }),
+      loadReservation: loader.loadReservation,
+      invalidateReservationLoad: loader.invalidate,
+      showToast: () => undefined,
+      returnOrders: () => undefined,
+      openPlan: () => undefined,
+    })
+
+    expect(canCancelSubmittedBooking(reservation, plan, true)).toBe(true)
+    await controller.cancelOrder()
+    expect(canCancelSubmittedBooking(reservation, plan, true)).toBe(false)
+    expect(plan).toMatchObject({ status: 'CONFIRMED', serviceOrderId: 'order-1' })
+  })
+
+  it('keeps the order unchanged when cancellation reports a failure', async () => {
+    const { createSubmittedBookingController: factory } = await loadSubmittedBookingControllerFactories()
+    const reservation: SubmittedReservation = {
+      status: 'PLAN_PUBLISHED', currentPlanId: 'plan-1', marker: 'initial',
+    }
+    let current = reservation
+    let cancelling = false
+    const toasts: string[] = []
+    const controller = factory({
+      getReservation: () => current,
+      setReservation: (value) => { current = value },
+      isCancelling: () => cancelling,
+      setCancelling: (value) => { cancelling = value },
+      requestCancellation: async () => ({ kind: 'failed', message: '取消请求冲突，请刷新订单状态后重试' }),
+      loadReservation: async () => true,
+      invalidateReservationLoad: () => undefined,
+      showToast: (title) => { toasts.push(title) },
+      returnOrders: () => undefined,
+      openPlan: () => undefined,
+    })
+
+    await controller.cancelOrder()
+
+    expect(current).toBe(reservation)
+    expect(toasts).toEqual(['取消请求冲突，请刷新订单状态后重试'])
+  })
+
+  it('returns to orders instead of opening a plan for a cancelled order', async () => {
+    const { createSubmittedBookingController: factory } = await loadSubmittedBookingControllerFactories()
+    let returns = 0
+    let openedPlans = 0
+    const controller = factory({
+      getReservation: () => ({ status: 'CANCELLED', currentPlanId: 'plan-1', marker: 'server' }),
+      setReservation: () => undefined,
+      isCancelling: () => false,
+      setCancelling: () => undefined,
+      requestCancellation: async () => ({ kind: 'dismissed' }),
+      loadReservation: async () => true,
+      invalidateReservationLoad: () => undefined,
+      showToast: () => undefined,
+      returnOrders: () => { returns += 1 },
+      openPlan: () => { openedPlans += 1 },
+    })
+
+    controller.handlePrimaryAction()
+
+    expect(returns).toBe(1)
+    expect(openedPlans).toBe(0)
+  })
+
+  it('reuses the load path when the submitted page becomes visible again', async () => {
+    const { createSubmittedBookingController: factory } = await loadSubmittedBookingControllerFactories()
+    let reloads = 0
+    const controller = factory({
+      getReservation: () => null,
+      setReservation: () => undefined,
+      isCancelling: () => false,
+      setCancelling: () => undefined,
+      requestCancellation: async () => ({ kind: 'dismissed' }),
+      loadReservation: async () => { reloads += 1; return true },
+      invalidateReservationLoad: () => undefined,
+      showToast: () => undefined,
+      returnOrders: () => undefined,
+      openPlan: () => undefined,
+    })
+
+    await controller.reloadOnShow()
+
+    expect(reloads).toBe(1)
   })
 })

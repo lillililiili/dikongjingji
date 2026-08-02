@@ -17,6 +17,17 @@ public interface ReservationPersistenceMapper {
     @Select("SELECT request_hash request_digest, resource_id reservation_id FROM inspection_idempotency_record WHERE actor_id=#{actorId} AND operation_code='inspection.reservation.create' AND idempotency_key=#{key}")
     Optional<IdempotencyRow> findIdempotency(@Param("actorId") UUID actorId, @Param("key") UUID key);
 
+    @Select("""
+            SELECT request_hash request_digest, resource_id reservation_id
+            FROM inspection_idempotency_record
+            WHERE actor_id = #{actorId}
+              AND operation_code = 'inspection.reservation.cancel'
+              AND idempotency_key = #{key}
+            """)
+    Optional<IdempotencyRow> findCancellationIdempotency(
+            @Param("actorId") UUID actorId,
+            @Param("key") UUID key);
+
     @Select("SELECT r.id,r.reservation_no,r.customer_id,r.provider_id,r.service_id,r.service_title_snapshot title,r.service_cover_url_snapshot cover_url,r.city_code,r.address_ciphertext,ST_X(r.location::geometry) longitude,ST_Y(r.location::geometry) latitude,r.line_length_meters,r.preferred_service_date,r.preferred_time_slot_code,r.note_ciphertext,r.contact_name_ciphertext,r.contact_mobile_ciphertext,r.agreement_version,r.submitted_at,r.version FROM inspection_reservation r WHERE r.id=#{id}")
     Optional<ReservationRow> findReservation(@Param("id") UUID id);
 
@@ -271,6 +282,60 @@ public interface ReservationPersistenceMapper {
             INSERT INTO inspection_idempotency_record (
                 id, actor_id, operation_code, idempotency_key, request_hash,
                 resource_type, resource_id, response_status, response_body, expires_at
+            ) VALUES (
+                gen_random_uuid(), #{actorId}, 'inspection.reservation.cancel', #{key}, #{digest},
+                'RESERVATION', #{reservationId}, 200, '{}'::jsonb, now() + interval '24 hours'
+            )
+            ON CONFLICT (actor_id, operation_code, idempotency_key) DO NOTHING
+            """)
+    int insertCancellationIdempotency(
+            @Param("actorId") UUID actorId,
+            @Param("key") UUID key,
+            @Param("digest") String digest,
+            @Param("reservationId") UUID reservationId);
+
+    @Update("""
+            UPDATE inspection_service_plan
+            SET status = 'WITHDRAWN', version = version + 1,
+                updated_by = #{actorId}, updated_at = #{cancelledAt}
+            WHERE id = #{planId}
+              AND reservation_id = #{reservationId}
+              AND status = 'PUBLISHED'
+            """)
+    int withdrawPublishedPlanForCancellation(
+            @Param("reservationId") UUID reservationId,
+            @Param("planId") UUID planId,
+            @Param("actorId") UUID actorId,
+            @Param("cancelledAt") Instant cancelledAt);
+
+    @Update("""
+            UPDATE inspection_reservation r
+            SET status = 'CANCELLED', version = version + 1,
+                updated_by = #{actorId}, updated_at = #{cancelledAt}
+            WHERE r.id = #{reservationId}
+              AND r.customer_id = #{customerId}
+              AND r.version = #{expectedVersion}
+              AND r.status IN ('SUBMITTED', 'PLAN_PUBLISHED')
+              AND NOT EXISTS (
+                  SELECT 1 FROM inspection_service_plan p
+                  WHERE p.reservation_id = r.id AND p.status = 'CONFIRMED'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM inspection_service_order o
+                  WHERE o.reservation_id = r.id
+              )
+            """)
+    int cancelReservation(
+            @Param("reservationId") UUID reservationId,
+            @Param("customerId") UUID customerId,
+            @Param("expectedVersion") int expectedVersion,
+            @Param("actorId") UUID actorId,
+            @Param("cancelledAt") Instant cancelledAt);
+
+    @Insert("""
+            INSERT INTO inspection_idempotency_record (
+                id, actor_id, operation_code, idempotency_key, request_hash,
+                resource_type, resource_id, response_status, response_body, expires_at
             )
             VALUES (
                 gen_random_uuid(), #{actorId}, #{operation}, #{key}, #{digest},
@@ -360,6 +425,44 @@ public interface ReservationPersistenceMapper {
             @Param("reservationId") UUID reservationId,
             @Param("fileId") UUID fileId
     );
+
+    @Insert("""
+            INSERT INTO inspection_state_transition (
+                id, aggregate_type, aggregate_id, from_status, to_status,
+                actor_type, actor_id, request_id, occurred_at
+            )
+            VALUES (
+                gen_random_uuid(), #{aggregateType}, #{aggregateId},
+                #{fromStatus}, #{toStatus}, #{actorType}, #{actorId},
+                #{requestId}, #{occurredAt}
+            )
+            """)
+    void insertTransition(
+            @Param("aggregateType") String aggregateType,
+            @Param("aggregateId") UUID aggregateId,
+            @Param("fromStatus") String fromStatus,
+            @Param("toStatus") String toStatus,
+            @Param("actorType") String actorType,
+            @Param("actorId") UUID actorId,
+            @Param("requestId") String requestId,
+            @Param("occurredAt") Instant occurredAt);
+
+    @Insert("""
+            INSERT INTO inspection_domain_event_outbox (
+                id, aggregate_type, aggregate_id, event_type, event_payload,
+                occurred_at, next_attempt_at
+            )
+            VALUES (
+                gen_random_uuid(), #{aggregateType}, #{aggregateId}, #{eventType},
+                jsonb_build_object('aggregateId', CAST(#{aggregateId} AS text)),
+                #{occurredAt}, #{occurredAt}
+            )
+            """)
+    void insertOutbox(
+            @Param("aggregateType") String aggregateType,
+            @Param("aggregateId") UUID aggregateId,
+            @Param("eventType") String eventType,
+            @Param("occurredAt") Instant occurredAt);
 
     record ServiceRow(UUID serviceId, UUID providerId, String title, String coverUrl, String cityCode) { }
     record IdempotencyRow(String requestDigest, UUID reservationId) { }

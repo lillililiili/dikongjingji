@@ -171,6 +171,53 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/inspection/reservations/{reservationId}/cancel:
+    post:
+      tags: [CustomerInspectionFlow]
+      operationId: cancelInspectionReservation
+      summary: 取消方案确认前的本人巡检订单
+      x-required-permission: inspection.reservation.cancel.own
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: 已取消或幂等返回同一已取消预约
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: 当前订单状态或取消幂等键冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                notCancellable:
+                  value:
+                    code: INS_RESERVATION_NOT_CANCELLABLE
+                    message: 当前订单状态不允许取消
+                    traceId: cancel-state-conflict-example
+                idempotencyKeyReused:
+                  value:
+                    code: INS_IDEMPOTENCY_KEY_REUSED
+                    message: 幂等键已用于不同请求
+                    traceId: cancel-idempotency-conflict-example
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
   /api/v1/inspection/file-objects/upload-intents:
     post:
       tags: [InspectionFiles]
@@ -634,11 +681,11 @@ components:
       name: If-Match
       in: header
       required: true
-      description: 上次读取的 ETag，用于乐观并发控制。
+      description: 上次读取的带双引号强数字 ETag，用于乐观并发控制。
       schema:
         type: string
-        minLength: 1
-        maxLength: 64
+        pattern: '^"(0|[1-9][0-9]*)"$'
+        example: '"7"'
   responses:
     BadRequest:
       description: 请求格式或字段校验失败
@@ -773,6 +820,7 @@ components:
         - INS_STORAGE_UNAVAILABLE
         - INS_TIME_SLOT_FULL
         - INS_TIME_SLOT_TOO_SOON
+        - INS_RESERVATION_NOT_CANCELLABLE
     CreateReservationRequest:
       type: object
       additionalProperties: false

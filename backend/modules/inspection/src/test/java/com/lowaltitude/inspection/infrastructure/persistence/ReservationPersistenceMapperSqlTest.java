@@ -3,10 +3,12 @@ package com.lowaltitude.inspection.infrastructure.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.UUID;
 
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import org.junit.jupiter.api.Test;
 
 class ReservationPersistenceMapperSqlTest {
@@ -73,5 +75,32 @@ class ReservationPersistenceMapperSqlTest {
                 ReservationPersistenceMapper.ReservationRow.class);
         String insertSql = String.join(" ", insert.getAnnotation(Insert.class).value());
         assertThat(insertSql).contains("preferred_time_slot_code");
+    }
+
+    @Test
+    void cancellationSqlWithdrawsPublishedPlanAndRejectsExistingServiceOrder() throws Exception {
+        String withdraw = updateSql("withdrawPublishedPlanForCancellation");
+        String cancel = updateSql("cancelReservation");
+
+        assertThat(withdraw)
+                .contains("status = 'WITHDRAWN'")
+                .contains("status = 'PUBLISHED'")
+                .contains("id = #{planId}")
+                .contains("version = version + 1");
+        assertThat(cancel)
+                .contains("status = 'CANCELLED'")
+                .contains("status IN ('SUBMITTED', 'PLAN_PUBLISHED')")
+                .contains("version = #{expectedVersion}")
+                .contains("NOT EXISTS")
+                .contains("inspection_service_order")
+                .contains("status = 'CONFIRMED'");
+    }
+
+    private static String updateSql(String methodName) {
+        Method method = Arrays.stream(ReservationPersistenceMapper.class.getMethods())
+                .filter(candidate -> candidate.getName().equals(methodName))
+                .findFirst()
+                .orElseThrow();
+        return String.join(" ", method.getAnnotation(Update.class).value());
     }
 }

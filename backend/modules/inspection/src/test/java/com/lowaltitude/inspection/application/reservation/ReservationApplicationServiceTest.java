@@ -20,6 +20,10 @@ class ReservationApplicationServiceTest {
     private static final UUID SERVICE_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID PROVIDER_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID IDEMPOTENCY_KEY = UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final UUID CANCEL_KEY =
+            UUID.fromString("55555555-5555-4555-8555-555555555555");
+    private static final UUID PLAN_ID =
+            UUID.fromString("66666666-6666-4666-8666-666666666666");
     private static final Clock BOOKING_CLOCK = Clock.fixed(
             Instant.parse("2026-07-31T01:00:00Z"), ZoneOffset.UTC);
 
@@ -267,6 +271,112 @@ class ReservationApplicationServiceTest {
                 .isInstanceOf(TimeSlotTooSoonException.class);
     }
 
+    @Test
+    void customerCancelsSubmittedReservationAndReplayDoesNotWriteTwice() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        ReservationApplicationService service = service(store);
+        ReservationView created = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+
+        ReservationDetails first = service.cancel(
+                customerSubject(), created.id(), CANCEL_KEY, 0, "cancel-submitted");
+        ReservationDetails replay = service.cancel(
+                customerSubject(), created.id(), CANCEL_KEY, first.version(), "cancel-replay");
+
+        assertThat(first.status()).isEqualTo("CANCELLED");
+        assertThat(first.currentPlanId()).isNull();
+        assertThat(replay.status()).isEqualTo("CANCELLED");
+        assertThat(store.cancelWriteCount()).isEqualTo(1);
+    }
+
+    @Test
+    void cancellationRejectsStaleVersionForAlreadyCancelledReservationWithNewKey() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        ReservationApplicationService service = service(store);
+        ReservationView created = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+        service.cancel(customerSubject(), created.id(), CANCEL_KEY, 0, "cancel-first");
+
+        assertThatThrownBy(() -> service.cancel(
+                customerSubject(), created.id(), UUID.randomUUID(), 0, "cancel-stale"))
+                .isInstanceOf(ReservationVersionConflictException.class);
+        assertThat(store.cancelWriteCount()).isEqualTo(1);
+    }
+
+    @Test
+    void customerCancelsPublishedPlanAndStoreReceivesCurrentPlan() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        ReservationApplicationService service = service(store);
+        ReservationView created = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+        store.setFlowState(created.id(), new ReservationFlowState("PLAN_PUBLISHED", PLAN_ID, 1));
+
+        ReservationDetails cancelled = service.cancel(
+                customerSubject(), created.id(), CANCEL_KEY, 1, "cancel-published");
+
+        assertThat(cancelled.status()).isEqualTo("CANCELLED");
+        assertThat(store.lastCancellation().currentPlanId()).isEqualTo(PLAN_ID);
+    }
+
+    @Test
+    void cancellationRejectsStaleVersion() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        ReservationApplicationService service = service(store);
+        ReservationView created = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+        store.setFlowState(created.id(), new ReservationFlowState("PLAN_PUBLISHED", PLAN_ID, 2));
+
+        assertThatThrownBy(() -> service.cancel(
+                customerSubject(), created.id(), CANCEL_KEY, 1, "stale"))
+                .isInstanceOf(ReservationVersionConflictException.class);
+    }
+
+    @Test
+    void cancellationRejectsConfirmedFlowWithoutWriting() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        ReservationApplicationService service = service(store);
+        ReservationView created = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+        store.setFlowState(created.id(), new ReservationFlowState("PLAN_CONFIRMED", PLAN_ID, 2));
+
+        assertThatThrownBy(() -> service.cancel(
+                customerSubject(), created.id(), CANCEL_KEY, 2, "confirmed"))
+                .isInstanceOf(ReservationCancellationNotAllowedException.class);
+        assertThat(store.cancelWriteCount()).isZero();
+    }
+
+    @Test
+    void cancellationMapsPublishedStateConflict() {
+        InMemoryReservationStore store = new InMemoryReservationStore();
+        ReservationApplicationService service = service(store);
+        ReservationView created = service.create(CUSTOMER_ID, IDEMPOTENCY_KEY, command(SERVICE_ID));
+        store.setFlowState(created.id(), new ReservationFlowState("PLAN_PUBLISHED", PLAN_ID, 2));
+        store.setCancellationResult(CancellationWriteResult.STATE_CONFLICT);
+
+        assertThatThrownBy(() -> service.cancel(
+                customerSubject(), created.id(), UUID.randomUUID(), 2, "confirmed"))
+                .isInstanceOf(ReservationCancellationNotAllowedException.class);
+        assertThat(store.cancelWriteCount()).isZero();
+    }
+
+    private static com.lowaltitude.inspection.identity.domain.CurrentSubject customerSubject() {
+        return new com.lowaltitude.inspection.identity.domain.CurrentSubject(
+                CUSTOMER_ID,
+                java.util.Set.of("CUSTOMER"),
+                UUID.randomUUID(),
+                java.util.Set.of(
+                        "inspection.reservation.read.own",
+                        "inspection.reservation.cancel.own"),
+                0);
+    }
+
+    private static ReservationApplicationService service(InMemoryReservationStore store) {
+        return new ReservationApplicationService(
+                new InMemoryServiceCatalog(
+                        SERVICE_ID,
+                        PROVIDER_ID,
+                        "服务端巡检标题",
+                        "https://cdn.example/cover.jpg"),
+                store,
+                new PlainTestCipher(),
+                BOOKING_CLOCK);
+    }
+
     private static CreateReservationCommand command(UUID serviceId) {
         return command(serviceId, LocalDate.of(2026, 8, 1), "MORNING");
     }
@@ -313,8 +423,14 @@ final class InMemoryServiceCatalog implements InspectionServiceCatalog {
 final class InMemoryReservationStore implements ReservationStore {
     private final Map<String, StoredReservation> reservations = new java.util.HashMap<>();
     private final Map<String, IdempotencyEntry> idempotency = new java.util.HashMap<>();
+    private final Map<UUID, ReservationFlowState> flowStates = new java.util.HashMap<>();
+    private final Map<String, CancellationIdempotencyEntry> cancellationKeys =
+            new java.util.HashMap<>();
     private List<BookedTimeSlotCount> bookedTimeSlotCounts = List.of();
+    private CancellationWriteResult cancellationResult = CancellationWriteResult.SAVED;
+    private CancellationCommand lastCancellation;
     private StoredReservation lastSaved;
+    private int cancelWriteCount;
     private int saveCount;
     private int lockCount;
     private int bookedCountQueryCount;
@@ -329,6 +445,29 @@ final class InMemoryReservationStore implements ReservationStore {
         saveCount++;
     }
     @Override public Optional<StoredReservation> findById(UUID id) { return Optional.ofNullable(reservations.get(id.toString())); }
+    @Override public Optional<ReservationFlowState> findFlowState(UUID reservationId) {
+        return Optional.ofNullable(flowStates.get(reservationId));
+    }
+    @Override public Optional<CancellationIdempotencyEntry> findCancellationIdempotency(
+            UUID actorId,
+            UUID key
+    ) {
+        return Optional.ofNullable(cancellationKeys.get(actorId + ":" + key));
+    }
+    @Override public CancellationWriteResult cancel(CancellationCommand command) {
+        if (cancellationResult != CancellationWriteResult.SAVED) {
+            return cancellationResult;
+        }
+        cancellationKeys.put(
+                command.idempotency().actorId() + ":" + command.idempotency().key(),
+                command.idempotency());
+        flowStates.put(
+                command.reservationId(),
+                new ReservationFlowState("CANCELLED", null, command.expectedVersion() + 1));
+        lastCancellation = command;
+        cancelWriteCount++;
+        return CancellationWriteResult.SAVED;
+    }
     @Override public void lockActiveService(UUID serviceId, String cityCode) {
         lockCount++;
         if (serviceId == null || cityCode == null) {
@@ -346,6 +485,11 @@ final class InMemoryReservationStore implements ReservationStore {
                 .filter(value -> value.cityCode().equals(cityCode))
                 .filter(value -> !value.preferredServiceDate().isBefore(startDate))
                 .filter(value -> !value.preferredServiceDate().isAfter(endDate))
+                .filter(value -> !"CANCELLED".equals(
+                        flowStates.getOrDefault(
+                                value.id(),
+                                new ReservationFlowState("SUBMITTED", null, value.version()))
+                                .status()))
                 .collect(java.util.stream.Collectors.groupingBy(
                         value -> value.preferredServiceDate() + ":" + value.preferredTimeSlotCode(),
                         java.util.stream.Collectors.counting()))
@@ -361,13 +505,33 @@ final class InMemoryReservationStore implements ReservationStore {
     int saveCount() { return saveCount; }
     int lockCount() { return lockCount; }
     int bookedCountQueryCount() { return bookedCountQueryCount; }
+    void setFlowState(UUID reservationId, ReservationFlowState state) {
+        flowStates.put(reservationId, state);
+    }
+    void setCancellationResult(CancellationWriteResult result) {
+        cancellationResult = result;
+    }
+    CancellationCommand lastCancellation() { return lastCancellation; }
+    int cancelWriteCount() { return cancelWriteCount; }
     void setBookedTimeSlotCounts(List<BookedTimeSlotCount> bookedTimeSlotCounts) {
         this.bookedTimeSlotCounts = List.copyOf(bookedTimeSlotCounts);
     }
 }
 
 final class PlainTestCipher implements SensitiveDataCipher {
-    @Override public String encrypt(String value) { return "encrypted:" + Integer.toHexString(value.hashCode()); }
-    @Override public String decrypt(String value) { throw new UnsupportedOperationException(); }
+    private static final String PREFIX = "encrypted:";
+
+    @Override public String encrypt(String value) {
+        return PREFIX + java.util.Base64.getEncoder().encodeToString(
+                value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+    @Override public String decrypt(String value) {
+        if (!value.startsWith(PREFIX)) {
+            throw new IllegalArgumentException("test ciphertext is invalid");
+        }
+        return new String(
+                java.util.Base64.getDecoder().decode(value.substring(PREFIX.length())),
+                java.nio.charset.StandardCharsets.UTF_8);
+    }
 }
 final class ConflictStore implements ReservationStore { private final InMemoryReservationStore delegate; ConflictStore(InMemoryReservationStore delegate){this.delegate=delegate;} public Optional<IdempotencyEntry> findIdempotency(UUID actor,UUID key){return delegate.findIdempotency(actor,key);} public void save(StoredReservation value,IdempotencyEntry entry){throw new DuplicateIdempotencyKeyException();} public Optional<StoredReservation> findById(UUID id){return delegate.findById(id);} public void lockActiveService(UUID serviceId, String cityCode){delegate.lockActiveService(serviceId, cityCode);} public List<BookedTimeSlotCount> findBookedTimeSlotCounts(UUID serviceId, String cityCode, LocalDate startDate, LocalDate endDate){return delegate.findBookedTimeSlotCounts(serviceId, cityCode, startDate, endDate);} }

@@ -1,16 +1,54 @@
+<script lang="ts">
+export function createOrderCenterVisibilityController(
+  reload: () => Promise<void>,
+) {
+  let activeReload: Promise<void> | null = null
+
+  function reloadOnShow(): Promise<void> {
+    if (activeReload) return activeReload
+    let currentReload: Promise<void>
+    currentReload = reload().finally(() => {
+      if (activeReload === currentReload) activeReload = null
+    })
+    activeReload = currentReload
+    return currentReload
+  }
+
+  return { reloadOnShow }
+}
+
+export function createLatestOrderCenterApi<Input, Response>(
+  list: (input: Input) => Promise<Response>,
+  applyResponse: (response: Response) => void,
+) {
+  let requestVersion = 0
+
+  return {
+    async list(input: Input): Promise<Response> {
+      const version = ++requestVersion
+      const response = await list(input)
+      if (version === requestVersion) applyResponse(response)
+      return response
+    },
+  }
+}
+</script>
+
 <script setup lang="ts">
 import {
   onBackPress,
   onLoad,
   onPullDownRefresh,
   onReachBottom,
+  onShow,
 } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { resolveInspectionOrderDestination } from '../../../application/service-flow/inspection-order-navigation'
 import { inspectionOrderApi } from '../../../data/service-flow/uni-booking-http-client'
 import type {
   InspectionOrderFilter,
+  InspectionOrderPage,
   InspectionOrderSummary,
 } from '../../../domain/service-flow/order-center'
 import InspectionOrderCard from '../components/InspectionOrderCard.vue'
@@ -23,8 +61,13 @@ import {
 } from '../order-center-view'
 
 const state = reactive(createInspectionOrderCenterState())
+const stageCounts = ref<InspectionOrderPage['stageCounts'] | null>(null)
+const latestOrderApi = createLatestOrderCenterApi(
+  inspectionOrderApi.list,
+  (response: InspectionOrderPage) => { stageCounts.value = response.stageCounts },
+)
 const controller = createInspectionOrderCenterController({
-  api: inspectionOrderApi,
+  api: latestOrderApi,
   resolveDestination: resolveInspectionOrderDestination,
   navigateTo: (url) => uni.navigateTo({ url }),
   showToast: (message) => uni.showToast({ title: message, icon: 'none' }),
@@ -37,10 +80,16 @@ const controller = createInspectionOrderCenterController({
   }),
   switchTab: (url) => uni.switchTab({ url }),
 }, state)
+const visibilityController = createOrderCenterVisibilityController(
+  () => controller.reload(),
+)
 
 onLoad((query: { stage?: string } | undefined) => {
   state.selectedStage = normalizeInspectionOrderFilter(query?.stage)
-  void controller.reload()
+})
+
+onShow(() => {
+  void visibilityController.reloadOnShow()
 })
 
 function reload(): void {
@@ -49,6 +98,11 @@ function reload(): void {
 
 function selectStage(stage: InspectionOrderFilter): void {
   void controller.selectStage(stage)
+}
+
+function getStageCount(stage: InspectionOrderFilter): number | null {
+  if (stage === 'ALL' || !stageCounts.value) return null
+  return stageCounts.value[stage]
 }
 
 function openOrder(order: InspectionOrderSummary): void {
@@ -90,7 +144,13 @@ onBackPress((event) => {
         :class="{ 'inspection-orders__filter--active': item.code === state.selectedStage }"
         @click="selectStage(item.code)"
       >
-        {{ item.label }}
+        <text>{{ item.label }}</text>
+        <text
+          v-if="getStageCount(item.code) !== null"
+          class="inspection-orders__filter-count"
+        >
+          {{ getStageCount(item.code) }}
+        </text>
       </button>
     </view>
     <view v-if="getInspectionOrderListState(state) === 'loading'" class="inspection-orders__state">正在加载订单…</view>
@@ -124,6 +184,7 @@ onBackPress((event) => {
 .inspection-orders__header>text{font-size:20px;font-weight:700;text-align:center}
 .inspection-orders__filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;padding:10px 16px;box-sizing:border-box;background:#fff}
 .inspection-orders__filters button{display:inline-flex;width:100%;min-height:44px;align-items:center;justify-content:center;margin:0;padding:0 6px;border-radius:22px;background:#f2f4f7;font-size:15px;white-space:nowrap}
+.inspection-orders__filter-count{margin-left:4px;font-size:12px}
 .inspection-orders__filter--active{color:#fff!important;background:#ff6508!important;font-weight:700}
 .inspection-orders__list{display:flex;flex-direction:column;gap:12px;padding:12px 16px calc(24px + env(safe-area-inset-bottom))}
 .inspection-orders__state{display:flex;min-height:420px;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;color:#68717d;text-align:center}

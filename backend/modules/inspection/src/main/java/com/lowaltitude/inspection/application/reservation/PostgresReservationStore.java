@@ -27,6 +27,54 @@ final class PostgresReservationStore
     @Override public Optional<IdempotencyEntry> findIdempotency(UUID actorId, UUID key) {
         return mapper.findIdempotency(actorId, key).map(row -> new IdempotencyEntry(actorId, key, row.requestDigest(), row.reservationId()));
     }
+    @Override
+    public Optional<CancellationIdempotencyEntry> findCancellationIdempotency(
+            UUID actorId,
+            UUID key
+    ) {
+        return mapper.findCancellationIdempotency(actorId, key)
+                .map(row -> new CancellationIdempotencyEntry(
+                        actorId, key, row.requestDigest(), row.reservationId()));
+    }
+    @Override
+    public CancellationWriteResult cancel(CancellationCommand command) {
+        CancellationIdempotencyEntry entry = command.idempotency();
+        if (mapper.insertCancellationIdempotency(
+                entry.actorId(), entry.key(), entry.requestDigest(), entry.reservationId()) == 0) {
+            return CancellationWriteResult.IDEMPOTENCY_EXISTS;
+        }
+        if ("PLAN_PUBLISHED".equals(command.expectedStatus())) {
+            if (command.currentPlanId() == null
+                    || mapper.withdrawPublishedPlanForCancellation(
+                            command.reservationId(),
+                            command.currentPlanId(),
+                            command.actorId(),
+                            command.cancelledAt()) != 1) {
+                return CancellationWriteResult.STATE_CONFLICT;
+            }
+            mapper.insertTransition(
+                    "PLAN", command.currentPlanId(), "PUBLISHED", "WITHDRAWN",
+                    "CUSTOMER", command.actorId(), command.requestId(), command.cancelledAt());
+        }
+        if (mapper.cancelReservation(
+                command.reservationId(),
+                command.customerId(),
+                command.expectedVersion(),
+                command.actorId(),
+                command.cancelledAt()) != 1) {
+            return mapper.findReservationFlowState(command.reservationId())
+                    .filter(row -> row.version() != command.expectedVersion())
+                    .map(row -> CancellationWriteResult.VERSION_CONFLICT)
+                    .orElse(CancellationWriteResult.STATE_CONFLICT);
+        }
+        mapper.insertTransition(
+                "RESERVATION", command.reservationId(), command.expectedStatus(), "CANCELLED",
+                "CUSTOMER", command.actorId(), command.requestId(), command.cancelledAt());
+        mapper.insertOutbox(
+                "RESERVATION", command.reservationId(),
+                "INSPECTION_RESERVATION_CANCELLED", command.cancelledAt());
+        return CancellationWriteResult.SAVED;
+    }
     @Override public void save(StoredReservation value, IdempotencyEntry entry) {
         if (mapper.insertIdempotency(
                 entry.actorId(),

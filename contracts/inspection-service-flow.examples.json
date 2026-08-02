@@ -41,6 +41,40 @@
     "currentPlanId": "50000000-0000-4000-8000-000000000001",
     "version": 1
   },
+  "cancelledReservation": {
+    "id": "10000000-0000-4000-8000-000000000001",
+    "reservationNo": "YY202607270001",
+    "customerId": "20000000-0000-4000-8000-000000000001",
+    "providerId": "30000000-0000-4000-8000-000000000001",
+    "serviceId": "40000000-0000-4000-8000-000000000001",
+    "serviceTitle": "输电线路无人机巡检",
+    "serviceCoverUrl": "https://cdn.example.com/inspection/power-line.webp",
+    "cityCode": "370500",
+    "status": "CANCELLED",
+    "location": {
+      "address": "测试地址，仅用于自动化验收",
+      "longitude": 118.5,
+      "latitude": 37.4
+    },
+    "lineLengthMeters": 18600,
+    "preferredServiceDate": "2026-08-02",
+    "preferredTimeSlotCode": "MORNING",
+    "inspectionItems": [
+      {
+        "code": "TOWER",
+        "label": "杆塔巡检"
+      }
+    ],
+    "note": null,
+    "contact": {
+      "name": "测试客户",
+      "mobile": "13800138000"
+    },
+    "attachments": [],
+    "submittedAt": "2026-07-27T08:00:00Z",
+    "currentPlanId": null,
+    "version": 2
+  },
   "reservationPage": {
     "items": [
       {

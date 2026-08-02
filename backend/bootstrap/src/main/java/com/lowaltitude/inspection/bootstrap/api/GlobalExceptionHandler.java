@@ -10,8 +10,11 @@ import com.lowaltitude.inspection.application.reservation.FileUploadConflictExce
 import com.lowaltitude.inspection.application.reservation.FileUploadValidationException;
 import com.lowaltitude.inspection.application.reservation.IdempotencyConflictException;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceNotFoundException;
+import com.lowaltitude.inspection.application.reservation.ReservationAccessDeniedException;
+import com.lowaltitude.inspection.application.reservation.ReservationCancellationNotAllowedException;
 import com.lowaltitude.inspection.application.reservation.ReservationNotFoundException;
 import com.lowaltitude.inspection.application.reservation.ReservationValidationException;
+import com.lowaltitude.inspection.application.reservation.ReservationVersionConflictException;
 import com.lowaltitude.inspection.application.reservation.TimeSlotFullException;
 import com.lowaltitude.inspection.application.reservation.TimeSlotTooSoonException;
 import com.lowaltitude.inspection.application.serviceflow.PlanFlowException;
@@ -35,9 +38,9 @@ public class GlobalExceptionHandler {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    @ExceptionHandler(AccessDeniedException.class)
+    @ExceptionHandler({AccessDeniedException.class, ReservationAccessDeniedException.class})
     public ResponseEntity<ApiError> handleAccessDenied(
-            AccessDeniedException exception,
+            RuntimeException exception,
             HttpServletRequest request
     ) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -120,7 +123,29 @@ public class GlobalExceptionHandler {
                         traceId(request)));
     }
 
+    @ExceptionHandler(ReservationCancellationNotAllowedException.class)
+    public ResponseEntity<ApiError> handleReservationCancellationNotAllowed(
+            ReservationCancellationNotAllowedException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError(
+                        "INS_RESERVATION_NOT_CANCELLABLE",
+                        "当前订单状态不允许取消",
+                        traceId(request)));
+    }
 
+    @ExceptionHandler(ReservationVersionConflictException.class)
+    public ResponseEntity<ApiError> handleReservationVersionConflict(
+            ReservationVersionConflictException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED)
+                .body(new ApiError(
+                        "INS_VERSION_CONFLICT",
+                        "页面数据已更新，请刷新后重试",
+                        traceId(request)));
+    }
 
     @ExceptionHandler({
             ReservationNotFoundException.class,

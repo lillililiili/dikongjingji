@@ -122,6 +122,105 @@ class InspectionReservationControllerTest {
     }
 
     @Test
+    void customerCancelsOwnReservationWithIdempotencyAndStrongEtag() throws Exception {
+        String id = createReservation(customerJwt(), requestJson("东营市取消测试路1号"));
+
+        mvc.perform(post("/api/v1/inspection/reservations/{id}/cancel", id)
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("If-Match", "\"0\"")
+                        .header("X-Request-Id", REQUEST_ID)
+                        .principal(customerJwt()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("ETag", "\"1\""))
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.currentPlanId").doesNotExist());
+    }
+
+    @Test
+    void cancellationHidesOtherCustomersReservationAndRejectsStaleVersion()
+            throws Exception {
+        String id = createReservation(customerJwt(), requestJson("东营市取消测试路2号"));
+
+        mvc.perform(post("/api/v1/inspection/reservations/{id}/cancel", id)
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("If-Match", "\"0\"")
+                        .principal(subject(
+                                OTHER_CUSTOMER,
+                                Set.of("CUSTOMER"),
+                                UUID.randomUUID(),
+                                Set.of("inspection.reservation.cancel.own"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
+
+        mvc.perform(post("/api/v1/inspection/reservations/{id}/cancel", id)
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("If-Match", "\"9\"")
+                        .principal(customerJwt()))
+                .andExpect(status().isPreconditionFailed())
+                .andExpect(jsonPath("$.code").value("INS_VERSION_CONFLICT"));
+    }
+
+    @Test
+    void cancellationRequiresPermissionAndMandatoryStrongConcurrencyHeaders()
+            throws Exception {
+        String id = createReservation(customerJwt(), requestJson("东营市取消测试路3号"));
+
+        mvc.perform(post("/api/v1/inspection/reservations/{id}/cancel", id)
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("If-Match", "\"0\"")
+                        .principal(subject(
+                                CUSTOMER,
+                                Set.of("CUSTOMER"),
+                                UUID.randomUUID(),
+                                Set.of())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+
+        mvc.perform(post("/api/v1/inspection/reservations/{id}/cancel", id)
+                        .header("If-Match", "\"0\"")
+                        .principal(customerJwt()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+
+        mvc.perform(post("/api/v1/inspection/reservations/{id}/cancel", id)
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .principal(customerJwt()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+
+        for (String invalidIfMatch : List.of(
+                "W/\"0\"",
+                "\"invalid\"",
+                "0",
+                " ",
+                "-1",
+                "\"2147483648\"")) {
+            mvc.perform(post("/api/v1/inspection/reservations/{id}/cancel", id)
+                            .header("Idempotency-Key", UUID.randomUUID())
+                            .header("If-Match", invalidIfMatch)
+                            .principal(customerJwt()))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        }
+    }
+
+    @Test
+    void cancellationMapsNonCancellableStateToConflict() throws Exception {
+        String id = createReservation(customerJwt(), requestJson("东营市取消测试路4号"));
+        store.setFlowState(
+                UUID.fromString(id),
+                new ReservationFlowState("PLAN_CONFIRMED", UUID.randomUUID(), 1));
+
+        mvc.perform(post("/api/v1/inspection/reservations/{id}/cancel", id)
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("If-Match", "\"1\"")
+                        .principal(customerJwt()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code")
+                        .value("INS_RESERVATION_NOT_CANCELLABLE"));
+    }
+
+    @Test
     void createRequiresCustomerRoleAndPermissionAndFailsClosedForInvalidPrincipal()
             throws Exception {
         mvc.perform(post("/api/v1/inspection/reservations")
@@ -362,7 +461,8 @@ class InspectionReservationControllerTest {
                 .claim("roles", List.of("CUSTOMER"))
                 .claim("permissions", List.of(
                         "inspection.reservation.create",
-                        "inspection.reservation.read.own"))
+                        "inspection.reservation.read.own",
+                        "inspection.reservation.cancel.own"))
                 .claim("tokenVersion", 0)
                 .build();
         return new UsernamePasswordAuthenticationToken(jwt, "n/a");
@@ -415,6 +515,9 @@ final class InMemoryReservationStore implements ReservationStore {
 
     private final Map<UUID, StoredReservation> values = new HashMap<>();
     private final Map<String, IdempotencyEntry> keys = new HashMap<>();
+    private final Map<UUID, ReservationFlowState> flowStates = new HashMap<>();
+    private final Map<String, CancellationIdempotencyEntry> cancellationKeys =
+            new HashMap<>();
     private int saveCount;
 
     @Override
@@ -432,6 +535,30 @@ final class InMemoryReservationStore implements ReservationStore {
     @Override
     public Optional<StoredReservation> findById(UUID id) {
         return Optional.ofNullable(values.get(id));
+    }
+
+    @Override
+    public Optional<ReservationFlowState> findFlowState(UUID reservationId) {
+        return Optional.ofNullable(flowStates.get(reservationId));
+    }
+
+    @Override
+    public Optional<CancellationIdempotencyEntry> findCancellationIdempotency(
+            UUID actorId,
+            UUID key
+    ) {
+        return Optional.ofNullable(cancellationKeys.get(actorId + ":" + key));
+    }
+
+    @Override
+    public CancellationWriteResult cancel(CancellationCommand command) {
+        cancellationKeys.put(
+                command.idempotency().actorId() + ":" + command.idempotency().key(),
+                command.idempotency());
+        flowStates.put(
+                command.reservationId(),
+                new ReservationFlowState("CANCELLED", null, command.expectedVersion() + 1));
+        return CancellationWriteResult.SAVED;
     }
 
     @Override
@@ -473,6 +600,9 @@ final class InMemoryReservationStore implements ReservationStore {
         return saveCount;
     }
 
+    void setFlowState(UUID reservationId, ReservationFlowState flowState) {
+        flowStates.put(reservationId, flowState);
+    }
 }
 
 final class InMemoryCustomerReservationQueryStore implements CustomerReservationQueryStore {
