@@ -1,9 +1,116 @@
 param(
     [string]$DockerPath = 'D:\DevTools\DockerDesktop\resources\bin\docker.exe',
-    [string]$BaseUrl = 'http://127.0.0.1:8080'
+    [string]$BaseUrl = 'http://127.0.0.1:8080',
+    [switch]$ValidateArtifactsOnly,
+    [string]$XlsxPath,
+    [string]$BundlePath
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-XlsxOpenXmlEvidence {
+    param([byte[]]$Bytes, [string]$Label)
+
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $requiredEntries = @(
+        '[Content_Types].xml',
+        '_rels/.rels',
+        'xl/workbook.xml',
+        'xl/_rels/workbook.xml.rels',
+        'xl/worksheets/sheet1.xml'
+    )
+    $stream = [IO.MemoryStream]::new($Bytes, $false)
+    try {
+        try {
+            $archive = [IO.Compression.ZipArchive]::new(
+                $stream,
+                [IO.Compression.ZipArchiveMode]::Read,
+                $true)
+        } catch {
+            throw "$Label is not a readable OpenXML ZIP package."
+        }
+        try {
+            $entryNames = @($archive.Entries | ForEach-Object { $_.FullName })
+            foreach ($requiredEntry in $requiredEntries) {
+                if ($entryNames -notcontains $requiredEntry) {
+                    throw "$Label is missing required OpenXML entry '$requiredEntry'."
+                }
+            }
+            $contentTypesEntry = $archive.GetEntry('[Content_Types].xml')
+            $reader = [IO.StreamReader]::new($contentTypesEntry.Open(), [Text.Encoding]::UTF8)
+            try { $contentTypes = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            if ($contentTypes -notmatch 'spreadsheetml\.sheet\.main\+xml') {
+                throw "$Label does not declare an XLSX workbook content type."
+            }
+        } finally {
+            $archive.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try {
+        $sha256 = [BitConverter]::ToString($hasher.ComputeHash($Bytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $hasher.Dispose()
+    }
+    return [pscustomobject]@{ SizeBytes = $Bytes.Length; Sha256 = $sha256 }
+}
+
+function Get-XlsxOpenXmlFileEvidence {
+    param([string]$Path, [string]$Label)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "$Label does not exist: $Path"
+    }
+    return Get-XlsxOpenXmlEvidence -Bytes ([IO.File]::ReadAllBytes($Path)) -Label $Label
+}
+
+function Get-BundleXlsxEvidence {
+    param([string]$Path, [string]$EntryName = 'defect-list.xlsx')
+
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        $matches = @($archive.Entries | Where-Object { $_.FullName -eq $EntryName })
+        if ($matches.Count -ne 1) {
+            throw "Delivery bundle must contain exactly one '$EntryName' entry."
+        }
+        $memory = [IO.MemoryStream]::new()
+        try {
+            $entryStream = $matches[0].Open()
+            try { $entryStream.CopyTo($memory) } finally { $entryStream.Dispose() }
+            $xlsxEvidence = Get-XlsxOpenXmlEvidence -Bytes $memory.ToArray() -Label "Bundle entry $EntryName"
+        } finally {
+            $memory.Dispose()
+        }
+        return [pscustomobject]@{
+            EntryCount = $archive.Entries.Count
+            XlsxSha256 = $xlsxEvidence.Sha256
+            XlsxSizeBytes = $xlsxEvidence.SizeBytes
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
+
+if ($ValidateArtifactsOnly) {
+    $xlsxEvidence = Get-XlsxOpenXmlFileEvidence -Path $XlsxPath -Label 'XLSX file'
+    $bundleEvidence = if ([string]::IsNullOrWhiteSpace($BundlePath)) {
+        $null
+    } else {
+        Get-BundleXlsxEvidence -Path $BundlePath
+    }
+    return [pscustomobject]@{
+        XlsxSha256 = $xlsxEvidence.Sha256
+        XlsxSizeBytes = $xlsxEvidence.SizeBytes
+        BundleXlsxSha256 = $bundleEvidence.XlsxSha256
+        BundleXlsxSizeBytes = $bundleEvidence.XlsxSizeBytes
+    }
+}
 
 $baseUri = [Uri]$BaseUrl
 if (-not $baseUri.IsLoopback) {
@@ -195,7 +302,87 @@ try {
     $zipPath = Join-Path $tempRoot 'site-images.zip'
     Compress-Archive -LiteralPath $sourceText -DestinationPath $zipPath
     $xlsxPath = Join-Path $tempRoot 'defects.xlsx'
-    [IO.File]::Copy($zipPath, $xlsxPath)
+    # Real OpenXML workbook fixture rendered and verified with artifact-tool.
+    # The hash guard prevents a truncated or non-XLSX payload reaching MinIO.
+    $xlsxFixtureBase64 = @'
+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
+o+o7VVBtYaU6BIPVoHdOwOoHHDc/loPVqtE/x3FRD855nJavBtcVbL+8uKMX+uZL0O0YzSaOizscO/pkr3+BpaUh4puO+x/ScT/K
+j94c6CBajPiwrUZL2dGtDNolY/WjWduEy++xrfbg9O6+3tsDZ5tG49TcfwfO9kD91Ljugpsm/NzQT66x/fdIBvdfgsY2QQexzffa
+QecClI+N/hasH8B2Ga59MJoNsPoaa4TTKG7UwJsy8nC8F4GHeBFAJfxDXjBYL9BS1j+pFx4cOhzMUs1cegM+l8w/TuHhllmrG619
+/Z8uWKoa/S2sHR75HDt83JTPj3XEgwPNNbjxWt84B/UOOKrAwza4+jLoN8Haf1hTnI4Fvs+U4ENMCaISwSFTsO/EJ87SR6O7KV/A
+i1OzcYV1xAMyV7ZAuWX0/4Ybx+DoBWz/CyorZr0E/1zSu2fGyTL4dIB1xCOf4wiDfbRjHtCg/Qp+bKB3m7lS0ZevLFMuX2G9QDk4
+erSwvWHUA6wd1MhnjyQoaWFeyKIvIndEKELK+tAJWd8Q9qEzOsWErOMXO8WGrPMPNxVlQ9a5hU6s4dJ5Pi38witpMacSWSGlhUl6
+OkASCrpH7GtNzttXHEk8kzVNlr6OMgKfFBRrxJJESpY1d4Aquf8eIv8DUEsDBBQAAAAAAJd9Al0gyG1EKAEAACgBAAALAAAAX3Jl
+bHMvLnJlbHPvu788P3htbCB2ZXJzaW9uPSIxLjAiIGVuY29kaW5nPSJ1dGYtOCI/PjxSZWxhdGlvbnNoaXBzIHhtbG5zPSJodHRw
+Oi8vc2NoZW1hcy5vcGVueG1sZm9ybWF0cy5vcmcvcGFja2FnZS8yMDA2L3JlbGF0aW9uc2hpcHMiPjxSZWxhdGlvbnNoaXAgVHlw
+ZT0iaHR0cDovL3NjaGVtYXMub3BlbnhtbGZvcm1hdHMub3JnL29mZmljZURvY3VtZW50LzIwMDYvcmVsYXRpb25zaGlwcy9vZmZp
+Y2VEb2N1bWVudCIgVGFyZ2V0PSIveGwvd29ya2Jvb2sueG1sIiBJZD0iUjEzNzlkMGRhZTFhNzQwNTkiIC8+PC9SZWxhdGlvbnNo
+aXBzPlBLAwQUAAAACACXfQJdIpBR4Q8BAADyAgAAGgAAAHhsL19yZWxzL3dvcmtib29rLnhtbC5yZWxztZI9TgMxEEavYrlnbROD
+vSibNDS0IRcw9ni9in9WtgObs1FwJK6ACAjtIgqaNFN8Iz29+TTvr2/r7RQ8eoZchhQ7zBqKEUSdzBD7Dh+rvZJ4u1nvwKs6pFjc
+MBY0BR9Lh12t4x0hRTsIqjRphDgFb1MOqpYm5Z6MSh9UD+Sa0luS5wy8ZKL9aYT/EJO1g4b7pI8BYv0DTEo9eSgY7VXuoXaYTP47
+a6bgMXowHd4pqaS5oVZq9sTblcWIXEyoOgiw9DlHX5PNrFZCtJyJVikmODVwSaviVAbzWPMQ+99tzVczPSqE1VYqIxjnhqlL6r2k
+fCgOoC7VfuLPAwDqvD0OtLUCOJfScqHbsx5ZfO7mA1BLAwQUAAAACACXfQJdjYLZqRYBAABTAwAAEwAAAFtDb250ZW50X1R5cGVz
+XS54bWytk0FOwzAQRa8SeYtqpywQQkm7ALaABBewnEli1R5bnmlIz8aCI3EFVAdFgJAi1G48m/F7/y/m4+292o7eFQMksgFrsZal
+KABNaCx2tdhzu7oW2031cohAxegdUi165nijFJkevCYZIuDoXRuS10wypE5FbXa6A3VZllfKBGRAXvGRITbVHbR677i4Hxlw0o7e
+ieJ22juqaqFjdNZotgHVgM0vySq0rTXQBLP3gCwpJtAN9QDsncxTem3xIoPVn84Ejv4n/WolE7i8Q72NNCseB0jJNlA86cQP2kMt
+1OgU8cEByTM3zNAlNffgYXrXJwfImMWyvU7QPHOy2J2983f2UpDXkHb5I6k8Tu//M8zMn4OofCKbT1BLAQIUAxQAAAAIAJZ9Al0C
+5jre1AAAACoBAAAPAAAAAAAAAAAAAACkgQAAAAB4bC93b3JrYm9vay54bWxQSwECFAMUAAAACACWfQJdTnkYkC0DAABWNQAADQAA
+AAAAAAAAAAAApIEBAQAAeGwvc3R5bGVzLnhtbFBLAQIUAxQAAAAIAJd9Al36XAFZAwMAANoNAAATAAAAAAAAAAAAAACkgVkEAAB4
+bC90aGVtZS90aGVtZTEueG1sUEsBAhQDFAAAAAgAl30CXQ0euehlAAAAcwAAABQAAAAAAAAAAAAAAKSBjQcAAHhsL3NoYXJlZFN0
+cmluZ3MueG1sUEsBAhQDFAAAAAgAl30CXdrawyweBAAAcQwAABgAAAAAAAAAAAAAAKSBJAgAAHhsL3dvcmtzaGVldHMvc2hlZXQx
+LnhtbFBLAQIUAxQAAAAAAJd9Al0gyG1EKAEAACgBAAALAAAAAAAAAAAAAACkgXgMAABfcmVscy8ucmVsc1BLAQIUAxQAAAAIAJd9
+Al0ikFHhDwEAAPICAAAaAAAAAAAAAAAAAACkgckNAAB4bC9fcmVscy93b3JrYm9vay54bWwucmVsc1BLAQIUAxQAAAAIAJd9Al2N
+gtmpFgEAAFMDAAATAAAAAAAAAAAAAACkgRAPAABbQ29udGVudF9UeXBlc10ueG1sUEsFBgAAAAAIAAgAAwIAAFcQAAAAAA==
+'@
+    $xlsxBytes = [Convert]::FromBase64String($xlsxFixtureBase64)
+    $xlsxHasher = [Security.Cryptography.SHA256]::Create()
+    try {
+        $xlsxSha256 = [BitConverter]::ToString(
+            $xlsxHasher.ComputeHash($xlsxBytes)
+        ).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $xlsxHasher.Dispose()
+    }
+    if ($xlsxSha256 -ne '04e84d40b68d21d7aff38fdeaa46d1ae26b8377da31600d35bd7f2c8f718af8a') {
+        throw 'Defect list XLSX fixture integrity check failed.'
+    }
+    [IO.File]::WriteAllBytes($xlsxPath, $xlsxBytes)
+    $xlsxEvidence = Get-XlsxOpenXmlFileEvidence -Path $xlsxPath -Label 'Generated defect list'
     $kmlPath = Join-Path $tempRoot 'inspection-points.kml'
     [IO.File]::WriteAllText(
         $kmlPath,
@@ -355,6 +542,10 @@ Rgo=
     }
 
     $firstFile = $published.files[0]
+    $xlsxFile = @($published.files | Where-Object { $_.type -eq 'DEFECT_LIST' }) | Select-Object -First 1
+    if ($null -eq $xlsxFile) {
+        throw 'Published delivery is missing the DEFECT_LIST file.'
+    }
     $download = Invoke-RestMethod `
         -Method Post `
         -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($firstFile.fileId)/download-intent" `
@@ -372,6 +563,22 @@ Rgo=
         throw 'The controlled file download did not match the private MinIO object.'
     }
 
+    $xlsxDownload = Invoke-RestMethod `
+        -Method Post `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($xlsxFile.fileId)/download-intent" `
+        -Headers @{
+            Authorization = "Bearer $customerToken"
+            'Idempotency-Key' = [Guid]::NewGuid().ToString()
+        }
+    $downloadedXlsxPath = Join-Path $tempRoot 'downloaded-defect-list.xlsx'
+    Invoke-WebRequest -UseBasicParsing -Uri $xlsxDownload.downloadUrl -OutFile $downloadedXlsxPath
+    $downloadedXlsxEvidence = Get-XlsxOpenXmlFileEvidence `
+        -Path $downloadedXlsxPath `
+        -Label 'Downloaded defect list'
+    if ($downloadedXlsxEvidence.Sha256 -ne $xlsxEvidence.Sha256) {
+        throw 'The downloaded defect list differs from the generated OpenXML workbook.'
+    }
+
     $bundle = Invoke-RestMethod `
         -Method Post `
         -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/download-all-intent" `
@@ -384,17 +591,15 @@ Rgo=
         -UseBasicParsing `
         -Uri $bundle.downloadUrl `
         -OutFile $bundlePath
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $archive = [IO.Compression.ZipFile]::OpenRead($bundlePath)
-    try {
-        $bundleEntryCount = $archive.Entries.Count
-    } finally {
-        $archive.Dispose()
+    $bundleEvidence = Get-BundleXlsxEvidence -Path $bundlePath
+    $bundleEntryCount = $bundleEvidence.EntryCount
+    if ($bundleEvidence.XlsxSha256 -ne $xlsxEvidence.Sha256) {
+        throw 'The bundle defect list differs from the generated OpenXML workbook.'
     }
 
     $platformDownload = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($firstFile.fileId)/download-intent" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($xlsxFile.fileId)/download-intent" `
         -Headers @{
             Authorization = "Bearer $platformToken"
             'Idempotency-Key' = [Guid]::NewGuid().ToString()
@@ -494,13 +699,29 @@ SELECT
         -Headers @{ Authorization = "Bearer $customerTokenAfterRestart" }
     $downloadAfterRestart = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($firstFile.fileId)/download-intent" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($xlsxFile.fileId)/download-intent" `
         -Headers @{
             Authorization = "Bearer $customerTokenAfterRestart"
             'Idempotency-Key' = [Guid]::NewGuid().ToString()
         }
+    $restartXlsxPath = Join-Path $tempRoot 'downloaded-after-restart.xlsx'
+    Invoke-WebRequest -UseBasicParsing -Uri $downloadAfterRestart.downloadUrl -OutFile $restartXlsxPath
+    $restartXlsxEvidence = Get-XlsxOpenXmlFileEvidence `
+        -Path $restartXlsxPath `
+        -Label 'Downloaded defect list after restart'
+    $bundleAfterRestart = Invoke-RestMethod `
+        -Method Post `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/download-all-intent" `
+        -Headers @{
+            Authorization = "Bearer $customerTokenAfterRestart"
+            'Idempotency-Key' = [Guid]::NewGuid().ToString()
+        }
+    $bundleAfterRestartPath = Join-Path $tempRoot 'delivery-all-after-restart.zip'
+    Invoke-WebRequest -UseBasicParsing -Uri $bundleAfterRestart.downloadUrl -OutFile $bundleAfterRestartPath
+    $bundleAfterRestartEvidence = Get-BundleXlsxEvidence -Path $bundleAfterRestartPath
     if ($afterRestart.status -ne 'ACCEPTED' `
-            -or [string]::IsNullOrWhiteSpace($downloadAfterRestart.downloadUrl)) {
+            -or $restartXlsxEvidence.Sha256 -ne $xlsxEvidence.Sha256 `
+            -or $bundleAfterRestartEvidence.XlsxSha256 -ne $xlsxEvidence.Sha256) {
         throw 'Delivery state or private file access did not survive backend restart.'
     }
 
@@ -513,10 +734,13 @@ SELECT
         CrossCustomerReadStatus = $otherCustomerReadStatus
         PlatformReadOnlyStatus = $platformAcceptStatus
         PrivateDownloadVerified = $true
+        XlsxOpenXmlVerified = $true
         BundleEntries = $bundleEntryCount
+        BundleXlsxVerified = $true
         AcceptanceReplaySameId = $true
         DatabaseEvidence = $databaseCheck
         RestartRecovery = $true
+        RestartXlsxVerified = $true
     } | ConvertTo-Json -Compress
 } finally {
     $resolvedTemp = [IO.Path]::GetFullPath($tempRoot)
