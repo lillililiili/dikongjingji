@@ -36,7 +36,7 @@ public class AuthenticationController {
                         token.accessToken(), "Bearer", token.expiresInSeconds()
                 )))
                 .orElseGet(() -> ResponseEntity.status(401).body(new ApiError(
-                        "COMMON_UNAUTHORIZED", "请先登录", traceId(servletRequest)
+                        "COMMON_UNAUTHORIZED", "用户名或密码错误", traceId(servletRequest)
                 )));
     }
 

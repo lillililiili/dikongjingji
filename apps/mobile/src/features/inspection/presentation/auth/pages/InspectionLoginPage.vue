@@ -85,13 +85,13 @@ function exitLogin(): void {
       <view class="inspection-login__skyline">
         <view class="inspection-login__headline">
           <text class="inspection-login__eyebrow">飞享低空服务平台</text>
-          <text class="inspection-login__title">欢迎回来</text>
-          <text class="inspection-login__subtitle">登录后继续您的巡检服务</text>
+          <text class="inspection-login__title">智启低空新体验</text>
+          <text class="inspection-login__subtitle">登录飞享，便捷管理巡检服务</text>
         </view>
         <image
           class="inspection-login__robot"
-          src="/static/images/inspection/platform/robot-avatar.png"
-          mode="aspectFit"
+          src="/static/images/inspection/platform/inspection-login-hero.png"
+          mode="aspectFill"
         />
       </view>
 
@@ -153,12 +153,13 @@ function exitLogin(): void {
 .inspection-login__header button{height:44px;min-height:44px;margin:0;padding:0;border:0;background:transparent;line-height:1}
 .inspection-login__header button::after,.inspection-login__submit::after{border:0}
 .inspection-login__content{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:18px 20px calc(28px + env(safe-area-inset-bottom))}
-.inspection-login__skyline{position:relative;height:230px;border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.72),rgba(255,255,255,.12));box-shadow:0 20px 55px rgba(65,128,180,.12)}
-.inspection-login__headline{position:absolute;z-index:2;top:34px;left:24px;display:flex;align-items:flex-start;flex-direction:column}
+.inspection-login__skyline{position:relative;height:230px;overflow:hidden;border-radius:28px;background:#e7f4ff;box-shadow:0 20px 55px rgba(65,128,180,.12)}
+.inspection-login__skyline::after{position:absolute;z-index:1;inset:0;background:linear-gradient(90deg,rgba(241,248,255,.96) 0,rgba(241,248,255,.78) 47%,rgba(241,248,255,0) 72%);content:''}
+.inspection-login__headline{position:absolute;z-index:2;top:42px;left:24px;display:flex;width:64%;align-items:flex-start;flex-direction:column}
 .inspection-login__eyebrow{color:#2274d9;font-size:13px;font-weight:600;letter-spacing:1px}
-.inspection-login__title{margin-top:9px;font-size:34px;font-weight:800;letter-spacing:1px}
-.inspection-login__subtitle{margin-top:8px;color:#566b80;font-size:15px}
-.inspection-login__robot{position:absolute;right:-2px;bottom:0;width:190px;height:160px}
+.inspection-login__title{margin-top:9px;font-size:28px;font-weight:800;line-height:1.18;letter-spacing:1px;white-space:nowrap}
+.inspection-login__subtitle{margin-top:10px;color:#566b80;font-size:14px;line-height:1.55}
+.inspection-login__robot{position:absolute;z-index:0;inset:0;width:100%;height:100%}
 .inspection-login__form{position:relative;margin-top:-16px;padding:26px 22px 22px;border:1px solid rgba(255,255,255,.9);border-radius:24px;background:rgba(255,255,255,.96);box-shadow:0 16px 42px rgba(39,79,112,.14)}
 .inspection-login__form-title{display:block;margin-bottom:22px;font-size:22px;font-weight:800}
 .inspection-login__form label{display:block;margin-top:18px}

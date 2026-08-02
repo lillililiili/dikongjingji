@@ -109,7 +109,8 @@ class AuthenticationSecurityIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"loginName\":\"test-user\",\"password\":\"wrong-password\"}"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").value("用户名或密码错误"));
     }
 
     @Test
