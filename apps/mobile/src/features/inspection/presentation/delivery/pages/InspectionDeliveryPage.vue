@@ -273,24 +273,6 @@ function formatDateTime(value: string | null): string {
     </view>
 
     <main v-else-if="delivery && order" class="delivery__content">
-      <view class="delivery__hero-copy">
-        <text>{{ isAccepted ? '验收已完成' : '巡检报告已送达' }}</text>
-        <text>{{ isAccepted ? '本次服务已完成，感谢您的确认' : '请先查看报告与问题摘要' }}</text>
-      </view>
-      <view class="delivery__report-preview">
-        <view class="delivery__report-paper">
-          <view>
-            <text>{{ order.serviceSnapshot.serviceTitle }}报告</text>
-            <text>巡检里程：{{ formatLength(delivery.inspectedLengthMeters) }}</text>
-            <text>服务单号：{{ order.serviceOrderNo }}</text>
-          </view>
-          <image :src="order.serviceSnapshot.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'" mode="aspectFill" />
-          <view class="delivery__thermal">
-            <image src="/static/images/inspection/category-thermal.webp" mode="aspectFill" />
-            <view><text>{{ delivery.issueCount }}</text><text>项问题</text></view>
-          </view>
-        </view>
-      </view>
       <view class="delivery__status">
         <view class="delivery__status-main">
           <view class="delivery__status-icon">
@@ -490,20 +472,6 @@ function formatDateTime(value: string | null): string {
 .delivery__page-step{justify-self:center;padding:5px 11px;border-radius:16px;background:#f3f4f5;font-size:13px;font-weight:500}
 .delivery__flow{display:none}
 .delivery__content{padding:24px 12px 130px}
-.delivery__hero-copy{display:flex;padding:0 12px 22px;align-items:flex-start;flex-direction:column}
-.delivery__hero-copy text:first-child{font-size:28px;font-weight:800}
-.delivery__hero-copy text:last-child{margin-top:8px;color:#737a83;font-size:14px}
-.delivery__report-preview{padding:18px;border:1px solid #e4e6e9;background:#f8f8f7;box-shadow:0 12px 32px rgba(32,44,58,.10)}
-.delivery__report-paper{display:grid;min-height:250px;padding:24px;grid-template-columns:minmax(0,1fr) 46%;grid-template-rows:1fr 92px;gap:12px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08)}
-.delivery__report-paper>view:first-child{display:flex;align-items:flex-start;justify-content:center;flex-direction:column}
-.delivery__report-paper>view:first-child text:first-child{margin-bottom:20px;font-size:18px;font-weight:800}
-.delivery__report-paper>view:first-child text:not(:first-child){margin-top:8px;color:#4d545c;font-size:11px}
-.delivery__report-paper image{width:100%;height:100%;min-height:128px}
-.delivery__thermal{position:relative;grid-column:2;overflow:hidden;color:#fff}
-.delivery__thermal>image{width:100%;height:100%}
-.delivery__thermal>view{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:rgba(29,22,50,.36)}
-.delivery__thermal text:first-child{font-size:30px;font-weight:800}
-.delivery__thermal text:last-child{font-size:11px}
 .delivery__status,.delivery__card{margin-top:14px;padding:17px;border:0;border-radius:22px;box-shadow:0 10px 30px rgba(29,42,58,.08)}
 .delivery__status-main{grid-template-columns:76px minmax(0,1fr)}
 .delivery__status-icon{width:64px;height:64px}
