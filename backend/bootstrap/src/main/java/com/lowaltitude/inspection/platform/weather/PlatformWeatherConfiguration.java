@@ -3,9 +3,12 @@ package com.lowaltitude.inspection.platform.weather;
 import java.net.http.HttpClient;
 import java.time.Clock;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
@@ -40,13 +43,32 @@ class PlatformWeatherConfiguration {
     }
 
     @Bean
+    PlatformWeatherCache platformWeatherCache(
+            ObjectProvider<StringRedisTemplate> redisTemplateProvider,
+            ObjectMapper objectMapper,
+            PlatformWeatherProperties properties
+    ) {
+        StringRedisTemplate redisTemplate = redisTemplateProvider.getIfAvailable();
+        if (redisTemplate == null) {
+            return PlatformWeatherCache.noOp();
+        }
+        return new RedisPlatformWeatherCache(
+                redisTemplate,
+                objectMapper,
+                properties.cacheKeyPrefix(),
+                properties.lastSuccessTtl());
+    }
+
+    @Bean
     PlatformWeatherService platformWeatherService(
             CurrentWeatherGateway gateway,
-            PlatformWeatherProperties properties
+            PlatformWeatherProperties properties,
+            PlatformWeatherCache cache
     ) {
         return new PlatformWeatherService(
                 gateway,
                 Clock.systemUTC(),
-                properties.cacheTtl());
+                properties.cacheTtl(),
+                cache);
     }
 }

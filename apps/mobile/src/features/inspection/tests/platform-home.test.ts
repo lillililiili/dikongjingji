@@ -112,6 +112,14 @@ describe('platform home presentation state', () => {
     expect(homeRouteSource).toContain('currentCityStore.setCurrentCity')
   })
 
+  it('keeps the home usable when native location or weather lookup fails', () => {
+    expect(homeRouteSource).toContain("const DEFAULT_CITY: CurrentCity = { code: '370500', name: '东营市' }")
+    expect(homeRouteSource).toContain('weatherLoader.load(null)')
+    expect(homeRouteSource).not.toContain('isNativeAppRuntime')
+    expect(homeRouteSource).not.toContain('无法获取当前位置，请开启定位权限后重试')
+    expect(homeRouteSource).toContain('首页内容加载失败，请稍后重试')
+  })
+
   it('supports loading, ready, empty and error without fixtures', () => {
     expect(resolvePlatformHomeState({ status: 'loading' })).toEqual({ kind: 'loading' })
     expect(resolvePlatformHomeState({ status: 'ready', content: content() }).kind).toBe('ready')

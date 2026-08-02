@@ -36,16 +36,15 @@ const weatherApi = createPlatformWeatherApi(createUniPlatformWeatherHttpClient({
   getAccessToken: () => getBookingAuthContext().getAccessToken(),
 }))
 const weatherLoader = createCurrentCityWeatherLoader(weatherApi)
+const DEFAULT_CITY: CurrentCity = { code: '370500', name: '东营市' }
 
-function restoreDefaultCity(): void {
-  if (currentCityStore.currentCity) return
+function restoreDefaultCity(): CurrentCity {
+  if (currentCityStore.currentCity) return currentCityStore.currentCity
   const code = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_CODE?.trim()
   const name = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_NAME?.trim()
-  if (code && name) currentCityStore.setCurrentCity({ code, name })
-}
-
-function isNativeAppRuntime(): boolean {
-  return uni.getSystemInfoSync().uniPlatform === 'app'
+  const city = code && name ? { code, name } : DEFAULT_CITY
+  currentCityStore.setCurrentCity(city)
+  return city
 }
 
 function locateCurrentCityName(): Promise<string> {
@@ -71,8 +70,18 @@ async function resolveCurrentCityContext(): Promise<{
   city: CurrentCity
   weather: PlatformWeatherPresentation
 }> {
+  let locatedCityName: string
   try {
-    const locatedCityName = await locateCurrentCityName()
+    locatedCityName = await locateCurrentCityName()
+  } catch {
+    const city = restoreDefaultCity()
+    return {
+      city,
+      weather: await weatherLoader.load(city),
+    }
+  }
+
+  try {
     const weatherDto = await weatherApi.loadCurrentByCityName(locatedCityName)
     const city = { code: weatherDto.cityCode, name: weatherDto.cityName }
     currentCityStore.setCurrentCity(city)
@@ -80,14 +89,11 @@ async function resolveCurrentCityContext(): Promise<{
       city,
       weather: toPlatformWeatherPresentation(weatherDto),
     }
-  } catch (error) {
-    if (!homePreviewEnabled || isNativeAppRuntime()) throw error
-    restoreDefaultCity()
-    const city = currentCityStore.currentCity
-    if (!city) throw error
+  } catch {
+    const city = restoreDefaultCity()
     return {
       city,
-      weather: await weatherLoader.load(city),
+      weather: await weatherLoader.load(null),
     }
   }
 }
@@ -106,7 +112,7 @@ async function loadPage(): Promise<void> {
       content,
     })
   } catch {
-    state.value = { kind: 'error', message: '无法获取当前位置，请开启定位权限后重试' }
+    state.value = { kind: 'error', message: '首页内容加载失败，请稍后重试' }
   }
 }
 

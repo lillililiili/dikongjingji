@@ -11,12 +11,23 @@ final class PlatformWeatherService {
     private final CurrentWeatherGateway gateway;
     private final Clock clock;
     private final Duration cacheTtl;
-    private final ConcurrentMap<String, CachedWeather> cache = new ConcurrentHashMap<>();
+    private final PlatformWeatherCache durableCache;
+    private final ConcurrentMap<String, PlatformWeatherCache.Snapshot> cache =
+            new ConcurrentHashMap<>();
 
     PlatformWeatherService(
             CurrentWeatherGateway gateway,
             Clock clock,
             Duration cacheTtl
+    ) {
+        this(gateway, clock, cacheTtl, PlatformWeatherCache.noOp());
+    }
+
+    PlatformWeatherService(
+            CurrentWeatherGateway gateway,
+            Clock clock,
+            Duration cacheTtl,
+            PlatformWeatherCache durableCache
     ) {
         if (cacheTtl.isNegative() || cacheTtl.isZero()) {
             throw new IllegalArgumentException("weather cache ttl must be positive");
@@ -24,6 +35,7 @@ final class PlatformWeatherService {
         this.gateway = gateway;
         this.clock = clock;
         this.cacheTtl = cacheTtl;
+        this.durableCache = durableCache;
     }
 
     CurrentWeather current(String requestedCityCode) {
@@ -46,16 +58,39 @@ final class PlatformWeatherService {
 
     private CurrentWeather currentByQuery(String cacheKey, String providerQuery) {
         Instant now = clock.instant();
-        CachedWeather cached = cache.get(cacheKey);
-        if (cached != null && now.isBefore(cached.expiresAt())) {
+        PlatformWeatherCache.Snapshot cached = cache.get(cacheKey);
+        if (cached == null) {
+            cached = durableCache.find(cacheKey).orElse(null);
+            if (cached != null) {
+                cache.put(cacheKey, cached);
+            }
+        }
+        if (cached != null && now.isBefore(cached.cachedAt().plus(cacheTtl))) {
             return cached.weather();
         }
 
-        CurrentWeather weather = gateway.load(providerQuery);
-        cache.put(cacheKey, new CachedWeather(weather, now.plus(cacheTtl)));
-        return weather;
+        try {
+            CurrentWeather weather = gateway.load(providerQuery);
+            cacheSuccessfulWeather(cacheKey, weather, now);
+            return weather;
+        } catch (PlatformWeatherUnavailableException exception) {
+            if (cached != null) {
+                return cached.weather();
+            }
+            throw exception;
+        }
     }
 
-    private record CachedWeather(CurrentWeather weather, Instant expiresAt) {
+    private void cacheSuccessfulWeather(String requestedKey, CurrentWeather weather, Instant cachedAt) {
+        PlatformWeatherCache.Snapshot snapshot =
+                new PlatformWeatherCache.Snapshot(weather, cachedAt);
+        for (String cacheKey : new String[] {
+                requestedKey,
+                "code:" + weather.cityCode(),
+                "name:" + weather.cityName()
+        }) {
+            cache.put(cacheKey, snapshot);
+            durableCache.save(cacheKey, weather, cachedAt);
+        }
     }
 }

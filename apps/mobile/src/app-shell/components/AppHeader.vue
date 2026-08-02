@@ -42,11 +42,8 @@ const unreadLabel = computed(() => {
         <text>{{ cityName }}</text>
         <UniIcons type="down" size="13" color="#17191d" />
       </view>
-      <view
-        v-if="weather.available"
-        class="app-header__weather"
-      >
-        <text>{{ weather.text }}</text>
+      <view class="app-header__weather">
+        <text v-if="weather.available">{{ weather.text }}</text>
         <image :src="weather.iconUrl" mode="aspectFit" />
       </view>
     </button>

@@ -68,10 +68,13 @@ describe('platform header location behavior', () => {
     }
   })
 
-  it('shows the current city weather below every shared city header', () => {
+  it('shows the current city weather or its unknown icon below every shared city header', () => {
     expect(headerSource).toContain('weather: PlatformWeatherPresentation')
-    expect(headerSource).toContain('v-if="weather.available"')
-    expect(headerSource).toContain(':src="weather.iconUrl"')
+    expect(headerSource).toMatch(
+      /<view class="app-header__weather">\s*<text v-if="weather\.available">\{\{ weather\.text \}\}<\/text>\s*<image :src="weather\.iconUrl"/,
+    )
+    expect(headerSource).toContain('width: 18px')
+    expect(headerSource).toContain('height: 18px')
 
     for (const source of [discoverPageSource, mallPageSource]) {
       expect(source).toContain(':weather="weather"')

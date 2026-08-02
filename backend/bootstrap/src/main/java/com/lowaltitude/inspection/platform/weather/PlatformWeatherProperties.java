@@ -12,6 +12,8 @@ record PlatformWeatherProperties(
         @DefaultValue("https://restapi.amap.com") URI baseUrl,
         @DefaultValue("") String apiKey,
         @DefaultValue("15m") Duration cacheTtl,
+        @DefaultValue("low-altitude:platform:weather") String cacheKeyPrefix,
+        @DefaultValue("24h") Duration lastSuccessTtl,
         @DefaultValue("3s") Duration connectTimeout,
         @DefaultValue("5s") Duration readTimeout
 ) {

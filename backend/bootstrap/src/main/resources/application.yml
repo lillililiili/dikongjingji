@@ -57,3 +57,5 @@ platform:
   weather:
     enabled: ${PLATFORM_WEATHER_ENABLED:false}
     api-key: ${PLATFORM_WEATHER_API_KEY:}
+    cache-key-prefix: ${PLATFORM_WEATHER_CACHE_KEY_PREFIX:low-altitude:platform:weather}
+    last-success-ttl: ${PLATFORM_WEATHER_LAST_SUCCESS_TTL:24h}

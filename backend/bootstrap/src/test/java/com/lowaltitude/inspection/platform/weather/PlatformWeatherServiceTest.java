@@ -10,6 +10,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -39,6 +41,55 @@ class PlatformWeatherServiceTest {
 
         assertThat(service.current("370100")).isEqualTo(service.current("370100"));
         assertThat(calls).hasValue(1);
+    }
+
+    @Test
+    void returnsTheLastSuccessfulWeatherAfterAProcessRestartWhenTheProviderIsUnavailable() {
+        CurrentWeather weather = new CurrentWeather(
+                "370500",
+                "东营市",
+                WeatherConditionCode.CLEAR,
+                "晴",
+                new BigDecimal("28"),
+                NOW);
+        SharedWeatherCache cache = new SharedWeatherCache();
+        PlatformWeatherService firstProcess = new PlatformWeatherService(
+                cityQuery -> weather,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                Duration.ofMinutes(15),
+                cache);
+        PlatformWeatherService restartedProcess = new PlatformWeatherService(
+                cityQuery -> {
+                    throw new PlatformWeatherUnavailableException("provider failed");
+                },
+                Clock.fixed(NOW.plus(Duration.ofHours(1)), ZoneOffset.UTC),
+                Duration.ofMinutes(15),
+                cache);
+
+        assertThat(firstProcess.currentByCityName("东营市")).isEqualTo(weather);
+        assertThat(restartedProcess.currentByCityName("东营市")).isEqualTo(weather);
+    }
+
+    @Test
+    void doesNotCallTheProviderForAFreshCacheRestoredAfterAProcessRestart() {
+        CurrentWeather weather = new CurrentWeather(
+                "370500",
+                "东营市",
+                WeatherConditionCode.PARTLY_CLOUDY,
+                "多云",
+                new BigDecimal("26"),
+                NOW);
+        SharedWeatherCache cache = new SharedWeatherCache();
+        cache.save("code:370500", weather, NOW);
+        PlatformWeatherService service = new PlatformWeatherService(
+                cityQuery -> {
+                    throw new AssertionError("fresh durable cache must avoid the provider");
+                },
+                Clock.fixed(NOW.plus(Duration.ofMinutes(5)), ZoneOffset.UTC),
+                Duration.ofMinutes(15),
+                cache);
+
+        assertThat(service.current("370500")).isEqualTo(weather);
     }
 
     @Test
@@ -100,5 +151,19 @@ class PlatformWeatherServiceTest {
         assertThat(WeatherConditionCode.fromDescription("雨夹雪")).isEqualTo(WeatherConditionCode.SNOW);
         assertThat(WeatherConditionCode.fromDescription("霾")).isEqualTo(WeatherConditionCode.FOG);
         assertThat(WeatherConditionCode.fromDescription("")).isEqualTo(WeatherConditionCode.UNKNOWN);
+    }
+
+    private static final class SharedWeatherCache implements PlatformWeatherCache {
+        private final Map<String, Snapshot> entries = new HashMap<>();
+
+        @Override
+        public Optional<Snapshot> find(String cacheKey) {
+            return Optional.ofNullable(entries.get(cacheKey));
+        }
+
+        @Override
+        public void save(String cacheKey, CurrentWeather weather, Instant cachedAt) {
+            entries.put(cacheKey, new Snapshot(weather, cachedAt));
+        }
     }
 }
