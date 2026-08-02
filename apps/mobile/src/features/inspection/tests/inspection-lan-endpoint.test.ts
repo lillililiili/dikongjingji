@@ -51,6 +51,48 @@ describe('inspection LAN endpoint resolver', () => {
     expect(probed).not.toContain('http://192.168.10.255:8080')
   })
 
+  it('continues LAN discovery from a loopback H5 endpoint when App-Plus exposes a Wi-Fi address', async () => {
+    const probed: string[] = []
+    const saved: string[] = []
+    const resolver = createInspectionLanEndpointResolver({
+      enabled: true,
+      configuredBaseUrl: 'http://127.0.0.1:18081',
+      getPrivateIpv4Candidates: () => ['192.168.10.3'],
+      loadLastKnownBaseUrl: () => null,
+      saveLastKnownBaseUrl: (baseUrl) => saved.push(baseUrl),
+      promptForHost: async () => null,
+      probeEndpoint: async (baseUrl) => {
+        probed.push(baseUrl)
+        return baseUrl === 'http://192.168.10.4:18081'
+          ? discoveryResponse
+          : null
+      },
+    })
+
+    await expect(resolver.resolve()).resolves.toBe('http://192.168.10.4:18081')
+    expect(saved).toEqual(['http://192.168.10.4:18081'])
+    expect(probed).toContain('http://127.0.0.1:18081')
+    expect(probed).toContain('http://192.168.10.4:18081')
+  })
+
+  it('keeps a reachable loopback endpoint available to H5 when no App-Plus Wi-Fi address exists', async () => {
+    const promptForHost = vi.fn(async () => null)
+    const resolver = createInspectionLanEndpointResolver({
+      enabled: true,
+      configuredBaseUrl: 'http://localhost:18081',
+      getPrivateIpv4Candidates: () => [],
+      loadLastKnownBaseUrl: () => null,
+      saveLastKnownBaseUrl: vi.fn(),
+      promptForHost,
+      probeEndpoint: async (baseUrl) => baseUrl === 'http://localhost:18081'
+        ? discoveryResponse
+        : null,
+    })
+
+    await expect(resolver.resolve()).resolves.toBe('http://localhost:18081')
+    expect(promptForHost).not.toHaveBeenCalled()
+  })
+
   it('rejects a non-inspection HTTP response and then accepts a private manual IP', async () => {
     const probed: string[] = []
     let probesBeforePrompt = 0

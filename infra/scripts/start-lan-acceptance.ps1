@@ -2,6 +2,7 @@
 param(
     [string]$LanAddress,
     [string]$EnvFile,
+    [string]$MobileEnvFile,
     [switch]$PlanOnly,
     [string]$DockerPath = 'docker'
 )
@@ -88,12 +89,52 @@ function Get-DotEnvValue {
     return $DefaultValue
 }
 
+function Set-DotEnvValue {
+    param([string]$Path, [string]$Name, [string]$Value)
+
+    $prefix = "$Name="
+    $utf8 = [Text.UTF8Encoding]::new($false, $true)
+    $lines = if (Test-Path -LiteralPath $Path) {
+        @([IO.File]::ReadAllLines($Path, $utf8))
+    } else {
+        @()
+    }
+    $updated = $false
+    $nextLines = @($lines | ForEach-Object {
+        if ($_.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+            $updated = $true
+            return "$prefix$Value"
+        }
+        return $_
+    })
+    if (-not $updated) {
+        $nextLines += "$prefix$Value"
+    }
+    $parent = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($parent)) {
+        [IO.Directory]::CreateDirectory($parent) | Out-Null
+    }
+    [IO.File]::WriteAllLines($Path, $nextLines, $utf8)
+}
+
+function Sync-MobileDevelopmentEnvironment {
+    param([string]$Path, [string]$ApiBaseUrl)
+
+    Set-DotEnvValue $Path 'VITE_INSPECTION_API_BASE_URL' $ApiBaseUrl
+    Set-DotEnvValue $Path 'VITE_INSPECTION_ALLOW_INSECURE_LAN_API' 'true'
+    Set-DotEnvValue $Path 'VITE_INSPECTION_ENABLE_LAN_DISCOVERY' 'true'
+}
+
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $composeFile = Join-Path $repositoryRoot 'infra\compose.yaml'
 if ([string]::IsNullOrWhiteSpace($EnvFile)) {
     $EnvFile = Join-Path $repositoryRoot '.env'
 }
+if ([string]::IsNullOrWhiteSpace($MobileEnvFile)) {
+    $MobileEnvFile = Join-Path $repositoryRoot 'apps\mobile\.env.development.local'
+}
 $resolvedEnvFile = (Resolve-Path -LiteralPath $EnvFile).Path
+$resolvedMobileEnvFile = [IO.Path]::GetFullPath($MobileEnvFile)
 $address = Resolve-LanIpv4 $LanAddress
 $appPort = Get-DotEnvValue $resolvedEnvFile 'INSPECTION_APP_PORT' '8080'
 $minioPort = Get-DotEnvValue $resolvedEnvFile 'INSPECTION_MINIO_API_PORT' '9000'
@@ -101,17 +142,21 @@ $minioPort = Get-DotEnvValue $resolvedEnvFile 'INSPECTION_MINIO_API_PORT' '9000'
 $plan = [pscustomobject]@{
     LanAddress = $address
     BackendBaseUrl = "http://${address}:$appPort"
+    MobileApiBaseUrl = "http://${address}:$appPort"
     MinioPublicEndpoint = "http://${address}:$minioPort"
     BackendBindAddress = '0.0.0.0'
     MinioBindAddress = '0.0.0.0'
     AppBindAddress = '127.0.0.1'
     EnvFile = $resolvedEnvFile
+    MobileEnvFile = $resolvedMobileEnvFile
     ComposeFile = $composeFile
 }
 
 if ($PlanOnly) {
     return $plan
 }
+
+Sync-MobileDevelopmentEnvironment -Path $plan.MobileEnvFile -ApiBaseUrl $plan.MobileApiBaseUrl
 
 $overrides = @{
     INSPECTION_APP_BIND_ADDRESS = $plan.AppBindAddress
@@ -128,6 +173,7 @@ try {
 
     Write-Host "LAN backend: $($plan.BackendBaseUrl)"
     Write-Host "LAN MinIO:   $($plan.MinioPublicEndpoint)"
+    Write-Host "Mobile API:  $($plan.MobileApiBaseUrl)"
     & $DockerPath compose --env-file $resolvedEnvFile -f $composeFile up -d --build
     if ($LASTEXITCODE -ne 0) {
         throw "Docker Compose failed with exit code $LASTEXITCODE."

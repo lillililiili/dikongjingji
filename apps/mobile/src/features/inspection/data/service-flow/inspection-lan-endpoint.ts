@@ -42,12 +42,12 @@ export function createInspectionLanEndpointResolver(
 async function resolveInspectionLanEndpoint(
   options: InspectionLanEndpointResolverOptions,
 ): Promise<string> {
-  const configured = parsePrivateHttpBaseUrl(options.configuredBaseUrl)
+  const configured = parseDiscoveryHttpBaseUrl(options.configuredBaseUrl)
   if (!options.enabled || !configured) return options.configuredBaseUrl
 
   const automaticCandidates: string[] = []
   const lastKnown = options.loadLastKnownBaseUrl()
-  if (lastKnown && parsePrivateHttpBaseUrl(lastKnown)) automaticCandidates.push(lastKnown)
+  if (lastKnown && parseDiscoveryHttpBaseUrl(lastKnown)) automaticCandidates.push(lastKnown)
   automaticCandidates.push(options.configuredBaseUrl)
 
   const localAddresses = await options.getPrivateIpv4Candidates()
@@ -141,13 +141,17 @@ function privateHostToBaseUrl(value: string, port: number): string | null {
   return isPrivateLanIpv4(host) ? `http://${host}:${port}` : null
 }
 
-function parsePrivateHttpBaseUrl(
+function parseDiscoveryHttpBaseUrl(
   value: string,
 ): { hostname: string; port: number } | null {
   const match = /^http:\/\/([^/:?#]+)(?::(\d+))?\/?$/i.exec(value.trim())
-  if (!match || !isPrivateLanIpv4(match[1])) return null
+  if (!match) return null
+  const hostname = match[1].toLowerCase()
+  if (hostname !== '127.0.0.1'
+    && hostname !== 'localhost'
+    && !isPrivateLanIpv4(hostname)) return null
   const port = match[2] ? Number(match[2]) : 80
-  return port >= 1 && port <= 65_535 ? { hostname: match[1], port } : null
+  return port >= 1 && port <= 65_535 ? { hostname, port } : null
 }
 
 function isPrivateLanIpv4(hostname: string): boolean {
