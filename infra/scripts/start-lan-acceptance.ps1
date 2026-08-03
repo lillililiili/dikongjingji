@@ -125,6 +125,13 @@ function Sync-MobileDevelopmentEnvironment {
     Set-DotEnvValue $Path 'VITE_INSPECTION_ENABLE_LAN_DISCOVERY' 'true'
 }
 
+function Sync-LanRuntimeEnvironment {
+    param([string]$Path, [string]$MinioPublicEndpoint)
+
+    # Persist the detected address so a later Docker restart cannot revive a stale Wi-Fi IP.
+    Set-DotEnvValue $Path 'INSPECTION_MINIO_PUBLIC_ENDPOINT' $MinioPublicEndpoint
+}
+
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $composeFile = Join-Path $repositoryRoot 'infra\compose.yaml'
 if ([string]::IsNullOrWhiteSpace($EnvFile)) {
@@ -158,6 +165,7 @@ if ($PlanOnly) {
 }
 
 Sync-MobileDevelopmentEnvironment -Path $plan.MobileEnvFile -ApiBaseUrl $plan.MobileApiBaseUrl
+Sync-LanRuntimeEnvironment -Path $plan.EnvFile -MinioPublicEndpoint $plan.MinioPublicEndpoint
 
 $overrides = @{
     INSPECTION_APP_BIND_ADDRESS = $plan.AppBindAddress

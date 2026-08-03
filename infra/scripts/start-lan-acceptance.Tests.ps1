@@ -24,6 +24,7 @@ try {
     @(
         'INSPECTION_APP_PORT=8080'
         'INSPECTION_MINIO_API_PORT=19000'
+        'CUSTOM_RUNTIME_SETTING=preserved'
     ) | Set-Content -LiteralPath $envFile
     $mobileEnvFile = Join-Path $temporaryRoot '.env.development.local'
     $expectedCityName = -join ([char]0x4E1C, [char]0x8425, [char]0x5E02)
@@ -43,6 +44,11 @@ try {
     Assert-Equal $plan.BackendBindAddress '0.0.0.0' 'Backend must be reachable from the LAN.'
     Assert-Equal $plan.MinioBindAddress '0.0.0.0' 'MinIO must be reachable from the LAN.'
     Assert-Equal $plan.AppBindAddress '127.0.0.1' 'PostgreSQL and Redis must stay on loopback.'
+
+    Sync-LanRuntimeEnvironment -Path $envFile -MinioPublicEndpoint $plan.MinioPublicEndpoint
+    $runtimeEnvLines = @([IO.File]::ReadAllLines($envFile))
+    Assert-ContainsLine $runtimeEnvLines 'INSPECTION_MINIO_PUBLIC_ENDPOINT=http://192.168.10.7:19000' 'The current LAN MinIO endpoint was not persisted for later Docker restarts.'
+    Assert-ContainsLine $runtimeEnvLines 'CUSTOM_RUNTIME_SETTING=preserved' 'Unrelated runtime environment values must be preserved.'
 
     Sync-MobileDevelopmentEnvironment -Path $mobileEnvFile -ApiBaseUrl $plan.MobileApiBaseUrl
     $mobileEnvText = [IO.File]::ReadAllText(

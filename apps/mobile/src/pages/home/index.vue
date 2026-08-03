@@ -5,7 +5,10 @@ import { ref } from 'vue'
 import { ROOT_TABS, type RootTabCode } from '@/app-shell/navigation/root-tabs'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { createPlatformHomePreviewContent } from '@/features/inspection/data/preview/platform-home-preview'
-import { inspectionCatalogApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
+import {
+  inspectionCatalogApi,
+  platformCityApi,
+} from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import PlatformHomePage from '@/features/inspection/presentation/platform/home/PlatformHomePage.vue'
 import {
   createPlatformHomeContentFromPortal,
@@ -14,6 +17,7 @@ import {
   type PlatformHomeServiceEntry,
   type PlatformHomeViewState,
 } from '@/features/inspection/presentation/platform/home/platform-home'
+import { findCityByLocatedName } from '@/shared/city/domain/city-directory'
 import {
   resolveLocatedCityName,
   useCurrentCityStore,
@@ -22,7 +26,6 @@ import {
 import {
   createCurrentCityWeatherLoader,
   createPlatformWeatherApi,
-  toPlatformWeatherPresentation,
   type PlatformWeatherPresentation,
 } from '@/shared/weather/platform-weather'
 import { createUniPlatformWeatherHttpClient } from '@/shared/weather/uni-platform-weather-http-client'
@@ -82,12 +85,18 @@ async function resolveCurrentCityContext(): Promise<{
   }
 
   try {
-    const weatherDto = await weatherApi.loadCurrentByCityName(locatedCityName)
-    const city = { code: weatherDto.cityCode, name: weatherDto.cityName }
+    const directory = await platformCityApi.load()
+    const locatedCity = findCityByLocatedName(directory, locatedCityName)
+    if (!locatedCity) throw new Error('CURRENT_CITY_UNAVAILABLE')
+    const city: CurrentCity = {
+      code: locatedCity.code,
+      name: locatedCity.name,
+      provinceCode: locatedCity.provinceCode,
+    }
     currentCityStore.setCurrentCity(city)
     return {
       city,
-      weather: toPlatformWeatherPresentation(weatherDto),
+      weather: await weatherLoader.load(city),
     }
   } catch {
     const city = restoreDefaultCity()

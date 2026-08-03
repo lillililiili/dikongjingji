@@ -108,8 +108,15 @@ describe('platform home presentation state', () => {
     expect(homeRouteSource).toContain("type: 'gcj02'")
     expect(homeRouteSource).toContain('geocode: true')
     expect(homeRouteSource).toContain('resolveLocatedCityName')
-    expect(homeRouteSource).toContain('loadCurrentByCityName')
-    expect(homeRouteSource).toContain('currentCityStore.setCurrentCity')
+    expect(homeRouteSource).toContain('platformCityApi.load()')
+    expect(homeRouteSource).toContain('findCityByLocatedName')
+    const resolvedCityIndex = homeRouteSource.indexOf('const directory = await platformCityApi.load()')
+    const storedCityIndex = homeRouteSource.indexOf('currentCityStore.setCurrentCity(city)', resolvedCityIndex)
+    const weatherIndex = homeRouteSource.indexOf('weather: await weatherLoader.load(city)', storedCityIndex)
+    expect(resolvedCityIndex).toBeGreaterThan(-1)
+    expect(storedCityIndex).toBeGreaterThan(resolvedCityIndex)
+    expect(weatherIndex).toBeGreaterThan(storedCityIndex)
+    expect(homeRouteSource).not.toContain('loadCurrentByCityName')
   })
 
   it('keeps the home usable when native location or weather lookup fails', () => {
