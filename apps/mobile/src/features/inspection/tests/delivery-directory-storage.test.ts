@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import interfaceSource from '../../../uni_modules/inspection-delivery-storage/utssdk/interface.uts?raw'
 import androidSource from '../../../uni_modules/inspection-delivery-storage/utssdk/app-android/index.uts?raw'
+import pageSource from '../presentation/delivery/pages/InspectionDeliveryPage.vue?raw'
 
 describe('Android delivery directory storage module', () => {
   it('exposes directory-pick and file-save contracts', () => {
@@ -29,5 +30,16 @@ describe('Android delivery directory storage module', () => {
     expect(androidSource).toMatch(
       /try \{\s+output\?\.close\(\)\s+\} finally \{\s+input\?\.close\(\)\s+\}/,
     )
+  })
+
+  it('injects the UTS storage bridge and coordinates selected-directory saves', () => {
+    expect(pageSource).toContain("from '@/uni_modules/inspection-delivery-storage'")
+    expect(pageSource).toContain('// #ifdef APP-PLUS')
+    expect(pageSource).toContain('// @ts-ignore The UTS module resolves its native implementation for each App platform.')
+    expect(pageSource).toContain('pick: pickInspectionDeliveryDirectory')
+    expect(pageSource).toContain('save: saveInspectionDeliveryFile')
+    expect(pageSource).toContain('executeDeliverySaveAction(')
+    expect(pageSource).toContain("title: '已取消保存'")
+    expect(pageSource).toContain("title: '全部文件压缩包已保存'")
   })
 })

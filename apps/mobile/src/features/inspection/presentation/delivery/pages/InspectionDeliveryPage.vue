@@ -5,15 +5,24 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import {
   createAcceptanceCoordinator,
   executeDeliveryFileAction,
+  executeDeliverySaveAction,
   type DeliveryFileAction,
   type DeliveryFileRuntime,
 } from '../../../application/service-flow/delivery-actions'
 import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
+// #ifdef APP-PLUS
+// @ts-ignore The UTS module resolves its native implementation for each App platform.
+import { pickInspectionDeliveryDirectory, saveInspectionDeliveryFile } from '@/uni_modules/inspection-delivery-storage'
+// #endif
 import type {
   InspectionDelivery,
   InspectionServiceOrder,
 } from '../../../data/service-flow/inspection-plan-api'
 import { inspectionPlanApi } from '../../../data/service-flow/uni-booking-http-client'
+import {
+  createDeliveryFileStorage,
+  type DeliveryDirectoryStorageBridge,
+} from '../../../data/service-flow/delivery-file-storage'
 import { buildInspectionOrderCenterUrl } from '../../../navigation/inspection-routes'
 import {
   resolveInspectionDeliveryBackAction,
@@ -32,6 +41,27 @@ const actionError = ref('')
 const isAccepting = ref(false)
 const activeFileAction = ref('')
 const acceptanceCoordinator = createAcceptanceCoordinator(createBookingUuid)
+const nonAppDeliveryStorageBridge: DeliveryDirectoryStorageBridge = {
+  pick(options) {
+    options.fail?.({
+      code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
+      errMsg: '当前平台不支持选择保存目录',
+    })
+  },
+  save(options) {
+    options.fail?.({
+      code: 'DELIVERY_FILE_WRITE_FAILED',
+      errMsg: '当前平台不支持目录保存',
+    })
+  },
+}
+let deliveryFileStorage = createDeliveryFileStorage(nonAppDeliveryStorageBridge)
+// #ifdef APP-PLUS
+deliveryFileStorage = createDeliveryFileStorage({
+  pick: pickInspectionDeliveryDirectory,
+  save: saveInspectionDeliveryFile,
+})
+// #endif
 
 const isAccepted = computed(() => delivery.value?.status === 'ACCEPTED')
 const deliveryStages = ['服务安排', '现场巡检', '报告交付']
@@ -62,6 +92,9 @@ const serviceProgress = computed(() => {
 })
 
 const deliveryFileRuntime: DeliveryFileRuntime = {
+  pickSaveTarget() {
+    return deliveryFileStorage.pickSaveTarget()
+  },
   download(url) {
     return new Promise((resolve, reject) => {
       uni.downloadFile({
@@ -87,20 +120,8 @@ const deliveryFileRuntime: DeliveryFileRuntime = {
       })
     })
   },
-  save(filePath, suggestedFileName) {
-    return new Promise((resolve, reject) => {
-      uni.saveFile({
-        tempFilePath: filePath,
-        success: ({ savedFilePath }) => {
-          if (!savedFilePath) {
-            reject(new Error('文件保存失败，请检查设备存储权限'))
-            return
-          }
-          resolve(savedFilePath)
-        },
-        fail: () => reject(new Error(`${suggestedFileName} 保存失败，请检查设备存储权限`)),
-      })
-    })
+  save(filePath, suggestedFileName, target) {
+    return deliveryFileStorage.save(filePath, suggestedFileName, target)
   },
 }
 
@@ -143,20 +164,35 @@ async function runFileAction(file: DeliveryFile, action: DeliveryFileAction): Pr
   activeFileAction.value = `${file.fileId}:${action}`
   actionError.value = ''
   try {
+    if (action === 'SAVE') {
+      const outcome = await executeDeliverySaveAction(
+        () => inspectionPlanApi.createDownloadIntent(
+          serviceOrderId.value,
+          file.fileId,
+          createBookingUuid(),
+        ),
+        file.type,
+        deliveryFileRuntime,
+      )
+      if (outcome.status === 'CANCELLED') {
+        uni.showToast({ title: '已取消保存', icon: 'none' })
+        return
+      }
+      showSavedName(outcome.savedName)
+      return
+    }
+
     const intent = await inspectionPlanApi.createDownloadIntent(
       serviceOrderId.value,
       file.fileId,
       createBookingUuid(),
     )
-    const savedPath = await executeDeliveryFileAction(
+    await executeDeliveryFileAction(
       intent,
       action,
       file.type,
       deliveryFileRuntime,
     )
-    if (savedPath) {
-      uni.showToast({ title: '文件已保存', icon: 'success' })
-    }
   } catch (error) {
     actionError.value = messageOf(error, '文件处理失败，请重试')
   } finally {
@@ -169,17 +205,19 @@ async function downloadAll(): Promise<void> {
   activeFileAction.value = 'all:SAVE'
   actionError.value = ''
   try {
-    const intent = await inspectionPlanApi.createDownloadAllIntent(
-      serviceOrderId.value,
-      createBookingUuid(),
-    )
-    await executeDeliveryFileAction(
-      intent,
-      'SAVE',
+    const outcome = await executeDeliverySaveAction(
+      () => inspectionPlanApi.createDownloadAllIntent(
+        serviceOrderId.value,
+        createBookingUuid(),
+      ),
       'IMAGE_ARCHIVE',
       deliveryFileRuntime,
     )
-    uni.showToast({ title: '全部文件已保存', icon: 'success' })
+    if (outcome.status === 'CANCELLED') {
+      uni.showToast({ title: '已取消保存', icon: 'none' })
+      return
+    }
+    showAllSavedName(outcome.savedName)
   } catch (error) {
     actionError.value = messageOf(error, '全部文件保存失败，请重试')
   } finally {
@@ -224,6 +262,34 @@ function showCustomerService(): void {
 }
 function copyOrderNo(): void {
   if (order.value) uni.setClipboardData({ data: order.value.serviceOrderNo })
+}
+function showSavedPath(savedPath: string): void {
+  uni.showToast({
+    title: savedPath.startsWith('Download/') ? '已保存至 Download/巡检交付' : '文件已保存',
+    icon: 'none',
+    duration: 2500,
+  })
+}
+function isAndroidApp(): boolean {
+  return typeof plus !== 'undefined' && plus.os.name === 'Android'
+}
+function showSavedName(savedName: string): void {
+  if (!isAndroidApp()) {
+    showSavedPath(savedName)
+    return
+  }
+  uni.showToast({ title: `${savedName} 已保存`, icon: 'none', duration: 2500 })
+}
+function showAllSavedName(savedName: string): void {
+  if (!isAndroidApp()) {
+    showSavedPath(savedName)
+    return
+  }
+  uni.showToast({
+    title: '全部文件压缩包已保存' + `：${savedName}`,
+    icon: 'none',
+    duration: 2500,
+  })
 }
 function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback

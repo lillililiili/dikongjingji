@@ -99,12 +99,3 @@ export function createDeliveryFileStorage(
     },
   }
 }
-
-export async function saveDeliveryFile(
-  temporaryPath: string,
-  suggestedFileName: string,
-): Promise<string> {
-  // Temporary compatibility export until Task3 injects the UTS bridge from the delivery page.
-  sanitizeFileName(suggestedFileName)
-  return saveToApplicationStorage(temporaryPath)
-}

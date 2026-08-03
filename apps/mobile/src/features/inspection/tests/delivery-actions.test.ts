@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createAcceptanceCoordinator,
   executeDeliveryFileAction,
+  executeDeliverySaveAction,
   type DeliveryFileRuntime,
 } from '../application/service-flow/delivery-actions'
 import type {
@@ -34,6 +35,53 @@ describe('F07 acceptance retry', () => {
 })
 
 describe('F07 controlled file actions', () => {
+  it('does not create a download intent when directory selection is cancelled', async () => {
+    const createIntent = vi.fn(async () => intent('images.zip'))
+    const runtime = runtimeWith({ pickSaveTarget: async () => null })
+
+    await expect(executeDeliverySaveAction(createIntent, 'IMAGE_ARCHIVE', runtime))
+      .resolves.toEqual({ status: 'CANCELLED' })
+
+    expect(createIntent).not.toHaveBeenCalled()
+    expect(runtime.savedPaths).toEqual([])
+  })
+
+  it('selects, requests, downloads and saves in that order', async () => {
+    const order: string[] = []
+    const target = { kind: 'ANDROID_TREE', directoryUri: 'content://tree/selected' } as const
+    const runtime = runtimeWith({
+      pickSaveTarget: async () => { order.push('pick'); return target },
+      download: async () => { order.push('download'); return '/tmp/file' },
+      save: async (_path, _name, receivedTarget) => {
+        order.push('save')
+        expect(receivedTarget).toEqual(target)
+        return 'images.zip'
+      },
+    })
+    const createIntent = async () => { order.push('intent'); return intent('images.zip') }
+
+    await expect(executeDeliverySaveAction(createIntent, 'IMAGE_ARCHIVE', runtime))
+      .resolves.toEqual({ status: 'SAVED', savedName: 'images.zip' })
+
+    expect(order).toEqual(['pick', 'intent', 'download', 'save'])
+  })
+
+  it('does not create an output document when the network download fails', async () => {
+    const save = vi.fn(async () => 'unexpected.zip')
+    const runtime = runtimeWith({
+      download: async () => { throw new Error('network failed') },
+      save,
+    })
+
+    await expect(executeDeliverySaveAction(
+      async () => intent('images.zip'),
+      'IMAGE_ARCHIVE',
+      runtime,
+    )).rejects.toThrow('network failed')
+
+    expect(save).not.toHaveBeenCalled()
+  })
+
   it('reports a PDF preview failure instead of claiming success', async () => {
     const runtime = runtimeWith({
       preview: async () => { throw new Error('preview unsupported') },
@@ -53,6 +101,7 @@ describe('F07 controlled file actions', () => {
         'SAVE',
         fileType,
         runtime,
+        { kind: 'APPLICATION_STORAGE' },
       )).resolves.toBe('/saved/delivery-file')
       expect(runtime.savedPaths).toEqual(['/tmp/delivery-file'])
     },
@@ -65,6 +114,7 @@ describe('F07 controlled file actions', () => {
 
     await expect(executeDeliveryFileAction(
       intent('all-files.zip'), 'SAVE', 'IMAGE_ARCHIVE', runtime,
+      { kind: 'APPLICATION_STORAGE' },
     )).rejects.toThrow('save failed')
   })
 })
@@ -73,6 +123,7 @@ function runtimeWith(overrides: Partial<DeliveryFileRuntime>): DeliveryFileRunti
   const savedPaths: string[] = []
   return {
     savedPaths,
+    pickSaveTarget: async () => ({ kind: 'APPLICATION_STORAGE' }),
     download: async () => '/tmp/delivery-file',
     preview: async () => undefined,
     save: async (path) => { savedPaths.push(path); return '/saved/delivery-file' },
