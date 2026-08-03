@@ -1,0 +1,18 @@
+import {
+  PickInspectionDeliveryDirectory,
+  SaveInspectionDeliveryFile,
+} from '../interface.uts'
+
+export const pickInspectionDeliveryDirectory: PickInspectionDeliveryDirectory = function (options): void {
+  options.fail?.({
+    code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
+    errMsg: '当前平台不支持选择交付文件夹',
+  })
+}
+
+export const saveInspectionDeliveryFile: SaveInspectionDeliveryFile = function (options): void {
+  options.fail?.({
+    code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
+    errMsg: '当前平台不支持写入所选文件夹',
+  })
+}

@@ -1,0 +1,14 @@
+{
+  "id": "inspection-delivery-storage",
+  "displayName": "Inspection delivery storage",
+  "version": "1.0.0",
+  "description": "Repository-owned Android delivery directory storage for inspection files.",
+  "keywords": ["inspection", "delivery", "storage", "uts"],
+  "engines": {
+    "HBuilderX": "^3.6.8",
+    "uni-app": "^3.6.8"
+  },
+  "dcloudext": {
+    "type": "uts"
+  }
+}
