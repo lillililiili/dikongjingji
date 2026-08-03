@@ -39,6 +39,15 @@ function storageError(code: string, message: string): Error {
   return new Error(`${code}: ${message}`)
 }
 
+function deleteTemporarySource(sourcePath: string): void {
+  try {
+    const source = new File(sourcePath)
+    if (source.isFile()) source.delete()
+  } catch (_) {
+    // This internal API only receives the current uni.downloadFile temporary source.
+  }
+}
+
 function queryDisplayNames(
   resolver: ContentResolver,
   treeUri: Uri,
@@ -191,6 +200,7 @@ export const pickInspectionDeliveryDirectory: PickInspectionDeliveryDirectory = 
     })
   }
   destroyListener = () => {
+    if (completed) return
     finish()
     runOnMain(() => {
       options.fail?.({
@@ -246,6 +256,8 @@ export const saveInspectionDeliveryFile: SaveInspectionDeliveryFile = function (
       runOnMain(() => {
         options.fail?.(failure)
       })
+    } finally {
+      deleteTemporarySource(options.sourcePath)
     }
   })
 }

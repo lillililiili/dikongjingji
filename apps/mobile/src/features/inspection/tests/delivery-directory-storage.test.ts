@@ -24,6 +24,21 @@ describe('Android delivery directory storage module', () => {
     expect(androidSource).toContain("'DELIVERY_FILE_WRITE_FAILED'")
   })
 
+  it('guards temporary-source cleanup after every native copy attempt', () => {
+    expect(androidSource).toMatch(
+      /function deleteTemporarySource\(sourcePath: string\): void[\s\S]*new File\(sourcePath\)[\s\S]*source\.delete\(\)/,
+    )
+    expect(androidSource).toMatch(
+      /UTSAndroid\.getDispatcher\('io'\)\.async[\s\S]*finally \{\s*deleteTemporarySource\(options\.sourcePath\)\s*\}/,
+    )
+  })
+
+  it('guards the destroy callback after another picker result completed', () => {
+    expect(androidSource).toMatch(
+      /destroyListener = \(\) => \{\s*if \(completed\) return\s*finish\(\)/,
+    )
+  })
+
   it('closes each write stream even when its sibling close fails', () => {
     expect(androidSource).toContain('let input: FileInputStream | null = null')
     expect(androidSource).toContain('let output: OutputStream | null = null')
