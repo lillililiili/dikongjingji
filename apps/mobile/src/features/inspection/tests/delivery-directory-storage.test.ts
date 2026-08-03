@@ -22,4 +22,12 @@ describe('Android delivery directory storage module', () => {
     expect(androidSource).toContain('uniqueDisplayName')
     expect(androidSource).toContain("'DELIVERY_FILE_WRITE_FAILED'")
   })
+
+  it('closes each write stream even when its sibling close fails', () => {
+    expect(androidSource).toContain('let input: FileInputStream | null = null')
+    expect(androidSource).toContain('let output: OutputStream | null = null')
+    expect(androidSource).toMatch(
+      /try \{\s+output\?\.close\(\)\s+\} finally \{\s+input\?\.close\(\)\s+\}/,
+    )
+  })
 })

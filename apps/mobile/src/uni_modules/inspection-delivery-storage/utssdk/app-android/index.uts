@@ -6,6 +6,7 @@ import DocumentsContract from 'android.provider.DocumentsContract'
 import Document from 'android.provider.DocumentsContract.Document'
 import File from 'java.io.File'
 import FileInputStream from 'java.io.FileInputStream'
+import OutputStream from 'java.io.OutputStream'
 
 import {
   InspectionDeliveryStorageError,
@@ -91,13 +92,14 @@ function copyToDirectory(options: SaveInspectionDeliveryFileOptions): SaveInspec
     throw storageError('DELIVERY_DIRECTORY_NOT_WRITABLE', '该文件夹不可写，请重新选择')
   }
   try {
-    const input = new FileInputStream(source)
-    const output = resolver.openOutputStream(documentUri, 'w')
-    if (output == null) {
-      input.close()
-      throw storageError('DELIVERY_FILE_WRITE_FAILED', '文件写入失败，请重试')
-    }
+    let input: FileInputStream | null = null
+    let output: OutputStream | null = null
     try {
+      input = new FileInputStream(source)
+      output = resolver.openOutputStream(documentUri, 'w')
+      if (output == null) {
+        throw storageError('DELIVERY_FILE_WRITE_FAILED', '文件写入失败，请重试')
+      }
       const buffer = new ByteArray(8_192)
       let count = input.read(buffer)
       while (count > 0) {
@@ -106,8 +108,11 @@ function copyToDirectory(options: SaveInspectionDeliveryFileOptions): SaveInspec
       }
       output.flush()
     } finally {
-      output.close()
-      input.close()
+      try {
+        output?.close()
+      } finally {
+        input?.close()
+      }
     }
     return { finalDisplayName: displayName }
   } catch (error) {
