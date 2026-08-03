@@ -23,8 +23,7 @@ export const DEVELOPMENT_POWER_CATALOG: InspectionCatalogContent = {
         unitLabel: '公里起',
       },
       rating: 4.9,
-      servedCountLabel: '已服务 8,560+',
-      distanceKm: 2.4,
+      completedCount: 8560,
     },
     {
       id: 'power-substation-smart',
@@ -44,8 +43,7 @@ export const DEVELOPMENT_POWER_CATALOG: InspectionCatalogContent = {
         unitLabel: '人次起',
       },
       rating: 4.9,
-      servedCountLabel: '已服务 6,230+',
-      distanceKm: 5.8,
+      completedCount: 6230,
     },
     {
       id: 'power-distribution-uav',
@@ -65,8 +63,7 @@ export const DEVELOPMENT_POWER_CATALOG: InspectionCatalogContent = {
         unitLabel: '公里起',
       },
       rating: 4.8,
-      servedCountLabel: '已服务 5,420+',
-      distanceKm: 3.1,
+      completedCount: 5420,
     },
     {
       id: 'power-cable-tunnel',
@@ -86,8 +83,7 @@ export const DEVELOPMENT_POWER_CATALOG: InspectionCatalogContent = {
         unitLabel: '次起',
       },
       rating: 4.9,
-      servedCountLabel: '已服务 7,310+',
-      distanceKm: 4.6,
+      completedCount: 7310,
     },
     {
       id: 'power-photovoltaic-uav',
@@ -107,8 +103,7 @@ export const DEVELOPMENT_POWER_CATALOG: InspectionCatalogContent = {
         unitLabel: '次起',
       },
       rating: 4.8,
-      servedCountLabel: '已服务 3,210+',
-      distanceKm: 8.2,
+      completedCount: 3210,
     },
   ],
 }

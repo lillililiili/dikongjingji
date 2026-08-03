@@ -21,11 +21,10 @@ const ROOT_PAGE_SOURCES = [
   servicePageSource,
   discoverPageSource,
   mallPageSource,
-  minePageSource,
 ]
 
 describe('root page AppHeader consistency', () => {
-  it('renders the same AppHeader component on all five root pages', () => {
+  it('renders the shared AppHeader on four public root pages and omits it on Mine', () => {
     for (const source of ROOT_PAGE_SOURCES) {
       expect(source).toContain("AppHeader")
       expect(source).toContain('<AppHeader')
@@ -35,6 +34,8 @@ describe('root page AppHeader consistency', () => {
     expect(servicePageSource).not.toContain('platform-service-header')
     expect(discoverPageSource).not.toContain('PlatformPageHeader')
     expect(mallPageSource).not.toContain('PlatformPageHeader')
+    expect(minePageSource).not.toContain('AppHeader')
+    expect(minePageSource).not.toContain('<AppHeader')
   })
 
   it('owns every measurable header token inside AppHeader', () => {

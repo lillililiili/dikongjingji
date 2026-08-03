@@ -20,20 +20,33 @@ public final class InspectionServiceCatalogReadService {
 
     public InspectionServicePageView search(
             String cityCode,
+            String categoryCode,
+            String sortCode,
             int page,
             int size
     ) {
+        String normalizedCategory = categoryCode == null || categoryCode.isBlank()
+                ? "ALL"
+                : categoryCode.trim();
         if (cityCode == null
                 || !cityCode.matches("^[A-Z0-9]{4,16}$")
+                || !normalizedCategory.matches("^[A-Z0-9_]{2,64}$")
                 || page < 1
                 || size < 1
                 || size > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("catalog query is invalid");
         }
-        long total = store.countActive(cityCode);
+        InspectionCatalogSort sort = InspectionCatalogSort.parse(sortCode);
+        long total = store.countActive(cityCode, normalizedCategory);
         int offset = Math.multiplyExact(page - 1, size);
         List<InspectionServiceCardView> items =
-                store.findActivePage(cityCode, size, offset).stream()
+                store.findActivePage(
+                                cityCode,
+                                normalizedCategory,
+                                sort,
+                                size,
+                                offset)
+                        .stream()
                         .map(this::toView)
                         .toList();
         return new InspectionServicePageView(
@@ -131,7 +144,8 @@ public final class InspectionServiceCatalogReadService {
                         row.unitCode(),
                         row.unitLabel()),
                 row.availability(),
-                row.primaryAction());
+                row.primaryAction(),
+                row.completedCount());
     }
 
     private static MediaAssetView secureCover(String coverUrl, String name) {
@@ -170,12 +184,31 @@ public final class InspectionServiceCatalogReadService {
     }
 }
 
+enum InspectionCatalogSort {
+    COMPREHENSIVE,
+    SALES_DESC,
+    PRICE_ASC,
+    PRICE_DESC;
+
+    static InspectionCatalogSort parse(String value) {
+        try {
+            return value == null || value.isBlank()
+                    ? COMPREHENSIVE
+                    : valueOf(value.trim());
+        } catch (IllegalArgumentException invalid) {
+            throw new IllegalArgumentException("catalog sort is invalid");
+        }
+    }
+}
+
 interface InspectionServiceCatalogReadStore {
 
-    long countActive(String cityCode);
+    long countActive(String cityCode, String categoryCode);
 
     List<StoredInspectionServiceCard> findActivePage(
             String cityCode,
+            String categoryCode,
+            InspectionCatalogSort sort,
             int limit,
             int offset
     );
@@ -229,7 +262,8 @@ record StoredInspectionServiceCard(
         String unitCode,
         String unitLabel,
         String availability,
-        String primaryAction
+        String primaryAction,
+        long completedCount
 ) {
 }
 
@@ -252,7 +286,8 @@ record InspectionServiceCardView(
         List<CodeNameView> features,
         ServicePriceView price,
         String availability,
-        String primaryAction
+        String primaryAction,
+        long completedCount
 ) {
 }
 

@@ -18,16 +18,21 @@ class InspectionServiceCatalogReadServiceTest {
         InspectionServiceCatalogReadService service =
                 new InspectionServiceCatalogReadService(new InspectionServiceCatalogReadStore() {
                     @Override
-                    public long countActive(String cityCode) {
+                    public long countActive(String cityCode, String categoryCode) {
+                        assertThat(categoryCode).isEqualTo("POWER");
                         return 1;
                     }
 
                     @Override
                     public List<StoredInspectionServiceCard> findActivePage(
                             String cityCode,
+                            String categoryCode,
+                            InspectionCatalogSort sort,
                             int limit,
                             int offset
                     ) {
+                        assertThat(categoryCode).isEqualTo("POWER");
+                        assertThat(sort).isEqualTo(InspectionCatalogSort.SALES_DESC);
                         return List.of(new StoredInspectionServiceCard(
                                 serviceId,
                                 "INS-SVC-001",
@@ -45,11 +50,13 @@ class InspectionServiceCatalogReadServiceTest {
                                 "VISIT",
                                 "次",
                                 "RESERVABLE",
-                                "RESERVE"));
+                                "RESERVE",
+                                8_560L));
                     }
                 });
 
-        InspectionServicePageView page = service.search("370500", 1, 20);
+        InspectionServicePageView page = service.search(
+                "370500", "POWER", "SALES_DESC", 1, 20);
 
         assertThat(page.total()).isEqualTo(1);
         assertThat(page.hasMore()).isFalse();
@@ -59,6 +66,7 @@ class InspectionServiceCatalogReadServiceTest {
             assertThat(card.features()).containsExactly(
                     new CodeNameView("POWER_LINE", "输电线路"));
             assertThat(card.price().startingAmountMinor()).isEqualTo(120_000L);
+            assertThat(card.completedCount()).isEqualTo(8_560L);
         });
     }
 
@@ -67,11 +75,17 @@ class InspectionServiceCatalogReadServiceTest {
         InspectionServiceCatalogReadService service =
                 new InspectionServiceCatalogReadService(new EmptyCatalogStore());
 
-        assertThatThrownBy(() -> service.search("../bad", 1, 20))
+        assertThatThrownBy(() -> service.search(
+                "../bad", "POWER", "COMPREHENSIVE", 1, 20))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> service.search("370500", 0, 20))
+        assertThatThrownBy(() -> service.search(
+                "370500", "POWER", "COMPREHENSIVE", 0, 20))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> service.search("370500", 1, 51))
+        assertThatThrownBy(() -> service.search(
+                "370500", "POWER", "COMPREHENSIVE", 1, 51))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.search(
+                "370500", "POWER", "DROP TABLE", 1, 20))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -178,13 +192,15 @@ class InspectionServiceCatalogReadServiceTest {
 final class EmptyCatalogStore implements InspectionServiceCatalogReadStore {
 
     @Override
-    public long countActive(String cityCode) {
+    public long countActive(String cityCode, String categoryCode) {
         return 0;
     }
 
     @Override
     public List<StoredInspectionServiceCard> findActivePage(
             String cityCode,
+            String categoryCode,
+            InspectionCatalogSort sort,
             int limit,
             int offset
     ) {
@@ -232,13 +248,15 @@ final class DetailCatalogStore implements InspectionServiceCatalogReadStore {
     }
 
     @Override
-    public long countActive(String cityCode) {
+    public long countActive(String cityCode, String categoryCode) {
         return 0;
     }
 
     @Override
     public List<StoredInspectionServiceCard> findActivePage(
             String cityCode,
+            String categoryCode,
+            InspectionCatalogSort sort,
             int limit,
             int offset
     ) {

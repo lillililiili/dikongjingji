@@ -61,11 +61,11 @@ function nextPriceSort(sort: CatalogSort): CatalogSort {
       <button
         class="catalog-sort__item"
         :class="{
-          'catalog-sort__item--active': sort === 'DISTANCE_ASC',
+          'catalog-sort__item--active': sort === 'SALES_DESC',
         }"
-        @click="$emit('sort', 'DISTANCE_ASC')"
+        @click="$emit('sort', 'SALES_DESC')"
       >
-        <text>距离最近</text>
+        <text>销量</text>
         <UniIcons type="down" size="10" color="currentColor" />
       </button>
       <button

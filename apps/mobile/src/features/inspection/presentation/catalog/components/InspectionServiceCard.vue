@@ -4,6 +4,7 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 
 import {
   formatCatalogPrice,
+  formatCompletedCount,
   type InspectionCatalogService,
 } from '../model/inspection-catalog'
 
@@ -17,6 +18,11 @@ defineEmits<{
 
 const displayPrice = computed(() =>
   formatCatalogPrice(props.service.price),
+)
+const completedCountLabel = computed(() =>
+  props.service.completedCount === undefined
+    ? ''
+    : formatCompletedCount(props.service.completedCount),
 )
 </script>
 
@@ -78,7 +84,7 @@ const displayPrice = computed(() =>
           <view
             v-if="
               service.rating !== undefined ||
-              service.servedCountLabel
+              service.completedCount !== undefined
             "
             class="inspection-card__stats"
           >
@@ -90,8 +96,8 @@ const displayPrice = computed(() =>
               />
               <text>{{ service.rating.toFixed(1) }}</text>
             </template>
-            <text v-if="service.servedCountLabel">
-              {{ service.servedCountLabel }}
+            <text v-if="completedCountLabel">
+              {{ completedCountLabel }}
             </text>
           </view>
         </view>

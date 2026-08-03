@@ -15,7 +15,8 @@ INSERT INTO inspection_service (
     unit_code,
     unit_label,
     availability,
-    primary_action
+    primary_action,
+    completed_count
 ) VALUES
     (
         '33333333-3333-3333-3333-333333333333',
@@ -34,7 +35,8 @@ INSERT INTO inspection_service (
         'KM',
         '公里',
         'RESERVABLE',
-        'RESERVE'
+        'RESERVE',
+        8560
     ),
     (
         '44444444-4444-4444-4444-444444444444',
@@ -53,7 +55,8 @@ INSERT INTO inspection_service (
         'VISIT',
         '次',
         'RESERVABLE',
-        'RESERVE'
+        'RESERVE',
+        0
     ),
     (
         '55555555-5555-5555-5555-555555555555',
@@ -72,7 +75,8 @@ INSERT INTO inspection_service (
         'VISIT',
         '次',
         'AVAILABLE',
-        'CONSULT'
+        'CONSULT',
+        0
     ),
     (
         '66666666-6666-6666-6666-666666666666',
@@ -91,7 +95,8 @@ INSERT INTO inspection_service (
         'VISIT',
         '次',
         'RESERVABLE',
-        'RESERVE'
+        'RESERVE',
+        3210
     ),
     (
         '77777777-7777-7777-7777-777777777777',
@@ -110,7 +115,68 @@ INSERT INTO inspection_service (
         NULL,
         NULL,
         'AVAILABLE',
-        'REQUEST_QUOTE'
+        'REQUEST_QUOTE',
+        0
+    ),
+    (
+        '88888888-8888-4888-8888-888888888888',
+        '22222222-2222-2222-2222-222222222222',
+        '变电站智能巡检',
+        NULL,
+        '370500',
+        'ACTIVE',
+        'INS-SVC-DEV-SUBSTATION',
+        'SUBSTATION',
+        '变电站',
+        '设备测温 · 表计识别 · 异常检测',
+        'PER_VISIT',
+        89900,
+        'CNY',
+        'VISIT',
+        '次',
+        'RESERVABLE',
+        'RESERVE',
+        6230
+    ),
+    (
+        '99999999-9999-4999-8999-999999999999',
+        '22222222-2222-2222-2222-222222222222',
+        '配电网无人机巡检',
+        NULL,
+        '370500',
+        'ACTIVE',
+        'INS-SVC-DEV-DISTRIBUTION',
+        'DISTRIBUTION',
+        '配电网',
+        '杆塔巡检 · 通道检测 · 隐患排查',
+        'PER_DISTANCE',
+        59900,
+        'CNY',
+        'KM',
+        '公里',
+        'RESERVABLE',
+        'RESERVE',
+        5420
+    ),
+    (
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '22222222-2222-2222-2222-222222222222',
+        '电缆通道巡检',
+        NULL,
+        '370500',
+        'ACTIVE',
+        'INS-SVC-DEV-CABLE',
+        'CABLE',
+        '电缆',
+        '通道巡检 · 局放检测 · 环境监测',
+        'PER_VISIT',
+        79900,
+        'CNY',
+        'VISIT',
+        '次',
+        'RESERVABLE',
+        'RESERVE',
+        7310
     )
 ON CONFLICT (id) DO UPDATE
 SET provider_id = EXCLUDED.provider_id,
@@ -129,6 +195,7 @@ SET provider_id = EXCLUDED.provider_id,
     unit_label = EXCLUDED.unit_label,
     availability = EXCLUDED.availability,
     primary_action = EXCLUDED.primary_action,
+    completed_count = EXCLUDED.completed_count,
     updated_at = now();
 
 INSERT INTO inspection_service_city (
@@ -147,7 +214,13 @@ FROM (
         ('66666666-6666-6666-6666-666666666666'::uuid, '370500'),
         ('66666666-6666-6666-6666-666666666666'::uuid, '370100'),
         ('77777777-7777-7777-7777-777777777777'::uuid, '370500'),
-        ('77777777-7777-7777-7777-777777777777'::uuid, '370100')
+        ('77777777-7777-7777-7777-777777777777'::uuid, '370100'),
+        ('88888888-8888-4888-8888-888888888888'::uuid, '370500'),
+        ('88888888-8888-4888-8888-888888888888'::uuid, '370100'),
+        ('99999999-9999-4999-8999-999999999999'::uuid, '370500'),
+        ('99999999-9999-4999-8999-999999999999'::uuid, '370100'),
+        ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid, '370500'),
+        ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid, '370100')
 ) coverage(service_id, city_code)
 ON CONFLICT (service_id, city_code) DO UPDATE
 SET status = 'ACTIVE',
@@ -174,6 +247,27 @@ INSERT INTO inspection_service_booking_item (
     ('77777777-7777-7777-7777-777777777777', 'SECURITY', '安防巡查', 10),
     ('77777777-7777-7777-7777-777777777777', 'EQUIPMENT', '设备巡检', 20),
     ('77777777-7777-7777-7777-777777777777', 'ENVIRONMENT', '环境监测', 30)
+ON CONFLICT (service_id, item_code) DO UPDATE
+SET item_label = EXCLUDED.item_label,
+    display_order = EXCLUDED.display_order,
+    status = 'ACTIVE',
+    updated_at = now();
+
+INSERT INTO inspection_service_booking_item (
+    service_id,
+    item_code,
+    item_label,
+    display_order
+) VALUES
+    ('88888888-8888-4888-8888-888888888888', 'THERMAL_IMAGING', '红外测温', 10),
+    ('88888888-8888-4888-8888-888888888888', 'METER_READING', '表计识别', 20),
+    ('88888888-8888-4888-8888-888888888888', 'EQUIPMENT_DIAGNOSIS', '设备诊断', 30),
+    ('99999999-9999-4999-8999-999999999999', 'POLE_TOWER', '杆塔巡检', 10),
+    ('99999999-9999-4999-8999-999999999999', 'CHANNEL', '通道检测', 20),
+    ('99999999-9999-4999-8999-999999999999', 'HAZARD', '隐患排查', 30),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'TUNNEL', '通道巡检', 10),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'PARTIAL_DISCHARGE', '局放检测', 20),
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'ENVIRONMENT', '环境监测', 30)
 ON CONFLICT (service_id, item_code) DO UPDATE
 SET item_label = EXCLUDED.item_label,
     display_order = EXCLUDED.display_order,

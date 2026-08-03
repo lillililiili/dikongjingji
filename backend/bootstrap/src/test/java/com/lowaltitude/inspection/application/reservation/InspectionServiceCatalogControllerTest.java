@@ -1,6 +1,7 @@
 package com.lowaltitude.inspection.application.reservation;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,6 +54,43 @@ class InspectionServiceCatalogControllerTest {
                         .param("cityCode", "370500"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
+    }
+
+    @Test
+    void forwardsPowerSalesSortAndReturnsCompletedCount() throws Exception {
+        UUID serviceId = UUID.randomUUID();
+        when(service.search("370500", "POWER", "SALES_DESC", 1, 20))
+                .thenReturn(new InspectionServicePageView(
+                        1,
+                        20,
+                        1,
+                        false,
+                        List.of(new InspectionServiceCardView(
+                                serviceId,
+                                "INS-SVC-001",
+                                new CodeNameView("POWER", "输电线路"),
+                                "输电线路无人机巡检",
+                                "杆塔与线路巡检",
+                                null,
+                                List.of(),
+                                new ServicePriceView(
+                                        "STARTING_PRICE",
+                                        69_900L,
+                                        "CNY",
+                                        "KM",
+                                        "公里"),
+                                "RESERVABLE",
+                                "RESERVE",
+                                8_560L))));
+
+        mockMvc.perform(get("/api/v1/inspection/services")
+                        .param("cityCode", "370500")
+                        .param("categoryCode", "POWER")
+                        .param("sort", "SALES_DESC"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].completedCount").value(8560));
+
+        verify(service).search("370500", "POWER", "SALES_DESC", 1, 20);
     }
 
     private static InspectionServiceDetailView detail(UUID serviceId) {

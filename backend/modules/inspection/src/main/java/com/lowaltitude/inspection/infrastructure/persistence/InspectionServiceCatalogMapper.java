@@ -26,6 +26,18 @@ public interface InspectionServiceCatalogMapper {
                   price_mode = 'PROJECT_QUOTE'
                   OR starting_amount_minor IS NOT NULL
               )
+              AND (
+                  #{categoryCode} = 'ALL'
+                  OR (#{categoryCode} = 'POWER' AND category_code IN (
+                      'POWER',
+                      'SUBSTATION',
+                      'DISTRIBUTION',
+                      'CABLE',
+                      'PHOTOVOLTAIC'
+                  ))
+                  OR (#{categoryCode} != 'POWER'
+                      AND category_code = #{categoryCode})
+              )
               AND EXISTS (
                   SELECT 1
                   FROM inspection_service_city coverage
@@ -40,9 +52,13 @@ public interface InspectionServiceCatalogMapper {
                     AND item.status = 'ACTIVE'
               )
             """)
-    long countActive(@Param("cityCode") String cityCode);
+    long countActive(
+            @Param("cityCode") String cityCode,
+            @Param("categoryCode") String categoryCode
+    );
 
     @Select("""
+            <script>
             SELECT id service_id,
                    service_no,
                    category_code,
@@ -56,7 +72,8 @@ public interface InspectionServiceCatalogMapper {
                    unit_code,
                    unit_label,
                    availability,
-                   primary_action
+                   primary_action,
+                   completed_count
             FROM inspection_service
             WHERE status = 'ACTIVE'
               AND service_no IS NOT NULL
@@ -71,6 +88,18 @@ public interface InspectionServiceCatalogMapper {
                   price_mode = 'PROJECT_QUOTE'
                   OR starting_amount_minor IS NOT NULL
               )
+              AND (
+                  #{categoryCode} = 'ALL'
+                  OR (#{categoryCode} = 'POWER' AND category_code IN (
+                      'POWER',
+                      'SUBSTATION',
+                      'DISTRIBUTION',
+                      'CABLE',
+                      'PHOTOVOLTAIC'
+                  ))
+                  OR (#{categoryCode} != 'POWER'
+                      AND category_code = #{categoryCode})
+              )
               AND EXISTS (
                   SELECT 1
                   FROM inspection_service_city coverage
@@ -84,12 +113,34 @@ public interface InspectionServiceCatalogMapper {
                   WHERE item.service_id = inspection_service.id
                     AND item.status = 'ACTIVE'
               )
-            ORDER BY id
+            ORDER BY
+              CASE WHEN #{sort} = 'COMPREHENSIVE' THEN
+                CASE category_code
+                  WHEN 'POWER' THEN 10
+                  WHEN 'SUBSTATION' THEN 20
+                  WHEN 'DISTRIBUTION' THEN 30
+                  WHEN 'CABLE' THEN 40
+                  WHEN 'PHOTOVOLTAIC' THEN 50
+                  ELSE 90
+                END
+              END ASC,
+              CASE WHEN #{sort} IN ('COMPREHENSIVE', 'SALES_DESC')
+                THEN completed_count END DESC,
+              CASE WHEN #{sort} IN ('PRICE_ASC', 'PRICE_DESC')
+                AND price_mode = 'PROJECT_QUOTE' THEN 1 ELSE 0 END ASC,
+              CASE WHEN #{sort} = 'PRICE_ASC'
+                THEN starting_amount_minor END ASC NULLS LAST,
+              CASE WHEN #{sort} = 'PRICE_DESC'
+                THEN starting_amount_minor END DESC NULLS LAST,
+              id ASC
             LIMIT #{limit}
             OFFSET #{offset}
+            </script>
             """)
     List<ServiceCardRow> findActivePage(
             @Param("cityCode") String cityCode,
+            @Param("categoryCode") String categoryCode,
+            @Param("sort") String sort,
             @Param("limit") int limit,
             @Param("offset") int offset
     );
@@ -270,7 +321,8 @@ public interface InspectionServiceCatalogMapper {
             String unitCode,
             String unitLabel,
             String availability,
-            String primaryAction
+            String primaryAction,
+            long completedCount
     ) {
     }
 

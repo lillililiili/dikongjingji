@@ -15,13 +15,13 @@ class InspectionServiceDetailMapperSqlTest {
     void catalogQueriesUseActiveMultiCityCoverage() throws Exception {
         assertSelect(
                 "countActive",
-                new Class<?>[]{String.class},
+                new Class<?>[]{String.class, String.class},
                 "inspection_service_city",
                 "#{cityCode}",
                 "coverage.status = 'ACTIVE'");
         assertSelect(
                 "findActivePage",
-                new Class<?>[]{String.class, int.class, int.class},
+                new Class<?>[]{String.class, String.class, String.class, int.class, int.class},
                 "inspection_service_city",
                 "#{cityCode}",
                 "coverage.status = 'ACTIVE'");

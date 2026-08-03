@@ -54,7 +54,18 @@ class DevelopmentInspectionCatalogMigrationTest {
                 .contains("'THERMAL'")
                 .contains("'OIL_GAS'")
                 .contains("'PHOTOVOLTAIC'")
-                .contains("'PARK'");
+                .contains("'PARK'")
+                .contains("'INS-SVC-DEV-SUBSTATION'")
+                .contains("'INS-SVC-DEV-DISTRIBUTION'")
+                .contains("'INS-SVC-DEV-CABLE'")
+                .contains("'SUBSTATION'")
+                .contains("'DISTRIBUTION'")
+                .contains("'CABLE'")
+                .contains("8560")
+                .contains("6230")
+                .contains("5420")
+                .contains("7310")
+                .contains("3210");
     }
 
     @Test

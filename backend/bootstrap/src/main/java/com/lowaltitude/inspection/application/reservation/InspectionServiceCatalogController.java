@@ -21,10 +21,17 @@ public final class InspectionServiceCatalogController {
     @GetMapping("/api/v1/inspection/services")
     public InspectionServicePageView search(
             @RequestParam String cityCode,
+            @RequestParam(required = false) String categoryCode,
+            @RequestParam(defaultValue = "COMPREHENSIVE") String sort,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return service.search(cityCode.trim(), page, size);
+        return service.search(
+                cityCode.trim(),
+                categoryCode == null ? null : categoryCode.trim(),
+                sort,
+                page,
+                size);
     }
 
     @GetMapping("/api/v1/inspection/services/{serviceId}")

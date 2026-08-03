@@ -161,7 +161,7 @@ export function buildInspectionDeliveryUrl(serviceOrderId: string): string {
 
 export type InspectionCatalogSort =
   | 'COMPREHENSIVE'
-  | 'DISTANCE_ASC'
+  | 'SALES_DESC'
   | 'PRICE_ASC'
   | 'PRICE_DESC'
 

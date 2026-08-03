@@ -14,7 +14,7 @@ export type CatalogCategory =
 
 export type CatalogSort =
   | 'COMPREHENSIVE'
-  | 'DISTANCE_ASC'
+  | 'SALES_DESC'
   | 'PRICE_ASC'
   | 'PRICE_DESC'
 
@@ -50,8 +50,7 @@ export interface InspectionCatalogService {
   imagePosition?: string
   price: InspectionCatalogPrice
   rating?: number
-  servedCountLabel?: string
-  distanceKm?: number
+  completedCount?: number
 }
 
 export interface InspectionCatalogContent {
@@ -77,10 +76,21 @@ export const DEFAULT_CATALOG_QUERY: InspectionCatalogQuery = {
 
 const CATALOG_SORTS: readonly CatalogSort[] = [
   'COMPREHENSIVE',
-  'DISTANCE_ASC',
+  'SALES_DESC',
   'PRICE_ASC',
   'PRICE_DESC',
 ]
+
+const CATEGORY_RANK: Record<
+  Exclude<CatalogCategory, 'ALL'>,
+  number
+> = {
+  TRANSMISSION: 10,
+  SUBSTATION: 20,
+  DISTRIBUTION: 30,
+  CABLE: 40,
+  PHOTOVOLTAIC: 50,
+}
 
 const CATALOG_CATEGORY_CODES = new Set<string>(
   CATALOG_CATEGORIES.map((category) => category.code),
@@ -144,28 +154,11 @@ export function applyCatalogCategory(
 export function applyCatalogSort(
   query: InspectionCatalogQuery,
   sort: CatalogSort,
-  hasValidLocation: boolean,
-): {
-  query: InspectionCatalogQuery
-  fallbackReason?: string
-} {
-  if (sort === 'DISTANCE_ASC' && !hasValidLocation) {
-    return {
-      query: {
-        ...query,
-        sort: 'COMPREHENSIVE',
-        page: 1,
-      },
-      fallbackReason: '需要位置权限才能按距离排序',
-    }
-  }
-
+): InspectionCatalogQuery {
   return {
-    query: {
-      ...query,
-      sort,
-      page: 1,
-    },
+    ...query,
+    sort,
+    page: 1,
   }
 }
 
@@ -193,22 +186,30 @@ export function selectCatalogServices(
   })
 
   return [...filtered].sort((left, right) => {
-    if (query.sort === 'DISTANCE_ASC') {
+    if (query.sort === 'COMPREHENSIVE') {
       return (
-        (left.distanceKm ?? Number.POSITIVE_INFINITY) -
-        (right.distanceKm ?? Number.POSITIVE_INFINITY)
+        CATEGORY_RANK[left.category] - CATEGORY_RANK[right.category] ||
+        completedCountForSorting(right) - completedCountForSorting(left) ||
+        compareById(left, right)
+      )
+    }
+
+    if (query.sort === 'SALES_DESC') {
+      return (
+        completedCountForSorting(right) - completedCountForSorting(left) ||
+        compareById(left, right)
       )
     }
 
     if (query.sort === 'PRICE_ASC') {
-      return priceForSorting(left) - priceForSorting(right)
+      return compareByPrice(left, right, 1)
     }
 
     if (query.sort === 'PRICE_DESC') {
-      return priceForSorting(right) - priceForSorting(left)
+      return compareByPrice(left, right, -1)
     }
 
-    return 0
+    return compareById(left, right)
   })
 }
 
@@ -273,12 +274,47 @@ export function formatCatalogPrice(
   }
 }
 
+export function formatCompletedCount(count: number): string {
+  return `已服务 ${Math.max(0, Math.trunc(count)).toLocaleString('zh-CN')} 次`
+}
+
 function normalizeKeyword(keyword: string): string {
   return keyword.trim().slice(0, 50)
 }
 
+function completedCountForSorting(
+  service: InspectionCatalogService,
+): number {
+  return service.completedCount ?? 0
+}
+
+function compareById(
+  left: InspectionCatalogService,
+  right: InspectionCatalogService,
+): number {
+  return left.id.localeCompare(right.id)
+}
+
+function compareByPrice(
+  left: InspectionCatalogService,
+  right: InspectionCatalogService,
+  direction: 1 | -1,
+): number {
+  const leftAmount = priceForSorting(left)
+  const rightAmount = priceForSorting(right)
+  const leftHasPrice = Number.isFinite(leftAmount)
+  const rightHasPrice = Number.isFinite(rightAmount)
+
+  if (leftHasPrice !== rightHasPrice) return leftHasPrice ? -1 : 1
+  if (leftHasPrice && rightHasPrice && leftAmount !== rightAmount) {
+    return (leftAmount - rightAmount) * direction
+  }
+  return compareById(left, right)
+}
+
 function priceForSorting(service: InspectionCatalogService): number {
-  return service.price.mode === 'PROJECT_QUOTE'
-    ? Number.POSITIVE_INFINITY
-    : (service.price.amountFen ?? Number.POSITIVE_INFINITY)
+  if (service.price.mode === 'PROJECT_QUOTE') {
+    return Number.POSITIVE_INFINITY
+  }
+  return service.price.amountFen ?? Number.POSITIVE_INFINITY
 }

@@ -231,7 +231,6 @@ const isLoading = ref(true)
 const isRefreshing = ref(false)
 const loadError = ref('')
 const filterSheetOpen = ref(false)
-const hasValidLocation = ref(false)
 const citySheetOpen = ref(false)
 const cityDirectory = ref<CityDirectory | null>(null)
 const cityDirectoryLoading = ref(false)
@@ -296,7 +295,10 @@ const hostActionGateway: Pick<
 
 const runLatestCatalogLoad = createLatestCatalogLoader({
   getCityCode: () => currentCity.value?.code,
-  load: (cityCode) => inspectionCatalogApi.loadCatalog(cityCode),
+  load: (cityCode) => inspectionCatalogApi.loadCatalog(
+    cityCode,
+    query.value.sort,
+  ),
   emptyContent: EMPTY_CATALOG_CONTENT,
   setContent: (loaded) => {
     content.value = loaded
@@ -406,48 +408,8 @@ function selectCategory(category: CatalogCategory): void {
 }
 
 async function selectSort(sort: CatalogSort): Promise<void> {
-  if (sort !== 'DISTANCE_ASC' || hasValidLocation.value) {
-    query.value = applyCatalogSort(
-      query.value,
-      sort,
-      hasValidLocation.value,
-    ).query
-    return
-  }
-
-  await requestLocationForDistanceSort()
-}
-
-function requestLocationForDistanceSort(): Promise<void> {
-  return new Promise((resolve) => {
-    uni.getLocation({
-      type: 'gcj02',
-      success: (location) => {
-        hasValidLocation.value =
-          Number.isFinite(location.latitude) &&
-          Number.isFinite(location.longitude)
-        query.value = applyCatalogSort(
-          query.value,
-          'DISTANCE_ASC',
-          hasValidLocation.value,
-        ).query
-        resolve()
-      },
-      fail: () => {
-        const result = applyCatalogSort(
-          query.value,
-          'DISTANCE_ASC',
-          false,
-        )
-        query.value = result.query
-        uni.showToast({
-          title: result.fallbackReason ?? '距离排序暂不可用',
-          icon: 'none',
-        })
-        resolve()
-      },
-    })
-  })
+  query.value = applyCatalogSort(query.value, sort)
+  await loadCatalogContent()
 }
 
 function applyFilters(value: CatalogFilterValue): void {

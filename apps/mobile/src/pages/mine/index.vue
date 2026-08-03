@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onHide, onShow } from '@dcloudio/uni-app'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 
 import { ROOT_TABS, type RootTabCode } from '@/app-shell/navigation/root-tabs'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
@@ -23,12 +23,6 @@ import {
 } from '@/features/inspection/presentation/platform/mine/platform-mine'
 import { toPlatformMineOrder } from '@/features/inspection/presentation/orders/order-center-view'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
-import {
-  createCurrentCityWeatherLoader,
-  createPlatformWeatherApi,
-  type PlatformWeatherPresentation,
-} from '@/shared/weather/platform-weather'
-import { createUniPlatformWeatherHttpClient } from '@/shared/weather/uni-platform-weather-http-client'
 
 const currentCityStore = useCurrentCityStore()
 const featureEntries: PlatformMineFeatureEntry[] = [
@@ -66,31 +60,11 @@ const state = ref<PlatformMineViewState>(resolvePlatformMineState({
 }))
 const recentOrderById = ref(new Map<string, InspectionOrderSummary>())
 const recentOrderRequest = createLatestRequestCoordinator()
-const weather = ref<PlatformWeatherPresentation>({
-  available: false,
-  text: '',
-  iconUrl: '/static/images/inspection/platform/weather-unknown.png',
-  conditionCode: 'UNKNOWN',
-  observedAt: null,
-})
-const weatherLoader = createCurrentCityWeatherLoader(
-  createPlatformWeatherApi(createUniPlatformWeatherHttpClient({
-    getAccessToken: () => null,
-  })),
-)
-const cityName = computed(
-  () => currentCityStore.currentCity?.name ?? '选择城市',
-)
-
 function restoreDefaultCity(): void {
   if (currentCityStore.currentCity) return
   const code = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_CODE?.trim()
   const name = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_NAME?.trim()
   if (code && name) currentCityStore.setCurrentCity({ code, name })
-}
-
-async function loadWeather(): Promise<void> {
-  weather.value = await weatherLoader.load(currentCityStore.currentCity)
 }
 
 function emptyStageCounts(): Record<InspectionMineStatus, number> {
@@ -177,7 +151,6 @@ function openRecentOrder(order: PlatformMineOrder): void {
 onShow(() => {
   uni.hideTabBar({ animation: false })
   restoreDefaultCity()
-  void loadWeather()
   void loadRecentOrders()
 })
 onHide(() => {
@@ -191,14 +164,7 @@ onHide(() => {
 <template>
   <PlatformMinePage
     :state="state"
-    :city-name="cityName"
-    :weather="weather"
-    search-placeholder="搜索订单或服务"
-    show-message
     active-tab="MINE"
-    @location="showUnavailable"
-    @search="showUnavailable"
-    @message="showUnavailable"
     @retry="loadRecentOrders"
     @customer-service="showUnavailable"
     @settings="showUnavailable"

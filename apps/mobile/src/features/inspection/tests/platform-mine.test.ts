@@ -199,6 +199,10 @@ describe('platform mine component contract', () => {
     expect(minePageSource).not.toContain('fixture')
     expect(minePageSource).not.toContain('uni.request')
     expect(minePageSource).not.toContain('navigateTo')
+    expect(minePageSource).not.toContain('AppHeader')
+    expect(minePageSource).not.toContain('<AppHeader')
+    expect(minePageSource).not.toContain('searchPlaceholder')
+    expect(minePageSource).not.toContain('message: []')
   })
 
   it('contains no payment, refund or unsupported workflow state', () => {
@@ -211,6 +215,9 @@ describe('platform mine component contract', () => {
     expect(minePageSource).toContain('font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif')
     expect(minePageSource).toContain('button{margin:0;padding:0;border:0;background:transparent;font-family:inherit')
     expect(minePageSource).toContain('.platform-mine__status-label{margin-top:4rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600')
+    expect(minePageSource).toContain('.platform-mine__status-icon{position:relative;display:flex;width:100rpx;height:60rpx;align-items:center;justify-content:flex-start')
+    expect(minePageSource).toContain('.platform-mine__status-image{width:60rpx;height:60rpx')
+    expect(minePageSource).toContain('.platform-mine__status-count{position:absolute;right:0;top:0;display:flex;box-sizing:border-box;min-width:36rpx;height:30rpx;align-items:center;justify-content:center;padding:0 6rpx;border:2rpx solid #fff')
     expect(minePageSource).toContain('.platform-mine__feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4rpx')
     expect(minePageSource).toContain('padding:12rpx 14rpx')
     expect(minePageSource).toContain('.platform-mine__feature-title{margin-top:7rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600')

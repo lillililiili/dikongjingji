@@ -201,6 +201,7 @@
     ],
     "sorts": [
       "COMPREHENSIVE",
+      "SALES_DESC",
       "PRICE_ASC",
       "PRICE_DESC"
     ],

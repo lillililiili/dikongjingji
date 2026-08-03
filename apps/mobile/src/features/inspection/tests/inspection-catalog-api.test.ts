@@ -106,6 +106,7 @@ const response = {
       unitCode: 'KM',
       unitLabel: '公里起',
     },
+    completedCount: 8560,
     availability: 'AVAILABLE',
     primaryAction: 'BOOK',
   }],
@@ -128,7 +129,7 @@ describe('real inspection catalog adapter', () => {
     expect(catalogPageSource).not.toContain('fixtures/power-inspection-catalog')
   })
 
-  it('maps the real catalog DTO to M02 without fake ratings or service counts', async () => {
+  it('maps the real catalog DTO to M02 with the verified completed count', async () => {
     const calls: string[] = []
     const http: InspectionCatalogHttpClient = {
       request: async <T,>(input: { url: string; method: 'GET' }) => {
@@ -137,10 +138,13 @@ describe('real inspection catalog adapter', () => {
       },
     }
 
-    const content = await createInspectionCatalogApi(http).loadCatalog('370500')
+    const content = await createInspectionCatalogApi(http).loadCatalog(
+      '370500',
+      'SALES_DESC',
+    )
 
     expect(calls).toEqual([
-      '/api/v1/inspection/services?cityCode=370500&page=1&size=50',
+      '/api/v1/inspection/services?cityCode=370500&categoryCode=POWER&sort=SALES_DESC&page=1&size=50',
     ])
     expect(content.services[0]).toMatchObject({
       id: '33333333-3333-3333-3333-333333333333',
@@ -148,10 +152,43 @@ describe('real inspection catalog adapter', () => {
       title: '输电线路无人机巡检',
       tags: ['线路巡检', '巡检报告'],
       includesReport: true,
+      completedCount: 8560,
       price: { mode: 'STARTING_PRICE', amountFen: 69900 },
     })
     expect(content.services[0]).not.toHaveProperty('rating')
-    expect(content.services[0]).not.toHaveProperty('servedCountLabel')
+  })
+
+  it('maps the five approved power subcategories', async () => {
+    const codes = [
+      'POWER',
+      'SUBSTATION',
+      'DISTRIBUTION',
+      'CABLE',
+      'PHOTOVOLTAIC',
+    ]
+    const http: InspectionCatalogHttpClient = {
+      request: async <T,>() => ({
+        ...response,
+        items: codes.map((code, index) => ({
+          ...response.items[0],
+          serviceId: `33333333-3333-4333-8333-33333333333${index}`,
+          category: { code, name: code },
+        })),
+      }) as T,
+    }
+
+    const content = await createInspectionCatalogApi(http).loadCatalog(
+      '370500',
+      'COMPREHENSIVE',
+    )
+
+    expect(content.services.map(({ category }) => category)).toEqual([
+      'TRANSMISSION',
+      'SUBSTATION',
+      'DISTRIBUTION',
+      'CABLE',
+      'PHOTOVOLTAIC',
+    ])
   })
 
   it('derives M01 navigation cards from the same real services', async () => {

@@ -1,5 +1,12 @@
 import type { InspectionPortalContent, InspectionPortalCategory, InspectionCategoryCode } from '../../domain/inspection-portal-content'
-import type { InspectionCatalogContent, InspectionCatalogService } from '../../presentation/catalog/model/inspection-catalog'
+import cableImageUrl from '../../presentation/catalog/assets/service-cable.png'
+import distributionImageUrl from '../../presentation/catalog/assets/service-distribution.png'
+import substationImageUrl from '../../presentation/catalog/assets/service-substation.png'
+import type {
+  CatalogSort,
+  InspectionCatalogContent,
+  InspectionCatalogService,
+} from '../../presentation/catalog/model/inspection-catalog'
 
 export interface InspectionCatalogHttpClient {
   request<T>(input: { url: string; method: 'GET' }): Promise<T>
@@ -21,6 +28,7 @@ interface CatalogServiceDto {
     startingAmountMinor?: number | null
     unitLabel?: string | null
   }
+  completedCount?: number | null
 }
 
 const PORTAL_CATEGORY_CODES = new Set<InspectionCategoryCode>([
@@ -40,7 +48,18 @@ const PORTAL_CATEGORY_IMAGES: Record<Exclude<InspectionCategoryCode, 'MORE'>, st
 
 const CATALOG_CATEGORY_BY_API: Record<string, InspectionCatalogService['category']> = {
   POWER: 'TRANSMISSION',
+  SUBSTATION: 'SUBSTATION',
+  DISTRIBUTION: 'DISTRIBUTION',
+  CABLE: 'CABLE',
   PHOTOVOLTAIC: 'PHOTOVOLTAIC',
+}
+
+const CATALOG_IMAGE_BY_API: Record<string, string> = {
+  POWER: '/static/images/inspection/service-power-line.webp',
+  SUBSTATION: substationImageUrl,
+  DISTRIBUTION: distributionImageUrl,
+  CABLE: cableImageUrl,
+  PHOTOVOLTAIC: '/static/images/inspection/service-photovoltaic.webp',
 }
 
 type BusinessPortalCategory = InspectionPortalCategory & {
@@ -49,9 +68,8 @@ type BusinessPortalCategory = InspectionPortalCategory & {
 
 function serviceImage(service: CatalogServiceDto): string {
   return service.coverImage?.url
-    ?? (service.category.code === 'PHOTOVOLTAIC'
-      ? '/static/images/inspection/service-photovoltaic.webp'
-      : '/static/images/inspection/service-power-line.webp')
+    ?? CATALOG_IMAGE_BY_API[service.category.code]
+    ?? '/static/images/inspection/service-power-line.webp'
 }
 
 function toCatalogService(service: CatalogServiceDto): InspectionCatalogService | null {
@@ -68,6 +86,9 @@ function toCatalogService(service: CatalogServiceDto): InspectionCatalogService 
     tags: service.features.map((feature) => feature.name),
     includesReport: service.features.some((feature) => feature.code === 'REPORT'),
     imageUrl: serviceImage(service),
+    ...(typeof service.completedCount === 'number'
+      ? { completedCount: service.completedCount }
+      : {}),
     price: {
       mode: service.price.mode === 'PROJECT_QUOTE'
         ? 'PROJECT_QUOTE'
@@ -96,7 +117,7 @@ function priceLabel(service: CatalogServiceDto): string {
 }
 
 export function createInspectionCatalogApi(http: InspectionCatalogHttpClient) {
-  async function load(cityCode: string): Promise<CatalogPageDto> {
+  async function loadPortalPage(cityCode: string): Promise<CatalogPageDto> {
     return http.request<CatalogPageDto>({
       url: `/api/v1/inspection/services?cityCode=${encodeURIComponent(cityCode)}&page=1&size=50`,
       method: 'GET',
@@ -104,8 +125,14 @@ export function createInspectionCatalogApi(http: InspectionCatalogHttpClient) {
   }
 
   return {
-    async loadCatalog(cityCode: string): Promise<InspectionCatalogContent> {
-      const page = await load(cityCode)
+    async loadCatalog(
+      cityCode: string,
+      sort: CatalogSort = 'COMPREHENSIVE',
+    ): Promise<InspectionCatalogContent> {
+      const page = await http.request<CatalogPageDto>({
+        url: `/api/v1/inspection/services?cityCode=${encodeURIComponent(cityCode)}&categoryCode=POWER&sort=${encodeURIComponent(sort)}&page=1&size=50`,
+        method: 'GET',
+      })
       return {
         services: page.items
           .map(toCatalogService)
@@ -113,7 +140,7 @@ export function createInspectionCatalogApi(http: InspectionCatalogHttpClient) {
       }
     },
     async loadPortal(cityCode: string): Promise<InspectionPortalContent> {
-      const page = await load(cityCode)
+      const page = await loadPortalPage(cityCode)
       const categories = new Map<InspectionCategoryCode, InspectionPortalCategory>()
       for (const service of page.items) {
         const category = toPortalCategory(service)

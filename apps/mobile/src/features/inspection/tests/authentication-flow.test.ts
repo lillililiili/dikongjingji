@@ -360,7 +360,7 @@ describe('inspection authentication session', () => {
     ).resolves.toEqual({ services: [] })
     expect(requests).toHaveLength(1)
     expect(requests[0]).toMatchObject({
-      url: 'http://127.0.0.1:8080/api/v1/inspection/services?cityCode=370500&page=1&size=50',
+      url: 'http://127.0.0.1:8080/api/v1/inspection/services?cityCode=370500&categoryCode=POWER&sort=COMPREHENSIVE&page=1&size=50',
       method: 'GET',
     })
     expect(redirects).toEqual([])

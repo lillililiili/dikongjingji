@@ -2,14 +2,18 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CATALOG_PAGE_SIZE,
+  DEFAULT_CATALOG_QUERY,
   EMPTY_CATALOG_CONTENT,
   applyCatalogCategory,
   applyCatalogSearch,
   applyCatalogSort,
   createOpenServiceDetailIntent,
+  formatCompletedCount,
   mergeCatalogPage,
   normalizeCatalogEntry,
+  normalizeCatalogQuery,
   resolveCatalogContent,
+  selectCatalogServices,
 } from './inspection-catalog'
 import type {
   InspectionCatalogContent,
@@ -33,8 +37,7 @@ const service = (
     unitLabel: '公里起',
   },
   rating: 4.9,
-  servedCountLabel: '已服务 8,560+',
-  distanceKm: 2.4,
+  completedCount: 8560,
   ...overrides,
 })
 
@@ -94,7 +97,7 @@ describe('power inspection catalog query', () => {
     expect(query.page).toBe(1)
   })
 
-  it('falls back from distance sorting without a valid location', () => {
+  it('accepts sales sorting and falls back from the removed distance route', () => {
     const current = {
       keyword: '',
       category: 'ALL' as const,
@@ -103,13 +106,58 @@ describe('power inspection catalog query', () => {
       size: CATALOG_PAGE_SIZE,
     }
 
-    expect(applyCatalogSort(current, 'DISTANCE_ASC', false)).toEqual({
-      query: current,
-      fallbackReason: '需要位置权限才能按距离排序',
-    })
-    expect(applyCatalogSort(current, 'PRICE_DESC', false).query.sort).toBe(
-      'PRICE_DESC',
+    expect(normalizeCatalogQuery({ sort: 'DISTANCE_ASC' }).sort).toBe(
+      'COMPREHENSIVE',
     )
+    expect(applyCatalogSort(current, 'SALES_DESC').sort).toBe('SALES_DESC')
+    expect(applyCatalogSort(current, 'PRICE_DESC').sort).toBe('PRICE_DESC')
+  })
+
+  it('uses the approved comprehensive and sales order with a stable id fallback', () => {
+    const services = [
+      service('transmission', {
+        category: 'TRANSMISSION',
+        completedCount: 8560,
+      }),
+      service('substation', {
+        category: 'SUBSTATION',
+        completedCount: 6230,
+      }),
+      service('distribution', {
+        category: 'DISTRIBUTION',
+        completedCount: 5420,
+      }),
+      service('cable', {
+        category: 'CABLE',
+        completedCount: 7310,
+      }),
+      service('photovoltaic', {
+        category: 'PHOTOVOLTAIC',
+        completedCount: 3210,
+      }),
+    ]
+
+    expect(selectCatalogServices(services, {
+      ...DEFAULT_CATALOG_QUERY,
+      sort: 'COMPREHENSIVE',
+    }).map(({ id }) => id)).toEqual([
+      'transmission',
+      'substation',
+      'distribution',
+      'cable',
+      'photovoltaic',
+    ])
+    expect(selectCatalogServices(services, {
+      ...DEFAULT_CATALOG_QUERY,
+      sort: 'SALES_DESC',
+    }).map(({ id }) => id)).toEqual([
+      'transmission',
+      'cable',
+      'substation',
+      'distribution',
+      'photovoltaic',
+    ])
+    expect(formatCompletedCount(8560)).toBe('已服务 8,560 次')
   })
 })
 

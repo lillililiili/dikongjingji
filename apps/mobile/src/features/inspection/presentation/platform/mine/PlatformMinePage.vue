@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
-import AppHeader from '@/app-shell/components/AppHeader.vue'
-import type { PlatformWeatherPresentation } from '@/shared/weather/platform-weather'
 import PlatformUnavailableDialog from '../shared/PlatformUnavailableDialog.vue'
 import { resolvePlatformAvailabilityAction } from '../shared/platform-availability'
 import {
@@ -16,18 +14,10 @@ import {
 
 const props = defineProps<{
   state: PlatformMineViewState
-  cityName: string
-  weather: PlatformWeatherPresentation
-  searchPlaceholder: string
-  unreadCount?: number
-  showMessage?: boolean
   activeTab?: 'HOME' | 'SERVICE' | 'DISCOVER' | 'MALL' | 'MINE'
 }>()
 
 const emit = defineEmits<{
-  location: []
-  search: []
-  message: []
   retry: []
   customerService: []
   settings: []
@@ -90,18 +80,6 @@ const tabs = [
 
     <template v-else-if="content">
       <view class="platform-mine__scroll">
-        <view class="platform-mine__header">
-          <AppHeader
-            :city-name="cityName"
-            :weather="weather"
-            :search-placeholder="searchPlaceholder"
-            :unread-count="unreadCount"
-            :show-message="showMessage"
-            @location="emit('location')"
-            @search="emit('search')"
-            @message="emit('message')"
-          />
-        </view>
         <view class="platform-mine__profile">
           <image
             class="platform-mine__profile-background"
@@ -266,7 +244,6 @@ const tabs = [
 button{margin:0;padding:0;border:0;background:transparent;font-family:inherit;line-height:1.2}
 button::after{border:0}
 .platform-mine__scroll{padding-top:calc(var(--status-bar-height) + 10px);padding-bottom:var(--app-root-tabbar-content-offset)}
-.platform-mine__header{width:100%;padding:0 var(--app-page-horizontal-gutter);box-sizing:border-box}
 .platform-mine__profile{position:relative;min-height:260rpx;overflow:hidden;padding:32rpx 34rpx 24rpx;background:linear-gradient(145deg,#dfeeff,#f7fbff)}
 .platform-mine__profile-background{position:absolute;inset:0;width:100%;height:100%;opacity:.38;object-position:right center}
 .platform-mine__profile::after{content:"";position:absolute;right:-70rpx;bottom:-50rpx;width:390rpx;height:210rpx;border-radius:50%;background:radial-gradient(circle,rgba(99,173,255,.26),rgba(99,173,255,0) 68%)}
@@ -284,9 +261,9 @@ button::after{border:0}
 .platform-mine__location{margin-top:7rpx;color:#67717d;font-size:17rpx}
 .platform-mine__status-card{position:relative;z-index:3;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4rpx;margin:-18rpx 22rpx 12rpx;padding:31rpx 8rpx 29rpx;border-radius:24rpx;background:#fff;box-shadow:0 7rpx 22rpx rgba(43,66,94,.07)}
 .platform-mine__status-item{display:flex;min-width:0;flex-direction:column;align-items:center}
-.platform-mine__status-icon{position:relative;display:flex;width:54rpx;height:48rpx;align-items:center;justify-content:center}
-.platform-mine__status-image{width:48rpx;height:48rpx;border-radius:13rpx}
-.platform-mine__status-count{position:absolute;right:-9rpx;top:-8rpx;min-width:27rpx;height:27rpx;padding:0 6rpx;border:3rpx solid #fff;border-radius:20rpx;color:#fff;background:#ff463b;font-size:15rpx;font-weight:700;line-height:24rpx}
+.platform-mine__status-icon{position:relative;display:flex;width:100rpx;height:60rpx;align-items:center;justify-content:flex-start}
+.platform-mine__status-image{width:60rpx;height:60rpx;border-radius:13rpx}
+.platform-mine__status-count{position:absolute;right:0;top:0;display:flex;box-sizing:border-box;min-width:36rpx;height:30rpx;align-items:center;justify-content:center;padding:0 6rpx;border:2rpx solid #fff;border-radius:20rpx;color:#fff;background:#ff463b;font-size:15rpx;font-weight:700;line-height:1}
 .platform-mine__status-label{margin-top:4rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600;white-space:nowrap}
 .platform-mine__status-value{margin-top:3rpx;color:#7d8590;font-size:17rpx;white-space:nowrap}
 .platform-mine__orders{margin:0 22rpx 12rpx;padding:14rpx 20rpx 8rpx;border-radius:24rpx;background:#fff}

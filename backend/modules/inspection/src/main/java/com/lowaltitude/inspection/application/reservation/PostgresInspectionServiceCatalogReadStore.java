@@ -18,17 +18,25 @@ final class PostgresInspectionServiceCatalogReadStore
     }
 
     @Override
-    public long countActive(String cityCode) {
-        return mapper.countActive(cityCode);
+    public long countActive(String cityCode, String categoryCode) {
+        return mapper.countActive(cityCode, categoryCode);
     }
 
     @Override
     public List<StoredInspectionServiceCard> findActivePage(
             String cityCode,
+            String categoryCode,
+            InspectionCatalogSort sort,
             int limit,
             int offset
     ) {
-        return mapper.findActivePage(cityCode, limit, offset).stream()
+        return mapper.findActivePage(
+                        cityCode,
+                        categoryCode,
+                        sort.name(),
+                        limit,
+                        offset)
+                .stream()
                 .map(row -> new StoredInspectionServiceCard(
                         row.serviceId(),
                         row.serviceNo(),
@@ -48,7 +56,8 @@ final class PostgresInspectionServiceCatalogReadStore
                         row.unitCode(),
                         row.unitLabel(),
                         row.availability(),
-                        row.primaryAction()))
+                        row.primaryAction(),
+                        row.completedCount()))
                 .toList();
     }
 
