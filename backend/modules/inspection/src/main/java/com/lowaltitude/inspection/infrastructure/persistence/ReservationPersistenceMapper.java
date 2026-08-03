@@ -310,7 +310,7 @@ public interface ReservationPersistenceMapper {
 
     @Update("""
             UPDATE inspection_reservation r
-            SET status = 'CANCELLED', version = version + 1,
+            SET status = 'CANCELLED', cancelled_at = #{cancelledAt}, version = version + 1,
                 updated_by = #{actorId}, updated_at = #{cancelledAt}
             WHERE r.id = #{reservationId}
               AND r.customer_id = #{customerId}

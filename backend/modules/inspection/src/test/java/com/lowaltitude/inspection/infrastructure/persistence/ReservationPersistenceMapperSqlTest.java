@@ -89,6 +89,7 @@ class ReservationPersistenceMapperSqlTest {
                 .contains("version = version + 1");
         assertThat(cancel)
                 .contains("status = 'CANCELLED'")
+                .contains("cancelled_at = #{cancelledAt}")
                 .contains("status IN ('SUBMITTED', 'PLAN_PUBLISHED')")
                 .contains("version = #{expectedVersion}")
                 .contains("NOT EXISTS")
