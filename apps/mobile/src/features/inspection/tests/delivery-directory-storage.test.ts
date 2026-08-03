@@ -32,6 +32,21 @@ describe('Android delivery directory storage module', () => {
     )
   })
 
+  it('uses a JVM-compatible query projection', () => {
+    expect(androidSource).toMatch(/resolver\.query\(\s*childrenUri,\s*null,/)
+    expect(androidSource).not.toContain('[Document.COLUMN_DISPLAY_NAME]')
+  })
+
+  it('normalizes caught errors before crossing a typed helper boundary', () => {
+    expect(androidSource).toContain('function codedFailure(message: string)')
+    expect(androidSource).not.toContain('error: unknown')
+  })
+
+  it('uses block-bodied callbacks for main-dispatch side effects', () => {
+    expect(androidSource).toMatch(/async\(\(_\) => \{\s*action\(\)\s*\}\)/)
+    expect(androidSource).not.toMatch(/runOnMain\(\(\) => options\./)
+  })
+
   it('injects the UTS storage bridge and coordinates selected-directory saves', () => {
     expect(pageSource).toContain("from '@/uni_modules/inspection-delivery-storage'")
     expect(pageSource).toContain('// #ifdef APP-PLUS')

@@ -20,7 +20,9 @@ const DIRECTORY_REQUEST_CODE: Int = 28_722
 let pickerInFlight = false
 
 function runOnMain(action: () => void): void {
-  UTSAndroid.getDispatcher('main').async((_) => action())
+  UTSAndroid.getDispatcher('main').async((_) => {
+    action()
+  })
 }
 
 function uniqueDisplayName(existing: string[], suggested: string): string {
@@ -46,7 +48,7 @@ function queryDisplayNames(
   const childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, treeId)
   const cursor = resolver.query(
     childrenUri,
-    [Document.COLUMN_DISPLAY_NAME],
+    null,
     null,
     null,
     null,
@@ -125,10 +127,7 @@ function copyToDirectory(options: SaveInspectionDeliveryFileOptions): SaveInspec
   }
 }
 
-function codedFailure(error: unknown): InspectionDeliveryStorageError {
-  const message = error instanceof Error
-    ? error.message
-    : 'DELIVERY_FILE_WRITE_FAILED: 文件写入失败，请重试'
+function codedFailure(message: string): InspectionDeliveryStorageError {
   const separator = message.indexOf(': ')
   if (separator > 0 && message.substring(0, separator).startsWith('DELIVERY_')) {
     return {
@@ -141,18 +140,22 @@ function codedFailure(error: unknown): InspectionDeliveryStorageError {
 
 export const pickInspectionDeliveryDirectory: PickInspectionDeliveryDirectory = function (options): void {
   if (pickerInFlight) {
-    runOnMain(() => options.fail?.({
-      code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
-      errMsg: '正在选择保存文件夹，请稍后再试',
-    }))
+    runOnMain(() => {
+      options.fail?.({
+        code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
+        errMsg: '正在选择保存文件夹，请稍后再试',
+      })
+    })
     return
   }
   const activity = UTSAndroid.getUniActivity()
   if (activity == null) {
-    runOnMain(() => options.fail?.({
-      code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
-      errMsg: '当前页面不可用，无法打开文件夹选择器',
-    }))
+    runOnMain(() => {
+      options.fail?.({
+        code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
+        errMsg: '当前页面不可用，无法打开文件夹选择器',
+      })
+    })
     return
   }
 
@@ -173,22 +176,28 @@ export const pickInspectionDeliveryDirectory: PickInspectionDeliveryDirectory = 
     if (requestCode != DIRECTORY_REQUEST_CODE || completed) return
     if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
       finish()
-      runOnMain(() => options.fail?.({
-        code: 'DELIVERY_DIRECTORY_PICKER_CANCELLED',
-        errMsg: '已取消保存',
-      }))
+      runOnMain(() => {
+        options.fail?.({
+          code: 'DELIVERY_DIRECTORY_PICKER_CANCELLED',
+          errMsg: '已取消保存',
+        })
+      })
       return
     }
     const directoryUri = data.getData()!.toString()
     finish()
-    runOnMain(() => options.success?.({ directoryUri }))
+    runOnMain(() => {
+      options.success?.({ directoryUri })
+    })
   }
   destroyListener = () => {
     finish()
-    runOnMain(() => options.fail?.({
-      code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
-      errMsg: '页面已关闭，无法继续选择文件夹',
-    }))
+    runOnMain(() => {
+      options.fail?.({
+        code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
+        errMsg: '页面已关闭，无法继续选择文件夹',
+      })
+    })
   }
 
   UTSAndroid.onAppActivityResult(resultListener)
@@ -200,10 +209,12 @@ export const pickInspectionDeliveryDirectory: PickInspectionDeliveryDirectory = 
     activity.startActivityForResult(intent, DIRECTORY_REQUEST_CODE)
   } catch (_) {
     finish()
-    runOnMain(() => options.fail?.({
-      code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
-      errMsg: '当前设备无法打开文件夹选择器',
-    }))
+    runOnMain(() => {
+      options.fail?.({
+        code: 'DELIVERY_DIRECTORY_PICKER_UNAVAILABLE',
+        errMsg: '当前设备无法打开文件夹选择器',
+      })
+    })
   }
 }
 
@@ -214,19 +225,27 @@ export const saveInspectionDeliveryFile: SaveInspectionDeliveryFile = function (
     || options.suggestedFileName.trim().length == 0
     || options.contentType.trim().length == 0
   ) {
-    runOnMain(() => options.fail?.({
-      code: 'DELIVERY_FILE_NAME_INVALID',
-      errMsg: '交付文件信息无效',
-    }))
+    runOnMain(() => {
+      options.fail?.({
+        code: 'DELIVERY_FILE_NAME_INVALID',
+        errMsg: '交付文件信息无效',
+      })
+    })
     return
   }
   UTSAndroid.getDispatcher('io').async((_) => {
     try {
       const result = copyToDirectory(options)
-      runOnMain(() => options.success?.(result))
+      runOnMain(() => {
+        options.success?.(result)
+      })
     } catch (error) {
-      const failure = codedFailure(error)
-      runOnMain(() => options.fail?.(failure))
+      const failure = codedFailure(error instanceof Error
+        ? error.message
+        : 'DELIVERY_FILE_WRITE_FAILED: 文件写入失败，请重试')
+      runOnMain(() => {
+        options.fail?.(failure)
+      })
     }
   })
 }
