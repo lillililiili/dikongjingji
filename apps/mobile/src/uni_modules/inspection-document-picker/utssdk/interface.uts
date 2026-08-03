@@ -9,10 +9,14 @@ export type PickInspectionPdfDocumentsResult = {
   documents: InspectionPickedPdfDocument[]
 }
 
+export type PickInspectionPdfDocumentsError = {
+  errMsg: string
+}
+
 export type PickInspectionPdfDocumentsOptions = {
   count: number
   success?: (result: PickInspectionPdfDocumentsResult) => void
-  fail?: (error: { errMsg: string }) => void
+  fail?: (error: PickInspectionPdfDocumentsError) => void
 }
 
 export type PickInspectionPdfDocuments = (

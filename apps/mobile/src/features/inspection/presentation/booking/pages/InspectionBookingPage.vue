@@ -16,13 +16,8 @@ import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import BookingServiceSnapshotCard from '../components/BookingServiceSnapshotCard.vue'
 import InspectionTimePickerSheet from '../components/InspectionTimePickerSheet.vue'
 
-// #ifdef APP-ANDROID
-// @ts-ignore Android UTS module is compiled only into the App-Android bundle.
-import { pickInspectionPdfDocuments, releaseInspectionPdfDocuments } from '@/uni_modules/inspection-document-picker'
-// #endif
-
-// #ifdef APP-IOS
-// @ts-ignore iOS UTS module is compiled only into the App-iOS bundle.
+// #ifdef APP-PLUS
+// @ts-ignore The UTS module resolves its native implementation for each App platform.
 import { pickInspectionPdfDocuments, releaseInspectionPdfDocuments } from '@/uni_modules/inspection-document-picker'
 // #endif
 
@@ -48,14 +43,7 @@ const releasedPdfPaths = new Set<string>()
 let cleanupRequested = false
 let isPageActive = false
 let bookingDocumentPicker = uniBookingDocumentPicker
-// #ifdef APP-ANDROID
-bookingDocumentPicker = createUniBookingDocumentPicker(
-  undefined,
-  pickInspectionPdfDocuments,
-  releaseInspectionPdfDocuments,
-)
-// #endif
-// #ifdef APP-IOS
+// #ifdef APP-PLUS
 bookingDocumentPicker = createUniBookingDocumentPicker(
   undefined,
   pickInspectionPdfDocuments,

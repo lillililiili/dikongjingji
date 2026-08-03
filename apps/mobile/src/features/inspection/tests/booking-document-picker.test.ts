@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import androidPickerSource from '../../../../uni_modules/inspection-document-picker/utssdk/app-android/index.uts?raw'
+import { initPreContext, preJs } from '@dcloudio/uni-cli-shared'
+import androidPickerSource from '../../../uni_modules/inspection-document-picker/utssdk/app-android/index.uts?raw'
 import bookingPageSource from '../presentation/booking/pages/InspectionBookingPage.vue?raw'
 
 import type { BookingDocumentPickerError } from '../application/service-flow/booking-document-picker'
@@ -10,7 +11,7 @@ import {
 } from '../data/service-flow/uni-booking-document-picker'
 
 const iosPickerModules = import.meta.glob(
-  '../../../../uni_modules/inspection-document-picker/utssdk/app-ios/index.uts',
+  '../../../uni_modules/inspection-document-picker/utssdk/app-ios/index.uts',
   { eager: true, query: '?raw', import: 'default' },
 ) as Record<string, string>
 const iosPickerSource = Object.values(iosPickerModules)[0] ?? ''
@@ -252,14 +253,22 @@ describe('booking PDF document picker', () => {
     expect(androidPickerSource).toContain('candidatePath.startsWith(`${rootPath}/`)')
   })
 
+  it('keeps the native PDF picker wired into the compiled App-Plus booking page', () => {
+    initPreContext('app-plus', undefined, 'app-android', false)
+
+    const compiledPage = preJs(bookingPageSource, 'InspectionBookingPage.vue')
+
+    expect(compiledPage).toContain("from '@/uni_modules/inspection-document-picker'")
+    expect(compiledPage).toContain('pickInspectionPdfDocuments,')
+  })
+
   it('wires App-iOS to the same typed picker and release lifecycle', () => {
-    expect(bookingPageSource).toContain('// #ifdef APP-IOS')
-    expect(bookingPageSource).toContain(
-      "import { pickInspectionPdfDocuments, releaseInspectionPdfDocuments } from '@/uni_modules/inspection-document-picker'",
-    )
-    expect(bookingPageSource.replace(/\r\n/g, '\n')).toContain(
-      'pickInspectionPdfDocuments,\n  releaseInspectionPdfDocuments,',
-    )
+    initPreContext('app-plus', undefined, 'app-ios', false)
+
+    const compiledPage = preJs(bookingPageSource, 'InspectionBookingPage.vue')
+
+    expect(compiledPage).toContain("from '@/uni_modules/inspection-document-picker'")
+    expect(compiledPage).toContain('releaseInspectionPdfDocuments,')
   })
 
   it('uses the iOS system PDF picker with capacity and lifecycle guards', () => {

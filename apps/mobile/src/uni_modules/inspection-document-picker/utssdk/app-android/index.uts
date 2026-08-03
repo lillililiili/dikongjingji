@@ -1,9 +1,9 @@
-import { Activity } from 'android.app.Activity'
-import { Intent } from 'android.content.Intent'
-import { Uri } from 'android.net.Uri'
-import { File } from 'java.io.File'
-import { FileOutputStream } from 'java.io.FileOutputStream'
-import { OpenableColumns } from 'android.provider.OpenableColumns'
+import Activity from 'android.app.Activity'
+import Intent from 'android.content.Intent'
+import Uri from 'android.net.Uri'
+import File from 'java.io.File'
+import FileOutputStream from 'java.io.FileOutputStream'
+import OpenableColumns from 'android.provider.OpenableColumns'
 
 import {
   PickInspectionPdfDocuments,
@@ -12,13 +12,20 @@ import {
   ReleaseInspectionPdfDocuments,
 } from '../interface.uts'
 
-const REQUEST_CODE = 28_721
+const REQUEST_CODE: Int = 28_721
 const MAX_PDF_SIZE_BYTES = 1_073_741_824
 const PRIVATE_CACHE_DIRECTORY = 'inspection-pdf'
 let pickerInFlight = false
 
+type InspectionPdfMetadata = {
+  name: string
+  size: number
+}
+
 function runOnMain(action: () => void): void {
-  UTSAndroid.getDispatcher('main').async(() => action())
+  UTSAndroid.getDispatcher('main').async((_) => {
+    action()
+  })
 }
 
 function fail(
@@ -29,7 +36,9 @@ function fail(
   if (clearInFlight) {
     pickerInFlight = false
   }
-  runOnMain(() => options.fail?.({ errMsg }))
+  runOnMain(() => {
+    options.fail?.({ errMsg })
+  })
 }
 
 function succeed(
@@ -37,7 +46,9 @@ function succeed(
   documents: InspectionPickedPdfDocument[],
 ): void {
   pickerInFlight = false
-  runOnMain(() => options.success?.({ documents }))
+  runOnMain(() => {
+    options.success?.({ documents })
+  })
 }
 
 function errorMessage(code: string, message: string): string {
@@ -49,7 +60,7 @@ function privateCacheDirectory(): File | null {
   return context == null ? null : new File(context.getCacheDir(), PRIVATE_CACHE_DIRECTORY)
 }
 
-function readDocumentNameAndSize(uri: Uri): { name: string, size: number } {
+function readDocumentNameAndSize(uri: Uri): InspectionPdfMetadata {
   const context = UTSAndroid.getAppContext()
   if (context == null) {
     throw new Error(errorMessage('BOOKING_DOCUMENT_PICKER_UNAVAILABLE', '当前应用上下文不可用'))
@@ -158,7 +169,7 @@ function processSelection(
   onSuccess: (documents: InspectionPickedPdfDocument[]) => void,
   onFailure: (message: string) => void,
 ): void {
-  UTSAndroid.getDispatcher('io').async(() => {
+  UTSAndroid.getDispatcher('io').async((_) => {
     const documents = [] as InspectionPickedPdfDocument[]
     try {
       for (let index = 0; index < uris.length; index++) {
@@ -180,7 +191,7 @@ export const releaseInspectionPdfDocuments: ReleaseInspectionPdfDocuments = func
   const handledPaths = [] as string[]
   for (let index = 0; index < filePaths.length; index++) {
     const filePath = filePaths[index].trim()
-    if (!filePath || handledPaths.indexOf(filePath) >= 0 || !isPrivateInspectionPdfFile(filePath)) {
+    if (filePath.length == 0 || handledPaths.indexOf(filePath) >= 0 || !isPrivateInspectionPdfFile(filePath)) {
       continue
     }
     handledPaths.push(filePath)
@@ -214,8 +225,12 @@ export const pickInspectionPdfDocuments: PickInspectionPdfDocuments = function (
 
   pickerInFlight = true
   let completed = false
-  let resultListener: (requestCode: Int, resultCode: Int, data: Intent?) => void
-  let destroyListener: () => void
+  let resultListener: (requestCode: Int, resultCode: Int, data: Intent | null) => void = (
+    _requestCode,
+    _resultCode,
+    _data,
+  ) => {}
+  let destroyListener: () => void = () => {}
 
   const disposeListeners = (): void => {
     UTSAndroid.offAppActivityResult(resultListener)
@@ -255,7 +270,7 @@ export const pickInspectionPdfDocuments: PickInspectionPdfDocuments = function (
       const uris = [] as Uri[]
       const clipData = data.getClipData()
       if (clipData != null) {
-        for (let index = 0; index < clipData.getItemCount(); index++) {
+        for (let index: Int = 0; index < clipData.getItemCount(); index++) {
           uris.push(clipData.getItemAt(index).getUri())
         }
       } else {
@@ -264,7 +279,7 @@ export const pickInspectionPdfDocuments: PickInspectionPdfDocuments = function (
           uris.push(uri)
         }
       }
-      if (uris.length === 0) {
+      if (uris.length == 0) {
         completeFailure('pickInspectionPdfDocuments:fail cancel')
         return
       }
