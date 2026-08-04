@@ -263,6 +263,15 @@ describe('F05 plan page contract', () => {
     expect(planPageSource).not.toContain('立即支付')
   })
 
+  it('explains an expired plan and offers a recovery action instead of a dead confirm button', () => {
+    expect(planPageSource).toContain('const isExpired = computed(')
+    expect(planPageSource).toContain("plan.value?.status === 'WITHDRAWN'")
+    expect(planPageSource).toContain('服务方案已过期')
+    expect(planPageSource).toContain('报价有效期已结束，请申请更新方案后再确认')
+    expect(planPageSource).toContain("isExpired ? '申请更新方案'")
+    expect(planPageSource).toContain('@click="isExpired ? showCustomerService() : confirmPlan()"')
+  })
+
   it('allows cancellation only before plan confirmation and returns to cancelled detail', () => {
     expect(planPageSource).toContain('取消订单')
     expect(planPageSource).toContain('requestInspectionOrderCancellation')

@@ -176,6 +176,11 @@ const agreementAccepted = ref(false)
 const confirmationKey = ref('')
 
 const actionsReady = computed(() => !isLoading.value && !loadError.value)
+const isExpired = computed(() =>
+  plan.value?.status === 'WITHDRAWN'
+  || plan.value?.status === 'EXPIRED'
+  || (plan.value?.status === 'PUBLISHED' && !isPlanConfirmable(plan.value)),
+)
 const confirmable = computed(() => canConfirmInspectionPlan(
   plan.value !== null && isPlanConfirmable(plan.value),
   reservation.value?.status,
@@ -377,14 +382,16 @@ function formatUnitPrice(amountMinor: number, unit: string): string {
           </view>
           <view class="plan-confirmation__status-copy">
             <text class="plan-confirmation__status-title">
-              {{ isConfirmed ? '服务方案已确认' : '巡检方案已生成' }}
+              {{ isConfirmed ? '服务方案已确认' : (isExpired ? '服务方案已过期' : '巡检方案已生成') }}
             </text>
-            <text>服务商已提交巡检方案与最终报价，请核对后确认</text>
+            <text>
+              {{ isExpired ? '报价有效期已结束，请申请更新方案后再确认' : '服务商已提交巡检方案与最终报价，请核对后确认' }}
+            </text>
             <text
               class="plan-confirmation__status-tag"
               :class="{ 'plan-confirmation__status-tag--confirmed': isConfirmed }"
             >
-              {{ isConfirmed ? '已确认' : '待用户确认' }}
+              {{ isConfirmed ? '已确认' : (isExpired ? '已过期' : '待用户确认') }}
             </text>
           </view>
         </view>
@@ -460,9 +467,9 @@ function formatUnitPrice(amountMinor: number, unit: string): string {
     >
       <view class="plan-confirmation__notice">
         <UniIcons type="info-filled" size="18" color="#ff6a00" />
-        <text>确认方案后进入服务安排，本页面不会立即扣款。</text>
+        <text>{{ isExpired ? '当前报价已过期，请联系服务商更新方案。' : '确认方案后进入服务安排，本页面不会立即扣款。' }}</text>
       </view>
-      <view v-if="!isConfirmed" class="plan-confirmation__agreement-row">
+      <view v-if="!isConfirmed && !isExpired" class="plan-confirmation__agreement-row">
         <button
           class="plan-confirmation__agreement"
           @click="agreementAccepted = !agreementAccepted"
@@ -491,10 +498,10 @@ function formatUnitPrice(amountMinor: number, unit: string): string {
         </button>
         <button
           class="plan-confirmation__confirm"
-          :disabled="(!agreementAccepted || !confirmable) && !isConfirmed"
-          @click="confirmPlan"
+          :disabled="!isExpired && ((!agreementAccepted || !confirmable) && !isConfirmed)"
+          @click="isExpired ? showCustomerService() : confirmPlan()"
         >
-          {{ isConfirmed ? '查看服务安排' : (isSubmitting ? '正在确认…' : '确认方案') }}
+          {{ isConfirmed ? '查看服务安排' : (isExpired ? '申请更新方案' : (isSubmitting ? '正在确认…' : '确认方案')) }}
         </button>
       </view>
     </view>
