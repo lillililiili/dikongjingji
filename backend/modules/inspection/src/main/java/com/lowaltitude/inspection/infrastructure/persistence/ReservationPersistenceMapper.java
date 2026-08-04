@@ -11,7 +11,20 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 public interface ReservationPersistenceMapper {
-    @Select("SELECT id service_id, provider_id, title, cover_url, city_code FROM inspection_service WHERE id=#{id} AND city_code=#{cityCode} AND status='ACTIVE'")
+    @Select("""
+            SELECT service.id service_id,
+                   service.provider_id,
+                   service.title,
+                   service.cover_url,
+                   coverage.city_code
+            FROM inspection_service service
+            JOIN inspection_service_city coverage
+              ON coverage.service_id = service.id
+             AND coverage.city_code = #{cityCode}
+             AND coverage.status = 'ACTIVE'
+            WHERE service.id = #{id}
+              AND service.status = 'ACTIVE'
+            """)
     Optional<ServiceRow> findActiveService(@Param("id") UUID id, @Param("cityCode") String cityCode);
 
     @Select("SELECT request_hash request_digest, resource_id reservation_id FROM inspection_idempotency_record WHERE actor_id=#{actorId} AND operation_code='inspection.reservation.create' AND idempotency_key=#{key}")
@@ -32,11 +45,14 @@ public interface ReservationPersistenceMapper {
     Optional<ReservationRow> findReservation(@Param("id") UUID id);
 
     @Select("""
-            SELECT id
-            FROM inspection_service
-            WHERE id = #{serviceId}
-              AND city_code = #{cityCode}
-              AND status = 'ACTIVE'
+            SELECT service.id
+            FROM inspection_service service
+            JOIN inspection_service_city coverage
+              ON coverage.service_id = service.id
+             AND coverage.city_code = #{cityCode}
+             AND coverage.status = 'ACTIVE'
+            WHERE service.id = #{serviceId}
+              AND service.status = 'ACTIVE'
             FOR UPDATE
             """)
     UUID lockActiveService(

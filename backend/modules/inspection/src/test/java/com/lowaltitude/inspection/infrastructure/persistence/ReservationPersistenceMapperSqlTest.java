@@ -51,11 +51,24 @@ class ReservationPersistenceMapperSqlTest {
 
     @Test
     void locks_service_and_counts_only_active_reservations_by_date_and_slot() throws Exception {
+        Method find = ReservationPersistenceMapper.class.getMethod(
+                "findActiveService", java.util.UUID.class, String.class);
+        String findSql = String.join(" ", find.getAnnotation(
+                org.apache.ibatis.annotations.Select.class).value());
+        assertThat(findSql)
+                .contains("inspection_service_city")
+                .contains("coverage.city_code = #{cityCode}")
+                .contains("coverage.status = 'ACTIVE'");
+
         Method lock = ReservationPersistenceMapper.class.getMethod(
                 "lockActiveService", java.util.UUID.class, String.class);
         String lockSql = String.join(" ", lock.getAnnotation(
                 org.apache.ibatis.annotations.Select.class).value());
-        assertThat(lockSql).contains("FOR UPDATE");
+        assertThat(lockSql)
+                .contains("inspection_service_city")
+                .contains("coverage.city_code = #{cityCode}")
+                .contains("coverage.status = 'ACTIVE'")
+                .contains("FOR UPDATE");
 
         Method counts = ReservationPersistenceMapper.class.getMethod(
                 "findBookedTimeSlotCounts",
