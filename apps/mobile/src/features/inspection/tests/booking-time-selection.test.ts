@@ -202,6 +202,16 @@ describe('booking time selection', () => {
     expect(selectDateSource).toContain("loadError.value = ''")
   })
 
+  it('shows actionable time-slot load errors for authentication and network failures', () => {
+    expect(normalizedSheetSource).toContain('catch (error)')
+    expect(normalizedSheetSource).toContain('availabilityLoadErrorMessage(error)')
+    expect(normalizedSheetSource).toContain("status === 401 || code === 'COMMON_UNAUTHORIZED'")
+    expect(normalizedSheetSource).toContain("return '登录状态已失效，请重新登录'")
+    expect(normalizedSheetSource).toContain("status === 0 || code === 'NETWORK_ERROR'")
+    expect(normalizedSheetSource).toContain("return '网络连接失败，请检查网络后重试'")
+    expect(normalizedSheetSource).toContain('<text>{{ loadError }}</text>')
+  })
+
   it('recovers a too-soon submit without clearing the rest of the booking draft', () => {
     expect(bookingPageSource).toContain("error.code === 'INS_TIME_SLOT_TOO_SOON'")
     expect(bookingPageSource).toContain("submitError.value = '该时段需提前1小时预约，请重新选择'")

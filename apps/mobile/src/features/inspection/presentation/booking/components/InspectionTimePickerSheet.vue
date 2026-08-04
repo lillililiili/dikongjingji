@@ -153,17 +153,31 @@ async function loadAvailability(
       loadError.value = '时间加载失败'
     }
     return true
-  } catch {
+  } catch (error) {
     if (currentRequestId !== requestId.value || !props.visible) {
       return false
     }
-    loadError.value = '时间加载失败'
+    loadError.value = availabilityLoadErrorMessage(error)
     return false
   } finally {
     if (currentRequestId === requestId.value) {
       isLoading.value = false
     }
   }
+}
+
+function availabilityLoadErrorMessage(error: unknown): string {
+  if (!error || typeof error !== 'object') {
+    return '时间加载失败'
+  }
+  const { status, code } = error as { status?: unknown; code?: unknown }
+  if (status === 401 || code === 'COMMON_UNAUTHORIZED') {
+    return '登录状态已失效，请重新登录'
+  }
+  if (status === 0 || code === 'NETWORK_ERROR') {
+    return '网络连接失败，请检查网络后重试'
+  }
+  return '时间加载失败'
 }
 
 function reconcileTemporarySelection(dates: BookingAvailableDate[]): void {
@@ -410,7 +424,7 @@ function formatDateHeading(value: string): string {
           <text>时间加载中…</text>
         </view>
         <view v-else-if="loadError" class="inspection-time-sheet__state">
-          <text>时间加载失败</text>
+          <text>{{ loadError }}</text>
           <button class="inspection-time-sheet__retry" @tap="retryLoad">
             重新加载
           </button>
