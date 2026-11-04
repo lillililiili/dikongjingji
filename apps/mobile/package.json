@@ -7,7 +7,8 @@
     "build:h5": "uni build",
     "verify:public-production-preview": "node scripts/verify-public-production-preview.mjs",
     "type-check": "vue-tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-5010520260709002",
@@ -24,6 +25,7 @@
     "@dcloudio/uni-cli-shared": "3.0.0-5010520260709002",
     "@dcloudio/uni-uts-v1": "3.0.0-5010520260709002",
     "@dcloudio/vite-plugin-uni": "3.0.0-5010520260709002",
+    "@playwright/test": "^1.62.0",
     "@vue/compiler-sfc": "3.4.21",
     "@vue/runtime-core": "3.4.21",
     "@vue/tsconfig": "^0.1.3",

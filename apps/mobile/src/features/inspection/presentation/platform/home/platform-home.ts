@@ -1,4 +1,3 @@
-import type { PlatformWeatherPresentation } from '../../../../../shared/weather/platform-weather'
 import type { InspectionPortalContent } from '../../../domain/inspection-portal-content'
 import type { PlatformAvailability } from '../shared/platform-availability'
 
@@ -14,14 +13,6 @@ export interface PlatformHomeHero {
   description: string
   highlights: readonly string[]
   actionLabel: string
-}
-
-export interface PlatformHomeServiceEntry {
-  code: string
-  title: string
-  subtitle: string
-  imageUrl: string
-  availability: PlatformAvailability
 }
 
 export interface PlatformHomeFeaturedService {
@@ -60,12 +51,7 @@ export interface PlatformHomeEnterpriseBenefit {
 }
 
 export interface PlatformHomeContent {
-  cityName: string
-  weather: PlatformWeatherPresentation
-  unreadCount?: number
-  searchPlaceholder?: string
   hero?: PlatformHomeHero
-  serviceEntries: PlatformHomeServiceEntry[]
   featuredServices: PlatformHomeFeaturedService[]
   activities: PlatformHomeActivity[]
   enterpriseSolution?: PlatformHomeEnterpriseSolution
@@ -85,7 +71,6 @@ export type PlatformHomeViewState =
 const hasVisibleContent = (content: PlatformHomeContent): boolean =>
   Boolean(
     content.hero
-      || content.serviceEntries.length
       || content.featuredServices.length
       || content.activities.length
       || content.enterpriseSolution,
@@ -118,20 +103,9 @@ const toFeaturedServices = (
   }))
 
 export function createPlatformHomeContentFromPortal(
-  cityName: string,
-  weather: PlatformWeatherPresentation,
   portal: InspectionPortalContent,
 ): PlatformHomeContent {
   return {
-    cityName,
-    weather,
-    serviceEntries: portal.categories.map((category) => ({
-      code: category.code,
-      title: category.name,
-      subtitle: category.subtitle,
-      imageUrl: category.imageUrl,
-      availability: 'AVAILABLE',
-    })),
     featuredServices: toFeaturedServices(portal),
     activities: [],
     ...(portal.hero ? {
@@ -148,8 +122,6 @@ export function createPlatformHomeContentFromPortal(
 }
 
 export function createPlatformHomePreviewContent(
-  cityName: string,
-  weather: PlatformWeatherPresentation,
   portal: InspectionPortalContent,
 ): PlatformHomeContent {
   const featuredFallbacks: PlatformHomeFeaturedService[] = [
@@ -188,9 +160,6 @@ export function createPlatformHomePreviewContent(
   ].slice(0, 4)
 
   return {
-    cityName,
-    weather,
-    searchPlaceholder: '搜索服务、活动或设备',
     hero: {
       imageUrl: '/static/images/inspection/platform/home-hero.png',
       title: '低空服务',
@@ -199,64 +168,6 @@ export function createPlatformHomePreviewContent(
       highlights: ['多元服务', '专业保障', '便捷响应'],
       actionLabel: '浏览精选服务',
     },
-    serviceEntries: [
-      {
-        code: 'AERIAL_PHOTO',
-        title: '航拍摄影',
-        subtitle: '记录美好瞬间',
-        imageUrl: '/static/images/inspection/platform/home-aerial-photo-v2.png',
-        availability: 'UNAVAILABLE',
-      },
-      {
-        code: 'INSPECTION',
-        title: '巡检服务',
-        subtitle: '专业高效安全',
-        imageUrl: '/static/images/inspection/platform/home-inspection-service-v2.png',
-        availability: 'AVAILABLE',
-      },
-      {
-        code: 'DRONE_FLIGHT',
-        title: '飞无人机',
-        subtitle: '一起飞上天空',
-        imageUrl: '/static/images/inspection/platform/home-drone-flight-v2.png',
-        availability: 'UNAVAILABLE',
-      },
-      {
-        code: 'ROBOT',
-        title: '机器人服务',
-        subtitle: '智能便捷生活',
-        imageUrl: '/static/images/inspection/platform/home-robot-service-v2.png',
-        availability: 'UNAVAILABLE',
-      },
-      {
-        code: 'LOW_ALTITUDE_TOUR',
-        title: '低空旅游',
-        subtitle: '空中观光体验',
-        imageUrl: '/static/images/inspection/platform/home-low-altitude-tour-v2.png',
-        availability: 'UNAVAILABLE',
-      },
-      {
-        code: 'EQUIPMENT_RENTAL',
-        title: '设备租赁',
-        subtitle: '专业设备随租',
-        imageUrl: '/static/images/inspection/platform/home-equipment-rental-v2.png',
-        availability: 'UNAVAILABLE',
-      },
-      {
-        code: 'ENTERPRISE',
-        title: '企业服务',
-        subtitle: '助力企业发展',
-        imageUrl: '/static/images/inspection/platform/home-enterprise-service-v2.png',
-        availability: 'UNAVAILABLE',
-      },
-      {
-        code: 'CITY',
-        title: '城市服务',
-        subtitle: '智慧城市新体验',
-        imageUrl: '/static/images/inspection/platform/home-city-service-v2.png',
-        availability: 'UNAVAILABLE',
-      },
-    ],
     featuredServices,
     activities: [
       {

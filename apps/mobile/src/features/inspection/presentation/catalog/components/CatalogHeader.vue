@@ -31,6 +31,7 @@ function handleKeywordInput(event: Event): void {
     <view class="catalog-header__title-row">
       <button
         class="catalog-header__icon-button"
+        data-testid="catalog-back"
         aria-label="返回我要巡检"
         @click="$emit('back')"
       >
@@ -52,6 +53,7 @@ function handleKeywordInput(event: Event): void {
         <UniIcons type="search" size="20" color="#8b9198" />
         <input
           class="catalog-search__input"
+          data-testid="catalog-search-input"
           type="text"
           confirm-type="search"
           maxlength="50"
@@ -72,6 +74,7 @@ function handleKeywordInput(event: Event): void {
       </view>
       <button
         class="catalog-header__filter"
+        data-testid="catalog-filter-open"
         aria-label="打开筛选"
         @click="$emit('filter')"
       >

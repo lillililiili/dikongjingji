@@ -17,10 +17,15 @@ describe('platform discover page', () => {
     ).toBe('custom')
   })
 
-  it('keeps the native root tab bar visible when platform preview is disabled', () => {
+  it('shows the root bar in both the preview and the closed public state', () => {
     expect(discoverRouteSource).toMatch(
-      /if \(PLATFORM_PREVIEW_ENABLED\) \{\s*uni\.hideTabBar\(\{ animation: false \}\)\s*\} else \{\s*uni\.showTabBar\(/,
+      /发现频道尚未开通<\/text>\s*<\/view>\s*<RootAppTabBar active="DISCOVER" \/>/,
     )
+  })
+
+  it('leaves messages to the bottom tab', () => {
+    expect(discoverPageSource).toContain(':show-message="false"')
+    expect(discoverPageSource).not.toContain('@message=')
   })
 
   it('uses a side-effect-free static development import so App-Plus does not split code', () => {
@@ -33,7 +38,6 @@ describe('platform discover page', () => {
 
   it('renders typed content and routes actions through feature intents', () => {
     expect(discoverPageSource).toContain('defineProps')
-    expect(discoverPageSource).toContain('RootAppTabBar active="DISCOVER"')
     expect(discoverPageSource).toContain('content.activities')
     expect(discoverPageSource).toContain('content.stories')
     expect(discoverPageSource).toContain('content.communities')

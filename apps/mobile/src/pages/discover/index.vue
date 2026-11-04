@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onHide, onShow } from '@dcloudio/uni-app'
+import { onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
+import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import {
   createPlatformFeatureGateway,
   type PlatformFeatureAvailability,
@@ -75,36 +76,25 @@ function handleIntent(intent: PlatformFeatureIntent): void {
 }
 
 onShow(() => {
-  if (PLATFORM_PREVIEW_ENABLED) {
-    uni.hideTabBar({ animation: false })
-  } else {
-    uni.showTabBar({
-      animation: false,
-      fail: () => undefined,
-    })
-  }
   restoreDefaultCity()
   void loadContent()
   void loadWeather()
 })
-onHide(() => {
-  uni.showTabBar({
-    animation: false,
-    fail: () => undefined,
-  })
-})
 </script>
 
 <template>
-  <PlatformDiscoverPage
-    v-if="content"
-    :city-name="cityName"
-    :weather="weather"
-    :content="content"
-    @intent="handleIntent"
-  />
-  <view v-else class="platform-page-unavailable">
-    <text>发现频道尚未开通</text>
+  <view data-testid="discover-page">
+    <PlatformDiscoverPage
+      v-if="content"
+      :city-name="cityName"
+      :weather="weather"
+      :content="content"
+      @intent="handleIntent"
+    />
+    <view v-else class="platform-page-unavailable">
+      <text>发现频道尚未开通</text>
+    </view>
+    <RootAppTabBar active="DISCOVER" />
   </view>
 </template>
 

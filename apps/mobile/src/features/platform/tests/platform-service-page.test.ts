@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import servicePageSource from '../../../pages/service/index.vue?raw'
-import inspectionPortalSource from '../../inspection/presentation/portal/pages/InspectionPortalPage.vue?raw'
+import homeRouteSource from '../../../pages/home/index.vue?raw'
+import inspectionRouteSource from '../../../pages/service/inspection/index.vue?raw'
+import serviceRouteSource from '../../../pages/service/index.vue?raw'
 import previewSource from '../application/platform-preview.ts?raw'
 import serviceFixtureSource from '../data/development/platform-service.fixture.ts?raw'
 import channelContentSource from '../presentation/service/PlatformServiceChannelContent.vue?raw'
-import shellSource from '../presentation/service/PlatformServicePage.vue?raw'
-import appHeaderSource from '../../../app-shell/components/AppHeader.vue?raw'
+import servicePageSource from '../presentation/service/PlatformServiceChannel.vue?raw'
 import platformChannelSource from '../domain/platform-channel.ts?raw'
 import gitIgnoreSource from '../../../../../../.gitignore?raw'
 
@@ -17,14 +17,12 @@ const productionEnvSources = import.meta.glob('../../../../.env.production', {
 })
 
 describe('platform service page integration', () => {
-  it('defaults to aerial photography and switches approved channels in place', () => {
+  it('defaults to inspection and switches approved service types in place', () => {
     expect(servicePageSource).toContain('DEFAULT_PLATFORM_CHANNEL')
     expect(servicePageSource).toContain('activeChannel')
     expect(servicePageSource).toContain('selectChannel')
-    expect(servicePageSource).toContain('PlatformServicePage')
     expect(servicePageSource).toContain('PlatformServiceChannelContent')
     expect(servicePageSource).toContain('<InspectionPortalPage')
-    expect(servicePageSource).toMatch(/<InspectionPortalPage[\s\S]*?\bembedded\b/)
     expect(servicePageSource).not.toContain(
       "uni.navigateTo({ url: '/pages/service/inspection/index' })",
     )
@@ -59,11 +57,30 @@ describe('platform service page integration', () => {
     expect(gitIgnoreSource).toContain('!apps/mobile/.env.production')
   })
 
-  it('keeps inspection search on the real catalog route and gates other preview actions', () => {
-    expect(servicePageSource).toContain('buildPortalSearchUrl')
-    expect(servicePageSource).toContain('openInspectionSearch')
-    expect(servicePageSource).toContain("activeChannel === 'INSPECTION'")
-    expect(servicePageSource).toContain("handleIntent({ type: 'SEARCH', channel: activeChannel.value })")
+  it('keeps search on the real catalog route and gates other channels', () => {
+    expect(homeRouteSource).toContain('buildPortalSearchUrl')
+    expect(homeRouteSource).toContain('isHomeChannelSearchable(activeChannel.value)')
+    expect(homeRouteSource).toContain("handleIntent({ type: 'HOME_SEARCH', channel: activeChannel.value })")
+  })
+
+  it('keeps unfinished service types out of public builds even when swiped to', () => {
+    expect(servicePageSource).toContain('resolveVisiblePlatformChannels(PLATFORM_PREVIEW_ENABLED)')
+    expect(servicePageSource).toContain('if (!visibleChannels.includes(channel)) return')
+  })
+
+  it('hands the search box to the open service type and resets it when leaving', () => {
+    expect(servicePageSource).toContain("emit('searchPlaceholderChange'")
+    expect(servicePageSource).toContain('channelContent.value?.searchPlaceholder')
+    expect(servicePageSource).toMatch(
+      /watch\(\(\) => props\.active, \(active\) => \{\s*if \(active \|\| activeChannel\.value === DEFAULT_PLATFORM_CHANNEL\) return/,
+    )
+    expect(homeRouteSource).toContain('@search-placeholder-change="serviceSearchPlaceholder = $event"')
+  })
+
+  it('records page scroll only while the channel is on screen', () => {
+    expect(servicePageSource).toMatch(
+      /onPageScroll\(\(\{ scrollTop \}\) => \{\s*if \(props\.active\) currentScrollTop\.value = scrollTop/,
+    )
   })
 
   it('accepts only the latest channel content response before restoring scroll', () => {
@@ -77,34 +94,30 @@ describe('platform service page integration', () => {
 })
 
 describe('platform service visual contract', () => {
-  it('uses a shared safe-area shell and the root tab bar', () => {
-    expect(shellSource).toContain('<RootAppTabBar active="SERVICE"')
-    expect(shellSource).toContain('var(--status-bar-height)')
-    expect(shellSource).toContain('var(--app-root-tabbar-content-offset)')
-    expect(shellSource).toContain('PLATFORM_SERVICE_CHANNELS')
-    expect(shellSource).toContain('grid-template-columns: repeat(5, minmax(0, 1fr))')
-    expect(platformChannelSource).toContain("label: '飞行服务'")
-    expect(platformChannelSource).not.toContain('我要飞无人机')
+  it('lists the plan C service types and leaves the shell to the home page', () => {
+    expect(servicePageSource).toContain('PLATFORM_SERVICE_CHANNELS')
+    expect(servicePageSource).not.toContain('AppHeader')
+    expect(servicePageSource).not.toContain('RootAppTabBar')
+    expect(platformChannelSource).toContain("label: '设备维护'")
+    expect(platformChannelSource).not.toContain('飞行服务')
+    expect(platformChannelSource).not.toContain('我要巡检')
+  })
+
+  it('redirects the legacy service routes to the home professional-service channel', () => {
+    for (const source of [serviceRouteSource, inspectionRouteSource]) {
+      expect(source).toContain("openHomeChannel('SERVICE')")
+      expect(source).not.toContain('InspectionPortalPage')
+    }
   })
 
   it('switches channels only from horizontal gestures in the content area', () => {
-    expect(shellSource).toContain('resolvePlatformSwipeTarget')
-    expect(shellSource).toContain('@touchstart="beginContentSwipe"')
-    expect(shellSource).toContain('@touchend="finishContentSwipe"')
-    expect(shellSource).toContain('@touchcancel="cancelContentSwipe"')
-    expect(shellSource).toContain("emit('selectChannel', targetChannel)")
-    expect(shellSource).not.toContain('@touchstart.prevent')
-    expect(shellSource).not.toContain('@touchstart.stop')
-  })
-
-  it('emits city selection and hides the unavailable message action in public builds', () => {
-    expect(shellSource).toContain('location: []')
-    expect(shellSource).toContain("@location=\"emit('location')\"")
-    expect(shellSource).toContain('showMessage?: boolean')
-    expect(shellSource).toContain(':show-message="showMessage"')
-    expect(appHeaderSource).toContain('v-if="showMessage !== false"')
-    expect(servicePageSource).toContain('handleLocation')
-    expect(servicePageSource).toContain('城市切换功能暂未开放')
+    expect(servicePageSource).toContain('resolvePlatformSwipeTarget')
+    expect(servicePageSource).toContain('@touchstart="beginContentSwipe"')
+    expect(servicePageSource).toContain('@touchend="finishContentSwipe"')
+    expect(servicePageSource).toContain('@touchcancel="cancelContentSwipe"')
+    expect(servicePageSource).toContain('void selectChannel(targetChannel)')
+    expect(servicePageSource).not.toContain('@touchstart.prevent')
+    expect(servicePageSource).not.toContain('@touchstart.stop')
   })
 
   it('keeps all preview metrics outside the reusable channel component', () => {
@@ -122,8 +135,6 @@ describe('platform service visual contract', () => {
     expect(channelContentSource).toContain(':highlights="content.hero.highlights"')
     expect(channelContentSource).not.toContain('service-channel__hero-action')
     expect(serviceFixtureSource).toContain("image('aerial-service-hero-v3.png')")
-    expect(serviceFixtureSource).toContain("image('flight-service-hero-v3.png')")
-    expect(serviceFixtureSource).toContain("image('robot-service-hero-v3.png')")
   })
 
   it('uses readable two-column guarantees and horizontally scrollable service cards', () => {
@@ -135,17 +146,6 @@ describe('platform service visual contract', () => {
     expect(channelContentSource).toContain('font-size: 12px')
     expect(channelContentSource).not.toContain(
       'grid-template-columns: repeat(4, minmax(0, 1fr));\n  gap: 8px;\n}\n\n.service-channel__capability',
-    )
-  })
-})
-
-describe('existing inspection route compatibility', () => {
-  it('supports embedded use without changing the standalone default', () => {
-    expect(inspectionPortalSource).toContain('embedded?: boolean')
-    expect(inspectionPortalSource).toContain('embedded: false')
-    expect(inspectionPortalSource).toContain('v-if="!props.embedded"')
-    expect(inspectionPortalSource).toContain(
-      "{ 'inspection-portal--embedded': props.embedded }",
     )
   })
 })

@@ -267,11 +267,10 @@ async function main() {
 
   try {
     await page.goto(appUrl, { waitUntil: 'networkidle' })
-    await page.getByText('服务', { exact: true }).last().click()
-    await page.getByTestId('inspection-entry').click()
-    await page.getByText('查看全部', { exact: true }).click()
+    await page.getByTestId('home-channel-service').click()
+    await page.getByTestId('portal-view-all').click()
     await page.locator('article.inspection-card').first().click()
-    await page.getByText('预约服务', { exact: true }).last().click()
+    await page.getByText('立即预约', { exact: true }).last().click()
     await page.locator('.booking-section').first().waitFor()
 
     if (!locationAdapterApplied) {
@@ -283,11 +282,12 @@ async function main() {
     await bookingInputs.nth(0).fill('12')
     await page.getByText('期望时间', { exact: true }).click()
     await page.locator('.inspection-time-sheet__panel').waitFor()
-    const firstDate = page.locator(
+    // Today's slots may already be past the booking lead time, so the run starts from tomorrow.
+    const tomorrow = page.locator(
       '.inspection-time-sheet__date:not(.inspection-time-sheet__date--more)',
-    ).first()
-    await firstDate.waitFor()
-    await firstDate.click()
+    ).nth(1)
+    await tomorrow.waitFor()
+    await tomorrow.click()
     const morningSlot = page.locator('.inspection-time-sheet__slot')
       .filter({ hasText: '09:00–12:00' })
     await morningSlot.waitFor()
@@ -315,25 +315,25 @@ async function main() {
         throw new Error(`M004 submission failed: ${await page.locator('.booking-submit-error').innerText()}`)
       }),
     ])
-    await page.getByText('预约申请已提交', { exact: true }).waitFor()
+    await page.getByText('订单已提交', { exact: true }).waitFor()
     const reservationId = new URL(page.url()).hash.match(/reservationId=([^&]+)/)?.[1]
     if (!reservationId) throw new Error('Reservation ID is missing from M005 route.')
 
     const plan = await publishPlan(decodeURIComponent(reservationId), provider.accessToken)
     await page.reload({ waitUntil: 'networkidle' })
-    await page.locator('.booking-submitted__footer uni-button').click()
+    await page.locator('.booking-submitted__footer uni-button').last().click()
     await page.getByText('方案确认', { exact: true }).first().waitFor()
     await page.locator('uni-button.plan-confirmation__agreement').click()
     await page.locator('uni-button.plan-confirmation__confirm').click()
     await page.waitForURL(/fulfillment\?serviceOrderId=/)
-    await page.getByText('服务安排', { exact: true }).first().waitFor()
+    await page.getByText('现场巡检', { exact: true }).first().waitFor()
     const serviceOrderId = new URL(page.url()).hash.match(/serviceOrderId=([^&]+)/)?.[1]
     if (!serviceOrderId) throw new Error('Service order ID is missing from M007 route.')
 
     await completeServiceOrder(decodeURIComponent(serviceOrderId), provider.accessToken)
     const delivery = await publishDelivery(decodeURIComponent(serviceOrderId), provider.accessToken)
     await page.reload({ waitUntil: 'networkidle' })
-    await page.locator('.fulfillment__footer uni-button').click()
+    await page.locator('.fulfillment__footer uni-button').last().click()
     await page.getByText('报告已交付', { exact: true }).waitFor()
     await page.locator('.delivery__footer uni-button').filter({
       hasText: '确认验收',

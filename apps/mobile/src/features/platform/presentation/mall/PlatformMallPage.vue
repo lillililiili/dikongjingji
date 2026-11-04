@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AppHeader from '@/app-shell/components/AppHeader.vue'
-import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import PlatformHeroBanner from '@/shared/presentation/PlatformHeroBanner.vue'
 import type { PlatformWeatherPresentation } from '@/shared/weather/platform-weather'
 import type { PlatformFeatureIntent } from '../../domain/platform-feature-intent'
@@ -169,7 +168,6 @@ function openItem(item: PlatformMallItem, kind: 'PRODUCT' | 'SOLUTION'): void {
         </view>
       </section>
     </view>
-    <RootAppTabBar active="MALL" />
   </view>
 </template>
 

@@ -16,6 +16,7 @@ defineEmits<{
       v-for="category in categories"
       :key="category.code"
       class="category-grid__item"
+      :data-testid="`portal-category-${category.code.toLowerCase()}`"
       :aria-label="`${category.name}，${category.subtitle}`"
       @click="$emit('select', category)"
     >

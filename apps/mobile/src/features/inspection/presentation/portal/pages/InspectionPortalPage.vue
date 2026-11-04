@@ -1,22 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
-import {
-  createCurrentCityWeatherLoader,
-  createPlatformWeatherApi,
-  type PlatformWeatherPresentation,
-} from '@/shared/weather/platform-weather'
-import { createUniPlatformWeatherHttpClient } from '@/shared/weather/uni-platform-weather-http-client'
 
 import { composeInspectionPortalContentForRuntime } from '../../../data/preview/inspection-portal-preview'
 import { inspectionCatalogApi } from '../../../data/service-flow/uni-booking-http-client'
 import {
   buildPortalCategoryUrl,
   buildPortalHotServiceUrl,
-  buildPortalSearchUrl,
   buildPortalViewAllUrl,
 } from '../../../application/portal/build-portal-navigation'
 import {
@@ -33,45 +25,18 @@ import InspectionCategoryGrid from '../components/InspectionCategoryGrid.vue'
 import InspectionGuaranteeStrip from '../components/InspectionGuaranteeStrip.vue'
 import InspectionHero from '../components/InspectionHero.vue'
 import InspectionProcess from '../components/InspectionProcess.vue'
-import PortalServiceHeader from '../components/PortalServiceHeader.vue'
-
-const props = withDefaults(defineProps<{
-  embedded?: boolean
-}>(), {
-  embedded: false,
-})
 
 const currentCityStore = useCurrentCityStore()
 const { currentCity } = storeToRefs(currentCityStore)
 const content = ref<InspectionPortalContent>(EMPTY_PORTAL_CONTENT)
-const keyword = ref('')
 const isLoading = ref(true)
 const loadError = ref('')
-const weather = ref<PlatformWeatherPresentation>({
-  available: false,
-  text: '',
-  iconUrl: '/static/images/inspection/platform/weather-unknown.png',
-  conditionCode: 'UNKNOWN',
-  observedAt: null,
-})
 const showRequestAction = import.meta.env.DEV
-const developmentUnreadCount = import.meta.env.DEV ? 3 : undefined
 const portalPreviewEnabled =
   import.meta.env.DEV ||
   import.meta.env.VITE_PLATFORM_PREVIEW_ENABLED === 'true'
 const portalContentLoader = createInspectionPortalContentLoader(
   (cityCode) => inspectionCatalogApi.loadPortal(cityCode),
-)
-const weatherLoader = createCurrentCityWeatherLoader(
-  createPlatformWeatherApi(createUniPlatformWeatherHttpClient({
-    getAccessToken: () => null,
-  })),
-)
-let weatherRequestVersion = 0
-const displayCityName = computed(
-  () =>
-    currentCity.value?.name ??
-    (import.meta.env.DEV ? '东营' : '选择城市'),
 )
 
 onMounted(() => {
@@ -87,23 +52,15 @@ onMounted(() => {
     }
   }
   void loadPortalContent()
-  void loadWeather()
 })
 
 watch(
   () => currentCity.value?.code,
   () => {
     void loadPortalContent()
-    void loadWeather()
   },
   { flush: 'sync' },
 )
-
-async function loadWeather(): Promise<void> {
-  const requestVersion = ++weatherRequestVersion
-  const loadedWeather = await weatherLoader.load(currentCity.value)
-  if (requestVersion === weatherRequestVersion) weather.value = loadedWeather
-}
 
 async function loadPortalContent(): Promise<void> {
   isLoading.value = true
@@ -135,12 +92,6 @@ function navigateToCatalog(url: string): void {
   uni.navigateTo({ url })
 }
 
-function submitSearch(): void {
-  navigateToCatalog(
-    buildPortalSearchUrl(currentCity.value?.code, keyword.value),
-  )
-}
-
 function selectCategory(category: InspectionPortalCategory): void {
   navigateToCatalog(
     buildPortalCategoryUrl(currentCity.value?.code, category.code),
@@ -169,26 +120,8 @@ function showUnavailable(message: string): void {
 </script>
 
 <template>
-  <view
-    :class="[
-      'inspection-portal',
-      { 'inspection-portal--embedded': props.embedded },
-    ]"
-    data-testid="inspection-portal"
-  >
+  <view class="inspection-portal" data-testid="inspection-portal">
     <view class="inspection-portal__surface">
-      <PortalServiceHeader
-        v-if="!props.embedded"
-        v-model:keyword="keyword"
-        :city-name="displayCityName"
-        :weather-label="weather.available ? weather.text : undefined"
-        :weather-icon-url="weather.available ? weather.iconUrl : undefined"
-        :unread-count="developmentUnreadCount"
-        @search="submitSearch"
-        @select-city="showUnavailable('城市选择能力待平台接入')"
-        @select-sibling="showUnavailable(`${$event}由平台统一接入`)"
-      />
-
       <main class="inspection-portal__content">
         <view v-if="isLoading" class="portal-skeleton" aria-label="正在加载巡检入口">
           <view class="portal-skeleton__hero" />
@@ -198,7 +131,11 @@ function showUnavailable(message: string): void {
         <view v-else-if="loadError" class="portal-state">
           <text class="portal-state__title">暂时无法加载</text>
           <text class="portal-state__description">{{ loadError }}</text>
-          <button class="portal-state__action" @click="loadPortalContent">
+          <button
+            class="portal-state__action"
+            data-testid="portal-retry"
+            @click="loadPortalContent"
+          >
             重新加载
           </button>
         </view>
@@ -230,27 +167,13 @@ function showUnavailable(message: string): void {
         </view>
       </main>
     </view>
-
-    <RootAppTabBar v-if="!props.embedded" active="SERVICE" />
   </view>
 </template>
 
 <style scoped>
 .inspection-portal {
-  min-height: 100vh;
-  padding-bottom:
-    calc(clamp(58px, 11.5vw, 68px) + env(safe-area-inset-bottom));
   background: #f7f8fa;
   box-sizing: border-box;
-}
-
-.inspection-portal--embedded {
-  min-height: auto;
-  padding-bottom: 0;
-}
-
-.inspection-portal--embedded .inspection-portal__content {
-  padding: 0 0 clamp(12px, 3vw, 18px);
 }
 
 .inspection-portal__surface {
@@ -262,10 +185,7 @@ function showUnavailable(message: string): void {
 
 .inspection-portal__content {
   display: flex;
-  padding:
-    clamp(4px, 0.8vw, 5px)
-    clamp(7px, 1.6vw, 10px)
-    clamp(12px, 3vw, 18px);
+  padding: 0 0 clamp(12px, 3vw, 18px);
   flex-direction: column;
   gap: clamp(7px, 1.7vw, 10px);
   background: #f7f8fa;
@@ -359,18 +279,5 @@ function showUnavailable(message: string): void {
   .portal-skeleton__grid {
     animation: none;
   }
-}
-
-.inspection-portal :deep(.root-tab-bar) {
-  min-height:
-    calc(clamp(58px, 11.5vw, 68px) + env(safe-area-inset-bottom));
-}
-
-.inspection-portal :deep(.root-tab-bar__item) {
-  min-height: clamp(48px, 9.8vw, 58px);
-}
-
-.inspection-portal :deep(.root-tab-bar__label) {
-  font-size: clamp(11px, 2.3vw, 14px);
 }
 </style>

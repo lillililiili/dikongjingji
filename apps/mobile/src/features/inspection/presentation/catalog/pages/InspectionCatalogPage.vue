@@ -165,7 +165,6 @@ import { onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { storeToRefs } from 'pinia'
 
-import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { createRecentCityStorage } from '@/shared/city/data/recent-city-storage'
 import { locateCurrentCityName } from '@/shared/city/data/uni-city-location'
 import type {
@@ -634,7 +633,6 @@ function showCustomerService(): void {
       @relocate="relocateCity"
       @select="applyCitySelection"
     />
-    <RootAppTabBar active="SERVICE" />
   </view>
 </template>
 
@@ -656,10 +654,7 @@ function showCustomerService(): void {
 
 .inspection-catalog__scroll {
   width: 100%;
-  height: calc(
-    100vh - var(--status-bar-height) - 121px -
-      env(safe-area-inset-bottom)
-  );
+  height: calc(100vh - var(--status-bar-height) - 121px);
   background: #f7f8fa;
 }
 
@@ -669,7 +664,7 @@ function showCustomerService(): void {
   padding:
     6px
     clamp(8px, 2.4vw, 14px)
-    calc(18px + 52px + env(safe-area-inset-bottom));
+    calc(18px + env(safe-area-inset-bottom));
   flex-direction: column;
   gap: 6px;
   background: #f7f8fa;

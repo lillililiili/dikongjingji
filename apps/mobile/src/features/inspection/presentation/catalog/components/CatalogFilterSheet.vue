@@ -56,6 +56,7 @@ function apply(): void {
         <text class="catalog-sheet__title">筛选巡检服务</text>
         <button
           class="catalog-sheet__close"
+          data-testid="catalog-filter-close"
           aria-label="关闭筛选"
           @click="$emit('close')"
         >

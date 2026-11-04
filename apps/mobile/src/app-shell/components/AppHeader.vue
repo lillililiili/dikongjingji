@@ -29,7 +29,7 @@ const unreadLabel = computed(() => {
 
 <template>
   <header
-    class="app-header"
+    :class="['app-header', { 'app-header--no-message': showMessage === false }]"
     data-testid="app-header"
   >
     <button
@@ -95,6 +95,12 @@ const unreadLabel = computed(() => {
   align-items: center;
   padding: 0 var(--app-header-horizontal-padding);
   box-sizing: border-box;
+}
+
+.app-header--no-message {
+  grid-template-columns:
+    var(--app-header-location-width)
+    minmax(0, 1fr);
 }
 
 .app-header__city,

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onHide, onShow } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
+import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import {
   createPlatformFeatureGateway,
   type PlatformFeatureAvailability,
@@ -74,24 +75,15 @@ function handleIntent(intent: PlatformFeatureIntent): void {
   }
 }
 
+// Mall left the root tabs, so old public links must not stop on a page without an exit.
+onLoad(() => {
+  if (!PLATFORM_PREVIEW_ENABLED) openHomeChannel('RECOMMEND')
+})
+
 onShow(() => {
-  if (PLATFORM_PREVIEW_ENABLED) {
-    uni.hideTabBar({ animation: false })
-  } else {
-    uni.showTabBar({
-      animation: false,
-      fail: () => undefined,
-    })
-  }
   restoreDefaultCity()
   void loadContent()
   void loadWeather()
-})
-onHide(() => {
-  uni.showTabBar({
-    animation: false,
-    fail: () => undefined,
-  })
 })
 </script>
 

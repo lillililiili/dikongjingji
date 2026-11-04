@@ -17,9 +17,14 @@ describe('platform mall page', () => {
     ).toBe('custom')
   })
 
-  it('keeps the native root tab bar visible when platform preview is disabled', () => {
+  it('is no longer a root tab, so it shows no bar', () => {
+    expect(pages.tabBar.list.map((item) => item.pagePath)).not.toContain('pages/mall/index')
+    expect(mallPageSource).not.toContain('RootAppTabBar')
+  })
+
+  it('sends old public links back to the home page', () => {
     expect(mallRouteSource).toMatch(
-      /if \(PLATFORM_PREVIEW_ENABLED\) \{\s*uni\.hideTabBar\(\{ animation: false \}\)\s*\} else \{\s*uni\.showTabBar\(/,
+      /onLoad\(\(\) => \{\s*if \(!PLATFORM_PREVIEW_ENABLED\) openHomeChannel\('RECOMMEND'\)/,
     )
   })
 
@@ -33,7 +38,6 @@ describe('platform mall page', () => {
 
   it('renders typed products without embedding development metrics', () => {
     expect(mallPageSource).toContain('defineProps')
-    expect(mallPageSource).toContain('RootAppTabBar active="MALL"')
     expect(mallPageSource).toContain('content.categories')
     expect(mallPageSource).toContain('content.products')
     expect(mallPageSource).toContain('content.rentals')

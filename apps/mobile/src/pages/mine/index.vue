@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onHide, onShow } from '@dcloudio/uni-app'
+import { onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
-import { ROOT_TABS, type RootTabCode } from '@/app-shell/navigation/root-tabs'
+import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
   createLatestRequestCoordinator,
@@ -124,11 +124,6 @@ async function loadRecentOrders(): Promise<void> {
   }
 }
 
-function selectTab(code: RootTabCode): void {
-  const tab = ROOT_TABS.find((candidate) => candidate.code === code)
-  if (tab && code !== 'MINE') uni.switchTab({ url: tab.path })
-}
-
 function showUnavailable(): void {
   uni.showToast({ title: '该能力将在下一阶段接入', icon: 'none' })
 }
@@ -149,29 +144,23 @@ function openRecentOrder(order: PlatformMineOrder): void {
 }
 
 onShow(() => {
-  uni.hideTabBar({ animation: false })
   restoreDefaultCity()
   void loadRecentOrders()
-})
-onHide(() => {
-  uni.showTabBar({
-    animation: false,
-    fail: () => undefined,
-  })
 })
 </script>
 
 <template>
-  <PlatformMinePage
-    :state="state"
-    active-tab="MINE"
-    @retry="loadRecentOrders"
-    @customer-service="showUnavailable"
-    @settings="showUnavailable"
-    @select-status="openStatus"
-    @select-order="openRecentOrder"
-    @select-feature="showUnavailable"
-    @view-all-orders="openAllOrders"
-    @select-tab="selectTab"
-  />
+  <view data-testid="mine-page">
+    <PlatformMinePage
+      :state="state"
+      @retry="loadRecentOrders"
+      @customer-service="showUnavailable"
+      @settings="showUnavailable"
+      @select-status="openStatus"
+      @select-order="openRecentOrder"
+      @select-feature="showUnavailable"
+      @view-all-orders="openAllOrders"
+    />
+    <RootAppTabBar active="MINE" />
+  </view>
 </template>

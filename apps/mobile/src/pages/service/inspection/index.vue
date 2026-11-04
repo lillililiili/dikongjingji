@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import InspectionPortalPage from '@/features/inspection/presentation/portal/pages/InspectionPortalPage.vue'
+import { onLoad } from '@dcloudio/uni-app'
+
+import { openHomeChannel } from '@/app-shell/navigation/home-entry'
+
+onLoad(() => {
+  openHomeChannel('SERVICE')
+})
 </script>
 
 <template>
-  <InspectionPortalPage />
+  <view />
 </template>
-
