@@ -83,7 +83,7 @@ interface CompletedFile {
 }
 
 export interface InspectionBookingApi {
-  loadServiceSnapshot(serviceId: string, cityCode: string): Promise<BookingServiceSnapshot>
+  loadServiceSnapshot(serviceId: string, cityCode: string): Promise<BookingServiceSnapshot | null>
   loadAvailableTimeSlots(
     serviceId: string,
     cityCode: string,
@@ -144,7 +144,7 @@ export function createInspectionBookingApi(
       const service = page.items.find((item) => item.serviceId === serviceId)
 
       if (!service) {
-        throw new Error('SERVICE_NOT_FOUND')
+        return null
       }
 
       return {

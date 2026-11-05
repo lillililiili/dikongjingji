@@ -22,7 +22,7 @@ interface BookingPageBindings {
 type LoadServiceSnapshot = (
   serviceId: string,
   cityCode: string,
-) => Promise<BookingServiceSnapshot>
+) => Promise<BookingServiceSnapshot | null>
 
 const SERVICE_ID = '33333333-3333-3333-3333-333333333333'
 const CATALOG_URL = '/pages/service/inspection/catalog'
@@ -195,9 +195,7 @@ describe('M04 back button', () => {
 
   it('returns to M02 when the service failed to load', async () => {
     stubPageStack(1)
-    const { bindings, load } = mountBookingPage(
-      () => Promise.reject(new Error('SERVICE_NOT_FOUND')),
-    )
+    const { bindings, load } = mountBookingPage(() => Promise.resolve(null))
 
     load({ serviceId: SERVICE_ID, cityCode: '370500' })
     await flushPromises()
