@@ -72,6 +72,12 @@ const controller = createInspectionOrderCenterController({
   navigateTo: (url) => uni.navigateTo({ url }),
   showToast: (message) => uni.showToast({ title: message, icon: 'none' }),
   navigateBack: () => new Promise((resolve) => {
+    // Alone in the stack, navigateBack reloads this page on H5 and offers to quit on
+    // App, yet reports success, so answer for it and let the controller go to my tab.
+    if (getCurrentPages().length <= 1) {
+      resolve(false)
+      return
+    }
     uni.navigateBack({
       delta: 1,
       success: () => resolve(true),
