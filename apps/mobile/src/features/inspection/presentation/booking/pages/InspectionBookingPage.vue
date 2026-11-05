@@ -9,7 +9,7 @@ import { createBookingFileHashPort, createBookingUuid } from '../../../applicati
 import { createBookingImageAttachments, pickBookingPdfAttachments } from '../../../application/service-flow/booking-attachment-selection'
 import { uniBookingFileAccessPort } from '../../../data/service-flow/booking-file-access'
 import { createUniBookingDocumentPicker, uniBookingDocumentPicker } from '../../../data/service-flow/uni-booking-document-picker'
-import { ApiRequestError, inspectionBookingApi } from '../../../data/service-flow/uni-booking-http-client'
+import { ApiRequestError, inspectionBookingApi, platformCityApi } from '../../../data/service-flow/uni-booking-http-client'
 import { createBookingLocationSelection, createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot, type BookingTimeSelection } from '../../../domain/service-flow/booking'
 import { buildInspectionBookingSubmittedUrl } from '../../../navigation/inspection-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
@@ -66,12 +66,7 @@ onLoad((query: BookingRouteQuery | undefined) => {
   }
 
   const cityCode = query?.cityCode?.trim()
-  if (cityCode) {
-    currentCityStore.setCurrentCity({
-      code: cityCode,
-      name: currentCity.value?.name ?? cityCode,
-    })
-  }
+  if (cityCode && !currentCity.value) void restoreRouteCity(cityCode)
   void loadService(serviceId, cityCode)
 })
 
@@ -81,11 +76,25 @@ onUnload(() => {
   releasePdfAttachmentsWhenSafe()
 })
 
+// The URL carries a code; the name comes from the directory. Without a match the
+// store stays empty, and this page keeps working from service.cityCode.
+async function restoreRouteCity(cityCode: string): Promise<void> {
+  const directory = await platformCityApi.load().catch(() => undefined)
+  const city = directory?.provinces
+    .flatMap((province) => province.cities)
+    .find(({ code }) => code === cityCode)
+  if (!city || currentCity.value) return
+  const { code, name, provinceCode } = city
+  currentCityStore.setCurrentCity({ code, name, provinceCode })
+}
+
 async function loadService(
   serviceId: string,
   routeCityCode?: string,
 ): Promise<void> {
-  const cityCode = routeCityCode ?? currentCity.value?.code
+  // A city already in the store is the user's latest choice, so the route only
+  // fills an empty store.
+  const cityCode = currentCity.value?.code ?? routeCityCode
   if (!cityCode) {
     isLoading.value = false
     loadError.value = '请从巡检服务页面进入并选择服务城市'
@@ -260,7 +269,7 @@ function releasePdfAttachmentsWhenSafe(): void {
 }
 
 function openTimePicker(): void {
-  if (!service.value || !currentCity.value) {
+  if (!service.value) {
     return
   }
   isTimePickerVisible.value = true
@@ -412,10 +421,10 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
       <button class="inspection-booking__submit" :loading="isSubmitting" :disabled="isSubmitting" @click="submit">提交订单</button>
     </view>
     <InspectionTimePickerSheet
-      v-if="service && currentCity"
+      v-if="service"
       :visible="isTimePickerVisible"
       :service-id="service.serviceId"
-      :city-code="currentCity.code"
+      :city-code="service.cityCode"
       :model-value="draft.preferredServiceTime"
       :load-slots="inspectionBookingApi.loadAvailableTimeSlots"
       @close="isTimePickerVisible = false"

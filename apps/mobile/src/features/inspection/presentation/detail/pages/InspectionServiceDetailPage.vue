@@ -12,7 +12,7 @@ import {
 import {
   EMPTY_INSPECTION_SERVICE_DETAIL,
 } from '../../../application/detail/resolve-inspection-service-detail'
-import { inspectionServiceDetailApi } from '../../../data/service-flow/uni-booking-http-client'
+import { inspectionServiceDetailApi, platformCityApi } from '../../../data/service-flow/uni-booking-http-client'
 import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
 import InspectionScope from '../components/InspectionScope.vue'
 import ServiceDeliverables from '../components/ServiceDeliverables.vue'
@@ -33,6 +33,7 @@ const detail = ref<InspectionServiceDetail>(
   EMPTY_INSPECTION_SERVICE_DETAIL,
 )
 const routeServiceId = ref('')
+const detailCityCode = ref('')
 const selectedReviewFilter = ref('ALL')
 const isLoading = ref(true)
 const loadError = ref('')
@@ -45,13 +46,11 @@ const emit = defineEmits<{
 onLoad((query: DetailRouteQuery | undefined) => {
   routeServiceId.value = resolveDetailServiceId(query?.serviceId)
   const cityCode = query?.cityCode?.trim()
-  if (cityCode) {
-    currentCityStore.setCurrentCity({
-      code: cityCode,
-      name: currentCityStore.currentCity?.name ?? cityCode,
-    })
-  }
-  const resolvedCityCode = cityCode ?? currentCityStore.currentCity?.code
+  if (cityCode && !currentCityStore.currentCity) void restoreRouteCity(cityCode)
+  // A city already in the store is the user's latest choice, so the route only
+  // fills an empty store.
+  const resolvedCityCode = currentCityStore.currentCity?.code ?? cityCode
+  detailCityCode.value = resolvedCityCode ?? ''
   if (!routeServiceId.value || !resolvedCityCode) {
     isLoading.value = false
     loadError.value = '未找到可预约的巡检服务'
@@ -59,6 +58,18 @@ onLoad((query: DetailRouteQuery | undefined) => {
   }
   void loadDetail(routeServiceId.value, resolvedCityCode)
 })
+
+// The URL carries a code; the name comes from the directory. Without a match the
+// store stays empty, and this page keeps working from detailCityCode.
+async function restoreRouteCity(cityCode: string): Promise<void> {
+  const directory = await platformCityApi.load().catch(() => undefined)
+  const city = directory?.provinces
+    .flatMap((province) => province.cities)
+    .find(({ code }) => code === cityCode)
+  if (!city || currentCityStore.currentCity) return
+  const { code, name, provinceCode } = city
+  currentCityStore.setCurrentCity({ code, name, provinceCode })
+}
 
 async function loadDetail(serviceId: string, cityCode: string): Promise<void> {
   isLoading.value = true
@@ -102,7 +113,7 @@ function reserveService(): void {
 
   const intent = createReservationIntent(
     routeServiceId.value,
-    currentCityStore.currentCity?.code,
+    detailCityCode.value,
   )
   emit('reserve', intent)
 }
