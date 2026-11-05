@@ -12,7 +12,7 @@ import {
 import {
   EMPTY_INSPECTION_SERVICE_DETAIL,
 } from '../../../application/detail/resolve-inspection-service-detail'
-import { inspectionServiceDetailApi, platformCityApi } from '../../../data/service-flow/uni-booking-http-client'
+import { ApiRequestError, inspectionServiceDetailApi, platformCityApi } from '../../../data/service-flow/uni-booking-http-client'
 import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
 import InspectionScope from '../components/InspectionScope.vue'
 import ServiceDeliverables from '../components/ServiceDeliverables.vue'
@@ -37,6 +37,7 @@ const detailCityCode = ref('')
 const selectedReviewFilter = ref('ALL')
 const isLoading = ref(true)
 const loadError = ref('')
+const canRetryLoad = ref(false)
 const hasDetail = computed(() => Boolean(detail.value.serviceId))
 const canReserve = computed(() => Boolean(routeServiceId.value && hasDetail.value))
 const emit = defineEmits<{
@@ -80,12 +81,19 @@ async function loadDetail(serviceId: string, cityCode: string): Promise<void> {
       cityCode,
     )
   } catch (error) {
-    loadError.value = error instanceof Error
-      ? error.message
-      : '巡检服务详情加载失败'
+    // 400 and 404 mean this city cannot show this service, so a retry cannot help.
+    canRetryLoad.value = !(error instanceof ApiRequestError && [400, 404].includes(error.status))
+    loadError.value = canRetryLoad.value
+      ? '服务详情加载失败，请检查网络后重试'
+      : '当前城市暂无这项服务，或服务已下架'
   } finally {
     isLoading.value = false
   }
+}
+
+function recoverFromLoadError(): void {
+  if (canRetryLoad.value) void loadDetail(routeServiceId.value, detailCityCode.value)
+  else returnToCatalog()
 }
 
 function returnToCatalog(): void {
@@ -167,6 +175,13 @@ function reserveService(): void {
       <text class="inspection-service-detail__empty-copy">
         {{ isLoading ? '正在读取真实服务数据…' : loadError }}
       </text>
+      <button
+        v-if="!isLoading"
+        class="inspection-service-detail__empty-action"
+        @click="recoverFromLoadError"
+      >
+        {{ canRetryLoad ? '重新加载' : '看看其他服务' }}
+      </button>
     </view>
 
     <ServiceDetailBottomBar
@@ -226,5 +241,19 @@ function reserveService(): void {
   margin-top: 8px;
   color: #8e939b;
   font-size: 13px;
+}
+
+.inspection-service-detail__empty-action {
+  height: 44px;
+  margin-top: 18px;
+  border-radius: 22px;
+  color: #ffffff;
+  background: #ff5a00;
+  font-size: 14px;
+  line-height: 44px;
+}
+
+.inspection-service-detail__empty-action::after {
+  border: 0;
 }
 </style>
