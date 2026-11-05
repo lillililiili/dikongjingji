@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onBackPress, onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import type { InspectionPlan, InspectionServiceOrder } from '../../../data/service-flow/inspection-plan-api'
 import { inspectionPlanApi } from '../../../data/service-flow/uni-booking-http-client'
@@ -63,6 +63,12 @@ onLoad((query: FulfillmentRouteQuery | undefined) => {
   serviceOrderId.value = query?.serviceOrderId?.trim() ?? ''
   if (!serviceOrderId.value) { isLoading.value = false; loadError.value = '未找到服务安排'; return }
   void reload()
+})
+
+onBackPress((event) => {
+  if (event.from === 'navigateBack') return false
+  returnToOrders()
+  return true
 })
 
 async function reload(): Promise<void> {
