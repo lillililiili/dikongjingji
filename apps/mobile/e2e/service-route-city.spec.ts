@@ -120,7 +120,7 @@ test.describe('M03、M04 从路由恢复城市', () => {
 
   test('SRV-104 共享城市与 M04 路由不同，服务和时段都用共享城市', async ({ page }) => {
     await stubTimeSlots(page)
-    const services = collectRequests(page, SERVICES_PATH)
+    const details = collectRequests(page, DETAIL_PATH)
     const slots = collectRequests(page, SLOTS_PATH)
 
     await openCatalogFromHome(page)
@@ -133,7 +133,7 @@ test.describe('M03、M04 从路由恢复城市', () => {
     await page.locator('.booking-row--time').click()
 
     await expect.poll(() => slots.length).toBeGreaterThan(0)
-    expect(services.at(-1)?.searchParams.get('cityCode')).toBe('370100')
+    expect(details.at(-1)?.searchParams.get('cityCode')).toBe('370100')
     expect(slots.at(-1)?.searchParams.get('cityCode')).toBe('370100')
   })
 

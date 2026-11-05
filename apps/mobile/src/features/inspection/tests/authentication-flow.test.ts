@@ -376,15 +376,13 @@ describe('inspection authentication session', () => {
     }) => options.success({
       statusCode: 200,
       data: {
-        items: [{
-          serviceId: 'service-id',
-          category: { name: '电力巡检' },
-          name: '输电线路无人机巡检',
-          summary: '专业无人机电力巡检服务',
-          coverImage: null,
-          features: [{ code: 'LINE', name: '线路本体巡检' }],
-          price: { mode: 'STARTING_PRICE', startingAmountMinor: 69_900, unitLabel: '公里起' },
-        }],
+        serviceId: 'service-id',
+        category: { name: '电力巡检' },
+        name: '输电线路无人机巡检',
+        summary: '专业无人机电力巡检服务',
+        coverImage: null,
+        inspectionItems: [{ code: 'LINE', name: '线路本体巡检' }],
+        price: { mode: 'STARTING_PRICE', startingAmountMinor: 69_900, unitLabel: '公里起' },
       },
       header: {},
     }))
@@ -411,7 +409,7 @@ describe('inspection authentication session', () => {
     })
     expect(request).toHaveBeenCalledTimes(1)
     expect(request.mock.calls[0]?.[0]).toMatchObject({
-      url: 'http://127.0.0.1:8080/api/v1/inspection/services?cityCode=370500&page=1&size=50',
+      url: 'http://127.0.0.1:8080/api/v1/inspection/services/service-id?cityCode=370500',
       method: 'GET',
     })
   })

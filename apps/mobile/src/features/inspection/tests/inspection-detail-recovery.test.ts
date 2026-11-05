@@ -18,6 +18,7 @@ interface DetailRouteQuery {
 }
 
 interface DetailPageBindings {
+  canReserve: ComputedRef<boolean>
   canRetryLoad: Ref<boolean>
   hasDetail: ComputedRef<boolean>
   loadError: Ref<string>
@@ -105,6 +106,37 @@ function mountDetailPage(
     },
   }
 }
+
+describe('M03 reserve button', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it.each([
+    ['offers booking when the service has an item to book', [{ code: 'TOWER', label: '杆塔设备巡检', icon: '', tone: 'orange' }], true],
+    ['holds booking back when nothing can be booked', [], false],
+  ])('%s', async (_name, inspectionItems, expected) => {
+    const { bindings, load } = mountDetailPage(async (serviceId) => ({
+      ...serviceDetail(serviceId),
+      inspectionItems,
+    }) as InspectionServiceDetail)
+
+    load({ serviceId: SERVICE_ID, cityCode: '370500' })
+    await flushPromises()
+
+    expect(bindings.hasDetail.value).toBe(true)
+    expect(bindings.canReserve.value).toBe(expected)
+  })
+
+  it('stays held back while the detail is not there', async () => {
+    const { bindings, load } = mountDetailPage(() => new Promise(() => undefined))
+
+    load({ serviceId: SERVICE_ID, cityCode: '370500' })
+    await flushPromises()
+
+    expect(bindings.canReserve.value).toBe(false)
+  })
+})
 
 describe('M03 load failure recovery', () => {
   const navigateBack = vi.fn()

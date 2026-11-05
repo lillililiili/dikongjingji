@@ -320,8 +320,8 @@ describe('M04 load failure recovery', () => {
 })
 
 describe('booking service snapshot', () => {
-  it('answers null instead of an internal code when the list lacks the service', async () => {
-    const request = vi.fn(async () => ({ items: [] }))
+  it('answers null instead of an internal code when nothing can be booked', async () => {
+    const request = vi.fn(async () => ({ inspectionItems: [] }))
     const api = createInspectionBookingApi({ request } as never)
 
     await expect(api.loadServiceSnapshot(SERVICE_ID, '370200')).resolves.toBeNull()

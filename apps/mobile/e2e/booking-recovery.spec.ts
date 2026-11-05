@@ -2,7 +2,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 
 const SERVICE_ID = '33333333-3333-3333-3333-333333333333'
 const MISSING_SERVICE_ID = '12345678-1234-4234-8234-123456789012'
-const SERVICES_PATH = '/api/v1/inspection/services'
+const DETAIL_PATH = `/api/v1/inspection/services/${SERVICE_ID}`
 const UNAVAILABLE_COPY = '当前城市暂无这项服务，或服务已下架'
 const RETRY_COPY = '服务信息加载失败，请检查网络后重试'
 
@@ -12,21 +12,19 @@ function bookingUrl(query: string): string {
 
 const BOOKING_URL = bookingUrl(`?serviceId=${SERVICE_ID}&cityCode=370500`)
 
-// M02 always sends a sort and M04 never does, so M04's read can fail on its own.
+// M03 reads this same URL, so a test that passes through M03 has to install this
+// after M03 has its detail.
 function replyToBookingRead(
   page: Page,
   reply: (route: Route) => Promise<void> | void,
 ): Promise<void> {
-  return page.route(`**${SERVICES_PATH}?*`, async (route) => {
-    if (new URL(route.request().url()).searchParams.has('sort')) await route.continue()
-    else await reply(route)
-  })
+  return page.route(`**${DETAIL_PATH}?*`, reply)
 }
 
-function emptyList(route: Route): Promise<void> {
+function serviceGone(route: Route): Promise<void> {
   return route.fulfill({
-    status: 200,
-    json: { page: 1, size: 50, total: 0, hasMore: false, items: [] },
+    status: 404,
+    json: { code: 'COMMON_NOT_FOUND', message: '资源不存在', traceId: 'e2e' },
   })
 }
 
@@ -34,7 +32,7 @@ function collectBookingReads(page: Page): URL[] {
   const requests: URL[] = []
   page.on('request', (request) => {
     const url = new URL(request.url())
-    if (url.pathname === SERVICES_PATH && !url.searchParams.has('sort')) requests.push(url)
+    if (url.pathname === DETAIL_PATH) requests.push(url)
   })
   return requests
 }
@@ -72,6 +70,12 @@ async function reserveFromDetail(page: Page): Promise<void> {
   await page.locator('.service-detail-bottom-bar__primary').click()
 }
 
+async function reserveAfterServiceIsGone(page: Page): Promise<void> {
+  await expect(page.locator('.inspection-service-detail__content')).toBeVisible()
+  await replyToBookingRead(page, serviceGone)
+  await reserveFromDetail(page)
+}
+
 async function chooseCity(page: Page, name: string): Promise<void> {
   await page.getByTestId('catalog-city-select').click()
   await expect(page.locator('.city-sheet')).toBeVisible()
@@ -105,10 +109,9 @@ test.describe('M04 不可用时的恢复', () => {
   })
 
   test('BKR-103 从目录进来时跳过详情，回到原来的目录', async ({ page }) => {
-    await replyToBookingRead(page, emptyList)
     await openCatalogFromHome(page)
     await page.getByTestId(`catalog-service-${SERVICE_ID}`).click()
-    await reserveFromDetail(page)
+    await reserveAfterServiceIsGone(page)
     await expectUnavailable(page)
     await page.evaluate(() => {
       (window as unknown as { recoveryMark?: boolean }).recoveryMark = true
@@ -126,7 +129,6 @@ test.describe('M04 不可用时的恢复', () => {
   })
 
   test('BKR-104 从首页精选进来时回到首页', async ({ page }) => {
-    await replyToBookingRead(page, emptyList)
     await page.goto('/#/pages/home/index')
     await expect(page.getByTestId('home-city')).toContainText('东营')
     await page.evaluate((id) => {
@@ -134,7 +136,7 @@ test.describe('M04 不可用时的恢复', () => {
         url: `/pages/service/inspection/detail?serviceId=${id}`,
       })
     }, SERVICE_ID)
-    await reserveFromDetail(page)
+    await reserveAfterServiceIsGone(page)
     await expectUnavailable(page)
 
     await recoveryAction(page).click()
@@ -144,9 +146,8 @@ test.describe('M04 不可用时的恢复', () => {
   })
 
   test('BKR-105 只打开了详情就预约时，打开目录而不是回详情', async ({ page }) => {
-    await replyToBookingRead(page, emptyList)
     await page.goto(`/#/pages/service/inspection/detail?serviceId=${SERVICE_ID}&cityCode=370500`)
-    await reserveFromDetail(page)
+    await reserveAfterServiceIsGone(page)
     await expectUnavailable(page)
 
     await recoveryAction(page).click()
@@ -196,7 +197,7 @@ test.describe('M04 不可用时的恢复', () => {
     let offline = true
     await replyToBookingRead(page, async (route) => {
       if (offline) await route.abort('internetdisconnected')
-      else await emptyList(route)
+      else await serviceGone(route)
     })
     await page.goto(BOOKING_URL)
     await expectRetryOffered(page)
