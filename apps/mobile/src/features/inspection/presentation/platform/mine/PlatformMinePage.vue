@@ -14,7 +14,6 @@ import {
 
 const props = defineProps<{
   state: PlatformMineViewState
-  activeTab?: 'HOME' | 'SERVICE' | 'DISCOVER' | 'MALL' | 'MINE'
 }>()
 
 const emit = defineEmits<{
@@ -25,7 +24,6 @@ const emit = defineEmits<{
   selectOrder: [order: PlatformMineOrder]
   selectFeature: [entry: PlatformMineFeatureEntry]
   viewAllOrders: []
-  selectTab: [tab: 'HOME' | 'SERVICE' | 'DISCOVER' | 'MALL' | 'MINE']
 }>()
 
 const content = computed(() => props.state.kind === 'ready' ? props.state.content : undefined)
@@ -48,14 +46,6 @@ const statusImageUrls: Record<InspectionMineStatus, string> = {
   AWAITING_ACCEPTANCE: '/static/images/inspection/platform/mine-status-acceptance-v2.png',
   COMPLETED: '/static/images/inspection/platform/mine-status-completed-v2.png',
 }
-
-const tabs = [
-  { code: 'HOME', label: '首页', icon: 'home' },
-  { code: 'SERVICE', label: '服务', icon: 'smallcircle-filled' },
-  { code: 'DISCOVER', label: '发现', icon: 'navigate' },
-  { code: 'MALL', label: '商城', icon: 'shop' },
-  { code: 'MINE', label: '我的', icon: 'person' },
-] as const
 </script>
 
 <template>
@@ -206,31 +196,6 @@ const tabs = [
         </view>
       </view>
 
-      <view class="platform-mine__tabbar">
-        <button
-          v-for="tab in tabs"
-          :key="tab.code"
-          :class="['platform-mine__tab', { 'platform-mine__tab--active': (props.activeTab || 'MINE') === tab.code }]"
-          @click="emit('selectTab', tab.code as 'HOME' | 'SERVICE' | 'DISCOVER' | 'MALL' | 'MINE')"
-        >
-          <view v-if="tab.code === 'SERVICE'" class="platform-mine__service-tab-icon">
-            <UniIcons
-              v-for="dot in 4"
-              :key="dot"
-              type="smallcircle-filled"
-              size="12"
-              :color="(props.activeTab || 'MINE') === tab.code ? '#ff6508' : '#4c535c'"
-            />
-          </view>
-          <UniIcons
-            v-else
-            :type="tab.icon"
-            size="25"
-            :color="(props.activeTab || 'MINE') === tab.code ? '#ff6508' : '#4c535c'"
-          />
-          <text>{{ tab.label }}</text>
-        </button>
-      </view>
       <PlatformUnavailableDialog
         :visible="unavailableDialogVisible"
         @close="unavailableDialogVisible = false"
@@ -291,10 +256,6 @@ button::after{border:0}
 .platform-mine__feature-image{width:100%;height:100%}
 .platform-mine__feature-title{margin-top:7rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600;text-align:center}
 .platform-mine__feature-value{margin-top:3rpx;color:#7d8590;font-size:17rpx}
-.platform-mine__tabbar{position:fixed;right:0;bottom:0;left:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);padding:7rpx 14rpx calc(7rpx + env(safe-area-inset-bottom));border-top:1rpx solid #e7e9ed;background:rgba(255,255,255,.97)}
-.platform-mine__tab{display:flex;min-height:82rpx;flex-direction:column;align-items:center;justify-content:center;gap:4rpx;color:#4c535c;font-size:20rpx;font-weight:500}
-.platform-mine__tab--active{border-radius:10px;color:#d04700;background:#fff2e8;font-weight:800}
-.platform-mine__service-tab-icon{display:grid;width:50rpx;height:50rpx;grid-template-columns:repeat(2,20rpx);grid-template-rows:repeat(2,20rpx);place-content:center;gap:3rpx;line-height:1}
 .platform-mine__state{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:40rpx}
 .platform-mine__state-title{margin-top:24rpx;color:#4f5966;font-size:28rpx;font-weight:700;text-align:center}
 .platform-mine__state-copy{margin-top:10rpx;color:#9198a1;font-size:22rpx}

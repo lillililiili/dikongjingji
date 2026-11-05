@@ -1,46 +1,58 @@
 <script setup lang="ts">
+import { onShow } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 
 import {
   ROOT_TABS,
+  formatRootTabBadge,
   type RootTabCode,
+  type RootTabDefinition,
 } from '@/app-shell/navigation/root-tabs'
 
-defineProps<{
+const props = defineProps<{
   active: RootTabCode
+  badgeCounts?: Partial<Record<RootTabCode, number>>
+  newContentTabs?: readonly RootTabCode[]
 }>()
 
-const TAB_ICON_TYPES: Partial<Record<RootTabCode, string>> = {
+const emit = defineEmits<{
+  reselect: []
+}>()
+
+const TAB_ICON_TYPES: Record<RootTabCode, string> = {
   HOME: 'home',
-  SERVICE: 'smallcircle-filled',
   DISCOVER: 'navigate',
-  MALL: 'shop',
+  MESSAGE: 'chat',
+  CART: 'cart',
   MINE: 'person',
 }
+const ACTIVE_TAB_COLOR = '#ff6a00'
+const INACTIVE_TAB_COLOR = '#8a8f97'
 
-const ACTIVE_TAB_ICON_TYPES: Partial<Record<RootTabCode, string>> = {
-  HOME: 'home-filled',
-  DISCOVER: 'navigate-filled',
-  MALL: 'shop-filled',
-  MINE: 'person-filled',
+// uni.switchTab only targets pages listed in the native tab bar, so it is hidden rather than removed.
+onShow(() => {
+  uni.hideTabBar({ animation: false, fail: () => undefined })
+})
+
+function iconColor(code: RootTabCode): string {
+  return code === props.active ? ACTIVE_TAB_COLOR : INACTIVE_TAB_COLOR
 }
 
-function iconColor(code: RootTabCode, active: RootTabCode): string {
-  return code === active ? '#d04700' : '#4f5863'
+function badgeLabel(code: RootTabCode): string {
+  return formatRootTabBadge(props.badgeCounts?.[code])
 }
 
-function tabIconType(code: RootTabCode, active: RootTabCode): string {
-  return code === active
-    ? ACTIVE_TAB_ICON_TYPES[code] ?? TAB_ICON_TYPES[code] ?? ''
-    : TAB_ICON_TYPES[code] ?? ''
+function showsNewContentDot(code: RootTabCode): boolean {
+  return code !== props.active && Boolean(props.newContentTabs?.includes(code))
 }
 
-function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
-  if (code === active) {
+function openTab(tab: RootTabDefinition): void {
+  if (tab.code === props.active) {
+    emit('reselect')
     return
   }
 
-  uni.switchTab({ url: path })
+  uni.switchTab({ url: tab.path })
 }
 </script>
 
@@ -51,31 +63,22 @@ function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
       :key="tab.code"
       class="root-tab-bar__item"
       :class="{ 'root-tab-bar__item--active': tab.code === active }"
+      :data-testid="`root-tab-${tab.code.toLowerCase()}`"
       :aria-label="tab.label"
-      @click="openTab(tab.code, tab.path, active)"
+      @click="openTab(tab)"
     >
-      <view
-        v-if="tab.code === 'SERVICE'"
-        class="root-tab-bar__service-icon"
-        aria-hidden="true"
-      >
-        <UniIcons
-          v-for="dot in 4"
-          :key="dot"
-          type="smallcircle-filled"
-          size="14"
-          :color="iconColor(tab.code, active)"
-        />
-      </view>
       <UniIcons
-        v-else
         class="root-tab-bar__icon"
-        :type="tabIconType(tab.code, active)"
-        size="30"
-        :color="iconColor(tab.code, active)"
+        :type="TAB_ICON_TYPES[tab.code]"
+        size="24"
+        :color="iconColor(tab.code)"
         aria-hidden="true"
       />
       <text class="root-tab-bar__label">{{ tab.label }}</text>
+      <text v-if="badgeLabel(tab.code)" class="root-tab-bar__badge">
+        {{ badgeLabel(tab.code) }}
+      </text>
+      <view v-if="showsNewContentDot(tab.code)" class="root-tab-bar__dot" />
     </button>
   </view>
 </template>
@@ -89,26 +92,28 @@ function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
   left: 0;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  min-height: calc(58px + env(safe-area-inset-bottom));
-  padding: 5px 10px env(safe-area-inset-bottom);
-  border-top: 1px solid #edf0f3;
-  background: rgba(255, 255, 255, 0.97);
+  height: calc(60px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid #ebedf0;
+  background: #ffffff;
   box-sizing: border-box;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .root-tab-bar__item {
+  position: relative;
   display: flex;
   width: 100%;
   min-width: 0;
-  min-height: 48px;
+  height: 100%;
+  margin: 0;
   padding: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   border: 0;
-  border-radius: 14px;
-  color: #4f5863;
+  border-radius: 0;
+  color: #8a8f97;
   background: transparent;
   box-sizing: border-box;
   line-height: 1;
@@ -119,8 +124,7 @@ function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
 }
 
 .root-tab-bar__item--active {
-  color: #d04700;
-  background: #fff2e8;
+  color: #ff6a00;
 }
 
 .root-tab-bar__icon {
@@ -128,31 +132,40 @@ function openTab(code: RootTabCode, path: string, active: RootTabCode): void {
   line-height: 1;
 }
 
-.root-tab-bar__service-icon {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  grid-template-columns: repeat(2, 14px);
-  grid-template-rows: repeat(2, 14px);
-  place-content: center;
-  gap: 2px;
-  line-height: 1;
-}
-
-.root-tab-bar__service-icon :deep(.uni-icons) {
-  display: block;
-  width: 14px;
-  height: 14px;
-  line-height: 14px;
-}
-
 .root-tab-bar__label {
-  margin-top: 4px;
   font-size: 12px;
   line-height: 14px;
 }
 
 .root-tab-bar__item--active .root-tab-bar__label {
-  font-weight: 800;
+  font-weight: 500;
+}
+
+.root-tab-bar__badge {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #ff5200;
+  box-sizing: border-box;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.root-tab-bar__dot {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: 9px;
+  border-radius: 50%;
+  background: #ff5200;
 }
 </style>

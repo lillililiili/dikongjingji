@@ -1,10 +1,11 @@
 import type { PlatformChannelCode } from './platform-channel'
 
 export const PLATFORM_SWIPE_CHANNELS = [
-  'AERIAL',
   'INSPECTION',
-  'FLIGHT',
-  'ROBOT',
+  'AERIAL',
+  'SURVEY',
+  'MAINTENANCE',
+  'SUPPORT',
 ] as const satisfies readonly PlatformChannelCode[]
 
 const MIN_HORIZONTAL_DISTANCE = 50
@@ -24,11 +25,7 @@ export function resolvePlatformSwipeTarget(
     return null
   }
 
-  const currentIndex = PLATFORM_SWIPE_CHANNELS.indexOf(
-    current as (typeof PLATFORM_SWIPE_CHANNELS)[number],
-  )
-  if (currentIndex < 0) return null
-
+  const currentIndex = PLATFORM_SWIPE_CHANNELS.indexOf(current)
   const targetIndex = currentIndex + (deltaX < 0 ? 1 : -1)
   return PLATFORM_SWIPE_CHANNELS[targetIndex] ?? null
 }

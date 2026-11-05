@@ -33,7 +33,7 @@ export interface PlatformServiceRecommendation {
 }
 
 export interface PlatformServiceChannelContent {
-  code: Exclude<PlatformChannelCode, 'INSPECTION' | 'MORE'>
+  code: Exclude<PlatformChannelCode, 'INSPECTION'>
   searchPlaceholder: string
   hero: PlatformServiceHero
   scenarios: PlatformServiceScenario[]

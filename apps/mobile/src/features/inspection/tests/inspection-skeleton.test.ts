@@ -1,13 +1,11 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
   INSPECTION_CATALOG_PATH,
   INSPECTION_PORTAL_PATH,
   buildInspectionCatalogUrl,
 } from '../navigation/inspection-routes'
-import { ROOT_TABS } from '../../../app-shell/navigation/root-tabs'
-import { navigateToInspectionPortal } from '../../../app-shell/navigation/service-entry'
 import { useCurrentCityStore } from '../../../shared/city/state/current-city'
 
 describe('inspection route skeleton', () => {
@@ -27,27 +25,6 @@ describe('inspection route skeleton', () => {
     ).toBe(
       '/pages/service/inspection/catalog?cityCode=370500&categoryCode=POWER&keyword=%E7%94%B5%E5%8A%9B&source=CATEGORY',
     )
-  })
-})
-
-describe('minimal host shell', () => {
-  it('keeps the required five root tabs in product order', () => {
-    expect(ROOT_TABS.map((tab) => tab.code)).toEqual([
-      'HOME',
-      'SERVICE',
-      'DISCOVER',
-      'MALL',
-      'MINE',
-    ])
-  })
-
-  it('opens inspection through the service entry instead of an internal test hook', () => {
-    const navigate = vi.fn()
-
-    navigateToInspectionPortal(navigate)
-
-    expect(navigate).toHaveBeenCalledOnce()
-    expect(navigate).toHaveBeenCalledWith(INSPECTION_PORTAL_PATH)
   })
 })
 

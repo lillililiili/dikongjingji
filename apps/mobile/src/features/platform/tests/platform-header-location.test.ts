@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import discoverRouteSource from '../../../pages/discover/index.vue?raw'
 import mallRouteSource from '../../../pages/mall/index.vue?raw'
-import homePageSource from '../../inspection/presentation/platform/home/PlatformHomePage.vue?raw'
 import { createPlatformFeatureGateway } from '../application/platform-feature-gateway'
 import type { PlatformFeatureIntent } from '../domain/platform-feature-intent'
 import discoverPageSource from '../presentation/discover/PlatformDiscoverPage.vue?raw'
@@ -88,9 +87,6 @@ describe('platform header location behavior', () => {
   })
 
   it('keeps the shared header close to the Discover and Mall hero without scaling content', () => {
-    expect(homePageSource).toMatch(
-      /\.platform-home__header\s*\{\s*margin-bottom:\s*0\s*\}/,
-    )
     expect(discoverPageSource).toMatch(
       /<AppHeader[\s\S]*?\/>\s*<PlatformHeroBanner/,
     )

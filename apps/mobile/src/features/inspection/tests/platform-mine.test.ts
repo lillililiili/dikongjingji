@@ -209,7 +209,7 @@ describe('platform mine component contract', () => {
     expect(minePageSource).not.toContain('待付款')
     expect(minePageSource).not.toContain('退款')
     expect(minePageSource).not.toContain('立即支付')
-    expect(minePageSource).toContain('env(safe-area-inset-bottom)')
+    expect(minePageSource).toContain('var(--app-root-tabbar-content-offset)')
     expect(minePageSource).toContain('grid-template-columns:repeat(5,minmax(0,1fr))')
     expect(minePageSource).toContain('@media (min-width:420px)')
     expect(minePageSource).toContain('font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif')

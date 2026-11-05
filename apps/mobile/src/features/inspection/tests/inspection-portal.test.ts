@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { nextTick, ref, watch } from 'vue'
-import tabBarSource from '../../../app-shell/components/RootAppTabBar.vue?raw'
-import headerSource from '../presentation/portal/components/PortalServiceHeader.vue?raw'
 import categoryGridSource from '../presentation/portal/components/InspectionCategoryGrid.vue?raw'
 import guaranteeSource from '../presentation/portal/components/InspectionGuaranteeStrip.vue?raw'
 import hotServicesSource from '../presentation/portal/components/HotInspectionServices.vue?raw'
@@ -259,50 +257,6 @@ describe('inspection portal development content boundary', () => {
   })
 })
 
-describe('inspection portal header visual contract', () => {
-  it('keeps the PDF-measured tab proportions and approved header icons', () => {
-    expect(headerSource).toContain(
-      'grid-template-columns: 148fr 155fr 196fr 190fr 149fr',
-    )
-    expect(headerSource).toContain('weatherIconUrl?: string')
-    expect(headerSource).toContain(':src="weatherIconUrl"')
-    expect(headerSource).toContain('type="chat"')
-    expect(headerSource).toContain(
-      '/static/images/inspection/category-more.webp',
-    )
-    expect(headerSource).toContain(
-      '.service-tabs__item--active::after',
-    )
-    expect(headerSource).toMatch(
-      /\.service-tabs__item \{[\s\S]*?width: 100%;[\s\S]*?margin: 0;/,
-    )
-    expect(headerSource).toContain(
-      'margin-top: clamp(8px, 1.8vw, 11px)',
-    )
-    expect(headerSource).toContain(
-      'font-size: clamp(11px, 2.55vw, 15px)',
-    )
-    expect(headerSource).toContain(
-      'font-size: clamp(11px, 2.5vw, 15px)',
-    )
-    expect(headerSource).toContain(
-      'width: clamp(20px, 4.3vw, 26px)',
-    )
-    expect(headerSource).toContain(
-      'height: clamp(20px, 4.3vw, 26px)',
-    )
-    expect(headerSource).toMatch(
-      /\.portal-header__city \{[\s\S]*?width: 100%;[\s\S]*?margin: 0;/,
-    )
-    expect(headerSource).toContain(
-      'margin-inline: clamp(-9px, -1.5vw, -6px)',
-    )
-    expect(headerSource).toContain(
-      'transform: translateX(clamp(6px, 1.7vw, 10px))',
-    )
-  })
-})
-
 describe('inspection portal relaxed layout contract', () => {
   it('uses the same generous icon and text scale as aerial service', () => {
     expect(categoryGridSource).toContain('gap: 12px 9px')
@@ -327,47 +281,11 @@ describe('inspection portal relaxed layout contract', () => {
   })
 })
 
-describe('inspection portal live weather contract', () => {
-  it('uses real weather below the city instead of development display data', () => {
-    expect(portalPageSource).toContain('createCurrentCityWeatherLoader')
-    expect(portalPageSource).toContain(
-      ':weather-label="weather.available ? weather.text : undefined"',
-    )
-    expect(portalPageSource).toContain(
-      ':weather-icon-url="weather.available ? weather.iconUrl : undefined"',
-    )
-    expect(portalPageSource).not.toContain('developmentWeatherLabel')
-  })
-})
-
-describe('root tab bar visual contract', () => {
-  it('uses the approved icon library instead of text-glyph placeholders', () => {
-    expect(tabBarSource).toContain(
-      "import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'",
-    )
-    expect(tabBarSource).toContain("HOME: 'home'")
-    expect(tabBarSource).toContain("SERVICE: 'smallcircle-filled'")
-    expect(tabBarSource).toContain("DISCOVER: 'navigate'")
-    expect(tabBarSource).toContain("MINE: 'person'")
-    expect(tabBarSource).toContain('v-for="dot in 4"')
-    expect(tabBarSource).toContain("MALL: 'shop'")
-    expect(tabBarSource).toContain("MALL: 'shop-filled'")
-    expect(tabBarSource).not.toContain('/static/icons/root-tabs/shopping-bag.png')
-    expect(tabBarSource).toContain('class="root-tab-bar__icon"')
-    expect(tabBarSource).toContain('size="30"')
-    expect(tabBarSource).toContain('size="14"')
-    expect(tabBarSource).toContain(
-      'min-height: calc(58px + env(safe-area-inset-bottom))',
-    )
-    expect(tabBarSource).toMatch(
-      /\.root-tab-bar__icon \{[\s\S]*?width: 30px;[\s\S]*?height: 30px;/,
-    )
-    expect(tabBarSource).not.toContain('{{ TAB_ICONS[tab.code] }}')
-    expect(portalPageSource).toContain(
-      'calc(clamp(58px, 11.5vw, 68px) + env(safe-area-inset-bottom))',
-    )
-    expect(portalPageSource).toContain(
-      '.inspection-portal :deep(.root-tab-bar__label)',
-    )
+describe('inspection portal inside the home channel', () => {
+  it('leaves city, search and the root bar to the home shell', () => {
+    expect(portalPageSource).not.toContain('PortalServiceHeader')
+    expect(portalPageSource).not.toContain('RootAppTabBar')
+    expect(portalPageSource).not.toContain('submitSearch')
+    expect(portalPageSource).not.toContain('min-height: 100vh')
   })
 })

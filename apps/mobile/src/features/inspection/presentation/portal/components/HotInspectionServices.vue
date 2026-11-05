@@ -29,7 +29,11 @@ function priceUnit(label: string): string {
         <UniIcons type="fire-filled" size="14" color="#ff5a00" />
         <text class="hot-services__meta">专业服务 · 安全可靠</text>
       </view>
-      <button class="hot-services__all" @click="$emit('viewAll')">
+      <button
+        class="hot-services__all"
+        data-testid="portal-view-all"
+        @click="$emit('viewAll')"
+      >
         查看全部
         <UniIcons type="right" size="12" color="#666b73" />
       </button>

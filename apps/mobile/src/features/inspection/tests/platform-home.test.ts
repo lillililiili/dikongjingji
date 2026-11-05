@@ -8,18 +8,8 @@ import {
 } from '../presentation/platform/home/platform-home'
 import * as homeModel from '../presentation/platform/home/platform-home'
 import { DEVELOPMENT_PORTAL_CONTENT } from '../data/fixtures/inspection-portal.fixture'
-import appHeaderSource from '../../../app-shell/components/AppHeader.vue?raw'
 
 const content = (): PlatformHomeContent => ({
-  cityName: '济南',
-  weather: {
-    available: true,
-    text: '多云 26℃',
-    iconUrl: '/static/images/inspection/platform/weather-partly-cloudy-v2.png',
-    conditionCode: 'PARTLY_CLOUDY',
-    observedAt: '2026-07-29T02:30:00Z',
-  },
-  unreadCount: 3,
   hero: {
     imageUrl: '/static/images/inspection/platform/home-hero.png',
     title: '低空服务',
@@ -28,22 +18,6 @@ const content = (): PlatformHomeContent => ({
     highlights: ['多元服务', '专业保障', '便捷响应'],
     actionLabel: '浏览精选服务',
   },
-  serviceEntries: [
-    {
-      code: 'INSPECTION',
-      title: '巡检服务',
-      subtitle: '专业高效安全',
-      imageUrl: '/static/images/inspection/platform/home-inspection-service-v2.png',
-      availability: 'AVAILABLE',
-    },
-    {
-      code: 'AERIAL_TOUR',
-      title: '低空旅游',
-      subtitle: '空中观光体验',
-      imageUrl: '/static/images/inspection/platform/home-low-altitude-tour-v2.png',
-      availability: 'UNAVAILABLE',
-    },
-  ],
   featuredServices: [{
     id: 'inspection-1',
     title: '热力巡检',
@@ -70,11 +44,7 @@ const content = (): PlatformHomeContent => ({
 
 describe('platform home presentation state', () => {
   it('restores the approved full home composition for development preview', () => {
-    const preview = createPlatformHomePreviewContent(
-      '东营市',
-      content().weather,
-      DEVELOPMENT_PORTAL_CONTENT,
-    )
+    const preview = createPlatformHomePreviewContent(DEVELOPMENT_PORTAL_CONTENT)
 
     expect(preview.hero).toMatchObject({
       title: '低空服务',
@@ -83,48 +53,39 @@ describe('platform home presentation state', () => {
       actionLabel: '浏览精选服务',
       imageUrl: '/static/images/inspection/platform/home-hero.png',
     })
-    expect(preview.serviceEntries.map((entry) => entry.title)).toEqual([
-      '航拍摄影',
-      '巡检服务',
-      '飞无人机',
-      '机器人服务',
-      '低空旅游',
-      '设备租赁',
-      '企业服务',
-      '城市服务',
-    ])
     expect(preview.featuredServices).toHaveLength(4)
     expect(preview.activities).toHaveLength(3)
     expect(preview.enterpriseSolution?.benefits).toHaveLength(3)
   })
 
   it('selects the full composition only through the preview boundary', () => {
-    expect(homeRouteSource).toContain('VITE_PLATFORM_PREVIEW_ENABLED')
+    expect(homeRouteSource).toContain('PLATFORM_PREVIEW_ENABLED')
+    expect(homeRouteSource).not.toContain('import.meta.env.DEV')
     expect(homeRouteSource).toContain('createPlatformHomePreviewContent')
   })
 
-  it('locates the current city before requesting that city weather', () => {
+  it('resolves the city through the shared rule that protects a hand-picked city', () => {
     expect(homeRouteSource).toContain('uni.getLocation({')
     expect(homeRouteSource).toContain("type: 'gcj02'")
     expect(homeRouteSource).toContain('geocode: true')
     expect(homeRouteSource).toContain('resolveLocatedCityName')
     expect(homeRouteSource).toContain('platformCityApi.load()')
-    expect(homeRouteSource).toContain('findCityByLocatedName')
-    const resolvedCityIndex = homeRouteSource.indexOf('const directory = await platformCityApi.load()')
-    const storedCityIndex = homeRouteSource.indexOf('currentCityStore.setCurrentCity(city)', resolvedCityIndex)
-    const weatherIndex = homeRouteSource.indexOf('weather: await weatherLoader.load(city)', storedCityIndex)
-    expect(resolvedCityIndex).toBeGreaterThan(-1)
-    expect(storedCityIndex).toBeGreaterThan(resolvedCityIndex)
-    expect(weatherIndex).toBeGreaterThan(storedCityIndex)
+    expect(homeRouteSource).toContain('await resolveCurrentCity({')
     expect(homeRouteSource).not.toContain('loadCurrentByCityName')
   })
 
-  it('keeps the home usable when native location or weather lookup fails', () => {
+  it('keeps the home usable when native location lookup fails', () => {
     expect(homeRouteSource).toContain("const DEFAULT_CITY: CurrentCity = { code: '370500', name: '东营市' }")
-    expect(homeRouteSource).toContain('weatherLoader.load(null)')
     expect(homeRouteSource).not.toContain('isNativeAppRuntime')
     expect(homeRouteSource).not.toContain('无法获取当前位置，请开启定位权限后重试')
     expect(homeRouteSource).toContain('首页内容加载失败，请稍后重试')
+  })
+
+  it('never reaches M01 or the catalog without a city', () => {
+    expect(homeRouteSource).toContain('v-if="serviceChannelOpened && currentCityStore.currentCity"')
+    expect(homeRouteSource).toMatch(
+      /if \(!cityCode\) \{\s*void citySheet\.open\(\)/,
+    )
   })
 
   it('supports loading, ready, empty and error without fixtures', () => {
@@ -133,16 +94,6 @@ describe('platform home presentation state', () => {
     expect(resolvePlatformHomeState({
       status: 'ready',
       content: {
-        cityName: '济南',
-        weather: {
-          available: false,
-          text: '天气暂不可用',
-          iconUrl: '/static/images/inspection/platform/weather-unknown.png',
-          conditionCode: 'UNKNOWN',
-          observedAt: null,
-        },
-        unreadCount: 0,
-        serviceEntries: [],
         featuredServices: [],
         activities: [],
       },
@@ -158,14 +109,12 @@ describe('platform home presentation state', () => {
     expect(state.kind).toBe('ready')
     if (state.kind !== 'ready') return
 
-    expect(state.content.weather.text).toBe('多云 26℃')
-    expect(state.content.unreadCount).toBe(3)
     expect(state.content.featuredServices[0]).toMatchObject({
       quoteLabel: '¥699起',
       rating: 4.9,
       soldCountText: '已售8560+',
     })
-    expect(state.content.serviceEntries[1]?.availability).toBe('UNAVAILABLE')
+    expect(state.content.enterpriseSolution?.availability).toBe('UNAVAILABLE')
   })
 })
 
@@ -174,15 +123,10 @@ describe('platform home component contract', () => {
     expect(homePageSource).toContain('defineProps')
     expect(homePageSource).toContain('defineEmits')
     expect(homePageSource).toContain("import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'")
-    expect(homePageSource).toContain(':src="entry.imageUrl"')
-    expect(homePageSource).not.toContain(':type="entry.iconType"')
-    expect(homePageSource).toContain(':weather="props.state.content.weather"')
-    expect(appHeaderSource).toContain(':src="weather.iconUrl"')
+    expect(homePageSource).toContain('<HomeChannelEntries')
     expect(homePageSource).toContain('<PlatformUnavailableDialog')
     expect(homePageSource).toContain('resolvePlatformAvailabilityAction')
     expect(homePageSource).not.toContain('platform-home__unavailable')
-    expect(homePageSource).not.toContain('v-if="props.state.content.weather')
-    expect(homePageSource).not.toContain('v-if="props.state.content.unreadCount')
     expect(homePageSource).not.toContain('platform-home__search-icon::after')
     expect(homePageSource).not.toContain('fixture')
     expect(homePageSource).not.toContain('uni.request')
@@ -212,18 +156,11 @@ describe('platform home component contract', () => {
   })
 
   it('contains narrow-width protection and safe-area spacing', () => {
-    expect(homePageSource).toContain('grid-template-columns:repeat(4,minmax(0,1fr))')
-    expect(homePageSource).toContain('overflow-wrap:break-word')
-    expect(homePageSource).toContain('var(--status-bar-height)')
-    expect(homePageSource).toContain('env(safe-area-inset-bottom)')
+    expect(homePageSource).toContain('var(--app-page-horizontal-gutter)')
+    expect(homeRouteSource).toContain('var(--app-root-tabbar-content-offset)')
     expect(homePageSource).toContain('@media (min-width:420px)')
     expect(homePageSource).toContain('font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif')
     expect(homePageSource).toContain('button{margin:0;padding:0;border:0;background:transparent;font-family:inherit')
-    expect(homePageSource).toContain('.platform-home__service-grid{display:grid;height:auto')
-    expect(homePageSource).toContain('gap:12px 9px;padding:10px')
-    expect(homePageSource).toContain('.platform-home__entry-icon-wrap{position:relative;display:flex;width:100%;height:73px')
-    expect(homePageSource).toContain('.platform-home__entry-title{display:block;margin-top:7px;overflow-wrap:break-word;font-size:14px;font-weight:700')
-    expect(homePageSource).toContain('.platform-home__entry-subtitle{display:block;margin-top:3px;overflow:hidden;color:var(--app-secondary-text);font-size:11px')
     expect(homePageSource).toContain('.platform-home__featured-image-wrap{position:relative;height:108px')
   })
 })

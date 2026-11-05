@@ -2,6 +2,7 @@ import type { InspectionOrderFilter } from '../domain/service-flow/order-center'
 
 export const INSPECTION_PORTAL_PATH = '/pages/service/inspection/index'
 export const INSPECTION_CATALOG_PATH = '/pages/service/inspection/catalog'
+export const INSPECTION_DETAIL_PATH = '/pages/service/inspection/detail'
 export const INSPECTION_LOGIN_PATH = '/pages/service/inspection/login'
 export const INSPECTION_BOOKING_PATH = '/pages/service/inspection/booking'
 export const INSPECTION_BOOKING_SUBMITTED_PATH =
@@ -120,6 +121,15 @@ export function buildInspectionOrderCenterUrl(
   stage: InspectionOrderFilter = 'ALL',
 ): string {
   return `${INSPECTION_ORDER_CENTER_PATH}?stage=${encodeURIComponent(stage)}`
+}
+
+export function buildInspectionDetailUrl(
+  serviceId: string,
+  cityCode: string,
+): string {
+  return `${INSPECTION_DETAIL_PATH}?serviceId=${encodeURIComponent(
+    serviceId,
+  )}&cityCode=${encodeURIComponent(cityCode)}`
 }
 
 export function buildInspectionBookingUrl(

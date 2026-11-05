@@ -85,6 +85,7 @@ function nextPriceSort(sort: CatalogSort): CatalogSort {
       </button>
       <button
         class="catalog-sort__item catalog-sort__item--city"
+        data-testid="catalog-city-select"
         aria-label="切换服务城市"
         @click="$emit('city')"
       >

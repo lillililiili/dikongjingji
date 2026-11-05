@@ -5,7 +5,7 @@ import PlatformHeroBanner from '@/shared/presentation/PlatformHeroBanner.vue'
 import type { PlatformFeatureIntent } from '../../domain/platform-feature-intent'
 import type { PlatformServiceChannelContent } from '../../domain/platform-service-content'
 
-const props = defineProps<{
+defineProps<{
   content: PlatformServiceChannelContent
 }>()
 
@@ -15,17 +15,12 @@ const emit = defineEmits<{
 
 const capabilityIcons = ['medal-filled', 'auth-filled', 'paperplane-filled', 'star-filled']
 const capabilityColors = ['#ff9900', '#27b85a', '#2688ff', '#8c62ff']
-const itemKind = {
-  AERIAL: 'AERIAL_SERVICE',
-  FLIGHT: 'FLIGHT_SERVICE',
-  ROBOT: 'ROBOT_SERVICE',
-} as const
 
 function openItem(itemId: string): void {
   emit('intent', {
     type: 'OPEN_ITEM',
     itemId,
-    itemKind: itemKind[props.content.code],
+    itemKind: 'AERIAL_SERVICE',
   })
 }
 </script>

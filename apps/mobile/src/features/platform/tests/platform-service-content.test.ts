@@ -5,10 +5,8 @@ import { loadPlatformServiceContent } from '../application/load-platform-service
 import { developmentPlatformContentRepository } from '../data/development/development-platform-content-repository'
 
 describe('platform service development content', () => {
-  it('provides typed aerial, flight and robot preview content', async () => {
+  it('provides typed aerial preview content', async () => {
     const aerial = await developmentPlatformContentRepository.getServiceChannel('AERIAL')
-    const flight = await developmentPlatformContentRepository.getServiceChannel('FLIGHT')
-    const robot = await developmentPlatformContentRepository.getServiceChannel('ROBOT')
 
     expect(aerial).toMatchObject({
       code: 'AERIAL',
@@ -17,23 +15,12 @@ describe('platform service development content', () => {
         highlight: '记录每一种精彩',
       },
     })
-    expect(flight).toMatchObject({
-      code: 'FLIGHT',
-      hero: {
-        title: '放心飞 安全飞',
-        highlight: '合规飞',
-      },
-    })
-    expect(robot).toMatchObject({
-      code: 'ROBOT',
-      hero: {
-        title: '机器人服务',
-        highlight: '让生活更智能',
-      },
-    })
     expect(aerial?.scenarios).toHaveLength(8)
-    expect(flight?.scenarios).toHaveLength(8)
-    expect(robot?.scenarios).toHaveLength(8)
+  })
+
+  it('has no preview content for service types that only quote per project', async () => {
+    await expect(developmentPlatformContentRepository.getServiceChannel('SURVEY'))
+      .resolves.toBeNull()
   })
 
   it('returns unavailable without a repository in production', async () => {

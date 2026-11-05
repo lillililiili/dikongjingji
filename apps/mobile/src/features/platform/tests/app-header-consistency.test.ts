@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import appSource from '../../../App.vue?raw'
 import rootTabBarSource from '../../../app-shell/components/RootAppTabBar.vue?raw'
+import homeRouteSource from '../../../pages/home/index.vue?raw'
 import homePageSource from '../../inspection/presentation/platform/home/PlatformHomePage.vue?raw'
 import minePageSource from '../../inspection/presentation/platform/mine/PlatformMinePage.vue?raw'
 import discoverPageSource from '../presentation/discover/PlatformDiscoverPage.vue?raw'
 import mallPageSource from '../presentation/mall/PlatformMallPage.vue?raw'
-import servicePageSource from '../presentation/service/PlatformServicePage.vue?raw'
 import heroBannerSource from '../../../shared/presentation/PlatformHeroBanner.vue?raw'
 
 const appHeaderModules = import.meta.glob('../../../app-shell/components/AppHeader.vue', {
@@ -16,22 +16,21 @@ const appHeaderModules = import.meta.glob('../../../app-shell/components/AppHead
 }) as Record<string, string>
 const appHeaderSource = Object.values(appHeaderModules)[0] ?? ''
 
-const ROOT_PAGE_SOURCES = [
-  homePageSource,
-  servicePageSource,
+const APP_HEADER_PAGE_SOURCES = [
   discoverPageSource,
   mallPageSource,
 ]
 
 describe('root page AppHeader consistency', () => {
-  it('renders the shared AppHeader on four public root pages and omits it on Mine', () => {
-    for (const source of ROOT_PAGE_SOURCES) {
+  it('renders the shared AppHeader on Discover and Mall, the two-layer header on Home, and neither on Mine', () => {
+    for (const source of APP_HEADER_PAGE_SOURCES) {
       expect(source).toContain("AppHeader")
       expect(source).toContain('<AppHeader')
     }
 
-    expect(homePageSource).not.toContain('platform-home__top')
-    expect(servicePageSource).not.toContain('platform-service-header')
+    expect(homeRouteSource).toContain('<HomeHeader')
+    expect(homeRouteSource).not.toContain('<AppHeader')
+    expect(homePageSource).not.toContain('<AppHeader')
     expect(discoverPageSource).not.toContain('PlatformPageHeader')
     expect(mallPageSource).not.toContain('PlatformPageHeader')
     expect(minePageSource).not.toContain('AppHeader')
@@ -78,8 +77,7 @@ describe('root page AppHeader consistency', () => {
   it('keeps the fixed tab bar clear of content and marks selection without relying on color alone', () => {
     expect(appSource).toContain('--app-root-tabbar-content-offset')
     expect(rootTabBarSource).toContain('.root-tab-bar__item--active')
-    expect(rootTabBarSource).toContain('background: #fff2e8')
-    expect(rootTabBarSource).toContain('font-weight: 800')
+    expect(rootTabBarSource).toContain('font-weight: 500')
     expect(rootTabBarSource).not.toContain('shopping-bag-active.png')
   })
 })

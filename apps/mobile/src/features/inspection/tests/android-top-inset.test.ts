@@ -4,11 +4,11 @@ import catalogHeaderSource from '../presentation/catalog/components/CatalogHeade
 import catalogPageSource from '../presentation/catalog/pages/InspectionCatalogPage.vue?raw'
 import detailHeaderSource from '../presentation/detail/components/ServiceDetailHeader.vue?raw'
 import detailPageSource from '../presentation/detail/pages/InspectionServiceDetailPage.vue?raw'
-import portalHeaderSource from '../presentation/portal/components/PortalServiceHeader.vue?raw'
+import homeHeaderSource from '../../../app-shell/components/HomeHeader.vue?raw'
 
 describe('Android custom-navigation top inset', () => {
   it.each([
-    ['inspection portal header', portalHeaderSource],
+    ['home header', homeHeaderSource],
     ['catalog header', catalogHeaderSource],
     ['catalog viewport', catalogPageSource],
     ['detail header', detailHeaderSource],

@@ -2,7 +2,6 @@
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 
 import AppHeader from '@/app-shell/components/AppHeader.vue'
-import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import PlatformHeroBanner from '@/shared/presentation/PlatformHeroBanner.vue'
 import type { PlatformWeatherPresentation } from '@/shared/weather/platform-weather'
 import type { PlatformDiscoverContent } from '../../domain/platform-discover-content'
@@ -36,8 +35,8 @@ const quickActions = [
         :weather="weather"
         @location="emit('intent', { type: 'OPEN_LOCATION' })"
         search-placeholder="搜索活动、体验或内容"
+        :show-message="false"
         @search="emit('intent', { type: 'SEARCH', channel: 'AERIAL' })"
-        @message="emit('intent', { type: 'OPEN_MESSAGE_CENTER' })"
       />
 
       <PlatformHeroBanner
@@ -148,7 +147,6 @@ const quickActions = [
         </view>
       </section>
     </view>
-    <RootAppTabBar active="DISCOVER" />
   </view>
 </template>
 

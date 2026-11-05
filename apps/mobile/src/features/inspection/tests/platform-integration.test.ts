@@ -6,7 +6,7 @@ import pages from '../../../pages.json'
 import packageSource from '../../../../package.json?raw'
 import discoverPageSource from '../../../pages/discover/index.vue?raw'
 import mallPageSource from '../../../pages/mall/index.vue?raw'
-import servicePageSource from '../../../pages/service/index.vue?raw'
+import serviceChannelSource from '../../platform/presentation/service/PlatformServiceChannel.vue?raw'
 import weatherClientSource from '../../../shared/weather/uni-platform-weather-http-client.ts?raw'
 import type { InspectionPortalContent } from '../domain/inspection-portal-content'
 import * as homeModel from '../presentation/platform/home/platform-home'
@@ -56,9 +56,9 @@ describe('platform root page integration', () => {
       .toBe('node scripts/verify-public-production-preview.mjs')
   })
 
-  it('wires the approved platform components into the three root pages', () => {
+  it('hosts the recommend and service channels on the home root page', () => {
     expect(homePageSource).toContain('PlatformHomePage')
-    expect(servicePageSource).toContain('PlatformServicePage')
+    expect(homePageSource).toContain('PlatformServiceChannel')
     expect(minePageSource).toContain('PlatformMinePage')
   })
 
@@ -69,14 +69,15 @@ describe('platform root page integration', () => {
     }
   })
 
-  it('handles native tab bar restoration failures during H5 tab switches', () => {
-    for (const source of [homePageSource, servicePageSource, minePageSource]) {
-      expect(source).toMatch(/uni\.showTabBar\(\{\s*animation: false,\s*fail: \(\) => undefined,\s*\}\)/)
+  it('leaves native tab bar handling to the shared root bar', () => {
+    for (const source of [homePageSource, discoverPageSource, mallPageSource, minePageSource]) {
+      expect(source).not.toContain('uni.hideTabBar')
+      expect(source).not.toContain('uni.showTabBar')
     }
   })
 
   it('uses one explicit preview gate across all three preview routes', () => {
-    for (const source of [servicePageSource, discoverPageSource, mallPageSource]) {
+    for (const source of [homePageSource, discoverPageSource, mallPageSource]) {
       expect(source).toContain('PLATFORM_PREVIEW_ENABLED')
       expect(source).not.toContain('import.meta.env.DEV')
     }
@@ -86,16 +87,15 @@ describe('platform root page integration', () => {
     expect(homePageSource).toContain(
       "if (state.value.kind !== 'ready') state.value = { kind: 'loading' }",
     )
-    expect(servicePageSource).toContain('scrollPositions')
-    expect(servicePageSource).toContain('uni.pageScrollTo')
+    expect(homePageSource).toContain('scrollPositions')
+    expect(homePageSource).toContain('uni.pageScrollTo')
   })
 
-  it('loads home and service content from the real catalog and current-city weather', () => {
+  it('loads home and service content from the real catalog', () => {
     expect(homePageSource).toContain('inspectionCatalogApi.loadPortal')
     expect(inspectionPortalSource).toContain('inspectionCatalogApi.loadPortal')
-    expect(servicePageSource).toContain('InspectionPortalPage')
-    for (const source of [homePageSource, servicePageSource]) {
-      expect(source).toContain('createCurrentCityWeatherLoader')
+    expect(serviceChannelSource).toContain('InspectionPortalPage')
+    for (const source of [homePageSource, serviceChannelSource]) {
       expect(source).not.toMatch(/unreadCount:\s*3/)
       expect(source).not.toMatch(/rating:\s*4\.9/)
       expect(source).not.toContain('8560')
@@ -114,8 +114,7 @@ describe('real portal to platform content mapping', () => {
     expect(typeof createContent).toBe('function')
     if (typeof createContent !== 'function') return
 
-    const content = createContent('东营市', weather, portal)
-    expect(content.unreadCount).toBeUndefined()
+    const content = createContent(portal)
     expect(content.featuredServices[0]).toMatchObject({
       id: 'service-1',
       quoteLabel: '¥699/公里',

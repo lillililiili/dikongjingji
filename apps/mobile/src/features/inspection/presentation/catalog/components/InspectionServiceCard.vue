@@ -29,6 +29,7 @@ const completedCountLabel = computed(() =>
 <template>
   <article
     class="inspection-card"
+    :data-testid="`catalog-service-${service.id}`"
     :aria-label="`${service.title}，查看详情`"
     @click="$emit('detail', service.id)"
   >
