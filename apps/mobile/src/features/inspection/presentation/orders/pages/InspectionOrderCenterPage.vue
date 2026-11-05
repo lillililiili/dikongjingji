@@ -44,7 +44,10 @@ import {
 } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { reactive, ref } from 'vue'
-import { resolveInspectionOrderDestination } from '../../../application/service-flow/inspection-order-navigation'
+import {
+  getPreviousInspectionPageRoute,
+  resolveInspectionOrderDestination,
+} from '../../../application/service-flow/inspection-order-navigation'
 import { inspectionOrderApi } from '../../../data/service-flow/uni-booking-http-client'
 import type {
   InspectionOrderFilter,
@@ -74,7 +77,8 @@ const controller = createInspectionOrderCenterController({
   navigateBack: () => new Promise((resolve) => {
     // Alone in the stack, navigateBack reloads this page on H5 and offers to quit on
     // App, yet reports success, so answer for it and let the controller go to my tab.
-    if (getCurrentPages().length <= 1) {
+    // Opened from the booking flow, the page underneath is not my tab either.
+    if (getPreviousInspectionPageRoute(getCurrentPages()) !== 'pages/mine/index') {
       resolve(false)
       return
     }
