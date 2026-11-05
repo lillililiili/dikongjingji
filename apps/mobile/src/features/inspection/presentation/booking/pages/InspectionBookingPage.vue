@@ -11,7 +11,7 @@ import { uniBookingFileAccessPort } from '../../../data/service-flow/booking-fil
 import { createUniBookingDocumentPicker, uniBookingDocumentPicker } from '../../../data/service-flow/uni-booking-document-picker'
 import { ApiRequestError, inspectionBookingApi, platformCityApi } from '../../../data/service-flow/uni-booking-http-client'
 import { createBookingLocationSelection, createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot, type BookingTimeSelection } from '../../../domain/service-flow/booking'
-import { buildInspectionBookingSubmittedUrl } from '../../../navigation/inspection-routes'
+import { buildInspectionBookingSubmittedUrl, buildInspectionCatalogUrl, buildInspectionDetailUrl } from '../../../navigation/inspection-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import BookingServiceSnapshotCard from '../components/BookingServiceSnapshotCard.vue'
 import InspectionTimePickerSheet from '../components/InspectionTimePickerSheet.vue'
@@ -336,7 +336,21 @@ async function submit(): Promise<void> {
   }
 }
 
-function goBack(): void { uni.navigateBack() }
+function goBack(): void {
+  if (getCurrentPages().length > 1) {
+    uni.navigateBack()
+    return
+  }
+
+  // After a deep link or a refresh this page is alone in the stack, where
+  // navigateBack only reloads it. M03 is the only way in; without a loaded service
+  // it has nothing to show, so go to the list.
+  uni.redirectTo({
+    url: service.value
+      ? buildInspectionDetailUrl(service.value.serviceId, service.value.cityCode)
+      : buildInspectionCatalogUrl(),
+  })
+}
 function showCustomerService(): void { uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' }) }
 
 </script>
