@@ -254,6 +254,7 @@ public final class InspectionDeliveryController {
             List<DeliveryFileResponse> files,
             Instant publishedAt,
             Instant acceptedAt,
+            String acceptedByName,
             int version
     ) {
         static DeliveryResponse from(DeliveryView delivery) {
@@ -275,6 +276,7 @@ public final class InspectionDeliveryController {
                             .toList(),
                     delivery.publishedAt(),
                     delivery.acceptedAt(),
+                    delivery.acceptedByName(),
                     delivery.version());
         }
     }

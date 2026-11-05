@@ -245,6 +245,7 @@ class InspectionDeliveryControllerTest {
                         FileObjectStatus.READY)),
                 NOW,
                 null,
+                null,
                 0);
     }
 

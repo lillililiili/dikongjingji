@@ -367,6 +367,7 @@ async function createConfirmedOrder(actors, visitDates) {
   check(plan.visits.at(-1).plannedDate === visitDates.at(-1), '末次日期按 ISO 日期返回');
   check(plan.deliveryTerms.reportDueHours === 48, '方案返回交付约定');
   check(plan.deliverables[3].fileType === 'INSPECTION_REPORT', '交付物带文件类型');
+  check(typeof plan.customerParty?.operatorName === 'string', '方案带客户和经办人');
 
   if (EXPECT_PAYMENT_NODES) {
     const nodes = plan.paymentNodes;
@@ -673,6 +674,10 @@ async function runSixVisitOrder(actors) {
     check(nodes.slice(2).every((node) => node.payable === false), '未验收的次款不可支付');
   }
   check(typeof accepted.acceptedByName === 'string' && accepted.acceptedByName.length > 0, '验收记录带验收人');
+  const acceptedDelivery = await ok('GET', `${actors.customerVisit(orderId, first.id)}/delivery`, {
+    token: actors.customer,
+  });
+  check(acceptedDelivery.acceptedByName === accepted.acceptedByName, '交付记录带验收人');
 
   // 其余 5 次全部交付、先不验收，服务单应在最后一次交付时进入已交付。
   let current = visitTwo;

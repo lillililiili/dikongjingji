@@ -1499,6 +1499,10 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ProviderSummary"
             - type: "null"
+        customerParty:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerParty"
+            - type: "null"
         summary:
           type: [string, "null"]
         scopeSummary:
@@ -2087,6 +2091,8 @@ components:
         acceptedAt:
           type: [string, "null"]
           format: date-time
+        acceptedByName:
+          type: [string, "null"]
         version:
           type: integer
           minimum: 0

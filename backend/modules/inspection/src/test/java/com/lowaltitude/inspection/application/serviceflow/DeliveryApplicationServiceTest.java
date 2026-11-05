@@ -262,6 +262,19 @@ class DeliveryApplicationServiceTest {
     }
 
     @Test
+    void readingAnAcceptedDeliveryNamesWhoAcceptedIt() {
+        store.displayName = "王女士";
+        publish(VISIT_1, command(1));
+        assertThat(service.read(customer(CUSTOMER), ORDER, VISIT_1).acceptedByName()).isNull();
+
+        AcceptanceView accepted = accept(VISIT_1);
+
+        DeliveryView delivery = service.read(customer(CUSTOMER), ORDER, VISIT_1);
+        assertThat(delivery.acceptedAt()).isEqualTo(accepted.acceptedAt());
+        assertThat(delivery.acceptedByName()).isEqualTo("王女士");
+    }
+
+    @Test
     void customerAcceptanceAllowsAnEmptyNote() {
         publish(VISIT_1, command(1));
 
@@ -798,6 +811,8 @@ class DeliveryApplicationServiceTest {
 
 final class InMemoryDeliveryStore implements PlanStore, DeliveryStore {
 
+    String displayName;
+
     StoredServiceOrder order;
     List<PlanDeliverable> deliverables = List.of();
     final Map<UUID, MutableFile> files = new HashMap<>();
@@ -907,6 +922,11 @@ final class InMemoryDeliveryStore implements PlanStore, DeliveryStore {
     @Override
     public Optional<StoredAcceptance> findAcceptanceByVisit(UUID visitId) {
         return Optional.ofNullable(acceptances.get(visitId));
+    }
+
+    @Override
+    public Optional<String> findDisplayName(UUID subjectId) {
+        return Optional.ofNullable(displayName);
     }
 
     @Override

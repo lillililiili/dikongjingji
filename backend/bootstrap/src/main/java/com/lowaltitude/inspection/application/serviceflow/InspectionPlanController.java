@@ -384,6 +384,7 @@ public final class InspectionPlanController {
             LocalDate serviceDate,
             List<PlanVisitResponse> visits,
             ProviderSummaryResponse provider,
+            CustomerPartyResponse customerParty,
             String summary,
             String scopeSummary,
             List<CodeLabelResponse> serviceMethods,
@@ -412,6 +413,7 @@ public final class InspectionPlanController {
                     plan.serviceDate(),
                     plan.terms().visits().stream().map(PlanVisitResponse::from).toList(),
                     ProviderSummaryResponse.from(plan.provider()),
+                    CustomerPartyResponse.from(plan.customerParty()),
                     plan.summary(),
                     plan.terms().scopeSummary(),
                     plan.terms().serviceMethods().stream()

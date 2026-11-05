@@ -322,6 +322,21 @@ class PlanApplicationServiceTest {
     }
 
     @Test
+    void planNamesTheCustomerOfItsReservation() {
+        store.customerParty = new CustomerParty("东营港务物流", "王女士");
+
+        ServicePlanView plan = service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command("季度巡检", 100),
+                "publish-party");
+
+        assertThat(plan.customerParty()).isEqualTo(new CustomerParty("东营港务物流", "王女士"));
+    }
+
+    @Test
     void visitsMustBeInTheFutureStrictlyAscendingAndBounded() {
         LocalDate today = LocalDate.of(2026, 7, 28);
         assertThat(service.publish(
@@ -631,6 +646,7 @@ final class InMemoryPlanStore implements PlanStore {
     final Map<UUID, StoredServiceOrder> orders = new HashMap<>();
     final Map<String, PlanIdempotencyEntry> idempotency = new HashMap<>();
     List<PlanVersionSummary> versions = List.of();
+    CustomerParty customerParty;
     int publishCount;
     int confirmCount;
 
@@ -646,6 +662,11 @@ final class InMemoryPlanStore implements PlanStore {
     @Override
     public Optional<StoredServicePlan> findPlan(UUID planId) {
         return Optional.ofNullable(plans.get(planId));
+    }
+
+    @Override
+    public Optional<CustomerParty> findCustomerParty(UUID reservationId) {
+        return Optional.ofNullable(customerParty);
     }
 
     @Override

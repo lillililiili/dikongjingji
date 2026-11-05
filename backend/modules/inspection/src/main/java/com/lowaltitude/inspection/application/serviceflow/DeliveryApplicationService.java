@@ -186,6 +186,14 @@ public class DeliveryApplicationService {
         return toView(visible.delivery());
     }
 
+    private String acceptedByName(StoredDelivery delivery) {
+        return delivery.acceptedAt() == null
+                ? null
+                : store.findAcceptanceByVisit(delivery.visitId())
+                        .map(StoredAcceptance::acceptedByName)
+                        .orElse(null);
+    }
+
     @Transactional
     public DownloadIntentView download(
             CurrentSubject subject,
@@ -697,7 +705,7 @@ public class DeliveryApplicationService {
         return normalized == null ? null : cipher.encrypt(normalized);
     }
 
-    private static DeliveryView toView(StoredDelivery delivery) {
+    private DeliveryView toView(StoredDelivery delivery) {
         return new DeliveryView(
                 delivery.id(),
                 delivery.serviceOrderId(),
@@ -722,6 +730,7 @@ public class DeliveryApplicationService {
                         .toList(),
                 delivery.publishedAt(),
                 delivery.acceptedAt(),
+                acceptedByName(delivery),
                 delivery.version());
     }
 
@@ -865,6 +874,7 @@ record DeliveryView(
         List<DeliveryFile> files,
         Instant publishedAt,
         Instant acceptedAt,
+        String acceptedByName,
         int version
 ) {
 }
