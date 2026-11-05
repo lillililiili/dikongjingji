@@ -96,10 +96,25 @@ node .\infra\scripts\verify-f08-golden-e2e.cjs
 
 ```text
 首页 → 专业服务频道 → 巡检 → 巡检目录 → 服务详情 → 预约填写 → 提交结果
-→ 发布并确认方案 → 服务安排与履约 → 发布报告 → 报告交付与验收
+→ 发布并确认方案 → 服务履约 → 发布第 1 次报告 → 交付与验收
+```
+
+接着跑一张 6 次巡检的服务单：
+
+```text
+订单中心 → 方案确认（v2，查看 v1 和新增项）→ 服务履约 → 第 1 次验收（服务单仍是履约中）
+→ 订单中心进入第 2 次 → 验收 → 其余 4 次 → 全部验收后服务单已完成 → 订单中心回到服务履约
 ```
 
 服务商操作通过受控 API 完成；客户操作通过真实页面完成。截图保存到忽略目录 `tmp/e2e/f08/`，不会把令牌写入仓库。
+
+这台开发机没有 `pwsh` 时，把上面的环境变量写成 `export`，`INSPECTION_BROWSER_EXECUTABLE` 指向 Chrome；后端要有 `local-inspection-quarantine` 和 `local-inspection-private` 两个桶，否则上传返回 404。
+
+M05–M07 的异常和边界用例在 `apps/mobile/e2e/service-flow-visits.spec.ts`，接口由用例内的数据应答，不需要后端：
+
+```bash
+cd apps/mobile && npx playwright test e2e/service-flow-visits.spec.ts
+```
 
 预约时间选择使用稳定 H5 路径：文本“期望时间” → `.inspection-time-sheet__panel` → 等待第一项非“更多日期”的 `.inspection-time-sheet__date` → 执行真实浏览器 `.click()` → 文本为 `09:00–12:00` 的 `.inspection-time-sheet__slot` → `.inspection-time-sheet__confirm`，并等待原“期望时间”行显示 `月\d+日 09:00–12:00`。H5 的 `chooseLocation` 依赖宿主地图能力，黄金脚本只在被加载的 booking chunk 内注入受控测试地点适配，不改生产代码；预约、时段查询和后续交易接口仍为真实调用。
 

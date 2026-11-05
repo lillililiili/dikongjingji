@@ -26,8 +26,8 @@
 | INS-M-004 | 预约服务/填写需求 | `/pages/service/inspection/booking` | 登录用户从详情页点击“预约服务” |
 | INS-M-005 | 预约申请已提交 | `/pages/service/inspection/booking-submitted` | 预约创建成功 |
 | INS-M-006 | 方案确认 | `/pages/service/inspection/plan-confirmation` | 服务商已发布有效方案 |
-| INS-M-007 | 服务安排 | `/pages/service/inspection/fulfillment` | 用户已确认方案 |
-| INS-M-008 | 报告交付 | `/pages/service/inspection/delivery` | 服务商已发布交付物 |
+| INS-M-007 | 服务履约 | `/pages/service/inspection/fulfillment` | 用户已确认方案 |
+| INS-M-008 | 交付与验收 | `/pages/service/inspection/delivery?serviceOrderId=&visitId=` | 这一次巡检的交付物已发布 |
 
 INS-M-004 的期望时间使用内嵌底部弹层选择，不调用系统日期选择器。每天固定
 09:00–12:00、14:00–17:00、18:00–21:00 三个时段，每个
