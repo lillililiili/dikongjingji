@@ -117,7 +117,7 @@ export function createCatalogCityController(
 }
 
 export interface LatestCatalogLoaderOptions<T> {
-  getCityCode(): string | undefined
+  getCityCode(): string | undefined | Promise<string | undefined>
   load(cityCode: string): Promise<T>
   emptyContent: T
   setContent(content: T): void
@@ -138,8 +138,9 @@ export function createLatestCatalogLoader<T>(
     options.setError('')
 
     try {
-      const cityCode = options.getCityCode()
-      if (!cityCode) throw new Error('CITY_REQUIRED')
+      const cityCode = await options.getCityCode()
+      // No city is not a load failure: the page asks the user to choose one.
+      if (!cityCode) return
       const loaded = await options.load(cityCode)
       if (currentRevision === revision) {
         options.setContent(loaded)
@@ -220,6 +221,7 @@ const recentCityStorage = createRecentCityStorage({
 })
 const content = ref<InspectionCatalogContent>(EMPTY_CATALOG_CONTENT)
 const query = ref({ ...DEFAULT_CATALOG_QUERY })
+const routeCityCode = ref('')
 const keywordInput = ref('')
 const filters = ref<CatalogFilterValue>({
   method: 'ALL',
@@ -293,7 +295,7 @@ const hostActionGateway: Pick<
 }
 
 const runLatestCatalogLoad = createLatestCatalogLoader({
-  getCityCode: () => currentCity.value?.code,
+  getCityCode: resolveCatalogCityCode,
   load: (cityCode) => inspectionCatalogApi.loadCatalog(
     cityCode,
     query.value.sort,
@@ -366,8 +368,25 @@ onLoad((routeQuery: CatalogRouteQuery | undefined) => {
   })
   keywordInput.value = query.value.keyword
   filterSheetOpen.value = routeQuery?.openFilter === 'true'
+  routeCityCode.value = routeQuery?.cityCode?.trim() ?? ''
   void loadCatalogContent()
 })
+
+// A city already in the store is the user's latest choice, so the route only
+// fills an empty store. The URL carries a code; the name comes from the directory.
+async function resolveCatalogCityCode(): Promise<string | undefined> {
+  if (!currentCity.value && routeCityCode.value) {
+    const directory = await platformCityApi.load()
+    const city = directory.provinces
+      .flatMap((province) => province.cities)
+      .find(({ code }) => code === routeCityCode.value)
+    if (city && !currentCity.value) {
+      const { code, name, provinceCode } = city
+      currentCityStore.setCurrentCity({ code, name, provinceCode })
+    }
+  }
+  return currentCity.value?.code
+}
 
 async function loadCatalogContent(): Promise<void> {
   await runLatestCatalogLoad()
@@ -569,6 +588,17 @@ function showCustomerService(): void {
             </text>
             <button class="catalog-state__action" @click="loadCatalogContent">
               重新加载
+            </button>
+          </view>
+
+          <view v-else-if="!currentCity" class="catalog-state">
+            <UniIcons type="location" size="42" color="#b8bdc4" />
+            <text class="catalog-state__title">请先选择城市</text>
+            <text class="catalog-state__description">
+              选择城市后查看当地的巡检服务
+            </text>
+            <button class="catalog-state__action" @click="openCitySheet">
+              选择城市
             </button>
           </view>
 
