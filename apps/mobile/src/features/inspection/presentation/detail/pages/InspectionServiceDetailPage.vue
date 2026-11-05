@@ -39,7 +39,8 @@ const isLoading = ref(true)
 const loadError = ref('')
 const canRetryLoad = ref(false)
 const hasDetail = computed(() => Boolean(detail.value.serviceId))
-const canReserve = computed(() => Boolean(routeServiceId.value && hasDetail.value))
+// A reservation needs at least one item, so a service without any cannot be booked.
+const canReserve = computed(() => Boolean(routeServiceId.value && detail.value.inspectionItems.length))
 const emit = defineEmits<{
   reserve: [intent: ReserveServiceIntent]
 }>()

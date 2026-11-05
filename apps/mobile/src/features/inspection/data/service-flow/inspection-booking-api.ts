@@ -83,7 +83,7 @@ interface CompletedFile {
 }
 
 export interface InspectionBookingApi {
-  loadServiceSnapshot(serviceId: string, cityCode: string): Promise<BookingServiceSnapshot>
+  loadServiceSnapshot(serviceId: string, cityCode: string): Promise<BookingServiceSnapshot | null>
   loadAvailableTimeSlots(
     serviceId: string,
     cityCode: string,
@@ -123,28 +123,27 @@ export function createInspectionBookingApi(
 
   return {
     async loadServiceSnapshot(serviceId, cityCode) {
-      const page = await publicReadHttp.request<{
-        items: Array<{
-          serviceId: string
-          category: { name: string }
-          name: string
-          summary: string
-          coverImage: { url: string } | null
-          features: Array<{ code: string; name: string }>
-          price: {
-            mode: string
-            startingAmountMinor?: number | null
-            unitLabel?: string | null
-          }
-        }>
+      const service = await publicReadHttp.request<{
+        serviceId: string
+        category: { name: string }
+        name: string
+        summary: string
+        coverImage: { url: string } | null
+        inspectionItems: Array<{ code: string; name: string }>
+        price: {
+          mode: string
+          startingAmountMinor?: number | null
+          unitLabel?: string | null
+        }
       }>({
-        url: `/api/v1/inspection/services?cityCode=${encodeURIComponent(cityCode)}&page=1&size=50`,
+        url: `/api/v1/inspection/services/${encodeURIComponent(serviceId)}?cityCode=${encodeURIComponent(cityCode)}`,
         method: 'GET',
       })
-      const service = page.items.find((item) => item.serviceId === serviceId)
 
-      if (!service) {
-        throw new Error('SERVICE_NOT_FOUND')
+      // The detail read also returns a service with nothing left to book, and a
+      // reservation needs at least one item.
+      if (service.inspectionItems.length === 0) {
+        return null
       }
 
       return {
@@ -154,9 +153,9 @@ export function createInspectionBookingApi(
         summary: service.summary,
         coverImageUrl: service.coverImage?.url ?? null,
         cityCode,
-        inspectionItems: service.features.map((feature) => ({
-          code: feature.code,
-          label: feature.name,
+        inspectionItems: service.inspectionItems.map((item) => ({
+          code: item.code,
+          label: item.name,
         })),
         priceMode: service.price.mode,
         priceAmountMinor: service.price.startingAmountMinor ?? null,

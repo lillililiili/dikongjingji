@@ -26,6 +26,8 @@ interface BookingRouteQuery {
   cityCode?: string
 }
 
+const SERVICE_UNAVAILABLE_TEXT = '当前城市暂无这项服务，或服务已下架'
+
 const currentCityStore = useCurrentCityStore()
 const { currentCity } = storeToRefs(currentCityStore)
 const service = ref<BookingServiceSnapshot | null>(null)
@@ -34,6 +36,7 @@ const isLoading = ref(true)
 const isSubmitting = ref(false)
 const isChoosingLocation = ref(false)
 const loadError = ref('')
+const canRetryLoad = ref(false)
 const submitError = ref('')
 const isTimePickerVisible = ref(false)
 const preferredServiceTimeText = ref('')
@@ -42,6 +45,7 @@ const bookingFileHashPort = createBookingFileHashPort(uniBookingFileAccessPort)
 const releasedPdfPaths = new Set<string>()
 let cleanupRequested = false
 let isPageActive = false
+let reloadService = (): void => undefined
 let bookingDocumentPicker = uniBookingDocumentPicker
 // #ifdef APP-PLUS
 bookingDocumentPicker = createUniBookingDocumentPicker(
@@ -67,7 +71,8 @@ onLoad((query: BookingRouteQuery | undefined) => {
 
   const cityCode = query?.cityCode?.trim()
   if (cityCode && !currentCity.value) void restoreRouteCity(cityCode)
-  void loadService(serviceId, cityCode)
+  reloadService = () => void loadService(serviceId, cityCode)
+  reloadService()
 })
 
 onUnload(() => {
@@ -103,16 +108,35 @@ async function loadService(
 
   isLoading.value = true
   loadError.value = ''
+  canRetryLoad.value = false
   try {
     service.value = await inspectionBookingApi.loadServiceSnapshot(
       serviceId,
       cityCode,
     )
+    if (!service.value) loadError.value = SERVICE_UNAVAILABLE_TEXT
   } catch (error) {
-    loadError.value = error instanceof Error ? error.message : '服务信息加载失败'
+    // 400 and 404 mean this city cannot offer the service, and asking again cannot
+    // get past 401 or 403. Network, 5xx and unreadable replies can still recover.
+    canRetryLoad.value = !(error instanceof ApiRequestError && [400, 401, 403, 404].includes(error.status))
+    loadError.value = canRetryLoad.value
+      ? '服务信息加载失败，请检查网络后重试'
+      : SERVICE_UNAVAILABLE_TEXT
   } finally {
     isLoading.value = false
   }
+}
+
+function recoverFromLoadError(): void {
+  if (canRetryLoad.value) {
+    reloadService()
+    return
+  }
+
+  // M03 sits right behind this page and would offer the same service again, so go
+  // past it to where the user picked the service. With nothing there, open the list.
+  if (getCurrentPages().length > 2) uni.navigateBack({ delta: 2 })
+  else uni.redirectTo({ url: buildInspectionCatalogUrl() })
 }
 
 function toggleItem(code: string): void {
@@ -367,6 +391,7 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
       <view v-else-if="loadError" class="booking-state">
         <UniIcons type="info-filled" size="40" color="#b5bac1" />
         <text>{{ loadError }}</text>
+        <button class="booking-state__action" @click="recoverFromLoadError">{{ canRetryLoad ? '重新加载' : '看看其他服务' }}</button>
       </view>
       <main v-else-if="service" class="inspection-booking__content">
         <BookingServiceSnapshotCard :service="service" />
@@ -482,4 +507,6 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
 .inspection-booking__tip{margin:0 -14px;padding:7px 16px;justify-content:center;color:#5f6b65;background:#f3fbf5;font-size:10px}
 .booking-agreement{height:30px;font-size:10px}
 .inspection-booking__submit{height:48px;margin-top:2px;border-radius:16px;font-size:16px;line-height:48px}
+.booking-state__action{height:44px;margin-top:6px;padding:0 28px;border:0;border-radius:22px;color:#fff;background:#ff5a00;font-size:14px;line-height:44px}
+.booking-state__action::after{border:0}
 </style>
