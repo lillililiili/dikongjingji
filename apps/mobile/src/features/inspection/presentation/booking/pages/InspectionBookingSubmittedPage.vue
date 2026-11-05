@@ -185,7 +185,7 @@ export function createSubmittedBookingController<Reservation extends SubmittedBo
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import {
   inspectionBookingApi,
@@ -260,6 +260,11 @@ function returnOrders(): void {
   }
   uni.redirectTo({ url: buildInspectionOrderCenterUrl('ALL') })
 }
+onBackPress((event) => {
+  if (event.from === 'navigateBack') return false
+  returnOrders()
+  return true
+})
 function openPlan(planId: string): void {
     uni.navigateTo({
       url: buildInspectionPlanConfirmationUrl(planId),

@@ -1,5 +1,8 @@
 import type { InspectionCategoryCode } from '../../domain/inspection-portal-content'
-import { buildInspectionCatalogUrl } from '../../navigation/inspection-routes'
+import {
+  buildInspectionCatalogUrl,
+  buildInspectionDetailUrl,
+} from '../../navigation/inspection-routes'
 
 const MAX_SEARCH_LENGTH = 50
 
@@ -48,11 +51,7 @@ export function buildPortalViewAllUrl(
 
 export function buildPortalHotServiceUrl(
   cityCode: string | undefined,
-  categoryCode: Exclude<InspectionCategoryCode, 'MORE'>,
+  serviceId: string,
 ): string {
-  return buildInspectionCatalogUrl({
-    cityCode,
-    categoryCode,
-    source: 'HOT',
-  })
+  return buildInspectionDetailUrl(serviceId, cityCode ?? '')
 }

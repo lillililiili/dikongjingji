@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import {
   createLatestRequestCoordinator,
@@ -47,6 +47,12 @@ onLoad((query: FulfillmentRouteQuery | undefined) => {
   serviceOrderId.value = query?.serviceOrderId?.trim() ?? ''
   if (!serviceOrderId.value) { isLoading.value = false; loadError.value = '未找到服务安排'; return }
   void reload()
+})
+
+onBackPress((event) => {
+  if (event.from === 'navigateBack') return false
+  returnToOrders()
+  return true
 })
 
 // Coming back from acceptance has to show the new state without a blank reload.

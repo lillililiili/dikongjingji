@@ -99,12 +99,9 @@ function selectCategory(category: InspectionPortalCategory): void {
 }
 
 function selectHotService(service: InspectionPortalHotService): void {
-  navigateToCatalog(
-    buildPortalHotServiceUrl(
-      currentCity.value?.code,
-      service.categoryCode,
-    ),
-  )
+  uni.navigateTo({
+    url: buildPortalHotServiceUrl(currentCity.value?.code, service.id),
+  })
 }
 
 function viewAllServices(): void {

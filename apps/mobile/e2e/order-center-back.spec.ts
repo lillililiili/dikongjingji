@@ -30,6 +30,15 @@ const ACCEPTANCE_ORDER = {
   currency: 'CNY',
 }
 
+const SUBMITTED_ROUTE = `/pages/service/inspection/booking-submitted?reservationId=${ACCEPTANCE_ORDER.reservationId}`
+
+declare const uni: {
+  navigateTo(options: { url: string }): void
+  navigateBack(options: { from: string; success(): void; fail(): void }): void
+  removeInterceptor(name: string): void
+}
+declare function getCurrentPages(): Array<{ route: string }>
+
 const orderCenter = (page: Page) => page.locator('.inspection-orders__header')
 const backButton = (page: Page) => page.locator('[aria-label="返回我的"]')
 
@@ -48,6 +57,18 @@ async function openOrderCenterFromMine(page: Page): Promise<void> {
   await page.goto('/#/pages/home/index')
   await page.getByTestId('root-tab-mine').click()
   await page.locator('.platform-mine__view-all').click()
+  await waitForOrderCenter(page)
+}
+
+// Booking replaces M04 with the submitted page, so the pages the user came through
+// stay behind it. Home stands in for them here.
+async function openOrderCenterThroughBooking(page: Page): Promise<void> {
+  await page.route('**/api/v1/inspection/reservations/**', (route) =>
+    route.fulfill({ status: 404, json: { code: 'NOT_FOUND', message: 'not found' } }),
+  )
+  await page.goto('/#/pages/home/index')
+  await page.evaluate((url) => uni.navigateTo({ url }), SUBMITTED_ROUTE)
+  await page.locator('[aria-label="返回"]').click()
   await waitForOrderCenter(page)
 }
 
@@ -171,6 +192,27 @@ test.describe('M08 返回', () => {
     }, `${baseURL}${ORDER_CENTER_URL}`)
     await waitForOrderCenter(page)
     await backFromOrderCenter(page)
+
+    await expectMine(page)
+  })
+
+  test('OCB-110 下完单进入，返回到“我的”，不退回下单页面', async ({ page }) => {
+    await openOrderCenterThroughBooking(page)
+    await backFromOrderCenter(page)
+
+    await expectMine(page)
+    expect(await page.evaluate(() => getCurrentPages().map(({ route }) => route)))
+      .toEqual(['pages/mine/index'])
+  })
+
+  test('OCB-111 下完单进入，App 返回键同样到“我的”', async ({ page }) => {
+    await openOrderCenterThroughBooking(page)
+    await markDocument(page)
+    await page.evaluate(() => {
+      // App has no H5 back guard, and the guard would drop the nested navigateBack.
+      uni.removeInterceptor('navigateBack')
+      uni.navigateBack({ from: 'backbutton', success() {}, fail() {} })
+    })
 
     await expectMine(page)
   })

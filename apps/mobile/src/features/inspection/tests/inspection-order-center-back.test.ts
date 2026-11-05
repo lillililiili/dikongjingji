@@ -3,10 +3,19 @@ import { ModuleKind, ScriptTarget, transpileModule } from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Vue from 'vue'
 
+import * as orderNavigation from '../application/service-flow/inspection-order-navigation'
 import * as orderCenterView from '../presentation/orders/order-center-view'
 import orderCenterPageSource from '../presentation/orders/pages/InspectionOrderCenterPage.vue?raw'
 
 const MINE_URL = '/pages/mine/index'
+const MINE_ROUTE = 'pages/mine/index'
+const ORDER_CENTER_ROUTE = 'pages/mine/inspection-orders'
+const SUBMITTED_ROUTE = 'pages/service/inspection/booking-submitted'
+const BOOKING_FLOW_ROUTES = [
+  'pages/home/index',
+  'pages/service/inspection/catalog',
+  'pages/service/inspection/detail',
+]
 
 interface OrderCenterBindings {
   returnMine(): void
@@ -54,7 +63,7 @@ function mountOrderCenterPage(): {
       onReachBottom: () => undefined,
       onShow: () => undefined,
     },
-    '../../../application/service-flow/inspection-order-navigation': {},
+    '../../../application/service-flow/inspection-order-navigation': orderNavigation,
     '../../../data/service-flow/uni-booking-http-client': {
       inspectionOrderApi: { list: async () => ({}) },
     },
@@ -90,8 +99,8 @@ describe('M08 back button', () => {
   const navigateBack = vi.fn<[NavigateBackOptions], void>()
   const switchTab = vi.fn()
 
-  function stubPageStack(depth: number): void {
-    vi.stubGlobal('getCurrentPages', () => Array.from({ length: depth }, () => ({})))
+  function stubPageStack(routes: string[]): void {
+    vi.stubGlobal('getCurrentPages', () => routes.map((route) => ({ route })))
   }
 
   beforeEach(() => {
@@ -107,8 +116,8 @@ describe('M08 back button', () => {
     vi.unstubAllGlobals()
   })
 
-  it('walks the page stack when a page is behind M08', async () => {
-    stubPageStack(2)
+  it('walks the page stack when my tab is right behind M08', async () => {
+    stubPageStack([MINE_ROUTE, ORDER_CENTER_ROUTE])
     const { bindings } = mountOrderCenterPage()
 
     bindings.returnMine()
@@ -120,7 +129,29 @@ describe('M08 back button', () => {
   })
 
   it('goes to my tab when a deep link or refresh left M08 alone', async () => {
-    stubPageStack(1)
+    stubPageStack([ORDER_CENTER_ROUTE])
+    const { bindings } = mountOrderCenterPage()
+
+    bindings.returnMine()
+    await flushPromises()
+
+    expect(navigateBack).not.toHaveBeenCalled()
+    expect(switchTab).toHaveBeenCalledWith({ url: MINE_URL })
+  })
+
+  it('goes to my tab when the booking flow is behind M08', async () => {
+    stubPageStack([...BOOKING_FLOW_ROUTES, ORDER_CENTER_ROUTE])
+    const { bindings } = mountOrderCenterPage()
+
+    bindings.returnMine()
+    await flushPromises()
+
+    expect(navigateBack).not.toHaveBeenCalled()
+    expect(switchTab).toHaveBeenCalledWith({ url: MINE_URL })
+  })
+
+  it('goes to my tab when the submitted page is behind M08', async () => {
+    stubPageStack([...BOOKING_FLOW_ROUTES, SUBMITTED_ROUTE, ORDER_CENTER_ROUTE])
     const { bindings } = mountOrderCenterPage()
 
     bindings.returnMine()
@@ -131,7 +162,7 @@ describe('M08 back button', () => {
   })
 
   it('still goes to my tab when navigateBack fails', async () => {
-    stubPageStack(2)
+    stubPageStack([MINE_ROUTE, ORDER_CENTER_ROUTE])
     navigateBack.mockImplementation((options) => options.fail())
     const { bindings } = mountOrderCenterPage()
 
@@ -143,7 +174,18 @@ describe('M08 back button', () => {
   })
 
   it('takes the same way out for the App back key when M08 is alone', async () => {
-    stubPageStack(1)
+    stubPageStack([ORDER_CENTER_ROUTE])
+    const { pressBack } = mountOrderCenterPage()
+
+    expect(pressBack({ from: 'backbutton' })).toBe(true)
+    await flushPromises()
+
+    expect(navigateBack).not.toHaveBeenCalled()
+    expect(switchTab).toHaveBeenCalledWith({ url: MINE_URL })
+  })
+
+  it('takes the same way out for the App back key behind the booking flow', async () => {
+    stubPageStack([...BOOKING_FLOW_ROUTES, ORDER_CENTER_ROUTE])
     const { pressBack } = mountOrderCenterPage()
 
     expect(pressBack({ from: 'backbutton' })).toBe(true)
