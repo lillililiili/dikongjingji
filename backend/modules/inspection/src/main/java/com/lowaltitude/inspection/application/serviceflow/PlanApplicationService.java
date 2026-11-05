@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.domain.files.DeliveryFileType;
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,14 +28,28 @@ public class PlanApplicationService {
     static final String CONFIRM_OPERATION = "inspection.plan.confirm";
     private static final int MAX_PLAN_ITEMS = 50;
     private static final int MAX_DELIVERABLES = 20;
-    private static final int MIN_DELIVERABLES = 4;
+    private static final int MIN_DELIVERABLES = 1;
+    private static final int MAX_VISITS = 52;
+    private static final int MAX_SERVICE_METHODS = 10;
+    private static final int MAX_REPORT_DUE_HOURS = 8_760;
+    private static final int MAX_MEDIA_RETENTION_DAYS = 3_650;
 
     private final PlanStore store;
     private final Clock clock;
+    private final boolean paymentNodesEnabled;
 
     public PlanApplicationService(PlanStore store, Clock clock) {
+        this(store, clock, false);
+    }
+
+    public PlanApplicationService(
+            PlanStore store,
+            Clock clock,
+            boolean paymentNodesEnabled
+    ) {
         this.store = store;
         this.clock = clock;
+        this.paymentNodesEnabled = paymentNodesEnabled;
     }
 
     @Transactional
@@ -59,7 +75,7 @@ public class PlanApplicationService {
             throw new PlanResourceNotFoundException();
         }
 
-        String requestDigest = digestPublish(command);
+        String requestDigest = digestPublish(reservationId, command);
         Optional<PlanIdempotencyEntry> prior =
                 store.findIdempotency(subject.subjectId(), PUBLISH_OPERATION, idempotencyKey);
         if (prior.isPresent()) {
@@ -90,6 +106,21 @@ public class PlanApplicationService {
         long total = items.stream()
                 .mapToLong(PlanItem::lineAmountMinor)
                 .reduce(0L, PlanApplicationService::addAmount);
+        List<PlanVisit> visits = new ArrayList<>();
+        for (LocalDate plannedDate : command.visits()) {
+            visits.add(new PlanVisit(visits.size() + 1, plannedDate));
+        }
+        PlanTerms terms = new PlanTerms(
+                List.copyOf(visits),
+                normalize(command.scopeSummary()),
+                command.serviceMethods().stream()
+                        .map(item -> new CodeLabel(item.code().trim(), item.label().trim()))
+                        .toList(),
+                command.deliveryTerms(),
+                normalize(command.changeNote()),
+                paymentNodesEnabled
+                        ? PaymentNodePlanner.plan(total, visits.size())
+                        : List.of());
         StoredServicePlan plan = new StoredServicePlan(
                 planId,
                 planNumber(now, planId),
@@ -98,15 +129,20 @@ public class PlanApplicationService {
                 PlanStatus.PUBLISHED,
                 store.nextPlanVersion(reservationId),
                 command.validUntil(),
-                command.serviceDate(),
+                command.visits().get(0),
                 normalize(command.summary()),
+                terms,
                 items,
                 command.deliverables().stream()
-                        .map(item -> new CodeLabel(item.code().trim(), item.name().trim()))
+                        .map(item -> new PlanDeliverable(
+                                item.code().trim(),
+                                item.name().trim(),
+                                item.fileType()))
                         .toList(),
                 total,
                 "CNY",
                 now,
+                null,
                 null,
                 null,
                 0);
@@ -142,15 +178,30 @@ public class PlanApplicationService {
         }
         StoredServicePlan plan =
                 store.findPlan(planId).orElseThrow(PlanResourceNotFoundException::new);
+        requirePlanReader(subject, plan.reservation());
+        return toView(plan);
+    }
+
+    public List<PlanVersionSummary> listVersions(CurrentSubject subject, UUID reservationId) {
+        if (subject == null || reservationId == null) {
+            throw new PlanResourceNotFoundException();
+        }
+        requirePlanReader(
+                subject,
+                store.findReservation(reservationId)
+                        .orElseThrow(PlanResourceNotFoundException::new));
+        return store.findPlanVersions(reservationId);
+    }
+
+    private static void requirePlanReader(CurrentSubject subject, PlanReservation reservation) {
         boolean own = subject.roles().contains("CUSTOMER")
                 && subject.permissions().contains("inspection.plan.read.own")
-                && plan.reservation().customerId().equals(subject.subjectId());
+                && reservation.customerId().equals(subject.subjectId());
         boolean platform = subject.roles().contains("PLATFORM_OPERATOR")
                 && subject.permissions().contains("inspection.plan.read.all");
         if (!own && !platform) {
             throw new PlanResourceNotFoundException();
         }
-        return toView(plan);
     }
 
     @Transactional
@@ -175,7 +226,7 @@ public class PlanApplicationService {
             throw new PlanResourceNotFoundException();
         }
 
-        String requestDigest = digestConfirm(command);
+        String requestDigest = digestConfirm(planId, command);
         Optional<PlanIdempotencyEntry> prior =
                 store.findIdempotency(subject.subjectId(), CONFIRM_OPERATION, idempotencyKey);
         if (prior.isPresent()) {
@@ -207,6 +258,9 @@ public class PlanApplicationService {
                 plan.reservation().lineLengthMeters(),
                 plan.serviceDate(),
                 plan.reservation().inspectionItems());
+        List<StoredServiceVisit> visits = plan.terms().visits().stream()
+                .map(visit -> StoredServiceVisit.planned(UUID.randomUUID(), orderId, visit))
+                .toList();
         StoredServiceOrder order = new StoredServiceOrder(
                 orderId,
                 orderNumber(now, orderId),
@@ -214,8 +268,11 @@ public class PlanApplicationService {
                 plan.id(),
                 plan.reservation().customerId(),
                 plan.providerId(),
+                plan.terms().paymentNodes().isEmpty() ? PaymentMode.NONE : PaymentMode.NODES,
                 ServiceOrderStatus.ARRANGING,
                 snapshot,
+                visits,
+                orderPaymentNodes(plan.terms().paymentNodes(), visits),
                 now,
                 0);
         PlanIdempotencyEntry entry = new PlanIdempotencyEntry(
@@ -250,6 +307,23 @@ public class PlanApplicationService {
             throw new PlanNotPublishedException();
         }
         return toView(order);
+    }
+
+    private static List<OrderPaymentNode> orderPaymentNodes(
+            List<PlanPaymentNode> nodes,
+            List<StoredServiceVisit> visits
+    ) {
+        return nodes.stream()
+                .map(node -> new OrderPaymentNode(
+                        node.nodeNo(),
+                        node.nodeType(),
+                        node.visitNo(),
+                        node.visitNo() == null
+                                ? null
+                                : visits.get(node.visitNo() - 1).id(),
+                        node.amountMinor(),
+                        null))
+                .toList();
     }
 
     private ServicePlanView replayPlan(PlanIdempotencyEntry prior, String requestDigest) {
@@ -299,15 +373,54 @@ public class PlanApplicationService {
                 || command.providerId() == null
                 || command.validUntil() == null
                 || !command.validUntil().isAfter(clock.instant())
-                || command.serviceDate() == null
-                || command.serviceDate().isBefore(LocalDate.now(clock.withZone(ZoneOffset.UTC)))
+                || !validVisits(command.visits())
                 || command.summary() != null && command.summary().length() > 1_000
+                || command.scopeSummary() != null && command.scopeSummary().length() > 120
+                || command.changeNote() != null && command.changeNote().length() > 200
+                || !validServiceMethods(command.serviceMethods())
+                || !validDeliveryTerms(command.deliveryTerms())
                 || !"CNY".equals(command.currency())
                 || !validPlanItems(command.planItems())
                 || !validDeliverables(command.deliverables())
                 || !validText(requestId, 1, 80)) {
             throw new PlanValidationException();
         }
+    }
+
+    private boolean validVisits(List<LocalDate> visits) {
+        if (visits == null || visits.isEmpty() || visits.size() > MAX_VISITS) {
+            return false;
+        }
+        LocalDate previous = LocalDate.now(clock.withZone(ZoneOffset.UTC)).minusDays(1);
+        for (LocalDate visit : visits) {
+            if (visit == null || !visit.isAfter(previous)) {
+                return false;
+            }
+            previous = visit;
+        }
+        return true;
+    }
+
+    private static boolean validServiceMethods(List<CodeLabel> methods) {
+        if (methods == null || methods.size() > MAX_SERVICE_METHODS) {
+            return false;
+        }
+        Set<String> codes = new HashSet<>();
+        return methods.stream().allMatch(item ->
+                item != null
+                        && validText(item.code(), 1, 64)
+                        && validText(item.label(), 1, 120)
+                        && codes.add(item.code().trim()));
+    }
+
+    private static boolean validDeliveryTerms(DeliveryTerms terms) {
+        return terms == null
+                || validRange(terms.reportDueHours(), MAX_REPORT_DUE_HOURS)
+                && validRange(terms.mediaRetentionDays(), MAX_MEDIA_RETENTION_DAYS);
+    }
+
+    private static boolean validRange(Integer value, int max) {
+        return value == null || value > 0 && value <= max;
     }
 
     private static void validateConfirmInput(
@@ -355,11 +468,13 @@ public class PlanApplicationService {
             return false;
         }
         Set<String> codes = new HashSet<>();
+        Set<DeliveryFileType> fileTypes = new HashSet<>();
         return deliverables.stream().allMatch(item ->
                 item != null
                         && validText(item.code(), 1, 64)
                         && validText(item.name(), 1, 120)
-                        && codes.add(item.code().trim()));
+                        && codes.add(item.code().trim())
+                        && (item.fileType() == null || fileTypes.add(item.fileType())));
     }
 
     private static boolean validText(String value, int minimum, int maximum) {
@@ -390,19 +505,24 @@ public class PlanApplicationService {
         }
     }
 
-    private static String digestPublish(PublishPlanCommand command) {
+    private static String digestPublish(UUID reservationId, PublishPlanCommand command) {
         return digest(List.of(
+                reservationId,
                 command.providerId(),
                 command.validUntil(),
-                command.serviceDate(),
+                command.visits(),
                 String.valueOf(command.summary()),
+                String.valueOf(command.scopeSummary()),
+                command.serviceMethods(),
+                String.valueOf(command.deliveryTerms()),
+                String.valueOf(command.changeNote()),
                 command.planItems(),
                 command.deliverables(),
                 command.currency()));
     }
 
-    private static String digestConfirm(ConfirmPlanCommand command) {
-        return digest(List.of(command.agreementVersion(), command.agreementAccepted()));
+    private static String digestConfirm(UUID planId, ConfirmPlanCommand command) {
+        return digest(List.of(planId, command.agreementVersion(), command.agreementAccepted()));
     }
 
     private static String digest(Object value) {
@@ -441,52 +561,48 @@ public class PlanApplicationService {
         return prefix + time + id.toString().substring(0, 4).toUpperCase();
     }
 
-    private static ServicePlanView toView(StoredServicePlan plan) {
+    private ServicePlanView toView(StoredServicePlan plan) {
         return new ServicePlanView(
                 plan.id(),
                 plan.planNo(),
                 plan.reservation().id(),
                 plan.providerId(),
+                store.findProvider(plan.providerId()).orElse(null),
                 plan.status(),
                 plan.planVersion(),
                 plan.validUntil(),
                 plan.serviceDate(),
                 plan.summary(),
+                plan.terms(),
                 plan.planItems(),
                 plan.deliverables(),
                 plan.totalAmountMinor(),
                 plan.currency(),
                 plan.publishedAt(),
                 plan.confirmedAt(),
+                plan.confirmedBy() == null
+                        ? null
+                        : new PersonRef(
+                                plan.confirmedBy(),
+                                store.findDisplayName(plan.confirmedBy()).orElse("")),
                 plan.serviceOrderId(),
                 plan.version());
     }
 
-    private static ServiceOrderView toView(StoredServiceOrder order) {
-        return new ServiceOrderView(
-                order.id(),
-                order.serviceOrderNo(),
-                order.reservationId(),
-                order.planId(),
-                order.customerId(),
-                order.providerId(),
-                order.status(),
-                order.serviceSnapshot(),
-                order.plannedStartAt(),
-                order.assignments(),
-                order.progress(),
-                order.createdAt(),
-                order.deliveredAt(),
-                order.acceptedAt(),
-                order.version());
+    private ServiceOrderView toView(StoredServiceOrder order) {
+        return ServiceOrderView.from(order, store);
     }
 }
 
 record PublishPlanCommand(
         UUID providerId,
         Instant validUntil,
-        LocalDate serviceDate,
+        List<LocalDate> visits,
         String summary,
+        String scopeSummary,
+        List<CodeLabel> serviceMethods,
+        DeliveryTerms deliveryTerms,
+        String changeNote,
         List<PlanItemInput> planItems,
         List<DeliverableInput> deliverables,
         String currency
@@ -499,7 +615,65 @@ record ConfirmPlanCommand(String agreementVersion, boolean agreementAccepted) {
 record PlanItemInput(String code, String name, int quantity, String unit, long unitPriceMinor) {
 }
 
-record DeliverableInput(String code, String name) {
+record DeliverableInput(String code, String name, DeliveryFileType fileType) {
+}
+
+record PlanDeliverable(String code, String label, DeliveryFileType fileType) {
+}
+
+record DeliveryTerms(Integer reportDueHours, Integer mediaRetentionDays) {
+}
+
+record PlanVisit(int visitNo, LocalDate plannedDate) {
+}
+
+enum PaymentMode {
+    NONE,
+    NODES
+}
+
+enum PaymentNodeType {
+    DOWN_PAYMENT,
+    PER_VISIT
+}
+
+record PlanPaymentNode(
+        int nodeNo,
+        PaymentNodeType nodeType,
+        Integer visitNo,
+        long amountMinor
+) {
+}
+
+record PlanTerms(
+        List<PlanVisit> visits,
+        String scopeSummary,
+        List<CodeLabel> serviceMethods,
+        DeliveryTerms deliveryTerms,
+        String changeNote,
+        List<PlanPaymentNode> paymentNodes
+) {
+}
+
+record ProviderSummary(UUID providerId, String name, String certificationLabel) {
+}
+
+record CustomerParty(String organizationName, String operatorName) {
+}
+
+record PersonRef(UUID subjectId, String displayName) {
+}
+
+record PlanVersionSummary(
+        UUID id,
+        String planNo,
+        int planVersion,
+        PlanStatus status,
+        long totalAmountMinor,
+        List<PlanItem> planItems,
+        String changeNote,
+        Instant publishedAt
+) {
 }
 
 record PlanItem(
@@ -583,12 +757,14 @@ record StoredServicePlan(
         Instant validUntil,
         LocalDate serviceDate,
         String summary,
+        PlanTerms terms,
         List<PlanItem> planItems,
-        List<CodeLabel> deliverables,
+        List<PlanDeliverable> deliverables,
         long totalAmountMinor,
         String currency,
         Instant publishedAt,
         Instant confirmedAt,
+        UUID confirmedBy,
         UUID serviceOrderId,
         int version
 ) {
@@ -603,12 +779,14 @@ record StoredServicePlan(
                 validUntil,
                 serviceDate,
                 summary,
+                terms,
                 planItems,
                 deliverables,
                 totalAmountMinor,
                 currency,
                 publishedAt,
                 confirmedAt,
+                confirmedBy,
                 serviceOrderId,
                 version + 1);
     }
@@ -624,17 +802,19 @@ record StoredServicePlan(
                 nextValidUntil,
                 serviceDate,
                 summary,
+                terms,
                 planItems,
                 deliverables,
                 totalAmountMinor,
                 currency,
                 publishedAt,
                 confirmedAt,
+                confirmedBy,
                 serviceOrderId,
                 version);
     }
 
-    StoredServicePlan confirmed(Instant at, UUID orderId) {
+    StoredServicePlan confirmed(Instant at, UUID actorId, UUID orderId) {
         return new StoredServicePlan(
                 id,
                 planNo,
@@ -645,12 +825,14 @@ record StoredServicePlan(
                 validUntil,
                 serviceDate,
                 summary,
+                terms,
                 planItems,
                 deliverables,
                 totalAmountMinor,
                 currency,
                 publishedAt,
                 at,
+                actorId,
                 orderId,
                 version + 1);
     }
@@ -661,17 +843,20 @@ record ServicePlanView(
         String planNo,
         UUID reservationId,
         UUID providerId,
+        ProviderSummary provider,
         PlanStatus status,
         int planVersion,
         Instant validUntil,
         LocalDate serviceDate,
         String summary,
+        PlanTerms terms,
         List<PlanItem> planItems,
-        List<CodeLabel> deliverables,
+        List<PlanDeliverable> deliverables,
         long totalAmountMinor,
         String currency,
         Instant publishedAt,
         Instant confirmedAt,
+        PersonRef confirmedBy,
         UUID serviceOrderId,
         int version
 ) {
@@ -698,11 +883,13 @@ record StoredServiceOrder(
         UUID planId,
         UUID customerId,
         UUID providerId,
+        PaymentMode paymentMode,
         ServiceOrderStatus status,
         ServiceSnapshot serviceSnapshot,
-        Instant plannedStartAt,
         List<OrderAssignment> assignments,
         List<OrderProgressEvent> progress,
+        List<StoredServiceVisit> visits,
+        List<OrderPaymentNode> paymentNodes,
         Instant createdAt,
         Instant deliveredAt,
         Instant acceptedAt,
@@ -715,8 +902,11 @@ record StoredServiceOrder(
             UUID planId,
             UUID customerId,
             UUID providerId,
+            PaymentMode paymentMode,
             ServiceOrderStatus status,
             ServiceSnapshot serviceSnapshot,
+            List<StoredServiceVisit> visits,
+            List<OrderPaymentNode> paymentNodes,
             Instant createdAt,
             int version
     ) {
@@ -727,15 +917,161 @@ record StoredServiceOrder(
                 planId,
                 customerId,
                 providerId,
+                paymentMode,
                 status,
                 serviceSnapshot,
-                null,
                 List.of(),
                 List.of(),
+                visits,
+                paymentNodes,
                 createdAt,
                 null,
                 null,
                 version);
+    }
+
+    Optional<StoredServiceVisit> visit(UUID visitId) {
+        return visits.stream().filter(visit -> visit.id().equals(visitId)).findFirst();
+    }
+}
+
+enum ServiceVisitStatus {
+    PENDING_SCHEDULE,
+    SCHEDULED,
+    IN_PROGRESS,
+    DELIVERED,
+    ACCEPTED
+}
+
+record StoredServiceVisit(
+        UUID id,
+        UUID serviceOrderId,
+        int visitNo,
+        LocalDate plannedDate,
+        Instant plannedStartAt,
+        ServiceVisitStatus status,
+        List<OrderProgressEvent> progress,
+        Instant startedAt,
+        Instant deliveredAt,
+        Instant acceptedAt,
+        int version
+) {
+    static StoredServiceVisit planned(UUID id, UUID serviceOrderId, PlanVisit visit) {
+        return new StoredServiceVisit(
+                id,
+                serviceOrderId,
+                visit.visitNo(),
+                visit.plannedDate(),
+                null,
+                ServiceVisitStatus.PENDING_SCHEDULE,
+                List.of(),
+                null,
+                null,
+                null,
+                0);
+    }
+
+    StoredServiceVisit scheduled(Instant nextPlannedStartAt) {
+        return new StoredServiceVisit(
+                id,
+                serviceOrderId,
+                visitNo,
+                plannedDate,
+                nextPlannedStartAt,
+                ServiceVisitStatus.SCHEDULED,
+                progress,
+                startedAt,
+                deliveredAt,
+                acceptedAt,
+                version + 1);
+    }
+
+    StoredServiceVisit withProgress(
+            ServiceVisitStatus nextStatus,
+            List<OrderProgressEvent> nextProgress,
+            Instant nextStartedAt
+    ) {
+        return new StoredServiceVisit(
+                id,
+                serviceOrderId,
+                visitNo,
+                plannedDate,
+                plannedStartAt,
+                nextStatus,
+                List.copyOf(nextProgress),
+                nextStartedAt,
+                deliveredAt,
+                acceptedAt,
+                version + 1);
+    }
+
+    StoredServiceVisit delivered(Instant at) {
+        return new StoredServiceVisit(
+                id,
+                serviceOrderId,
+                visitNo,
+                plannedDate,
+                plannedStartAt,
+                ServiceVisitStatus.DELIVERED,
+                progress,
+                startedAt,
+                at,
+                acceptedAt,
+                version + 1);
+    }
+
+    StoredServiceVisit accepted(Instant at) {
+        return new StoredServiceVisit(
+                id,
+                serviceOrderId,
+                visitNo,
+                plannedDate,
+                plannedStartAt,
+                ServiceVisitStatus.ACCEPTED,
+                progress,
+                startedAt,
+                deliveredAt,
+                at,
+                version + 1);
+    }
+
+    boolean serviceCompleted() {
+        return progress.stream()
+                .anyMatch(event -> event.eventCode() == OrderProgressCode.SERVICE_COMPLETED);
+    }
+}
+
+record OrderPaymentNode(
+        int nodeNo,
+        PaymentNodeType nodeType,
+        Integer visitNo,
+        UUID visitId,
+        long amountMinor,
+        Instant paidAt
+) {
+}
+
+record OrderPaymentNodeView(
+        int nodeNo,
+        PaymentNodeType nodeType,
+        Integer visitNo,
+        long amountMinor,
+        boolean payable,
+        Instant paidAt
+) {
+    static OrderPaymentNodeView from(OrderPaymentNode node, List<StoredServiceVisit> visits) {
+        boolean due = node.nodeType() == PaymentNodeType.DOWN_PAYMENT
+                || visits.stream().anyMatch(visit ->
+                        visit.id().equals(node.visitId())
+                                && visit.status() == ServiceVisitStatus.ACCEPTED);
+        boolean payable = due && node.paidAt() == null;
+        return new OrderPaymentNodeView(
+                node.nodeNo(),
+                node.nodeType(),
+                node.visitNo(),
+                node.amountMinor(),
+                payable,
+                node.paidAt());
     }
 }
 
@@ -746,16 +1082,44 @@ record ServiceOrderView(
         UUID planId,
         UUID customerId,
         UUID providerId,
+        ProviderSummary provider,
+        CustomerParty customerParty,
+        PaymentMode paymentMode,
+        List<OrderPaymentNodeView> paymentNodes,
         ServiceOrderStatus status,
         ServiceSnapshot serviceSnapshot,
-        Instant plannedStartAt,
         List<OrderAssignment> assignments,
         List<OrderProgressEvent> progress,
+        List<StoredServiceVisit> visits,
         Instant createdAt,
         Instant deliveredAt,
         Instant acceptedAt,
         int version
 ) {
+    static ServiceOrderView from(StoredServiceOrder order, PlanStore store) {
+        return new ServiceOrderView(
+                order.id(),
+                order.serviceOrderNo(),
+                order.reservationId(),
+                order.planId(),
+                order.customerId(),
+                order.providerId(),
+                store.findProvider(order.providerId()).orElse(null),
+                store.findCustomerParty(order.reservationId()).orElse(null),
+                order.paymentMode(),
+                order.paymentNodes().stream()
+                        .map(node -> OrderPaymentNodeView.from(node, order.visits()))
+                        .toList(),
+                order.status(),
+                order.serviceSnapshot(),
+                order.assignments(),
+                order.progress(),
+                order.visits(),
+                order.createdAt(),
+                order.deliveredAt(),
+                order.acceptedAt(),
+                order.version());
+    }
 }
 
 enum AssignmentType {
@@ -767,8 +1131,13 @@ record OrderAssignment(
         AssignmentType type,
         UUID resourceId,
         String displayName,
-        String roleLabel
+        String roleLabel,
+        String contactMobileMasked
 ) {
+}
+
+/** The real mobile only travels to the store, which encrypts it; views carry the mask. */
+record AssignmentWrite(OrderAssignment assignment, String contactMobile) {
 }
 
 enum OrderProgressCode {
@@ -814,6 +1183,30 @@ interface PlanStore {
 
     Optional<StoredServiceOrder> findOrder(UUID orderId);
 
+    default Optional<StoredServiceVisit> findVisit(UUID visitId) {
+        return Optional.empty();
+    }
+
+    /** Serializes commands on one service order; a no-op outside a real database. */
+    default void lockOrder(UUID orderId) {
+    }
+
+    default List<PlanVersionSummary> findPlanVersions(UUID reservationId) {
+        return List.of();
+    }
+
+    default Optional<ProviderSummary> findProvider(UUID providerId) {
+        return Optional.empty();
+    }
+
+    default Optional<CustomerParty> findCustomerParty(UUID reservationId) {
+        return Optional.empty();
+    }
+
+    default Optional<String> findDisplayName(UUID subjectId) {
+        return Optional.empty();
+    }
+
     Optional<PlanIdempotencyEntry> findIdempotency(
             UUID actorId,
             String operation,
@@ -839,7 +1232,20 @@ interface PlanStore {
     default PlanWriteResult arrange(
             StoredServiceOrder expectedOrder,
             StoredServiceOrder arrangedOrder,
+            List<AssignmentWrite> assignments,
             PlanIdempotencyEntry entry,
+            CurrentSubject actor,
+            String requestId
+    ) {
+        return PlanWriteResult.STATE_CONFLICT;
+    }
+
+    default PlanWriteResult schedule(
+            StoredServiceOrder order,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit scheduledVisit,
+            PlanIdempotencyEntry entry,
+            Instant at,
             CurrentSubject actor,
             String requestId
     ) {
@@ -848,7 +1254,9 @@ interface PlanStore {
 
     default PlanWriteResult appendProgress(
             StoredServiceOrder expectedOrder,
-            StoredServiceOrder updatedOrder,
+            ServiceOrderStatus nextOrderStatus,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit updatedVisit,
             PlanIdempotencyEntry entry,
             CurrentSubject actor,
             String requestId
@@ -914,5 +1322,17 @@ final class PlanAlreadyConfirmedException extends PlanFlowException {
 final class OrderStateInvalidException extends PlanFlowException {
     OrderStateInvalidException() {
         super(PlanFlowError.ORDER_STATE_INVALID);
+    }
+}
+
+final class VisitStateInvalidException extends PlanFlowException {
+    VisitStateInvalidException() {
+        super(PlanFlowError.VISIT_STATE_INVALID);
+    }
+}
+
+final class VisitOutOfOrderException extends PlanFlowException {
+    VisitOutOfOrderException() {
+        super(PlanFlowError.VISIT_OUT_OF_ORDER);
     }
 }

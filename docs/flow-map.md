@@ -12,11 +12,12 @@
 | 预约填写 | `/pages/service/inspection/booking` | 客户提交预约 | `POST /api/v1/inspection/reservations` | 预约：无 → `SUBMITTED` | 新增预约、预约附件关联、幂等记录 | INS-M-005 预约提交结果 | 等待服务商发布方案 |
 | 提交结果 | `/pages/service/inspection/booking-submitted` | 客户查看已发布方案 | `GET /api/v1/inspection/reservations/{id}` | 无 | 无 | INS-M-006 方案确认 | 核对并确认方案 |
 | 方案发布 | 受控服务商 API | 被分配的服务商操作员发布方案 | `POST /api/v1/provider/inspection/reservations/{id}/plans` | 方案：`DRAFT` → `PUBLISHED`；预约：`SUBMITTED` → `PLAN_PUBLISHED` | 新增/更新方案、记录状态迁移 | 客户仍在提交结果页或重新进入该页 | 客户进入方案确认 |
-| 方案确认 | `/pages/service/inspection/plan-confirmation` | 客户确认自己的有效方案 | `POST /api/v1/inspection/plans/{id}/confirm` | 方案：`PUBLISHED` → `CONFIRMED`；服务单：无 → `ARRANGING` | 更新方案并新增服务单、记录状态迁移和幂等结果 | INS-M-007 服务安排与履约 | 服务商安排资源 |
-| 服务安排 | `/pages/service/inspection/fulfillment` | 被分配的服务商操作员提交安排 | `PUT /api/v1/provider/inspection/service-orders/{id}/arrangement` | 服务单保持 `ARRANGING` | 写入人员、时间和资源安排，记录安排就绪事件 | 留在 INS-M-007 | 服务商开始服务 |
-| 现场履约 | `/pages/service/inspection/fulfillment` | 被分配的服务商操作员开始/更新/完成现场服务 | `POST /api/v1/provider/inspection/service-orders/{id}/progress-events` | 开始：`ARRANGING` → `IN_PROGRESS`；进度/现场完成：保持 `IN_PROGRESS` | 新增履约事件；现场完成事件为发布交付的前置条件 | 留在 INS-M-007 | 服务商上传并发布报告 |
-| 报告交付 | 受控服务商 API | 被分配的服务商操作员发布交付 | `POST /api/v1/provider/inspection/service-orders/{id}/delivery` | 服务单：`IN_PROGRESS` → `DELIVERED`；交付：无 → `PUBLISHED` | 新增交付记录、私有文件关联、状态迁移 | 客户从 INS-M-007 进入 INS-M-008 | 客户查看/下载并验收 |
-| 验收 | `/pages/service/inspection/delivery` | 客户确认自己的交付结果 | `POST /api/v1/inspection/service-orders/{id}/acceptance` | 服务单：`DELIVERED` → `ACCEPTED`；交付：`PUBLISHED` → `ACCEPTED` | 新增唯一验收记录、更新服务单和交付、记录状态迁移与幂等结果 | 留在 INS-M-008 已验收只读态 | 查看报告或返回 INS-M-007；本期无评价页 |
+| 方案确认 | `/pages/service/inspection/plan-confirmation` | 客户确认自己的有效方案 | `POST /api/v1/inspection/plans/{id}/confirm` | 方案：`PUBLISHED` → `CONFIRMED`；服务单：无 → `ARRANGING`；巡检次：无 → `PENDING_SCHEDULE` | 更新方案并新增服务单、记录状态迁移和幂等结果 | INS-M-007 服务安排与履约 | 服务商安排资源 |
+| 服务安排 | `/pages/service/inspection/fulfillment` | 被分配的服务商操作员提交人员和设备 | `PUT /api/v1/provider/inspection/service-orders/{id}/arrangement` | 服务单保持 `ARRANGING` | 写入人员、设备和进度事件，手机号只存密文和脱敏值 | INS-M-007 | 服务商给每次巡检排期 |
+| 巡检次排期 | `/pages/service/inspection/fulfillment` | 被分配的服务商操作员排定或改动某次时间 | `PUT /api/v1/provider/inspection/service-orders/{id}/visits/{visitId}/schedule` | 巡检次：`PENDING_SCHEDULE` → `SCHEDULED` | 写入该次开始时间和状态迁移 | INS-M-007 | 到时间后开始这一次 |
+| 现场履约 | `/pages/service/inspection/fulfillment` | 被分配的服务商操作员开始/更新/完成某次现场服务 | `POST /api/v1/provider/inspection/service-orders/{id}/visits/{visitId}/progress-events` | 开始：巡检次 `SCHEDULED` → `IN_PROGRESS`，首次开始时服务单 `ARRANGING` → `IN_PROGRESS`；更新和完成不改状态 | 新增该次进度事件 | INS-M-007 | 现场完成后可发布这一次的交付，也可开始下一次 |
+| 报告交付 | 受控服务商 API | 被分配的服务商操作员发布某次交付 | `POST /api/v1/provider/inspection/service-orders/{id}/visits/{visitId}/delivery` | 巡检次：`IN_PROGRESS` → `DELIVERED`；交付：无 → `PUBLISHED`；全部已交付时服务单 `IN_PROGRESS` → `DELIVERED` | 新增交付、交付文件和状态迁移 | INS-M-008 | 客户查看并验收这一次 |
+| 验收 | `/pages/service/inspection/delivery` | 客户确认某次交付结果 | `POST /api/v1/inspection/service-orders/{id}/visits/{visitId}/acceptance` | 巡检次：`DELIVERED` → `ACCEPTED`；交付：`PUBLISHED` → `ACCEPTED`；全部已验收时服务单 `DELIVERED` → `ACCEPTED` | 新增验收记录和状态迁移 | INS-M-008 已验收只读态 | 还有未完成的次时继续履约，否则服务完成 |
 
 ### 1.1 INS-M-004 巡检地点选择
 
@@ -53,13 +54,25 @@ DRAFT ──发布──> PUBLISHED ──客户确认──> CONFIRMED
                          └──撤回────> WITHDRAWN
 ```
 
-### 2.3 服务单与交付
+### 2.3 巡检次、服务单与交付
+
+巡检次是履约的最小单位：
 
 ```text
-ARRANGING ──开始服务──> IN_PROGRESS ──发布交付──> DELIVERED ──客户验收──> ACCEPTED
+PENDING_SCHEDULE ──排期──> SCHEDULED ──开始──> IN_PROGRESS ──发布交付──> DELIVERED ──客户验收──> ACCEPTED
 ```
 
-禁止跳过中间状态。现场完成事件不会直接把服务单改为 `DELIVERED`；只有交付发布成功后才进入 `DELIVERED`。
+服务单状态由全部巡检次派生，不单独推进：
+
+```text
+ARRANGING ──任一次开始──> IN_PROGRESS ──全部已交付──> DELIVERED ──全部已验收──> ACCEPTED
+```
+
+禁止跳过中间状态。现场完成事件不改变状态；只有交付发布成功后这一次才进入 `DELIVERED`。下一次只要求上一次现场完成，不等交付和验收。存量服务单回填为 1 次巡检。
+
+订单列表的待验收阶段按巡检次判断：任一次 `DELIVERED` 未验收就显示待验收，并带上最早一次待验收的 `visitId` 和序号。
+
+下面第 3 节的页面仍是单次履约的写法，阶段 B 改 M05–M08 页面时同步。
 
 ## 3. 页面状态与主操作
 

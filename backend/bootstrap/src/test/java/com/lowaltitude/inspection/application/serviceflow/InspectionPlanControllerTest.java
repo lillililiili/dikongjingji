@@ -62,6 +62,16 @@ class InspectionPlanControllerTest {
                 .andExpect(jsonPath("$.status").value("PUBLISHED"))
                 .andExpect(jsonPath("$.planItems[0].lineAmountMinor").value(2400))
                 .andExpect(jsonPath("$.deliverables.length()").value(4))
+                .andExpect(jsonPath("$.deliverables[3].fileType")
+                        .value("INSPECTION_REPORT"))
+                .andExpect(jsonPath("$.serviceDate").exists())
+                .andExpect(jsonPath("$.visits.length()").value(2))
+                .andExpect(jsonPath("$.visits[1].visitNo").value(2))
+                .andExpect(jsonPath("$.visits[1].plannedDate").exists())
+                .andExpect(jsonPath("$.scopeSummary").value("线路约 18.6 公里"))
+                .andExpect(jsonPath("$.serviceMethods[0].code").value("DRONE"))
+                .andExpect(jsonPath("$.deliveryTerms.reportDueHours").value(48))
+                .andExpect(jsonPath("$.paymentNodes.length()").value(0))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -91,7 +101,54 @@ class InspectionPlanControllerTest {
                 .andExpect(jsonPath("$.serviceSnapshot.location.address")
                         .value("东营市黄河路88号"))
                 .andExpect(jsonPath("$.assignments").isArray())
-                .andExpect(jsonPath("$.progress").isArray());
+                .andExpect(jsonPath("$.progress").isArray())
+                .andExpect(jsonPath("$.paymentMode").value("NONE"))
+                .andExpect(jsonPath("$.visits.length()").value(2))
+                .andExpect(jsonPath("$.visits[0].status").value("PENDING_SCHEDULE"))
+                .andExpect(jsonPath("$.visits[1].plannedDate").exists());
+    }
+
+    @Test
+    void nullEntriesInPublishListsAreRejectedNotACrash() throws Exception {
+        for (String field : List.of("visits", "serviceMethods", "planItems", "deliverables")) {
+            mvc.perform(post(
+                                    "/api/v1/provider/inspection/reservations/{reservationId}/plans",
+                                    RESERVATION)
+                            .header("Idempotency-Key", UUID.randomUUID())
+                            .header("If-Match", "\"0\"")
+                            .contentType("application/json")
+                            .content(publishJson().replaceFirst(
+                                    "\"" + field + "\":\\s*\\[",
+                                    "\"" + field + "\": [null,"))
+                            .principal(provider(PROVIDER)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        }
+    }
+
+    @Test
+    void customerListsPlanVersionsOfOwnReservation() throws Exception {
+        mvc.perform(post(
+                                "/api/v1/provider/inspection/reservations/{reservationId}/plans",
+                                RESERVATION)
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("If-Match", "\"0\"")
+                        .contentType("application/json")
+                        .content(publishJson())
+                        .principal(provider(PROVIDER)))
+                .andExpect(status().isCreated());
+
+        mvc.perform(get("/api/v1/inspection/reservations/{reservationId}/plans", RESERVATION)
+                        .principal(customer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].planVersion").value(1))
+                .andExpect(jsonPath("$[0].status").value("PUBLISHED"))
+                .andExpect(jsonPath("$[0].planItems[0].code").value("POWER_LINE"));
+
+        mvc.perform(get("/api/v1/inspection/reservations/{reservationId}/plans", UUID.randomUUID())
+                        .principal(customer()))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -141,8 +198,14 @@ class InspectionPlanControllerTest {
                 {
                   "providerId": "%s",
                   "validUntil": "2026-07-29T02:00:00Z",
-                  "serviceDate": "2026-08-02",
+                  "visits": [
+                    {"plannedDate": "2026-08-02"},
+                    {"plannedDate": "2026-08-16"}
+                  ],
                   "summary": "无人机精细化巡检方案",
+                  "scopeSummary": "线路约 18.6 公里",
+                  "serviceMethods": [{"code": "DRONE", "label": "无人机巡检"}],
+                  "deliveryTerms": {"reportDueHours": 48, "mediaRetentionDays": 90},
                   "planItems": [
                     {
                       "code": "POWER_LINE",
@@ -153,10 +216,10 @@ class InspectionPlanControllerTest {
                     }
                   ],
                   "deliverables": [
-                    {"code": "HD_MEDIA", "name": "高清巡检影像"},
-                    {"code": "DEFECT_LIST", "name": "缺陷清单"},
-                    {"code": "POINT_MARKS", "name": "点位标注"},
-                    {"code": "REPORT", "name": "巡检报告"}
+                    {"code": "HD_MEDIA", "name": "高清巡检影像", "fileType": "IMAGE_ARCHIVE"},
+                    {"code": "DEFECT_LIST", "name": "缺陷清单", "fileType": "DEFECT_LIST"},
+                    {"code": "POINT_MARKS", "name": "点位标注", "fileType": "POINT_KML"},
+                    {"code": "REPORT", "name": "巡检报告", "fileType": "INSPECTION_REPORT"}
                   ],
                   "currency": "CNY"
                 }
@@ -250,6 +313,21 @@ final class ControllerPlanStore implements PlanStore {
     }
 
     @Override
+    public List<PlanVersionSummary> findPlanVersions(UUID reservationId) {
+        return plans.values().stream()
+                .map(plan -> new PlanVersionSummary(
+                        plan.id(),
+                        plan.planNo(),
+                        plan.planVersion(),
+                        plan.status(),
+                        plan.totalAmountMinor(),
+                        plan.planItems(),
+                        plan.terms().changeNote(),
+                        plan.publishedAt()))
+                .toList();
+    }
+
+    @Override
     public int nextPlanVersion(UUID reservationId) {
         return plans.size() + 1;
     }
@@ -281,7 +359,7 @@ final class ControllerPlanStore implements PlanStore {
     ) {
         plans.put(
                 expectedPlan.id(),
-                expectedPlan.confirmed(order.createdAt(), order.id()));
+                expectedPlan.confirmed(order.createdAt(), actor.subjectId(), order.id()));
         orders.put(order.id(), order);
         idempotency.put(key(entry.actorId(), entry.operation(), entry.key()), entry);
         return PlanWriteResult.SAVED;

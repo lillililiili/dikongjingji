@@ -89,7 +89,9 @@
         "submittedAt": "2026-07-27T02:00:00Z",
         "stage": "AWAITING_PLAN",
         "reservationStatus": "SUBMITTED",
-        "currency": "CNY"
+        "currency": "CNY",
+        "visitCount": 0,
+        "acceptedVisitCount": 0
       }
     ],
     "page": 1,
@@ -141,7 +143,30 @@
     "planVersion": 1,
     "validUntil": "2026-07-30T16:00:00Z",
     "serviceDate": "2026-08-02",
+    "visits": [
+      {
+        "visitNo": 1,
+        "plannedDate": "2026-08-02"
+      }
+    ],
+    "provider": {
+      "providerId": "30000000-0000-4000-8000-000000000001",
+      "name": "测试服务商",
+      "certificationLabel": "资质已审核"
+    },
     "summary": "测试方案",
+    "scopeSummary": "线路约 18.6 公里",
+    "serviceMethods": [
+      {
+        "code": "DRONE",
+        "label": "无人机巡检"
+      }
+    ],
+    "deliveryTerms": {
+      "reportDueHours": 48,
+      "mediaRetentionDays": 90
+    },
+    "changeNote": null,
     "planItems": [
       {
         "code": "POWER_LINE_INSPECTION",
@@ -155,25 +180,34 @@
     "deliverables": [
       {
         "code": "HD_MEDIA",
-        "label": "高清巡检影像"
+        "label": "高清巡检影像",
+        "fileType": "IMAGE_ARCHIVE"
       },
       {
         "code": "DEFECT_LIST",
-        "label": "缺陷清单"
+        "label": "缺陷清单",
+        "fileType": "DEFECT_LIST"
       },
       {
         "code": "POINT_MARKS",
-        "label": "点位标注"
+        "label": "点位标注",
+        "fileType": "POINT_KML"
       },
       {
         "code": "REPORT",
-        "label": "巡检报告"
+        "label": "巡检报告",
+        "fileType": "INSPECTION_REPORT"
       }
     ],
     "totalAmountMinor": 1860000,
     "currency": "CNY",
+    "paymentNodes": [],
     "publishedAt": "2026-07-27T03:00:00Z",
     "confirmedAt": "2026-07-27T03:15:00Z",
+    "confirmedBy": {
+      "subjectId": "20000000-0000-4000-8000-000000000001",
+      "displayName": "测试用户"
+    },
     "serviceOrderId": "60000000-0000-4000-8000-000000000001",
     "version": 2
   },
@@ -185,6 +219,17 @@
     "customerId": "20000000-0000-4000-8000-000000000001",
     "providerId": "30000000-0000-4000-8000-000000000001",
     "status": "DELIVERED",
+    "paymentMode": "NONE",
+    "paymentNodes": [],
+    "provider": {
+      "providerId": "30000000-0000-4000-8000-000000000001",
+      "name": "测试服务商",
+      "certificationLabel": "资质已审核"
+    },
+    "customerParty": {
+      "organizationName": "测试客户企业",
+      "operatorName": "测试用户"
+    },
     "serviceSnapshot": {
       "serviceId": "40000000-0000-4000-8000-000000000001",
       "serviceTitle": "输电线路无人机巡检",
@@ -204,19 +249,20 @@
         }
       ]
     },
-    "plannedStartAt": "2026-08-02T01:00:00Z",
     "assignments": [
       {
         "type": "TEAM_MEMBER",
         "resourceId": "70000000-0000-4000-8000-000000000001",
         "displayName": "验收测试飞手",
-        "roleLabel": "项目负责人"
+        "roleLabel": "项目负责人",
+        "contactMobileMasked": "138****0000"
       },
       {
         "type": "DEVICE",
         "resourceId": "80000000-0000-4000-8000-000000000001",
         "displayName": "验收测试无人机",
-        "roleLabel": null
+        "roleLabel": null,
+        "contactMobileMasked": null
       }
     ],
     "progress": [
@@ -225,12 +271,28 @@
         "eventCode": "ARRANGEMENT_READY",
         "occurredAt": "2026-07-27T04:00:00Z",
         "message": "服务资源已安排"
-      },
+      }
+    ],
+    "visits": [
       {
-        "id": "90000000-0000-4000-8000-000000000002",
-        "eventCode": "SERVICE_COMPLETED",
-        "occurredAt": "2026-08-02T06:00:00Z",
-        "message": "现场巡检完成"
+        "id": "60000000-0000-4000-8000-000000000001",
+        "serviceOrderId": "60000000-0000-4000-8000-000000000001",
+        "visitNo": 1,
+        "plannedDate": "2026-08-02",
+        "plannedStartAt": "2026-08-02T01:00:00Z",
+        "status": "DELIVERED",
+        "progress": [
+          {
+            "id": "90000000-0000-4000-8000-000000000002",
+            "eventCode": "SERVICE_COMPLETED",
+            "occurredAt": "2026-08-02T06:00:00Z",
+            "message": "现场巡检完成"
+          }
+        ],
+        "startedAt": "2026-08-02T01:00:00Z",
+        "deliveredAt": "2026-08-03T02:00:00Z",
+        "acceptedAt": null,
+        "version": 3
       }
     ],
     "createdAt": "2026-07-27T03:15:00Z",
@@ -241,19 +303,35 @@
   "delivery": {
     "id": "a0000000-0000-4000-8000-000000000001",
     "serviceOrderId": "60000000-0000-4000-8000-000000000001",
+    "visitId": "60000000-0000-4000-8000-000000000001",
     "status": "PUBLISHED",
     "towerCount": 24,
     "inspectedLengthMeters": 18600,
+    "metrics": [
+      {
+        "code": "TOWER_COUNT",
+        "label": "巡检杆塔",
+        "value": 24,
+        "unit": "基"
+      },
+      {
+        "code": "INSPECTED_LENGTH",
+        "label": "巡检长度",
+        "value": 18600,
+        "unit": "米"
+      }
+    ],
     "issueCount": 3,
+    "issueGroupBy": "SEVERITY",
     "issueSummary": [
       {
-        "severityCode": "GENERAL",
-        "severityName": "一般问题",
+        "groupCode": "GENERAL",
+        "groupName": "一般问题",
         "count": 2
       },
       {
-        "severityCode": "IMPORTANT",
-        "severityName": "重要问题",
+        "groupCode": "IMPORTANT",
+        "groupName": "重要问题",
         "count": 1
       }
     ],
@@ -265,7 +343,8 @@
         "pointCount": null,
         "contentType": "application/zip",
         "sizeBytes": 104857600,
-        "status": "READY"
+        "status": "READY",
+        "itemCount": null
       },
       {
         "fileId": "b0000000-0000-4000-8000-000000000002",
@@ -274,7 +353,8 @@
         "pointCount": null,
         "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "sizeBytes": 204800,
-        "status": "READY"
+        "status": "READY",
+        "itemCount": null
       },
       {
         "fileId": "b0000000-0000-4000-8000-000000000003",
@@ -283,7 +363,8 @@
         "pointCount": 24,
         "contentType": "application/vnd.google-earth.kml+xml",
         "sizeBytes": 40960,
-        "status": "READY"
+        "status": "READY",
+        "itemCount": null
       },
       {
         "fileId": "b0000000-0000-4000-8000-000000000004",
@@ -292,7 +373,8 @@
         "pointCount": null,
         "contentType": "application/pdf",
         "sizeBytes": 3145728,
-        "status": "READY"
+        "status": "READY",
+        "itemCount": null
       }
     ],
     "publishedAt": "2026-08-03T02:00:00Z",

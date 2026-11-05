@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
+import com.lowaltitude.inspection.domain.files.DeliveryFileType;
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -59,6 +61,16 @@ public final class InspectionPlanController {
                 .body(ServicePlanResponse.from(plan));
     }
 
+    @GetMapping("/api/v1/inspection/reservations/{reservationId}/plans")
+    public List<PlanVersionSummaryResponse> versions(
+            @PathVariable UUID reservationId,
+            Authentication authentication
+    ) {
+        return service.listVersions(currentSubject(authentication), reservationId).stream()
+                .map(PlanVersionSummaryResponse::from)
+                .toList();
+    }
+
     @PostMapping("/api/v1/inspection/plans/{planId}/confirm")
     public ResponseEntity<ServiceOrderResponse> confirm(
             @PathVariable UUID planId,
@@ -99,6 +111,13 @@ public final class InspectionPlanController {
                     "If-Match must be a strong numeric ETag",
                     exception);
         }
+    }
+
+    /** Keeps null entries so the service rejects them as invalid input, not a server error. */
+    static <T, R> List<R> mapEntries(List<T> items, Function<T, R> mapper) {
+        return items == null
+                ? null
+                : items.stream().map(item -> item == null ? null : mapper.apply(item)).toList();
     }
 
     static String requestId(String value) {
@@ -156,8 +175,12 @@ public final class InspectionPlanController {
     public record PublishPlanRequest(
             UUID providerId,
             Instant validUntil,
-            LocalDate serviceDate,
+            List<PlanVisitRequest> visits,
             String summary,
+            String scopeSummary,
+            List<CodeLabelResponse> serviceMethods,
+            DeliveryTermsPayload deliveryTerms,
+            String changeNote,
             List<PlanItemRequest> planItems,
             List<DeliverableRequest> deliverables,
             String currency
@@ -166,14 +189,16 @@ public final class InspectionPlanController {
             return new PublishPlanCommand(
                     providerId,
                     validUntil,
-                    serviceDate,
+                    mapEntries(visits, PlanVisitRequest::plannedDate),
                     summary,
-                    planItems == null
-                            ? null
-                            : planItems.stream().map(PlanItemRequest::toInput).toList(),
-                    deliverables == null
-                            ? null
-                            : deliverables.stream().map(DeliverableRequest::toInput).toList(),
+                    scopeSummary,
+                    serviceMethods == null
+                            ? List.of()
+                            : mapEntries(serviceMethods, CodeLabelResponse::toValue),
+                    deliveryTerms == null ? null : deliveryTerms.toValue(),
+                    changeNote,
+                    mapEntries(planItems, PlanItemRequest::toInput),
+                    mapEntries(deliverables, DeliverableRequest::toInput),
                     currency);
         }
     }
@@ -190,9 +215,24 @@ public final class InspectionPlanController {
         }
     }
 
-    public record DeliverableRequest(String code, String name) {
+    public record PlanVisitRequest(LocalDate plannedDate) {
+    }
+
+    public record DeliverableRequest(String code, String name, DeliveryFileType fileType) {
         DeliverableInput toInput() {
-            return new DeliverableInput(code, name);
+            return new DeliverableInput(code, name, fileType);
+        }
+    }
+
+    public record DeliveryTermsPayload(Integer reportDueHours, Integer mediaRetentionDays) {
+        DeliveryTerms toValue() {
+            return new DeliveryTerms(reportDueHours, mediaRetentionDays);
+        }
+
+        static DeliveryTermsPayload from(DeliveryTerms terms) {
+            return terms == null
+                    ? null
+                    : new DeliveryTermsPayload(terms.reportDueHours(), terms.mediaRetentionDays());
         }
     }
 
@@ -228,6 +268,109 @@ public final class InspectionPlanController {
         static CodeLabelResponse from(CodeLabel value) {
             return new CodeLabelResponse(value.code(), value.label());
         }
+
+        CodeLabel toValue() {
+            return new CodeLabel(code, label);
+        }
+    }
+
+    public record PlanDeliverableResponse(String code, String label, String fileType) {
+        static PlanDeliverableResponse from(PlanDeliverable value) {
+            return new PlanDeliverableResponse(
+                    value.code(),
+                    value.label(),
+                    value.fileType() == null ? null : value.fileType().name());
+        }
+    }
+
+    public record PlanVisitResponse(int visitNo, LocalDate plannedDate) {
+        static PlanVisitResponse from(PlanVisit visit) {
+            return new PlanVisitResponse(visit.visitNo(), visit.plannedDate());
+        }
+    }
+
+    public record PlanPaymentNodeResponse(
+            int nodeNo,
+            String nodeType,
+            Integer visitNo,
+            long amountMinor
+    ) {
+        static PlanPaymentNodeResponse from(PlanPaymentNode node) {
+            return new PlanPaymentNodeResponse(
+                    node.nodeNo(),
+                    node.nodeType().name(),
+                    node.visitNo(),
+                    node.amountMinor());
+        }
+    }
+
+    public record OrderPaymentNodeResponse(
+            int nodeNo,
+            String nodeType,
+            Integer visitNo,
+            long amountMinor,
+            boolean payable,
+            Instant paidAt
+    ) {
+        static OrderPaymentNodeResponse from(OrderPaymentNodeView node) {
+            return new OrderPaymentNodeResponse(
+                    node.nodeNo(),
+                    node.nodeType().name(),
+                    node.visitNo(),
+                    node.amountMinor(),
+                    node.payable(),
+                    node.paidAt());
+        }
+    }
+
+    public record ProviderSummaryResponse(UUID providerId, String name, String certificationLabel) {
+        static ProviderSummaryResponse from(ProviderSummary provider) {
+            return provider == null
+                    ? null
+                    : new ProviderSummaryResponse(
+                            provider.providerId(),
+                            provider.name(),
+                            provider.certificationLabel());
+        }
+    }
+
+    public record CustomerPartyResponse(String organizationName, String operatorName) {
+        static CustomerPartyResponse from(CustomerParty party) {
+            return party == null
+                    ? null
+                    : new CustomerPartyResponse(party.organizationName(), party.operatorName());
+        }
+    }
+
+    public record PersonRefResponse(UUID subjectId, String displayName) {
+        static PersonRefResponse from(PersonRef person) {
+            return person == null
+                    ? null
+                    : new PersonRefResponse(person.subjectId(), person.displayName());
+        }
+    }
+
+    public record PlanVersionSummaryResponse(
+            UUID id,
+            String planNo,
+            int planVersion,
+            String status,
+            long totalAmountMinor,
+            List<PlanItemResponse> planItems,
+            String changeNote,
+            Instant publishedAt
+    ) {
+        static PlanVersionSummaryResponse from(PlanVersionSummary summary) {
+            return new PlanVersionSummaryResponse(
+                    summary.id(),
+                    summary.planNo(),
+                    summary.planVersion(),
+                    summary.status().name(),
+                    summary.totalAmountMinor(),
+                    summary.planItems().stream().map(PlanItemResponse::from).toList(),
+                    summary.changeNote(),
+                    summary.publishedAt());
+        }
     }
 
     public record ServicePlanResponse(
@@ -239,13 +382,21 @@ public final class InspectionPlanController {
             int planVersion,
             Instant validUntil,
             LocalDate serviceDate,
+            List<PlanVisitResponse> visits,
+            ProviderSummaryResponse provider,
             String summary,
+            String scopeSummary,
+            List<CodeLabelResponse> serviceMethods,
+            DeliveryTermsPayload deliveryTerms,
+            String changeNote,
             List<PlanItemResponse> planItems,
-            List<CodeLabelResponse> deliverables,
+            List<PlanDeliverableResponse> deliverables,
             long totalAmountMinor,
             String currency,
+            List<PlanPaymentNodeResponse> paymentNodes,
             Instant publishedAt,
             Instant confirmedAt,
+            PersonRefResponse confirmedBy,
             UUID serviceOrderId,
             int version
     ) {
@@ -259,13 +410,25 @@ public final class InspectionPlanController {
                     plan.planVersion(),
                     plan.validUntil(),
                     plan.serviceDate(),
+                    plan.terms().visits().stream().map(PlanVisitResponse::from).toList(),
+                    ProviderSummaryResponse.from(plan.provider()),
                     plan.summary(),
+                    plan.terms().scopeSummary(),
+                    plan.terms().serviceMethods().stream()
+                            .map(CodeLabelResponse::from)
+                            .toList(),
+                    DeliveryTermsPayload.from(plan.terms().deliveryTerms()),
+                    plan.terms().changeNote(),
                     plan.planItems().stream().map(PlanItemResponse::from).toList(),
-                    plan.deliverables().stream().map(CodeLabelResponse::from).toList(),
+                    plan.deliverables().stream().map(PlanDeliverableResponse::from).toList(),
                     plan.totalAmountMinor(),
                     plan.currency(),
+                    plan.terms().paymentNodes().stream()
+                            .map(PlanPaymentNodeResponse::from)
+                            .toList(),
                     plan.publishedAt(),
                     plan.confirmedAt(),
+                    PersonRefResponse.from(plan.confirmedBy()),
                     plan.serviceOrderId(),
                     plan.version());
         }
@@ -314,10 +477,14 @@ public final class InspectionPlanController {
             UUID customerId,
             UUID providerId,
             String status,
+            String paymentMode,
+            List<OrderPaymentNodeResponse> paymentNodes,
+            ProviderSummaryResponse provider,
+            CustomerPartyResponse customerParty,
             ServiceSnapshotResponse serviceSnapshot,
-            Instant plannedStartAt,
             List<OrderAssignmentResponse> assignments,
             List<OrderProgressResponse> progress,
+            List<ServiceVisitResponse> visits,
             Instant createdAt,
             Instant deliveredAt,
             Instant acceptedAt,
@@ -332,14 +499,20 @@ public final class InspectionPlanController {
                     order.customerId(),
                     order.providerId(),
                     order.status().name(),
+                    order.paymentMode().name(),
+                    order.paymentNodes().stream()
+                            .map(OrderPaymentNodeResponse::from)
+                            .toList(),
+                    ProviderSummaryResponse.from(order.provider()),
+                    CustomerPartyResponse.from(order.customerParty()),
                     ServiceSnapshotResponse.from(order.serviceSnapshot()),
-                    order.plannedStartAt(),
                     order.assignments().stream()
                             .map(OrderAssignmentResponse::from)
                             .toList(),
                     order.progress().stream()
                             .map(OrderProgressResponse::from)
                             .toList(),
+                    order.visits().stream().map(ServiceVisitResponse::from).toList(),
                     order.createdAt(),
                     order.deliveredAt(),
                     order.acceptedAt(),
@@ -347,18 +520,49 @@ public final class InspectionPlanController {
         }
     }
 
+    public record ServiceVisitResponse(
+            UUID id,
+            UUID serviceOrderId,
+            int visitNo,
+            LocalDate plannedDate,
+            Instant plannedStartAt,
+            String status,
+            List<OrderProgressResponse> progress,
+            Instant startedAt,
+            Instant deliveredAt,
+            Instant acceptedAt,
+            int version
+    ) {
+        static ServiceVisitResponse from(StoredServiceVisit visit) {
+            return new ServiceVisitResponse(
+                    visit.id(),
+                    visit.serviceOrderId(),
+                    visit.visitNo(),
+                    visit.plannedDate(),
+                    visit.plannedStartAt(),
+                    visit.status().name(),
+                    visit.progress().stream().map(OrderProgressResponse::from).toList(),
+                    visit.startedAt(),
+                    visit.deliveredAt(),
+                    visit.acceptedAt(),
+                    visit.version());
+        }
+    }
+
     public record OrderAssignmentResponse(
             String type,
             UUID resourceId,
             String displayName,
-            String roleLabel
+            String roleLabel,
+            String contactMobileMasked
     ) {
         static OrderAssignmentResponse from(OrderAssignment assignment) {
             return new OrderAssignmentResponse(
                     assignment.type().name(),
                     assignment.resourceId(),
                     assignment.displayName(),
-                    assignment.roleLabel());
+                    assignment.roleLabel(),
+                    assignment.contactMobileMasked());
         }
     }
 

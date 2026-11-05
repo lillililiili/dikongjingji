@@ -53,23 +53,59 @@ public final class InspectionOrderController {
         return response(order, 200);
     }
 
-    @PostMapping("/api/v1/provider/inspection/service-orders/{serviceOrderId}/progress-events")
-    public ResponseEntity<InspectionPlanController.ServiceOrderResponse> progress(
+    @PutMapping(
+            "/api/v1/provider/inspection/service-orders/{serviceOrderId}"
+                    + "/visits/{visitId}/schedule")
+    public ResponseEntity<InspectionPlanController.ServiceVisitResponse> schedule(
             @PathVariable UUID serviceOrderId,
+            @PathVariable UUID visitId,
+            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @RequestHeader("If-Match") String ifMatch,
+            @RequestHeader(name = "X-Request-Id", required = false) String requestId,
+            @RequestBody PutVisitScheduleRequest request,
+            Authentication authentication
+    ) {
+        StoredServiceVisit visit = service.schedule(
+                InspectionPlanController.currentSubject(authentication),
+                serviceOrderId,
+                visitId,
+                idempotencyKey,
+                InspectionPlanController.parseIfMatch(ifMatch),
+                request.toCommand(),
+                InspectionPlanController.requestId(requestId));
+        return visitResponse(visit, 200);
+    }
+
+    @PostMapping(
+            "/api/v1/provider/inspection/service-orders/{serviceOrderId}"
+                    + "/visits/{visitId}/progress-events")
+    public ResponseEntity<InspectionPlanController.ServiceVisitResponse> progress(
+            @PathVariable UUID serviceOrderId,
+            @PathVariable UUID visitId,
             @RequestHeader("Idempotency-Key") UUID idempotencyKey,
             @RequestHeader("If-Match") String ifMatch,
             @RequestHeader(name = "X-Request-Id", required = false) String requestId,
             @RequestBody AppendProgressRequest request,
             Authentication authentication
     ) {
-        ServiceOrderView order = service.appendProgress(
+        StoredServiceVisit visit = service.appendProgress(
                 InspectionPlanController.currentSubject(authentication),
                 serviceOrderId,
+                visitId,
                 idempotencyKey,
                 InspectionPlanController.parseIfMatch(ifMatch),
                 request.toCommand(),
                 InspectionPlanController.requestId(requestId));
-        return response(order, 201);
+        return visitResponse(visit, 201);
+    }
+
+    private static ResponseEntity<InspectionPlanController.ServiceVisitResponse> visitResponse(
+            StoredServiceVisit visit,
+            int status
+    ) {
+        return ResponseEntity.status(status)
+                .eTag(Integer.toString(visit.version()))
+                .body(InspectionPlanController.ServiceVisitResponse.from(visit));
     }
 
     private static ResponseEntity<InspectionPlanController.ServiceOrderResponse> response(
@@ -81,16 +117,16 @@ public final class InspectionOrderController {
                 .body(InspectionPlanController.ServiceOrderResponse.from(order));
     }
 
-    public record PutArrangementRequest(
-            Instant plannedStartAt,
-            List<AssignmentRequest> assignments
-    ) {
+    public record PutArrangementRequest(List<AssignmentRequest> assignments) {
         PutArrangementCommand toCommand() {
             return new PutArrangementCommand(
-                    plannedStartAt,
-                    assignments == null
-                            ? null
-                            : assignments.stream().map(AssignmentRequest::toInput).toList());
+                    InspectionPlanController.mapEntries(assignments, AssignmentRequest::toInput));
+        }
+    }
+
+    public record PutVisitScheduleRequest(Instant plannedStartAt) {
+        PutVisitScheduleCommand toCommand() {
+            return new PutVisitScheduleCommand(plannedStartAt);
         }
     }
 
@@ -98,10 +134,11 @@ public final class InspectionOrderController {
             AssignmentType type,
             UUID resourceId,
             String displayName,
-            String roleLabel
+            String roleLabel,
+            String contactMobile
     ) {
         AssignmentInput toInput() {
-            return new AssignmentInput(type, resourceId, displayName, roleLabel);
+            return new AssignmentInput(type, resourceId, displayName, roleLabel, contactMobile);
         }
     }
 

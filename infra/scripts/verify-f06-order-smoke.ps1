@@ -124,13 +124,13 @@ if ($reservationDuringOrderFlow.status -ne 'PLAN_PUBLISHED') {
 
 $arrangeKey = [Guid]::NewGuid().ToString()
 $arrangeObject = @{
-    plannedStartAt = [DateTime]::UtcNow.AddDays(7).ToString('o')
     assignments = @(
         @{
             type = 'TEAM_MEMBER'
             resourceId = '77777777-7777-4777-8777-777777777701'
             displayName = 'Dongying inspection team'
             roleLabel = 'Project lead'
+            contactMobile = '13812346621'
         },
         @{
             type = 'DEVICE'
@@ -164,8 +164,16 @@ $arrangeReplay = Invoke-RestMethod `
         'X-Request-Id' = 'f06-smoke-arrange-replay'
     }
 
-$changedArrangement = $arrangeObject.Clone()
-$changedArrangement.plannedStartAt = [DateTime]::UtcNow.AddDays(8).ToString('o')
+$changedArrangement = @{
+    assignments = @(
+        @{
+            type = 'TEAM_MEMBER'
+            resourceId = '77777777-7777-4777-8777-777777777701'
+            displayName = 'Changed inspection team'
+            roleLabel = 'Project lead'
+        }
+    )
+}
 $arrangeConflictStatus = Get-HttpFailureStatus {
     Invoke-RestMethod `
         -Method Put `
@@ -179,10 +187,39 @@ $arrangeConflictStatus = Get-HttpFailureStatus {
         }
 }
 
+$visitId = $arranged.visits[0].id
+$visitPath = "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/visits/$visitId"
+$scheduleKey = [Guid]::NewGuid().ToString()
+$scheduleBody = @{
+    plannedStartAt = [DateTime]::UtcNow.AddDays(7).ToString('o')
+} | ConvertTo-Json -Compress
+$scheduled = Invoke-RestMethod `
+    -Method Put `
+    -Uri "$visitPath/schedule" `
+    -ContentType 'application/json' `
+    -Body $scheduleBody `
+    -Headers @{
+        Authorization = "Bearer $providerToken"
+        'Idempotency-Key' = $scheduleKey
+        'If-Match' = '"0"'
+        'X-Request-Id' = 'f06-smoke-schedule'
+    }
+$scheduleReplay = Invoke-RestMethod `
+    -Method Put `
+    -Uri "$visitPath/schedule" `
+    -ContentType 'application/json' `
+    -Body $scheduleBody `
+    -Headers @{
+        Authorization = "Bearer $providerToken"
+        'Idempotency-Key' = $scheduleKey
+        'If-Match' = '"0"'
+        'X-Request-Id' = 'f06-smoke-schedule-replay'
+    }
+
 $invalidJumpStatus = Get-HttpFailureStatus {
     Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/progress-events" `
+        -Uri "$visitPath/progress-events" `
         -ContentType 'application/json' `
         -Body (@{
             eventCode = 'SERVICE_COMPLETED'
@@ -210,7 +247,7 @@ $startedBody = @{
 } | ConvertTo-Json -Compress
 $updated = Invoke-RestMethod `
     -Method Post `
-    -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/progress-events" `
+    -Uri "$visitPath/progress-events" `
     -ContentType 'application/json' `
     -Body $startedBody `
     -Headers @{
@@ -221,7 +258,7 @@ $updated = Invoke-RestMethod `
     }
 $startReplay = Invoke-RestMethod `
     -Method Post `
-    -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/progress-events" `
+    -Uri "$visitPath/progress-events" `
     -ContentType 'application/json' `
     -Body $startedBody `
     -Headers @{
@@ -235,7 +272,7 @@ for ($index = 1; $index -lt $progressEvents.Count; $index++) {
     $progressVersion++
     $updated = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/progress-events" `
+        -Uri "$visitPath/progress-events" `
         -ContentType 'application/json' `
         -Body (@{
             eventCode = $progressEvents[$index].code
@@ -267,7 +304,7 @@ $otherCustomerReadStatus = Get-HttpFailureStatus {
 $platformWriteStatus = Get-HttpFailureStatus {
     Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/progress-events" `
+        -Uri "$visitPath/progress-events" `
         -ContentType 'application/json' `
         -Body (@{
             eventCode = 'SERVICE_PROGRESS'
@@ -284,6 +321,11 @@ $platformWriteStatus = Get-HttpFailureStatus {
 if ($arranged.id -ne $arrangeReplay.id -or $arranged.version -ne 1) {
     throw 'Arrangement was not idempotent.'
 }
+if ($scheduled.status -ne 'SCHEDULED' `
+        -or $scheduled.version -ne 1 `
+        -or $scheduleReplay.version -ne 1) {
+    throw 'Visit scheduling was not idempotent.'
+}
 if ($arrangeConflictStatus -ne 409) {
     throw 'Reusing the arrangement key with changed input did not return 409.'
 }
@@ -292,8 +334,9 @@ if ($invalidJumpStatus -ne 409) {
 }
 if ($updated.status -ne 'IN_PROGRESS' `
         -or $updated.version -ne 4 `
-        -or $updated.progress.Count -ne 4 `
-        -or $startReplay.version -ne 2) {
+        -or $updated.progress.Count -ne 3 `
+        -or $startReplay.version -ne 2 `
+        -or $customerOrder.status -ne 'IN_PROGRESS') {
     throw 'The persisted fulfillment progress is inconsistent.'
 }
 if ($customerOrder.id -ne $orderId -or $platformOrder.id -ne $orderId) {
@@ -314,7 +357,7 @@ $databaseCheck = (
     & $DockerPath exec inspection-local-postgres-1 `
         psql -At -U $databaseUser -d $databaseName -c $databaseCheckSql
 ).Trim()
-if ($LASTEXITCODE -ne 0 -or $databaseCheck -ne '1|2|4|4') {
+if ($LASTEXITCODE -ne 0 -or $databaseCheck -ne '1|2|4|2') {
     throw "Unexpected persisted order evidence: $databaseCheck"
 }
 
@@ -325,8 +368,9 @@ $afterRestart = Invoke-RestMethod `
     -Method Get `
     -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId" `
     -Headers @{ Authorization = "Bearer $customerTokenAfterRestart" }
-if ($afterRestart.version -ne 4 `
-        -or $afterRestart.progress.Count -ne 4 `
+if ($afterRestart.version -ne 2 `
+        -or $afterRestart.visits[0].version -ne 4 `
+        -or $afterRestart.visits[0].progress.Count -ne 3 `
         -or $afterRestart.assignments.Count -ne 2) {
     throw 'Order arrangement and progress did not survive backend restart.'
 }
@@ -334,6 +378,7 @@ if ($afterRestart.version -ne 4 `
 $result = [pscustomobject]@{
     ReservationId = $f05.ReservationId
     ServiceOrderId = $orderId
+    VisitId = $visitId
     ReservationActiveDuringOrderFlow = $true
     ArrangementReplaySameId = $true
     ProgressReplaySameId = $true

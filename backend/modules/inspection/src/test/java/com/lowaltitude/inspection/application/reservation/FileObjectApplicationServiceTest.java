@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import com.lowaltitude.inspection.domain.files.FileObjectStatus;
 import com.lowaltitude.inspection.domain.files.DeliveryFileType;
+import com.lowaltitude.inspection.domain.files.DeliveryIdentity;
 import com.lowaltitude.inspection.domain.files.ObjectStoragePort;
 import com.lowaltitude.inspection.domain.files.PreparedObjectUpload;
 import com.lowaltitude.inspection.domain.files.PresignedObjectIntent;
@@ -36,6 +37,8 @@ class FileObjectApplicationServiceTest {
             UUID.fromString("33333333-3333-3333-3333-333333333333");
     static final UUID SERVICE_ORDER =
             UUID.fromString("55555555-5555-5555-5555-555555555555");
+    static final UUID VISIT =
+            UUID.fromString("66666666-6666-6666-6666-666666666666");
     private static final UUID IDEMPOTENCY_KEY =
             UUID.fromString("44444444-4444-4444-4444-444444444444");
     static final Instant NOW = Instant.parse("2026-07-28T03:00:00Z");
@@ -143,8 +146,8 @@ class FileObjectApplicationServiceTest {
     @Test
     void assignedProviderCreatesAndCompletesDeliveryArtifactForInProgressOrder() {
         InMemoryFileObjectStore store = new InMemoryFileObjectStore();
-        store.orders.put(SERVICE_ORDER, new DeliveryFileOwner(
-                SERVICE_ORDER, CUSTOMER, PROVIDER, "IN_PROGRESS"));
+        store.orders.put(VISIT, new DeliveryFileOwner(
+                VISIT, SERVICE_ORDER, CUSTOMER, PROVIDER, "IN_PROGRESS"));
         RecordingObjectStorage storage = new RecordingObjectStorage();
         FileObjectApplicationService service = service(store, storage);
 
@@ -157,16 +160,17 @@ class FileObjectApplicationServiceTest {
         assertThat(completed.status()).isEqualTo(FileObjectStatus.READY);
         assertThat(storage.verifiedRequest.purpose().name()).isEqualTo("DELIVERY_ARTIFACT");
         assertThat(storage.verifiedRequest.serviceOrderId()).isEqualTo(SERVICE_ORDER);
+        assertThat(storage.verifiedRequest.deliveryId()).isEqualTo(DeliveryIdentity.forVisit(VISIT));
         assertThat(storage.verifiedRequest.deliveryFileType()).isEqualTo(DeliveryFileType.INSPECTION_REPORT);
-        assertThat(store.files.get(intent.fileId()).ownerId()).isEqualTo(SERVICE_ORDER);
+        assertThat(store.files.get(intent.fileId()).ownerId()).isEqualTo(VISIT);
         assertThat(store.files.get(intent.fileId()).uploadedBy()).isEqualTo(PROVIDER);
     }
 
     @Test
     void deliveryArtifactRejectsCustomerOtherProviderAndNonInProgressOrder() {
         InMemoryFileObjectStore store = new InMemoryFileObjectStore();
-        store.orders.put(SERVICE_ORDER, new DeliveryFileOwner(
-                SERVICE_ORDER, CUSTOMER, PROVIDER, "ARRANGING"));
+        store.orders.put(VISIT, new DeliveryFileOwner(
+                VISIT, SERVICE_ORDER, CUSTOMER, PROVIDER, "SCHEDULED"));
         FileObjectApplicationService service = service(store, new RecordingObjectStorage());
 
         assertThatThrownBy(() -> service.createUploadIntent(
@@ -183,8 +187,8 @@ class FileObjectApplicationServiceTest {
     @Test
     void deliveryArtifactCompletionIsHiddenFromCustomerAndOtherProvider() {
         InMemoryFileObjectStore store = new InMemoryFileObjectStore();
-        store.orders.put(SERVICE_ORDER, new DeliveryFileOwner(
-                SERVICE_ORDER, CUSTOMER, PROVIDER, "IN_PROGRESS"));
+        store.orders.put(VISIT, new DeliveryFileOwner(
+                VISIT, SERVICE_ORDER, CUSTOMER, PROVIDER, "IN_PROGRESS"));
         FileObjectApplicationService service = service(store, new RecordingObjectStorage());
         UploadIntentView intent = service.createUploadIntent(
                 provider(), UUID.randomUUID(), deliveryCommand());
@@ -214,7 +218,7 @@ class FileObjectApplicationServiceTest {
     private static CreateUploadIntentCommand deliveryCommand() {
         return new CreateUploadIntentCommand(
                 "DELIVERY_ARTIFACT",
-                SERVICE_ORDER,
+                VISIT,
                 "INSPECTION_REPORT",
                 "巡检报告.pdf",
                 "application/pdf",
@@ -282,14 +286,14 @@ final class InMemoryFileObjectStore implements FileObjectStore {
     }
 
     @Override
-    public Optional<DeliveryFileOwner> findDeliveryFileOwner(UUID serviceOrderId) {
-        return Optional.ofNullable(orders.get(serviceOrderId));
+    public Optional<DeliveryFileOwner> findDeliveryFileOwner(UUID visitId) {
+        return Optional.ofNullable(orders.get(visitId));
     }
 
     @Override
-    public int countDeliveryFiles(UUID serviceOrderId) {
+    public int countDeliveryFiles(UUID visitId) {
         return (int) files.values().stream()
-                .filter(file -> file.ownerId().equals(serviceOrderId))
+                .filter(file -> file.ownerId().equals(visitId))
                 .filter(file -> file.purpose().name().equals("DELIVERY_ARTIFACT"))
                 .filter(file -> file.status() != FileObjectStatus.DELETED)
                 .count();

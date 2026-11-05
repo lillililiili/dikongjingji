@@ -144,23 +144,23 @@ public class FileObjectApplicationService {
         DeliveryFileOwner owner = store.findDeliveryFileOwner(command.ownerId())
                 .filter(value -> value.providerId().equals(subject.organizationId()))
                 .orElseThrow(ReservationNotFoundException::new);
-        if (!"IN_PROGRESS".equals(owner.orderStatus())) {
+        if (!"IN_PROGRESS".equals(owner.visitStatus())) {
             throw new FileUploadConflictException();
         }
-        if (store.countDeliveryFiles(owner.serviceOrderId()) >= MAX_DELIVERY_FILES) {
+        if (store.countDeliveryFiles(owner.visitId()) >= MAX_DELIVERY_FILES) {
             throw new FileCountExceededException();
         }
         DeliveryFileType type = deliveryFileType(command.deliveryFileType());
         UUID fileId = UUID.randomUUID();
         UploadObjectRequest storageRequest = UploadObjectRequest.deliveryArtifact(
                         owner.providerId(), owner.serviceOrderId(),
-                        DeliveryIdentity.forServiceOrder(owner.serviceOrderId()), fileId, type,
+                        DeliveryIdentity.forVisit(owner.visitId()), fileId, type,
                         command.originalName().trim(),
                         command.contentType().toLowerCase(Locale.ROOT), command.sizeBytes())
                 .withSha256(command.sha256());
         PreparedObjectUpload prepared = storage.createUploadIntent(storageRequest);
         StoredFileObject file = new StoredFileObject(
-                fileId, FilePurpose.DELIVERY_ARTIFACT, owner.serviceOrderId(), owner.providerId(),
+                fileId, FilePurpose.DELIVERY_ARTIFACT, owner.visitId(), owner.providerId(),
                 prepared.finalBucket(), prepared.objectKey(), command.originalName().trim(),
                 command.contentType().toLowerCase(Locale.ROOT), extension(command.originalName()),
                 command.sizeBytes(), command.sha256(), null, FileObjectStatus.PENDING_UPLOAD,
@@ -250,7 +250,7 @@ public class FileObjectApplicationService {
         }
 
         UploadVerificationResult verification =
-                storage.verifyUpload(file.toStorageRequest());
+                storage.verifyUpload(storageRequest(file));
         if (verification == UploadVerificationResult.REJECTED) {
             store.updateStatus(
                     fileId,
@@ -276,7 +276,18 @@ public class FileObjectApplicationService {
         }
         return UploadIntentView.from(
                 file.id(),
-                storage.createUploadIntent(file.toStorageRequest()));
+                storage.createUploadIntent(storageRequest(file)));
+    }
+
+    /** A delivery file is owned by a visit, but its object key is grouped by service order. */
+    private UploadObjectRequest storageRequest(StoredFileObject file) {
+        if (file.purpose() != FilePurpose.DELIVERY_ARTIFACT) {
+            return file.toStorageRequest(null);
+        }
+        return file.toStorageRequest(
+                store.findDeliveryFileOwner(file.ownerId())
+                        .orElseThrow(ReservationNotFoundException::new)
+                        .serviceOrderId());
     }
 
     private StoredFileObject visibleFile(CurrentSubject subject, UUID fileId) {
@@ -481,7 +492,7 @@ record FileObjectView(
 
 record ReservationFileOwner(UUID reservationId, UUID customerId, UUID providerId) { }
 
-record DeliveryFileOwner(UUID serviceOrderId, UUID customerId, UUID providerId, String orderStatus) { }
+record DeliveryFileOwner(UUID visitId, UUID serviceOrderId, UUID customerId, UUID providerId, String visitStatus) { }
 
 record FileIdempotencyEntry(
         UUID actorId,
@@ -537,10 +548,10 @@ record StoredFileObject(
                 version + 1);
     }
 
-    UploadObjectRequest toStorageRequest() {
+    UploadObjectRequest toStorageRequest(UUID serviceOrderId) {
         if (purpose == FilePurpose.DELIVERY_ARTIFACT) {
             return UploadObjectRequest.deliveryArtifact(
-                            providerId, ownerId, DeliveryIdentity.forServiceOrder(ownerId), id,
+                            providerId, serviceOrderId, DeliveryIdentity.forVisit(ownerId), id,
                             deliveryFileTypeFor(extension, contentType), originalName, contentType,
                             sizeBytes)
                     .withSha256(sha256);
@@ -572,9 +583,9 @@ interface FileObjectStore {
 
     int countReservationFiles(UUID reservationId);
 
-    Optional<DeliveryFileOwner> findDeliveryFileOwner(UUID serviceOrderId);
+    Optional<DeliveryFileOwner> findDeliveryFileOwner(UUID visitId);
 
-    int countDeliveryFiles(UUID serviceOrderId);
+    int countDeliveryFiles(UUID visitId);
 
     Optional<FileIdempotencyEntry> findIdempotency(
             UUID actorId,

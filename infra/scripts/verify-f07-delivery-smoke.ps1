@@ -209,7 +209,7 @@ function New-DeliveryFile {
         [string]$ContentType,
         [string]$DisplayName,
         [string]$Token,
-        [string]$OrderId,
+        [string]$VisitId,
         [Nullable[int]]$PointCount
     )
 
@@ -221,7 +221,7 @@ function New-DeliveryFile {
         -ContentType 'application/json' `
         -Body (@{
             purpose = 'DELIVERY_ARTIFACT'
-            ownerId = $OrderId
+            ownerId = $VisitId
             deliveryFileType = $Type
             originalName = $DisplayName
             contentType = $ContentType
@@ -281,6 +281,7 @@ $otherCustomerToken = Get-AccessToken -LoginName 'smoke-other'
 $providerToken = Get-AccessToken -LoginName 'smoke-provider'
 $platformToken = Get-AccessToken -LoginName 'smoke-platform'
 $orderId = $f06.ServiceOrderId
+$visitId = $f06.VisitId
 $reservationDuringDeliveryFlow = Invoke-RestMethod `
     -Method Get `
     -Uri "$BaseUrl/api/v1/inspection/reservations/$($f06.ReservationId)" `
@@ -452,21 +453,21 @@ Rgo=
             -ContentType 'application/zip' `
             -DisplayName 'site-images.zip' `
             -Token $providerToken `
-            -OrderId $orderId)
+            -VisitId $visitId)
         (New-DeliveryFile `
             -Path $xlsxPath `
             -Type 'DEFECT_LIST' `
             -ContentType 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' `
             -DisplayName 'defect-list.xlsx' `
             -Token $providerToken `
-            -OrderId $orderId)
+            -VisitId $visitId)
         (New-DeliveryFile `
             -Path $kmlPath `
             -Type 'POINT_KML' `
             -ContentType 'application/vnd.google-earth.kml+xml' `
             -DisplayName 'inspection-points.kml' `
             -Token $providerToken `
-            -OrderId $orderId `
+            -VisitId $visitId `
             -PointCount 24)
         (New-DeliveryFile `
             -Path $pdfPath `
@@ -474,16 +475,17 @@ Rgo=
             -ContentType 'application/pdf' `
             -DisplayName 'inspection-report.pdf' `
             -Token $providerToken `
-            -OrderId $orderId)
+            -VisitId $visitId)
     )
 
     $publishObject = @{
         towerCount = 24
         inspectedLengthMeters = 18600
         issueCount = 3
+        issueGroupBy = 'SEVERITY'
         issueSummary = @(
-            @{ severityCode = 'GENERAL'; severityName = 'General issues'; count = 2 },
-            @{ severityCode = 'WATCH'; severityName = 'Watch items'; count = 1 }
+            @{ groupCode = 'GENERAL'; groupName = 'General issues'; count = 2 },
+            @{ groupCode = 'WATCH'; groupName = 'Watch items'; count = 1 }
         )
         files = $deliveryFiles
     }
@@ -491,7 +493,7 @@ Rgo=
     $publishKey = [Guid]::NewGuid().ToString()
     $published = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/delivery" `
+        -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/visits/$visitId/delivery" `
         -ContentType 'application/json' `
         -Body $publishBody `
         -Headers @{
@@ -502,7 +504,7 @@ Rgo=
         }
     $publishReplay = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/delivery" `
+        -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/visits/$visitId/delivery" `
         -ContentType 'application/json' `
         -Body $publishBody `
         -Headers @{
@@ -516,7 +518,7 @@ Rgo=
     $publishConflictStatus = Get-HttpFailureStatus {
         Invoke-RestMethod `
             -Method Post `
-            -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/delivery" `
+            -Uri "$BaseUrl/api/v1/provider/inspection/service-orders/$orderId/visits/$visitId/delivery" `
             -ContentType 'application/json' `
             -Body ($changedPublish | ConvertTo-Json -Depth 8 -Compress) `
             -Headers @{
@@ -528,16 +530,16 @@ Rgo=
 
     $customerDelivery = Invoke-RestMethod `
         -Method Get `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery" `
         -Headers @{ Authorization = "Bearer $customerToken" }
     $platformDelivery = Invoke-RestMethod `
         -Method Get `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery" `
         -Headers @{ Authorization = "Bearer $platformToken" }
     $otherCustomerReadStatus = Get-HttpFailureStatus {
         Invoke-RestMethod `
             -Method Get `
-            -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery" `
+            -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery" `
             -Headers @{ Authorization = "Bearer $otherCustomerToken" }
     }
 
@@ -548,7 +550,7 @@ Rgo=
     }
     $download = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($firstFile.fileId)/download-intent" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery-files/$($firstFile.fileId)/download-intent" `
         -Headers @{
             Authorization = "Bearer $customerToken"
             'Idempotency-Key' = [Guid]::NewGuid().ToString()
@@ -565,7 +567,7 @@ Rgo=
 
     $xlsxDownload = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($xlsxFile.fileId)/download-intent" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery-files/$($xlsxFile.fileId)/download-intent" `
         -Headers @{
             Authorization = "Bearer $customerToken"
             'Idempotency-Key' = [Guid]::NewGuid().ToString()
@@ -581,7 +583,7 @@ Rgo=
 
     $bundle = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/download-all-intent" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery-files/download-all-intent" `
         -Headers @{
             Authorization = "Bearer $customerToken"
             'Idempotency-Key' = [Guid]::NewGuid().ToString()
@@ -599,7 +601,7 @@ Rgo=
 
     $platformDownload = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($xlsxFile.fileId)/download-intent" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery-files/$($xlsxFile.fileId)/download-intent" `
         -Headers @{
             Authorization = "Bearer $platformToken"
             'Idempotency-Key' = [Guid]::NewGuid().ToString()
@@ -607,7 +609,7 @@ Rgo=
     $platformAcceptStatus = Get-HttpFailureStatus {
         Invoke-RestMethod `
             -Method Post `
-            -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/acceptance" `
+            -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/acceptance" `
             -ContentType 'application/json' `
             -Body '{"confirmed":true}' `
             -Headers @{
@@ -621,7 +623,7 @@ Rgo=
     $acceptBody = '{"confirmed":true,"note":"delivery accepted in F07 smoke"}'
     $accepted = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/acceptance" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/acceptance" `
         -ContentType 'application/json' `
         -Body $acceptBody `
         -Headers @{
@@ -632,7 +634,7 @@ Rgo=
         }
     $acceptReplay = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/acceptance" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/acceptance" `
         -ContentType 'application/json' `
         -Body $acceptBody `
         -Headers @{
@@ -648,7 +650,7 @@ Rgo=
         -Headers @{ Authorization = "Bearer $customerToken" }
     $acceptedDelivery = Invoke-RestMethod `
         -Method Get `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery" `
         -Headers @{ Authorization = "Bearer $customerToken" }
 
     if ($published.id -ne $publishReplay.id `
@@ -669,7 +671,9 @@ Rgo=
     }
     if ($accepted.id -ne $acceptReplay.id `
             -or $acceptedOrder.status -ne 'ACCEPTED' `
-            -or $acceptedOrder.version -ne 6 `
+            -or $acceptedOrder.version -ne 4 `
+            -or $acceptedOrder.visits[0].status -ne 'ACCEPTED' `
+            -or $acceptedOrder.visits[0].version -ne 6 `
             -or $acceptedDelivery.status -ne 'ACCEPTED') {
         throw 'Acceptance state or idempotency is inconsistent.'
     }
@@ -686,7 +690,7 @@ SELECT
         & $DockerPath exec inspection-local-postgres-1 `
             psql -At -U $databaseUser -d $databaseName -c $databaseCheckSql
     ).Trim()
-    if ($LASTEXITCODE -ne 0 -or $databaseCheck -ne '1|4|1|ACCEPTED|6') {
+    if ($LASTEXITCODE -ne 0 -or $databaseCheck -ne '1|4|1|ACCEPTED|4') {
         throw "Unexpected persisted delivery evidence: $databaseCheck"
     }
 
@@ -695,11 +699,11 @@ SELECT
     $customerTokenAfterRestart = Get-AccessToken -LoginName 'smoke-customer'
     $afterRestart = Invoke-RestMethod `
         -Method Get `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery" `
         -Headers @{ Authorization = "Bearer $customerTokenAfterRestart" }
     $downloadAfterRestart = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/$($xlsxFile.fileId)/download-intent" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery-files/$($xlsxFile.fileId)/download-intent" `
         -Headers @{
             Authorization = "Bearer $customerTokenAfterRestart"
             'Idempotency-Key' = [Guid]::NewGuid().ToString()
@@ -711,7 +715,7 @@ SELECT
         -Label 'Downloaded defect list after restart'
     $bundleAfterRestart = Invoke-RestMethod `
         -Method Post `
-        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/delivery-files/download-all-intent" `
+        -Uri "$BaseUrl/api/v1/inspection/service-orders/$orderId/visits/$visitId/delivery-files/download-all-intent" `
         -Headers @{
             Authorization = "Bearer $customerTokenAfterRestart"
             'Idempotency-Key' = [Guid]::NewGuid().ToString()

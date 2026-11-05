@@ -40,6 +40,8 @@ class InspectionReservationControllerTest {
             UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID IDEMPOTENCY_KEY =
             UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final UUID PENDING_VISIT =
+            UUID.fromString("55555555-5555-5555-5555-555555555555");
     private static final String REQUEST_ID = "f04-controller-test";
     private static final Clock BOOKING_CLOCK = Clock.fixed(
             Instant.parse("2026-07-31T01:00:00Z"), ZoneOffset.UTC);
@@ -299,6 +301,29 @@ class InspectionReservationControllerTest {
     }
 
     @Test
+    void orderListCarriesVisitProgressAndThePendingAcceptanceVisit() throws Exception {
+        queryStore.rows = List.of(stored(
+                CustomerReservationStage.AWAITING_ACCEPTANCE,
+                "x:东营市测试路8号",
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1_200_000L));
+        queryStore.counts = new CustomerReservationCountSnapshot(1, 0, 0, 0, 1, 0);
+
+        mvc.perform(get("/api/v1/inspection/reservations")
+                        .param("page", "1")
+                        .param("size", "20")
+                        .param("stage", "ALL")
+                        .principal(customerJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].visitCount").value(6))
+                .andExpect(jsonPath("$.items[0].acceptedVisitCount").value(2))
+                .andExpect(jsonPath("$.items[0].pendingAcceptanceVisitId")
+                        .value(PENDING_VISIT.toString()))
+                .andExpect(jsonPath("$.items[0].pendingAcceptanceVisitNo").value(3));
+    }
+
+    @Test
     void customerOrderCollectionRejectsInvalidStageAndMissingPermission() throws Exception {
         mvc.perform(get("/api/v1/inspection/reservations")
                         .param("stage", "CANCELLED")
@@ -345,7 +370,12 @@ class InspectionReservationControllerTest {
                 currentPlanId,
                 serviceOrderId,
                 null,
-                quoteAmountMinor);
+                quoteAmountMinor,
+                stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? 6 : 0,
+                stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? 2 : 0,
+                null,
+                stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? PENDING_VISIT : null,
+                stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? 3 : null);
     }
 
     @Test

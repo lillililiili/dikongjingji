@@ -25,8 +25,8 @@ final class PostgresDeliveryStore implements DeliveryStore {
     }
 
     @Override
-    public Optional<StoredDelivery> findDeliveryByOrder(UUID serviceOrderId) {
-        return mapper.findDeliveryByOrder(serviceOrderId).map(this::toDelivery);
+    public Optional<StoredDelivery> findDeliveryByVisit(UUID visitId) {
+        return mapper.findDeliveryByVisit(visitId).map(this::toDelivery);
     }
 
     @Override
@@ -34,7 +34,7 @@ final class PostgresDeliveryStore implements DeliveryStore {
         return mapper.findDeliveryFileObject(fileId).map(row ->
                 new DeliveryFileObject(
                         row.id(),
-                        row.serviceOrderId(),
+                        row.visitId(),
                         row.providerId(),
                         fileType(row.extension()),
                         row.contentType(),
@@ -50,8 +50,8 @@ final class PostgresDeliveryStore implements DeliveryStore {
     }
 
     @Override
-    public Optional<StoredAcceptance> findAcceptanceByOrder(UUID serviceOrderId) {
-        return mapper.findAcceptanceByOrder(serviceOrderId).map(this::toAcceptance);
+    public Optional<StoredAcceptance> findAcceptanceByVisit(UUID visitId) {
+        return mapper.findAcceptanceByVisit(visitId).map(this::toAcceptance);
     }
 
     @Override
@@ -72,7 +72,9 @@ final class PostgresDeliveryStore implements DeliveryStore {
     @Override
     public DeliveryWriteResult publishDelivery(
             StoredServiceOrder expectedOrder,
-            StoredServiceOrder deliveredOrder,
+            ServiceOrderStatus nextOrderStatus,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit deliveredVisit,
             StoredDelivery delivery,
             DeliveryIdempotencyEntry entry,
             CurrentSubject actor,
@@ -88,22 +90,44 @@ final class PostgresDeliveryStore implements DeliveryStore {
                 201) == 0) {
             return DeliveryWriteResult.IDEMPOTENCY_EXISTS;
         }
-        if (mapper.updateOrderDelivered(
-                expectedOrder.id(),
-                expectedOrder.version(),
-                deliveredOrder.deliveredAt(),
+        Instant at = delivery.publishedAt();
+        if (mapper.updateVisitDelivered(
+                expectedVisit.id(),
+                expectedVisit.version(),
+                at,
                 actor.subjectId()) == 0) {
-            return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
+            return resolveVisitConflict(expectedVisit.id(), expectedVisit.version());
+        }
+        if (expectedOrder.status() != nextOrderStatus) {
+            if (mapper.updateOrderDelivered(
+                    expectedOrder.id(),
+                    expectedOrder.version(),
+                    at,
+                    actor.subjectId()) == 0) {
+                return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
+            }
+            mapper.insertTransition(
+                    "SERVICE_ORDER",
+                    expectedOrder.id(),
+                    expectedOrder.status().name(),
+                    nextOrderStatus.name(),
+                    "PROVIDER_OPERATOR",
+                    actor.subjectId(),
+                    requestId,
+                    at);
         }
         mapper.insertDelivery(
                 delivery.id(),
                 delivery.serviceOrderId(),
+                delivery.visitId(),
                 delivery.towerCount(),
                 delivery.inspectedLengthMeters(),
+                ServiceFlowJson.metrics(delivery.metrics()),
                 delivery.issueCount(),
-                issueSummaryJson(delivery.issueSummary()),
+                delivery.issueGroupBy().name(),
+                ServiceFlowJson.issues(delivery.issueSummary()),
                 actor.subjectId(),
-                delivery.publishedAt(),
+                at,
                 delivery.version());
         for (int index = 0; index < delivery.files().size(); index++) {
             StoredDeliveryFile file = delivery.files().get(index);
@@ -113,18 +137,19 @@ final class PostgresDeliveryStore implements DeliveryStore {
                     file.type().name(),
                     file.displayName(),
                     file.pointCount(),
+                    file.itemCount(),
                     index,
-                    delivery.publishedAt());
+                    at);
         }
         mapper.insertTransition(
-                "SERVICE_ORDER",
-                expectedOrder.id(),
-                expectedOrder.status().name(),
-                deliveredOrder.status().name(),
+                "SERVICE_VISIT",
+                expectedVisit.id(),
+                expectedVisit.status().name(),
+                deliveredVisit.status().name(),
                 "PROVIDER_OPERATOR",
                 actor.subjectId(),
                 requestId,
-                delivery.publishedAt());
+                at);
         mapper.insertTransition(
                 "DELIVERY",
                 delivery.id(),
@@ -133,19 +158,21 @@ final class PostgresDeliveryStore implements DeliveryStore {
                 "PROVIDER_OPERATOR",
                 actor.subjectId(),
                 requestId,
-                delivery.publishedAt());
+                at);
         mapper.insertOutbox(
                 "DELIVERY",
                 delivery.id(),
                 "INSPECTION_DELIVERY_PUBLISHED",
-                delivery.publishedAt());
+                at);
         return DeliveryWriteResult.SAVED;
     }
 
     @Override
     public DeliveryWriteResult acceptDelivery(
             StoredServiceOrder expectedOrder,
-            StoredServiceOrder acceptedOrder,
+            ServiceOrderStatus nextOrderStatus,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit acceptedVisit,
             StoredDelivery expectedDelivery,
             StoredDelivery acceptedDelivery,
             StoredAcceptance acceptance,
@@ -163,38 +190,58 @@ final class PostgresDeliveryStore implements DeliveryStore {
                 200) == 0) {
             return DeliveryWriteResult.IDEMPOTENCY_EXISTS;
         }
-        if (mapper.updateOrderAccepted(
-                expectedOrder.id(),
-                expectedOrder.version(),
-                acceptance.acceptedAt(),
+        Instant at = acceptance.acceptedAt();
+        if (mapper.updateVisitAccepted(
+                expectedVisit.id(),
+                expectedVisit.version(),
+                at,
                 actor.subjectId()) == 0) {
-            return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
+            return resolveVisitConflict(expectedVisit.id(), expectedVisit.version());
+        }
+        if (expectedOrder.status() != nextOrderStatus) {
+            if (mapper.updateOrderAccepted(
+                    expectedOrder.id(),
+                    expectedOrder.version(),
+                    at,
+                    actor.subjectId()) == 0) {
+                return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
+            }
+            mapper.insertTransition(
+                    "SERVICE_ORDER",
+                    expectedOrder.id(),
+                    expectedOrder.status().name(),
+                    nextOrderStatus.name(),
+                    "CUSTOMER",
+                    actor.subjectId(),
+                    requestId,
+                    at);
         }
         if (mapper.updateDeliveryAccepted(
                 expectedDelivery.id(),
                 expectedDelivery.version(),
-                acceptance.acceptedAt()) == 0) {
+                at) == 0) {
             return DeliveryWriteResult.STATE_CONFLICT;
         }
         mapper.insertAcceptance(
                 acceptance.id(),
                 acceptance.serviceOrderId(),
+                acceptance.visitId(),
                 acceptance.deliveryId(),
                 acceptance.acceptedBy(),
-                acceptance.acceptedAt(),
+                at,
                 acceptance.noteCiphertext() == null
                         ? null
                         : acceptance.noteCiphertext().getBytes(StandardCharsets.UTF_8),
                 entry.key());
         mapper.insertTransition(
-                "SERVICE_ORDER",
-                expectedOrder.id(),
-                expectedOrder.status().name(),
-                acceptedOrder.status().name(),
+                "SERVICE_VISIT",
+                expectedVisit.id(),
+                expectedVisit.status().name(),
+                acceptedVisit.status().name(),
                 "CUSTOMER",
                 actor.subjectId(),
                 requestId,
-                acceptance.acceptedAt());
+                at);
         mapper.insertTransition(
                 "DELIVERY",
                 expectedDelivery.id(),
@@ -203,12 +250,12 @@ final class PostgresDeliveryStore implements DeliveryStore {
                 "CUSTOMER",
                 actor.subjectId(),
                 requestId,
-                acceptance.acceptedAt());
+                at);
         mapper.insertOutbox(
                 "DELIVERY",
                 expectedDelivery.id(),
                 "INSPECTION_DELIVERY_ACCEPTED",
-                acceptance.acceptedAt());
+                at);
         return DeliveryWriteResult.SAVED;
     }
 
@@ -231,10 +278,17 @@ final class PostgresDeliveryStore implements DeliveryStore {
     private StoredDelivery toDelivery(
             ServiceFlowPersistenceMapper.DeliveryRow row
     ) {
+        List<DeliveryMetric> metrics = mapper.findDeliveryMetrics(row.id()).stream()
+                .map(item -> new DeliveryMetric(
+                        item.code(),
+                        item.label(),
+                        item.metricValue(),
+                        item.unit()))
+                .toList();
         List<IssueSummary> issues = mapper.findDeliveryIssues(row.id()).stream()
                 .map(item -> new IssueSummary(
-                        item.severityCode(),
-                        item.severityName(),
+                        item.groupCode(),
+                        item.groupName(),
                         item.count()))
                 .toList();
         List<StoredDeliveryFile> files = mapper.findDeliveryFiles(row.id()).stream()
@@ -243,6 +297,7 @@ final class PostgresDeliveryStore implements DeliveryStore {
                         DeliveryFileType.valueOf(item.type()),
                         item.displayName(),
                         item.pointCount(),
+                        item.itemCount(),
                         item.contentType(),
                         item.sizeBytes(),
                         FileObjectStatus.valueOf(item.status()),
@@ -252,10 +307,13 @@ final class PostgresDeliveryStore implements DeliveryStore {
         return new StoredDelivery(
                 row.id(),
                 row.serviceOrderId(),
+                row.visitId(),
                 DeliveryStatus.valueOf(row.status()),
                 row.towerCount(),
                 row.inspectedLengthMeters(),
+                metrics,
                 row.issueCount(),
+                IssueGroupBy.valueOf(row.issueGroupBy()),
                 issues,
                 files,
                 row.publishedAt(),
@@ -269,13 +327,25 @@ final class PostgresDeliveryStore implements DeliveryStore {
         return new StoredAcceptance(
                 row.id(),
                 row.serviceOrderId(),
+                row.visitId(),
                 row.deliveryId(),
                 row.acceptedBy(),
+                row.acceptedByName(),
                 row.acceptedAt(),
                 row.noteCiphertext() == null
                         ? null
                         : new String(row.noteCiphertext(), StandardCharsets.UTF_8),
-                row.orderVersion());
+                row.visitVersion(),
+                ServiceOrderStatus.valueOf(row.orderStatus()));
+    }
+
+    private DeliveryWriteResult resolveVisitConflict(UUID visitId, int expectedVersion) {
+        Optional<ServiceFlowPersistenceMapper.ServiceVisitRow> current =
+                mapper.findVisit(visitId);
+        if (current.isPresent() && current.get().version() != expectedVersion) {
+            return DeliveryWriteResult.VERSION_CONFLICT;
+        }
+        return DeliveryWriteResult.STATE_CONFLICT;
     }
 
     private DeliveryWriteResult resolveOrderConflict(
@@ -297,47 +367,5 @@ final class PostgresDeliveryStore implements DeliveryStore {
             }
         }
         throw new DeliveryFilesInvalidException();
-    }
-
-    private static String issueSummaryJson(List<IssueSummary> issues) {
-        StringBuilder json = new StringBuilder("[");
-        for (int index = 0; index < issues.size(); index++) {
-            if (index > 0) {
-                json.append(',');
-            }
-            IssueSummary issue = issues.get(index);
-            json.append("{\"severityCode\":\"")
-                    .append(jsonEscape(issue.severityCode()))
-                    .append("\",\"severityName\":\"")
-                    .append(jsonEscape(issue.severityName()))
-                    .append("\",\"count\":")
-                    .append(issue.count())
-                    .append('}');
-        }
-        return json.append(']').toString();
-    }
-
-    private static String jsonEscape(String value) {
-        StringBuilder escaped = new StringBuilder(value.length());
-        for (int index = 0; index < value.length(); index++) {
-            char character = value.charAt(index);
-            switch (character) {
-                case '"' -> escaped.append("\\\"");
-                case '\\' -> escaped.append("\\\\");
-                case '\b' -> escaped.append("\\b");
-                case '\f' -> escaped.append("\\f");
-                case '\n' -> escaped.append("\\n");
-                case '\r' -> escaped.append("\\r");
-                case '\t' -> escaped.append("\\t");
-                default -> {
-                    if (character < 0x20) {
-                        escaped.append(String.format("\\u%04x", (int) character));
-                    } else {
-                        escaped.append(character);
-                    }
-                }
-            }
-        }
-        return escaped.toString();
     }
 }

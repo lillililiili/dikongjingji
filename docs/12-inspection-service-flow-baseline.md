@@ -15,7 +15,9 @@
 → 报告交付与验收
 ```
 
-不包含支付、退款、评价、售后、飞控、直播、空域申请、AI 缺陷识别和 Web 管理页面。
+不包含评价、售后、飞控、直播、空域申请、AI 缺陷识别和 Web 管理页面。
+
+支付和退款不在巡检模块内实现。巡检只保存付款节点的金额快照，开关 `INSPECTION_PAYMENT_NODES_ENABLED` 默认关闭；收款、回执、退款由统一交易模块负责，巡检不直连支付渠道。
 
 ## 2. 页面编号与路由
 
@@ -103,7 +105,10 @@ DRAFT → PUBLISHED → CONFIRMED
 - 一个预约只能有一个当前有效方案。
 - 已发布方案不可原地改价；变更必须产生新版本并使旧版本失效。
 - 只有预约所有者可以确认方案。
-- 确认方案只创建服务单并进入资源安排，不扣款、不标记完成。
+- 确认方案只创建服务单和巡检次并进入资源安排，不扣款、不标记完成。
+- 方案写明巡检次数和每次计划日期，日期从今天起严格递增，最多 52 次；`serviceDate` 取首次日期。
+- 方案版本可追溯：`GET /reservations/{id}/plans` 返回全部版本和变更说明。
+- 付款节点开关打开时，方案按总价生成节点：首付 30%（四舍五入到分），其余按巡检次数均分，差额落在最后一次；单次服务也是 30% / 70%。
 
 ### 4.3 服务单
 
@@ -111,10 +116,25 @@ DRAFT → PUBLISHED → CONFIRMED
 ARRANGING → IN_PROGRESS → DELIVERED → ACCEPTED
 ```
 
-- 状态只能前进，禁止客户端直接指定目标状态。
-- 方案确认、安排发布、交付发布和验收均需幂等。
+- 服务单状态由巡检次派生，客户端不能指定，服务商也不能单独推进：任一次开始 → `IN_PROGRESS`；全部已交付 → `DELIVERED`；全部已验收 → `ACCEPTED`。
+- 方案确认、安排发布、排期、进度、交付发布和验收均需幂等。
 - PDF 验收数据中，同一服务单号为 `FW202607270001`；实现不得把该示例号硬编码到生产。
 - `ACCEPTED` 后只预留类型化“评价”扩展，不在本期生成评价页。
+
+### 4.4 巡检次
+
+```text
+PENDING_SCHEDULE → SCHEDULED → IN_PROGRESS → DELIVERED → ACCEPTED
+```
+
+- 一个服务单有一到多次巡检，排期、进度、交付和验收都按巡检次进行；服务单级的人员和设备安排只做一次。
+- 巡检次按序开始：上一次现场完成（`SERVICE_COMPLETED`）后才能开始下一次，不等上一次交付或验收。
+- 服务商改排期不需要客户确认；已开始的巡检次不能再改。每次改期都写入状态迁移留痕，订单列表的下次日期跟随改期后的时间。
+- 进度事件全单按时间递增：每次的第一个事件不早于上一次的最后事件，第一次不早于人员安排。
+- 每次只有一次交付和一次验收，交付物按方案约定的文件类型校验，验收后不可撤销。
+- 没有自动验收。客户对报告有疑问走客服，不进入任何状态。
+- 巡检次命令用巡检次的 `If-Match` 版本；服务单版本只在服务单行变化时递增。
+- V009 之前的存量服务单回填为 1 次巡检，巡检次 ID 等于服务单 ID，因此交付 ID、文件 owner 和对象键不变。
 
 ## 5. 页面数据连续性
 
@@ -179,7 +199,7 @@ inspection.audit.read
 
 ## 8. PostgreSQL 数据基线
 
-迁移事实源：`backend/modules/inspection/migrations/V001__inspection_service_flow.sql`。
+迁移事实源：`backend/modules/inspection/migrations/V001__inspection_service_flow.sql`，巡检次和付款节点见 `V009__inspection_service_visit.sql`。
 
 业务表：
 
@@ -191,6 +211,10 @@ inspection.audit.read
 - `inspection_service_plan_item`
 - `inspection_plan_deliverable`
 - `inspection_service_order`
+- `inspection_plan_visit`
+- `inspection_plan_payment_node`
+- `inspection_service_visit`
+- `inspection_order_payment_node`
 - `inspection_order_assignment`
 - `inspection_order_progress`
 - `inspection_delivery`

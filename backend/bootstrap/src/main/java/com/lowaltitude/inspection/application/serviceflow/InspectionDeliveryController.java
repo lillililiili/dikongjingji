@@ -1,5 +1,6 @@
 package com.lowaltitude.inspection.application.serviceflow;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
@@ -24,9 +25,12 @@ public final class InspectionDeliveryController {
         this.service = service;
     }
 
-    @PostMapping("/api/v1/provider/inspection/service-orders/{serviceOrderId}/delivery")
+    @PostMapping(
+            "/api/v1/provider/inspection/service-orders/{serviceOrderId}"
+                    + "/visits/{visitId}/delivery")
     public ResponseEntity<DeliveryResponse> publish(
             @PathVariable UUID serviceOrderId,
+            @PathVariable UUID visitId,
             @RequestHeader("Idempotency-Key") UUID idempotencyKey,
             @RequestHeader("If-Match") String ifMatch,
             @RequestHeader(name = "X-Request-Id", required = false) String requestId,
@@ -36,6 +40,7 @@ public final class InspectionDeliveryController {
         DeliveryView delivery = service.publish(
                 InspectionPlanController.currentSubject(authentication),
                 serviceOrderId,
+                visitId,
                 idempotencyKey,
                 InspectionPlanController.parseIfMatch(ifMatch),
                 request.toCommand(),
@@ -45,14 +50,16 @@ public final class InspectionDeliveryController {
                 .body(DeliveryResponse.from(delivery));
     }
 
-    @GetMapping("/api/v1/inspection/service-orders/{serviceOrderId}/delivery")
+    @GetMapping("/api/v1/inspection/service-orders/{serviceOrderId}/visits/{visitId}/delivery")
     public ResponseEntity<DeliveryResponse> get(
             @PathVariable UUID serviceOrderId,
+            @PathVariable UUID visitId,
             Authentication authentication
     ) {
         DeliveryView delivery = service.read(
                 InspectionPlanController.currentSubject(authentication),
-                serviceOrderId);
+                serviceOrderId,
+                visitId);
         return ResponseEntity.ok()
                 .eTag(Integer.toString(delivery.version()))
                 .body(DeliveryResponse.from(delivery));
@@ -60,9 +67,10 @@ public final class InspectionDeliveryController {
 
     @PostMapping(
             "/api/v1/inspection/service-orders/{serviceOrderId}"
-                    + "/delivery-files/{fileId}/download-intent")
+                    + "/visits/{visitId}/delivery-files/{fileId}/download-intent")
     public ResponseEntity<DownloadIntentResponse> download(
             @PathVariable UUID serviceOrderId,
+            @PathVariable UUID visitId,
             @PathVariable UUID fileId,
             @RequestHeader("Idempotency-Key") UUID idempotencyKey,
             Authentication authentication
@@ -70,6 +78,7 @@ public final class InspectionDeliveryController {
         DownloadIntentView intent = service.download(
                 InspectionPlanController.currentSubject(authentication),
                 serviceOrderId,
+                visitId,
                 fileId,
                 idempotencyKey);
         return ResponseEntity.status(201)
@@ -78,23 +87,26 @@ public final class InspectionDeliveryController {
 
     @PostMapping(
             "/api/v1/inspection/service-orders/{serviceOrderId}"
-                    + "/delivery-files/download-all-intent")
+                    + "/visits/{visitId}/delivery-files/download-all-intent")
     public ResponseEntity<DownloadIntentResponse> downloadAll(
             @PathVariable UUID serviceOrderId,
+            @PathVariable UUID visitId,
             @RequestHeader("Idempotency-Key") UUID idempotencyKey,
             Authentication authentication
     ) {
         DownloadIntentView intent = service.downloadAll(
                 InspectionPlanController.currentSubject(authentication),
                 serviceOrderId,
+                visitId,
                 idempotencyKey);
         return ResponseEntity.status(201)
                 .body(DownloadIntentResponse.from(intent));
     }
 
-    @PostMapping("/api/v1/inspection/service-orders/{serviceOrderId}/acceptance")
+    @PostMapping("/api/v1/inspection/service-orders/{serviceOrderId}/visits/{visitId}/acceptance")
     public ResponseEntity<AcceptanceResponse> accept(
             @PathVariable UUID serviceOrderId,
+            @PathVariable UUID visitId,
             @RequestHeader("Idempotency-Key") UUID idempotencyKey,
             @RequestHeader("If-Match") String ifMatch,
             @RequestHeader(name = "X-Request-Id", required = false) String requestId,
@@ -104,55 +116,73 @@ public final class InspectionDeliveryController {
         AcceptanceView acceptance = service.accept(
                 InspectionPlanController.currentSubject(authentication),
                 serviceOrderId,
+                visitId,
                 idempotencyKey,
                 InspectionPlanController.parseIfMatch(ifMatch),
                 request.toCommand(),
                 InspectionPlanController.requestId(requestId));
         return ResponseEntity.ok()
-                .eTag(Integer.toString(acceptance.orderVersion()))
+                .eTag(Integer.toString(acceptance.visitVersion()))
                 .body(AcceptanceResponse.from(acceptance));
     }
 
     public record PublishDeliveryRequest(
             Integer towerCount,
             Long inspectedLengthMeters,
+            List<DeliveryMetricPayload> metrics,
             Integer issueCount,
+            IssueGroupBy issueGroupBy,
             List<IssueSummaryRequest> issueSummary,
             List<DeliveryFileRequest> files
     ) {
         PublishDeliveryCommand toCommand() {
-            if (towerCount == null
-                    || inspectedLengthMeters == null
-                    || issueCount == null) {
+            if (issueCount == null) {
                 throw new DeliveryFilesInvalidException();
             }
             return new PublishDeliveryCommand(
                     towerCount,
                     inspectedLengthMeters,
+                    metrics == null
+                            ? List.of()
+                            : InspectionPlanController.mapEntries(
+                                    metrics,
+                                    DeliveryMetricPayload::toInput),
                     issueCount,
-                    issueSummary == null
-                            ? null
-                            : issueSummary.stream()
-                                    .map(IssueSummaryRequest::toInput)
-                                    .toList(),
-                    files == null
-                            ? null
-                            : files.stream()
-                                    .map(DeliveryFileRequest::toInput)
-                                    .toList());
+                    issueGroupBy == null ? IssueGroupBy.SEVERITY : issueGroupBy,
+                    InspectionPlanController.mapEntries(issueSummary, IssueSummaryRequest::toInput),
+                    InspectionPlanController.mapEntries(files, DeliveryFileRequest::toInput));
+        }
+    }
+
+    public record DeliveryMetricPayload(
+            String code,
+            String label,
+            BigDecimal value,
+            String unit
+    ) {
+        DeliveryMetricInput toInput() {
+            return new DeliveryMetricInput(code, label, value, unit);
+        }
+
+        static DeliveryMetricPayload from(DeliveryMetric metric) {
+            return new DeliveryMetricPayload(
+                    metric.code(),
+                    metric.label(),
+                    metric.value(),
+                    metric.unit());
         }
     }
 
     public record IssueSummaryRequest(
-            String severityCode,
-            String severityName,
+            String groupCode,
+            String groupName,
             Integer count
     ) {
         IssueSummaryInput toInput() {
             if (count == null) {
                 throw new DeliveryFilesInvalidException();
             }
-            return new IssueSummaryInput(severityCode, severityName, count);
+            return new IssueSummaryInput(groupCode, groupName, count);
         }
     }
 
@@ -160,10 +190,11 @@ public final class InspectionDeliveryController {
             UUID fileId,
             DeliveryFileType type,
             String displayName,
-            Integer pointCount
+            Integer pointCount,
+            Integer itemCount
     ) {
         DeliveryFileInput toInput() {
-            return new DeliveryFileInput(fileId, type, displayName, pointCount);
+            return new DeliveryFileInput(fileId, type, displayName, pointCount, itemCount);
         }
     }
 
@@ -174,14 +205,14 @@ public final class InspectionDeliveryController {
     }
 
     public record IssueSummaryResponse(
-            String severityCode,
-            String severityName,
+            String groupCode,
+            String groupName,
             int count
     ) {
         static IssueSummaryResponse from(IssueSummary summary) {
             return new IssueSummaryResponse(
-                    summary.severityCode(),
-                    summary.severityName(),
+                    summary.groupCode(),
+                    summary.groupName(),
                     summary.count());
         }
     }
@@ -191,6 +222,7 @@ public final class InspectionDeliveryController {
             String type,
             String displayName,
             Integer pointCount,
+            Integer itemCount,
             String contentType,
             long sizeBytes,
             String status
@@ -201,6 +233,7 @@ public final class InspectionDeliveryController {
                     file.type().name(),
                     file.displayName(),
                     file.pointCount(),
+                    file.itemCount(),
                     file.contentType(),
                     file.sizeBytes(),
                     file.status().name());
@@ -210,10 +243,13 @@ public final class InspectionDeliveryController {
     public record DeliveryResponse(
             UUID id,
             UUID serviceOrderId,
+            UUID visitId,
             String status,
-            int towerCount,
-            long inspectedLengthMeters,
+            Integer towerCount,
+            Long inspectedLengthMeters,
+            List<DeliveryMetricPayload> metrics,
             int issueCount,
+            String issueGroupBy,
             List<IssueSummaryResponse> issueSummary,
             List<DeliveryFileResponse> files,
             Instant publishedAt,
@@ -224,10 +260,13 @@ public final class InspectionDeliveryController {
             return new DeliveryResponse(
                     delivery.id(),
                     delivery.serviceOrderId(),
+                    delivery.visitId(),
                     delivery.status().name(),
                     delivery.towerCount(),
                     delivery.inspectedLengthMeters(),
+                    delivery.metrics().stream().map(DeliveryMetricPayload::from).toList(),
                     delivery.issueCount(),
+                    delivery.issueGroupBy().name(),
                     delivery.issueSummary().stream()
                             .map(IssueSummaryResponse::from)
                             .toList(),
@@ -258,18 +297,24 @@ public final class InspectionDeliveryController {
     public record AcceptanceResponse(
             UUID id,
             UUID serviceOrderId,
+            UUID visitId,
             UUID deliveryId,
             UUID acceptedBy,
+            String acceptedByName,
             Instant acceptedAt,
+            String visitStatus,
             String orderStatus
     ) {
         static AcceptanceResponse from(AcceptanceView acceptance) {
             return new AcceptanceResponse(
                     acceptance.id(),
                     acceptance.serviceOrderId(),
+                    acceptance.visitId(),
                     acceptance.deliveryId(),
                     acceptance.acceptedBy(),
+                    acceptance.acceptedByName(),
                     acceptance.acceptedAt(),
+                    acceptance.visitStatus().name(),
                     acceptance.orderStatus().name());
         }
     }

@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 1.0.0
-  description: 巡检预约、方案确认、服务履约、报告交付和验收的正式契约。
+  version: 2.0.0
+  description: 巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
 servers:
   - url: https://api.example.com
     description: Production placeholder
@@ -218,12 +218,35 @@ paths:
                     traceId: cancel-idempotency-conflict-example
         "412":
           $ref: "#/components/responses/PreconditionFailed"
+  /api/v1/inspection/reservations/{reservationId}/plans:
+    get:
+      tags: [CustomerInspectionFlow]
+      operationId: listInspectionPlanVersions
+      summary: 查询本人预约的方案各版本摘要
+      x-required-permissions:
+        - inspection.plan.read.own
+        - inspection.plan.read.all
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "200":
+          description: 方案版本摘要，按版本号升序
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanVersionSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/inspection/file-objects/upload-intents:
     post:
       tags: [InspectionFiles]
       operationId: createInspectionUploadIntent
       summary: 创建私有文件上传意图
-      description: 服务端根据 purpose、ownerId、资源归属和调用者角色决定是否允许上传。
+      description: 服务端根据 purpose、ownerId、资源归属和调用者角色决定是否允许上传。交付文件的 ownerId 是巡检次 ID。
       x-required-permissions:
         - inspection.reservation.create
         - inspection.delivery.publish.assigned
@@ -337,6 +360,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -370,16 +395,17 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
-  /api/v1/inspection/service-orders/{serviceOrderId}/delivery:
+  /api/v1/inspection/service-orders/{serviceOrderId}/visits/{visitId}/delivery:
     get:
       tags: [CustomerInspectionFlow]
       operationId: getInspectionDelivery
-      summary: 查询已发布的报告交付
+      summary: 查询某次巡检已发布的报告交付
       x-required-permissions:
         - inspection.order.read.own
         - inspection.order.read.all
       parameters:
         - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/VisitId"
       responses:
         "200":
           description: 交付摘要与文件元数据
@@ -396,7 +422,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /api/v1/inspection/service-orders/{serviceOrderId}/delivery-files/{fileId}/download-intent:
+  /api/v1/inspection/service-orders/{serviceOrderId}/visits/{visitId}/delivery-files/{fileId}/download-intent:
     post:
       tags: [InspectionFiles]
       operationId: createInspectionDeliveryDownloadIntent
@@ -406,6 +432,7 @@ paths:
         - inspection.delivery.download.all
       parameters:
         - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/VisitId"
         - $ref: "#/components/parameters/FileId"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -421,16 +448,17 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /api/v1/inspection/service-orders/{serviceOrderId}/delivery-files/download-all-intent:
+  /api/v1/inspection/service-orders/{serviceOrderId}/visits/{visitId}/delivery-files/download-all-intent:
     post:
       tags: [InspectionFiles]
       operationId: createInspectionDeliveryBundleDownloadIntent
-      summary: 获取全部交付物 ZIP 的短时效下载地址
+      summary: 获取某次巡检全部交付物 ZIP 的短时效下载地址
       x-required-permissions:
         - inspection.delivery.download.own
         - inspection.delivery.download.all
       parameters:
         - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/VisitId"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "201":
@@ -447,14 +475,15 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
-  /api/v1/inspection/service-orders/{serviceOrderId}/acceptance:
+  /api/v1/inspection/service-orders/{serviceOrderId}/visits/{visitId}/acceptance:
     post:
       tags: [CustomerInspectionFlow]
       operationId: acceptInspectionDelivery
-      summary: 确认验收
+      summary: 确认验收某次巡检
       x-required-permission: inspection.acceptance.create.own
       parameters:
         - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/VisitId"
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -465,7 +494,7 @@ paths:
               $ref: "#/components/schemas/AcceptDeliveryRequest"
       responses:
         "200":
-          description: 已验收或返回同一验收结果
+          description: 已验收或返回同一验收结果；ETag 是巡检次版本
           headers:
             ETag:
               $ref: "#/components/headers/ETag"
@@ -477,6 +506,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -513,6 +544,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -523,7 +556,7 @@ paths:
     put:
       tags: [ProviderInspectionFlow]
       operationId: putInspectionArrangement
-      summary: 保存服务团队和设备安排
+      summary: 保存服务团队和设备安排，服务单未结束时都可更新
       x-required-permission: inspection.order.arrange.assigned
       parameters:
         - $ref: "#/components/parameters/ServiceOrderId"
@@ -549,20 +582,62 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
         "412":
           $ref: "#/components/responses/PreconditionFailed"
-  /api/v1/provider/inspection/service-orders/{serviceOrderId}/progress-events:
+  /api/v1/provider/inspection/service-orders/{serviceOrderId}/visits/{visitId}/schedule:
+    put:
+      tags: [ProviderInspectionFlow]
+      operationId: putInspectionVisitSchedule
+      summary: 确认或调整某次巡检的开始时间
+      x-required-permission: inspection.order.arrange.assigned
+      parameters:
+        - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/VisitId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutVisitScheduleRequest"
+      responses:
+        "200":
+          description: 更新后的巡检次；ETag 是巡检次版本
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceVisit"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/PreconditionFailed"
+  /api/v1/provider/inspection/service-orders/{serviceOrderId}/visits/{visitId}/progress-events:
     post:
       tags: [ProviderInspectionFlow]
       operationId: appendInspectionProgressEvent
-      summary: 追加履约进度并按规则推进状态
+      summary: 追加某次巡检的履约进度并按规则推进状态
       x-required-permission: inspection.order.progress.assigned
       parameters:
         - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/VisitId"
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -573,32 +648,35 @@ paths:
               $ref: "#/components/schemas/AppendProgressRequest"
       responses:
         "201":
-          description: 更新后的服务单
+          description: 更新后的巡检次；ETag 是巡检次版本
           headers:
             ETag:
               $ref: "#/components/headers/ETag"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ServiceOrder"
+                $ref: "#/components/schemas/ServiceVisit"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
         "412":
           $ref: "#/components/responses/PreconditionFailed"
-  /api/v1/provider/inspection/service-orders/{serviceOrderId}/delivery:
+  /api/v1/provider/inspection/service-orders/{serviceOrderId}/visits/{visitId}/delivery:
     post:
       tags: [ProviderInspectionFlow]
       operationId: publishInspectionDelivery
-      summary: 发布报告交付并进入待验收
+      summary: 发布某次巡检的报告交付并进入待验收
       x-required-permission: inspection.delivery.publish.assigned
       parameters:
         - $ref: "#/components/parameters/ServiceOrderId"
+        - $ref: "#/components/parameters/VisitId"
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -621,6 +699,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -657,6 +737,13 @@ components:
         format: uuid
     ServiceOrderId:
       name: serviceOrderId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VisitId:
+      name: visitId
       in: path
       required: true
       schema:
@@ -810,7 +897,11 @@ components:
         - INS_PLAN_EXPIRED
         - INS_PLAN_ALREADY_CONFIRMED
         - INS_ORDER_STATE_INVALID
+        - INS_VISIT_STATE_INVALID
+        - INS_VISIT_OUT_OF_ORDER
         - INS_DELIVERY_NOT_PUBLISHED
+        - INS_DELIVERY_STATE_INVALID
+        - INS_DELIVERY_FILES_INVALID
         - INS_DELIVERY_FILE_NOT_READY
         - INS_DELIVERY_ALREADY_ACCEPTED
         - INS_FILE_TYPE_UNSUPPORTED
@@ -1088,6 +1179,21 @@ components:
           minimum: 0
         currency:
           const: CNY
+        visitCount:
+          type: integer
+          minimum: 0
+        acceptedVisitCount:
+          type: integer
+          minimum: 0
+        nextVisitDate:
+          type: string
+          format: date
+        pendingAcceptanceVisitId:
+          type: string
+          format: uuid
+        pendingAcceptanceVisitNo:
+          type: integer
+          minimum: 1
     CustomerReservationStageCounts:
       type: object
       additionalProperties: false
@@ -1226,7 +1332,7 @@ components:
       required:
         - providerId
         - validUntil
-        - serviceDate
+        - visits
         - planItems
         - deliverables
         - currency
@@ -1237,12 +1343,31 @@ components:
         validUntil:
           type: string
           format: date-time
-        serviceDate:
-          type: string
-          format: date
+        visits:
+          type: array
+          minItems: 1
+          maxItems: 52
+          description: 计划巡检日期，严格升序。第 1 项是方案的 serviceDate。
+          items:
+            $ref: "#/components/schemas/PlanVisitInput"
         summary:
           type: [string, "null"]
           maxLength: 1000
+        scopeSummary:
+          type: [string, "null"]
+          maxLength: 120
+        serviceMethods:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/CodeLabel"
+        deliveryTerms:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryTerms"
+            - type: "null"
+        changeNote:
+          type: [string, "null"]
+          maxLength: 200
         planItems:
           type: array
           minItems: 1
@@ -1251,12 +1376,32 @@ components:
             $ref: "#/components/schemas/PlanItemInput"
         deliverables:
           type: array
-          minItems: 4
+          minItems: 1
           maxItems: 20
           items:
             $ref: "#/components/schemas/DeliverableInput"
         currency:
           const: CNY
+    PlanVisitInput:
+      type: object
+      additionalProperties: false
+      required: [plannedDate]
+      properties:
+        plannedDate:
+          type: string
+          format: date
+    DeliveryTerms:
+      type: object
+      additionalProperties: false
+      properties:
+        reportDueHours:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 8760
+        mediaRetentionDays:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 3650
     ConfirmPlanRequest:
       type: object
       additionalProperties: false
@@ -1298,6 +1443,11 @@ components:
         name:
           type: string
           maxLength: 120
+        fileType:
+          description: 这项交付物对应的文件类型；方案所有交付物都没有写时，每次交付要四类文件各一份。
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryFileType"
+            - type: "null"
     ServicePlan:
       type: object
       additionalProperties: false
@@ -1310,6 +1460,7 @@ components:
         - planVersion
         - validUntil
         - serviceDate
+        - visits
         - planItems
         - deliverables
         - totalAmountMinor
@@ -1339,7 +1490,28 @@ components:
         serviceDate:
           type: string
           format: date
+          description: 首次巡检日期，等于 visits 第 1 项。
+        visits:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanVisit"
+        provider:
+          oneOf:
+            - $ref: "#/components/schemas/ProviderSummary"
+            - type: "null"
         summary:
+          type: [string, "null"]
+        scopeSummary:
+          type: [string, "null"]
+        serviceMethods:
+          type: array
+          items:
+            $ref: "#/components/schemas/CodeLabel"
+        deliveryTerms:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryTerms"
+            - type: "null"
+        changeNote:
           type: [string, "null"]
         planItems:
           type: array
@@ -1348,50 +1520,205 @@ components:
         deliverables:
           type: array
           items:
-            $ref: "#/components/schemas/CodeLabel"
+            $ref: "#/components/schemas/PlanDeliverable"
         totalAmountMinor:
           type: integer
           minimum: 0
         currency:
           const: CNY
+        paymentNodes:
+          description: 付款节点的金额快照；付款开关关闭时为空。
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanPaymentNode"
         publishedAt:
           type: string
           format: date-time
         confirmedAt:
           type: [string, "null"]
           format: date-time
+        confirmedBy:
+          oneOf:
+            - $ref: "#/components/schemas/PersonRef"
+            - type: "null"
         serviceOrderId:
           type: [string, "null"]
           format: uuid
         version:
           type: integer
           minimum: 0
+    PlanVisit:
+      type: object
+      additionalProperties: false
+      required: [visitNo, plannedDate]
+      properties:
+        visitNo:
+          type: integer
+          minimum: 1
+        plannedDate:
+          type: string
+          format: date
+    PlanDeliverable:
+      type: object
+      additionalProperties: false
+      required: [code, label]
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        fileType:
+          oneOf:
+            - $ref: "#/components/schemas/DeliveryFileType"
+            - type: "null"
+    PlanVersionSummary:
+      type: object
+      additionalProperties: false
+      required: [id, planNo, planVersion, status, totalAmountMinor, planItems, publishedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        planNo:
+          type: string
+        planVersion:
+          type: integer
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        totalAmountMinor:
+          type: integer
+          minimum: 0
+        planItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanItem"
+        changeNote:
+          type: [string, "null"]
+        publishedAt:
+          type: string
+          format: date-time
+    ProviderSummary:
+      type: object
+      additionalProperties: false
+      required: [providerId, name]
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        certificationLabel:
+          type: [string, "null"]
+    CustomerParty:
+      type: object
+      additionalProperties: false
+      required: [operatorName]
+      properties:
+        organizationName:
+          type: [string, "null"]
+        operatorName:
+          type: string
+    PersonRef:
+      type: object
+      additionalProperties: false
+      required: [subjectId, displayName]
+      properties:
+        subjectId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+    PaymentMode:
+      type: string
+      description: NONE 表示这张服务单没有付款节点；NODES 表示按节点付款，已付结果只由统一交易模块回写。
+      enum: [NONE, NODES]
+    PaymentNodeType:
+      type: string
+      enum: [DOWN_PAYMENT, PER_VISIT]
+    PlanPaymentNode:
+      type: object
+      additionalProperties: false
+      required: [nodeNo, nodeType, amountMinor]
+      properties:
+        nodeNo:
+          type: integer
+          minimum: 1
+        nodeType:
+          $ref: "#/components/schemas/PaymentNodeType"
+        visitNo:
+          type: [integer, "null"]
+          minimum: 1
+        amountMinor:
+          type: integer
+          minimum: 0
+    OrderPaymentNode:
+      type: object
+      additionalProperties: false
+      required: [nodeNo, nodeType, amountMinor, payable]
+      properties:
+        nodeNo:
+          type: integer
+          minimum: 1
+        nodeType:
+          $ref: "#/components/schemas/PaymentNodeType"
+        visitNo:
+          type: [integer, "null"]
+          minimum: 1
+        amountMinor:
+          type: integer
+          minimum: 0
+        payable:
+          type: boolean
+          description: 首付在确认后可付，按次款在该次验收后可付，已付的节点不再可付。
+        paidAt:
+          type: [string, "null"]
+          format: date-time
     PlanItem:
-      allOf:
-        - $ref: "#/components/schemas/PlanItemInput"
-        - type: object
-          required: [lineAmountMinor]
-          properties:
-            lineAmountMinor:
-              type: integer
-              minimum: 0
+      type: object
+      additionalProperties: false
+      required: [code, name, quantity, unit, unitPriceMinor, lineAmountMinor]
+      properties:
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 120
+        quantity:
+          type: integer
+          minimum: 1
+        unit:
+          type: string
+          maxLength: 24
+        unitPriceMinor:
+          type: integer
+          minimum: 0
+        lineAmountMinor:
+          type: integer
+          minimum: 0
     PlanStatus:
       type: string
       enum: [DRAFT, PUBLISHED, CONFIRMED, EXPIRED, WITHDRAWN]
     PutArrangementRequest:
       type: object
       additionalProperties: false
-      required: [plannedStartAt, assignments]
+      required: [assignments]
       properties:
-        plannedStartAt:
-          type: string
-          format: date-time
         assignments:
           type: array
           minItems: 1
           maxItems: 30
           items:
             $ref: "#/components/schemas/AssignmentInput"
+    PutVisitScheduleRequest:
+      type: object
+      additionalProperties: false
+      required: [plannedStartAt]
+      properties:
+        plannedStartAt:
+          type: string
+          format: date-time
     AssignmentInput:
       type: object
       additionalProperties: false
@@ -1409,6 +1736,26 @@ components:
         roleLabel:
           type: [string, "null"]
           maxLength: 80
+        contactMobile:
+          description: 服务端加密保存，响应里只返回打码值。
+          type: [string, "null"]
+          pattern: "^1[3-9][0-9]{9}$"
+    OrderAssignment:
+      type: object
+      additionalProperties: false
+      required: [type, resourceId, displayName]
+      properties:
+        type:
+          $ref: "#/components/schemas/AssignmentType"
+        resourceId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        roleLabel:
+          type: [string, "null"]
+        contactMobileMasked:
+          type: [string, "null"]
     AssignmentType:
       type: string
       enum: [TEAM_MEMBER, DEVICE]
@@ -1419,7 +1766,7 @@ components:
       properties:
         eventCode:
           type: string
-          enum: [ARRANGEMENT_READY, SERVICE_STARTED, SERVICE_PROGRESS, SERVICE_COMPLETED]
+          enum: [SERVICE_STARTED, SERVICE_PROGRESS, SERVICE_COMPLETED]
         occurredAt:
           type: string
           format: date-time
@@ -1438,9 +1785,11 @@ components:
         - customerId
         - providerId
         - status
+        - paymentMode
         - serviceSnapshot
         - assignments
         - progress
+        - visits
         - createdAt
         - version
       properties:
@@ -1463,19 +1812,35 @@ components:
           format: uuid
         status:
           $ref: "#/components/schemas/ServiceOrderStatus"
+        paymentMode:
+          $ref: "#/components/schemas/PaymentMode"
+        paymentNodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderPaymentNode"
+        provider:
+          oneOf:
+            - $ref: "#/components/schemas/ProviderSummary"
+            - type: "null"
+        customerParty:
+          oneOf:
+            - $ref: "#/components/schemas/CustomerParty"
+            - type: "null"
         serviceSnapshot:
           $ref: "#/components/schemas/ServiceSnapshot"
-        plannedStartAt:
-          type: [string, "null"]
-          format: date-time
         assignments:
           type: array
           items:
-            $ref: "#/components/schemas/AssignmentInput"
+            $ref: "#/components/schemas/OrderAssignment"
         progress:
+          description: 服务单级事件，目前只有 ARRANGEMENT_READY；每次巡检的进度在 visits 里。
           type: array
           items:
             $ref: "#/components/schemas/ProgressEvent"
+        visits:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceVisit"
         createdAt:
           type: string
           format: date-time
@@ -1531,41 +1896,117 @@ components:
           type: string
     ServiceOrderStatus:
       type: string
+      description: >-
+        由巡检次推导。ARRANGING 第 1 次开工前；IN_PROGRESS 开工后、全部交付前；
+        DELIVERED 全部已交付、还有未验收的；ACCEPTED 全部已验收。
       enum: [ARRANGING, IN_PROGRESS, DELIVERED, ACCEPTED]
+    ServiceVisitStatus:
+      type: string
+      enum: [PENDING_SCHEDULE, SCHEDULED, IN_PROGRESS, DELIVERED, ACCEPTED]
+    ServiceVisit:
+      type: object
+      additionalProperties: false
+      required: [id, serviceOrderId, visitNo, plannedDate, status, progress, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        serviceOrderId:
+          type: string
+          format: uuid
+        visitNo:
+          type: integer
+          minimum: 1
+        plannedDate:
+          type: string
+          format: date
+        plannedStartAt:
+          type: [string, "null"]
+          format: date-time
+        status:
+          $ref: "#/components/schemas/ServiceVisitStatus"
+        progress:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgressEvent"
+        startedAt:
+          type: [string, "null"]
+          format: date-time
+        deliveredAt:
+          type: [string, "null"]
+          format: date-time
+        acceptedAt:
+          type: [string, "null"]
+          format: date-time
+        version:
+          type: integer
+          minimum: 0
     PublishDeliveryRequest:
       type: object
       additionalProperties: false
-      required: [towerCount, inspectedLengthMeters, issueCount, issueSummary, files]
+      required: [issueCount, issueSummary, files]
       properties:
         towerCount:
-          type: integer
+          type: [integer, "null"]
           minimum: 0
         inspectedLengthMeters:
-          type: integer
+          type: [integer, "null"]
           minimum: 0
+        metrics:
+          description: 结果指标。metrics、towerCount、inspectedLengthMeters 至少有一项。
+          type: array
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/DeliveryMetric"
         issueCount:
           type: integer
           minimum: 0
+        issueGroupBy:
+          $ref: "#/components/schemas/IssueGroupBy"
         issueSummary:
           type: array
           maxItems: 20
           items:
             $ref: "#/components/schemas/IssueSummary"
         files:
+          description: 方案约定的文件类型各一份。
           type: array
-          minItems: 4
-          maxItems: 20
+          minItems: 1
+          maxItems: 4
           items:
             $ref: "#/components/schemas/DeliveryFileInput"
+    DeliveryMetric:
+      type: object
+      additionalProperties: false
+      required: [code, label, value, unit]
+      properties:
+        code:
+          type: string
+          maxLength: 32
+        label:
+          type: string
+          maxLength: 40
+        value:
+          description: 最多 6 位小数。
+          type: number
+          minimum: 0
+          maximum: 999999999999999
+        unit:
+          type: string
+          maxLength: 16
+    IssueGroupBy:
+      type: string
+      default: SEVERITY
+      enum: [SEVERITY, CATEGORY]
     IssueSummary:
       type: object
       additionalProperties: false
-      required: [severityCode, severityName, count]
+      required: [groupCode, groupName, count]
       properties:
-        severityCode:
+        groupCode:
           type: string
           maxLength: 32
-        severityName:
+        groupName:
           type: string
           maxLength: 40
         count:
@@ -1588,16 +2029,21 @@ components:
         pointCount:
           type: [integer, "null"]
           minimum: 0
+        itemCount:
+          description: 文件里的条目数，例如影像张数。
+          type: [integer, "null"]
+          minimum: 0
     Delivery:
       type: object
       additionalProperties: false
       required:
         - id
         - serviceOrderId
+        - visitId
         - status
-        - towerCount
-        - inspectedLengthMeters
+        - metrics
         - issueCount
+        - issueGroupBy
         - issueSummary
         - files
         - publishedAt
@@ -1609,15 +2055,24 @@ components:
         serviceOrderId:
           type: string
           format: uuid
+        visitId:
+          type: string
+          format: uuid
         status:
           type: string
           enum: [PUBLISHED, ACCEPTED]
         towerCount:
-          type: integer
+          type: [integer, "null"]
         inspectedLengthMeters:
-          type: integer
+          type: [integer, "null"]
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryMetric"
         issueCount:
           type: integer
+        issueGroupBy:
+          $ref: "#/components/schemas/IssueGroupBy"
         issueSummary:
           type: array
           items:
@@ -1636,18 +2091,33 @@ components:
           type: integer
           minimum: 0
     DeliveryFile:
-      allOf:
-        - $ref: "#/components/schemas/DeliveryFileInput"
-        - type: object
-          required: [contentType, sizeBytes, status]
-          properties:
-            contentType:
-              type: string
-            sizeBytes:
-              type: integer
-              minimum: 1
-            status:
-              $ref: "#/components/schemas/FileStatus"
+      type: object
+      additionalProperties: false
+      required: [fileId, type, displayName, contentType, sizeBytes, status]
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/DeliveryFileType"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        pointCount:
+          type: [integer, "null"]
+          minimum: 0
+        itemCount:
+          description: 文件里的条目数，例如影像张数。
+          type: [integer, "null"]
+          minimum: 0
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/FileStatus"
     DeliveryFileType:
       type: string
       enum: [IMAGE_ARCHIVE, DEFECT_LIST, POINT_KML, INSPECTION_REPORT]
@@ -1680,12 +2150,23 @@ components:
     Acceptance:
       type: object
       additionalProperties: false
-      required: [id, serviceOrderId, deliveryId, acceptedBy, acceptedAt, orderStatus]
+      required:
+        - id
+        - serviceOrderId
+        - visitId
+        - deliveryId
+        - acceptedBy
+        - acceptedAt
+        - visitStatus
+        - orderStatus
       properties:
         id:
           type: string
           format: uuid
         serviceOrderId:
+          type: string
+          format: uuid
+        visitId:
           type: string
           format: uuid
         deliveryId:
@@ -1694,11 +2175,15 @@ components:
         acceptedBy:
           type: string
           format: uuid
+        acceptedByName:
+          type: [string, "null"]
         acceptedAt:
           type: string
           format: date-time
-        orderStatus:
+        visitStatus:
           const: ACCEPTED
+        orderStatus:
+          $ref: "#/components/schemas/ServiceOrderStatus"
     CodeLabel:
       type: object
       additionalProperties: false

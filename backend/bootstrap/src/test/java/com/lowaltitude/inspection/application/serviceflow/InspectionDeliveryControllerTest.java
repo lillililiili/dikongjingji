@@ -1,5 +1,6 @@
 package com.lowaltitude.inspection.application.serviceflow;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -11,8 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -31,6 +34,8 @@ class InspectionDeliveryControllerTest {
 
     private static final UUID ORDER =
             UUID.fromString("60000000-0000-4000-8000-000000000001");
+    private static final UUID VISIT =
+            UUID.fromString("61000000-0000-4000-8000-000000000001");
     private static final UUID DELIVERY =
             UUID.fromString("70000000-0000-4000-8000-000000000001");
     private static final UUID FILE =
@@ -58,15 +63,18 @@ class InspectionDeliveryControllerTest {
         when(service.publish(
                 any(),
                 eq(ORDER),
+                eq(VISIT),
                 any(),
                 eq(4),
                 any(),
                 anyString())).thenReturn(delivery());
-        when(service.read(any(), eq(ORDER))).thenReturn(delivery());
+        when(service.read(any(), eq(ORDER), eq(VISIT))).thenReturn(delivery());
 
         mvc.perform(post(
-                        "/api/v1/provider/inspection/service-orders/{orderId}/delivery",
-                        ORDER)
+                        "/api/v1/provider/inspection/service-orders/{orderId}"
+                                + "/visits/{visitId}/delivery",
+                        ORDER,
+                        VISIT)
                         .header("Idempotency-Key", UUID.randomUUID())
                         .header("If-Match", "\"4\"")
                         .contentType("application/json")
@@ -76,17 +84,43 @@ class InspectionDeliveryControllerTest {
                 .andExpect(header().string("ETag", "\"0\""))
                 .andExpect(jsonPath("$.status").value("PUBLISHED"))
                 .andExpect(jsonPath("$.towerCount").value(24))
+                .andExpect(jsonPath("$.metrics[0].code").value("COVERED_AREA"))
+                .andExpect(jsonPath("$.metrics[0].value").value(420000))
+                .andExpect(jsonPath("$.issueGroupBy").value("SEVERITY"))
+                .andExpect(jsonPath("$.issueSummary[0].groupName").value("一般问题"))
                 .andExpect(jsonPath("$.issueSummary[0].count").value(2))
                 .andExpect(jsonPath("$.files[0].type").value("IMAGE_ARCHIVE"))
+                .andExpect(jsonPath("$.files[0].itemCount").value(36))
                 .andExpect(jsonPath("$.files[0].pointCount").doesNotExist());
 
         mvc.perform(get(
-                        "/api/v1/inspection/service-orders/{orderId}/delivery",
-                        ORDER)
+                        "/api/v1/inspection/service-orders/{orderId}/visits/{visitId}/delivery",
+                        ORDER,
+                        VISIT)
                         .principal(customer()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("ETag", "\"0\""))
-                .andExpect(jsonPath("$.serviceOrderId").value(ORDER.toString()));
+                .andExpect(jsonPath("$.serviceOrderId").value(ORDER.toString()))
+                .andExpect(jsonPath("$.visitId").value(VISIT.toString()));
+    }
+
+    @Test
+    void nullEntriesInPublishListsReachTheServiceInsteadOfCrashing() {
+        InspectionDeliveryController.PublishDeliveryRequest request =
+                new InspectionDeliveryController.PublishDeliveryRequest(
+                        null,
+                        null,
+                        Arrays.asList((InspectionDeliveryController.DeliveryMetricPayload) null),
+                        0,
+                        null,
+                        Arrays.asList((InspectionDeliveryController.IssueSummaryRequest) null),
+                        Arrays.asList((InspectionDeliveryController.DeliveryFileRequest) null));
+
+        PublishDeliveryCommand command = request.toCommand();
+
+        assertThat(command.metrics()).containsOnlyNulls();
+        assertThat(command.issueSummary()).containsOnlyNulls();
+        assertThat(command.files()).containsOnlyNulls();
     }
 
     @Test
@@ -96,28 +130,33 @@ class InspectionDeliveryControllerTest {
                 URI.create("http://127.0.0.1:19000/private/object?signature=short"),
                 "巡检报告.pdf",
                 NOW.plusSeconds(300));
-        when(service.download(any(), eq(ORDER), eq(FILE), any()))
+        when(service.download(any(), eq(ORDER), eq(VISIT), eq(FILE), any()))
                 .thenReturn(intent);
-        when(service.downloadAll(any(), eq(ORDER), any())).thenReturn(intent);
+        when(service.downloadAll(any(), eq(ORDER), eq(VISIT), any())).thenReturn(intent);
         when(service.accept(
                 any(),
                 eq(ORDER),
+                eq(VISIT),
                 any(),
                 eq(5),
                 any(),
                 anyString())).thenReturn(new AcceptanceView(
                         UUID.randomUUID(),
                         ORDER,
+                        VISIT,
                         DELIVERY,
                         CUSTOMER,
+                        "王女士",
                         NOW,
-                        ServiceOrderStatus.ACCEPTED,
+                        ServiceVisitStatus.ACCEPTED,
+                        ServiceOrderStatus.IN_PROGRESS,
                         6));
 
         mvc.perform(post(
-                        "/api/v1/inspection/service-orders/{orderId}"
+                        "/api/v1/inspection/service-orders/{orderId}/visits/{visitId}"
                                 + "/delivery-files/{fileId}/download-intent",
                         ORDER,
+                        VISIT,
                         FILE)
                         .header("Idempotency-Key", UUID.randomUUID())
                         .principal(customer()))
@@ -126,17 +165,19 @@ class InspectionDeliveryControllerTest {
                 .andExpect(jsonPath("$.suggestedFileName").value("巡检报告.pdf"));
 
         mvc.perform(post(
-                        "/api/v1/inspection/service-orders/{orderId}"
+                        "/api/v1/inspection/service-orders/{orderId}/visits/{visitId}"
                                 + "/delivery-files/download-all-intent",
-                        ORDER)
+                        ORDER,
+                        VISIT)
                         .header("Idempotency-Key", UUID.randomUUID())
                         .principal(customer()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.downloadUrl").isString());
 
         mvc.perform(post(
-                        "/api/v1/inspection/service-orders/{orderId}/acceptance",
-                        ORDER)
+                        "/api/v1/inspection/service-orders/{orderId}/visits/{visitId}/acceptance",
+                        ORDER,
+                        VISIT)
                         .header("Idempotency-Key", UUID.randomUUID())
                         .header("If-Match", "\"5\"")
                         .contentType("application/json")
@@ -146,7 +187,10 @@ class InspectionDeliveryControllerTest {
                         .principal(customer()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("ETag", "\"6\""))
-                .andExpect(jsonPath("$.orderStatus").value("ACCEPTED"));
+                .andExpect(jsonPath("$.visitId").value(VISIT.toString()))
+                .andExpect(jsonPath("$.acceptedByName").value("王女士"))
+                .andExpect(jsonPath("$.visitStatus").value("ACCEPTED"))
+                .andExpect(jsonPath("$.orderStatus").value("IN_PROGRESS"));
     }
 
     @Test
@@ -154,14 +198,17 @@ class InspectionDeliveryControllerTest {
         when(service.publish(
                 any(),
                 eq(ORDER),
+                eq(VISIT),
                 any(),
                 anyInt(),
                 any(),
                 anyString())).thenThrow(new DeliveryFilesInvalidException());
 
         mvc.perform(post(
-                        "/api/v1/provider/inspection/service-orders/{orderId}/delivery",
-                        ORDER)
+                        "/api/v1/provider/inspection/service-orders/{orderId}"
+                                + "/visits/{visitId}/delivery",
+                        ORDER,
+                        VISIT)
                         .header("Idempotency-Key", UUID.randomUUID())
                         .header("If-Match", "\"4\"")
                         .contentType("application/json")
@@ -175,16 +222,24 @@ class InspectionDeliveryControllerTest {
         return new DeliveryView(
                 DELIVERY,
                 ORDER,
+                VISIT,
                 DeliveryStatus.PUBLISHED,
                 24,
-                18_600,
+                18_600L,
+                List.of(new DeliveryMetric(
+                        "COVERED_AREA",
+                        "巡检覆盖",
+                        new BigDecimal("420000"),
+                        "㎡")),
                 3,
+                IssueGroupBy.SEVERITY,
                 List.of(new IssueSummary("GENERAL", "一般问题", 2)),
                 List.of(new DeliveryFile(
                         FILE,
                         DeliveryFileType.IMAGE_ARCHIVE,
                         "现场影像.zip",
                         null,
+                        36,
                         "application/zip",
                         1024,
                         FileObjectStatus.READY)),
@@ -200,8 +255,8 @@ class InspectionDeliveryControllerTest {
                   "inspectedLengthMeters":18600,
                   "issueCount":3,
                   "issueSummary":[
-                    {"severityCode":"GENERAL","severityName":"一般问题","count":2},
-                    {"severityCode":"WATCH","severityName":"重点关注","count":1}
+                    {"groupCode":"GENERAL","groupName":"一般问题","count":2},
+                    {"groupCode":"WATCH","groupName":"重点关注","count":1}
                   ],
                   "files":[
                     {"fileId":"80000000-0000-4000-8000-000000000001",

@@ -24,6 +24,8 @@ public class PlanFlowException extends RuntimeException {
         PLAN_EXPIRED,
         PLAN_ALREADY_CONFIRMED,
         ORDER_STATE_INVALID,
+        VISIT_STATE_INVALID,
+        VISIT_OUT_OF_ORDER,
         DELIVERY_STATE_INVALID,
         DELIVERY_FILES_INVALID
     }

@@ -218,6 +218,16 @@ public class GlobalExceptionHandler {
                 code = "INS_ORDER_STATE_INVALID";
                 message = "服务单当前状态不允许此操作";
             }
+            case VISIT_STATE_INVALID -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_VISIT_STATE_INVALID";
+                message = "这次巡检当前状态不允许此操作";
+            }
+            case VISIT_OUT_OF_ORDER -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_VISIT_OUT_OF_ORDER";
+                message = "上一次巡检现场完成后才能开工";
+            }
             case DELIVERY_STATE_INVALID -> {
                 status = HttpStatus.CONFLICT;
                 code = "INS_DELIVERY_STATE_INVALID";

@@ -28,6 +28,8 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 inspection:
+  payment:
+    nodes-enabled: ${INSPECTION_PAYMENT_NODES_ENABLED:false}
   infrastructure:
     redis:
       application-namespace: ${INSPECTION_REDIS_APPLICATION_NAMESPACE:low-altitude}

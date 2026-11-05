@@ -25,8 +25,11 @@ public class PlanApplicationConfiguration {
     }
 
     @Bean
-    PlanApplicationService planApplicationService(PlanStore store) {
-        return new PlanApplicationService(store, Clock.systemUTC());
+    PlanApplicationService planApplicationService(
+            PlanStore store,
+            @Value("${inspection.payment.nodes-enabled:false}") boolean paymentNodesEnabled
+    ) {
+        return new PlanApplicationService(store, Clock.systemUTC(), paymentNodesEnabled);
     }
 
     @Bean

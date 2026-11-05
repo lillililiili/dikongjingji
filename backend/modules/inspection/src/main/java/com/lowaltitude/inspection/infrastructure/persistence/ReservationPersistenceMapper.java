@@ -110,7 +110,12 @@ public interface ReservationPersistenceMapper {
                    p.id current_plan_id,
                    o.id service_order_id,
                    o.status service_order_status,
-                   p.total_amount_minor quote_amount_minor
+                   p.total_amount_minor quote_amount_minor,
+                   COALESCE(v.visit_count, 0) visit_count,
+                   COALESCE(v.accepted_visit_count, 0) accepted_visit_count,
+                   v.next_visit_date,
+                   pending.id pending_acceptance_visit_id,
+                   pending.visit_no pending_acceptance_visit_no
             FROM inspection_reservation r
             LEFT JOIN LATERAL (
                 SELECT current_plan.id,
@@ -124,16 +129,38 @@ public interface ReservationPersistenceMapper {
                 LIMIT 1
             ) p ON true
             LEFT JOIN inspection_service_order o ON o.reservation_id = r.id
+            LEFT JOIN LATERAL (
+                SELECT count(*) visit_count,
+                       count(*) FILTER (WHERE visit.status = 'ACCEPTED') accepted_visit_count,
+                       min(COALESCE(
+                           (visit.planned_start_at AT TIME ZONE 'Asia/Shanghai')::date,
+                           visit.planned_date
+                       )) FILTER (
+                           WHERE visit.status IN ('PENDING_SCHEDULE', 'SCHEDULED')
+                       ) next_visit_date,
+                       max(visit.updated_at) last_updated_at
+                FROM inspection_service_visit visit
+                WHERE visit.service_order_id = o.id
+            ) v ON true
+            LEFT JOIN LATERAL (
+                SELECT visit.id, visit.visit_no
+                FROM inspection_service_visit visit
+                WHERE visit.service_order_id = o.id
+                  AND visit.status = 'DELIVERED'
+                ORDER BY visit.visit_no
+                LIMIT 1
+            ) pending ON true
             CROSS JOIN LATERAL (
                 SELECT CASE
                            WHEN r.status = 'CANCELLED' THEN 'CANCELLED'
                            WHEN o.status = 'ACCEPTED' THEN 'COMPLETED'
-                           WHEN o.status = 'DELIVERED' THEN 'AWAITING_ACCEPTANCE'
+                           WHEN pending.id IS NOT NULL THEN 'AWAITING_ACCEPTANCE'
                            WHEN o.status IN ('ARRANGING', 'IN_PROGRESS') THEN 'IN_PROGRESS'
                            WHEN p.status = 'PUBLISHED' THEN 'AWAITING_CONFIRMATION'
                            ELSE 'AWAITING_PLAN'
                        END stage,
-                       GREATEST(r.updated_at, p.updated_at, o.updated_at) lifecycle_updated_at
+                       GREATEST(r.updated_at, p.updated_at, o.updated_at, v.last_updated_at)
+                           lifecycle_updated_at
             ) lifecycle
             WHERE r.customer_id = #{customerId}
               AND (#{stage} = 'ALL' OR lifecycle.stage = #{stage})
@@ -152,7 +179,12 @@ public interface ReservationPersistenceMapper {
                        CASE
                            WHEN r.status = 'CANCELLED' THEN 'CANCELLED'
                            WHEN o.status = 'ACCEPTED' THEN 'COMPLETED'
-                           WHEN o.status = 'DELIVERED' THEN 'AWAITING_ACCEPTANCE'
+                           WHEN EXISTS (
+                               SELECT 1
+                               FROM inspection_service_visit visit
+                               WHERE visit.service_order_id = o.id
+                                 AND visit.status = 'DELIVERED'
+                           ) THEN 'AWAITING_ACCEPTANCE'
                            WHEN o.status IN ('ARRANGING', 'IN_PROGRESS') THEN 'IN_PROGRESS'
                            WHEN p.status = 'PUBLISHED' THEN 'AWAITING_CONFIRMATION'
                            ELSE 'AWAITING_PLAN'
@@ -221,11 +253,17 @@ public interface ReservationPersistenceMapper {
             """)
     int countReservationFiles(@Param("reservationId") UUID reservationId);
 
-    @Select("SELECT id service_order_id, customer_id, provider_id, status order_status FROM inspection_service_order WHERE id=#{serviceOrderId}")
-    Optional<DeliveryFileOwnerRow> findDeliveryFileOwner(@Param("serviceOrderId") UUID serviceOrderId);
+    @Select("""
+            SELECT v.id visit_id, o.id service_order_id, o.customer_id, o.provider_id,
+                   v.status visit_status
+            FROM inspection_service_visit v
+            JOIN inspection_service_order o ON o.id = v.service_order_id
+            WHERE v.id = #{visitId}
+            """)
+    Optional<DeliveryFileOwnerRow> findDeliveryFileOwner(@Param("visitId") UUID visitId);
 
-    @Select("SELECT count(*) FROM inspection_file_object WHERE owner_id=#{serviceOrderId} AND purpose='DELIVERY_ARTIFACT' AND file_status <> 'DELETED'")
-    int countDeliveryFiles(@Param("serviceOrderId") UUID serviceOrderId);
+    @Select("SELECT count(*) FROM inspection_file_object WHERE owner_id=#{visitId} AND purpose='DELIVERY_ARTIFACT' AND file_status <> 'DELETED'")
+    int countDeliveryFiles(@Param("visitId") UUID visitId);
 
     @Select("""
             SELECT request_hash request_digest, resource_id file_id
@@ -492,7 +530,7 @@ public interface ReservationPersistenceMapper {
             String failureReason
     ) { }
     record ReservationOwnerRow(UUID reservationId, UUID customerId, UUID providerId) { }
-    record DeliveryFileOwnerRow(UUID serviceOrderId, UUID customerId, UUID providerId, String orderStatus) { }
+    record DeliveryFileOwnerRow(UUID visitId, UUID serviceOrderId, UUID customerId, UUID providerId, String visitStatus) { }
     record ReservationFlowStateRow(String status, UUID currentPlanId, int version) { }
     record CustomerReservationSummaryRow(
             UUID reservationId,
@@ -509,7 +547,12 @@ public interface ReservationPersistenceMapper {
             UUID currentPlanId,
             UUID serviceOrderId,
             String serviceOrderStatus,
-            Long quoteAmountMinor
+            Long quoteAmountMinor,
+            int visitCount,
+            int acceptedVisitCount,
+            LocalDate nextVisitDate,
+            UUID pendingAcceptanceVisitId,
+            Integer pendingAcceptanceVisitNo
     ) { }
     record CustomerReservationCountsRow(
             long allCount,

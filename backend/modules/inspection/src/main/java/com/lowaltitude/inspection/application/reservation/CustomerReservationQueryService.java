@@ -51,7 +51,12 @@ public final class CustomerReservationQueryService {
                         row.serviceOrderId(),
                         row.serviceOrderStatus(),
                         row.quoteAmountMinor(),
-                        "CNY"))
+                        "CNY",
+                        row.visitCount(),
+                        row.acceptedVisitCount(),
+                        row.nextVisitDate(),
+                        row.pendingAcceptanceVisitId(),
+                        row.pendingAcceptanceVisitNo()))
                 .toList();
         return new CustomerReservationPage(
                 items,
@@ -107,7 +112,12 @@ record CustomerReservationSummary(
         UUID serviceOrderId,
         String serviceOrderStatus,
         Long quoteAmountMinor,
-        String currency
+        String currency,
+        int visitCount,
+        int acceptedVisitCount,
+        LocalDate nextVisitDate,
+        UUID pendingAcceptanceVisitId,
+        Integer pendingAcceptanceVisitNo
 ) { }
 
 record StoredCustomerReservationSummary(
@@ -125,7 +135,12 @@ record StoredCustomerReservationSummary(
         UUID currentPlanId,
         UUID serviceOrderId,
         String serviceOrderStatus,
-        Long quoteAmountMinor
+        Long quoteAmountMinor,
+        int visitCount,
+        int acceptedVisitCount,
+        LocalDate nextVisitDate,
+        UUID pendingAcceptanceVisitId,
+        Integer pendingAcceptanceVisitNo
 ) { }
 
 record CustomerReservationStageCounts(

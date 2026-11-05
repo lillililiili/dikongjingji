@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.domain.files.DeliveryFileType;
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,6 +83,83 @@ class PlanApplicationServiceTest {
                 command("修改报价", 101),
                 "publish-2-conflict"))
                 .isInstanceOf(PlanIdempotencyConflictException.class);
+    }
+
+    @Test
+    void reusingAPublishKeyOnAnotherReservationConflicts() {
+        service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command("首次方案", 100),
+                "publish-first");
+
+        UUID otherReservation = useAnotherReservation();
+
+        assertThatThrownBy(() -> service.publish(
+                provider(PROVIDER),
+                otherReservation,
+                PUBLISH_KEY,
+                0,
+                command("首次方案", 100),
+                "publish-second"))
+                .isInstanceOf(PlanIdempotencyConflictException.class);
+    }
+
+    @Test
+    void reusingAConfirmKeyOnAnotherPlanConflicts() {
+        ConfirmPlanCommand agreement = new ConfirmPlanCommand("inspection-plan-v1", true);
+        ServicePlanView first = service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command("首次方案", 100),
+                "publish-first");
+        service.confirm(customer(CUSTOMER), first.id(), CONFIRM_KEY, 0, agreement, "confirm-first");
+
+        UUID otherReservation = useAnotherReservation();
+        ServicePlanView second = service.publish(
+                provider(PROVIDER),
+                otherReservation,
+                UUID.randomUUID(),
+                0,
+                command("另一份方案", 100),
+                "publish-other");
+
+        assertThatThrownBy(() -> service.confirm(
+                customer(CUSTOMER),
+                second.id(),
+                CONFIRM_KEY,
+                0,
+                agreement,
+                "confirm-second"))
+                .isInstanceOf(PlanIdempotencyConflictException.class);
+    }
+
+    @Test
+    void deliveryTermsStayWithinTheContractLimits() {
+        assertThat(service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                withTerms(new DeliveryTerms(8_760, 3_650)),
+                "publish-limit").terms().deliveryTerms()).isEqualTo(new DeliveryTerms(8_760, 3_650));
+
+        for (DeliveryTerms invalid : List.of(
+                new DeliveryTerms(8_761, 90),
+                new DeliveryTerms(48, 3_651))) {
+            assertThatThrownBy(() -> service.publish(
+                    provider(PROVIDER),
+                    RESERVATION,
+                    UUID.randomUUID(),
+                    1,
+                    withTerms(invalid),
+                    "publish-over-limit"))
+                    .isInstanceOf(PlanValidationException.class);
+        }
     }
 
     @Test
@@ -218,18 +296,293 @@ class PlanApplicationServiceTest {
                 .isInstanceOf(PlanExpiredException.class);
     }
 
+    @Test
+    void planRecordsItsVisitsAndTermsAndUsesTheFirstDateAsServiceDate() {
+        ServicePlanView plan = service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command(
+                        "季度巡检",
+                        100,
+                        List.of(
+                                LocalDate.of(2026, 8, 2),
+                                LocalDate.of(2026, 8, 16),
+                                LocalDate.of(2026, 9, 1))),
+                "publish-visits");
+
+        assertThat(plan.serviceDate()).isEqualTo(LocalDate.of(2026, 8, 2));
+        assertThat(plan.terms().visits()).extracting(PlanVisit::visitNo).containsExactly(1, 2, 3);
+        assertThat(plan.terms().scopeSummary()).isEqualTo("约 42 万㎡");
+        assertThat(plan.terms().serviceMethods()).extracting(CodeLabel::code)
+                .containsExactly("DRONE");
+        assertThat(plan.terms().deliveryTerms()).isEqualTo(new DeliveryTerms(48, 90));
+        assertThat(plan.terms().paymentNodes()).isEmpty();
+    }
+
+    @Test
+    void visitsMustBeInTheFutureStrictlyAscendingAndBounded() {
+        LocalDate today = LocalDate.of(2026, 7, 28);
+        assertThat(service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                UUID.randomUUID(),
+                0,
+                command("今天开始", 100, List.of(today)),
+                "publish-today").serviceDate()).isEqualTo(today);
+
+        for (List<LocalDate> invalid : List.of(
+                List.<LocalDate>of(),
+                List.of(today.minusDays(1)),
+                List.of(today.plusDays(2), today.plusDays(1)),
+                List.of(today.plusDays(1), today.plusDays(1)),
+                java.util.stream.IntStream.range(1, 54)
+                        .mapToObj(today::plusDays)
+                        .toList())) {
+            assertThatThrownBy(() -> service.publish(
+                    provider(PROVIDER),
+                    RESERVATION,
+                    UUID.randomUUID(),
+                    1,
+                    command("非法日期", 100, invalid),
+                    "publish-bad-visits"))
+                    .isInstanceOf(PlanValidationException.class);
+        }
+    }
+
+    @Test
+    void deliverablesNeedOneItemAndCannotRepeatAFileType() {
+        ServicePlanView single = service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command(
+                        "只交报告",
+                        List.of(new DeliverableInput(
+                                "REPORT",
+                                "巡检报告",
+                                DeliveryFileType.INSPECTION_REPORT))),
+                "publish-one-deliverable");
+        assertThat(single.deliverables()).hasSize(1);
+
+        assertThatThrownBy(() -> service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                UUID.randomUUID(),
+                1,
+                command("没有交付物", List.of()),
+                "publish-no-deliverable"))
+                .isInstanceOf(PlanValidationException.class);
+        assertThatThrownBy(() -> service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                UUID.randomUUID(),
+                1,
+                command(
+                        "重复类型",
+                        List.of(
+                                new DeliverableInput(
+                                        "REPORT",
+                                        "巡检报告",
+                                        DeliveryFileType.INSPECTION_REPORT),
+                                new DeliverableInput(
+                                        "REPORT_2",
+                                        "复核报告",
+                                        DeliveryFileType.INSPECTION_REPORT))),
+                "publish-repeat-type"))
+                .isInstanceOf(PlanValidationException.class);
+    }
+
+    @Test
+    void changedVisitsCannotReusePublishIdempotencyKey() {
+        service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command("首次方案", 100, List.of(LocalDate.of(2026, 8, 2))),
+                "publish-key");
+
+        assertThatThrownBy(() -> service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                1,
+                command("首次方案", 100, List.of(LocalDate.of(2026, 8, 3))),
+                "publish-key-conflict"))
+                .isInstanceOf(PlanIdempotencyConflictException.class);
+    }
+
+    @Test
+    void confirmationCopiesEveryPlannedVisitIntoTheOrder() {
+        ServicePlanView plan = service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command(
+                        "两次巡检",
+                        100,
+                        List.of(LocalDate.of(2026, 8, 2), LocalDate.of(2026, 8, 16))),
+                "publish-two");
+
+        ServiceOrderView order = service.confirm(
+                customer(CUSTOMER),
+                plan.id(),
+                CONFIRM_KEY,
+                0,
+                new ConfirmPlanCommand("inspection-plan-v2", true),
+                "confirm-two");
+
+        assertThat(order.status()).isEqualTo(ServiceOrderStatus.ARRANGING);
+        assertThat(order.paymentMode()).isEqualTo(PaymentMode.NONE);
+        assertThat(order.paymentNodes()).isEmpty();
+        assertThat(order.visits()).extracting(StoredServiceVisit::visitNo).containsExactly(1, 2);
+        assertThat(order.visits()).allSatisfy(visit -> {
+            assertThat(visit.status()).isEqualTo(ServiceVisitStatus.PENDING_SCHEDULE);
+            assertThat(visit.serviceOrderId()).isEqualTo(order.id());
+            assertThat(visit.id()).isNotEqualTo(order.id());
+        });
+        assertThat(order.visits().get(1).plannedDate()).isEqualTo(LocalDate.of(2026, 8, 16));
+    }
+
+    @Test
+    void paymentNodesAreCopiedToTheOrderWhenEnabled() {
+        service = new PlanApplicationService(store, Clock.fixed(NOW, ZoneOffset.UTC), true);
+        ServicePlanView plan = service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command(
+                        "按次付款",
+                        100,
+                        List.of(LocalDate.of(2026, 8, 2), LocalDate.of(2026, 8, 16))),
+                "publish-nodes");
+
+        ServiceOrderView order = service.confirm(
+                customer(CUSTOMER),
+                plan.id(),
+                CONFIRM_KEY,
+                0,
+                new ConfirmPlanCommand("inspection-plan-v2", true),
+                "confirm-nodes");
+
+        assertThat(plan.terms().paymentNodes()).extracting(PlanPaymentNode::amountMinor)
+                .containsExactly(720L, 840L, 840L);
+        assertThat(order.paymentMode()).isEqualTo(PaymentMode.NODES);
+        assertThat(order.paymentNodes()).extracting(OrderPaymentNodeView::payable)
+                .containsExactly(true, false, false);
+        assertThat(order.paymentNodes()).extracting(OrderPaymentNodeView::paidAt)
+                .containsOnlyNulls();
+        StoredServiceOrder stored = store.orders.get(order.id());
+        assertThat(stored.paymentNodes().get(1).visitId())
+                .isEqualTo(stored.visits().get(0).id());
+        assertThat(stored.paymentNodes().get(0).visitId()).isNull();
+    }
+
+    @Test
+    void customerListsPlanVersionsOfTheirOwnReservationOnly() {
+        store.versions = List.of(new PlanVersionSummary(
+                UUID.randomUUID(),
+                "FA1",
+                1,
+                PlanStatus.WITHDRAWN,
+                1_200_000L,
+                List.of(),
+                null,
+                NOW));
+
+        assertThat(service.listVersions(customer(CUSTOMER), RESERVATION))
+                .extracting(PlanVersionSummary::planVersion)
+                .containsExactly(1);
+        assertThatThrownBy(() -> service.listVersions(customer(UUID.randomUUID()), RESERVATION))
+                .isInstanceOf(PlanResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.listVersions(customer(CUSTOMER), UUID.randomUUID()))
+                .isInstanceOf(PlanResourceNotFoundException.class);
+    }
+
+    private UUID useAnotherReservation() {
+        PlanReservation source = reservation();
+        UUID id = UUID.randomUUID();
+        store.reservation = new PlanReservation(
+                id,
+                "IR202607280002",
+                source.customerId(),
+                source.providerId(),
+                source.status(),
+                source.serviceId(),
+                source.serviceTitle(),
+                source.serviceCoverUrl(),
+                source.cityCode(),
+                source.address(),
+                source.longitude(),
+                source.latitude(),
+                source.lineLengthMeters(),
+                source.inspectionItems(),
+                source.version());
+        return id;
+    }
+
+    private static PublishPlanCommand withTerms(DeliveryTerms terms) {
+        PublishPlanCommand base = command("交付约定", 100);
+        return new PublishPlanCommand(
+                base.providerId(),
+                base.validUntil(),
+                base.visits(),
+                base.summary(),
+                base.scopeSummary(),
+                base.serviceMethods(),
+                terms,
+                base.changeNote(),
+                base.planItems(),
+                base.deliverables(),
+                base.currency());
+    }
+
     private static PublishPlanCommand command(String summary, long unitPriceMinor) {
+        return command(summary, unitPriceMinor, List.of(LocalDate.of(2026, 8, 2)));
+    }
+
+    private static PublishPlanCommand command(String summary, List<DeliverableInput> deliverables) {
+        return command(summary, 100, List.of(LocalDate.of(2026, 8, 2)), deliverables);
+    }
+
+    private static PublishPlanCommand command(
+            String summary,
+            long unitPriceMinor,
+            List<LocalDate> visits
+    ) {
+        return command(
+                summary,
+                unitPriceMinor,
+                visits,
+                List.of(
+                        new DeliverableInput("HD_MEDIA", "高清巡检影像", null),
+                        new DeliverableInput("DEFECT_LIST", "缺陷清单", null),
+                        new DeliverableInput("POINT_MARKS", "点位标注", null),
+                        new DeliverableInput("REPORT", "巡检报告", null)));
+    }
+
+    private static PublishPlanCommand command(
+            String summary,
+            long unitPriceMinor,
+            List<LocalDate> visits,
+            List<DeliverableInput> deliverables
+    ) {
         return new PublishPlanCommand(
                 PROVIDER,
                 NOW.plusSeconds(86_400),
-                LocalDate.of(2026, 8, 2),
+                visits,
                 summary,
+                "约 42 万㎡",
+                List.of(new CodeLabel("DRONE", "无人机巡检")),
+                new DeliveryTerms(48, 90),
+                null,
                 List.of(new PlanItemInput("POWER_LINE", "线路本体巡检", 24, "基", unitPriceMinor)),
-                List.of(
-                        new DeliverableInput("HD_MEDIA", "高清巡检影像"),
-                        new DeliverableInput("DEFECT_LIST", "缺陷清单"),
-                        new DeliverableInput("POINT_MARKS", "点位标注"),
-                        new DeliverableInput("REPORT", "巡检报告")),
+                deliverables,
                 "CNY");
     }
 
@@ -277,6 +630,7 @@ final class InMemoryPlanStore implements PlanStore {
     final Map<UUID, StoredServicePlan> plans = new HashMap<>();
     final Map<UUID, StoredServiceOrder> orders = new HashMap<>();
     final Map<String, PlanIdempotencyEntry> idempotency = new HashMap<>();
+    List<PlanVersionSummary> versions = List.of();
     int publishCount;
     int confirmCount;
 
@@ -306,6 +660,11 @@ final class InMemoryPlanStore implements PlanStore {
             UUID key
     ) {
         return Optional.ofNullable(idempotency.get(actorId + ":" + operation + ":" + key));
+    }
+
+    @Override
+    public List<PlanVersionSummary> findPlanVersions(UUID reservationId) {
+        return versions;
     }
 
     @Override
@@ -366,6 +725,7 @@ final class InMemoryPlanStore implements PlanStore {
         }
         plans.put(current.id(), current.confirmed(
                 Instant.parse("2026-07-28T02:00:00Z"),
+                actor.subjectId(),
                 order.id()));
         orders.put(order.id(), order);
         idempotency.put(entryKey(entry), entry);

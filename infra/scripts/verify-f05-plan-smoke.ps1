@@ -196,7 +196,9 @@ $publishKey = [Guid]::NewGuid().ToString()
 $publishBodyObject = @{
     providerId = $providerId
     validUntil = [DateTime]::UtcNow.AddDays(2).ToString('o')
-    serviceDate = [DateTime]::UtcNow.AddDays(7).ToString('yyyy-MM-dd')
+    visits = @(
+        @{ plannedDate = [DateTime]::UtcNow.AddDays(7).ToString('yyyy-MM-dd') }
+    )
     summary = 'UAV collection and professional review'
     planItems = @(
         @{
@@ -348,6 +350,9 @@ if ($platformConfirmStatus -ne 403) {
 }
 if ($order.id -ne $orderReplay.id -or $order.status -ne 'ARRANGING') {
     throw 'Plan confirmation did not return one idempotent ARRANGING order.'
+}
+if (@($order.visits).Count -ne 1 -or $order.visits[0].status -ne 'PENDING_SCHEDULE') {
+    throw 'Plan confirmation did not copy the planned visit into the order.'
 }
 if ($confirmedPlan.status -ne 'CONFIRMED' `
         -or $confirmedPlan.serviceOrderId -ne $order.id `

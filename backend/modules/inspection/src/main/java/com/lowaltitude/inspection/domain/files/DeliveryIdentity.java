@@ -10,8 +10,9 @@ public final class DeliveryIdentity {
     private DeliveryIdentity() {
     }
 
-    public static UUID forServiceOrder(UUID serviceOrderId) {
-        UUID required = Objects.requireNonNull(serviceOrderId, "serviceOrderId must not be null");
+    /** Backfilled first visits reuse the service order id, so old deliveries keep their id. */
+    public static UUID forVisit(UUID visitId) {
+        UUID required = Objects.requireNonNull(visitId, "visitId must not be null");
         return UUID.nameUUIDFromBytes(
                 ("inspection-delivery:" + required).getBytes(StandardCharsets.UTF_8));
     }

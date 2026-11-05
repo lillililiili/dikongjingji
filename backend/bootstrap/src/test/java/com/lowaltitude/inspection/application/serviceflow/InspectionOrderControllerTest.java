@@ -32,6 +32,9 @@ class InspectionOrderControllerTest {
     private static final UUID CUSTOMER = UUID.fromString("10000000-0000-4000-8000-000000000001");
     private static final UUID PROVIDER = UUID.fromString("30000000-0000-4000-8000-000000000001");
     private static final UUID ORDER = UUID.fromString("60000000-0000-4000-8000-000000000001");
+    private static final UUID VISIT = UUID.fromString("61000000-0000-4000-8000-000000000001");
+    private static final String VISIT_PATH =
+            "/api/v1/provider/inspection/service-orders/{serviceOrderId}/visits/{visitId}";
 
     private MockMvc mvc;
 
@@ -56,13 +59,13 @@ class InspectionOrderControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "plannedStartAt": "2026-08-02T01:00:00Z",
                                   "assignments": [
                                     {
                                       "type": "TEAM_MEMBER",
                                       "resourceId": "70000000-0000-4000-8000-000000000001",
                                       "displayName": "Dongying team",
-                                      "roleLabel": "Lead"
+                                      "roleLabel": "Lead",
+                                      "contactMobile": "13812346621"
                                     },
                                     {
                                       "type": "DEVICE",
@@ -76,12 +79,26 @@ class InspectionOrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("ETag", "\"1\""))
                 .andExpect(jsonPath("$.assignments.length()").value(2))
+                .andExpect(jsonPath("$.assignments[0].contactMobileMasked")
+                        .value("138****6621"))
+                .andExpect(jsonPath("$.assignments[0].contactMobile").doesNotExist())
                 .andExpect(jsonPath("$.progress[0].eventCode")
                         .value("ARRANGEMENT_READY"));
 
-        mvc.perform(post(
-                                "/api/v1/provider/inspection/service-orders/{serviceOrderId}/progress-events",
-                                ORDER)
+        mvc.perform(put(VISIT_PATH + "/schedule", ORDER, VISIT)
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("If-Match", "\"0\"")
+                        .contentType("application/json")
+                        .content("""
+                                {"plannedStartAt": "2026-08-02T01:00:00Z"}
+                                """)
+                        .principal(provider(Set.of("inspection.order.arrange.assigned"))))
+                .andExpect(status().isOk())
+                .andExpect(header().string("ETag", "\"1\""))
+                .andExpect(jsonPath("$.status").value("SCHEDULED"))
+                .andExpect(jsonPath("$.plannedStartAt").exists());
+
+        mvc.perform(post(VISIT_PATH + "/progress-events", ORDER, VISIT)
                         .header("Idempotency-Key", UUID.randomUUID())
                         .header("If-Match", "\"1\"")
                         .contentType("application/json")
@@ -95,13 +112,47 @@ class InspectionOrderControllerTest {
                         .principal(provider(Set.of("inspection.order.progress.assigned"))))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("ETag", "\"2\""))
-                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.progress[0].eventCode").value("SERVICE_STARTED"));
 
         mvc.perform(get("/api/v1/inspection/service-orders/{serviceOrderId}", ORDER)
                         .principal(customer(CUSTOMER)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.serviceOrderNo").value("FW202607280001"))
-                .andExpect(jsonPath("$.progress.length()").value(2));
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.progress.length()").value(1))
+                .andExpect(jsonPath("$.visits[0].status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.visits[0].progress.length()").value(1))
+                .andExpect(jsonPath("$.paymentMode").value("NONE"));
+    }
+
+    @Test
+    void outOfOrderStartAndWrongVisitStateMapToStableErrors() throws Exception {
+        mvc.perform(post(VISIT_PATH + "/progress-events", ORDER, VISIT)
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("If-Match", "\"0\"")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "eventCode": "SERVICE_STARTED",
+                                  "occurredAt": "2026-07-28T03:01:00Z",
+                                  "message": "Not scheduled yet"
+                                }
+                                """)
+                        .principal(provider(Set.of("inspection.order.progress.assigned"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INS_VISIT_STATE_INVALID"));
+
+        mvc.perform(put(VISIT_PATH + "/schedule", ORDER, UUID.randomUUID())
+                        .header("Idempotency-Key", UUID.randomUUID())
+                        .header("If-Match", "\"0\"")
+                        .contentType("application/json")
+                        .content("""
+                                {"plannedStartAt": "2026-08-02T01:00:00Z"}
+                                """)
+                        .principal(provider(Set.of("inspection.order.arrange.assigned"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
     }
 
     @Test
@@ -119,7 +170,6 @@ class InspectionOrderControllerTest {
                         .contentType("application/json")
                         .content("""
                                 {
-                                  "plannedStartAt": "2026-08-02T01:00:00Z",
                                   "assignments": [
                                     {
                                       "type": "TEAM_MEMBER",
@@ -149,6 +199,7 @@ class InspectionOrderControllerTest {
                 UUID.randomUUID(),
                 CUSTOMER,
                 PROVIDER,
+                PaymentMode.NONE,
                 ServiceOrderStatus.ARRANGING,
                 new ServiceSnapshot(
                         UUID.randomUUID(),
@@ -161,6 +212,11 @@ class InspectionOrderControllerTest {
                         18_600L,
                         LocalDate.of(2026, 8, 2),
                         List.of(new CodeLabel("POWER_LINE", "Line inspection"))),
+                List.of(StoredServiceVisit.planned(
+                        VISIT,
+                        ORDER,
+                        new PlanVisit(1, LocalDate.of(2026, 8, 2)))),
+                List.of(),
                 NOW.minusSeconds(3_600),
                 0);
     }
@@ -219,9 +275,15 @@ final class ControllerOrderStore implements PlanStore {
     }
 
     @Override
+    public Optional<StoredServiceVisit> findVisit(UUID visitId) {
+        return order.visit(visitId);
+    }
+
+    @Override
     public PlanWriteResult arrange(
             StoredServiceOrder expectedOrder,
             StoredServiceOrder arrangedOrder,
+            List<AssignmentWrite> assignments,
             PlanIdempotencyEntry entry,
             CurrentSubject actor,
             String requestId
@@ -232,16 +294,54 @@ final class ControllerOrderStore implements PlanStore {
     }
 
     @Override
+    public PlanWriteResult schedule(
+            StoredServiceOrder expectedOrder,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit scheduledVisit,
+            PlanIdempotencyEntry entry,
+            Instant at,
+            CurrentSubject actor,
+            String requestId
+    ) {
+        replaceVisit(scheduledVisit, order.status());
+        idempotency.put(entry.actorId() + ":" + entry.operation() + ":" + entry.key(), entry);
+        return PlanWriteResult.SAVED;
+    }
+
+    @Override
     public PlanWriteResult appendProgress(
             StoredServiceOrder expectedOrder,
-            StoredServiceOrder updatedOrder,
+            ServiceOrderStatus nextOrderStatus,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit updatedVisit,
             PlanIdempotencyEntry entry,
             CurrentSubject actor,
             String requestId
     ) {
-        order = updatedOrder;
+        replaceVisit(updatedVisit, nextOrderStatus);
         idempotency.put(entry.actorId() + ":" + entry.operation() + ":" + entry.key(), entry);
         return PlanWriteResult.SAVED;
+    }
+
+    private void replaceVisit(StoredServiceVisit updated, ServiceOrderStatus status) {
+        order = new StoredServiceOrder(
+                order.id(),
+                order.serviceOrderNo(),
+                order.reservationId(),
+                order.planId(),
+                order.customerId(),
+                order.providerId(),
+                order.paymentMode(),
+                status,
+                order.serviceSnapshot(),
+                order.assignments(),
+                order.progress(),
+                ServiceOrderProgression.replace(order.visits(), updated),
+                order.paymentNodes(),
+                order.createdAt(),
+                order.deliveredAt(),
+                order.acceptedAt(),
+                order.version());
     }
 
     @Override public Optional<PlanReservation> findReservation(UUID id) { return Optional.empty(); }

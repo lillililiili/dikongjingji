@@ -39,7 +39,12 @@ final class PostgresCustomerReservationQueryStore
                         row.currentPlanId(),
                         row.serviceOrderId(),
                         row.serviceOrderStatus(),
-                        row.quoteAmountMinor()))
+                        row.quoteAmountMinor(),
+                        row.visitCount(),
+                        row.acceptedVisitCount(),
+                        row.nextVisitDate(),
+                        row.pendingAcceptanceVisitId(),
+                        row.pendingAcceptanceVisitNo()))
                 .toList();
     }
 

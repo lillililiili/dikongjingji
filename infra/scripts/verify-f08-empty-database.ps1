@@ -85,6 +85,8 @@ SELECT
               'inspection_reservation',
               'inspection_service_plan',
               'inspection_service_order',
+              'inspection_plan_visit',
+              'inspection_service_visit',
               'inspection_delivery',
               'inspection_acceptance',
               'inspection_file_object'
@@ -102,7 +104,7 @@ SELECT
     if ($parts.Count -ne 4 `
             -or [int]$parts[0] -lt 2 `
             -or [int]$parts[1] -lt 3 `
-            -or [int]$parts[2] -ne 6 `
+            -or [int]$parts[2] -ne 8 `
             -or [int]$parts[3] -ne 1) {
         throw "Unexpected empty-database migration evidence: $migrationEvidence"
     }

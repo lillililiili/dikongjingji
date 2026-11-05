@@ -90,7 +90,12 @@ class CustomerReservationQueryServiceTest {
                 currentPlanId,
                 serviceOrderId,
                 null,
-                quoteAmountMinor);
+                quoteAmountMinor,
+                0,
+                0,
+                null,
+                null,
+                null);
     }
 }
 

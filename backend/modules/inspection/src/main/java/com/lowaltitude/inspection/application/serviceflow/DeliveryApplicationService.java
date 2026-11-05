@@ -1,5 +1,6 @@
 package com.lowaltitude.inspection.application.serviceflow;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +15,7 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -40,6 +42,9 @@ public class DeliveryApplicationService {
     static final String DOWNLOAD_ALL_OPERATION = "inspection.delivery.download-all";
     private static final Duration DOWNLOAD_TTL = Duration.ofMinutes(5);
     private static final int MAX_ISSUE_SUMMARY = 20;
+    private static final int MAX_METRICS = 12;
+    private static final BigDecimal MAX_METRIC_VALUE = new BigDecimal("999999999999999");
+    private static final int MAX_METRIC_SCALE = 6;
     private static final int MAX_NOTE_LENGTH = 500;
 
     private final PlanStore orderStore;
@@ -66,23 +71,28 @@ public class DeliveryApplicationService {
     public DeliveryView publish(
             CurrentSubject subject,
             UUID serviceOrderId,
+            UUID visitId,
             UUID idempotencyKey,
-            int expectedOrderVersion,
+            int expectedVisitVersion,
             PublishDeliveryCommand command,
             String requestId
     ) {
         requireProvider(subject);
         validatePublish(
                 serviceOrderId,
+                visitId,
                 idempotencyKey,
-                expectedOrderVersion,
+                expectedVisitVersion,
                 command,
                 requestId);
+        orderStore.lockOrder(serviceOrderId);
         StoredServiceOrder order = orderStore.findOrder(serviceOrderId)
                 .orElseThrow(PlanResourceNotFoundException::new);
         requireProviderOwns(order, subject);
+        StoredServiceVisit visit =
+                order.visit(visitId).orElseThrow(PlanResourceNotFoundException::new);
 
-        String requestDigest = digestPublish(command);
+        String requestDigest = digestPublish(visitId, command);
         Optional<DeliveryIdempotencyEntry> prior = store.findDeliveryIdempotency(
                 subject.subjectId(),
                 PUBLISH_OPERATION,
@@ -90,44 +100,54 @@ public class DeliveryApplicationService {
         if (prior.isPresent()) {
             return replayDelivery(prior.get(), requestDigest);
         }
-        if (order.version() != expectedOrderVersion) {
+        if (visit.version() != expectedVisitVersion) {
             throw new PlanVersionConflictException();
         }
-        if (order.status() != ServiceOrderStatus.IN_PROGRESS
-                || order.progress().stream().noneMatch(
-                        event -> event.eventCode() == OrderProgressCode.SERVICE_COMPLETED)
-                || store.findDeliveryByOrder(serviceOrderId).isPresent()) {
+        if (visit.status() != ServiceVisitStatus.IN_PROGRESS
+                || !visit.serviceCompleted()
+                || store.findDeliveryByVisit(visitId).isPresent()) {
             throw new DeliveryStateInvalidException();
         }
 
-        UUID deliveryId = DeliveryIdentity.forServiceOrder(serviceOrderId);
-        List<StoredDeliveryFile> files =
-                validatedFiles(order, deliveryId, command.files(), command.towerCount());
+        UUID deliveryId = DeliveryIdentity.forVisit(visitId);
+        List<StoredDeliveryFile> files = validatedFiles(
+                order,
+                visit,
+                deliveryId,
+                command.files(),
+                requiredFileTypes(order),
+                command.towerCount());
         Instant now = clock.instant();
         List<IssueSummary> issues = command.issueSummary().stream()
                 .map(item -> new IssueSummary(
-                        item.severityCode().trim(),
-                        item.severityName().trim(),
+                        item.groupCode().trim(),
+                        item.groupName().trim(),
                         item.count()))
                 .toList();
         StoredDelivery delivery = new StoredDelivery(
                 deliveryId,
                 serviceOrderId,
+                visitId,
                 DeliveryStatus.PUBLISHED,
                 command.towerCount(),
                 command.inspectedLengthMeters(),
+                command.metrics().stream()
+                        .map(item -> new DeliveryMetric(
+                                item.code().trim(),
+                                item.label().trim(),
+                                item.value(),
+                                item.unit().trim()))
+                        .toList(),
                 command.issueCount(),
+                command.issueGroupBy(),
                 issues,
                 files,
                 now,
                 null,
                 0);
-        StoredServiceOrder deliveredOrder = copyOrder(
-                order,
-                ServiceOrderStatus.DELIVERED,
-                now,
-                null,
-                order.version() + 1);
+        StoredServiceVisit deliveredVisit = visit.delivered(now);
+        ServiceOrderStatus nextOrderStatus = ServiceOrderProgression.derive(
+                ServiceOrderProgression.replace(order.visits(), deliveredVisit));
         DeliveryIdempotencyEntry entry = new DeliveryIdempotencyEntry(
                 subject.subjectId(),
                 PUBLISH_OPERATION,
@@ -136,7 +156,9 @@ public class DeliveryApplicationService {
                 delivery.id());
         DeliveryWriteResult result = store.publishDelivery(
                 order,
-                deliveredOrder,
+                nextOrderStatus,
+                visit,
+                deliveredVisit,
                 delivery,
                 entry,
                 subject,
@@ -159,8 +181,8 @@ public class DeliveryApplicationService {
         return toView(delivery);
     }
 
-    public DeliveryView read(CurrentSubject subject, UUID serviceOrderId) {
-        VisibleDelivery visible = visibleDelivery(subject, serviceOrderId);
+    public DeliveryView read(CurrentSubject subject, UUID serviceOrderId, UUID visitId) {
+        VisibleDelivery visible = visibleDelivery(subject, serviceOrderId, visitId);
         return toView(visible.delivery());
     }
 
@@ -168,18 +190,19 @@ public class DeliveryApplicationService {
     public DownloadIntentView download(
             CurrentSubject subject,
             UUID serviceOrderId,
+            UUID visitId,
             UUID fileId,
             UUID idempotencyKey
     ) {
         if (fileId == null || idempotencyKey == null) {
             throw new PlanValidationException();
         }
-        VisibleDelivery visible = visibleDownload(subject, serviceOrderId);
+        VisibleDelivery visible = visibleDownload(subject, serviceOrderId, visitId);
         StoredDeliveryFile file = visible.delivery().files().stream()
                 .filter(item -> item.fileId().equals(fileId))
                 .findFirst()
                 .orElseThrow(PlanResourceNotFoundException::new);
-        String requestDigest = digest(List.of(serviceOrderId, fileId));
+        String requestDigest = digest(List.of(serviceOrderId, visitId, fileId));
         claimDownload(
                 subject,
                 DOWNLOAD_OPERATION,
@@ -204,14 +227,15 @@ public class DeliveryApplicationService {
     public DownloadIntentView downloadAll(
             CurrentSubject subject,
             UUID serviceOrderId,
+            UUID visitId,
             UUID idempotencyKey
     ) {
         if (idempotencyKey == null) {
             throw new PlanValidationException();
         }
-        VisibleDelivery visible = visibleDownload(subject, serviceOrderId);
+        VisibleDelivery visible = visibleDownload(subject, serviceOrderId, visitId);
         StoredDelivery delivery = visible.delivery();
-        String requestDigest = digest(List.of(serviceOrderId, delivery.id()));
+        String requestDigest = digest(List.of(serviceOrderId, visitId, delivery.id()));
         claimDownload(
                 subject,
                 DOWNLOAD_ALL_OPERATION,
@@ -238,7 +262,7 @@ public class DeliveryApplicationService {
         return new DownloadIntentView(
                 intent.method(),
                 intent.url(),
-                visible.order().serviceOrderNo() + "-交付文件.zip",
+                bundleFileName(visible.order(), visitId),
                 intent.expiresAt());
     }
 
@@ -246,25 +270,31 @@ public class DeliveryApplicationService {
     public AcceptanceView accept(
             CurrentSubject subject,
             UUID serviceOrderId,
+            UUID visitId,
             UUID idempotencyKey,
-            int expectedOrderVersion,
+            int expectedVisitVersion,
             AcceptDeliveryCommand command,
             String requestId
     ) {
         requireCustomerAcceptor(subject);
         validateAccept(
                 serviceOrderId,
+                visitId,
                 idempotencyKey,
-                expectedOrderVersion,
+                expectedVisitVersion,
                 command,
                 requestId);
+        orderStore.lockOrder(serviceOrderId);
         StoredServiceOrder order = orderStore.findOrder(serviceOrderId)
                 .orElseThrow(PlanResourceNotFoundException::new);
         if (!order.customerId().equals(subject.subjectId())) {
             throw new PlanResourceNotFoundException();
         }
+        StoredServiceVisit visit =
+                order.visit(visitId).orElseThrow(PlanResourceNotFoundException::new);
 
         String requestDigest = digest(java.util.Arrays.asList(
+                visitId,
                 command.confirmed(),
                 normalize(command.note())));
         Optional<DeliveryIdempotencyEntry> prior = store.findDeliveryIdempotency(
@@ -274,43 +304,46 @@ public class DeliveryApplicationService {
         if (prior.isPresent()) {
             return replayAcceptance(prior.get(), requestDigest);
         }
-        if (order.version() != expectedOrderVersion) {
+        if (visit.version() != expectedVisitVersion) {
             throw new PlanVersionConflictException();
         }
-        if (order.status() == ServiceOrderStatus.ACCEPTED) {
-            return store.findAcceptanceByOrder(serviceOrderId)
+        if (visit.status() == ServiceVisitStatus.ACCEPTED) {
+            return store.findAcceptanceByVisit(visitId)
                     .map(this::toView)
                     .orElseThrow(DeliveryStateInvalidException::new);
         }
-        StoredDelivery delivery = store.findDeliveryByOrder(serviceOrderId)
+        StoredDelivery delivery = store.findDeliveryByVisit(visitId)
                 .orElseThrow(PlanResourceNotFoundException::new);
-        if (order.status() != ServiceOrderStatus.DELIVERED
+        if (visit.status() != ServiceVisitStatus.DELIVERED
                 || delivery.status() != DeliveryStatus.PUBLISHED) {
             throw new DeliveryStateInvalidException();
         }
 
         Instant now = clock.instant();
+        StoredServiceVisit acceptedVisit = visit.accepted(now);
+        ServiceOrderStatus nextOrderStatus = ServiceOrderProgression.derive(
+                ServiceOrderProgression.replace(order.visits(), acceptedVisit));
         StoredAcceptance acceptance = new StoredAcceptance(
                 UUID.randomUUID(),
                 serviceOrderId,
+                visitId,
                 delivery.id(),
                 subject.subjectId(),
+                orderStore.findDisplayName(subject.subjectId()).orElse(null),
                 now,
                 encryptNote(command.note()),
-                order.version() + 1);
-        StoredServiceOrder acceptedOrder = copyOrder(
-                order,
-                ServiceOrderStatus.ACCEPTED,
-                order.deliveredAt(),
-                now,
-                order.version() + 1);
+                acceptedVisit.version(),
+                nextOrderStatus);
         StoredDelivery acceptedDelivery = new StoredDelivery(
                 delivery.id(),
                 delivery.serviceOrderId(),
+                delivery.visitId(),
                 DeliveryStatus.ACCEPTED,
                 delivery.towerCount(),
                 delivery.inspectedLengthMeters(),
+                delivery.metrics(),
                 delivery.issueCount(),
+                delivery.issueGroupBy(),
                 delivery.issueSummary(),
                 delivery.files(),
                 delivery.publishedAt(),
@@ -324,7 +357,9 @@ public class DeliveryApplicationService {
                 acceptance.id());
         DeliveryWriteResult result = store.acceptDelivery(
                 order,
-                acceptedOrder,
+                nextOrderStatus,
+                visit,
+                acceptedVisit,
                 delivery,
                 acceptedDelivery,
                 acceptance,
@@ -379,9 +414,10 @@ public class DeliveryApplicationService {
 
     private VisibleDelivery visibleDelivery(
             CurrentSubject subject,
-            UUID serviceOrderId
+            UUID serviceOrderId,
+            UUID visitId
     ) {
-        if (subject == null || serviceOrderId == null) {
+        if (subject == null || serviceOrderId == null || visitId == null) {
             throw new PlanResourceNotFoundException();
         }
         StoredServiceOrder order = orderStore.findOrder(serviceOrderId)
@@ -394,16 +430,18 @@ public class DeliveryApplicationService {
         if (!own && !platform) {
             throw new PlanResourceNotFoundException();
         }
-        StoredDelivery delivery = store.findDeliveryByOrder(serviceOrderId)
+        order.visit(visitId).orElseThrow(PlanResourceNotFoundException::new);
+        StoredDelivery delivery = store.findDeliveryByVisit(visitId)
                 .orElseThrow(PlanResourceNotFoundException::new);
         return new VisibleDelivery(order, delivery);
     }
 
     private VisibleDelivery visibleDownload(
             CurrentSubject subject,
-            UUID serviceOrderId
+            UUID serviceOrderId,
+            UUID visitId
     ) {
-        VisibleDelivery visible = visibleDelivery(subject, serviceOrderId);
+        VisibleDelivery visible = visibleDelivery(subject, serviceOrderId, visitId);
         boolean own = subject.roles().contains("CUSTOMER")
                 && subject.permissions().contains("inspection.delivery.download.own");
         boolean platform = subject.roles().contains("PLATFORM_OPERATOR")
@@ -414,13 +452,38 @@ public class DeliveryApplicationService {
         return visible;
     }
 
+    /** Plans without file types predate per-plan deliverables and keep all four types. */
+    private EnumSet<DeliveryFileType> requiredFileTypes(StoredServiceOrder order) {
+        EnumSet<DeliveryFileType> required = EnumSet.noneOf(DeliveryFileType.class);
+        orderStore.findPlan(order.planId())
+                .orElseThrow(PlanResourceNotFoundException::new)
+                .deliverables()
+                .stream()
+                .map(PlanDeliverable::fileType)
+                .filter(Objects::nonNull)
+                .forEach(required::add);
+        return required.isEmpty() ? EnumSet.allOf(DeliveryFileType.class) : required;
+    }
+
+    private static String bundleFileName(StoredServiceOrder order, UUID visitId) {
+        if (order.visits().size() <= 1) {
+            return order.serviceOrderNo() + "-交付文件.zip";
+        }
+        int visitNo = order.visit(visitId)
+                .orElseThrow(PlanResourceNotFoundException::new)
+                .visitNo();
+        return order.serviceOrderNo() + "-第" + visitNo + "次交付文件.zip";
+    }
+
     private List<StoredDeliveryFile> validatedFiles(
             StoredServiceOrder order,
+            StoredServiceVisit visit,
             UUID deliveryId,
             List<DeliveryFileInput> inputs,
-            int towerCount
+            EnumSet<DeliveryFileType> requiredTypes,
+            Integer towerCount
     ) {
-        if (inputs == null || inputs.size() != DeliveryFileType.values().length) {
+        if (inputs == null || inputs.size() != requiredTypes.size()) {
             throw new DeliveryFilesInvalidException();
         }
         Set<UUID> ids = new HashSet<>();
@@ -439,7 +502,8 @@ public class DeliveryApplicationService {
                     || !archiveNames.add(displayName.toLowerCase(Locale.ROOT))
                     || !ids.add(input.fileId())
                     || !types.add(input.type())
-                    || input.pointCount() != null && input.pointCount() < 0) {
+                    || input.pointCount() != null && input.pointCount() < 0
+                    || input.itemCount() != null && input.itemCount() < 0) {
                 throw new DeliveryFilesInvalidException();
             }
             DeliveryFileObject file = store.findFileObject(input.fileId())
@@ -449,7 +513,7 @@ public class DeliveryApplicationService {
                     order.id(),
                     deliveryId,
                     input.fileId());
-            if (!file.serviceOrderId().equals(order.id())
+            if (!file.visitId().equals(visit.id())
                     || !file.providerId().equals(order.providerId())
                     || file.type() != input.type()
                     || !file.contentType().equalsIgnoreCase(input.type().mimeType())
@@ -457,7 +521,8 @@ public class DeliveryApplicationService {
                     || file.status() != FileObjectStatus.READY
                     || !file.objectKey().equals(expectedKey)
                     || input.type() == DeliveryFileType.POINT_KML
-                            && !Integer.valueOf(towerCount).equals(input.pointCount())
+                            && towerCount != null
+                            && !towerCount.equals(input.pointCount())
                     || input.type() != DeliveryFileType.POINT_KML
                             && input.pointCount() != null) {
                 throw new DeliveryFilesInvalidException();
@@ -467,13 +532,14 @@ public class DeliveryApplicationService {
                     input.type(),
                     displayName,
                     input.pointCount(),
+                    input.itemCount(),
                     file.contentType(),
                     file.sizeBytes(),
                     file.status(),
                     file.bucket(),
                     file.objectKey());
         }).toList();
-        if (!types.equals(EnumSet.allOf(DeliveryFileType.class))) {
+        if (!types.equals(requiredTypes)) {
             throw new DeliveryFilesInvalidException();
         }
         return result;
@@ -481,22 +547,54 @@ public class DeliveryApplicationService {
 
     private static void validatePublish(
             UUID serviceOrderId,
+            UUID visitId,
             UUID idempotencyKey,
             int expectedVersion,
             PublishDeliveryCommand command,
             String requestId
     ) {
         if (serviceOrderId == null
+                || visitId == null
                 || idempotencyKey == null
                 || expectedVersion < 0
                 || command == null
-                || command.towerCount() < 0
-                || command.inspectedLengthMeters() < 0
+                || command.towerCount() != null && command.towerCount() < 0
+                || command.inspectedLengthMeters() != null
+                        && command.inspectedLengthMeters() < 0
+                || !validMetrics(command.metrics())
+                || command.metrics().isEmpty()
+                        && command.towerCount() == null
+                        && command.inspectedLengthMeters() == null
                 || command.issueCount() < 0
+                || command.issueGroupBy() == null
                 || !validText(requestId, 1, 80)
-                || !validIssues(command.issueSummary(), command.issueCount())) {
+                || !validIssues(command.issueSummary(), command.issueCount())
+                || !digestableFiles(command.files())) {
             throw new DeliveryFilesInvalidException();
         }
+    }
+
+    /** The idempotency digest reads these fields before the files are checked in detail. */
+    private static boolean digestableFiles(List<DeliveryFileInput> files) {
+        return files != null
+                && files.stream().allMatch(file -> file != null && file.displayName() != null);
+    }
+
+    private static boolean validMetrics(List<DeliveryMetricInput> metrics) {
+        if (metrics == null || metrics.size() > MAX_METRICS) {
+            return false;
+        }
+        Set<String> codes = new HashSet<>();
+        return metrics.stream().allMatch(metric ->
+                metric != null
+                        && validText(metric.code(), 1, 32)
+                        && validText(metric.label(), 1, 40)
+                        && validText(metric.unit(), 1, 16)
+                        && metric.value() != null
+                        && metric.value().signum() >= 0
+                        && metric.value().compareTo(MAX_METRIC_VALUE) <= 0
+                        && metric.value().scale() <= MAX_METRIC_SCALE
+                        && codes.add(metric.code().trim()));
     }
 
     private static boolean validIssues(
@@ -510,10 +608,10 @@ public class DeliveryApplicationService {
         long total = 0;
         for (IssueSummaryInput issue : issues) {
             if (issue == null
-                    || !validText(issue.severityCode(), 1, 32)
-                    || !validText(issue.severityName(), 1, 40)
+                    || !validText(issue.groupCode(), 1, 32)
+                    || !validText(issue.groupName(), 1, 40)
                     || issue.count() < 0
-                    || !codes.add(issue.severityCode().trim())) {
+                    || !codes.add(issue.groupCode().trim())) {
                 return false;
             }
             total += issue.count();
@@ -523,12 +621,14 @@ public class DeliveryApplicationService {
 
     private static void validateAccept(
             UUID serviceOrderId,
+            UUID visitId,
             UUID idempotencyKey,
             int expectedVersion,
             AcceptDeliveryCommand command,
             String requestId
     ) {
         if (serviceOrderId == null
+                || visitId == null
                 || idempotencyKey == null
                 || expectedVersion < 0
                 || command == null
@@ -597,39 +697,17 @@ public class DeliveryApplicationService {
         return normalized == null ? null : cipher.encrypt(normalized);
     }
 
-    private static StoredServiceOrder copyOrder(
-            StoredServiceOrder source,
-            ServiceOrderStatus status,
-            Instant deliveredAt,
-            Instant acceptedAt,
-            int version
-    ) {
-        return new StoredServiceOrder(
-                source.id(),
-                source.serviceOrderNo(),
-                source.reservationId(),
-                source.planId(),
-                source.customerId(),
-                source.providerId(),
-                status,
-                source.serviceSnapshot(),
-                source.plannedStartAt(),
-                source.assignments(),
-                source.progress(),
-                source.createdAt(),
-                deliveredAt,
-                acceptedAt,
-                version);
-    }
-
     private static DeliveryView toView(StoredDelivery delivery) {
         return new DeliveryView(
                 delivery.id(),
                 delivery.serviceOrderId(),
+                delivery.visitId(),
                 delivery.status(),
                 delivery.towerCount(),
                 delivery.inspectedLengthMeters(),
+                delivery.metrics(),
                 delivery.issueCount(),
+                delivery.issueGroupBy(),
                 delivery.issueSummary(),
                 delivery.files().stream()
                         .map(file -> new DeliveryFile(
@@ -637,6 +715,7 @@ public class DeliveryApplicationService {
                                 file.type(),
                                 file.displayName(),
                                 file.pointCount(),
+                                file.itemCount(),
                                 file.contentType(),
                                 file.sizeBytes(),
                                 file.status()))
@@ -650,21 +729,32 @@ public class DeliveryApplicationService {
         return new AcceptanceView(
                 acceptance.id(),
                 acceptance.serviceOrderId(),
+                acceptance.visitId(),
                 acceptance.deliveryId(),
                 acceptance.acceptedBy(),
+                acceptance.acceptedByName(),
                 acceptance.acceptedAt(),
-                ServiceOrderStatus.ACCEPTED,
-                acceptance.orderVersion());
+                ServiceVisitStatus.ACCEPTED,
+                acceptance.orderStatus(),
+                acceptance.visitVersion());
     }
 
-    private static String digestPublish(PublishDeliveryCommand command) {
+    private static String digestPublish(UUID visitId, PublishDeliveryCommand command) {
         java.util.ArrayList<Object> values = new java.util.ArrayList<>();
+        values.add(visitId);
         values.add(command.towerCount());
         values.add(command.inspectedLengthMeters());
+        command.metrics().forEach(item -> {
+            values.add(item.code().trim());
+            values.add(item.label().trim());
+            values.add(item.value().stripTrailingZeros().toPlainString());
+            values.add(item.unit().trim());
+        });
         values.add(command.issueCount());
+        values.add(command.issueGroupBy());
         command.issueSummary().forEach(item -> {
-            values.add(item.severityCode().trim());
-            values.add(item.severityName().trim());
+            values.add(item.groupCode().trim());
+            values.add(item.groupName().trim());
             values.add(item.count());
         });
         command.files().forEach(file -> {
@@ -672,6 +762,7 @@ public class DeliveryApplicationService {
             values.add(file.type());
             values.add(file.displayName().trim());
             values.add(file.pointCount());
+            values.add(file.itemCount());
         });
         return digest(values);
     }
@@ -704,22 +795,28 @@ public class DeliveryApplicationService {
 }
 
 record PublishDeliveryCommand(
-        int towerCount,
-        long inspectedLengthMeters,
+        Integer towerCount,
+        Long inspectedLengthMeters,
+        List<DeliveryMetricInput> metrics,
         int issueCount,
+        IssueGroupBy issueGroupBy,
         List<IssueSummaryInput> issueSummary,
         List<DeliveryFileInput> files
 ) {
 }
 
-record IssueSummaryInput(String severityCode, String severityName, int count) {
+record DeliveryMetricInput(String code, String label, BigDecimal value, String unit) {
+}
+
+record IssueSummaryInput(String groupCode, String groupName, int count) {
 }
 
 record DeliveryFileInput(
         UUID fileId,
         DeliveryFileType type,
         String displayName,
-        Integer pointCount
+        Integer pointCount,
+        Integer itemCount
 ) {
 }
 
@@ -731,7 +828,15 @@ enum DeliveryStatus {
     ACCEPTED
 }
 
-record IssueSummary(String severityCode, String severityName, int count) {
+enum IssueGroupBy {
+    SEVERITY,
+    CATEGORY
+}
+
+record DeliveryMetric(String code, String label, BigDecimal value, String unit) {
+}
+
+record IssueSummary(String groupCode, String groupName, int count) {
 }
 
 record DeliveryFile(
@@ -739,6 +844,7 @@ record DeliveryFile(
         DeliveryFileType type,
         String displayName,
         Integer pointCount,
+        Integer itemCount,
         String contentType,
         long sizeBytes,
         FileObjectStatus status
@@ -748,10 +854,13 @@ record DeliveryFile(
 record DeliveryView(
         UUID id,
         UUID serviceOrderId,
+        UUID visitId,
         DeliveryStatus status,
-        int towerCount,
-        long inspectedLengthMeters,
+        Integer towerCount,
+        Long inspectedLengthMeters,
+        List<DeliveryMetric> metrics,
         int issueCount,
+        IssueGroupBy issueGroupBy,
         List<IssueSummary> issueSummary,
         List<DeliveryFile> files,
         Instant publishedAt,
@@ -771,21 +880,27 @@ record DownloadIntentView(
 record AcceptanceView(
         UUID id,
         UUID serviceOrderId,
+        UUID visitId,
         UUID deliveryId,
         UUID acceptedBy,
+        String acceptedByName,
         Instant acceptedAt,
+        ServiceVisitStatus visitStatus,
         ServiceOrderStatus orderStatus,
-        int orderVersion
+        int visitVersion
 ) {
 }
 
 record StoredDelivery(
         UUID id,
         UUID serviceOrderId,
+        UUID visitId,
         DeliveryStatus status,
-        int towerCount,
-        long inspectedLengthMeters,
+        Integer towerCount,
+        Long inspectedLengthMeters,
+        List<DeliveryMetric> metrics,
         int issueCount,
+        IssueGroupBy issueGroupBy,
         List<IssueSummary> issueSummary,
         List<StoredDeliveryFile> files,
         Instant publishedAt,
@@ -799,6 +914,7 @@ record StoredDeliveryFile(
         DeliveryFileType type,
         String displayName,
         Integer pointCount,
+        Integer itemCount,
         String contentType,
         long sizeBytes,
         FileObjectStatus status,
@@ -809,7 +925,7 @@ record StoredDeliveryFile(
 
 record DeliveryFileObject(
         UUID id,
-        UUID serviceOrderId,
+        UUID visitId,
         UUID providerId,
         DeliveryFileType type,
         String contentType,
@@ -823,11 +939,14 @@ record DeliveryFileObject(
 record StoredAcceptance(
         UUID id,
         UUID serviceOrderId,
+        UUID visitId,
         UUID deliveryId,
         UUID acceptedBy,
+        String acceptedByName,
         Instant acceptedAt,
         String noteCiphertext,
-        int orderVersion
+        int visitVersion,
+        ServiceOrderStatus orderStatus
 ) {
 }
 
@@ -851,13 +970,13 @@ interface DeliveryStore {
 
     Optional<StoredDelivery> findDelivery(UUID deliveryId);
 
-    Optional<StoredDelivery> findDeliveryByOrder(UUID serviceOrderId);
+    Optional<StoredDelivery> findDeliveryByVisit(UUID visitId);
 
     Optional<DeliveryFileObject> findFileObject(UUID fileId);
 
     Optional<StoredAcceptance> findAcceptance(UUID acceptanceId);
 
-    Optional<StoredAcceptance> findAcceptanceByOrder(UUID serviceOrderId);
+    Optional<StoredAcceptance> findAcceptanceByVisit(UUID visitId);
 
     Optional<DeliveryIdempotencyEntry> findDeliveryIdempotency(
             UUID actorId,
@@ -866,7 +985,9 @@ interface DeliveryStore {
 
     DeliveryWriteResult publishDelivery(
             StoredServiceOrder expectedOrder,
-            StoredServiceOrder deliveredOrder,
+            ServiceOrderStatus nextOrderStatus,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit deliveredVisit,
             StoredDelivery delivery,
             DeliveryIdempotencyEntry entry,
             CurrentSubject actor,
@@ -874,7 +995,9 @@ interface DeliveryStore {
 
     DeliveryWriteResult acceptDelivery(
             StoredServiceOrder expectedOrder,
-            StoredServiceOrder acceptedOrder,
+            ServiceOrderStatus nextOrderStatus,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit acceptedVisit,
             StoredDelivery expectedDelivery,
             StoredDelivery acceptedDelivery,
             StoredAcceptance acceptance,

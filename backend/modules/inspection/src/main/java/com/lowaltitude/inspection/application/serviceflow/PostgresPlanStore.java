@@ -2,10 +2,12 @@ package com.lowaltitude.inspection.application.serviceflow;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.application.reservation.AesGcmSensitiveDataCipher;
+import com.lowaltitude.inspection.domain.files.DeliveryFileType;
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
 import com.lowaltitude.inspection.infrastructure.persistence.ServiceFlowPersistenceMapper;
 
@@ -49,6 +51,7 @@ final class PostgresPlanStore implements PlanStore {
                                         row.planId(),
                                         row.customerId(),
                                         row.providerId(),
+                                        PaymentMode.valueOf(row.paymentMode()),
                                         ServiceOrderStatus.valueOf(row.status()),
                                         new ServiceSnapshot(
                                                 reservation.serviceId(),
@@ -61,25 +64,76 @@ final class PostgresPlanStore implements PlanStore {
                                                 reservation.lineLengthMeters(),
                                                 plan.serviceDate(),
                                                 reservation.inspectionItems()),
-                                        row.plannedStartAt(),
                                         mapper.findOrderAssignments(row.id()).stream()
                                                 .map(item -> new OrderAssignment(
                                                         AssignmentType.valueOf(item.type()),
                                                         item.resourceId(),
                                                         item.displayName(),
-                                                        item.roleLabel()))
+                                                        item.roleLabel(),
+                                                        item.contactMobileMasked()))
                                                 .toList(),
-                                        mapper.findOrderProgress(row.id()).stream()
-                                                .map(item -> new OrderProgressEvent(
-                                                        item.id(),
-                                                        OrderProgressCode.valueOf(item.eventCode()),
-                                                        item.occurredAt(),
-                                                        item.message()))
+                                        toProgress(mapper.findOrderProgress(row.id())),
+                                        mapper.findOrderVisits(row.id()).stream()
+                                                .map(this::toVisit)
+                                                .toList(),
+                                        mapper.findOrderPaymentNodes(row.id()).stream()
+                                                .map(item -> new OrderPaymentNode(
+                                                        item.nodeNo(),
+                                                        PaymentNodeType.valueOf(item.nodeType()),
+                                                        item.visitNo(),
+                                                        item.visitId(),
+                                                        item.amountMinor(),
+                                                        item.paidAt()))
                                                 .toList(),
                                         row.createdAt(),
                                         row.deliveredAt(),
                                         row.acceptedAt(),
                                         row.version()))));
+    }
+
+    @Override
+    public Optional<StoredServiceVisit> findVisit(UUID visitId) {
+        return mapper.findVisit(visitId).map(this::toVisit);
+    }
+
+    @Override
+    public void lockOrder(UUID orderId) {
+        mapper.lockOrder(orderId);
+    }
+
+    @Override
+    public List<PlanVersionSummary> findPlanVersions(UUID reservationId) {
+        return mapper.findPlanVersions(reservationId).stream()
+                .map(row -> new PlanVersionSummary(
+                        row.id(),
+                        row.planNo(),
+                        row.planVersion(),
+                        PlanStatus.valueOf(row.status()),
+                        row.totalAmountMinor(),
+                        toPlanItems(row.id()),
+                        row.changeNote(),
+                        row.publishedAt()))
+                .toList();
+    }
+
+    @Override
+    public Optional<ProviderSummary> findProvider(UUID providerId) {
+        return mapper.findProvider(providerId)
+                .map(row -> new ProviderSummary(
+                        row.providerId(),
+                        row.name(),
+                        row.certificationLabel()));
+    }
+
+    @Override
+    public Optional<CustomerParty> findCustomerParty(UUID reservationId) {
+        return mapper.findCustomerParty(reservationId)
+                .map(row -> new CustomerParty(row.organizationName(), row.operatorName()));
+    }
+
+    @Override
+    public Optional<String> findDisplayName(UUID subjectId) {
+        return mapper.findDisplayName(subjectId);
     }
 
     @Override
@@ -134,6 +188,15 @@ final class PostgresPlanStore implements PlanStore {
                 plan.providerId(),
                 plan.planVersion(),
                 plan.summary(),
+                plan.terms().scopeSummary(),
+                ServiceFlowJson.codeLabels(plan.terms().serviceMethods()),
+                plan.terms().deliveryTerms() == null
+                        ? null
+                        : plan.terms().deliveryTerms().reportDueHours(),
+                plan.terms().deliveryTerms() == null
+                        ? null
+                        : plan.terms().deliveryTerms().mediaRetentionDays(),
+                plan.terms().changeNote(),
                 plan.serviceDate(),
                 plan.validUntil(),
                 plan.totalAmountMinor(),
@@ -153,12 +216,24 @@ final class PostgresPlanStore implements PlanStore {
                     index);
         }
         for (int index = 0; index < plan.deliverables().size(); index++) {
-            CodeLabel item = plan.deliverables().get(index);
+            PlanDeliverable item = plan.deliverables().get(index);
             mapper.insertPlanDeliverable(
                     plan.id(),
                     item.code(),
                     item.label(),
+                    item.fileType() == null ? null : item.fileType().name(),
                     index);
+        }
+        for (PlanVisit visit : plan.terms().visits()) {
+            mapper.insertPlanVisit(plan.id(), visit.visitNo(), visit.plannedDate());
+        }
+        for (PlanPaymentNode node : plan.terms().paymentNodes()) {
+            mapper.insertPlanPaymentNode(
+                    plan.id(),
+                    node.nodeNo(),
+                    node.nodeType().name(),
+                    node.visitNo(),
+                    node.amountMinor());
         }
         Instant at = plan.publishedAt();
         mapper.insertTransition(
@@ -215,9 +290,38 @@ final class PostgresPlanStore implements PlanStore {
                 order.id(),
                 order.serviceOrderNo(),
                 expectedPlan.id(),
+                order.paymentMode().name(),
                 actor.subjectId(),
                 confirmedAt) != 1) {
             return PlanWriteResult.STATE_CONFLICT;
+        }
+        for (StoredServiceVisit visit : order.visits()) {
+            mapper.insertServiceVisit(
+                    visit.id(),
+                    order.id(),
+                    visit.visitNo(),
+                    visit.plannedDate(),
+                    visit.status().name(),
+                    actor.subjectId(),
+                    confirmedAt);
+            mapper.insertTransition(
+                    "SERVICE_VISIT",
+                    visit.id(),
+                    null,
+                    visit.status().name(),
+                    "CUSTOMER",
+                    actor.subjectId(),
+                    requestId,
+                    confirmedAt);
+        }
+        for (OrderPaymentNode node : order.paymentNodes()) {
+            mapper.insertOrderPaymentNode(
+                    order.id(),
+                    node.nodeNo(),
+                    node.nodeType().name(),
+                    node.visitId(),
+                    node.amountMinor(),
+                    confirmedAt);
         }
         mapper.insertTransition(
                 "PLAN",
@@ -249,6 +353,7 @@ final class PostgresPlanStore implements PlanStore {
     public PlanWriteResult arrange(
             StoredServiceOrder expectedOrder,
             StoredServiceOrder arrangedOrder,
+            List<AssignmentWrite> assignments,
             PlanIdempotencyEntry entry,
             CurrentSubject actor,
             String requestId
@@ -269,19 +374,24 @@ final class PostgresPlanStore implements PlanStore {
         if (mapper.updateOrderArrangement(
                 expectedOrder.id(),
                 expectedOrder.version(),
-                arrangedOrder.plannedStartAt(),
                 actor.subjectId(),
                 updatedAt) == 0) {
             return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
         }
         mapper.deleteOrderAssignments(expectedOrder.id());
-        for (OrderAssignment assignment : arrangedOrder.assignments()) {
+        for (AssignmentWrite write : assignments) {
+            OrderAssignment assignment = write.assignment();
             mapper.insertOrderAssignment(
                     expectedOrder.id(),
                     assignment.type().name(),
                     assignment.resourceId(),
                     assignment.displayName(),
                     assignment.roleLabel(),
+                    write.contactMobile() == null
+                            ? null
+                            : cipher.encrypt(write.contactMobile())
+                                    .getBytes(StandardCharsets.UTF_8),
+                    assignment.contactMobileMasked(),
                     actor.subjectId(),
                     updatedAt);
         }
@@ -290,6 +400,7 @@ final class PostgresPlanStore implements PlanStore {
         mapper.insertOrderProgress(
                 event.id(),
                 expectedOrder.id(),
+                null,
                 event.eventCode().name(),
                 event.occurredAt(),
                 event.message(),
@@ -304,9 +415,57 @@ final class PostgresPlanStore implements PlanStore {
     }
 
     @Override
+    public PlanWriteResult schedule(
+            StoredServiceOrder order,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit scheduledVisit,
+            PlanIdempotencyEntry entry,
+            Instant at,
+            CurrentSubject actor,
+            String requestId
+    ) {
+        if (mapper.insertIdempotency(
+                entry.actorId(),
+                entry.operation(),
+                entry.key(),
+                entry.requestDigest(),
+                "SERVICE_VISIT",
+                entry.resourceId(),
+                200) == 0) {
+            return PlanWriteResult.IDEMPOTENCY_EXISTS;
+        }
+        if (mapper.updateVisitSchedule(
+                expectedVisit.id(),
+                expectedVisit.version(),
+                scheduledVisit.plannedStartAt(),
+                actor.subjectId(),
+                at) == 0) {
+            return resolveVisitConflict(expectedVisit.id(), expectedVisit.version());
+        }
+        // Rescheduling keeps the status but still needs a record of who moved it and when.
+        mapper.insertTransition(
+                "SERVICE_VISIT",
+                expectedVisit.id(),
+                expectedVisit.status().name(),
+                scheduledVisit.status().name(),
+                "PROVIDER_OPERATOR",
+                actor.subjectId(),
+                requestId,
+                at);
+        mapper.insertOutbox(
+                "SERVICE_VISIT",
+                expectedVisit.id(),
+                "INSPECTION_VISIT_SCHEDULED",
+                at);
+        return PlanWriteResult.SAVED;
+    }
+
+    @Override
     public PlanWriteResult appendProgress(
             StoredServiceOrder expectedOrder,
-            StoredServiceOrder updatedOrder,
+            ServiceOrderStatus nextOrderStatus,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit updatedVisit,
             PlanIdempotencyEntry entry,
             CurrentSubject actor,
             String requestId
@@ -316,47 +475,69 @@ final class PostgresPlanStore implements PlanStore {
                 entry.operation(),
                 entry.key(),
                 entry.requestDigest(),
-                "SERVICE_ORDER",
+                "SERVICE_VISIT",
                 entry.resourceId(),
                 201) == 0) {
             return PlanWriteResult.IDEMPOTENCY_EXISTS;
         }
         OrderProgressEvent event =
-                updatedOrder.progress().get(updatedOrder.progress().size() - 1);
-        if (mapper.updateOrderProgress(
-                expectedOrder.id(),
-                expectedOrder.status().name(),
-                updatedOrder.status().name(),
-                expectedOrder.version(),
+                updatedVisit.progress().get(updatedVisit.progress().size() - 1);
+        if (mapper.updateVisitProgress(
+                expectedVisit.id(),
+                expectedVisit.status().name(),
+                updatedVisit.status().name(),
+                expectedVisit.version(),
                 event.eventCode().name(),
                 event.occurredAt(),
-                actor.subjectId(),
-                event.occurredAt()) == 0) {
-            return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
+                actor.subjectId()) == 0) {
+            return resolveVisitConflict(expectedVisit.id(), expectedVisit.version());
+        }
+        if (expectedOrder.status() != nextOrderStatus) {
+            if (mapper.updateOrderProgress(
+                    expectedOrder.id(),
+                    expectedOrder.status().name(),
+                    nextOrderStatus.name(),
+                    expectedOrder.version(),
+                    event.eventCode().name(),
+                    event.occurredAt(),
+                    actor.subjectId(),
+                    event.occurredAt()) == 0) {
+                return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
+            }
+            mapper.insertTransition(
+                    "SERVICE_ORDER",
+                    expectedOrder.id(),
+                    expectedOrder.status().name(),
+                    nextOrderStatus.name(),
+                    "PROVIDER_OPERATOR",
+                    actor.subjectId(),
+                    requestId,
+                    event.occurredAt());
         }
         mapper.insertOrderProgress(
                 event.id(),
                 expectedOrder.id(),
+                expectedVisit.id(),
                 event.eventCode().name(),
                 event.occurredAt(),
                 event.message(),
                 actor.subjectId(),
                 event.occurredAt());
-        if (expectedOrder.status() != updatedOrder.status()) {
+        if (expectedVisit.status() != updatedVisit.status()) {
             mapper.insertTransition(
-                    "SERVICE_ORDER",
-                    expectedOrder.id(),
-                    expectedOrder.status().name(),
-                    updatedOrder.status().name(),
+                    "SERVICE_VISIT",
+                    expectedVisit.id(),
+                    expectedVisit.status().name(),
+                    updatedVisit.status().name(),
                     "PROVIDER_OPERATOR",
                     actor.subjectId(),
                     requestId,
                     event.occurredAt());
         }
         mapper.insertOutbox(
-                "SERVICE_ORDER",
-                expectedOrder.id(),
-                "INSPECTION_ORDER_" + event.eventCode().name(),
+                "SERVICE_VISIT",
+                expectedVisit.id(),
+                "INSPECTION_VISIT_" + event.eventCode().name(),
                 event.occurredAt());
         return PlanWriteResult.SAVED;
     }
@@ -385,6 +566,76 @@ final class PostgresPlanStore implements PlanStore {
         return PlanWriteResult.STATE_CONFLICT;
     }
 
+    private PlanWriteResult resolveVisitConflict(UUID visitId, int expectedVersion) {
+        Optional<ServiceFlowPersistenceMapper.ServiceVisitRow> current =
+                mapper.findVisit(visitId);
+        if (current.isPresent() && current.get().version() != expectedVersion) {
+            return PlanWriteResult.VERSION_CONFLICT;
+        }
+        return PlanWriteResult.STATE_CONFLICT;
+    }
+
+    private StoredServiceVisit toVisit(ServiceFlowPersistenceMapper.ServiceVisitRow row) {
+        return new StoredServiceVisit(
+                row.id(),
+                row.serviceOrderId(),
+                row.visitNo(),
+                row.plannedDate(),
+                row.plannedStartAt(),
+                ServiceVisitStatus.valueOf(row.status()),
+                toProgress(mapper.findVisitProgress(row.id())),
+                row.startedAt(),
+                row.deliveredAt(),
+                row.acceptedAt(),
+                row.version());
+    }
+
+    private static List<OrderProgressEvent> toProgress(
+            List<ServiceFlowPersistenceMapper.OrderProgressRow> rows
+    ) {
+        return rows.stream()
+                .map(item -> new OrderProgressEvent(
+                        item.id(),
+                        OrderProgressCode.valueOf(item.eventCode()),
+                        item.occurredAt(),
+                        item.message()))
+                .toList();
+    }
+
+    private List<PlanItem> toPlanItems(UUID planId) {
+        return mapper.findPlanItems(planId).stream()
+                .map(item -> new PlanItem(
+                        item.code(),
+                        item.name(),
+                        item.quantity(),
+                        item.unit(),
+                        item.unitPriceMinor(),
+                        item.lineAmountMinor()))
+                .toList();
+    }
+
+    private PlanTerms toPlanTerms(ServiceFlowPersistenceMapper.PlanRow row) {
+        return new PlanTerms(
+                mapper.findPlanVisits(row.id()).stream()
+                        .map(item -> new PlanVisit(item.visitNo(), item.plannedDate()))
+                        .toList(),
+                row.scopeSummary(),
+                mapper.findPlanServiceMethods(row.id()).stream()
+                        .map(item -> new CodeLabel(item.code(), item.label()))
+                        .toList(),
+                row.reportDueHours() == null && row.mediaRetentionDays() == null
+                        ? null
+                        : new DeliveryTerms(row.reportDueHours(), row.mediaRetentionDays()),
+                row.changeNote(),
+                mapper.findPlanPaymentNodes(row.id()).stream()
+                        .map(item -> new PlanPaymentNode(
+                                item.nodeNo(),
+                                PaymentNodeType.valueOf(item.nodeType()),
+                                item.visitNo(),
+                                item.amountMinor()))
+                        .toList());
+    }
+
     private Optional<StoredServicePlan> toPlan(
             ServiceFlowPersistenceMapper.PlanRow row
     ) {
@@ -399,22 +650,21 @@ final class PostgresPlanStore implements PlanStore {
                         row.validUntil(),
                         row.serviceDate(),
                         row.summary(),
-                        mapper.findPlanItems(row.id()).stream()
-                                .map(item -> new PlanItem(
-                                        item.code(),
-                                        item.name(),
-                                        item.quantity(),
-                                        item.unit(),
-                                        item.unitPriceMinor(),
-                                        item.lineAmountMinor()))
-                                .toList(),
+                        toPlanTerms(row),
+                        toPlanItems(row.id()),
                         mapper.findPlanDeliverables(row.id()).stream()
-                                .map(item -> new CodeLabel(item.code(), item.label()))
+                                .map(item -> new PlanDeliverable(
+                                        item.code(),
+                                        item.label(),
+                                        item.fileType() == null
+                                                ? null
+                                                : DeliveryFileType.valueOf(item.fileType())))
                                 .toList(),
                         row.totalAmountMinor(),
                         row.currency(),
                         row.publishedAt(),
                         row.confirmedAt(),
+                        row.confirmedBy(),
                         row.serviceOrderId(),
                         row.version()));
     }

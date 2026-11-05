@@ -254,7 +254,12 @@ public final class InspectionReservationController {
             UUID serviceOrderId,
             String serviceOrderStatus,
             Long quoteAmountMinor,
-            String currency
+            String currency,
+            int visitCount,
+            int acceptedVisitCount,
+            LocalDate nextVisitDate,
+            UUID pendingAcceptanceVisitId,
+            Integer pendingAcceptanceVisitNo
     ) {
 
         static CustomerReservationSummaryResponse from(CustomerReservationSummary value) {
@@ -274,7 +279,12 @@ public final class InspectionReservationController {
                     value.serviceOrderId(),
                     value.serviceOrderStatus(),
                     value.quoteAmountMinor(),
-                    value.currency());
+                    value.currency(),
+                    value.visitCount(),
+                    value.acceptedVisitCount(),
+                    value.nextVisitDate(),
+                    value.pendingAcceptanceVisitId(),
+                    value.pendingAcceptanceVisitNo());
         }
     }
 
