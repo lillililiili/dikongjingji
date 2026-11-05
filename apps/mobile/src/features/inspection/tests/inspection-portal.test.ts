@@ -182,10 +182,13 @@ describe('inspection portal navigation', () => {
     )
   })
 
-  it('keeps hot-service and view-all navigation inside the catalog scope', () => {
-    expect(buildPortalHotServiceUrl('370500', 'POWER')).toBe(
-      '/pages/service/inspection/catalog?cityCode=370500&categoryCode=POWER&source=HOT',
+  it('opens a hot service in M03 with only its id and city', () => {
+    expect(buildPortalHotServiceUrl('370500', 'service-1')).toBe(
+      '/pages/service/inspection/detail?serviceId=service-1&cityCode=370500',
     )
+  })
+
+  it('keeps view-all navigation inside the catalog scope', () => {
     expect(buildPortalViewAllUrl('370500')).toBe(
       '/pages/service/inspection/catalog?cityCode=370500&source=VIEW_ALL',
     )
