@@ -50,6 +50,7 @@ export interface PlatformMineOrder {
   id: string
   title: string
   status: InspectionMineOrderStatus
+  statusText?: string
   imageUrl: string
   locationText: string
   scheduledAtText: string

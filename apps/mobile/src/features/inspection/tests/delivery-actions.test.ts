@@ -17,7 +17,12 @@ describe('F07 acceptance retry', () => {
     let keySequence = 0
     let shouldFail = true
     const coordinator = createAcceptanceCoordinator(() => `accept-key-${++keySequence}`)
-    const accept = async (_orderId: string, _version: number, key: string): Promise<InspectionAcceptance> => {
+    const accept = async (
+      _orderId: string,
+      _visitId: string,
+      _version: number,
+      key: string,
+    ): Promise<InspectionAcceptance> => {
       calls.push(key)
       if (shouldFail) {
         shouldFail = false
@@ -26,11 +31,31 @@ describe('F07 acceptance retry', () => {
       return acceptance()
     }
 
-    await expect(coordinator.accept(accept, 'order-1', 5)).rejects.toThrow('network result unknown')
-    await expect(coordinator.accept(accept, 'order-1', 6)).resolves.toEqual(acceptance())
-    await coordinator.accept(accept, 'order-1', 7)
+    await expect(coordinator.accept(accept, 'order-1', 'visit-1', 5)).rejects.toThrow('network result unknown')
+    await expect(coordinator.accept(accept, 'order-1', 'visit-1', 6)).resolves.toEqual(acceptance())
+    await coordinator.accept(accept, 'order-1', 'visit-1', 7)
 
     expect(calls).toEqual(['accept-key-1', 'accept-key-1', 'accept-key-2'])
+  })
+
+  it('keeps a separate idempotency key for each visit', async () => {
+    const calls: Array<[string, string]> = []
+    let keySequence = 0
+    const coordinator = createAcceptanceCoordinator(() => `accept-key-${++keySequence}`)
+    const failing = async (_orderId: string, visitId: string, _version: number, key: string): Promise<InspectionAcceptance> => {
+      calls.push([visitId, key])
+      throw new Error('network result unknown')
+    }
+
+    await expect(coordinator.accept(failing, 'order-1', 'visit-1', 5)).rejects.toThrow()
+    await expect(coordinator.accept(failing, 'order-1', 'visit-2', 3)).rejects.toThrow()
+    await expect(coordinator.accept(failing, 'order-1', 'visit-1', 5)).rejects.toThrow()
+
+    expect(calls).toEqual([
+      ['visit-1', 'accept-key-1'],
+      ['visit-2', 'accept-key-2'],
+      ['visit-1', 'accept-key-1'],
+    ])
   })
 })
 
@@ -144,9 +169,11 @@ function acceptance(): InspectionAcceptance {
   return {
     id: 'acceptance-1',
     serviceOrderId: 'order-1',
+    visitId: 'visit-1',
     deliveryId: 'delivery-1',
     acceptedBy: 'customer-1',
     acceptedAt: '2026-07-28T09:00:00Z',
+    visitStatus: 'ACCEPTED',
     orderStatus: 'ACCEPTED',
   }
 }

@@ -32,6 +32,7 @@ import { getInspectionStatusLabel } from '../presentation/platform/mine/platform
 const RESERVATION_ID = '40000000-0000-4000-8000-000000000001'
 const PLAN_ID = '50000000-0000-4000-8000-000000000001'
 const ORDER_ID = '60000000-0000-4000-8000-000000000001'
+const VISIT_ID = '61000000-0000-4000-8000-000000000001'
 
 describe('order center API', () => {
   it('queries the authenticated customer collection with serialized paging', async () => {
@@ -112,14 +113,69 @@ describe('order center navigation', () => {
     expect(resolveInspectionOrderDestination(order({
       stage: 'AWAITING_ACCEPTANCE',
       serviceOrderId: ORDER_ID,
-    }))).toBe(`/pages/service/inspection/delivery?serviceOrderId=${ORDER_ID}`)
+      pendingAcceptanceVisitId: VISIT_ID,
+    }))).toBe(`/pages/service/inspection/delivery?serviceOrderId=${ORDER_ID}&visitId=${VISIT_ID}`)
     expect(resolveInspectionOrderDestination(order({
       stage: 'COMPLETED',
       serviceOrderId: ORDER_ID,
-    }))).toBe(`/pages/service/inspection/delivery?serviceOrderId=${ORDER_ID}`)
+    }))).toBe(`/pages/service/inspection/fulfillment?serviceOrderId=${ORDER_ID}`)
     expect(resolveInspectionOrderDestination(order({
       stage: 'AWAITING_CONFIRMATION',
     }))).toBeNull()
+  })
+
+  it('falls back to the visit list when the pending visit is not known', () => {
+    expect(resolveInspectionOrderDestination(order({
+      stage: 'AWAITING_ACCEPTANCE',
+      serviceOrderId: ORDER_ID,
+    }))).toBe(`/pages/service/inspection/fulfillment?serviceOrderId=${ORDER_ID}`)
+  })
+
+  it('says which visit waits for acceptance once an order has several', () => {
+    const pending = order({
+      stage: 'AWAITING_ACCEPTANCE',
+      visitCount: 6,
+      acceptedVisitCount: 1,
+      pendingAcceptanceVisitNo: 2,
+    })
+
+    expect(orderCenterView.getInspectionOrderStageText(pending)).toBe('第 2 次待验收')
+    expect(orderCenterView.getInspectionOrderStageText({ ...pending, visitCount: 1 })).toBe('待验收')
+    expect(orderCenterView.getInspectionOrderStageText(order({ stage: 'IN_PROGRESS' }))).toBe('进行中')
+    expect(orderCenterView.getInspectionOrderActionLabel('AWAITING_ACCEPTANCE')).toBe('去验收')
+    expect(orderCenterView.getInspectionOrderActionLabel('COMPLETED')).toBe('查看履约')
+  })
+
+  it('shows visit progress instead of the preferred date on a multi-visit order', () => {
+    const inProgress = order({
+      stage: 'IN_PROGRESS',
+      preferredServiceDate: '2026-11-02',
+      visitCount: 6,
+      acceptedVisitCount: 1,
+      nextVisitDate: '2026-11-16',
+    })
+
+    expect(orderCenterView.getInspectionOrderScheduleText(inProgress))
+      .toBe('6 次中已验收 1 次 · 下次 11/16')
+    expect(orderCenterView.getInspectionOrderScheduleText({ ...inProgress, nextVisitDate: undefined }))
+      .toBe('6 次中已验收 1 次')
+    expect(orderCenterView.getInspectionOrderScheduleText({ ...inProgress, visitCount: 1 }))
+      .toBe('2026-11-02')
+    expect(orderCenterView.getInspectionOrderScheduleText(order({ preferredServiceDate: '2026-11-02' })))
+      .toBe('2026-11-02')
+  })
+
+  it('carries the same text into the recent orders on the mine page', () => {
+    const mine = orderCenterView.toPlatformMineOrder(order({
+      stage: 'AWAITING_ACCEPTANCE',
+      visitCount: 6,
+      acceptedVisitCount: 1,
+      nextVisitDate: '2026-11-16',
+      pendingAcceptanceVisitNo: 2,
+    }))
+
+    expect(mine.statusText).toBe('第 2 次待验收')
+    expect(mine.scheduledAtText).toBe('6 次中已验收 1 次 · 下次 11/16')
   })
 
   it('returns null when a stage has no stable destination id', () => {
@@ -248,10 +304,13 @@ describe('order center page', () => {
 })
 
 describe('order center narrow H5 layout', () => {
-  it('keeps card labels on one line within the padded list and shows every filter', () => {
+  it('keeps the title, the visit and the amount whole within the padded list and shows every filter', () => {
     expect(orderCardSource).toContain('.inspection-order-card{box-sizing:border-box;')
-    expect(orderCardSource).toContain('.inspection-order-card__title-line>text:first-child{min-width:0;flex:1;')
+    expect(orderCardSource).toContain('grid-template-columns:96px minmax(0,1fr)')
+    expect(orderCardSource).toContain('.inspection-order-card__aside{display:flex;grid-column:1/-1;')
+    expect(orderCardSource).toContain('.inspection-order-card__title-line>text:first-child{flex:1 1 100%;min-width:0}')
     expect(orderCardSource).toContain('.inspection-order-card__title-line>text:last-child{flex:0 0 auto;white-space:nowrap}')
+    expect(orderCardSource).toContain('.inspection-order-card__schedule{color:#5f6873;font-size:13px}')
     expect(orderCardSource).toContain('.inspection-order-card__aside>text:last-child{padding:6px 10px;border:1px solid #ff6508;border-radius:16px;color:#d64d00;font-size:13px;white-space:nowrap}')
 
     expect(orderCenterPageSource).not.toContain('scroll-x')

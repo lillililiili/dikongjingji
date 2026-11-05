@@ -25,6 +25,7 @@ import {
 
 const PLAN_ID = '50000000-0000-4000-8000-000000000001'
 const ORDER_ID = '60000000-0000-4000-8000-000000000001'
+const RESERVATION_ID = '40000000-0000-4000-8000-000000000001'
 
 interface PlanCancellationReservation {
   id: string
@@ -71,8 +72,10 @@ type PlanPageLoaderFactory = (
   options: {
     loadPlan(planId: string): Promise<LoadedPlan>
     loadReservation(reservationId: string): Promise<PlanCancellationReservation>
+    loadVersions(reservationId: string): Promise<string[]>
     setPlan(plan: LoadedPlan): void
     setReservation(reservation: PlanCancellationReservation): void
+    setVersions(versions: string[]): void
     setLoading(value: boolean): void
     setLoadError(message: string): void
     getLoadError(error: unknown): string
@@ -190,11 +193,17 @@ describe('F05 plan API and navigation', () => {
     })
 
     await api.getPlan(PLAN_ID)
+    await api.listPlanVersions(RESERVATION_ID)
     await api.confirmPlan(PLAN_ID, 2, '70000000-0000-4000-8000-000000000001')
 
     expect(calls).toEqual([
       {
         url: `/api/v1/inspection/plans/${PLAN_ID}`,
+        method: 'GET',
+        headers: { Authorization: 'Bearer customer-token' },
+      },
+      {
+        url: `/api/v1/inspection/reservations/${RESERVATION_ID}/plans`,
         method: 'GET',
         headers: { Authorization: 'Bearer customer-token' },
       },
@@ -246,18 +255,20 @@ describe('F05 plan page contract', () => {
     expect(planPageSource).not.toContain("uni.reLaunch({ url: '/pages/home/index' })")
   })
 
-  it('matches the approved pending-confirmation structure and real DTO actions', () => {
-    expect(planPageSource).toContain('<BookingProgress :active="2"')
-    expect(planPageSource).toContain('巡检方案已生成')
-    expect(planPageSource).toContain('plan-confirmation__route-preview')
-    expect(planPageSource).toContain('报价明细')
-    expect(planPageSource).toContain('最终报价')
-    expect(planPageSource).toContain('申请调整')
-    expect(planPageSource).toContain('确认方案')
-    expect(planPageSource).toContain("isConfirmed ? 'checkmarkempty' : 'info-filled'")
-    expect(planPageSource).toContain('plan-confirmation__status-icon--confirmed')
+  it('follows the canvas structure with real data and no invented route or duration', () => {
+    expect(planPageSource).not.toContain('BookingProgress')
+    expect(planPageSource).not.toContain('plan-confirmation__route-preview')
+    expect(planPageSource).not.toContain('3小时')
+    expect(planPageSource).toContain('PlanSummaryCard')
+    expect(planPageSource).toContain('PlanVersionCard')
+    expect(planPageSource).toContain('PlanQuoteCard')
+    expect(planPageSource).toContain('PlanArrangementCard')
+    expect(planPageSource).toContain('PlanTermsCard')
+    expect(planPageSource).toContain('<PlanPaymentCard v-if="paymentRows.length"')
+    expect(planPageSource).toContain('确认方案 v')
     expect(planPageSource).toContain('loadPlan: inspectionPlanApi.getPlan')
     expect(planPageSource).toContain('loadReservation: inspectionBookingApi.getReservation')
+    expect(planPageSource).toContain('loadVersions: inspectionPlanApi.listPlanVersions')
     expect(planPageSource).toContain('inspectionPlanApi.confirmPlan(')
     expect(planPageSource).toContain('env(safe-area-inset-bottom)')
     expect(planPageSource).not.toContain('立即支付')
@@ -266,10 +277,10 @@ describe('F05 plan page contract', () => {
   it('explains an expired plan and offers a recovery action instead of a dead confirm button', () => {
     expect(planPageSource).toContain('const isExpired = computed(')
     expect(planPageSource).toContain("plan.value?.status === 'WITHDRAWN'")
-    expect(planPageSource).toContain('服务方案已过期')
+    expect(planPageSource).toContain('已过期')
     expect(planPageSource).toContain('报价有效期已结束，请申请更新方案后再确认')
-    expect(planPageSource).toContain("isExpired ? '申请更新方案'")
-    expect(planPageSource).toContain('@click="isExpired ? showCustomerService() : confirmPlan()"')
+    expect(planPageSource).toContain('申请更新方案')
+    expect(planPageSource).toContain("showCustomerService('申请更新方案')")
   })
 
   it('allows cancellation only before plan confirmation and returns to cancelled detail', () => {
@@ -469,8 +480,10 @@ describe('F05 plan page contract', () => {
         ?? Promise.reject(new Error('PLAN_DEFERRED_MISSING')),
       loadReservation: (reservationId) => reservations.get(reservationId)?.promise
         ?? Promise.reject(new Error('RESERVATION_DEFERRED_MISSING')),
+      loadVersions: async () => [],
       setPlan: (value) => { currentPlan = value },
       setReservation: (value) => { currentReservation = value },
+      setVersions: () => undefined,
       setLoading: (value) => { loading = value },
       setLoadError: (value) => { loadError = value },
       getLoadError: () => '方案加载失败',
@@ -534,6 +547,28 @@ describe('F05 plan page contract', () => {
     expect(loadError).toBe('')
     expect(loading).toBe(false)
   })
+
+  it('still opens the plan when the version list cannot be read', async () => {
+    const { createPlanPageLoader } = await loadPlanPageContract()
+    let versions: string[] | null = null
+    let loadError = '旧错误'
+    const loader = createPlanPageLoader({
+      loadPlan: async () => ({ reservationId: RESERVATION_ID, marker: 'plan' }),
+      loadReservation: async () => planReservation(),
+      loadVersions: async () => { throw new Error('versions unavailable') },
+      setPlan: () => undefined,
+      setReservation: () => undefined,
+      setVersions: (value) => { versions = value },
+      setLoading: () => undefined,
+      setLoadError: (value) => { loadError = value },
+      getLoadError: () => '方案加载失败',
+    })
+
+    await expect(loader.loadPlan(PLAN_ID)).resolves.toBe(true)
+
+    expect(versions).toEqual([])
+    expect(loadError).toBe('')
+  })
 })
 
 function planReservation(
@@ -557,6 +592,7 @@ function plan(): InspectionPlan {
     planVersion: 1,
     validUntil: '2026-07-29T02:00:00Z',
     serviceDate: '2026-08-02',
+    visits: [{ visitNo: 1, plannedDate: '2026-08-02' }],
     summary: '无人机采集、专业人员复核',
     planItems: [{
       code: 'POWER_LINE',

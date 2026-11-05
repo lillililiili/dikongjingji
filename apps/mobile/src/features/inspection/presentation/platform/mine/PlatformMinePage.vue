@@ -150,7 +150,7 @@ const statusImageUrls: Record<InspectionMineStatus, string> = {
               <view class="platform-mine__order-copy">
                 <view class="platform-mine__order-title-line">
                   <text class="platform-mine__order-title">{{ order.title }}</text>
-                  <text class="platform-mine__order-status">{{ getInspectionStatusLabel(order.status) }}</text>
+                  <text class="platform-mine__order-status">{{ order.statusText || getInspectionStatusLabel(order.status) }}</text>
                 </view>
                 <text class="platform-mine__order-meta">
                   <UniIcons type="location" size="11" color="#76808c" />

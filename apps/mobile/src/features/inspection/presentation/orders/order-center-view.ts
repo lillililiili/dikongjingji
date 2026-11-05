@@ -5,6 +5,7 @@ import type {
   InspectionOrderSummary,
 } from '../../domain/service-flow/order-center'
 import type { PlatformMineOrder } from '../platform/mine/platform-mine'
+import { formatMonthDay } from '../shared/service-flow-format'
 
 export interface InspectionOrderCenterState {
   selectedStage: InspectionOrderFilter
@@ -181,8 +182,8 @@ export function getInspectionOrderActionLabel(stage: InspectionOrderStage): stri
     AWAITING_PLAN: '查看进度',
     AWAITING_CONFIRMATION: '确认方案',
     IN_PROGRESS: '查看进度',
-    AWAITING_ACCEPTANCE: '查看报告',
-    COMPLETED: '查看报告',
+    AWAITING_ACCEPTANCE: '去验收',
+    COMPLETED: '查看履约',
     CANCELLED: '查看订单',
   }[stage]
 }
@@ -198,6 +199,26 @@ export function getInspectionOrderStageLabel(stage: InspectionOrderStage): strin
   }[stage]
 }
 
+function hasSeveralVisits(order: InspectionOrderSummary): boolean {
+  return (order.visitCount ?? 0) > 1
+}
+
+export function getInspectionOrderStageText(order: InspectionOrderSummary): string {
+  return order.stage === 'AWAITING_ACCEPTANCE'
+    && order.pendingAcceptanceVisitNo
+    && hasSeveralVisits(order)
+    ? `第 ${order.pendingAcceptanceVisitNo} 次待验收`
+    : getInspectionOrderStageLabel(order.stage)
+}
+
+export function getInspectionOrderScheduleText(order: InspectionOrderSummary): string {
+  if (!hasSeveralVisits(order)) return order.preferredServiceDate
+  const progress = `${order.visitCount} 次中已验收 ${order.acceptedVisitCount ?? 0} 次`
+  return order.nextVisitDate
+    ? `${progress} · 下次 ${formatMonthDay(order.nextVisitDate)}`
+    : progress
+}
+
 export function formatInspectionOrderAmount(amountMinor: number | undefined): string {
   if (amountMinor == null) return '待报价'
   return `¥${(amountMinor / 100).toLocaleString('zh-CN', {
@@ -211,9 +232,10 @@ export function toPlatformMineOrder(order: InspectionOrderSummary): PlatformMine
     id: order.reservationId,
     title: order.serviceTitle,
     status: order.stage,
+    statusText: getInspectionOrderStageText(order),
     imageUrl: order.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png',
     locationText: order.locationSummary,
-    scheduledAtText: order.preferredServiceDate,
+    scheduledAtText: getInspectionOrderScheduleText(order),
     orderNumber: order.reservationNo,
     amount: {
       label: '报价',

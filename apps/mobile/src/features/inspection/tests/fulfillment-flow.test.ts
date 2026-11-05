@@ -53,25 +53,29 @@ describe('F06 fulfillment page contract', () => {
     expect(fulfillmentPageSource).not.toContain("uni.reLaunch({ url: '/pages/home/index' })")
   })
 
-  it('renders real order progress and allows retry without payment actions', () => {
+  it('renders real visit progress and allows retry without payment actions', () => {
     expect(fulfillmentPageSource).toContain('inspectionPlanApi.getServiceOrder(serviceOrderId.value)')
     expect(fulfillmentPageSource).toContain('inspectionPlanApi.getPlan(current.planId)')
-    expect(fulfillmentPageSource).toContain('服务安排')
-    expect(fulfillmentPageSource).toContain('作业安排')
-    expect(fulfillmentPageSource).toContain('服务进度')
+    expect(fulfillmentPageSource).toContain('服务履约')
+    expect(fulfillmentPageSource).toContain('FulfillmentSummaryCard')
+    expect(fulfillmentPageSource).toContain('FulfillmentArrangementCard')
+    expect(fulfillmentPageSource).toContain('VisitTimeline')
     expect(fulfillmentPageSource).toContain('@click="reload"')
     expect(fulfillmentPageSource).toContain('env(safe-area-inset-bottom)')
-    expect(fulfillmentPageSource).toContain('buildInspectionDeliveryUrl(order.value.id)')
-    expect(fulfillmentPageSource).toContain("order.value?.status === 'DELIVERED' || order.value?.status === 'ACCEPTED'")
-    expect(fulfillmentPageSource).toContain('@click="handlePrimaryAction"')
-    expect(fulfillmentPageSource).toContain(
-      "order.value?.status === 'ACCEPTED' ? '查看报告'",
-    )
-    expect(fulfillmentPageSource).toContain(
-      "canOpenDelivery.value ? '查看报告与验收' : '返回首页'",
-    )
-    expect(fulfillmentPageSource).not.toContain('class="fulfillment__delivery-link"')
+    expect(fulfillmentPageSource).toContain('buildInspectionDeliveryUrl(order.value.id, visitId)')
+    expect(fulfillmentPageSource).not.toContain('progressPercent')
+    expect(fulfillmentPageSource).not.toContain('BookingProgress')
     expect(fulfillmentPageSource).not.toContain('立即支付')
+  })
+
+  it('only offers acceptance while a visit waits for it', () => {
+    expect(fulfillmentPageSource).toContain('v-if="pendingAcceptance && !isLoading && !loadError"')
+    expect(fulfillmentPageSource).toContain('去验收')
+  })
+
+  it('refreshes on return so an accepted visit does not look pending', () => {
+    expect(fulfillmentPageSource).toContain('onShow(() => {')
+    expect(fulfillmentPageSource).toContain('if (order.value) void refresh()')
   })
 })
 
@@ -84,6 +88,7 @@ function serviceOrder(): InspectionServiceOrder {
     customerId: '10000000-0000-4000-8000-000000000001',
     providerId: '30000000-0000-4000-8000-000000000001',
     status: 'ARRANGING',
+    paymentMode: 'NONE',
     serviceSnapshot: {
       serviceId: '33333333-3333-4333-8333-333333333333',
       serviceTitle: '输电线路无人机巡检',
@@ -98,9 +103,18 @@ function serviceOrder(): InspectionServiceOrder {
       serviceDate: '2026-08-02',
       inspectionItems: [{ code: 'POWER_LINE', label: '线路本体巡检' }],
     },
-    plannedStartAt: '2026-08-02T01:00:00Z',
     assignments: [{ type: 'TEAM_MEMBER', resourceId: 'team-01', displayName: '巡检作业组', roleLabel: '作业团队' }],
     progress: [{ id: 'progress-01', eventCode: 'ARRANGEMENT_READY', occurredAt: '2026-07-28T03:00:00Z', message: '作业资源已安排' }],
+    visits: [{
+      id: '61000000-0000-4000-8000-000000000001',
+      serviceOrderId: ORDER_ID,
+      visitNo: 1,
+      plannedDate: '2026-08-02',
+      plannedStartAt: '2026-08-02T01:00:00Z',
+      status: 'SCHEDULED',
+      progress: [],
+      version: 1,
+    }],
     createdAt: '2026-07-28T02:30:00Z',
     deliveredAt: null,
     acceptedAt: null,

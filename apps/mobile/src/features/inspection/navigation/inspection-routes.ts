@@ -81,7 +81,7 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   },
   [INSPECTION_DELIVERY_PATH]: {
     required: 'serviceOrderId',
-    allowed: ['serviceOrderId'],
+    allowed: ['serviceOrderId', 'visitId'],
   },
   [INSPECTION_ORDER_CENTER_PATH]: {
     allowed: ['stage'],
@@ -165,8 +165,13 @@ export function buildInspectionFulfillmentUrl(
   )}`
 }
 
-export function buildInspectionDeliveryUrl(serviceOrderId: string): string {
-  return `${INSPECTION_DELIVERY_PATH}?serviceOrderId=${encodeURIComponent(serviceOrderId.trim())}`
+export function buildInspectionDeliveryUrl(
+  serviceOrderId: string,
+  visitId: string,
+): string {
+  return `${INSPECTION_DELIVERY_PATH}?serviceOrderId=${encodeURIComponent(
+    serviceOrderId.trim(),
+  )}&visitId=${encodeURIComponent(visitId.trim())}`
 }
 
 export type InspectionCatalogSort =

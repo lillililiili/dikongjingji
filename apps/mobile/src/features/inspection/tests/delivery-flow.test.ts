@@ -8,11 +8,16 @@ import {
   type InspectionDelivery,
 } from '../data/service-flow/inspection-plan-api'
 import type { BookingHttpClient } from '../data/service-flow/inspection-booking-api'
-import { buildInspectionDeliveryUrl } from '../navigation/inspection-routes'
+import {
+  buildInspectionDeliveryUrl,
+  normalizeInspectionReturnUrl,
+} from '../navigation/inspection-routes'
 import { resolveInspectionDeliveryBackAction } from '../application/service-flow/inspection-order-navigation'
 
 const ORDER_ID = '60000000-0000-4000-8000-000000000001'
+const VISIT_ID = '61000000-0000-4000-8000-000000000001'
 const FILE_ID = '70000000-0000-4000-8000-000000000001'
+const VISIT_URL = `/api/v1/inspection/service-orders/${ORDER_ID}/visits/${VISIT_ID}`
 
 describe('F07 delivery API and route', () => {
   it('uses authenticated controlled endpoints for delivery, downloads and acceptance', async () => {
@@ -27,19 +32,28 @@ describe('F07 delivery API and route', () => {
     }
     const api = createInspectionPlanApi(http, { getAccessToken: () => 'customer-token' })
 
-    await api.getDelivery(ORDER_ID)
-    await api.createDownloadIntent(ORDER_ID, FILE_ID, 'key-file')
-    await api.createDownloadAllIntent(ORDER_ID, 'key-all')
-    const accepted = await api.acceptDelivery(ORDER_ID, 8, 'key-accept')
+    await api.getDelivery(ORDER_ID, VISIT_ID)
+    await api.createDownloadIntent(ORDER_ID, VISIT_ID, FILE_ID, 'key-file')
+    await api.createDownloadAllIntent(ORDER_ID, VISIT_ID, 'key-all')
+    const accepted = await api.acceptDelivery(ORDER_ID, VISIT_ID, 8, 'key-accept')
 
     expect(calls).toEqual([
-      { url: `/api/v1/inspection/service-orders/${ORDER_ID}/delivery`, method: 'GET', headers: { Authorization: 'Bearer customer-token' } },
-      { url: `/api/v1/inspection/service-orders/${ORDER_ID}/delivery-files/${FILE_ID}/download-intent`, method: 'POST', headers: { Authorization: 'Bearer customer-token', 'Idempotency-Key': 'key-file' } },
-      { url: `/api/v1/inspection/service-orders/${ORDER_ID}/delivery-files/download-all-intent`, method: 'POST', headers: { Authorization: 'Bearer customer-token', 'Idempotency-Key': 'key-all' } },
-      { url: `/api/v1/inspection/service-orders/${ORDER_ID}/acceptance`, method: 'POST', data: { confirmed: true, note: null }, headers: { Authorization: 'Bearer customer-token', 'Idempotency-Key': 'key-accept', 'If-Match': '"8"' } },
+      { url: `${VISIT_URL}/delivery`, method: 'GET', headers: { Authorization: 'Bearer customer-token' } },
+      { url: `${VISIT_URL}/delivery-files/${FILE_ID}/download-intent`, method: 'POST', headers: { Authorization: 'Bearer customer-token', 'Idempotency-Key': 'key-file' } },
+      { url: `${VISIT_URL}/delivery-files/download-all-intent`, method: 'POST', headers: { Authorization: 'Bearer customer-token', 'Idempotency-Key': 'key-all' } },
+      { url: `${VISIT_URL}/acceptance`, method: 'POST', data: { confirmed: true, note: null }, headers: { Authorization: 'Bearer customer-token', 'Idempotency-Key': 'key-accept', 'If-Match': '"8"' } },
     ])
     expect(accepted).toEqual(acceptance())
-    expect(buildInspectionDeliveryUrl(ORDER_ID)).toBe(`/pages/service/inspection/delivery?serviceOrderId=${ORDER_ID}`)
+    expect(buildInspectionDeliveryUrl(ORDER_ID, VISIT_ID))
+      .toBe(`/pages/service/inspection/delivery?serviceOrderId=${ORDER_ID}&visitId=${VISIT_ID}`)
+  })
+
+  it('keeps the visit when login sends the customer back to a delivery', () => {
+    const url = buildInspectionDeliveryUrl(ORDER_ID, VISIT_ID)
+
+    expect(normalizeInspectionReturnUrl(url)).toBe(url)
+    expect(normalizeInspectionReturnUrl(`/pages/service/inspection/delivery?serviceOrderId=${ORDER_ID}`))
+      .toBe(`/pages/service/inspection/delivery?serviceOrderId=${ORDER_ID}`)
   })
 
   it('registers INS-M-008 as a custom-navigation page', () => {
@@ -48,21 +62,12 @@ describe('F07 delivery API and route', () => {
       .toMatchObject({ style: { navigationStyle: 'custom' } })
   })
 
-  it('renders the three delivery-board stages without changing earlier shared pages', () => {
-    expect(deliveryPageSource).toContain("['服务安排', '现场巡检', '报告交付']")
-    expect(deliveryPageSource).toContain('delivery__flow-label--current')
-  })
 })
 
 describe('F07 delivery page contract', () => {
   it('keeps the page back action below the Android status bar', () => {
-    expect(deliveryPageSource).toContain(
-      'height:calc(44px + var(--status-bar-height))',
-    )
-    expect(deliveryPageSource).toContain('padding-top:var(--status-bar-height)')
-    expect(deliveryPageSource).not.toContain(
-      'height:calc(44px + env(safe-area-inset-top))',
-    )
+    expect(deliveryPageSource).toContain('padding: calc(8px + var(--status-bar-height)) 8px 8px')
+    expect(deliveryPageSource).not.toContain('env(safe-area-inset-top)')
   })
 
   it('keeps real workflow history and otherwise returns delivery to the shared order center', () => {
@@ -71,32 +76,36 @@ describe('F07 delivery page contract', () => {
     expect(resolveInspectionDeliveryBackAction(undefined)).toBe('reLaunchOrderCenter')
   })
 
-  it('loads real delivery, creates controlled download intents and guards duplicate acceptance', () => {
-    expect(deliveryPageSource).toContain('inspectionPlanApi.getDelivery(serviceOrderId.value)')
+  it('loads the delivery of one visit, creates controlled download intents and guards duplicate acceptance', () => {
+    expect(deliveryPageSource).toContain('inspectionPlanApi.getDelivery(serviceOrderId.value, currentVisit.id)')
     expect(deliveryPageSource).toContain('inspectionPlanApi.createDownloadIntent(')
     expect(deliveryPageSource).toContain('inspectionPlanApi.createDownloadAllIntent(')
     expect(deliveryPageSource).toContain('inspectionPlanApi.acceptDelivery')
-    expect(deliveryPageSource).toContain('class="delivery__flow"')
+    expect(deliveryPageSource).toContain('visit.value.version')
     expect(deliveryPageSource).toContain('await reload()')
-    expect(deliveryPageSource).toContain('报告交付')
-    expect(deliveryPageSource).toContain('服务单号')
-    expect(deliveryPageSource).toContain('巡检结果')
-    expect(deliveryPageSource).toContain('服务进度')
-    expect(deliveryPageSource).toContain('验收已完成')
+    expect(deliveryPageSource).toContain('交付与验收')
+    expect(deliveryPageSource).toContain('DeliveryResultCard')
+    expect(deliveryPageSource).toContain('DeliveryFilesCard')
+    expect(deliveryPageSource).toContain('AcceptanceConfirmSheet')
     expect(deliveryPageSource).not.toContain('待评价')
-    expect(deliveryPageSource).not.toContain('delivery__clipboard-icon')
-    expect(deliveryPageSource).toContain('delivery__files-grid')
-    expect(deliveryPageSource).toContain('min-height:44px')
+    expect(deliveryPageSource).toContain('min-height: 44px')
     expect(deliveryPageSource).toContain('env(safe-area-inset-bottom)')
     expect(deliveryPageSource).not.toContain('立即支付')
+  })
+
+  it('asks for confirmation before accepting, and a back press closes that first', () => {
+    expect(deliveryPageSource).toContain('@click="isSheetOpen = true"')
+    expect(deliveryPageSource).toContain('@confirm="acceptDelivery"')
+    expect(deliveryPageSource).toContain('if (isSheetOpen.value) {')
   })
 })
 
 function delivery(): InspectionDelivery {
   return {
-    id: '80000000-0000-4000-8000-000000000001', serviceOrderId: ORDER_ID,
-    status: 'PUBLISHED', towerCount: 12, inspectedLengthMeters: 18600, issueCount: 3,
-    issueSummary: [{ severityCode: 'HIGH', severityName: '高', count: 1 }],
+    id: '80000000-0000-4000-8000-000000000001', serviceOrderId: ORDER_ID, visitId: VISIT_ID,
+    status: 'PUBLISHED', towerCount: 12, inspectedLengthMeters: 18600, metrics: [], issueCount: 3,
+    issueGroupBy: 'SEVERITY',
+    issueSummary: [{ groupCode: 'HIGH', groupName: '高', count: 1 }],
     files: [{ fileId: FILE_ID, type: 'INSPECTION_REPORT', displayName: '巡检报告.pdf', pointCount: null, contentType: 'application/pdf', sizeBytes: 1024, status: 'READY' }],
     publishedAt: '2026-07-28T08:00:00Z', acceptedAt: null, version: 2,
   }
@@ -106,9 +115,11 @@ function acceptance(): InspectionAcceptance {
   return {
     id: '90000000-0000-4000-8000-000000000001',
     serviceOrderId: ORDER_ID,
+    visitId: VISIT_ID,
     deliveryId: '80000000-0000-4000-8000-000000000001',
     acceptedBy: '10000000-0000-4000-8000-000000000001',
     acceptedAt: '2026-07-28T09:00:00Z',
+    visitStatus: 'ACCEPTED',
     orderStatus: 'ACCEPTED',
   }
 }

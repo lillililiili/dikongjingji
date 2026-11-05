@@ -105,14 +105,20 @@ export function resolveInspectionOrderDestination(
       return order.currentPlanId
         ? buildInspectionPlanConfirmationUrl(order.currentPlanId)
         : null
-    case 'IN_PROGRESS':
+    case 'AWAITING_ACCEPTANCE':
+      if (order.serviceOrderId && order.pendingAcceptanceVisitId) {
+        return buildInspectionDeliveryUrl(
+          order.serviceOrderId,
+          order.pendingAcceptanceVisitId,
+        )
+      }
       return order.serviceOrderId
         ? buildInspectionFulfillmentUrl(order.serviceOrderId)
         : null
-    case 'AWAITING_ACCEPTANCE':
+    case 'IN_PROGRESS':
     case 'COMPLETED':
       return order.serviceOrderId
-        ? buildInspectionDeliveryUrl(order.serviceOrderId)
+        ? buildInspectionFulfillmentUrl(order.serviceOrderId)
         : null
   }
 }

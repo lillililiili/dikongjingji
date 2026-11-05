@@ -7,6 +7,7 @@ import type { DeliverySaveTarget } from '../../data/service-flow/delivery-file-s
 
 export type AcceptDeliveryPort = (
   serviceOrderId: string,
+  visitId: string,
   version: number,
   idempotencyKey: string,
 ) => Promise<InspectionAcceptance>
@@ -15,6 +16,7 @@ export interface AcceptanceCoordinator {
   accept(
     port: AcceptDeliveryPort,
     serviceOrderId: string,
+    visitId: string,
     version: number,
   ): Promise<InspectionAcceptance>
 }
@@ -22,17 +24,20 @@ export interface AcceptanceCoordinator {
 export function createAcceptanceCoordinator(
   createIdempotencyKey: () => string,
 ): AcceptanceCoordinator {
-  let pendingIdempotencyKey: string | null = null
+  // A failed attempt keeps its key so the retry replays; each visit has its own.
+  const pendingIdempotencyKeys = new Map<string, string>()
 
   return {
-    async accept(port, serviceOrderId, version) {
-      pendingIdempotencyKey ??= createIdempotencyKey()
+    async accept(port, serviceOrderId, visitId, version) {
+      const idempotencyKey = pendingIdempotencyKeys.get(visitId) ?? createIdempotencyKey()
+      pendingIdempotencyKeys.set(visitId, idempotencyKey)
       const acceptance = await port(
         serviceOrderId,
+        visitId,
         version,
-        pendingIdempotencyKey,
+        idempotencyKey,
       )
-      pendingIdempotencyKey = null
+      pendingIdempotencyKeys.delete(visitId)
       return acceptance
     },
   }

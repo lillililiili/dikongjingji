@@ -1,15 +1,30 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import type { InspectionPlan, InspectionServiceOrder } from '../../../data/service-flow/inspection-plan-api'
+import {
+  createLatestRequestCoordinator,
+  getPreviousInspectionPageRoute,
+  runLatestRequest,
+} from '../../../application/service-flow/inspection-order-navigation'
+import type {
+  InspectionPlan,
+  InspectionServiceOrder,
+} from '../../../data/service-flow/inspection-plan-api'
 import { inspectionPlanApi } from '../../../data/service-flow/uni-booking-http-client'
-import { formatPlanAmount } from '../../../domain/service-flow/plan'
-import BookingProgress from '../../booking/components/BookingProgress.vue'
 import {
   buildInspectionDeliveryUrl,
   buildInspectionOrderCenterUrl,
 } from '../../../navigation/inspection-routes'
+import FulfillmentArrangementCard from '../components/FulfillmentArrangementCard.vue'
+import FulfillmentSummaryCard from '../components/FulfillmentSummaryCard.vue'
+import VisitTimeline from '../components/VisitTimeline.vue'
+import {
+  describeArrangement,
+  describeFulfillmentProgress,
+  describePendingAcceptance,
+  toVisitRows,
+} from '../fulfillment-view'
 
 interface FulfillmentRouteQuery { serviceOrderId?: string }
 
@@ -18,46 +33,15 @@ const plan = ref<InspectionPlan | null>(null)
 const isLoading = ref(true)
 const loadError = ref('')
 const serviceOrderId = ref('')
+const latestLoad = createLatestRequestCoordinator()
 
-const teamAssignment = computed(() => order.value?.assignments.find((item) => item.type === 'TEAM_MEMBER') ?? null)
-const deviceAssignment = computed(() => order.value?.assignments.find((item) => item.type === 'DEVICE') ?? null)
-const statusLabel = computed(() => ({ ARRANGING: '安排中', IN_PROGRESS: '服务中', DELIVERED: '待验收', ACCEPTED: '已验收' }[order.value?.status ?? 'ARRANGING']))
-const statusTitle = computed(() => ({ ARRANGING: '方案已确认', IN_PROGRESS: '现场服务进行中', DELIVERED: '报告已交付', ACCEPTED: '服务已验收' }[order.value?.status ?? 'ARRANGING']))
-const statusCopy = computed(() => order.value?.status === 'ARRANGING' ? '服务商正在安排作业团队与设备' : '服务状态已根据真实进度更新')
-const canOpenDelivery = computed(() =>
-  order.value?.status === 'DELIVERED' || order.value?.status === 'ACCEPTED',
-)
-const primaryActionLabel = computed(() =>
-  order.value?.status === 'ACCEPTED' ? '查看报告'
-    : canOpenDelivery.value ? '查看报告与验收' : '返回首页',
-)
-const progressPercent = computed(() => ({
-  ARRANGING: 15,
-  IN_PROGRESS: 68,
-  DELIVERED: 100,
-  ACCEPTED: 100,
-}[order.value?.status ?? 'ARRANGING']))
-const progressStage = computed(() => ({
-  ARRANGING: 0,
-  IN_PROGRESS: 1,
-  DELIVERED: 2,
-  ACCEPTED: 2,
-}[order.value?.status ?? 'ARRANGING']))
-const progressSteps = computed(() => {
-  const current = order.value
-  if (!current) return []
-  const completedOnSite = current.progress.some((item) => item.eventCode === 'SERVICE_COMPLETED')
-  const delivered = current.status === 'DELIVERED' || current.status === 'ACCEPTED'
-  const started = current.progress.some((item) => item.eventCode === 'SERVICE_STARTED')
-  const progressing = current.progress.some((item) => item.eventCode === 'SERVICE_PROGRESS')
-  return [
-    { code: 'PLAN_CONFIRMED', label: '方案已确认', completed: true, current: false, meta: formatDateTime(plan.value?.confirmedAt ?? null) },
-    { code: 'ARRANGEMENT_READY', label: '作业资源安排', completed: current.status !== 'ARRANGING', current: current.status === 'ARRANGING', meta: current.status === 'ARRANGING' ? '进行中' : '' },
-    { code: 'SERVICE_STARTED', label: '作业前确认', completed: started, current: false, meta: '' },
-    { code: 'SERVICE_PROGRESS', label: '现场巡检', completed: completedOnSite, current: current.status === 'IN_PROGRESS' && progressing && !completedOnSite, meta: '' },
-    { code: 'DELIVERED', label: '报告交付', completed: delivered, current: current.status === 'DELIVERED', meta: '' },
-  ]
-})
+const pendingAcceptance = computed(() =>
+  order.value ? describePendingAcceptance(order.value.visits) : null)
+const visitRows = computed(() => order.value
+  ? toVisitRows(order.value.visits, plan.value?.deliveryTerms?.reportDueHours ?? null)
+  : [])
+const methodsText = computed(() =>
+  plan.value?.serviceMethods?.map((method) => method.label).join(' + ') ?? '')
 
 onLoad((query: FulfillmentRouteQuery | undefined) => {
   serviceOrderId.value = query?.serviceOrderId?.trim() ?? ''
@@ -65,171 +49,244 @@ onLoad((query: FulfillmentRouteQuery | undefined) => {
   void reload()
 })
 
+// Coming back from acceptance has to show the new state without a blank reload.
+onShow(() => {
+  if (order.value) void refresh()
+})
+
+async function loadOrderAndPlan(): Promise<[InspectionServiceOrder, InspectionPlan]> {
+  const current = await inspectionPlanApi.getServiceOrder(serviceOrderId.value)
+  return [current, await inspectionPlanApi.getPlan(current.planId)]
+}
+
+async function refresh(): Promise<void> {
+  const result = await runLatestRequest(latestLoad, loadOrderAndPlan)
+  if (result.status === 'success') {
+    [order.value, plan.value] = result.value
+    loadError.value = ''
+  } else if (result.status === 'error') {
+    const { error } = result
+    loadError.value = error instanceof Error ? error.message : '服务安排加载失败'
+  }
+}
+
 async function reload(): Promise<void> {
   if (!serviceOrderId.value) return
   isLoading.value = true
   loadError.value = ''
-  try {
-    const current = await inspectionPlanApi.getServiceOrder(serviceOrderId.value)
-    order.value = current
-    plan.value = await inspectionPlanApi.getPlan(current.planId)
-  } catch (error) {
-    loadError.value = error instanceof Error ? error.message : '服务安排加载失败'
-  } finally { isLoading.value = false }
+  await refresh()
+  isLoading.value = false
 }
 
 function returnToOrders(): void {
-  const previousRoute = getCurrentPages().at(-2)?.route
+  const previousRoute = getPreviousInspectionPageRoute(getCurrentPages())
   if (previousRoute === 'pages/mine/inspection-orders') {
     uni.navigateBack({ delta: 1 })
     return
   }
   uni.redirectTo({ url: buildInspectionOrderCenterUrl('ALL') })
 }
-function openDelivery(): void {
+
+function openDelivery(visitId: string): void {
   if (!order.value) return
-  uni.navigateTo({ url: buildInspectionDeliveryUrl(order.value.id) })
+  uni.navigateTo({ url: buildInspectionDeliveryUrl(order.value.id, visitId) })
 }
-function handlePrimaryAction(): void {
-  if (canOpenDelivery.value) {
-    openDelivery()
-    return
-  }
-  returnToOrders()
-}
-function copyOrderNo(): void { if (order.value) uni.setClipboardData({ data: order.value.serviceOrderNo }) }
-function showCustomerService(): void { uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' }) }
-function formatDateTime(value: string | null): string {
-  if (!value) return '待服务商确认'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const part = (number: number): string => String(number).padStart(2, '0')
-  return `${date.getFullYear()}-${part(date.getMonth() + 1)}-${part(date.getDate())} ${part(date.getHours())}:${part(date.getMinutes())}`
-}
-function assignmentLabel(
-  assignment: InspectionServiceOrder['assignments'][number] | null,
-): string {
-  if (!assignment) return '服务商正在安排'
-  return assignment.roleLabel
-    ? `${assignment.displayName}（${assignment.roleLabel}）`
-    : assignment.displayName
-}
-function formatLineLength(value: number | null): string {
-  if (value == null) return '按现场方案执行'
-  return value >= 1000
-    ? `${(value / 1000).toFixed(1)} km`
-    : `${value} m`
+
+function showCustomerService(): void {
+  uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' })
 }
 </script>
 
 <template>
   <view class="fulfillment">
     <view class="fulfillment__header">
-      <button aria-label="返回" @click="returnToOrders"><UniIcons type="back" size="22" color="#25282d" /></button>
-      <text>现场巡检</text>
-      <text class="fulfillment__page-step">4/5</text>
+      <button class="fulfillment__back" aria-label="返回" @click="returnToOrders">
+        <UniIcons type="back" size="22" color="#191919" />
+      </button>
+      <text class="fulfillment__heading">服务履约</text>
     </view>
-    <BookingProgress :active="3" />
+
     <view v-if="isLoading" class="fulfillment__state">正在恢复服务安排…</view>
-    <view v-else-if="loadError" class="fulfillment__state"><UniIcons type="info-filled" size="40" color="#b5bac1" /><text>{{ loadError }}</text><button @click="reload">重新加载</button></view>
+    <view v-else-if="loadError" class="fulfillment__state">
+      <UniIcons type="info-filled" size="40" color="#b5bac1" />
+      <text>{{ loadError }}</text>
+      <button class="fulfillment__retry" @click="reload">重新加载</button>
+    </view>
+
     <main v-else-if="order && plan" class="fulfillment__content">
-      <view class="fulfillment__hero">
-        <image :src="order.serviceSnapshot.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'" mode="aspectFill" />
-        <view class="fulfillment__hero-status"><text>●</text><text>{{ statusTitle }}</text><text>·</text><text>{{ formatDateTime(order.plannedStartAt) }}</text></view>
-      </view>
-      <view class="fulfillment__progress-board">
-        <view class="fulfillment__progress-head"><text>作业进度</text><text>{{ progressPercent }}%</text></view>
-        <view class="fulfillment__progress-track"><text :style="{ width: `${progressPercent}%` }" /></view>
-        <text>当前：{{ statusCopy }}</text>
-        <view class="fulfillment__stage-strip">
-          <view v-for="(label, index) in ['准备完成', '巡检采集中', '报告生成']" :key="label" :class="{ 'fulfillment__stage--active': progressStage === index, 'fulfillment__stage--done': progressStage > index }">
-            <UniIcons :type="progressStage > index ? 'checkbox-filled' : 'circle'" size="24" :color="progressStage === index ? '#ff6a00' : progressStage > index ? '#16af55' : '#c8cdd2'" />
-            <text>{{ label }}</text>
-          </view>
-        </view>
-      </view>
-      <view class="fulfillment__status-card">
-        <view class="fulfillment__status-main"><view class="fulfillment__status-icon"><UniIcons type="calendar" size="36" color="#ff5a00" /></view><view><text class="fulfillment__status-title">{{ statusTitle }}</text><text class="fulfillment__copy">{{ statusCopy }}</text><text class="fulfillment__tag">{{ statusLabel }}</text></view></view>
-        <button class="fulfillment__number" @click="copyOrderNo"><text>服务单号</text><text>{{ order.serviceOrderNo }}</text><UniIcons type="copy" size="16" color="#50565f" /></button>
-        <text class="fulfillment__time">方案确认时间：{{ formatDateTime(plan.confirmedAt) }}</text>
-      </view>
-
-      <view class="fulfillment__card">
-        <text class="fulfillment__card-title">本次服务</text>
-        <view class="fulfillment__service">
-          <image :src="order.serviceSnapshot.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'" mode="aspectFill" />
-          <view class="fulfillment__service-details">
-            <text class="fulfillment__service-title">{{ order.serviceSnapshot.serviceTitle }}</text>
-            <view><text>巡检地点</text><text>{{ order.serviceSnapshot.location.address }}</text></view>
-            <view><text>服务时间</text><text>{{ formatDateTime(order.plannedStartAt) }}</text></view>
-            <view><text>巡检长度</text><text>{{ formatLineLength(order.serviceSnapshot.lineLengthMeters) }}</text></view>
-            <view><text>巡检项目</text><text>{{ order.serviceSnapshot.inspectionItems.map((item) => item.label).join('、') }}</text></view>
-            <view class="fulfillment__service-quote"><text>确认报价</text><text>{{ formatPlanAmount(plan.totalAmountMinor) }}</text></view>
-          </view>
-        </view>
-      </view>
-
-      <view class="fulfillment__card"><text class="fulfillment__card-title">作业安排</text><view class="fulfillment__row"><text>作业地点</text><text>{{ order.serviceSnapshot.location.address }}</text></view><view class="fulfillment__row"><text>服务时间</text><text>{{ formatDateTime(order.plannedStartAt) }}</text></view><view class="fulfillment__row"><text>作业团队</text><text>{{ assignmentLabel(teamAssignment) }}</text></view><view class="fulfillment__row"><text>作业设备</text><text>{{ assignmentLabel(deviceAssignment) }}</text></view></view>
-
-      <view class="fulfillment__card">
-        <view class="fulfillment__card-title-group"><text class="fulfillment__card-title">作业进度</text><text>服务进度</text></view>
-        <view v-for="step in progressSteps" :key="step.code" class="fulfillment__progress">
-          <UniIcons
-            :type="step.completed ? 'checkbox-filled' : 'circle'"
-            size="15"
-            :color="step.current ? '#ff5a00' : step.completed ? '#16af55' : '#c8cdd2'"
-          />
-          <text :class="{ 'fulfillment__progress--current': step.current }">{{ step.label }}</text>
-          <text :class="{ 'fulfillment__progress--current': step.current }">{{ step.meta }}</text>
-        </view>
+      <FulfillmentSummaryCard
+        :cover-url="order.serviceSnapshot.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'"
+        :title="order.serviceSnapshot.serviceTitle"
+        :provider-name="order.provider?.name ?? ''"
+        :certification-label="order.provider?.certificationLabel ?? ''"
+        :progress="describeFulfillmentProgress(order)"
+      />
+      <FulfillmentArrangementCard
+        :arrangement="describeArrangement(order.assignments)"
+        @contact-lead="showCustomerService"
+      />
+      <VisitTimeline
+        :rows="visitRows"
+        :methods-text="methodsText"
+        @open-delivery="openDelivery"
+      />
+      <view class="fulfillment__note">
+        <UniIcons type="info" size="14" color="#8a8f97" />
+        <text class="fulfillment__note-text">履约状态由服务商按实际作业更新，每次交付后由你验收</text>
       </view>
     </main>
-    <view v-if="order" class="fulfillment__footer"><button class="fulfillment__contact" @click="showCustomerService"><UniIcons type="headphones" size="21" color="#17191d" />联系工程师</button><button :disabled="!canOpenDelivery" @click="handlePrimaryAction">{{ canOpenDelivery ? primaryActionLabel : '巡检进行中' }}</button></view>
+
+    <view
+      v-if="pendingAcceptance && !isLoading && !loadError"
+      class="fulfillment__footer"
+    >
+      <view class="fulfillment__footer-copy">
+        <text class="fulfillment__footer-title">{{ pendingAcceptance.title }}</text>
+        <text class="fulfillment__footer-text">{{ pendingAcceptance.text }}</text>
+      </view>
+      <button class="fulfillment__accept" @click="openDelivery(pendingAcceptance.visitId)">去验收</button>
+    </view>
   </view>
 </template>
 
 <style scoped>
-.fulfillment{min-height:100vh;background:#f7f8fa;color:#25282d}.fulfillment__header{display:grid;min-height:calc(43px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);grid-template-columns:42px 1fr 62px;align-items:center;background:#fff;font-size:17px;font-weight:700;text-align:center;box-sizing:border-box}.fulfillment__header button{height:42px;margin:0;padding:0;border:0;background:transparent}.fulfillment__header button::after,.fulfillment__number::after,.fulfillment__footer button::after{border:0}.fulfillment__header button:last-child{display:flex;width:62px;align-items:center;justify-content:center;gap:3px;font-size:12px}.fulfillment :deep(.booking-progress){padding:6px 24px 5px}.fulfillment :deep(.booking-progress__line--active){background:#16ad55}.fulfillment__content{max-width:600px;margin:0 auto;padding:4px 8px 77px}.fulfillment__status-card,.fulfillment__card{padding:8px 11px 6px;border:1px solid #eceef1;border-radius:12px;background:#fff}.fulfillment__status-main{display:grid;grid-template-columns:65px minmax(0,1fr);align-items:center}.fulfillment__status-icon{display:grid;width:55px;height:55px;place-items:center;border-radius:50%;background:#fff0e6}.fulfillment__status-main>view:last-child{display:flex;align-items:flex-start;flex-direction:column}.fulfillment__status-title{font-size:17px;font-weight:700}.fulfillment__copy{margin-top:2px;color:#737b85;font-size:10px}.fulfillment__tag{margin-top:3px;padding:0 7px;border:1px solid #ff6a00;border-radius:10px;color:#ff5a00;font-size:10px}.fulfillment__number{display:grid;width:100%;min-height:31px;margin-top:5px;padding:0 9px;grid-template-columns:72px 1fr 18px;align-items:center;border:1px solid #e2e5e8;border-radius:7px;background:#fff;color:#25282d;font-size:11px;text-align:left}.fulfillment__number text:nth-child(2){font-weight:600;letter-spacing:.4px}.fulfillment__time{display:block;margin-top:3px;color:#737a83;font-size:9px}.fulfillment__card{margin-top:5px;padding:7px 10px 5px;font-size:10px}.fulfillment__card-title{display:block;margin-bottom:4px;font-size:13px;font-weight:700}.fulfillment__service{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:center}.fulfillment__service image{width:80px;height:94px;border-radius:7px;background:#edf0f2}.fulfillment__service-details{display:flex;min-width:0;flex-direction:column}.fulfillment__service-title{overflow:hidden;padding-bottom:3px;font-size:13px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.fulfillment__service-details>view{display:grid;min-height:18px;grid-template-columns:60px minmax(0,1fr);align-items:center;border-top:1px solid #eceef1}.fulfillment__service-details>view text:last-child{overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap}.fulfillment__service-details .fulfillment__service-quote{font-weight:700}.fulfillment__service-quote text:last-child{color:#ff5200;font-size:14px}.fulfillment__row{display:grid;min-height:22px;grid-template-columns:72px minmax(0,1fr);align-items:center;border-top:1px solid #eceef1}.fulfillment__row text:last-child{overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap}.fulfillment__progress{display:grid;min-height:20px;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;color:#7d858d;font-size:10px}.fulfillment__progress>text:last-child{font-size:9px}.fulfillment__progress--current{color:#ff5a00!important;font-weight:700}.fulfillment__state{display:flex;min-height:360px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#7e858e;font-size:14px}.fulfillment__state button{border:0;border-radius:18px;color:#fff;background:#ff6a00;font-size:13px}.fulfillment__footer{position:fixed;right:0;bottom:0;left:0;padding:0 8px calc(5px + env(safe-area-inset-bottom));background:#fff}.fulfillment__footer>view{display:flex;margin:0 -8px;padding:4px 11px;align-items:center;gap:5px;color:#a65c2e;background:#fff5ea;font-size:9px}.fulfillment__footer button{display:block;width:min(100%,584px);height:36px;margin:3px auto 0;border:0;border-radius:21px;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff4d00);font-size:15px;font-weight:700}
-.fulfillment{background:#fff}
-.fulfillment__header{min-height:calc(56px + var(--status-bar-height));padding-top:var(--status-bar-height);grid-template-columns:56px 1fr 56px;background:#fff;font-size:19px}
-.fulfillment__header button{width:56px;height:56px}
-.fulfillment__page-step{justify-self:center;padding:5px 11px;border-radius:16px;background:#f3f4f5;font-size:13px;font-weight:500}
-.fulfillment :deep(.booking-progress){display:none}
-.fulfillment__content{padding:18px 12px 126px}
-.fulfillment__hero{position:relative;height:292px;overflow:hidden;border-radius:22px;background:#dfe7ed;box-shadow:0 12px 32px rgba(32,44,58,.12)}
-.fulfillment__hero image{width:100%;height:100%}
-.fulfillment__hero-status{position:absolute;right:0;bottom:0;left:0;display:flex;height:48px;padding:0 16px;align-items:center;gap:8px;color:#fff;background:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.32));font-size:14px}
-.fulfillment__hero-status text:first-child{color:#ff6a00}
-.fulfillment__progress-board{margin-top:14px;padding:20px;border-radius:22px;background:#fff;box-shadow:0 10px 30px rgba(29,42,58,.08)}
-.fulfillment__progress-head{display:flex;align-items:center;justify-content:space-between;font-size:20px;font-weight:800}
-.fulfillment__progress-head text:last-child{font-size:23px}
-.fulfillment__progress-track{height:7px;margin:20px 0 14px;overflow:hidden;border-radius:4px;background:#eceeef}
-.fulfillment__progress-track text{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#ff8a00,#ff5a00)}
-.fulfillment__progress-board>text{color:#69717a;font-size:13px}
-.fulfillment__stage-strip{display:grid;margin-top:20px;grid-template-columns:repeat(3,1fr);gap:8px}
-.fulfillment__stage-strip>view{display:flex;align-items:center;flex-direction:column;gap:7px;color:#858c95;font-size:12px;text-align:center}
-.fulfillment__stage-strip .fulfillment__stage--active{color:#25282d;font-weight:700}
-.fulfillment__stage-strip .fulfillment__stage--done{color:#25282d}
-.fulfillment__status-card,.fulfillment__card{margin-top:14px;padding:16px;border:0;border-radius:22px;box-shadow:0 10px 30px rgba(29,42,58,.08)}
-.fulfillment__status-main{grid-template-columns:74px minmax(0,1fr)}
-.fulfillment__status-icon{width:62px;height:62px}
-.fulfillment__status-title{font-size:18px}
-.fulfillment__copy{font-size:12px}
-.fulfillment__tag{margin-top:6px;font-size:11px}
-.fulfillment__number{min-height:42px;margin-top:12px;font-size:12px}
-.fulfillment__time{margin-top:7px;font-size:11px}
-.fulfillment__card-title{font-size:17px}
-.fulfillment__card-title-group{display:flex;align-items:center;justify-content:space-between}
-.fulfillment__card-title-group>text:last-child{color:#8c939b;font-size:11px}
-.fulfillment__service{margin-top:10px;grid-template-columns:118px minmax(0,1fr);gap:12px}
-.fulfillment__service image{width:118px;height:136px;border-radius:13px}
-.fulfillment__service-title{font-size:15px}
-.fulfillment__service-details>view{min-height:25px;grid-template-columns:62px minmax(0,1fr);font-size:11px}
-.fulfillment__row{min-height:42px;grid-template-columns:78px minmax(0,1fr);font-size:13px}
-.fulfillment__progress{min-height:40px;grid-template-columns:28px minmax(0,1fr) auto;font-size:13px}
-.fulfillment__progress>text:last-child{font-size:11px}
-.fulfillment__footer{display:grid;padding:10px 12px calc(12px + env(safe-area-inset-bottom));grid-template-columns:1fr 1fr;gap:12px;box-shadow:0 -7px 24px rgba(25,35,48,.07)}
-.fulfillment__footer button{width:100%;height:52px;margin:0;border-radius:16px;font-size:16px}
-.fulfillment__footer .fulfillment__contact{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #aeb3ba;color:#17191d;background:#fff}
-.fulfillment__footer button[disabled]{color:#a0a5ab;background:#e6e8eb;opacity:1}
+.fulfillment {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  color: #191919;
+  background: #f7f8fa;
+}
+
+.fulfillment__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  padding: calc(8px + var(--status-bar-height)) 8px 8px;
+  align-items: center;
+  gap: 4px;
+  background: #fff;
+}
+
+.fulfillment__back {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+}
+
+.fulfillment__back::after,
+.fulfillment__retry::after,
+.fulfillment__accept::after {
+  border: 0;
+}
+
+.fulfillment__heading {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 25px;
+}
+
+.fulfillment__state {
+  display: flex;
+  min-height: 360px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: #7e858e;
+  font-size: 14px;
+}
+
+.fulfillment__retry {
+  height: 44px;
+  margin: 0;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #ff6a00;
+  font-size: 14px;
+  line-height: 44px;
+}
+
+.fulfillment__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+
+.fulfillment__note {
+  display: flex;
+  padding: 0 2px;
+  gap: 6px;
+}
+
+.fulfillment__note :deep(.uni-icons) {
+  flex-shrink: 0;
+  margin-top: 1.5px;
+}
+
+.fulfillment__note-text {
+  min-width: 0;
+  color: #666b73;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.fulfillment__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  padding: 10px 16px max(24px, env(safe-area-inset-bottom));
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #ebedf0;
+  background: #fff;
+}
+
+.fulfillment__footer-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fulfillment__footer-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.fulfillment__footer-text {
+  color: #8a8f97;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.fulfillment__accept {
+  height: 46px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #ff6a00;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 46px;
+  white-space: nowrap;
+}
 </style>

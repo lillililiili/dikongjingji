@@ -27,6 +27,11 @@ export interface InspectionOrderSummary {
   serviceOrderStatus?: 'ARRANGING' | 'IN_PROGRESS' | 'DELIVERED' | 'ACCEPTED'
   quoteAmountMinor?: number
   currency: 'CNY'
+  visitCount?: number
+  acceptedVisitCount?: number
+  nextVisitDate?: string
+  pendingAcceptanceVisitId?: string
+  pendingAcceptanceVisitNo?: number
 }
 
 export interface InspectionOrderPage {
