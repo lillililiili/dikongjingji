@@ -138,7 +138,7 @@ export function createPlanCancellationController<Reservation extends PlanCancell
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onBackPress, onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
 import {
@@ -216,6 +216,12 @@ onLoad((query: PlanRouteQuery | undefined) => {
   void loadPlan(planId)
 })
 
+onBackPress((event) => {
+  if (event.from === 'navigateBack') return false
+  goBack()
+  return true
+})
+
 function loadPlan(planId: string): Promise<boolean> {
   return planLoader.loadPlan(planId)
 }
@@ -285,7 +291,8 @@ function openFulfillment(serviceOrderId: string): void {
 
 function goBack(): void {
   const previousRoute = getCurrentPages().at(-2)?.route
-  if (previousRoute === 'pages/mine/inspection-orders') {
+  if (previousRoute === 'pages/mine/inspection-orders'
+    || previousRoute === 'pages/service/inspection/booking-submitted') {
     uni.navigateBack({ delta: 1 })
     return
   }

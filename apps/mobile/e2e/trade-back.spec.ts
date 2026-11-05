@@ -47,6 +47,10 @@ async function openMine(page: Page): Promise<void> {
   await expect(page.getByTestId('mine-page')).toBeVisible()
 }
 
+async function pressTopBack(page: Page): Promise<void> {
+  await page.locator('[aria-label="返回"]').filter({ visible: true }).click()
+}
+
 // The same call App's back key makes. App has no H5 back guard, and the guard would
 // drop the navigateBack nested inside onBackPress.
 async function pressAppBack(page: Page): Promise<void> {
@@ -72,6 +76,46 @@ test.describe('交易页面返回', () => {
     await page.route('**/api/v1/inspection/reservations?*', (route) =>
       route.fulfill({ json: EMPTY_ORDERS }),
     )
+  })
+
+  test('TB-101 方案确认从提交结果页进入，顶部返回回提交结果页', async ({ page }) => {
+    await openHome(page)
+    await open(page, SUBMITTED_ROUTE)
+    await open(page, PLAN_ROUTE)
+    await expect(plan(page)).toBeVisible()
+    await pressTopBack(page)
+
+    await expect(submitted(page)).toBeVisible()
+    await expect(orderCenter(page)).toHaveCount(0)
+  })
+
+  test('TB-102 方案确认从提交结果页进入，App 返回键回提交结果页', async ({ page }) => {
+    await openHome(page)
+    await open(page, SUBMITTED_ROUTE)
+    await open(page, PLAN_ROUTE)
+    await expect(plan(page)).toBeVisible()
+    await pressAppBack(page)
+
+    await expect(submitted(page)).toBeVisible()
+    await expect(orderCenter(page)).toHaveCount(0)
+  })
+
+  test('TB-103 方案确认从“我的”进入，顶部返回到订单中心', async ({ page }) => {
+    await openMine(page)
+    await open(page, PLAN_ROUTE)
+    await expect(plan(page)).toBeVisible()
+    await pressTopBack(page)
+
+    await expect(orderCenter(page)).toBeVisible()
+  })
+
+  test('TB-104 方案确认从“我的”进入，App 返回键也到订单中心', async ({ page }) => {
+    await openMine(page)
+    await open(page, PLAN_ROUTE)
+    await expect(plan(page)).toBeVisible()
+    await pressAppBack(page)
+
+    await expect(orderCenter(page)).toBeVisible()
   })
 
   test('TB-105 提交结果页 App 返回键到订单中心，不退回下单页面', async ({ page }) => {
