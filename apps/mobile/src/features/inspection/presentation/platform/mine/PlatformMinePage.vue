@@ -236,18 +236,18 @@ button::after{border:0}
 .platform-mine__section-title{font-size:24rpx;font-weight:700}
 .platform-mine__view-all{min-height:38rpx;color:#6d7681;font-size:17rpx;line-height:38rpx}
 .platform-mine__order-list{display:flex;flex-direction:column}
-.platform-mine__order{display:grid;grid-template-columns:176rpx minmax(0,1fr) 104rpx;gap:14rpx;align-items:center;padding:20rpx 0;border-bottom:1rpx solid #edf0f3;text-align:left}
+.platform-mine__order{display:grid;grid-template-columns:176rpx minmax(0,1fr) minmax(104rpx,auto);gap:14rpx;align-items:center;padding:20rpx 0;border-bottom:1rpx solid #edf0f3;text-align:left}
 .platform-mine__order:last-child{border-bottom:0}
 .platform-mine__order-image{width:176rpx;height:128rpx;border-radius:19rpx}
 .platform-mine__order-copy{display:flex;min-width:0;flex-direction:column}
-.platform-mine__order-title-line{display:flex;min-width:0;align-items:center;gap:9rpx}
+.platform-mine__order-title-line{display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:3rpx 9rpx}
 .platform-mine__order-title{overflow:hidden;font-size:21rpx;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
 .platform-mine__order-status{flex:0 0 auto;padding:3rpx 7rpx;border-radius:10rpx;color:#19733f;background:#e8f8ee;font-size:20rpx}
 .platform-mine__order-meta{display:flex;align-items:center;gap:3rpx;margin-top:4rpx;overflow:hidden;color:#76808c;font-size:15rpx;text-overflow:ellipsis;white-space:nowrap}
 .platform-mine__order-number{font-size:13rpx}
 .platform-mine__amount{display:flex;min-width:0;flex-direction:column;align-items:flex-end}
 .platform-mine__amount-label{margin-top:2rpx;color:#7a838e;font-size:14rpx}
-.platform-mine__amount-text{max-width:104rpx;overflow-wrap:break-word;color:#ff6508;font-size:25rpx;font-weight:800;text-align:right}
+.platform-mine__amount-text{color:#ff6508;font-size:25rpx;font-weight:800;text-align:right;white-space:nowrap}
 .platform-mine__order-action{min-width:94rpx;height:38rpx;margin-top:7rpx;border:1rpx solid #737d88;border-radius:19rpx;color:#353b42;font-size:20rpx;line-height:36rpx;text-align:center}
 .platform-mine__orders-empty{padding:46rpx 0;color:#8a929c;font-size:22rpx;text-align:center}
 .platform-mine__feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4rpx;margin:0 22rpx;padding:12rpx 14rpx;border-radius:24rpx;background:#fff}
@@ -265,5 +265,5 @@ button::after{border:0}
 .platform-mine__skeleton--status{height:150rpx;margin-top:26rpx}
 .platform-mine__skeleton--orders{height:430rpx;margin-top:26rpx}
 @keyframes mine-skeleton{0%{background-position:100% 0}100%{background-position:0 0}}
-@media (min-width:420px){.platform-mine__status-card,.platform-mine__orders,.platform-mine__feature-grid{margin-right:28rpx;margin-left:28rpx}.platform-mine__order{grid-template-columns:188rpx minmax(0,1fr) 112rpx}.platform-mine__order-image{width:188rpx}}
+@media (min-width:420px){.platform-mine__status-card,.platform-mine__orders,.platform-mine__feature-grid{margin-right:28rpx;margin-left:28rpx}.platform-mine__order{grid-template-columns:188rpx minmax(0,1fr) minmax(112rpx,auto)}.platform-mine__order-image{width:188rpx}}
 </style>
