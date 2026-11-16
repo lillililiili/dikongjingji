@@ -168,7 +168,7 @@ test.describe('首页频道', () => {
     await expectRootBar(page, 'home')
 
     await page.getByTestId('home-channel-activity').click()
-    await expect(page.getByTestId('home-channel-placeholder')).toContainText('赛事研学')
+    await expect(page.getByTestId('activity-channel')).toBeVisible()
     await expect(page.getByTestId('inspection-portal')).toBeHidden()
     await expect(placeholder).toContainText('搜索赛事、培训、研学')
     await expectRootBar(page, 'home')
@@ -322,7 +322,8 @@ test.describe('巡检入口', () => {
     await page.evaluate(() => window.scrollTo(0, 300))
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300)
 
-    await page.getByTestId('home-channel-activity').click()
+    // 体验 is still a placeholder channel, which is what this case needs: a short page to switch to.
+    await page.getByTestId('home-channel-experience').click()
     await expect(page.getByTestId('home-channel-placeholder')).toBeVisible()
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 

@@ -74,7 +74,8 @@ function errorFromResponse(data: unknown, status: number): ApiRequestError {
   )
 }
 
-async function publicRequest<T>(input: {
+// Exported for shared/http/public-api-request.ts, the entry other features use for anonymous calls.
+export async function publicRequest<T>(input: {
   url: string
   method: 'GET' | 'POST'
   data?: unknown

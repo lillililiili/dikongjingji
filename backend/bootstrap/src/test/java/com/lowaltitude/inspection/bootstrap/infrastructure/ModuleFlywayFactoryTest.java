@@ -29,6 +29,16 @@ class ModuleFlywayFactoryTest {
         assertThat(inspection.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
     }
 
+    @Test
+    void keepsActivityVersionsInTheirOwnHistoryTable() {
+        Flyway activity = new ModuleFlywayFactory().activity(mock(DataSource.class));
+
+        assertThat(activity.getConfiguration().getTable()).isEqualTo("flyway_history_activity");
+        assertThat(locationDescriptors(activity)).containsExactly("classpath:db/migration/activity");
+        assertThat(activity.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(activity.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
     private static String[] locationDescriptors(Flyway flyway) {
         return Arrays.stream(flyway.getConfiguration().getLocations())
                 .map(Object::toString)

@@ -47,10 +47,10 @@ test.describe('首页改版', () => {
       '搜索设备、赛事研学或服务',
     )
 
+    // 赛事研学 has its own list since step ④a; 商城 is still a placeholder.
     await page.getByTestId('home-channel-activity').click()
-    await expect(page.getByTestId('home-channel-placeholder')).toContainText(
-      '赛事研学',
-    )
+    await expect(page.getByTestId('activity-channel')).toBeVisible()
+    await expect(page.getByTestId('home-channel-placeholder')).toHaveCount(0)
     await page.getByTestId('home-channel-mall').click()
     await expect(page.getByTestId('home-channel-placeholder')).toContainText(
       '商城',

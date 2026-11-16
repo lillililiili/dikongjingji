@@ -29,6 +29,26 @@ public class ModuleFlywayConfiguration {
         return factory.inspection(dataSource);
     }
 
+    // 活动表引用 identity_organization，并使用巡检迁移里创建的 postgis 扩展，所以排在两者之后。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway activityFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.activity(dataSource);
+    }
+
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn("activityFlyway")
+    Flyway activityDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/activity")
+                .table("flyway_history_activity_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     @Bean(initMethod = "migrate")
     @Profile("dev")
     @DependsOn("inspectionFlyway")

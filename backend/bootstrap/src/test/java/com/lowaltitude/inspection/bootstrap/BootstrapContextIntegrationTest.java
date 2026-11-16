@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.CustomerReservationQueryService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
@@ -47,6 +48,7 @@ import org.springframework.web.bind.annotation.RestController;
         ReservationApplicationService.class,
         CustomerReservationQueryService.class,
         InspectionServiceCatalogReadService.class,
+        ActivityCatalogReadService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class

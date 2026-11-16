@@ -20,6 +20,7 @@ import com.lowaltitude.inspection.identity.domain.IdentityAccountPort;
 import com.lowaltitude.inspection.identity.domain.IdentityAccountStatus;
 import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
 import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
@@ -181,6 +182,28 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/v1/inspection/services"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @Test
+    void anonymousActivityReadsArePublicButOtherActivityMethodsRequireAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/activities").param("cityCode", "370500"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/activities/session-dates")
+                        .param("cityCode", "370500")
+                        .param("from", "2026-11-16")
+                        .param("to", "2026-11-30"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/activities/a2000000-0000-4000-8000-000000000001")
+                        .param("cityCode", "370500"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/activities"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        // 报名等写接口还不存在；更深的路径不在公开白名单里。
+        mockMvc.perform(get("/api/v1/activities/a2000000-0000-4000-8000-000000000001/enrollments"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
@@ -465,6 +488,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         InspectionServiceCatalogReadService testInspectionServiceCatalogReadService() {
             return org.mockito.Mockito.mock(InspectionServiceCatalogReadService.class);
+        }
+
+        @Bean
+        ActivityCatalogReadService testActivityCatalogReadService() {
+            return org.mockito.Mockito.mock(ActivityCatalogReadService.class);
         }
 
         @Bean

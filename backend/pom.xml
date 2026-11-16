@@ -18,5 +18,6 @@
         <module>bootstrap</module>
         <module>modules/identity</module>
         <module>modules/inspection</module>
+        <module>modules/activity</module>
     </modules>
 </project>

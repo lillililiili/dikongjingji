@@ -2,6 +2,7 @@ package com.lowaltitude.inspection.bootstrap.api;
 
 import java.util.UUID;
 
+import com.lowaltitude.inspection.activity.application.ActivityNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
@@ -149,7 +150,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             ReservationNotFoundException.class,
-            InspectionServiceNotFoundException.class
+            InspectionServiceNotFoundException.class,
+            ActivityNotFoundException.class
     })
     public ResponseEntity<ApiError> handleReservationNotFound(
             RuntimeException exception,

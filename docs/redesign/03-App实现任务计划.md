@@ -376,3 +376,170 @@
 ### 6.3 顺序
 
 ② 仍等 C1、C2（§1.2）。首页改版已做完并验收（§6.1）。不碰钱、接下来能做的是：①b，③ 的类目、详情、购物车，以及 ④ 里不收费的部分（赛事研学频道与详情、体验频道）。从哪一项开始由用户定。① 仍未验收。①、首页改版、赛事研学只读频道已于 2026-11-16 按用户要求分三次提交到本分支（没有推送、没有合并到产品线）。
+
+---
+
+## 7. ④a 赛事研学频道只读（草案，2026-11-16，待用户确认后开工）
+
+用户 2026-11-16 选定下一步做“赛事研学”。④ 整期太大，而且收费部分被 ② 挡着，所以拆成三步，这里只定第一步：
+
+| 步 | 范围 | 前置 |
+| --- | --- | --- |
+| ④a（本节） | 赛事研学频道列表、活动详情、选场次。只读，不写报名 | 本节确认 |
+| ④b | 参与人、免费活动报名、凭证、我的报名、候补、退改里不涉及钱的部分 | ④a；登录；监护人确认文案 |
+| ④c | 收费报名、团队报名付款、退款 | ② 的收银台（C1、C2） |
+
+体验频道（体验中心、场馆详情、仿真任务）另列一步，排在 ④a 之后，方案届时单独确认。
+
+### 7.1 做完能看到什么
+
+依据修订版原型的 HomeAct、ActDetail、ActStudyRobot、ActCamp、ActTraining、ActOpenDay（五个详情是同一个模板）。
+
+- 首页点“赛事研学”频道：类型页签（全部 / 赛事 / 培训 / 研学 / 体验日）、日期条、筛选（报名中、免费）、活动卡片（类型、标题、时间和地点、价格、名额或状态）。下拉刷新，滚到底加载下一页，加载中、空、出错、重试都有。
+- 首页轮播“查看赛事”“查看研学”、金刚位“赛事报名”“研学体验”进到这个频道。
+- 点卡片进活动详情：封面、类型、标题、价格、适合年龄、各场次（时间、余位或“已满可候补 / 已截止 / 已结束”、签到和报名截止时间）、主办和承办、地点与导航、参与条件、名额说明、退改规则。
+- 选场次后主按钮变成“立即报名”或“加入候补”；报名截止、活动结束时按钮停用。这一步点下去只提示“报名功能即将开放”，报名在 ④b、④c 做。
+
+### 7.2 这一步不做的
+
+| 原型上有 | 这一步怎么处理 | 原因 |
+| --- | --- | --- |
+| 报名、候补、团队报名、凭证、我的报名 | 不做；按钮走类型化网关给提示 | ④b、④c |
+| “距你 2.3km” | 不显示距离；地址和导航保留 | 距离要定位权限和服务端空间计算，随 ④b 或单列 |
+| 主办方、承办场馆点进去的主页 | 只显示名称，不可点 | 商家主页在 ⑥，场馆页在体验频道那一步 |
+| “活动使用器材”商品卡、“在线试试编程任务” | 整块不显示 | 商城在 ③，体验在后一步 |
+| 咨询、收藏 | 咨询走网关提示；收藏不显示 | 客服在 ⑦；收藏一期做不做未定（D10） |
+| 筛选项“亲子”“8–15 岁”“线上” | 不显示 | 原型里这三项本来也不起作用，数据上没有对应字段 |
+| 频道对公开版开放 | 不开放，仍只在预览构建显示 | 只能看不能报，不算闭环（AGENTS.md §3） |
+
+### 7.3 规则（建议值，确认后按此实现）
+
+1. 活动四类：赛事、培训、研学、体验日。价格三种：按人收费、免费、询价。
+2. 列表只列还有未开始场次的活动，按最近一场的开始时间从早到晚排；全部场次都开始了的活动不进列表，但详情链接仍能打开。
+3. 状态由服务端按容量、报名截止时间和开始时间算，客户端不自己判断：报名中、已满可候补、已满、报名截止、已结束。
+4. 名额公开显示“余 N”。
+5. 日期条有活动的日子带圆点，点某天只看那天有场次的活动（原型里点日期不筛选，这里改成筛选）。
+6. 参与条件、名额说明、退改规则是主办方填的文字，原样显示。原型里的“[协议约定时间]”是占位符，开发数据写成“活动开始 48 小时前可免费取消”作示例；真正的退改时限在 ④b 定。
+7. 时间一律按北京时间显示。
+
+### 7.4 接口（契约草案 `contracts/openapi-activity.yaml` 0.1.0）
+
+| 接口 | 用途 |
+| --- | --- |
+| `GET /api/v1/activities?cityCode&type&date&enrolling&free&page&size` | 频道列表，服务端分页（每页默认 20，最多 50） |
+| `GET /api/v1/activities/session-dates?cityCode&type&from&to` | 日期条上哪几天有场次 |
+| `GET /api/v1/activities/{activityId}?cityCode` | 活动详情，含全部场次 |
+
+三个都是公开只读接口，不用登录。沿用现有约定：直接返回对象不套外壳、分页字段 `page / size / total / hasMore / items`、错误体 `ApiError`、金额用分、图片只给 HTTPS 地址、枚举返回稳定编码。不存在或不属于该城市返回 404 `COMMON_NOT_FOUND`，参数不对返回 400 `COMMON_INVALID_ARGUMENT`。
+
+### 7.5 数据表（新模块 `backend/modules/activity`，迁移 `V001__activity_catalog.sql`）
+
+```sql
+CREATE TABLE activity (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    organizer_id uuid NOT NULL REFERENCES identity_organization(id) ON DELETE RESTRICT,
+    co_organizer_id uuid REFERENCES identity_organization(id) ON DELETE RESTRICT,
+    type varchar(16) NOT NULL CHECK (type IN ('CONTEST', 'TRAINING', 'STUDY_TOUR', 'OPEN_DAY')),
+    title varchar(160) NOT NULL,
+    subtitle varchar(200),
+    cover_url varchar(500),
+    city_code varchar(16) NOT NULL,
+    venue_name varchar(120) NOT NULL,
+    venue_address varchar(240) NOT NULL,
+    venue_location geography(Point, 4326),
+    schedule_note varchar(120),
+    price_mode varchar(16) NOT NULL CHECK (price_mode IN ('PER_PERSON', 'FREE', 'INQUIRY')),
+    price_amount_minor bigint CHECK (price_amount_minor >= 0),
+    currency char(3) NOT NULL DEFAULT 'CNY' CHECK (currency = 'CNY'),
+    min_age smallint CHECK (min_age >= 0),
+    max_age smallint CHECK (max_age >= 0),
+    eligibility_note varchar(300),
+    seat_note varchar(300),
+    refund_note varchar(500),
+    waitlist_allowed boolean NOT NULL DEFAULT false,
+    team_enrollment_allowed boolean NOT NULL DEFAULT false,
+    status varchar(16) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'PUBLISHED', 'OFFLINE', 'DELETED')),
+    version integer NOT NULL DEFAULT 0 CHECK (version >= 0),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK ((price_mode = 'PER_PERSON') = (price_amount_minor IS NOT NULL)),
+    CHECK (min_age IS NULL OR max_age IS NULL OR min_age <= max_age)
+);
+CREATE INDEX idx_activity_city_published ON activity (city_code, status, type, id);
+
+CREATE TABLE activity_session (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    activity_id uuid NOT NULL REFERENCES activity(id) ON DELETE RESTRICT,
+    label varchar(60),
+    starts_at timestamptz NOT NULL,
+    ends_at timestamptz,
+    check_in_opens_at timestamptz,
+    enrollment_closes_at timestamptz NOT NULL,
+    capacity integer NOT NULL CHECK (capacity > 0),
+    enrolled_count integer NOT NULL DEFAULT 0 CHECK (enrolled_count >= 0),
+    status varchar(16) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'CANCELLED')),
+    version integer NOT NULL DEFAULT 0 CHECK (version >= 0),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (enrolled_count <= capacity),
+    CHECK (enrollment_closes_at <= starts_at),
+    CHECK (ends_at IS NULL OR ends_at > starts_at)
+);
+CREATE INDEX idx_activity_session_upcoming ON activity_session (activity_id, status, starts_at);
+```
+
+- 一个活动只属于一个城市（活动在一个地点办），所以不另建“活动 × 城市”表。
+- `enrolled_count` 这一步只读；④b 的报名事务在同一行上加锁增减，并用 `version` 做并发保护。
+- 迁移里不放数据。开发数据放 `backend/bootstrap/src/main/resources/db/development/activity/R__dev_activity_catalog.sql`，只在 dev 环境加载：原型里的五个活动、各三个场次，相对当前日期排期，保证总有报名中、已满可候补、已截止几种状态可看。
+- 正式数据怎么录入没有着落：Web 管理后台不在一期（AGENTS.md §3、D11），上线前要么先定一个录入办法，要么由技术人员导入。这是观察项，不在本步解决。
+
+### 7.6 任务清单
+
+| 任务 | 做什么 | 验证等级 |
+| --- | --- | --- |
+| A01 | 契约定稿：`openapi-activity.yaml` 1.0.0、`activity.examples.json`；AGENTS.md §2 登记 `activity` 模块，§3 去掉对它的限制 | L3，停下确认（本节即此节点） |
+| A02 | 服务端：新模块 `activity`、迁移 V001、Flyway 注册、读服务（状态计算用可注入的时钟）、mapper（排序和筛选全部绑定参数）、控制器、公开 GET 白名单、404 映射、开发数据；单测、mapper SQL 测试、迁移测试、契约测试、安全测试 | L3 |
+| A03 | App 公共请求：把公开请求从 `features/inspection` 提到 `shared/http`，巡检改为从那里引用，行为不变 | L3，回归全套 E2E |
+| A04 | App `features/activity`：领域类型、API 与映射、列表加载（只认最后一次请求）、频道内容组件接进首页（替换“频道建设中”）、类型页签、日期条、筛选、分页、各种状态 | L2 |
+| A05 | App 活动详情页 `/pages/activity/detail?activityId=…`：场次选择、主按钮状态、导航、未做入口走网关 | L2；改路由表，Android 路径没有设备，沿用已接受的偏差 |
+| A06 | 回归与验收记录：后端全量测试、App 单测、类型检查、E2E（新增赛事研学用例，含从首页轮播和金刚位进入的两条路径）、公开版构建与防泄漏、320/375/430 截图 | L3，停下等“验收通过” |
+
+本步明确不改：巡检 M01–M08 的页面与接口；底栏；首页推荐频道已验收的轮播、大卡、金刚位；`features/play`。
+
+### 7.7 与规范的出入，需要一并点头
+
+1. AGENTS.md §3 写“其他一级或二级业务模块”不开发，§2 只登记了巡检。新增 `activity` 模块要在 A01 里同步改这两处（用户 2026-11-16 已说“做赛事研学”，这里是把规范改成与之一致）。
+2. AGENTS.md §6 建议控制器放在模块的 `interfaces/app-api`，现有代码的控制器都在 `backend/bootstrap` 里、与读服务同包。新模块沿用现有代码的做法，不另起一套。
+3. 原型的报名页 EventSignup 是“报名意向演示”，不产生真实报名。App 不照做演示版，报名留到 ④b 做成真的。
+
+### 7.8 完成情况（**用户 2026-11-16 验收通过**）
+
+用户 2026-11-16 回复“按方案开工”，A01–A06 做完后同日回复“验收通过”，并要求把三批改动分三次提交。验收时用户已看过下面“与 §7 方案的出入”七条。
+
+| 项 | 结果 |
+| --- | --- |
+| 契约 | `contracts/openapi-activity.yaml` 1.0.0；AGENTS.md V2.7 登记 M09 `activity` |
+| 服务端 | 新模块 `backend/modules/activity`，迁移 `V001__activity_catalog.sql`，三个公开只读接口；dev 示例数据 5 个活动 16 个场次 |
+| 后端测试 | 全量 304 条通过（新增 32 条：读服务 12、SQL 与迁移 5、控制器 6、契约对照 4、开发数据 3、Flyway 1、安全 1） |
+| App | `features/activity`（列表频道接进首页、详情页 `/pages/activity/detail`），`shared/http/public-api-request.ts` |
+| App 单测 | 685 条通过（新增 32 条），类型检查通过 |
+| E2E | 开发版 155 条通过（新增 `activity.spec.ts` 15 条，含首页轮播和金刚位两条入口、筛选、日期条、分页、出错重试、详情选场次、不存在的活动）；公开版 6 条通过 |
+| 公开版构建 | 构建通过，防泄漏检查通过；赛事研学频道在公开版不显示 |
+| 截图 | `.planning/activity/visual/` 320 / 375 / 430 的频道页和详情页，无横向溢出 |
+| 真机 | Android、iOS 没测。改了路由表，按 AGENTS.md §15 应跑 Android 路径，没有设备 |
+
+与 §7 方案的出入：
+
+1. A03 没有把请求代码搬走。`shared/http/public-api-request.ts` 只是统一出口，实现（地址规则、局域网发现、失败重试一次、错误类型）仍在巡检的 HTTP 客户端里，和 `shared/weather` 现有做法一致。搬动会牵动巡检八个文件和一组测试，这一步不值得冒这个险。
+2. 没做下拉刷新。首页整页滚动由各频道共用，打开下拉会改变已验收的巡检频道的行为；改为每次回到频道重新读取列表。
+3. 没建 `activity.examples.json`。契约测试改为把每个返回对象的字段、三个枚举的取值和契约逐项对照，改了一边忘了另一边会失败。
+4. 卡片显示的不是“最近一场”，而是“还能报名的最近一场”，都报不了时才显示最近一场；否则会出现“显示已满场次却写着报名中”。契约说明已同步。
+5. 详情页“导航”把服务端的 WGS84 坐标换算成国内地图用的 GCJ-02 再打开地图；打不开时复制地址。换算有单测，真机上没试过。
+6. 示例活动没有封面图（没有有使用权的图片），列表和详情用按类型区分的色块代替。
+7. E2E 的 ACT-002（金刚位“赛事报名”）用的是派发点击，因为该入口在金刚区第二页，自动化里滑不过去。
+
+观察项（记录，不在本步处理）：
+
+- 公开版能否去掉首页的示例内容，取决于预览开关和首页是否被打进同一个代码块（压缩器只在同一个代码块里做常量折叠，打包器不跨文件折叠）。本步一度因为详情页引入共享开关而让示例文字“无人机足球赛”进了公开包，被 `verify-public-production-preview.mjs` 拦下。处理办法是活动模块用自己的等价开关 `activity-preview.ts`，并用单测保证表达式与共享开关一致、活动模块不引入共享开关文件。隐患本身还在：以后别的页面引入共享开关，可能再次触发。建议另开任务把示例内容改成按构建模式替换模块，不再依赖压缩器。
+- `GET /api/v1/inspection/services` 缺少 `cityCode` 时返回 500 而不是 400（通用异常处理没有覆盖缺参）。活动接口已避开，巡检接口没有改。
+- 正式活动数据的录入办法仍没有着落（§7.5）。

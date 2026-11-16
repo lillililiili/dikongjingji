@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onHide, onPageScroll, onShow } from '@dcloudio/uni-app'
+import { onHide, onPageScroll, onReachBottom, onShow } from '@dcloudio/uni-app'
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, watch } from 'vue'
 
@@ -16,6 +16,7 @@ import {
   type HomeEntryTarget,
 } from '@/app-shell/navigation/home-channels'
 import { useHomeChannelStore } from '@/app-shell/state/home-channel'
+import ActivityChannel from '@/features/activity/presentation/channel/ActivityChannel.vue'
 import { buildPortalSearchUrl } from '@/features/inspection/application/portal/build-portal-navigation'
 import { createPlatformHomePreviewContent } from '@/features/inspection/data/preview/platform-home-preview'
 import {
@@ -63,11 +64,15 @@ const carouselSlides = PLATFORM_PREVIEW_ENABLED
   : []
 const pageVisible = ref(false)
 const serviceChannelOpened = ref(activeChannel.value === 'SERVICE')
+const activityChannelOpened = ref(activeChannel.value === 'ACTIVITY')
+const activityChannel = ref<{ loadMore(): Promise<void> } | null>(null)
 const activeChannelLabel = computed(() =>
   visibleChannels.find((channel) => channel.code === activeChannel.value)?.label ?? '',
 )
 const isPlaceholderChannel = computed(() =>
-  activeChannel.value !== 'RECOMMEND' && activeChannel.value !== 'SERVICE',
+  activeChannel.value !== 'RECOMMEND'
+  && activeChannel.value !== 'SERVICE'
+  && activeChannel.value !== 'ACTIVITY',
 )
 const searchPlaceholder = computed(() =>
   serviceSearchPlaceholder.value
@@ -209,12 +214,18 @@ watch(activeChannel, async (channel, previousChannel) => {
   scrollPositions.set(previousChannel, currentScrollTop)
   keyword.value = ''
   if (channel === 'SERVICE') serviceChannelOpened.value = true
+  if (channel === 'ACTIVITY') activityChannelOpened.value = true
   await nextTick()
   if (channel === activeChannel.value) restoreChannelScroll(channel)
 })
 
 onPageScroll(({ scrollTop }) => {
   currentScrollTop = scrollTop
+})
+
+// Only the activity channel pages through a list; the other channels have nothing to load at the bottom.
+onReachBottom(() => {
+  if (activeChannel.value === 'ACTIVITY') void activityChannel.value?.loadMore()
 })
 
 onShow(() => {
@@ -276,6 +287,25 @@ onHide(() => {
       data-testid="home-city-pending"
     >
       <text>正在确定服务城市</text>
+    </view>
+
+    <!-- Mounted on first visit and kept, so filters and the loaded pages survive a channel switch. -->
+    <view
+      v-if="activityChannelOpened && currentCityStore.currentCity"
+      v-show="activeChannel === 'ACTIVITY'"
+    >
+      <ActivityChannel
+        ref="activityChannel"
+        :active="pageVisible && activeChannel === 'ACTIVITY'"
+        :city-code="currentCityStore.currentCity.code"
+      />
+    </view>
+    <view
+      v-else-if="activeChannel === 'ACTIVITY'"
+      class="home-page__placeholder"
+      data-testid="home-city-pending"
+    >
+      <text>正在确定所在城市</text>
     </view>
 
     <view

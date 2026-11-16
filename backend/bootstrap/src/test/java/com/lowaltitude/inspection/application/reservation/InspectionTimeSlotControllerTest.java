@@ -13,6 +13,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
 import com.lowaltitude.inspection.bootstrap.BootstrapApplication;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.serviceflow.DeliveryApplicationService;
@@ -42,6 +43,7 @@ import org.springframework.test.web.servlet.MockMvc;
         ReservationApplicationService.class,
         CustomerReservationQueryService.class,
         InspectionServiceCatalogReadService.class,
+        ActivityCatalogReadService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class

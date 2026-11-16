@@ -121,6 +121,13 @@
       }
     },
     {
+      "path": "pages/activity/detail",
+      "style": {
+        "navigationBarTitleText": "活动详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/play/index",
       "style": {
         "navigationBarTitleText": "趣玩挑战",

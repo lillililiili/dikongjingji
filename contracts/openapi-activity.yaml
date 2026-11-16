@@ -1,0 +1,523 @@
+openapi: 3.1.0
+info:
+  title: Activity Catalog API
+  version: 1.0.0
+  description: >-
+    Confirmed by the user on 2026-11-16 (docs/redesign/03-App实现任务计划.md §7).
+    Read-only catalog of contests, training, study tours and open days for the home
+    "赛事研学" channel: list, session dates and detail with sessions.
+    Enrolment, participants, tickets, waitlist and payment are not part of this version.
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/activities:
+    get:
+      operationId: searchActivities
+      summary: List the activities of a city that still have a session ahead
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+        - name: type
+          in: query
+          required: false
+          description: Omit for all types
+          schema:
+            $ref: "#/components/schemas/ActivityType"
+        - name: date
+          in: query
+          required: false
+          description: Only activities with a session starting on this local date (Asia/Shanghai)
+          schema:
+            type: string
+            format: date
+        - name: enrolling
+          in: query
+          required: false
+          description: true keeps only activities with at least one session open for enrolment
+          schema:
+            type: boolean
+            default: false
+        - name: free
+          in: query
+          required: false
+          description: true keeps only activities whose price mode is FREE
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: >-
+            One page, ordered by the start of the session each card shows (earliest first), then by activity id.
+            Activities whose sessions have all started are left out.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityPage"
+        "400":
+          description: Invalid city, type, date, page or size
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/activities/session-dates:
+    get:
+      operationId: listActivitySessionDates
+      summary: Local dates that have at least one session ahead, for the date strip
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ActivityType"
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: Inclusive; at most 62 days after from
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Dates in ascending order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivitySessionDates"
+        "400":
+          description: Invalid city, type or date range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/activities/{activityId}:
+    get:
+      operationId: getActivityDetail
+      summary: Detail of one published activity with all of its sessions
+      security: []
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: Activity detail. Ended activities stay readable so old links keep working.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityDetail"
+        "400":
+          description: Invalid activity id or city
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Activity is not published, was removed, or belongs to another city
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  parameters:
+    CityCode:
+      name: cityCode
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 4
+        maxLength: 16
+      description: 国家统计区划或平台统一城市稳定编码
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - traceId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    MediaAsset:
+      type: object
+      additionalProperties: false
+      required:
+        - url
+        - alt
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Controlled HTTPS address only
+        alt:
+          type: string
+    ActivityType:
+      type: string
+      enum:
+        - CONTEST
+        - TRAINING
+        - STUDY_TOUR
+        - OPEN_DAY
+      description: 赛事 / 培训 / 研学 / 体验日
+    ActivityPriceMode:
+      type: string
+      enum:
+        - PER_PERSON
+        - FREE
+        - INQUIRY
+      description: 按人收费 / 免费 / 询价
+    ActivityPrice:
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - amountMinor
+        - currency
+      properties:
+        mode:
+          $ref: "#/components/schemas/ActivityPriceMode"
+        amountMinor:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: Price per person in the minor unit; null unless mode is PER_PERSON
+        currency:
+          type: string
+          enum:
+            - CNY
+    ActivityAgeRange:
+      type: object
+      additionalProperties: false
+      required:
+        - minAge
+        - maxAge
+      properties:
+        minAge:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        maxAge:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+    ActivityEnrollmentStatus:
+      type: string
+      enum:
+        - OPEN
+        - FULL_WAITLIST
+        - FULL
+        - CLOSED
+        - ENDED
+      description: >-
+        Worked out by the server from capacity, the enrolment deadline and the start time.
+        OPEN 报名中; FULL_WAITLIST 已满可候补; FULL 已满; CLOSED 报名截止; ENDED 已结束.
+        For an activity it is the best status among its sessions, in this order.
+    ActivitySession:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - label
+        - startsAt
+        - endsAt
+        - checkInOpensAt
+        - enrollmentClosesAt
+        - capacity
+        - seatsLeft
+        - status
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        label:
+          type:
+            - string
+            - "null"
+          description: Organiser's short name for the session, e.g. 上午 or 12 月班 · 20 天
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        checkInOpensAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        enrollmentClosesAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+          minimum: 1
+        seatsLeft:
+          type: integer
+          minimum: 0
+        status:
+          $ref: "#/components/schemas/ActivityEnrollmentStatus"
+    ActivityNextSession:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - startsAt
+        - capacity
+        - seatsLeft
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        startsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+          minimum: 1
+        seatsLeft:
+          type: integer
+          minimum: 0
+    ActivityCard:
+      type: object
+      additionalProperties: false
+      required:
+        - activityId
+        - type
+        - title
+        - coverImage
+        - venueName
+        - scheduleNote
+        - price
+        - ageRange
+        - enrollmentStatus
+        - nextSession
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ActivityType"
+        title:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        venueName:
+          type: string
+        scheduleNote:
+          type:
+            - string
+            - "null"
+          description: Organiser's wording for repeating schedules, e.g. 每周六 · 含接送
+        price:
+          $ref: "#/components/schemas/ActivityPrice"
+        ageRange:
+          $ref: "#/components/schemas/ActivityAgeRange"
+        enrollmentStatus:
+          $ref: "#/components/schemas/ActivityEnrollmentStatus"
+        nextSession:
+          anyOf:
+            - $ref: "#/components/schemas/ActivityNextSession"
+            - type: "null"
+          description: >-
+            The session the card shows: the earliest one still open for enrolment, or, when none
+            is open, the earliest one that has not started. Null only if the activity has no session ahead.
+    ActivityPage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityCard"
+    ActivitySessionDates:
+      type: object
+      additionalProperties: false
+      required:
+        - dates
+      properties:
+        dates:
+          type: array
+          items:
+            type: string
+            format: date
+    ActivityOrganizer:
+      type: object
+      additionalProperties: false
+      required:
+        - organizationId
+        - name
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+    ActivityLocation:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - address
+        - latitude
+        - longitude
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        latitude:
+          type:
+            - number
+            - "null"
+          minimum: -90
+          maximum: 90
+          description: WGS84; null when the organiser gave no coordinates
+        longitude:
+          type:
+            - number
+            - "null"
+          minimum: -180
+          maximum: 180
+    ActivityDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - activityId
+        - type
+        - title
+        - subtitle
+        - coverImage
+        - price
+        - ageRange
+        - enrollmentStatus
+        - organizer
+        - coOrganizer
+        - location
+        - scheduleNote
+        - eligibilityNote
+        - seatNote
+        - refundNote
+        - waitlistAllowed
+        - teamEnrollmentAllowed
+        - sessions
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ActivityType"
+        title:
+          type: string
+        subtitle:
+          type:
+            - string
+            - "null"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        price:
+          $ref: "#/components/schemas/ActivityPrice"
+        ageRange:
+          $ref: "#/components/schemas/ActivityAgeRange"
+        enrollmentStatus:
+          $ref: "#/components/schemas/ActivityEnrollmentStatus"
+        organizer:
+          $ref: "#/components/schemas/ActivityOrganizer"
+        coOrganizer:
+          anyOf:
+            - $ref: "#/components/schemas/ActivityOrganizer"
+            - type: "null"
+          description: 承办 / 交付方
+        location:
+          $ref: "#/components/schemas/ActivityLocation"
+        scheduleNote:
+          type:
+            - string
+            - "null"
+        eligibilityNote:
+          type:
+            - string
+            - "null"
+          description: 参与条件, the organiser's wording
+        seatNote:
+          type:
+            - string
+            - "null"
+          description: Who needs a seat, e.g. 陪同家长不用报名
+        refundNote:
+          type:
+            - string
+            - "null"
+          description: 退改规则, the organiser's wording; shown as text only in this version
+        waitlistAllowed:
+          type: boolean
+        teamEnrollmentAllowed:
+          type: boolean
+        sessions:
+          type: array
+          description: Every active session, earliest first, including the ones already started
+          items:
+            $ref: "#/components/schemas/ActivitySession"
