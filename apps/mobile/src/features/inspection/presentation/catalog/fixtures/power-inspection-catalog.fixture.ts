@@ -11,7 +11,7 @@ export const DEVELOPMENT_POWER_CATALOG: InspectionCatalogContent = {
       categoryLabel: '输电',
       title: '输电线路无人机巡检',
       description: '杆塔精细巡检 · 导线通道检测 · 缺陷报告',
-      tags: ['高精度建模', 'AI 缺陷识别', '巡检报告'],
+      tags: ['高精度建模', '缺陷标注', '巡检报告'],
       serviceMethods: ['UAV'],
       includesReport: true,
       imageUrl:

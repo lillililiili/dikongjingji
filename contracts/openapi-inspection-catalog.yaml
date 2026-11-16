@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Inspection Catalog API
-  version: 1.0.0
+  version: 1.1.0
   description: >
     巡检目录 I1 的逻辑契约。若宿主项目已有统一响应信封、分页或错误格式，
     实现时映射到宿主规范，但不得改变字段语义。
@@ -486,6 +486,15 @@ components:
             $ref: "#/components/schemas/FeatureTag"
         price:
           $ref: "#/components/schemas/ServicePrice"
+        priceNote:
+          type:
+            - string
+            - "null"
+          maxLength: 240
+          description: >
+            列表卡价格说明。起步价类模式（STARTING_PRICE/PER_DISTANCE/PER_VISIT）说明起步价包含的内容，
+            如“含现场巡检和报告”；PROJECT_QUOTE 由服务端返回“方案确认后定价”一类文案。
+            服务端无配置时返回 null，客户端隐藏该行；旧数据全部为 null。
         rating:
           anyOf:
             - $ref: "#/components/schemas/ServiceRating"
@@ -700,6 +709,41 @@ components:
           type:
             - string
             - "null"
+          maxLength: 240
+          description: >
+            计价方式文案，说明价格如何计算、起步价包含什么或按项目报价时何时定价，
+            来自 inspection_service.price_note；无配置时为 null。
+        priceFactors:
+          type:
+            - array
+            - "null"
+          maxItems: 10
+          items:
+            type: string
+            maxLength: 120
+          description: >
+            影响价格的因素，按后台排序展示，如“线路长度”“杆塔数量”“现场条件”。
+            来自 inspection_service_detail_item 的 PRICE_FACTOR 类型（T03 迁移）；
+            无配置时返回 null 或空数组，客户端均隐藏；旧数据全部为空。
+        cancellationNote:
+          type:
+            - string
+            - "null"
+          maxLength: 500
+          description: >
+            取消说明文案，如“方案确认前可取消，不收费；确认后按方案约定”。
+            来自 inspection_service.cancellation_note（T03 迁移 V010）；无配置时为 null，客户端隐藏；旧数据全部为 null。
+            仅为展示文案，取消是否允许仍以服务流程契约的状态机为准。
+        serviceCities:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: "#/components/schemas/CitySummary"
+          description: >
+            该服务已开通的城市列表，来自 inspection_service_city 中 status=ACTIVE 的记录，
+            城市名称由平台城市目录解析；当前请求的 cityCode 必在其中。
+            服务端未实现或无数据时返回 null，客户端隐藏。
         availability:
           type: string
         primaryAction:

@@ -231,7 +231,7 @@
             },
             {
               "code": "AI_DEFECT",
-              "name": "AI缺陷识别"
+              "name": "缺陷标注"
             },
             {
               "code": "DATA_REPORT",
@@ -245,6 +245,7 @@
             "unitCode": "KILOMETER",
             "unitLabel": "公里"
           },
+          "priceNote": "含现场巡检和报告",
           "rating": {
             "average": 4.9,
             "count": 128
@@ -289,6 +290,7 @@
             "unitCode": null,
             "unitLabel": null
           },
+          "priceNote": "方案确认后定价",
           "rating": null,
           "completedCount": null,
           "distanceMeters": null,
@@ -304,6 +306,217 @@
       "hasMore": false,
       "items": []
     }
+  },
+  "serviceDetailScenarios": {
+    "_note": "InspectionServiceDetail 示例。powerWithPricingAndCancellation 覆盖 T02 新增的 priceNote/priceFactors/cancellationNote/serviceCities；legacyProjectQuoteWithoutNewFields 模拟 T03 迁移前的存量数据，新字段全部为 null。",
+    "powerWithPricingAndCancellation": {
+      "serviceId": "11111111-1111-4111-8111-111111111111",
+      "serviceNo": "INS-SVC-DEV-0001",
+      "category": {
+        "code": "POWER",
+        "name": "电力"
+      },
+      "name": "电力输电线路无人机巡检",
+      "summary": "高精度巡检 · 缺陷识别 · 报告生成",
+      "coverImage": null,
+      "price": {
+        "mode": "PER_DISTANCE",
+        "startingAmountMinor": 69900,
+        "currency": "CNY",
+        "unitCode": "KILOMETER",
+        "unitLabel": "公里"
+      },
+      "priceNote": "按线路公里计价，起步价含现场巡检和报告",
+      "priceFactors": [
+        "线路长度",
+        "杆塔数量",
+        "现场条件"
+      ],
+      "cancellationNote": "方案确认前可取消，不收费；确认后按方案约定",
+      "serviceCities": [
+        {
+          "code": "370500",
+          "name": "东营",
+          "provinceCode": "370000"
+        }
+      ],
+      "availability": "AVAILABLE",
+      "primaryAction": "RESERVE",
+      "completedCount": 856,
+      "provider": {
+        "providerId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "name": "东营低空巡检服务中心",
+        "logo": null,
+        "logoAssetCode": "provider-logo-dev-0001",
+        "certificationLabel": "平台认证服务商",
+        "teamDescription": "持证飞手 12 人，自有巡检无人机 8 架"
+      },
+      "capabilities": [
+        {
+          "code": "HD_CAPTURE",
+          "name": "高精度拍摄",
+          "description": null,
+          "iconKey": "checkbox-filled",
+          "image": null,
+          "imageAssetCode": null
+        },
+        {
+          "code": "AI_DEFECT",
+          "name": "缺陷标注",
+          "description": null,
+          "iconKey": "checkbox-filled",
+          "image": null,
+          "imageAssetCode": null
+        }
+      ],
+      "inspectionItems": [
+        {
+          "code": "TOWER",
+          "name": "杆塔本体巡检",
+          "description": "杆塔倾斜、锈蚀与异物",
+          "iconKey": "map-pin-ellipse",
+          "image": null,
+          "imageAssetCode": null
+        },
+        {
+          "code": "CORRIDOR",
+          "name": "通道环境巡检",
+          "description": "树障、违建与施工隐患",
+          "iconKey": "map-filled",
+          "image": null,
+          "imageAssetCode": null
+        }
+      ],
+      "processSteps": [
+        {
+          "code": "SUBMIT_REQUEST",
+          "name": "提交需求",
+          "description": null,
+          "iconKey": null,
+          "image": null,
+          "imageAssetCode": null
+        },
+        {
+          "code": "CONFIRM_PLAN",
+          "name": "方案确认",
+          "description": null,
+          "iconKey": null,
+          "image": null,
+          "imageAssetCode": null
+        },
+        {
+          "code": "ON_SITE",
+          "name": "现场巡检",
+          "description": null,
+          "iconKey": null,
+          "image": null,
+          "imageAssetCode": null
+        },
+        {
+          "code": "DELIVERY",
+          "name": "报告交付",
+          "description": null,
+          "iconKey": null,
+          "image": null,
+          "imageAssetCode": null
+        }
+      ],
+      "deliverables": [
+        {
+          "code": "IMAGES",
+          "name": "高清巡检影像",
+          "description": null,
+          "iconKey": "image-filled",
+          "image": null,
+          "imageAssetCode": null
+        },
+        {
+          "code": "REPORT",
+          "name": "巡检报告",
+          "description": null,
+          "iconKey": "compose",
+          "image": null,
+          "imageAssetCode": null
+        }
+      ],
+      "guarantees": [
+        {
+          "code": "PILOT",
+          "name": "专业飞手",
+          "description": null,
+          "iconKey": "staff-filled",
+          "image": null,
+          "imageAssetCode": null
+        },
+        {
+          "code": "COMPLIANCE",
+          "name": "合规作业",
+          "description": null,
+          "iconKey": "auth-filled",
+          "image": null,
+          "imageAssetCode": null
+        }
+      ],
+      "reviews": {
+        "average": 4.9,
+        "total": 128,
+        "positiveRate": 98,
+        "tags": [
+          {
+            "code": "PROFESSIONAL",
+            "name": "专业",
+            "count": 56
+          }
+        ],
+        "items": [
+          {
+            "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "maskedUserName": "王**",
+            "rating": 5,
+            "date": "2026-07-20",
+            "content": "飞手专业，报告当天就给了。",
+            "imageAssets": []
+          }
+        ]
+      }
+    },
+    "legacyProjectQuoteWithoutNewFields": {
+      "serviceId": "22222222-2222-4222-8222-222222222222",
+      "serviceNo": "INS-SVC-DEV-0002",
+      "category": {
+        "code": "PARK",
+        "name": "园区"
+      },
+      "name": "园区综合巡检服务",
+      "summary": "安防巡查 · 设备巡检 · 环境监测",
+      "coverImage": null,
+      "price": {
+        "mode": "PROJECT_QUOTE",
+        "startingAmountMinor": null,
+        "currency": "CNY",
+        "unitCode": null,
+        "unitLabel": null
+      },
+      "priceNote": null,
+      "priceFactors": null,
+      "cancellationNote": null,
+      "serviceCities": null,
+      "availability": "RESERVABLE",
+      "primaryAction": "REQUEST_QUOTE",
+      "completedCount": 0,
+      "provider": null,
+      "capabilities": [],
+      "inspectionItems": [],
+      "processSteps": [],
+      "deliverables": [],
+      "guarantees": [],
+      "reviews": {
+        "average": null,
+        "total": 0,
+        "positiveRate": null,
+        "tags": [],
+        "items": []
+      }
+    }
   }
 }
-

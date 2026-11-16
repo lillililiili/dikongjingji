@@ -55,6 +55,7 @@ final class PostgresInspectionServiceCatalogReadStore
                         row.currency(),
                         row.unitCode(),
                         row.unitLabel(),
+                        row.priceNote(),
                         row.availability(),
                         row.primaryAction(),
                         row.completedCount()))
@@ -81,6 +82,7 @@ final class PostgresInspectionServiceCatalogReadStore
                         row.unitCode(),
                         row.unitLabel(),
                         row.priceNote(),
+                        row.cancellationNote(),
                         row.availability(),
                         row.primaryAction(),
                         row.completedCount(),
@@ -105,10 +107,20 @@ final class PostgresInspectionServiceCatalogReadStore
     @Override
     public List<StoredDetailItem> findDetailItems(
             UUID serviceId,
-            String sectionType
+            InspectionDetailSectionType sectionType
     ) {
-        return mapper.findDetailItems(serviceId, sectionType).stream()
+        return mapper.findDetailItems(serviceId, sectionType.name()).stream()
                 .map(PostgresInspectionServiceCatalogReadStore::toDetailItem)
+                .toList();
+    }
+
+    @Override
+    public List<StoredServiceCity> findActiveCities(UUID serviceId) {
+        return mapper.findActiveCities(serviceId).stream()
+                .map(row -> new StoredServiceCity(
+                        row.cityCode(),
+                        row.cityName(),
+                        row.provinceCode()))
                 .toList();
     }
 

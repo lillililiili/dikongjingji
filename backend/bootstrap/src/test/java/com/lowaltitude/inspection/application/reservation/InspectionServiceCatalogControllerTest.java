@@ -1,5 +1,6 @@
 package com.lowaltitude.inspection.application.reservation;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,7 +42,30 @@ class InspectionServiceCatalogControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.serviceId").value(serviceId.toString()))
                 .andExpect(jsonPath("$.provider.name").value("云翼科技"))
+                .andExpect(jsonPath("$.priceNote").value("按线路公里计价，起步价含现场巡检和报告"))
+                .andExpect(jsonPath("$.priceFactors[0]").value("线路长度"))
+                .andExpect(jsonPath("$.priceFactors[2]").value("现场条件"))
+                .andExpect(jsonPath("$.cancellationNote")
+                        .value("方案确认前可取消，不收费；确认后按方案约定"))
+                .andExpect(jsonPath("$.serviceCities[0].code").value("370500"))
+                .andExpect(jsonPath("$.serviceCities[0].name").value("东营"))
+                .andExpect(jsonPath("$.serviceCities[0].provinceCode").value("370000"))
                 .andExpect(jsonPath("$.reviews.total").value(0));
+    }
+
+    @Test
+    void serviceDetailWithoutPricingConfigurationReturnsNullFields() throws Exception {
+        UUID serviceId = UUID.randomUUID();
+        when(service.findDetail(serviceId, "370500"))
+                .thenReturn(detailWithoutPricingConfiguration(serviceId));
+
+        mockMvc.perform(get("/api/v1/inspection/services/{serviceId}", serviceId)
+                        .param("cityCode", "370500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.priceNote").value(nullValue()))
+                .andExpect(jsonPath("$.priceFactors").value(nullValue()))
+                .andExpect(jsonPath("$.cancellationNote").value(nullValue()))
+                .andExpect(jsonPath("$.serviceCities").value(nullValue()));
     }
 
     @Test
@@ -79,6 +103,7 @@ class InspectionServiceCatalogControllerTest {
                                         "CNY",
                                         "KM",
                                         "公里"),
+                                "含现场巡检和报告",
                                 "RESERVABLE",
                                 "RESERVE",
                                 8_560L))));
@@ -88,7 +113,8 @@ class InspectionServiceCatalogControllerTest {
                         .param("categoryCode", "POWER")
                         .param("sort", "SALES_DESC"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[0].completedCount").value(8560));
+                .andExpect(jsonPath("$.items[0].completedCount").value(8560))
+                .andExpect(jsonPath("$.items[0].priceNote").value("含现场巡检和报告"));
 
         verify(service).search("370500", "POWER", "SALES_DESC", 1, 20);
     }
@@ -107,10 +133,51 @@ class InspectionServiceCatalogControllerTest {
                         "CNY",
                         "KM",
                         "公里"),
-                "最终报价以现场评估为准",
+                "按线路公里计价，起步价含现场巡检和报告",
+                List.of("线路长度", "杆塔数量", "现场条件"),
+                "方案确认前可取消，不收费；确认后按方案约定",
+                List.of(new CitySummaryView("370500", "东营", "370000")),
                 "RESERVABLE",
                 "RESERVE",
                 8_560L,
+                new ServiceProviderView(
+                        UUID.randomUUID(),
+                        "云翼科技",
+                        null,
+                        "FEIXIANG_APP_ICON",
+                        "企业认证",
+                        "专业飞手团队"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                new ReviewSummaryView(null, 0L, null, List.of(), List.of()));
+    }
+
+    private static InspectionServiceDetailView detailWithoutPricingConfiguration(
+            UUID serviceId
+    ) {
+        return new InspectionServiceDetailView(
+                serviceId,
+                "INS-SVC-002",
+                new CodeNameView("PARK", "园区"),
+                "园区综合巡检服务",
+                "安防巡查",
+                null,
+                new ServicePriceView(
+                        "PROJECT_QUOTE",
+                        null,
+                        "CNY",
+                        null,
+                        null),
+                null,
+                null,
+                null,
+                null,
+                "AVAILABLE",
+                "REQUEST_QUOTE",
+                0L,
                 new ServiceProviderView(
                         UUID.randomUUID(),
                         "云翼科技",

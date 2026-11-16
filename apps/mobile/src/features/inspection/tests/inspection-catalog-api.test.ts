@@ -106,6 +106,7 @@ const response = {
       unitCode: 'KM',
       unitLabel: '公里起',
     },
+    priceNote: '含现场巡检和报告',
     completedCount: 8560,
     availability: 'AVAILABLE',
     primaryAction: 'BOOK',
@@ -154,8 +155,45 @@ describe('real inspection catalog adapter', () => {
       includesReport: true,
       completedCount: 8560,
       price: { mode: 'STARTING_PRICE', amountFen: 69900 },
+      priceNote: '含现场巡检和报告',
     })
     expect(content.services[0]).not.toHaveProperty('rating')
+  })
+
+  it.each([null, undefined, ''])(
+    'omits priceNote when the server sends %s so the card does not render the line',
+    async (priceNote) => {
+      const http: InspectionCatalogHttpClient = {
+        request: async <T,>() => ({
+          ...response,
+          items: [{ ...response.items[0], priceNote }],
+        }) as T,
+      }
+
+      const content = await createInspectionCatalogApi(http).loadCatalog('370500')
+
+      expect(content.services[0]).not.toHaveProperty('priceNote')
+    },
+  )
+
+  it('passes the server wording for project-quote cards through unchanged', async () => {
+    const http: InspectionCatalogHttpClient = {
+      request: async <T,>() => ({
+        ...response,
+        items: [{
+          ...response.items[0],
+          price: { mode: 'PROJECT_QUOTE', startingAmountMinor: null, currency: 'CNY', unitCode: null, unitLabel: null },
+          priceNote: '方案确认后定价',
+        }],
+      }) as T,
+    }
+
+    const content = await createInspectionCatalogApi(http).loadCatalog('370500')
+
+    expect(content.services[0]).toMatchObject({
+      price: { mode: 'PROJECT_QUOTE' },
+      priceNote: '方案确认后定价',
+    })
   })
 
   it('maps the five approved power subcategories', async () => {

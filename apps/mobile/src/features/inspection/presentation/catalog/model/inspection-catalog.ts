@@ -49,6 +49,8 @@ export interface InspectionCatalogService {
   imageUrl: string
   imagePosition?: string
   price: InspectionCatalogPrice
+  /** 价格下一行的说明，来自服务端 priceNote；没有就不显示 */
+  priceNote?: string
   rating?: number
   completedCount?: number
 }

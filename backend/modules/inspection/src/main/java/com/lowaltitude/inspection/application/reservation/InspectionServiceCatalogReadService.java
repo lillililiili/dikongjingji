@@ -9,6 +9,10 @@ import java.util.UUID;
 public final class InspectionServiceCatalogReadService {
 
     private static final int MAX_PAGE_SIZE = 50;
+    /** 契约 InspectionServiceDetail.priceFactors 的 maxItems。 */
+    private static final int MAX_PRICE_FACTORS = 10;
+    /** 按项目报价且后台没有配置 price_note 时，列表卡由服务端派生的说明（契约 1.1.0）。 */
+    private static final String PROJECT_QUOTE_PRICE_NOTE = "方案确认后定价";
 
     private final InspectionServiceCatalogReadStore store;
 
@@ -69,6 +73,18 @@ public final class InspectionServiceCatalogReadService {
         StoredInspectionServiceDetail row =
                 store.findActiveDetail(serviceId, cityCode)
                         .orElseThrow(InspectionServiceNotFoundException::new);
+        List<String> priceFactors = store
+                .findDetailItems(serviceId, InspectionDetailSectionType.PRICE_FACTOR)
+                .stream()
+                .map(StoredDetailItem::title)
+                .limit(MAX_PRICE_FACTORS)
+                .toList();
+        List<CitySummaryView> serviceCities = store.findActiveCities(serviceId).stream()
+                .map(city -> new CitySummaryView(
+                        city.cityCode(),
+                        city.cityName(),
+                        city.provinceCode()))
+                .toList();
         List<ReviewView> reviews = store.findReviewPreview(serviceId, 2).stream()
                 .map(review -> new ReviewView(
                         review.id(),
@@ -108,7 +124,10 @@ public final class InspectionServiceCatalogReadService {
                         row.currency(),
                         row.unitCode(),
                         row.unitLabel()),
-                row.priceNote(),
+                blankToNull(row.priceNote()),
+                priceFactors.isEmpty() ? null : priceFactors,
+                blankToNull(row.cancellationNote()),
+                serviceCities.isEmpty() ? null : serviceCities,
                 row.availability(),
                 row.primaryAction(),
                 row.completedCount(),
@@ -119,11 +138,15 @@ public final class InspectionServiceCatalogReadService {
                         row.providerLogoAssetCode(),
                         row.certificationLabel(),
                         row.teamDescription()),
-                mapItems(store.findDetailItems(serviceId, "CAPABILITY")),
+                mapItems(store.findDetailItems(
+                        serviceId, InspectionDetailSectionType.CAPABILITY)),
                 mapItems(store.findBookingItems(serviceId)),
-                mapItems(store.findDetailItems(serviceId, "PROCESS")),
-                mapItems(store.findDetailItems(serviceId, "DELIVERABLE")),
-                mapItems(store.findDetailItems(serviceId, "GUARANTEE")),
+                mapItems(store.findDetailItems(
+                        serviceId, InspectionDetailSectionType.PROCESS)),
+                mapItems(store.findDetailItems(
+                        serviceId, InspectionDetailSectionType.DELIVERABLE)),
+                mapItems(store.findDetailItems(
+                        serviceId, InspectionDetailSectionType.GUARANTEE)),
                 reviewSummary);
     }
 
@@ -143,9 +166,28 @@ public final class InspectionServiceCatalogReadService {
                         row.currency(),
                         row.unitCode(),
                         row.unitLabel()),
+                cardPriceNote(row.priceMode(), row.priceNote()),
                 row.availability(),
                 row.primaryAction(),
                 row.completedCount());
+    }
+
+    /**
+     * 列表卡价格说明：后台配置优先；按项目报价且没有配置时派生固定文案，
+     * 其他计价模式没有配置就返回 null，不编造说明。
+     */
+    private static String cardPriceNote(String priceMode, String configuredNote) {
+        String configured = blankToNull(configuredNote);
+        if (configured != null) {
+            return configured;
+        }
+        return InspectionServicePriceMode.PROJECT_QUOTE.name().equals(priceMode)
+                ? PROJECT_QUOTE_PRICE_NOTE
+                : null;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private static MediaAssetView secureCover(String coverUrl, String name) {
@@ -182,6 +224,23 @@ public final class InspectionServiceCatalogReadService {
         }
         return new MediaAssetView(uri.toString(), alt);
     }
+}
+
+/** inspection_service.price_mode 的取值（V003 CHECK 约束，契约 PriceMode）。 */
+enum InspectionServicePriceMode {
+    STARTING_PRICE,
+    PER_DISTANCE,
+    PER_VISIT,
+    PROJECT_QUOTE
+}
+
+/** inspection_service_detail_item.section_type 的取值（V004 CHECK 约束，V010 增加 PRICE_FACTOR）。 */
+enum InspectionDetailSectionType {
+    CAPABILITY,
+    PROCESS,
+    DELIVERABLE,
+    GUARANTEE,
+    PRICE_FACTOR
 }
 
 enum InspectionCatalogSort {
@@ -226,8 +285,12 @@ interface InspectionServiceCatalogReadStore {
 
     default List<StoredDetailItem> findDetailItems(
             UUID serviceId,
-            String sectionType
+            InspectionDetailSectionType sectionType
     ) {
+        return List.of();
+    }
+
+    default List<StoredServiceCity> findActiveCities(UUID serviceId) {
         return List.of();
     }
 
@@ -261,6 +324,7 @@ record StoredInspectionServiceCard(
         String currency,
         String unitCode,
         String unitLabel,
+        String priceNote,
         String availability,
         String primaryAction,
         long completedCount
@@ -285,6 +349,7 @@ record InspectionServiceCardView(
         MediaAssetView coverImage,
         List<CodeNameView> features,
         ServicePriceView price,
+        String priceNote,
         String availability,
         String primaryAction,
         long completedCount
@@ -305,6 +370,7 @@ record StoredInspectionServiceDetail(
         String unitCode,
         String unitLabel,
         String priceNote,
+        String cancellationNote,
         String availability,
         String primaryAction,
         long completedCount,
@@ -327,6 +393,13 @@ record StoredDetailItem(
         String iconKey,
         String imageUrl,
         String imageAssetCode
+) {
+}
+
+record StoredServiceCity(
+        String cityCode,
+        String cityName,
+        String provinceCode
 ) {
 }
 
@@ -358,6 +431,9 @@ record InspectionServiceDetailView(
         MediaAssetView coverImage,
         ServicePriceView price,
         String priceNote,
+        List<String> priceFactors,
+        String cancellationNote,
+        List<CitySummaryView> serviceCities,
         String availability,
         String primaryAction,
         long completedCount,
@@ -417,6 +493,9 @@ record ReviewImageView(MediaAssetView image, String assetCode) {
 }
 
 record CodeNameView(String code, String name) {
+}
+
+record CitySummaryView(String code, String name, String provinceCode) {
 }
 
 record MediaAssetView(String url, String alt) {

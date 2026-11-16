@@ -67,7 +67,7 @@
     {
       "path": "pages/service/inspection/catalog",
       "style": {
-        "navigationBarTitleText": "电力巡检",
+        "navigationBarTitleText": "巡检服务",
         "navigationStyle": "custom"
       }
     },
@@ -88,7 +88,7 @@
     {
       "path": "pages/service/inspection/booking",
       "style": {
-        "navigationBarTitleText": "填写需求",
+        "navigationBarTitleText": "预约服务",
         "navigationStyle": "custom"
       }
     },

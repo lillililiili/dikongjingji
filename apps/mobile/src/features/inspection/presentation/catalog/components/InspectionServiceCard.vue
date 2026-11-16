@@ -70,37 +70,45 @@ const completedCountLabel = computed(() =>
       </view>
 
       <view class="inspection-card__footer">
-        <view class="inspection-card__commercial">
-          <view class="inspection-card__price">
-            <text class="inspection-card__price-value">
-              {{ displayPrice.amountLabel }}
-            </text>
-            <text
-              v-if="displayPrice.unitLabel"
-              class="inspection-card__price-unit"
+        <view class="inspection-card__pricing">
+          <view class="inspection-card__commercial">
+            <view class="inspection-card__price">
+              <text class="inspection-card__price-value">
+                {{ displayPrice.amountLabel }}
+              </text>
+              <text
+                v-if="displayPrice.unitLabel"
+                class="inspection-card__price-unit"
+              >
+                /{{ displayPrice.unitLabel }}
+              </text>
+            </view>
+            <view
+              v-if="
+                service.rating !== undefined ||
+                service.completedCount !== undefined
+              "
+              class="inspection-card__stats"
             >
-              /{{ displayPrice.unitLabel }}
-            </text>
+              <template v-if="service.rating !== undefined">
+                <UniIcons
+                  type="star-filled"
+                  size="11"
+                  color="#ffad00"
+                />
+                <text>{{ service.rating.toFixed(1) }}</text>
+              </template>
+              <text v-if="completedCountLabel">
+                {{ completedCountLabel }}
+              </text>
+            </view>
           </view>
-          <view
-            v-if="
-              service.rating !== undefined ||
-              service.completedCount !== undefined
-            "
-            class="inspection-card__stats"
+          <text
+            v-if="service.priceNote"
+            class="inspection-card__price-note"
           >
-            <template v-if="service.rating !== undefined">
-              <UniIcons
-                type="star-filled"
-                size="11"
-                color="#ffad00"
-              />
-              <text>{{ service.rating.toFixed(1) }}</text>
-            </template>
-            <text v-if="completedCountLabel">
-              {{ completedCountLabel }}
-            </text>
-          </view>
+            {{ service.priceNote }}
+          </text>
         </view>
         <button
           class="inspection-card__action"
@@ -238,6 +246,22 @@ const completedCountLabel = computed(() =>
   min-width: 0;
   align-items: center;
   gap: 7px;
+}
+
+.inspection-card__pricing {
+  min-width: 0;
+}
+
+/* 价格说明独占价格下一行；没有说明时不渲染，卡片高度不变 */
+.inspection-card__price-note {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: #8e949c;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .inspection-card__price {

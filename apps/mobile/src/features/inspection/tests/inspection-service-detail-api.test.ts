@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createInspectionServiceDetailApi } from '../data/detail/inspection-service-detail-api'
+import contractExamples from '../../../../../../contracts/inspection-catalog.examples.json'
 
 describe('inspection service detail api', () => {
   it('loads the dedicated detail endpoint and maps all formal sections', async () => {
@@ -187,5 +188,41 @@ describe('inspection service detail api', () => {
     expect(detail.reviewCount).toBe(0)
     expect(detail.ratingAverage).toBeNull()
     expect(detail.reviews).toEqual([])
+  })
+
+  const detailExamples = (contractExamples as {
+    serviceDetailScenarios: Record<string, unknown>
+  }).serviceDetailScenarios
+
+  it('maps the T02 pricing, factors, cancellation and cities from the contract example', async () => {
+    const api = createInspectionServiceDetailApi({
+      async request<T>(): Promise<T> {
+        return detailExamples.powerWithPricingAndCancellation as T
+      },
+    })
+
+    const detail = await api.loadDetail('11111111-1111-4111-8111-111111111111', '370500')
+
+    expect(detail).toMatchObject({
+      priceNote: '按线路公里计价，起步价含现场巡检和报告',
+      priceFactors: ['线路长度', '杆塔数量', '现场条件'],
+      cancellationNote: '方案确认前可取消，不收费；确认后按方案约定',
+      serviceCityNames: ['东营'],
+    })
+  })
+
+  it('turns the null pre-migration fields of the legacy example into empty values', async () => {
+    const api = createInspectionServiceDetailApi({
+      async request<T>(): Promise<T> {
+        return detailExamples.legacyProjectQuoteWithoutNewFields as T
+      },
+    })
+
+    const detail = await api.loadDetail('legacy', '370500')
+
+    expect(detail.priceNote).toBe('')
+    expect(detail.priceFactors).toEqual([])
+    expect(detail.cancellationNote).toBe('')
+    expect(detail.serviceCityNames).toEqual([])
   })
 })

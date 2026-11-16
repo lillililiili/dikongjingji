@@ -20,6 +20,7 @@ import ServiceDetailBottomBar from '../components/ServiceDetailBottomBar.vue'
 import ServiceDetailHeader from '../components/ServiceDetailHeader.vue'
 import ServiceDetailHero from '../components/ServiceDetailHero.vue'
 import ServiceGuarantees from '../components/ServiceGuarantees.vue'
+import ServicePricingCard from '../components/ServicePricingCard.vue'
 import ServiceProcess from '../components/ServiceProcess.vue'
 import ServiceReviews from '../components/ServiceReviews.vue'
 
@@ -140,6 +141,7 @@ function reserveService(): void {
       class="inspection-service-detail__content"
     >
       <ServiceDetailHero :detail="detail" />
+      <ServicePricingCard :detail="detail" />
       <InspectionScope
         v-if="detail.inspectionItems.length"
         :items="detail.inspectionItems"

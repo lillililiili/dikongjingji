@@ -29,6 +29,15 @@ export function getSubmittedBookingFooterMode(
     : 'CONTACT_AND_PRIMARY'
 }
 
+export function getSubmittedBookingHeaderTitle(
+  reservation: SubmittedBookingReservation | null,
+  openedFromOrderList: boolean,
+): '提交成功' | '预约详情' {
+  // 只有刚提交（状态还停在 SUBMITTED，且不是从订单列表回看）才写“提交成功”
+  if (openedFromOrderList) return '预约详情'
+  return !reservation || reservation.status === 'SUBMITTED' ? '提交成功' : '预约详情'
+}
+
 export type SubmittedCancellationResult<Reservation extends SubmittedBookingReservation> =
   | { kind: 'dismissed' }
   | { kind: 'cancelled'; reservation: Reservation }
@@ -215,11 +224,13 @@ const isLoading = ref(true)
 const loadError = ref('')
 const reservationId = ref('')
 const isCancelling = ref(false)
+const openedFromOrderList = ref(false)
 const isCancelled = computed(() => {
   const currentReservation = reservation.value
   return currentReservation !== null && currentReservation.status === 'CANCELLED'
 })
 const footerMode = computed(() => getSubmittedBookingFooterMode(reservation.value))
+const headerTitle = computed(() => getSubmittedBookingHeaderTitle(reservation.value, openedFromOrderList.value))
 const showCustomerContact = computed(() => footerMode.value === 'CONTACT_AND_PRIMARY')
 const canCancel = computed(() =>
   reservation.value !== null
@@ -288,6 +299,10 @@ const submittedBookingController = createSubmittedBookingController<BookingReser
   openPlan,
 })
 onShow(() => {
+  // 从订单中心或“我的”最近订单进来是回看，页头不再写“提交成功”
+  const previousRoute = getPreviousInspectionPageRoute(getCurrentPages())
+  openedFromOrderList.value = shouldNavigateBackToInspectionOrderCenter(previousRoute)
+    || previousRoute === 'pages/mine/index'
   if (reservationId.value) void submittedBookingController.reloadOnShow()
 })
 function handlePrimaryAction(): void {
@@ -317,7 +332,7 @@ function maskMobile(value: string): string {
   <view class="booking-submitted">
     <view class="booking-submitted__header">
       <button aria-label="返回" @click="returnOrders"><UniIcons type="back" size="24" color="#17191d" /></button>
-      <text>提交成功</text>
+      <text>{{ headerTitle }}</text>
       <text class="booking-submitted__page-step">1/5</text>
     </view>
     <view v-if="isLoading" class="booking-submitted__state">正在恢复预约记录…</view>
@@ -325,8 +340,9 @@ function maskMobile(value: string): string {
     <main v-else-if="reservation" class="booking-submitted__content">
       <view class="booking-submitted__success">
         <view class="booking-submitted__success-icon"><UniIcons type="checkmarkempty" size="62" color="#18a947" /></view>
-        <text class="booking-submitted__title">{{ isCancelled ? '订单已取消' : '订单已提交' }}</text>
-        <text class="booking-submitted__copy">{{ isCancelled ? '本次服务已停止安排，订单记录将继续保留' : '预约申请已提交，服务商将在 30分钟内联系您' }}</text>
+        <text class="booking-submitted__title">{{ isCancelled ? '订单已取消' : '需求已提交' }}</text>
+        <text class="booking-submitted__copy">{{ isCancelled ? '本次服务已停止安排，订单记录将继续保留' : '等待服务商确认，方案确认前不收费' }}</text>
+        <text v-if="!isCancelled" class="booking-submitted__note">进度可在“我的订单”查看</text>
       </view>
       <view class="booking-submitted__card">
         <view class="booking-submitted__service"><image :src="reservation.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'" mode="aspectFill" /><view><text>{{ reservation.serviceTitle }}</text><text>云翼科技</text></view></view>
@@ -350,7 +366,7 @@ function maskMobile(value: string): string {
       </view>
       <button v-if="canCancel" class="booking-submitted__cancel" :disabled="isCancelling" @click="cancelOrder">{{ isCancelling ? '取消中…' : '取消订单' }}</button>
     </main>
-    <view class="booking-submitted__footer" :class="{ 'booking-submitted__footer--single': footerMode === 'RETURN_ORDERS_ONLY' }"><button v-if="showCustomerContact" class="booking-submitted__contact" @click="showCustomerService"><UniIcons type="chat" size="20" color="#17191d" />联系商家</button><button @click="handlePrimaryAction">{{ isCancelled ? '返回订单' : (reservation?.currentPlanId ? '查看服务方案' : '返回订单') }}</button></view>
+    <view class="booking-submitted__footer" :class="{ 'booking-submitted__footer--single': footerMode === 'RETURN_ORDERS_ONLY' }"><button v-if="showCustomerContact" class="booking-submitted__contact" @click="showCustomerService"><UniIcons type="chat" size="20" color="#17191d" />联系服务商</button><button @click="handlePrimaryAction">{{ isCancelled ? '返回订单' : (reservation?.currentPlanId ? '查看服务方案' : '返回订单') }}</button></view>
   </view>
 </template>
 
@@ -390,6 +406,7 @@ function maskMobile(value: string): string {
 .booking-submitted__title{margin-top:24px;font-size:30px}
 .booking-submitted__copy{margin-top:12px;color:#737985;font-size:15px;text-align:center}
 .booking-submitted__copy>text{color:#20ad4f}
+.booking-submitted__note{margin-top:6px;color:#8a8f97;font-size:12px;text-align:center}
 .booking-submitted__card{margin-top:0;padding:14px;border:0;border-radius:22px;box-shadow:0 10px 32px rgba(32,43,55,.08);font-size:13px}
 .booking-submitted__service{min-height:92px;padding-bottom:12px;grid-template-columns:110px minmax(0,1fr);gap:14px}
 .booking-submitted__service image{width:110px;height:92px;border-radius:14px}

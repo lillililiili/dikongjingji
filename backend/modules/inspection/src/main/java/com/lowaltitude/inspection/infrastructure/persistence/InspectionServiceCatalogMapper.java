@@ -71,6 +71,7 @@ public interface InspectionServiceCatalogMapper {
                    currency,
                    unit_code,
                    unit_label,
+                   price_note,
                    availability,
                    primary_action,
                    completed_count
@@ -168,6 +169,7 @@ public interface InspectionServiceCatalogMapper {
                    service.unit_code,
                    service.unit_label,
                    service.price_note,
+                   service.cancellation_note,
                    service.availability,
                    service.primary_action,
                    service.completed_count,
@@ -262,6 +264,22 @@ public interface InspectionServiceCatalogMapper {
     );
 
     @Select("""
+            SELECT coverage.city_code,
+                   city.city_name,
+                   city.province_code
+            FROM inspection_service_city coverage
+            JOIN platform_city city
+              ON city.city_code = coverage.city_code
+             AND city.status = 'ACTIVE'
+            WHERE coverage.service_id = #{serviceId}
+              AND coverage.status = 'ACTIVE'
+            ORDER BY city.province_code, city.city_pinyin, city.city_code
+            """)
+    List<ServiceCityRow> findActiveCities(
+            @Param("serviceId") UUID serviceId
+    );
+
+    @Select("""
             SELECT tag.tag_code code,
                    tag.tag_label label,
                    count(*) tag_count
@@ -320,6 +338,7 @@ public interface InspectionServiceCatalogMapper {
             String currency,
             String unitCode,
             String unitLabel,
+            String priceNote,
             String availability,
             String primaryAction,
             long completedCount
@@ -343,6 +362,7 @@ public interface InspectionServiceCatalogMapper {
             String unitCode,
             String unitLabel,
             String priceNote,
+            String cancellationNote,
             String availability,
             String primaryAction,
             long completedCount,
@@ -365,6 +385,13 @@ public interface InspectionServiceCatalogMapper {
             String iconKey,
             String imageUrl,
             String imageAssetCode
+    ) {
+    }
+
+    record ServiceCityRow(
+            String cityCode,
+            String cityName,
+            String provinceCode
     ) {
     }
 

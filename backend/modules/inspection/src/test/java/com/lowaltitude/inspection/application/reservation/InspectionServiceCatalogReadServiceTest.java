@@ -49,6 +49,7 @@ class InspectionServiceCatalogReadServiceTest {
                                 "CNY",
                                 "VISIT",
                                 "次",
+                                "含现场巡检和报告",
                                 "RESERVABLE",
                                 "RESERVE",
                                 8_560L));
@@ -66,8 +67,54 @@ class InspectionServiceCatalogReadServiceTest {
             assertThat(card.features()).containsExactly(
                     new CodeNameView("POWER_LINE", "输电线路"));
             assertThat(card.price().startingAmountMinor()).isEqualTo(120_000L);
+            assertThat(card.priceNote()).isEqualTo("含现场巡检和报告");
             assertThat(card.completedCount()).isEqualTo(8_560L);
         });
+    }
+
+    @Test
+    void derivesProjectQuotePriceNoteOnlyWhenNothingIsConfigured() {
+        InspectionServiceCatalogReadService service =
+                new InspectionServiceCatalogReadService(new CardCatalogStore(List.of(
+                        card("PROJECT_QUOTE", null, null),
+                        card("PROJECT_QUOTE", null, "报价以现场评估为准"),
+                        card("STARTING_PRICE", 69_900L, null),
+                        card("STARTING_PRICE", 69_900L, "   "))));
+
+        InspectionServicePageView page = service.search(
+                "370500", "ALL", "COMPREHENSIVE", 1, 20);
+
+        assertThat(page.items()).extracting(InspectionServiceCardView::priceNote)
+                .containsExactly(
+                        "方案确认后定价",
+                        "报价以现场评估为准",
+                        null,
+                        null);
+    }
+
+    private static StoredInspectionServiceCard card(
+            String priceMode,
+            Long startingAmountMinor,
+            String priceNote
+    ) {
+        return new StoredInspectionServiceCard(
+                UUID.randomUUID(),
+                "INS-SVC-001",
+                "PARK",
+                "园区",
+                "园区综合巡检服务",
+                "安防巡查",
+                null,
+                List.of(),
+                priceMode,
+                startingAmountMinor,
+                "CNY",
+                null,
+                null,
+                priceNote,
+                "AVAILABLE",
+                "REQUEST_QUOTE",
+                0L);
     }
 
     @Test
@@ -109,7 +156,8 @@ class InspectionServiceCatalogReadServiceTest {
                                 "CNY",
                                 "KM",
                                 "公里",
-                                "最终报价以现场评估为准",
+                                "按线路公里计价，起步价含现场巡检和报告",
+                                "方案确认前可取消，不收费；确认后按方案约定",
                                 "RESERVABLE",
                                 "RESERVE",
                                 8_560L,
@@ -122,7 +170,14 @@ class InspectionServiceCatalogReadServiceTest {
                                 4.9D,
                                 328L,
                                 98),
-                        reviewId));
+                        reviewId,
+                        List.of(
+                                new StoredDetailItem("LINE_LENGTH", "线路长度", null, null, null, null),
+                                new StoredDetailItem("TOWER_COUNT", "杆塔数量", null, null, null, null),
+                                new StoredDetailItem("SITE_CONDITION", "现场条件", null, null, null, null)),
+                        List.of(
+                                new StoredServiceCity("370500", "东营", "370000"),
+                                new StoredServiceCity("370100", "济南", "370000"))));
 
         InspectionServiceDetailView detail =
                 service.findDetail(serviceId, "370500");
@@ -146,6 +201,13 @@ class InspectionServiceCatalogReadServiceTest {
                 .containsExactly("IMAGES");
         assertThat(detail.guarantees()).extracting(DetailItemView::code)
                 .containsExactly("PILOT");
+        assertThat(detail.priceNote()).isEqualTo("按线路公里计价，起步价含现场巡检和报告");
+        assertThat(detail.priceFactors()).containsExactly("线路长度", "杆塔数量", "现场条件");
+        assertThat(detail.cancellationNote())
+                .isEqualTo("方案确认前可取消，不收费；确认后按方案约定");
+        assertThat(detail.serviceCities()).containsExactly(
+                new CitySummaryView("370500", "东营", "370000"),
+                new CitySummaryView("370100", "济南", "370000"));
         assertThat(detail.reviews()).satisfies(reviews -> {
             assertThat(reviews.average()).isEqualTo(4.9D);
             assertThat(reviews.total()).isEqualTo(328L);
@@ -174,6 +236,42 @@ class InspectionServiceCatalogReadServiceTest {
 
         assertThat(detail.reviews()).isEqualTo(
                 new ReviewSummaryView(null, 0L, null, List.of(), List.of()));
+    }
+
+    @Test
+    void returnsNullPricingFieldsWhenNothingIsConfigured() {
+        UUID serviceId = UUID.randomUUID();
+        InspectionServiceCatalogReadService service =
+                new InspectionServiceCatalogReadService(new DetailCatalogStore(
+                        DetailCatalogStore.detailWithoutReviews(serviceId), null));
+
+        InspectionServiceDetailView detail =
+                service.findDetail(serviceId, "370500");
+
+        assertThat(detail.priceNote()).isNull();
+        assertThat(detail.priceFactors()).isNull();
+        assertThat(detail.cancellationNote()).isNull();
+        assertThat(detail.serviceCities()).isNull();
+    }
+
+    @Test
+    void capsPriceFactorsAtContractLimit() {
+        UUID serviceId = UUID.randomUUID();
+        List<StoredDetailItem> factors = java.util.stream.IntStream.rangeClosed(1, 12)
+                .mapToObj(no -> new StoredDetailItem(
+                        "FACTOR_" + no, "因素" + no, null, null, null, null))
+                .toList();
+        InspectionServiceCatalogReadService service =
+                new InspectionServiceCatalogReadService(new DetailCatalogStore(
+                        DetailCatalogStore.detailWithoutReviews(serviceId),
+                        null,
+                        factors,
+                        List.of()));
+
+        InspectionServiceDetailView detail =
+                service.findDetail(serviceId, "370500");
+
+        assertThat(detail.priceFactors()).hasSize(10).startsWith("因素1").endsWith("因素10");
     }
 
     @Test
@@ -208,14 +306,52 @@ final class EmptyCatalogStore implements InspectionServiceCatalogReadStore {
     }
 }
 
+final class CardCatalogStore implements InspectionServiceCatalogReadStore {
+
+    private final List<StoredInspectionServiceCard> cards;
+
+    CardCatalogStore(List<StoredInspectionServiceCard> cards) {
+        this.cards = cards;
+    }
+
+    @Override
+    public long countActive(String cityCode, String categoryCode) {
+        return cards.size();
+    }
+
+    @Override
+    public List<StoredInspectionServiceCard> findActivePage(
+            String cityCode,
+            String categoryCode,
+            InspectionCatalogSort sort,
+            int limit,
+            int offset
+    ) {
+        return cards;
+    }
+}
+
 final class DetailCatalogStore implements InspectionServiceCatalogReadStore {
 
     private final StoredInspectionServiceDetail detail;
     private final UUID reviewId;
+    private final List<StoredDetailItem> priceFactors;
+    private final List<StoredServiceCity> cities;
 
     DetailCatalogStore(StoredInspectionServiceDetail detail, UUID reviewId) {
+        this(detail, reviewId, List.of(), List.of());
+    }
+
+    DetailCatalogStore(
+            StoredInspectionServiceDetail detail,
+            UUID reviewId,
+            List<StoredDetailItem> priceFactors,
+            List<StoredServiceCity> cities
+    ) {
         this.detail = detail;
         this.reviewId = reviewId;
+        this.priceFactors = priceFactors;
+        this.cities = cities;
     }
 
     static StoredInspectionServiceDetail detailWithoutReviews(UUID serviceId) {
@@ -232,7 +368,8 @@ final class DetailCatalogStore implements InspectionServiceCatalogReadStore {
                 "CNY",
                 null,
                 null,
-                "最终报价以现场评估为准",
+                null,
+                null,
                 "AVAILABLE",
                 "REQUEST_QUOTE",
                 0L,
@@ -287,20 +424,25 @@ final class DetailCatalogStore implements InspectionServiceCatalogReadStore {
     @Override
     public List<StoredDetailItem> findDetailItems(
             UUID serviceId,
-            String sectionType
+            InspectionDetailSectionType sectionType
     ) {
         return switch (sectionType) {
-            case "CAPABILITY" -> List.of(new StoredDetailItem(
+            case CAPABILITY -> List.of(new StoredDetailItem(
                     "MODELING", "高精度建模", null, "checkbox", null, null));
-            case "PROCESS" -> List.of(new StoredDetailItem(
+            case PROCESS -> List.of(new StoredDetailItem(
                     "REQUEST", "提交需求", null, null, null, null));
-            case "DELIVERABLE" -> List.of(new StoredDetailItem(
+            case DELIVERABLE -> List.of(new StoredDetailItem(
                     "IMAGES", "高清巡检影像", null, "image", null,
                     "POWER_LINE_IMAGE"));
-            case "GUARANTEE" -> List.of(new StoredDetailItem(
+            case GUARANTEE -> List.of(new StoredDetailItem(
                     "PILOT", "专业飞手", null, "staff", null, null));
-            default -> List.of();
+            case PRICE_FACTOR -> priceFactors;
         };
+    }
+
+    @Override
+    public List<StoredServiceCity> findActiveCities(UUID serviceId) {
+        return cities;
     }
 
     @Override

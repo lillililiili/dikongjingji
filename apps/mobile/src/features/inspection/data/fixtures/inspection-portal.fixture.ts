@@ -93,7 +93,7 @@ export const DEVELOPMENT_PORTAL_CONTENT: InspectionPortalContent = {
       id: 'dev-power-line',
       categoryCode: 'POWER',
       title: '电力线路巡检',
-      tag: 'AI缺陷识别',
+      tag: '缺陷标注',
       imageUrl: '/static/images/inspection/service-power-line.webp',
       priceLabel: '¥699 起/公里',
       rating: 4.9,

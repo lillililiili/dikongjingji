@@ -37,7 +37,7 @@ function handleKeywordInput(event: Event): void {
       >
         <UniIcons type="left" size="25" color="#1c1f24" />
       </button>
-      <text class="catalog-header__title">电力巡检</text>
+      <text class="catalog-header__title">巡检服务</text>
       <button
         class="catalog-header__service"
         aria-label="联系客服"
@@ -58,7 +58,7 @@ function handleKeywordInput(event: Event): void {
           confirm-type="search"
           maxlength="50"
           :value="keyword"
-          placeholder="搜索电力巡检项目或关键词"
+          placeholder="搜索巡检服务、场景或关键词"
           placeholder-class="catalog-search__placeholder"
           @input="handleKeywordInput"
           @confirm="$emit('search')"

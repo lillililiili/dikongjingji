@@ -16,14 +16,14 @@ describe('existing-account inspection candidate visual shell', () => {
   })
 
   it('presents the existing reservation form as the confirm-order screen', () => {
-    expect(bookingPageSource).toContain('确认订单')
+    expect(bookingPageSource).toContain('预约服务')
     expect(bookingPageSource).toContain('inspection-booking__price-summary')
     expect(bookingPageSource).toContain('submitBookingReservation(')
     expect(bookingPageSource).not.toContain('<BookingProgress')
   })
 
   it('matches the submitted and plan-confirmation milestones', () => {
-    expect(submittedPageSource).toContain('订单已提交')
+    expect(submittedPageSource).toContain("'需求已提交'")
     expect(submittedPageSource).toContain('booking-submitted__page-step')
     expect(submittedPageSource).toContain('booking-submitted__next-steps')
     expect(planPageSource).toContain('方案确认')

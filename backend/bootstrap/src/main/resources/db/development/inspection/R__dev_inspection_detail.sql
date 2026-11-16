@@ -38,8 +38,12 @@ SET logo_url = NULL,
     status = EXCLUDED.status,
     updated_at = now();
 
+-- 开发种子（仅 dev profile 的 flyway_history_inspection_development 加载）：
+-- 电力线路巡检的计价方式与取消说明；按项目报价的园区服务（7777…）故意不写 price_note，
+-- 用来验证列表卡由服务端派生“方案确认后定价”。
 UPDATE inspection_service
-SET price_note = '最终报价以现场评估为准',
+SET price_note = '按线路公里计价，起步价含现场巡检和报告',
+    cancellation_note = '方案确认前可取消，不收费；确认后按方案约定',
     completed_count = 8560,
     updated_at = now()
 WHERE id = '33333333-3333-3333-3333-333333333333';
@@ -123,7 +127,7 @@ INSERT INTO inspection_service_detail_item (
         '33333333-3333-3333-3333-333333333333',
         'CAPABILITY',
         'AI_DEFECT',
-        'AI缺陷识别',
+        '缺陷标注',
         NULL,
         'checkbox',
         NULL,
@@ -258,6 +262,39 @@ INSERT INTO inspection_service_detail_item (
         '数据保密',
         NULL,
         'locked',
+        NULL,
+        30,
+        'ACTIVE'
+    ),
+    (
+        '33333333-3333-3333-3333-333333333333',
+        'PRICE_FACTOR',
+        'LINE_LENGTH',
+        '线路长度',
+        NULL,
+        NULL,
+        NULL,
+        10,
+        'ACTIVE'
+    ),
+    (
+        '33333333-3333-3333-3333-333333333333',
+        'PRICE_FACTOR',
+        'TOWER_COUNT',
+        '杆塔数量',
+        NULL,
+        NULL,
+        NULL,
+        20,
+        'ACTIVE'
+    ),
+    (
+        '33333333-3333-3333-3333-333333333333',
+        'PRICE_FACTOR',
+        'SITE_CONDITION',
+        '现场条件',
+        NULL,
+        NULL,
         NULL,
         30,
         'ACTIVE'

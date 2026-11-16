@@ -28,6 +28,7 @@ interface CatalogServiceDto {
     startingAmountMinor?: number | null
     unitLabel?: string | null
   }
+  priceNote?: string | null
   completedCount?: number | null
 }
 
@@ -96,6 +97,7 @@ function toCatalogService(service: CatalogServiceDto): InspectionCatalogService 
       ...(amountFen === undefined ? {} : { amountFen }),
       ...(service.price.unitLabel ? { unitLabel: service.price.unitLabel } : {}),
     },
+    ...(service.priceNote ? { priceNote: service.priceNote } : {}),
   }
 }
 

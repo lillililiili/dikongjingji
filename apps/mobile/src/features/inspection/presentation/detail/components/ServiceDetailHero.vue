@@ -8,6 +8,12 @@ const props = defineProps<{
   detail: InspectionServiceDetail
 }>()
 
+const serviceCitiesLabel = computed(() =>
+  props.detail.serviceCityNames.length
+    ? `可服务城市 ${props.detail.serviceCityNames.join('、')}`
+    : '',
+)
+
 const priceLabel = computed(() => {
   if (props.detail.priceAmountMinor === null) {
     return '按项目报价'
@@ -67,9 +73,6 @@ const priceLabel = computed(() => {
           ·　{{ detail.completedCountLabel }}
         </text>
       </view>
-      <text v-if="detail.priceNote" class="service-detail-hero__note">
-        {{ detail.priceNote }}
-      </text>
 
       <view
         v-if="detail.capabilities.length"
@@ -93,18 +96,29 @@ const priceLabel = computed(() => {
           :aria-label="`${detail.provider.name}服务商标识`"
         />
         <view class="service-detail-hero__provider-copy">
-          <view class="service-detail-hero__provider-name">
-            <text>{{ detail.provider.name }}</text>
+          <text class="service-detail-hero__provider-name">
+            {{ detail.provider.name }}
+          </text>
+          <view class="service-detail-hero__provider-meta">
             <text
               v-if="detail.provider.certificationLabel"
               class="service-detail-hero__certification"
             >
               {{ detail.provider.certificationLabel }}
             </text>
+            <text
+              v-if="serviceCitiesLabel"
+              class="service-detail-hero__cities"
+            >
+              {{ serviceCitiesLabel }}
+            </text>
+            <text
+              v-else-if="detail.provider.teamDescription"
+              class="service-detail-hero__cities"
+            >
+              {{ detail.provider.teamDescription }}
+            </text>
           </view>
-          <text class="service-detail-hero__team">
-            {{ detail.provider.teamDescription }}
-          </text>
         </view>
         <text class="service-detail-hero__provider-link">查看服务商</text>
         <UniIcons type="right" size="17" color="#303744" />
@@ -220,12 +234,6 @@ const priceLabel = computed(() => {
   gap: 5px;
 }
 
-.service-detail-hero__note {
-  margin-top: 6px;
-  color: #7c8798;
-  font-size: 11px;
-}
-
 .service-detail-hero__capabilities {
   display: grid;
   margin-top: 10px;
@@ -277,26 +285,39 @@ const priceLabel = computed(() => {
 }
 
 .service-detail-hero__provider-name {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  overflow: hidden;
   color: #20252c;
   font-size: 14px;
   font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-detail-hero__provider-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
 }
 
 .service-detail-hero__certification {
-  padding: 1px 5px;
-  border: 1px solid #24b767;
-  border-radius: 3px;
-  color: #14a758;
-  font-size: 9px;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: #11804a;
+  background: #e8f7ef;
+  font-size: 11px;
   font-weight: 500;
+  line-height: 16px;
 }
 
-.service-detail-hero__team {
-  color: #7a8595;
-  font-size: 10px;
+.service-detail-hero__cities {
+  overflow: hidden;
+  color: #8a8f97;
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .service-detail-hero__provider-link {

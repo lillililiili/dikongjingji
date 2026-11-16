@@ -88,6 +88,10 @@ async function loadSubmittedBookingControllerFactories(): Promise<{
   getSubmittedBookingFooterMode(
     reservation: SubmittedReservation | null,
   ): 'CONTACT_AND_PRIMARY' | 'RETURN_ORDERS_ONLY'
+  getSubmittedBookingHeaderTitle(
+    reservation: SubmittedReservation | null,
+    openedFromOrderList: boolean,
+  ): '提交成功' | '预约详情'
 }> {
   const parsed = parse(submittedPageSource, {
     filename: 'InspectionBookingSubmittedPage.vue',
@@ -115,6 +119,10 @@ async function loadSubmittedBookingControllerFactories(): Promise<{
       getSubmittedBookingFooterMode?: (
         reservation: SubmittedReservation | null,
       ) => 'CONTACT_AND_PRIMARY' | 'RETURN_ORDERS_ONLY'
+      getSubmittedBookingHeaderTitle?: (
+        reservation: SubmittedReservation | null,
+        openedFromOrderList: boolean,
+      ) => '提交成功' | '预约详情'
     }
   } = { exports: {} }
   const evaluate = new Function('require', 'module', 'exports', output)
@@ -127,9 +135,11 @@ async function loadSubmittedBookingControllerFactories(): Promise<{
   if (!loaderFactory) throw new Error('Submitted reservation loader is unavailable')
   const canCancelSubmittedBooking = testModule.exports.canCancelSubmittedBooking
   const getSubmittedBookingFooterMode = testModule.exports.getSubmittedBookingFooterMode
+  const getSubmittedBookingHeaderTitle = testModule.exports.getSubmittedBookingHeaderTitle
   expect(canCancelSubmittedBooking).toBeTypeOf('function')
   expect(getSubmittedBookingFooterMode).toBeTypeOf('function')
-  if (!canCancelSubmittedBooking || !getSubmittedBookingFooterMode) {
+  expect(getSubmittedBookingHeaderTitle).toBeTypeOf('function')
+  if (!canCancelSubmittedBooking || !getSubmittedBookingFooterMode || !getSubmittedBookingHeaderTitle) {
     throw new Error('Submitted booking state rules are unavailable')
   }
   return {
@@ -137,6 +147,7 @@ async function loadSubmittedBookingControllerFactories(): Promise<{
     createSubmittedReservationLoader: loaderFactory,
     canCancelSubmittedBooking,
     getSubmittedBookingFooterMode,
+    getSubmittedBookingHeaderTitle,
   }
 }
 
@@ -494,7 +505,14 @@ describe('F04 booking page contract', () => {
     expect(bookingPageSource).not.toContain('<BookingProgress')
     expect(bookingPageSource).toContain('env(safe-area-inset-bottom)')
     expect(bookingPageSource).toContain('draft.value.inspectionItemCodes = selected.includes(code)')
-    expect(bookingPageSource).toContain('提交订单')
+    expect(bookingPageSource).toContain('提交预约')
+    expect(bookingPageSource).toContain('<text class="inspection-booking__title">预约服务</text>')
+    expect(bookingPageSource).not.toContain('确认订单')
+    expect(bookingPageSource).not.toContain('提交订单')
+    const bookingRoute = (JSON.parse(pagesSource) as {
+      pages: Array<{ path: string; style?: { navigationBarTitleText?: string } }>
+    }).pages.find((page) => page.path === 'pages/service/inspection/booking')
+    expect(bookingRoute?.style?.navigationBarTitleText).toBe('预约服务')
   })
 
   it('restores the approved expanded confirm-order hierarchy', () => {
@@ -562,12 +580,15 @@ describe('F04 booking page contract', () => {
     expect(submittedPageSource).toContain('订单已取消')
     expect(submittedPageSource).toContain("isCancelling ? '取消中…' : '取消订单'")
     expect(submittedPageSource).toContain('v-if="showCustomerContact"')
+    expect(submittedPageSource).toContain('联系服务商')
     expect(submittedPageSource).not.toContain('退款成功')
   })
 
   it('advances the submitted state to plan confirmation and renders DTO-backed details', () => {
     expect(submittedPageSource).not.toContain('<BookingProgress')
-    expect(submittedPageSource).toContain('订单已提交')
+    expect(submittedPageSource).toContain("isCancelled ? '订单已取消' : '需求已提交'")
+    expect(submittedPageSource).toContain('等待服务商确认，方案确认前不收费')
+    expect(submittedPageSource).toContain('进度可在“我的订单”查看')
     expect(submittedPageSource).toContain('uni.setClipboardData')
     expect(submittedPageSource).toContain('reservation.contact.mobile')
   })
@@ -681,6 +702,23 @@ describe('submitted booking cancellation controller', () => {
     expect(getSubmittedBookingFooterMode({
       status: 'PLAN_PUBLISHED', currentPlanId: 'plan-1', marker: 'active',
     })).toBe('CONTACT_AND_PRIMARY')
+  })
+
+  it('titles the header 提交成功 only for a fresh submission not opened from the order list', async () => {
+    const { getSubmittedBookingHeaderTitle } = await loadSubmittedBookingControllerFactories()
+    const submitted: SubmittedReservation = {
+      status: 'SUBMITTED', currentPlanId: null, marker: 'submitted',
+    }
+
+    expect(getSubmittedBookingHeaderTitle(null, false)).toBe('提交成功')
+    expect(getSubmittedBookingHeaderTitle(submitted, false)).toBe('提交成功')
+    expect(getSubmittedBookingHeaderTitle(submitted, true)).toBe('预约详情')
+    expect(getSubmittedBookingHeaderTitle({
+      status: 'PLAN_PUBLISHED', currentPlanId: 'plan-1', marker: 'published',
+    }, false)).toBe('预约详情')
+    expect(getSubmittedBookingHeaderTitle({
+      status: 'CANCELLED', currentPlanId: null, marker: 'cancelled',
+    }, false)).toBe('预约详情')
   })
 
   it('keeps loading true when an old GET finishes before the latest GET', async () => {

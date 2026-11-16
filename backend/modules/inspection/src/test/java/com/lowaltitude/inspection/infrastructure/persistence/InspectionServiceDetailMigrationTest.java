@@ -37,4 +37,24 @@ class InspectionServiceDetailMigrationTest {
                 .contains("completed_count bigint")
                 .doesNotContain("INSERT INTO");
     }
+
+    @Test
+    void pricingMigrationAddsCancellationNoteAndPriceFactorWithoutBackfill() throws Exception {
+        String sql;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/inspection/V010__inspection_service_pricing_cancellation.sql")) {
+            assertThat(stream).isNotNull();
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(sql)
+                .contains("ALTER TABLE inspection_service")
+                .contains("ADD COLUMN cancellation_note varchar(500)")
+                .contains("DROP CONSTRAINT inspection_service_detail_item_section_type_check")
+                .contains("ADD CONSTRAINT inspection_service_detail_item_section_type_check")
+                .contains("'PRICE_FACTOR'")
+                .doesNotContain("NOT NULL")
+                .doesNotContain("INSERT INTO")
+                .doesNotContain("UPDATE ");
+    }
 }

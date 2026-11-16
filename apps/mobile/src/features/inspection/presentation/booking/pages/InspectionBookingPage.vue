@@ -383,7 +383,7 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
   <view class="inspection-booking">
     <view class="inspection-booking__header">
       <button class="inspection-booking__back" aria-label="返回" @click="goBack"><UniIcons type="back" size="22" color="#25282d" /></button>
-      <text class="inspection-booking__title">确认订单</text>
+      <text class="inspection-booking__title">预约服务</text>
       <button class="inspection-booking__customer" aria-label="联系客服" @click="showCustomerService"><UniIcons type="headphones" size="20" color="#25282d" /><text>客服</text></button>
     </view>
     <scroll-view scroll-y class="inspection-booking__scroll" :show-scrollbar="false">
@@ -457,7 +457,7 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
     <view v-if="service" class="inspection-booking__footer">
       <view class="inspection-booking__tip"><UniIcons type="shield-filled" size="17" color="#20ad56" /><text>平台保障 · 方案确认前不收取费用</text></view>
       <label class="booking-agreement"><checkbox :checked="draft.agreementAccepted" color="#ff6a00" @click="draft.agreementAccepted = !draft.agreementAccepted" /><text>我已阅读并同意 <text class="booking-agreement__link">《服务协议》《隐私政策》</text></text></label>
-      <button class="inspection-booking__submit" :loading="isSubmitting" :disabled="isSubmitting" @click="submit">提交订单</button>
+      <button class="inspection-booking__submit" :loading="isSubmitting" :disabled="isSubmitting" @click="submit">提交预约</button>
     </view>
     <InspectionTimePickerSheet
       v-if="service"

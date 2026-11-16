@@ -92,6 +92,33 @@ class DevelopmentInspectionCatalogMigrationTest {
     }
 
     @Test
+    void developmentSeedDefinesPowerPricingAndCancellationButNoProjectQuotePriceNote() throws Exception {
+        String detailSql;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/development/inspection/R__dev_inspection_detail.sql")) {
+            assertThat(stream).isNotNull();
+            detailSql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        String catalogSql;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/development/inspection/R__dev_inspection_catalog.sql")) {
+            assertThat(stream).isNotNull();
+            catalogSql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(detailSql)
+                .contains("price_note = '按线路公里计价，起步价含现场巡检和报告'")
+                .contains("cancellation_note = '方案确认前可取消，不收费；确认后按方案约定'")
+                .contains("'PRICE_FACTOR'")
+                .contains("'LINE_LENGTH'")
+                .contains("'TOWER_COUNT'")
+                .contains("'SITE_CONDITION'");
+        // 按项目报价的园区服务不配置 price_note，列表卡由服务端派生“方案确认后定价”。
+        assertThat(catalogSql).doesNotContain("price_note");
+        assertThat(detailSql).doesNotContain("'77777777-7777-7777-7777-777777777777'");
+    }
+
+    @Test
     void developmentSeedDefinesSimulatedPlatformCityPopularity() throws Exception {
         String sql;
         try (var stream = getClass().getResourceAsStream(

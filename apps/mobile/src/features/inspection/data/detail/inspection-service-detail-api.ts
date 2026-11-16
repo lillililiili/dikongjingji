@@ -36,6 +36,9 @@ interface InspectionServiceDetailDto {
     unitLabel?: string | null
   }
   priceNote?: string | null
+  priceFactors?: string[] | null
+  cancellationNote?: string | null
+  serviceCities?: Array<{ code: string; name: string }> | null
   availability: string
   primaryAction: string
   completedCount?: number
@@ -129,6 +132,10 @@ function mapDetail(dto: InspectionServiceDetailDto): InspectionServiceDetail {
       : dto.price.startingAmountMinor ?? null,
     priceUnitLabel: dto.price.mode === 'PROJECT_QUOTE' ? '' : '起',
     priceNote: dto.priceNote ?? '',
+    // T03 迁移前的存量数据这三项都是 null，页面按“没有配置”隐藏
+    priceFactors: (dto.priceFactors ?? []).filter((factor) => factor.trim() !== ''),
+    cancellationNote: dto.cancellationNote ?? '',
+    serviceCityNames: (dto.serviceCities ?? []).map((city) => city.name),
     availability: dto.availability,
     primaryAction: dto.primaryAction,
     ratingAverage: dto.reviews.average,

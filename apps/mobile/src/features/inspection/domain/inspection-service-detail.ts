@@ -44,7 +44,14 @@ export interface InspectionServiceDetail {
   heroImageUrl: string
   priceAmountMinor: number | null
   priceUnitLabel: string
+  /** 计价方式文案；为空时“价格与取消”卡不显示该行 */
   priceNote: string
+  /** 影响价格的因素，按服务端顺序；为空时不显示该行 */
+  priceFactors: readonly string[]
+  /** 取消说明，只是展示文案，能否取消仍由服务流程状态机决定 */
+  cancellationNote: string
+  /** 已开通城市的名称，用于服务商行“可服务城市”；为空时不显示 */
+  serviceCityNames: readonly string[]
   availability: string
   primaryAction: string
   ratingAverage: number | null

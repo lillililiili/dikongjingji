@@ -85,6 +85,7 @@ describe('M03 single-page visual contract', () => {
   it('keeps the approved section order and one guarantee module', () => {
     const expectedOrder = [
       '<ServiceDetailHero',
+      '<ServicePricingCard',
       '<InspectionScope',
       '<ServiceReviews',
       '<ServiceProcess',
