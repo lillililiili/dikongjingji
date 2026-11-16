@@ -4,7 +4,7 @@ import { computed, ref } from 'vue'
 
 import type {
   HomeChannelCard,
-  HomeChannelCode,
+  HomeEntryTarget,
   HomeKingEntry,
   HomeKingEntryTone,
 } from '@/app-shell/navigation/home-channels'
@@ -15,14 +15,16 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  select: [channel: HomeChannelCode]
+  select: [target: HomeEntryTarget]
 }>()
 
 const ENTRIES_PER_PAGE = 5
 const TONE_ICON_COLORS: Record<HomeKingEntryTone, string> = {
   ORANGE: '#ff6a00',
   BLUE: '#2f80ed',
-  GREEN: '#19b866',
+  GREEN: '#159a70',
+  VIOLET: '#7a55c7',
+  YELLOW: '#b7791f',
 }
 
 const activePage = ref(0)
@@ -64,14 +66,21 @@ function selectPage(event: Event): void {
           `home-entries__card--${card.channel.toLowerCase()}`,
         ]"
         :data-testid="`home-card-${card.channel.toLowerCase()}`"
-        @click="emit('select', card.channel)"
+        @click="emit('select', { type: 'CHANNEL', channel: card.channel })"
       >
         <text class="home-entries__card-title">{{ card.title }}</text>
         <text class="home-entries__card-subtitle">{{ card.subtitle }}</text>
+        <view class="home-entries__card-icon">
+          <UniIcons
+            :type="card.channel === 'SERVICE' ? 'list' : 'videocam'"
+            size="22"
+            :color="card.channel === 'SERVICE' ? '#ff6a00' : '#159a70'"
+          />
+        </view>
       </button>
     </view>
 
-    <view class="home-entries__king">
+    <view v-if="entries.length" class="home-entries__king">
       <swiper
         class="home-entries__swiper"
         :current="activePage"
@@ -84,7 +93,7 @@ function selectPage(event: Event): void {
               :key="entry.code"
               class="home-entries__king-entry"
               :data-testid="`home-king-${entry.code}`"
-              @click="emit('select', entry.channel)"
+              @click="emit('select', entry.target)"
             >
               <view
                 :class="[
@@ -149,25 +158,48 @@ button::after {
 }
 
 .home-entries__card {
+  position: relative;
   display: flex;
-  min-height: 84px;
+  min-height: 92px;
   padding: 14px;
   flex-direction: column;
   align-items: flex-start;
   gap: 3px;
-  border-radius: 14px;
+  overflow: hidden;
+  border-radius: 16px;
   box-sizing: border-box;
   text-align: left;
 }
 
 .home-entries__card--service {
-  color: #d94f00;
-  background: linear-gradient(135deg, #fff3e8 0%, #ffffff 100%);
+  color: #ba470b;
+  background: linear-gradient(135deg, #fff0e3 0%, #fff8f1 100%);
 }
 
 .home-entries__card--experience {
   color: #11804a;
-  background: linear-gradient(135deg, #e8f7ef 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #dff5ed 0%, #f0fbf6 100%);
+}
+
+.home-entries__card-icon {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.85);
+  transform: rotate(-4deg);
+}
+
+/* On the narrowest phones the decorative icon would sit on the subtitle. */
+@media (max-width: 359px) {
+  .home-entries__card-icon {
+    display: none;
+  }
 }
 
 .home-entries__card-title {
@@ -186,8 +218,9 @@ button::after {
 
 .home-entries__king {
   padding: 14px 4px 10px;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
 }
 
 .home-entries__swiper {
@@ -213,19 +246,29 @@ button::after {
   height: 46px;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 16px;
+  box-sizing: border-box;
 }
 
 .home-entries__king-icon--orange {
-  background: #fff3e8;
+  background: #ffe9d6;
 }
 
 .home-entries__king-icon--blue {
-  background: #eaf2fd;
+  background: #e4efff;
 }
 
 .home-entries__king-icon--green {
-  background: #e8f7ef;
+  background: #dff5ed;
+}
+
+.home-entries__king-icon--violet {
+  background: #eee7ff;
+}
+
+.home-entries__king-icon--yellow {
+  background: #fff2cd;
 }
 
 .home-entries__king-label {
@@ -245,7 +288,7 @@ button::after {
   width: 4px;
   height: 4px;
   border-radius: 2px;
-  background: #c4c8ce;
+  background: #c9d3e1;
 }
 
 .home-entries__dot--active {

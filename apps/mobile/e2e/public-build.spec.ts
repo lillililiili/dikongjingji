@@ -18,8 +18,9 @@ test.describe('公开构建', () => {
     await expect(page.getByTestId('home-scan')).toHaveCount(0)
     await expect(page.getByTestId('home-card-experience')).toHaveCount(0)
     await expect(page.locator('.home-entries__card')).toHaveCount(1)
-    await expect(page.locator('.home-entries__king-entry')).toHaveCount(1)
-    await expect(page.locator('.home-entries__dots')).toHaveCount(0)
+    // No king entry is open to the public yet, so the whole block and the sample carousel stay away.
+    await expect(page.locator('.home-entries__king')).toHaveCount(0)
+    await expect(page.getByTestId('home-carousel')).toHaveCount(0)
     await expect(page.getByTestId('home-search-input')).toContainText(
       '搜索巡检服务、场景或关键词',
     )
@@ -31,7 +32,7 @@ test.describe('公开构建', () => {
       page.locator('.root-tab-bar .root-tab-bar__label'),
     ).toHaveText(['首页', '发现', '消息', '购物车', '我的'])
 
-    await page.getByTestId('home-king-service').click()
+    await page.getByTestId('home-card-service').click()
     await expect(page.getByTestId('inspection-portal')).toBeVisible()
     await expect(page.locator('.service-channel__type')).toHaveText(['巡检'])
   })
@@ -54,6 +55,20 @@ test.describe('公开构建', () => {
       /root-tab-bar__item--active/,
     )
     await expect(page.locator('uni-tabbar .uni-tabbar')).toBeHidden()
+  })
+
+  // Was NAV-018. Needs the back end: the banner comes from the portal content of the city.
+  test('PUB-006 Banner 按钮不带走未提交的搜索词', async ({ page }) => {
+    await page.goto('/#/pages/home/index')
+    await expect(page.getByTestId('home-city')).toContainText('东营')
+    await page.getByTestId('home-search-input').locator('input').fill('未提交')
+
+    await page.locator('.platform-hero-banner__action').click()
+
+    await expect(page.getByTestId('inspection-catalog')).toBeVisible()
+    await expect(
+      page.getByTestId('catalog-search-input').locator('input'),
+    ).toHaveValue('')
   })
 
   test('PUB-005 推荐频道搜索进入巡检目录', async ({ page }) => {

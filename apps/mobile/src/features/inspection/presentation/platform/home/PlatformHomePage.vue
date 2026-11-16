@@ -2,10 +2,12 @@
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { ref } from 'vue'
 
+import HomeCarousel from '@/app-shell/components/HomeCarousel.vue'
 import HomeChannelEntries from '@/app-shell/components/HomeChannelEntries.vue'
+import type { HomeCarouselSlide } from '@/app-shell/navigation/home-carousel'
 import type {
   HomeChannelCard,
-  HomeChannelCode,
+  HomeEntryTarget,
   HomeKingEntry,
 } from '@/app-shell/navigation/home-channels'
 import PlatformHeroBanner from '@/shared/presentation/PlatformHeroBanner.vue'
@@ -22,12 +24,14 @@ const props = defineProps<{
   state: PlatformHomeViewState
   cards: readonly HomeChannelCard[]
   kingEntries: readonly HomeKingEntry[]
+  carouselSlides: readonly HomeCarouselSlide[]
+  carouselActive: boolean
 }>()
 
 const emit = defineEmits<{
   retry: []
   search: []
-  selectChannel: [channel: HomeChannelCode]
+  selectEntry: [target: HomeEntryTarget]
   selectFeaturedService: [service: PlatformHomeFeaturedService]
   selectActivity: [activity: PlatformHomeActivity]
   selectEnterpriseSolution: []
@@ -59,8 +63,15 @@ const selectEnterpriseSolution = (availability: PlatformAvailability): void =>
 
 <template>
   <view class="platform-home">
+    <HomeCarousel
+      v-if="props.carouselSlides.length"
+      class="platform-home__hero"
+      :slides="props.carouselSlides"
+      :active="props.carouselActive"
+      @select="emit('selectEntry', $event)"
+    />
     <PlatformHeroBanner
-      v-if="props.state.kind === 'ready' && props.state.content.hero"
+      v-else-if="props.state.kind === 'ready' && props.state.content.hero"
       class="platform-home__hero"
       :image-url="props.state.content.hero.imageUrl"
       :image-alt="`${props.state.content.hero.title}${props.state.content.hero.highlight}`"
@@ -75,7 +86,7 @@ const selectEnterpriseSolution = (availability: PlatformAvailability): void =>
     <HomeChannelEntries
       :cards="props.cards"
       :entries="props.kingEntries"
-      @select="emit('selectChannel', $event)"
+      @select="emit('selectEntry', $event)"
     />
 
     <view v-if="props.state.kind === 'loading'" class="platform-home__state" aria-label="正在加载">

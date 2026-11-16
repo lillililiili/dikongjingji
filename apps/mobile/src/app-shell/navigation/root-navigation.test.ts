@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import pages from '../../pages.json'
 import tabBarSource from '../components/RootAppTabBar.vue?raw'
 import { useHomeChannelStore } from '../state/home-channel'
+import { resolveHomeCarouselSlides, stepHomeCarousel } from './home-carousel'
 import {
   DEFAULT_HOME_CHANNEL,
   HOME_CHANNELS,
   isHomeChannelSearchable,
+  isHomeEntryTargetVisible,
   resolveHomeChannelCards,
   resolveHomeKingEntries,
   resolveHomeSearchPlaceholder,
@@ -100,33 +102,29 @@ describe('root tab bar', () => {
 })
 
 describe('home channels', () => {
-  it('lists the nine resident channels in the approved order', () => {
+  it('lists the five resident channels in the approved order', () => {
     expect(HOME_CHANNELS.map((channel) => channel.label)).toEqual([
       '推荐',
       '专业服务',
-      '活动',
+      '赛事研学',
       '体验',
-      '无人机',
-      '机器人',
-      '配件',
-      '租赁',
-      '课程',
+      '商城',
     ])
     expect(DEFAULT_HOME_CHANNEL).toBe('RECOMMEND')
   })
 
   it('shows unfinished channels only in preview builds', () => {
-    expect(resolveVisibleHomeChannels(true)).toHaveLength(9)
+    expect(resolveVisibleHomeChannels(true)).toHaveLength(5)
     expect(resolveVisibleHomeChannels(false).map((channel) => channel.code))
       .toEqual(['RECOMMEND', 'SERVICE'])
   })
 
   it('swaps the search placeholder with the channel', () => {
-    expect(resolveHomeSearchPlaceholder('RECOMMEND', true)).toBe('搜索设备、活动或服务')
+    expect(resolveHomeSearchPlaceholder('RECOMMEND', true)).toBe('搜索设备、赛事研学或服务')
     expect(resolveHomeSearchPlaceholder('SERVICE', true)).toBe('搜索巡检服务、场景或关键词')
     expect(resolveHomeSearchPlaceholder('ACTIVITY', true)).toBe('搜索赛事、培训、研学')
     expect(resolveHomeSearchPlaceholder('EXPERIENCE', true)).toBe('搜索体验项目或场馆')
-    expect(resolveHomeSearchPlaceholder('ROBOT', true)).toBe('搜索机器人型号或品牌')
+    expect(resolveHomeSearchPlaceholder('MALL', true)).toBe('搜索设备、配件或课程')
   })
 
   it('does not promise device or activity search in public builds', () => {
@@ -148,19 +146,67 @@ describe('home channels', () => {
     ])
   })
 
-  it('moves later entries forward instead of leaving gaps for closed channels', () => {
+  it('puts the play games where professional services used to be', () => {
     expect(resolveHomeKingEntries(true).map((entry) => entry.label)).toEqual([
       '无人机',
       '机器人',
-      '专业服务',
+      '趣玩挑战',
       '设备租赁',
       '培训课程',
-      '赛事活动',
+      '赛事报名',
       '研学体验',
       '线下场馆',
     ])
-    expect(resolveHomeKingEntries(false).map((entry) => entry.label))
-      .toEqual(['专业服务'])
+    expect(resolveHomeKingEntries(true).find((entry) => entry.code === 'games')?.target)
+      .toEqual({ type: 'PAGE', url: '/pages/play/index', publiclyAvailable: false })
+  })
+
+  it('sends the product entries to the mall channel', () => {
+    const targets = Object.fromEntries(
+      resolveHomeKingEntries(true).map((entry) => [entry.code, entry.target]),
+    )
+    for (const code of ['drone', 'robot', 'rental', 'course']) {
+      expect(targets[code]).toEqual({ type: 'CHANNEL', channel: 'MALL' })
+    }
+    expect(targets.contest).toEqual({ type: 'CHANNEL', channel: 'ACTIVITY' })
+    expect(targets.venue).toEqual({ type: 'CHANNEL', channel: 'EXPERIENCE' })
+  })
+
+  it('leaves no king entry in public builds, where the big card is the way in', () => {
+    expect(resolveHomeKingEntries(false)).toEqual([])
+    expect(isHomeEntryTargetVisible({ type: 'CHANNEL', channel: 'SERVICE' }, false)).toBe(true)
+    expect(isHomeEntryTargetVisible({ type: 'CHANNEL', channel: 'MALL' }, false)).toBe(false)
+    expect(isHomeEntryTargetVisible(
+      { type: 'PAGE', url: '/pages/play/index', publiclyAvailable: true },
+      false,
+    )).toBe(true)
+  })
+})
+
+describe('home carousel', () => {
+  it('shows the four operator picks of the revised prototype in preview builds', () => {
+    const slides = resolveHomeCarouselSlides(true)
+    expect(slides.map((slide) => slide.id))
+      .toEqual(['contest', 'study-tour', 'games', 'experience'])
+    expect(slides.map((slide) => slide.actionLabel)).toEqual([
+      '查看赛事 · 去报名',
+      '查看研学 · 去报名',
+      '开始趣玩挑战',
+      '探索体验 · 去预约',
+    ])
+    expect(slides[2].target).toMatchObject({ type: 'PAGE', url: '/pages/play/index' })
+    expect(slides[0].target).toEqual({ type: 'CHANNEL', channel: 'ACTIVITY' })
+  })
+
+  it('keeps sample slides out of public builds', () => {
+    expect(resolveHomeCarouselSlides(false)).toEqual([])
+  })
+
+  it('wraps around in both directions', () => {
+    expect(stepHomeCarousel(0, 1, 4)).toBe(1)
+    expect(stepHomeCarousel(3, 1, 4)).toBe(0)
+    expect(stepHomeCarousel(0, -1, 4)).toBe(3)
+    expect(stepHomeCarousel(0, 1, 0)).toBe(0)
   })
 })
 

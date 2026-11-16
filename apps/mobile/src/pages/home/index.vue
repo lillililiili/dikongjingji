@@ -5,6 +5,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 
 import HomeHeader from '@/app-shell/components/HomeHeader.vue'
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
+import { resolveHomeCarouselSlides } from '@/app-shell/navigation/home-carousel'
 import {
   isHomeChannelSearchable,
   resolveHomeChannelCards,
@@ -12,6 +13,7 @@ import {
   resolveHomeSearchPlaceholder,
   resolveVisibleHomeChannels,
   type HomeChannelCode,
+  type HomeEntryTarget,
 } from '@/app-shell/navigation/home-channels'
 import { useHomeChannelStore } from '@/app-shell/state/home-channel'
 import { buildPortalSearchUrl } from '@/features/inspection/application/portal/build-portal-navigation'
@@ -55,6 +57,11 @@ let contentRequestVersion = 0
 const visibleChannels = resolveVisibleHomeChannels(PLATFORM_PREVIEW_ENABLED)
 const channelCards = resolveHomeChannelCards(PLATFORM_PREVIEW_ENABLED)
 const kingEntries = resolveHomeKingEntries(PLATFORM_PREVIEW_ENABLED)
+// Written as a build-time branch so the sample slides are dropped from public bundles.
+const carouselSlides = PLATFORM_PREVIEW_ENABLED
+  ? resolveHomeCarouselSlides(true)
+  : []
+const pageVisible = ref(false)
 const serviceChannelOpened = ref(activeChannel.value === 'SERVICE')
 const activeChannelLabel = computed(() =>
   visibleChannels.find((channel) => channel.code === activeChannel.value)?.label ?? '',
@@ -179,6 +186,14 @@ function selectChannel(channel: HomeChannelCode): void {
   channelStore.selectChannel(channel)
 }
 
+function openEntry(target: HomeEntryTarget): void {
+  if (target.type === 'CHANNEL') {
+    selectChannel(target.channel)
+    return
+  }
+  uni.navigateTo({ url: target.url })
+}
+
 function restoreChannelScroll(channel: HomeChannelCode): void {
   uni.pageScrollTo({
     scrollTop: scrollPositions.get(channel) ?? 0,
@@ -203,11 +218,13 @@ onPageScroll(({ scrollTop }) => {
 })
 
 onShow(() => {
+  pageVisible.value = true
   void loadHomeContent()
   void nextTick(() => restoreChannelScroll(activeChannel.value))
 })
 
 onHide(() => {
+  pageVisible.value = false
   scrollPositions.set(activeChannel.value, currentScrollTop)
 })
 </script>
@@ -232,9 +249,11 @@ onHide(() => {
         :state="state"
         :cards="channelCards"
         :king-entries="kingEntries"
+        :carousel-slides="carouselSlides"
+        :carousel-active="pageVisible && activeChannel === 'RECOMMEND'"
         @retry="loadHomeContent"
         @search="openCatalog"
-        @select-channel="selectChannel"
+        @select-entry="openEntry"
         @select-featured-service="selectFeatured"
         @select-activity="showUnavailable"
         @select-enterprise-solution="showUnavailable"

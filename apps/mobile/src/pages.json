@@ -119,6 +119,20 @@
         "navigationBarTitleText": "报告交付",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/play/index",
+      "style": {
+        "navigationBarTitleText": "趣玩挑战",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/play/game",
+      "style": {
+        "navigationBarTitleText": "趣玩挑战",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

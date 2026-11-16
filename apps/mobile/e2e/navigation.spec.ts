@@ -147,13 +147,9 @@ test.describe('首页频道', () => {
     await expect(page.locator('.home-header__channel')).toHaveText([
       '推荐',
       '专业服务',
-      '活动',
+      '赛事研学',
       '体验',
-      '无人机',
-      '机器人',
-      '配件',
-      '租赁',
-      '课程',
+      '商城',
     ])
     await expect(page.getByTestId('home-channel-recommend')).toHaveClass(
       /home-header__channel--active/,
@@ -164,7 +160,7 @@ test.describe('首页频道', () => {
     await openHome(page)
     const input = page.getByTestId('home-search-input').locator('input')
     const placeholder = page.getByTestId('home-search-input')
-    await expect(placeholder).toContainText('搜索设备、活动或服务')
+    await expect(placeholder).toContainText('搜索设备、赛事研学或服务')
 
     await page.getByTestId('home-channel-service').click()
     await expect(page.getByTestId('inspection-portal')).toBeVisible()
@@ -172,15 +168,15 @@ test.describe('首页频道', () => {
     await expectRootBar(page, 'home')
 
     await page.getByTestId('home-channel-activity').click()
-    await expect(page.getByTestId('home-channel-placeholder')).toContainText('活动')
+    await expect(page.getByTestId('home-channel-placeholder')).toContainText('赛事研学')
     await expect(page.getByTestId('inspection-portal')).toBeHidden()
     await expect(placeholder).toContainText('搜索赛事、培训、研学')
     await expectRootBar(page, 'home')
 
     await input.fill('测试')
-    await page.getByTestId('home-channel-robot').click()
+    await page.getByTestId('home-channel-mall').click()
     await expect(input).toHaveValue('')
-    await expect(placeholder).toContainText('搜索机器人型号或品牌')
+    await expect(placeholder).toContainText('搜索设备、配件或课程')
   })
 
   test('NAV-007 选中靠前的频道时频道行不跳动', async ({ page }) => {
@@ -275,11 +271,12 @@ test.describe('巡检入口', () => {
     await expectRootBar(page, 'home')
   })
 
-  test('GOLD-002 推荐频道金刚位“专业服务” → 巡检 → 搜索 → 目录', async ({
+  // The king entry “专业服务” gave way to “趣玩挑战” (概要设计 §14 D21), so the big card is the second way in.
+  test('GOLD-002 推荐频道大卡“找专业服务” → 巡检 → 搜索 → 目录', async ({
     page,
   }) => {
     await openHome(page)
-    await page.getByTestId('home-king-service').click()
+    await page.getByTestId('home-card-service').click()
     await expect(page.getByTestId('inspection-portal')).toBeVisible()
     await expect(page.getByTestId('home-channel-service')).toHaveClass(
       /home-header__channel--active/,
@@ -370,28 +367,19 @@ test.describe('巡检入口', () => {
 })
 
 test.describe('推荐频道', () => {
-  test('NAV-018 Banner 按钮不带走未提交的搜索词', async ({ page }) => {
-    await openHome(page)
-    await page.getByTestId('home-search-input').locator('input').fill('未提交')
-
-    await page.locator('.platform-hero-banner__action').click()
-
-    await expect(page.getByTestId('inspection-catalog')).toBeVisible()
-    await expect(
-      page.getByTestId('catalog-search-input').locator('input'),
-    ).toHaveValue('')
-  })
+  // NAV-018 (Banner 按钮不带走未提交的搜索词) moved to public-build.spec.ts as PUB-006:
+  // preview builds show the carousel in the banner's place, public builds still show the banner.
 
   test('NAV-020 金刚区在隐藏状态挂载后切回推荐仍可翻页和点击', async ({ page }) => {
     await page.goto('/#/pages/service/index')
     await expect(page.getByTestId('inspection-portal')).toBeVisible()
 
     await page.getByTestId('home-channel-recommend').click()
-    await expect(page.getByTestId('home-king-service')).toBeInViewport()
+    await expect(page.getByTestId('home-king-games')).toBeInViewport()
     await expect(page.locator('.home-entries__dot')).toHaveCount(2)
 
-    await page.getByTestId('home-king-service').click()
-    await expect(page.getByTestId('inspection-portal')).toBeVisible()
+    await page.getByTestId('home-king-games').click()
+    await expect(page.getByTestId('play-games')).toBeVisible()
   })
 
   test('NAV-019 内容加载失败时入口仍然可用', async ({ page }) => {
@@ -401,7 +389,7 @@ test.describe('推荐频道', () => {
     await page.goto('/#/pages/home/index')
 
     await expect(page.getByText('首页内容加载失败，请稍后重试')).toBeVisible()
-    await expect(page.getByTestId('home-king-service')).toBeVisible()
+    await expect(page.getByTestId('home-king-games')).toBeVisible()
     await expect(page.getByTestId('home-card-service')).toBeVisible()
   })
 })
@@ -481,7 +469,7 @@ test.describe('专业服务子类型', () => {
     await expect(placeholder).toContainText('搜索测绘服务')
 
     await page.getByTestId('home-channel-recommend').click()
-    await expect(placeholder).toContainText('搜索设备、活动或服务')
+    await expect(placeholder).toContainText('搜索设备、赛事研学或服务')
 
     await page.getByTestId('home-card-service').click()
     await expect(page.getByTestId('service-type-inspection')).toHaveClass(
@@ -524,7 +512,7 @@ test('VIS-001 320/375/430 视口无横向溢出并留存截图', async ({ page }
     await page.setViewportSize({ width, height: 844 })
     await openHome(page)
     await page.getByTestId('home-channel-recommend').click()
-    await expect(page.getByTestId('home-king-service')).toBeVisible()
+    await expect(page.getByTestId('home-king-games')).toBeVisible()
     await assertNoHorizontalOverflow(page)
     await page.screenshot({
       path: resolve(visualOutput, `home-recommend-${width}.png`),

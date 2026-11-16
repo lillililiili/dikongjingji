@@ -10,6 +10,7 @@ const h5OutputPath = join(mobileRoot, 'dist', 'build', 'h5')
 const forbiddenMarkers = [
   '专业航拍',
   '无人机足球赛',
+  '小小飞行家',
   '智能装备',
   'development-platform-content-repository',
   'platform-discover.fixture',
