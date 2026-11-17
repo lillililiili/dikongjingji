@@ -84,6 +84,8 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/login", "/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.GET,
+                                "/api/v1/inspection/portal",
+                                "/api/v1/inspection/filters",
                                 "/api/v1/inspection/services",
                                 "/api/v1/inspection/services/*",
                                 "/api/v1/inspection/discovery",

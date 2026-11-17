@@ -12,6 +12,8 @@ import com.lowaltitude.inspection.application.reservation.FileTypeUnsupportedExc
 import com.lowaltitude.inspection.application.reservation.FileUploadConflictException;
 import com.lowaltitude.inspection.application.reservation.FileUploadValidationException;
 import com.lowaltitude.inspection.application.reservation.IdempotencyConflictException;
+import com.lowaltitude.inspection.application.reservation.InspectionCatalogCityNotEnabledException;
+import com.lowaltitude.inspection.application.reservation.InspectionPortalConfigUnavailableException;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceNotFoundException;
 import com.lowaltitude.inspection.application.reservation.ReservationAccessDeniedException;
 import com.lowaltitude.inspection.application.reservation.ReservationCancellationNotAllowedException;
@@ -147,6 +149,30 @@ public class GlobalExceptionHandler {
                 .body(new ApiError(
                         "INS_VERSION_CONFLICT",
                         "页面数据已更新，请刷新后重试",
+                        traceId(request)));
+    }
+
+    @ExceptionHandler(InspectionCatalogCityNotEnabledException.class)
+    public ResponseEntity<ApiError> handleCatalogCityNotEnabled(
+            InspectionCatalogCityNotEnabledException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiError(
+                        "INS_CATALOG_CITY_NOT_ENABLED",
+                        "当前城市暂未开通巡检服务",
+                        traceId(request)));
+    }
+
+    @ExceptionHandler(InspectionPortalConfigUnavailableException.class)
+    public ResponseEntity<ApiError> handlePortalConfigUnavailable(
+            InspectionPortalConfigUnavailableException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ApiError(
+                        "INS_CATALOG_CONFIG_UNAVAILABLE",
+                        "入口配置暂不可用",
                         traceId(request)));
     }
 

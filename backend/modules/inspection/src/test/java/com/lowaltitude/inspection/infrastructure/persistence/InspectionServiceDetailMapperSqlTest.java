@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 import org.apache.ibatis.annotations.Select;
@@ -14,14 +15,19 @@ class InspectionServiceDetailMapperSqlTest {
     @Test
     void catalogQueriesUseActiveMultiCityCoverage() throws Exception {
         assertSelect(
-                "countActive",
-                new Class<?>[]{String.class, String.class},
+                "countMatching",
+                new Class<?>[]{
+                        String.class, String.class, String.class,
+                        List.class, List.class, List.class, Boolean.class},
                 "inspection_service_city",
                 "#{cityCode}",
                 "coverage.status = 'ACTIVE'");
         assertSelect(
-                "findActivePage",
-                new Class<?>[]{String.class, String.class, String.class, int.class, int.class},
+                "findMatchingPage",
+                new Class<?>[]{
+                        String.class, String.class, String.class,
+                        List.class, List.class, List.class, Boolean.class,
+                        Double.class, Double.class, String.class, int.class, int.class},
                 "inspection_service_city",
                 "#{cityCode}",
                 "coverage.status = 'ACTIVE'");

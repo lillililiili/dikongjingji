@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Inspection Catalog API
-  version: 1.1.0
+  version: 1.2.0
   description: >
     巡检目录 I1 的逻辑契约。若宿主项目已有统一响应信封、分页或错误格式，
     实现时映射到宿主规范，但不得改变字段语义。
@@ -61,6 +61,7 @@ paths:
           required: false
           style: form
           explode: true
+          description: 巡检方式编码，取值见 /filters 的 serviceMethods（UAV 无人机 / ROBOT 智能设备）；多个值之间是“或”
           schema:
             type: array
             maxItems: 10
@@ -509,6 +510,9 @@ components:
             - integer
             - "null"
           minimum: 0
+          description: >
+            用户位置到服务中心点的距离（米），由 PostGIS 计算。请求带了 latitude、longitude
+            且服务在该城市有中心点时才有值，其余为 null。
         availability:
           type: string
           enum:
@@ -833,7 +837,12 @@ components:
         - SALES_DESC
         - PRICE_ASC
         - PRICE_DESC
+        - DISTANCE_ASC
       default: COMPREHENSIVE
+      description: >
+        DISTANCE_ASC（1.2.0 新增）按用户位置到服务在该城市的服务中心点的距离从近到远，
+        必须同时带 latitude 和 longitude，否则 400；没有中心点的服务排最后。
+        SALES_DESC 接口接受，但 /filters 的 sorts 不提供。
     InspectionFilterOptions:
       type: object
       additionalProperties: false

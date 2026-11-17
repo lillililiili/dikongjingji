@@ -83,7 +83,10 @@ class InspectionServiceCatalogControllerTest {
     @Test
     void forwardsPowerSalesSortAndReturnsCompletedCount() throws Exception {
         UUID serviceId = UUID.randomUUID();
-        when(service.search("370500", "POWER", "SALES_DESC", 1, 20))
+        InspectionCatalogSearch search = new InspectionCatalogSearch(
+                "370500", null, "POWER", null, null, null, null,
+                "SALES_DESC", null, null, 1, 20);
+        when(service.search(search))
                 .thenReturn(new InspectionServicePageView(
                         1,
                         20,
@@ -106,7 +109,8 @@ class InspectionServiceCatalogControllerTest {
                                 "含现场巡检和报告",
                                 "RESERVABLE",
                                 "RESERVE",
-                                8_560L))));
+                                8_560L,
+                                null))));
 
         mockMvc.perform(get("/api/v1/inspection/services")
                         .param("cityCode", "370500")
@@ -116,7 +120,133 @@ class InspectionServiceCatalogControllerTest {
                 .andExpect(jsonPath("$.items[0].completedCount").value(8560))
                 .andExpect(jsonPath("$.items[0].priceNote").value("含现场巡检和报告"));
 
-        verify(service).search("370500", "POWER", "SALES_DESC", 1, 20);
+        verify(service).search(search);
+    }
+
+    @Test
+    void forwardsKeywordFiltersAndPositionAsTheCustomerSentThem() throws Exception {
+        InspectionCatalogSearch search = new InspectionCatalogSearch(
+                "370500",
+                "线路",
+                "POWER",
+                List.of("UAV", "ROBOT"),
+                null,
+                List.of("PROJECT_QUOTE"),
+                true,
+                "DISTANCE_ASC",
+                37.43,
+                118.67,
+                2,
+                5);
+        when(service.search(search))
+                .thenReturn(new InspectionServicePageView(2, 5, 6, false, List.of()));
+
+        mockMvc.perform(get("/api/v1/inspection/services")
+                        .param("cityCode", " 370500 ")
+                        .param("keyword", "线路")
+                        .param("categoryCode", "POWER")
+                        .param("serviceMethods", "UAV")
+                        .param("serviceMethods", "ROBOT")
+                        .param("priceModes", "PROJECT_QUOTE")
+                        .param("includesReport", "true")
+                        .param("sort", "DISTANCE_ASC")
+                        .param("latitude", "37.43")
+                        .param("longitude", "118.67")
+                        .param("page", "2")
+                        .param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(6))
+                .andExpect(jsonPath("$.hasMore").value(false));
+
+        verify(service).search(search);
+    }
+
+    @Test
+    void invalidListQueriesAreBadRequestsAndClosedCitiesHaveTheirOwnCode() throws Exception {
+        when(service.search(new InspectionCatalogSearch(
+                null, null, null, null, null, null, null, "COMPREHENSIVE", null, null, 1, 20)))
+                .thenThrow(new IllegalArgumentException("catalog query is invalid"));
+        when(service.search(new InspectionCatalogSearch(
+                "370700", null, null, null, null, null, null, "COMPREHENSIVE", null, null, 1, 20)))
+                .thenThrow(new InspectionCatalogCityNotEnabledException());
+
+        mockMvc.perform(get("/api/v1/inspection/services"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        mockMvc.perform(get("/api/v1/inspection/services")
+                        .param("cityCode", "370500")
+                        .param("latitude", "north"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        mockMvc.perform(get("/api/v1/inspection/services").param("cityCode", "370700"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("INS_CATALOG_CITY_NOT_ENABLED"))
+                .andExpect(jsonPath("$.message").value("当前城市暂未开通巡检服务"));
+    }
+
+    @Test
+    void portalAndFiltersAreServedPerCity() throws Exception {
+        CitySummaryView city = new CitySummaryView("370500", "东营市", "370000");
+        when(service.findPortal("370500")).thenReturn(new InspectionPortalView(
+                city,
+                "1794700800",
+                java.time.OffsetDateTime.parse("2026-11-15T08:00:00+08:00"),
+                new HeroContentView(
+                        "专业巡检", "隐患早发现", "", List.of(), null, null,
+                        PortalActionView.openCatalog(null)),
+                List.of(new InspectionCategoryView(
+                        "POWER", "电力", null, null, 10, PortalActionView.openCatalog("POWER"))),
+                List.of(),
+                List.of(),
+                List.of(new PortalInfoItemView("BOOK", "提交预约", "选服务和时间", null, 10))));
+        when(service.findFilterOptions("370500")).thenReturn(new InspectionFilterOptionsView(
+                city,
+                "1794700800",
+                List.of(),
+                List.of(new CodeNameView("UAV", "无人机")),
+                List.of(),
+                List.of(new CodeNameView("PROJECT_QUOTE", "按项目报价")),
+                List.of("COMPREHENSIVE", "DISTANCE_ASC"),
+                true));
+
+        mockMvc.perform(get("/api/v1/inspection/portal").param("cityCode", "370500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.city.name").value("东营市"))
+                .andExpect(jsonPath("$.hero.highlightedText").value("隐患早发现"))
+                .andExpect(jsonPath("$.categories[0].action.type").value("OPEN_CATALOG"))
+                .andExpect(jsonPath("$.categories[0].action.categoryCode").value("POWER"))
+                .andExpect(jsonPath("$.guarantees").isEmpty())
+                .andExpect(jsonPath("$.processSteps[0].title").value("提交预约"));
+        mockMvc.perform(get("/api/v1/inspection/filters").param("cityCode", "370500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceMethods[0].code").value("UAV"))
+                .andExpect(jsonPath("$.sorts[1]").value("DISTANCE_ASC"))
+                .andExpect(jsonPath("$.supportsReportFilter").value(true));
+    }
+
+    @Test
+    void portalErrorsUseTheContractCodes() throws Exception {
+        when(service.findPortal(null))
+                .thenThrow(new IllegalArgumentException("city code is invalid"));
+        when(service.findPortal("370700"))
+                .thenThrow(new InspectionCatalogCityNotEnabledException());
+        when(service.findPortal("370500"))
+                .thenThrow(new InspectionPortalConfigUnavailableException());
+        when(service.findFilterOptions("370700"))
+                .thenThrow(new InspectionCatalogCityNotEnabledException());
+
+        mockMvc.perform(get("/api/v1/inspection/portal"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        mockMvc.perform(get("/api/v1/inspection/portal").param("cityCode", "370700"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("INS_CATALOG_CITY_NOT_ENABLED"));
+        mockMvc.perform(get("/api/v1/inspection/portal").param("cityCode", "370500"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("INS_CATALOG_CONFIG_UNAVAILABLE"));
+        mockMvc.perform(get("/api/v1/inspection/filters").param("cityCode", "370700"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("INS_CATALOG_CITY_NOT_ENABLED"));
     }
 
     private static InspectionServiceDetailView detail(UUID serviceId) {

@@ -96,6 +96,59 @@ class InspectionCatalogOpenApiContractTest {
         assertThat(legacy.get("serviceCities").isNull()).isTrue();
     }
 
+    /** 服务端真实返回的结构（不是示例文件）也要符合契约：字段名、必填项、枚举、不多出字段。 */
+    @Test
+    void viewsTheServerReturnsConformToContractSchemas() throws Exception {
+        Map<String, Object> schemas = schemas();
+        ObjectMapper mapper = org.springframework.http.converter.json.Jackson2ObjectMapperBuilder.json()
+                .featuresToDisable(
+                        com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .build();
+        CitySummaryView city = new CitySummaryView("370500", "东营市", "370000");
+        InspectionServiceCardView card = new InspectionServiceCardView(
+                java.util.UUID.fromString("33333333-3333-3333-3333-333333333333"),
+                "INS-SVC-DEV-POWER",
+                new CodeNameView("POWER", "电力"),
+                "电力输电线路无人机巡检",
+                "高精度巡检",
+                new MediaAssetView("https://media.example.com/power.jpg", "电力输电线路无人机巡检"),
+                List.of(new CodeNameView("POWER_LINE", "线路本体巡检")),
+                new ServicePriceView("STARTING_PRICE", 69_900L, "CNY", "KM", "公里"),
+                "含现场巡检和报告",
+                "RESERVABLE",
+                "RESERVE",
+                8_560L,
+                3_812L);
+        List<InspectionCategoryView> categories = List.of(new InspectionCategoryView(
+                "POWER", "电力", null, null, 10, PortalActionView.openCatalog("POWER")));
+
+        validate(schemas, "InspectionServicePage", mapper.valueToTree(
+                new InspectionServicePageView(1, 5, 1, false, List.of(card))), "page");
+        validate(schemas, "InspectionPortal", mapper.valueToTree(new InspectionPortalView(
+                city,
+                "1794700800",
+                java.time.OffsetDateTime.parse("2026-11-15T08:00:00+08:00"),
+                new HeroContentView(
+                        "专业巡检", "隐患早发现", "", List.of(), null, null,
+                        PortalActionView.openCatalog(null)),
+                categories,
+                List.of(),
+                List.of(card),
+                List.of(new PortalInfoItemView("BOOK", "提交预约", null, null, 10)))), "portal");
+        validate(schemas, "InspectionFilterOptions", mapper.valueToTree(
+                new InspectionFilterOptionsView(
+                        city,
+                        "1794700800",
+                        categories,
+                        List.of(new CodeNameView("UAV", "无人机")),
+                        List.of(),
+                        List.of(new CodeNameView("PROJECT_QUOTE", "按项目报价")),
+                        java.util.Arrays.stream(InspectionCatalogSort.values())
+                                .map(Enum::name)
+                                .toList(),
+                        true)), "filters");
+    }
+
     // ---- 轻量 schema 校验 ----
 
     @SuppressWarnings("unchecked")

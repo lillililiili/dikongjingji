@@ -1,5 +1,6 @@
 package com.lowaltitude.inspection.application.reservation;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,48 +19,129 @@ final class PostgresInspectionServiceCatalogReadStore
     }
 
     @Override
-    public long countActive(String cityCode, String categoryCode) {
-        return mapper.countActive(cityCode, categoryCode);
+    public long countActive(InspectionCatalogCriteria criteria) {
+        return mapper.countMatching(
+                criteria.cityCode(),
+                criteria.categoryCode(),
+                criteria.keywordPattern(),
+                criteria.serviceMethods(),
+                criteria.availability(),
+                criteria.priceModes(),
+                criteria.includesReport());
     }
 
     @Override
     public List<StoredInspectionServiceCard> findActivePage(
-            String cityCode,
-            String categoryCode,
+            InspectionCatalogCriteria criteria,
             InspectionCatalogSort sort,
             int limit,
             int offset
     ) {
-        return mapper.findActivePage(
-                        cityCode,
-                        categoryCode,
+        return mapper.findMatchingPage(
+                        criteria.cityCode(),
+                        criteria.categoryCode(),
+                        criteria.keywordPattern(),
+                        criteria.serviceMethods(),
+                        criteria.availability(),
+                        criteria.priceModes(),
+                        criteria.includesReport(),
+                        criteria.latitude(),
+                        criteria.longitude(),
                         sort.name(),
                         limit,
                         offset)
                 .stream()
-                .map(row -> new StoredInspectionServiceCard(
-                        row.serviceId(),
-                        row.serviceNo(),
-                        row.categoryCode(),
-                        row.categoryName(),
-                        row.name(),
-                        row.summary(),
-                        row.coverUrl(),
-                        mapper.findFeatures(row.serviceId()).stream()
-                                .map(feature -> new CodeNameView(
-                                        feature.code(),
-                                        feature.name()))
-                                .toList(),
-                        row.priceMode(),
-                        row.startingAmountMinor(),
-                        row.currency(),
-                        row.unitCode(),
-                        row.unitLabel(),
-                        row.priceNote(),
-                        row.availability(),
-                        row.primaryAction(),
-                        row.completedCount()))
+                .map(this::toCard)
                 .toList();
+    }
+
+    @Override
+    public boolean existsVisibleInCity(String cityCode) {
+        return mapper.existsVisibleInCity(cityCode);
+    }
+
+    @Override
+    public List<StoredInspectionServiceCard> findMostCompleted(String cityCode, int limit) {
+        return mapper.findMostCompleted(cityCode, limit).stream()
+                .map(this::toCard)
+                .toList();
+    }
+
+    @Override
+    public List<StoredInspectionCategory> findTopLevelCategories() {
+        return mapper.findTopLevelCategories().stream()
+                .map(row -> new StoredInspectionCategory(
+                        row.code(), row.name(), row.subtitle(), row.sortOrder()))
+                .toList();
+    }
+
+    @Override
+    public List<StoredPortalContent> findPortalContent(String cityCode) {
+        return mapper.findPortalContent(cityCode).stream()
+                .map(row -> new StoredPortalContent(
+                        InspectionPortalContentType.valueOf(row.contentType()),
+                        row.itemCode(),
+                        row.title(),
+                        row.subtitle(),
+                        row.highlightedText(),
+                        row.imageUrl(),
+                        row.sortOrder()))
+                .toList();
+    }
+
+    @Override
+    public Optional<OffsetDateTime> findCatalogConfigUpdatedAt() {
+        return Optional.ofNullable(mapper.findCatalogConfigUpdatedAt());
+    }
+
+    @Override
+    public Optional<StoredServiceCity> findCity(String cityCode) {
+        return mapper.findCity(cityCode)
+                .map(row -> new StoredServiceCity(
+                        row.cityCode(), row.cityName(), row.provinceCode()));
+    }
+
+    @Override
+    public List<String> findServiceMethodsInCity(String cityCode) {
+        return mapper.findServiceMethodsInCity(cityCode);
+    }
+
+    @Override
+    public List<String> findPriceModesInCity(String cityCode) {
+        return mapper.findPriceModesInCity(cityCode);
+    }
+
+    @Override
+    public boolean existsReportServiceInCity(String cityCode) {
+        return mapper.existsReportServiceInCity(cityCode);
+    }
+
+    private StoredInspectionServiceCard toCard(
+            InspectionServiceCatalogMapper.ServiceCardRow row
+    ) {
+        return new StoredInspectionServiceCard(
+                row.serviceId(),
+                row.serviceNo(),
+                row.categoryCode(),
+                row.categoryName(),
+                row.name(),
+                row.summary(),
+                row.coverUrl(),
+                mapper.findFeatures(row.serviceId()).stream()
+                        .map(feature -> new CodeNameView(
+                                feature.code(),
+                                feature.name()))
+                        .toList(),
+                row.priceMode(),
+                row.startingAmountMinor(),
+                row.currency(),
+                row.unitCode(),
+                row.unitLabel(),
+                row.priceNote(),
+                row.availability(),
+                row.primaryAction(),
+                row.completedCount(),
+                row.distanceMeters());
     }
 
     @Override
