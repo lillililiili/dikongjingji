@@ -1,0 +1,591 @@
+openapi: 3.1.0
+info:
+  title: Experience and Venue Catalog API
+  version: 1.0.0
+  description: >-
+    Read-only catalog for the home "体验" channel (docs/redesign/03-App实现任务计划.md §8):
+    online experience items, the venues of a city, a venue's projects, sessions and devices.
+    Venue booking, payment, check-in codes and simulation results are not part of this version.
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/experiences:
+    get:
+      operationId: listExperienceItems
+      summary: Online experience items, the same for every city
+      security: []
+      parameters:
+        - name: type
+          in: query
+          required: false
+          description: Omit for all types
+          schema:
+            $ref: "#/components/schemas/ExperienceType"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: One page in the operator's display order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceItemPage"
+        "400":
+          description: Invalid type, page or size
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/venues:
+    get:
+      operationId: listVenues
+      summary: Published venues of a city
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: One page in the operator's display order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenuePage"
+        "400":
+          description: Invalid city, page or size
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/venues/{venueId}:
+    get:
+      operationId: getVenueDetail
+      summary: One published venue with its projects and information rows
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: Venue detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueDetail"
+        "400":
+          description: Invalid venue id or city
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Venue is not published, was removed, or belongs to another city
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/venues/{venueId}/sessions:
+    get:
+      operationId: listVenueSessions
+      summary: Sessions of one project on one local date (Asia/Shanghai)
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/CityCode"
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Sessions of that day, earliest first; empty when the project has none
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueSessionList"
+        "400":
+          description: Invalid venue, city, project or date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Venue or project is not published in that city
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/venues/{venueId}/devices:
+    get:
+      operationId: listVenueDevices
+      summary: Devices on show in a venue
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/CityCode"
+        - name: category
+          in: query
+          required: false
+          description: Omit for all categories
+          schema:
+            $ref: "#/components/schemas/VenueDeviceCategory"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: One page in the venue's display order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueDevicePage"
+        "400":
+          description: Invalid venue, city, category, page or size
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Venue is not published in that city
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  parameters:
+    CityCode:
+      name: cityCode
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 4
+        maxLength: 16
+      description: 国家统计区划或平台统一城市稳定编码
+    VenueId:
+      name: venueId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - traceId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    MediaAsset:
+      type: object
+      additionalProperties: false
+      required:
+        - url
+        - alt
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Controlled HTTPS address only
+        alt:
+          type: string
+    ExperienceType:
+      type: string
+      enum:
+        - SIMULATION
+        - RECORDED_DEMO
+        - SOFTWARE_TRIAL
+        - COURSE_TRIAL
+      description: 虚拟仿真 / 录播演示 / 软件试用 / 课程试听
+    ExperienceItem:
+      type: object
+      additionalProperties: false
+      required:
+        - experienceId
+        - type
+        - title
+        - summary
+        - coverImage
+        - loginRequired
+      properties:
+        experienceId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ExperienceType"
+        title:
+          type: string
+        summary:
+          type:
+            - string
+            - "null"
+          description: Operator's short line, e.g. 约 3 分钟 · 手机即可
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        loginRequired:
+          type: boolean
+    ExperienceItemPage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExperienceItem"
+    VenueCard:
+      type: object
+      additionalProperties: false
+      required:
+        - venueId
+        - name
+        - coverImage
+        - openingNote
+        - address
+        - openSessionsToday
+      properties:
+        venueId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        openingNote:
+          type:
+            - string
+            - "null"
+          description: Venue's wording for opening hours, e.g. 09:30–18:00 · 周一闭馆
+        address:
+          type: string
+        openSessionsToday:
+          type: integer
+          minimum: 0
+          description: Sessions that start later today (Asia/Shanghai) and still have seats
+    VenuePage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VenueCard"
+    VenueOperator:
+      type: object
+      additionalProperties: false
+      required:
+        - organizationId
+        - name
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+    VenueProject:
+      type: object
+      additionalProperties: false
+      required:
+        - projectId
+        - name
+        - durationMinutes
+        - minAge
+        - capacity
+        - limitNote
+        - priceAmountMinor
+        - currency
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        durationMinutes:
+          type: integer
+          minimum: 1
+        minAge:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        capacity:
+          type: integer
+          minimum: 1
+          description: Usual seats per session
+        limitNote:
+          type:
+            - string
+            - "null"
+        priceAmountMinor:
+          type: integer
+          minimum: 0
+          description: Price per person in the minor unit; 0 means free
+        currency:
+          type: string
+          enum:
+            - CNY
+    VenueInfoItem:
+      type: object
+      additionalProperties: false
+      required:
+        - label
+        - content
+      properties:
+        label:
+          type: string
+        content:
+          type: string
+    VenueDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - venueId
+        - name
+        - coverImage
+        - openingNote
+        - address
+        - latitude
+        - longitude
+        - phone
+        - operator
+        - projects
+        - infoItems
+        - deviceCount
+      properties:
+        venueId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        openingNote:
+          type:
+            - string
+            - "null"
+        address:
+          type: string
+        latitude:
+          type:
+            - number
+            - "null"
+          minimum: -90
+          maximum: 90
+          description: WGS84; null when the venue gave no coordinates
+        longitude:
+          type:
+            - number
+            - "null"
+          minimum: -180
+          maximum: 180
+        phone:
+          type:
+            - string
+            - "null"
+          description: The venue's public service number
+        operator:
+          $ref: "#/components/schemas/VenueOperator"
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/VenueProject"
+        infoItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/VenueInfoItem"
+        deviceCount:
+          type: integer
+          minimum: 0
+    VenueSessionStatus:
+      type: string
+      enum:
+        - OPEN
+        - FULL
+        - ENDED
+      description: 可约 / 已满 / 已结束（已开始即算结束）, worked out by the server
+    VenueSession:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - startsAt
+        - endsAt
+        - capacity
+        - seatsLeft
+        - status
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+          minimum: 1
+        seatsLeft:
+          type: integer
+          minimum: 0
+        status:
+          $ref: "#/components/schemas/VenueSessionStatus"
+    VenueSessionList:
+      type: object
+      additionalProperties: false
+      required:
+        - date
+        - sessions
+      properties:
+        date:
+          type: string
+          format: date
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/VenueSession"
+    VenueDeviceCategory:
+      type: string
+      enum:
+        - ROBOT
+        - DRONE
+        - PARTS
+      description: 机器人 / 无人机 / 配件
+    VenueDeviceTrialMode:
+      type: string
+      enum:
+        - ACCOMPANIED_TRIAL
+        - DISPLAY_ONLY
+      description: 工作人员陪同试用 / 只展示，不试用
+    VenueDevice:
+      type: object
+      additionalProperties: false
+      required:
+        - deviceId
+        - category
+        - name
+        - summary
+        - image
+        - trialMode
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        category:
+          $ref: "#/components/schemas/VenueDeviceCategory"
+        name:
+          type: string
+        summary:
+          type:
+            - string
+            - "null"
+        image:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        trialMode:
+          $ref: "#/components/schemas/VenueDeviceTrialMode"
+    VenueDevicePage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VenueDevice"

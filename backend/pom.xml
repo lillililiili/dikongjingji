@@ -19,5 +19,6 @@
         <module>modules/identity</module>
         <module>modules/inspection</module>
         <module>modules/activity</module>
+        <module>modules/experience</module>
     </modules>
 </project>

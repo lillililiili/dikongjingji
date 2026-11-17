@@ -21,6 +21,7 @@ import com.lowaltitude.inspection.identity.domain.IdentityAccountStatus;
 import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
+import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
 import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
@@ -204,6 +205,28 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
         // 报名等写接口还不存在；更深的路径不在公开白名单里。
         mockMvc.perform(get("/api/v1/activities/a2000000-0000-4000-8000-000000000001/enrollments"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @Test
+    void anonymousExperienceAndVenueReadsArePublicButOtherMethodsRequireAuthentication() throws Exception {
+        String venue = "/api/v1/venues/b2000000-0000-4000-8000-000000000001";
+        mockMvc.perform(get("/api/v1/experiences")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/venues").param("cityCode", "370500")).andExpect(status().isOk());
+        mockMvc.perform(get(venue).param("cityCode", "370500")).andExpect(status().isOk());
+        mockMvc.perform(get(venue + "/sessions")
+                        .param("cityCode", "370500")
+                        .param("projectId", "b4000000-0000-4000-8000-000000000101")
+                        .param("date", "2026-11-17"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get(venue + "/devices").param("cityCode", "370500")).andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/venues"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        // 到馆预约还不存在；白名单之外的路径一律要登录。
+        mockMvc.perform(get(venue + "/bookings"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
@@ -493,6 +516,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         ActivityCatalogReadService testActivityCatalogReadService() {
             return org.mockito.Mockito.mock(ActivityCatalogReadService.class);
+        }
+
+        @Bean
+        ExperienceCatalogReadService testExperienceCatalogReadService() {
+            return org.mockito.Mockito.mock(ExperienceCatalogReadService.class);
         }
 
         @Bean

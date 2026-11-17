@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import com.lowaltitude.inspection.activity.application.ActivityNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
+import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
 import com.lowaltitude.inspection.application.reservation.FileTypeUnsupportedException;
@@ -151,7 +152,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             ReservationNotFoundException.class,
             InspectionServiceNotFoundException.class,
-            ActivityNotFoundException.class
+            ActivityNotFoundException.class,
+            VenueNotFoundException.class
     })
     public ResponseEntity<ApiError> handleReservationNotFound(
             RuntimeException exception,

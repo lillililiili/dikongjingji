@@ -30,6 +30,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway experience(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/experience",
+                "flyway_history_experience",
+                true);
+    }
+
     private static Flyway build(DataSource dataSource, String location, String historyTable, boolean baselineOnMigrate) {
         return Flyway.configure()
                 .dataSource(dataSource)

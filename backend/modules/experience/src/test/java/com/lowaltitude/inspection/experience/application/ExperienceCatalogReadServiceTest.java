@@ -1,0 +1,277 @@
+package com.lowaltitude.inspection.experience.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueCardRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueDeviceRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueInfoRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueProjectRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueSessionRow;
+import org.junit.jupiter.api.Test;
+
+class ExperienceCatalogReadServiceTest {
+
+    /** 北京时间 2026-11-16 12:00。 */
+    private static final OffsetDateTime NOW = OffsetDateTime.parse("2026-11-16T04:00:00Z");
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-16T04:00:00Z"), ZoneOffset.UTC);
+    private static final UUID VENUE_ID = UUID.fromString("b2000000-0000-4000-8000-000000000001");
+    private static final UUID PROJECT_ID = UUID.fromString("b4000000-0000-4000-8000-000000000101");
+
+    private final FakeStore store = new FakeStore();
+    private final ExperienceCatalogReadService service = new ExperienceCatalogReadService(store, CLOCK);
+
+    @Test
+    void experienceItemsArePagedAndFilteredByType() {
+        store.experienceTotal = 5;
+        store.experienceItems = List.of(new ExperienceItemRow(
+                UUID.randomUUID(), "SIMULATION", "机器人避障模拟", " ", "http://insecure.example/a.jpg", false));
+
+        ExperienceItemPageView page = service.listExperienceItems(" SIMULATION ", 2, 2);
+
+        assertThat(page.hasMore()).isTrue();
+        assertThat(store.type).isEqualTo("SIMULATION");
+        assertThat(store.limit).isEqualTo(2);
+        assertThat(store.offset).isEqualTo(2);
+        assertThat(page.items().get(0).type()).isEqualTo(ExperienceType.SIMULATION);
+        assertThat(page.items().get(0).summary()).isNull();
+        assertThat(page.items().get(0).coverImage()).isNull();
+
+        service.listExperienceItems(null, 1, 20);
+        assertThat(store.type).isEqualTo("ALL");
+    }
+
+    @Test
+    void rejectsInvalidPagingAndFilters() {
+        assertInvalid(() -> service.listExperienceItems("GAME", 1, 20));
+        assertInvalid(() -> service.listExperienceItems(null, 0, 20));
+        assertInvalid(() -> service.listExperienceItems(null, 1, 51));
+        assertInvalid(() -> service.listVenues(null, 1, 20));
+        assertInvalid(() -> service.listVenues("x", 1, 20));
+        assertInvalid(() -> service.listVenues("370500", 1, 0));
+        assertInvalid(() -> service.listDevices(VENUE_ID, "370500", "CAR", 1, 20));
+    }
+
+    @Test
+    void venueListCountsOnlyWhatIsLeftOfTodayInBeijingTime() {
+        store.venueTotal = 1;
+        store.venueCards = List.of(new VenueCardRow(
+                VENUE_ID, "东营低空与机器人体验馆", "https://media.example.com/v.jpg",
+                "09:30–18:00 · 周一闭馆", "东营区示例路 66 号", 3));
+
+        VenuePageView page = service.listVenues("370500", 1, 20);
+
+        assertThat(store.now).isEqualTo(NOW);
+        // 北京时间 11-17 00:00，也就是 UTC 11-16 16:00。
+        assertThat(store.endOfToday.toInstant()).isEqualTo(Instant.parse("2026-11-16T16:00:00Z"));
+        assertThat(page.hasMore()).isFalse();
+        assertThat(page.items().get(0).openSessionsToday()).isEqualTo(3);
+        assertThat(page.items().get(0).coverImage())
+                .isEqualTo(new ExperienceMediaView("https://media.example.com/v.jpg", "东营低空与机器人体验馆"));
+    }
+
+    @Test
+    void venueDetailCarriesProjectsAndInformationRows() {
+        store.venue = Optional.of(venue());
+        store.projects = List.of(new VenueProjectRow(
+                PROJECT_ID, "机器人避障闯关", 30, 6, 8, "未满 8 岁需 1 名成人陪同", 3900, "CNY"));
+        store.infoItems = List.of(new VenueInfoRow("到馆须知", "请提前 10 分钟到馆，出示核销码入场"));
+
+        VenueDetailView view = service.findVenue(VENUE_ID, "370500");
+
+        assertThat(view.operator().name()).isEqualTo("东营低空与机器人体验馆");
+        assertThat(view.latitude()).isEqualTo(37.4487);
+        assertThat(view.phone()).isEqualTo("0546-8000 0000");
+        assertThat(view.deviceCount()).isEqualTo(6);
+        assertThat(view.projects()).singleElement().satisfies(project -> {
+            assertThat(project.priceAmountMinor()).isEqualTo(3900);
+            assertThat(project.minAge()).isEqualTo(6);
+            assertThat(project.currency()).isEqualTo("CNY");
+        });
+        assertThat(view.infoItems()).containsExactly(
+                new VenueInfoItemView("到馆须知", "请提前 10 分钟到馆，出示核销码入场"));
+    }
+
+    @Test
+    void venueIsNotFoundWhenUnpublishedOrInAnotherCity() {
+        store.venue = Optional.empty();
+
+        assertThatThrownBy(() -> service.findVenue(VENUE_ID, "370500"))
+                .isInstanceOf(VenueNotFoundException.class);
+        assertThatThrownBy(() -> service.listDevices(VENUE_ID, "370500", null, 1, 20))
+                .isInstanceOf(VenueNotFoundException.class);
+        assertInvalid(() -> service.findVenue(null, "370500"));
+        assertInvalid(() -> service.findVenue(VENUE_ID, null));
+    }
+
+    @Test
+    void sessionsAreOpenFullOrEndedForTheRequestedBeijingDay() {
+        store.venue = Optional.of(venue());
+        store.projectBelongs = true;
+        store.sessions = List.of(
+                session(NOW.minusHours(2), 8, 1),
+                session(NOW.plusHours(2), 8, 8),
+                session(NOW.plusHours(4), 8, 7),
+                session(NOW, 8, 0));
+
+        VenueSessionListView view = service.listSessions(VENUE_ID, "370500", PROJECT_ID, "2026-11-16");
+
+        assertThat(view.date()).isEqualTo(LocalDate.parse("2026-11-16"));
+        assertThat(view.sessions()).extracting(VenueSessionView::status).containsExactly(
+                VenueSessionStatus.ENDED,
+                VenueSessionStatus.FULL,
+                VenueSessionStatus.OPEN,
+                // 正好到开始时刻的场次已不能再约。
+                VenueSessionStatus.ENDED);
+        assertThat(view.sessions()).extracting(VenueSessionView::seatsLeft).containsExactly(7, 0, 1, 8);
+        assertThat(store.dayStart.toInstant()).isEqualTo(Instant.parse("2026-11-15T16:00:00Z"));
+        assertThat(store.dayEnd.toInstant()).isEqualTo(Instant.parse("2026-11-16T16:00:00Z"));
+    }
+
+    @Test
+    void sessionsOfAProjectFromAnotherVenueAreNotFound() {
+        store.venue = Optional.of(venue());
+        store.projectBelongs = false;
+
+        assertThatThrownBy(() -> service.listSessions(VENUE_ID, "370500", PROJECT_ID, "2026-11-16"))
+                .isInstanceOf(VenueNotFoundException.class);
+        assertThat(store.sessionsQueried).isFalse();
+        assertInvalid(() -> service.listSessions(VENUE_ID, "370500", null, "2026-11-16"));
+        assertInvalid(() -> service.listSessions(VENUE_ID, "370500", PROJECT_ID, "bad"));
+        assertInvalid(() -> service.listSessions(VENUE_ID, "370500", PROJECT_ID, null));
+    }
+
+    @Test
+    void devicesKeepTheirCategoryAndTrialMode() {
+        store.venue = Optional.of(venue());
+        store.deviceTotal = 1;
+        store.devices = List.of(new VenueDeviceRow(
+                UUID.randomUUID(), "ROBOT", "巡检机器狗", "园区巡逻与巡检演示", null, "DISPLAY_ONLY"));
+
+        VenueDevicePageView page = service.listDevices(VENUE_ID, "370500", "ROBOT", 1, 20);
+
+        assertThat(store.deviceCategory).isEqualTo("ROBOT");
+        assertThat(page.items()).singleElement().satisfies(device -> {
+            assertThat(device.category()).isEqualTo(VenueDeviceCategory.ROBOT);
+            assertThat(device.trialMode()).isEqualTo(VenueDeviceTrialMode.DISPLAY_ONLY);
+            assertThat(device.image()).isNull();
+        });
+    }
+
+    private static void assertInvalid(Runnable call) {
+        assertThatThrownBy(call::run).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static VenueRow venue() {
+        return new VenueRow(
+                VENUE_ID, "东营低空与机器人体验馆", null, "09:30–18:00 · 周一闭馆", "东营区示例路 66 号",
+                37.4487, 118.5823, "0546-8000 0000",
+                UUID.fromString("a1000000-0000-4000-8000-000000000004"), "东营低空与机器人体验馆", 6);
+    }
+
+    private static VenueSessionRow session(OffsetDateTime startsAt, int capacity, int booked) {
+        return new VenueSessionRow(UUID.randomUUID(), startsAt, startsAt.plusMinutes(30), capacity, booked);
+    }
+
+    private static final class FakeStore implements ExperienceCatalogReadStore {
+        long experienceTotal;
+        List<ExperienceItemRow> experienceItems = List.of();
+        long venueTotal;
+        List<VenueCardRow> venueCards = List.of();
+        Optional<VenueRow> venue = Optional.empty();
+        List<VenueInfoRow> infoItems = List.of();
+        List<VenueProjectRow> projects = List.of();
+        boolean projectBelongs;
+        List<VenueSessionRow> sessions = List.of();
+        long deviceTotal;
+        List<VenueDeviceRow> devices = List.of();
+        String type;
+        String deviceCategory;
+        int limit;
+        int offset;
+        OffsetDateTime now;
+        OffsetDateTime endOfToday;
+        OffsetDateTime dayStart;
+        OffsetDateTime dayEnd;
+        boolean sessionsQueried;
+
+        @Override
+        public long countExperienceItems(String type) {
+            this.type = type;
+            return experienceTotal;
+        }
+
+        @Override
+        public List<ExperienceItemRow> findExperienceItems(String type, int limit, int offset) {
+            this.limit = limit;
+            this.offset = offset;
+            return experienceItems;
+        }
+
+        @Override
+        public long countVenues(String cityCode) {
+            return venueTotal;
+        }
+
+        @Override
+        public List<VenueCardRow> findVenues(
+                String cityCode, OffsetDateTime now, OffsetDateTime endOfToday, int limit, int offset
+        ) {
+            this.now = now;
+            this.endOfToday = endOfToday;
+            return venueCards;
+        }
+
+        @Override
+        public Optional<VenueRow> findVenue(UUID venueId, String cityCode) {
+            return venue;
+        }
+
+        @Override
+        public List<VenueInfoRow> findInfoItems(UUID venueId) {
+            return infoItems;
+        }
+
+        @Override
+        public List<VenueProjectRow> findProjects(UUID venueId) {
+            return projects;
+        }
+
+        @Override
+        public boolean projectBelongsToVenue(UUID venueId, UUID projectId) {
+            return projectBelongs;
+        }
+
+        @Override
+        public List<VenueSessionRow> findSessions(
+                UUID projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd
+        ) {
+            sessionsQueried = true;
+            this.dayStart = dayStart;
+            this.dayEnd = dayEnd;
+            return sessions;
+        }
+
+        @Override
+        public long countDevices(UUID venueId, String category) {
+            this.deviceCategory = category;
+            return deviceTotal;
+        }
+
+        @Override
+        public List<VenueDeviceRow> findDevices(UUID venueId, String category, int limit, int offset) {
+            return devices;
+        }
+    }
+}
