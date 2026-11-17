@@ -128,6 +128,27 @@
       }
     },
     {
+      "path": "pages/venue/detail",
+      "style": {
+        "navigationBarTitleText": "场馆详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/venue/devices",
+      "style": {
+        "navigationBarTitleText": "馆内设备",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mall/product",
+      "style": {
+        "navigationBarTitleText": "商品详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/play/index",
       "style": {
         "navigationBarTitleText": "趣玩挑战",

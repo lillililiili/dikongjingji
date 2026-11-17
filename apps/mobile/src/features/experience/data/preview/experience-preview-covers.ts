@@ -1,0 +1,33 @@
+import { EXPERIENCE_PREVIEW_ENABLED } from '../../application/experience-preview'
+
+// Pictures for the sample experience items, venues and devices of the development seed
+// (R__dev_experience_catalog.sql), keyed by their ids. From the 2026-11-14 prototype; a picture
+// the server returns always wins.
+const DIRECTORY = '/static/images/preview'
+
+const COVERS: Record<string, string> = {
+  // experience items
+  'b1000000-0000-4000-8000-000000000001': 'robot-rover',
+  'b1000000-0000-4000-8000-000000000002': 'sim-drone',
+  'b1000000-0000-4000-8000-000000000003': 'demo-video',
+  'b1000000-0000-4000-8000-000000000004': 'robot-classroom',
+  'b1000000-0000-4000-8000-000000000005': 'drone-edu',
+  // venues
+  'b2000000-0000-4000-8000-000000000001': 'venue-exterior',
+  'b2000000-0000-4000-8000-000000000002': 'field-outdoor',
+  // devices on display
+  'b5000000-0000-4000-8000-000000000101': 'robot-rover',
+  'b5000000-0000-4000-8000-000000000102': 'drone-aerial',
+  'b5000000-0000-4000-8000-000000000103': 'robot-dog',
+  'b5000000-0000-4000-8000-000000000104': 'parts-battery',
+  'b5000000-0000-4000-8000-000000000105': 'venue-indoor',
+  'b5000000-0000-4000-8000-000000000106': 'drone-survey',
+}
+
+export function resolveExperiencePreviewCover(
+  id: string,
+  previewEnabled: boolean = EXPERIENCE_PREVIEW_ENABLED,
+): string | null {
+  const name = previewEnabled ? COVERS[id] : undefined
+  return name ? `${DIRECTORY}/${name}.jpg` : null
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { wgs84ToGcj02 } from '../presentation/shared/map-coordinate'
+import { wgs84ToGcj02 } from './map-coordinate'
 
 function metresBetween(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
   const toRadians = (degrees: number): number => (degrees * Math.PI) / 180

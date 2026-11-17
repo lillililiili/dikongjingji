@@ -8,6 +8,7 @@ import {
 } from '../../application/activity-list-loader'
 import { activityApi } from '../../data/activity-api-client'
 import type { ActivityCard, ActivityType } from '../../domain/activity'
+import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import { buildActivityDetailUrl } from '../../navigation/activity-routes'
 import {
   ACTIVITY_TYPE_LABELS,
@@ -118,6 +119,11 @@ function clearFilters(): void {
   void reloadList()
 }
 
+// The server's picture when it has one, else the sample picture of a preview build.
+function coverOf(card: ActivityCard): string | null {
+  return card.coverImage?.url ?? resolveActivityPreviewCover(card.activityId)
+}
+
 function openDetail(card: ActivityCard): void {
   uni.navigateTo({ url: buildActivityDetailUrl(card.activityId, props.cityCode) })
 }
@@ -184,7 +190,10 @@ defineExpose({
           :key="option.date"
           :class="[
             'activity-channel__date',
-            { 'activity-channel__date--active': option.date === selectedDate },
+            {
+              'activity-channel__date--active': option.date === selectedDate,
+              'activity-channel__date--today': option.title === '今天',
+            },
           ]"
           :data-testid="`activity-date-${option.date}`"
           :data-has-sessions="option.hasSessions"
@@ -272,10 +281,10 @@ defineExpose({
       >
         <view :class="['activity-card__cover', `activity-card__cover--${card.type.toLowerCase()}`]">
           <image
-            v-if="card.coverImage"
+            v-if="coverOf(card)"
             class="activity-card__image"
-            :src="card.coverImage.url"
-            :alt="card.coverImage.alt"
+            :src="coverOf(card) ?? ''"
+            :alt="card.title"
             mode="aspectFill"
             lazy-load
           />
@@ -321,8 +330,12 @@ defineExpose({
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board HomeAct (390 wide). */
 .activity-channel {
+  display: flex;
   padding: 4px var(--app-page-horizontal-gutter) 0;
+  flex-direction: column;
+  gap: 8px;
   color: #202c42;
 }
 
@@ -333,6 +346,7 @@ button {
   background: transparent;
   font-family: inherit;
   line-height: 1.2;
+  text-align: left;
 }
 
 button::after {
@@ -347,79 +361,110 @@ button::after {
 
 .activity-channel__type-track {
   display: inline-flex;
-  gap: 8px;
-  padding: 6px 0;
+  gap: 4px;
 }
 
+/* A text tab with an underline; the padding makes the tap target 44 wide and high. */
 .activity-channel__type {
+  position: relative;
   display: inline-flex;
-  min-height: 36px;
-  padding: 0 16px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
   flex: 0 0 auto;
   align-items: center;
-  border-radius: 18px;
-  color: #455d80;
-  background: #edf2fa;
-  font-size: 14px;
+  justify-content: center;
+  color: #536178;
+  font-size: 15px;
+  line-height: 22px;
+  white-space: nowrap;
 }
 
 .activity-channel__type--active {
-  color: #ffffff;
-  background: #ff6a00;
+  color: #202c42;
+  font-size: 16px;
   font-weight: 700;
+}
+
+/* ::before, because uni-app's button already styles its own ::after. */
+.activity-channel__type--active::before {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  width: 16px;
+  height: 3px;
+  margin-left: -8px;
+  border-radius: 3px;
+  background: #ff6a00;
+  content: '';
 }
 
 .activity-channel__date-track {
   display: inline-flex;
   gap: 6px;
-  padding: 4px 0 8px;
 }
 
 .activity-channel__date {
+  position: relative;
   display: inline-flex;
   width: 52px;
-  min-height: 58px;
-  padding: 6px 0;
+  height: 48px;
+  padding: 0 0 3px;
   flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  border: 1px solid #e8edf5;
-  border-radius: 14px;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 10px;
   background: #ffffff;
   box-sizing: border-box;
 }
 
-.activity-channel__date--all {
-  justify-content: center;
-}
-
-.activity-channel__date--active {
-  border-color: #ff963f;
-  background: #fff7ee;
-}
-
 .activity-channel__date-title {
-  color: #202c42;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
-}
-
-.activity-channel__date-subtitle {
-  color: #748197;
+  color: #738096;
   font-size: 11px;
   line-height: 15px;
 }
 
-.activity-channel__date--active .activity-channel__date-title,
-.activity-channel__date--active .activity-channel__date-subtitle {
+.activity-channel__date-subtitle {
+  color: #202c42;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 19px;
+}
+
+.activity-channel__date--today .activity-channel__date-title {
   color: #ba470b;
 }
 
+.activity-channel__date--all {
+  padding: 0;
+}
+
+.activity-channel__date--all .activity-channel__date-title,
+.activity-channel__date--all .activity-channel__date-subtitle {
+  color: #202c42;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 17px;
+}
+
+.activity-channel__date--active {
+  background: #ff6a00;
+}
+
+.activity-channel__date--active .activity-channel__date-title,
+.activity-channel__date--active .activity-channel__date-subtitle {
+  color: #ffffff;
+}
+
 .activity-channel__date-dot {
-  width: 5px;
-  height: 5px;
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
   border-radius: 50%;
 }
 
@@ -427,29 +472,47 @@ button::after {
   background: #ff6a00;
 }
 
+.activity-channel__date--active .activity-channel__date-dot--on {
+  background: #ffffff;
+}
+
 .activity-channel__chips {
   display: flex;
   gap: 8px;
-  padding-bottom: 10px;
 }
 
+/* The pill is 28 high; the transparent border area around it makes the tap target taller. */
 .activity-channel__chip {
-  display: inline-flex;
-  min-height: 32px;
-  padding: 0 14px;
+  position: relative;
+  display: flex;
+  height: 28px;
+  margin: 8px 0;
+  padding: 0 12px;
   align-items: center;
-  border: 1px solid #e4eaf3;
-  border-radius: 16px;
-  color: #596a81;
+  border: 1px solid #e5ebf3;
+  border-radius: 999px;
+  color: #536178;
   background: #ffffff;
   font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.activity-channel__chip::before {
+  position: absolute;
+  top: -9px;
+  right: -4px;
+  bottom: -9px;
+  left: -4px;
+  content: '';
 }
 
 .activity-channel__chip--active {
-  border-color: #ff963f;
+  border-color: #ffd8b8;
   color: #ba470b;
-  background: #fff7ee;
-  font-weight: 600;
+  background: #fff0e3;
+  font-weight: 500;
 }
 
 .activity-channel__skeletons,
@@ -460,8 +523,8 @@ button::after {
 }
 
 .activity-channel__skeleton {
-  height: 104px;
-  border-radius: 16px;
+  height: 96px;
+  border-radius: 12px;
   background: linear-gradient(90deg, #edf0f3 25%, #f7f8fa 37%, #edf0f3 63%);
   background-size: 400% 100%;
   animation: activity-skeleton 1.25s ease infinite;
@@ -474,76 +537,62 @@ button::after {
 
 .activity-channel__state {
   display: flex;
-  min-height: 260px;
+  padding: 32px 16px;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-radius: 16px;
+  gap: 12px;
+  border-radius: 12px;
   background: #ffffff;
 }
 
 .activity-channel__state-title {
-  color: #4f5966;
-  font-size: 15px;
-  font-weight: 600;
+  color: #738096;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .activity-channel__state-copy {
-  color: #9198a1;
+  color: #738096;
   font-size: 12px;
 }
 
 .activity-channel__state-action {
   display: flex;
-  min-width: 108px;
-  min-height: 44px;
-  margin-top: 8px;
-  padding: 0 18px;
+  height: 44px;
+  padding: 0 22px;
   align-items: center;
   justify-content: center;
-  border-radius: 22px;
-  color: #ffffff;
-  background: #ff6a00;
+  border: 1.5px solid #ff6a00;
+  border-radius: 999px;
+  color: #ba470b;
+  background: #ffffff;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .activity-card {
   display: flex;
   width: 100%;
   padding: 10px;
-  gap: 10px;
-  border-radius: 16px;
+  gap: 12px;
+  border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
   box-sizing: border-box;
-  text-align: left;
 }
 
 .activity-card__cover {
   position: relative;
-  width: 84px;
-  height: 84px;
+  width: 76px;
+  height: 76px;
   flex: 0 0 auto;
   overflow: hidden;
-  border-radius: 12px;
-}
-
-.activity-card__cover--contest {
-  background: linear-gradient(135deg, #e4efff, #d2e3ff);
-}
-
-.activity-card__cover--training {
-  background: linear-gradient(135deg, #fff2cd, #ffe6a3);
-}
-
-.activity-card__cover--study_tour {
-  background: linear-gradient(135deg, #dff5ed, #c9eddf);
-}
-
-.activity-card__cover--open_day {
-  background: linear-gradient(135deg, #eee7ff, #e0d4fb);
+  border-radius: 10px;
+  background: #eef0f3;
 }
 
 .activity-card__image {
@@ -553,15 +602,16 @@ button::after {
 
 .activity-card__type {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  padding: 2px 7px;
-  border-radius: 10px;
-  color: #33466a;
-  background: rgba(255, 255, 255, 0.9);
+  top: 4px;
+  left: 4px;
+  padding: 0 5px;
+  border-radius: 6px;
+  color: #6a4fe0;
+  background: #eee7ff;
   font-size: 11px;
-  font-weight: 600;
-  line-height: 16px;
+  font-weight: 500;
+  line-height: 17px;
+  white-space: nowrap;
 }
 
 .activity-card__body {
@@ -569,72 +619,69 @@ button::after {
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .activity-card__title {
-  display: -webkit-box;
   overflow: hidden;
-  color: #202c42;
   font-size: 15px;
   font-weight: 700;
   line-height: 21px;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .activity-card__schedule {
-  display: -webkit-box;
   overflow: hidden;
   color: #627187;
   font-size: 12px;
   line-height: 17px;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .activity-card__footer {
   display: flex;
   margin-top: auto;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .activity-card__price {
   display: flex;
   min-width: 0;
   align-items: baseline;
-  gap: 2px;
+  gap: 3px;
 }
 
 .activity-card__price-value {
-  color: #e65e00;
+  color: #e85400;
   font-size: 16px;
   font-weight: 700;
+  line-height: 22px;
 }
 
-.activity-card__price-unit {
-  color: #748197;
-  font-size: 11px;
-}
-
+.activity-card__price-unit,
 .activity-card__age {
-  margin-left: 6px;
-  color: #748197;
-  font-size: 11px;
-  white-space: nowrap;
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.activity-card__age::before {
+  content: '· ';
 }
 
 .activity-card__status {
+  margin-left: auto;
   flex: 0 0 auto;
   font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
+  line-height: 17px;
 }
 
 .activity-card__status--open {
-  color: #159a70;
+  color: #11804a;
 }
 
 .activity-card__status--full_waitlist {
@@ -644,7 +691,7 @@ button::after {
 .activity-card__status--full,
 .activity-card__status--closed,
 .activity-card__status--ended {
-  color: #8a929b;
+  color: #738096;
 }
 
 .activity-channel__more {
@@ -652,7 +699,7 @@ button::after {
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  color: #9198a1;
+  color: #738096;
   font-size: 12px;
 }
 

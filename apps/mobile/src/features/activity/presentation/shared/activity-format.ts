@@ -7,10 +7,15 @@ import type {
   ActivityType,
 } from '../../domain/activity'
 
-// Activities happen in mainland China, so every time is shown in Beijing time whatever the phone's zone is.
-const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000
-const DAY_MS = 24 * 60 * 60 * 1000
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const
+import {
+  DAY_MS,
+  buildBeijingDayOptions,
+  padTwo as pad,
+  toBeijingDate,
+  toBeijingParts,
+} from '../../../../shared/time/beijing-time'
+
+export { toBeijingDate }
 
 export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   CONTEST: '赛事',
@@ -27,39 +32,16 @@ export const ACTIVITY_STATUS_LABELS: Record<ActivityEnrollmentStatus, string> = 
   ENDED: '已结束',
 }
 
-interface BeijingParts {
-  year: number
-  month: number
-  day: number
-  weekday: string
-  hour: number
-  minute: number
-}
-
-const pad = (value: number): string => String(value).padStart(2, '0')
-
-// Shifts the instant by eight hours and reads the UTC fields, which avoids relying on Intl time zones in the App webview.
-function toBeijingParts(instant: Date): BeijingParts {
-  const shifted = new Date(instant.getTime() + BEIJING_OFFSET_MS)
-  return {
-    year: shifted.getUTCFullYear(),
-    month: shifted.getUTCMonth() + 1,
-    day: shifted.getUTCDate(),
-    weekday: WEEKDAYS[shifted.getUTCDay()],
-    hour: shifted.getUTCHours(),
-    minute: shifted.getUTCMinutes(),
-  }
-}
-
-export function toBeijingDate(instant: Date): string {
-  const parts = toBeijingParts(instant)
-  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`
-}
-
 // "11/28 周六 09:00"
 export function formatActivityDateTime(iso: string): string {
   const parts = toBeijingParts(new Date(iso))
   return `${pad(parts.month)}/${pad(parts.day)} ${parts.weekday} ${pad(parts.hour)}:${pad(parts.minute)}`
+}
+
+// "11/28 周六"
+export function formatActivityDay(iso: string): string {
+  const parts = toBeijingParts(new Date(iso))
+  return `${pad(parts.month)}/${pad(parts.day)} ${parts.weekday}`
 }
 
 // "11/27 18:00"
@@ -133,17 +115,8 @@ export function buildActivityDateOptions(
   days = ACTIVITY_DATE_STRIP_DAYS,
 ): ActivityDateOption[] {
   const marked = new Set(datesWithSessions)
-  return Array.from({ length: days }, (_, index) => {
-    const instant = new Date(now.getTime() + index * DAY_MS)
-    const parts = toBeijingParts(instant)
-    const date = toBeijingDate(instant)
-    return {
-      date,
-      title: index === 0 ? '今天' : index === 1 ? '明天' : parts.weekday,
-      subtitle: `${pad(parts.month)}/${pad(parts.day)}`,
-      hasSessions: marked.has(date),
-    }
-  })
+  return buildBeijingDayOptions(now, days)
+    .map((option) => ({ ...option, hasSessions: marked.has(option.date) }))
 }
 
 export function lastActivityStripDate(now: Date, days = ACTIVITY_DATE_STRIP_DAYS): string {

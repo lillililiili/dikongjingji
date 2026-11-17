@@ -165,9 +165,10 @@ describe('home channels', () => {
     const targets = Object.fromEntries(
       resolveHomeKingEntries(true).map((entry) => [entry.code, entry.target]),
     )
-    for (const code of ['drone', 'robot', 'rental', 'course']) {
-      expect(targets[code]).toEqual({ type: 'CHANNEL', channel: 'MALL' })
-    }
+    expect(targets.drone).toEqual({ type: 'CHANNEL', channel: 'MALL', mallCategory: 'DRONE' })
+    expect(targets.robot).toEqual({ type: 'CHANNEL', channel: 'MALL', mallCategory: 'ROBOT' })
+    expect(targets.rental).toEqual({ type: 'CHANNEL', channel: 'MALL', mallCategory: 'RENTAL' })
+    expect(targets.course).toEqual({ type: 'CHANNEL', channel: 'MALL', mallCategory: 'COURSE' })
     expect(targets.contest).toEqual({ type: 'CHANNEL', channel: 'ACTIVITY' })
     expect(targets.venue).toEqual({ type: 'CHANNEL', channel: 'EXPERIENCE' })
   })

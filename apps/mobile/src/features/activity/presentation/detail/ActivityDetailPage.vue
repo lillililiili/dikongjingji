@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
 
 import {
   isActivitySessionSelectable,
@@ -14,19 +15,20 @@ import {
 } from '../../application/activity-intent'
 import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
 import { activityApi } from '../../data/activity-api-client'
+import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
 import {
   ACTIVITY_STATUS_LABELS,
   ACTIVITY_TYPE_LABELS,
   formatActivityAgeRange,
   formatActivityDateTime,
+  formatActivityDay,
   formatActivityPrice,
   formatActivitySessionSeats,
   formatActivityShortDateTime,
   formatActivityTime,
   isPerPersonPrice,
 } from '../shared/activity-format'
-import { wgs84ToGcj02 } from '../shared/map-coordinate'
 
 type DetailState =
   | { kind: 'loading' }
@@ -52,6 +54,12 @@ const primaryAction = computed(() =>
         activity.value.enrollmentStatus,
         selectedSession.value?.status ?? null,
       )
+    : null,
+)
+// The server's picture when it has one, else the sample picture of a preview build.
+const coverUrl = computed(() =>
+  activity.value
+    ? activity.value.coverImage?.url ?? resolveActivityPreviewCover(activity.value.activityId)
     : null,
 )
 const ageText = computed(() =>
@@ -162,7 +170,8 @@ onLoad((query) => {
 
 <template>
   <view class="activity-detail" data-testid="activity-detail">
-    <header class="activity-detail__header">
+    <!-- With an activity on screen the back button floats on its picture instead. -->
+    <header v-if="!activity" class="activity-detail__header">
       <button
         class="activity-detail__back"
         data-testid="activity-detail-back"
@@ -210,132 +219,142 @@ onLoad((query) => {
 
     <template v-else-if="activity">
       <view class="activity-detail__content">
-        <view :class="['activity-detail__cover', `activity-detail__cover--${activity.type.toLowerCase()}`]">
+        <view class="activity-detail__cover">
           <image
-            v-if="activity.coverImage"
+            v-if="coverUrl"
             class="activity-detail__cover-image"
-            :src="activity.coverImage.url"
-            :alt="activity.coverImage.alt"
+            :src="coverUrl"
+            :alt="activity.title"
             mode="aspectFill"
           />
+          <button
+            class="activity-detail__float"
+            data-testid="activity-detail-back"
+            aria-label="返回"
+            @click="goBack"
+          >
+            <view class="activity-detail__float-circle">
+              <UniIcons type="left" size="20" color="#ffffff" />
+            </view>
+          </button>
           <text class="activity-detail__type">{{ ACTIVITY_TYPE_LABELS[activity.type] }}</text>
         </view>
 
-        <view class="activity-detail__card">
-          <text class="activity-detail__title" data-testid="activity-detail-title">{{ activity.title }}</text>
-          <text v-if="activity.subtitle" class="activity-detail__subtitle">{{ activity.subtitle }}</text>
-          <view class="activity-detail__price-row">
-            <text class="activity-detail__price" data-testid="activity-detail-price">
-              {{ formatActivityPrice(activity.price) }}
-            </text>
-            <text v-if="isPerPersonPrice(activity.price)" class="activity-detail__price-unit">/人</text>
-            <text v-if="ageText" class="activity-detail__age">适合 {{ ageText }}</text>
-            <text
-              :class="[
-                'activity-detail__status',
-                `activity-detail__status--${activity.enrollmentStatus.toLowerCase()}`,
-              ]"
-              data-testid="activity-detail-status"
-            >
-              {{ ACTIVITY_STATUS_LABELS[activity.enrollmentStatus] }}
-            </text>
-          </view>
-        </view>
-
-        <view class="activity-detail__card">
-          <view class="activity-detail__section-heading">
-            <text class="activity-detail__section-title">选择场次</text>
-            <text v-if="activity.scheduleNote" class="activity-detail__section-note">{{ activity.scheduleNote }}</text>
-          </view>
-          <text v-if="activity.sessions.length === 0" class="activity-detail__text">暂无场次</text>
-          <button
-            v-for="session in activity.sessions"
-            :key="session.sessionId"
-            :class="[
-              'activity-detail__session',
-              {
-                'activity-detail__session--selected': session.sessionId === selectedSessionId,
-                'activity-detail__session--off': !isActivitySessionSelectable(session.status),
-              },
-            ]"
-            :data-testid="`activity-session-${session.sessionId}`"
-            :data-status="session.status"
-            :aria-pressed="session.sessionId === selectedSessionId"
-            :aria-disabled="!isActivitySessionSelectable(session.status)"
-            @click="selectSession(session)"
-          >
-            <view class="activity-detail__session-copy">
-              <text class="activity-detail__session-time">{{ formatActivityDateTime(session.startsAt) }}</text>
-              <text v-if="session.label" class="activity-detail__session-label">{{ session.label }}</text>
+        <view class="activity-detail__stack">
+          <view class="activity-detail__card">
+            <text class="activity-detail__title" data-testid="activity-detail-title">{{ activity.title }}</text>
+            <text v-if="activity.subtitle" class="activity-detail__subtitle">{{ activity.subtitle }}</text>
+            <view class="activity-detail__price-row">
+              <text class="activity-detail__price" data-testid="activity-detail-price">
+                {{ formatActivityPrice(activity.price) }}
+              </text>
+              <text v-if="isPerPersonPrice(activity.price)" class="activity-detail__price-unit">/人</text>
+              <text v-if="ageText" class="activity-detail__age">适合 {{ ageText }}</text>
+              <text
+                :class="[
+                  'activity-detail__status',
+                  `activity-detail__status--${activity.enrollmentStatus.toLowerCase()}`,
+                ]"
+                data-testid="activity-detail-status"
+              >
+                {{ ACTIVITY_STATUS_LABELS[activity.enrollmentStatus] }}
+              </text>
             </view>
-            <text
-              :class="[
-                'activity-detail__session-seats',
-                `activity-detail__session-seats--${session.status.toLowerCase()}`,
-              ]"
-            >
-              {{ formatActivitySessionSeats(session) }}
-            </text>
-          </button>
-          <text v-if="sessionNote" class="activity-detail__session-note" data-testid="activity-session-note">
-            {{ sessionNote }}
-          </text>
-          <text
-            v-if="selectedSession?.status === 'FULL_WAITLIST'"
-            class="activity-detail__session-note"
-          >
-            本场已满，加入候补后有名额会通知你
-          </text>
-        </view>
+          </view>
 
-        <view class="activity-detail__card">
-          <view class="activity-detail__row">
-            <text class="activity-detail__row-label">主办</text>
-            <text class="activity-detail__row-value">{{ activity.organizer.name }}</text>
-          </view>
-          <view v-if="activity.coOrganizer" class="activity-detail__row">
-            <text class="activity-detail__row-label">承办</text>
-            <text class="activity-detail__row-value">{{ activity.coOrganizer.name }}</text>
-          </view>
-          <view class="activity-detail__row activity-detail__row--location">
-            <text class="activity-detail__row-label">地点</text>
-            <view class="activity-detail__row-value">
-              <text class="activity-detail__location-name">{{ activity.location.name }}</text>
-              <text class="activity-detail__location-address">{{ activity.location.address }}</text>
+          <view class="activity-detail__card activity-detail__card--sessions">
+            <view class="activity-detail__section-heading">
+              <text class="activity-detail__section-title">选择场次</text>
+              <text v-if="activity.scheduleNote" class="activity-detail__section-note">{{ activity.scheduleNote }}</text>
             </view>
+            <text v-if="activity.sessions.length === 0" class="activity-detail__text">暂无场次</text>
+            <view v-else class="activity-detail__sessions">
+              <button
+                v-for="session in activity.sessions"
+                :key="session.sessionId"
+                :class="[
+                  'activity-detail__session',
+                  {
+                    'activity-detail__session--selected': session.sessionId === selectedSessionId,
+                    'activity-detail__session--off': !isActivitySessionSelectable(session.status),
+                  },
+                ]"
+                :data-testid="`activity-session-${session.sessionId}`"
+                :data-status="session.status"
+                :aria-pressed="session.sessionId === selectedSessionId"
+                :aria-disabled="!isActivitySessionSelectable(session.status)"
+                @click="selectSession(session)"
+              >
+                <text class="activity-detail__session-day">{{ formatActivityDay(session.startsAt) }}</text>
+                <text class="activity-detail__session-time">
+                  {{ formatActivityTime(session.startsAt) }}{{ session.label ? ` ${session.label}` : '' }}
+                </text>
+                <text
+                  :class="[
+                    'activity-detail__session-seats',
+                    `activity-detail__session-seats--${session.status.toLowerCase()}`,
+                  ]"
+                >
+                  {{ formatActivitySessionSeats(session) }}
+                </text>
+              </button>
+            </view>
+            <text v-if="sessionNote" class="activity-detail__session-note" data-testid="activity-session-note">
+              {{ sessionNote }}
+            </text>
+            <text
+              v-if="selectedSession?.status === 'FULL_WAITLIST'"
+              class="activity-detail__session-note"
+            >
+              本场已满，加入候补后有名额会通知你
+            </text>
             <button
-              class="activity-detail__navigate"
-              data-testid="activity-detail-navigate"
-              @click="openNavigation"
+              v-if="teamEntryVisible"
+              class="activity-detail__team"
+              data-testid="activity-detail-team"
+              @click="runIntent({ type: 'TEAM_ENROLL', activityId: activity.activityId })"
             >
-              导航
+              <text class="activity-detail__team-note">学校、机构多人参加</text>
+              <text class="activity-detail__team-title">团队报名</text>
+              <UniIcons type="right" size="14" color="#91a0b4" />
             </button>
           </view>
-        </view>
 
-        <view v-if="activity.eligibilityNote || activity.seatNote" class="activity-detail__card">
-          <text class="activity-detail__section-title">参与条件</text>
-          <text v-if="activity.eligibilityNote" class="activity-detail__text">{{ activity.eligibilityNote }}</text>
-          <text v-if="activity.seatNote" class="activity-detail__text">{{ activity.seatNote }}</text>
-        </view>
-
-        <view v-if="activity.refundNote" class="activity-detail__card">
-          <text class="activity-detail__section-title">退改规则</text>
-          <text class="activity-detail__text">{{ activity.refundNote }}</text>
-        </view>
-
-        <button
-          v-if="teamEntryVisible"
-          class="activity-detail__team"
-          data-testid="activity-detail-team"
-          @click="runIntent({ type: 'TEAM_ENROLL', activityId: activity.activityId })"
-        >
-          <view class="activity-detail__team-copy">
-            <text class="activity-detail__team-title">团队报名</text>
-            <text class="activity-detail__team-note">学校、机构多人参加</text>
+          <view class="activity-detail__card activity-detail__card--rows">
+            <view class="activity-detail__row">
+              <text class="activity-detail__row-label">主办</text>
+              <text class="activity-detail__row-value">{{ activity.organizer.name }}</text>
+            </view>
+            <view v-if="activity.coOrganizer" class="activity-detail__row">
+              <text class="activity-detail__row-label">承办/交付</text>
+              <text class="activity-detail__row-value">{{ activity.coOrganizer.name }}</text>
+            </view>
+            <button
+              class="activity-detail__row activity-detail__row--location"
+              data-testid="activity-detail-navigate"
+              aria-label="导航到活动地点"
+              @click="openNavigation"
+            >
+              <text class="activity-detail__row-label">活动地点</text>
+              <view class="activity-detail__row-value">
+                <text class="activity-detail__location-name">{{ activity.location.name }}</text>
+                <text class="activity-detail__location-address">{{ activity.location.address }}</text>
+              </view>
+              <UniIcons type="right" size="14" color="#91a0b4" />
+            </button>
+            <view v-if="activity.eligibilityNote || activity.seatNote" class="activity-detail__row activity-detail__row--top">
+              <text class="activity-detail__row-label">参与条件</text>
+              <view class="activity-detail__row-value">
+                <text v-if="activity.eligibilityNote">{{ activity.eligibilityNote }}</text>
+                <text v-if="activity.seatNote" class="activity-detail__row-note">{{ activity.seatNote }}</text>
+              </view>
+            </view>
+            <view v-if="activity.refundNote" class="activity-detail__row activity-detail__row--top">
+              <text class="activity-detail__row-label">退改规则</text>
+              <text class="activity-detail__row-value">{{ activity.refundNote }}</text>
+            </view>
           </view>
-          <UniIcons type="right" size="16" color="#8a929b" />
-        </button>
+        </view>
       </view>
 
       <view v-if="ACTIVITY_PREVIEW_ENABLED && primaryAction" class="activity-detail__actions">
@@ -344,7 +363,8 @@ onLoad((query) => {
           data-testid="activity-detail-consult"
           @click="runIntent({ type: 'CONSULT', activityId: activity.activityId })"
         >
-          咨询
+          <UniIcons type="chat" size="22" color="#536178" />
+          <text>咨询</text>
         </button>
         <button
           :class="[
@@ -364,12 +384,13 @@ onLoad((query) => {
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board ActDetail (390 wide). */
 .activity-detail {
   display: flex;
   min-height: 100vh;
   flex-direction: column;
   color: #202c42;
-  background: #f7f8fc;
+  background: #f5f7fc;
 }
 
 button {
@@ -395,8 +416,7 @@ button::after {
   padding: var(--status-bar-height) 12px 0;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid #edf0f6;
-  background: #ffffff;
+  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
   box-sizing: border-box;
 }
 
@@ -416,25 +436,26 @@ button::after {
 
 .activity-detail__content {
   display: flex;
-  padding: 12px 12px 20px;
   flex: 1;
   flex-direction: column;
-  gap: 10px;
 }
 
 .activity-detail__skeleton {
-  border-radius: 16px;
+  margin: 12px 16px 0;
+  border-radius: 14px;
   background: linear-gradient(90deg, #edf0f3 25%, #f7f8fa 37%, #edf0f3 63%);
   background-size: 400% 100%;
   animation: activity-detail-skeleton 1.25s ease infinite;
 }
 
 .activity-detail__skeleton--cover {
-  height: 170px;
+  height: 236px;
+  margin: 0;
+  border-radius: 0;
 }
 
 .activity-detail__skeleton--line {
-  height: 64px;
+  height: 96px;
 }
 
 .activity-detail__skeleton--block {
@@ -448,31 +469,31 @@ button::after {
 
 .activity-detail__state {
   display: flex;
-  margin: 12px;
-  padding: 48px 20px;
+  min-height: 300px;
+  margin: 12px 16px;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  border-radius: 16px;
+  border-radius: 14px;
   background: #ffffff;
 }
 
 .activity-detail__state-title {
-  color: #4f5966;
   font-size: 16px;
   font-weight: 700;
 }
 
 .activity-detail__state-copy {
-  color: #748197;
+  color: #627187;
   font-size: 13px;
 }
 
 .activity-detail__state-action {
   display: flex;
-  min-width: 120px;
+  min-width: 108px;
   min-height: 44px;
-  margin-top: 10px;
+  margin-top: 8px;
   padding: 0 18px;
   align-items: center;
   justify-content: center;
@@ -480,30 +501,15 @@ button::after {
   color: #ffffff;
   background: #ff6a00;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .activity-detail__cover {
   position: relative;
-  height: 170px;
+  height: 236px;
+  flex: 0 0 auto;
   overflow: hidden;
-  border-radius: 18px;
-}
-
-.activity-detail__cover--contest {
-  background: linear-gradient(135deg, #e4efff, #cfe1ff);
-}
-
-.activity-detail__cover--training {
-  background: linear-gradient(135deg, #fff2cd, #ffe39a);
-}
-
-.activity-detail__cover--study_tour {
-  background: linear-gradient(135deg, #dff5ed, #c4ecdc);
-}
-
-.activity-detail__cover--open_day {
-  background: linear-gradient(135deg, #eee7ff, #dccffa);
+  background: #eef2f8;
 }
 
 .activity-detail__cover-image {
@@ -511,71 +517,111 @@ button::after {
   height: 100%;
 }
 
+.activity-detail__float {
+  position: absolute;
+  top: calc(var(--status-bar-height) + 4px);
+  left: 8px;
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+}
+
+.activity-detail__float-circle {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+}
+
 .activity-detail__type {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  color: #33466a;
-  background: rgba(255, 255, 255, 0.92);
+  bottom: 24px;
+  left: 16px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: #ffffff;
+  background: #6a4fe0;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+/* The cards start over the bottom edge of the picture. */
+.activity-detail__stack {
+  position: relative;
+  display: flex;
+  margin-top: -14px;
+  padding: 0 16px 12px;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .activity-detail__card {
   display: flex;
   padding: 14px;
   flex-direction: column;
-  gap: 8px;
-  border-radius: 16px;
+  border-radius: 14px;
   background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
 }
 
 .activity-detail__title {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 700;
-  line-height: 27px;
+  line-height: 28px;
 }
 
 .activity-detail__subtitle {
+  margin-top: 2px;
   color: #627187;
   font-size: 13px;
-  line-height: 19px;
+  line-height: 18px;
 }
 
 .activity-detail__price-row {
   display: flex;
-  flex-wrap: wrap;
+  margin-top: 8px;
   align-items: baseline;
-  gap: 4px;
+  gap: 2px;
+  white-space: nowrap;
 }
 
 .activity-detail__price {
-  color: #e65e00;
-  font-size: 24px;
+  color: #e85400;
+  font-size: 26px;
   font-weight: 700;
+  line-height: 34px;
 }
 
 .activity-detail__price-unit {
-  color: #748197;
-  font-size: 12px;
+  color: #e85400;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .activity-detail__age {
   margin-left: 8px;
   color: #627187;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .activity-detail__status {
   margin-left: auto;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .activity-detail__status--open {
-  color: #159a70;
+  color: #11804a;
 }
 
 .activity-detail__status--full_waitlist {
@@ -585,11 +631,16 @@ button::after {
 .activity-detail__status--full,
 .activity-detail__status--closed,
 .activity-detail__status--ended {
-  color: #8a929b;
+  color: #738096;
+}
+
+.activity-detail__card--sessions {
+  padding-bottom: 0;
 }
 
 .activity-detail__section-heading {
   display: flex;
+  margin-bottom: 10px;
   align-items: baseline;
   gap: 8px;
 }
@@ -597,106 +648,161 @@ button::after {
 .activity-detail__section-title {
   font-size: 16px;
   font-weight: 700;
+  line-height: 22px;
 }
 
 .activity-detail__section-note {
-  color: #748197;
+  min-width: 0;
+  margin-left: auto;
+  color: #627187;
   font-size: 12px;
 }
 
 .activity-detail__text {
-  color: #4e5d73;
-  font-size: 14px;
-  line-height: 22px;
+  padding-bottom: 12px;
+  color: #536178;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.activity-detail__sessions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .activity-detail__session {
   display: flex;
-  min-height: 52px;
-  padding: 8px 12px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border: 1px solid #e4eaf3;
-  border-radius: 12px;
+  min-height: 76px;
+  padding: 8px 9px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 1.5px solid #e5ebf3;
+  border-radius: 10px;
   background: #ffffff;
   box-sizing: border-box;
 }
 
-.activity-detail__session--selected {
-  border-color: #ff963f;
-  background: #fff7ee;
-}
-
-.activity-detail__session--off {
-  background: #f7f8fb;
-}
-
-.activity-detail__session-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.activity-detail__session-time {
-  color: #202c42;
+.activity-detail__session-day {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
 }
 
-.activity-detail__session--off .activity-detail__session-time {
-  color: #8a929b;
-}
-
-.activity-detail__session-label {
-  color: #748197;
-  font-size: 12px;
-}
-
+.activity-detail__session-time,
 .activity-detail__session-seats {
-  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+  color: #627187;
   font-size: 12px;
-  font-weight: 600;
+  line-height: 17px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .activity-detail__session-seats--open {
-  color: #159a70;
+  color: #11804a;
 }
 
 .activity-detail__session-seats--full_waitlist {
   color: #ba470b;
 }
 
-.activity-detail__session-seats--full,
-.activity-detail__session-seats--closed,
-.activity-detail__session-seats--ended {
-  color: #8a929b;
+.activity-detail__session--selected {
+  border-color: #ff6a00;
+  background: #fff8f2;
+}
+
+.activity-detail__session--selected .activity-detail__session-day {
+  color: #ba470b;
+}
+
+.activity-detail__session--off {
+  border-color: #f0f1f3;
+  background: #f5f7fc;
+}
+
+.activity-detail__session--off .activity-detail__session-day,
+.activity-detail__session--off .activity-detail__session-time,
+.activity-detail__session--off .activity-detail__session-seats {
+  color: #91a0b4;
 }
 
 .activity-detail__session-note {
-  color: #70549d;
+  margin-top: 8px;
+  color: #627187;
   font-size: 12px;
+  line-height: 17px;
+}
+
+.activity-detail__session-note:last-child,
+.activity-detail__sessions:last-child {
+  padding-bottom: 12px;
+}
+
+.activity-detail__team {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  margin-top: 12px;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid #f0f1f3;
+}
+
+.activity-detail__team-note {
+  min-width: 0;
+  flex: 1;
+  color: #536178;
+  font-size: 13px;
   line-height: 18px;
+}
+
+.activity-detail__team-title {
+  flex: 0 0 auto;
+  color: #ba470b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.activity-detail__card--rows {
+  padding: 0 14px;
 }
 
 .activity-detail__row {
   display: flex;
-  align-items: baseline;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
   gap: 12px;
   font-size: 14px;
-  line-height: 22px;
+  line-height: 20px;
+  box-sizing: border-box;
+}
+
+.activity-detail__row + .activity-detail__row {
+  border-top: 1px solid #f0f1f3;
 }
 
 .activity-detail__row--location {
-  align-items: center;
+  min-height: 62px;
+  padding: 8px 0;
+}
+
+.activity-detail__row--top {
+  padding: 12px 0;
+  align-items: flex-start;
 }
 
 .activity-detail__row-label {
-  width: 32px;
+  width: 68px;
   flex: 0 0 auto;
-  color: #748197;
+  color: #627187;
+  white-space: nowrap;
 }
 
 .activity-detail__row-value {
@@ -704,100 +810,64 @@ button::after {
   min-width: 0;
   flex: 1;
   flex-direction: column;
-}
-
-.activity-detail__location-name {
-  font-weight: 600;
-}
-
-.activity-detail__location-address {
-  color: #627187;
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.activity-detail__navigate {
-  display: flex;
-  min-width: 56px;
-  min-height: 44px;
-  padding: 0 12px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border-radius: 22px;
-  color: #ba470b;
-  background: #fff0e3;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.activity-detail__team {
-  display: flex;
-  min-height: 60px;
-  padding: 10px 14px;
-  align-items: center;
-  justify-content: space-between;
-  border-radius: 16px;
-  background: #ffffff;
-}
-
-.activity-detail__team-copy {
-  display: flex;
-  flex-direction: column;
   gap: 2px;
 }
 
-.activity-detail__team-title {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.activity-detail__team-note {
-  color: #748197;
+.activity-detail__location-address,
+.activity-detail__row-note {
+  color: #627187;
   font-size: 12px;
+  line-height: 17px;
 }
 
 .activity-detail__actions {
   position: sticky;
   bottom: 0;
-  z-index: 4;
+  z-index: 5;
   display: flex;
-  padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
-  gap: 10px;
-  border-top: 1px solid #e8edf5;
-  background: rgba(255, 255, 255, 0.95);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #e5ebf3;
+  background: #ffffff;
+  box-shadow: 0 -4px 18px rgba(38, 59, 98, 0.06);
 }
 
 .activity-detail__consult {
   display: flex;
-  min-width: 84px;
-  min-height: 46px;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 24px;
-  color: #455d80;
-  background: #edf2fa;
-  font-size: 14px;
-  font-weight: 600;
+  gap: 2px;
+  color: #536178;
+  font-size: 11px;
+  line-height: 15px;
+  white-space: nowrap;
 }
 
 .activity-detail__primary {
   display: flex;
-  min-height: 46px;
-  flex: 1;
+  min-width: 0;
+  height: 46px;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
-  border-radius: 24px;
+  border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
-  font-size: 15px;
-  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(243, 108, 23, 0.16);
+  font-size: 16px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-/* uni-app greys a disabled button's label to 30% black; set the colours it should really have. */
 .activity-detail__primary--off,
 .activity-detail__primary[disabled] {
-  color: #8a929b;
-  background: #e9edf3;
+  color: #91a0b4;
+  background: #eef0f3;
+  box-shadow: none;
 }
 </style>

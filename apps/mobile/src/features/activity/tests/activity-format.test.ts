@@ -7,6 +7,7 @@ import {
   formatActivityCardSchedule,
   formatActivityCardStatus,
   formatActivityDateTime,
+  formatActivityDay,
   formatActivityPrice,
   formatActivitySessionSeats,
   formatActivityShortDateTime,
@@ -32,6 +33,8 @@ describe('activity times', () => {
   it('shows Beijing time whatever zone the instant is written in', () => {
     expect(formatActivityDateTime('2026-11-28T01:00:00Z')).toBe('11/28 周六 09:00')
     expect(formatActivityDateTime('2026-11-28T09:00:00+08:00')).toBe('11/28 周六 09:00')
+    // Late evening UTC is already the next day in Beijing.
+    expect(formatActivityDay('2026-11-27T17:30:00Z')).toBe('11/28 周六')
     expect(formatActivityShortDateTime('2026-11-27T10:00:00Z')).toBe('11/27 18:00')
     expect(formatActivityTime('2026-11-28T00:30:00Z')).toBe('08:30')
   })

@@ -12,9 +12,14 @@ export interface HomeChannelDefinition {
   publiclyAvailable: boolean
 }
 
-// Where a home entry leads: a channel of the home page, or a page of its own.
+// The category tabs inside the mall channel. Kept here as plain codes so the shell does not
+// depend on the mall feature; the mall channel owns their meaning.
+export type HomeMallCategory = 'DRONE' | 'ROBOT' | 'PARTS' | 'RENTAL' | 'COURSE'
+
+// Where a home entry leads: a channel of the home page (the mall channel optionally on one of its
+// category tabs), or a page of its own.
 export type HomeEntryTarget =
-  | { type: 'CHANNEL'; channel: HomeChannelCode }
+  | { type: 'CHANNEL'; channel: HomeChannelCode; mallCategory?: HomeMallCategory }
   | { type: 'PAGE'; url: string; publiclyAvailable: boolean }
 
 export interface HomeChannelCard {
@@ -61,12 +66,18 @@ const HOME_CHANNEL_CARDS: readonly (HomeChannelCard & { publicSubtitle?: string 
 
 const toChannel = (channel: HomeChannelCode): HomeEntryTarget => ({ type: 'CHANNEL', channel })
 
+const toMall = (mallCategory: HomeMallCategory): HomeEntryTarget => ({
+  type: 'CHANNEL',
+  channel: 'MALL',
+  mallCategory,
+})
+
 const HOME_KING_ENTRIES: readonly HomeKingEntry[] = [
-  { code: 'drone', label: '无人机', target: toChannel('MALL'), icon: 'paperplane', tone: 'BLUE' },
-  { code: 'robot', label: '机器人', target: toChannel('MALL'), icon: 'gear', tone: 'VIOLET' },
+  { code: 'drone', label: '无人机', target: toMall('DRONE'), icon: 'paperplane', tone: 'BLUE' },
+  { code: 'robot', label: '机器人', target: toMall('ROBOT'), icon: 'gear', tone: 'VIOLET' },
   { code: 'games', label: '趣玩挑战', target: PLAY_GAMES_TARGET, icon: 'flag', tone: 'ORANGE' },
-  { code: 'rental', label: '设备租赁', target: toChannel('MALL'), icon: 'shop', tone: 'GREEN' },
-  { code: 'course', label: '培训课程', target: toChannel('MALL'), icon: 'calendar', tone: 'YELLOW' },
+  { code: 'rental', label: '设备租赁', target: toMall('RENTAL'), icon: 'shop', tone: 'GREEN' },
+  { code: 'course', label: '培训课程', target: toMall('COURSE'), icon: 'calendar', tone: 'YELLOW' },
   { code: 'contest', label: '赛事报名', target: toChannel('ACTIVITY'), icon: 'medal', tone: 'BLUE' },
   { code: 'study-tour', label: '研学体验', target: toChannel('ACTIVITY'), icon: 'map', tone: 'GREEN' },
   { code: 'venue', label: '线下场馆', target: toChannel('EXPERIENCE'), icon: 'location', tone: 'GREEN' },

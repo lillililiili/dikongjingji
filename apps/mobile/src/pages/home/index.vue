@@ -14,9 +14,12 @@ import {
   resolveVisibleHomeChannels,
   type HomeChannelCode,
   type HomeEntryTarget,
+  type HomeMallCategory,
 } from '@/app-shell/navigation/home-channels'
 import { useHomeChannelStore } from '@/app-shell/state/home-channel'
 import ActivityChannel from '@/features/activity/presentation/channel/ActivityChannel.vue'
+import ExperienceChannel from '@/features/experience/presentation/channel/ExperienceChannel.vue'
+import MallChannel from '@/features/mall/presentation/channel/MallChannel.vue'
 import { buildPortalSearchUrl } from '@/features/inspection/application/portal/build-portal-navigation'
 import { createPlatformHomePreviewContent } from '@/features/inspection/data/preview/platform-home-preview'
 import {
@@ -66,13 +69,25 @@ const pageVisible = ref(false)
 const serviceChannelOpened = ref(activeChannel.value === 'SERVICE')
 const activityChannelOpened = ref(activeChannel.value === 'ACTIVITY')
 const activityChannel = ref<{ loadMore(): Promise<void> } | null>(null)
+const experienceChannelOpened = ref(activeChannel.value === 'EXPERIENCE')
+const experienceChannel = ref<{ loadMore(): Promise<void> } | null>(null)
+const mallChannelOpened = ref(activeChannel.value === 'MALL')
+const mallChannel = ref<{ loadMore(): Promise<void> } | null>(null)
+// Set when a home entry asks for one mall category; the token makes a repeated request count.
+const requestedMallCategory = ref<{ category: HomeMallCategory; token: number } | null>(null)
 const activeChannelLabel = computed(() =>
   visibleChannels.find((channel) => channel.code === activeChannel.value)?.label ?? '',
 )
+// Every channel now has its own content; kept so a channel added later shows a clear placeholder.
+const CHANNELS_WITH_CONTENT: readonly HomeChannelCode[] = [
+  'RECOMMEND',
+  'SERVICE',
+  'ACTIVITY',
+  'EXPERIENCE',
+  'MALL',
+]
 const isPlaceholderChannel = computed(() =>
-  activeChannel.value !== 'RECOMMEND'
-  && activeChannel.value !== 'SERVICE'
-  && activeChannel.value !== 'ACTIVITY',
+  !CHANNELS_WITH_CONTENT.includes(activeChannel.value),
 )
 const searchPlaceholder = computed(() =>
   serviceSearchPlaceholder.value
@@ -193,6 +208,12 @@ function selectChannel(channel: HomeChannelCode): void {
 
 function openEntry(target: HomeEntryTarget): void {
   if (target.type === 'CHANNEL') {
+    if (target.mallCategory) {
+      requestedMallCategory.value = {
+        category: target.mallCategory,
+        token: (requestedMallCategory.value?.token ?? 0) + 1,
+      }
+    }
     selectChannel(target.channel)
     return
   }
@@ -215,6 +236,8 @@ watch(activeChannel, async (channel, previousChannel) => {
   keyword.value = ''
   if (channel === 'SERVICE') serviceChannelOpened.value = true
   if (channel === 'ACTIVITY') activityChannelOpened.value = true
+  if (channel === 'EXPERIENCE') experienceChannelOpened.value = true
+  if (channel === 'MALL') mallChannelOpened.value = true
   await nextTick()
   if (channel === activeChannel.value) restoreChannelScroll(channel)
 })
@@ -223,9 +246,11 @@ onPageScroll(({ scrollTop }) => {
   currentScrollTop = scrollTop
 })
 
-// Only the activity channel pages through a list; the other channels have nothing to load at the bottom.
+// The activity, experience and mall channels page through lists; the others have nothing to load at the bottom.
 onReachBottom(() => {
   if (activeChannel.value === 'ACTIVITY') void activityChannel.value?.loadMore()
+  if (activeChannel.value === 'EXPERIENCE') void experienceChannel.value?.loadMore()
+  if (activeChannel.value === 'MALL') void mallChannel.value?.loadMore()
 })
 
 onShow(() => {
@@ -302,6 +327,43 @@ onHide(() => {
     </view>
     <view
       v-else-if="activeChannel === 'ACTIVITY'"
+      class="home-page__placeholder"
+      data-testid="home-city-pending"
+    >
+      <text>正在确定所在城市</text>
+    </view>
+
+    <view
+      v-if="experienceChannelOpened && currentCityStore.currentCity"
+      v-show="activeChannel === 'EXPERIENCE'"
+    >
+      <ExperienceChannel
+        ref="experienceChannel"
+        :active="pageVisible && activeChannel === 'EXPERIENCE'"
+        :city-code="currentCityStore.currentCity.code"
+      />
+    </view>
+    <view
+      v-else-if="activeChannel === 'EXPERIENCE'"
+      class="home-page__placeholder"
+      data-testid="home-city-pending"
+    >
+      <text>正在确定所在城市</text>
+    </view>
+
+    <view
+      v-if="mallChannelOpened && currentCityStore.currentCity"
+      v-show="activeChannel === 'MALL'"
+    >
+      <MallChannel
+        ref="mallChannel"
+        :active="pageVisible && activeChannel === 'MALL'"
+        :city-code="currentCityStore.currentCity.code"
+        :requested-category="requestedMallCategory"
+      />
+    </view>
+    <view
+      v-else-if="activeChannel === 'MALL'"
       class="home-page__placeholder"
       data-testid="home-city-pending"
     >
