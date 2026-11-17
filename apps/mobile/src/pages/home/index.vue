@@ -34,6 +34,7 @@ import {
   type PlatformHomeViewState,
 } from '@/features/inspection/presentation/platform/home/platform-home'
 import { createPlatformFeatureGateway } from '@/features/platform/application/platform-feature-gateway'
+import HomeRecommendBlocks from '@/features/recommend/presentation/HomeRecommendBlocks.vue'
 import { PLATFORM_PREVIEW_ENABLED } from '@/features/platform/application/platform-preview'
 import type { PlatformFeatureIntent } from '@/features/platform/domain/platform-feature-intent'
 import PlatformServiceChannel from '@/features/platform/presentation/service/PlatformServiceChannel.vue'
@@ -287,12 +288,19 @@ onHide(() => {
         :king-entries="kingEntries"
         :carousel-slides="carouselSlides"
         :carousel-active="pageVisible && activeChannel === 'RECOMMEND'"
+        :show-sections="!PLATFORM_PREVIEW_ENABLED"
         @retry="loadHomeContent"
         @search="openCatalog"
         @select-entry="openEntry"
         @select-featured-service="selectFeatured"
         @select-activity="showUnavailable"
         @select-enterprise-solution="showUnavailable"
+      />
+      <!-- The blocks read the activity, mall and venue channels, which only preview builds have. -->
+      <HomeRecommendBlocks
+        v-if="PLATFORM_PREVIEW_ENABLED && currentCityStore.currentCity"
+        :city-code="currentCityStore.currentCity.code"
+        @select-entry="openEntry"
       />
     </view>
 

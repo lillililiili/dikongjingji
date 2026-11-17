@@ -171,7 +171,8 @@ test.describe('赛事研学频道', () => {
       const url = new URL(route.request().url())
       if (!isListRequest(url)) return route.continue()
       const pageNumber = url.searchParams.get('page') ?? '1'
-      requestedPages.push(pageNumber)
+      // The home recommend block asks for three activities of its own; only the channel's pages count here.
+      if (url.searchParams.get('size') !== '3') requestedPages.push(pageNumber)
       const items = pageNumber === '1'
         ? Array.from({ length: 10 }, (_, index) => stubCard(index + 1))
         // Card 10 comes back on purpose: the list must keep one copy.

@@ -21,6 +21,10 @@ test.describe('公开构建', () => {
     // No king entry is open to the public yet, so the whole block and the sample carousel stay away.
     await expect(page.locator('.home-entries__king')).toHaveCount(0)
     await expect(page.getByTestId('home-carousel')).toHaveCount(0)
+    // The blocks that read the activity, mall and venue channels stay away with those channels;
+    // the public home keeps its inspection section.
+    await expect(page.getByTestId('home-recommend')).toHaveCount(0)
+    await expect(page.locator('.platform-home__section-title', { hasText: '精选服务' })).toBeVisible()
     await expect(page.getByTestId('home-search-input')).toContainText(
       '搜索巡检服务、场景或关键词',
     )

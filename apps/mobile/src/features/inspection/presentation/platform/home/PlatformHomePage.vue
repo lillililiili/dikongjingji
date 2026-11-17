@@ -26,6 +26,12 @@ const props = defineProps<{
   kingEntries: readonly HomeKingEntry[]
   carouselSlides: readonly HomeCarouselSlide[]
   carouselActive: boolean
+  /**
+   * False where the page that hosts this view shows its own blocks under the entries (the
+   * blocks of the prototype's 推荐 channel); the inspection sections and the "no service"
+   * state are then left out. A load failure is still reported.
+   */
+  showSections: boolean
 }>()
 
 const emit = defineEmits<{
@@ -99,6 +105,8 @@ const selectEnterpriseSolution = (availability: PlatformAvailability): void =>
       <text class="platform-home__state-title">{{ props.state.message }}</text>
       <button class="platform-home__state-action" @click="emit('retry')">重新加载</button>
     </view>
+
+    <view v-else-if="!props.showSections" />
 
     <view v-else-if="props.state.kind === 'empty'" class="platform-home__state">
       <UniIcons type="info" size="42" color="#a4acb7" />
