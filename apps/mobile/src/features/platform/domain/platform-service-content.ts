@@ -1,46 +1,17 @@
 import type { PlatformChannelCode } from './platform-channel'
 
-export interface PlatformServiceHero {
-  imageUrl: string
-  title: string
-  highlight: string
-  description: string
-  highlights: readonly string[]
-  actionLabel: string
-}
-export interface PlatformServiceScenario {
-  code: string
-  title: string
-  subtitle: string
-  imageUrl: string
-}
-
-export interface PlatformServiceCapability {
-  code: string
-  title: string
-  description: string
-}
-
-export interface PlatformServiceRecommendation {
-  id: string
-  title: string
-  subtitle: string
-  imageUrl: string
-  priceLabel?: string
-  rating?: number
-  salesLabel?: string
-  actionLabel: string
-}
-
+// The service types other than inspection have no catalog yet: their entry page only says how the
+// type is bought (publish a request, verified providers quote) and what the platform checks.
 export interface PlatformServiceChannelContent {
   code: Exclude<PlatformChannelCode, 'INSPECTION'>
   searchPlaceholder: string
-  hero: PlatformServiceHero
-  scenarios: PlatformServiceScenario[]
-  capabilityTitle: string
-  capabilitySubtitle: string
-  capabilities: PlatformServiceCapability[]
-  recommendationTitle: string
-  recommendationSubtitle: string
-  recommendations: PlatformServiceRecommendation[]
+  guarantees: readonly string[]
+  processSteps: readonly PlatformServiceProcessStep[]
+}
+
+export type PlatformServiceProcessStepCode = 'REQUEST' | 'QUOTE' | 'EXECUTE' | 'ACCEPT'
+
+export interface PlatformServiceProcessStep {
+  code: PlatformServiceProcessStepCode
+  title: string
 }

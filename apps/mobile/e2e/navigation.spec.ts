@@ -475,7 +475,12 @@ test.describe('专业服务子类型', () => {
     const placeholder = page.getByTestId('home-search-input')
 
     await page.getByTestId('service-type-aerial').click()
-    await expect(placeholder).toContainText('搜索航拍服务或场景')
+    await expect(placeholder).toContainText('搜索航拍服务、场景或关键词')
+    await expect(page.getByTestId('service-entry-guarantees')).toContainText('成果可追溯')
+    await page.getByTestId('service-entry-publish').click()
+    await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')
+    // The toast node stays in the page after it fades, so wait for it to hide before the next one.
+    await expect(page.locator('.uni-sample-toast')).toBeHidden({ timeout: 5000 })
     const url = page.url()
     await page.getByTestId('home-search-submit').click()
     await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')

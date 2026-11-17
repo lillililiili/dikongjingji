@@ -120,32 +120,31 @@ describe('platform service visual contract', () => {
     expect(servicePageSource).not.toContain('@touchstart.stop')
   })
 
-  it('keeps all preview metrics outside the reusable channel component', () => {
+  it('keeps the copy of each service type outside the reusable entry component', () => {
     expect(channelContentSource).toContain('defineProps')
-    expect(channelContentSource).toContain(':image-url="content.hero.imageUrl"')
-    expect(channelContentSource).toContain('v-if="service.rating !== undefined"')
-    expect(channelContentSource).toContain('v-if="service.salesLabel"')
+    expect(channelContentSource).toContain('v-for="guarantee in content.guarantees"')
+    expect(channelContentSource).toContain('v-for="(step, index) in content.processSteps"')
     expect(channelContentSource).not.toContain('fixture')
-    expect(channelContentSource).not.toContain('¥1299')
-    expect(channelContentSource).not.toContain('860+')
+    expect(channelContentSource).not.toContain('持证飞手')
   })
 
-  it('reuses the shared compact banner with distinct channel imagery', () => {
-    expect(channelContentSource).toContain('<PlatformHeroBanner')
-    expect(channelContentSource).toContain(':highlights="content.hero.highlights"')
-    expect(channelContentSource).not.toContain('service-channel__hero-action')
-    expect(serviceFixtureSource).toContain("image('aerial-service-hero-v3.png')")
+  // The earlier preview page showed made-up prices, ratings and sales for aerial services.
+  it('shows no price, rating or sales figure for types that have no catalog', () => {
+    for (const source of [channelContentSource, serviceFixtureSource]) {
+      expect(source).not.toContain('¥')
+      expect(source).not.toContain('rating')
+      expect(source).not.toContain('已售')
+    }
   })
 
-  it('uses readable two-column guarantees and horizontally scrollable service cards', () => {
-    expect(channelContentSource).toContain(
-      'grid-template-columns: repeat(2, minmax(0, 1fr))',
-    )
-    expect(channelContentSource).toContain('grid-auto-flow: column')
-    expect(channelContentSource).toContain('grid-auto-columns: calc((100vw - 49px) / 2)')
-    expect(channelContentSource).toContain('font-size: 12px')
-    expect(channelContentSource).not.toContain(
-      'grid-template-columns: repeat(4, minmax(0, 1fr));\n  gap: 8px;\n}\n\n.service-channel__capability',
-    )
+  it('follows the prototype entry: guarantee line, one request card, service flow', () => {
+    expect(channelContentSource).not.toContain('<PlatformHeroBanner')
+    expect(channelContentSource).toContain("emit('intent', { type: 'PUBLISH_DEMAND' })")
+    expect(channelContentSource).toContain("emit('intent', { type: 'SEARCH', channel: content.code })")
+    expect(serviceFixtureSource).toContain("guarantees: ['资质审核', '服务记录', '报价留档']")
+    for (const code of ['AERIAL', 'SURVEY', 'MAINTENANCE', 'SUPPORT']) {
+      expect(serviceFixtureSource).toContain(`code: '${code}'`)
+    }
   })
+
 })

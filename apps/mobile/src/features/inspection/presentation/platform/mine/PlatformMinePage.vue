@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   retry: []
+  login: []
   customerService: []
   settings: []
   selectStatus: [status: InspectionMineStatus]
@@ -39,12 +40,13 @@ const selectFeature = (entry: PlatformMineFeatureEntry): void => {
   emit('selectFeature', entry)
 }
 
-const statusImageUrls: Record<InspectionMineStatus, string> = {
-  AWAITING_PLAN: '/static/images/inspection/platform/mine-status-plan-v2.png',
-  AWAITING_CONFIRMATION: '/static/images/inspection/platform/mine-status-confirm-v2.png',
-  IN_PROGRESS: '/static/images/inspection/platform/mine-status-progress-v2.png',
-  AWAITING_ACCEPTANCE: '/static/images/inspection/platform/mine-status-acceptance-v2.png',
-  COMPLETED: '/static/images/inspection/platform/mine-status-completed-v2.png',
+// Line icons, as on the 2026-11-14 prototype board Mine.
+const STATUS_ICONS: Record<InspectionMineStatus, string> = {
+  AWAITING_PLAN: 'compose',
+  AWAITING_CONFIRMATION: 'checkbox',
+  IN_PROGRESS: 'paperplane',
+  AWAITING_ACCEPTANCE: 'auth',
+  COMPLETED: 'medal',
 }
 </script>
 
@@ -70,20 +72,16 @@ const statusImageUrls: Record<InspectionMineStatus, string> = {
 
     <template v-else-if="content">
       <view class="platform-mine__scroll">
+        <!-- Above the card, as on the prototype, so the card keeps its right side for the sign-in button. -->
+        <view class="platform-mine__profile-actions">
+          <button class="platform-mine__headset" aria-label="联系客服" @click="emit('customerService')">
+            <UniIcons type="headphones" size="22" color="#202c42" />
+          </button>
+          <button class="platform-mine__settings" aria-label="设置" @click="emit('settings')">
+            <UniIcons type="gear" size="22" color="#202c42" />
+          </button>
+        </view>
         <view class="platform-mine__profile">
-          <image
-            class="platform-mine__profile-background"
-            src="/static/images/inspection/platform/home-hero.png"
-            mode="aspectFill"
-          />
-          <view class="platform-mine__profile-actions">
-            <button class="platform-mine__headset" aria-label="联系客服" @click="emit('customerService')">
-              <UniIcons type="headphones" size="28" color="#171b20" />
-            </button>
-            <button class="platform-mine__settings" aria-label="设置" @click="emit('settings')">
-              <UniIcons type="gear" size="28" color="#171b20" />
-            </button>
-          </view>
           <view class="platform-mine__identity">
             <view class="platform-mine__avatar">
               <image
@@ -93,45 +91,55 @@ const statusImageUrls: Record<InspectionMineStatus, string> = {
                 mode="aspectFill"
               />
               <view v-else class="platform-mine__avatar-fallback">
-                <UniIcons type="person-filled" size="40" color="#aab5c2" />
+                <UniIcons type="person" size="28" color="#a94c26" />
               </view>
             </view>
-            <view class="platform-mine__identity-copy">
+            <view v-if="content.user" class="platform-mine__identity-copy">
               <view class="platform-mine__name-line">
-                <text class="platform-mine__name">{{ content.user?.displayName || '未登录用户' }}</text>
-                <text class="platform-mine__level">{{ content.user?.levelName || 'Lv.0' }}</text>
+                <text class="platform-mine__name">{{ content.user.displayName }}</text>
+                <text v-if="content.user.levelName" class="platform-mine__level">{{ content.user.levelName }}</text>
               </view>
-              <text class="platform-mine__certification">
+              <text v-if="content.user.certificationLabel" class="platform-mine__certification">
                 <UniIcons type="auth-filled" size="12" color="#f59e0b" />
-                {{ content.user?.certificationLabel || '身份待完善' }}
+                {{ content.user.certificationLabel }}
               </text>
               <text class="platform-mine__location">
-                {{ content.user?.locationText || '未设置所在地区' }}
+                {{ content.user.locationText || '未设置所在地区' }}
               </text>
             </view>
+            <!-- A guest has no level or certification to show, only the way in. -->
+            <template v-else>
+              <view class="platform-mine__identity-copy">
+                <text class="platform-mine__name">未登录</text>
+                <text class="platform-mine__location">登录后查看订单和服务进度</text>
+              </view>
+              <button class="platform-mine__login" data-testid="mine-login" @click="emit('login')">
+                登录 / 注册
+              </button>
+            </template>
           </view>
         </view>
 
         <view v-if="content.statusCounts" class="platform-mine__status-card">
-          <button
-            v-for="item in INSPECTION_STATUS_ITEMS"
-            :key="item.code"
-            class="platform-mine__status-item"
-            @click="emit('selectStatus', item.code)"
-          >
-            <view class="platform-mine__status-icon">
-              <image
-                class="platform-mine__status-image"
-                :src="statusImageUrls[item.code]"
-                mode="aspectFit"
-              />
-              <text class="platform-mine__status-count">
-                {{ content.statusCounts[item.code] > 99 ? '99+' : content.statusCounts[item.code] }}
-              </text>
-            </view>
-            <text class="platform-mine__status-label">{{ item.label }}</text>
-            <text class="platform-mine__status-value">{{ content.statusCounts[item.code] }}个订单</text>
-          </button>
+          <text class="platform-mine__status-heading">我的订单</text>
+          <view class="platform-mine__status-row">
+            <button
+              v-for="item in INSPECTION_STATUS_ITEMS"
+              :key="item.code"
+              class="platform-mine__status-item"
+              :aria-label="`${item.label}，${content.statusCounts[item.code]} 个订单`"
+              @click="emit('selectStatus', item.code)"
+            >
+              <view class="platform-mine__status-icon">
+                <UniIcons :type="STATUS_ICONS[item.code]" size="24" color="#202c42" />
+                <!-- A badge only where there is something to do, as on the prototype. -->
+                <text v-if="content.statusCounts[item.code] > 0" class="platform-mine__status-count">
+                  {{ content.statusCounts[item.code] > 99 ? '99+' : content.statusCounts[item.code] }}
+                </text>
+              </view>
+              <text class="platform-mine__status-label">{{ item.label }}</text>
+            </button>
+          </view>
         </view>
 
         <view class="platform-mine__orders">
@@ -266,4 +274,52 @@ button::after{border:0}
 .platform-mine__skeleton--orders{height:430rpx;margin-top:26rpx}
 @keyframes mine-skeleton{0%{background-position:100% 0}100%{background-position:0 0}}
 @media (min-width:420px){.platform-mine__status-card,.platform-mine__orders,.platform-mine__feature-grid{margin-right:28rpx;margin-left:28rpx}.platform-mine__order{grid-template-columns:188rpx minmax(0,1fr) minmax(112rpx,auto)}.platform-mine__order-image{width:188rpx}}
+/* 2026-11-14 prototype (boards Mine and MineGuest, 390 wide): the theme layer over the layout above. */
+.platform-mine{color:#202c42;background:#f5f7fc}
+.platform-mine__scroll{display:flex;padding:calc(var(--status-bar-height) + 8px) 16px var(--app-root-tabbar-content-offset);flex-direction:column;gap:10px}
+.platform-mine__profile{min-height:92px;padding:15px 12px;border-radius:20px;background:linear-gradient(120deg,#fff1e0,#f1eaff 60%,#e5f6f2);box-shadow:0 5px 14px rgba(80,73,122,.05);box-sizing:border-box}
+.platform-mine__profile::after{display:none}
+.platform-mine__profile-actions{position:static;display:flex;height:44px;margin:0 -8px -6px 0;justify-content:flex-end;gap:0}
+.platform-mine__headset,.platform-mine__settings{width:44px;height:44px}
+.platform-mine__identity{gap:12px}
+.platform-mine__avatar{width:56px;height:56px;border:3px solid #fff;background:linear-gradient(140deg,#ffe0b5,#ffc5b0);box-shadow:0 4px 12px rgba(182,86,37,.13);box-sizing:border-box}
+.platform-mine__name-line{gap:8px}
+.platform-mine__name{font-size:19px;line-height:26px}
+.platform-mine__level{padding:0 6px;border-color:#c9d3e1;border-radius:999px;color:#536178;font-size:11px;line-height:16px}
+.platform-mine__certification{margin-top:4px;padding:1px 6px;border-radius:6px;color:#ba470b;background:#fff0e3;font-size:12px;line-height:17px}
+.platform-mine__location{margin-top:4px;color:#627187;font-size:12px;line-height:17px}
+.platform-mine__status-card{display:flex;margin:0;padding:10px 8px 8px;flex-direction:column;gap:8px;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
+.platform-mine__status-heading{padding:0 8px;font-size:16px;font-weight:700;line-height:22px}
+.platform-mine__status-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.platform-mine__status-item{min-height:52px;gap:4px;justify-content:center}
+.platform-mine__status-icon{width:auto;height:24px;justify-content:center}
+.platform-mine__status-count{top:-6px;right:auto;left:50%;min-width:16px;height:16px;margin-left:6px;padding:0 4px;border:0;border-radius:8px;background:#ff5200;font-size:11px;line-height:16px}
+.platform-mine__status-label{margin-top:0;font-size:12px;font-weight:400;line-height:17px}
+.platform-mine__orders{margin:0;padding:14px;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
+.platform-mine__section-heading{margin-bottom:6px}
+.platform-mine__section-title{font-size:16px;line-height:22px}
+.platform-mine__view-all{min-height:44px;margin:-11px 0;color:#627187;font-size:13px;line-height:44px}
+.platform-mine__order{grid-template-columns:72px minmax(0,1fr) auto;gap:12px;padding:12px 0;border-bottom-color:#f0f1f3}
+.platform-mine__order-image{width:72px;height:72px;border-radius:10px}
+.platform-mine__order-title{font-size:15px;line-height:21px}
+.platform-mine__order-status{padding:1px 6px;border-radius:6px;color:#11804a;background:#e2f6ed;font-size:12px}
+.platform-mine__order-meta{margin-top:2px;color:#627187;font-size:12px;line-height:17px}
+.platform-mine__orders-empty{color:#738096;font-size:13px}
+.platform-mine__feature-grid{margin:0;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
+.platform-mine__feature-title{font-size:13px;font-weight:500}
+.platform-mine__identity-copy{flex:1}
+.platform-mine__name-line{flex-wrap:wrap;row-gap:2px}
+.platform-mine__login{flex:none;height:40px;margin:0;padding:0 16px;border-radius:999px;color:#fff;background:#ff6a00;font-size:14px;font-weight:500;line-height:40px;white-space:nowrap}
+.platform-mine__login::after{display:none}
+.platform-mine__order-title{display:-webkit-box;white-space:normal;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.platform-mine__status-item{overflow:visible}
+.platform-mine__amount-text{color:#e85400;font-size:15px;font-weight:700;line-height:21px}
+.platform-mine__amount-label{margin-top:0;color:#738096;font-size:11px;line-height:16px}
+.platform-mine__order-action{min-width:64px;height:26px;margin-top:6px;border-color:#dfe5ee;border-radius:13px;color:#202c42;font-size:12px;line-height:24px}
+.platform-mine__feature-grid{padding:12px 8px;gap:0}
+.platform-mine__feature{gap:6px}
+.platform-mine__feature-icon{width:40px;height:40px;border-radius:12px}
+.platform-mine__feature-title{margin-top:0;font-size:12px;line-height:17px}
+.platform-mine__feature-value{margin-top:0;color:#738096;font-size:11px;line-height:16px}
+.platform-mine__order-meta{white-space:normal;overflow-wrap:anywhere}
 </style>

@@ -187,8 +187,9 @@ describe('platform mine component contract', () => {
     expect(minePageSource).toContain('v-if="content.user?.avatarUrl"')
     expect(minePageSource).not.toContain('v-if="content.user?.certificationLabel"')
     expect(minePageSource).toContain(':src="entry.imageUrl"')
-    expect(minePageSource).toContain('mine-status-plan-v2.png')
-    expect(minePageSource).toContain('mine-status-completed-v2.png')
+    // The five order stages use line icons since the page follows the 2026-11-14 prototype.
+    expect(minePageSource).toContain(':type="STATUS_ICONS[item.code]"')
+    expect(minePageSource).not.toContain('mine-status-plan-v2.png')
     expect(minePageSource).not.toContain(':type="entry.iconType"')
     expect(minePageSource).not.toContain('v-if="entry.valueText"')
     expect(minePageSource).not.toContain('v-if="order.amount"')

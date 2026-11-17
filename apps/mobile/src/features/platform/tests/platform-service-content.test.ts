@@ -5,21 +5,29 @@ import { loadPlatformServiceContent } from '../application/load-platform-service
 import { developmentPlatformContentRepository } from '../data/development/development-platform-content-repository'
 
 describe('platform service development content', () => {
-  it('provides typed aerial preview content', async () => {
+  it('provides the entry copy of the four types that only quote per project', async () => {
     const aerial = await developmentPlatformContentRepository.getServiceChannel('AERIAL')
 
     expect(aerial).toMatchObject({
       code: 'AERIAL',
-      hero: {
-        title: '专业航拍',
-        highlight: '记录每一种精彩',
-      },
+      searchPlaceholder: '搜索航拍服务、场景或关键词',
+      guarantees: ['资质审核', '持证飞手', '成果可追溯'],
     })
-    expect(aerial?.scenarios).toHaveLength(8)
+    expect(aerial?.processSteps.map((step) => step.title))
+      .toEqual(['发布需求', '比选报价', '服务履约', '成果验收'])
   })
 
-  it('has no preview content for service types that only quote per project', async () => {
-    await expect(developmentPlatformContentRepository.getServiceChannel('SURVEY'))
+  // No flying in maintenance or support, and support does not always end in a report.
+  it('does not promise licensed pilots where nothing flies', async () => {
+    const maintenance = await developmentPlatformContentRepository.getServiceChannel('MAINTENANCE')
+    const support = await developmentPlatformContentRepository.getServiceChannel('SUPPORT')
+
+    expect(maintenance?.guarantees).toEqual(['资质审核', '服务记录', '报告可追溯'])
+    expect(support?.guarantees).toEqual(['资质审核', '服务记录', '报价留档'])
+  })
+
+  it('has no entry copy for inspection, which has its own portal', async () => {
+    await expect(developmentPlatformContentRepository.getServiceChannel('INSPECTION'))
       .resolves.toBeNull()
   })
 

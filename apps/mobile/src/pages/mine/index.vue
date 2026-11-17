@@ -11,7 +11,10 @@ import {
 } from '@/features/inspection/application/service-flow/inspection-order-navigation'
 import { inspectionOrderApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import type { InspectionOrderSummary } from '@/features/inspection/domain/service-flow/order-center'
-import { buildInspectionOrderCenterUrl } from '@/features/inspection/navigation/inspection-routes'
+import {
+  buildInspectionLoginUrl,
+  buildInspectionOrderCenterUrl,
+} from '@/features/inspection/navigation/inspection-routes'
 import PlatformMinePage from '@/features/inspection/presentation/platform/mine/PlatformMinePage.vue'
 import {
   resolveAuthenticatedMineUser,
@@ -54,6 +57,11 @@ const featureEntries: PlatformMineFeatureEntry[] = [
 const state = ref<PlatformMineViewState>(resolvePlatformMineState({
   status: 'ready',
   content: {
+    // Known before the first request, so a signed-in user never sees the guest card flash by.
+    user: resolveAuthenticatedMineUser(
+      Boolean(getBookingAuthContext().getAccessToken()),
+      currentCityStore.currentCity?.name,
+    ),
     recentOrders: [],
     featureEntries,
   },
@@ -128,6 +136,11 @@ function showUnavailable(): void {
   uni.showToast({ title: '该能力将在下一阶段接入', icon: 'none' })
 }
 
+// Signing in lands on the order centre, the one page here that needs an account; its back leads to this page.
+function openLogin(): void {
+  uni.navigateTo({ url: buildInspectionLoginUrl(buildInspectionOrderCenterUrl('ALL')) })
+}
+
 function openAllOrders(): void {
   uni.navigateTo({ url: buildInspectionOrderCenterUrl('ALL') })
 }
@@ -154,6 +167,7 @@ onShow(() => {
     <PlatformMinePage
       :state="state"
       @retry="loadRecentOrders"
+      @login="openLogin"
       @customer-service="showUnavailable"
       @settings="showUnavailable"
       @select-status="openStatus"

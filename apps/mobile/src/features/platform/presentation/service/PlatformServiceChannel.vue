@@ -184,6 +184,7 @@ onPageScroll(({ scrollTop }) => {
       <PlatformServiceChannelContent
         v-else-if="channelContent"
         :content="channelContent"
+        :type-label="activeChannelLabel"
         @intent="handleIntent"
       />
       <view
