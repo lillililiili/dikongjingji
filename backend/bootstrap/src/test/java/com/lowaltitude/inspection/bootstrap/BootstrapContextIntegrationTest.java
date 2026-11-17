@@ -14,6 +14,7 @@ import java.util.UUID;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
 import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
+import com.lowaltitude.inspection.mall.application.MallCatalogReadService;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.CustomerReservationQueryService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
@@ -51,6 +52,7 @@ import org.springframework.web.bind.annotation.RestController;
         InspectionServiceCatalogReadService.class,
         ActivityCatalogReadService.class,
         ExperienceCatalogReadService.class,
+        MallCatalogReadService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class

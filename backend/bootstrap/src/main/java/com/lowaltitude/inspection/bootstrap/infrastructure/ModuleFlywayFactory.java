@@ -38,6 +38,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway mall(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/mall",
+                "flyway_history_mall",
+                true);
+    }
+
     private static Flyway build(DataSource dataSource, String location, String historyTable, boolean baselineOnMigrate) {
         return Flyway.configure()
                 .dataSource(dataSource)

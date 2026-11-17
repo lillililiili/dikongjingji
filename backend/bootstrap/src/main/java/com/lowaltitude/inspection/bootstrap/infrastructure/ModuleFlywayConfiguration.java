@@ -69,6 +69,26 @@ public class ModuleFlywayConfiguration {
                 .load();
     }
 
+    // 商城表引用 identity_organization，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway mallFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.mall(dataSource);
+    }
+
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn("mallFlyway")
+    Flyway mallDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/mall")
+                .table("flyway_history_mall_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     @Bean(initMethod = "migrate")
     @Profile("dev")
     @DependsOn("inspectionFlyway")

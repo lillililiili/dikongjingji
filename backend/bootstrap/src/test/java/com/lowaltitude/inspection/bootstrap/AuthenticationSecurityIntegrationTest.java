@@ -22,6 +22,7 @@ import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
 import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
+import com.lowaltitude.inspection.mall.application.MallCatalogReadService;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
 import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
@@ -227,6 +228,24 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
         // 到馆预约还不存在；白名单之外的路径一律要登录。
         mockMvc.perform(get(venue + "/bookings"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @Test
+    void anonymousMallReadsArePublicButCartAndOrderPathsRequireAuthentication() throws Exception {
+        String product = "/api/v1/mall/products/c2000000-0000-4000-8000-000000000101";
+        mockMvc.perform(get("/api/v1/mall/products").param("cityCode", "370500")).andExpect(status().isOk());
+        mockMvc.perform(get(product).param("cityCode", "370500")).andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/mall/products"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        // 购物车和订单还不存在；白名单之外的路径一律要登录。
+        mockMvc.perform(get("/api/v1/mall/cart"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        mockMvc.perform(get(product + "/offers"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
@@ -521,6 +540,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         ExperienceCatalogReadService testExperienceCatalogReadService() {
             return org.mockito.Mockito.mock(ExperienceCatalogReadService.class);
+        }
+
+        @Bean
+        MallCatalogReadService testMallCatalogReadService() {
+            return org.mockito.Mockito.mock(MallCatalogReadService.class);
         }
 
         @Bean

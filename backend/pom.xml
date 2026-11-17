@@ -20,5 +20,6 @@
         <module>modules/inspection</module>
         <module>modules/activity</module>
         <module>modules/experience</module>
+        <module>modules/mall</module>
     </modules>
 </project>

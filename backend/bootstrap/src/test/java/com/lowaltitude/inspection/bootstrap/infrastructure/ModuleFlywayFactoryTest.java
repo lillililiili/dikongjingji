@@ -49,6 +49,16 @@ class ModuleFlywayFactoryTest {
         assertThat(experience.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
     }
 
+    @Test
+    void keepsMallVersionsInTheirOwnHistoryTable() {
+        Flyway mall = new ModuleFlywayFactory().mall(mock(DataSource.class));
+
+        assertThat(mall.getConfiguration().getTable()).isEqualTo("flyway_history_mall");
+        assertThat(locationDescriptors(mall)).containsExactly("classpath:db/migration/mall");
+        assertThat(mall.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(mall.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
     private static String[] locationDescriptors(Flyway flyway) {
         return Arrays.stream(flyway.getConfiguration().getLocations())
                 .map(Object::toString)

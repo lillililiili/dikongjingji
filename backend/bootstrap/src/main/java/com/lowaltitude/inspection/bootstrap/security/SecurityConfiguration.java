@@ -99,6 +99,9 @@ public class SecurityConfiguration {
                                 "/api/v1/venues/*",
                                 "/api/v1/venues/*/sessions",
                                 "/api/v1/venues/*/devices").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/mall/products",
+                                "/api/v1/mall/products/*").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
                         .anyRequest().authenticated()
