@@ -67,7 +67,7 @@ async function openCatalogFromHome(page: Page): Promise<void> {
 
 async function reserveFromDetail(page: Page): Promise<void> {
   await expect(page.locator('.inspection-service-detail__content')).toBeVisible()
-  await page.locator('.service-detail-bottom-bar__primary').click()
+  await page.locator('.service-detail-bottom-bar__primary:not([disabled])').click()
 }
 
 async function reserveAfterServiceIsGone(page: Page): Promise<void> {

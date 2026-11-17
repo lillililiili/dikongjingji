@@ -48,7 +48,7 @@ test.describe('M04 查服务', () => {
     await page.goto(DETAIL_URL)
     await expect(page.locator('.inspection-service-detail__content')).toBeVisible()
 
-    await page.locator('.service-detail-bottom-bar__primary').click()
+    await page.locator('.service-detail-bottom-bar__primary:not([disabled])').click()
 
     await expect(page.locator('.booking-row--time')).toBeVisible()
     expect(new URL(page.url()).hash).toContain(`serviceId=${SERVICE_ID}`)
@@ -71,7 +71,7 @@ test.describe('M04 查服务', () => {
     await expect(page.locator('.inspection-scope__name').first()).toBeVisible()
     const offered = await page.locator('.inspection-scope__name').allInnerTexts()
 
-    await page.locator('.service-detail-bottom-bar__primary').click()
+    await page.locator('.service-detail-bottom-bar__primary:not([disabled])').click()
     await expect(page.locator('.booking-item').first()).toBeVisible()
 
     const items = await page.locator('.booking-item').allInnerTexts()
@@ -110,7 +110,7 @@ test.describe('M04 查服务', () => {
     await expect(page.locator('.inspection-service-detail__content')).toBeVisible()
     await page.route(`**${DETAIL_PATH}?*`, withoutBookableItems)
 
-    await page.locator('.service-detail-bottom-bar__primary').click()
+    await page.locator('.service-detail-bottom-bar__primary:not([disabled])').click()
 
     await expect(page.locator('.booking-state')).toContainText(UNAVAILABLE_COPY)
     await expect(page.locator('.booking-row--time')).toHaveCount(0)

@@ -106,7 +106,7 @@ test.describe('M03 不可用时的恢复', () => {
 
     await expect(page.locator('.inspection-service-detail__content')).toBeVisible()
     await expect(recoveryAction(page)).toHaveCount(0)
-    await page.locator('.service-detail-bottom-bar__primary').click()
+    await page.locator('.service-detail-bottom-bar__primary:not([disabled])').click()
     await expect(page.locator('.booking-row--time')).toBeVisible()
     expect(new URL(page.url()).hash).toContain('cityCode=370500')
   })

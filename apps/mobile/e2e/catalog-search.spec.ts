@@ -201,6 +201,10 @@ test.describe('M02 搜索与筛选', () => {
     await search(page, '%')
     await expect(page.getByTestId('catalog-empty')).toBeVisible()
 
+    // On H5 the box reports a keystroke that follows another within 100ms late, and that late
+    // report puts the text back if the box was cleared in between. With a fast local server the
+    // two searches above fit inside that window; no finger is that fast, so wait it out.
+    await page.waitForTimeout(150)
     await page.getByTestId('catalog-clear').click()
     await expect(cards(page)).toHaveCount(5)
     await expect(page.getByTestId('catalog-search-input').locator('input')).toHaveValue('')

@@ -44,7 +44,7 @@ async function backFromDetail(page: Page): Promise<void> {
 }
 
 async function reserveFromDetail(page: Page): Promise<void> {
-  await page.locator('.service-detail-bottom-bar__primary').click()
+  await page.locator('.service-detail-bottom-bar__primary:not([disabled])').click()
   await expect(page.locator('.booking-row--time')).toBeVisible()
 }
 
