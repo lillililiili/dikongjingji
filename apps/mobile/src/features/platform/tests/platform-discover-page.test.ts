@@ -58,7 +58,7 @@ describe('platform discover page', () => {
     expect(discoverFixtureSource).toContain("image('discover-hero-v2.png')")
     expect(discoverFixtureSource).not.toContain("image('home-hero.png')")
     expect(discoverPageSource).toContain('grid-auto-flow: column')
-    expect(discoverPageSource).toContain('grid-auto-columns: calc((100vw - 49px) / 2)')
+    expect(discoverPageSource).toContain('grid-auto-columns: calc((100vw - 2 * var(--app-page-horizontal-gutter) - 31px) / 2)')
     expect(discoverPageSource).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))')
     expect(discoverPageSource).not.toContain('font-size: 8px')
   })

@@ -301,7 +301,7 @@ button::after {
   display: grid;
   width: max-content;
   min-width: 100%;
-  grid-auto-columns: calc((100vw - 49px) / 2);
+  grid-auto-columns: calc((100vw - 2 * var(--app-page-horizontal-gutter) - 31px) / 2);
   grid-auto-flow: column;
   gap: 10px;
   padding-right: 2px;
@@ -370,7 +370,7 @@ button::after {
   display: grid;
   width: max-content;
   min-width: 100%;
-  grid-auto-columns: calc((100vw - 49px) / 2);
+  grid-auto-columns: calc((100vw - 2 * var(--app-page-horizontal-gutter) - 31px) / 2);
   grid-auto-flow: column;
   gap: 10px;
   padding-right: 2px;

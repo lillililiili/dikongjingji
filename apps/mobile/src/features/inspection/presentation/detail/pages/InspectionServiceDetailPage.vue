@@ -196,10 +196,11 @@ function reserveService(): void {
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspDetail (390 wide). */
 .inspection-service-detail {
   min-height: 100vh;
-  color: #1a1c20;
-  background: #f7f8fa;
+  color: #202c42;
+  background: #f5f7fc;
   box-sizing: border-box;
 }
 
@@ -210,12 +211,12 @@ function reserveService(): void {
   min-height: 100vh;
   margin: 0 auto;
   padding:
-    calc(50px + var(--status-bar-height))
+    calc(60px + var(--status-bar-height))
     0
     calc(82px + env(safe-area-inset-bottom));
   flex-direction: column;
-  gap: 6px;
-  background: #f7f8fa;
+  gap: 10px;
+  background: #f5f7fc;
   box-sizing: border-box;
 }
 

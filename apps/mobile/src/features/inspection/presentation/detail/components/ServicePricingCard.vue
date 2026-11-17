@@ -33,26 +33,35 @@ const rows = computed(() => resolveServicePricingRows(props.detail))
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspDetail (390 wide). */
 .detail-section {
-  margin: 0 12px;
-  padding: 12px 14px;
-  border: 1px solid #f0f1f3;
-  border-radius: 18px;
-  background: #fff;
+  display: flex;
+  margin: 0 16px;
+  padding: 14px;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
   box-sizing: border-box;
-  box-shadow: 0 6px 20px rgba(30, 38, 48, 0.055);
 }
 
 .detail-section__title {
-  display: block;
-  color: #16191e;
-  font-size: 17px;
-  font-weight: 740;
+  color: #202c42;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.service-pricing {
+  padding-bottom: 4px;
+  gap: 4px;
 }
 
 .service-pricing__rows {
   display: flex;
-  margin-top: 4px;
   flex-direction: column;
 }
 
@@ -61,36 +70,25 @@ const rows = computed(() => resolveServicePricingRows(props.detail))
   padding: 10px 0;
   align-items: flex-start;
   gap: 12px;
+}
+
+.service-pricing__row + .service-pricing__row {
   border-top: 1px solid #f0f1f3;
 }
 
-.service-pricing__row:first-child {
-  border-top: 0;
-}
-
 .service-pricing__label {
-  flex-shrink: 0;
   width: 56px;
-  color: #666b73;
+  flex: 0 0 auto;
+  color: #627187;
   font-size: 13px;
   line-height: 19px;
-  white-space: nowrap;
 }
 
 .service-pricing__value {
   min-width: 0;
   flex: 1;
-  color: #191919;
+  color: #202c42;
   font-size: 13px;
   line-height: 19px;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 359px) {
-  .detail-section {
-    margin-right: 9px;
-    margin-left: 9px;
-    padding: 15px 12px;
-  }
 }
 </style>

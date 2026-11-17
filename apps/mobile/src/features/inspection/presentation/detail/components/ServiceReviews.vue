@@ -132,19 +132,21 @@ defineEmits<{
 
 <style scoped>
 .detail-section {
-  margin: 0 12px;
-  padding: 14px 16px;
-  border: 1px solid #f0f1f3;
-  border-radius: 18px;
-  background: #fff;
+  margin: 0 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
   box-sizing: border-box;
-  box-shadow: 0 6px 20px rgba(30, 38, 48, 0.055);
 }
 
 .detail-section__title {
-  color: #16191e;
-  font-size: 17px;
-  font-weight: 740;
+  color: #202c42;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
 }
 
 .service-reviews__heading {
@@ -337,11 +339,6 @@ defineEmits<{
 }
 
 @media (max-width: 359px) {
-  .detail-section {
-    margin-right: 9px;
-    margin-left: 9px;
-    padding: 15px 12px;
-  }
 
   .service-reviews__summary {
     gap: 6px;

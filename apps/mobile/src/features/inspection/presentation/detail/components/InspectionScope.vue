@@ -17,7 +17,7 @@ defineProps<{
         :key="item.code"
         class="inspection-scope__item"
       >
-        <UniIcons :type="item.icon" size="32" color="#ff6200" />
+        <UniIcons :type="item.icon" size="20" color="#e85400" />
         <view class="inspection-scope__copy">
           <text class="inspection-scope__name">{{ item.label }}</text>
           <text class="inspection-scope__description">
@@ -30,86 +30,66 @@ defineProps<{
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspDetail (390 wide). */
 .detail-section {
-  margin: 0 12px;
-  padding: 12px 14px;
-  border: 1px solid #f0f1f3;
-  border-radius: 18px;
-  background: #fff;
+  display: flex;
+  margin: 0 16px;
+  padding: 14px;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
   box-sizing: border-box;
-  box-shadow: 0 6px 20px rgba(30, 38, 48, 0.055);
 }
 
 .detail-section__title {
-  display: block;
-  color: #16191e;
-  font-size: 17px;
-  font-weight: 740;
+  color: #202c42;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
 }
 
 .inspection-scope__grid {
   display: grid;
-  margin-top: 6px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .inspection-scope__item {
-  display: grid;
-  min-width: 0;
-  min-height: 52px;
-  padding: 5px 7px;
-  grid-template-columns: 36px minmax(0, 1fr);
+  display: flex;
+  min-height: 48px;
+  padding: 6px 10px;
   align-items: center;
   gap: 8px;
-  border-right: 1px solid #edf0f2;
-  border-bottom: 1px solid #edf0f2;
+  border-radius: 10px;
+  background: #f5f7fc;
   box-sizing: border-box;
-}
-
-.inspection-scope__item:nth-child(2n) {
-  border-right: 0;
-}
-
-.inspection-scope__item:nth-last-child(-n + 2) {
-  border-bottom: 0;
 }
 
 .inspection-scope__copy {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
 }
 
 .inspection-scope__name {
-  color: #1f242b;
+  color: #202c42;
   font-size: 13px;
-  font-weight: 650;
-  line-height: 1.35;
+  font-weight: 500;
+  line-height: 18px;
 }
 
 .inspection-scope__description {
-  color: #8b94a2;
-  font-size: 9px;
-  line-height: 1.35;
+  color: #738096;
+  font-size: 11px;
+  line-height: 15px;
 }
 
-@media (max-width: 359px) {
-  .detail-section {
-    margin-right: 9px;
-    margin-left: 9px;
-    padding: 15px 12px;
-  }
-
-  .inspection-scope__item {
-    padding-right: 5px;
-    padding-left: 5px;
-    grid-template-columns: 34px minmax(0, 1fr);
-    gap: 4px;
-  }
-
-  .inspection-scope__name {
-    font-size: 12px;
-  }
+.inspection-scope__description:empty {
+  display: none;
 }
 </style>

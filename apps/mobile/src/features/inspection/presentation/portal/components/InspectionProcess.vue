@@ -19,10 +19,6 @@ const PROCESS_ICONS: Record<string, string> = {
   <view v-if="steps.length" class="inspection-process">
     <view class="inspection-process__heading">
       <text class="inspection-process__title">服务流程</text>
-      <view class="inspection-process__note">
-        <text>了解详情</text>
-        <UniIcons type="right" size="11" color="#7a828d" />
-      </view>
     </view>
     <view class="inspection-process__steps">
       <template v-for="(step, index) in steps" :key="step.code">
@@ -31,7 +27,7 @@ const PROCESS_ICONS: Record<string, string> = {
             <UniIcons
               :type="PROCESS_ICONS[step.code] ?? 'checkbox-filled'"
               size="20"
-              color="#2f80ed"
+              color="#1d63c4"
             />
           </view>
           <text class="inspection-process__label">{{ step.title }}</text>
@@ -40,8 +36,8 @@ const PROCESS_ICONS: Record<string, string> = {
           v-if="index < steps.length - 1"
           class="inspection-process__arrow"
           type="right"
-          size="16"
-          color="#6aa4f2"
+          size="12"
+          color="#91a0b4"
         />
       </template>
     </view>
@@ -49,38 +45,34 @@ const PROCESS_ICONS: Record<string, string> = {
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board HomeSvc (390 wide). */
 .inspection-process {
-  padding: 10px;
-  border: 1px solid #dbe8fb;
-  border-radius: clamp(11px, 2.8vw, 17px);
-  background: linear-gradient(135deg, #ffffff, #f2f7ff);
+  display: flex;
+  padding: 12px 14px;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
 }
 
 .inspection-process__heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
 
 .inspection-process__title {
-  color: #191919;
-  font-size: 17px;
-  font-weight: 750;
-}
-
-.inspection-process__note {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  color: #7a828d;
-  font-size: 11px;
+  color: #202c42;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
 }
 
 .inspection-process__steps {
   display: flex;
-  margin-top: 8px;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .inspection-process__step {
@@ -89,45 +81,28 @@ const PROCESS_ICONS: Record<string, string> = {
   flex: 1 1 0;
   flex-direction: column;
   align-items: center;
+  gap: 4px;
 }
 
 .inspection-process__icon {
   display: flex;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   align-items: center;
   justify-content: center;
-  border: 1px solid #c8dcfa;
   border-radius: 50%;
-  color: #2f80ed;
-  background: #ffffff;
-  font-size: 10px;
-  font-weight: 800;
-  box-shadow: 0 3px 8px rgba(47, 128, 237, 0.1);
+  background: #e6f0ff;
 }
 
 .inspection-process__label {
-  margin-top: 4px;
-  color: #3b4149;
-  font-size: 10px;
-  text-align: center;
+  color: #536178;
+  font-size: 12px;
+  line-height: 17px;
   white-space: nowrap;
 }
 
 .inspection-process__arrow {
+  margin-top: 8px;
   flex: 0 0 auto;
-}
-
-@media (max-width: 359px) {
-  .inspection-process {
-    padding-right: 7px;
-    padding-left: 7px;
-  }
-
-  .inspection-process__icon {
-    width: 30px;
-    height: 30px;
-  }
-
 }
 </style>

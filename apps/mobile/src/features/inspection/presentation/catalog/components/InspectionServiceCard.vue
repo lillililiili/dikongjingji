@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 
 import {
+  formatCatalogDistance,
   formatCatalogPrice,
-  formatCompletedCount,
   type InspectionCatalogService,
 } from '../model/inspection-catalog'
 
 const props = defineProps<{
   service: InspectionCatalogService
+  /** True while the list is sorted by distance; the card then gets one more line. */
+  showDistance?: boolean
 }>()
 
 defineEmits<{
@@ -19,10 +20,10 @@ defineEmits<{
 const displayPrice = computed(() =>
   formatCatalogPrice(props.service.price),
 )
-const completedCountLabel = computed(() =>
-  props.service.completedCount === undefined
-    ? ''
-    : formatCompletedCount(props.service.completedCount),
+const distanceLabel = computed(() =>
+  props.showDistance && props.service.distanceMeters !== undefined
+    ? formatCatalogDistance(props.service.distanceMeters)
+    : '',
 )
 </script>
 
@@ -41,7 +42,12 @@ const completedCountLabel = computed(() =>
         :style="{ objectPosition: service.imagePosition ?? '50% 50%' }"
         lazy-load
       />
-      <text class="inspection-card__category">
+      <text
+        :class="[
+          'inspection-card__category',
+          `inspection-card__category--${service.category.toLowerCase()}`,
+        ]"
+      >
         {{ service.categoryLabel }}
       </text>
       <text
@@ -53,61 +59,44 @@ const completedCountLabel = computed(() =>
     </view>
 
     <view class="inspection-card__body">
-      <view class="inspection-card__copy">
-        <text class="inspection-card__title">{{ service.title }}</text>
-        <text class="inspection-card__description">
-          {{ service.description }}
+      <text class="inspection-card__title">{{ service.title }}</text>
+      <text class="inspection-card__description">
+        {{ service.description }}
+      </text>
+      <view class="inspection-card__tags">
+        <text
+          v-for="tag in service.tags.slice(0, 3)"
+          :key="tag"
+          class="inspection-card__tag"
+        >
+          {{ tag }}
         </text>
-        <view class="inspection-card__tags">
-          <text
-            v-for="tag in service.tags.slice(0, 3)"
-            :key="tag"
-            class="inspection-card__tag"
-          >
-            {{ tag }}
-          </text>
-        </view>
       </view>
 
       <view class="inspection-card__footer">
         <view class="inspection-card__pricing">
-          <view class="inspection-card__commercial">
-            <view class="inspection-card__price">
-              <text class="inspection-card__price-value">
-                {{ displayPrice.amountLabel }}
-              </text>
-              <text
-                v-if="displayPrice.unitLabel"
-                class="inspection-card__price-unit"
-              >
-                /{{ displayPrice.unitLabel }}
-              </text>
-            </view>
-            <view
-              v-if="
-                service.rating !== undefined ||
-                service.completedCount !== undefined
-              "
-              class="inspection-card__stats"
+          <view class="inspection-card__price">
+            <text class="inspection-card__price-value">
+              {{ displayPrice.amountLabel }}
+            </text>
+            <text
+              v-if="displayPrice.unitLabel"
+              class="inspection-card__price-unit"
             >
-              <template v-if="service.rating !== undefined">
-                <UniIcons
-                  type="star-filled"
-                  size="11"
-                  color="#ffad00"
-                />
-                <text>{{ service.rating.toFixed(1) }}</text>
-              </template>
-              <text v-if="completedCountLabel">
-                {{ completedCountLabel }}
-              </text>
-            </view>
+              /{{ displayPrice.unitLabel }}起
+            </text>
           </view>
           <text
             v-if="service.priceNote"
             class="inspection-card__price-note"
           >
             {{ service.priceNote }}
+          </text>
+          <text
+            v-if="distanceLabel"
+            class="inspection-card__price-note inspection-card__distance"
+          >
+            {{ distanceLabel }}
           </text>
         </view>
         <button
@@ -122,194 +111,180 @@ const completedCountLabel = computed(() =>
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspCatalog (390 wide). */
 .inspection-card {
-  display: grid;
+  display: flex;
   overflow: hidden;
-  min-height: 88px;
-  grid-template-columns:
-    clamp(112px, 34vw, 142px)
-    minmax(0, 1fr);
-  border: 1px solid #eceef1;
-  border-radius: 12px;
+  border-radius: 14px;
+  color: #202c42;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(31, 35, 40, 0.045);
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
 }
 
 .inspection-card__media {
   position: relative;
-  overflow: hidden;
-  min-height: 88px;
-  background: #eef1f3;
+  display: flex;
+  width: 118px;
+  flex: 0 0 auto;
+  align-self: stretch;
+  background: #eef0f3;
 }
 
 .inspection-card__image {
-  display: block;
   width: 100%;
   height: 100%;
-}
-
-.inspection-card__category,
-.inspection-card__badge {
-  position: absolute;
-  z-index: 1;
-  top: 5px;
-  min-height: 20px;
-  padding: 0 7px;
-  border-radius: 0 10px 10px 0;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 20px;
-  box-sizing: border-box;
+  min-height: 118px;
 }
 
 .inspection-card__category {
+  position: absolute;
+  top: 0;
   left: 0;
-  background: #1fc277;
+  padding: 1px 8px;
+  border-radius: 0 0 8px 0;
+  color: #ffffff;
+  background: #11804a;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 17px;
+}
+
+.inspection-card__category--photovoltaic {
+  background: #6a4fe0;
+}
+
+.inspection-card__category--oil_gas,
+.inspection-card__category--periodic {
+  background: #1d63c4;
+}
+
+.inspection-card__category--thermal {
+  background: #ba470b;
 }
 
 .inspection-card__badge {
+  position: absolute;
   right: 0;
-  border-radius: 10px 0 0 10px;
-  background: #ff6a00;
+  bottom: 0;
+  padding: 1px 8px;
+  border-radius: 8px 0 0 0;
+  color: #ffffff;
+  background: rgba(32, 44, 66, 0.7);
+  font-size: 11px;
+  line-height: 17px;
 }
 
 .inspection-card__body {
   display: flex;
   min-width: 0;
-  min-height: 88px;
-  padding: 6px 7px 5px 8px;
+  padding: 10px;
+  flex: 1;
   flex-direction: column;
-  justify-content: space-between;
-  box-sizing: border-box;
-}
-
-.inspection-card__copy {
-  min-width: 0;
 }
 
 .inspection-card__title {
-  display: block;
   overflow: hidden;
-  color: #1d2025;
-  font-size: 14px;
-  font-weight: 750;
-  line-height: 1.32;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .inspection-card__description {
-  display: block;
+  margin-top: 2px;
   overflow: hidden;
-  margin-top: 1px;
-  color: #727881;
-  font-size: 9px;
-  line-height: 14px;
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .inspection-card__tags {
   display: flex;
+  height: 20px;
+  margin-top: 6px;
+  gap: 4px;
   overflow: hidden;
-  margin-top: 3px;
-  gap: 3px;
 }
 
 .inspection-card__tag {
-  overflow: hidden;
-  min-width: 0;
-  padding: 2px 4px;
-  border: 1px solid #cbeedc;
-  border-radius: 5px;
-  color: #27aa69;
-  background: #f4fcf8;
-  font-size: 8px;
-  line-height: 1;
-  text-overflow: ellipsis;
+  height: 20px;
+  padding: 0 5px;
+  flex: 0 0 auto;
+  border: 1px solid #159a70;
+  border-radius: 6px;
+  color: #11804a;
+  font-size: 11px;
+  line-height: 18px;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .inspection-card__footer {
-  display: grid;
-  min-width: 0;
-  margin-top: 3px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 5px;
-}
-
-.inspection-card__commercial {
   display: flex;
-  overflow: hidden;
-  min-width: 0;
+  margin-top: 6px;
   align-items: center;
-  gap: 7px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .inspection-card__pricing {
+  display: flex;
   min-width: 0;
+  flex-direction: column;
 }
 
-/* 价格说明独占价格下一行；没有说明时不渲染，卡片高度不变 */
+.inspection-card__price {
+  display: flex;
+  height: 20px;
+  align-items: baseline;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.inspection-card__price-value {
+  color: #e85400;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.inspection-card__price-unit {
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
 .inspection-card__price-note {
-  display: block;
   overflow: hidden;
-  margin-top: 2px;
-  color: #8e949c;
+  color: #738096;
   font-size: 12px;
   line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.inspection-card__price {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-}
-
-.inspection-card__price-value {
-  color: #ff5a00;
-  font-size: 16px;
-  font-weight: 750;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.inspection-card__price-unit {
-  overflow: hidden;
-  color: #898f97;
-  font-size: 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.inspection-card__stats {
-  display: flex;
-  overflow: hidden;
-  min-width: 0;
-  min-height: 12px;
-  margin-top: 1px;
-  align-items: center;
-  gap: 3px;
-  color: #8e949c;
-  font-size: 8px;
-  line-height: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.inspection-card__distance {
+  color: #627187;
 }
 
 .inspection-card__action {
   display: flex;
-  min-width: 52px;
-  height: 44px;
-  padding: 0;
+  height: 32px;
+  margin: 0;
+  padding: 0 14px;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: center;
   border: 0;
-  background: transparent;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #ff6a00;
+  box-shadow: 0 4px 10px rgba(243, 108, 23, 0.16);
+  line-height: 1.2;
 }
 
 .inspection-card__action::after {
@@ -317,35 +292,8 @@ const completedCountLabel = computed(() =>
 }
 
 .inspection-card__action-label {
-  min-width: 50px;
-  height: 30px;
-  padding: 0 10px;
-  border-radius: 16px;
-  color: #ffffff;
-  background: #ff5a00;
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 30px;
-  box-sizing: border-box;
-}
-
-@media (min-width: 410px) {
-  .inspection-card__body {
-    min-height: 96px;
-    padding: 7px 9px 6px 9px;
-  }
-
-  .inspection-card__title {
-    font-size: 15px;
-  }
-
-  .inspection-card__description {
-    font-size: 10px;
-  }
-
-  .inspection-card__tag {
-    padding: 2px 5px;
-    font-size: 9px;
-  }
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
 }
 </style>

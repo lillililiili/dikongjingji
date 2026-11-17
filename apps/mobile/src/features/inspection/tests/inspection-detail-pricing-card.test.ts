@@ -43,6 +43,6 @@ describe('M03 价格与取消 card (T05)', () => {
     expect(heroSource).not.toContain('service-detail-hero__note')
     expect(heroSource).toContain('`可服务城市 ${props.detail.serviceCityNames.join(\'、\')}`')
     expect(heroSource).toContain('class="service-detail-hero__certification"')
-    expect(heroSource).toContain('background: #e8f7ef')
+    expect(heroSource).toContain('background: #e2f6ed')
   })
 })

@@ -23,7 +23,6 @@ import type {
 import HotInspectionServices from '../components/HotInspectionServices.vue'
 import InspectionCategoryGrid from '../components/InspectionCategoryGrid.vue'
 import InspectionGuaranteeStrip from '../components/InspectionGuaranteeStrip.vue'
-import InspectionHero from '../components/InspectionHero.vue'
 import InspectionProcess from '../components/InspectionProcess.vue'
 
 const currentCityStore = useCurrentCityStore()
@@ -138,16 +137,26 @@ function showUnavailable(message: string): void {
         </view>
 
         <template v-else-if="content.hero">
-          <InspectionHero
-            :hero="content.hero"
-            :show-request-action="showRequestAction"
-            @request="showUnavailable('发布巡检需求将在下一阶段接入')"
-          />
+          <InspectionGuaranteeStrip :guarantees="content.guarantees" />
           <InspectionCategoryGrid
+            v-if="content.categories.length"
             :categories="content.categories"
             @select="selectCategory"
           />
-          <InspectionGuaranteeStrip :guarantees="content.guarantees" />
+          <!-- Publishing a request is not built yet, so the bar is only there in development. -->
+          <view v-if="showRequestAction" class="portal-request" data-testid="portal-request">
+            <view class="portal-request__copy">
+              <text class="portal-request__title">非标需求？发布巡检需求</text>
+              <text class="portal-request__note">说明场景和范围，由服务商给出方案</text>
+            </view>
+            <button
+              class="portal-request__action"
+              data-testid="portal-request-action"
+              @click="showUnavailable('发布巡检需求将在下一阶段接入')"
+            >
+              发布巡检需求
+            </button>
+          </view>
           <HotInspectionServices
             :services="content.hotServices"
             @select="selectHotService"
@@ -168,8 +177,9 @@ function showUnavailable(message: string): void {
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board HomeSvc (390 wide). */
 .inspection-portal {
-  background: #f7f8fa;
+  background: #f5f7fc;
   box-sizing: border-box;
 }
 
@@ -177,16 +187,68 @@ function showUnavailable(message: string): void {
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
-  background: #f7f8fa;
+  background: #f5f7fc;
 }
 
 .inspection-portal__content {
   display: flex;
-  padding: 0 0 clamp(12px, 3vw, 18px);
+  padding: 2px 0 16px;
   flex-direction: column;
-  gap: clamp(7px, 1.7vw, 10px);
-  background: #f7f8fa;
+  gap: 10px;
+  background: #f5f7fc;
   box-sizing: border-box;
+}
+
+.portal-request {
+  display: flex;
+  padding: 12px 12px 12px 14px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #fff0e3 0%, #fffaf5 100%);
+}
+
+.portal-request__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.portal-request__title {
+  color: #202c42;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 21px;
+}
+
+.portal-request__note {
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.portal-request__action {
+  display: flex;
+  height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #ff6a00;
+  box-shadow: 0 4px 10px rgba(243, 108, 23, 0.16);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.portal-request__action::after {
+  border: 0;
 }
 
 .portal-skeleton {

@@ -130,7 +130,10 @@ function mapDetail(dto: InspectionServiceDetailDto): InspectionServiceDetail {
     priceAmountMinor: dto.price.mode === 'PROJECT_QUOTE'
       ? null
       : dto.price.startingAmountMinor ?? null,
-    priceUnitLabel: dto.price.mode === 'PROJECT_QUOTE' ? '' : '起',
+    // "/公里起": the unit when the server has one, and always 起 for a listed price.
+    priceUnitLabel: dto.price.mode === 'PROJECT_QUOTE'
+      ? ''
+      : `${dto.price.unitLabel ? `/${dto.price.unitLabel}` : ''}起`,
     priceNote: dto.priceNote ?? '',
     // T03 迁移前的存量数据这三项都是 null，页面按“没有配置”隐藏
     priceFactors: (dto.priceFactors ?? []).filter((factor) => factor.trim() !== ''),

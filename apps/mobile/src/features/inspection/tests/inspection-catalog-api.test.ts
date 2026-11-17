@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { findCityByLocatedName } from '../../../shared/city/domain/city-directory'
 import {
   createInspectionCatalogApi,
+  type CatalogSearchInput,
   type InspectionCatalogHttpClient,
 } from '../data/catalog/inspection-catalog-api'
 import bookingHttpClientSource from '../data/service-flow/uni-booking-http-client.ts?raw'
@@ -113,6 +114,18 @@ const response = {
   }],
 }
 
+function search(overrides: Partial<CatalogSearchInput> = {}): CatalogSearchInput {
+  return {
+    cityCode: '370500',
+    query: { keyword: '', category: 'ALL', sort: 'COMPREHENSIVE' },
+    filters: { method: 'ALL', priceMode: 'ALL', includesReport: false },
+    position: null,
+    page: 1,
+    size: 5,
+    ...overrides,
+  }
+}
+
 describe('real inspection catalog adapter', () => {
   it('exports the public platform city API through the shared public request', () => {
     expect(bookingHttpClientSource).toContain(
@@ -125,12 +138,13 @@ describe('real inspection catalog adapter', () => {
 
   it('keeps production page code independent from development fixtures', () => {
     expect(portalPageSource).toContain('inspectionCatalogApi.loadPortal')
-    expect(catalogPageSource).toContain('inspectionCatalogApi.loadCatalog')
+    expect(catalogPageSource).toContain('inspectionCatalogApi.searchServices')
+    expect(catalogPageSource).toContain('inspectionCatalogApi.loadFilterOptions')
     expect(portalPageSource).not.toContain('data/fixtures')
-    expect(catalogPageSource).not.toContain('fixtures/power-inspection-catalog')
+    expect(catalogPageSource).not.toContain('fixtures/')
   })
 
-  it('maps the real catalog DTO to M02 with the verified completed count', async () => {
+  it('asks the server for one page with only the conditions the customer set', async () => {
     const calls: string[] = []
     const http: InspectionCatalogHttpClient = {
       request: async <T,>(input: { url: string; method: 'GET' }) => {
@@ -138,26 +152,96 @@ describe('real inspection catalog adapter', () => {
         return response as T
       },
     }
+    const api = createInspectionCatalogApi(http)
 
-    const content = await createInspectionCatalogApi(http).loadCatalog(
-      '370500',
-      'SALES_DESC',
-    )
+    await api.searchServices(search())
+    await api.searchServices(search({
+      query: { keyword: '线路 50%', category: 'POWER', sort: 'PRICE_DESC' },
+      filters: { method: 'UAV', priceMode: 'FIXED', includesReport: true },
+      page: 3,
+    }))
+    await api.searchServices(search({
+      filters: { method: 'ALL', priceMode: 'PROJECT_QUOTE', includesReport: false },
+    }))
 
     expect(calls).toEqual([
-      '/api/v1/inspection/services?cityCode=370500&categoryCode=POWER&sort=SALES_DESC&page=1&size=50',
+      '/api/v1/inspection/services?cityCode=370500&sort=COMPREHENSIVE&page=1&size=5',
+      '/api/v1/inspection/services?cityCode=370500&keyword=%E7%BA%BF%E8%B7%AF%2050%25'
+        + '&categoryCode=POWER&serviceMethods=UAV'
+        + '&priceModes=STARTING_PRICE&priceModes=PER_DISTANCE&priceModes=PER_VISIT'
+        + '&includesReport=true&sort=PRICE_DESC&page=3&size=5',
+      '/api/v1/inspection/services?cityCode=370500&priceModes=PROJECT_QUOTE'
+        + '&sort=COMPREHENSIVE&page=1&size=5',
     ])
+  })
+
+  it('sends the position with the distance sort and with nothing else', async () => {
+    const calls: string[] = []
+    const http: InspectionCatalogHttpClient = {
+      request: async <T,>(input: { url: string; method: 'GET' }) => {
+        calls.push(input.url)
+        return response as T
+      },
+    }
+    const api = createInspectionCatalogApi(http)
+    const position = { latitude: 37.4346, longitude: 118.6747 }
+
+    await api.searchServices(search({
+      query: { keyword: '', category: 'ALL', sort: 'DISTANCE_ASC' },
+      position,
+    }))
+    await api.searchServices(search({
+      query: { keyword: '', category: 'ALL', sort: 'PRICE_ASC' },
+      position,
+    }))
+
+    expect(calls[0]).toBe(
+      '/api/v1/inspection/services?cityCode=370500&sort=DISTANCE_ASC'
+        + '&latitude=37.4346&longitude=118.6747&page=1&size=5',
+    )
+    expect(calls[1]).not.toContain('latitude')
+    expect(calls[1]).not.toContain('longitude')
+  })
+
+  it('maps the real catalog DTO to M02 with the verified completed count', async () => {
+    const http: InspectionCatalogHttpClient = {
+      request: async <T,>() => ({ ...response, hasMore: true }) as T,
+    }
+
+    const content = await createInspectionCatalogApi(http).searchServices(search())
+
+    expect(content.hasMore).toBe(true)
+    expect(content.cityClosed).toBe(false)
     expect(content.services[0]).toMatchObject({
       id: '33333333-3333-3333-3333-333333333333',
-      category: 'TRANSMISSION',
+      category: 'POWER',
       title: '输电线路无人机巡检',
       tags: ['线路巡检', '巡检报告'],
-      includesReport: true,
       completedCount: 8560,
       price: { mode: 'STARTING_PRICE', amountFen: 69900 },
       priceNote: '含现场巡检和报告',
     })
     expect(content.services[0]).not.toHaveProperty('rating')
+    expect(content.services[0]).not.toHaveProperty('distanceMeters')
+  })
+
+  it('keeps the distance only when the server measured one', async () => {
+    const http: InspectionCatalogHttpClient = {
+      request: async <T,>() => ({
+        ...response,
+        items: [
+          { ...response.items[0], distanceMeters: 3812 },
+          { ...response.items[0], serviceId: 'b', distanceMeters: 0 },
+          { ...response.items[0], serviceId: 'c', distanceMeters: null },
+        ],
+      }) as T,
+    }
+
+    const content = await createInspectionCatalogApi(http).searchServices(search())
+
+    expect(content.services[0].distanceMeters).toBe(3812)
+    expect(content.services[1].distanceMeters).toBe(0)
+    expect(content.services[2]).not.toHaveProperty('distanceMeters')
   })
 
   it.each([null, undefined, ''])(
@@ -170,7 +254,7 @@ describe('real inspection catalog adapter', () => {
         }) as T,
       }
 
-      const content = await createInspectionCatalogApi(http).loadCatalog('370500')
+      const content = await createInspectionCatalogApi(http).searchServices(search())
 
       expect(content.services[0]).not.toHaveProperty('priceNote')
     },
@@ -188,7 +272,7 @@ describe('real inspection catalog adapter', () => {
       }) as T,
     }
 
-    const content = await createInspectionCatalogApi(http).loadCatalog('370500')
+    const content = await createInspectionCatalogApi(http).searchServices(search())
 
     expect(content.services[0]).toMatchObject({
       price: { mode: 'PROJECT_QUOTE' },
@@ -196,14 +280,8 @@ describe('real inspection catalog adapter', () => {
     })
   })
 
-  it('maps the five approved power subcategories', async () => {
-    const codes = [
-      'POWER',
-      'SUBSTATION',
-      'DISTRIBUTION',
-      'CABLE',
-      'PHOTOVOLTAIC',
-    ]
+  it('keeps every category the server returns, with its own code and an image', async () => {
+    const codes = ['POWER', 'SUBSTATION', 'OIL_GAS', 'THERMAL', 'SOMETHING_NEW']
     const http: InspectionCatalogHttpClient = {
       request: async <T,>() => ({
         ...response,
@@ -211,45 +289,147 @@ describe('real inspection catalog adapter', () => {
           ...response.items[0],
           serviceId: `33333333-3333-4333-8333-33333333333${index}`,
           category: { code, name: code },
+          coverImage: null,
         })),
       }) as T,
     }
 
-    const content = await createInspectionCatalogApi(http).loadCatalog(
-      '370500',
-      'COMPREHENSIVE',
-    )
+    const content = await createInspectionCatalogApi(http).searchServices(search())
 
-    expect(content.services.map(({ category }) => category)).toEqual([
-      'TRANSMISSION',
-      'SUBSTATION',
-      'DISTRIBUTION',
-      'CABLE',
-      'PHOTOVOLTAIC',
-    ])
+    expect(content.services.map((service) => service.category)).toEqual(codes)
+    expect(content.services.every((service) => service.imageUrl.length > 0)).toBe(true)
+    expect(content.services[2].imageUrl).toBe('/static/images/inspection/category-oil-gas.webp')
   })
 
-  it('derives M01 navigation cards from the same real services', async () => {
+  it('reports a city without inspection services as closed instead of failing', async () => {
+    const closed = Object.assign(new Error('not enabled'), {
+      status: 404,
+      code: 'INS_CATALOG_CITY_NOT_ENABLED',
+    })
+    const api = createInspectionCatalogApi({
+      request: async () => { throw closed },
+    })
+
+    await expect(api.searchServices(search())).resolves.toEqual({
+      services: [],
+      hasMore: false,
+      cityClosed: true,
+    })
+    const portal = await api.loadPortal('370700')
+    expect(portal.hero?.title).toBe('专业巡检')
+    expect(portal.categories).toEqual([])
+    expect(portal.hotServices).toEqual([])
+  })
+
+  it('passes other failures on so the page can offer a retry', async () => {
+    const failure = Object.assign(new Error('boom'), { status: 500, code: 'COMMON_INTERNAL_ERROR' })
+    const api = createInspectionCatalogApi({
+      request: async () => { throw failure },
+    })
+
+    await expect(api.searchServices(search())).rejects.toBe(failure)
+    await expect(api.loadPortal('370500')).rejects.toBe(failure)
+    await expect(api.loadFilterOptions('370500')).rejects.toBe(failure)
+  })
+
+  it('maps the filter options of a city', async () => {
+    const calls: string[] = []
     const http: InspectionCatalogHttpClient = {
-      request: async <T,>() => response as T,
+      request: async <T,>(input: { url: string; method: 'GET' }) => {
+        calls.push(input.url)
+        return {
+          categories: [
+            { code: 'POWER', name: '电力', sortOrder: 10 },
+            { code: 'PARK', name: '园区', sortOrder: 50 },
+          ],
+          serviceMethods: [{ code: 'UAV', name: '无人机' }],
+          availability: [],
+          priceModes: [{ code: 'PER_VISIT', name: '按次计价' }],
+          sorts: ['COMPREHENSIVE', 'DISTANCE_ASC', 'PRICE_ASC', 'PRICE_DESC'],
+          supportsReportFilter: true,
+        } as T
+      },
+    }
+
+    const options = await createInspectionCatalogApi(http).loadFilterOptions('370500')
+
+    expect(calls).toEqual(['/api/v1/inspection/filters?cityCode=370500'])
+    expect(options).toEqual({
+      categories: [
+        { code: 'POWER', label: '电力' },
+        { code: 'PARK', label: '园区' },
+      ],
+      serviceMethods: [{ code: 'UAV', label: '无人机' }],
+      priceModes: ['PER_VISIT'],
+      supportsDistanceSort: true,
+      supportsReportFilter: true,
+    })
+  })
+
+  it('builds M01 from the portal endpoint', async () => {
+    const calls: string[] = []
+    const http: InspectionCatalogHttpClient = {
+      request: async <T,>(input: { url: string; method: 'GET' }) => {
+        calls.push(input.url)
+        return {
+          hero: {
+            title: '专业巡检',
+            highlightedText: '隐患早发现',
+            subtitle: '无人机与智能设备',
+            sellingPoints: [],
+            image: null,
+          },
+          categories: [
+            { code: 'POWER', name: '电力', subtitle: '线路·杆塔·变电站' },
+            { code: 'THERMAL', name: '热力', subtitle: null },
+            { code: 'SOMETHING_NEW', name: '新分类', subtitle: null },
+          ],
+          guarantees: [],
+          hotServices: [
+            response.items[0],
+            { ...response.items[0], serviceId: 'sub', category: { code: 'SUBSTATION', name: '变电站' } },
+          ],
+          processSteps: [{ code: 'REQUEST', title: '提交需求', subtitle: null }],
+        } as T
+      },
     }
 
     const content = await createInspectionCatalogApi(http).loadPortal('370500')
 
-    expect(content.categories).toHaveLength(1)
-    expect(content.categories[0]).toMatchObject({
-      code: 'POWER',
-      name: '电力巡检',
+    expect(calls).toEqual(['/api/v1/inspection/portal?cityCode=370500'])
+    expect(content.hero).toEqual({
+      title: '专业巡检',
+      accent: '隐患早发现',
+      description: '无人机与智能设备',
+      highlights: [],
+      imageUrl: '/static/images/inspection/inspection-hero-v1.png',
     })
+    // A category the App has no picture for is left out instead of shown as a blank tile.
+    expect(content.categories).toEqual([
+      {
+        code: 'POWER',
+        name: '电力',
+        subtitle: '线路·杆塔·变电站',
+        imageUrl: '/static/images/inspection/category-power.webp',
+      },
+      {
+        code: 'THERMAL',
+        name: '热力',
+        subtitle: '',
+        imageUrl: '/static/images/inspection/category-thermal.webp',
+      },
+    ])
+    expect(content.hotServices.map((service) => service.categoryCode))
+      .toEqual(['POWER', 'SUBSTATION'])
     expect(content.hotServices[0]).toMatchObject({
       id: '33333333-3333-3333-3333-333333333333',
-      categoryCode: 'POWER',
       title: '输电线路无人机巡检',
+      priceLabel: '¥699/公里起',
     })
     expect(content.hotServices[0]).not.toHaveProperty('rating')
     expect(content.hotServices[0]).not.toHaveProperty('servedCountLabel')
     expect(content.guarantees).toEqual([])
-    expect(content.processSteps).toEqual([])
+    expect(content.processSteps).toEqual([{ code: 'REQUEST', title: '提交需求', icon: '' }])
   })
 })
 

@@ -93,7 +93,7 @@ describe('M01 hot service card', () => {
     })
   })
 
-  it('does not send a non-power service to the catalog, which would turn it away', () => {
+  it('opens the detail for a service of any category, not the catalog', () => {
     mountPortalPage().selectHotService(hotService('OIL_GAS'))
 
     expect(navigateTo.mock.calls[0][0].url).not.toContain('/catalog')

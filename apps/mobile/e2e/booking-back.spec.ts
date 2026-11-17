@@ -33,7 +33,9 @@ async function openBookingFromHome(page: Page): Promise<void> {
   await page.getByTestId('portal-category-power').click()
   await page.locator('[data-testid^="catalog-service-"]').first().click()
   await expect(page.getByTestId('inspection-detail')).toBeVisible()
-  await page.locator('.service-detail-bottom-bar__primary').click()
+  // The button stays disabled until the detail has loaded, and Playwright clicks a disabled
+  // uni-button without complaint; a click that lands too early does nothing.
+  await page.locator('.service-detail-bottom-bar__primary:not([disabled])').click()
   await expect(page.locator('.booking-row--time')).toBeVisible()
   await page.waitForLoadState('networkidle')
 }

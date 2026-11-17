@@ -146,15 +146,6 @@ function toggleItem(code: string): void {
     : [...selected, code]
 }
 
-function itemIcon(code: string): string {
-  return {
-    POWER_LINE: 'paperplane-filled',
-    TOWER: 'flag-filled',
-    INSULATOR_FITTINGS: 'settings-filled',
-    CORRIDOR_ENV: 'map-filled',
-  }[code] ?? 'navigate-filled'
-}
-
 function chooseInspectionLocation(): void {
   if (isChoosingLocation.value) {
     return
@@ -382,7 +373,7 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
 <template>
   <view class="inspection-booking">
     <view class="inspection-booking__header">
-      <button class="inspection-booking__back" aria-label="返回" @click="goBack"><UniIcons type="back" size="22" color="#25282d" /></button>
+      <button class="inspection-booking__back" aria-label="返回" @click="goBack"><UniIcons type="left" size="22" color="#202c42" /></button>
       <text class="inspection-booking__title">预约服务</text>
       <button class="inspection-booking__customer" aria-label="联系客服" @click="showCustomerService"><UniIcons type="headphones" size="20" color="#25282d" /><text>客服</text></button>
     </view>
@@ -398,19 +389,19 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
         <view class="booking-section">
           <text class="booking-section__title">预约信息</text>
           <view class="booking-row booking-row--selectable" @tap="chooseInspectionLocation">
-            <UniIcons type="location-filled" size="19" color="#ff6a00" />
+            <UniIcons type="location" size="18" color="#e85400" />
             <text class="booking-row__label">巡检地点</text>
             <text :class="['booking-row__location', { 'booking-row__location--empty': !draft.locationAddress }]">{{ draft.locationAddress || (isChoosingLocation ? '正在打开地图…' : '请选择巡检地点') }}</text>
-            <UniIcons type="right" size="15" color="#8e949c" />
+            <UniIcons type="right" size="14" color="#91a0b4" />
           </view>
           <view class="booking-row">
-            <UniIcons type="paperplane-filled" size="18" color="#ff6a00" />
+            <UniIcons type="paperplane" size="18" color="#e85400" />
             <text class="booking-row__label">线路长度</text>
             <input v-model="draft.lineLengthKm" class="booking-row__input" type="digit" placeholder="请输入预计公里数" />
             <text class="booking-row__suffix">公里</text>
           </view>
           <view class="booking-row booking-row--selectable booking-row--time" @tap="openTimePicker">
-            <UniIcons type="calendar" size="19" color="#ff6a00" />
+            <UniIcons type="calendar" size="18" color="#e85400" />
             <text class="booking-row__label">期望时间</text>
             <text
               :class="[
@@ -420,14 +411,13 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
             >
               {{ preferredServiceTimeText || '请选择服务时间' }}
             </text>
-            <UniIcons type="right" size="15" color="#8e949c" />
+            <UniIcons type="right" size="14" color="#91a0b4" />
           </view>
         </view>
         <view class="booking-section">
           <text class="booking-section__title">巡检项目（可多选）</text>
           <view class="booking-items">
             <button v-for="item in availableItems" :key="item.code" :class="['booking-item', { 'booking-item--selected': draft.inspectionItemCodes.includes(item.code) }]" @click="toggleItem(item.code)">
-              <UniIcons :type="itemIcon(item.code)" size="20" :color="draft.inspectionItemCodes.includes(item.code) ? '#ff6500' : '#18a84f'" />
               <text>{{ item.label }}</text>
               <UniIcons :type="draft.inspectionItemCodes.includes(item.code) ? 'checkbox-filled' : 'circle'" size="18" :color="draft.inspectionItemCodes.includes(item.code) ? '#ff6500' : '#c6cbd1'" />
             </button>
@@ -509,4 +499,32 @@ function showCustomerService(): void { uni.showToast({ title: '客服能力由�
 .inspection-booking__submit{height:48px;margin-top:2px;border-radius:16px;font-size:16px;line-height:48px}
 .booking-state__action{height:44px;margin-top:6px;padding:0 28px;border:0;border-radius:22px;color:#fff;background:#ff5a00;font-size:14px;line-height:44px}
 .booking-state__action::after{border:0}
+/* 2026-11-14 prototype (board InspBooking, 390 wide): the theme layer over the layout above. */
+.inspection-booking{color:#202c42;background:#f5f7fc}
+.inspection-booking__header{min-height:calc(60px + var(--status-bar-height));padding-right:16px;grid-template-columns:52px 1fr auto;background:linear-gradient(125deg,#fff9f3,#f3f7ff 65%,#edf9f4)}
+.inspection-booking__title{color:#202c42;font-size:18px;line-height:25px;text-align:left}
+.inspection-booking__customer{width:auto;height:32px;padding:0 12px 0 10px;gap:4px;border:1px solid #e5ebf3;border-radius:999px;color:#536178;background:#fff;font-size:13px;line-height:18px}
+.inspection-booking__scroll{height:calc(100vh - 150px - var(--status-bar-height) - env(safe-area-inset-bottom))}
+.inspection-booking__content{padding:12px 16px 160px;gap:10px}
+.inspection-booking :deep(.booking-service-card){grid-template-columns:88px minmax(0,1fr);min-height:0;padding:12px;border:0;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
+.inspection-booking :deep(.booking-service-card__image){width:88px;height:88px;border-radius:10px}
+.inspection-booking :deep(.booking-service-card__copy){padding:0 0 0 12px;justify-content:space-between}
+.booking-section{padding:14px;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
+.booking-section__title{margin-bottom:6px;color:#202c42;font-size:16px;line-height:22px}
+.booking-row,.booking-section--contact .booking-row{min-height:48px;grid-template-columns:26px auto minmax(0,1fr) auto;border-bottom-color:#f0f1f3;color:#202c42;font-size:14px}
+.booking-row__label{font-weight:400}
+.booking-row__input,.booking-section--contact .booking-row__input{height:44px;color:#202c42;font-size:14px;text-align:right}
+.booking-row__suffix{margin-left:8px;color:#627187;font-size:14px}
+.booking-row__date--empty,.booking-row__location--empty{color:#738096}
+.booking-items{margin-top:4px}
+.booking-item{min-height:52px;padding:0 8px 0 10px;grid-template-columns:minmax(0,1fr) 20px;gap:4px;border:1.5px solid #e5ebf3;border-radius:12px;color:#202c42;background:#fff;font-size:14px;line-height:20px;text-align:left}
+.booking-item--selected{border-color:#ff6a00;background:#fff8f2}
+.booking-attachment{border-radius:10px;background:#f5f7fc}
+.booking-attachment-add{border:1.5px dashed #c9d3e1;border-radius:12px;color:#202c42;background:#fff;font-size:14px}
+.booking-note{border-radius:10px;background:#f5f7fc;font-size:14px}
+.inspection-booking__footer{padding:0 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #e5ebf3;box-shadow:0 -4px 18px rgba(38,59,98,.06)}
+.inspection-booking__tip{margin:0 -16px;padding:7px 16px;color:#11804a;background:#eefaf3;font-size:12px;line-height:17px}
+.booking-agreement{height:36px;color:#536178;font-size:13px}
+.inspection-booking__submit{height:46px;margin-top:2px;border-radius:999px;color:#fff;background:#ff6a00;box-shadow:0 4px 10px rgba(243,108,23,.16);font-size:16px;font-weight:500;line-height:46px}
+.booking-state__action{border-radius:999px;background:#ff6a00}
 </style>

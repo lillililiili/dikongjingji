@@ -15,7 +15,7 @@ defineEmits<{
         aria-label="返回巡检服务列表"
         @click="$emit('back')"
       >
-        <UniIcons type="left" size="20" color="#17191d" />
+        <UniIcons type="left" size="22" color="#202c42" />
       </button>
       <text class="service-detail-header__title">服务详情</text>
       <button
@@ -23,34 +23,33 @@ defineEmits<{
         aria-label="分享服务详情"
         @click="$emit('share')"
       >
-        <UniIcons type="redo" size="20" color="#17191d" />
+        <UniIcons type="redo" size="20" color="#202c42" />
       </button>
     </view>
   </view>
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspDetail (390 wide). */
 .service-detail-header {
   position: fixed;
-  z-index: 40;
   top: 0;
   right: 0;
   left: 0;
+  z-index: 20;
   padding-top: var(--status-bar-height);
-  border-bottom: 1px solid rgba(235, 237, 240, 0.74);
-  background: rgba(255, 255, 255, 0.97);
-  box-sizing: border-box;
+  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
 }
 
 .service-detail-header__inner {
-  display: grid;
+  display: flex;
   width: 100%;
   max-width: 600px;
-  height: 50px;
+  height: 60px;
   margin: 0 auto;
-  padding: 0 10px;
-  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  padding: 8px;
   align-items: center;
+  gap: 4px;
   box-sizing: border-box;
 }
 
@@ -58,11 +57,12 @@ defineEmits<{
   display: flex;
   width: 44px;
   height: 44px;
+  margin: 0;
   padding: 0;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 50%;
   background: transparent;
 }
 
@@ -71,13 +71,11 @@ defineEmits<{
 }
 
 .service-detail-header__title {
-  overflow: hidden;
-  color: #17191d;
-  font-size: 17px;
+  min-width: 0;
+  flex: 1;
+  color: #202c42;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 25px;
 }
 </style>

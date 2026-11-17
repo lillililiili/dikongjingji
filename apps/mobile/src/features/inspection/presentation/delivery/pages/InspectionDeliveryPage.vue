@@ -424,7 +424,7 @@ function messageOf(error: unknown, fallback: string): string {
   min-height: 100vh;
   flex-direction: column;
   color: #191919;
-  background: #f7f8fa;
+  background: #f5f7fc;
 }
 
 .delivery__header {
@@ -435,7 +435,8 @@ function messageOf(error: unknown, fallback: string): string {
   padding: calc(8px + var(--status-bar-height)) 8px 8px;
   align-items: center;
   gap: 4px;
-  background: #fff;
+  /* The page-head gradient of the 2026-11-14 prototype's light theme. */
+  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
 }
 
 .delivery__back {

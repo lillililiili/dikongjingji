@@ -3,7 +3,6 @@ import { nextTick, ref, watch } from 'vue'
 import categoryGridSource from '../presentation/portal/components/InspectionCategoryGrid.vue?raw'
 import guaranteeSource from '../presentation/portal/components/InspectionGuaranteeStrip.vue?raw'
 import hotServicesSource from '../presentation/portal/components/HotInspectionServices.vue?raw'
-import inspectionHeroSource from '../presentation/portal/components/InspectionHero.vue?raw'
 import portalPageSource from '../presentation/portal/pages/InspectionPortalPage.vue?raw'
 import platformHomePageSource from '../presentation/platform/home/PlatformHomePage.vue?raw'
 import portalPreviewSource from '../data/preview/inspection-portal-preview?raw'
@@ -209,7 +208,8 @@ describe('inspection portal development content boundary', () => {
     )
 
     expect(preview.categories).toHaveLength(8)
-    expect(preview.guarantees).toHaveLength(4)
+    expect(preview.guarantees.map((item) => item.title))
+      .toEqual(['资质审核', '持证飞手', '报告可追溯'])
     expect(preview.hotServices).toHaveLength(4)
     expect(preview.processSteps).toHaveLength(4)
     expect(preview.hero?.highlights).toEqual([
@@ -260,27 +260,36 @@ describe('inspection portal development content boundary', () => {
   })
 })
 
-describe('inspection portal relaxed layout contract', () => {
-  it('uses the same generous icon and text scale as aerial service', () => {
-    expect(categoryGridSource).toContain('gap: 12px 9px')
-    expect(categoryGridSource).toContain('height: 73px')
-    expect(categoryGridSource).toContain('font-size: 14px')
-    expect(categoryGridSource).toContain('font-size: 10px')
-    expect(guaranteeSource).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))')
-    expect(guaranteeSource).toContain('width: 34px')
-    expect(guaranteeSource).not.toContain('text-overflow: ellipsis')
-    expect(hotServicesSource).toContain('height: 82px')
-    expect(hotServicesSource).toContain('font-size: 12px')
+describe('inspection portal layout from the 2026-11-14 prototype (HomeSvc)', () => {
+  it('opens with the guarantee line, then the scene grid; the hero banner is gone', () => {
+    const order = ['<InspectionGuaranteeStrip', '<InspectionCategoryGrid', 'portal-request', '<HotInspectionServices', '<InspectionProcess']
+      .map((marker) => portalPageSource.indexOf(marker))
+
+    expect(order.every((index) => index > 0)).toBe(true)
+    expect([...order].sort((left, right) => left - right)).toEqual(order)
+    expect(portalPageSource).not.toContain('InspectionHero')
+    expect(portalPageSource).not.toContain('PlatformHeroBanner')
+    // The home page keeps its own banner.
+    expect(platformHomePageSource).toContain('<PlatformHeroBanner')
   })
 
-  it('reuses the shared compact Banner without changing the portal skeleton', () => {
-    expect(inspectionHeroSource).toContain('<PlatformHeroBanner')
-    expect(inspectionHeroSource).toContain(':highlights="hero.highlights"')
-    expect(inspectionHeroSource).toContain("@action=\"$emit('request')\"")
-    expect(platformHomePageSource).toContain('<PlatformHeroBanner')
-    expect(portalPageSource).toMatch(
-      /\.portal-skeleton__hero\s*\{[\s\S]*?height:\s*248rpx;/,
-    )
+  it('shows the request bar only where the request action is offered', () => {
+    expect(portalPageSource).toContain('v-if="showRequestAction" class="portal-request"')
+    expect(portalPageSource).toContain('const showRequestAction = import.meta.env.DEV')
+  })
+
+  it('uses the board sizes for scenes, guarantees and hot services', () => {
+    expect(categoryGridSource).toContain('grid-template-columns: repeat(4, minmax(0, 1fr))')
+    expect(categoryGridSource).toContain('width: 44px')
+    expect(categoryGridSource).toContain('font-size: 13px')
+    expect(categoryGridSource).not.toContain('category-grid__subtitle')
+    expect(guaranteeSource).toContain('background: #eefaf3')
+    expect(guaranteeSource).toContain('font-size: 12px')
+    expect(hotServicesSource).toContain('width: 156px')
+    expect(hotServicesSource).toContain('height: 88px')
+    // Ratings and served counts are not shown: they would have to come from real data.
+    expect(hotServicesSource).not.toContain('service.rating')
+    expect(hotServicesSource).not.toContain('servedCountLabel')
   })
 })
 

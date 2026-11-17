@@ -331,7 +331,7 @@ function maskMobile(value: string): string {
 <template>
   <view class="booking-submitted">
     <view class="booking-submitted__header">
-      <button aria-label="返回" @click="returnOrders"><UniIcons type="back" size="24" color="#17191d" /></button>
+      <button aria-label="返回" @click="returnOrders"><UniIcons type="left" size="22" color="#202c42" /></button>
       <text>{{ headerTitle }}</text>
       <text class="booking-submitted__page-step">1/5</text>
     </view>
@@ -339,7 +339,7 @@ function maskMobile(value: string): string {
     <view v-else-if="loadError" class="booking-submitted__state"><UniIcons type="info-filled" size="40" color="#b5bac1" /><text>{{ loadError }}</text></view>
     <main v-else-if="reservation" class="booking-submitted__content">
       <view class="booking-submitted__success">
-        <view class="booking-submitted__success-icon"><UniIcons type="checkmarkempty" size="62" color="#18a947" /></view>
+        <view class="booking-submitted__success-icon"><UniIcons type="checkmarkempty" size="28" color="#1d63c4" /></view>
         <text class="booking-submitted__title">{{ isCancelled ? '订单已取消' : '需求已提交' }}</text>
         <text class="booking-submitted__copy">{{ isCancelled ? '本次服务已停止安排，订单记录将继续保留' : '等待服务商确认，方案确认前不收费' }}</text>
         <text v-if="!isCancelled" class="booking-submitted__note">进度可在“我的订单”查看</text>
@@ -426,4 +426,34 @@ function maskMobile(value: string): string {
 .booking-submitted__footer--single{grid-template-columns:1fr}
 .booking-submitted__footer button{width:100%;height:52px;margin:0;border-radius:16px;font-size:16px}
 .booking-submitted__footer .booking-submitted__contact{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #aeb3ba;color:#17191d;background:#fff}
+
+/* 2026-11-14 prototype (board InspBooked, 390 wide): the theme layer over the layout above.
+   The result is a compact card with the tick on the left, not a full-screen success mark. */
+.booking-submitted{color:#202c42;background:#f5f7fc}
+.booking-submitted__header{min-height:calc(60px + var(--status-bar-height));grid-template-columns:52px 1fr auto;padding-right:16px;background:linear-gradient(125deg,#fff9f3,#f3f7ff 65%,#edf9f4);font-size:18px;text-align:left}
+.booking-submitted__header button{width:52px;height:44px}
+.booking-submitted__page-step{padding:3px 10px;border-radius:999px;color:#536178;background:rgba(255,255,255,.75);font-size:12px}
+.booking-submitted__content{padding:12px 16px 110px}
+.booking-submitted__success{display:grid;padding:14px;grid-template-columns:56px minmax(0,1fr);column-gap:12px;align-items:start;border-radius:14px;background:#fff;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
+.booking-submitted__success-icon{display:flex;width:56px;height:56px;grid-row:1 / span 3;align-items:center;justify-content:center;border:0;border-radius:16px;background:#e4efff}
+.booking-submitted__title{margin-top:0;color:#202c42;font-size:18px;font-weight:700;line-height:25px;letter-spacing:0}
+.booking-submitted__copy{margin-top:2px;color:#536178;font-size:13px;line-height:18px;text-align:left}
+.booking-submitted__note{margin-top:2px;color:#738096;font-size:12px;line-height:17px;text-align:left}
+.booking-submitted__card{margin-top:10px;padding:14px;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px;font-size:14px}
+.booking-submitted__service{min-height:54px;padding-bottom:10px;grid-template-columns:72px minmax(0,1fr);gap:12px}
+.booking-submitted__service image{width:72px;height:54px;border-radius:10px}
+.booking-submitted__service>view text:first-child{font-size:15px;line-height:21px}
+.booking-submitted__service>view text:last-child{margin-top:2px;color:#627187;font-size:12px}
+.booking-submitted__number{min-height:44px;margin-top:0;padding:0 12px;border:0;border-radius:10px;background:#f5f7fc;font-size:14px}
+.booking-submitted__detail-row{min-height:44px;grid-template-columns:82px minmax(0,1fr);border-color:#f0f1f3;font-size:14px}
+.booking-submitted__detail-row>text:first-child{color:#627187}
+.booking-submitted__time{color:#738096;font-size:12px}
+.booking-submitted__next-steps{margin-top:10px;padding:14px;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
+.booking-submitted__timeline-title{margin-bottom:8px;font-size:16px;line-height:22px}
+.booking-submitted__timeline-row{min-height:48px;grid-template-columns:28px minmax(0,1fr);font-size:14px}
+.booking-submitted__timeline-row>view text:last-child{margin-top:2px;color:#738096;font-size:12px}
+.booking-submitted__cancel{margin-top:10px;border:1px solid #e5ebf3;border-radius:999px;color:#c2452f;font-size:15px;font-weight:500}
+.booking-submitted__footer{padding:10px 16px calc(10px + env(safe-area-inset-bottom));gap:12px;border-top:1px solid #e5ebf3;box-shadow:0 -4px 18px rgba(38,59,98,.06)}
+.booking-submitted__footer button{height:46px;border-radius:999px;color:#fff;background:#ff6a00;font-size:16px;font-weight:500}
+.booking-submitted__footer .booking-submitted__contact{gap:6px;border:1px solid #e5ebf3;color:#202c42;background:#fff}
 </style>

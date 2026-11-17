@@ -76,7 +76,7 @@ describe('M04 service lookup', () => {
       priceMode: 'STARTING_PRICE',
       priceAmountMinor: 69_900,
       priceUnitLabel: '公里',
-      priceLabel: '¥699/公里',
+      priceLabel: '¥699/公里起',
     })
   })
 

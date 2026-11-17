@@ -175,6 +175,7 @@ import type {
 import CitySelectionSheet from '@/shared/city/presentation/CitySelectionSheet.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
+import { locateCatalogPosition } from '../../../data/catalog/uni-catalog-position'
 import {
   inspectionCatalogApi,
   platformCityApi,
@@ -183,26 +184,27 @@ import type {
   ActionResult,
   InspectionHostActionPort,
 } from '../../../application/ports/inspection-host-action-port'
-import CatalogFilterSheet, {
-  type CatalogFilterValue,
-} from '../components/CatalogFilterSheet.vue'
+import CatalogFilterSheet from '../components/CatalogFilterSheet.vue'
 import CatalogHeader from '../components/CatalogHeader.vue'
 import CatalogToolbar from '../components/CatalogToolbar.vue'
 import InspectionServiceCard from '../components/InspectionServiceCard.vue'
 import {
+  CATALOG_PAGE_SIZE,
+  DEFAULT_CATALOG_FILTERS,
   DEFAULT_CATALOG_QUERY,
   EMPTY_CATALOG_CONTENT,
-  applyCatalogCategory,
+  EMPTY_CATALOG_FILTER_OPTIONS,
+  appendCatalogPage,
   applyCatalogSearch,
-  applyCatalogSort,
+  catalogCategoryChips,
   createOpenServiceDetailIntent,
-  normalizeCatalogEntry,
+  hasCatalogFilters,
   normalizeCatalogQuery,
-  selectCatalogServices,
-  type CatalogCategory,
+  type CatalogFilterOptions,
+  type CatalogFilterValue,
+  type CatalogPosition,
   type CatalogSort,
   type InspectionCatalogContent,
-  type InspectionCatalogService,
 } from '../model/inspection-catalog'
 
 interface CatalogRouteQuery {
@@ -212,6 +214,8 @@ interface CatalogRouteQuery {
   sort?: string
   openFilter?: string
 }
+
+const DISTANCE_FALLBACK_NOTE = '未开启定位，已按综合排序'
 
 const currentCityStore = useCurrentCityStore()
 const { currentCity } = storeToRefs(currentCityStore)
@@ -223,13 +227,16 @@ const content = ref<InspectionCatalogContent>(EMPTY_CATALOG_CONTENT)
 const query = ref({ ...DEFAULT_CATALOG_QUERY })
 const routeCityCode = ref('')
 const keywordInput = ref('')
-const filters = ref<CatalogFilterValue>({
-  method: 'ALL',
-  priceMode: 'ALL',
-  includesReport: false,
-})
+const filters = ref<CatalogFilterValue>({ ...DEFAULT_CATALOG_FILTERS })
+const filterOptions = ref<CatalogFilterOptions>(EMPTY_CATALOG_FILTER_OPTIONS)
+// The position is asked for once, when the customer first sorts by distance, and kept for
+// as long as the page lives. It is never stored and only sent with the distance sort.
+const position = ref<CatalogPosition | null>(null)
+const distanceNote = ref('')
 const isLoading = ref(true)
 const isRefreshing = ref(false)
+const isLoadingMore = ref(false)
+const loadMoreFailed = ref(false)
 const loadError = ref('')
 const filterSheetOpen = ref(false)
 const citySheetOpen = ref(false)
@@ -239,34 +246,17 @@ const cityDirectoryError = ref('')
 const recentCities = ref(loadRecentCities())
 const relocating = ref(false)
 
+// Every first-page load starts a new list. A next page that answers after that belongs to
+// the old conditions and is dropped.
+let listRevision = 0
+let nextPage = 2
+let filterOptionsCityCode = ''
+
 const displayCityName = computed(
   () => currentCity.value?.name ?? '选择城市',
 )
-
-const matchedServices = computed(() => {
-  const selected = selectCatalogServices(content.value.services, query.value)
-
-  return selected.filter((service) => {
-    const methodMatches =
-      filters.value.method === 'ALL' ||
-      service.serviceMethods?.includes(filters.value.method)
-    const priceMatches =
-      filters.value.priceMode === 'ALL' ||
-      (filters.value.priceMode === 'PROJECT_QUOTE'
-        ? service.price.mode === 'PROJECT_QUOTE'
-        : service.price.mode !== 'PROJECT_QUOTE')
-    const reportMatches =
-      !filters.value.includesReport || service.includesReport === true
-
-    return methodMatches && priceMatches && reportMatches
-  })
-})
-
-const visibleServices = computed(() =>
-  matchedServices.value.slice(0, query.value.page * query.value.size),
-)
-const hasMore = computed(
-  () => visibleServices.value.length < matchedServices.value.length,
+const categoryChips = computed(() =>
+  catalogCategoryChips(filterOptions.value.categories, query.value.category),
 )
 
 const hostActionGateway: Pick<
@@ -294,12 +284,23 @@ const hostActionGateway: Pick<
   },
 }
 
+function searchPage(cityCode: string, page: number): Promise<InspectionCatalogContent> {
+  return inspectionCatalogApi.searchServices({
+    cityCode,
+    query: query.value,
+    filters: filters.value,
+    position: position.value,
+    page,
+    size: CATALOG_PAGE_SIZE,
+  })
+}
+
 const runLatestCatalogLoad = createLatestCatalogLoader({
   getCityCode: resolveCatalogCityCode,
-  load: (cityCode) => inspectionCatalogApi.loadCatalog(
-    cityCode,
-    query.value.sort,
-  ),
+  load: (cityCode) => {
+    void loadFilterOptions(cityCode)
+    return searchPage(cityCode, 1)
+  },
   emptyContent: EMPTY_CATALOG_CONTENT,
   setContent: (loaded) => {
     content.value = loaded
@@ -326,12 +327,8 @@ const catalogCityController = createCatalogCityController({
   closeCitySheet: () => {
     citySheetOpen.value = false
   },
-  setPage: (page) => {
-    query.value = {
-      ...query.value,
-      page,
-    }
-  },
+  // The list always restarts from its first page; the controller keeps this hook for its callers.
+  setPage: () => undefined,
   reloadCatalog: loadCatalogContent,
   recordSearchSelection: (cityCode) =>
     platformCityApi.recordSearchSelection(cityCode),
@@ -349,21 +346,9 @@ const catalogCityController = createCatalogCityController({
 })
 
 onLoad((routeQuery: CatalogRouteQuery | undefined) => {
-  const entry = normalizeCatalogEntry(routeQuery?.categoryCode)
-
-  if (!entry.accepted) {
-    uni.showToast({
-      title: '该分类暂未开放电力巡检服务',
-      icon: 'none',
-      duration: 1000,
-    })
-    setTimeout(returnToPortal, 900)
-    return
-  }
-
   query.value = normalizeCatalogQuery({
     keyword: routeQuery?.keyword,
-    category: entry.category,
+    category: routeQuery?.categoryCode,
     sort: routeQuery?.sort,
   })
   keywordInput.value = query.value.keyword
@@ -388,8 +373,29 @@ async function resolveCatalogCityCode(): Promise<string | undefined> {
   return currentCity.value?.code
 }
 
+/** Loads the first page for the current city and conditions; whatever was listed is replaced. */
 async function loadCatalogContent(): Promise<void> {
+  listRevision += 1
+  nextPage = 2
+  isLoadingMore.value = false
+  loadMoreFailed.value = false
   await runLatestCatalogLoad()
+}
+
+// The categories and filters belong to the city. A failure leaves the list usable with
+// 全部 only, so it is not reported; the next load of the list tries again.
+async function loadFilterOptions(cityCode: string): Promise<void> {
+  if (filterOptionsCityCode === cityCode) return
+  filterOptionsCityCode = cityCode
+  try {
+    const options = await inspectionCatalogApi.loadFilterOptions(cityCode)
+    if (filterOptionsCityCode === cityCode) filterOptions.value = options
+  } catch {
+    if (filterOptionsCityCode === cityCode) {
+      filterOptionsCityCode = ''
+      filterOptions.value = EMPTY_CATALOG_FILTER_OPTIONS
+    }
+  }
 }
 
 async function refreshCatalog(): Promise<void> {
@@ -398,57 +404,116 @@ async function refreshCatalog(): Promise<void> {
   }
 
   isRefreshing.value = true
-  query.value = {
-    ...query.value,
-    page: 1,
-  }
   await loadCatalogContent()
 }
 
-function loadMore(): void {
-  if (isLoading.value || isRefreshing.value || !hasMore.value) {
+async function loadMore(): Promise<void> {
+  const cityCode = currentCity.value?.code
+  if (
+    !cityCode ||
+    isLoading.value ||
+    isRefreshing.value ||
+    isLoadingMore.value ||
+    !content.value.hasMore
+  ) {
     return
   }
 
-  query.value = {
-    ...query.value,
-    page: query.value.page + 1,
+  const revision = listRevision
+  isLoadingMore.value = true
+  loadMoreFailed.value = false
+  try {
+    const page = await searchPage(cityCode, nextPage)
+    if (revision !== listRevision) return
+    content.value = appendCatalogPage(content.value, page)
+    nextPage += 1
+  } catch {
+    if (revision === listRevision) loadMoreFailed.value = true
+  } finally {
+    if (revision === listRevision) isLoadingMore.value = false
   }
 }
 
-function searchCatalog(): void {
-  query.value = applyCatalogSearch(query.value, keywordInput.value)
+async function searchCatalog(keyword: string): Promise<void> {
+  query.value = applyCatalogSearch(query.value, keyword)
   keywordInput.value = query.value.keyword
-}
-
-function selectCategory(category: CatalogCategory): void {
-  query.value = applyCatalogCategory(query.value, category)
-}
-
-async function selectSort(sort: CatalogSort): Promise<void> {
-  query.value = applyCatalogSort(query.value, sort)
   await loadCatalogContent()
 }
 
-function applyFilters(value: CatalogFilterValue): void {
-  filters.value = value
-  query.value = {
-    ...query.value,
-    page: 1,
-  }
-  filterSheetOpen.value = false
+async function selectCategory(category: string): Promise<void> {
+  if (query.value.category === category) return
+  query.value = { ...query.value, category }
+  await loadCatalogContent()
 }
 
-function resetFilters(): void {
-  filters.value = {
-    method: 'ALL',
-    priceMode: 'ALL',
-    includesReport: false,
+async function selectSort(sort: CatalogSort): Promise<void> {
+  if (sort === 'DISTANCE_ASC') {
+    await sortByDistance()
+    return
   }
-  query.value = {
-    ...query.value,
-    page: 1,
+  distanceNote.value = ''
+  query.value = { ...query.value, sort }
+  await loadCatalogContent()
+}
+
+function confirmPositionUse(): Promise<boolean> {
+  return new Promise((resolve) => {
+    uni.showModal({
+      title: '允许使用你的位置？',
+      content: '用于按距离排序附近的巡检服务',
+      confirmText: '允许',
+      cancelText: '不允许',
+      success: (result) => resolve(result.confirm === true),
+      fail: () => resolve(false),
+    })
+  })
+}
+
+async function sortByDistance(): Promise<void> {
+  if (query.value.sort === 'DISTANCE_ASC') return
+
+  // Asked once; a refusal is asked again the next time the customer taps 距离最近.
+  if (!position.value && await confirmPositionUse()) {
+    try {
+      position.value = await locateCatalogPosition()
+    } catch {
+      position.value = null
+    }
   }
+
+  if (!position.value) {
+    // Without a position the list goes back to the comprehensive order, also from a price
+    // sort, so that the note says what the customer is looking at.
+    distanceNote.value = DISTANCE_FALLBACK_NOTE
+    if (query.value.sort !== 'COMPREHENSIVE') {
+      query.value = { ...query.value, sort: 'COMPREHENSIVE' }
+      await loadCatalogContent()
+    }
+    return
+  }
+
+  distanceNote.value = ''
+  query.value = { ...query.value, sort: 'DISTANCE_ASC' }
+  await loadCatalogContent()
+}
+
+async function applyFilters(value: CatalogFilterValue): Promise<void> {
+  filters.value = value
+  filterSheetOpen.value = false
+  await loadCatalogContent()
+}
+
+async function resetFilters(): Promise<void> {
+  filters.value = { ...DEFAULT_CATALOG_FILTERS }
+  await loadCatalogContent()
+}
+
+async function clearConditions(): Promise<void> {
+  keywordInput.value = ''
+  // The sort is not a condition: clearing keeps the order the customer chose.
+  query.value = { ...DEFAULT_CATALOG_QUERY, sort: query.value.sort }
+  filters.value = { ...DEFAULT_CATALOG_FILTERS }
+  await loadCatalogContent()
 }
 
 async function openServiceDetail(serviceId: string): Promise<void> {
@@ -535,13 +600,16 @@ function showCustomerService(): void {
         v-model:keyword="keywordInput"
         @back="returnToPortal"
         @customer-service="showCustomerService"
+        :filter-active="hasCatalogFilters(filters)"
         @search="searchCatalog"
         @filter="filterSheetOpen = true"
       />
       <CatalogToolbar
+        :categories="categoryChips"
         :category="query.category"
         :sort="query.sort"
         :city-name="displayCityName"
+        :distance-note="distanceNote"
         @category="selectCategory"
         @sort="selectSort"
         @city="openCitySheet"
@@ -560,7 +628,7 @@ function showCustomerService(): void {
           <view
             v-if="isLoading"
             class="catalog-skeleton"
-            aria-label="正在加载电力巡检服务"
+            aria-label="正在加载巡检服务"
           >
             <view
               v-for="index in 4"
@@ -603,8 +671,26 @@ function showCustomerService(): void {
           </view>
 
           <view
-            v-else-if="visibleServices.length === 0"
+            v-else-if="content.cityClosed"
             class="catalog-state"
+            data-testid="catalog-city-closed"
+          >
+            <UniIcons type="location" size="42" color="#b8bdc4" />
+            <text class="catalog-state__title">
+              {{ displayCityName }}暂未开通巡检服务
+            </text>
+            <text class="catalog-state__description">
+              可以切换到已开通的城市查看
+            </text>
+            <button class="catalog-state__action" @click="openCitySheet">
+              切换城市
+            </button>
+          </view>
+
+          <view
+            v-else-if="content.services.length === 0"
+            class="catalog-state"
+            data-testid="catalog-empty"
           >
             <UniIcons type="search" size="42" color="#b8bdc4" />
             <text class="catalog-state__title">
@@ -615,11 +701,8 @@ function showCustomerService(): void {
             </text>
             <button
               class="catalog-state__action"
-              @click="
-                keywordInput = '';
-                query = { ...DEFAULT_CATALOG_QUERY };
-                resetFilters()
-              "
+              data-testid="catalog-clear"
+              @click="clearConditions"
             >
               清空条件
             </button>
@@ -627,17 +710,38 @@ function showCustomerService(): void {
 
           <template v-else>
             <InspectionServiceCard
-              v-for="service in visibleServices"
+              v-for="service in content.services"
               :key="service.id"
               :service="service"
+              :show-distance="query.sort === 'DISTANCE_ASC'"
               @detail="openServiceDetail"
             />
-            <text
-              v-if="!hasMore"
-              class="inspection-catalog__end"
-            >
-              没有更多服务了
-            </text>
+            <view class="inspection-catalog__more" data-testid="catalog-list-more">
+              <text v-if="isLoadingMore" class="inspection-catalog__end">
+                正在加载…
+              </text>
+              <button
+                v-else-if="loadMoreFailed"
+                class="inspection-catalog__more-action"
+                data-testid="catalog-more-retry"
+                @click="loadMore"
+              >
+                加载失败，点此重试
+              </button>
+              <!-- Tappable on purpose: a first page shorter than the screen cannot be scrolled,
+                   so scrolling alone would never ask for the next one. -->
+              <button
+                v-else-if="content.hasMore"
+                class="inspection-catalog__more-action"
+                data-testid="catalog-more"
+                @click="loadMore"
+              >
+                上拉或点此加载更多
+              </button>
+              <text v-else class="inspection-catalog__end">
+                没有更多服务了
+              </text>
+            </view>
           </template>
         </main>
       </scroll-view>
@@ -646,6 +750,8 @@ function showCustomerService(): void {
     <CatalogFilterSheet
       v-if="filterSheetOpen"
       :model-value="filters"
+      :methods="filterOptions.serviceMethods"
+      :show-report="filterOptions.supportsReportFilter"
       @close="filterSheetOpen = false"
       @apply="applyFilters"
       @reset="resetFilters"
@@ -667,52 +773,56 @@ function showCustomerService(): void {
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspCatalog (390 wide). */
 .inspection-catalog {
-  min-height: 100vh;
-  color: #1e2126;
-  background: #f7f8fa;
+  height: 100vh;
+  color: #202c42;
+  background: #f5f7fc;
   box-sizing: border-box;
 }
 
+/* A column: header and toolbar take what they need, the list scrolls in the rest. A fixed
+   header height used to be subtracted here and left the page 47px taller than the screen. */
 .inspection-catalog__surface {
+  display: flex;
   width: 100%;
   max-width: 600px;
-  min-height: 100vh;
+  height: 100vh;
   margin: 0 auto;
-  background: #ffffff;
+  flex-direction: column;
+  background: #f5f7fc;
 }
 
 .inspection-catalog__scroll {
   width: 100%;
-  height: calc(100vh - var(--status-bar-height) - 121px);
-  background: #f7f8fa;
+  height: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  background: #f5f7fc;
 }
 
 .inspection-catalog__content {
   display: flex;
   min-height: 100%;
-  padding:
-    6px
-    clamp(8px, 2.4vw, 14px)
-    calc(18px + env(safe-area-inset-bottom));
+  padding: 10px 16px calc(16px + env(safe-area-inset-bottom));
   flex-direction: column;
-  gap: 6px;
-  background: #f7f8fa;
+  gap: 10px;
+  background: #f5f7fc;
   box-sizing: border-box;
 }
 
 .catalog-skeleton {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 
 .catalog-skeleton__card {
   display: grid;
   overflow: hidden;
-  min-height: 88px;
-  grid-template-columns: clamp(112px, 34vw, 142px) minmax(0, 1fr);
-  border-radius: 12px;
+  min-height: 118px;
+  grid-template-columns: 118px minmax(0, 1fr);
+  border-radius: 14px;
   background: #ffffff;
 }
 
@@ -786,6 +896,26 @@ function showCustomerService(): void {
 }
 
 .catalog-state__action::after {
+  border: 0;
+}
+
+.inspection-catalog__more {
+  display: flex;
+  justify-content: center;
+}
+
+.inspection-catalog__more-action {
+  min-height: 88rpx;
+  margin: 0;
+  padding: 0 32rpx;
+  border: 0;
+  background: transparent;
+  color: #777d85;
+  font-size: 24rpx;
+  line-height: 88rpx;
+}
+
+.inspection-catalog__more-action::after {
   border: 0;
 }
 

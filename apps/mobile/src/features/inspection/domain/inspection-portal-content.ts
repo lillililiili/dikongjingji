@@ -43,7 +43,8 @@ export interface InspectionPortalGuarantee {
 
 export interface InspectionPortalHotService {
   id: string
-  categoryCode: Exclude<InspectionCategoryCode, 'MORE'>
+  /** The service's own category code; a child such as SUBSTATION for a 电力 service. */
+  categoryCode: string
   title: string
   tag: string
   imageUrl?: string

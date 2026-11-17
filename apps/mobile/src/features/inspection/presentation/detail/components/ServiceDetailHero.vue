@@ -34,7 +34,6 @@ const priceLabel = computed(() => {
         :aria-label="`${detail.title}服务现场`"
       />
       <view class="service-detail-hero__category">
-        <UniIcons type="auth-filled" size="15" color="#fff" />
         <text>{{ detail.categoryLabel }}</text>
       </view>
     </view>
@@ -63,7 +62,7 @@ const priceLabel = computed(() => {
           v-if="detail.ratingAverage !== null"
           class="service-detail-hero__rating"
         >
-          <UniIcons type="star-filled" size="17" color="#ff8a00" />
+          <UniIcons type="star-filled" size="12" color="#ff8a00" />
           <text>{{ detail.ratingAverage.toFixed(1) }}分</text>
         </view>
         <text v-if="detail.reviewCount !== null">
@@ -83,7 +82,7 @@ const priceLabel = computed(() => {
           :key="capability.code"
           class="service-detail-hero__capability"
         >
-          <UniIcons type="checkbox-filled" size="16" color="#12af59" />
+          <UniIcons type="checkmarkempty" size="14" color="#11804a" />
           <text>{{ capability.label }}</text>
         </view>
       </view>
@@ -121,18 +120,24 @@ const priceLabel = computed(() => {
           </view>
         </view>
         <text class="service-detail-hero__provider-link">查看服务商</text>
-        <UniIcons type="right" size="17" color="#303744" />
+        <UniIcons type="right" size="12" color="#627187" />
       </view>
     </view>
   </view>
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspDetail (390 wide). */
+.service-detail-hero {
+  display: flex;
+  flex-direction: column;
+}
+
 .service-detail-hero__image-wrap {
   position: relative;
+  height: 200px;
   overflow: hidden;
-  height: clamp(208px, 56vw, 240px);
-  background: #eaf4fb;
+  background: #eef2f8;
 }
 
 .service-detail-hero__image {
@@ -142,205 +147,176 @@ const priceLabel = computed(() => {
 
 .service-detail-hero__category {
   position: absolute;
-  top: 18px;
-  left: 18px;
+  top: 12px;
+  left: 16px;
   display: flex;
-  height: 32px;
-  padding: 0 12px;
+  padding: 3px 10px;
   align-items: center;
-  gap: 5px;
-  border-radius: 8px;
-  color: #fff;
-  background: #08ac58;
-  box-shadow: 0 5px 14px rgba(4, 132, 66, 0.2);
-  box-sizing: border-box;
-  font-size: 14px;
-  font-weight: 650;
+  border-radius: 6px;
+  color: #ffffff;
+  background: #11804a;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
 }
 
+/* The card starts over the bottom edge of the picture. */
 .service-detail-hero__card {
   position: relative;
-  z-index: 2;
   display: flex;
-  margin: -28px 12px 0;
-  padding: 12px 16px 10px;
+  margin: -24px 16px 0;
+  padding: 14px 14px 4px;
   flex-direction: column;
-  border: 1px solid #f0f1f3;
-  border-radius: 20px;
-  background: #fff;
-  box-sizing: border-box;
-  box-shadow: 0 9px 26px rgba(32, 39, 48, 0.09);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
 }
 
 .service-detail-hero__title {
-  display: block;
-  color: #101216;
-  font-size: clamp(19px, 5vw, 22px);
-  font-weight: 760;
-  letter-spacing: 0.01em;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-  white-space: normal;
+  color: #202c42;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
 }
 
 .service-detail-hero__subtitle {
-  display: block;
-  margin-top: 4px;
-  color: #536176;
-  font-size: 12px;
-  line-height: 1.3;
+  margin-top: 2px;
+  color: #627187;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .service-detail-hero__price-row {
   display: flex;
-  min-height: 40px;
   margin-top: 8px;
-  align-items: flex-end;
+  align-items: baseline;
+  gap: 2px;
 }
 
 .service-detail-hero__price {
-  color: #ff5900;
-  font-size: 33px;
-  font-weight: 760;
-  letter-spacing: -0.035em;
-  line-height: 1;
+  color: #e85400;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 36px;
 }
 
 .service-detail-hero__price--quote {
-  font-size: 23px;
-  letter-spacing: 0;
+  font-size: 22px;
 }
 
 .service-detail-hero__unit {
-  margin: 0 0 3px 5px;
-  color: #ff5900;
+  color: #e85400;
   font-size: 14px;
+  line-height: 20px;
 }
 
 .service-detail-hero__metrics {
   display: flex;
-  min-width: 0;
-  margin-top: 7px;
-  align-items: center;
+  margin-top: 2px;
   flex-wrap: wrap;
-  color: #4f5d70;
+  align-items: center;
+  color: #627187;
   font-size: 12px;
-  row-gap: 3px;
+  line-height: 17px;
+}
+
+.service-detail-hero__metrics:empty {
+  display: none;
 }
 
 .service-detail-hero__rating {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 2px;
 }
 
 .service-detail-hero__capabilities {
-  display: grid;
+  display: flex;
   margin-top: 10px;
-  padding-bottom: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  border-bottom: 1px solid #eceff2;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
 }
 
 .service-detail-hero__capability {
   display: flex;
-  min-width: 0;
-  min-height: 32px;
-  padding: 0 8px;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  border: 1px solid #e6eaee;
-  border-radius: 9px;
-  color: #354054;
-  background: #fff;
-  box-sizing: border-box;
-  font-size: 11px;
-  white-space: nowrap;
+  gap: 4px;
+  color: #536178;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .service-detail-hero__provider {
-  display: grid;
-  min-height: 54px;
-  padding-top: 8px;
-  grid-template-columns: 40px minmax(0, 1fr) auto 18px;
+  display: flex;
+  min-height: 60px;
+  margin-top: 12px;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
+  border-top: 1px solid #f0f1f3;
 }
 
 .service-detail-hero__provider-logo {
-  width: 38px;
-  height: 38px;
-  border: 1px solid #eceff1;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
   border-radius: 50%;
-  background: #fff;
+  background: #fff0e3;
 }
 
 .service-detail-hero__provider-copy {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
+  align-items: flex-start;
   gap: 2px;
 }
 
 .service-detail-hero__provider-name {
+  max-width: 100%;
   overflow: hidden;
-  color: #20252c;
+  color: #202c42;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 500;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .service-detail-hero__provider-meta {
   display: flex;
-  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 6px;
 }
 
 .service-detail-hero__certification {
-  flex-shrink: 0;
   padding: 1px 6px;
+  flex: 0 0 auto;
   border-radius: 6px;
   color: #11804a;
-  background: #e8f7ef;
-  font-size: 11px;
-  font-weight: 500;
+  background: #e2f6ed;
+  font-size: 12px;
   line-height: 16px;
 }
 
 .service-detail-hero__cities {
+  min-width: 0;
   overflow: hidden;
-  color: #8a8f97;
-  font-size: 11px;
+  color: #738096;
+  font-size: 12px;
   line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .service-detail-hero__provider-link {
-  color: #2f3948;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-@media (max-width: 359px) {
-  .service-detail-hero__card {
-    margin-right: 9px;
-    margin-left: 9px;
-    padding-right: 14px;
-    padding-left: 14px;
-  }
-
-  .service-detail-hero__capabilities {
-    gap: 5px;
-  }
-
-  .service-detail-hero__capability {
-    padding: 0 4px;
-    font-size: 10px;
-  }
+  flex: 0 0 auto;
+  color: #627187;
+  font-size: 13px;
+  line-height: 18px;
 }
 </style>

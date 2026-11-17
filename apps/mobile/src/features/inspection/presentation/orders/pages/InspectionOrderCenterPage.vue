@@ -142,7 +142,7 @@ onBackPress((event) => {
   <view class="inspection-orders">
     <view class="inspection-orders__header">
       <button aria-label="返回我的" @click="returnMine">
-        <UniIcons type="back" size="24" color="#17191d" />
+        <UniIcons type="left" size="22" color="#202c42" />
       </button>
       <text>我的订单</text>
       <view aria-hidden="true" />
@@ -200,4 +200,22 @@ onBackPress((event) => {
 .inspection-orders__state{display:flex;min-height:420px;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;color:#68717d;text-align:center}
 .inspection-orders__state button{min-height:44px;padding:0 18px;border:0;border-radius:22px;color:#fff;background:#ff6508;font-size:14px}
 .inspection-orders__more{padding:8px 0 12px;color:#7d8590;font-size:14px;text-align:center}
+/* 2026-11-14 prototype (board OrderList, 390 wide): the theme layer over the layout above.
+   The board lists every kind of order; this page lists inspection orders only, so it keeps
+   its own stage filters and takes the board's header, pills and card look. */
+.inspection-orders{color:#202c42;background:#f5f7fc}
+.inspection-orders__header{height:calc(var(--status-bar-height) + 60px);padding:0 8px 8px;background:linear-gradient(125deg,#fff9f3,#f3f7ff 65%,#edf9f4)}
+.inspection-orders__header>text{font-size:18px;line-height:44px}
+.inspection-orders__filters{display:flex;padding:0 16px 6px;gap:8px;overflow-x:auto;background:linear-gradient(125deg,#fff9f3,#f3f7ff 65%,#edf9f4);scrollbar-width:none}
+.inspection-orders__filters::-webkit-scrollbar{display:none}
+/* A 32-high pill inside a 44-high tap target. */
+.inspection-orders__filters button{position:relative;width:auto;min-height:44px;padding:0 12px;flex:0 0 auto;border-radius:0;color:#536178;background:transparent;font-size:13px;z-index:0}
+.inspection-orders__filters button::before{position:absolute;top:6px;right:0;bottom:6px;left:0;border-radius:999px;background:#eef2f8;content:'';z-index:-1}
+.inspection-orders__filter-count{margin-left:3px;font-size:11px}
+.inspection-orders__filter--active{background:transparent!important;font-weight:500}
+.inspection-orders__filter--active::before{background:#ff6a00!important}
+.inspection-orders__list{gap:10px;padding:12px 16px calc(24px + env(safe-area-inset-bottom))}
+.inspection-orders__state{color:#627187}
+.inspection-orders__state button{border-radius:999px;background:#ff6a00}
+.inspection-orders__more{color:#738096;font-size:12px}
 </style>

@@ -22,12 +22,14 @@ defineProps<{ service: BookingServiceSnapshot }>()
 </template>
 
 <style scoped>
-.booking-service-card { display: grid; grid-template-columns: 108px minmax(0, 1fr); min-height: 106px; padding: 9px; overflow: hidden; border: 1px solid #eceef1; border-radius: 12px; background: #fff; box-sizing: border-box; }
-.booking-service-card__image { width: 108px; height: 106px; border-radius: 8px; background: #edf0f2; }
-.booking-service-card__copy { display: flex; min-width: 0; padding: 2px 0 1px 11px; flex-direction: column; justify-content: center; }
-.booking-service-card__category { align-self: flex-start; padding: 2px 7px; border-radius: 9px; color: #fff; background: #14ae57; font-size: 10px; line-height: 15px; }
-.booking-service-card__title { overflow: hidden; margin-top: 4px; color: #20242a; font-size: 16px; font-weight: 700; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
-.booking-service-card__summary { overflow:hidden; margin-top: 3px; color:#6f767f; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
-.booking-service-card__price { margin-top: 3px; color:#ff5a00; font-size:17px; font-weight:700; line-height: 1.2; }
-.booking-service-card__notice { margin-top: 2px; color: #9399a1; font-size: 10px; }
+/* Sizes and colours follow the 2026-11-14 prototype board InspBooking (390 wide). */
+.booking-service-card { display: grid; grid-template-columns: 88px minmax(0, 1fr); padding: 12px; overflow: hidden; border-radius: 14px; background: #fff; box-sizing: border-box; }
+.booking-service-card__image { width: 88px; height: 88px; border-radius: 10px; background: #eef0f3; }
+.booking-service-card__copy { display: flex; min-width: 0; padding-left: 12px; flex-direction: column; justify-content: space-between; }
+.booking-service-card__category { align-self: flex-start; padding: 1px 6px; border-radius: 6px; color: #11804a; background: #e2f6ed; font-size: 12px; line-height: 16px; }
+.booking-service-card__title { overflow: hidden; color: #202c42; font-size: 16px; font-weight: 700; line-height: 22px; text-overflow: ellipsis; white-space: nowrap; }
+/* The board shows category, title, price and the notice; the summary is on the detail page. */
+.booking-service-card__summary { display: none; }
+.booking-service-card__price { color: #e85400; font-size: 15px; font-weight: 700; line-height: 21px; }
+.booking-service-card__notice { color: #738096; font-size: 12px; line-height: 17px; }
 </style>

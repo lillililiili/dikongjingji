@@ -19,7 +19,7 @@ defineEmits<{
         aria-label="联系客服"
         @click="$emit('customerService')"
       >
-        <UniIcons type="headphones" size="21" color="#262a30" />
+        <UniIcons type="headphones" size="20" color="#536178" />
         <text>客服</text>
       </button>
       <button
@@ -34,63 +34,35 @@ defineEmits<{
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspDetail (390 wide). */
 .service-detail-bottom-bar {
   position: fixed;
-  z-index: 50;
   right: 0;
   bottom: 0;
   left: 0;
-  padding-bottom: env(safe-area-inset-bottom);
-  border-top: 1px solid #eceef1;
-  background: rgba(255, 255, 255, 0.98);
-  box-sizing: border-box;
-  box-shadow: 0 -5px 18px rgba(26, 32, 40, 0.07);
+  z-index: 20;
+  border-top: 1px solid #e5ebf3;
+  background: #ffffff;
+  box-shadow: 0 -4px 18px rgba(38, 59, 98, 0.06);
 }
 
 .service-detail-bottom-bar__inner {
-  display: grid;
+  display: flex;
   width: 100%;
   max-width: 600px;
-  min-height: 66px;
   margin: 0 auto;
-  padding: 8px 12px;
-  grid-template-columns: 56px minmax(0, 1fr);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   box-sizing: border-box;
 }
 
-.service-detail-bottom-bar__secondary {
-  display: flex;
-  min-width: 0;
-  height: 44px;
-  margin: 0;
-  padding: 1px 0 0;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 3px;
-  border: 0;
-  color: #383d45;
-  background: transparent;
-  font-size: 11px;
-  line-height: 1;
-}
-
+.service-detail-bottom-bar__secondary,
 .service-detail-bottom-bar__primary {
-  width: 100%;
-  min-height: 48px;
   margin: 0;
-  padding: 0 20px;
+  padding: 0;
   border: 0;
-  border-radius: 999px;
-  color: #ffffff;
-  background: linear-gradient(90deg, #ff8a00 0%, #ff4d00 100%);
-  box-sizing: border-box;
-  box-shadow: 0 5px 13px rgba(255, 91, 0, 0.24);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 48px;
+  line-height: 1.2;
 }
 
 .service-detail-bottom-bar__secondary::after,
@@ -98,7 +70,39 @@ defineEmits<{
   border: 0;
 }
 
+.service-detail-bottom-bar__secondary {
+  display: flex;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #536178;
+  background: transparent;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.service-detail-bottom-bar__primary {
+  display: flex;
+  min-width: 0;
+  height: 46px;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #ff6a00;
+  box-shadow: 0 4px 10px rgba(243, 108, 23, 0.16);
+  font-size: 16px;
+  font-weight: 500;
+}
+
 .service-detail-bottom-bar__primary[disabled] {
-  opacity: 0.55;
+  color: #91a0b4;
+  background: #eef0f3;
+  box-shadow: none;
 }
 </style>

@@ -58,7 +58,7 @@ describe('platform mall page', () => {
     expect(mallFixtureSource).not.toContain("image('home-hero.png')")
     expect(mallPageSource).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))')
     expect(mallPageSource).toContain('grid-auto-flow: column')
-    expect(mallPageSource).toContain('grid-auto-columns: calc((100vw - 49px) / 2)')
+    expect(mallPageSource).toContain('grid-auto-columns: calc((100vw - 2 * var(--app-page-horizontal-gutter) - 31px) / 2)')
     expect(mallPageSource).not.toContain('font-size: 7px')
     expect(mallPageSource).not.toContain('font-size: 8px')
   })

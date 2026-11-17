@@ -17,7 +17,7 @@ defineProps<{
         :key="item.code"
         class="service-guarantees__item"
       >
-        <UniIcons :type="item.icon" size="25" color="#ff6200" />
+        <UniIcons :type="item.icon" size="16" color="#11804a" />
         <text>{{ item.label }}</text>
       </view>
     </view>
@@ -25,57 +25,39 @@ defineProps<{
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspDetail (390 wide). */
 .service-guarantees {
-  margin: 0 12px;
-  padding: 12px 14px;
-  border: 1px solid #f0f1f3;
-  border-radius: 18px;
-  background: #fff;
-  box-sizing: border-box;
-  box-shadow: 0 6px 20px rgba(30, 38, 48, 0.055);
+  display: flex;
+  margin: 0 16px;
+  padding: 14px;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
 }
 
 .service-guarantees__title {
-  display: block;
-  color: #16191e;
-  font-size: 17px;
-  font-weight: 740;
+  color: #202c42;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
 }
 
 .service-guarantees__row {
-  display: grid;
-  margin-top: 7px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
 }
 
 .service-guarantees__item {
   display: flex;
-  min-width: 0;
-  min-height: 34px;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-right: 1px solid #eceff2;
-  color: #354052;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.service-guarantees__item:last-child {
-  border-right: 0;
-}
-
-@media (max-width: 359px) {
-  .service-guarantees {
-    margin-right: 9px;
-    margin-left: 9px;
-    padding-right: 10px;
-    padding-left: 10px;
-  }
-
-  .service-guarantees__item {
-    gap: 5px;
-    font-size: 10px;
-  }
+  gap: 4px;
+  color: #536178;
+  font-size: 13px;
+  line-height: 18px;
 }
 </style>

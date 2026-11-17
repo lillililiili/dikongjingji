@@ -130,9 +130,17 @@ function mountCatalogPage(api: {
     if (request === '@/shared/city/data/uni-city-location') {
       return { locateCurrentCityName: vi.fn() }
     }
+    if (request === '../../../data/catalog/uni-catalog-position') {
+      return { locateCatalogPosition: vi.fn() }
+    }
     if (request === '../../../data/service-flow/uni-booking-http-client') {
       return {
-        inspectionCatalogApi: { loadCatalog: api.loadCatalog },
+        inspectionCatalogApi: {
+          // The tests only care which city and sort the first page is asked for.
+          searchServices: (input: { cityCode: string; query: { sort: string } }) =>
+            api.loadCatalog(input.cityCode, input.query.sort),
+          loadFilterOptions: async () => catalogModel.EMPTY_CATALOG_FILTER_OPTIONS,
+        },
         platformCityApi: {
           load: api.loadDirectory,
           recordSearchSelection: vi.fn(async () => undefined),

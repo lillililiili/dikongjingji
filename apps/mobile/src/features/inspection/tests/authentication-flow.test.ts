@@ -351,16 +351,23 @@ describe('inspection authentication session', () => {
         }) => void
       } & Record<string, unknown>) => {
         requests.push(options)
-        options.success({ statusCode: 200, data: { items: [] }, header: {} })
+        options.success({ statusCode: 200, data: { items: [], hasMore: false }, header: {} })
       },
     })
 
     await expect(
-      bookingHttp.inspectionCatalogApi.loadCatalog('370500'),
-    ).resolves.toEqual({ services: [] })
+      bookingHttp.inspectionCatalogApi.searchServices({
+        cityCode: '370500',
+        query: { keyword: '', category: 'POWER', sort: 'COMPREHENSIVE' },
+        filters: { method: 'ALL', priceMode: 'ALL', includesReport: false },
+        position: null,
+        page: 1,
+        size: 5,
+      }),
+    ).resolves.toEqual({ services: [], hasMore: false, cityClosed: false })
     expect(requests).toHaveLength(1)
     expect(requests[0]).toMatchObject({
-      url: 'http://127.0.0.1:8080/api/v1/inspection/services?cityCode=370500&categoryCode=POWER&sort=COMPREHENSIVE&page=1&size=50',
+      url: 'http://127.0.0.1:8080/api/v1/inspection/services?cityCode=370500&categoryCode=POWER&sort=COMPREHENSIVE&page=1&size=5',
       method: 'GET',
     })
     expect(redirects).toEqual([])

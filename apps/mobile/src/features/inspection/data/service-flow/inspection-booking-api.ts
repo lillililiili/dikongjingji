@@ -162,7 +162,8 @@ export function createInspectionBookingApi(
         priceUnitLabel: service.price.unitLabel ?? null,
         priceLabel: service.price.mode === 'PROJECT_QUOTE' || service.price.startingAmountMinor == null
           ? '按项目报价'
-          : `¥${Math.round(service.price.startingAmountMinor / 100)}${service.price.unitLabel ? `/${service.price.unitLabel}` : ''}`,
+          // A listed price is a starting price: "¥699/公里起", as on the catalog card and the detail.
+          : `¥${Math.round(service.price.startingAmountMinor / 100)}${service.price.unitLabel ? `/${service.price.unitLabel}` : ''}起`,
       }
     },
     async loadAvailableTimeSlots(serviceId, cityCode, startDate, days) {

@@ -19,7 +19,8 @@ page {
   --app-hero-action-radius: 999px;
   --app-hero-action-font-size: 21rpx;
   --app-hero-action-gap: 10rpx;
-  --app-page-horizontal-gutter: 9px;
+  /* 16px, as on every board of the 2026-11-14 prototype. */
+  --app-page-horizontal-gutter: 16px;
   --app-root-tabbar-content-offset: calc(76px + env(safe-area-inset-bottom));
   --app-action-orange-start: #d04700;
   --app-action-orange-end: #c53f00;

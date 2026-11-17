@@ -8,15 +8,18 @@ const visualOutput = resolve(
   '../../../.planning/nav-plan-c/visual',
 )
 const SERVICES_PATH = '/api/v1/inspection/services'
+// The home page and M01 read the entry configuration; the list endpoint is M02's.
+const PORTAL_PATH = '/api/v1/inspection/portal'
 
-function servicesResponse(
+function responseTo(
+  pathname: string,
   params: Record<string, string>,
 ): (response: Response) => boolean {
   return (response) => {
     const url = new URL(response.url())
 
     return (
-      url.pathname === SERVICES_PATH &&
+      url.pathname === pathname &&
       Object.entries(params).every(
         ([key, value]) => url.searchParams.get(key) === value,
       )
@@ -24,11 +27,20 @@ function servicesResponse(
   }
 }
 
+const servicesResponse = (params: Record<string, string>) =>
+  responseTo(SERVICES_PATH, params)
+const portalResponse = (params: Record<string, string>) =>
+  responseTo(PORTAL_PATH, params)
+
 async function openHome(page: Page): Promise<void> {
   await page.goto('/#/pages/home/index')
   await expect(page.getByTestId('home-page')).toBeVisible()
   await expect(page.getByTestId('home-city')).toContainText('东营')
 }
+
+// The inspection entry page is about one screen long since it follows the prototype. The
+// scroll-position cases need a page that scrolls well past 300px, so they use a short screen.
+const SHORT_SCREEN = { width: 390, height: 480 }
 
 async function enterServiceChannel(page: Page): Promise<void> {
   await openHome(page)
@@ -114,6 +126,7 @@ test.describe('底栏', () => {
   })
 
   test('NAV-003 在首页再点“首页”滚回顶部', async ({ page }) => {
+    await page.setViewportSize(SHORT_SCREEN)
     await enterServiceChannel(page)
     await page.evaluate(() => window.scrollTo(0, 200))
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(200)
@@ -221,7 +234,7 @@ test.describe('首页频道', () => {
     await expect(page.locator('.city-sheet')).toBeVisible()
 
     const reloaded = page.waitForResponse(
-      servicesResponse({ cityCode: '370100' }),
+      portalResponse({ cityCode: '370100' }),
     )
     await page.locator('.city-sheet__city', { hasText: '济南市' }).first().click()
     await reloaded
@@ -242,7 +255,7 @@ test.describe('巡检入口', () => {
     await openHome(page)
 
     const portalLoaded = page.waitForResponse(
-      servicesResponse({ cityCode: '370500' }),
+      portalResponse({ cityCode: '370500' }),
     )
     await page.getByTestId('home-channel-service').click()
     expect((await portalLoaded).status()).toBe(200)
@@ -259,6 +272,7 @@ test.describe('巡检入口', () => {
     expect((await catalogLoaded).status()).toBe(200)
 
     await expect(page.getByTestId('inspection-catalog')).toBeVisible()
+    await expect(page.getByTestId('catalog-category-power')).toHaveAttribute('aria-pressed', 'true')
     await expect(
       page.locator('[data-testid^="catalog-service-"]').first(),
     ).toBeVisible()
@@ -304,6 +318,7 @@ test.describe('巡检入口', () => {
   })
 
   test('NAV-011 从目录返回后保留频道内滚动位置', async ({ page }) => {
+    await page.setViewportSize(SHORT_SCREEN)
     await enterServiceChannel(page)
     await expect(page.getByTestId('portal-view-all')).toBeVisible()
     await page.evaluate(() => window.scrollTo(0, 300))
@@ -318,13 +333,14 @@ test.describe('巡检入口', () => {
   })
 
   test('NAV-012 切频道不串滚动位置', async ({ page }) => {
+    await page.setViewportSize(SHORT_SCREEN)
     await enterServiceChannel(page)
     await page.evaluate(() => window.scrollTo(0, 300))
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300)
 
-    // 体验 is still a placeholder channel, which is what this case needs: a short page to switch to.
-    await page.getByTestId('home-channel-experience').click()
-    await expect(page.getByTestId('home-channel-placeholder')).toBeVisible()
+    // Every channel has content now; a channel opened for the first time starts at the top.
+    await page.getByTestId('home-channel-mall').click()
+    await expect(page.getByTestId('mall-channel')).toBeVisible()
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 
     await page.getByTestId('home-channel-service').click()
@@ -336,7 +352,7 @@ test.describe('巡检入口', () => {
     await enterServiceChannel(page)
     let reloads = 0
     page.on('request', (request) => {
-      if (new URL(request.url()).pathname === SERVICES_PATH) reloads += 1
+      if (new URL(request.url()).pathname === PORTAL_PATH) reloads += 1
     })
 
     await page.getByTestId('home-channel-activity').click()
@@ -350,7 +366,7 @@ test.describe('巡检入口', () => {
   test('NAV-014 M01 首次加载失败后可重试', async ({ page }) => {
     await openHome(page)
     let offline = true
-    await page.route(`**${SERVICES_PATH}?**`, async (route) => {
+    await page.route(`**${PORTAL_PATH}?**`, async (route) => {
       if (offline) {
         await route.abort('internetdisconnected')
         return
@@ -384,7 +400,7 @@ test.describe('推荐频道', () => {
   })
 
   test('NAV-019 内容加载失败时入口仍然可用', async ({ page }) => {
-    await page.route(`**${SERVICES_PATH}?**`, (route) =>
+    await page.route(`**${PORTAL_PATH}?**`, (route) =>
       route.abort('internetdisconnected'),
     )
     await page.goto('/#/pages/home/index')

@@ -23,84 +23,71 @@ defineProps<{
 </template>
 
 <style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board InspDetail (390 wide). */
 .detail-section {
-  margin: 0 12px;
-  padding: 13px 14px;
-  border: 1px solid #f0f1f3;
-  border-radius: 18px;
-  background: #fff;
+  display: flex;
+  margin: 0 16px;
+  padding: 14px;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
   box-sizing: border-box;
-  box-shadow: 0 6px 20px rgba(30, 38, 48, 0.055);
 }
 
 .detail-section__title {
-  display: block;
-  color: #16191e;
-  font-size: 17px;
-  font-weight: 740;
+  color: #202c42;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
 }
 
 .service-process__track {
-  position: relative;
-  display: grid;
-  margin-top: 10px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.service-process__track::before {
-  position: absolute;
-  top: 12px;
-  right: 12.5%;
-  left: 12.5%;
-  height: 2px;
-  background: #ff6500;
-  content: "";
+  display: flex;
+  align-items: flex-start;
 }
 
 .service-process__step {
   position: relative;
-  z-index: 1;
   display: flex;
   min-width: 0;
-  align-items: center;
+  flex: 1 1 0;
   flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* A short line to the next step, in place of the board's arrow. */
+.service-process__step + .service-process__step::before {
+  position: absolute;
+  top: 14px;
+  right: calc(50% + 20px);
+  left: calc(-50% + 20px);
+  height: 1px;
+  background: #c9d3e1;
+  content: '';
 }
 
 .service-process__marker {
   display: flex;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   align-items: center;
   justify-content: center;
-  border: 3px solid #fff;
   border-radius: 50%;
-  color: #fff;
-  background: #ff6500;
-  box-sizing: border-box;
-  box-shadow: 0 0 0 1px rgba(255, 101, 0, 0.16);
-  font-size: 12px;
+  color: #1d63c4;
+  background: #e6f0ff;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .service-process__label {
-  margin-top: 5px;
-  color: #3f4753;
-  font-size: 11px;
-  line-height: 1.35;
+  color: #536178;
+  font-size: 12px;
+  line-height: 17px;
   text-align: center;
-  white-space: nowrap;
-}
-
-@media (max-width: 359px) {
-  .detail-section {
-    margin-right: 9px;
-    margin-left: 9px;
-    padding-right: 10px;
-    padding-left: 10px;
-  }
-
-  .service-process__label {
-    font-size: 10px;
-  }
 }
 </style>

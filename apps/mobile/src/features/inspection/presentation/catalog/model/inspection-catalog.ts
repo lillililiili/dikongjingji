@@ -1,51 +1,74 @@
 export const CATALOG_PAGE_SIZE = 5
 
-export const CATALOG_CATEGORIES = [
-  { code: 'ALL', label: '全部' },
-  { code: 'TRANSMISSION', label: '输电线路' },
-  { code: 'SUBSTATION', label: '变电站' },
-  { code: 'DISTRIBUTION', label: '配电网' },
-  { code: 'CABLE', label: '电缆' },
-  { code: 'PHOTOVOLTAIC', label: '光伏' },
-] as const
+/** "全部" is not a server category; it means no category condition. */
+export const ALL_CATALOG_CATEGORY = 'ALL'
 
-export type CatalogCategory =
-  (typeof CATALOG_CATEGORIES)[number]['code']
+export interface CatalogCategoryOption {
+  code: string
+  label: string
+}
+
+export const ALL_CATALOG_CATEGORY_OPTION: CatalogCategoryOption = {
+  code: ALL_CATALOG_CATEGORY,
+  label: '全部',
+}
 
 export type CatalogSort =
   | 'COMPREHENSIVE'
-  | 'SALES_DESC'
+  | 'DISTANCE_ASC'
   | 'PRICE_ASC'
   | 'PRICE_DESC'
 
+export type CatalogPriceMode =
+  | 'STARTING_PRICE'
+  | 'PER_DISTANCE'
+  | 'PER_VISIT'
+  | 'PROJECT_QUOTE'
+
+/** What the customer typed, picked and sorted by. The server does the matching and the paging. */
 export interface InspectionCatalogQuery {
   keyword: string
-  category: CatalogCategory
+  /** A category code from the server, or ALL_CATALOG_CATEGORY. */
+  category: string
   sort: CatalogSort
-  page: number
-  size: number
+}
+
+/** The filter sheet: 不限 is ALL; 明确价格 (FIXED) is every price mode except 按项目报价. */
+export interface CatalogFilterValue {
+  method: string
+  priceMode: 'ALL' | 'FIXED' | 'PROJECT_QUOTE'
+  includesReport: boolean
+}
+
+export interface CatalogPosition {
+  latitude: number
+  longitude: number
+}
+
+/** The categories and filters a city's catalog offers, from GET /api/v1/inspection/filters. */
+export interface CatalogFilterOptions {
+  categories: CatalogCategoryOption[]
+  serviceMethods: CatalogCategoryOption[]
+  priceModes: CatalogPriceMode[]
+  supportsDistanceSort: boolean
+  supportsReportFilter: boolean
 }
 
 export interface InspectionCatalogPrice {
-  mode:
-    | 'STARTING_PRICE'
-    | 'PER_DISTANCE'
-    | 'PER_VISIT'
-    | 'PROJECT_QUOTE'
+  mode: CatalogPriceMode
   amountFen?: number
   unitLabel?: string
 }
 
 export interface InspectionCatalogService {
   id: string
-  category: Exclude<CatalogCategory, 'ALL'>
+  /** The service's own category code; a child code such as SUBSTATION for a 电力 service. */
+  category: string
   categoryLabel: string
   badgeLabel?: string
   title: string
   description: string
   tags: string[]
-  serviceMethods?: Array<'UAV' | 'ROBOT'>
-  includesReport?: boolean
   imageUrl: string
   imagePosition?: string
   price: InspectionCatalogPrice
@@ -53,10 +76,22 @@ export interface InspectionCatalogService {
   priceNote?: string
   rating?: number
   completedCount?: number
+  /** Metres from the customer to the service's centre point; only with a position and a centre. */
+  distanceMeters?: number
 }
 
+/** The cards loaded so far for the current conditions. */
 export interface InspectionCatalogContent {
   services: InspectionCatalogService[]
+  hasMore: boolean
+  /** True when the server says the city has no inspection service at all. */
+  cityClosed: boolean
+}
+
+export const EMPTY_CATALOG_CONTENT: InspectionCatalogContent = {
+  services: [],
+  hasMore: false,
+  cityClosed: false,
 }
 
 export interface OpenServiceDetailIntent {
@@ -64,54 +99,45 @@ export interface OpenServiceDetailIntent {
   serviceId: string
 }
 
-export const EMPTY_CATALOG_CONTENT: InspectionCatalogContent = {
-  services: [],
-}
-
 export const DEFAULT_CATALOG_QUERY: InspectionCatalogQuery = {
   keyword: '',
-  category: 'ALL',
+  category: ALL_CATALOG_CATEGORY,
   sort: 'COMPREHENSIVE',
-  page: 1,
-  size: CATALOG_PAGE_SIZE,
 }
 
-const CATALOG_SORTS: readonly CatalogSort[] = [
+export const DEFAULT_CATALOG_FILTERS: CatalogFilterValue = {
+  method: 'ALL',
+  priceMode: 'ALL',
+  includesReport: false,
+}
+
+export const EMPTY_CATALOG_FILTER_OPTIONS: CatalogFilterOptions = {
+  categories: [],
+  serviceMethods: [],
+  priceModes: [],
+  supportsDistanceSort: false,
+  supportsReportFilter: false,
+}
+
+/** Sorts a link may ask for. Distance is left out: it needs a position the link cannot carry. */
+const ROUTE_SORTS: readonly CatalogSort[] = [
   'COMPREHENSIVE',
-  'SALES_DESC',
   'PRICE_ASC',
   'PRICE_DESC',
 ]
 
-const CATEGORY_RANK: Record<
-  Exclude<CatalogCategory, 'ALL'>,
-  number
-> = {
-  TRANSMISSION: 10,
-  SUBSTATION: 20,
-  DISTRIBUTION: 30,
-  CABLE: 40,
-  PHOTOVOLTAIC: 50,
-}
+const LISTED_PRICE_MODES: readonly CatalogPriceMode[] = [
+  'STARTING_PRICE',
+  'PER_DISTANCE',
+  'PER_VISIT',
+]
 
-const CATALOG_CATEGORY_CODES = new Set<string>(
-  CATALOG_CATEGORIES.map((category) => category.code),
-)
+const CATEGORY_CODE_PATTERN = /^[A-Z0-9_]{2,64}$/
 
-export function normalizeCatalogEntry(
-  categoryCode: string | undefined,
-): { accepted: boolean; category: CatalogCategory } {
-  if (!categoryCode || categoryCode === 'POWER') {
-    return {
-      accepted: true,
-      category: 'ALL',
-    }
-  }
-
-  return {
-    accepted: false,
-    category: 'ALL',
-  }
+/** A category code from a link. Anything that is not a well-formed code falls back to 全部. */
+export function normalizeCatalogCategory(categoryCode: string | undefined): string {
+  const code = categoryCode?.trim() ?? ''
+  return CATEGORY_CODE_PATTERN.test(code) ? code : ALL_CATALOG_CATEGORY
 }
 
 export function normalizeCatalogQuery(input: {
@@ -120,12 +146,9 @@ export function normalizeCatalogQuery(input: {
   sort?: string
 }): InspectionCatalogQuery {
   return {
-    ...DEFAULT_CATALOG_QUERY,
     keyword: normalizeKeyword(input.keyword ?? ''),
-    category: CATALOG_CATEGORY_CODES.has(input.category ?? '')
-      ? (input.category as CatalogCategory)
-      : 'ALL',
-    sort: CATALOG_SORTS.includes(input.sort as CatalogSort)
+    category: normalizeCatalogCategory(input.category),
+    sort: ROUTE_SORTS.includes(input.sort as CatalogSort)
       ? (input.sort as CatalogSort)
       : 'COMPREHENSIVE',
   }
@@ -135,111 +158,54 @@ export function applyCatalogSearch(
   query: InspectionCatalogQuery,
   keyword: string,
 ): InspectionCatalogQuery {
-  return {
-    ...query,
-    keyword: normalizeKeyword(keyword),
-    page: 1,
-  }
+  return { ...query, keyword: normalizeKeyword(keyword) }
 }
 
-export function applyCatalogCategory(
-  query: InspectionCatalogQuery,
-  category: CatalogCategory,
-): InspectionCatalogQuery {
-  return {
-    ...query,
-    category,
-    page: 1,
-  }
+export function nextPriceSort(sort: CatalogSort): CatalogSort {
+  return sort === 'PRICE_ASC' ? 'PRICE_DESC' : 'PRICE_ASC'
 }
 
-export function applyCatalogSort(
-  query: InspectionCatalogQuery,
-  sort: CatalogSort,
-): InspectionCatalogQuery {
-  return {
-    ...query,
-    sort,
-    page: 1,
-  }
+/** The chips above the list: 全部 first, then what the server offers in its own order. */
+export function catalogCategoryChips(
+  options: readonly CatalogCategoryOption[],
+  selected: string,
+): CatalogCategoryOption[] {
+  const chips = [ALL_CATALOG_CATEGORY_OPTION, ...options]
+  // A link can open a category the server did not list (a child such as 变电站); show it as
+  // selected instead of leaving every chip grey.
+  return chips.some((chip) => chip.code === selected)
+    ? chips
+    : [...chips, { code: selected, label: selected }]
 }
 
-export function selectCatalogServices(
-  services: readonly InspectionCatalogService[],
-  query: InspectionCatalogQuery,
-): InspectionCatalogService[] {
-  const normalizedKeyword = query.keyword.toLocaleLowerCase()
-  const filtered = services.filter((service) => {
-    const categoryMatches =
-      query.category === 'ALL' || service.category === query.category
-    const searchableText = [
-      service.title,
-      service.description,
-      service.categoryLabel,
-      ...service.tags,
-    ]
-      .join(' ')
-      .toLocaleLowerCase()
-
-    return (
-      categoryMatches &&
-      (!normalizedKeyword || searchableText.includes(normalizedKeyword))
-    )
-  })
-
-  return [...filtered].sort((left, right) => {
-    if (query.sort === 'COMPREHENSIVE') {
-      return (
-        CATEGORY_RANK[left.category] - CATEGORY_RANK[right.category] ||
-        completedCountForSorting(right) - completedCountForSorting(left) ||
-        compareById(left, right)
-      )
-    }
-
-    if (query.sort === 'SALES_DESC') {
-      return (
-        completedCountForSorting(right) - completedCountForSorting(left) ||
-        compareById(left, right)
-      )
-    }
-
-    if (query.sort === 'PRICE_ASC') {
-      return compareByPrice(left, right, 1)
-    }
-
-    if (query.sort === 'PRICE_DESC') {
-      return compareByPrice(left, right, -1)
-    }
-
-    return compareById(left, right)
-  })
+/** The price modes the server is asked for; empty means no price condition. */
+export function priceModesForFilter(
+  priceMode: CatalogFilterValue['priceMode'],
+): CatalogPriceMode[] {
+  if (priceMode === 'PROJECT_QUOTE') return ['PROJECT_QUOTE']
+  return priceMode === 'FIXED' ? [...LISTED_PRICE_MODES] : []
 }
 
-export function mergeCatalogPage(
-  current: readonly InspectionCatalogService[],
-  incoming: readonly InspectionCatalogService[],
-  hasMore: boolean,
-): {
-  services: InspectionCatalogService[]
-  hasMore: boolean
-} {
-  const servicesById = new Map(
-    [...current, ...incoming].map((service) => [service.id, service]),
-  )
-
-  return {
-    services: [...servicesById.values()],
-    hasMore,
-  }
-}
-
-export function resolveCatalogContent(
-  environment: string,
-  developmentContent: InspectionCatalogContent,
+/** Adds the next page to what is shown; a card that moved between pages is kept once. */
+export function appendCatalogPage(
+  current: InspectionCatalogContent,
+  next: InspectionCatalogContent,
 ): InspectionCatalogContent {
-  return environment === 'development'
-    ? developmentContent
-    : EMPTY_CATALOG_CONTENT
+  const known = new Set(current.services.map((service) => service.id))
+  return {
+    services: [
+      ...current.services,
+      ...next.services.filter((service) => !known.has(service.id)),
+    ],
+    hasMore: next.hasMore,
+    cityClosed: false,
+  }
+}
+
+export function hasCatalogFilters(filters: CatalogFilterValue): boolean {
+  return filters.method !== 'ALL'
+    || filters.priceMode !== 'ALL'
+    || filters.includesReport
 }
 
 export function createOpenServiceDetailIntent(
@@ -280,43 +246,15 @@ export function formatCompletedCount(count: number): string {
   return `已服务 ${Math.max(0, Math.trunc(count)).toLocaleString('zh-CN')} 次`
 }
 
+/** "距你 3.8 公里"; under a kilometre it is given in metres, rounded to ten. */
+export function formatCatalogDistance(meters: number): string {
+  const distance = Math.max(0, meters)
+  if (distance < 1000) {
+    return `距你 ${Math.max(10, Math.round(distance / 10) * 10)} 米`
+  }
+  return `距你 ${(distance / 1000).toFixed(1)} 公里`
+}
+
 function normalizeKeyword(keyword: string): string {
   return keyword.trim().slice(0, 50)
-}
-
-function completedCountForSorting(
-  service: InspectionCatalogService,
-): number {
-  return service.completedCount ?? 0
-}
-
-function compareById(
-  left: InspectionCatalogService,
-  right: InspectionCatalogService,
-): number {
-  return left.id.localeCompare(right.id)
-}
-
-function compareByPrice(
-  left: InspectionCatalogService,
-  right: InspectionCatalogService,
-  direction: 1 | -1,
-): number {
-  const leftAmount = priceForSorting(left)
-  const rightAmount = priceForSorting(right)
-  const leftHasPrice = Number.isFinite(leftAmount)
-  const rightHasPrice = Number.isFinite(rightAmount)
-
-  if (leftHasPrice !== rightHasPrice) return leftHasPrice ? -1 : 1
-  if (leftHasPrice && rightHasPrice && leftAmount !== rightAmount) {
-    return (leftAmount - rightAmount) * direction
-  }
-  return compareById(left, right)
-}
-
-function priceForSorting(service: InspectionCatalogService): number {
-  if (service.price.mode === 'PROJECT_QUOTE') {
-    return Number.POSITIVE_INFINITY
-  }
-  return service.price.amountFen ?? Number.POSITIVE_INFINITY
 }

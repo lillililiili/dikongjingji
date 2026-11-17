@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 
-export interface CatalogFilterValue {
-  method: 'ALL' | 'UAV' | 'ROBOT'
-  priceMode: 'ALL' | 'FIXED' | 'PROJECT_QUOTE'
-  includesReport: boolean
-}
+import type {
+  CatalogCategoryOption,
+  CatalogFilterValue,
+} from '../model/inspection-catalog'
 
 const props = defineProps<{
   modelValue: CatalogFilterValue
+  /** The inspection methods the city's services use, from the server. */
+  methods: readonly CatalogCategoryOption[]
+  showReport: boolean
 }>()
 
 const emit = defineEmits<{
@@ -19,14 +21,10 @@ const emit = defineEmits<{
 }>()
 
 const draft = ref<CatalogFilterValue>({ ...props.modelValue })
-const METHOD_OPTIONS: Array<{
-  value: CatalogFilterValue['method']
-  label: string
-}> = [
+const methodOptions = computed(() => [
   { value: 'ALL', label: '不限' },
-  { value: 'UAV', label: '无人机' },
-  { value: 'ROBOT', label: '智能设备' },
-]
+  ...props.methods.map((method) => ({ value: method.code, label: method.label })),
+])
 const PRICE_OPTIONS: Array<{
   value: CatalogFilterValue['priceMode']
   label: string
@@ -68,13 +66,15 @@ function apply(): void {
         <text class="catalog-sheet__label">巡检方式</text>
         <view class="catalog-sheet__options">
           <button
-            v-for="option in METHOD_OPTIONS"
+            v-for="option in methodOptions"
             :key="option.value"
             class="catalog-sheet__option"
             :class="{
               'catalog-sheet__option--active':
                 draft.method === option.value,
             }"
+            :data-testid="`catalog-filter-method-${option.value.toLowerCase()}`"
+            :aria-pressed="draft.method === option.value ? 'true' : 'false'"
             @click="draft.method = option.value"
           >
             {{ option.label }}
@@ -93,6 +93,8 @@ function apply(): void {
               'catalog-sheet__option--active':
                 draft.priceMode === option.value,
             }"
+            :data-testid="`catalog-filter-price-${option.value.toLowerCase()}`"
+            :aria-pressed="draft.priceMode === option.value ? 'true' : 'false'"
             @click="draft.priceMode = option.value"
           >
             {{ option.label }}
@@ -101,7 +103,10 @@ function apply(): void {
       </view>
 
       <button
+        v-if="showReport"
         class="catalog-sheet__report"
+        data-testid="catalog-filter-report"
+        :aria-pressed="draft.includesReport ? 'true' : 'false'"
         @click="draft.includesReport = !draft.includesReport"
       >
         <UniIcons
@@ -119,12 +124,14 @@ function apply(): void {
       <view class="catalog-sheet__actions">
         <button
           class="catalog-sheet__button catalog-sheet__button--secondary"
+          data-testid="catalog-filter-reset"
           @click="$emit('reset')"
         >
           重置
         </button>
         <button
           class="catalog-sheet__button catalog-sheet__button--primary"
+          data-testid="catalog-filter-apply"
           @click="apply"
         >
           查看结果
