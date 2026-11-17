@@ -35,6 +35,20 @@ public class ModuleFlywayConfiguration {
         return factory.identity(dataSource);
     }
 
+    // 本地验收和联调用的两个示例账号，密码写在种子里；只有 dev 环境加载。
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn("identityFlyway")
+    Flyway identityDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/identity")
+                .table("flyway_history_identity_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     @Bean(initMethod = "migrate")
     @DependsOn("identityFlyway")
     Flyway inspectionFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
