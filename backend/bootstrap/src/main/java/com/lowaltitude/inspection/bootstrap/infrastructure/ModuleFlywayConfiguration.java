@@ -1,5 +1,9 @@
 package com.lowaltitude.inspection.bootstrap.infrastructure;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Map;
+
 import javax.sql.DataSource;
 
 import org.flywaydb.core.Flyway;
@@ -12,6 +16,14 @@ import org.springframework.context.annotation.Profile;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
 public class ModuleFlywayConfiguration {
+
+    static final String SEED_DATE_PLACEHOLDER = "devSeedDate";
+
+    // 活动和体验的开发种子把场次排在“执行当天”前后。可重复迁移只在校验和变化时重跑，
+    // 所以把北京日期作为占位符写进种子：日期一变校验和就变，当天第一次启动时自动重排场次。
+    static Map<String, String> seedDatePlaceholder() {
+        return Map.of(SEED_DATE_PLACEHOLDER, LocalDate.now(ZoneId.of("Asia/Shanghai")).toString());
+    }
 
     @Bean
     ModuleFlywayFactory moduleFlywayFactory() {
@@ -43,6 +55,7 @@ public class ModuleFlywayConfiguration {
         return Flyway.configure()
                 .dataSource(dataSource)
                 .locations("classpath:db/development/activity")
+                .placeholders(seedDatePlaceholder())
                 .table("flyway_history_activity_development")
                 .baselineOnMigrate(true)
                 .baselineVersion("0")
@@ -63,6 +76,7 @@ public class ModuleFlywayConfiguration {
         return Flyway.configure()
                 .dataSource(dataSource)
                 .locations("classpath:db/development/experience")
+                .placeholders(seedDatePlaceholder())
                 .table("flyway_history_experience_development")
                 .baselineOnMigrate(true)
                 .baselineVersion("0")

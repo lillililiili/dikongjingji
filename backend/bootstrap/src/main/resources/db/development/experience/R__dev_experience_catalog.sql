@@ -1,7 +1,8 @@
 -- 仅开发环境：由 @Profile("dev") 的 experienceDevelopmentDataFlyway 加载，不在 db/migration 下，生产不会执行。
 -- 内容取自 2026-11-14 修订版原型的体验中心、场馆详情和馆内设备，场馆、项目、价格都是示例。
--- 场次按“执行当天起 7 天”生成。可重复迁移只在文件内容变化时重跑，日子久了场次会过期；
--- 要重新对齐今天，改这一行的日期再重启后端：2026-11-17。
+-- 场次按“执行当天起 7 天”生成。可重复迁移只在校验和变化时重跑；下一行的日期由后端启动时填入，
+-- 所以每天第一次启动会重新生成场次。
+-- 对齐日期：${devSeedDate}
 
 INSERT INTO identity_organization (id, organization_code, organization_name, organization_type)
 VALUES
