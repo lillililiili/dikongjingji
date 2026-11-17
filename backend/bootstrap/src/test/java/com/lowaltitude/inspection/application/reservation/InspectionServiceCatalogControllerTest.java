@@ -80,6 +80,18 @@ class InspectionServiceCatalogControllerTest {
                 .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
     }
 
+    // 不带城市时由读取服务按参数无效处理，和列表、入口、筛选三个接口一致，不是 500。
+    @Test
+    void serviceDetailWithoutACityIsABadRequest() throws Exception {
+        UUID serviceId = UUID.randomUUID();
+        when(service.findDetail(serviceId, null))
+                .thenThrow(new IllegalArgumentException("service detail query is invalid"));
+
+        mockMvc.perform(get("/api/v1/inspection/services/{serviceId}", serviceId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+    }
+
     @Test
     void forwardsPowerSalesSortAndReturnsCompletedCount() throws Exception {
         UUID serviceId = UUID.randomUUID();

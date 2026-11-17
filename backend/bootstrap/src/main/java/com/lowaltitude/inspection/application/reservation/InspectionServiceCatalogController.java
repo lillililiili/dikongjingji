@@ -68,9 +68,9 @@ public final class InspectionServiceCatalogController {
     @GetMapping("/api/v1/inspection/services/{serviceId}")
     public InspectionServiceDetailView detail(
             @PathVariable UUID serviceId,
-            @RequestParam String cityCode
+            @RequestParam(required = false) String cityCode
     ) {
-        return service.findDetail(serviceId, cityCode.trim());
+        return service.findDetail(serviceId, trimmed(cityCode));
     }
 
     private static String trimmed(String value) {
