@@ -9,9 +9,13 @@ import {
   requestLatestInspectionOrders,
   resolveInspectionOrderDestination,
 } from '@/features/inspection/application/service-flow/inspection-order-navigation'
-import { inspectionOrderApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
+import {
+  inspectionAccountApi,
+  inspectionOrderApi,
+} from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import type { InspectionOrderSummary } from '@/features/inspection/domain/service-flow/order-center'
 import {
+  MINE_TAB_PATH,
   buildInspectionLoginUrl,
   buildInspectionOrderCenterUrl,
 } from '@/features/inspection/navigation/inspection-routes'
@@ -20,6 +24,7 @@ import {
   resolveAuthenticatedMineUser,
   resolvePlatformMineState,
   type InspectionMineStatus,
+  type PlatformMineAccount,
   type PlatformMineFeatureEntry,
   type PlatformMineOrder,
   type PlatformMineViewState,
@@ -54,14 +59,24 @@ const featureEntries: PlatformMineFeatureEntry[] = [
     availability: 'UNAVAILABLE',
   },
 ]
+// The signed-in account's own profile; null until read, and again after signing out.
+const account = ref<PlatformMineAccount | null>(null)
+let accountToken: string | null = null
+
+function resolveMineUser() {
+  const token = getBookingAuthContext().getAccessToken()
+  return resolveAuthenticatedMineUser(
+    Boolean(token),
+    currentCityStore.currentCity?.name,
+    token && token === accountToken ? account.value : null,
+  )
+}
+
 const state = ref<PlatformMineViewState>(resolvePlatformMineState({
   status: 'ready',
   content: {
     // Known before the first request, so a signed-in user never sees the guest card flash by.
-    user: resolveAuthenticatedMineUser(
-      Boolean(getBookingAuthContext().getAccessToken()),
-      currentCityStore.currentCity?.name,
-    ),
+    user: resolveMineUser(),
     recentOrders: [],
     featureEntries,
   },
@@ -92,15 +107,38 @@ function setMineContent(
   state.value = resolvePlatformMineState({
     status: 'ready',
     content: {
-      user: resolveAuthenticatedMineUser(
-        Boolean(getBookingAuthContext().getAccessToken()),
-        currentCityStore.currentCity?.name,
-      ),
+      user: resolveMineUser(),
       statusCounts,
       recentOrders,
       featureEntries,
     },
   })
+}
+
+// Read once per access token. A failure leaves the neutral "已登录" card: the profile is not
+// worth an error message, and the order request below reports a rejected login.
+async function loadAccount(): Promise<void> {
+  const token = getBookingAuthContext().getAccessToken()
+  if (!token) {
+    account.value = null
+    accountToken = null
+    return
+  }
+  if (token === accountToken) return
+  try {
+    const loaded = await inspectionAccountApi.loadCurrent(token)
+    if (getBookingAuthContext().getAccessToken() !== token) return
+    account.value = loaded
+    accountToken = token
+    if (state.value.kind === 'ready') {
+      state.value = resolvePlatformMineState({
+        status: 'ready',
+        content: { ...state.value.content, user: resolveMineUser() },
+      })
+    }
+  } catch {
+    // Keep the neutral card.
+  }
 }
 
 async function loadRecentOrders(): Promise<void> {
@@ -136,9 +174,9 @@ function showUnavailable(): void {
   uni.showToast({ title: '该能力将在下一阶段接入', icon: 'none' })
 }
 
-// Signing in lands on the order centre, the one page here that needs an account; its back leads to this page.
+// After signing in the user comes back to this page, now with their own profile and orders.
 function openLogin(): void {
-  uni.navigateTo({ url: buildInspectionLoginUrl(buildInspectionOrderCenterUrl('ALL')) })
+  uni.navigateTo({ url: buildInspectionLoginUrl(MINE_TAB_PATH) })
 }
 
 function openAllOrders(): void {
@@ -158,6 +196,7 @@ function openRecentOrder(order: PlatformMineOrder): void {
 
 onShow(() => {
   restoreDefaultCity()
+  void loadAccount()
   void loadRecentOrders()
 })
 </script>

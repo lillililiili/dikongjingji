@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 2.0.0
+  version: 2.1.0
   description: 巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
 servers:
   - url: https://api.example.com
@@ -35,6 +35,21 @@ paths:
                 $ref: "#/components/schemas/LoginResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/me:
+    get:
+      tags: [Authentication]
+      operationId: getCurrentAccount
+      summary: 读取当前登录账号可以展示的资料
+      description: 账号由访问令牌确定，不接受任何指定账号的参数。不返回登录名、手机号和口令。
+      responses:
+        "200":
+          description: 当前账号的展示资料
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentAccount"
         "401":
           $ref: "#/components/responses/Unauthorized"
   /api/v1/inspection/services/{serviceId}/available-time-slots:
@@ -867,6 +882,26 @@ components:
         expiresInSeconds:
           type: integer
           minimum: 1
+    CurrentAccount:
+      type: object
+      additionalProperties: false
+      required: [displayName, organizationName, organizationType, roles]
+      properties:
+        displayName:
+          type: string
+        organizationName:
+          description: 账号默认所属组织的名称；没有有效组织时为 null。
+          type: [string, "null"]
+        organizationType:
+          oneOf:
+            - type: string
+              enum: [CUSTOMER, PROVIDER, PLATFORM]
+            - type: "null"
+        roles:
+          description: 当前令牌里的角色编码，按字母序。
+          type: array
+          items:
+            type: string
     ApiError:
       type: object
       additionalProperties: false

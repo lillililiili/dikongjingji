@@ -9,7 +9,24 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 public interface IdentityPersistenceMapper
-        extends BaseMapper<IdentityUserEntity>, IdentityPersistenceReader {
+        extends BaseMapper<IdentityUserEntity>, IdentityPersistenceReader, IdentityProfileReader {
+
+    // Only what the account may show about itself: no login name, mobile or password hash.
+    // An inactive organization is left out rather than hiding the whole profile.
+    @Override
+    @Select("""
+            SELECT u.id AS subject_id,
+                   u.display_name,
+                   o.organization_name,
+                   o.organization_type
+              FROM identity_user u
+              LEFT JOIN identity_organization o
+                ON o.id = u.default_organization_id
+               AND o.status = 'ACTIVE'
+             WHERE u.id = #{subjectId}
+               AND u.status = 'ACTIVE'
+            """)
+    Optional<PersistedIdentityProfile> findActiveProfileById(@Param("subjectId") UUID subjectId);
 
     @Override
     @Select("""

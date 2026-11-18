@@ -9,6 +9,7 @@ import { createInspectionServiceDetailApi } from '../detail/inspection-service-d
 import type { BookingHttpClient, InspectionBookingApi } from './inspection-booking-api'
 import { createInspectionBookingApi } from './inspection-booking-api'
 import { createInspectionOrderApi } from './inspection-order-api'
+import { createInspectionAccountApi } from './inspection-account-api'
 import { createInspectionPlanApi } from './inspection-plan-api'
 import {
   invalidateInspectionApiBaseUrl,
@@ -179,6 +180,7 @@ const http: BookingHttpClient = { request, putFile }
 export const inspectionCatalogApi = createInspectionCatalogApi({ request: publicRequest })
 export const inspectionServiceDetailApi = createInspectionServiceDetailApi({ request: publicRequest })
 export const platformCityApi = createCityDirectoryApi({ request: publicRequest })
+export const inspectionAccountApi = createInspectionAccountApi(publicRequest)
 export const inspectionBookingApi: InspectionBookingApi = createInspectionBookingApi(http, {
   getAccessToken: () => getBookingAuthContext().getAccessToken(),
 }, { request: publicRequest })

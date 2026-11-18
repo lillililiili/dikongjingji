@@ -7,10 +7,13 @@
 -- 不建平台运营账号。
 
 INSERT INTO identity_organization (id, organization_code, organization_name, organization_type)
-VALUES
-    ('11111111-1111-1111-1111-aaaaaaaaaaaa', 'DEV-CUSTOMER', '示例客户', 'CUSTOMER'),
-    -- 巡检开发种子里的服务商；那份种子负责它的名称和资料，这里只保证它存在。
-    ('22222222-2222-2222-2222-222222222222', 'DEV-PROVIDER-YUNYI', '云翼科技', 'PROVIDER')
+VALUES ('11111111-1111-1111-1111-aaaaaaaaaaaa', 'DEV-CUSTOMER', '东营示例物流公司', 'CUSTOMER')
+ON CONFLICT (id) DO UPDATE
+SET organization_name = EXCLUDED.organization_name;
+
+-- 巡检开发种子里的服务商；那份种子负责它的名称和资料，这里只保证它存在。
+INSERT INTO identity_organization (id, organization_code, organization_name, organization_type)
+VALUES ('22222222-2222-2222-2222-222222222222', 'DEV-PROVIDER-YUNYI', '云翼科技', 'PROVIDER')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO identity_user (id, login_name, display_name, password_hash, default_organization_id)
@@ -18,7 +21,7 @@ VALUES
     (
         '11111111-1111-1111-1111-111111111111',
         'dev-customer',
-        '示例客户',
+        '王女士（示例）',
         crypt('test-password', gen_salt('bf', 10)),
         '11111111-1111-1111-1111-aaaaaaaaaaaa'
     ),

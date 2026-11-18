@@ -17,6 +17,8 @@ import java.util.UUID;
 
 import com.lowaltitude.inspection.identity.domain.IdentityAccount;
 import com.lowaltitude.inspection.identity.domain.IdentityAccountPort;
+import com.lowaltitude.inspection.identity.domain.IdentityProfile;
+import com.lowaltitude.inspection.identity.domain.IdentityProfilePort;
 import com.lowaltitude.inspection.identity.domain.IdentityAccountStatus;
 import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
@@ -71,6 +73,9 @@ class AuthenticationSecurityIntegrationTest {
     private static final UUID SUBJECT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID ORGANIZATION_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
+    private static final java.util.concurrent.atomic.AtomicBoolean PROFILE_PRESENT =
+            new java.util.concurrent.atomic.AtomicBoolean(true);
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -104,6 +109,40 @@ class AuthenticationSecurityIntegrationTest {
                 .isTrue();
         org.assertj.core.api.Assertions.assertThat(((List<?>) claims.get("permissions"))
                 .contains("inspection.reservation.create")).isTrue();
+    }
+
+    @Test
+    void signedInAccountReadsItsOwnProfileAndNothingElse() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + signedToken(List.of(), 7)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("测试客户"))
+                .andExpect(jsonPath("$.organizationName").value("测试客户单位"))
+                .andExpect(jsonPath("$.organizationType").value("CUSTOMER"))
+                .andExpect(jsonPath("$.roles").isArray())
+                // 资料里不带登录名、手机号、口令、令牌版本这类字段。
+                .andExpect(jsonPath("$.length()").value(4));
+    }
+
+    @Test
+    void profileNeedsALoginAndAnAccountThatStillExists() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        // 令牌版本过期的令牌在读取资料前就被拒绝。
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + signedToken(List.of(), 6)))
+                .andExpect(status().isUnauthorized());
+
+        PROFILE_PRESENT.set(false);
+        try {
+            mockMvc.perform(get("/api/v1/auth/me")
+                            .header("Authorization", "Bearer " + signedToken(List.of(), 7)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        } finally {
+            PROFILE_PRESENT.set(true);
+        }
     }
 
     @Test
@@ -512,6 +551,15 @@ class AuthenticationSecurityIntegrationTest {
                 case "disabled-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.DISABLED));
                 default -> java.util.Optional.empty();
             };
+        }
+
+        // Only the signed-in subject has a profile; the name deliberately differs from the login name.
+        @Bean
+        @Primary
+        IdentityProfilePort testIdentityProfilePort() {
+            return subjectId -> PROFILE_PRESENT.get() && SUBJECT_ID.equals(subjectId)
+                    ? java.util.Optional.of(new IdentityProfile(SUBJECT_ID, "测试客户", "测试客户单位", "CUSTOMER"))
+                    : java.util.Optional.empty();
         }
 
         @Bean

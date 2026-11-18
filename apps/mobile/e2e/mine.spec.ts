@@ -27,7 +27,8 @@ test.describe('我的', () => {
     await expect(page.locator('.platform-mine__status-count')).toHaveCount(0)
 
     await page.getByTestId('mine-login').click()
-    await expect(page).toHaveURL(/pages\/service\/inspection\/login\?returnUrl=.*inspection-orders/)
+    // 登录后回到“我的”。
+    await expect(page).toHaveURL(/pages\/service\/inspection\/login\?returnUrl=.*pages.*mine.*index/)
   })
 
   test('MINE-002 已登录不显示登录入口，角标只出现在有订单的阶段', async ({ page }) => {
@@ -52,13 +53,61 @@ test.describe('我的', () => {
         },
       }),
     )
+    await page.route('**/api/v1/auth/me', (route) =>
+      route.fulfill({
+        json: {
+          displayName: '王女士',
+          organizationName: '东营港务物流',
+          organizationType: 'CUSTOMER',
+          roles: ['CUSTOMER'],
+        },
+      }),
+    )
     await page.goto('/#/pages/mine/index')
     await expect(page.locator('.platform-mine__order-title')).toHaveText('输电线路无人机巡检')
 
     await expect(page.getByTestId('mine-login')).toHaveCount(0)
+    // The name and organization come from the account; no level is shown because there is none.
+    await expect(page.locator('.platform-mine__name')).toHaveText('王女士')
+    await expect(page.locator('.platform-mine__certification')).toContainText('东营港务物流')
+    await expect(page.locator('.platform-mine__level')).toHaveCount(0)
     await expect(page.locator('.platform-mine__status-count')).toHaveText(['2', '99+'])
 
     await page.locator('.platform-mine__status-item').nth(3).click()
     await expect(page).toHaveURL(/pages\/mine\/inspection-orders\?stage=AWAITING_ACCEPTANCE/)
+  })
+
+  test('MINE-003 资料读不到时只显示“已登录”，不跳去登录页', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('inspection.accessToken', 'mine-spec')
+    })
+    await page.route('**/api/v1/inspection/reservations?*', (route) =>
+      route.fulfill({
+        json: {
+          items: [],
+          page: 1,
+          size: 20,
+          total: 0,
+          hasMore: false,
+          stageCounts: {
+            AWAITING_PLAN: 0,
+            AWAITING_CONFIRMATION: 0,
+            IN_PROGRESS: 0,
+            AWAITING_ACCEPTANCE: 0,
+            COMPLETED: 0,
+          },
+        },
+      }),
+    )
+    await page.route('**/api/v1/auth/me', (route) =>
+      route.fulfill({ status: 401, json: { code: 'COMMON_UNAUTHORIZED', message: '登录状态已失效', traceId: 't' } }),
+    )
+    await page.goto('/#/pages/mine/index')
+
+    await expect(page.locator('.platform-mine__name')).toHaveText('已登录')
+    await expect(page.locator('.platform-mine__certification')).toHaveCount(0)
+    await page.waitForTimeout(600)
+    await expect(page.getByTestId('mine-page')).toBeVisible()
+    await expect(page).toHaveURL(/pages\/mine\/index/)
   })
 })

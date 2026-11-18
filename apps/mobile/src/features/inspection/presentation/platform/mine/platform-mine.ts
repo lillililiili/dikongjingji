@@ -28,21 +28,31 @@ export const isPlatformAmountLabel = (value: string): value is PlatformAmountLab
 export interface PlatformMineUser {
   displayName: string
   avatarUrl?: string
-  levelName: string
+  /** Shown only when the account really has one; there is no level system yet. */
+  levelName?: string
   locationText: string
-  certificationLabel: string
+  /** The account's organization, when it belongs to one. */
+  certificationLabel?: string
 }
 
+export interface PlatformMineAccount {
+  displayName: string
+  organizationName: string | null
+}
+
+// Until the profile has been read (or when it cannot be read) the card only says the account is
+// signed in; it never invents a name, a level or a certification.
 export function resolveAuthenticatedMineUser(
   authenticated: boolean,
   locationText?: string,
+  account?: PlatformMineAccount | null,
 ): PlatformMineUser | undefined {
   if (!authenticated) return undefined
+  const organizationName = account?.organizationName?.trim()
   return {
-    displayName: '已登录用户',
-    levelName: 'Lv.0',
+    displayName: account?.displayName.trim() || '已登录',
     locationText: locationText?.trim() || '未设置所在地区',
-    certificationLabel: '身份待完善',
+    ...(organizationName ? { certificationLabel: organizationName } : {}),
   }
 }
 

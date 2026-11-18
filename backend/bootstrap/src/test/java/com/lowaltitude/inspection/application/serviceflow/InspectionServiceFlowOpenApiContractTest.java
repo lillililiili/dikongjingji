@@ -48,7 +48,10 @@ class InspectionServiceFlowOpenApiContractTest {
         String contract = Files.readString(CONTRACT);
 
         assertThat(contract)
-                .contains("version: 2.0.0")
+                .contains("version: 2.1.0")
+                // 2.1.0：登录账号读取自己的展示资料
+                .contains("/api/v1/auth/me:")
+                .contains("operationId: getCurrentAccount")
                 .contains("INS_VISIT_STATE_INVALID")
                 .contains("INS_VISIT_OUT_OF_ORDER")
                 .contains("ServiceVisitStatus:")

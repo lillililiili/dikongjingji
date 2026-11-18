@@ -62,14 +62,30 @@ const orderPage = (): InspectionOrderPage => ({
 })
 
 describe('platform mine presentation state', () => {
-  it('shows a neutral signed-in identity only while an access token is valid', () => {
+  it('shows the real profile once it is read and never invents a level or certification', () => {
     expect(resolveAuthenticatedMineUser(true, '济南市')).toEqual({
-      displayName: '已登录用户',
-      levelName: 'Lv.0',
+      displayName: '已登录',
       locationText: '济南市',
-      certificationLabel: '身份待完善',
     })
-    expect(resolveAuthenticatedMineUser(false, '济南市')).toBeUndefined()
+    expect(resolveAuthenticatedMineUser(true, '济南市', {
+      displayName: ' 示例客户 ',
+      organizationName: '示例单位',
+    })).toEqual({
+      displayName: '示例客户',
+      locationText: '济南市',
+      certificationLabel: '示例单位',
+    })
+    expect(resolveAuthenticatedMineUser(true, undefined, {
+      displayName: '',
+      organizationName: null,
+    })).toEqual({
+      displayName: '已登录',
+      locationText: '未设置所在地区',
+    })
+    expect(resolveAuthenticatedMineUser(false, '济南市', {
+      displayName: '示例客户',
+      organizationName: '示例单位',
+    })).toBeUndefined()
   })
 
   it('does not request authenticated orders without a token and preserves ready Mine content on failure', async () => {

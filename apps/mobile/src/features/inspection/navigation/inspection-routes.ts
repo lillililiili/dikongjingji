@@ -14,6 +14,8 @@ export const INSPECTION_FULFILLMENT_PATH =
 export const INSPECTION_DELIVERY_PATH =
   '/pages/service/inspection/delivery'
 export const INSPECTION_ORDER_CENTER_PATH = '/pages/mine/inspection-orders'
+export const MINE_TAB_PATH = '/pages/mine/index'
+export const MESSAGE_TAB_PATH = '/pages/message/index'
 
 const INSPECTION_ORDER_RETURN_STAGES: readonly InspectionOrderFilter[] = [
   'ALL',
@@ -86,6 +88,16 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   [INSPECTION_ORDER_CENTER_PATH]: {
     allowed: ['stage'],
   },
+  // The two root tabs that offer a login themselves. They take no parameters.
+  [MINE_TAB_PATH]: { allowed: [] },
+  [MESSAGE_TAB_PATH]: { allowed: [] },
+}
+
+// A root tab cannot be the target of redirectTo, so the login page relaunches to these.
+export function isRootTabReturnUrl(returnUrl: string): boolean {
+  return returnUrl === '/pages/home/index'
+    || returnUrl === MINE_TAB_PATH
+    || returnUrl === MESSAGE_TAB_PATH
 }
 
 export function buildInspectionLoginUrl(returnUrl: string): string {

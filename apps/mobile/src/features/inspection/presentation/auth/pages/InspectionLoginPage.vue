@@ -7,7 +7,7 @@ import {
   saveBookingAuthSession,
 } from '../../../application/service-flow/booking-auth-context'
 import { inspectionAuthApi } from '../../../data/service-flow/uni-booking-http-client'
-import { normalizeInspectionReturnUrl } from '../../../navigation/inspection-routes'
+import { isRootTabReturnUrl, normalizeInspectionReturnUrl } from '../../../navigation/inspection-routes'
 
 interface LoginRouteQuery {
   returnUrl?: string
@@ -55,7 +55,7 @@ async function submitLogin(): Promise<void> {
 
 function continueToProtectedPage(): void {
   const target = normalizeInspectionReturnUrl(returnUrl.value)
-  if (target === '/pages/home/index') {
+  if (isRootTabReturnUrl(target)) {
     uni.reLaunch({ url: target })
     return
   }
