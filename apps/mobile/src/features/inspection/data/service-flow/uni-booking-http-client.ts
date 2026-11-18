@@ -78,7 +78,7 @@ function errorFromResponse(data: unknown, status: number): ApiRequestError {
 // Exported for shared/http/public-api-request.ts, the entry other features use for anonymous calls.
 export async function publicRequest<T>(input: {
   url: string
-  method: 'GET' | 'POST'
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   data?: unknown
   headers?: Record<string, string>
 }): Promise<T> {
@@ -93,7 +93,7 @@ export async function publicRequest<T>(input: {
 
 async function sendPublicRequest<T>(input: {
   url: string
-  method: 'GET' | 'POST'
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   data?: unknown
   headers?: Record<string, string>
 }): Promise<T> {

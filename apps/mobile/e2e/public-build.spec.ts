@@ -88,4 +88,12 @@ test.describe('公开构建', () => {
       page.getByTestId('catalog-search-input').locator('input'),
     ).toHaveValue('电力')
   })
+
+  test('PUB-007 “我的”里没有活动报名和参与人管理，收费前的报名入口也不露出', async ({ page }) => {
+    await page.goto('/#/pages/mine/index')
+    await expect(page.getByTestId('mine-login')).toBeVisible()
+    await expect(page.getByTestId('mine-joins')).toHaveCount(0)
+    await expect(page.getByTestId('mine-link-activity_enrollments')).toHaveCount(0)
+    await expect(page.getByTestId('mine-link-activity_participants')).toHaveCount(0)
+  })
 })

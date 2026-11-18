@@ -91,6 +91,19 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // The two root tabs that offer a login themselves. They take no parameters.
   [MINE_TAB_PATH]: { allowed: [] },
   [MESSAGE_TAB_PATH]: { allowed: [] },
+  // Activity sign-up pages (features/activity/navigation/activity-routes.ts). The paths are
+  // repeated here so this module does not import another feature; activity-routes.test.ts
+  // checks that every one of them survives normalizeInspectionReturnUrl.
+  '/pages/activity/enroll': {
+    required: 'activityId',
+    allowed: ['activityId', 'sessionId', 'cityCode'],
+  },
+  '/pages/activity/participants': { allowed: [] },
+  '/pages/activity/ticket': {
+    required: 'enrollmentId',
+    allowed: ['enrollmentId'],
+  },
+  '/pages/mine/activity-enrollments': { allowed: ['status'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.

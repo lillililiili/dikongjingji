@@ -79,11 +79,23 @@ export interface PlatformMineFeatureEntry {
   availability: PlatformAvailability
 }
 
+// An entry that opens a page of another feature. The page host decides which ones exist and
+// where they lead; this page only draws them.
+export interface PlatformMineLinkEntry {
+  code: string
+  title: string
+  icon: string
+}
+
 export interface PlatformMineContent {
   user?: PlatformMineUser
   statusCounts?: Record<InspectionMineStatus, number>
   recentOrders: PlatformMineOrder[]
   featureEntries: PlatformMineFeatureEntry[]
+  // 我的参与: what the user has signed up for.
+  joinEntries?: PlatformMineLinkEntry[]
+  // Plain rows under it, such as 参与人管理.
+  linkRows?: PlatformMineLinkEntry[]
 }
 
 export type PlatformMineInput =

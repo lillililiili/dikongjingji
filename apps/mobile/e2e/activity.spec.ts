@@ -260,7 +260,7 @@ test.describe('活动详情', () => {
     await expect(page.getByTestId('activity-session-note')).toContainText('报名截止')
 
     await primary.click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('报名功能即将开放')
+    await expect(page.locator('.uni-sample-toast')).toContainText('收费活动报名即将开放')
     await expect(page.getByTestId('activity-detail')).toBeVisible()
 
     await sessions.nth(1).click()

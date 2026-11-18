@@ -24,6 +24,7 @@ const emit = defineEmits<{
   selectStatus: [status: InspectionMineStatus]
   selectOrder: [order: PlatformMineOrder]
   selectFeature: [entry: PlatformMineFeatureEntry]
+  selectLink: [code: string]
   viewAllOrders: []
 }>()
 
@@ -184,6 +185,38 @@ const STATUS_ICONS: Record<InspectionMineStatus, string> = {
           </view>
         </view>
 
+        <view v-if="content.joinEntries?.length" class="platform-mine__joins" data-testid="mine-joins">
+          <text class="platform-mine__joins-title">我的参与</text>
+          <view class="platform-mine__joins-grid">
+            <button
+              v-for="entry in content.joinEntries"
+              :key="entry.code"
+              class="platform-mine__join"
+              :data-testid="`mine-link-${entry.code.toLowerCase()}`"
+              @click="emit('selectLink', entry.code)"
+            >
+              <view class="platform-mine__join-icon">
+                <UniIcons :type="entry.icon" size="22" color="#ff6a00" />
+              </view>
+              <text class="platform-mine__join-title">{{ entry.title }}</text>
+            </button>
+          </view>
+        </view>
+
+        <view v-if="content.linkRows?.length" class="platform-mine__rows">
+          <button
+            v-for="entry in content.linkRows"
+            :key="entry.code"
+            class="platform-mine__link-row"
+            :data-testid="`mine-link-${entry.code.toLowerCase()}`"
+            @click="emit('selectLink', entry.code)"
+          >
+            <UniIcons :type="entry.icon" size="20" color="#536178" />
+            <text class="platform-mine__link-title">{{ entry.title }}</text>
+            <UniIcons type="right" size="14" color="#91a0b4" />
+          </button>
+        </view>
+
         <view v-if="content.featureEntries.length" class="platform-mine__feature-grid">
           <button
             v-for="entry in content.featureEntries"
@@ -322,4 +355,93 @@ button::after{border:0}
 .platform-mine__feature-title{margin-top:0;font-size:12px;line-height:17px}
 .platform-mine__feature-value{margin-top:0;color:#738096;font-size:11px;line-height:16px}
 .platform-mine__order-meta{white-space:normal;overflow-wrap:anywhere}
+/* 我的参与 and the rows under it: sizes from the 2026-11-14 prototype board Mine. */
+.platform-mine__joins {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px 8px;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.platform-mine__joins-title {
+  padding: 0 8px;
+  color: #202c42;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.platform-mine__joins-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.platform-mine__join {
+  display: flex;
+  min-height: 62px;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  color: #202c42;
+  background: transparent;
+}
+
+.platform-mine__join::after,
+.platform-mine__link-row::after {
+  border: 0;
+}
+
+.platform-mine__join-icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #fff0e3;
+}
+
+.platform-mine__join-title {
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.platform-mine__rows {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.platform-mine__link-row {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 14px;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid #f0f1f3;
+  border-radius: 0;
+  color: #202c42;
+  background: transparent;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.platform-mine__link-row:last-child {
+  border-bottom-color: transparent;
+}
+
+.platform-mine__link-title {
+  flex: 1;
+  font-size: 15px;
+}
 </style>

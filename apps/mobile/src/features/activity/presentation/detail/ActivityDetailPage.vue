@@ -8,6 +8,7 @@ import { ApiRequestError } from '@/shared/http/public-api-request'
 import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
 
 import {
+  canEnrollOnline,
   isActivitySessionSelectable,
   resolveActivityIntent,
   resolveActivityPrimaryAction,
@@ -17,6 +18,7 @@ import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
 import { activityApi } from '../../data/activity-api-client'
 import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
+import { buildActivityEnrollUrl } from '../../navigation/activity-routes'
 import {
   ACTIVITY_STATUS_LABELS,
   ACTIVITY_TYPE_LABELS,
@@ -121,6 +123,13 @@ function runPrimaryAction(): void {
   const action = primaryAction.value
   const session = selectedSession.value
   if (!action?.enabled || !session || !activity.value) return
+  // A free activity has a real sign-up form; the form asks for a login when it needs one.
+  if (action.kind === 'ENROLL' && canEnrollOnline(activity.value.price.mode) && ACTIVITY_PREVIEW_ENABLED) {
+    uni.navigateTo({
+      url: buildActivityEnrollUrl(activity.value.activityId, session.sessionId, cityCode),
+    })
+    return
+  }
   runIntent({
     type: action.kind === 'JOIN_WAITLIST' ? 'JOIN_WAITLIST' : 'ENROLL',
     activityId: activity.value.activityId,

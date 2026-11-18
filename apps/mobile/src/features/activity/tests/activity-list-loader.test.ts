@@ -6,6 +6,7 @@ import {
   type ActivityListState,
 } from '../application/activity-list-loader'
 import {
+  canEnrollOnline,
   isActivitySessionSelectable,
   resolveActivityIntent,
   resolveActivityPrimaryAction,
@@ -199,9 +200,22 @@ describe('activity primary action', () => {
 })
 
 describe('activity intents', () => {
+  it('opens online sign-up for free activities only', () => {
+    expect(canEnrollOnline('FREE')).toBe(true)
+    expect(canEnrollOnline('PER_PERSON')).toBe(false)
+    expect(canEnrollOnline('INQUIRY')).toBe(false)
+  })
+
+  it('says that the agreement texts are not available yet', () => {
+    expect(resolveActivityIntent({ type: 'READ_AGREEMENT', document: 'ENROLLMENT_NOTICE' }, true))
+      .toEqual({ action: 'SHOW_NOTICE', message: '协议正文待提供' })
+    expect(resolveActivityIntent({ type: 'READ_AGREEMENT', document: 'CHILD_PRIVACY_RULES' }, false))
+      .toEqual({ action: 'HIDE' })
+  })
+
   it('explains in preview builds and hides in public builds', () => {
     expect(resolveActivityIntent({ type: 'ENROLL', activityId: 'a', sessionId: 's' }, true))
-      .toEqual({ action: 'SHOW_NOTICE', message: '报名功能即将开放' })
+      .toEqual({ action: 'SHOW_NOTICE', message: '收费活动报名即将开放' })
     expect(resolveActivityIntent({ type: 'JOIN_WAITLIST', activityId: 'a', sessionId: 's' }, true))
       .toEqual({ action: 'SHOW_NOTICE', message: '候补功能即将开放' })
     expect(resolveActivityIntent({ type: 'TEAM_ENROLL', activityId: 'a' }, true))

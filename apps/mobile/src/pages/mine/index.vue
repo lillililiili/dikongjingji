@@ -3,6 +3,11 @@ import { onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
+import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
+import {
+  ACTIVITY_PARTICIPANTS_PATH,
+  buildActivityEnrollmentsUrl,
+} from '@/features/activity/navigation/activity-routes'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
   createLatestRequestCoordinator,
@@ -26,6 +31,7 @@ import {
   type InspectionMineStatus,
   type PlatformMineAccount,
   type PlatformMineFeatureEntry,
+  type PlatformMineLinkEntry,
   type PlatformMineOrder,
   type PlatformMineViewState,
 } from '@/features/inspection/presentation/platform/mine/platform-mine'
@@ -59,6 +65,14 @@ const featureEntries: PlatformMineFeatureEntry[] = [
     availability: 'UNAVAILABLE',
   },
 ]
+// Activity sign-up lives behind the same switch as the 赛事研学 channel; both pages ask for a
+// login themselves and come back here if the user gives up.
+const joinEntries: PlatformMineLinkEntry[] = ACTIVITY_PREVIEW_ENABLED
+  ? [{ code: 'ACTIVITY_ENROLLMENTS', title: '活动报名', icon: 'flag' }]
+  : []
+const linkRows: PlatformMineLinkEntry[] = ACTIVITY_PREVIEW_ENABLED
+  ? [{ code: 'ACTIVITY_PARTICIPANTS', title: '参与人管理', icon: 'staff' }]
+  : []
 // The signed-in account's own profile; null until read, and again after signing out.
 const account = ref<PlatformMineAccount | null>(null)
 let accountToken: string | null = null
@@ -79,6 +93,8 @@ const state = ref<PlatformMineViewState>(resolvePlatformMineState({
     user: resolveMineUser(),
     recentOrders: [],
     featureEntries,
+    joinEntries,
+    linkRows,
   },
 }))
 const recentOrderById = ref(new Map<string, InspectionOrderSummary>())
@@ -111,6 +127,8 @@ function setMineContent(
       statusCounts,
       recentOrders,
       featureEntries,
+      joinEntries,
+      linkRows,
     },
   })
 }
@@ -179,6 +197,11 @@ function openLogin(): void {
   uni.navigateTo({ url: buildInspectionLoginUrl(MINE_TAB_PATH) })
 }
 
+function openLink(code: string): void {
+  if (code === 'ACTIVITY_ENROLLMENTS') uni.navigateTo({ url: buildActivityEnrollmentsUrl() })
+  if (code === 'ACTIVITY_PARTICIPANTS') uni.navigateTo({ url: ACTIVITY_PARTICIPANTS_PATH })
+}
+
 function openAllOrders(): void {
   uni.navigateTo({ url: buildInspectionOrderCenterUrl('ALL') })
 }
@@ -212,6 +235,7 @@ onShow(() => {
       @select-status="openStatus"
       @select-order="openRecentOrder"
       @select-feature="showUnavailable"
+      @select-link="openLink"
       @view-all-orders="openAllOrders"
     />
     <RootAppTabBar active="MINE" />
