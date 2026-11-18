@@ -1,177 +1,136 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import type { ActivityCard } from '../../activity/domain/activity'
-import type { VenueCard, VenueProject, VenueSession } from '../../experience/domain/experience'
-import type { MallProductCard } from '../../mall/domain/mall'
 import {
   EMPTY_HOME_RECOMMEND,
-  buildTodaySlots,
   createHomeRecommendLoader,
   formatTodaySeats,
   formatTodaySlotTime,
-  pickNextOpenSession,
   type HomeRecommendContent,
-  type HomeRecommendSources,
 } from '../application/home-recommend'
+import { createHomeRecommendApi } from '../data/home-recommend-api'
 
-// 2026-11-17 13:00 in Beijing.
-const NOW = new Date('2026-11-17T05:00:00Z')
-
-const session = (id: string, startsAt: string, overrides: Partial<VenueSession> = {}): VenueSession => ({
-  sessionId: id,
-  startsAt,
-  endsAt: startsAt,
-  capacity: 8,
-  seatsLeft: 6,
-  status: 'OPEN',
-  ...overrides,
-})
-
-const project = (id: string, name: string): VenueProject => ({
-  projectId: id,
-  name,
-  durationMinutes: 30,
-  minAge: 6,
-  capacity: 8,
-  limitNote: null,
-  priceAmountMinor: 3900,
-})
-
-const venue = (id: string, openSessionsToday: number): VenueCard => ({
-  venueId: id,
-  name: `场馆 ${id}`,
-  coverImage: null,
+const venueDto = {
+  venueId: 'b2000000-0000-4000-8000-000000000001',
+  name: '东营低空与机器人体验馆',
+  coverImage: { url: 'http://insecure.example/venue.jpg', alt: '场馆' },
   openingNote: '09:30–18:00',
   address: '东营区示例路 66 号',
-  openSessionsToday,
-})
-
-const activity = (id: string) => ({ activityId: id }) as ActivityCard
-const product = (id: string) => ({ productId: id }) as MallProductCard
-
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason: unknown) => void
-  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
-  return { promise, resolve, reject }
+  openSessionsToday: 2,
+}
+const slot = {
+  projectId: 'b4000000-0000-4000-8000-000000000101',
+  projectName: '机器人避障闯关',
+  startsAt: '2026-11-17T14:00:00+08:00',
+  seatsLeft: 6,
 }
 
-function mount(sources: Partial<HomeRecommendSources>) {
-  let content: HomeRecommendContent = EMPTY_HOME_RECOMMEND
-  const loader = createHomeRecommendLoader({
-    loadActivities: async () => [],
-    loadProducts: async () => [],
-    loadVenues: async () => [],
-    loadVenueProjects: async () => [],
-    loadSessions: async () => [],
-    ...sources,
-  }, {
-    now: () => NOW,
-    getContent: () => content,
-    setContent: (next) => { content = next },
-  })
-  return { loader, content: () => content }
+function contentFor(name: string): HomeRecommendContent {
+  return {
+    ...EMPTY_HOME_RECOMMEND,
+    venues: [{
+      venueId: name,
+      name,
+      coverImage: null,
+      openingNote: '',
+      address: '',
+      openSessionsToday: 0,
+    }],
+  }
 }
 
-describe('today slots', () => {
-  it('takes the earliest session that is open, has seats and has not started', () => {
-    const next = pickNextOpenSession([
-      session('past', '2026-11-17T04:00:00Z'),
-      session('full', '2026-11-17T06:00:00Z', { status: 'FULL', seatsLeft: 0 }),
-      session('later', '2026-11-17T08:00:00Z'),
-      session('soon', '2026-11-17T06:30:00Z', { seatsLeft: 2 }),
-    ], NOW)
+describe('home recommend api', () => {
+  it('asks once for the city and maps each block with the mapper of its own feature', async () => {
+    const request = vi.fn().mockResolvedValue({
+      today: { venue: venueDto, slots: [slot] },
+      activities: [],
+      products: [{
+        productId: 'c2000000-0000-4000-8000-000000000101',
+        category: 'ROBOT',
+        name: '编程机器人探索套装',
+        coverImage: null,
+        saleMode: 'BUY',
+        experienceBadge: 'ONLINE_EXPERIENCE',
+        price: { fromAmountMinor: 129900, unit: 'ITEM', multiplePrices: true },
+        sellerCount: 3,
+      }],
+      venues: [venueDto],
+    })
 
-    expect(next?.sessionId).toBe('soon')
-    expect(pickNextOpenSession([session('past', '2026-11-17T04:00:00Z')], NOW)).toBeNull()
+    const content = await createHomeRecommendApi({ request }).load('370500')
+
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(request.mock.calls[0][0]).toEqual({ method: 'GET', url: '/api/v1/home/recommend?cityCode=370500' })
+    expect(content.today?.venue.name).toBe('东营低空与机器人体验馆')
+    // The venue mapper drops a picture that is not HTTPS.
+    expect(content.today?.venue.coverImage).toBeNull()
+    expect(content.today?.slots).toEqual([slot])
+    expect(content.products[0].price.fromAmountMinor).toBe(129900)
+    expect(content.venues).toHaveLength(1)
   })
 
-  it('gives one slot per project that still has a session, in project order', () => {
-    const slots = buildTodaySlots([
-      { project: project('p1', '机器人避障闯关'), sessions: [session('a', '2026-11-17T06:00:00Z', { seatsLeft: 3 })] },
-      { project: project('p2', '无人机模拟飞行'), sessions: [session('b', '2026-11-17T03:00:00Z')] },
-      { project: project('p3', '编程体验课'), sessions: [session('c', '2026-11-17T07:30:00Z', { seatsLeft: 1 })] },
-    ], NOW)
+  it('treats a today block without slots as no block', async () => {
+    const request = vi.fn().mockResolvedValue({
+      today: { venue: venueDto, slots: [] },
+      activities: [],
+      products: [],
+      venues: [],
+    })
 
-    expect(slots.map((slot) => slot.projectName)).toEqual(['机器人避障闯关', '编程体验课'])
-    expect(formatTodaySlotTime(slots[0])).toBe('14:00 场')
-    expect(formatTodaySeats(slots[0])).toBe('余 3 位')
-    expect(formatTodaySlotTime(slots[1])).toBe('15:30 场')
+    expect((await createHomeRecommendApi({ request }).load('370500')).today).toBeNull()
   })
 })
 
 describe('home recommend loader', () => {
-  it('fills each block from its own source and asks for today in Beijing time', async () => {
-    const asked: string[] = []
-    const { loader, content } = mount({
-      loadActivities: async (cityCode, size) => { asked.push(`activities ${cityCode} ${size}`); return [activity('a1')] },
-      loadProducts: async (cityCode, size) => { asked.push(`products ${cityCode} ${size}`); return [product('p1')] },
-      loadVenues: async (cityCode, size) => { asked.push(`venues ${cityCode} ${size}`); return [venue('closed', 0), venue('open', 2)] },
-      loadVenueProjects: async (venueId) => { asked.push(`projects ${venueId}`); return [project('p1', '机器人避障闯关')] },
-      loadSessions: async (input) => {
-        asked.push(`sessions ${input.venueId} ${input.projectId} ${input.date}`)
-        return [session('s1', '2026-11-17T06:00:00Z')]
+  it('clears the blocks first, then shows what the server returned', async () => {
+    const seen: HomeRecommendContent[] = []
+    const loader = createHomeRecommendLoader(
+      { load: async () => contentFor('东营') },
+      { setContent: (content) => { seen.push(content) } },
+    )
+
+    await loader.load('370500')
+
+    expect(seen).toEqual([EMPTY_HOME_RECOMMEND, contentFor('东营')])
+  })
+
+  it('leaves the blocks out when the request fails', async () => {
+    let current: HomeRecommendContent = contentFor('旧内容')
+    const loader = createHomeRecommendLoader(
+      { load: async () => { throw new Error('offline') } },
+      { setContent: (content) => { current = content } },
+    )
+
+    await loader.load('370500')
+
+    expect(current).toEqual(EMPTY_HOME_RECOMMEND)
+  })
+
+  it('drops the answer of the previous city once another city is being loaded', async () => {
+    let current: HomeRecommendContent = EMPTY_HOME_RECOMMEND
+    const releases: Record<string, () => void> = {}
+    const loader = createHomeRecommendLoader(
+      {
+        load: (cityCode) => new Promise((resolve) => {
+          releases[cityCode] = () => resolve(contentFor(cityCode))
+        }),
       },
-    })
-
-    await loader.load('370500')
-
-    expect(asked).toEqual(expect.arrayContaining([
-      'activities 370500 3',
-      'products 370500 4',
-      'venues 370500 2',
-      'projects open',
-      'sessions open p1 2026-11-17',
-    ]))
-    expect(content().activities).toEqual([activity('a1')])
-    expect(content().products).toEqual([product('p1')])
-    expect(content().venues.map((item) => item.venueId)).toEqual(['closed', 'open'])
-    expect(content().today?.venue.venueId).toBe('open')
-    expect(content().today?.slots).toHaveLength(1)
-  })
-
-  it('leaves a failed block out and still shows the others', async () => {
-    const { loader, content } = mount({
-      loadActivities: async () => { throw new Error('offline') },
-      loadProducts: async () => [product('p1')],
-      loadVenues: async () => [venue('open', 1)],
-      loadVenueProjects: async () => { throw new Error('offline') },
-    })
-
-    await loader.load('370500')
-
-    expect(content().activities).toEqual([])
-    expect(content().products).toEqual([product('p1')])
-    expect(content().venues).toHaveLength(1)
-    expect(content().today).toBeNull()
-  })
-
-  it('shows no today block when no venue has a session left or none can be booked', async () => {
-    const noVenue = mount({ loadVenues: async () => [venue('closed', 0)] })
-    await noVenue.loader.load('370500')
-    expect(noVenue.content().today).toBeNull()
-
-    const allPast = mount({
-      loadVenues: async () => [venue('open', 1)],
-      loadVenueProjects: async () => [project('p1', '机器人避障闯关')],
-      loadSessions: async () => [session('past', '2026-11-17T04:00:00Z')],
-    })
-    await allPast.loader.load('370500')
-    expect(allPast.content().today).toBeNull()
-  })
-
-  it('drops the answers of the previous city once another city is being loaded', async () => {
-    const dongying = deferred<ActivityCard[]>()
-    const { loader, content } = mount({
-      loadActivities: (cityCode) =>
-        (cityCode === '370500' ? dongying.promise : Promise.resolve([activity('jinan')])),
-    })
+      { setContent: (content) => { current = content } },
+    )
 
     const first = loader.load('370500')
-    await loader.load('370100')
-    dongying.resolve([activity('dongying')])
+    const second = loader.load('370100')
+    releases['370100']()
+    await second
+    releases['370500']()
     await first
 
-    expect(content().activities).toEqual([activity('jinan')])
+    expect(current.venues[0].name).toBe('370100')
+  })
+})
+
+describe('today slot labels', () => {
+  it('formats the start time in Beijing time and the seats left', () => {
+    expect(formatTodaySlotTime({ ...slot, startsAt: '2026-11-17T06:00:00Z' })).toBe('14:00 场')
+    expect(formatTodaySeats(slot)).toBe('余 6 位')
   })
 })

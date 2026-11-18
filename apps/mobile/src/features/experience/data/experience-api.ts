@@ -36,7 +36,7 @@ interface ExperienceItemDto {
   loginRequired: boolean
 }
 
-interface VenueCardDto {
+export interface VenueCardDto {
   venueId: string
   name: string
   coverImage: MediaAssetDto | null
@@ -107,6 +107,18 @@ function toImage(asset: MediaAssetDto | null): ExperienceImage | null {
     : null
 }
 
+// Also used by the home recommend block, which receives the same card shape.
+export function toVenueCard(venue: VenueCardDto): VenueCard {
+  return {
+    venueId: venue.venueId,
+    name: venue.name,
+    coverImage: toImage(venue.coverImage),
+    openingNote: venue.openingNote,
+    address: venue.address,
+    openSessionsToday: venue.openSessionsToday,
+  }
+}
+
 function toPage<Dto, Item>(dto: PageDto<Dto>, map: (item: Dto) => Item): Paged<Item> {
   return {
     page: dto.page,
@@ -146,14 +158,7 @@ export function createExperienceApi(http: PublicApiHttpClient): ExperienceApi {
         method: 'GET',
         url: `/api/v1/venues?${toQueryString({ cityCode, page, size })}`,
       })
-      return toPage(dto, (venue) => ({
-        venueId: venue.venueId,
-        name: venue.name,
-        coverImage: toImage(venue.coverImage),
-        openingNote: venue.openingNote,
-        address: venue.address,
-        openSessionsToday: venue.openSessionsToday,
-      }))
+      return toPage(dto, toVenueCard)
     },
 
     async loadVenue(venueId, cityCode) {

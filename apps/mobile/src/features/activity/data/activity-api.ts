@@ -25,7 +25,7 @@ interface ActivityPriceDto {
   currency: string
 }
 
-interface ActivityCardDto {
+export interface ActivityCardDto {
   activityId: string
   type: ActivityType
   title: string
@@ -106,7 +106,8 @@ function toPrice(price: ActivityPriceDto): ActivityPrice {
   }
 }
 
-function toCard(dto: ActivityCardDto): ActivityCard {
+// Also used by the home recommend block, which receives the same card shape.
+export function toCard(dto: ActivityCardDto): ActivityCard {
   return {
     activityId: dto.activityId,
     type: dto.type,

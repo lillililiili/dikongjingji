@@ -104,6 +104,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/mall/products",
                                 "/api/v1/mall/products/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
                         .anyRequest().authenticated()

@@ -4,7 +4,6 @@ import { ref, watch } from 'vue'
 
 import type { HomeEntryTarget } from '@/app-shell/navigation/home-channels'
 
-import { activityApi } from '../../activity/data/activity-api-client'
 import { resolveActivityPreviewCover } from '../../activity/data/preview/activity-preview-covers'
 import type { ActivityCard } from '../../activity/domain/activity'
 import { buildActivityDetailUrl } from '../../activity/navigation/activity-routes'
@@ -15,12 +14,10 @@ import {
   formatActivityPrice,
   isPerPersonPrice,
 } from '../../activity/presentation/shared/activity-format'
-import { experienceApi } from '../../experience/data/experience-api-client'
 import { resolveExperiencePreviewCover } from '../../experience/data/preview/experience-preview-covers'
 import type { VenueCard } from '../../experience/domain/experience'
 import { buildVenueDetailUrl } from '../../experience/navigation/experience-routes'
 import { formatVenueCardNote } from '../../experience/presentation/shared/experience-format'
-import { mallApi } from '../../mall/data/mall-api-client'
 import { resolveMallPreviewCover } from '../../mall/data/preview/mall-preview-covers'
 import type { MallProductCard } from '../../mall/domain/mall'
 import { buildMallProductUrl } from '../../mall/navigation/mall-routes'
@@ -36,6 +33,7 @@ import {
   formatTodaySlotTime,
   type HomeRecommendContent,
 } from '../application/home-recommend'
+import { homeRecommendApi } from '../data/home-recommend-api-client'
 
 const props = defineProps<{
   cityCode: string
@@ -47,26 +45,7 @@ const emit = defineEmits<{
 
 const content = ref<HomeRecommendContent>(EMPTY_HOME_RECOMMEND)
 
-const loader = createHomeRecommendLoader({
-  loadActivities: async (cityCode, size) => (await activityApi.loadPage({
-    cityCode,
-    type: null,
-    date: null,
-    enrollingOnly: false,
-    freeOnly: false,
-  }, 1, size)).items,
-  loadProducts: async (cityCode, size) => (await mallApi.loadProducts({
-    cityCode,
-    category: null,
-    sort: 'DEFAULT',
-  }, 1, size)).items,
-  loadVenues: async (cityCode, size) => (await experienceApi.loadVenues(cityCode, 1, size)).items,
-  loadVenueProjects: async (venueId, cityCode) =>
-    (await experienceApi.loadVenue(venueId, cityCode)).projects,
-  loadSessions: (input) => experienceApi.loadSessions(input),
-}, {
-  now: () => new Date(),
-  getContent: () => content.value,
+const loader = createHomeRecommendLoader(homeRecommendApi, {
   setContent: (next) => { content.value = next },
 })
 

@@ -272,6 +272,19 @@ class AuthenticationSecurityIntegrationTest {
     }
 
     @Test
+    void anonymousHomeRecommendIsPublicAndReadOnly() throws Exception {
+        mockMvc.perform(get("/api/v1/home/recommend").param("cityCode", "370500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activities").isArray());
+        mockMvc.perform(post("/api/v1/home/recommend"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        mockMvc.perform(get("/api/v1/home/other"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @Test
     void anonymousMallReadsArePublicButCartAndOrderPathsRequireAuthentication() throws Exception {
         String product = "/api/v1/mall/products/c2000000-0000-4000-8000-000000000101";
         mockMvc.perform(get("/api/v1/mall/products").param("cityCode", "370500")).andExpect(status().isOk());

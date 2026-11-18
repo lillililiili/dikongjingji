@@ -1,0 +1,100 @@
+openapi: 3.1.0
+info:
+  title: Home Recommend API
+  version: 1.0.0
+  description: >-
+    The four blocks under the entries of the home "推荐" channel
+    (docs/redesign/03-App实现任务计划.md §15.3), in one read-only request. It only joins lists
+    that are already public: each item has the shape of its own list endpoint. A block whose
+    module cannot be read is returned empty; the other blocks are still returned.
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/home/recommend:
+    get:
+      operationId: getHomeRecommend
+      summary: Today's bookable sessions, the next activities, products on sale and venues of a city
+      security: []
+      parameters:
+        - name: cityCode
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z0-9]{4,16}$"
+      responses:
+        "200":
+          description: The four blocks; a block with nothing to show is empty or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeRecommend"
+        "400":
+          description: cityCode is missing or malformed
+          content:
+            application/json:
+              schema:
+                $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
+components:
+  schemas:
+    HomeRecommend:
+      type: object
+      additionalProperties: false
+      required: [today, activities, products, venues]
+      properties:
+        today:
+          description: >-
+            The first venue of the list that still has bookable sessions today (Beijing date),
+            with the earliest bookable session of each of its first three projects. Null when
+            there is no such venue or session.
+          oneOf:
+            - $ref: "#/components/schemas/HomeToday"
+            - type: "null"
+        activities:
+          description: At most 3, in the order of the first page of GET /api/v1/activities.
+          type: array
+          maxItems: 3
+          items:
+            $ref: "./openapi-activity.yaml#/components/schemas/ActivityCard"
+        products:
+          description: At most 4, in the default order of GET /api/v1/mall/products.
+          type: array
+          maxItems: 4
+          items:
+            $ref: "./openapi-mall-catalog.yaml#/components/schemas/MallProductCard"
+        venues:
+          description: At most 2, in the order of GET /api/v1/venues.
+          type: array
+          maxItems: 2
+          items:
+            $ref: "./openapi-experience.yaml#/components/schemas/VenueCard"
+    HomeToday:
+      type: object
+      additionalProperties: false
+      required: [venue, slots]
+      properties:
+        venue:
+          $ref: "./openapi-experience.yaml#/components/schemas/VenueCard"
+        slots:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/HomeTodaySlot"
+    HomeTodaySlot:
+      type: object
+      additionalProperties: false
+      required: [projectId, projectName, startsAt, seatsLeft]
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        projectName:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        seatsLeft:
+          type: integer
+          minimum: 1
