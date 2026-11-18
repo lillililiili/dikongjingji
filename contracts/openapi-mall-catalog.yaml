@@ -1,11 +1,12 @@
 openapi: 3.1.0
 info:
   title: Mall Catalog API
-  version: 1.0.0
+  version: 1.1.0
   description: >-
     Read-only catalog for the home "商城" channel (docs/redesign/03-App实现任务计划.md §9):
     products of a category that have an active offer in the city, and one product with its offers.
-    Cart, orders, payment, search and after-sale rules are not part of this version.
+    1.1.0 adds keyword search and filters to the list. Cart, orders, payment and after-sale
+    rules are not part of this version.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -23,6 +24,62 @@ paths:
           description: Omit for all categories
           schema:
             $ref: "#/components/schemas/MallCategory"
+        - name: keyword
+          in: query
+          required: false
+          description: >-
+            Matched against the product name and summary, case-insensitively. Trimmed; blank means
+            no keyword. % and _ are matched literally.
+          schema:
+            type: string
+            maxLength: 50
+        - name: saleModes
+          in: query
+          required: false
+          description: Repeatable. Products sold in any of these ways. Omit for all.
+          schema:
+            type: array
+            maxItems: 8
+            items:
+              $ref: "#/components/schemas/MallSaleMode"
+        - name: experienceBadges
+          in: query
+          required: false
+          description: Repeatable. Products carrying any of these badges. Omit for all.
+          schema:
+            type: array
+            maxItems: 8
+            items:
+              $ref: "#/components/schemas/MallExperienceBadge"
+        - name: merchantKinds
+          in: query
+          required: false
+          description: >-
+            Repeatable. Products with an active offer in the city from a merchant of any of these
+            kinds. Omit for all.
+          schema:
+            type: array
+            maxItems: 8
+            items:
+              $ref: "#/components/schemas/MallMerchantKind"
+        - name: minPriceMinor
+          in: query
+          required: false
+          description: >-
+            Lower bound, in minor units, of the lowest listed price in the city. With either bound
+            set, products without a listed price (inquiry) are left out.
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: maxPriceMinor
+          in: query
+          required: false
+          description: Upper bound, in minor units; must not be below minPriceMinor.
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
         - name: sort
           in: query
           required: false

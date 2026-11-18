@@ -34,10 +34,23 @@ export interface MallProductCard {
   sellerCount: number
 }
 
+// What the filter sheet can narrow by. Empty lists and null prices mean "any".
+// Prices are whole yuan, as typed; the API client converts them to minor units.
+export interface MallFilters {
+  saleModes: MallSaleMode[]
+  experienceBadges: MallExperienceBadge[]
+  merchantKinds: MallMerchantKind[]
+  minPriceYuan: number | null
+  maxPriceYuan: number | null
+}
+
 export interface MallProductQuery {
   cityCode: string
   category: MallCategory | null
   sort: MallProductSort
+  /** Trimmed; empty for no search. */
+  keyword?: string
+  filters?: MallFilters
 }
 
 export interface MallOffer {

@@ -40,6 +40,36 @@ class MallCatalogMapperContractTest {
     }
 
     @Test
+    void searchAndFiltersAreBoundAndApplyToBothCountAndList() throws Exception {
+        for (String name : List.of("countProducts", "findProducts")) {
+            assertThat(sql(name))
+                    .startsWith("<script>")
+                    .endsWith("</script>")
+                    .contains("p.name ILIKE #{keyword} ESCAPE '\\'")
+                    .contains("p.summary ILIKE #{keyword} ESCAPE '\\'")
+                    .contains("p.sale_mode IN")
+                    .contains("p.experience_badge IN")
+                    .contains("offer.merchant_kind IN")
+                    .contains("city.from_amount_minor &gt;= #{minPriceMinor}")
+                    .contains("city.from_amount_minor &lt;= #{maxPriceMinor}")
+                    .doesNotContain("${");
+        }
+    }
+
+    // 文本块拼接时两段之间漏掉空白，会把关键字粘在一起（巡检目录出过 "1FROM"）。
+    @Test
+    void assembledQueriesKeepTheirKeywordsApart() throws Exception {
+        for (String name : List.of("countProducts", "findProducts")) {
+            assertThat(sql(name))
+                    .doesNotContainPattern("[0-9a-z_)]FROM ")
+                    .doesNotContainPattern("[0-9a-z_)]WHERE ")
+                    .doesNotContainPattern("[0-9a-z_)]ORDER BY")
+                    .doesNotContainPattern("[0-9a-z_)]AND ")
+                    .doesNotContainPattern("[0-9a-z_)]<if ");
+        }
+    }
+
+    @Test
     void sortingIsAWhitelistThatKeepsInquiriesLast() throws Exception {
         assertThat(sql("findProducts"))
                 .contains("WHEN #{sort} IN ('PRICE_ASC', 'PRICE_DESC')")

@@ -8,6 +8,7 @@ import type {
   MallMerchantKind,
   MallPackItem,
   MallPriceUnit,
+  MallProductCard,
   MallProductDetail,
   MallProductPage,
   MallProductQuery,
@@ -20,7 +21,7 @@ interface MediaAssetDto {
   alt: string
 }
 
-interface ProductCardDto {
+export interface ProductCardDto {
   productId: string
   category: MallCategory
   name: string
@@ -75,12 +76,36 @@ function toImage(asset: MediaAssetDto | null): MallImage | null {
     : null
 }
 
-function toQueryString(parameters: Record<string, string | number | null>): string {
+// Also used by the home recommend block, which receives the same card shape.
+export function toMallProductCard(item: ProductCardDto): MallProductCard {
+  return {
+    productId: item.productId,
+    category: item.category,
+    name: item.name,
+    coverImage: toImage(item.coverImage),
+    saleMode: item.saleMode,
+    experienceBadge: item.experienceBadge,
+    price: { ...item.price },
+    sellerCount: item.sellerCount,
+  }
+}
+
+type QueryValue = string | number | null | readonly string[]
+
+// A list becomes the same key repeated, which is how the server reads multi-value filters.
+function toQueryString(parameters: Record<string, QueryValue>): string {
   return Object.entries(parameters)
-    .filter(([, value]) => value !== null)
+    .flatMap(([key, value]): [string, string | number][] => {
+      if (value === null) return []
+      if (typeof value === 'string' || typeof value === 'number') return [[key, value]]
+      return value.map((item): [string, string] => [key, item])
+    })
     .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
     .join('&')
 }
+
+const yuanToMinor = (yuan: number | null | undefined): number | null =>
+  yuan === null || yuan === undefined ? null : yuan * 100
 
 export function createMallApi(http: PublicApiHttpClient): MallApi {
   return {
@@ -90,6 +115,12 @@ export function createMallApi(http: PublicApiHttpClient): MallApi {
         url: `/api/v1/mall/products?${toQueryString({
           cityCode: query.cityCode,
           category: query.category,
+          keyword: query.keyword?.trim() || null,
+          saleModes: query.filters?.saleModes ?? [],
+          experienceBadges: query.filters?.experienceBadges ?? [],
+          merchantKinds: query.filters?.merchantKinds ?? [],
+          minPriceMinor: yuanToMinor(query.filters?.minPriceYuan),
+          maxPriceMinor: yuanToMinor(query.filters?.maxPriceYuan),
           // DEFAULT is the server default, so the URL stays short for the common case.
           sort: query.sort === 'DEFAULT' ? null : query.sort,
           page,
@@ -99,16 +130,7 @@ export function createMallApi(http: PublicApiHttpClient): MallApi {
       return {
         hasMore: dto.hasMore,
         total: dto.total,
-        items: dto.items.map((item) => ({
-          productId: item.productId,
-          category: item.category,
-          name: item.name,
-          coverImage: toImage(item.coverImage),
-          saleMode: item.saleMode,
-          experienceBadge: item.experienceBadge,
-          price: { ...item.price },
-          sellerCount: item.sellerCount,
-        })),
+        items: dto.items.map(toMallProductCard),
       }
     },
 

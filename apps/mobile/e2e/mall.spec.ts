@@ -179,6 +179,146 @@ test.describe('商城频道', () => {
   })
 })
 
+// 搜索和筛选（计划 §15.2）。首页搜索框在商城频道里搜商城；筛选在页内面板里选。
+test.describe('商城搜索与筛选', () => {
+  const names = (page: Page) => page.locator('.mall-card__name')
+
+  async function searchFromHome(page: Page, keyword: string): Promise<void> {
+    const input = page.getByTestId('home-search-input').locator('input')
+    await input.fill(keyword)
+    await input.press('Enter')
+  }
+
+  test('MALL-201 首页搜索框在商城频道里按名称和简介搜，标签可单独移除', async ({ page }) => {
+    await openMallChannel(page)
+    const requests: URL[] = []
+    page.on('request', (request) => {
+      const url = new URL(request.url())
+      if (url.pathname === '/api/v1/mall/products') requests.push(url)
+    })
+
+    await searchFromHome(page, '  无人机  ')
+    await expect(page.getByTestId('mall-chip-keyword')).toContainText('“无人机”')
+    await expect(names(page)).toHaveCount(7)
+    expect(requests.at(-1)?.searchParams.get('keyword')).toBe('无人机')
+
+    // 类目和搜索同时生效。
+    await page.getByTestId('mall-category-rental').click()
+    await expect(names(page)).toHaveText(['4K 航拍无人机 含飞手', '行业测绘无人机 RTK 版'])
+
+    // 移除标签：搜索结束，搜索框跟着清空，类目保留。
+    await page.getByTestId('mall-chip-keyword').click()
+    await expect(page.getByTestId('mall-chips')).toHaveCount(0)
+    await expect(page.getByTestId('home-search-input').locator('input')).toHaveValue('')
+    await expect(names(page)).toHaveCount(4)
+  })
+
+  test('MALL-202 % 按字面搜；搜不到时说明并能一键清除', async ({ page }) => {
+    await openMallChannel(page)
+
+    await searchFromHome(page, '%')
+    await expect(page.getByTestId('mall-search-empty')).toContainText('没有找到“%”')
+
+    await page.getByTestId('mall-clear-all').click()
+    await expect(names(page)).toHaveCount(10)
+    await expect(page.getByTestId('home-search-input').locator('input')).toHaveValue('')
+  })
+
+  test('MALL-203 筛选面板：多选、按钮上的件数、应用后出标签和计数', async ({ page }) => {
+    await openMallChannel(page)
+
+    await page.getByTestId('mall-filter-open').click()
+    await expect(page.getByTestId('mall-filter-sheet')).toBeVisible()
+    await page.getByTestId('mall-filter-rent').click()
+    await expect(page.getByTestId('mall-filter-rent')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('mall-filter-apply')).toHaveText('查看 4 件')
+    await page.getByTestId('mall-filter-venue_display').click()
+    await expect(page.getByTestId('mall-filter-apply')).toHaveText('查看 1 件')
+
+    // 关闭不生效。
+    await page.getByTestId('mall-filter-close').click()
+    await expect(page.getByTestId('mall-chips')).toHaveCount(0)
+    await expect(names(page)).toHaveCount(10)
+
+    await page.getByTestId('mall-filter-open').click()
+    await page.getByTestId('mall-filter-rent').click()
+    await page.getByTestId('mall-filter-venue_display').click()
+    await page.getByTestId('mall-filter-apply').click()
+    await expect(page.getByTestId('mall-filter-sheet')).toHaveCount(0)
+    await expect(names(page)).toHaveText(['巡检机器狗'])
+    await expect(page.getByTestId('mall-filter-open')).toContainText('筛选 2')
+
+    await page.getByTestId('mall-chip-experiencebadges-venue_display').click()
+    await expect(names(page)).toHaveCount(4)
+    await expect(page.getByTestId('mall-filter-open')).toContainText('筛选 1')
+
+    // 再打开时面板里是当前已选的；重置清空。
+    await page.getByTestId('mall-filter-open').click()
+    await expect(page.getByTestId('mall-filter-rent')).toHaveAttribute('aria-pressed', 'true')
+    await page.getByTestId('mall-filter-reset').click()
+    await expect(page.getByTestId('mall-filter-rent')).toHaveAttribute('aria-pressed', 'false')
+    await page.getByTestId('mall-filter-apply').click()
+    await expect(names(page)).toHaveCount(10)
+  })
+
+  test('MALL-204 价格区间按最低标价筛，询价商品不出现；最低价高于最高价不能应用', async ({ page }) => {
+    await openMallChannel(page)
+    await page.getByTestId('mall-filter-open').click()
+    const min = page.getByTestId('mall-filter-min-price').locator('input')
+    const max = page.getByTestId('mall-filter-max-price').locator('input')
+
+    await min.fill('500')
+    await max.fill('100')
+    await max.blur()
+    await expect(page.getByTestId('mall-filter-range-error')).toBeVisible()
+    await page.getByTestId('mall-filter-apply').click()
+    await expect(page.getByTestId('mall-filter-sheet')).toBeVisible()
+
+    await min.fill('4000')
+    await max.fill('10000')
+    await max.blur()
+    await expect(page.getByTestId('mall-filter-apply')).toHaveText('查看 2 件')
+    await page.getByTestId('mall-filter-apply').click()
+
+    await expect(names(page)).toHaveText(['4K 航拍无人机 标准版', '桌面六轴机械臂 教学版'])
+    await expect(page.getByTestId('mall-chip-price')).toContainText('¥4000–10000')
+    await page.getByTestId('mall-chip-price').click()
+    await expect(names(page)).toHaveCount(10)
+  })
+
+  test('MALL-205 切到别的频道，搜索结束，筛选保留', async ({ page }) => {
+    await openMallChannel(page)
+    await page.getByTestId('mall-filter-open').click()
+    await page.getByTestId('mall-filter-rent').click()
+    await page.getByTestId('mall-filter-apply').click()
+    await searchFromHome(page, '无人机')
+    await expect(names(page)).toHaveCount(2)
+
+    await page.getByTestId('home-channel-recommend').click()
+    await page.getByTestId('home-channel-mall').click()
+
+    await expect(page.getByTestId('mall-chip-keyword')).toHaveCount(0)
+    await expect(page.getByTestId('mall-chip-salemodes-rent')).toBeVisible()
+    await expect(names(page)).toHaveCount(4)
+  })
+
+  test('MALL-206 筛选面板在 320 宽不溢出，选项不折成竖排', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 })
+    await openMallChannel(page)
+    await page.getByTestId('mall-filter-open').click()
+    await expect(page.getByTestId('mall-filter-sheet')).toBeVisible()
+
+    await assertNoHorizontalOverflow(page)
+    for (const code of ['online_experience', 'authorized_dealer', 'local_store']) {
+      const box = await page.getByTestId(`mall-filter-${code}`).boundingBox()
+      expect(box?.height ?? 99).toBeLessThanOrEqual(40)
+    }
+    await expect(page.getByTestId('mall-filter-apply')).toBeInViewport()
+    mkdirSync(visualOutput, { recursive: true })
+    await page.screenshot({ path: resolve(visualOutput, 'mall-filter-sheet-320.png') })
+  })
+})
+
 test.describe('商品详情', () => {
   test('MALL-101 列表 → 详情 → 换商家 → 价格和销售方跟着变；购买入口给出提示', async ({ page }) => {
     await openMallChannel(page)

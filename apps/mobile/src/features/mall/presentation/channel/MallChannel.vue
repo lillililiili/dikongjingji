@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import { computed, ref, watch } from 'vue'
 
 import {
   createPagedListLoader,
@@ -7,16 +8,25 @@ import {
   type PagedListState,
 } from '@/shared/list/paged-list-loader'
 
+import {
+  EMPTY_MALL_FILTERS,
+  cloneMallFilters,
+  countMallFilters,
+  describeMallFilters,
+  removeMallFilterChip,
+} from '../../application/mall-filters'
 import { mallApi } from '../../data/mall-api-client'
 import {
   MALL_PAGE_SIZE,
   type MallCategory,
+  type MallFilters,
   type MallProductCard,
   type MallProductQuery,
   type MallProductSort,
 } from '../../domain/mall'
 import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import { buildMallProductUrl } from '../../navigation/mall-routes'
+import MallFilterSheet from './MallFilterSheet.vue'
 import {
   MALL_ACTION_LABELS,
   MALL_BADGE_LABELS,
@@ -32,6 +42,14 @@ const props = defineProps<{
   // A category asked for from outside (a home king entry). The token changes on every request so
   // asking for the same category twice still selects it.
   requestedCategory: { category: MallCategory; token: number } | null
+  // A search submitted in the home search box while this channel is showing; an empty keyword
+  // ends the search. The token makes a repeated keyword count.
+  requestedKeyword: { keyword: string; token: number } | null
+}>()
+
+const emit = defineEmits<{
+  // The channel ended or changed the search itself, so the home search box must follow.
+  keywordChange: [keyword: string]
 }>()
 
 const CATEGORY_TABS: readonly { code: MallCategory | null; label: string }[] = [
@@ -45,7 +63,17 @@ const CATEGORY_TABS: readonly { code: MallCategory | null; label: string }[] = [
 
 const selectedCategory = ref<MallCategory | null>(props.requestedCategory?.category ?? null)
 const sort = ref<MallProductSort>('DEFAULT')
+const keyword = ref(props.requestedKeyword?.keyword.trim() ?? '')
+const filters = ref<MallFilters>(cloneMallFilters(EMPTY_MALL_FILTERS))
+const filterSheetOpen = ref(false)
 const list = ref<PagedListState<MallProductCard>>(emptyPagedList())
+
+const filterCount = computed(() => countMallFilters(filters.value))
+// The search word first, then one chip per chosen filter; each can be removed on its own.
+const chips = computed(() => [
+  ...(keyword.value ? [{ key: 'keyword', label: `“${keyword.value}”` }] : []),
+  ...describeMallFilters(filters.value),
+])
 
 const loader = createPagedListLoader<MallProductQuery, MallProductCard>({
   loadPage: async (query, page, size) => mallApi.loadProducts(query, page, size),
@@ -55,12 +83,47 @@ const loader = createPagedListLoader<MallProductQuery, MallProductCard>({
   pageSize: MALL_PAGE_SIZE,
 })
 
-function reload(): void {
-  void loader.reload({
+function currentQuery(): MallProductQuery {
+  return {
     cityCode: props.cityCode,
     category: selectedCategory.value,
     sort: sort.value,
-  })
+    keyword: keyword.value,
+    filters: filters.value,
+  }
+}
+
+function reload(): void {
+  void loader.reload(currentQuery())
+}
+
+function endSearch(): void {
+  if (!keyword.value) return
+  keyword.value = ''
+  emit('keywordChange', '')
+}
+
+function removeChip(chipKey: string): void {
+  if (chipKey === 'keyword') endSearch()
+  else filters.value = removeMallFilterChip(filters.value, chipKey)
+  reload()
+}
+
+function clearSearchAndFilters(): void {
+  endSearch()
+  filters.value = cloneMallFilters(EMPTY_MALL_FILTERS)
+  reload()
+}
+
+function applyFilters(next: MallFilters): void {
+  filters.value = next
+  filterSheetOpen.value = false
+  reload()
+}
+
+// What the sheet's confirm button would show for a draft, with the category and search as they are.
+async function countProducts(draft: MallFilters): Promise<number> {
+  return (await mallApi.loadProducts({ ...currentQuery(), filters: draft }, 1, 1)).total
 }
 
 function selectCategory(category: MallCategory | null): void {
@@ -104,6 +167,14 @@ watch(() => props.cityCode, () => {
 watch(() => props.requestedCategory, (requested) => {
   if (!requested) return
   selectedCategory.value = requested.category
+  if (props.active) reload()
+})
+
+watch(() => props.requestedKeyword, (requested) => {
+  if (!requested) return
+  const next = requested.keyword.trim()
+  if (next === keyword.value) return
+  keyword.value = next
   if (props.active) reload()
 })
 
@@ -151,7 +222,38 @@ defineExpose({
       >
         价格 {{ sort === 'PRICE_ASC' ? '↑' : sort === 'PRICE_DESC' ? '↓' : '⇅' }}
       </button>
+      <button
+        :class="['mall-channel__filter', { 'mall-channel__filter--active': filterCount > 0 }]"
+        data-testid="mall-filter-open"
+        :aria-label="filterCount > 0 ? `筛选，已选 ${filterCount} 项` : '筛选'"
+        @click="filterSheetOpen = true"
+      >
+        <UniIcons type="settings" size="16" :color="filterCount > 0 ? '#ba470b' : '#536178'" />
+        <text>筛选{{ filterCount > 0 ? ` ${filterCount}` : '' }}</text>
+      </button>
     </view>
+
+    <scroll-view
+      v-if="chips.length"
+      class="mall-channel__chips"
+      data-testid="mall-chips"
+      scroll-x
+      :show-scrollbar="false"
+    >
+      <view class="mall-channel__chip-track">
+        <button
+          v-for="chip in chips"
+          :key="chip.key"
+          class="mall-channel__chip"
+          :data-testid="`mall-chip-${chip.key.replace(':', '-').toLowerCase()}`"
+          :aria-label="`移除 ${chip.label}`"
+          @click="removeChip(chip.key)"
+        >
+          <text>{{ chip.label }}</text>
+          <UniIcons type="closeempty" size="12" color="#ba470b" />
+        </button>
+      </view>
+    </scroll-view>
 
     <view
       v-if="list.status === 'loading' || list.status === 'idle'"
@@ -166,6 +268,20 @@ defineExpose({
       <text class="mall-channel__state-title">商品加载失败，请稍后重试</text>
       <button class="mall-channel__state-action" data-testid="mall-list-retry" @click="reload">
         重新加载
+      </button>
+    </view>
+
+    <view
+      v-else-if="list.items.length === 0 && chips.length"
+      class="mall-channel__state"
+      data-testid="mall-search-empty"
+    >
+      <text class="mall-channel__state-title">
+        {{ keyword ? `没有找到“${keyword}”` : '没有符合筛选条件的商品' }}
+      </text>
+      <text class="mall-channel__state-copy">换个关键词或筛选条件试试</text>
+      <button class="mall-channel__state-action" data-testid="mall-clear-all" @click="clearSearchAndFilters">
+        清除搜索和筛选
       </button>
     </view>
 
@@ -258,6 +374,14 @@ defineExpose({
         <text v-else-if="!list.hasMore">没有更多商品了</text>
       </view>
     </template>
+
+    <MallFilterSheet
+      v-if="filterSheetOpen"
+      :filters="filters"
+      :count-products="countProducts"
+      @close="filterSheetOpen = false"
+      @apply="applyFilters"
+    />
   </view>
 </template>
 
@@ -346,6 +470,66 @@ button::after {
 .mall-channel__sort--active {
   color: #ba470b;
   font-weight: 500;
+}
+
+.mall-channel__filter {
+  display: flex;
+  height: 40px;
+  margin-left: auto;
+  align-items: center;
+  gap: 4px;
+  color: #536178;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.mall-channel__filter--active {
+  color: #ba470b;
+  font-weight: 500;
+}
+
+.mall-channel__chips {
+  width: 100%;
+  margin-bottom: 8px;
+  white-space: nowrap;
+}
+
+.mall-channel__chip-track {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.mall-channel__chip {
+  position: relative;
+  display: inline-flex;
+  height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 0 10px;
+  border: 1px solid #ffd9bf;
+  border-radius: 999px;
+  color: #ba470b;
+  background: #fffaf5;
+  font-size: 12px;
+  line-height: 26px;
+  box-sizing: border-box;
+}
+
+/* Extends the 28px chip to the 44px touch minimum without changing its look. */
+.mall-channel__chip::before {
+  position: absolute;
+  top: -8px;
+  right: 0;
+  bottom: -8px;
+  left: 0;
+  content: "";
+}
+
+.mall-channel__state-copy {
+  color: #627187;
+  font-size: 13px;
+  line-height: 19px;
 }
 
 .mall-channel__grid {

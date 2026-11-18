@@ -32,7 +32,9 @@ class MallCatalogControllerTest {
 
     @Test
     void listPassesEveryParameterAndReturnsTheBarePage() throws Exception {
-        when(service.listProducts("370500", "ROBOT", "PRICE_ASC", 2, 10)).thenReturn(new MallProductPageView(
+        when(service.listProducts(new MallProductSearch(
+                "370500", "ROBOT", "编程", List.of("BUY", "RENT"), List.of("ONLINE_EXPERIENCE"),
+                List.of("LOCAL_STORE"), 10000L, 500000L, "PRICE_ASC", 2, 10))).thenReturn(new MallProductPageView(
                 2, 10, 11, false,
                 List.of(new MallProductCardView(
                         PRODUCT_ID, MallCategory.ROBOT, "编程机器人探索套装", null, MallSaleMode.BUY,
@@ -42,6 +44,12 @@ class MallCatalogControllerTest {
         mockMvc.perform(get("/api/v1/mall/products")
                         .param("cityCode", " 370500 ")
                         .param("category", "ROBOT")
+                        .param("keyword", "编程")
+                        .param("saleModes", "BUY", "RENT")
+                        .param("experienceBadges", "ONLINE_EXPERIENCE")
+                        .param("merchantKinds", "LOCAL_STORE")
+                        .param("minPriceMinor", "10000")
+                        .param("maxPriceMinor", "500000")
                         .param("sort", "PRICE_ASC")
                         .param("page", "2")
                         .param("size", "10"))
@@ -80,7 +88,8 @@ class MallCatalogControllerTest {
 
     @Test
     void badArgumentsAreBadRequestsAndUnknownProductsAreNotFound() throws Exception {
-        when(service.listProducts(null, null, null, 1, 20))
+        when(service.listProducts(new MallProductSearch(
+                null, null, null, null, null, null, null, null, null, 1, 20)))
                 .thenThrow(new IllegalArgumentException("city code is invalid"));
         when(service.findProduct(PRODUCT_ID, "370500")).thenThrow(new MallProductNotFoundException());
 

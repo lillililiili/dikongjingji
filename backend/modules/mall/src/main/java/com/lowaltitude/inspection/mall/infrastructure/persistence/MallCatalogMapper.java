@@ -25,32 +25,8 @@ public interface MallCatalogMapper {
               AND (offer.city_code IS NULL OR offer.city_code = #{cityCode})
             """;
 
-    @Select("""
-            SELECT count(*)
-            FROM mall_product p
-            WHERE p.status = 'PUBLISHED'
-              AND (#{category} = 'ALL' OR p.category = #{category})
-              AND EXISTS (
-                  SELECT 1
-            """ + CITY_OFFERS + """
-              )
-            """)
-    long countProducts(
-            @Param("cityCode") String cityCode,
-            @Param("category") String category
-    );
-
-    @Select("""
-            SELECT p.id product_id,
-                   p.category,
-                   p.name,
-                   p.cover_url,
-                   p.sale_mode,
-                   p.experience_badge,
-                   city.from_amount_minor,
-                   city.price_unit,
-                   city.distinct_price_count,
-                   city.seller_count
+    /** 该城市里有供给的已发布商品，带上按该城市供给算出的最低价、价格数和商家数。 */
+    String CITY_PRODUCTS = """
             FROM mall_product p
             JOIN LATERAL (
                 SELECT min(offer.price_amount_minor) from_amount_minor,
@@ -61,6 +37,68 @@ public interface MallCatalogMapper {
             ) city ON city.seller_count > 0
             WHERE p.status = 'PUBLISHED'
               AND (#{category} = 'ALL' OR p.category = #{category})
+            """;
+
+    /**
+     * 搜索和筛选。关键词是服务层转义好的 ILIKE 模式；列表为空表示不限。
+     * 商家类型看的是该城市的有效供给里有没有这类商家；价格区间比的是该城市的最低标价，
+     * 没有标价的询价商品在设置区间后不出现。
+     */
+    String MATCHING_FILTERS = """
+            <if test="keyword != null">
+              AND (p.name ILIKE #{keyword} ESCAPE '\\' OR p.summary ILIKE #{keyword} ESCAPE '\\')
+            </if>
+            <if test="saleModes != null and !saleModes.isEmpty()">
+              AND p.sale_mode IN
+              <foreach collection="saleModes" item="saleMode"
+                       open="(" separator="," close=")">#{saleMode}</foreach>
+            </if>
+            <if test="experienceBadges != null and !experienceBadges.isEmpty()">
+              AND p.experience_badge IN
+              <foreach collection="experienceBadges" item="experienceBadge"
+                       open="(" separator="," close=")">#{experienceBadge}</foreach>
+            </if>
+            <if test="merchantKinds != null and !merchantKinds.isEmpty()">
+              AND EXISTS (
+                  SELECT 1
+            """ + CITY_OFFERS + """
+                    AND offer.merchant_kind IN
+                    <foreach collection="merchantKinds" item="merchantKind"
+                             open="(" separator="," close=")">#{merchantKind}</foreach>
+              )
+            </if>
+            <if test="minPriceMinor != null">
+              AND city.from_amount_minor &gt;= #{minPriceMinor}
+            </if>
+            <if test="maxPriceMinor != null">
+              AND city.from_amount_minor &lt;= #{maxPriceMinor}
+            </if>
+            """;
+
+    @Select("<script>SELECT count(*)\n" + CITY_PRODUCTS + MATCHING_FILTERS + "</script>")
+    long countProducts(
+            @Param("cityCode") String cityCode,
+            @Param("category") String category,
+            @Param("keyword") String keyword,
+            @Param("saleModes") List<String> saleModes,
+            @Param("experienceBadges") List<String> experienceBadges,
+            @Param("merchantKinds") List<String> merchantKinds,
+            @Param("minPriceMinor") Long minPriceMinor,
+            @Param("maxPriceMinor") Long maxPriceMinor
+    );
+
+    @Select("<script>" + """
+            SELECT p.id product_id,
+                   p.category,
+                   p.name,
+                   p.cover_url,
+                   p.sale_mode,
+                   p.experience_badge,
+                   city.from_amount_minor,
+                   city.price_unit,
+                   city.distinct_price_count,
+                   city.seller_count
+            """ + CITY_PRODUCTS + MATCHING_FILTERS + """
             ORDER BY CASE WHEN #{sort} IN ('PRICE_ASC', 'PRICE_DESC')
                            AND city.from_amount_minor IS NULL THEN 1 ELSE 0 END ASC,
                      CASE WHEN #{sort} = 'PRICE_ASC' THEN city.from_amount_minor END ASC,
@@ -68,10 +106,16 @@ public interface MallCatalogMapper {
                      p.sort_order ASC,
                      p.id ASC
             LIMIT #{limit} OFFSET #{offset}
-            """)
+            """ + "</script>")
     List<ProductCardRow> findProducts(
             @Param("cityCode") String cityCode,
             @Param("category") String category,
+            @Param("keyword") String keyword,
+            @Param("saleModes") List<String> saleModes,
+            @Param("experienceBadges") List<String> experienceBadges,
+            @Param("merchantKinds") List<String> merchantKinds,
+            @Param("minPriceMinor") Long minPriceMinor,
+            @Param("maxPriceMinor") Long maxPriceMinor,
             @Param("sort") String sort,
             @Param("limit") int limit,
             @Param("offset") int offset

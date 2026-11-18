@@ -76,6 +76,15 @@ const mallChannelOpened = ref(activeChannel.value === 'MALL')
 const mallChannel = ref<{ loadMore(): Promise<void> } | null>(null)
 // Set when a home entry asks for one mall category; the token makes a repeated request count.
 const requestedMallCategory = ref<{ category: HomeMallCategory; token: number } | null>(null)
+// The search box searches the mall while the mall channel is showing; an empty keyword ends it.
+const requestedMallKeyword = ref<{ keyword: string; token: number } | null>(null)
+
+function searchMall(searchKeyword: string): void {
+  requestedMallKeyword.value = {
+    keyword: searchKeyword.trim(),
+    token: (requestedMallKeyword.value?.token ?? 0) + 1,
+  }
+}
 const activeChannelLabel = computed(() =>
   visibleChannels.find((channel) => channel.code === activeChannel.value)?.label ?? '',
 )
@@ -193,6 +202,10 @@ function handleIntent(intent: PlatformFeatureIntent): void {
 }
 
 function submitSearch(): void {
+  if (activeChannel.value === 'MALL') {
+    searchMall(keyword.value)
+    return
+  }
   if (
     isHomeChannelSearchable(activeChannel.value)
     && serviceSearchPlaceholder.value === null
@@ -235,6 +248,8 @@ function scrollToTop(): void {
 watch(activeChannel, async (channel, previousChannel) => {
   scrollPositions.set(previousChannel, currentScrollTop)
   keyword.value = ''
+  // The box is emptied on every channel change, so a mall search ends with it.
+  if (previousChannel === 'MALL' && requestedMallKeyword.value?.keyword) searchMall('')
   if (channel === 'SERVICE') serviceChannelOpened.value = true
   if (channel === 'ACTIVITY') activityChannelOpened.value = true
   if (channel === 'EXPERIENCE') experienceChannelOpened.value = true
@@ -368,6 +383,8 @@ onHide(() => {
         :active="pageVisible && activeChannel === 'MALL'"
         :city-code="currentCityStore.currentCity.code"
         :requested-category="requestedMallCategory"
+        :requested-keyword="requestedMallKeyword"
+        @keyword-change="keyword = $event"
       />
     </view>
     <view

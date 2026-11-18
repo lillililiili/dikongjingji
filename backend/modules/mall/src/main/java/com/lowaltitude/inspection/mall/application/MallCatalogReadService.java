@@ -15,6 +15,8 @@ import com.lowaltitude.inspection.mall.application.MallRows.ProductRow;
 public final class MallCatalogReadService {
 
     private static final int MAX_PAGE_SIZE = 50;
+    private static final int MAX_KEYWORD_LENGTH = 50;
+    private static final int MAX_FILTER_VALUES = 8;
     private static final String CITY_CODE_PATTERN = "^[A-Z0-9]{4,16}$";
     /** 查询里“不限类目”的占位值。 */
     private static final String ALL = "ALL";
@@ -25,6 +27,7 @@ public final class MallCatalogReadService {
         this.store = store;
     }
 
+    /** 不带搜索和筛选的列表。 */
     public MallProductPageView listProducts(
             String cityCode,
             String categoryCode,
@@ -32,18 +35,43 @@ public final class MallCatalogReadService {
             int page,
             int size
     ) {
-        requireCityCode(cityCode);
+        return listProducts(new MallProductSearch(
+                cityCode, categoryCode, null, null, null, null, null, null, sortCode, page, size));
+    }
+
+    public MallProductPageView listProducts(MallProductSearch search) {
+        requireCityCode(search.cityCode());
+        int page = search.page();
+        int size = search.size();
         if (page < 1 || size < 1 || size > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("page is invalid");
         }
-        String category = isBlank(categoryCode) ? ALL : parse(categoryCode, MallCategory::valueOf).name();
-        MallProductSort sort = isBlank(sortCode)
+        String category = isBlank(search.category())
+                ? ALL
+                : parse(search.category(), MallCategory::valueOf).name();
+        MallProductSort sort = isBlank(search.sort())
                 ? MallProductSort.DEFAULT
-                : parse(sortCode, MallProductSort::valueOf);
+                : parse(search.sort(), MallProductSort::valueOf);
+        Long minPrice = search.minPriceMinor();
+        Long maxPrice = search.maxPriceMinor();
+        if ((minPrice != null && minPrice < 0)
+                || (maxPrice != null && maxPrice < 0)
+                || (minPrice != null && maxPrice != null && minPrice > maxPrice)) {
+            throw new IllegalArgumentException("price range is invalid");
+        }
+        MallProductCriteria criteria = new MallProductCriteria(
+                search.cityCode(),
+                category,
+                keywordPattern(search.keyword()),
+                codes(search.saleModes(), MallSaleMode::valueOf),
+                codes(search.experienceBadges(), MallExperienceBadge::valueOf),
+                codes(search.merchantKinds(), MallMerchantKind::valueOf),
+                minPrice,
+                maxPrice);
 
-        long total = store.countProducts(cityCode, category);
+        long total = store.countProducts(criteria);
         List<MallProductCardView> items = store
-                .findProducts(cityCode, category, sort.name(), size, Math.multiplyExact(page - 1, size))
+                .findProducts(criteria, sort.name(), size, Math.multiplyExact(page - 1, size))
                 .stream()
                 .map(row -> new MallProductCardView(
                         row.productId(),
@@ -59,6 +87,41 @@ public final class MallCatalogReadService {
                         row.sellerCount()))
                 .toList();
         return new MallProductPageView(page, size, total, (long) page * size < total, items);
+    }
+
+    /** 空白当作没有关键词；% 和 _ 按字面匹配，不当通配符。 */
+    private static String keywordPattern(String keyword) {
+        if (isBlank(keyword)) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        if (trimmed.length() > MAX_KEYWORD_LENGTH) {
+            throw new IllegalArgumentException("keyword is too long");
+        }
+        return "%" + trimmed
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_") + "%";
+    }
+
+    /** 每个值都必须是已知编码；去重后按编码排序，空列表表示不限。 */
+    private static <E extends Enum<E>> List<String> codes(List<String> values, Function<String, E> parser) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        if (values.size() > MAX_FILTER_VALUES) {
+            throw new IllegalArgumentException("too many filter values");
+        }
+        return values.stream()
+                .map(value -> {
+                    if (isBlank(value)) {
+                        throw new IllegalArgumentException("filter value is invalid");
+                    }
+                    return parse(value, parser).name();
+                })
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     public MallProductDetailView findProduct(UUID productId, String cityCode) {

@@ -20,15 +20,34 @@ final class PostgresMallCatalogReadStore implements MallCatalogReadStore {
     }
 
     @Override
-    public long countProducts(String cityCode, String category) {
-        return mapper.countProducts(cityCode, category);
+    public long countProducts(MallProductCriteria criteria) {
+        return mapper.countProducts(
+                criteria.cityCode(),
+                criteria.category(),
+                criteria.keyword(),
+                criteria.saleModes(),
+                criteria.experienceBadges(),
+                criteria.merchantKinds(),
+                criteria.minPriceMinor(),
+                criteria.maxPriceMinor());
     }
 
     @Override
     public List<ProductCardRow> findProducts(
-            String cityCode, String category, String sort, int limit, int offset
+            MallProductCriteria criteria, String sort, int limit, int offset
     ) {
-        return mapper.findProducts(cityCode, category, sort, limit, offset);
+        return mapper.findProducts(
+                criteria.cityCode(),
+                criteria.category(),
+                criteria.keyword(),
+                criteria.saleModes(),
+                criteria.experienceBadges(),
+                criteria.merchantKinds(),
+                criteria.minPriceMinor(),
+                criteria.maxPriceMinor(),
+                sort,
+                limit,
+                offset);
     }
 
     @Override

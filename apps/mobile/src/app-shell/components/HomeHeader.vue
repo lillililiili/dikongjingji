@@ -45,6 +45,13 @@ function handleKeywordInput(event: Event): void {
 
   emit('update:keyword', value?.toString() ?? '')
 }
+
+// uni-app reports typing at most once every 100ms, so right after a keystroke the bound keyword
+// can be one step behind the box. The confirm event carries what the box holds.
+function handleKeywordConfirm(event: Event): void {
+  handleKeywordInput(event)
+  emit('search')
+}
 </script>
 
 <template>
@@ -110,7 +117,7 @@ function handleKeywordInput(event: Event): void {
           :placeholder="searchPlaceholder"
           placeholder-class="home-header__placeholder"
           @input="handleKeywordInput"
-          @confirm="emit('search')"
+          @confirm="handleKeywordConfirm"
         />
         <button
           class="home-header__submit"

@@ -98,4 +98,28 @@ describe('mall api', () => {
     expect(product.specs).toEqual([{ label: '适用年龄', value: '8 岁以上' }])
     expect(product.packItems).toEqual([{ name: '机器人主机', quantity: 1 }])
   })
+
+  it('sends the keyword, repeats multi-value filters and converts yuan to minor units', async () => {
+    const request = vi.fn().mockResolvedValue({ page: 1, size: 10, total: 0, hasMore: false, items: [] })
+    const api = createMallApi({ request })
+
+    await api.loadProducts({
+      cityCode: '370500',
+      category: null,
+      sort: 'DEFAULT',
+      keyword: '  编程 100% ',
+      filters: {
+        saleModes: ['BUY', 'RENT'],
+        experienceBadges: [],
+        merchantKinds: ['LOCAL_STORE'],
+        minPriceYuan: 100,
+        maxPriceYuan: null,
+      },
+    }, 1, 10)
+
+    expect(request.mock.calls[0][0].url).toBe(
+      '/api/v1/mall/products?cityCode=370500&keyword=%E7%BC%96%E7%A8%8B%20100%25'
+      + '&saleModes=BUY&saleModes=RENT&merchantKinds=LOCAL_STORE&minPriceMinor=10000&page=1&size=10',
+    )
+  })
 })

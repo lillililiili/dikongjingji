@@ -1,5 +1,6 @@
 package com.lowaltitude.inspection.mall.application;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,11 +25,28 @@ public final class MallCatalogController {
     public MallProductPageView products(
             @RequestParam(required = false) String cityCode,
             @RequestParam(required = false) String category,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) List<String> saleModes,
+            @RequestParam(required = false) List<String> experienceBadges,
+            @RequestParam(required = false) List<String> merchantKinds,
+            @RequestParam(required = false) Long minPriceMinor,
+            @RequestParam(required = false) Long maxPriceMinor,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return service.listProducts(trim(cityCode), category, sort, page, size);
+        return service.listProducts(new MallProductSearch(
+                trim(cityCode),
+                category,
+                keyword,
+                saleModes,
+                experienceBadges,
+                merchantKinds,
+                minPriceMinor,
+                maxPriceMinor,
+                sort,
+                page,
+                size));
     }
 
     @GetMapping("/api/v1/mall/products/{productId}")

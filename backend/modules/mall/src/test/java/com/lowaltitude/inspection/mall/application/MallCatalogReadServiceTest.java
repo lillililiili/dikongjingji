@@ -67,6 +67,50 @@ class MallCatalogReadServiceTest {
     }
 
     @Test
+    void searchAndFiltersAreValidatedAndHandedToTheStore() {
+        service.listProducts(new MallProductSearch(
+                "370500", "ROBOT", "  100%_编程\\  ",
+                List.of("RENT", "BUY", "BUY"), List.of("VENUE_DISPLAY"), List.of(" LOCAL_STORE "),
+                10000L, 500000L, null, 1, 20));
+
+        assertThat(store.criteria).isEqualTo(new MallProductCriteria(
+                "370500", "ROBOT", "%100\\%\\_编程\\\\%",
+                List.of("BUY", "RENT"), List.of("VENUE_DISPLAY"), List.of("LOCAL_STORE"),
+                10000L, 500000L));
+    }
+
+    @Test
+    void anEmptySearchMeansNoKeywordAndNoFilters() {
+        service.listProducts(new MallProductSearch(
+                "370500", null, "   ", List.of(), null, null, null, null, null, 1, 20));
+
+        assertThat(store.criteria).isEqualTo(new MallProductCriteria(
+                "370500", "ALL", null, List.of(), List.of(), List.of(), null, null));
+    }
+
+    @Test
+    void rejectsInvalidSearchAndFilterValues() {
+        assertInvalid(() -> search("x".repeat(51), null, null, null, null, null));
+        assertInvalid(() -> search(null, List.of("GIFT"), null, null, null, null));
+        assertInvalid(() -> search(null, null, List.of(" "), null, null, null));
+        assertInvalid(() -> search(null, null, null, List.of("ANYONE"), null, null));
+        assertInvalid(() -> search(null, List.of("BUY", "BUY", "BUY", "BUY", "BUY", "BUY", "BUY", "BUY", "BUY"),
+                null, null, null, null));
+        assertInvalid(() -> search(null, null, null, null, -1L, null));
+        assertInvalid(() -> search(null, null, null, null, null, -1L));
+        assertInvalid(() -> search(null, null, null, null, 200L, 100L));
+        assertThat(store.listQueried).isFalse();
+    }
+
+    private void search(
+            String keyword, List<String> saleModes, List<String> badges, List<String> merchantKinds,
+            Long minPrice, Long maxPrice
+    ) {
+        service.listProducts(new MallProductSearch(
+                "370500", null, keyword, saleModes, badges, merchantKinds, minPrice, maxPrice, null, 1, 20));
+    }
+
+    @Test
     void rejectsInvalidListArguments() {
         assertInvalid(() -> service.listProducts(null, null, null, 1, 20));
         assertInvalid(() -> service.listProducts("x", null, null, 1, 20));
@@ -142,17 +186,19 @@ class MallCatalogReadServiceTest {
         int limit;
         int offset;
         boolean listQueried;
+        MallProductCriteria criteria;
 
         @Override
-        public long countProducts(String cityCode, String category) {
+        public long countProducts(MallProductCriteria criteria) {
             listQueried = true;
-            this.category = category;
+            this.category = criteria.category();
+            this.criteria = criteria;
             return total;
         }
 
         @Override
         public List<ProductCardRow> findProducts(
-                String cityCode, String category, String sort, int limit, int offset
+                MallProductCriteria criteria, String sort, int limit, int offset
         ) {
             this.sort = sort;
             this.limit = limit;

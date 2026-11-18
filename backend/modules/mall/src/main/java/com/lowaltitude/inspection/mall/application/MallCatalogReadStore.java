@@ -12,9 +12,9 @@ import com.lowaltitude.inspection.mall.application.MallRows.SpecRow;
 
 interface MallCatalogReadStore {
 
-    long countProducts(String cityCode, String category);
+    long countProducts(MallProductCriteria criteria);
 
-    List<ProductCardRow> findProducts(String cityCode, String category, String sort, int limit, int offset);
+    List<ProductCardRow> findProducts(MallProductCriteria criteria, String sort, int limit, int offset);
 
     Optional<ProductRow> findProduct(UUID productId);
 
