@@ -28,6 +28,8 @@ import com.lowaltitude.inspection.activity.application.ActivityCatalogReadServic
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentService;
 import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
 import com.lowaltitude.inspection.mall.application.MallCatalogReadService;
+import com.lowaltitude.inspection.mall.application.MallCartService;
+import com.lowaltitude.inspection.account.application.AccountAddressService;
 import com.lowaltitude.inspection.notification.application.NotificationService;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
@@ -382,13 +384,95 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/mall/products"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
-        // 购物车和订单还不存在；白名单之外的路径一律要登录。
+        // 购物车要登录；订单还不存在，白名单之外的路径一律要登录。
         mockMvc.perform(get("/api/v1/mall/cart"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
         mockMvc.perform(get(product + "/offers"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    // 收货地址、购物车、结算预览全部要登录：商城公开的只有商品列表和商品详情两个读取接口。
+    @Test
+    void addressCartAndCheckoutRoutesRequireALogin() throws Exception {
+        String address = "/api/v1/account/addresses/d1000000-0000-4000-8000-000000000001";
+        String cartItem = "/api/v1/mall/cart/items/c5000000-0000-4000-8000-000000000001";
+
+        for (var request : List.of(
+                get("/api/v1/account/addresses"),
+                post("/api/v1/account/addresses"),
+                put(address),
+                delete(address),
+                get("/api/v1/mall/cart").param("cityCode", "370500"),
+                get("/api/v1/mall/cart/count").param("cityCode", "370500"),
+                post("/api/v1/mall/cart/items"),
+                put(cartItem),
+                post("/api/v1/mall/cart/remove"),
+                post("/api/v1/mall/cart/remove-invalid"),
+                get("/api/v1/mall/checkout-preview").param("cityCode", "370500"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        // 过期的令牌版本和没带令牌一样。
+        mockMvc.perform(get("/api/v1/mall/cart/count")
+                        .param("cityCode", "370500")
+                        .header("Authorization", "Bearer " + signedToken(List.of(), 6)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    // 登录后账号只取自令牌，请求里写别人的账号没有用；不是客户角色的账号一律 403，服务一次都不调。
+    @Test
+    void addressesAndCartUseTheSubjectOfTheToken() throws Exception {
+        AccountAddressService addresses = applicationContext.getBean(AccountAddressService.class);
+        MallCartService carts = applicationContext.getBean(MallCartService.class);
+        org.mockito.Mockito.clearInvocations(addresses, carts);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+        String someoneElse = "11111111-1111-1111-1111-222222222222";
+        String offerId = "c4000000-0000-4000-8000-000000000101";
+
+        mockMvc.perform(get("/api/v1/account/addresses")
+                        .param("ownerId", someoneElse)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/mall/cart/count")
+                        .param("cityCode", "370500")
+                        .param("accountId", someoneElse)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/mall/cart/items")
+                        .header("Authorization", "Bearer " + customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"offerId\":\"" + offerId + "\",\"quantity\":1,\"cityCode\":\"370500\","
+                                + "\"accountId\":\"" + someoneElse + "\"}"))
+                .andExpect(status().isCreated());
+
+        org.mockito.Mockito.verify(addresses).list(SUBJECT_ID);
+        org.mockito.Mockito.verify(carts).count(SUBJECT_ID, "370500");
+        org.mockito.Mockito.verify(carts).add(SUBJECT_ID, UUID.fromString(offerId), 1, "370500");
+
+        mockMvc.perform(get("/api/v1/account/addresses")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        mockMvc.perform(get("/api/v1/mall/cart")
+                        .param("cityCode", "370500")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        mockMvc.perform(get("/api/v1/mall/checkout-preview")
+                        .param("cityCode", "370500")
+                        .param("offerId", offerId)
+                        .param("quantity", "1")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        org.mockito.Mockito.verifyNoMoreInteractions(addresses, carts);
     }
 
     @Test
@@ -705,6 +789,16 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         NotificationService testNotificationService() {
             return org.mockito.Mockito.mock(NotificationService.class);
+        }
+
+        @Bean
+        AccountAddressService testAccountAddressService() {
+            return org.mockito.Mockito.mock(AccountAddressService.class);
+        }
+
+        @Bean
+        MallCartService testMallCartService() {
+            return org.mockito.Mockito.mock(MallCartService.class);
         }
 
         @Bean

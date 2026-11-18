@@ -190,7 +190,7 @@ public final class MallCatalogReadService {
     }
 
     /** 只放行带主机名的 HTTPS 地址（AGENTS.md §11）；其余当作没有图片。 */
-    private static MallMediaView secureMedia(String url, String alt) {
+    static MallMediaView secureMedia(String url, String alt) {
         if (isBlank(url)) {
             return null;
         }

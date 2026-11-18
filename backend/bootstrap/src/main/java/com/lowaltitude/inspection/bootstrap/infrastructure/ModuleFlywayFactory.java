@@ -46,6 +46,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway account(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/account",
+                "flyway_history_account",
+                true);
+    }
+
     public Flyway mall(DataSource dataSource) {
         return build(
                 dataSource,

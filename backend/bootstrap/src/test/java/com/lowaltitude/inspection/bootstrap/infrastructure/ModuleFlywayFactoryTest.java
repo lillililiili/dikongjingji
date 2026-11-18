@@ -69,6 +69,31 @@ class ModuleFlywayFactoryTest {
         assertThat(mall.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
     }
 
+    @Test
+    void keepsAccountVersionsInTheirOwnHistoryTable() {
+        Flyway account = new ModuleFlywayFactory().account(mock(DataSource.class));
+
+        assertThat(account.getConfiguration().getTable()).isEqualTo("flyway_history_account");
+        assertThat(locationDescriptors(account)).containsExactly("classpath:db/migration/account");
+        assertThat(account.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(account.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    // 收货地址表引用 identity_user：账号迁移排在身份和巡检迁移之后，所有环境都跑。
+    @Test
+    void accountTablesMigrateAfterTheModulesTheyReference() {
+        java.lang.reflect.Method migration = Arrays.stream(ModuleFlywayConfiguration.class.getDeclaredMethods())
+                .filter(method -> method.getName().equals("accountFlyway"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(migration.getAnnotation(org.springframework.context.annotation.Profile.class)).isNull();
+        assertThat(migration.getAnnotation(org.springframework.context.annotation.DependsOn.class).value())
+                .containsExactly("inspectionFlyway");
+        assertThat(migration.getAnnotation(org.springframework.context.annotation.Bean.class).initMethod())
+                .isEqualTo("migrate");
+    }
+
     private static String[] locationDescriptors(Flyway flyway) {
         return Arrays.stream(flyway.getConfiguration().getLocations())
                 .map(Object::toString)

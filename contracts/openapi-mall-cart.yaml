@@ -1,0 +1,759 @@
+openapi: 3.1.0
+info:
+  title: Mall Cart API
+  version: 1.0.0
+  description: |-
+    1.0.0（用户 2026-11-17 确认“按原型做”）：商城的购物车和确认订单页的预览。到“提交订单”为止，这个版本不建订单、
+    不收款：下单要等统一交易模块（AGENTS.md §3、§11）。
+    Every route needs a login (bearer JWT) and the CUSTOMER role. The account is always the subject of
+    the access token: no parameter names another account, and a cart line of another account is
+    answered as not found.
+
+    购物车规则：
+    - 只有按件标了价格的“购买”商品能加入购物车：租赁（按天、半天计价）和询价（没有价格）的商品不进购物车。
+    - 购物车的一行是“某个商家的某个规格”（offerId）。同一个 offerId 再加一次只加数量，单行数量 1–99，加到超过 99 时停在 99。
+    - 一个账号最多 50 行；满了以后还能给已有的行加数量，不能再加新的行。
+    - 购物车不存价格：每次读取都按当前价格和当前城市（cityCode）重新判断每一行能不能买。不能买的行放进 invalidItems，
+      并给出原因（CartInvalidReason），不显示单价；能买的行按商家分组，组和组里的行都按最近加入或改数量的先后排列。
+    - 购物车角标（count）是当前城市能买的商品有几行，不按件数。
+    - “清空失效”删掉在当前城市不能买的全部行。
+
+    确认订单（结算预览）规则：
+    - 只读，不建订单，不锁库存，不冻结价格。
+    - 来源二选一：购物车里的几行（cartItemIds，1–20 行），或商品页“立即购买”的一个供给（offerId + quantity）；两个都给或都不给是参数错误。
+    - 一次只结算一个商家；几行属于不同商家时拒绝。有任何一行已失效时拒绝，回到购物车重新选择。
+    - 配送方式：每一行都支持快递时可选快递（EXPRESS）；所有行的自提点相同时可选到店自提（PICKUP）。
+      deliveryMode 是想要的方式（不传时为快递）；想要的方式这一单没有时，改用可选的第一种；一种都没有时 deliveryMode 为 null，
+      blockers 里有 NO_DELIVERY_OPTION，要分开结算。
+    - 运费：快递取各行运费的最大值（一单只收一次），到店自提为 0。payableMinor = goodsMinor + shippingMinor。
+    - 收货地址只在快递时给出：传了 addressId 用那一条（不是自己的地址是 404），否则用默认地址；都没有时 address 为 null，
+      blockers 里有 ADDRESS_REQUIRED。到店自提时 address 为 null，addressId 不读。地址的结构见 contracts/openapi-account.yaml。
+
+    金额都是最小货币单位（分）。Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/mall/cart:
+    get:
+      operationId: readMyCart
+      summary: 当前账号的购物车，按当前城市判断每一行能不能买
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: 能买的行按商家分组，不能买的另列
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/mall/cart/count:
+    get:
+      operationId: countMyCart
+      summary: 购物车角标：当前城市能买的商品有几行
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: 行数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartCount"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/mall/cart/items:
+    post:
+      operationId: addToMyCart
+      summary: 把一个供给加入购物车；已经在购物车里时加数量
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCartItemRequest"
+      responses:
+        "201":
+          description: 这一行加完后的数量和购物车角标
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartAdded"
+        "400":
+          description: offerId 缺失、数量不在 1–99，或城市编码无效（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 供给不存在、商品或规格已下架，或商家已不卖（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            MALL_CART_NOT_PURCHASABLE：租赁、询价或没有按件标价的商品不能加入购物车。
+            MALL_CART_NOT_SOLD_IN_CITY：这个商家在当前城市不卖这件商品。
+            MALL_CART_FULL：购物车已有 50 行，不能再加新的行。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/mall/cart/items/{cartItemId}:
+    put:
+      operationId: setMyCartItemQuantity
+      summary: 改一行的数量
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CartItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetCartQuantityRequest"
+      responses:
+        "200":
+          description: 改后的数量
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartQuantity"
+        "400":
+          description: 行 ID 无效，或数量不在 1–99（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/mall/cart/remove:
+    post:
+      operationId: removeFromMyCart
+      summary: 删掉指定的几行
+      description: 不在当前账号购物车里的行不受影响，也不报错；removed 是真正删掉的行数。
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemoveCartItemsRequest"
+      responses:
+        "200":
+          description: 删掉的行数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartRemoved"
+        "400":
+          description: cartItemIds 为空、超过 50 个或含无效 ID（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/mall/cart/remove-invalid:
+    post:
+      operationId: removeInvalidFromMyCart
+      summary: 清空失效：删掉在当前城市不能买的全部行
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartCityRequest"
+      responses:
+        "200":
+          description: 删掉的行数；没有失效的行时为 0
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartRemoved"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/mall/checkout-preview:
+    get:
+      operationId: previewMyCheckout
+      summary: 确认订单页的内容：一个商家的几样商品、配送方式、收货地址和金额
+      description: 只读，不建订单。来源是 cartItemIds，或 offerId + quantity，二选一。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+        - name: cartItemIds
+          in: query
+          required: false
+          description: 购物车里要结算的行，1–20 个；重复的 ID 只算一次
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 20
+            items:
+              type: string
+              format: uuid
+        - name: offerId
+          in: query
+          required: false
+          description: “立即购买”的供给
+          schema:
+            type: string
+            format: uuid
+        - name: quantity
+          in: query
+          required: false
+          description: “立即购买”的数量，和 offerId 一起给
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 99
+        - name: deliveryMode
+          in: query
+          required: false
+          description: 想要的配送方式，不传时为快递
+          schema:
+            $ref: "#/components/schemas/DeliveryMode"
+        - name: addressId
+          in: query
+          required: false
+          description: 快递时用的收货地址；不传时用默认地址
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 预览；blockers 不为空时这一单还不能提交
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutPreview"
+        "400":
+          description: >-
+            城市编码无效；cartItemIds 和 offerId 都给或都没给；cartItemIds 超过 20 个；立即购买的数量不在 1–99；
+            配送方式无效（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 某一行不在当前账号的购物车里、供给不存在，或快递时 addressId 不是自己的地址（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            MALL_CHECKOUT_ITEM_UNAVAILABLE：有一行已失效（下架、商家不卖、当前城市不卖或不再按件标价）。
+            MALL_CHECKOUT_MULTIPLE_MERCHANTS：几行属于不同商家，每次只能结算一个商家。
+            MALL_CART_NOT_PURCHASABLE：立即购买的商品是租赁、询价或没有按件标价。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: 参数缺失或格式不对（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没有登录，或登录已过期（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: 登录账号没有客户角色（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 这一行不在当前账号的购物车里（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    CityCode:
+      name: cityCode
+      in: query
+      required: true
+      schema:
+        type: string
+        pattern: "^[A-Z0-9]{4,16}$"
+      description: 当前城市的稳定编码，能不能买按它判断
+    CartItemId:
+      name: cartItemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - traceId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    MallCartErrorCode:
+      type: string
+      enum:
+        - MALL_CART_NOT_PURCHASABLE
+        - MALL_CART_NOT_SOLD_IN_CITY
+        - MALL_CART_FULL
+        - MALL_CHECKOUT_MULTIPLE_MERCHANTS
+        - MALL_CHECKOUT_ITEM_UNAVAILABLE
+      description: >-
+        购物车和结算预览在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外），都是 409。
+    MediaAsset:
+      type: object
+      additionalProperties: false
+      required:
+        - url
+        - alt
+      description: 与 contracts/openapi-mall-catalog.yaml 的 MediaAsset 相同
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Controlled HTTPS address only
+        alt:
+          type: string
+    MallMerchantKind:
+      type: string
+      enum:
+        - FACTORY_DIRECT
+        - AUTHORIZED_DEALER
+        - LOCAL_STORE
+      description: 厂家直营 / 授权经销 / 本地商家
+    MallMerchant:
+      type: object
+      additionalProperties: false
+      required:
+        - organizationId
+        - name
+        - kind
+      description: 与 contracts/openapi-mall-catalog.yaml 的 MallMerchant 相同
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: "#/components/schemas/MallMerchantKind"
+    DeliveryMode:
+      type: string
+      enum:
+        - EXPRESS
+        - PICKUP
+      description: 快递 / 到店自提
+    CartInvalidReason:
+      type: string
+      enum:
+        - PRODUCT_OFFLINE
+        - OFFER_UNAVAILABLE
+        - NOT_PURCHASABLE
+        - NOT_SOLD_IN_CITY
+      description: 商品或规格已下架 / 这个商家不再卖了 / 变成了租赁、询价或没有价格 / 当前城市不卖
+    CheckoutBlocker:
+      type: string
+      enum:
+        - ADDRESS_REQUIRED
+        - NO_DELIVERY_OPTION
+      description: 快递配送但还没有收货地址 / 几样商品没有共同的配送方式，要分开结算
+    CartItem:
+      type: object
+      additionalProperties: false
+      required:
+        - cartItemId
+        - offerId
+        - productId
+        - productName
+        - skuName
+        - coverImage
+        - merchant
+        - unitAmountMinor
+        - quantity
+        - shippingNote
+        - deliveryModes
+        - invalidReason
+      properties:
+        cartItemId:
+          type: string
+          format: uuid
+        offerId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        skuName:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        merchant:
+          $ref: "#/components/schemas/MallMerchant"
+        unitAmountMinor:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 当前单价（分）；失效的行为 null
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        shippingNote:
+          type:
+            - string
+            - "null"
+          description: 商家写的发货说明
+        deliveryModes:
+          type: array
+          description: 这一行自己支持的配送方式
+          items:
+            $ref: "#/components/schemas/DeliveryMode"
+        invalidReason:
+          anyOf:
+            - $ref: "#/components/schemas/CartInvalidReason"
+            - type: "null"
+          description: 能买时为 null
+    CartGroup:
+      type: object
+      additionalProperties: false
+      required:
+        - merchant
+        - items
+      properties:
+        merchant:
+          $ref: "#/components/schemas/MallMerchant"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+    Cart:
+      type: object
+      additionalProperties: false
+      required:
+        - groups
+        - invalidItems
+        - validCount
+      properties:
+        groups:
+          type: array
+          description: 能买的行，按商家分组
+          items:
+            $ref: "#/components/schemas/CartGroup"
+        invalidItems:
+          type: array
+          description: 在当前城市不能买的行
+          items:
+            $ref: "#/components/schemas/CartItem"
+        validCount:
+          type: integer
+          minimum: 0
+          description: 能买的行数
+    CartCount:
+      type: object
+      additionalProperties: false
+      required:
+        - count
+      properties:
+        count:
+          type: integer
+          minimum: 0
+    CartAdded:
+      type: object
+      additionalProperties: false
+      required:
+        - cartItemId
+        - quantity
+        - cartCount
+      properties:
+        cartItemId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+          description: 这一行加完后的数量
+        cartCount:
+          type: integer
+          minimum: 0
+          description: 加完后的购物车角标
+    CartQuantity:
+      type: object
+      additionalProperties: false
+      required:
+        - cartItemId
+        - quantity
+      properties:
+        cartItemId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+    CartRemoved:
+      type: object
+      additionalProperties: false
+      required:
+        - removed
+      properties:
+        removed:
+          type: integer
+          minimum: 0
+    CheckoutLine:
+      type: object
+      additionalProperties: false
+      required:
+        - cartItemId
+        - offerId
+        - productId
+        - productName
+        - skuName
+        - coverImage
+        - unitAmountMinor
+        - quantity
+        - subtotalMinor
+      properties:
+        cartItemId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: 来自购物车的行；立即购买时为 null
+        offerId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        skuName:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        unitAmountMinor:
+          type: integer
+          minimum: 0
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        subtotalMinor:
+          type: integer
+          minimum: 0
+          description: unitAmountMinor × quantity
+    DeliveryOption:
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - note
+      properties:
+        mode:
+          $ref: "#/components/schemas/DeliveryMode"
+        note:
+          type:
+            - string
+            - "null"
+          description: 快递时是各行的发货说明（去重后用“；”连接），自提时是自提点
+    CheckoutAmounts:
+      type: object
+      additionalProperties: false
+      required:
+        - goodsMinor
+        - shippingMinor
+        - payableMinor
+        - currency
+      properties:
+        goodsMinor:
+          type: integer
+          minimum: 0
+        shippingMinor:
+          type: integer
+          minimum: 0
+          description: 快递时为各行运费的最大值，到店自提为 0
+        payableMinor:
+          type: integer
+          minimum: 0
+          description: goodsMinor + shippingMinor
+        currency:
+          type: string
+          enum:
+            - CNY
+    CheckoutPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - merchant
+        - lines
+        - pieceCount
+        - fulfilledFrom
+        - deliveryOptions
+        - deliveryMode
+        - address
+        - amounts
+        - blockers
+      properties:
+        merchant:
+          $ref: "#/components/schemas/MallMerchant"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/CheckoutLine"
+        pieceCount:
+          type: integer
+          minimum: 1
+          description: 一共几件（各行数量之和）
+        fulfilledFrom:
+          type:
+            - string
+            - "null"
+          description: 发货地（去重后用“；”连接）
+        deliveryOptions:
+          type: array
+          description: 这一单可选的配送方式，快递在前
+          items:
+            $ref: "#/components/schemas/DeliveryOption"
+        deliveryMode:
+          anyOf:
+            - $ref: "#/components/schemas/DeliveryMode"
+            - type: "null"
+          description: 这一单用的配送方式；没有可选方式时为 null
+        address:
+          anyOf:
+            - $ref: "./openapi-account.yaml#/components/schemas/Address"
+            - type: "null"
+          description: 快递时的收货地址；到店自提或还没有地址时为 null
+        amounts:
+          $ref: "#/components/schemas/CheckoutAmounts"
+        blockers:
+          type: array
+          description: 这一单还差什么才能提交；为空时可以提交
+          items:
+            $ref: "#/components/schemas/CheckoutBlocker"
+    AddCartItemRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - offerId
+        - quantity
+        - cityCode
+      properties:
+        offerId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        cityCode:
+          type: string
+          pattern: "^[A-Z0-9]{4,16}$"
+    SetCartQuantityRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - quantity
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+    RemoveCartItemsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - cartItemIds
+      properties:
+        cartItemIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            format: uuid
+    CartCityRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - cityCode
+      properties:
+        cityCode:
+          type: string
+          pattern: "^[A-Z0-9]{4,16}$"

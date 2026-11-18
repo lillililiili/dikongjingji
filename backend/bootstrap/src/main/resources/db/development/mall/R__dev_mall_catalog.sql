@@ -56,12 +56,18 @@ SET product_id = EXCLUDED.product_id,
 
 INSERT INTO mall_offer (
     id, sku_id, merchant_id, merchant_kind, city_code, price_amount_minor, price_unit,
-    delivery_note, shipping_note, fulfilled_from
+    delivery_note, shipping_note, fulfilled_from, express_available, pickup_point
 )
 SELECT md5('dev-mall-offer:' || seed.product || ':' || seed.merchant)::uuid,
        ('c3000000-0000-4000-8000-000000000' || seed.product)::uuid,
        ('c1000000-0000-4000-8000-00000000000' || seed.merchant)::uuid,
-       seed.kind, seed.city, seed.amount, seed.unit, seed.delivery, seed.shipping, seed.fulfilled
+       seed.kind, seed.city, seed.amount, seed.unit, seed.delivery, seed.shipping, seed.fulfilled,
+       -- 本地门店只能到店自提；示例机器人商家的东营仓两种都行（原型 Checkout 的写法）。
+       seed.kind <> 'LOCAL_STORE' OR seed.unit <> 'ITEM',
+       CASE
+           WHEN seed.kind = 'LOCAL_STORE' AND seed.unit = 'ITEM' THEN '示例科创器材店 东营门店（示例路 18 号）'
+           WHEN seed.product = '101' AND seed.merchant = '1' THEN '东营低空与机器人体验馆 自提点（示例路 66 号）'
+       END
 FROM (
     VALUES
         ('101', '1', 'FACTORY_DIRECT', '370500', 129900::bigint, 'ITEM', '东营现货 · 48 小时发货 · 一年保修', '东营可买 · 包邮 · 48 小时内发货', '示例机器人商家 东营仓'),
@@ -98,6 +104,8 @@ SET sku_id = EXCLUDED.sku_id,
     delivery_note = EXCLUDED.delivery_note,
     shipping_note = EXCLUDED.shipping_note,
     fulfilled_from = EXCLUDED.fulfilled_from,
+    express_available = EXCLUDED.express_available,
+    pickup_point = EXCLUDED.pickup_point,
     updated_at = now();
 
 INSERT INTO mall_product_spec (id, product_id, label, value, sort_order)

@@ -1,0 +1,289 @@
+openapi: 3.1.0
+info:
+  title: Account API
+  version: 1.0.0
+  description: |-
+    1.0.0（用户 2026-11-17 确认“按原型做”）：登录账号自己的收货地址簿，商城确认订单时选一条用于本单。
+    Every route needs a login (bearer JWT) and the CUSTOMER role. The owner is always the subject of
+    the access token: no parameter names another account, and an address of another account is
+    answered as not found.
+
+    地址规则：
+    - 每个账号最多 20 条地址。
+    - 收货人姓名去掉首尾空白后 1–20 个字符，详细地址 1–80 个字符，都不能含控制字符。
+    - 手机号是中国大陆手机号，11 位数字，匹配 ^1[3-9][0-9]{9}$。
+    - 地区只到地级市：cityCode 取自平台城市目录（contracts/openapi-platform-city.yaml），省份由服务端按城市补上，
+      客户端不用传；区县写在详细地址里。目录里没有的城市编码是参数错误。保存时记下省、市的编码和名称，之后目录改名不影响已存地址。
+    - 地址簿里只要有地址，就有且只有一条默认地址：第一条地址总是默认；把另一条设为默认时原来的默认自动取消；
+      默认地址不能直接取消默认（isDefault 传 false 时保持默认），只能把别的地址设为默认；删掉默认地址后，最早添加的一条成为默认。
+    - 列表里默认地址在最前，其余按添加先后。
+    - 地址只返回给它的主人，所以手机号是完整的；页面显示时打码。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/account/addresses:
+    get:
+      operationId: listMyAddresses
+      summary: 当前账号的收货地址，默认地址在最前
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 地址列表；没有地址时 items 为空
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddressList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: addMyAddress
+      summary: 新增一条收货地址
+      description: >-
+        第一条地址不论 isDefault 传什么都是默认；之后 isDefault 为 true 时它成为默认，原来的默认取消。
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressForm"
+      responses:
+        "201":
+          description: 新增的地址
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "400":
+          description: 姓名、手机号、详细地址无效，或城市编码不在平台城市目录里（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: ACCOUNT_ADDRESS_LIMIT：这个账号已有 20 条地址。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/account/addresses/{addressId}:
+    put:
+      operationId: updateMyAddress
+      summary: 修改一条收货地址
+      description: >-
+        整条替换姓名、手机号、城市和详细地址。isDefault 为 true 时它成为默认；它本来就是默认时，
+        isDefault 传 false 或不传都保持默认。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AddressId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressForm"
+      responses:
+        "200":
+          description: 修改后的地址
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Address"
+        "400":
+          description: 地址 ID 无效，或姓名、手机号、详细地址、城市编码无效（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteMyAddress
+      summary: 删除一条收货地址
+      description: 删掉的是默认地址时，剩下的地址里最早添加的一条成为默认。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AddressId"
+      responses:
+        "204":
+          description: 已删除
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: 参数缺失或格式不对（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没有登录，或登录已过期（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: 登录账号没有客户角色（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 地址不存在、已删除，或不属于当前账号（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    AddressId:
+      name: addressId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - traceId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    AccountErrorCode:
+      type: string
+      enum:
+        - ACCOUNT_ADDRESS_LIMIT
+      description: >-
+        地址接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。ACCOUNT_ADDRESS_LIMIT 是 409。
+    AddressRegion:
+      type: object
+      additionalProperties: false
+      required:
+        - provinceCode
+        - provinceName
+        - cityCode
+        - cityName
+      description: 保存时的省和地级市（取自平台城市目录）
+      properties:
+        provinceCode:
+          type: string
+        provinceName:
+          type: string
+        cityCode:
+          type: string
+        cityName:
+          type: string
+    Address:
+      type: object
+      additionalProperties: false
+      required:
+        - addressId
+        - recipientName
+        - phone
+        - region
+        - detail
+        - isDefault
+      properties:
+        addressId:
+          type: string
+          format: uuid
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 20
+        phone:
+          type: string
+          pattern: "^1[3-9][0-9]{9}$"
+          description: 完整手机号，只返回给地址的主人
+        region:
+          $ref: "#/components/schemas/AddressRegion"
+        detail:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: 区县、街道、门牌号
+        isDefault:
+          type: boolean
+    AddressList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/Address"
+    AddressForm:
+      type: object
+      additionalProperties: false
+      required:
+        - recipientName
+        - phone
+        - cityCode
+        - detail
+      properties:
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 20
+          description: 去掉首尾空白后计算长度
+        phone:
+          type: string
+          pattern: "^1[3-9][0-9]{9}$"
+        cityCode:
+          type: string
+          description: 平台城市目录里的地级市编码；省份由服务端补上
+        detail:
+          type: string
+          minLength: 1
+          maxLength: 80
+        isDefault:
+          type:
+            - boolean
+            - "null"
+          description: true 时设为默认；不传或 false 时不改变默认（第一条地址和原来的默认地址总是默认）

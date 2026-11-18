@@ -2,10 +2,13 @@ package com.lowaltitude.inspection.bootstrap.api;
 
 import java.util.UUID;
 
+import com.lowaltitude.inspection.account.application.AddressLimitException;
+import com.lowaltitude.inspection.account.application.AddressNotFoundException;
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentException;
 import com.lowaltitude.inspection.activity.application.ActivityNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
 import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
+import com.lowaltitude.inspection.mall.application.MallCartException;
 import com.lowaltitude.inspection.mall.application.MallProductNotFoundException;
 import com.lowaltitude.inspection.notification.application.NotificationNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
@@ -184,7 +187,8 @@ public class GlobalExceptionHandler {
             ActivityNotFoundException.class,
             VenueNotFoundException.class,
             MallProductNotFoundException.class,
-            NotificationNotFoundException.class
+            NotificationNotFoundException.class,
+            AddressNotFoundException.class
     })
     public ResponseEntity<ApiError> handleReservationNotFound(
             RuntimeException exception,
@@ -346,6 +350,55 @@ public class GlobalExceptionHandler {
             }
             default -> throw new IllegalStateException(
                     "unhandled activity enrollment error " + exception.error());
+        }
+        return ResponseEntity.status(status)
+                .body(new ApiError(code, message, traceId(request)));
+    }
+
+    @ExceptionHandler(AddressLimitException.class)
+    public ResponseEntity<ApiError> handleAddressLimit(
+            AddressLimitException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError("ACCOUNT_ADDRESS_LIMIT", "收货地址数量已达上限", traceId(request)));
+    }
+
+    @ExceptionHandler(MallCartException.class)
+    public ResponseEntity<ApiError> handleMallCart(
+            MallCartException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case NOT_PURCHASABLE -> {
+                code = "MALL_CART_NOT_PURCHASABLE";
+                message = "租赁和询价商品不能加入购物车";
+            }
+            case NOT_SOLD_IN_CITY -> {
+                code = "MALL_CART_NOT_SOLD_IN_CITY";
+                message = "这个商家在当前城市不卖这件商品";
+            }
+            case CART_FULL -> {
+                code = "MALL_CART_FULL";
+                message = "购物车已满，请先清理一些商品";
+            }
+            case MULTIPLE_MERCHANTS -> {
+                code = "MALL_CHECKOUT_MULTIPLE_MERCHANTS";
+                message = "每次只能结算一个商家";
+            }
+            case ITEM_UNAVAILABLE -> {
+                code = "MALL_CHECKOUT_ITEM_UNAVAILABLE";
+                message = "有商品已失效，请回到购物车重新选择";
+            }
+            default -> throw new IllegalStateException("unhandled mall cart error " + exception.error());
         }
         return ResponseEntity.status(status)
                 .body(new ApiError(code, message, traceId(request)));

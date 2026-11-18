@@ -104,6 +104,13 @@ public class ModuleFlywayConfiguration {
         return factory.notification(dataSource);
     }
 
+    // 收货地址表引用 identity_user，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway accountFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.account(dataSource);
+    }
+
     // 商城表引用 identity_organization，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")

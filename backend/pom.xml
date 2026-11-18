@@ -22,5 +22,6 @@
         <module>modules/experience</module>
         <module>modules/mall</module>
         <module>modules/notification</module>
+        <module>modules/account</module>
     </modules>
 </project>
