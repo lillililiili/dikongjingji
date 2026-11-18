@@ -25,6 +25,7 @@ import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
 import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
 import com.lowaltitude.inspection.mall.application.MallCatalogReadService;
+import com.lowaltitude.inspection.notification.application.NotificationService;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
 import com.lowaltitude.inspection.application.reservation.ReservationApplicationService;
@@ -269,6 +270,27 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(get(venue + "/bookings"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    // 站内信全部要登录；登录后收件人只来自令牌。
+    @Test
+    void notificationsRequireALoginOnEveryRoute() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        mockMvc.perform(get("/api/v1/notifications/unread-count"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/notifications/read-all"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/notifications/70000000-0000-4000-8000-000000000001/read"))
+                .andExpect(status().isUnauthorized());
+
+        org.mockito.Mockito.when(applicationContext.getBean(NotificationService.class).unreadCount(SUBJECT_ID))
+                .thenReturn(null);
+        mockMvc.perform(get("/api/v1/notifications/unread-count")
+                        .header("Authorization", "Bearer " + signedToken(List.of(), 7)))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(applicationContext.getBean(NotificationService.class)).unreadCount(SUBJECT_ID);
     }
 
     @Test
@@ -606,6 +628,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         MallCatalogReadService testMallCatalogReadService() {
             return org.mockito.Mockito.mock(MallCatalogReadService.class);
+        }
+
+        @Bean
+        NotificationService testNotificationService() {
+            return org.mockito.Mockito.mock(NotificationService.class);
         }
 
         @Bean

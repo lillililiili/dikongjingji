@@ -38,6 +38,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway notification(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/notification",
+                "flyway_history_notification",
+                true);
+    }
+
     public Flyway mall(DataSource dataSource) {
         return build(
                 dataSource,

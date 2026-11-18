@@ -1,0 +1,205 @@
+openapi: 3.1.0
+info:
+  title: Notification API
+  version: 1.0.0
+  description: >-
+    The signed-in account's in-app notifications (docs/redesign/03-App实现任务计划.md §15.4).
+    Every route needs a login. The recipient is always the subject of the access token: there is
+    no parameter that names another account, and a notification of another account is answered
+    as not found. This version only carries inspection service progress.
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/notifications:
+    get:
+      operationId: listMyNotifications
+      summary: One page of the account's notifications, newest first
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: The page, with the account's unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/notifications/unread-count:
+    get:
+      operationId: countMyUnreadNotifications
+      summary: How many of the account's notifications are unread
+      responses:
+        "200":
+          description: The count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/notifications/read-all:
+    post:
+      operationId: markAllMyNotificationsRead
+      summary: Mark every unread notification of the account as read
+      responses:
+        "200":
+          description: How many were marked; 0 when there was nothing unread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkedRead"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/notifications/{notificationId}/read:
+    post:
+      operationId: markMyNotificationRead
+      summary: Mark one notification as read; repeating it changes nothing
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Read
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such notification for this account
+          content:
+            application/json:
+              schema:
+                $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: A parameter is missing or malformed
+      content:
+        application/json:
+          schema:
+            $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
+    Unauthorized:
+      description: Not signed in, or the login has expired
+      content:
+        application/json:
+          schema:
+            $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
+  schemas:
+    NotificationCategory:
+      type: string
+      enum: [SERVICE_PROGRESS]
+      description: 服务进度
+    NotificationTargetType:
+      type: string
+      enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY]
+      description: >-
+        Where tapping the notification leads. INSPECTION_PLAN: id is the plan. INSPECTION_FULFILLMENT
+        and INSPECTION_DELIVERY: id is the service order, subId the visit when the notification is
+        about one visit.
+    NotificationTarget:
+      type: object
+      additionalProperties: false
+      required: [type, id, subId]
+      properties:
+        type:
+          $ref: "#/components/schemas/NotificationTargetType"
+        id:
+          type: string
+          format: uuid
+        subId:
+          type: [string, "null"]
+          format: uuid
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, category, eventCode, title, body, target, occurredAt, read]
+      properties:
+        id:
+          type: string
+          format: uuid
+        category:
+          $ref: "#/components/schemas/NotificationCategory"
+        eventCode:
+          type: string
+          description: Stable code of what happened, for example INSPECTION_DELIVERY_PUBLISHED
+        title:
+          type: string
+          maxLength: 80
+        body:
+          type: string
+          maxLength: 300
+        target:
+          $ref: "#/components/schemas/NotificationTarget"
+        occurredAt:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+    NotificationPage:
+      type: object
+      additionalProperties: false
+      required: [page, size, total, hasMore, unreadCount, items]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        unreadCount:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+    UnreadCount:
+      type: object
+      additionalProperties: false
+      required: [count]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+    MarkedRead:
+      type: object
+      additionalProperties: false
+      required: [updated]
+      properties:
+        updated:
+          type: integer
+          minimum: 0

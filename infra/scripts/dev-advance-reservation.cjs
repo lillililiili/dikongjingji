@@ -423,7 +423,7 @@ async function advanceVisit(provider, reservation, order, firstVisit, step) {
         ifMatch: visit.version,
         body: {
           eventCode: action,
-          occurredAt: new Date(Date.now() + 1_000).toISOString(),
+          occurredAt: new Date().toISOString(),
           message: { SERVICE_STARTED: '团队已到场，开始巡检', SERVICE_PROGRESS: '已完成一半线路', SERVICE_COMPLETED: '现场巡检完成，整理报告中' }[action],
         },
       });

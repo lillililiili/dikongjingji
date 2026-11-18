@@ -21,5 +21,6 @@
         <module>modules/activity</module>
         <module>modules/experience</module>
         <module>modules/mall</module>
+        <module>modules/notification</module>
     </modules>
 </project>

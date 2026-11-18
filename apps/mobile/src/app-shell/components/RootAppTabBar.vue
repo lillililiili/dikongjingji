@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import { computed } from 'vue'
 
 import {
   ROOT_TABS,
@@ -8,6 +9,7 @@ import {
   type RootTabCode,
   type RootTabDefinition,
 } from '@/app-shell/navigation/root-tabs'
+import { refreshMessageUnread, useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
 
 const props = defineProps<{
   active: RootTabCode
@@ -29,9 +31,18 @@ const TAB_ICON_TYPES: Record<RootTabCode, string> = {
 const ACTIVE_TAB_COLOR = '#ff6a00'
 const INACTIVE_TAB_COLOR = '#8a8f97'
 
+const badgeStore = useRootTabBadgeStore()
+// The message tab's number comes from the server; a page may still pass its own counts.
+const badgeCounts = computed<Partial<Record<RootTabCode, number>>>(() => ({
+  MESSAGE: badgeStore.messageUnread,
+  ...props.badgeCounts,
+}))
+
 // uni.switchTab only targets pages listed in the native tab bar, so it is hidden rather than removed.
 onShow(() => {
   uni.hideTabBar({ animation: false, fail: () => undefined })
+  // Every root page shows this bar, so the unread number is read again whenever one is shown.
+  void refreshMessageUnread()
 })
 
 function iconColor(code: RootTabCode): string {
@@ -39,7 +50,7 @@ function iconColor(code: RootTabCode): string {
 }
 
 function badgeLabel(code: RootTabCode): string {
-  return formatRootTabBadge(props.badgeCounts?.[code])
+  return formatRootTabBadge(badgeCounts.value[code])
 }
 
 function showsNewContentDot(code: RootTabCode): boolean {

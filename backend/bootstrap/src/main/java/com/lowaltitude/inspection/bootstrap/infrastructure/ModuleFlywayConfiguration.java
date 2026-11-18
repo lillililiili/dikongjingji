@@ -97,6 +97,13 @@ public class ModuleFlywayConfiguration {
                 .load();
     }
 
+    // 站内信只引用 identity_user；排在巡检之后只是为了让迁移顺序固定。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway notificationFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.notification(dataSource);
+    }
+
     // 商城表引用 identity_organization，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")

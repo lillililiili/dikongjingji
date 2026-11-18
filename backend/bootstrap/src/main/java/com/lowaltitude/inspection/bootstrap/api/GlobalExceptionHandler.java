@@ -6,6 +6,7 @@ import com.lowaltitude.inspection.activity.application.ActivityNotFoundException
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
 import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
 import com.lowaltitude.inspection.mall.application.MallProductNotFoundException;
+import com.lowaltitude.inspection.notification.application.NotificationNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
 import com.lowaltitude.inspection.application.reservation.FileTypeUnsupportedException;
@@ -181,7 +182,8 @@ public class GlobalExceptionHandler {
             InspectionServiceNotFoundException.class,
             ActivityNotFoundException.class,
             VenueNotFoundException.class,
-            MallProductNotFoundException.class
+            MallProductNotFoundException.class,
+            NotificationNotFoundException.class
     })
     public ResponseEntity<ApiError> handleReservationNotFound(
             RuntimeException exception,

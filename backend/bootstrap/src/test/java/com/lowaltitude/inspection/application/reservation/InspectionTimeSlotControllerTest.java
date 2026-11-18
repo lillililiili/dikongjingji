@@ -16,6 +16,7 @@ import java.util.UUID;
 import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
 import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
 import com.lowaltitude.inspection.mall.application.MallCatalogReadService;
+import com.lowaltitude.inspection.notification.application.NotificationService;
 import com.lowaltitude.inspection.bootstrap.BootstrapApplication;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.serviceflow.DeliveryApplicationService;
@@ -48,6 +49,7 @@ import org.springframework.test.web.servlet.MockMvc;
         ActivityCatalogReadService.class,
         ExperienceCatalogReadService.class,
         MallCatalogReadService.class,
+        NotificationService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class

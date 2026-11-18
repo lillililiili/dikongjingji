@@ -50,6 +50,16 @@ class ModuleFlywayFactoryTest {
     }
 
     @Test
+    void keepsNotificationVersionsInTheirOwnHistoryTable() {
+        Flyway notification = new ModuleFlywayFactory().notification(mock(DataSource.class));
+
+        assertThat(notification.getConfiguration().getTable()).isEqualTo("flyway_history_notification");
+        assertThat(locationDescriptors(notification)).containsExactly("classpath:db/migration/notification");
+        assertThat(notification.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(notification.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    @Test
     void keepsMallVersionsInTheirOwnHistoryTable() {
         Flyway mall = new ModuleFlywayFactory().mall(mock(DataSource.class));
 
