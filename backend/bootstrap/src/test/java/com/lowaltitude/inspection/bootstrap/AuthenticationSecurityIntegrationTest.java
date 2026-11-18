@@ -1,8 +1,10 @@
 package com.lowaltitude.inspection.bootstrap;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,6 +25,7 @@ import com.lowaltitude.inspection.identity.domain.IdentityAccountStatus;
 import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
+import com.lowaltitude.inspection.activity.application.ActivityEnrollmentService;
 import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
 import com.lowaltitude.inspection.mall.application.MallCatalogReadService;
 import com.lowaltitude.inspection.notification.application.NotificationService;
@@ -244,10 +247,74 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/activities"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
-        // 报名等写接口还不存在；更深的路径不在公开白名单里。
+        // 报名接口在 /api/v1/activity-enrollments 等路径下，都要登录；/activities 下更深的路径也不在公开白名单里。
         mockMvc.perform(get("/api/v1/activities/a2000000-0000-4000-8000-000000000001/enrollments"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    // 参与人、报名、核销全部要登录：公开的只有 /api/v1/activities 下的三个读取接口。
+    @Test
+    void activityParticipantEnrollmentAndCheckinRoutesRequireALogin() throws Exception {
+        String participant = "/api/v1/activity-participants/a4000000-0000-4000-8000-000000000002";
+        String enrollment = "/api/v1/activity-enrollments/a5000000-0000-4000-8000-000000000001";
+
+        for (var request : List.of(
+                get("/api/v1/activity-participants"),
+                post("/api/v1/activity-participants"),
+                put(participant),
+                put(participant + "/photo-use"),
+                delete(participant),
+                post("/api/v1/activity-enrollments"),
+                get("/api/v1/activity-enrollments"),
+                get(enrollment),
+                post(enrollment + "/cancel"),
+                post("/api/v1/activity-checkins"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        // 过期的令牌版本和没带令牌一样。
+        mockMvc.perform(get("/api/v1/activity-enrollments")
+                        .header("Authorization", "Bearer " + signedToken(List.of(), 6)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    // 登录后账号、角色、机构都取自令牌：客户读自己的参与人，服务商操作员核销，互相不能越界。
+    @Test
+    void activityEnrollmentUsesTheSubjectRolesAndOrganizationOfTheToken() throws Exception {
+        ActivityEnrollmentService enrollments = applicationContext.getBean(ActivityEnrollmentService.class);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+        String checkin = "{\"ticketCode\":\"ACT-7K2M-9QXD-4HTP\"}";
+
+        mockMvc.perform(get("/api/v1/activity-participants")
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/activity-checkins")
+                        .header("Authorization", "Bearer " + operatorToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(checkin))
+                .andExpect(status().isOk());
+
+        // “本人”的称呼来自账号资料的显示名，不是登录名。
+        org.mockito.Mockito.verify(enrollments).listParticipants(SUBJECT_ID, "测试客户", null);
+        org.mockito.Mockito.verify(enrollments).checkIn(SUBJECT_ID, ORGANIZATION_ID, "ACT-7K2M-9QXD-4HTP");
+
+        mockMvc.perform(post("/api/v1/activity-checkins")
+                        .header("Authorization", "Bearer " + customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(checkin))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        mockMvc.perform(get("/api/v1/activity-participants")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        org.mockito.Mockito.verifyNoMoreInteractions(enrollments);
     }
 
     @Test
@@ -618,6 +685,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         ActivityCatalogReadService testActivityCatalogReadService() {
             return org.mockito.Mockito.mock(ActivityCatalogReadService.class);
+        }
+
+        @Bean
+        ActivityEnrollmentService testActivityEnrollmentService() {
+            return org.mockito.Mockito.mock(ActivityEnrollmentService.class);
         }
 
         @Bean

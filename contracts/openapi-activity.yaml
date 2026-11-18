@@ -1,12 +1,33 @@
 openapi: 3.1.0
 info:
-  title: Activity Catalog API
-  version: 1.0.0
-  description: >-
-    Confirmed by the user on 2026-11-16 (docs/redesign/03-App实现任务计划.md §7).
-    Read-only catalog of contests, training, study tours and open days for the home
-    "赛事研学" channel: list, session dates and detail with sessions.
-    Enrolment, participants, tickets, waitlist and payment are not part of this version.
+  title: Activity API
+  version: 1.1.0
+  description: |-
+    1.0.0 (confirmed by the user on 2026-11-16, docs/redesign/03-App实现任务计划.md §7): the read-only
+    catalog of contests, training, study tours and open days for the home "赛事研学" channel: list,
+    session dates and detail with sessions. These three routes stay public.
+
+    1.1.0 (confirmed by the user on 2026-11-17, "按原型先做"): enrolment for free activities —
+    participants, enrolment, tickets, cancellation and check-in. Every new route needs a login
+    (bearer JWT). The account is always the subject of the access token: no parameter names another
+    account, and a participant or enrolment of another account is answered as not found.
+    Participant and enrolment routes need the CUSTOMER role; check-in needs the PROVIDER_OPERATOR
+    role and an organisation in the token.
+
+    报名规则：
+    - 未成年人由监护人账号添加为“子女”后代为报名；添加时监护人必须勾选确认。每个账号最多 10 个子女。
+    - 子女只收出生年月（YYYY-MM），不收证件号码和手机号；年龄按月份算周岁（到了出生的那个月就算满一岁）。
+      列表里的 age 按今天算，能不能报这一场、凭证上的年龄按场次当天算。日期都按北京时间（Asia/Shanghai）。
+    - “本人”是账号持有人，第一次读取参与人时按账号显示名自动建立，不能删除；不收出生年月，按成年人处理，
+      所以只有活动的年龄上限低于 18 岁时不能报。
+    - 只有免费活动（price.mode 为 FREE）可以在这里报名；收费、询价、候补、团队报名都不在这个版本。
+    - 一次报名可以带 1–10 个参与人，每人一张凭证（一人一码）。同一参与人在同一场次只有一张有效凭证，取消后可以重新报名。
+    - 场次开始前可以取消，可以只取消其中几张凭证；名下凭证全部取消后报名单变成已取消。场次开始后不能取消，已签到的凭证不能取消。
+    - 核销窗口：从场次的签到开放时间（checkInOpensAt，未设置时为开始前 1 小时）到场次结束（没有结束时间的场次到开始时间为止）。
+      只有活动的主办或承办机构的操作员能核销，别的机构的凭证当作不存在。重复核销返回第一次的结果（repeated 为 true），不改任何数据。
+    - 凭证的 EXPIRED 和报名单的 UPCOMING / FINISHED 是服务端按场次时间算出来的，不落库：场次结束后，没签到的凭证读成 EXPIRED，没取消的报名单读成 FINISHED。
+
+    Waitlist and payment are not part of this version.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -145,8 +166,449 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/activity-participants:
+    get:
+      operationId: listMyActivityParticipants
+      summary: 当前账号的参与人，“本人”在最前，子女按添加先后
+      description: >-
+        第一次读取时按账号显示名补上“本人”（读不到显示名时叫“本人”）。
+        带 sessionId 时，每个参与人附上能不能报这一场以及原因（eligibility）；不带时 eligibility 为 null。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: query
+          required: false
+          description: 准备报名的场次
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 参与人列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: sessionId 对应的场次不存在、活动未发布或场次已取消（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: addMyChildParticipant
+      summary: 监护人添加一个未成年子女
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddChildRequest"
+      responses:
+        "201":
+          description: 新添加的子女
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Participant"
+        "400":
+          description: >-
+            姓名或出生年月无效、出生年月在将来、已满 18 周岁，或没有勾选监护人确认（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: >-
+            ACT_PARTICIPANT_LIMIT：这个账号已有 10 个子女。
+            ACT_PARTICIPANT_DUPLICATE：同名同出生年月的子女已在列表中。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/activity-participants/{participantId}:
+    put:
+      operationId: renameMyActivityParticipant
+      summary: 修改参与人的姓名（“本人”和子女都可以）
+      description: 已经生成的凭证保留报名时的姓名，不随之改变。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ParticipantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameParticipantRequest"
+      responses:
+        "200":
+          description: 改名后的参与人
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Participant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: ACT_PARTICIPANT_DUPLICATE：改名后与另一个同出生年月的子女重复。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteMyChildParticipant
+      summary: 删除一个子女
+      description: 删除后已有凭证保留报名时的快照，照片授权一并收回。“本人”不能删除。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ParticipantId"
+      responses:
+        "204":
+          description: 已删除
+        "400":
+          description: 参与人 ID 无效，或要删除的是“本人”（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activity-participants/{participantId}/photo-use:
+    put:
+      operationId: setMyChildPhotoUse
+      summary: 授权或撤回“活动照片可公开使用”
+      description: 只对子女单独授权，默认不授权，可随时撤回。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ParticipantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhotoUseRequest"
+      responses:
+        "200":
+          description: 更新后的参与人
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Participant"
+        "400":
+          description: 没有给出 authorized，或对象是“本人”（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activity-enrollments:
+    post:
+      operationId: enrollInFreeActivity
+      summary: 给 1–10 个参与人报名一个免费活动的场次
+      description: >-
+        名额在锁住场次后扣减。同一个 Idempotency-Key 带同样的活动、场次和参与人（顺序无关）重复提交，
+        返回第一次的报名单（200），不会多占名额；同一个键用于不同的请求返回 409。幂等键按账号隔离。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollRequest"
+      responses:
+        "201":
+          description: 报名成功，每个参与人一张凭证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+        "200":
+          description: 同一个幂等键的重放，返回第一次的报名单（按现在的状态）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+        "400":
+          description: >-
+            缺少或不是 UUID 的 Idempotency-Key；参与人为空、超过 10 个或有重复；没有同意报名须知（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: >-
+            场次不存在或不属于这个活动、活动未发布、场次已取消，或者有参与人不是这个账号的（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            ACT_IDEMPOTENCY_KEY_REUSED：幂等键已用于不同的请求。
+            ACT_ENROLLMENT_UNSUPPORTED：活动不是免费的，暂不支持在线报名。
+            ACT_ENROLLMENT_NOT_OPEN：报名已截止或场次已结束。
+            ACT_PARTICIPANT_ALREADY_ENROLLED：有参与人在这一场已有有效凭证。
+            ACT_SESSION_FULL：剩余名额不够这次的人数。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: ACT_PARTICIPANT_NOT_ELIGIBLE：有参与人在场次当天不满足活动的年龄条件。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: listMyActivityEnrollments
+      summary: “我的报名”的一页
+      description: 待参加按场次开始时间从近到远，已结束和已取消最近的在前。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: 页签；不传为 UPCOMING
+          schema:
+            $ref: "#/components/schemas/EnrollmentStatus"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: 这一页的报名单，各带自己的凭证
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollmentPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/activity-enrollments/{enrollmentId}:
+    get:
+      operationId: getMyActivityEnrollment
+      summary: 一张报名单和它的凭证
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+      responses:
+        "200":
+          description: 报名单
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activity-enrollments/{enrollmentId}/cancel:
+    post:
+      operationId: cancelMyActivityEnrollment
+      summary: 取消报名，可以只取消其中几张凭证
+      description: >-
+        不带请求体或 ticketIds 为空：取消这张报名单里所有还没用的凭证（已签到的保留）。
+        取消的名额立即放回场次；名下凭证全部取消后报名单变成 CANCELLED。
+        已经取消的再取消一次没有变化，仍返回 200。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelEnrollmentRequest"
+      responses:
+        "200":
+          description: 取消后的报名单
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+        "400":
+          description: 报名单 ID 无效，或 ticketIds 里有不属于这张报名单的凭证（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: ACT_CANCEL_NOT_ALLOWED：场次已经开始，或点名要取消的凭证已签到。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/activity-checkins:
+    post:
+      operationId: checkInActivityTicket
+      summary: 主办或承办机构的操作员按凭证号核销
+      description: >-
+        需要 PROVIDER_OPERATOR 角色，机构取自令牌。凭证号不分大小写，前后空格忽略。
+        核销窗口从签到开放时间（未设置时为开始前 1 小时）到场次结束。
+        同一张凭证再核销一次返回第一次的时间，repeated 为 true，不改任何数据。
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckinRequest"
+      responses:
+        "200":
+          description: 核销结果；重复核销也是 200
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Checkin"
+        "400":
+          description: 凭证号格式不对（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 不是服务商操作员，或令牌里没有机构（COMMON_FORBIDDEN）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: 没有这张凭证，或它属于别的机构主办、承办的活动（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            ACT_TICKET_NOT_VALID：凭证已取消。
+            ACT_CHECKIN_NOT_OPEN：还没到签到开放时间，或场次已结束。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: 参数缺失或格式不对（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没有登录，或登录已过期（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: 登录账号没有客户角色（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 不存在，或不属于当前账号（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
   parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 调用者生成的 UUID；同一键只能对应同一请求。
+      schema:
+        type: string
+        format: uuid
+    ParticipantId:
+      name: participantId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EnrollmentId:
+      name: enrollmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     CityCode:
       name: cityCode
       in: query
@@ -521,3 +983,415 @@ components:
           description: Every active session, earliest first, including the ones already started
           items:
             $ref: "#/components/schemas/ActivitySession"
+    ActivityErrorCode:
+      type: string
+      enum:
+        - ACT_IDEMPOTENCY_KEY_REUSED
+        - ACT_PARTICIPANT_DUPLICATE
+        - ACT_PARTICIPANT_LIMIT
+        - ACT_PARTICIPANT_NOT_ELIGIBLE
+        - ACT_PARTICIPANT_ALREADY_ENROLLED
+        - ACT_ENROLLMENT_UNSUPPORTED
+        - ACT_ENROLLMENT_NOT_OPEN
+        - ACT_SESSION_FULL
+        - ACT_CANCEL_NOT_ALLOWED
+        - ACT_CHECKIN_NOT_OPEN
+        - ACT_TICKET_NOT_VALID
+      description: >-
+        报名接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。
+        ACT_PARTICIPANT_NOT_ELIGIBLE 是 422，其余都是 409。
+    ParticipantRelation:
+      type: string
+      enum:
+        - SELF
+        - CHILD
+      description: 本人（账号持有人，按成年人处理） / 子女（由监护人账号维护的未成年人）
+    ParticipantEligibilityReason:
+      type: string
+      enum:
+        - ELIGIBLE
+        - UNDER_MIN_AGE
+        - OVER_MAX_AGE
+        - ALREADY_ENROLLED
+      description: >-
+        可以报 / 场次当天未到最小年龄 / 场次当天超过最大年龄 / 在这一场已有有效凭证。
+        已有有效凭证时优先给 ALREADY_ENROLLED。“本人”只在年龄上限低于 18 岁时是 OVER_MAX_AGE。
+    EnrollmentStatus:
+      type: string
+      enum:
+        - UPCOMING
+        - FINISHED
+        - CANCELLED
+      description: >-
+        待参加 / 已结束 / 已取消，也是“我的报名”的三个页签。CANCELLED 是名下凭证全部取消；
+        UPCOMING 和 FINISHED 按场次是否结束算出来，不落库（场次开始后、结束前仍是 UPCOMING）。
+    TicketStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - CHECKED_IN
+        - EXPIRED
+        - CANCELLED
+      description: >-
+        未使用 / 已签到 / 已过期 / 已取消。EXPIRED 是算出来的：场次结束时还没签到的凭证。
+    Participant:
+      type: object
+      additionalProperties: false
+      required:
+        - participantId
+        - relation
+        - name
+        - birthMonth
+        - age
+        - photoUseAuthorized
+        - eligibility
+      properties:
+        participantId:
+          type: string
+          format: uuid
+        relation:
+          $ref: "#/components/schemas/ParticipantRelation"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 20
+        birthMonth:
+          type:
+            - string
+            - "null"
+          pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          description: 出生年月 YYYY-MM；“本人”为 null
+        age:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 今天的周岁，按月份算；“本人”为 null
+        photoUseAuthorized:
+          type: boolean
+          description: 活动照片可公开使用的单独授权；“本人”恒为 false
+        eligibility:
+          anyOf:
+            - $ref: "#/components/schemas/ParticipantEligibility"
+            - type: "null"
+          description: 只在请求带 sessionId 时给出
+    ParticipantEligibility:
+      type: object
+      additionalProperties: false
+      required:
+        - eligible
+        - reason
+        - ageAtSession
+      properties:
+        eligible:
+          type: boolean
+          description: reason 为 ELIGIBLE 时为 true
+        reason:
+          $ref: "#/components/schemas/ParticipantEligibilityReason"
+        ageAtSession:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 场次当天（北京时间）的周岁；“本人”为 null
+    ParticipantList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Participant"
+    AddChildRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - birthMonth
+        - guardianConfirmed
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 20
+          description: 去掉首尾空格后 1–20 个字，不能有控制字符
+        birthMonth:
+          type: string
+          pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"
+          description: 出生年月 YYYY-MM；不能在将来，按今天算必须未满 18 周岁
+        guardianConfirmed:
+          type: boolean
+          const: true
+          description: 监护人勾选“我是该未成年人的监护人”；不是 true 一律 400
+    RenameParticipantRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 20
+    PhotoUseRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - authorized
+      properties:
+        authorized:
+          type: boolean
+          description: true 授权，false 撤回；必须明确给出
+    EnrollRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - activityId
+        - sessionId
+        - participantIds
+        - noticeAgreed
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+          description: 必须是 activityId 这个活动的场次
+        participantIds:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        noticeAgreed:
+          type: boolean
+          const: true
+          description: 已阅读并同意报名须知；不是 true 一律 400
+    CancelEnrollmentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        ticketIds:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+            format: uuid
+          description: 要取消的凭证；不传、null 或空数组表示全部还没用的凭证
+    CheckinRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - ticketCode
+      properties:
+        ticketCode:
+          type: string
+          description: 凭证号，也是二维码的内容；不分大小写，转成大写后须符合 ^ACT-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$
+    EnrollmentActivity:
+      type: object
+      additionalProperties: false
+      required:
+        - activityId
+        - type
+        - title
+        - coverImage
+        - cityCode
+        - organizerName
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ActivityType"
+        title:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        cityCode:
+          type: string
+          description: 活动所在城市，打开活动详情时要带上
+        organizerName:
+          type: string
+    EnrollmentSession:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - label
+        - startsAt
+        - endsAt
+        - checkInOpensAt
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        label:
+          type:
+            - string
+            - "null"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        checkInOpensAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 签到开放时间；null 表示开始前 1 小时
+    Ticket:
+      type: object
+      additionalProperties: false
+      required:
+        - ticketId
+        - participantId
+        - participantName
+        - relation
+        - age
+        - ticketCode
+        - status
+        - checkedInAt
+        - cancelledAt
+      properties:
+        ticketId:
+          type: string
+          format: uuid
+        participantId:
+          type: string
+          format: uuid
+        participantName:
+          type: string
+          description: 报名时的姓名快照；之后改名或删除参与人，凭证不变
+        relation:
+          $ref: "#/components/schemas/ParticipantRelation"
+        age:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 报名时算出的场次当天周岁；“本人”为 null
+        ticketCode:
+          type: string
+          pattern: "^ACT-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$"
+          description: 凭证号，也是二维码的内容；随机生成，不含任何个人信息
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        checkedInAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        cancelledAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    Enrollment:
+      type: object
+      additionalProperties: false
+      required:
+        - enrollmentId
+        - status
+        - activity
+        - session
+        - location
+        - createdAt
+        - cancellableUntil
+        - cancellable
+        - tickets
+      properties:
+        enrollmentId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/EnrollmentStatus"
+        activity:
+          $ref: "#/components/schemas/EnrollmentActivity"
+        session:
+          $ref: "#/components/schemas/EnrollmentSession"
+        location:
+          $ref: "#/components/schemas/ActivityLocation"
+        createdAt:
+          type: string
+          format: date-time
+        cancellableUntil:
+          type: string
+          format: date-time
+          description: 取消的最后期限，即场次开始时间
+        cancellable:
+          type: boolean
+          description: 现在还能不能取消：场次没开始，并且还有未使用的凭证
+        tickets:
+          type: array
+          description: 每个参与人一张，包含已取消的
+          items:
+            $ref: "#/components/schemas/Ticket"
+    EnrollmentPage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Enrollment"
+    Checkin:
+      type: object
+      additionalProperties: false
+      required:
+        - ticketCode
+        - participantName
+        - activityTitle
+        - sessionLabel
+        - sessionStartsAt
+        - checkedInAt
+        - repeated
+      properties:
+        ticketCode:
+          type: string
+        participantName:
+          type: string
+        activityTitle:
+          type: string
+        sessionLabel:
+          type:
+            - string
+            - "null"
+        sessionStartsAt:
+          type: string
+          format: date-time
+        checkedInAt:
+          type: string
+          format: date-time
+          description: 第一次核销的时间
+        repeated:
+          type: boolean
+          description: true 表示这张凭证之前已经核销过，这次没有改动任何数据

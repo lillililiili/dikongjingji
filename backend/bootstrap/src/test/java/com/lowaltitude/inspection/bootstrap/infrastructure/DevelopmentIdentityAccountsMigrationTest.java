@@ -59,6 +59,41 @@ class DevelopmentIdentityAccountsMigrationTest {
         assertThat(sql).doesNotContain("DELETE FROM").doesNotContain("TRUNCATE");
     }
 
+    // 第三个账号是活动主办场馆的签到员，用来通过受权接口核销报名凭证；它也只是服务商操作员。
+    @Test
+    void seedCreatesACheckInOperatorForTheVenueThatRunsTheFreeActivity() throws Exception {
+        String sql = seed();
+        String venue = "a1000000-0000-4000-8000-000000000004";
+        String operator = "a1000000-0000-4000-8000-0000000000a4";
+
+        assertThat(sql)
+                .contains("'dev-organizer'")
+                .contains("('" + venue + "', 'DEV-ACT-VENUE', '东营低空与机器人体验馆', 'PROVIDER')")
+                .contains("('" + venue + "', '" + operator + "')")
+                .contains("SELECT '" + operator + "', id, '" + venue + "'");
+        // 一共三个账号：一个客户、两个服务商操作员，各自只有一个角色，操作员的角色都限定在自己的机构里。
+        assertThat(sql.split("'dev-[a-z]+'", -1)).hasSize(4);
+        assertThat(sql.split("role_code = 'CUSTOMER'", -1)).hasSize(2);
+        assertThat(sql.split("role_code = 'PROVIDER_OPERATOR'", -1)).hasSize(3);
+        assertThat(sql.split("role_code = '", -1)).hasSize(4);
+        assertThat(sql.split("INSERT INTO identity_user_role ", -1)).hasSize(4);
+        assertThat(sql.split(", id, NULL\n", -1)).hasSize(2);
+
+        // 这家场馆在活动种子里主办并承办免费的开放体验日，所以这个账号核销得了那场活动的凭证。
+        String activities;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/development/activity/R__dev_activity_catalog.sql")) {
+            assertThat(stream).isNotNull();
+            activities = new String(stream.readAllBytes(), StandardCharsets.UTF_8).replaceAll("\\s+", " ");
+        }
+        assertThat(activities)
+                .contains("('" + venue + "', 'DEV-ACT-VENUE', '东营低空与机器人体验馆', 'PROVIDER')")
+                .contains("('a2000000-0000-4000-8000-000000000005', '" + venue + "', '" + venue + "', 'OPEN_DAY',");
+        assertThat(activities.substring(activities.indexOf("('a2000000-0000-4000-8000-000000000005',")))
+                .contains("'FREE', NULL, NULL, NULL,")
+                .contains("'PUBLISHED')");
+    }
+
     // 生产迁移目录里不能出现任何账号或口令。
     @Test
     void noVersionedMigrationCreatesAnAccount() throws IOException {

@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
+import com.lowaltitude.inspection.activity.application.ActivityEnrollmentService;
 import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
 import com.lowaltitude.inspection.mall.application.MallCatalogReadService;
 import com.lowaltitude.inspection.notification.application.NotificationService;
@@ -52,6 +53,7 @@ import org.springframework.web.bind.annotation.RestController;
         CustomerReservationQueryService.class,
         InspectionServiceCatalogReadService.class,
         ActivityCatalogReadService.class,
+        ActivityEnrollmentService.class,
         ExperienceCatalogReadService.class,
         MallCatalogReadService.class,
         NotificationService.class,

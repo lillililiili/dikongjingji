@@ -2,6 +2,7 @@ package com.lowaltitude.inspection.bootstrap.api;
 
 import java.util.UUID;
 
+import com.lowaltitude.inspection.activity.application.ActivityEnrollmentException;
 import com.lowaltitude.inspection.activity.application.ActivityNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
 import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
@@ -274,6 +275,77 @@ public class GlobalExceptionHandler {
             }
             default -> throw new IllegalStateException(
                     "unhandled plan error " + exception.error());
+        }
+        return ResponseEntity.status(status)
+                .body(new ApiError(code, message, traceId(request)));
+    }
+
+    @ExceptionHandler(ActivityEnrollmentException.class)
+    public ResponseEntity<ApiError> handleActivityEnrollment(
+            ActivityEnrollmentException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                code = "ACT_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case PARTICIPANT_DUPLICATE -> {
+                code = "ACT_PARTICIPANT_DUPLICATE";
+                message = "该参与人已在列表中，无需重复添加";
+            }
+            case PARTICIPANT_LIMIT -> {
+                code = "ACT_PARTICIPANT_LIMIT";
+                message = "参与人数量已达上限";
+            }
+            case PARTICIPANT_NOT_ELIGIBLE -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "ACT_PARTICIPANT_NOT_ELIGIBLE";
+                message = "有参与人不符合这场活动的报名条件";
+            }
+            case PARTICIPANT_ALREADY_ENROLLED -> {
+                code = "ACT_PARTICIPANT_ALREADY_ENROLLED";
+                message = "有参与人已经报过这一场";
+            }
+            case ENROLLMENT_UNSUPPORTED -> {
+                code = "ACT_ENROLLMENT_UNSUPPORTED";
+                message = "该活动暂不支持在线报名";
+            }
+            case ENROLLMENT_NOT_OPEN -> {
+                code = "ACT_ENROLLMENT_NOT_OPEN";
+                message = "这一场已停止报名";
+            }
+            case SESSION_FULL -> {
+                code = "ACT_SESSION_FULL";
+                message = "名额不够了，请减少人数或换一场";
+            }
+            case CANCEL_NOT_ALLOWED -> {
+                code = "ACT_CANCEL_NOT_ALLOWED";
+                message = "活动已开始或已签到，不能取消";
+            }
+            case CHECKIN_NOT_OPEN -> {
+                code = "ACT_CHECKIN_NOT_OPEN";
+                message = "当前不在签到时间内";
+            }
+            case TICKET_NOT_VALID -> {
+                code = "ACT_TICKET_NOT_VALID";
+                message = "凭证已取消";
+            }
+            default -> throw new IllegalStateException(
+                    "unhandled activity enrollment error " + exception.error());
         }
         return ResponseEntity.status(status)
                 .body(new ApiError(code, message, traceId(request)));

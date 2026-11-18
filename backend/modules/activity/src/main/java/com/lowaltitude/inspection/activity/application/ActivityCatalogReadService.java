@@ -219,7 +219,7 @@ public final class ActivityCatalogReadService {
     }
 
     /** 只放行带主机名的 HTTPS 地址（AGENTS.md §11）；其余当作没有图片。 */
-    private static ActivityMediaView secureMedia(String url, String alt) {
+    static ActivityMediaView secureMedia(String url, String alt) {
         if (url == null || url.isBlank()) {
             return null;
         }

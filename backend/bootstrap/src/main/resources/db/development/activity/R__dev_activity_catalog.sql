@@ -162,5 +162,13 @@ SET activity_id = EXCLUDED.activity_id,
     check_in_opens_at = EXCLUDED.check_in_opens_at,
     enrollment_closes_at = EXCLUDED.enrollment_closes_at,
     capacity = EXCLUDED.capacity,
-    enrolled_count = EXCLUDED.enrolled_count,
+    -- 示例的“已报人数”之上，加上在本机真实报名、还没取消的凭证数，重排场次时名额不会对不上。
+    enrolled_count = LEAST(
+        EXCLUDED.capacity,
+        EXCLUDED.enrolled_count + (
+            SELECT count(*)::integer
+            FROM activity_enrollment_ticket ticket
+            WHERE ticket.session_id = activity_session.id
+              AND ticket.status <> 'CANCELLED'
+        )),
     updated_at = now();
