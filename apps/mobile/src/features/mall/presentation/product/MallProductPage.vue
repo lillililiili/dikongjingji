@@ -15,12 +15,21 @@ import { MALL_PREVIEW_ENABLED } from '../../application/mall-preview'
 import { mallApi } from '../../data/mall-api-client'
 import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import type { MallOffer, MallProductDetail } from '../../domain/mall'
+import MallBuySheet from './MallBuySheet.vue'
 import {
   MALL_BADGE_LABELS,
   MALL_CATEGORY_LABELS,
   MALL_MERCHANT_KIND_LABELS,
   formatMallOfferPrice,
 } from '../shared/mall-format'
+
+// The page host owns the account: it adds to the cart and opens the confirm page.
+const props = withDefaults(defineProps<{ busy?: boolean }>(), { busy: false })
+
+const emit = defineEmits<{
+  addToCart: [offerId: string, quantity: number]
+  buyNow: [offerId: string, quantity: number]
+}>()
 
 type DetailState =
   | { kind: 'loading' }
@@ -83,9 +92,28 @@ function selectOffer(offer: MallOffer): void {
   selectedOfferId.value = offer.offerId
 }
 
-function runIntent(type: MallIntent['type']): void {
+// Goods with a listed price open 规格与数量; everything else still goes through the gate.
+const buySheetOpen = ref(false)
+
+function addToCart(quantity: number): void {
+  if (!selectedOffer.value) return
+  emit('addToCart', selectedOffer.value.offerId, quantity)
+  buySheetOpen.value = false
+}
+
+function buyNow(quantity: number): void {
+  if (!selectedOffer.value) return
+  emit('buyNow', selectedOffer.value.offerId, quantity)
+  buySheetOpen.value = false
+}
+
+function runIntent(type: 'ADD_TO_CART' | 'BUY_NOW' | 'INQUIRE'): void {
   const offer = selectedOffer.value
   if (!product.value || !offer) return
+  if ((type === 'ADD_TO_CART' || type === 'BUY_NOW') && primaryAction.value?.cartAvailable) {
+    buySheetOpen.value = true
+    return
+  }
   const resolution = resolveMallIntent(
     { type, productId: product.value.productId, offerId: offer.offerId },
     MALL_PREVIEW_ENABLED,
@@ -308,6 +336,16 @@ onLoad((query) => {
         </button>
         </view>
       </view>
+
+      <MallBuySheet
+        v-if="buySheetOpen && selectedOffer"
+        :offer="selectedOffer"
+        :cover-url="cover?.url ?? null"
+        :busy="props.busy"
+        @close="buySheetOpen = false"
+        @add-to-cart="addToCart"
+        @buy-now="buyNow"
+      />
     </template>
   </view>
 </template>

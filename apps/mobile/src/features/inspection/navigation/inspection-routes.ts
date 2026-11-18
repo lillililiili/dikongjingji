@@ -104,11 +104,24 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
     allowed: ['enrollmentId'],
   },
   '/pages/mine/activity-enrollments': { allowed: ['status'] },
+  // Mall pages (features/mall/navigation/mall-routes.ts), repeated for the same reason;
+  // mall-routes.test.ts checks them.
+  '/pages/mall/product': {
+    required: 'productId',
+    allowed: ['productId', 'cityCode'],
+  },
+  '/pages/cart/index': { allowed: [] },
+  '/pages/cart/checkout': {
+    required: 'cityCode',
+    allowed: ['items', 'offerId', 'quantity', 'cityCode'],
+  },
+  '/pages/mine/addresses': { allowed: ['select'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.
 export function isRootTabReturnUrl(returnUrl: string): boolean {
   return returnUrl === '/pages/home/index'
+    || returnUrl === '/pages/cart/index'
     || returnUrl === MINE_TAB_PATH
     || returnUrl === MESSAGE_TAB_PATH
 }

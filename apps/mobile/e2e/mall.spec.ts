@@ -320,7 +320,7 @@ test.describe('商城搜索与筛选', () => {
 })
 
 test.describe('商品详情', () => {
-  test('MALL-101 列表 → 详情 → 换商家 → 价格和销售方跟着变；购买入口给出提示', async ({ page }) => {
+  test('MALL-101 列表 → 详情 → 换商家 → 价格和销售方跟着变；购买入口打开规格与数量', async ({ page }) => {
     await openMallChannel(page)
     await page.getByTestId('mall-category-robot').click()
     await page.getByTestId(`mall-product-${KIT_ID}`).click()
@@ -346,9 +346,13 @@ test.describe('商品详情', () => {
     await expect(page.getByTestId('mall-product-specs')).toContainText('图形化 / Python')
     await expect(page.getByTestId('mall-product-pack')).toContainText('4 件')
 
+    // 加入购物车和立即购买都先打开“规格与数量”（D 步起是真的，见 mall-cart.spec.ts）。
     const url = page.url()
     await page.getByTestId('mall-product-cart').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('购物车即将开放')
+    await expect(page.getByTestId('mall-buy-sheet')).toBeVisible()
+    await expect(page.getByTestId('mall-buy-sheet')).toContainText('示例教育装备代理（授权经销）')
+    await page.getByTestId('mall-buy-close').click()
+    await expect(page.getByTestId('mall-buy-sheet')).toHaveCount(0)
     await expect(page.getByTestId('mall-product-primary')).toHaveText('立即购买')
     expect(page.url()).toBe(url)
 

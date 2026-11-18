@@ -1,10 +1,14 @@
 import type { MallSaleMode } from '../domain/mall'
 
-// Entries that this read-only step does not build. They go through this typed gate instead of ad-hoc toasts.
+// Entries that are not built. They go through this typed gate instead of ad-hoc toasts.
+// Since step D the cart and the confirm page are real; ADD_TO_CART and BUY_NOW only reach this gate
+// in a build where they are not shown. Submitting the order waits for the trade module (C1, C2).
 export type MallIntent =
   | { type: 'ADD_TO_CART'; productId: string; offerId: string }
   | { type: 'BUY_NOW'; productId: string; offerId: string }
   | { type: 'INQUIRE'; productId: string; offerId: string }
+  | { type: 'SUBMIT_ORDER' }
+  | { type: 'READ_AGREEMENT'; document: 'TRADE_AGREEMENT' }
 
 export type MallIntentResolution =
   | { action: 'SHOW_NOTICE'; message: string }
@@ -14,6 +18,8 @@ const NOTICES: Record<MallIntent['type'], string> = {
   ADD_TO_CART: '购物车即将开放',
   BUY_NOW: '下单功能即将开放',
   INQUIRE: '询价功能即将开放',
+  SUBMIT_ORDER: '下单和付款要等支付渠道确定后开放',
+  READ_AGREEMENT: '协议正文待提供',
 }
 
 // Preview builds explain that the entry is coming; public builds do not show it at all.

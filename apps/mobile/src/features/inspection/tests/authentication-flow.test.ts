@@ -488,7 +488,7 @@ describe('inspection login route and recovery', () => {
     ).toBe('/pages/home/index')
   })
 
-  it('lets the Mine and Message tabs be login return targets, without any parameter', async () => {
+  it('lets the Mine, Message and Cart tabs be login return targets, without any parameter', async () => {
     const routes = await import('../navigation/inspection-routes')
 
     expect(routes.normalizeInspectionReturnUrl('/pages/mine/index')).toBe('/pages/mine/index')
@@ -496,12 +496,15 @@ describe('inspection login route and recovery', () => {
     // Parameters on a tab are dropped; other root pages are still not accepted.
     expect(routes.normalizeInspectionReturnUrl('/pages/mine/index?next=https://evil.example'))
       .toBe('/pages/mine/index')
-    expect(routes.normalizeInspectionReturnUrl('/pages/cart/index')).toBe('/pages/home/index')
+    // The cart offers a login of its own since step D.
+    expect(routes.normalizeInspectionReturnUrl('/pages/cart/index')).toBe('/pages/cart/index')
+    expect(routes.normalizeInspectionReturnUrl('/pages/discover/index')).toBe('/pages/home/index')
     expect(routes.normalizeInspectionReturnUrl('/pages/message/index/../../evil')).toBe('/pages/home/index')
 
     expect(routes.isRootTabReturnUrl('/pages/home/index')).toBe(true)
     expect(routes.isRootTabReturnUrl('/pages/mine/index')).toBe(true)
     expect(routes.isRootTabReturnUrl('/pages/message/index')).toBe(true)
+    expect(routes.isRootTabReturnUrl('/pages/cart/index')).toBe(true)
     expect(routes.isRootTabReturnUrl('/pages/mine/inspection-orders?stage=ALL')).toBe(false)
     expect(loginPageSource).toContain('isRootTabReturnUrl(target)')
   })

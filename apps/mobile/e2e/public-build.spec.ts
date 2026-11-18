@@ -96,4 +96,11 @@ test.describe('公开构建', () => {
     await expect(page.getByTestId('mine-link-activity_enrollments')).toHaveCount(0)
     await expect(page.getByTestId('mine-link-activity_participants')).toHaveCount(0)
   })
+
+  test('PUB-008 购物车仍未开通：底栏“购物车”只有说明，没有角标', async ({ page }) => {
+    await page.goto('/#/pages/cart/index')
+    await expect(page.getByTestId('cart-unavailable')).toContainText('购物车功能尚未开通')
+    await expect(page.getByTestId('cart')).toHaveCount(0)
+    await expect(page.locator('.root-tab-bar__item', { hasText: '购物车' }).locator('.root-tab-bar__badge')).toHaveCount(0)
+  })
 })

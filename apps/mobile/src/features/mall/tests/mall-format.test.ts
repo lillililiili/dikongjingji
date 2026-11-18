@@ -93,6 +93,15 @@ describe('mall actions', () => {
       .toEqual({ action: 'SHOW_NOTICE', message: '询价功能即将开放' })
     expect(resolveMallIntent({ type: 'BUY_NOW', ...intent }, false)).toEqual({ action: 'HIDE' })
   })
+
+  // The confirm page stops before the order: submitting waits for the trade module.
+  it('says why the order cannot be submitted yet and that the agreement text is missing', () => {
+    expect(resolveMallIntent({ type: 'SUBMIT_ORDER' }, true))
+      .toEqual({ action: 'SHOW_NOTICE', message: '下单和付款要等支付渠道确定后开放' })
+    expect(resolveMallIntent({ type: 'READ_AGREEMENT', document: 'TRADE_AGREEMENT' }, true))
+      .toEqual({ action: 'SHOW_NOTICE', message: '协议正文待提供' })
+    expect(resolveMallIntent({ type: 'SUBMIT_ORDER' }, false)).toEqual({ action: 'HIDE' })
+  })
 })
 
 describe('mall preview flag', () => {

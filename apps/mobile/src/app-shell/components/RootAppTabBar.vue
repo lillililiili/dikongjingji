@@ -9,7 +9,11 @@ import {
   type RootTabCode,
   type RootTabDefinition,
 } from '@/app-shell/navigation/root-tabs'
-import { refreshMessageUnread, useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
+import {
+  refreshCartCount,
+  refreshMessageUnread,
+  useRootTabBadgeStore,
+} from '@/app-shell/state/root-tab-badges'
 
 const props = defineProps<{
   active: RootTabCode
@@ -35,6 +39,7 @@ const badgeStore = useRootTabBadgeStore()
 // The message tab's number comes from the server; a page may still pass its own counts.
 const badgeCounts = computed<Partial<Record<RootTabCode, number>>>(() => ({
   MESSAGE: badgeStore.messageUnread,
+  CART: badgeStore.cartCount,
   ...props.badgeCounts,
 }))
 
@@ -43,6 +48,7 @@ onShow(() => {
   uni.hideTabBar({ animation: false, fail: () => undefined })
   // Every root page shows this bar, so the unread number is read again whenever one is shown.
   void refreshMessageUnread()
+  void refreshCartCount()
 })
 
 function iconColor(code: RootTabCode): string {
