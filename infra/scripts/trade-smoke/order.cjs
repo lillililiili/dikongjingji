@@ -28,8 +28,8 @@ async function main() {
   psql(`DELETE FROM trade_order WHERE buyer_id='${BUYER}'`);
   psql(`DELETE FROM mall_cart_item WHERE account_id='${BUYER}'`);
   psql(`DELETE FROM account_address WHERE owner_id='${BUYER}'`);
-  // 商城的三个商家（19000001xx）；活动主办方、场馆的收款账户另有编号段。
-  check('dev merchant accounts seeded', psql("SELECT count(*) FROM trade_merchant_account WHERE sub_mchid LIKE '19000001%'") === '3');
+  // 这份脚本用到的三个商城商家（之后的步骤会再加别的商家和活动主办方、场馆的账户，所以不数总数）。
+  check('dev merchant accounts seeded', psql("SELECT count(*) FROM trade_merchant_account WHERE sub_mchid IN ('1900000101', '1900000102', '1900000103') AND active") === '3');
 
   check('orders need login', (await call('GET', '/api/v1/trade/orders')).status === 401);
   check('provider cannot read buyer orders', (await call('GET', '/api/v1/trade/orders', { token: provider })).status === 403);
