@@ -3,10 +3,14 @@ import { resolve } from 'node:path'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+import { purgeFreeEnrollments } from './support/activity-fixtures'
+import { databaseAvailable } from './support/trade-fixtures'
+
 // 免费活动报名：参与人、填写报名、报名凭证、我的报名、取消。
 // 用 dev 环境的示例活动“无人机开放体验日”（免费、不限年龄）和开发账号 dev-customer，全部走真实后端；
 // 只有“已签到”“已过期”两种凭证样子用接口桩，因为签到要等到场次当天。
-// 每条用例开始前把这个账号名下待参加的报名取消、把子女删掉，所以可以反复跑。
+// 每条用例开始前把这个账号名下待参加的报名取消、把子女删掉，再把这个账号的免费报名（连同凭证、记录）和删掉的子女
+// 从数据库清掉（有本地开发数据库容器时），所以可以反复跑，也不会在“已取消”里越积越多。
 const API = 'http://127.0.0.1:18420'
 const visualOutput = resolve(__dirname, '../../../.planning/activity-enroll/visual')
 const OPEN_DAY_ID = 'a2000000-0000-4000-8000-000000000005'
@@ -120,11 +124,13 @@ test.describe('免费活动报名', () => {
     test.skip(!signedIn, '本地后端没有开发账号（不是 dev 配置）')
     session = signedIn as Session
     await resetAccount(request, session)
+    if (databaseAvailable()) purgeFreeEnrollments()
   })
 
   test.afterAll(async ({ request }) => {
     const signedIn = await apiLogin(request)
     if (signedIn) await resetAccount(request, signedIn)
+    if (databaseAvailable()) purgeFreeEnrollments()
   })
 
   test('ENR-001 游客从首页进入开放体验日，登录后给本人报名，在我的报名里取消', async ({ page }) => {

@@ -19,6 +19,7 @@ import {
   psql,
   type Session,
 } from './support/trade-fixtures'
+import { purgeFreeEnrollments } from './support/activity-fixtures'
 
 // 收费活动报名（E09，计划 §20）：填写报名 → 收银台 → 支付结果 → 报名凭证 → 退一位；待付款取消；
 // 金额变了、主办方没开通在线支付两种拒绝。真实后端 + 本机模拟微信（FAKE_WECHAT=1），H5 调不起微信，
@@ -82,6 +83,9 @@ function cleanup(): void {
       AND NOT EXISTS (SELECT 1 FROM activity_enrollment_ticket t WHERE t.participant_id = p.id);
     COMMIT;
   `)
+  // Free sign-ups that are over (left by the free sign-up spec) hold no seats but fill the 已取消 tab
+  // that PAY-002 pages through; they go too.
+  purgeFreeEnrollments({ onlyCancelled: true })
 }
 
 async function addChild(request: APIRequestContext, session: Session, name: string, yearsOld: number): Promise<string> {
