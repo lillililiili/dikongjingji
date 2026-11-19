@@ -351,6 +351,42 @@
         "navigationBarTitleText": "趣玩挑战",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/support/chat",
+      "style": {
+        "navigationBarTitleText": "客服会话",
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/mine/settings",
+      "style": {
+        "navigationBarTitleText": "设置",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/help",
+      "style": {
+        "navigationBarTitleText": "帮助与反馈",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/agreement",
+      "style": {
+        "navigationBarTitleText": "协议与规则",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/about",
+      "style": {
+        "navigationBarTitleText": "关于",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settings-preview'
+import { buildAgreementUrl } from '@/features/settings/navigation/settings-routes'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
@@ -224,6 +226,11 @@ function togglePerson(personId: string, selectable: boolean): void {
 }
 
 function runIntent(intent: ActivityIntent): void {
+  // The agreement page exists since step G1 (preview builds); its text is still a placeholder.
+  if (intent.type === 'READ_AGREEMENT' && SETTINGS_PREVIEW_ENABLED) {
+    uni.navigateTo({ url: buildAgreementUrl(intent.document) })
+    return
+  }
   const resolution = resolveActivityIntent(intent, ACTIVITY_PREVIEW_ENABLED)
   if (resolution.action === 'SHOW_NOTICE') {
     uni.showToast({ title: resolution.message, icon: 'none' })

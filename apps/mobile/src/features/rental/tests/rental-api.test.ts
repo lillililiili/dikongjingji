@@ -73,12 +73,17 @@ describe('rental api', () => {
       name: '巡检机器狗',
       saleMode: 'RENT',
       coverImage: null,
-      offers: [{ offerId: 'o-1', skuName: '标准版', merchant: { name: '示例机器人商家' }, amountMinor: 38_000, unit: 'DAY', fulfilledFrom: '东营仓' }],
+      offers: [
+        { offerId: 'o-1', skuName: '标准版', merchant: { name: '示例机器人商家' }, amountMinor: 38_000, unit: 'DAY', fulfilledFrom: '东营仓', onlinePayment: true },
+        { offerId: 'o-3', skuName: '标准版', merchant: { name: '示例设备租赁商' }, amountMinor: 36_000, unit: 'DAY', fulfilledFrom: null, onlinePayment: false },
+      ],
     }
     expect(toOfferView(product, 'o-1')).toEqual({
       offerId: 'o-1', productId: 'p-1', productName: '巡检机器狗', skuName: '标准版', coverUrl: null,
-      merchantName: '示例机器人商家', amountMinor: 38_000, unit: 'DAY', fulfilledFrom: '东营仓',
+      merchantName: '示例机器人商家', amountMinor: 38_000, unit: 'DAY', fulfilledFrom: '东营仓', onlinePayment: true,
     })
+    // catalog 1.2.0: a lessor without online payment is known before the form is sent.
+    expect(toOfferView(product, 'o-3')?.onlinePayment).toBe(false)
     expect(toOfferView(product, 'o-2')).toBeNull()
     expect(toOfferView({ ...product, saleMode: 'BUY' }, 'o-1')).toBeNull()
   })

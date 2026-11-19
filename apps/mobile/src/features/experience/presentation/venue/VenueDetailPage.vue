@@ -4,14 +4,17 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import ShareSheet from '@/shared/share/ShareSheet.vue'
+import type { ShareTarget } from '@/shared/share/share-link'
 import { buildBeijingDayOptions, type BeijingDayOption } from '@/shared/time/beijing-time'
 
 import { EXPERIENCE_PREVIEW_ENABLED } from '../../application/experience-preview'
 import { experienceApi } from '../../data/experience-api-client'
 import { resolveExperiencePreviewCover } from '../../data/preview/experience-preview-covers'
 import type { VenueDetail, VenueDevice, VenueProject, VenueSession } from '../../domain/experience'
-import { buildVenueBookUrl, buildVenueDevicesUrl } from '../../navigation/experience-routes'
+import { buildVenueBookUrl, buildVenueDetailUrl, buildVenueDevicesUrl } from '../../navigation/experience-routes'
 import {
   formatVenuePrice,
   formatVenueProjectMeta,
@@ -46,6 +49,21 @@ let detailVersion = 0
 let sessionsVersion = 0
 
 const venue = computed(() => (state.value.kind === 'ready' ? state.value.venue : null))
+
+// 分享 (step G1, preview builds): only 复制链接 of this venue in this city.
+const shareTarget = ref<ShareTarget | null>(null)
+function openShare(): void {
+  const current = venue.value
+  if (!current) return
+  shareTarget.value = {
+    subject: '场馆',
+    title: current.name,
+    subtitle: current.openingNote ?? null,
+    owner: current.operatorName,
+    imageUrl: coverUrl.value ?? null,
+    path: buildVenueDetailUrl(venueId, cityCode),
+  }
+}
 const selectedProject = computed<VenueProject | null>(() =>
   venue.value?.projects.find((project) => project.projectId === selectedProjectId.value) ?? null,
 )
@@ -258,6 +276,17 @@ onLoad((query) => {
               <UniIcons type="left" size="20" color="#ffffff" />
             </view>
           </button>
+          <button
+            v-if="SUPPORT_PREVIEW_ENABLED"
+            class="venue-detail__float venue-detail__float--share"
+            data-testid="venue-detail-share"
+            aria-label="分享"
+            @click="openShare"
+          >
+            <view class="venue-detail__float-circle">
+              <UniIcons type="redo" size="20" color="#ffffff" />
+            </view>
+          </button>
         </view>
 
         <view class="venue-detail__card venue-detail__card--lead">
@@ -443,6 +472,7 @@ onLoad((query) => {
           预约到馆
         </button>
       </view>
+      <ShareSheet :target="shareTarget" @close="shareTarget = null" />
     </template>
   </view>
 </template>
@@ -592,6 +622,11 @@ button::after {
   height: 44px;
   align-items: center;
   justify-content: center;
+}
+
+.venue-detail__float--share {
+  right: 8px;
+  left: auto;
 }
 
 .venue-detail__float-circle {

@@ -235,20 +235,25 @@ test.describe('商品订单与支付', () => {
     await expect(page.getByTestId('goods-order-refunded')).toHaveText('¥1,299')
     await expect(page.getByTestId('goods-order-refund-status')).toHaveText('已退回')
     await expect(page.getByTestId('goods-order-payment-status')).toHaveText('已支付 · 已全额退款')
-    await expect(page.locator('.goods-order__bar')).toHaveCount(0)
+    // Nothing left to do with the order; only 联系商家 (G1) stays in the bar.
+    await expect(page.locator('.goods-order__bar-button')).toHaveCount(0)
+    await expect(page.getByTestId('goods-order-contact')).toBeVisible()
 
     await page.goto('/#/pages/mine/goods-orders?tab=REFUND')
     await expect(page.getByTestId('goods-orders-tab-REFUND')).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByTestId(`goods-order-${order.orderNo}`).getByTestId('goods-order-status')).toHaveText('已退款')
   })
 
-  test('TRD-004 没开通在线支付的商家：提交时页面写明，不能再提交', async ({ page, request }) => {
+  test('TRD-004 没开通在线支付的商家：商品详情灰显、选不中；从链接进确认订单，提交时页面写明，不能再提交', async ({ page, request }) => {
     await addAddressByApi(request, buyer)
     await signIn(page, buyer)
     await page.goto(`/#/pages/mall/product?productId=${DRONE_ID}&cityCode=${CITY}`)
+    // Catalog 1.2.0 (G1): the detail knows the merchant cannot take payment online.
+    await expect(page.getByTestId(`mall-offer-unpaid-${DRONE_FACTORY}`)).toHaveText('暂未开通在线支付')
     await page.getByTestId(`mall-offer-${DRONE_FACTORY}`).click()
-    await page.locator('[data-testid="mall-product-primary"][data-intent="BUY_NOW"]').click()
-    await page.getByTestId('mall-buy-now').click()
+    await expect(page.getByTestId(`mall-offer-${DRONE_FACTORY}`)).toHaveAttribute('aria-pressed', 'false')
+    // The confirm page still refuses it when reached by a link.
+    await page.goto(`/?n=checkout#/pages/cart/checkout?offerId=${DRONE_FACTORY}&quantity=1&cityCode=${CITY}`)
     await expect(page.getByTestId('checkout-merchant')).toHaveText('示例无人机厂家')
     await expect(page.getByTestId('checkout-address')).toBeVisible()
     await page.getByTestId('checkout-agree').click()

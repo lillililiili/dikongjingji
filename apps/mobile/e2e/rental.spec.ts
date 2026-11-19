@@ -471,15 +471,16 @@ test.describe('设备租赁', () => {
     await expect(page.getByTestId('rental-inquiry-name')).toHaveText('巡检机器狗')
   })
 
-  test('RENT-003 不能在线收款的出租方：提交后说明原因、不能再提交；登录前先去登录', async ({ page }) => {
+  test('RENT-003 不能在线收款的出租方：打开就说明原因（商品详情 1.2.0 起告诉页面）、不能提交；登录前先去登录', async ({ page }) => {
     await page.goto(`/#/pages/rental/inquiry?offerId=${UNPAID_OFFER}&productId=${DOG_PRODUCT}&cityCode=${CITY}`)
     await expect(page).toHaveURL(/pages\/service\/inspection\/login/)
 
     await signIn(page, buyer)
     await page.goto(`/?n=unpaid#/pages/rental/inquiry?offerId=${UNPAID_OFFER}&productId=${DOG_PRODUCT}&cityCode=${CITY}`)
     await expect(page.getByTestId('rental-inquiry-merchant')).toHaveText('出租方 示例设备租赁商')
-    await page.getByTestId('rental-submit').click()
+    await expect(page.getByTestId('rental-inquiry-unpaid')).toHaveText('暂未开通在线支付')
     await expect(page.getByTestId('rental-blocked')).toContainText('还没有开通在线收款')
+    await page.getByTestId('rental-submit').click()
     await expect(page.locator('[data-testid="rental-submit"][disabled]')).toHaveCount(1)
 
     // 一个不出租的商品：如实说明，能回商城。

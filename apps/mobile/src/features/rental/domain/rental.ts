@@ -229,6 +229,8 @@ export interface RentalOfferView {
   unit: RentalReferenceUnit
   // "示例机器人商家 东营仓": where a pickup happens.
   fulfilledFrom: string | null
+  // (catalog 1.2.0) The lessor can take payment online; without it the form cannot be sent.
+  onlinePayment: boolean
 }
 
 export const RENTAL_MIN_QUANTITY = 1

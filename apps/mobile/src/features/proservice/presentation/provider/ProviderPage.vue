@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { openSupportChat } from '@/features/support/application/support-entry'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
 
@@ -124,8 +125,10 @@ function publish(): void {
   if (page) emit('publish', providerDemandType(page), page.providerId)
 }
 
+// 咨询 (step G1): this provider's conversation; the page is only in preview builds.
 function showConsult(): void {
-  uni.showToast({ title: '咨询能力由平台统一接入', icon: 'none' })
+  const page = provider.value
+  if (page) openSupportChat({ kind: 'PROVIDER', organizationId: page.providerId })
 }
 
 void load()

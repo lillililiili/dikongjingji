@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { openSupportChat } from '@/features/support/application/support-entry'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
 
@@ -195,8 +196,9 @@ function openService(serviceId: string): void {
   emit('openService', serviceId, cityCode.value)
 }
 
+// 客服 on the list (step G1): the platform support; the page is only in preview builds.
 function showCustomerService(): void {
-  uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' })
+  openSupportChat({ kind: 'PLATFORM' })
 }
 
 defineExpose({ loadMore })

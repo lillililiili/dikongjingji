@@ -4,11 +4,13 @@ import { ref } from 'vue'
 
 import type { MessageCenterState } from '../application/message-center'
 import type { MessageItem } from '../domain/message'
-import { MESSAGE_CATEGORY_LABELS, formatMessageTime } from './message-format'
+import { MESSAGE_CATEGORY_LABELS, formatMessageTime, type MessageConversationRow } from './message-format'
 
-defineProps<{
+withDefaults(defineProps<{
   state: MessageCenterState
-}>()
+  // null hides the section (public builds, guests).
+  conversations?: MessageConversationRow[] | null
+}>(), { conversations: null })
 
 const emit = defineEmits<{
   login: []
@@ -16,7 +18,11 @@ const emit = defineEmits<{
   open: [message: MessageItem]
   markAllRead: []
   loadMore: []
+  openConversation: [conversationId: string]
+  contactPlatform: []
 }>()
+
+const badge = (count: number): string => (count > 99 ? '99+' : String(count))
 
 // Read once per render pass is enough: the labels only need the day to be right.
 const now = ref(new Date())
@@ -35,6 +41,47 @@ const now = ref(new Date())
         <UniIcons type="checkbox" size="18" color="#536178" />
         <text>全部已读</text>
       </button>
+    </view>
+
+    <!-- 客服会话 (board Messages: the 联系客服 square and the 客服 rows), newest first. -->
+    <view
+      v-if="conversations && state.kind !== 'guest' && state.kind !== 'expired'"
+      class="message-center__list message-center__conversations"
+      data-testid="message-conversations"
+    >
+      <view class="message-center__section-head">
+        <text class="message-center__section-title">客服会话</text>
+        <button class="message-center__section-action" data-testid="message-contact-platform" @click="emit('contactPlatform')">
+          <UniIcons type="headphones" size="16" color="#ba470b" />
+          <text>联系平台客服</text>
+        </button>
+      </view>
+      <button
+        v-for="row in conversations"
+        :key="row.conversationId"
+        class="message-center__item"
+        :data-testid="`conversation-${row.conversationId}`"
+        :data-unread="row.unreadCount"
+        @click="emit('openConversation', row.conversationId)"
+      >
+        <view class="message-center__icon message-center__icon--service">
+          <UniIcons v-if="row.initial === null" type="headphones" size="22" color="#ff6a00" />
+          <text v-else class="message-center__initial">{{ row.initial }}</text>
+        </view>
+        <view class="message-center__copy">
+          <view class="message-center__line">
+            <text :class="['message-center__item-title', { 'message-center__item-title--unread': row.unreadCount > 0 }]">
+              <text class="message-center__category">客服 · </text>{{ row.title }}
+            </text>
+            <text class="message-center__time">{{ row.time }}</text>
+          </view>
+          <view class="message-center__line message-center__line--body">
+            <text :class="['message-center__body', { 'message-center__body--read': row.unreadCount === 0 }]">{{ row.preview }}</text>
+            <text v-if="row.unreadCount > 0" class="message-center__count" data-testid="conversation-unread">{{ badge(row.unreadCount) }}</text>
+          </view>
+        </view>
+      </button>
+      <text v-if="conversations.length === 0" class="message-center__conversations-empty">订单、售后和投诉都可以联系平台客服；商家和服务商在商品、订单页点“咨询”</text>
     </view>
 
     <view v-if="state.kind === 'guest'" class="message-center__state" data-testid="message-guest">
@@ -79,8 +126,12 @@ const now = ref(new Date())
           :data-read="message.read"
           @click="emit('open', message)"
         >
-          <view class="message-center__icon">
-            <UniIcons type="paperplane" size="22" color="#2f80ed" />
+          <view :class="['message-center__icon', { 'message-center__icon--service': message.category === 'CUSTOMER_SERVICE' }]">
+            <UniIcons
+              :type="message.category === 'CUSTOMER_SERVICE' ? 'headphones' : 'paperplane'"
+              size="22"
+              :color="message.category === 'CUSTOMER_SERVICE' ? '#ff6a00' : '#2f80ed'"
+            />
           </view>
           <view class="message-center__copy">
             <view class="message-center__line">
@@ -285,6 +336,60 @@ button::after {
   flex: none;
   border-radius: 50%;
   background: #ff5200;
+}
+
+.message-center__icon--service {
+  background: #fff0e3;
+}
+
+.message-center__initial {
+  color: #ff6a00;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.message-center__section-head {
+  display: flex;
+  padding: 10px 6px 0 14px;
+  align-items: center;
+}
+
+.message-center__section-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 21px;
+}
+
+.message-center__section-action {
+  display: flex;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 8px;
+  align-items: center;
+  gap: 4px;
+  color: #ba470b;
+  font-size: 13px;
+}
+
+.message-center__count {
+  min-width: 18px;
+  height: 18px;
+  flex: none;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  color: #ffffff;
+  background: #ff5200;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.message-center__conversations-empty {
+  padding: 4px 14px 14px;
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
 }
 
 .message-center__skeleton {

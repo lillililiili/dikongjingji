@@ -12,9 +12,8 @@ export type MallIntent =
   | { type: 'BUY_NOW'; productId: string; offerId: string }
   | { type: 'INQUIRE'; productId: string; offerId: string }
   | { type: 'SUBMIT_ORDER' }
+  // Since step G1 the agreement page exists in preview builds; this is left for public builds.
   | { type: 'READ_AGREEMENT'; document: 'TRADE_AGREEMENT' }
-  // 咨询 on a quote (F4): talking to the merchant waits for the customer service sessions (step G).
-  | { type: 'CONSULT_MERCHANT' }
 
 export type MallIntentResolution =
   | { action: 'SHOW_NOTICE'; message: string }
@@ -26,7 +25,6 @@ const NOTICES: Record<MallIntent['type'], string> = {
   INQUIRE: '询价功能即将开放',
   SUBMIT_ORDER: '下单和付款要等支付渠道确定后开放',
   READ_AGREEMENT: '协议正文待提供',
-  CONSULT_MERCHANT: '咨询功能即将开放',
 }
 
 // Preview builds explain that the entry is coming; public builds do not show it at all.

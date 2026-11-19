@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onBackPress, onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
@@ -308,8 +310,20 @@ function returnToFulfillment(): void {
   }
   uni.reLaunch({ url: buildInspectionOrderCenterUrl('ALL') })
 }
+// 对报告有疑问 (step G1, preview builds): the platform support, which helps both sides talk, with a
+// card about this service order. Public builds keep the notice.
 function showCustomerService(): void {
-  uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' })
+  const current = order.value
+  if (!SUPPORT_PREVIEW_ENABLED || !current) {
+    uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' })
+    return
+  }
+  openSupportChat({ kind: 'PLATFORM' }, {
+    type: 'INSPECTION_ORDER',
+    refId: current.id,
+    title: current.serviceSnapshot.serviceTitle,
+    subtitle: `服务单 ${current.serviceOrderNo}`,
+  })
 }
 function showSavedPath(savedPath: string): void {
   uni.showToast({

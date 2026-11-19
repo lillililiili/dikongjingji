@@ -18,8 +18,7 @@ import {
   mallInquiryCloseConfirm,
   requirementHeadline,
 } from '../../application/inquiry-view'
-import { resolveMallIntent } from '../../application/mall-intent'
-import { MALL_PREVIEW_ENABLED } from '../../application/mall-preview'
+import { openSupportChat } from '@/features/support/application/support-entry'
 import { mallInquiryApi } from '../../data/inquiry-api-client'
 import {
   MALL_INQUIRY_SORTS,
@@ -226,10 +225,14 @@ function reinquire(): void {
   emit('reinquire', { productId: current.product.productId, cityCode: current.cityCode })
 }
 
-// 咨询 waits for the customer service sessions (step G): it goes through the mall's typed gate.
-function consult(): void {
-  const resolution = resolveMallIntent({ type: 'CONSULT_MERCHANT' }, MALL_PREVIEW_ENABLED)
-  if (resolution.action === 'SHOW_NOTICE') uni.showToast({ title: resolution.message, icon: 'none' })
+// 咨询 (step G1): the quoting merchant's conversation, with a card about this inquiry.
+function consult(merchantId: string, total: string): void {
+  const current = inquiry.value
+  if (!current) return
+  openSupportChat(
+    { kind: 'MERCHANT', organizationId: merchantId },
+    { type: 'MALL_INQUIRY', refId: current.inquiryId, title: current.product.name, subtitle: `报价 ${total}` },
+  )
 }
 
 watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void load() }, { immediate: true })
@@ -348,7 +351,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
                 {{ card.totalLabel }}<text class="inquiry-quotes__total" data-testid="inquiry-quote-total">{{ card.total }}</text>
               </text>
               <view class="inquiry-quotes__card-actions">
-                <button class="inquiry-quotes__consult" data-testid="inquiry-quote-consult" @click="consult">咨询</button>
+                <button class="inquiry-quotes__consult" data-testid="inquiry-quote-consult" @click="consult(card.quote.merchant.organizationId, card.total)">咨询</button>
                 <button
                   :class="[
                     'inquiry-quotes__choose',

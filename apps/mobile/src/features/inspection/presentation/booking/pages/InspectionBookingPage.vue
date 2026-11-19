@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
@@ -366,7 +368,11 @@ function goBack(): void {
       : buildInspectionCatalogUrl(),
   })
 }
-function showCustomerService(): void { uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' }) }
+// 客服 while filling in the booking (step G1, preview builds): the platform support. Public builds keep the notice.
+function showCustomerService(): void {
+  if (SUPPORT_PREVIEW_ENABLED) openSupportChat({ kind: 'PLATFORM' })
+  else uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' })
+}
 
 </script>
 

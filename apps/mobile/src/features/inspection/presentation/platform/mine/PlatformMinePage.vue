@@ -78,10 +78,10 @@ const STATUS_ICONS: Record<InspectionMineStatus, string> = {
       <view class="platform-mine__scroll">
         <!-- Above the card, as on the prototype, so the card keeps its right side for the sign-in button. -->
         <view class="platform-mine__profile-actions">
-          <button class="platform-mine__headset" aria-label="联系客服" @click="emit('customerService')">
+          <button class="platform-mine__headset" data-testid="mine-customer-service" aria-label="联系客服" @click="emit('customerService')">
             <UniIcons type="headphones" size="22" color="#202c42" />
           </button>
-          <button class="platform-mine__settings" aria-label="设置" @click="emit('settings')">
+          <button class="platform-mine__settings" data-testid="mine-settings" aria-label="设置" @click="emit('settings')">
             <UniIcons type="gear" size="22" color="#202c42" />
           </button>
         </view>

@@ -60,6 +60,9 @@ function mountBookingPage(loadServiceSnapshot: LoadServiceSnapshot): {
   let onLoadHandler: ((query: BookingRouteQuery) => void) | undefined
   const dependencies: Record<string, unknown> = {
     vue: Vue,
+    // Step G1: customer service and its preview flag (off: the pages keep their notices).
+    '@/features/support/application/support-entry': { openSupportChat: () => undefined },
+    '@/features/support/application/support-preview': { SUPPORT_PREVIEW_ENABLED: false },
     pinia: { storeToRefs },
     '@dcloudio/uni-app': {
       onLoad: (handler: (query: BookingRouteQuery) => void) => {

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settings-preview'
+import { buildAgreementUrl } from '@/features/settings/navigation/settings-routes'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
@@ -203,6 +205,11 @@ async function togglePhotoUse(person: Participant): Promise<void> {
 }
 
 function readPrivacyRules(): void {
+  // The agreement page exists since step G1 (preview builds); its text is still a placeholder.
+  if (SETTINGS_PREVIEW_ENABLED) {
+    uni.navigateTo({ url: buildAgreementUrl('CHILD_PRIVACY_RULES') })
+    return
+  }
   const resolution = resolveActivityIntent(
     { type: 'READ_AGREEMENT', document: 'CHILD_PRIVACY_RULES' },
     ACTIVITY_PREVIEW_ENABLED,

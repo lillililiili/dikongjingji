@@ -161,6 +161,8 @@ export function createLatestCatalogLoader<T>(
 </script>
 
 <script setup lang="ts">
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
@@ -585,7 +587,12 @@ function returnToPortal(): void {
   })
 }
 
+// 客服 on the list: the platform support (step G1, preview builds); public builds keep the notice.
 function showCustomerService(): void {
+  if (SUPPORT_PREVIEW_ENABLED) {
+    openSupportChat({ kind: 'PLATFORM' })
+    return
+  }
   uni.showToast({
     title: '客服能力由平台统一接入',
     icon: 'none',

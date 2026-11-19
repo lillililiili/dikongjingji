@@ -4,7 +4,11 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import ShareSheet from '@/shared/share/ShareSheet.vue'
+import type { ShareTarget } from '@/shared/share/share-link'
 
 import {
   resolveMallIntent,
@@ -13,6 +17,7 @@ import {
 } from '../../application/mall-intent'
 import { MALL_PREVIEW_ENABLED } from '../../application/mall-preview'
 import { mallApi } from '../../data/mall-api-client'
+import { buildMallProductUrl } from '../../navigation/mall-routes'
 import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import type { MallOffer, MallProductDetail } from '../../domain/mall'
 import MallBuySheet from './MallBuySheet.vue'
@@ -61,10 +66,18 @@ const product = computed(() => (state.value.kind === 'ready' ? state.value.produ
 const selectedOffer = computed<MallOffer | null>(() =>
   product.value?.offers.find((offer) => offer.offerId === selectedOfferId.value) ?? null,
 )
-const primaryAction = computed(() =>
-  product.value && selectedOffer.value
-    ? resolveMallPrimaryAction(product.value.saleMode, selectedOffer.value.amountMinor)
-    : null,
+// What the price, delivery and parties show: the chosen offer, or the first one while none of them
+// can be chosen (no merchant takes payment online).
+const shownOffer = computed<MallOffer | null>(() => selectedOffer.value ?? product.value?.offers[0] ?? null)
+// An inquiry product is asked about on its own form, which picks the merchants; buying and renting
+// need a chosen merchant that takes payment online.
+const primaryAction = computed(() => {
+  if (!product.value || !shownOffer.value) return null
+  if (product.value.saleMode !== 'INQUIRY' && !selectedOffer.value) return null
+  return resolveMallPrimaryAction(product.value.saleMode, shownOffer.value.amountMinor)
+})
+const noPayableOffer = computed(() =>
+  Boolean(product.value && product.value.saleMode !== 'INQUIRY' && product.value.offers.length > 0 && !selectedOffer.value),
 )
 const packTotal = computed(() =>
   product.value?.packItems.reduce((total, item) => total + item.quantity, 0) ?? 0,
@@ -91,9 +104,10 @@ async function loadProduct(): Promise<void> {
     const loaded = await mallApi.loadProduct(productId, cityCode)
     if (requested !== requestVersion) return
     state.value = { kind: 'ready', product: loaded }
-    // Offers arrive with the lowest listed price first; that one starts selected.
-    const stillThere = loaded.offers.some((offer) => offer.offerId === selectedOfferId.value)
-    if (!stillThere) selectedOfferId.value = loaded.offers[0]?.offerId ?? null
+    // Offers arrive with the lowest listed price first; the first one whose merchant takes payment
+    // online starts selected (catalog 1.2.0). A merchant without it is shown, greyed, never chosen.
+    const stillThere = loaded.offers.some((offer) => offer.offerId === selectedOfferId.value && offer.onlinePayment)
+    if (!stillThere) selectedOfferId.value = loaded.offers.find((offer) => offer.onlinePayment)?.offerId ?? null
   } catch (error) {
     if (requested !== requestVersion) return
     const missing = error instanceof ApiRequestError
@@ -103,7 +117,41 @@ async function loadProduct(): Promise<void> {
 }
 
 function selectOffer(offer: MallOffer): void {
+  if (!offer.onlinePayment) {
+    uni.showToast({ title: '这家商家暂未开通在线支付，请选其他商家', icon: 'none' })
+    return
+  }
   selectedOfferId.value = offer.offerId
+}
+
+// 咨询 (step G1): the merchant of the offer on screen, with a card about this product.
+function consult(): void {
+  const offer = shownOffer.value
+  if (!product.value || !offer) return
+  openSupportChat(
+    { kind: 'MERCHANT', organizationId: offer.merchantId },
+    {
+      type: 'PRODUCT',
+      refId: product.value.productId,
+      title: product.value.name,
+      subtitle: formatMallOfferPrice(offer.amountMinor, offer.unit),
+    },
+  )
+}
+
+// 分享: only 复制链接, the address of this product in this city.
+const shareTarget = ref<ShareTarget | null>(null)
+function openShare(): void {
+  if (!product.value) return
+  const offer = shownOffer.value
+  shareTarget.value = {
+    subject: '商品',
+    title: product.value.name,
+    subtitle: offer ? formatMallOfferPrice(offer.amountMinor, offer.unit) : null,
+    owner: offer?.merchantName ?? null,
+    imageUrl: cover.value?.url ?? null,
+    path: buildMallProductUrl(product.value.productId, cityCode),
+  }
 }
 
 // Goods with a listed price open 规格与数量; everything else still goes through the gate.
@@ -122,7 +170,8 @@ function buyNow(quantity: number): void {
 }
 
 function runIntent(type: 'ADD_TO_CART' | 'BUY_NOW' | 'INQUIRE'): void {
-  const offer = selectedOffer.value
+  // An inquiry product needs no chosen merchant: its form picks the ones to ask.
+  const offer = product.value?.saleMode === 'INQUIRY' ? shownOffer.value : selectedOffer.value
   if (!product.value || !offer) return
   if ((type === 'ADD_TO_CART' || type === 'BUY_NOW') && primaryAction.value?.cartAvailable) {
     buySheetOpen.value = true
@@ -213,16 +262,27 @@ onLoad((query) => {
               <UniIcons type="left" size="20" color="#ffffff" />
             </view>
           </button>
+          <button
+            v-if="SUPPORT_PREVIEW_ENABLED"
+            class="mall-product__float mall-product__float--share"
+            data-testid="mall-product-share"
+            aria-label="分享"
+            @click="openShare"
+          >
+            <view class="mall-product__float-circle">
+              <UniIcons type="redo" size="20" color="#ffffff" />
+            </view>
+          </button>
         </view>
 
         <view class="mall-product__card mall-product__card--lead">
           <view class="mall-product__price-row">
             <text
-              v-if="selectedOffer"
+              v-if="shownOffer"
               class="mall-product__price"
               data-testid="mall-product-price"
             >
-              {{ formatMallOfferPrice(selectedOffer.amountMinor, selectedOffer.unit) }}
+              {{ formatMallOfferPrice(shownOffer.amountMinor, shownOffer.unit) }}
             </text>
             <text class="mall-product__price-note">
               {{ product.offers.length }} 家{{ product.saleMode === 'RENT' ? '可租' : product.saleMode === 'INQUIRY' ? '可报价' : '在售' }}
@@ -236,10 +296,10 @@ onLoad((query) => {
               {{ MALL_BADGE_LABELS[product.experienceBadge] }}
             </text>
           </view>
-          <view v-if="selectedOffer?.shippingNote" class="mall-product__delivery">
+          <view v-if="shownOffer?.shippingNote" class="mall-product__delivery">
             <text class="mall-product__delivery-label">{{ product.saleMode === 'RENT' ? '交付' : '配送' }}</text>
             <text class="mall-product__delivery-value" data-testid="mall-product-shipping">
-              {{ selectedOffer.shippingNote }}
+              {{ shownOffer.shippingNote }}
             </text>
           </view>
         </view>
@@ -285,10 +345,15 @@ onLoad((query) => {
             :key="offer.offerId"
             :class="[
               'mall-product__offer',
-              { 'mall-product__offer--selected': offer.offerId === selectedOfferId },
+              {
+                'mall-product__offer--selected': offer.offerId === selectedOfferId,
+                'mall-product__offer--unpaid': !offer.onlinePayment,
+              },
             ]"
             :data-testid="`mall-offer-${offer.offerId}`"
+            :data-online-payment="offer.onlinePayment"
             :aria-pressed="offer.offerId === selectedOfferId"
+            :aria-disabled="!offer.onlinePayment"
             @click="selectOffer(offer)"
           >
             <view class="mall-product__radio">
@@ -300,6 +365,11 @@ onLoad((query) => {
                 <text class="mall-product__offer-kind">{{ MALL_MERCHANT_KIND_LABELS[offer.merchantKind] }}</text>
               </view>
               <text v-if="offer.deliveryNote" class="mall-product__offer-note">{{ offer.deliveryNote }}</text>
+              <text
+                v-if="!offer.onlinePayment"
+                class="mall-product__offer-unpaid"
+                :data-testid="`mall-offer-unpaid-${offer.offerId}`"
+              >暂未开通在线支付</text>
             </view>
             <text class="mall-product__offer-price">{{ formatMallOfferPrice(offer.amountMinor, offer.unit) }}</text>
           </button>
@@ -309,7 +379,7 @@ onLoad((query) => {
           >在询价单里选发给哪几家，报价后再比选。</text>
         </view>
 
-        <view v-if="selectedOffer" class="mall-product__card">
+        <view v-if="shownOffer" class="mall-product__card">
           <view class="mall-product__section-heading">
             <text class="mall-product__section-title">交易主体</text>
             <text class="mall-product__section-note">随所选商家变化</text>
@@ -317,11 +387,11 @@ onLoad((query) => {
           <view class="mall-product__parties">
             <text class="mall-product__party-label">销售方</text>
             <text class="mall-product__party-value" data-testid="mall-product-seller">
-              {{ selectedOffer.merchantName }}（{{ MALL_MERCHANT_KIND_LABELS[selectedOffer.merchantKind] }}）
+              {{ shownOffer.merchantName }}（{{ MALL_MERCHANT_KIND_LABELS[shownOffer.merchantKind] }}）
             </text>
-            <template v-if="selectedOffer.fulfilledFrom">
+            <template v-if="shownOffer.fulfilledFrom">
               <text class="mall-product__party-label">{{ product.saleMode === 'RENT' ? '交付' : '发货履约' }}</text>
-              <text class="mall-product__party-value">{{ selectedOffer.fulfilledFrom }}</text>
+              <text class="mall-product__party-value">{{ shownOffer.fulfilledFrom }}</text>
             </template>
           </view>
         </view>
@@ -373,8 +443,20 @@ onLoad((query) => {
         </view>
       </view>
 
-      <view v-if="MALL_PREVIEW_ENABLED && primaryAction" class="mall-product__actions">
-        <view class="mall-product__action-group">
+      <view v-if="MALL_PREVIEW_ENABLED && (primaryAction || noPayableOffer)" class="mall-product__actions">
+        <button
+          v-if="SUPPORT_PREVIEW_ENABLED"
+          class="mall-product__consult"
+          data-testid="mall-product-consult"
+          @click="consult"
+        >
+          <UniIcons type="chat" size="22" color="#536178" />
+          <text>咨询</text>
+        </button>
+        <view v-if="noPayableOffer" class="mall-product__no-payable" data-testid="mall-product-no-payable">
+          暂无可在线付款的商家
+        </view>
+        <view v-else-if="primaryAction" class="mall-product__action-group">
         <button
           v-if="primaryAction.cartAvailable"
           class="mall-product__secondary"
@@ -393,6 +475,8 @@ onLoad((query) => {
         </button>
         </view>
       </view>
+
+      <ShareSheet :target="shareTarget" @close="shareTarget = null" />
 
       <MallBuySheet
         v-if="buySheetOpen && selectedOffer"
@@ -561,6 +645,11 @@ button::after {
   height: 44px;
   align-items: center;
   justify-content: center;
+}
+
+.mall-product__float--share {
+  right: 8px;
+  left: auto;
 }
 
 .mall-product__float-circle {
@@ -764,6 +853,17 @@ button::after {
   background: #fff8f2;
 }
 
+/* A merchant that cannot take payment online: shown, greyed, not chosen. */
+.mall-product__offer--unpaid {
+  opacity: 0.6;
+}
+
+.mall-product__offer-unpaid {
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
 .mall-product__radio {
   display: flex;
   width: 20px;
@@ -929,14 +1029,49 @@ button::after {
   position: sticky;
   bottom: 0;
   z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
   box-shadow: 0 -4px 18px rgba(38, 59, 98, 0.06);
 }
 
+/* 咨询 on the left of the bar, as on the board PdFull. */
+.mall-product__consult {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #536178;
+  font-size: 11px;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.mall-product__no-payable {
+  display: flex;
+  height: 44px;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #c9d3e1;
+  font-size: 15px;
+  font-weight: 500;
+}
+
 /* One pill: the two buttons share its rounded ends. */
 .mall-product__action-group {
+  min-width: 0;
+  flex: 1;
   display: flex;
   height: 44px;
   overflow: hidden;

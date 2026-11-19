@@ -57,6 +57,8 @@ export interface MallOffer {
   offerId: string
   skuId: string
   skuName: string
+  // The selling (or lessor, or quoting) organization: the counterpart of 咨询.
+  merchantId: string
   merchantName: string
   merchantKind: MallMerchantKind
   amountMinor: number | null
@@ -64,6 +66,9 @@ export interface MallOffer {
   deliveryNote: string | null
   shippingNote: string | null
   fulfilledFrom: string | null
+  // (catalog 1.2.0) The merchant can take payment online. Buying, renting and ordering by quote all
+  // pay the merchant online, so an offer without it is shown but not preselected or chosen.
+  onlinePayment: boolean
 }
 
 export interface MallSpec {

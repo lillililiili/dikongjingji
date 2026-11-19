@@ -31,6 +31,9 @@ import {
   buildInspectionOrderCenterUrl,
 } from '@/features/inspection/navigation/inspection-routes'
 import PlatformMinePage from '@/features/inspection/presentation/platform/mine/PlatformMinePage.vue'
+import { SETTINGS_PATH, ABOUT_PATH } from '@/features/settings/navigation/settings-routes'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
+import { buildSupportHelpUrl, buildSupportOpenUrl } from '@/features/support/navigation/support-routes'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
 import { buildGoodsOrdersUrl } from '@/features/trade/navigation/trade-routes'
 import {
@@ -83,10 +86,19 @@ const joinEntries: PlatformMineLinkEntry[] = [
   ...(RENTAL_PREVIEW_ENABLED ? [{ code: 'RENTAL_ORDERS', title: '租赁订单', icon: 'calendar' }] : []),
 ]
 // 需求与报价 (F1) follows them in the Mine board's order; the list asks for a login itself.
-const linkRows: PlatformMineLinkEntry[] = [
-  ...(ACTIVITY_PREVIEW_ENABLED ? [{ code: 'ACTIVITY_PARTICIPANTS', title: '参与人管理', icon: 'staff' }] : []),
-  ...(DEMAND_PREVIEW_ENABLED ? [{ code: 'DEMANDS', title: '需求与报价', icon: 'compose' }] : []),
-]
+// G1 adds 帮助与反馈 and, as on the boards, 联系客服 for a signed-in account and 关于 for a guest.
+function resolveLinkRows(signedIn: boolean): PlatformMineLinkEntry[] {
+  return [
+    ...(ACTIVITY_PREVIEW_ENABLED ? [{ code: 'ACTIVITY_PARTICIPANTS', title: '参与人管理', icon: 'staff' }] : []),
+    ...(DEMAND_PREVIEW_ENABLED ? [{ code: 'DEMANDS', title: '需求与报价', icon: 'compose' }] : []),
+    ...(SUPPORT_PREVIEW_ENABLED ? [{ code: 'HELP', title: '帮助与反馈', icon: 'help' }] : []),
+    ...(SUPPORT_PREVIEW_ENABLED && signedIn ? [{ code: 'SUPPORT', title: '联系客服', icon: 'headphones' }] : []),
+    ...(SUPPORT_PREVIEW_ENABLED && !signedIn ? [{ code: 'ABOUT', title: '关于', icon: 'info' }] : []),
+  ]
+}
+// Rows a guest may open without signing in (board MineGuest).
+const GUEST_LINKS = new Set(['HELP', 'ABOUT'])
+const signedIn = () => Boolean(getBookingAuthContext().getAccessToken())
 // The signed-in account's own profile; null until read, and again after signing out.
 const account = ref<PlatformMineAccount | null>(null)
 let accountToken: string | null = null
@@ -108,7 +120,7 @@ const state = ref<PlatformMineViewState>(resolvePlatformMineState({
     recentOrders: [],
     featureEntries,
     joinEntries,
-    linkRows,
+    linkRows: resolveLinkRows(signedIn()),
   },
 }))
 const recentOrderById = ref(new Map<string, InspectionOrderSummary>())
@@ -142,7 +154,7 @@ function setMineContent(
       recentOrders,
       featureEntries,
       joinEntries,
-      linkRows,
+      linkRows: resolveLinkRows(signedIn()),
     },
   })
 }
@@ -206,12 +218,38 @@ function showUnavailable(): void {
   uni.showToast({ title: '该能力将在下一阶段接入', icon: 'none' })
 }
 
+// The headset: the platform support (preview builds); the chat asks for a login itself.
+function openCustomerService(): void {
+  if (!SUPPORT_PREVIEW_ENABLED) {
+    showUnavailable()
+    return
+  }
+  uni.navigateTo({ url: buildSupportOpenUrl({ kind: 'PLATFORM' }) })
+}
+
+// Settings belong to an account: a guest signs in first (board MineGuest).
+function openSettings(): void {
+  if (!SUPPORT_PREVIEW_ENABLED) {
+    showUnavailable()
+    return
+  }
+  if (!signedIn()) openLogin()
+  else uni.navigateTo({ url: SETTINGS_PATH })
+}
+
 // After signing in the user comes back to this page, now with their own profile and orders.
 function openLogin(): void {
   uni.navigateTo({ url: buildInspectionLoginUrl(MINE_TAB_PATH) })
 }
 
 function openLink(code: string): void {
+  if (!signedIn() && !GUEST_LINKS.has(code)) {
+    openLogin()
+    return
+  }
+  if (code === 'HELP') uni.navigateTo({ url: buildSupportHelpUrl() })
+  if (code === 'ABOUT') uni.navigateTo({ url: ABOUT_PATH })
+  if (code === 'SUPPORT') openCustomerService()
   if (code === 'ACTIVITY_ENROLLMENTS') uni.navigateTo({ url: buildActivityEnrollmentsUrl() })
   if (code === 'ACTIVITY_PARTICIPANTS') uni.navigateTo({ url: ACTIVITY_PARTICIPANTS_PATH })
   if (code === 'VENUE_BOOKINGS') uni.navigateTo({ url: buildVenueBookingsUrl() })
@@ -220,15 +258,27 @@ function openLink(code: string): void {
 }
 
 function openAllOrders(): void {
+  if (!signedIn()) {
+    openLogin()
+    return
+  }
   uni.navigateTo({ url: buildInspectionOrderCenterUrl('ALL') })
 }
 
 // Goods orders ask for a login themselves and come back to their own list.
 function openGoodsOrders(): void {
+  if (!signedIn()) {
+    openLogin()
+    return
+  }
   uni.navigateTo({ url: buildGoodsOrdersUrl() })
 }
 
 function openStatus(status: InspectionMineStatus): void {
+  if (!signedIn()) {
+    openLogin()
+    return
+  }
   uni.navigateTo({ url: buildInspectionOrderCenterUrl(status) })
 }
 
@@ -253,8 +303,8 @@ onShow(() => {
       :goods-orders-entry="TRADE_PREVIEW_ENABLED"
       @retry="loadRecentOrders"
       @login="openLogin"
-      @customer-service="showUnavailable"
-      @settings="showUnavailable"
+      @customer-service="openCustomerService"
+      @settings="openSettings"
       @select-status="openStatus"
       @select-order="openRecentOrder"
       @select-feature="showUnavailable"

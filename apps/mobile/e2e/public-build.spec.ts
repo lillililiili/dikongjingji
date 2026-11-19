@@ -216,4 +216,46 @@ test.describe('公开构建', () => {
     await expect(page.getByTestId('mall-product-inquiry-steps')).toHaveCount(0)
     await expect(page.getByTestId('mall-product-primary')).toHaveCount(0)
   })
+
+  test('PUB-015 客服会话、设置、帮助、协议、关于未开通：页面只有说明；入口仍走原来的提示，没有分享和咨询', async ({ page }) => {
+    for (const [route, text] of [
+      ['/pages/support/chat?kind=PLATFORM', '客服会话尚未开通'],
+      ['/pages/mine/settings', '设置尚未开通'],
+      ['/pages/mine/help', '帮助与反馈尚未开通'],
+      ['/pages/mine/agreement?doc=PRIVACY_POLICY', '协议正文待提供'],
+      ['/pages/mine/about', '关于页面尚未开通'],
+    ]) {
+      await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
+      await expect(page.getByTestId('support-unavailable')).toHaveText(text)
+      await expect(page.getByTestId('support-chat')).toHaveCount(0)
+    }
+    // No request for conversations from a public page.
+    const calls: string[] = []
+    page.on('request', (request) => { if (request.url().includes('/api/v1/conversations')) calls.push(request.url()) })
+
+    await page.goto('/?n=mine#/pages/mine/index')
+    await expect(page.getByTestId('mine-page')).toBeVisible()
+    await expect(page.getByTestId('mine-link-help')).toHaveCount(0)
+    await expect(page.getByTestId('mine-link-about')).toHaveCount(0)
+    await page.getByTestId('mine-settings').click()
+    await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')
+    await expect(page).toHaveURL(/pages\/mine\/index/)
+    await page.getByTestId('mine-customer-service').click()
+    await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')
+    await expect(page).toHaveURL(/pages\/mine\/index/)
+
+    await page.goto('/?n=detail#/pages/service/inspection/detail?serviceId=33333333-3333-3333-3333-333333333333&cityCode=370500')
+    await expect(page.getByTestId('inspection-detail')).toBeVisible()
+    await page.locator('.service-detail-bottom-bar__secondary').click()
+    await expect(page.locator('.uni-sample-toast')).toContainText('客服能力由平台统一接入')
+    await expect(page).toHaveURL(/pages\/service\/inspection\/detail/)
+
+    await page.goto('/?n=product#/pages/mall/product?productId=c2000000-0000-4000-8000-000000000101&cityCode=370500')
+    await expect(page.getByTestId('mall-product-share')).toHaveCount(0)
+    await expect(page.getByTestId('mall-product-consult')).toHaveCount(0)
+
+    await page.goto('/?n=message#/pages/message/index')
+    await expect(page.getByTestId('message-conversations')).toHaveCount(0)
+    expect(calls).toEqual([])
+  })
 })

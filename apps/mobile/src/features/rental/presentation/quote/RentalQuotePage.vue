@@ -5,7 +5,7 @@ import { computed, ref, watch } from 'vue'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
 import { rentalCloseConfirm } from '../../application/rental-inquiry-card'
-import { showRentalGate } from '../../application/rental-intent'
+import { openSupportChat } from '@/features/support/application/support-entry'
 import { formatRentalAmount, formatRentalInstant } from '../../application/rental-format'
 import {
   describeRentalConfirmFailure,
@@ -62,6 +62,16 @@ let requestVersion = 0
 let agreedVersion: number | null = null
 
 const inquiry = computed(() => (state.value.kind === 'ready' ? state.value.inquiry : null))
+
+// 联系商家 (step G1): the lessor's conversation with a card about this inquiry.
+function contactMerchant(): void {
+  const current = inquiry.value
+  if (!current) return
+  openSupportChat(
+    { kind: 'MERCHANT', organizationId: current.merchant.merchantId },
+    { type: 'RENTAL_INQUIRY', refId: current.inquiryId, title: current.item.productName, subtitle: `${current.days} 天 × ${current.quantity} 台` },
+  )
+}
 const frame = computed(() => (inquiry.value ? rentalQuoteFrame(inquiry.value) : 'WAITING'))
 const quote = computed(() => inquiry.value?.quote ?? null)
 const chip = computed(() => rentalQuoteChip(frame.value))
@@ -364,7 +374,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
           <text class="rental-quote__status-text">{{ statusBox.text }}</text>
         </view>
         <view class="rental-quote__actions">
-          <button class="rental-quote__contact" data-testid="rental-quote-contact" @click="showRentalGate({ type: 'CONTACT_MERCHANT' })">
+          <button class="rental-quote__contact" data-testid="rental-quote-contact" @click="contactMerchant">
             <UniIcons type="chatbubble" size="20" color="#536178" />
             <text>联系商家</text>
           </button>

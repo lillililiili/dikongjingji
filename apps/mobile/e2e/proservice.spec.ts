@@ -307,8 +307,30 @@ test.describe('从详情和服务商主页发布需求', () => {
     // The board's 首付 / 尾款 line is not shown: paying for these services is not open.
     await expect(page.getByTestId('pro-detail-steps')).not.toContainText('首付')
     await expect(page.getByTestId('pro-detail-steps')).toContainText('提交需求不产生费用')
+    // 客服（G1）：进这家服务商的会话，带一张这项服务的卡片待发送。会话接口用桩，不在开发库里留会话。
+    const opened: unknown[] = []
+    const fakeConversation = {
+      conversationId: '6f1b2c3d-1111-4222-8333-444455556666',
+      counterpart: { kind: 'PROVIDER', organizationId: '22222222-2222-2222-2222-222222222222', name: '云翼科技' },
+      lastMessage: null,
+      unreadCount: 0,
+      createdAt: '2026-11-19T02:00:00Z',
+    }
+    await page.route('**/api/v1/conversations', (route) => {
+      opened.push(route.request().postDataJSON())
+      return route.fulfill({ status: 201, json: fakeConversation })
+    })
+    await page.route('**/api/v1/conversations/*/messages?*', (route) =>
+      route.fulfill({ json: { conversation: fakeConversation, items: [], hasMore: false, nextBefore: null } }))
+    await page.route('**/api/v1/conversations/*/read', (route) => route.fulfill({ json: fakeConversation }))
     await page.getByTestId('pro-detail-customer-service').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('客服能力由平台统一接入')
+    await expect(page.getByTestId('support-chat')).toHaveAttribute('data-state', 'ready')
+    expect(opened).toEqual([{ counterpartKind: 'PROVIDER', organizationId: '22222222-2222-2222-2222-222222222222' }])
+    await expect(page.getByTestId('support-chat-title')).toHaveText('云翼科技')
+    await expect(page.getByTestId('support-chat-pending-card')).toContainText('园区与工程航拍')
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
+    await page.getByTestId('support-chat-back').click()
+    await expect(page.getByTestId('pro-detail')).toHaveAttribute('data-state', 'ready')
 
     await page.getByTestId('pro-detail-open-provider').click()
     await expect(page.getByTestId('provider-page')).toHaveAttribute('data-state', 'ready')

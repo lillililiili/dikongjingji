@@ -72,6 +72,7 @@ describe('mall api', () => {
         deliveryNote: '东营现货',
         shippingNote: null,
         fulfilledFrom: '示例机器人商家 东营仓',
+        onlinePayment: true,
       }],
       specs: [{ label: '适用年龄', value: '8 岁以上' }],
       packItems: [{ name: '机器人主机', quantity: 1 }],
@@ -87,6 +88,7 @@ describe('mall api', () => {
       offerId: 'o1',
       skuId: 's1',
       skuName: '标准版',
+      merchantId: 'm1',
       merchantName: '示例机器人商家',
       merchantKind: 'FACTORY_DIRECT',
       amountMinor: 129900,
@@ -94,6 +96,7 @@ describe('mall api', () => {
       deliveryNote: '东营现货',
       shippingNote: null,
       fulfilledFrom: '示例机器人商家 东营仓',
+      onlinePayment: true,
     })
     expect(product.specs).toEqual([{ label: '适用年龄', value: '8 岁以上' }])
     expect(product.packItems).toEqual([{ name: '机器人主机', quantity: 1 }])

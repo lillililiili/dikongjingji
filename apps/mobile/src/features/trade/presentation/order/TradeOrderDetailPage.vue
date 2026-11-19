@@ -22,6 +22,8 @@ import {
 import { isSourceOrder, orderDestination, type TradeOrderDestination } from '../../application/order-source'
 import { isUnauthorizedFailure, readTradeFailure } from '../../application/start-payment'
 import { createTradeKey } from '../../application/trade-keys'
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { tradeApi } from '../../data/trade-api-client'
 import type { TradeOrder } from '../../domain/trade-order'
 import { confirmDialog, copyText, coverOfLine } from '../shared/trade-presentation'
@@ -63,6 +65,18 @@ let requestVersion = 0
 let timer: ReturnType<typeof setInterval> | null = null
 
 const order = computed(() => (state.value.kind === 'ready' ? state.value.order : null))
+
+// 联系商家 (step G1, preview builds): the seller's conversation with a card about this order.
+function contactMerchant(): void {
+  const current = order.value
+  if (!current) return
+  const first = current.lines[0]
+  const more = current.lines.length > 1 ? ` 等 ${current.lines.length} 件` : ''
+  openSupportChat(
+    { kind: 'MERCHANT', organizationId: current.merchant.organizationId },
+    { type: 'MALL_ORDER', refId: current.orderId, title: `${first?.productName ?? '商品订单'}${more}`, subtitle: `订单 ${current.orderNo}` },
+  )
+}
 const header = computed(() => (order.value ? describeOrderHeader(order.value, now.value) : null))
 const actions = computed(() => (order.value ? detailActions(order.value, now.value) : []))
 const payment = computed(() => (order.value ? describePayment(order.value) : null))
@@ -308,7 +322,16 @@ onBeforeUnmount(() => {
         </view>
       </view>
 
-      <view v-if="actions.length > 0" class="goods-order__bar">
+      <view v-if="actions.length > 0 || SUPPORT_PREVIEW_ENABLED" class="goods-order__bar">
+        <button
+          v-if="SUPPORT_PREVIEW_ENABLED"
+          class="goods-order__contact"
+          data-testid="goods-order-contact"
+          @click="contactMerchant"
+        >
+          <UniIcons type="chat" size="22" color="#536178" />
+          <text>联系商家</text>
+        </button>
         <button
           v-for="action in actions"
           :key="action"
@@ -764,6 +787,22 @@ button::after {
   color: #ba470b;
   font-size: 13px;
   line-height: 36px;
+  white-space: nowrap;
+}
+
+.goods-order__contact {
+  display: flex;
+  width: 56px;
+  height: 44px;
+  margin-right: auto;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #536178;
+  font-size: 11px;
+  line-height: 15px;
   white-space: nowrap;
 }
 

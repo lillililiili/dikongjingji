@@ -193,6 +193,8 @@ export function createSubmittedBookingController<Reservation extends SubmittedBo
 </script>
 
 <script setup lang="ts">
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
@@ -315,7 +317,18 @@ function copyReservationNo(): void {
   if (!reservation.value) return
   uni.setClipboardData({ data: reservation.value.reservationNo })
 }
-function showCustomerService(): void { uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' }) }
+// 联系服务商 (step G1, preview builds): the provider of this reservation, with a card about the
+// service; before a provider is assigned, the platform support. Public builds keep the notice.
+function showCustomerService(): void {
+  const current = reservation.value
+  if (!SUPPORT_PREVIEW_ENABLED || !current) {
+    uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' })
+    return
+  }
+  const card = { type: 'INSPECTION_SERVICE' as const, refId: current.serviceId, title: current.serviceTitle, subtitle: `预约单 ${current.reservationNo}` }
+  if (current.providerId) openSupportChat({ kind: 'PROVIDER', organizationId: current.providerId }, card)
+  else openSupportChat({ kind: 'PLATFORM' }, card)
+}
 function formatLength(meters: number | null): string { return meters == null ? '待服务商评估' : `${(meters / 1000).toFixed(1).replace(/\.0$/, '')}公里` }
 function formatSubmittedAt(value: string): string {
   const date = new Date(value)

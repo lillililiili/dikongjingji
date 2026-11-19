@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
@@ -98,8 +100,20 @@ function openDelivery(visitId: string): void {
   uni.navigateTo({ url: buildInspectionDeliveryUrl(order.value.id, visitId) })
 }
 
+// 联系负责人 (step G1, preview builds): the platform support with a card about this service order;
+// phone numbers are not shown. Public builds keep the notice.
 function showCustomerService(): void {
-  uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' })
+  const current = order.value
+  if (!SUPPORT_PREVIEW_ENABLED || !current) {
+    uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' })
+    return
+  }
+  openSupportChat({ kind: 'PLATFORM' }, {
+    type: 'INSPECTION_ORDER',
+    refId: current.id,
+    title: current.serviceSnapshot.serviceTitle,
+    subtitle: `服务单 ${current.serviceOrderNo}`,
+  })
 }
 </script>
 

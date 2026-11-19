@@ -59,6 +59,7 @@ interface ProductDetailDto {
     deliveryNote: string | null
     shippingNote: string | null
     fulfilledFrom: string | null
+    onlinePayment?: boolean
   }[]
   specs: MallSpec[]
   packItems: MallPackItem[]
@@ -151,6 +152,7 @@ export function createMallApi(http: PublicApiHttpClient): MallApi {
           offerId: offer.offerId,
           skuId: offer.skuId,
           skuName: offer.skuName,
+          merchantId: offer.merchant.organizationId,
           merchantName: offer.merchant.name,
           merchantKind: offer.merchant.kind,
           amountMinor: offer.amountMinor,
@@ -158,6 +160,8 @@ export function createMallApi(http: PublicApiHttpClient): MallApi {
           deliveryNote: offer.deliveryNote,
           shippingNote: offer.shippingNote,
           fulfilledFrom: offer.fulfilledFrom,
+          // Only an explicit true counts: an older server that does not say is treated as unable.
+          onlinePayment: offer.onlinePayment === true,
         })),
         specs: dto.specs.map((spec) => ({ label: spec.label, value: spec.value })),
         packItems: dto.packItems.map((item) => ({ name: item.name, quantity: item.quantity })),

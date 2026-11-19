@@ -146,6 +146,14 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/rental/order': { required: 'rentalOrderId', allowed: ['rentalOrderId'] },
   '/pages/rental/contract': { required: 'rentalOrderId', allowed: ['rentalOrderId'] },
   '/pages/mine/rental-orders': { allowed: ['status'] },
+  // Customer-service and settings pages (features/support/navigation/support-routes.ts and
+  // features/settings/navigation/settings-routes.ts, G1), repeated for the same reason;
+  // support-routes.test.ts checks them. The card fields are display hints for the chat's banner.
+  '/pages/support/chat': {
+    allowed: ['conversationId', 'kind', 'organizationId', 'cardType', 'cardId', 'cardTitle', 'cardSubtitle'],
+  },
+  '/pages/mine/settings': { allowed: [] },
+  '/pages/mine/help': { allowed: [] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.

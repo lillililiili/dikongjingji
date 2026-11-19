@@ -5,7 +5,7 @@ import { computed, ref, watch } from 'vue'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
 import { describeRentalLessee, formatRentalAmount } from '../../application/rental-format'
-import { showRentalGate } from '../../application/rental-intent'
+import { openSupportChat } from '@/features/support/application/support-entry'
 import {
   rentalContractParties,
   rentalContractScope,
@@ -44,6 +44,16 @@ const copied = ref(false)
 let requestVersion = 0
 
 const order = computed(() => (state.value.kind === 'ready' ? state.value.order : null))
+
+// 联系商家 (step G1): the lessor's conversation with a card about this rental order.
+function contactMerchant(): void {
+  const current = order.value
+  if (!current) return
+  openSupportChat(
+    { kind: 'MERCHANT', organizationId: current.contract.lessor.merchantId },
+    { type: 'RENTAL_ORDER', refId: current.rentalOrderId, title: current.contract.productName, subtitle: `合同 ${current.contract.contractNo}` },
+  )
+}
 const tag = computed(() => (order.value ? rentalContractTag(order.value.status) : null))
 const parties = computed(() => (order.value ? rentalContractParties(order.value) : []))
 const scope = computed(() => (order.value ? rentalContractScope(order.value) : []))
@@ -200,7 +210,7 @@ watch(() => [props.refreshKey, props.accessToken, props.rentalOrderId], () => { 
       </view>
 
       <view class="rental-contract__bar">
-        <button class="rental-contract__contact" data-testid="rental-contract-contact" @click="showRentalGate({ type: 'CONTACT_MERCHANT' })">
+        <button class="rental-contract__contact" data-testid="rental-contract-contact" @click="contactMerchant">
           <UniIcons type="chatbubble" size="20" color="#536178" />
           <text>联系商家</text>
         </button>

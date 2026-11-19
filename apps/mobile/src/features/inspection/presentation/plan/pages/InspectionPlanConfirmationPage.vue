@@ -147,6 +147,8 @@ export function createPlanCancellationController<Reservation extends PlanCancell
 </script>
 
 <script setup lang="ts">
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onBackPress, onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
@@ -382,6 +384,17 @@ function goBack(): void {
 }
 
 function showCustomerService(title: string): void {
+  // 联系服务商 (step G1, preview builds): the provider who wrote this plan, with a card about the
+  // service. 申请更新方案 keeps its explanation.
+  const current = plan.value
+  if (SUPPORT_PREVIEW_ENABLED && title === '联系服务商' && current?.providerId) {
+    const booked = reservation.value
+    openSupportChat(
+      { kind: 'PROVIDER', organizationId: current.providerId },
+      booked ? { type: 'INSPECTION_SERVICE', refId: booked.serviceId, title: booked.serviceTitle, subtitle: `方案 ${current.planNo}` } : null,
+    )
+    return
+  }
   uni.showModal({
     title,
     content: '如需调整服务日期、巡检范围或报价，请通过平台客服登记，方案调整后将生成新版本。',

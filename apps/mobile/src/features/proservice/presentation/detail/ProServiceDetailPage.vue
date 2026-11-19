@@ -2,7 +2,10 @@
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
 
+import { openSupportChat } from '@/features/support/application/support-entry'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import ShareSheet from '@/shared/share/ShareSheet.vue'
+import type { ShareTarget } from '@/shared/share/share-link'
 
 import {
   PRO_SERVICE_TYPE_INFO,
@@ -15,6 +18,7 @@ import {
   stepIcon,
 } from '../../application/proservice-view'
 import { proServiceApi } from '../../data/proservice-api-client'
+import { buildProServiceDetailUrl } from '../../navigation/proservice-routes'
 import type { ProServiceDetail, ProServiceType } from '../../domain/proservice'
 import ProServiceCover from '../shared/ProServiceCover.vue'
 
@@ -67,8 +71,34 @@ async function load(): Promise<void> {
   }
 }
 
-function showGate(title: string): void {
-  uni.showToast({ title, icon: 'none' })
+// 客服 (step G1): the provider of this service, with a card about it; the page is only in preview
+// builds, so the conversation is always open. Without a provider the platform support answers.
+function contactCustomerService(): void {
+  const current = detail.value
+  if (!current) return
+  const card = {
+    type: 'PRO_SERVICE' as const,
+    refId: current.serviceId,
+    title: current.title,
+    subtitle: price.value ? `${price.value.amount}${price.value.unit}` : null,
+  }
+  if (current.provider) openSupportChat({ kind: 'PROVIDER', organizationId: current.provider.providerId }, card)
+  else openSupportChat({ kind: 'PLATFORM' }, card)
+}
+
+// 分享: only 复制链接 of this service in this city.
+const shareTarget = ref<ShareTarget | null>(null)
+function share(): void {
+  const current = detail.value
+  if (!current) return
+  shareTarget.value = {
+    subject: '服务',
+    title: current.title,
+    subtitle: price.value ? `${price.value.amount}${price.value.unit}` : null,
+    owner: current.provider?.name ?? null,
+    imageUrl: current.coverUrl,
+    path: buildProServiceDetailUrl(current.serviceId, props.cityCode),
+  }
 }
 
 function openProvider(): void {
@@ -96,7 +126,7 @@ void load()
         class="pro-detail__icon-button pro-detail__share"
         data-testid="pro-detail-share"
         aria-label="分享"
-        @click="showGate('分享能力由平台统一接入')"
+        @click="share"
       >
         <UniIcons type="redo" size="20" color="#202c42" />
       </button>
@@ -293,12 +323,13 @@ void load()
       </view>
 
       <view class="pro-detail__bar">
-        <button class="pro-detail__bar-service" data-testid="pro-detail-customer-service" @click="showGate('客服能力由平台统一接入')">
+        <button class="pro-detail__bar-service" data-testid="pro-detail-customer-service" @click="contactCustomerService">
           <UniIcons type="headphones" size="20" color="#536178" />
           <text>客服</text>
         </button>
         <button class="pro-detail__publish" data-testid="pro-detail-publish" @click="publish">发布需求</button>
       </view>
+      <ShareSheet :target="shareTarget" @close="shareTarget = null" />
     </template>
   </view>
 </template>

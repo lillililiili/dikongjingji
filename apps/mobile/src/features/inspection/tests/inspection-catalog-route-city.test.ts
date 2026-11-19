@@ -147,6 +147,9 @@ function mountCatalogPage(api: {
         },
       }
     }
+    // Step G1: customer service and its preview flag (off: the page keeps its notice).
+    if (request === '@/features/support/application/support-entry') return { openSupportChat: () => undefined }
+    if (request === '@/features/support/application/support-preview') return { SUPPORT_PREVIEW_ENABLED: false }
     if (request === '../model/inspection-catalog') return catalogModel
     if (request.endsWith('.vue')) return { default: {} }
     throw new Error(`Unexpected SFC dependency: ${request}`)

@@ -293,9 +293,12 @@ test.describe('免费活动报名', () => {
     await expect(page.getByTestId('activity-enroll-count')).toHaveText('已选 2 人')
     // 报名里有孩子，同意语以监护人身份说。
     await expect(page.locator('.activity-enroll__agree-text')).toContainText('我是参与人监护人，已阅读并同意')
-    // 协议正文还没有：点了给提示，不改变勾选。
+    // 协议正文还没有（G1 起打开协议页，正文是占位）；回来后勾选不变。
     await page.getByTestId('activity-enroll-notice').click()
-    await expect(page.locator('uni-toast')).toContainText('协议正文待提供')
+    await expect(page.getByTestId('agreement-title')).toHaveText('报名须知与照片使用说明')
+    await expect(page.getByTestId('agreement-placeholder').first()).toHaveText('[协议正文待确认]')
+    await page.getByTestId('agreement-back').click()
+    await expect(page.getByTestId('activity-enroll-count')).toHaveText('已选 2 人')
     await page.getByTestId('activity-enroll-agree').click()
     await submitOn(page).click()
 

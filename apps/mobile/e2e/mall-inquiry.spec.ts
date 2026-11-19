@@ -18,6 +18,7 @@ import {
   psql,
   type Session,
 } from './support/trade-fixtures'
+import { stubSupportChat } from './support/support-fixtures'
 
 // 询价商品（F4，计划 §25）：商品详情“联系询价”（先讲“询价怎么走”）→ 填写询价单（不能在线收款的商家置灰）→ 报价比选（等报价）→
 // 两家商家报价（没有商家页面，用受权接口：dev-merchant 是示例机器人商家，dev-merchant-2 是示例行业装备代理）→ 一家改价 →
@@ -292,9 +293,15 @@ test.describe('询价商品', () => {
     await expect.poll(order).toEqual([`inquiry-quote-${ROBOT_OFFER}`, `inquiry-quote-${AGENT_OFFER}`])
     await page.getByTestId('inquiry-quotes-sort-all').click()
 
-    // 咨询走类型化网关。
+    // 咨询（G1）进报价商家的会话，带这份询价单的卡片。会话接口用桩，不在开发库里留会话。
+    const opened = await stubSupportChat(page, { kind: 'MERCHANT', organizationId: 'c1000000-0000-4000-8000-000000000001', name: '示例机器人商家' })
     await quoteCard(page, ROBOT_OFFER).getByTestId('inquiry-quote-consult').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('咨询功能即将开放')
+    await expect(page.getByTestId('support-chat')).toHaveAttribute('data-state', 'ready')
+    expect(opened).toEqual([{ counterpartKind: 'MERCHANT', organizationId: 'c1000000-0000-4000-8000-000000000001' }])
+    await expect(page.getByTestId('support-chat-pending-card')).toContainText('询价单')
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
+    await page.getByTestId('support-chat-back').click()
+    await expect(quoteCard(page, ROBOT_OFFER)).toBeVisible()
 
     // 代理在页面打开时改价（第 2 版 ¥63,000）：按第 1 版选择被拒，页面重读并说明。
     await merchantQuotes(request, agent, inquiryId, 63_000, 12)

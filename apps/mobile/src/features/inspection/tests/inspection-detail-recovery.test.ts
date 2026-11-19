@@ -7,6 +7,7 @@ import type { ComputedRef, Ref } from 'vue'
 
 import { useCurrentCityStore } from '../../../shared/city/state/current-city'
 import * as detailActions from '../application/detail/inspection-detail-actions'
+import * as inspectionRoutes from '../navigation/inspection-routes'
 import * as detailResolver from '../application/detail/resolve-inspection-service-detail'
 import { ApiRequestError } from '../data/service-flow/uni-booking-http-client'
 import type { InspectionServiceDetail } from '../domain/inspection-service-detail'
@@ -63,6 +64,9 @@ function mountDetailPage(
   let onLoadHandler: ((query: DetailRouteQuery) => void) | undefined
   const dependencies: Record<string, unknown> = {
     vue: Vue,
+    // Step G1: customer service and its preview flag (off: the pages keep their notices).
+    '@/features/support/application/support-entry': { openSupportChat: () => undefined },
+    '@/features/support/application/support-preview': { SUPPORT_PREVIEW_ENABLED: false },
     '@dcloudio/uni-app': {
       onLoad: (handler: (query: DetailRouteQuery) => void) => {
         onLoadHandler = handler
@@ -70,6 +74,7 @@ function mountDetailPage(
     },
     '@/shared/city/state/current-city': { useCurrentCityStore },
     '../../../application/detail/inspection-detail-actions': detailActions,
+    '../../../navigation/inspection-routes': inspectionRoutes,
     '../../../application/detail/resolve-inspection-service-detail': detailResolver,
     '../../../data/service-flow/uni-booking-http-client': {
       ApiRequestError,

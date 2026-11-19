@@ -98,6 +98,9 @@ function mountPage<TBindings>(
   let onLoadHandler: ((query: ServiceRouteQuery) => void) | undefined
   const sharedDependencies: Record<string, unknown> = {
     vue: Vue,
+    // Step G1: customer service and its preview flag (off: the pages keep their notices).
+    '@/features/support/application/support-entry': { openSupportChat: () => undefined },
+    '@/features/support/application/support-preview': { SUPPORT_PREVIEW_ENABLED: false },
     pinia: { storeToRefs },
     '@dcloudio/uni-app': {
       onLoad: (handler: (query: ServiceRouteQuery) => void) => {
@@ -150,6 +153,7 @@ function mountDetailPage(loadDirectory: () => Promise<CityDirectory>) {
     'InspectionServiceDetailPage.vue',
     {
       '../../../application/detail/inspection-detail-actions': detailActions,
+      '../../../navigation/inspection-routes': inspectionRoutes,
       '../../../application/detail/resolve-inspection-service-detail': detailResolver,
       '../../../data/service-flow/uni-booking-http-client': {
         inspectionServiceDetailApi: { loadDetail },

@@ -3,7 +3,11 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
+import ShareSheet from '@/shared/share/ShareSheet.vue'
+import type { ShareTarget } from '@/shared/share/share-link'
 import {
   createReservationIntent,
   resolveDetailServiceId,
@@ -14,6 +18,7 @@ import {
 } from '../../../application/detail/resolve-inspection-service-detail'
 import { ApiRequestError, inspectionServiceDetailApi, platformCityApi } from '../../../data/service-flow/uni-booking-http-client'
 import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
+import { buildInspectionDetailUrl } from '../../../navigation/inspection-routes'
 import InspectionScope from '../components/InspectionScope.vue'
 import ServiceDeliverables from '../components/ServiceDeliverables.vue'
 import ServiceDetailBottomBar from '../components/ServiceDetailBottomBar.vue'
@@ -121,6 +126,40 @@ function showUnavailable(title: string): void {
   })
 }
 
+// 客服 (step G1, preview builds): the provider of this service, with a card about it; without a
+// provider on the page, the platform support. Public builds keep the typed notice.
+function contactCustomerService(): void {
+  if (!SUPPORT_PREVIEW_ENABLED) {
+    showUnavailable('客服能力由平台统一接入')
+    return
+  }
+  const service = detail.value
+  const card = service.serviceId
+    ? { type: 'INSPECTION_SERVICE' as const, refId: service.serviceId, title: service.title, subtitle: service.provider?.name ?? null }
+    : null
+  if (service.provider?.id) openSupportChat({ kind: 'PROVIDER', organizationId: service.provider.id }, card)
+  else openSupportChat({ kind: 'PLATFORM' }, card)
+}
+
+// 分享 (preview builds): only 复制链接 of this service in this city.
+const shareTarget = ref<ShareTarget | null>(null)
+function share(): void {
+  if (!SUPPORT_PREVIEW_ENABLED) {
+    showUnavailable('分享能力由平台统一接入')
+    return
+  }
+  const service = detail.value
+  if (!service.serviceId || !detailCityCode.value) return
+  shareTarget.value = {
+    subject: '服务',
+    title: service.title,
+    subtitle: service.priceAmountMinor === null ? '按项目报价' : null,
+    owner: service.provider?.name ?? null,
+    imageUrl: service.heroImageUrl || null,
+    path: buildInspectionDetailUrl(service.serviceId, detailCityCode.value),
+  }
+}
+
 function reserveService(): void {
   if (!routeServiceId.value) {
     return
@@ -138,7 +177,7 @@ function reserveService(): void {
   <view class="inspection-service-detail" data-testid="inspection-detail">
     <ServiceDetailHeader
       @back="returnToCatalog"
-      @share="showUnavailable('分享能力由平台统一接入')"
+      @share="share"
     />
 
     <main
@@ -198,9 +237,10 @@ function reserveService(): void {
 
     <ServiceDetailBottomBar
       :disabled="!canReserve"
-      @customer-service="showUnavailable('客服能力由平台统一接入')"
+      @customer-service="contactCustomerService"
       @reserve="reserveService"
     />
+    <ShareSheet :target="shareTarget" @close="shareTarget = null" />
   </view>
 </template>
 

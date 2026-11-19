@@ -18,6 +18,6 @@ describe('message time', () => {
 describe('message categories', () => {
   // Notification contract 1.1.0 (F1) adds quotes on the account's demands.
   it('labels service progress and demand quotes', () => {
-    expect(MESSAGE_CATEGORY_LABELS).toEqual({ SERVICE_PROGRESS: '服务进度', DEMAND_QUOTE: '需求与报价' })
+    expect(MESSAGE_CATEGORY_LABELS).toEqual({ SERVICE_PROGRESS: '服务进度', DEMAND_QUOTE: '需求与报价', CUSTOMER_SERVICE: '客服消息' })
   })
 })

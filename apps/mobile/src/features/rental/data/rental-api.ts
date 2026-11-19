@@ -75,6 +75,7 @@ interface MallProductDto {
     amountMinor?: number | null
     unit?: string | null
     fulfilledFrom?: string | null
+    onlinePayment?: boolean | null
   }>
 }
 
@@ -228,6 +229,7 @@ export function toOfferView(dto: MallProductDto, offerId: string): RentalOfferVi
     amountMinor: offer.amountMinor ?? null,
     unit: toUnit(offer.unit),
     fulfilledFrom: offer.fulfilledFrom ?? null,
+    onlinePayment: offer.onlinePayment === true,
   }
 }
 

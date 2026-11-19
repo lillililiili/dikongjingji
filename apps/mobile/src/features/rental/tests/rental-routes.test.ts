@@ -5,7 +5,6 @@ import platformFlagSource from '../../platform/application/platform-preview.ts?r
 import pagesJson from '../../../pages.json?raw'
 import mineSource from '../../../pages/mine/index.vue?raw'
 import rentalFlagSource from '../application/rental-preview.ts?raw'
-import { resolveRentalIntent } from '../application/rental-intent'
 import {
   buildMyRentalOrdersUrl,
   buildRentalContractUrl,
@@ -74,8 +73,12 @@ describe('rental routes', () => {
     expect(mineSource).toContain("RENTAL_PREVIEW_ENABLED ? [{ code: 'RENTAL_ORDERS', title: '租赁订单'")
   })
 
-  it('explains the unbuilt contact entry through the typed gate', () => {
-    expect(resolveRentalIntent({ type: 'CONTACT_MERCHANT' })).toEqual({ action: 'SHOW_NOTICE', message: '咨询功能即将开放' })
+  it('opens the lessor conversation from 联系商家 (step G1) instead of a gate', () => {
+    for (const page of ['quote/RentalQuotePage.vue', 'order/RentalOrderPage.vue', 'contract/RentalContractPage.vue']) {
+      const source = rentalSources[`../presentation/${page}`]
+      expect(source).toContain("openSupportChat(\n    { kind: 'MERCHANT'")
+      expect(source).not.toContain('咨询功能即将开放')
+    }
   })
 })
 

@@ -155,6 +155,9 @@ export function createRentalKeyHolder(createKey: () => string = createRentalKey)
   }
 }
 
+// The product detail says it per offer since catalog 1.2.0, so the form knows before submitting.
+export const RENTAL_PAYMENT_UNAVAILABLE_TEXT = '这家出租方还没有开通在线收款，暂时不能在线询价，可以换一家商家'
+
 export interface RentalSubmitFailureInput {
   status: number
   code: string | null
@@ -174,7 +177,7 @@ export function describeRentalSubmitFailure(failure: RentalSubmitFailureInput | 
   if (failure.status === 401 || failure.code === 'COMMON_UNAUTHORIZED') return { kind: 'UNAUTHORIZED' }
   switch (failure.code) {
     case 'RENTAL_PAYMENT_UNAVAILABLE':
-      return { kind: 'BLOCKED', message: '这家出租方还没有开通在线收款，暂时不能在线询价，可以换一家商家' }
+      return { kind: 'BLOCKED', message: RENTAL_PAYMENT_UNAVAILABLE_TEXT }
     case 'RENTAL_OFFER_UNAVAILABLE':
       return { kind: 'BLOCKED', message: '这件设备已下架，或不在使用地点所在城市出租' }
     case 'RENTAL_ADDRESS_NOT_FOUND':

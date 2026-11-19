@@ -22,6 +22,7 @@ import {
   createRentalKeyHolder,
   describeRentalSubmitFailure,
   formatRentalDay,
+  RENTAL_PAYMENT_UNAVAILABLE_TEXT,
   rentalDraftProblem,
   rentalEndDate,
   rentalHandoverNote,
@@ -136,6 +137,8 @@ async function load(): Promise<void> {
     lessee.value = loadedLessee
     pickAddress(loadedAddresses)
     offerState.value = loadedOffer ? { kind: 'ready', offer: loadedOffer } : { kind: 'missing' }
+    // The detail says whether the lessor takes payment online: say so now, not after 提交.
+    if (loadedOffer && !loadedOffer.onlinePayment) blocked.value = RENTAL_PAYMENT_UNAVAILABLE_TEXT
   } catch (error) {
     if (requested !== requestVersion) return
     if (isUnauthorized(error)) {
@@ -254,6 +257,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
             <view class="rental-inquiry__device-copy">
               <text class="rental-inquiry__device-name" data-testid="rental-inquiry-name">{{ offer.productName }}</text>
               <text class="rental-inquiry__device-merchant" data-testid="rental-inquiry-merchant">出租方 {{ offer.merchantName }}</text>
+              <text v-if="!offer.onlinePayment" class="rental-inquiry__device-unpaid" data-testid="rental-inquiry-unpaid">暂未开通在线支付</text>
               <view class="rental-inquiry__device-line">
                 <text class="rental-inquiry__price" data-testid="rental-inquiry-price">
                   {{ formatRentalReference(offer.amountMinor, offer.unit) }}
@@ -980,6 +984,12 @@ button::after {
 }
 
 .rental-inquiry__free,
+.rental-inquiry__device-unpaid {
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
 .rental-inquiry__blocked {
   display: flex;
   margin: 0 -16px 10px;

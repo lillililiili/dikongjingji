@@ -4,7 +4,11 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import ShareSheet from '@/shared/share/ShareSheet.vue'
+import type { ShareTarget } from '@/shared/share/share-link'
 import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
 
 import {
@@ -18,7 +22,7 @@ import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
 import { activityApi } from '../../data/activity-api-client'
 import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
-import { buildActivityEnrollUrl } from '../../navigation/activity-routes'
+import { buildActivityDetailUrl, buildActivityEnrollUrl } from '../../navigation/activity-routes'
 import {
   ACTIVITY_STATUS_LABELS,
   ACTIVITY_TYPE_LABELS,
@@ -113,9 +117,33 @@ function selectSession(session: ActivitySession): void {
 }
 
 function runIntent(intent: ActivityIntent): void {
+  // 咨询 (step G1, preview builds): the organiser's conversation with a card about this activity.
+  // An organiser that cannot take conversations sends the customer on to the platform support.
+  if (intent.type === 'CONSULT' && SUPPORT_PREVIEW_ENABLED && activity.value) {
+    openSupportChat(
+      { kind: 'PROVIDER', organizationId: activity.value.organizer.organizationId },
+      { type: 'ACTIVITY', refId: activity.value.activityId, title: activity.value.title, subtitle: formatActivityPrice(activity.value.price) },
+    )
+    return
+  }
   const resolution = resolveActivityIntent(intent, ACTIVITY_PREVIEW_ENABLED)
   if (resolution.action === 'SHOW_NOTICE') {
     uni.showToast({ title: resolution.message, icon: 'none' })
+  }
+}
+
+// 分享 (preview builds): only 复制链接 of this activity in this city.
+const shareTarget = ref<ShareTarget | null>(null)
+function openShare(): void {
+  const current = activity.value
+  if (!current) return
+  shareTarget.value = {
+    subject: '活动',
+    title: current.title,
+    subtitle: formatActivityPrice(current.price),
+    owner: current.organizer.name,
+    imageUrl: coverUrl.value ?? null,
+    path: buildActivityDetailUrl(current.activityId, cityCode),
   }
 }
 
@@ -245,6 +273,17 @@ onLoad((query) => {
           >
             <view class="activity-detail__float-circle">
               <UniIcons type="left" size="20" color="#ffffff" />
+            </view>
+          </button>
+          <button
+            v-if="SUPPORT_PREVIEW_ENABLED"
+            class="activity-detail__float activity-detail__float--share"
+            data-testid="activity-detail-share"
+            aria-label="分享"
+            @click="openShare"
+          >
+            <view class="activity-detail__float-circle">
+              <UniIcons type="redo" size="20" color="#ffffff" />
             </view>
           </button>
           <text class="activity-detail__type">{{ ACTIVITY_TYPE_LABELS[activity.type] }}</text>
@@ -389,6 +428,7 @@ onLoad((query) => {
           {{ primaryAction.label }}
         </button>
       </view>
+      <ShareSheet :target="shareTarget" @close="shareTarget = null" />
     </template>
   </view>
 </template>
@@ -536,6 +576,11 @@ button::after {
   height: 44px;
   align-items: center;
   justify-content: center;
+}
+
+.activity-detail__float--share {
+  right: 8px;
+  left: auto;
 }
 
 .activity-detail__float-circle {
