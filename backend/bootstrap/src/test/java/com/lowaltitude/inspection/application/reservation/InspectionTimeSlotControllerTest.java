@@ -116,6 +116,26 @@ class InspectionTimeSlotControllerTest {
                 1);
     }
 
+    // 缺少必填参数是请求写错了，应当 400，不是 500（验收清单已知问题 1）。
+    @Test
+    void missingStartDateOrCityIsABadRequest() throws Exception {
+        mvc.perform(get(
+                        "/api/v1/inspection/services/{serviceId}/available-time-slots",
+                        SERVICE)
+                        .param("cityCode", "370500")
+                        .header("Authorization", "Bearer " + validToken()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        mvc.perform(get(
+                        "/api/v1/inspection/services/{serviceId}/available-time-slots",
+                        SERVICE)
+                        .param("startDate", START_DATE.toString())
+                        .header("Authorization", "Bearer " + validToken()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        then(reservationService).shouldHaveNoInteractions();
+    }
+
     private static List<InspectionServiceDateAvailabilityView> availability() {
         return List.of(new InspectionServiceDateAvailabilityView(
                 START_DATE,
