@@ -47,10 +47,14 @@ Android 验收构建还需在被 Git 忽略的 `apps/mobile/.env.production.loca
    PG_CONTAINER=<postgres 容器名> BASE_URL=http://127.0.0.1:8080 node infra/scripts/trade-smoke/payment.cjs
    PG_CONTAINER=<postgres 容器名> BASE_URL=http://127.0.0.1:8080 node infra/scripts/trade-smoke/fulfilment.cjs
    PG_CONTAINER=<postgres 容器名> BASE_URL=http://127.0.0.1:8080 node infra/scripts/trade-smoke/reconciliation.cjs
+   PG_CONTAINER=<postgres 容器名> BASE_URL=http://127.0.0.1:8080 node infra/scripts/trade-smoke/activity.cjs
+   PG_CONTAINER=<postgres 容器名> BASE_URL=http://127.0.0.1:8080 node infra/scripts/trade-smoke/venue.cjs
    ```
 
-   `order.cjs` 不需要模拟微信；其余三份需要。`payment.cjs`、`fulfilment.cjs` 要等定时任务（最长约 2 分半）。
+   `order.cjs` 不需要模拟微信；其余需要。`payment.cjs`、`fulfilment.cjs`、`activity.cjs`、`venue.cjs` 要等定时任务（最长约 2 分半）。
+   `activity.cjs`（收费活动报名）和 `venue.cjs`（到馆预约）只删自己建的报名、预约和测试子女，并把名额还回场次；
+   `venue.cjs` 为了验核销会把一个场次临时挪到“马上开始”，跑完挪回去。
 
-4. 商家一侧（发货、核销、退款）用 `node infra/scripts/dev-merchant-order.cjs`（开发账号 `dev-merchant`）。模拟微信的控制入口（替买家付款、给出退款结果、改账单）写在 `server.mjs` 开头的注释里。
+4. 商家一侧（发货、核销、退款）用 `node infra/scripts/dev-merchant-order.cjs`（开发账号 `dev-merchant`）。到馆预约的核销码用 `node infra/scripts/dev-checkin-venue.cjs <核销码>`（开发账号 `dev-organizer`，开场前 30 分钟到场次结束之间）。模拟微信的控制入口（替买家付款、给出退款结果、改账单）写在 `server.mjs` 开头的注释里。
 
 所有这些只对本机地址运行；开发账号的密码公开写在开发种子里，dev 配置只能用在本机或内网。

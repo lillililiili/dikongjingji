@@ -28,7 +28,8 @@ async function main() {
   psql(`DELETE FROM trade_order WHERE buyer_id='${BUYER}'`);
   psql(`DELETE FROM mall_cart_item WHERE account_id='${BUYER}'`);
   psql(`DELETE FROM account_address WHERE owner_id='${BUYER}'`);
-  check('dev merchant accounts seeded', psql('SELECT count(*) FROM trade_merchant_account') === '3');
+  // 商城的三个商家（19000001xx）；活动主办方、场馆的收款账户另有编号段。
+  check('dev merchant accounts seeded', psql("SELECT count(*) FROM trade_merchant_account WHERE sub_mchid LIKE '19000001%'") === '3');
 
   check('orders need login', (await call('GET', '/api/v1/trade/orders')).status === 401);
   check('provider cannot read buyer orders', (await call('GET', '/api/v1/trade/orders', { token: provider })).status === 403);
