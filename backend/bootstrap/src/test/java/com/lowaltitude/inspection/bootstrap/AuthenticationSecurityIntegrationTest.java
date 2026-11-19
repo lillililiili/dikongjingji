@@ -30,6 +30,10 @@ import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadSe
 import com.lowaltitude.inspection.mall.application.MallCatalogReadService;
 import com.lowaltitude.inspection.mall.application.MallCartService;
 import com.lowaltitude.inspection.account.application.AccountAddressService;
+import com.lowaltitude.inspection.trade.application.TradeOrderService;
+import com.lowaltitude.inspection.trade.application.TradePaymentService;
+import com.lowaltitude.inspection.trade.application.TradeReconciliationService;
+import com.lowaltitude.inspection.trade.application.TradeRefundService;
 import com.lowaltitude.inspection.notification.application.NotificationService;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.InspectionServiceCatalogReadService;
@@ -423,6 +427,322 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
 
+    // 交易的买家接口、商家接口和平台登记接口都不在白名单里：没带令牌或令牌版本过期都是 401，服务一次都不调。
+    @Test
+    void tradeRoutesRequireALogin() throws Exception {
+        TradeOrderService orders = applicationContext.getBean(TradeOrderService.class);
+        TradePaymentService payments = applicationContext.getBean(TradePaymentService.class);
+        TradeRefundService refunds = applicationContext.getBean(TradeRefundService.class);
+        TradeReconciliationService reconciliation = applicationContext.getBean(TradeReconciliationService.class);
+        org.mockito.Mockito.clearInvocations(orders, payments, refunds, reconciliation);
+        String order = "/api/v1/trade/orders/e1000000-0000-4000-8000-000000000001";
+        String merchantOrder = "/api/v1/provider/trade/orders/e1000000-0000-4000-8000-000000000001";
+
+        for (var request : List.of(
+                post("/api/v1/trade/orders"),
+                get("/api/v1/trade/orders"),
+                get(order),
+                post(order + "/cancel"),
+                post(order + "/payments")
+                        .header("Idempotency-Key", "a0000000-0000-4000-8000-000000000001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"channel\":\"WECHAT_APP\"}"),
+                post(order + "/payment-check"),
+                post(order + "/receipt"),
+                get("/api/v1/provider/trade/orders"),
+                post(merchantOrder + "/shipment"),
+                post(merchantOrder + "/pickup"),
+                post(merchantOrder + "/refunds"),
+                // 回调地址只放行 POST。
+                get("/api/v1/trade/channels/wechat/notifications"),
+                put("/api/v1/platform/trade/merchant-accounts/" + ORGANIZATION_ID),
+                // E06 的对账：读结果（JSON、CSV）和立刻跑一次。
+                get("/api/v1/platform/trade/reconciliation").param("date", "2026-11-17"),
+                get("/api/v1/platform/trade/reconciliation").param("date", "2026-11-17").param("format", "CSV"),
+                post("/api/v1/platform/trade/reconciliation/runs").param("date", "2026-11-17"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        mockMvc.perform(get("/api/v1/trade/orders")
+                        .header("Authorization", "Bearer " + signedToken(List.of(), 6)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+
+        org.mockito.Mockito.verifyNoInteractions(orders, payments, refunds, reconciliation);
+    }
+
+    // 对账（E06）只给平台运营：客户、商家操作员都是 403，服务一次都不调；平台运营的令牌读得到 JSON 和 CSV、能跑对账。
+    @Test
+    void reconciliationNeedsAPlatformOperator() throws Exception {
+        TradeReconciliationService reconciliation = applicationContext.getBean(TradeReconciliationService.class);
+        org.mockito.Mockito.reset(reconciliation);
+        java.time.LocalDate day = java.time.LocalDate.parse("2026-11-17");
+        Map<String, Object> merchantClaims = validClaims(List.of(), 7);
+        merchantClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        Map<String, Object> platformClaims = validClaims(List.of(), 7);
+        platformClaims.put("roles", List.of("PLATFORM_OPERATOR"));
+
+        for (String token : List.of(signedToken(List.of(), 7), signedToken(merchantClaims))) {
+            mockMvc.perform(get("/api/v1/platform/trade/reconciliation")
+                            .param("date", "2026-11-17")
+                            .header("Authorization", "Bearer " + token))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+            mockMvc.perform(post("/api/v1/platform/trade/reconciliation/runs")
+                            .param("date", "2026-11-17")
+                            .header("Authorization", "Bearer " + token))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        }
+        org.mockito.Mockito.verifyNoInteractions(reconciliation);
+
+        String platformToken = signedToken(platformClaims);
+        org.mockito.Mockito.when(reconciliation.read(day)).thenReturn(
+                new com.lowaltitude.inspection.trade.application.TradeViews.ReconciliationView(
+                        day, Instant.parse("2026-11-18T02:05:00Z"), 3, List.of(
+                        new com.lowaltitude.inspection.trade.application.TradeViews.ReconciliationDifferenceView(
+                                "AMOUNT_MISMATCH", "1900000101", "P0000000001", null, 100L, 99L))));
+        org.mockito.Mockito.when(reconciliation.reconcile(day, true)).thenReturn(
+                new com.lowaltitude.inspection.trade.application.TradeViews.ReconciliationRunView(day, 2, 2, 0, 0, 1));
+
+        mockMvc.perform(get("/api/v1/platform/trade/reconciliation")
+                        .param("date", "2026-11-17")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.date").value("2026-11-17"))
+                .andExpect(jsonPath("$.importedAt").value("2026-11-18T02:05:00Z"))
+                .andExpect(jsonPath("$.matchedCount").value(3))
+                .andExpect(jsonPath("$.differences[0].kind").value("AMOUNT_MISMATCH"))
+                .andExpect(jsonPath("$.differences[0].outRefundNo").value(org.hamcrest.Matchers.nullValue()));
+        String csv = mockMvc.perform(get("/api/v1/platform/trade/reconciliation")
+                        .param("date", "2026-11-17")
+                        .param("format", "CSV")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"reconciliation-2026-11-17.csv\""))
+                .andReturn()
+                .getResponse()
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        org.assertj.core.api.Assertions.assertThat(csv).startsWith("\uFEFF日期,").contains("P0000000001,,1.00,0.99");
+        mockMvc.perform(post("/api/v1/platform/trade/reconciliation/runs")
+                        .param("date", "2026-11-17")
+                        .param("redo", "true")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.merchants").value(2))
+                .andExpect(jsonPath("$.differences").value(1));
+
+        org.mockito.Mockito.verify(reconciliation, org.mockito.Mockito.times(2)).read(day);
+        org.mockito.Mockito.verify(reconciliation).reconcile(day, true);
+        org.mockito.Mockito.verifyNoMoreInteractions(reconciliation);
+    }
+
+    // 商家接口（E05）：要 PROVIDER_OPERATOR 角色和令牌里的机构；机构、操作员只取自令牌，请求里写别的没有用。
+    // 客户是 403；令牌里没有机构的在验签时就被拒（401）。两种都不调服务。
+    @Test
+    void merchantRoutesNeedAProviderOperatorOfTheTokensOrganization() throws Exception {
+        TradeOrderService orders = applicationContext.getBean(TradeOrderService.class);
+        TradeRefundService refunds = applicationContext.getBean(TradeRefundService.class);
+        org.mockito.Mockito.reset(orders, refunds);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+        Map<String, Object> homelessClaims = validClaims(List.of(), 7);
+        homelessClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        homelessClaims.remove("organizationId");
+        String homelessToken = signedToken(homelessClaims);
+        UUID orderId = UUID.fromString("e1000000-0000-4000-8000-000000000001");
+        UUID key = UUID.fromString("a0000000-0000-4000-8000-000000000001");
+        String order = "/api/v1/provider/trade/orders/" + orderId;
+        String otherOrganization = "33333333-3333-3333-3333-333333333333";
+
+        for (String token : List.of(customerToken, homelessToken)) {
+            int expected = token.equals(customerToken) ? 403 : 401;
+            String code = token.equals(customerToken) ? "COMMON_FORBIDDEN" : "COMMON_UNAUTHORIZED";
+            for (var request : List.of(
+                    get("/api/v1/provider/trade/orders"),
+                    post(order + "/shipment")
+                            .header("Idempotency-Key", key.toString())
+                            .header("If-Match", "\"0\"")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"carrierName\":\"顺丰速运\",\"trackingNo\":\"SF1\"}"),
+                    post(order + "/pickup")
+                            .header("Idempotency-Key", key.toString())
+                            .header("If-Match", "\"0\"")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"pickupCode\":\"123456\"}"),
+                    post(order + "/refunds")
+                            .header("Idempotency-Key", key.toString())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"amountMinor\":1000,\"reason\":\"少发一件\"}"))) {
+                mockMvc.perform(request.header("Authorization", "Bearer " + token))
+                        .andExpect(status().is(expected))
+                        .andExpect(jsonPath("$.code").value(code));
+            }
+        }
+        org.mockito.Mockito.verifyNoInteractions(orders, refunds);
+
+        org.mockito.Mockito.when(orders.completePickup(ORGANIZATION_ID, SUBJECT_ID, orderId, 0, "123456"))
+                .thenReturn(new com.lowaltitude.inspection.trade.application.TradeViews.TradeOrderView(
+                        orderId, "MO2026111900000001", "MALL",
+                        com.lowaltitude.inspection.trade.application.TradeOrderStatus.COMPLETED, null, List.of(), null,
+                        null, null, null, null, null, null, null, null, List.of(), false, 1));
+        mockMvc.perform(get("/api/v1/provider/trade/orders")
+                        .param("organizationId", otherOrganization)
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(order + "/pickup")
+                        .header("Authorization", "Bearer " + operatorToken)
+                        .header("Idempotency-Key", key.toString())
+                        .header("If-Match", "\"0\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pickupCode\":\"123456\",\"organizationId\":\"" + otherOrganization + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("ETag", "\"1\""));
+        mockMvc.perform(post(order + "/refunds")
+                        .header("Authorization", "Bearer " + operatorToken)
+                        .header("Idempotency-Key", key.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amountMinor\":1000,\"reason\":\"少发一件\"}"))
+                .andExpect(status().isCreated());
+
+        org.mockito.Mockito.verify(orders).listForMerchant(ORGANIZATION_ID, null, 1, 20);
+        org.mockito.Mockito.verify(orders).completePickup(ORGANIZATION_ID, SUBJECT_ID, orderId, 0, "123456");
+        org.mockito.Mockito.verify(refunds).merchantRefund(ORGANIZATION_ID, SUBJECT_ID, orderId, key, 1000L, "少发一件");
+        org.mockito.Mockito.verifyNoMoreInteractions(orders, refunds);
+        org.mockito.Mockito.reset(orders, refunds);
+    }
+
+    // 确认收货（E05）是买家接口：要客户角色，买家只取自令牌；商家操作员是 403。
+    @Test
+    void receivingNeedsACustomerAndUsesTheSubjectOfTheToken() throws Exception {
+        TradeOrderService orders = applicationContext.getBean(TradeOrderService.class);
+        org.mockito.Mockito.reset(orders);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        UUID orderId = UUID.fromString("e1000000-0000-4000-8000-000000000001");
+        String receipt = "/api/v1/trade/orders/" + orderId + "/receipt";
+
+        mockMvc.perform(post(receipt)
+                        .header("Authorization", "Bearer " + signedToken(operatorClaims))
+                        .header("Idempotency-Key", "a0000000-0000-4000-8000-000000000001")
+                        .header("If-Match", "\"2\""))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        org.mockito.Mockito.verifyNoInteractions(orders);
+
+        org.mockito.Mockito.when(orders.confirmReceipt(SUBJECT_ID, orderId, 2))
+                .thenThrow(new com.lowaltitude.inspection.trade.application.TradeException(
+                        com.lowaltitude.inspection.trade.application.TradeException.Error.ORDER_STATE_INVALID));
+        mockMvc.perform(post(receipt)
+                        .header("Authorization", "Bearer " + signedToken(List.of(), 7))
+                        .header("Idempotency-Key", "a0000000-0000-4000-8000-000000000001")
+                        .header("If-Match", "\"2\""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRADE_ORDER_STATE_INVALID"));
+        org.mockito.Mockito.verify(orders).confirmReceipt(SUBJECT_ID, orderId, 2);
+        org.mockito.Mockito.reset(orders);
+    }
+
+    // 买家只取自令牌；商家操作员调买家接口、客户调平台登记接口都是 403。
+    @Test
+    void tradeRoutesUseTheSubjectAndRolesOfTheToken() throws Exception {
+        TradeOrderService orders = applicationContext.getBean(TradeOrderService.class);
+        org.mockito.Mockito.clearInvocations(orders);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+
+        mockMvc.perform(get("/api/v1/trade/orders")
+                        .param("buyerId", "11111111-1111-1111-1111-222222222222")
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(orders).list(SUBJECT_ID, null, 1, 20);
+
+        mockMvc.perform(get("/api/v1/trade/orders")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        mockMvc.perform(put("/api/v1/platform/trade/merchant-accounts/" + ORGANIZATION_ID)
+                        .header("Authorization", "Bearer " + customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"subMchid\":\"1900000109\",\"active\":true}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+
+        org.mockito.Mockito.verifyNoMoreInteractions(orders);
+    }
+
+    // 发起支付和查单：要登录和客户角色，买家只取自令牌；商家操作员调用是 403，服务一次都不调。
+    @Test
+    void paymentRoutesNeedACustomerAndUseTheSubjectOfTheToken() throws Exception {
+        TradePaymentService payments = applicationContext.getBean(TradePaymentService.class);
+        org.mockito.Mockito.clearInvocations(payments);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+        UUID orderId = UUID.fromString("e1000000-0000-4000-8000-000000000001");
+        UUID key = UUID.fromString("a0000000-0000-4000-8000-000000000001");
+        String order = "/api/v1/trade/orders/" + orderId;
+
+        for (var request : List.of(
+                post(order + "/payments")
+                        .header("Idempotency-Key", key.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"channel\":\"WECHAT_APP\"}"),
+                post(order + "/payment-check"))) {
+            mockMvc.perform(request.header("Authorization", "Bearer " + operatorToken))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        }
+        org.mockito.Mockito.verifyNoInteractions(payments);
+
+        mockMvc.perform(post(order + "/payments")
+                        .header("Authorization", "Bearer " + customerToken)
+                        .header("Idempotency-Key", key.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"channel\":\"WECHAT_APP\",\"buyerId\":\"11111111-1111-1111-1111-222222222222\"}"))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(payments).launch(SUBJECT_ID, orderId, key, "WECHAT_APP");
+        org.mockito.Mockito.verifyNoMoreInteractions(payments);
+    }
+
+    // 微信支付回调不登录也能到达控制器：签名不对时是控制器按服务的结果回 401（微信的失败格式），不是登录拦截的 401。
+    @Test
+    void theWechatNotificationIsReachableWithoutALogin() throws Exception {
+        TradePaymentService payments = applicationContext.getBean(TradePaymentService.class);
+        org.mockito.Mockito.reset(payments);
+        org.mockito.Mockito.when(payments.handleNotification(
+                        org.mockito.ArgumentMatchers.anyMap(), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(TradePaymentService.NotificationResult.UNTRUSTED)
+                .thenReturn(TradePaymentService.NotificationResult.ACKNOWLEDGED);
+        String body = "{\"id\":\"EV-1\",\"event_type\":\"TRANSACTION.SUCCESS\"}";
+
+        mockMvc.perform(post("/api/v1/trade/channels/wechat/notifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Wechatpay-Serial", "PUB_KEY_ID_0001")
+                        .header("Wechatpay-Signature", "bm90LWEtc2lnbmF0dXJl")
+                        .header("Wechatpay-Timestamp", "1763483460")
+                        .header("Wechatpay-Nonce", "nonce-1")
+                        .content(body))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("FAIL"))
+                .andExpect(header().doesNotExist("WWW-Authenticate"));
+        // 没有 CSRF 令牌、没有会话也照样处理。
+        mockMvc.perform(post("/api/v1/trade/channels/wechat/notifications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent());
+
+        org.mockito.Mockito.verify(payments, org.mockito.Mockito.times(2)).handleNotification(
+                org.mockito.ArgumentMatchers.anyMap(), org.mockito.ArgumentMatchers.eq(body));
+        org.mockito.Mockito.reset(payments);
+    }
+
     // 登录后账号只取自令牌，请求里写别人的账号没有用；不是客户角色的账号一律 403，服务一次都不调。
     @Test
     void addressesAndCartUseTheSubjectOfTheToken() throws Exception {
@@ -799,6 +1119,26 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         MallCartService testMallCartService() {
             return org.mockito.Mockito.mock(MallCartService.class);
+        }
+
+        @Bean
+        TradeOrderService testTradeOrderService() {
+            return org.mockito.Mockito.mock(TradeOrderService.class);
+        }
+
+        @Bean
+        TradePaymentService testTradePaymentService() {
+            return org.mockito.Mockito.mock(TradePaymentService.class);
+        }
+
+        @Bean
+        TradeRefundService testTradeRefundService() {
+            return org.mockito.Mockito.mock(TradeRefundService.class);
+        }
+
+        @Bean
+        TradeReconciliationService testTradeReconciliationService() {
+            return org.mockito.Mockito.mock(TradeReconciliationService.class);
         }
 
         @Bean

@@ -61,3 +61,22 @@ platform:
     api-key: ${PLATFORM_WEATHER_API_KEY:}
     cache-key-prefix: ${PLATFORM_WEATHER_CACHE_KEY_PREFIX:low-altitude:platform:weather}
     last-success-ttl: ${PLATFORM_WEATHER_LAST_SUCCESS_TTL:24h}
+
+# 微信支付（平台收付通）。默认关闭；关闭时没有支付渠道，发起支付回“渠道不可用”。
+# 两个 PEM 文件只给服务器上的路径；APIv3 密钥只走环境变量。都不要写进仓库。
+trade:
+  wechat:
+    enabled: ${TRADE_WECHAT_ENABLED:false}
+    sp-mchid: ${TRADE_WECHAT_SP_MCHID:}
+    sp-appid: ${TRADE_WECHAT_SP_APPID:}
+    merchant-serial-no: ${TRADE_WECHAT_MERCHANT_SERIAL_NO:}
+    merchant-private-key-path: ${TRADE_WECHAT_MERCHANT_PRIVATE_KEY_PATH:}
+    api-v3-key: ${TRADE_WECHAT_API_V3_KEY:}
+    platform-public-key-id: ${TRADE_WECHAT_PLATFORM_PUBLIC_KEY_ID:}
+    platform-public-key-path: ${TRADE_WECHAT_PLATFORM_PUBLIC_KEY_PATH:}
+    api-base: ${TRADE_WECHAT_API_BASE:https://api.mch.weixin.qq.com}
+    payment-notify-url: ${TRADE_WECHAT_PAYMENT_NOTIFY_URL:}
+    refund-notify-url: ${TRADE_WECHAT_REFUND_NOTIFY_URL:}
+    signature-tolerance: ${TRADE_WECHAT_SIGNATURE_TOLERANCE:5m}
+    connect-timeout: ${TRADE_WECHAT_CONNECT_TIMEOUT:3s}
+    read-timeout: ${TRADE_WECHAT_READ_TIMEOUT:10s}

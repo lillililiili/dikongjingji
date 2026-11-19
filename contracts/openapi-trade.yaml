@@ -1,0 +1,1243 @@
+openapi: 3.1.0
+info:
+  title: Trade API
+  version: 0.1.0
+  description: |-
+    0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
+    source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
+
+    已实现（E02，2026-11-18）：submitOrder、listMyOrders、readMyOrder、cancelMyOrder（只限未付款；已付款取消在 E05）、
+    registerMerchantAccount，以及服务端每分钟关闭超时未付款订单。其余操作（支付、回调、商家、对账）在 E03–E06 实现，
+    未实现前路由不存在。提交时的拒绝顺序：商家没有可用收款账户 → 配送方式不可用 → 快递缺地址 → 应付金额变化。
+    E03（2026-11-18）只做了服务端的微信渠道适配（签名、验签、解密、下单、查单、关单、退款），没有新增或改动接口。
+    E04（2026-11-18）实现 launchPayment、checkPayment、receiveWechatNotification；cancelMyOrder 遇到发起过支付的单先向微信查单
+    （付了就按付款处理、拒绝取消；没付就先在微信关单再关订单）。服务端每分钟对发起支付 1 分钟后仍没有结果的单查单，
+    对过了付款截止时间、还有进行中支付单的订单先查单再关。退款回调在 E05 处理，之前只记录。
+    E05（2026-11-18）实现 confirmReceipt、listMerchantOrders、shipOrder、completePickup、refundOrder；cancelMyOrder 对已付款、
+    未发货（未自提）的订单全额退款；退款回调和查询推进退款单和订单；发货满 10 天自动确认收货。自提订单付款后生成 6 位取货码。
+    E06（2026-11-18）实现 exportReconciliation 和 runReconciliation：服务端北京时间每小时 5 分和 35 分补导入：10 点前只补前天，10 点后补前天和昨天，
+    按子商户下载交易账单，逐笔核对后记下差异。
+    E08（2026-11-18）复查修正：TradeOrder 加必填字段 closeReason（已关闭时是买家取消还是超时关闭）；商家接口的
+    delivery.recipientPhone、addressLine 只在订单付款之后给，待付款、已关闭时为 null；提交订单时单价或商品金额为 0 的报价按 400 拒绝；
+    checkPayment 同一张订单 2 秒内只真正向微信查一次，其余直接返回订单。
+
+    渠道与资金（用户 2026-11-18 确认）：
+    - 唯一的支付渠道是微信支付，产品是“平台收付通”的普通支付：每笔钱直接进卖出商品的商家（二级商户）自己的商户号，
+      平台不经手资金。下单不带分账标记，不冻结、不分账、不抽佣。
+    - 商家必须先登记好收款账户（微信子商户号）才能下单；没登记的商家提交订单时拒绝（TRADE_MERCHANT_PAYMENT_UNAVAILABLE）。
+    - 订单状态只由服务端根据渠道结果改：付款只认验签通过的支付回调，或服务端主动向微信查单的结果。App 说“付好了”只会触发一次查单。
+    - 一张订单同时只有一张进行中的支付单（out_trade_no，≤32 位）：重复发起沿用它；它被关掉之后再发起才用新单号。
+      关单前一定先查单，付了的不会被关。金额、商户核对不上的支付不改订单，记为 MISMATCH 并告警，人工处理。
+
+    订单规则（用户 2026-11-18 按 §19.7 建议值确认）：
+    - 提交订单的内容和确认订单预览（contracts/openapi-mall-cart.yaml 的 checkout-preview）相同：同一个商家、来自购物车几行或立即购买的一个供给、
+      配送方式、快递时的收货地址。服务端重新算金额；和页面上看到的 expectedPayableMinor 不一致时拒绝（TRADE_AMOUNT_CHANGED），页面重新预览。
+    - 提交时把商品、单价、地址做成快照，之后改价、删地址都不影响这张单。来自购物车的行在提交成功后从购物车删掉。
+    - 未付款的订单 30 分钟后关闭（同时关掉微信那边的预支付单）。
+    - 已付款、未发货（或未自提）时，买家可以自己取消，全额原路退款。
+    - 发货后 10 天未确认收货的自动确认；自提订单由商家核销取货码后完成。
+    - 发货后的退款只能由商家通过受权接口发起，可以部分退款，同一订单最多 50 次，合计不超过实付；买家的售后申请等 A1 确认。
+
+    角色：买家接口要 CUSTOMER；商家接口要 PROVIDER_OPERATOR，且只能操作本机构卖出的订单；平台接口要 PLATFORM_OPERATOR。
+    账号、机构都只从令牌里取。不是自己的订单一律当作不存在。
+    写操作都带 Idempotency-Key；改订单状态的操作带 If-Match（订单版本），版本不对返回 412。
+    金额都是最小货币单位（分）。Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/trade/orders:
+    post:
+      operationId: submitOrder
+      summary: 提交订单（确认订单页的“提交订单”）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitOrderRequest"
+      responses:
+        "201":
+          description: 新建的订单，状态 PENDING_PAYMENT
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "200":
+          description: 同一个幂等键重放，返回第一次建的订单
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    get:
+      operationId: listMyOrders
+      summary: 我的订单（商品）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tab
+          in: query
+          required: false
+          description: 不传为 ALL
+          schema:
+            $ref: "#/components/schemas/TradeOrderTab"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 按下单时间从新到旧
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/trade/orders/{orderId}:
+    get:
+      operationId: readMyOrder
+      summary: 订单详情
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: 订单，ETag 是订单版本
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/trade/orders/{orderId}/payments:
+    post:
+      operationId: launchPayment
+      summary: 发起微信支付，返回 App 调起支付要的参数
+      description: |-
+        订单必须是 PENDING_PAYMENT 且没过付款截止时间（否则 409 TRADE_ORDER_EXPIRED）。已有进行中的支付单时沿用它，
+        每次都重新签一组调起参数；上次没拿到预支付的，用同一个商户单号、同样的内容再向微信下一次单。
+        预支付 ID 有效 2 小时，比 30 分钟的付款期长，所以付款期内不会过期（万一过期回 409 TRADE_ORDER_EXPIRED）。
+        App 每次点“去支付”用一个新的 Idempotency-Key；一个键对应的支付单已经关闭时再用它回 409 TRADE_ORDER_STATE_INVALID。
+        微信那边失败或结果不确定时回 503，支付单保留，稍后重试。服务端用服务商 API 证书私钥给调起参数签名。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LaunchPaymentRequest"
+      responses:
+        "200":
+          description: 调起参数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentLaunch"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ChannelUnavailable"
+  /api/v1/trade/orders/{orderId}/payment-check:
+    post:
+      operationId: checkPayment
+      summary: App 从微信回来后，让服务端向微信查一次单
+      description: 只读渠道结果并按结果推进订单，不信任 App 传来的任何支付状态。没有进行中的支付单时直接返回订单。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: 查单后的订单
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ChannelUnavailable"
+  /api/v1/trade/orders/{orderId}/cancel:
+    post:
+      operationId: cancelMyOrder
+      summary: 买家取消：未付款直接关闭；已付款未发货（未自提）全额退款
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      description: |-
+        不带请求体。待付款的直接关闭；发起过支付的先向微信查单：已经付了回 409 TRADE_ORDER_STATE_INVALID（刷新后是已付款，
+        再取消就是退款）；微信不通时回 503。已付款、未发货（未自提）的把还没退的钱全退，订单进入 REFUNDING，结果以微信为准。
+        重复调用靠状态和幂等键保证：已关闭、退款中、已退款的订单再取消原样返回；同一个 Idempotency-Key 只建一笔退款。
+      responses:
+        "200":
+          description: CLOSED，或 REFUNDING
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+        "503":
+          $ref: "#/components/responses/ChannelUnavailable"
+  /api/v1/trade/orders/{orderId}/receipt:
+    post:
+      operationId: confirmReceipt
+      summary: 买家确认收货（SHIPPED → COMPLETED）
+      description: 已完成的再确认一次原样返回。发货满 10 天还没确认的由服务端自动确认。Idempotency-Key 只做格式校验。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: COMPLETED
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/trade/channels/wechat/notifications:
+    post:
+      operationId: receiveWechatNotification
+      summary: 微信支付的支付和退款回调（公开，验签）
+      description: |-
+        不要登录；用请求头 Wechatpay-Serial / Wechatpay-Signature / Wechatpay-Timestamp / Wechatpay-Nonce 和原始请求体验签，
+        再用 APIv3 密钥（AEAD_AES_256_GCM）解密 resource。只处理 TRANSACTION.SUCCESS、REFUND.SUCCESS、REFUND.ABNORMAL、REFUND.CLOSED。
+        核对服务商号、子商户号、商户单号和金额后才推进订单；同一通知重复到达只处理一次，仍然返回 204。
+        验签失败（包括缺少任何一个 Wechatpay-* 头）返回 401，处理失败返回 500，微信会按 15s、15s、30s、3m … 6h 的间隔重发，最多 15 次。
+        金额或商户对不上的付款通知也回 204（重发没有用），支付单记为 MISMATCH 等人工处理。请求体超过 64KB 返回 413。
+      security: []
+      parameters:
+        - name: Wechatpay-Serial
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: Wechatpay-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: Wechatpay-Timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: Wechatpay-Nonce
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WechatNotification"
+      responses:
+        "204":
+          description: 收到并已处理（含重复的通知）
+        "401":
+          description: 验签失败
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WechatFailure"
+        "413":
+          description: 请求体超过 64KB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WechatFailure"
+        "500":
+          description: 处理失败，等微信重发
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WechatFailure"
+  /api/v1/provider/trade/orders:
+    get:
+      operationId: listMerchantOrders
+      summary: 本机构卖出的订单（商家操作员；没有页面，供受权调用和开发脚本）
+      description: 新的在前。机构只从令牌里取。订单付款之后 delivery.recipientPhone 是完整手机号、addressLine 是收货地址（发货要用），待付款、已关闭时两者为 null；取货码不给商家。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TradeOrderStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 订单
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/provider/trade/orders/{orderId}/shipment:
+    post:
+      operationId: shipOrder
+      summary: 商家发货（PAID 的快递订单 → SHIPPED）
+      description: |-
+        物流公司和单号各 1–40 个字符。同一张单用同样的物流公司和单号再发一次原样返回，换了单号回 409。
+        别的机构的订单当作不存在。Idempotency-Key 只做格式校验，重复靠 If-Match 版本和状态保证。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShipOrderRequest"
+      responses:
+        "200":
+          description: SHIPPED
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/provider/trade/orders/{orderId}/pickup:
+    post:
+      operationId: completePickup
+      summary: 商家核销取货码（PAID 的自提订单 → COMPLETED）
+      description: |-
+        取货码不对回 409 TRADE_PICKUP_CODE_INVALID 并记一次；连续输错 10 次后这张单不能再核销（同样的错误码），买家找客服。
+        Idempotency-Key 只做格式校验，重复靠 If-Match 版本和状态保证。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PickupRequest"
+      responses:
+        "200":
+          description: COMPLETED
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/provider/trade/orders/{orderId}/refunds:
+    post:
+      operationId: refundOrder
+      summary: 商家退款（已付款的订单，可部分退款）
+      description: |-
+        订单要是 PAID、SHIPPED、COMPLETED 或 REFUND_FAILED。金额不超过实付减已退减在路上的退款（否则 TRADE_REFUND_EXCEEDS_PAID）；
+        同一订单最多 50 次、付款后一年内（否则 TRADE_REFUND_LIMIT_REACHED）。退的是剩下的全部时订单进入 REFUNDING，部分退款不改订单状态。
+        同一个 Idempotency-Key、同样的金额和原因重放返回同一笔退款，换了内容回 TRADE_IDEMPOTENCY_KEY_REUSED。
+        返回时退款可能是 PROCESSING（微信已受理）或 REQUESTED（微信暂时不通，服务端稍后用同一个退款单号重试）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundRequest"
+      responses:
+        "201":
+          description: 已提交微信，结果以退款回调或查询为准
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeRefund"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ChannelUnavailable"
+  /api/v1/platform/trade/merchant-accounts/{organizationId}:
+    put:
+      operationId: registerMerchantAccount
+      summary: 登记商家的微信收款账户（平台运营；二级商户进件在微信服务商后台完成）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantAccountRequest"
+      responses:
+        "200":
+          description: 登记后的账户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantAccount"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/platform/trade/reconciliation:
+    get:
+      operationId: exportReconciliation
+      summary: 某一天的对账结果（平台运营），可导出 CSV
+      description: |-
+        微信的 T 日账单 T+1 日 10 点后才有。按子商户逐个下载后与平台的支付单、退款单逐笔核对：支付按付款成功时间、
+        退款按微信受理时间，都按北京时间分天。这一天要对账的子商户（登记了收款账户的，和那天有付款或退款受理的）
+        全部导入成功才返回，否则 409 TRADE_RECONCILIATION_NOT_READY。
+        CSV 是 UTF-8（带 BOM），列为：日期、类型、说明、子商户号、商户订单号、商户退款单号、平台金额（元）、微信金额（元）；
+        以 = + - @ 开头的格前面加单引号。差异只记录、不自动改订单。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: format
+          in: query
+          required: false
+          description: 只认大写；不给时是 JSON
+          schema:
+            type: string
+            enum: [JSON, CSV]
+            default: JSON
+      responses:
+        "200":
+          description: 汇总和差异
+          headers:
+            Content-Disposition:
+              description: CSV 时为 attachment; filename="reconciliation-<date>.csv"
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reconciliation"
+            text/csv:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: 账单还没全部导入（当天 10 点前，或导入失败），TRADE_RECONCILIATION_NOT_READY
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/platform/trade/reconciliation/runs:
+    post:
+      operationId: runReconciliation
+      summary: 立刻对某一天跑一次对账（平台运营）
+      description: |-
+        导入失败后重试，或差异处理后重新核对。只能对今天以前的日期（北京时间）。redo=false 时已导入成功的子商户跳过；
+        redo=true 时全部重新下载、覆盖。账单还在生成、渠道不通、文件校验不过的子商户记为失败。
+        不带 Idempotency-Key：重复调用靠 redo 和导入状态保证，结果一样。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: redo
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: 这次跑的结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReconciliationRun"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ChannelUnavailable"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: 订单详情返回的 ETag（订单版本）
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 10000
+        default: 1
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+  headers:
+    OrderETag:
+      description: 订单版本（带引号），改订单状态时放进 If-Match
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: 参数无效（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没登录或令牌无效（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: 角色不对（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 订单不存在或不是自己的（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Conflict:
+      description: 业务规则拒绝，code 见 TradeErrorCode
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    VersionConflict:
+      description: 订单已变化，刷新后再试（TRADE_VERSION_CONFLICT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ChannelUnavailable:
+      description: 微信支付暂不可用或没有配置（TRADE_CHANNEL_UNAVAILABLE）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, traceId]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type: [object, "null"]
+          additionalProperties: true
+    TradeErrorCode:
+      type: string
+      description: 交易模块的业务错误码（409，除注明外）
+      enum:
+        - TRADE_IDEMPOTENCY_KEY_REUSED
+        - TRADE_AMOUNT_CHANGED
+        - TRADE_ADDRESS_REQUIRED
+        - TRADE_DELIVERY_UNAVAILABLE
+        - TRADE_MERCHANT_PAYMENT_UNAVAILABLE
+        - TRADE_ORDER_STATE_INVALID
+        - TRADE_ORDER_EXPIRED
+        - TRADE_REFUND_EXCEEDS_PAID
+        - TRADE_REFUND_LIMIT_REACHED
+        - TRADE_PICKUP_CODE_INVALID
+        - TRADE_VERSION_CONFLICT
+        - TRADE_CHANNEL_UNAVAILABLE
+        - TRADE_RECONCILIATION_NOT_READY
+        - MALL_CHECKOUT_MULTIPLE_MERCHANTS
+        - MALL_CHECKOUT_ITEM_UNAVAILABLE
+        - MALL_CART_NOT_PURCHASABLE
+    TradeOrderStatus:
+      type: string
+      description: |-
+        PENDING_PAYMENT 待付款；PAID 已付款待发货（快递）或待自提（自提）；SHIPPED 已发货；COMPLETED 已完成；
+        CLOSED 未付款关闭（超时或买家取消）；REFUNDING 全额退款中；REFUNDED 已全额退款；REFUND_FAILED 退款异常，人工处理。
+        部分退款不改订单状态，看 amounts.refundedMinor。
+      enum: [PENDING_PAYMENT, PAID, SHIPPED, COMPLETED, CLOSED, REFUNDING, REFUNDED, REFUND_FAILED]
+    TradeOrderTab:
+      type: string
+      description: 我的订单的页签：ALL 全部；TO_PAY 待付款；TO_SHIP 待发货 / 待自提；TO_RECEIVE 待收货；DONE 已完成；REFUND 退款
+      enum: [ALL, TO_PAY, TO_SHIP, TO_RECEIVE, DONE, REFUND]
+    TradeOrderSource:
+      type: string
+      description: 一期只有 MALL；以后接入的业务在这里加
+      enum: [MALL]
+    DeliveryMode:
+      type: string
+      enum: [EXPRESS, PICKUP]
+    MerchantKind:
+      type: string
+      enum: [FACTORY_DIRECT, AUTHORIZED_DEALER, LOCAL_STORE]
+    PaymentChannel:
+      type: string
+      description: 一期只有微信 App 支付；以后小程序用 WECHAT_JSAPI
+      enum: [WECHAT_APP]
+    PaymentStatus:
+      type: string
+      description: CREATED 已建未下单；PREPAID 已拿到预支付；SUCCEEDED 已付款；CLOSED 已关闭；MISMATCH 渠道金额或商户与订单不符（告警，人工处理）
+      enum: [CREATED, PREPAID, SUCCEEDED, CLOSED, MISMATCH]
+    RefundStatus:
+      type: string
+      description: REQUESTED 已建未提交；PROCESSING 微信处理中；SUCCEEDED 已到账；CLOSED 已关闭；ABNORMAL 退款异常（如银行卡作废），人工处理
+      enum: [REQUESTED, PROCESSING, SUCCEEDED, CLOSED, ABNORMAL]
+    SubmitOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [cityCode, deliveryMode, expectedPayableMinor, agreementAccepted]
+      properties:
+        cityCode:
+          type: string
+          pattern: "^[A-Z0-9]{4,16}$"
+        cartItemIds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            format: uuid
+          description: 来自购物车时给；和 offerId 二选一
+        offerId:
+          type: string
+          format: uuid
+          description: 立即购买时给，和 quantity 一起
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        deliveryMode:
+          $ref: "#/components/schemas/DeliveryMode"
+        addressId:
+          type: string
+          format: uuid
+          description: 快递时用；不给用默认地址
+        buyerNote:
+          type: string
+          maxLength: 50
+        expectedPayableMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 页面上显示的应付；和服务端重新算出来的不一致时拒绝
+        agreementAccepted:
+          type: boolean
+          const: true
+    LaunchPaymentRequest:
+      type: object
+      additionalProperties: false
+      required: [channel]
+      properties:
+        channel:
+          $ref: "#/components/schemas/PaymentChannel"
+    ShipOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [carrierName, trackingNo]
+      properties:
+        carrierName:
+          type: string
+          minLength: 1
+          maxLength: 40
+        trackingNo:
+          type: string
+          minLength: 1
+          maxLength: 40
+    PickupRequest:
+      type: object
+      additionalProperties: false
+      required: [pickupCode]
+      properties:
+        pickupCode:
+          type: string
+          pattern: "^[0-9]{6}$"
+          description: 首尾空白会被去掉
+    RefundRequest:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, reason]
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 80
+    MerchantAccountRequest:
+      type: object
+      additionalProperties: false
+      required: [subMchid, active]
+      properties:
+        subMchid:
+          type: string
+          pattern: "^[0-9]{8,32}$"
+        active:
+          type: boolean
+    MerchantAccount:
+      type: object
+      additionalProperties: false
+      required: [organizationId, subMchid, active]
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        subMchid:
+          type: string
+        active:
+          type: boolean
+    TradeMerchant:
+      type: object
+      additionalProperties: false
+      required: [organizationId, name, kind]
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: "#/components/schemas/MerchantKind"
+    MediaAsset:
+      type: object
+      additionalProperties: false
+      required: [url, alt]
+      properties:
+        url:
+          type: string
+          format: uri
+        alt:
+          type: string
+    TradeOrderLine:
+      type: object
+      additionalProperties: false
+      required: [lineId, productId, offerId, productName, skuName, coverImage, unitAmountMinor, quantity, subtotalMinor]
+      properties:
+        lineId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        offerId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        skuName:
+          type: string
+        coverImage:
+          oneOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        unitAmountMinor:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+        subtotalMinor:
+          type: integer
+          format: int64
+    TradeDelivery:
+      type: object
+      additionalProperties: false
+      required: [mode, recipientName, phoneMasked, recipientPhone, addressLine, pickupPoint, pickupCode, carrierName, trackingNo, shippedAt]
+      properties:
+        mode:
+          $ref: "#/components/schemas/DeliveryMode"
+        recipientName:
+          type: [string, "null"]
+          description: 快递时下单那一刻的收货人快照
+        phoneMasked:
+          type: [string, "null"]
+          description: 打码的手机号
+        recipientPhone:
+          type: [string, "null"]
+          description: 完整手机号，只在商家接口、并且订单已付款之后返回（PAID、SHIPPED、COMPLETED、REFUNDING、REFUNDED、
+            REFUND_FAILED，发货要用）；商家接口在待付款、已关闭时为 null；买家接口总是 null
+        addressLine:
+          type: [string, "null"]
+          description: 快递时的收货地址（省市 + 详细地址）。买家接口总是返回；商家接口只在订单已付款之后返回，
+            待付款、已关闭时为 null（收货人和打码手机号照常返回）。自提单为 null
+        pickupPoint:
+          type: [string, "null"]
+        pickupCode:
+          type: [string, "null"]
+          description: 自提订单付款后生成的 6 位取货码，只给买家
+        carrierName:
+          type: [string, "null"]
+        trackingNo:
+          type: [string, "null"]
+        shippedAt:
+          type: [string, "null"]
+          format: date-time
+    TradeAmounts:
+      type: object
+      additionalProperties: false
+      required: [goodsMinor, shippingMinor, payableMinor, paidMinor, refundedMinor, currency]
+      properties:
+        goodsMinor:
+          type: integer
+          format: int64
+        shippingMinor:
+          type: integer
+          format: int64
+        payableMinor:
+          type: integer
+          format: int64
+        paidMinor:
+          type: integer
+          format: int64
+        refundedMinor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          const: CNY
+    TradeRefund:
+      type: object
+      additionalProperties: false
+      required: [refundId, amountMinor, reason, status, requestedAt, succeededAt]
+      properties:
+        refundId:
+          type: string
+          format: uuid
+        amountMinor:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        status:
+          $ref: "#/components/schemas/RefundStatus"
+        requestedAt:
+          type: string
+          format: date-time
+        succeededAt:
+          type: [string, "null"]
+          format: date-time
+    TradeOrder:
+      type: object
+      additionalProperties: false
+      required:
+        - orderId
+        - orderNo
+        - source
+        - status
+        - merchant
+        - lines
+        - delivery
+        - amounts
+        - buyerNote
+        - createdAt
+        - payBefore
+        - paidAt
+        - completedAt
+        - closedAt
+        - closeReason
+        - refunds
+        - cancellable
+        - version
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        orderNo:
+          type: string
+          description: 给人看的订单编号
+        source:
+          $ref: "#/components/schemas/TradeOrderSource"
+        status:
+          $ref: "#/components/schemas/TradeOrderStatus"
+        merchant:
+          $ref: "#/components/schemas/TradeMerchant"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeOrderLine"
+        delivery:
+          $ref: "#/components/schemas/TradeDelivery"
+        amounts:
+          $ref: "#/components/schemas/TradeAmounts"
+        buyerNote:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        payBefore:
+          type: [string, "null"]
+          format: date-time
+          description: 待付款时的截止时间
+        paidAt:
+          type: [string, "null"]
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+        closedAt:
+          type: [string, "null"]
+          format: date-time
+        closeReason:
+          type: [string, "null"]
+          enum: [BUYER_CANCEL, TIMEOUT, null]
+          description: CLOSED 时是买家取消（BUYER_CANCEL）还是超时关闭（TIMEOUT），其他状态为 null
+        refunds:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeRefund"
+        cancellable:
+          type: boolean
+          description: 买家现在能不能取消（待付款，或已付款未发货 / 未自提）
+        version:
+          type: integer
+    TradeOrderPage:
+      type: object
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeOrder"
+    PaymentLaunch:
+      type: object
+      additionalProperties: false
+      required: [paymentId, channel, expiresAt, appCall]
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        channel:
+          $ref: "#/components/schemas/PaymentChannel"
+        expiresAt:
+          type: string
+          format: date-time
+          description: 预支付 ID 的有效期（2 小时）和订单付款截止时间里较早的那个
+        appCall:
+          $ref: "#/components/schemas/WechatAppCall"
+    WechatAppCall:
+      type: object
+      additionalProperties: false
+      description: |-
+        交给微信 OpenSDK 的参数（pay.weixin.qq.com/doc/v3/partner/4012090168）。sign 是对
+        “appId\ntimeStamp\nnonceStr\nprepayId\n”做 SHA256withRSA（平台 API 证书私钥）后的 Base64（4012365868）。
+      required: [appId, partnerId, prepayId, packageValue, nonceStr, timeStamp, sign]
+      properties:
+        appId:
+          type: string
+        partnerId:
+          type: string
+        prepayId:
+          type: string
+        packageValue:
+          type: string
+          const: Sign=WXPay
+        nonceStr:
+          type: string
+        timeStamp:
+          type: string
+        sign:
+          type: string
+    WechatNotification:
+      type: object
+      description: 微信回调的外层，resource 解密后才是支付或退款的内容
+      required: [id, create_time, event_type, resource_type, resource]
+      properties:
+        id:
+          type: string
+        create_time:
+          type: string
+        event_type:
+          type: string
+        resource_type:
+          type: string
+        summary:
+          type: string
+        resource:
+          type: object
+          required: [algorithm, ciphertext, nonce]
+          properties:
+            algorithm:
+              type: string
+            original_type:
+              type: string
+            ciphertext:
+              type: string
+            associated_data:
+              type: string
+            nonce:
+              type: string
+    WechatFailure:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          const: FAIL
+        message:
+          type: string
+    Reconciliation:
+      type: object
+      additionalProperties: false
+      required: [date, importedAt, matchedCount, differences]
+      properties:
+        date:
+          type: string
+          format: date
+        importedAt:
+          type: string
+          format: date-time
+        matchedCount:
+          type: integer
+        differences:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReconciliationDifference"
+    ReconciliationRun:
+      type: object
+      additionalProperties: false
+      required: [date, merchants, imported, failed, skipped, differences]
+      properties:
+        date:
+          type: string
+          format: date
+        merchants:
+          type: integer
+          description: 这一天要对账的子商户数
+        imported:
+          type: integer
+          description: 这次导入成功的
+        failed:
+          type: integer
+          description: 这次导入失败的（账单还在生成、渠道不通、文件校验不过）
+        skipped:
+          type: integer
+          description: 之前已导入成功、这次跳过的
+        differences:
+          type: integer
+          description: 这次发现的差异条数
+    ReconciliationDifference:
+      type: object
+      additionalProperties: false
+      required: [kind, subMchid, outTradeNo, outRefundNo, platformAmountMinor, channelAmountMinor]
+      properties:
+        kind:
+          type: string
+          description: ONLY_IN_CHANNEL 微信有平台没有；ONLY_IN_PLATFORM 平台记为成功微信没有；AMOUNT_MISMATCH 金额不一致；STATUS_MISMATCH 状态不一致
+          enum: [ONLY_IN_CHANNEL, ONLY_IN_PLATFORM, AMOUNT_MISMATCH, STATUS_MISMATCH]
+        subMchid:
+          type: string
+        outTradeNo:
+          type: [string, "null"]
+        outRefundNo:
+          type: [string, "null"]
+        platformAmountMinor:
+          type: [integer, "null"]
+          format: int64
+        channelAmountMinor:
+          type: [integer, "null"]
+          format: int64

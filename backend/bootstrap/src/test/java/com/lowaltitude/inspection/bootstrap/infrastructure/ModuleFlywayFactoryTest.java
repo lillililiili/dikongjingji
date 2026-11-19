@@ -94,6 +94,31 @@ class ModuleFlywayFactoryTest {
                 .isEqualTo("migrate");
     }
 
+    @Test
+    void keepsTradeVersionsInTheirOwnHistoryTable() {
+        Flyway trade = new ModuleFlywayFactory().trade(mock(DataSource.class));
+
+        assertThat(trade.getConfiguration().getTable()).isEqualTo("flyway_history_trade");
+        assertThat(locationDescriptors(trade)).containsExactly("classpath:db/migration/trade");
+        assertThat(trade.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(trade.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    // 交易表引用 identity_user、identity_organization：交易迁移排在身份和巡检迁移之后，所有环境都跑。
+    @Test
+    void tradeTablesMigrateAfterTheModulesTheyReference() {
+        java.lang.reflect.Method migration = Arrays.stream(ModuleFlywayConfiguration.class.getDeclaredMethods())
+                .filter(method -> method.getName().equals("tradeFlyway"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(migration.getAnnotation(org.springframework.context.annotation.Profile.class)).isNull();
+        assertThat(migration.getAnnotation(org.springframework.context.annotation.DependsOn.class).value())
+                .containsExactly("inspectionFlyway");
+        assertThat(migration.getAnnotation(org.springframework.context.annotation.Bean.class).initMethod())
+                .isEqualTo("migrate");
+    }
+
     private static String[] locationDescriptors(Flyway flyway) {
         return Arrays.stream(flyway.getConfiguration().getLocations())
                 .map(Object::toString)

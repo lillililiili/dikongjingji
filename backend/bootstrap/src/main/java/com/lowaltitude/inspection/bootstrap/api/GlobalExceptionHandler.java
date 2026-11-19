@@ -9,6 +9,7 @@ import com.lowaltitude.inspection.activity.application.ActivityNotFoundException
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
 import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
 import com.lowaltitude.inspection.mall.application.MallCartException;
+import com.lowaltitude.inspection.trade.application.TradeException;
 import com.lowaltitude.inspection.mall.application.MallProductNotFoundException;
 import com.lowaltitude.inspection.notification.application.NotificationNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
@@ -401,6 +402,90 @@ public class GlobalExceptionHandler {
                 message = "有商品已失效，请回到购物车重新选择";
             }
             default -> throw new IllegalStateException("unhandled mall cart error " + exception.error());
+        }
+        return ResponseEntity.status(status)
+                .body(new ApiError(code, message, traceId(request)));
+    }
+
+    @ExceptionHandler(TradeException.class)
+    public ResponseEntity<ApiError> handleTrade(
+            TradeException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                code = "TRADE_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case AMOUNT_CHANGED -> {
+                code = "TRADE_AMOUNT_CHANGED";
+                message = "商品价格有变化，请确认后重新提交";
+            }
+            case ADDRESS_REQUIRED -> {
+                code = "TRADE_ADDRESS_REQUIRED";
+                message = "请先添加收货地址";
+            }
+            case DELIVERY_UNAVAILABLE -> {
+                code = "TRADE_DELIVERY_UNAVAILABLE";
+                message = "这种配送方式现在不可用，请重新选择";
+            }
+            case MERCHANT_PAYMENT_UNAVAILABLE -> {
+                code = "TRADE_MERCHANT_PAYMENT_UNAVAILABLE";
+                message = "该商家暂未开通在线支付";
+            }
+            case ORDER_STATE_INVALID -> {
+                code = "TRADE_ORDER_STATE_INVALID";
+                message = "订单当前状态不允许这个操作";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.PRECONDITION_FAILED;
+                code = "TRADE_VERSION_CONFLICT";
+                message = "订单已更新，请刷新后重试";
+            }
+            case ORDER_EXPIRED -> {
+                code = "TRADE_ORDER_EXPIRED";
+                message = "订单已超过付款时间";
+            }
+            case CHANNEL_UNAVAILABLE -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                code = "TRADE_CHANNEL_UNAVAILABLE";
+                message = "微信支付暂不可用，请稍后再试";
+            }
+            case PICKUP_CODE_INVALID -> {
+                code = "TRADE_PICKUP_CODE_INVALID";
+                message = "取货码不对，或输错次数太多已锁定";
+            }
+            case REFUND_EXCEEDS_PAID -> {
+                code = "TRADE_REFUND_EXCEEDS_PAID";
+                message = "退款金额超过可退金额";
+            }
+            case REFUND_LIMIT_REACHED -> {
+                code = "TRADE_REFUND_LIMIT_REACHED";
+                message = "这笔订单已不能再退款";
+            }
+            case RECONCILIATION_NOT_READY -> {
+                code = "TRADE_RECONCILIATION_NOT_READY";
+                message = "这一天的账单还没有全部导入";
+            }
+            // 支付、退款服务会接住这两个；万一漏出来，对买家来说就是“订单状态变了”。
+            case PAYMENT_IN_PROGRESS, REFUND_REQUIRED -> {
+                code = "TRADE_ORDER_STATE_INVALID";
+                message = "订单当前状态不允许这个操作";
+            }
+            default -> throw new IllegalStateException("unhandled trade error " + exception.error());
         }
         return ResponseEntity.status(status)
                 .body(new ApiError(code, message, traceId(request)));

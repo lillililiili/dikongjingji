@@ -107,6 +107,9 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
+                        // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/trade/channels/wechat/notifications").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(errors -> errors

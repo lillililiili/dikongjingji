@@ -18,6 +18,10 @@ import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadSe
 import com.lowaltitude.inspection.mall.application.MallCatalogReadService;
 import com.lowaltitude.inspection.mall.application.MallCartService;
 import com.lowaltitude.inspection.account.application.AccountAddressService;
+import com.lowaltitude.inspection.trade.application.TradeOrderService;
+import com.lowaltitude.inspection.trade.application.TradePaymentService;
+import com.lowaltitude.inspection.trade.application.TradeReconciliationService;
+import com.lowaltitude.inspection.trade.application.TradeRefundService;
 import com.lowaltitude.inspection.notification.application.NotificationService;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
 import com.lowaltitude.inspection.application.reservation.CustomerReservationQueryService;
@@ -60,6 +64,10 @@ import org.springframework.web.bind.annotation.RestController;
         MallCatalogReadService.class,
         MallCartService.class,
         AccountAddressService.class,
+        TradeOrderService.class,
+        TradePaymentService.class,
+        TradeRefundService.class,
+        TradeReconciliationService.class,
         NotificationService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,

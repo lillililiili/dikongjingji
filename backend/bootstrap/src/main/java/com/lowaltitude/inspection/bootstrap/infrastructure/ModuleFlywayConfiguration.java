@@ -111,11 +111,32 @@ public class ModuleFlywayConfiguration {
         return factory.account(dataSource);
     }
 
+    // 交易表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway tradeFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.trade(dataSource);
+    }
+
     // 商城表引用 identity_organization，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")
     Flyway mallFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
         return factory.mall(dataSource);
+    }
+
+    // 示例商家的收款账户，引用商城示例数据建的机构，所以排在商城开发数据之后。
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn({"tradeFlyway", "mallDevelopmentDataFlyway"})
+    Flyway tradeDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/trade")
+                .table("flyway_history_trade_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
     }
 
     @Bean(initMethod = "migrate")

@@ -18,3 +18,11 @@ inspection:
   infrastructure:
     storage:
       environment: test
+
+trade:
+  timeout:
+    enabled: false
+  payment-jobs:
+    enabled: false
+  reconciliation:
+    enabled: false
