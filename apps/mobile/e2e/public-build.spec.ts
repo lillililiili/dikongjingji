@@ -258,4 +258,26 @@ test.describe('公开构建', () => {
     await expect(page.getByTestId('message-conversations')).toHaveCount(0)
     expect(calls).toEqual([])
   })
+
+  test('PUB-016 发现页图文和专题未开通：发现页保持原样不读内容，图文详情、专题页只有说明', async ({ page }) => {
+    const calls: string[] = []
+    page.on('request', (request) => { if (request.url().includes('/api/v1/content/')) calls.push(request.url()) })
+
+    await page.goto('/?n=discover#/pages/home/index')
+    await page.getByTestId('root-tab-discover').click()
+    await expect(page.getByText('发现频道尚未开通')).toBeVisible()
+    await expect(page.getByTestId('content-discover')).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: '案例' })).toHaveCount(0)
+
+    for (const route of [
+      '/pages/content/article?articleId=f3000000-0000-4000-8000-000000000001&cityCode=370500',
+      '/pages/content/topic?topicId=f3100000-0000-4000-8000-000000000001&cityCode=370500',
+    ]) {
+      await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
+      await expect(page.getByTestId('content-unavailable')).toContainText('发现频道尚未开通')
+      await expect(page.getByTestId('content-article')).toHaveCount(0)
+      await expect(page.getByTestId('content-topic')).toHaveCount(0)
+    }
+    expect(calls).toEqual([])
+  })
 })

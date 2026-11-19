@@ -387,6 +387,20 @@
         "navigationBarTitleText": "关于",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/content/article",
+      "style": {
+        "navigationBarTitleText": "内容",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/content/topic",
+      "style": {
+        "navigationBarTitleText": "专题",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

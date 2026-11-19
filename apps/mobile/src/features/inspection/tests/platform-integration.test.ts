@@ -77,10 +77,14 @@ describe('platform root page integration', () => {
   })
 
   it('uses one explicit preview gate across all three preview routes', () => {
-    for (const source of [homePageSource, discoverPageSource, mallPageSource]) {
+    for (const source of [homePageSource, mallPageSource]) {
       expect(source).toContain('PLATFORM_PREVIEW_ENABLED')
       expect(source).not.toContain('import.meta.env.DEV')
     }
+    // 发现 (step H1) uses the content feature's copy of the same expression, so the shared flag
+    // stays in the home chunk (content-routes.test.ts keeps the expressions identical).
+    expect(discoverPageSource).toContain('v-if="CONTENT_PREVIEW_ENABLED"')
+    expect(discoverPageSource).not.toContain('import.meta.env.DEV')
   })
 
   it('keeps ready scroll views mounted while cached root pages refresh', () => {

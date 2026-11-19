@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import discoverRouteSource from '../../../pages/discover/index.vue?raw'
 import mallRouteSource from '../../../pages/mall/index.vue?raw'
 import { createPlatformFeatureGateway } from '../application/platform-feature-gateway'
 import type { PlatformFeatureIntent } from '../domain/platform-feature-intent'
-import discoverPageSource from '../presentation/discover/PlatformDiscoverPage.vue?raw'
 import mallPageSource from '../presentation/mall/PlatformMallPage.vue?raw'
 import headerSource from '../../../app-shell/components/AppHeader.vue?raw'
 
@@ -43,7 +41,6 @@ describe('platform header location behavior', () => {
   })
 
   it.each([
-    ['discover', discoverPageSource],
     ['mall', mallPageSource],
   ] as const)('executes the %s AppHeader listener and emits OPEN_LOCATION', (
     _name,
@@ -60,8 +57,8 @@ describe('platform header location behavior', () => {
     expect(locationFeedbackGateway.resolve(intent).action).toBe('SHOW_NEXT_PHASE')
   })
 
-  it('wires emitted intents to the route feedback handlers in Discover and Mall', () => {
-    for (const source of [discoverRouteSource, mallRouteSource]) {
+  it('wires emitted intents to the route feedback handlers in Mall', () => {
+    for (const source of [mallRouteSource]) {
       expect(source).toContain("OPEN_LOCATION: 'NEXT_PHASE'")
       expect(source).toContain('@intent="handleIntent"')
     }
@@ -75,26 +72,23 @@ describe('platform header location behavior', () => {
     expect(headerSource).toContain('width: 18px')
     expect(headerSource).toContain('height: 18px')
 
-    for (const source of [discoverPageSource, mallPageSource]) {
+    for (const source of [mallPageSource]) {
       expect(source).toContain(':weather="weather"')
     }
 
-    for (const source of [discoverRouteSource, mallRouteSource]) {
+    for (const source of [mallRouteSource]) {
       expect(source).toContain('createCurrentCityWeatherLoader')
       expect(source).toContain('weatherLoader.load(currentCityStore.currentCity)')
       expect(source).toContain(':weather="weather"')
     }
   })
 
-  it('keeps the shared header close to the Discover and Mall hero without scaling content', () => {
-    expect(discoverPageSource).toMatch(
-      /<AppHeader[\s\S]*?\/>\s*<PlatformHeroBanner/,
-    )
+  it('keeps the shared header close to the Mall hero without scaling content', () => {
     expect(mallPageSource).toMatch(
       /<AppHeader[\s\S]*?\/>\s*<PlatformHeroBanner/,
     )
 
-    for (const source of [discoverPageSource, mallPageSource]) {
+    for (const source of [mallPageSource]) {
       expect(source).not.toMatch(/transform:\s*scale/)
       expect(source).not.toMatch(/font-stretch:/)
     }

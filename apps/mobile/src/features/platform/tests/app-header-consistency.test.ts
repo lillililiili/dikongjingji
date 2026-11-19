@@ -5,7 +5,6 @@ import rootTabBarSource from '../../../app-shell/components/RootAppTabBar.vue?ra
 import homeRouteSource from '../../../pages/home/index.vue?raw'
 import homePageSource from '../../inspection/presentation/platform/home/PlatformHomePage.vue?raw'
 import minePageSource from '../../inspection/presentation/platform/mine/PlatformMinePage.vue?raw'
-import discoverPageSource from '../presentation/discover/PlatformDiscoverPage.vue?raw'
 import mallPageSource from '../presentation/mall/PlatformMallPage.vue?raw'
 import heroBannerSource from '../../../shared/presentation/PlatformHeroBanner.vue?raw'
 
@@ -16,13 +15,13 @@ const appHeaderModules = import.meta.glob('../../../app-shell/components/AppHead
 }) as Record<string, string>
 const appHeaderSource = Object.values(appHeaderModules)[0] ?? ''
 
+// 发现 has its own title row from the board Discover since step H1 (content feature).
 const APP_HEADER_PAGE_SOURCES = [
-  discoverPageSource,
   mallPageSource,
 ]
 
 describe('root page AppHeader consistency', () => {
-  it('renders the shared AppHeader on Discover and Mall, the two-layer header on Home, and neither on Mine', () => {
+  it('renders the shared AppHeader on Mall, the two-layer header on Home, and neither on Mine', () => {
     for (const source of APP_HEADER_PAGE_SOURCES) {
       expect(source).toContain("AppHeader")
       expect(source).toContain('<AppHeader')
@@ -31,7 +30,6 @@ describe('root page AppHeader consistency', () => {
     expect(homeRouteSource).toContain('<HomeHeader')
     expect(homeRouteSource).not.toContain('<AppHeader')
     expect(homePageSource).not.toContain('<AppHeader')
-    expect(discoverPageSource).not.toContain('PlatformPageHeader')
     expect(mallPageSource).not.toContain('PlatformPageHeader')
     expect(minePageSource).not.toContain('AppHeader')
     expect(minePageSource).not.toContain('<AppHeader')
@@ -65,11 +63,11 @@ describe('root page AppHeader consistency', () => {
     expect(appHeaderSource).not.toContain('margin-left: calc((100% - 100vw) / 2)')
   })
 
-  it('uses one primary Banner height token on Home, Discover, and Mall', () => {
+  it('uses one primary Banner height token on Home and Mall', () => {
     expect(appSource).toContain('--app-primary-banner-height: 248rpx')
     expect(heroBannerSource).toMatch(/height:\s*var\(--app-primary-banner-height\)/)
 
-    for (const source of [homePageSource, discoverPageSource, mallPageSource]) {
+    for (const source of [homePageSource, mallPageSource]) {
       expect(source).toContain('<PlatformHeroBanner')
     }
   })

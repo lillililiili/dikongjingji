@@ -1,56 +1,23 @@
 <script setup lang="ts">
-import { onShow } from '@dcloudio/uni-app'
-import { computed, ref } from 'vue'
+import { onReachBottom, onShow } from '@dcloudio/uni-app'
+import { ref } from 'vue'
 
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
-import {
-  createPlatformFeatureGateway,
-  type PlatformFeatureAvailability,
-} from '@/features/platform/application/platform-feature-gateway'
-import { PLATFORM_PREVIEW_ENABLED } from '@/features/platform/application/platform-preview'
-import { DEVELOPMENT_PLATFORM_DISCOVER_CONTENT } from '@/features/platform/data/development/platform-discover.fixture'
-import type { PlatformDiscoverContent } from '@/features/platform/domain/platform-discover-content'
-import type { PlatformFeatureIntent } from '@/features/platform/domain/platform-feature-intent'
-import PlatformDiscoverPage from '@/features/platform/presentation/discover/PlatformDiscoverPage.vue'
+import { buildActivityDetailUrl } from '@/features/activity/navigation/activity-routes'
+import { CONTENT_PREVIEW_ENABLED } from '@/features/content/application/content-preview'
+import { buildContentArticleUrl, buildContentTopicUrl } from '@/features/content/navigation/content-routes'
+import ContentDiscoverPage from '@/features/content/presentation/discover/ContentDiscoverPage.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
-import {
-  createCurrentCityWeatherLoader,
-  createPlatformWeatherApi,
-  type PlatformWeatherPresentation,
-} from '@/shared/weather/platform-weather'
-import { createUniPlatformWeatherHttpClient } from '@/shared/weather/uni-platform-weather-http-client'
 
+// 发现 (step H1): articles, topics and the city's activities in preview builds. Public builds keep
+// the closed notice above the root bar until the discover content is released.
+//
+// The gate is the content feature's own copy of the preview expression, not the shared
+// PLATFORM_PREVIEW_ENABLED: this page shares the activity modules with the home page, and importing
+// the shared flag here moves it into a common chunk where the minifier cannot fold it, which leaves
+// the home page's sample content in the public bundle (see activity-preview.ts).
 const currentCityStore = useCurrentCityStore()
-const content = ref<PlatformDiscoverContent | null>(null)
-const weather = ref<PlatformWeatherPresentation>({
-  available: false,
-  text: '',
-  iconUrl: '/static/images/inspection/platform/weather-unknown.png',
-  conditionCode: 'UNKNOWN',
-  observedAt: null,
-})
-const weatherLoader = createCurrentCityWeatherLoader(
-  createPlatformWeatherApi(createUniPlatformWeatherHttpClient({
-    getAccessToken: () => null,
-  })),
-)
-const cityName = computed(
-  () => currentCityStore.currentCity?.name ?? '选择城市',
-)
-const featureAvailability: PlatformFeatureAvailability = PLATFORM_PREVIEW_ENABLED
-  ? {
-      SEARCH: 'NEXT_PHASE',
-      OPEN_MESSAGE_CENTER: 'NEXT_PHASE',
-      OPEN_ITEM: 'NEXT_PHASE',
-      OPEN_LOCATION: 'NEXT_PHASE',
-    }
-  : {
-      SEARCH: 'HIDDEN',
-      OPEN_MESSAGE_CENTER: 'HIDDEN',
-      OPEN_ITEM: 'HIDDEN',
-      OPEN_LOCATION: 'HIDDEN',
-    }
-const featureGateway = createPlatformFeatureGateway(featureAvailability)
+const discover = ref<{ loadMore(): void; refresh(): void } | null>(null)
 
 function restoreDefaultCity(): void {
   if (currentCityStore.currentCity) return
@@ -59,37 +26,37 @@ function restoreDefaultCity(): void {
   if (code && name) currentCityStore.setCurrentCity({ code, name })
 }
 
-function loadContent(): void {
-  if (!PLATFORM_PREVIEW_ENABLED) return
-  content.value = DEVELOPMENT_PLATFORM_DISCOVER_CONTENT
+function openArticle(articleId: string, cityCode: string): void {
+  uni.navigateTo({ url: buildContentArticleUrl(articleId, cityCode) })
 }
 
-async function loadWeather(): Promise<void> {
-  weather.value = await weatherLoader.load(currentCityStore.currentCity)
+function openTopic(topicId: string, cityCode: string): void {
+  uni.navigateTo({ url: buildContentTopicUrl(topicId, cityCode) })
 }
 
-function handleIntent(intent: PlatformFeatureIntent): void {
-  const resolution = featureGateway.resolve(intent)
-  if (resolution.action === 'SHOW_NEXT_PHASE') {
-    uni.showToast({ title: resolution.message, icon: 'none' })
-  }
+function openActivity(activityId: string, cityCode: string): void {
+  uni.navigateTo({ url: buildActivityDetailUrl(activityId, cityCode) })
 }
 
 onShow(() => {
+  if (!CONTENT_PREVIEW_ENABLED) return
   restoreDefaultCity()
-  void loadContent()
-  void loadWeather()
+  discover.value?.refresh()
+})
+
+onReachBottom(() => {
+  discover.value?.loadMore()
 })
 </script>
 
 <template>
   <view data-testid="discover-page">
-    <PlatformDiscoverPage
-      v-if="content"
-      :city-name="cityName"
-      :weather="weather"
-      :content="content"
-      @intent="handleIntent"
+    <ContentDiscoverPage
+      v-if="CONTENT_PREVIEW_ENABLED"
+      ref="discover"
+      @open-article="openArticle"
+      @open-topic="openTopic"
+      @open-activity="openActivity"
     />
     <view v-else class="platform-page-unavailable">
       <text>发现频道尚未开通</text>
