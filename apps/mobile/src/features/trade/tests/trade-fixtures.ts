@@ -86,3 +86,29 @@ export function enrollmentOrder(overrides: Partial<TradeOrder> = {}): TradeOrder
     ...overrides,
   })
 }
+
+// A venue booking's order (E10): one person, no delivery, the venue's operator is the payee.
+export function venueOrder(overrides: Partial<TradeOrder> = {}): TradeOrder {
+  return tradeOrder({
+    orderNo: 'VO2026112012345678',
+    source: 'VENUE',
+    sourceRef: 'b-1',
+    merchant: { organizationId: 'org-4', name: '东营低空与机器人体验馆', kind: null },
+    lines: [{
+      lineId: 'l-1',
+      productId: 'p-1',
+      offerId: 's-1',
+      productName: '东营低空与机器人体验馆 机器人避障闯关',
+      skuName: '11月21日 10:00',
+      coverImage: null,
+      unitAmountMinor: 3900,
+      quantity: 1,
+      subtotalMinor: 3900,
+    }],
+    delivery: null,
+    amounts: { goodsMinor: 3900, shippingMinor: 0, payableMinor: 3900, paidMinor: 0, refundedMinor: 0 },
+    // 14:45 left at NOW.
+    payBefore: '2026-11-18T02:14:45Z',
+    ...overrides,
+  })
+}

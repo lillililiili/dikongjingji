@@ -9,7 +9,7 @@ import {
   formatTradeTime,
 } from '../../application/order-view'
 import {
-  isEnrollmentOrder,
+  failedNote,
   orderDestination,
   orderLinkLabel,
   paidFrame,
@@ -57,7 +57,6 @@ const result = computed(() => (order.value ? paymentCheckResult(order.value) : n
 const destination = computed(() => (order.value ? orderDestination(order.value) : null))
 const linkLabel = computed(() => (order.value ? orderLinkLabel(order.value) : '查看订单'))
 const paid = computed(() => (order.value ? paidFrame(order.value) : { title: '已支付', note: null }))
-const enrollment = computed(() => Boolean(order.value && isEnrollmentOrder(order.value)))
 
 function viewOrder(): void {
   if (destination.value) emit('viewOrder', destination.value)
@@ -197,7 +196,7 @@ onBeforeUnmount(() => {
         </view>
         <text class="pay-result__title">支付失败</text>
         <text class="pay-result__text">支付未成功，如已扣款将原路退回</text>
-        <text class="pay-result__note">{{ enrollment ? '名额仍为你保留，超时自动释放' : '订单仍为待付款，超时订单自动取消' }}</text>
+        <text class="pay-result__note">{{ failedNote(order) }}</text>
         <view class="pay-result__actions">
           <button class="pay-result__secondary" data-testid="pay-result-view-order" @click="viewOrder">{{ linkLabel }}</button>
           <button class="pay-result__primary" data-testid="pay-result-repay" @click="emit('repay')">重新支付</button>

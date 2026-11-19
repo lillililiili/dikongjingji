@@ -120,4 +120,21 @@ test.describe('公开构建', () => {
       await expect(page.getByTestId('cashier')).toHaveCount(0)
     }
   })
+
+  test('PUB-010 到馆预约未开通：“我的”里没有入口，确认页、核销码、我的到馆预约只有说明', async ({ page }) => {
+    await page.goto('/#/pages/mine/index')
+    await expect(page.locator('.platform-mine__status-card')).toBeVisible()
+    await expect(page.getByTestId('mine-link-venue_bookings')).toHaveCount(0)
+    for (const route of [
+      '/pages/venue/book?venueId=b2000000-0000-4000-8000-000000000001&cityCode=370500&projectId=b4000000-0000-4000-8000-000000000101&sessionId=00000000-0000-4000-8000-000000000001&date=2026-11-20',
+      '/pages/venue/booking?bookingId=00000000-0000-4000-8000-000000000001',
+      '/pages/mine/venue-bookings',
+    ]) {
+      await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
+      await expect(page.getByTestId('venue-booking-unavailable')).toContainText('到馆预约功能尚未开通')
+      await expect(page.getByTestId('venue-book')).toHaveCount(0)
+      await expect(page.getByTestId('venue-booking')).toHaveCount(0)
+      await expect(page.getByTestId('venue-bookings')).toHaveCount(0)
+    }
+  })
 })

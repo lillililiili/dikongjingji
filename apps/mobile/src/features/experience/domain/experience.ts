@@ -37,6 +37,9 @@ export interface VenueProject {
   capacity: number
   limitNote: string | null
   priceAmountMinor: number
+  // 1.1.0: a priced project the venue can take payment for. False on a free project (no payment)
+  // and on a priced one whose operator has no WeChat account yet (the confirm page cannot submit).
+  onlinePayment: boolean
 }
 
 export interface VenueInfoItem {

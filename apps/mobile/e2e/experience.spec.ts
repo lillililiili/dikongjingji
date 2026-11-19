@@ -149,7 +149,7 @@ test.describe('体验频道', () => {
 })
 
 test.describe('场馆详情', () => {
-  test('VEN-101 场馆卡 → 详情 → 选项目和场次 → “预约到馆”给出提示', async ({ page }) => {
+  test('VEN-101 场馆卡 → 详情 → 选项目和场次 → “预约到馆”进确认页（游客先去登录）', async ({ page }) => {
     await openExperienceChannel(page)
     await page.getByTestId('experience-mode-offline').click()
     await page.getByTestId(`venue-card-${VENUE_ID}`).click()
@@ -186,10 +186,15 @@ test.describe('场馆详情', () => {
     await expect(page.getByTestId('venue-detail-bar-line')).toContainText('明天')
     await expect(book).not.toHaveAttribute('disabled', 'true')
 
+    // E10: no longer a "coming soon" prompt. A guest is sent to sign in first, with the confirm page
+    // (venue, project, session and its day in the URL) as where to come back to.
     await book.click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('到馆预约即将开放')
-    await expect(page.getByTestId('venue-detail')).toBeVisible()
+    await expect(page.locator('.inspection-login__form')).toBeVisible()
+    const returnUrl = decodeURIComponent(new URL(page.url().replace('/#/', '/')).searchParams.get('returnUrl') ?? '')
+    expect(returnUrl).toMatch(new RegExp(`^/pages/venue/book\\?venueId=${VENUE_ID}&cityCode=370500&projectId=${ROBOT_PROJECT_ID}&sessionId=[0-9a-f-]{36}&date=\\d{4}-\\d{2}-\\d{2}$`))
 
+    await page.goBack()
+    await expect(page.getByTestId('venue-detail-name')).toBeVisible()
     await page.getByTestId('venue-detail-back').click()
     await expect(page.getByTestId('experience-channel')).toBeVisible()
   })

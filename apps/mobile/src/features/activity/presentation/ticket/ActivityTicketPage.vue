@@ -15,7 +15,7 @@ import {
   paymentRemainingMs,
   pickInitialTicket,
 } from '../../application/enrollment-view'
-import { ticketQrImage } from '../../application/ticket-qr'
+import { ticketQrImage } from '@/shared/qr/ticket-qr'
 import { enrollmentApi } from '../../data/enrollment-api-client'
 import type { Enrollment, EnrollmentTicket } from '../../domain/enrollment'
 import {

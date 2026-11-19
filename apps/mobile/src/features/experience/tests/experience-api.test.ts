@@ -75,6 +75,7 @@ describe('experience api', () => {
         limitNote: '未满 8 岁需 1 名成人陪同',
         priceAmountMinor: 3900,
         currency: 'CNY',
+        onlinePayment: true,
       }],
       infoItems: [{ label: '到馆须知', content: '请提前 10 分钟到馆' }],
       deviceCount: 6,
@@ -92,6 +93,7 @@ describe('experience api', () => {
       capacity: 8,
       limitNote: '未满 8 岁需 1 名成人陪同',
       priceAmountMinor: 3900,
+      onlinePayment: true,
     })
     expect(venue.deviceCount).toBe(6)
   })

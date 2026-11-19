@@ -10,7 +10,8 @@ import {
   buildInspectionLoginUrl,
 } from '@/features/inspection/navigation/inspection-routes'
 
-const fromEnroll = ref(false)
+// Opened from a form (activity sign-up or venue booking): adding someone offers the way back to it.
+const returnLabel = ref<string | null>(null)
 const accessToken = ref<string | null>(null)
 const refreshKey = ref(0)
 const shown = ref(false)
@@ -28,7 +29,8 @@ function openLogin(): void {
 }
 
 onLoad((query) => {
-  fromEnroll.value = query?.from === 'enroll'
+  if (query?.from === 'enroll') returnLabel.value = '返回报名填写'
+  if (query?.from === 'venue') returnLabel.value = '返回预约确认'
 })
 
 onShow(() => {
@@ -43,7 +45,7 @@ onShow(() => {
     v-if="shown"
     :access-token="accessToken"
     :refresh-key="refreshKey"
-    :from-enroll="fromEnroll"
+    :return-label="returnLabel"
     @back="goBack"
     @login="openLogin"
   />

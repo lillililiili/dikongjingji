@@ -8,6 +8,8 @@ import {
   ACTIVITY_PARTICIPANTS_PATH,
   buildActivityEnrollmentsUrl,
 } from '@/features/activity/navigation/activity-routes'
+import { EXPERIENCE_PREVIEW_ENABLED } from '@/features/experience/application/experience-preview'
+import { buildVenueBookingsUrl } from '@/features/experience/navigation/experience-routes'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
   createLatestRequestCoordinator,
@@ -69,9 +71,11 @@ const featureEntries: PlatformMineFeatureEntry[] = [
 ]
 // Activity sign-up lives behind the same switch as the 赛事研学 channel; both pages ask for a
 // login themselves and come back here if the user gives up.
-const joinEntries: PlatformMineLinkEntry[] = ACTIVITY_PREVIEW_ENABLED
-  ? [{ code: 'ACTIVITY_ENROLLMENTS', title: '活动报名', icon: 'flag' }]
-  : []
+// Venue booking (E10) sits next to it behind the 体验 channel's switch, which reads the same flag.
+const joinEntries: PlatformMineLinkEntry[] = [
+  ...(ACTIVITY_PREVIEW_ENABLED ? [{ code: 'ACTIVITY_ENROLLMENTS', title: '活动报名', icon: 'flag' }] : []),
+  ...(EXPERIENCE_PREVIEW_ENABLED ? [{ code: 'VENUE_BOOKINGS', title: '到馆预约', icon: 'location' }] : []),
+]
 const linkRows: PlatformMineLinkEntry[] = ACTIVITY_PREVIEW_ENABLED
   ? [{ code: 'ACTIVITY_PARTICIPANTS', title: '参与人管理', icon: 'staff' }]
   : []
@@ -202,6 +206,7 @@ function openLogin(): void {
 function openLink(code: string): void {
   if (code === 'ACTIVITY_ENROLLMENTS') uni.navigateTo({ url: buildActivityEnrollmentsUrl() })
   if (code === 'ACTIVITY_PARTICIPANTS') uni.navigateTo({ url: ACTIVITY_PARTICIPANTS_PATH })
+  if (code === 'VENUE_BOOKINGS') uni.navigateTo({ url: buildVenueBookingsUrl() })
 }
 
 function openAllOrders(): void {

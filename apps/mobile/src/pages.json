@@ -199,6 +199,27 @@
       }
     },
     {
+      "path": "pages/venue/book",
+      "style": {
+        "navigationBarTitleText": "确认到馆预约",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/venue/booking",
+      "style": {
+        "navigationBarTitleText": "到馆核销码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/venue-bookings",
+      "style": {
+        "navigationBarTitleText": "到馆预约",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/venue/detail",
       "style": {
         "navigationBarTitleText": "场馆详情",

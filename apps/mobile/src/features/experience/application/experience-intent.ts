@@ -1,9 +1,9 @@
 import type { ExperienceType } from '../domain/experience'
 
-// Entries that this read-only step does not build. They go through this typed gate instead of ad-hoc toasts.
+// Entries that are not built yet. They go through this typed gate instead of ad-hoc toasts.
+// Venue booking left the gate in E10 (plan §21): 预约到馆 opens the confirm page.
 export type ExperienceIntent =
   | { type: 'OPEN_EXPERIENCE'; experienceId: string; experienceType: ExperienceType }
-  | { type: 'BOOK_VENUE_SESSION'; venueId: string; projectId: string; sessionId: string }
 
 export type ExperienceIntentResolution =
   | { action: 'SHOW_NOTICE'; message: string }
@@ -24,8 +24,6 @@ export function resolveExperienceIntent(
   if (!previewEnabled) return { action: 'HIDE' }
   return {
     action: 'SHOW_NOTICE',
-    message: intent.type === 'OPEN_EXPERIENCE'
-      ? EXPERIENCE_NOTICES[intent.experienceType]
-      : '到馆预约即将开放',
+    message: EXPERIENCE_NOTICES[intent.experienceType],
   }
 }

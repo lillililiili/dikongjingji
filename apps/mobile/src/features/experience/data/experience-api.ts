@@ -64,6 +64,8 @@ interface VenueDetailDto {
     limitNote: string | null
     priceAmountMinor: number
     currency: string
+    // Left out by a server before 1.1.0.
+    onlinePayment?: boolean
   }[]
   infoItems: VenueInfoItem[]
   deviceCount: number
@@ -184,6 +186,7 @@ export function createExperienceApi(http: PublicApiHttpClient): ExperienceApi {
           capacity: project.capacity,
           limitNote: project.limitNote,
           priceAmountMinor: project.priceAmountMinor,
+          onlinePayment: Boolean(project.onlinePayment),
         })),
         infoItems: dto.infoItems.map((item) => ({ label: item.label, content: item.content })),
         deviceCount: dto.deviceCount,

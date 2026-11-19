@@ -15,6 +15,10 @@ const COVERS: Record<string, string> = {
   // venues
   'b2000000-0000-4000-8000-000000000001': 'venue-exterior',
   'b2000000-0000-4000-8000-000000000002': 'field-outdoor',
+  // venue projects (the confirm page of a venue booking)
+  'b4000000-0000-4000-8000-000000000101': 'robot-rover',
+  'b4000000-0000-4000-8000-000000000102': 'sim-drone',
+  'b4000000-0000-4000-8000-000000000103': 'robot-classroom',
   // devices on display
   'b5000000-0000-4000-8000-000000000101': 'robot-rover',
   'b5000000-0000-4000-8000-000000000102': 'drone-aerial',

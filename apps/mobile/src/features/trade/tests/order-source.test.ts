@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
   cancelUnpaidConfirm,
+  cancelledToast,
   cashierClosedNote,
   cashierCountdownLine,
   cashierDueNote,
   cashierRows,
+  failedNote,
+  isSourceOrder,
   orderDestination,
   orderLinkLabel,
   paidFrame,
@@ -13,7 +16,7 @@ import {
 import { TRADE_COMMAND_CONFIRMS } from '../application/order-commands'
 import { describeOrderStatus, listCardGoods } from '../application/order-view'
 import { toTradeOrder } from '../data/trade-api'
-import { NOW, enrollmentOrder, paidOrder, tradeOrder } from './trade-fixtures'
+import { NOW, enrollmentOrder, paidOrder, tradeOrder, venueOrder } from './trade-fixtures'
 
 describe('order source (contract 0.2.0)', () => {
   it('reads a sign-up order without delivery or merchant type, and an older order as a mall order', () => {
@@ -70,5 +73,38 @@ describe('order source (contract 0.2.0)', () => {
     const order = enrollmentOrder({ status: 'PAID' })
     expect(describeOrderStatus(order, NOW)).toEqual({ label: '已付款', tone: 'DONE' })
     expect(listCardGoods(order)).toEqual({ name: '机器人研学体验', spec: '11月28日 09:30 上午 × 2' })
+  })
+
+  it('reads a venue booking order and leads it to the booking\'s code (E10)', () => {
+    const order = toTradeOrder({ ...venueOrder(), merchant: { organizationId: 'org-4', name: '东营低空与机器人体验馆', kind: null } } as never)
+    expect(order).toMatchObject({ source: 'VENUE', sourceRef: 'b-1', delivery: null })
+    expect(isSourceOrder(order)).toBe(true)
+    expect(orderDestination(order)).toEqual({ kind: 'VENUE_BOOKING', bookingId: 'b-1' })
+    expect(orderDestination(venueOrder({ sourceRef: null }))).toEqual({ kind: 'GOODS_ORDER', orderId: 'o-1' })
+  })
+
+  it('describes a venue booking on the cashier like the board CashierVenue', () => {
+    const order = venueOrder()
+    expect(cashierRows(order)).toEqual([
+      { key: 'venue-item', label: '预约内容', value: '东营低空与机器人体验馆 机器人避障闯关 · 11月21日 10:00' },
+      { key: 'people', label: '人数', value: '1 人' },
+    ])
+    expect(cashierDueNote(order)).toBe('到馆体验费 1 人 × ¥39')
+    expect(cashierCountdownLine(order, NOW)).toBe('剩余支付时间 14:45 · 超时释放场次名额')
+    expect(cashierClosedNote(order)).toBe('没有扣款，名额已释放')
+    expect(cancelUnpaidConfirm(order).title).toBe('取消预约')
+    expect(cancelledToast(order)).toBe('预约已取消')
+    expect(failedNote(order)).toBe('预约仍为待支付，超时释放场次名额')
+    expect(orderLinkLabel(order)).toBe('查看预约')
+    expect(orderLinkLabel(venueOrder({ status: 'PAID' }))).toBe('查看核销码')
+    expect(paidFrame(venueOrder({ status: 'PAID' }))).toEqual({ title: '预约成功 · 已支付', note: '核销码已生成，到馆时出示' })
+  })
+
+  it('keeps the wording of mall and sign-up orders on the shared messages', () => {
+    expect(cancelledToast(tradeOrder())).toBe('订单已取消')
+    expect(cancelledToast(enrollmentOrder())).toBe('报名已取消')
+    expect(failedNote(tradeOrder())).toBe('订单仍为待付款，超时订单自动取消')
+    expect(failedNote(enrollmentOrder())).toBe('名额仍为你保留，超时自动释放')
+    expect(isSourceOrder(tradeOrder())).toBe(false)
   })
 })

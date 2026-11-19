@@ -1,4 +1,5 @@
-// A QR code for one enrolment ticket code ("ACT-XXXX-XXXX-XXXX").
+// A QR code for one short check-in code: an enrolment ticket ("ACT-XXXX-XXXX-XXXX") or a venue
+// booking ("VEN-XXXX-XXXX-XXXX"). Shared since the venue booking (E10) draws the same kind of code.
 //
 // The project has no QR library, and a ticket only ever needs one short ASCII text, so this is
 // the smallest standard encoder that covers it: version 2 (25 × 25 modules), error correction

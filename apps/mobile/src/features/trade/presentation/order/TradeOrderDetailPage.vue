@@ -19,7 +19,7 @@ import {
   formatTradeTime,
   type TradeOrderAction,
 } from '../../application/order-view'
-import { isEnrollmentOrder, orderDestination, type TradeOrderDestination } from '../../application/order-source'
+import { isSourceOrder, orderDestination, type TradeOrderDestination } from '../../application/order-source'
 import { isUnauthorizedFailure, readTradeFailure } from '../../application/start-payment'
 import { createTradeKey } from '../../application/trade-keys'
 import { tradeApi } from '../../data/trade-api-client'
@@ -86,7 +86,7 @@ async function load(): Promise<void> {
   try {
     const loaded = await tradeApi.read(token, props.orderId)
     if (requested !== requestVersion) return
-    if (isEnrollmentOrder(loaded)) {
+    if (isSourceOrder(loaded)) {
       emit('elsewhere', orderDestination(loaded))
       return
     }

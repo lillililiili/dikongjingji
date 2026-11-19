@@ -5,7 +5,7 @@ import {
   encodeTicketQr,
   ticketQrImage,
   ticketQrPath,
-} from '../application/ticket-qr'
+} from './ticket-qr'
 
 // Each row of the code for "ACT-1234-5678-9ABC" as 25 bits in hex. This exact pattern was
 // rendered to an image and read back as the same text by the macOS QR detector (2026-11-17);

@@ -12,7 +12,8 @@ import {
   cashierCountdownLine,
   cashierDueNote,
   cashierRows,
-  isEnrollmentOrder,
+  cancelledToast,
+  isSourceOrder,
   orderDestination,
   orderLinkLabel,
   type TradeOrderDestination,
@@ -80,7 +81,8 @@ const closedText = computed(() => closedFrame.value.text)
 const countdownLine = computed(() => (order.value ? cashierCountdownLine(order.value, now.value) : ''))
 const dueNote = computed(() => (order.value ? cashierDueNote(order.value) : null))
 const rows = computed(() => (order.value ? cashierRows(order.value) : []))
-const enrollment = computed(() => Boolean(order.value && isEnrollmentOrder(order.value)))
+// A sign-up or a venue booking: one way on, to its own page, instead of 查看订单 / 重新选购.
+const sourceOrder = computed(() => Boolean(order.value && isSourceOrder(order.value)))
 const destination = computed(() => (order.value ? orderDestination(order.value) : null))
 const amountText = computed(() => (order.value ? formatTradeAmount(order.value.amounts.payableMinor) : ''))
 
@@ -159,7 +161,7 @@ async function cancel(): Promise<void> {
     })
     cancelledHere.value = true
     state.value = { kind: 'ready', order: cancelled }
-    uni.showToast({ title: isEnrollmentOrder(cancelled) ? '报名已取消' : '订单已取消', icon: 'none' })
+    uni.showToast({ title: cancelledToast(cancelled), icon: 'none' })
   } catch (error) {
     const failure = classifyOrderCommandFailure(error)
     if (failure.kind === 'UNAUTHORIZED') {
@@ -272,7 +274,7 @@ onBeforeUnmount(() => {
           </button>
         </template>
         <button
-          v-else-if="enrollment && destination"
+          v-else-if="sourceOrder && destination"
           class="cashier__primary cashier__primary--wide"
           data-testid="cashier-view-order"
           @click="emit('viewOrder', destination)"

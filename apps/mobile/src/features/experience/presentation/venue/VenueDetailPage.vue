@@ -5,15 +5,13 @@ import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import { ApiRequestError } from '@/shared/http/public-api-request'
-import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
 import { buildBeijingDayOptions, type BeijingDayOption } from '@/shared/time/beijing-time'
 
-import { resolveExperienceIntent } from '../../application/experience-intent'
 import { EXPERIENCE_PREVIEW_ENABLED } from '../../application/experience-preview'
 import { experienceApi } from '../../data/experience-api-client'
 import { resolveExperiencePreviewCover } from '../../data/preview/experience-preview-covers'
 import type { VenueDetail, VenueDevice, VenueProject, VenueSession } from '../../domain/experience'
-import { buildVenueDevicesUrl } from '../../navigation/experience-routes'
+import { buildVenueBookUrl, buildVenueDevicesUrl } from '../../navigation/experience-routes'
 import {
   formatVenuePrice,
   formatVenueProjectMeta,
@@ -21,6 +19,7 @@ import {
   formatVenueSessionTime,
   toDialNumber,
 } from '../shared/experience-format'
+import { openVenueNavigation } from '../shared/venue-navigation'
 
 type DetailState =
   | { kind: 'loading' }
@@ -160,42 +159,24 @@ function selectSession(session: VenueSession): void {
   selectedSessionId.value = session.sessionId
 }
 
+// Preview builds only (the bar is hidden otherwise): the confirm page reads the session again.
 function book(): void {
   const session = selectedSession.value
   const project = selectedProject.value
   if (!session || !project) return
-  const resolution = resolveExperienceIntent(
-    { type: 'BOOK_VENUE_SESSION', venueId, projectId: project.projectId, sessionId: session.sessionId },
-    EXPERIENCE_PREVIEW_ENABLED,
-  )
-  if (resolution.action === 'SHOW_NOTICE') {
-    uni.showToast({ title: resolution.message, icon: 'none' })
-  }
-}
-
-function copyAddress(address: string): void {
-  uni.setClipboardData({
-    data: address,
-    success: () => uni.showToast({ title: '已复制地址', icon: 'none' }),
+  uni.navigateTo({
+    url: buildVenueBookUrl({
+      venueId,
+      projectId: project.projectId,
+      sessionId: session.sessionId,
+      date: selectedDate.value,
+      cityCode,
+    }),
   })
 }
 
 function openNavigation(): void {
-  const target = venue.value
-  if (!target) return
-  if (target.latitude === null || target.longitude === null) {
-    copyAddress(target.address)
-    return
-  }
-  const point = wgs84ToGcj02({ latitude: target.latitude, longitude: target.longitude })
-  uni.openLocation({
-    latitude: point.latitude,
-    longitude: point.longitude,
-    name: target.name,
-    address: target.address,
-    // Without a map on this device the address is still useful in another app.
-    fail: () => copyAddress(target.address),
-  })
+  if (venue.value) openVenueNavigation(venue.value)
 }
 
 function callVenue(): void {

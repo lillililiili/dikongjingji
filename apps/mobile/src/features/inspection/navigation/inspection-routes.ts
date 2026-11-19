@@ -122,6 +122,14 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/trade/pay-result': { required: 'orderId', allowed: ['orderId'] },
   '/pages/mine/goods-orders': { allowed: ['tab'] },
   '/pages/mine/goods-order': { required: 'orderId', allowed: ['orderId'] },
+  // Venue booking pages (features/experience/navigation/experience-routes.ts, E10), repeated for
+  // the same reason; venue-booking-routes.test.ts checks them.
+  '/pages/venue/book': {
+    required: 'sessionId',
+    allowed: ['venueId', 'cityCode', 'projectId', 'sessionId', 'date'],
+  },
+  '/pages/venue/booking': { required: 'bookingId', allowed: ['bookingId'] },
+  '/pages/mine/venue-bookings': { allowed: ['bucket'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.

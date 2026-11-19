@@ -14,8 +14,9 @@ const props = defineProps<{
   // Null for a guest. The page host reads it again every time the page is shown.
   accessToken: string | null
   refreshKey: number
-  // Opened from the sign-up form: adding someone offers the way back to it.
-  fromEnroll: boolean
+  // Opened from a form (the sign-up form, or the venue booking's confirm page): adding someone offers
+  // the way back to it with these words.
+  returnLabel: string | null
 }>()
 
 const emit = defineEmits<{
@@ -98,7 +99,7 @@ async function load(): Promise<void> {
 
 function showToast(text: string, offersReturn = false): void {
   toast.value = text
-  toastOffersReturn.value = offersReturn && props.fromEnroll
+  toastOffersReturn.value = offersReturn && props.returnLabel !== null
 }
 
 function openAdd(): void {
@@ -369,7 +370,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
           data-testid="participants-back-to-enroll"
           @click="emit('back')"
         >
-          返回报名填写 ›
+          {{ returnLabel }} ›
         </button>
       </view>
       <button class="participants__add" data-testid="participants-add" @click="openAdd">

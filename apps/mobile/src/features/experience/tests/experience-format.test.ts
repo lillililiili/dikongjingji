@@ -38,6 +38,7 @@ const project: VenueProject = {
   capacity: 8,
   limitNote: null,
   priceAmountMinor: 3900,
+  onlinePayment: true,
 }
 
 const session: VenueSession = {
@@ -90,14 +91,11 @@ describe('venue formatting', () => {
 describe('experience intents', () => {
   it('explains in preview builds and hides in public builds', () => {
     const open = { type: 'OPEN_EXPERIENCE', experienceId: 'e', experienceType: 'SIMULATION' } as const
-    const book = { type: 'BOOK_VENUE_SESSION', venueId: 'v', projectId: 'p', sessionId: 's' } as const
 
     expect(resolveExperienceIntent(open, true)).toEqual({ action: 'SHOW_NOTICE', message: '虚拟仿真即将开放' })
     expect(resolveExperienceIntent({ ...open, experienceType: 'COURSE_TRIAL' }, true))
       .toEqual({ action: 'SHOW_NOTICE', message: '课程试听即将开放' })
-    expect(resolveExperienceIntent(book, true)).toEqual({ action: 'SHOW_NOTICE', message: '到馆预约即将开放' })
     expect(resolveExperienceIntent(open, false)).toEqual({ action: 'HIDE' })
-    expect(resolveExperienceIntent(book, false)).toEqual({ action: 'HIDE' })
   })
 })
 
