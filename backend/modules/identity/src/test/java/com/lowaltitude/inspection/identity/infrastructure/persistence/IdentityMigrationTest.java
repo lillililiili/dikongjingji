@@ -21,4 +21,21 @@ class IdentityMigrationTest {
                 .contains("REFERENCES identity_organization(id)")
                 .contains("CREATE INDEX idx_identity_user_default_organization");
     }
+
+    // G1：平台客服角色只是一个全局角色，不带任何权限，和平台运营分开。
+    @Test
+    void v004AddsAGlobalPlatformSupportRoleWithoutPermissions() throws Exception {
+        String sql;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/identity/V004__identity_platform_support_role.sql")) {
+            assertThat(stream).isNotNull();
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(sql)
+                .contains("VALUES ('PLATFORM_SUPPORT', '平台客服', 'GLOBAL')")
+                .contains("ON CONFLICT (role_code) DO NOTHING")
+                .doesNotContain("identity_role_permission")
+                .doesNotContain("identity_user");
+    }
 }

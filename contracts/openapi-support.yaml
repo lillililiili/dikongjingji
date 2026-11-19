@@ -1,0 +1,1018 @@
+openapi: "3.1.0"
+info:
+  title: "Support API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（步骤 G1，docs/redesign/03-App实现任务计划.md §26.1、§26.2、§26.3）：客服会话和意见反馈。
+
+    Every route needs a login (bearer JWT). The customer routes (/api/v1/conversations…, /api/v1/feedback) need the CUSTOMER
+    role; the account is always the subject of the token and another account's conversation is answered as not found.
+    /api/v1/provider/conversations… need the PROVIDER_OPERATOR role and an organization in the token; they only reach
+    conversations whose counterpart (merchant or provider) is that organization. /api/v1/platform/support/conversations… need
+    the PLATFORM_SUPPORT role (not PLATFORM_OPERATOR) and only reach conversations whose counterpart is the platform support.
+
+    规则：
+    - 会话的另一方三种：平台客服、商家、服务商。客户和同一方只有一个会话（平台客服一个；同一家机构按商家、服务商各一个），
+      按最近一条消息排序。打开会话不发消息；没发过消息的会话不出现在列表里。
+    - 消息只有文字（1–500 字，可以换行）和“关于什么”的卡片（类型 + 稳定 ID + 标题，副标题可选，都不超过 60 字）；
+      卡片由客户点“发送”才发出去。没有图片。消息只追加，不能撤回、修改。
+    - 不交换手机号：客户看到的对方只有类型和名称，对方看到的客户只有显示名；谁也看不到对方是哪个操作员。
+    - 未读：一边发了，另一边加一，自己这边清零；进会话（read）清零。对方回复时给客户记一条“客服消息”站内信，
+      同一个会话最多一条未读（再回复只刷新它的时间），正文不抄消息内容；客户读会话时它一并标为已读。
+    - 商家、服务商的操作员和平台客服用受权接口回复（没有工作台页面，开发脚本 infra/scripts/dev-support-reply.cjs）。
+      平台只协助沟通，不裁决。
+    - 意见反馈：类型 + 1–200 字，服务端记下来，不承诺处理时限，没有截图。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/conversations:
+    get:
+      operationId: "listMyConversations"
+      summary: "我的会话（只列发过消息的），最后一条消息新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页会话"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportConversationPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "openConversation"
+      summary: "打开和这一方的会话（已有就返回原来的）"
+      description: "客户和同一方只有一个会话：平台客服一个；同一家机构按商家、服务商各一个。对方机构要在用、是服务商类机构（商家和服务商在身份模块里都是这类）。新开的会话没发消息前不出现在列表里。"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportOpenRequest"
+      responses:
+        "201":
+          description: "新开的会话"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportConversation"
+        "200":
+          description: "已有的会话"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportConversation"
+        "400":
+          description: "对方类型不认识；商家、服务商没有带机构 ID；平台客服带了机构 ID（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: "SUPPORT_COUNTERPART_UNAVAILABLE：对方机构不存在、已停用，或不是商家、服务商。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/conversations/{conversationId}/messages:
+    get:
+      operationId: "listMyConversationMessages"
+      summary: "一页消息"
+      description: "默认取最近 20 条；更早的用上一页的 nextBefore 作 before 再取。不改未读，进会话请调 read。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+        - $ref: "#/components/parameters/Before"
+        - $ref: "#/components/parameters/MessageSize"
+      responses:
+        "200":
+          description: "一页消息，按时间先后"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportMessagePage"
+        "400":
+          description: "before 不是正整数，或 size 不在 1–50（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: "sendMyConversationMessage"
+      summary: "发一条（文字或卡片）"
+      description: "对方未读加一；自己这边算读过。同一个 Idempotency-Key 带同样的内容重复提交，返回第一次那条（200）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportMessageRequest"
+      responses:
+        "201":
+          description: "新的一条"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportMessage"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportMessage"
+        "400":
+          description: "会话 ID、Idempotency-Key 无效；text 和 card 都给或都没给；文字为空或超过 500 字或含控制字符；卡片类型不认识、没有 ID、标题为空、超过 60 字或换行（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "SUPPORT_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用在内容不同的消息上。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/conversations/{conversationId}/read:
+    post:
+      operationId: "readMyConversation"
+      summary: "进了会话：未读清零"
+      description: "这个会话的“客服消息”站内信一并标为已读。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      responses:
+        "200":
+          description: "读过后的会话"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportConversation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/feedback:
+    post:
+      operationId: "submitFeedback"
+      summary: "提交反馈（帮助与反馈页）"
+      description: "服务端记下来，不承诺处理时限，没有处理状态。同一个 Idempotency-Key 带同样的内容重复提交，返回第一次那条（200）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportFeedbackRequest"
+      responses:
+        "201":
+          description: "已收到"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportFeedback"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportFeedback"
+        "400":
+          description: "Idempotency-Key 无效；类型不认识；内容为空、超过 200 字或含控制字符（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: "SUPPORT_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用在内容不同的反馈上。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/conversations:
+    get:
+      operationId: "listProviderConversations"
+      summary: "本机构（商家、服务商）的会话（只列发过消息的），最后一条消息新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页会话"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportDeskConversationPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+  /api/v1/provider/conversations/{conversationId}/messages:
+    get:
+      operationId: "listProviderMessages"
+      summary: "一页消息"
+      description: "不改未读；读过请调 read。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+        - $ref: "#/components/parameters/Before"
+        - $ref: "#/components/parameters/MessageSize"
+      responses:
+        "200":
+          description: "一页消息，按时间先后"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportDeskMessagePage"
+        "400":
+          description: "before 不是正整数，或 size 不在 1–50（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+    post:
+      operationId: "replyProviderMessage"
+      summary: "回复一条"
+      description: "客户那边未读加一，并给客户记一条“客服消息”站内信（同一会话最多一条未读，contracts/openapi-notification.yaml 1.2.0）；这一边算读过。同一个 Idempotency-Key 带同样的内容重复提交，返回第一次那条（200）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportMessageRequest"
+      responses:
+        "201":
+          description: "新的一条"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportMessage"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportMessage"
+        "400":
+          description: "会话 ID、Idempotency-Key 无效；text 和 card 都给或都没给；文字为空或超过 500 字或含控制字符；卡片类型不认识、没有 ID、标题为空、超过 60 字或换行（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "409":
+          description: "SUPPORT_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用在内容不同的消息上。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/conversations/{conversationId}/read:
+    post:
+      operationId: "readProviderConversation"
+      summary: "这一边读过了：未读清零"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      responses:
+        "200":
+          description: "读过后的会话"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportDeskConversation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+  /api/v1/platform/support/conversations:
+    get:
+      operationId: "listPlatformSupportConversations"
+      summary: "平台客服的会话（只列发过消息的），最后一条消息新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页会话"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportDeskConversationPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/PlatformForbidden"
+  /api/v1/platform/support/conversations/{conversationId}/messages:
+    get:
+      operationId: "listPlatformSupportMessages"
+      summary: "一页消息"
+      description: "不改未读；读过请调 read。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+        - $ref: "#/components/parameters/Before"
+        - $ref: "#/components/parameters/MessageSize"
+      responses:
+        "200":
+          description: "一页消息，按时间先后"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportDeskMessagePage"
+        "400":
+          description: "before 不是正整数，或 size 不在 1–50（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/PlatformForbidden"
+        "404":
+          $ref: "#/components/responses/PlatformNotFound"
+    post:
+      operationId: "replyPlatformSupportMessage"
+      summary: "回复一条"
+      description: "客户那边未读加一，并给客户记一条“客服消息”站内信（同一会话最多一条未读，contracts/openapi-notification.yaml 1.2.0）；这一边算读过。同一个 Idempotency-Key 带同样的内容重复提交，返回第一次那条（200）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportMessageRequest"
+      responses:
+        "201":
+          description: "新的一条"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportMessage"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportMessage"
+        "400":
+          description: "会话 ID、Idempotency-Key 无效；text 和 card 都给或都没给；文字为空或超过 500 字或含控制字符；卡片类型不认识、没有 ID、标题为空、超过 60 字或换行（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/PlatformForbidden"
+        "404":
+          $ref: "#/components/responses/PlatformNotFound"
+        "409":
+          description: "SUPPORT_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用在内容不同的消息上。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/platform/support/conversations/{conversationId}/read:
+    post:
+      operationId: "readPlatformSupportConversation"
+      summary: "这一边读过了：未读清零"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      responses:
+        "200":
+          description: "读过后的会话"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportDeskConversation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/PlatformForbidden"
+        "404":
+          $ref: "#/components/responses/PlatformNotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  responses:
+    BadRequest:
+      description: "参数缺失或格式不对（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录，或登录已过期（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "登录账号没有客户角色（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ProviderForbidden:
+      description: "登录账号不是服务商操作员，或令牌里没有机构（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    PlatformForbidden:
+      description: "登录账号没有平台客服角色（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "不存在，或不是当前账号的会话（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ProviderNotFound:
+      description: "不存在，或对方不是本机构（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    PlatformNotFound:
+      description: "不存在，或对方不是平台客服（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    ConversationId:
+      name: "conversationId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      description: "客户端为这次提交生成的 UUID；重试时带同一个"
+      schema:
+        type: "string"
+        format: "uuid"
+    Before:
+      name: "before"
+      in: "query"
+      required: false
+      description: "只取序号小于它的消息（上一页的 nextBefore）"
+      schema:
+        type: "integer"
+        minimum: 1
+    MessageSize:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true
+    SupportErrorCode:
+      type: "string"
+      enum:
+        - "SUPPORT_IDEMPOTENCY_KEY_REUSED"
+        - "SUPPORT_COUNTERPART_UNAVAILABLE"
+      description: "客服接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外），都是 409。"
+    SupportCounterpartKind:
+      type: "string"
+      enum:
+        - "PLATFORM"
+        - "MERCHANT"
+        - "PROVIDER"
+      description: "会话的另一方：PLATFORM 平台客服（没有机构）；MERCHANT 商家（商城、租赁、询价的卖方机构）；PROVIDER 服务商（巡检和专业服务的服务商机构）。"
+    SupportSenderSide:
+      type: "string"
+      enum:
+        - "CUSTOMER"
+        - "COUNTERPART"
+      description: "消息是哪一边发的：CUSTOMER 客户；COUNTERPART 对方（商家、服务商的操作员，或平台客服；不说是哪个人）。"
+    SupportMessageKind:
+      type: "string"
+      enum:
+        - "TEXT"
+        - "CARD"
+      description: "TEXT 文字；CARD “关于什么”的卡片。"
+    SupportCardType:
+      type: "string"
+      enum:
+        - "PRODUCT"
+        - "MALL_ORDER"
+        - "MALL_INQUIRY"
+        - "INSPECTION_SERVICE"
+        - "INSPECTION_ORDER"
+        - "PRO_SERVICE"
+        - "ACTIVITY"
+        - "ACTIVITY_ENROLLMENT"
+        - "VENUE"
+        - "VENUE_BOOKING"
+        - "RENTAL_INQUIRY"
+        - "RENTAL_ORDER"
+        - "DEMAND"
+      description: "卡片关于什么，refId 是它的稳定 ID：PRODUCT 商品；MALL_ORDER 商城订单（交易订单）；MALL_INQUIRY 商品询价单；INSPECTION_SERVICE 巡检服务；INSPECTION_ORDER 巡检服务单；PRO_SERVICE 专业服务；ACTIVITY 活动；ACTIVITY_ENROLLMENT 活动报名；VENUE 场馆；VENUE_BOOKING 到馆预约；RENTAL_INQUIRY 租赁询价单；RENTAL_ORDER 租赁订单；DEMAND 需求。"
+    SupportFeedbackType:
+      type: "string"
+      enum:
+        - "FUNCTION"
+        - "DISPLAY"
+        - "CONTENT"
+        - "SUGGESTION"
+      description: "反馈类型：FUNCTION 功能问题；DISPLAY 页面显示；CONTENT 内容有误；SUGGESTION 其他建议。"
+    SupportCounterpart:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "kind"
+        - "organizationId"
+        - "name"
+      properties:
+        kind:
+          $ref: "#/components/schemas/SupportCounterpartKind"
+        organizationId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "商家、服务商的机构 ID；平台客服为 null"
+        name:
+          type: "string"
+          description: "机构名称；平台客服是“平台客服”"
+      description: "客户看到的对方：只有类型和名称，没有电话"
+    SupportLastMessage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "senderSide"
+        - "kind"
+        - "preview"
+        - "sentAt"
+      properties:
+        senderSide:
+          $ref: "#/components/schemas/SupportSenderSide"
+        kind:
+          $ref: "#/components/schemas/SupportMessageKind"
+        preview:
+          type: "string"
+          maxLength: 60
+          description: "文字的前 60 个字（换行换成空格），或卡片标题"
+        sentAt:
+          type: "string"
+          format: "date-time"
+    SupportConversation:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "conversationId"
+        - "counterpart"
+        - "lastMessage"
+        - "unreadCount"
+        - "createdAt"
+      properties:
+        conversationId:
+          type: "string"
+          format: "uuid"
+        counterpart:
+          $ref: "#/components/schemas/SupportCounterpart"
+        lastMessage:
+          anyOf:
+            - $ref: "#/components/schemas/SupportLastMessage"
+            - type: "null"
+        unreadCount:
+          type: "integer"
+          minimum: 0
+          description: "客户还没读的对方消息条数"
+        createdAt:
+          type: "string"
+          format: "date-time"
+      description: "客户看到的会话"
+    SupportConversationPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "unreadCount"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+        hasMore:
+          type: "boolean"
+        unreadCount:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+          description: "所有会话的未读合计（“消息”页客服入口的角标）"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/SupportConversation"
+    SupportCustomer:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "name"
+      properties:
+        name:
+          type: "string"
+          maxLength: 80
+          description: "客户账号的显示名"
+      description: "对方看到的客户：只有显示名，没有手机号、地址"
+    SupportDeskConversation:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "conversationId"
+        - "counterpartKind"
+        - "customer"
+        - "lastMessage"
+        - "unreadCount"
+        - "createdAt"
+      properties:
+        conversationId:
+          type: "string"
+          format: "uuid"
+        counterpartKind:
+          $ref: "#/components/schemas/SupportCounterpartKind"
+        customer:
+          $ref: "#/components/schemas/SupportCustomer"
+        lastMessage:
+          anyOf:
+            - $ref: "#/components/schemas/SupportLastMessage"
+            - type: "null"
+        unreadCount:
+          type: "integer"
+          minimum: 0
+          description: "这一边还没读的客户消息条数"
+        createdAt:
+          type: "string"
+          format: "date-time"
+      description: "回复方（商家、服务商的操作员，平台客服）看到的会话"
+    SupportDeskConversationPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "unreadCount"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+        hasMore:
+          type: "boolean"
+        unreadCount:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/SupportDeskConversation"
+    SupportCard:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "type"
+        - "refId"
+        - "title"
+        - "subtitle"
+      properties:
+        type:
+          $ref: "#/components/schemas/SupportCardType"
+        refId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 60
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 60
+      description: "“关于什么”的卡片；字是发送时的快照，点开时按 type + refId 读事实"
+    SupportMessage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "messageId"
+        - "seq"
+        - "senderSide"
+        - "mine"
+        - "kind"
+        - "text"
+        - "card"
+        - "sentAt"
+      properties:
+        messageId:
+          type: "string"
+          format: "uuid"
+        seq:
+          type: "integer"
+          minimum: 1
+          description: "会话里的序号，从 1 开始"
+        senderSide:
+          $ref: "#/components/schemas/SupportSenderSide"
+        mine:
+          type: "boolean"
+          description: "是不是看的这一边发的"
+        kind:
+          $ref: "#/components/schemas/SupportMessageKind"
+        text:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+        card:
+          anyOf:
+            - $ref: "#/components/schemas/SupportCard"
+            - type: "null"
+        sentAt:
+          type: "string"
+          format: "date-time"
+      description: "一条消息；text 和 card 只有一个"
+    SupportMessagePage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "conversation"
+        - "items"
+        - "hasMore"
+        - "nextBefore"
+      properties:
+        conversation:
+          $ref: "#/components/schemas/SupportConversation"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/SupportMessage"
+          description: "按时间先后"
+        hasMore:
+          type: "boolean"
+        nextBefore:
+          type:
+            - "integer"
+            - "null"
+          minimum: 1
+          description: "还有更早的消息时，下一页的 before；没有时为 null"
+    SupportDeskMessagePage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "conversation"
+        - "items"
+        - "hasMore"
+        - "nextBefore"
+      properties:
+        conversation:
+          $ref: "#/components/schemas/SupportDeskConversation"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/SupportMessage"
+          description: "按时间先后"
+        hasMore:
+          type: "boolean"
+        nextBefore:
+          type:
+            - "integer"
+            - "null"
+          minimum: 1
+    SupportFeedback:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "feedbackId"
+        - "type"
+        - "text"
+        - "createdAt"
+      properties:
+        feedbackId:
+          type: "string"
+          format: "uuid"
+        type:
+          $ref: "#/components/schemas/SupportFeedbackType"
+        text:
+          type: "string"
+          maxLength: 200
+        createdAt:
+          type: "string"
+          format: "date-time"
+      description: "已收到的反馈"
+    SupportOpenRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "counterpartKind"
+      properties:
+        counterpartKind:
+          $ref: "#/components/schemas/SupportCounterpartKind"
+        organizationId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "商家、服务商必填；平台客服不带"
+    SupportCardRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "type"
+        - "refId"
+        - "title"
+      properties:
+        type:
+          $ref: "#/components/schemas/SupportCardType"
+        refId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+          description: "一行"
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 60
+          description: "一行，可以不填"
+    SupportMessageRequest:
+      type: "object"
+      additionalProperties: false
+      required: []
+      properties:
+        text:
+          type:
+            - "string"
+            - "null"
+          minLength: 1
+          maxLength: 500
+          description: "1–500 字（去掉首尾空白后），可以换行"
+        card:
+          anyOf:
+            - $ref: "#/components/schemas/SupportCardRequest"
+            - type: "null"
+      description: "text 和 card 只给一个"
+    SupportFeedbackRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "type"
+        - "text"
+      properties:
+        type:
+          $ref: "#/components/schemas/SupportFeedbackType"
+        text:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+          description: "1–200 字，可以换行"

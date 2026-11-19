@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Notification API
-  version: 1.1.0
+  version: 1.2.0
   description: >-
     The signed-in account's in-app notifications (docs/redesign/03-App实现任务计划.md §15.4).
     Every route needs a login. The recipient is always the subject of the access token: there is
@@ -9,7 +9,12 @@ info:
     as not found. 1.0.0 carries inspection service progress; 1.1.0 (2026-11-19, §22, step F1) adds the
     category DEMAND_QUOTE (需求与报价: a provider quoted on one of the account's demands, or a demand closed
     without any quote) with the target type DEMAND (id is the demand; the page reads its quotes itself).
-    Notification text never carries a provider's quote content.
+    Notification text never carries a provider's quote content. 1.2.0 (2026-11-19, §26, step G1) adds the
+    category CUSTOMER_SERVICE (客服消息: a merchant, a provider or the platform support replied in one of the
+    account's conversations, contracts/openapi-support.yaml) with the target type CONVERSATION (id is the
+    conversation; the page reads its messages itself). A conversation has at most one unread CUSTOMER_SERVICE
+    notification: further replies refresh its time instead of adding more, and opening the conversation
+    (POST /api/v1/conversations/{id}/read) marks it read. The text never copies the message.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -119,15 +124,16 @@ components:
   schemas:
     NotificationCategory:
       type: string
-      enum: [SERVICE_PROGRESS, DEMAND_QUOTE]
-      description: 服务进度 / 需求与报价（1.1.0）
+      enum: [SERVICE_PROGRESS, DEMAND_QUOTE, CUSTOMER_SERVICE]
+      description: 服务进度 / 需求与报价（1.1.0）/ 客服消息（1.2.0）
     NotificationTargetType:
       type: string
-      enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY, DEMAND]
+      enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY, DEMAND, CONVERSATION]
       description: >-
         Where tapping the notification leads. INSPECTION_PLAN: id is the plan. INSPECTION_FULFILLMENT
         and INSPECTION_DELIVERY: id is the service order, subId the visit when the notification is
-        about one visit. DEMAND (1.1.0): id is the demand, subId is null.
+        about one visit. DEMAND (1.1.0): id is the demand, subId is null. CONVERSATION (1.2.0): id is the
+        support conversation, subId is null.
     NotificationTarget:
       type: object
       additionalProperties: false
@@ -155,7 +161,7 @@ components:
           type: string
           description: >-
             Stable code of what happened, for example INSPECTION_DELIVERY_PUBLISHED; for DEMAND_QUOTE it is
-            DEMAND_QUOTE_RECEIVED or DEMAND_CLOSED_NO_QUOTES
+            DEMAND_QUOTE_RECEIVED or DEMAND_CLOSED_NO_QUOTES; for CUSTOMER_SERVICE it is SUPPORT_REPLIED
         title:
           type: string
           maxLength: 80

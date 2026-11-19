@@ -6,5 +6,7 @@ public enum NotificationTargetType {
     INSPECTION_FULFILLMENT,
     INSPECTION_DELIVERY,
     /** 一份需求（F1）：页面再读它的报价。 */
-    DEMAND
+    DEMAND,
+    /** 一个客服会话（G1）：页面再读它的消息。 */
+    CONVERSATION
 }

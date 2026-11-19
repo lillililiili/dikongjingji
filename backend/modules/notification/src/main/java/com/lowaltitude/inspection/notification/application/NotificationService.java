@@ -30,6 +30,38 @@ public class NotificationService {
      * 调用方的事务里调用它，通知和业务状态一起提交或一起回滚。
      */
     public boolean record(NewNotification notification) {
+        validate(notification);
+        if (notification.category() == NotificationCategory.CUSTOMER_SERVICE) {
+            // 客服消息一个会话最多一条未读，只能走 recordUnlessUnread。
+            throw new IllegalArgumentException("customer service notifications use recordUnlessUnread");
+        }
+        return store.insert(notification);
+    }
+
+    /**
+     * 记一条通知，但同一收件人在同一分类、同一跳转目标上最多一条未读（G1 客服消息：对方连着回复不刷屏）。
+     * 已有未读的就把它刷新成这一条的标题、正文和时间（时间只往后挪），返回 false；新记了一条返回 true。
+     */
+    public boolean recordUnlessUnread(NewNotification notification) {
+        validate(notification);
+        if (store.insertUnlessUnread(notification)) {
+            return true;
+        }
+        store.refreshUnread(notification);
+        return false;
+    }
+
+    /** 收件人看过了这个目标（例如进了会话）：这个分类、这个目标上的未读通知标为已读。返回标了几条。 */
+    public int markTargetRead(UUID recipientId, NotificationCategory category, NotificationTargetType targetType,
+                              UUID targetId) {
+        requireRecipient(recipientId);
+        if (category == null || targetType == null || targetId == null) {
+            throw new IllegalArgumentException("target is required");
+        }
+        return store.markTargetRead(recipientId, category, targetType, targetId, now());
+    }
+
+    private static void validate(NewNotification notification) {
         if (notification == null
                 || notification.recipientId() == null
                 || notification.category() == null
@@ -42,7 +74,6 @@ public class NotificationService {
                 || invalid(notification.sourceKey(), MAX_SOURCE_KEY_LENGTH)) {
             throw new IllegalArgumentException("notification is invalid");
         }
-        return store.insert(notification);
     }
 
     public NotificationPageView list(UUID recipientId, int page, int size) {

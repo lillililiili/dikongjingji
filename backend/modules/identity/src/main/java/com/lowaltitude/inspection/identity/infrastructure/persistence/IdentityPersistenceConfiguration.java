@@ -3,6 +3,7 @@ package com.lowaltitude.inspection.identity.infrastructure.persistence;
 import java.time.Clock;
 
 import com.lowaltitude.inspection.identity.domain.IdentityAccountPort;
+import com.lowaltitude.inspection.identity.domain.IdentityOrganizationPort;
 import com.lowaltitude.inspection.identity.domain.IdentityProfilePort;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import org.mybatis.spring.annotation.MapperScan;
@@ -32,6 +33,12 @@ public class IdentityPersistenceConfiguration {
     @ConditionalOnMissingBean(IdentityProfilePort.class)
     IdentityProfilePort postgresIdentityProfilePort(IdentityPersistenceMapper mapper) {
         return new PostgresIdentityProfileAdapter(mapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(IdentityOrganizationPort.class)
+    IdentityOrganizationPort postgresIdentityOrganizationPort(IdentityPersistenceMapper mapper) {
+        return new PostgresIdentityOrganizationAdapter(mapper);
     }
 
     @Bean

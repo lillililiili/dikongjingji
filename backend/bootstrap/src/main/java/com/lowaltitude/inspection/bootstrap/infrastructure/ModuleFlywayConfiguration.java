@@ -143,6 +143,14 @@ public class ModuleFlywayConfiguration {
         return factory.rental(dataSource);
     }
 
+    // 客服会话（G1）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 站内信由通知模块自己的表记，这里不引用。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway supportFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.support(dataSource);
+    }
+
     // 收货地址表引用 identity_user，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")

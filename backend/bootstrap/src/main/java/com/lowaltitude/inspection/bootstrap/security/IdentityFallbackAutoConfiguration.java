@@ -1,9 +1,11 @@
 package com.lowaltitude.inspection.bootstrap.security;
 
 import com.lowaltitude.inspection.identity.domain.IdentityAccountPort;
+import com.lowaltitude.inspection.identity.domain.IdentityOrganizationPort;
 import com.lowaltitude.inspection.identity.domain.IdentityProfilePort;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.lowaltitude.inspection.identity.infrastructure.FailClosedIdentityAccountPort;
+import com.lowaltitude.inspection.identity.infrastructure.FailClosedIdentityOrganizationPort;
 import com.lowaltitude.inspection.identity.infrastructure.FailClosedIdentityProfilePort;
 import com.lowaltitude.inspection.identity.infrastructure.FailClosedTokenVersionPort;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -27,6 +29,12 @@ public class IdentityFallbackAutoConfiguration {
     @ConditionalOnMissingBean(IdentityProfilePort.class)
     IdentityProfilePort failClosedIdentityProfilePort() {
         return new FailClosedIdentityProfilePort();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(IdentityOrganizationPort.class)
+    IdentityOrganizationPort failClosedIdentityOrganizationPort() {
+        return new FailClosedIdentityOrganizationPort();
     }
 
     @Bean

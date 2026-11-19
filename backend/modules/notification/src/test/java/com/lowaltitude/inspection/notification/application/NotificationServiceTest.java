@@ -98,6 +98,39 @@ class NotificationServiceTest {
         assertThat(service.unreadCount(SOMEONE_ELSE).count()).isEqualTo(1);
     }
 
+    // G1：客服消息一个会话最多一条未读；读过之后的新回复再记一条。
+    @Test
+    void customerServiceKeepsAtMostOneUnreadNotificationPerConversation() {
+        assertThat(service.recordUnlessUnread(reply(ME, "support-message:1", NOW.minusSeconds(60), "商家回复了你")))
+                .isTrue();
+        assertThat(service.recordUnlessUnread(reply(ME, "support-message:2", NOW, "服务商回复了你"))).isFalse();
+        // 别的会话、别的收件人各记各的。
+        assertThat(service.recordUnlessUnread(reply(SOMEONE_ELSE, "support-message:3", NOW, "商家回复了你"))).isTrue();
+
+        List<Stored> mine = store.messages.stream().filter(stored -> stored.notification.recipientId().equals(ME)).toList();
+        assertThat(mine).singleElement().satisfies(stored -> {
+            assertThat(stored.notification.title()).isEqualTo("服务商回复了你");
+            assertThat(stored.notification.occurredAt()).isEqualTo(NOW);
+        });
+        // 时间只往后挪。
+        service.recordUnlessUnread(reply(ME, "support-message:4", NOW.minusSeconds(600), "商家回复了你"));
+        assertThat(mine.get(0).notification.occurredAt()).isEqualTo(NOW);
+
+        assertThat(service.markTargetRead(ME, NotificationCategory.CUSTOMER_SERVICE, NotificationTargetType.CONVERSATION,
+                TARGET)).isEqualTo(1);
+        assertThat(service.unreadCount(ME).count()).isZero();
+        assertThat(service.unreadCount(SOMEONE_ELSE).count()).isEqualTo(1);
+        assertThat(service.recordUnlessUnread(reply(ME, "support-message:5", NOW, "商家回复了你"))).isTrue();
+        assertThat(service.unreadCount(ME).count()).isEqualTo(1);
+        // 客服消息只能走这条路。
+        assertThatThrownBy(() -> service.record(reply(ME, "support-message:6", NOW, "商家回复了你")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.markTargetRead(ME, null, NotificationTargetType.CONVERSATION, TARGET))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.markTargetRead(null, NotificationCategory.CUSTOMER_SERVICE,
+                NotificationTargetType.CONVERSATION, TARGET)).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void rejectsInvalidReadArguments() {
         assertThatThrownBy(() -> service.list(null, 1, 20)).isInstanceOf(IllegalArgumentException.class);
@@ -122,6 +155,11 @@ class NotificationServiceTest {
                 NOW.minusSeconds(60));
     }
 
+    private static NewNotification reply(UUID recipient, String sourceKey, Instant at, String title) {
+        return new NewNotification(recipient, NotificationCategory.CUSTOMER_SERVICE, "SUPPORT_REPLIED", title,
+                "示例机器人商家回复了你的消息，点开查看。", NotificationTargetType.CONVERSATION, TARGET, null, sourceKey, at);
+    }
+
     private static NewNotification copy(
             NewNotification base, UUID recipient, String title, String body, String sourceKey, UUID target
     ) {
@@ -132,7 +170,7 @@ class NotificationServiceTest {
 
     private static final class Stored {
         final UUID id = UUID.randomUUID();
-        final NewNotification notification;
+        NewNotification notification;
         final int order;
         Instant readAt;
 
@@ -152,6 +190,51 @@ class NotificationServiceTest {
             }
             messages.add(new Stored(notification, messages.size()));
             return true;
+        }
+
+        @Override
+        public boolean insertUnlessUnread(NewNotification notification) {
+            if (unread(notification).isPresent()) {
+                return false;
+            }
+            return insert(notification);
+        }
+
+        @Override
+        public int refreshUnread(NewNotification notification) {
+            return unread(notification).map(stored -> {
+                Instant at = notification.occurredAt().isAfter(stored.notification.occurredAt())
+                        ? notification.occurredAt() : stored.notification.occurredAt();
+                stored.notification = new NewNotification(stored.notification.recipientId(),
+                        stored.notification.category(), notification.eventCode(), notification.title(),
+                        notification.body(), stored.notification.targetType(), stored.notification.targetId(),
+                        stored.notification.targetSubId(), stored.notification.sourceKey(), at);
+                return 1;
+            }).orElse(0);
+        }
+
+        @Override
+        public int markTargetRead(UUID recipientId, NotificationCategory category, NotificationTargetType targetType,
+                                  UUID targetId, Instant at) {
+            int updated = 0;
+            for (Stored stored : of(recipientId)) {
+                if (stored.readAt == null && stored.notification.category() == category
+                        && stored.notification.targetType() == targetType
+                        && stored.notification.targetId().equals(targetId)) {
+                    stored.readAt = at;
+                    updated++;
+                }
+            }
+            return updated;
+        }
+
+        private java.util.Optional<Stored> unread(NewNotification notification) {
+            return of(notification.recipientId()).stream()
+                    .filter(stored -> stored.readAt == null
+                            && stored.notification.category() == notification.category()
+                            && stored.notification.targetType() == notification.targetType()
+                            && stored.notification.targetId().equals(notification.targetId()))
+                    .findFirst();
         }
 
         @Override

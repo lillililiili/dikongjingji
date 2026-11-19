@@ -21,14 +21,15 @@ class NotificationMapperContractTest {
                 .map(NotificationMapperContractTest::sql)
                 .toList();
 
-        assertThat(statements).hasSize(7);
+        assertThat(statements).hasSize(10);
         assertThat(statements).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
     }
 
     // 收件人条件是这张表的权限边界：读、数、标已读都必须带上。
     @Test
     void everyReadAndUpdateIsScopedToTheRecipient() throws Exception {
-        for (String name : List.of("count", "countUnread", "findPage", "countOwned", "markRead", "markAllRead")) {
+        for (String name : List.of("count", "countUnread", "findPage", "countOwned", "markRead", "markAllRead",
+                "refreshUnread", "markTargetRead")) {
             assertThat(sql(method(name)))
                     .contains("recipient_id = #{recipientId}")
                     .contains("status = 'ACTIVE'");
@@ -87,7 +88,52 @@ class NotificationMapperContractTest {
                 .doesNotContain("UPDATE ")
                 .doesNotContain("DELETE ");
         assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationCategory.values())
-                .map(Enum::name)).containsExactly("SERVICE_PROGRESS", "DEMAND_QUOTE");
+                .map(Enum::name)).startsWith("SERVICE_PROGRESS", "DEMAND_QUOTE");
+    }
+
+    // G1：分类加客服消息，跳转目标加会话；同一会话最多一条未读，由部分唯一索引兜底。
+    @Test
+    void theV003MigrationAddsCustomerServiceAndOneUnreadPerConversation() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/notification/V003__notification_customer_service.sql")) {
+            assertThat(stream).isNotNull();
+            migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8).replaceAll("\\s+", " ");
+        }
+
+        assertThat(migration)
+                .contains("CHECK (category IN ('SERVICE_PROGRESS', 'DEMAND_QUOTE', 'CUSTOMER_SERVICE'))")
+                .contains("CHECK (target_type IN ('INSPECTION_PLAN', 'INSPECTION_FULFILLMENT', 'INSPECTION_DELIVERY',"
+                        + " 'DEMAND', 'CONVERSATION'))")
+                .contains("CREATE UNIQUE INDEX uq_notification_message_unread_conversation ON notification_message"
+                        + " (recipient_id, target_type, target_id) WHERE category = 'CUSTOMER_SERVICE'"
+                        + " AND status = 'ACTIVE' AND read_at IS NULL;")
+                .doesNotContain("UPDATE ")
+                .doesNotContain("DELETE ");
+        assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationCategory.values())
+                .map(Enum::name)).containsExactly("SERVICE_PROGRESS", "DEMAND_QUOTE", "CUSTOMER_SERVICE");
+        assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationTargetType.values())
+                .map(Enum::name)).containsExactly("INSPECTION_PLAN", "INSPECTION_FULFILLMENT", "INSPECTION_DELIVERY",
+                        "DEMAND", "CONVERSATION");
+    }
+
+    @Test
+    void oneUnreadPerTargetIsCheckedInTheInsertAndGuardedByTheIndex() throws Exception {
+        String insert = sql(method("insertUnlessUnread")).replaceAll("\\s+", " ").trim();
+        assertThat(insert)
+                .contains("WHERE NOT EXISTS ( SELECT 1 FROM notification_message unread"
+                        + " WHERE unread.recipient_id = #{recipientId} AND unread.category = #{category}"
+                        + " AND unread.target_type = #{targetType} AND unread.target_id = #{targetId}"
+                        + " AND unread.status = 'ACTIVE' AND unread.read_at IS NULL )")
+                .endsWith("ON CONFLICT DO NOTHING");
+        String refresh = sql(method("refreshUnread")).replaceAll("\\s+", " ");
+        assertThat(refresh)
+                .contains("occurred_at = GREATEST(occurred_at, #{occurredAt})")
+                .contains("AND category = #{category} AND target_type = #{targetType} AND target_id = #{targetId}")
+                .contains("read_at IS NULL");
+        assertThat(sql(method("markTargetRead")).replaceAll("\\s+", " "))
+                .contains("SET read_at = #{at}")
+                .contains("AND category = #{category} AND target_type = #{targetType} AND target_id = #{targetId}");
     }
 
     private static Method method(String name) {

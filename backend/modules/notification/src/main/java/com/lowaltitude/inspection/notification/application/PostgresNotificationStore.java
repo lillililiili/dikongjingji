@@ -31,6 +31,40 @@ final class PostgresNotificationStore implements NotificationStore {
     }
 
     @Override
+    public boolean insertUnlessUnread(NewNotification notification) {
+        return mapper.insertUnlessUnread(
+                notification.recipientId(),
+                notification.category().name(),
+                notification.eventCode(),
+                notification.title(),
+                notification.body(),
+                notification.targetType().name(),
+                notification.targetId(),
+                notification.targetSubId(),
+                notification.sourceKey(),
+                notification.occurredAt()) > 0;
+    }
+
+    @Override
+    public int refreshUnread(NewNotification notification) {
+        return mapper.refreshUnread(
+                notification.recipientId(),
+                notification.category().name(),
+                notification.eventCode(),
+                notification.title(),
+                notification.body(),
+                notification.targetType().name(),
+                notification.targetId(),
+                notification.occurredAt());
+    }
+
+    @Override
+    public int markTargetRead(UUID recipientId, NotificationCategory category, NotificationTargetType targetType,
+                              UUID targetId, Instant at) {
+        return mapper.markTargetRead(recipientId, category.name(), targetType.name(), targetId, at);
+    }
+
+    @Override
     public long count(UUID recipientId) {
         return mapper.count(recipientId);
     }

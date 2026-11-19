@@ -405,6 +405,60 @@ class AuthenticationSecurityIntegrationTest {
         org.mockito.Mockito.verifyNoMoreInteractions(inquiries);
     }
 
+    // 客服会话（G1）：全部要登录；客户接口要客户角色，/provider 要服务商操作员和机构，/platform/support 要平台客服角色。
+    @Test
+    void supportRoutesRequireALoginAndTheRightRole() throws Exception {
+        String conversation = "/api/v1/conversations/e5000000-0000-4000-8000-000000000001";
+        String provider = "/api/v1/provider/conversations/e5000000-0000-4000-8000-000000000001";
+        String platform = "/api/v1/platform/support/conversations/e5000000-0000-4000-8000-000000000001";
+        for (var request : List.of(
+                get("/api/v1/conversations"), post("/api/v1/conversations"), get(conversation + "/messages"),
+                post(conversation + "/messages"), post(conversation + "/read"), post("/api/v1/feedback"),
+                get("/api/v1/provider/conversations"), get(provider + "/messages"), post(provider + "/messages"),
+                post(provider + "/read"), get("/api/v1/platform/support/conversations"), get(platform + "/messages"),
+                post(platform + "/messages"), post(platform + "/read"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        com.lowaltitude.inspection.support.application.SupportService support = applicationContext.getBean(
+                com.lowaltitude.inspection.support.application.SupportService.class);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+        Map<String, Object> supportClaims = validClaims(List.of(), 7);
+        supportClaims.put("roles", List.of("PLATFORM_SUPPORT"));
+        String supportToken = signedToken(supportClaims);
+        Map<String, Object> platformOperatorClaims = validClaims(List.of(), 7);
+        platformOperatorClaims.put("roles", List.of("PLATFORM_OPERATOR"));
+        String platformOperatorToken = signedToken(platformOperatorClaims);
+
+        mockMvc.perform(get("/api/v1/conversations").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/provider/conversations").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/platform/support/conversations").header("Authorization", "Bearer " + supportToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(support).conversations(SUBJECT_ID, 1, 20);
+        org.mockito.Mockito.verify(support).deskConversations(
+                com.lowaltitude.inspection.support.application.SupportDesk.organization(ORGANIZATION_ID), 1, 20);
+        org.mockito.Mockito.verify(support).deskConversations(
+                com.lowaltitude.inspection.support.application.SupportDesk.platformSupport(), 1, 20);
+        for (var refused : List.of(
+                get("/api/v1/conversations").header("Authorization", "Bearer " + operatorToken),
+                get("/api/v1/conversations").header("Authorization", "Bearer " + supportToken),
+                get("/api/v1/provider/conversations").header("Authorization", "Bearer " + customerToken),
+                get("/api/v1/provider/conversations").header("Authorization", "Bearer " + supportToken),
+                get("/api/v1/platform/support/conversations").header("Authorization", "Bearer " + customerToken),
+                get("/api/v1/platform/support/conversations").header("Authorization", "Bearer " + operatorToken),
+                // 平台运营不是平台客服。
+                get("/api/v1/platform/support/conversations").header("Authorization", "Bearer " + platformOperatorToken))) {
+            mockMvc.perform(refused).andExpect(status().isForbidden());
+        }
+        org.mockito.Mockito.verifyNoMoreInteractions(support);
+    }
+
     // 设备租赁（F3）的十八个接口全部要登录，没有公开的。
     @Test
     void rentalRoutesRequireALogin() throws Exception {
@@ -1321,6 +1375,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.support.application.SupportService testSupportService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.support.application.SupportService.class);
         }
 
         @Bean

@@ -43,7 +43,7 @@ class DevelopmentIdentityAccountsMigrationTest {
                 .containsExactly("classpath:db/development/identity");
     }
 
-    // 密码公开写在仓库里，所以这份种子只能给出客户和服务商操作员，不能给出平台运营权限。
+    // 密码公开写在仓库里，所以这份种子只能给出客户、服务商操作员和平台客服，不能给出平台运营权限。
     @Test
     void seedCreatesACustomerAndAProviderOperatorAndNoPlatformOperator() throws Exception {
         String sql = seed();
@@ -53,8 +53,10 @@ class DevelopmentIdentityAccountsMigrationTest {
                 .contains("'dev-provider'")
                 .contains("role_code = 'CUSTOMER'")
                 .contains("role_code = 'PROVIDER_OPERATOR'")
-                .doesNotContain("PLATFORM_OPERATOR")
-                .doesNotContain("'PLATFORM'");
+                .doesNotContain("PLATFORM_OPERATOR");
+        // 唯一的平台机构是平台客服账号的默认机构。
+        assertThat(sql.split("'PLATFORM'", -1)).hasSize(2);
+        assertThat(sql).contains("('90000000-0000-4000-8000-000000000001', 'DEV-PLATFORM', '低空产业平台（示例）', 'PLATFORM')");
         assertThat(sql.split("INSERT INTO identity_user \\(", -1)).hasSize(2);
         assertThat(sql).doesNotContain("DELETE FROM").doesNotContain("TRUNCATE");
     }
@@ -71,13 +73,13 @@ class DevelopmentIdentityAccountsMigrationTest {
                 .contains("('" + venue + "', 'DEV-ACT-VENUE', '东营低空与机器人体验馆', 'PROVIDER')")
                 .contains("('" + venue + "', '" + operator + "')")
                 .contains("SELECT '" + operator + "', id, '" + venue + "'");
-        // 一共三个账号：一个客户、两个服务商操作员，各自只有一个角色，操作员的角色都限定在自己的机构里。
-        assertThat(sql.split("'dev-[a-z]+'", -1)).hasSize(4);
+        // 一共四个账号：一个客户、两个服务商操作员、一个平台客服，各自只有一个角色，操作员的角色都限定在自己的机构里。
+        assertThat(sql.split("'dev-[a-z]+'", -1)).hasSize(5);
         assertThat(sql.split("role_code = 'CUSTOMER'", -1)).hasSize(2);
         assertThat(sql.split("role_code = 'PROVIDER_OPERATOR'", -1)).hasSize(3);
-        assertThat(sql.split("role_code = '", -1)).hasSize(4);
-        assertThat(sql.split("INSERT INTO identity_user_role ", -1)).hasSize(4);
-        assertThat(sql.split(", id, NULL\n", -1)).hasSize(2);
+        assertThat(sql.split("role_code = '", -1)).hasSize(5);
+        assertThat(sql.split("INSERT INTO identity_user_role ", -1)).hasSize(5);
+        assertThat(sql.split(", id, NULL\n", -1)).hasSize(3);
 
         // 这家场馆在活动种子里主办并承办免费的开放体验日，所以这个账号核销得了那场活动的凭证。
         String activities;
@@ -92,6 +94,20 @@ class DevelopmentIdentityAccountsMigrationTest {
         assertThat(activities.substring(activities.indexOf("('a2000000-0000-4000-8000-000000000005',")))
                 .contains("'FREE', NULL, NULL, NULL,")
                 .contains("'PUBLISHED')");
+    }
+
+    // G1：平台客服只用来读和回复“平台客服”的会话。它只有全局的平台客服角色，没有平台运营的权限。
+    @Test
+    void seedCreatesAPlatformSupportAccountWithOnlyTheSupportRole() throws Exception {
+        String sql = seed();
+        String support = "90000000-0000-4000-8000-0000000000a1";
+
+        assertThat(sql)
+                .contains("'dev-support'")
+                .contains("('90000000-0000-4000-8000-000000000001', '" + support + "')")
+                .contains("SELECT '" + support + "', id, NULL\nFROM identity_role WHERE role_code = 'PLATFORM_SUPPORT'");
+        assertThat(sql.split("role_code = 'PLATFORM_SUPPORT'", -1)).hasSize(2);
+        assertThat(sql.split("crypt\\('test-password'", -1)).hasSize(5);
     }
 
     // 生产迁移目录里不能出现任何账号或口令。

@@ -17,6 +17,7 @@ import com.lowaltitude.inspection.mall.application.MallProductNotFoundException;
 import com.lowaltitude.inspection.notification.application.NotificationNotFoundException;
 import com.lowaltitude.inspection.proservice.application.ProServiceNotFoundException;
 import com.lowaltitude.inspection.rental.application.RentalException;
+import com.lowaltitude.inspection.support.application.SupportException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
 import com.lowaltitude.inspection.application.reservation.FileTypeUnsupportedException;
@@ -635,6 +636,37 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(status)
                 .body(new ApiError(code, message, traceId(request)));
+    }
+
+    @ExceptionHandler(SupportException.class)
+    public ResponseEntity<ApiError> handleSupport(SupportException exception, HttpServletRequest request) {
+        HttpStatus status;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "SUPPORT_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case COUNTERPART_UNAVAILABLE -> {
+                status = HttpStatus.CONFLICT;
+                code = "SUPPORT_COUNTERPART_UNAVAILABLE";
+                message = "对方暂时不能接收消息";
+            }
+            default -> throw new IllegalStateException("unmapped support error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
     }
 
     @ExceptionHandler(MallInquiryException.class)
