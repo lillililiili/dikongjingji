@@ -80,6 +80,16 @@ class ModuleFlywayFactoryTest {
     }
 
     @Test
+    void keepsRentalVersionsInTheirOwnHistoryTable() {
+        Flyway rental = new ModuleFlywayFactory().rental(mock(DataSource.class));
+
+        assertThat(rental.getConfiguration().getTable()).isEqualTo("flyway_history_rental");
+        assertThat(locationDescriptors(rental)).containsExactly("classpath:db/migration/rental");
+        assertThat(rental.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(rental.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    @Test
     void keepsMallVersionsInTheirOwnHistoryTable() {
         Flyway mall = new ModuleFlywayFactory().mall(mock(DataSource.class));
 

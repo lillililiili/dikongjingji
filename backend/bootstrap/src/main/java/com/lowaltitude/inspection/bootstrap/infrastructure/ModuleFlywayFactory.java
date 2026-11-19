@@ -86,6 +86,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway rental(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/rental",
+                "flyway_history_rental",
+                true);
+    }
+
     private static Flyway build(DataSource dataSource, String location, String historyTable, boolean baselineOnMigrate) {
         return Flyway.configure()
                 .dataSource(dataSource)

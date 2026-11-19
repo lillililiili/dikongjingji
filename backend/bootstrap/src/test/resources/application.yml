@@ -30,3 +30,6 @@ trade:
 demand:
   deadline:
     enabled: false
+rental:
+  deadline:
+    enabled: false

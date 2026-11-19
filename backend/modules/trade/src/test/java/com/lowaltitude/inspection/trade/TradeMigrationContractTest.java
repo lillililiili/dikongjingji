@@ -102,6 +102,17 @@ class TradeMigrationContractTest {
                 .contains("CHECK ((source = 'MALL') = (delivery_mode <> 'NONE'))");
     }
 
+    // ---- V007：设备租赁（F3） ----
+
+    @Test
+    void rentalOrdersAreTheFourthSource() throws Exception {
+        String sql = statementsOf("/db/migration/trade/V007__trade_rental_source.sql");
+
+        assertThat(sql).isEqualTo("ALTER TABLE trade_order DROP CONSTRAINT trade_order_source_check;"
+                + " ALTER TABLE trade_order ADD CONSTRAINT trade_order_source_check"
+                + " CHECK (source IN ('MALL', 'ACTIVITY', 'VENUE', 'RENTAL'));");
+    }
+
     // ---- V004：商家名称长度 ----
 
     // 订单上的商家名称快照来自 identity_organization.organization_name（160），V001 只给了 120；V004 放宽到一样长。

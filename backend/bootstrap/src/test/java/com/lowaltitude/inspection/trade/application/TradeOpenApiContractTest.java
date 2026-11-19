@@ -453,9 +453,9 @@ class TradeOpenApiContractTest {
         assertThat(enumOf("MerchantKind")).containsExactlyElementsOf(
                 Arrays.stream(MallMerchantKind.values()).map(Enum::name).toList());
         assertThat(enumOf("DeliveryMode")).containsExactly("EXPRESS", "PICKUP");
-        // 0.2.0：收费活动报名、到馆预约（TradeSourceOrders 的订单来源和 V005、V006 trade_order.source 的取值）。
-        assertThat(enumOf("TradeOrderSource")).containsExactly("MALL", "ACTIVITY", "VENUE");
-        assertThat(enumOf("TradeOrderSource").subList(1, 3))
+        // 0.2.0：收费活动报名、到馆预约、设备租赁（TradeSourceOrders 的订单来源和 V005–V007 trade_order.source 的取值）。
+        assertThat(enumOf("TradeOrderSource")).containsExactly("MALL", "ACTIVITY", "VENUE", "RENTAL");
+        assertThat(enumOf("TradeOrderSource").subList(1, 4))
                 .containsExactlyInAnyOrderElementsOf(TradeSourceOrders.ORDER_PREFIXES.keySet());
         // 商家类型只在商城订单上有，业务来源的订单为 null；取值仍是 MerchantKind 的那几个。
         assertThat(strings(map(map(map(schemas.get("TradeMerchant")).get("properties")).get("kind")).get("enum")))

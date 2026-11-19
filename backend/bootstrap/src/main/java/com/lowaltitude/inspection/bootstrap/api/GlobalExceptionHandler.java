@@ -15,6 +15,7 @@ import com.lowaltitude.inspection.trade.application.TradeException;
 import com.lowaltitude.inspection.mall.application.MallProductNotFoundException;
 import com.lowaltitude.inspection.notification.application.NotificationNotFoundException;
 import com.lowaltitude.inspection.proservice.application.ProServiceNotFoundException;
+import com.lowaltitude.inspection.rental.application.RentalException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
 import com.lowaltitude.inspection.application.reservation.FileTypeUnsupportedException;
@@ -360,6 +361,78 @@ public class GlobalExceptionHandler {
     }
 
     /** 到馆预约（E10，契约 openapi-experience.yaml 1.1.0 的 VenueErrorCode）。 */
+    @ExceptionHandler(RentalException.class)
+    public ResponseEntity<ApiError> handleRental(RentalException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                code = "RENTAL_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case OFFER_UNAVAILABLE -> {
+                code = "RENTAL_OFFER_UNAVAILABLE";
+                message = "这款设备现在不能在这个城市租用";
+            }
+            case PAYMENT_UNAVAILABLE -> {
+                code = "RENTAL_PAYMENT_UNAVAILABLE";
+                message = "该商家暂未开通在线支付";
+            }
+            case ADDRESS_NOT_FOUND -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "RENTAL_ADDRESS_NOT_FOUND";
+                message = "使用地点不存在，请重新选择";
+            }
+            case STATE_INVALID -> {
+                code = "RENTAL_STATE_INVALID";
+                message = "当前状态不允许这个操作";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.PRECONDITION_FAILED;
+                code = "RENTAL_VERSION_CONFLICT";
+                message = "询价单已更新，请刷新后重试";
+            }
+            case QUOTE_CHANGED -> {
+                code = "RENTAL_QUOTE_CHANGED";
+                message = "商家已更新报价，请核对后再确认";
+            }
+            case QUOTE_EXPIRED -> {
+                code = "RENTAL_QUOTE_EXPIRED";
+                message = "报价已过期，请重新询价或联系商家更新报价";
+            }
+            case SCHEDULE_UNAVAILABLE -> {
+                code = "RENTAL_SCHEDULE_UNAVAILABLE";
+                message = "商家这段时间不能出租";
+            }
+            case START_DATE_PASSED -> {
+                code = "RENTAL_START_DATE_PASSED";
+                message = "起租日已过，请重新询价";
+            }
+            case TERMS_NOT_AGREED -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "RENTAL_TERMS_NOT_AGREED";
+                message = "请先核对租期、费用与合同条款";
+            }
+            case REFUND_NOT_ALLOWED -> {
+                code = "RENTAL_REFUND_NOT_ALLOWED";
+                message = "这张订单现在不能在线退款";
+            }
+            default -> throw new IllegalStateException("unhandled rental error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
     @ExceptionHandler(VenueBookingException.class)
     public ResponseEntity<ApiError> handleVenueBooking(
             VenueBookingException exception,

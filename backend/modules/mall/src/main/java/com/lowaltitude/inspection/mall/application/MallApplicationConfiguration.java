@@ -23,4 +23,9 @@ public class MallApplicationConfiguration {
     MallCartService mallCartService(MallCartMapper mapper) {
         return new MallCartService(mapper, Clock.systemUTC());
     }
+
+    @Bean
+    MallRentalOffers mallRentalOffers(MallCartMapper mapper) {
+        return new MallRentalOffers(mapper);
+    }
 }

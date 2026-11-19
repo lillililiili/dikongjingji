@@ -37,6 +37,11 @@ info:
       contracts/openapi-experience.yaml 1.1.0）。规则和收费报名一样：收款方是场馆运营机构，不发货，订单编号以 VO 开头；
       订单行的 productId 是项目 ID，offerId 是场次 ID，productName 是“场馆名 项目名”，skuName 是场次时间，quantity 是人数；
       付款截止 15 分钟且不晚于场次开始；不在“商品订单”里，商家接口当作不存在；已付款的只能由预约的取消整单退款。
+    - F3（2026-11-19，§24，同在 0.2.0 未发布版本内）：第三个业务来源——设备租赁（source = RENTAL，接口见
+      contracts/openapi-rental.yaml 1.0.0）。收款方是出租的商家，不发货，订单编号以 RO 开头；订单行的 productId 是商品 ID，
+      offerId 是租赁供给 ID（其他费用行是报价费用行的 ID），productName 是商品名，skuName 是租期，quantity 是台数；
+      付款截止 30 分钟。不在“商品订单”里，商家接口当作不存在。已付款的不能由买家取消；交接之前出租方可以取消，整单原路退款。
+      关闭之后才到账的付款一律自动整笔退款（关闭后报价和档期已经释放，不恢复）。
 
     渠道与资金（用户 2026-11-18 确认）：
     - 唯一的支付渠道是微信支付，产品是“平台收付通”的普通支付：每笔钱直接进卖出商品的商家（二级商户）自己的商户号，
@@ -777,8 +782,8 @@ components:
       enum: [ALL, TO_PAY, TO_SHIP, TO_RECEIVE, DONE, REFUND]
     TradeOrderSource:
       type: string
-      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）。以后接入的业务在这里加
-      enum: [MALL, ACTIVITY, VENUE]
+      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）。以后接入的业务在这里加
+      enum: [MALL, ACTIVITY, VENUE, RENTAL]
     DeliveryMode:
       type: string
       enum: [EXPRESS, PICKUP]

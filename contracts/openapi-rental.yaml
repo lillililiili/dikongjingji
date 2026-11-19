@@ -1,0 +1,1600 @@
+openapi: "3.1.0"
+info:
+  title: "Rental API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（步骤 F3，docs/redesign/03-App实现任务计划.md §24）：设备租赁——询价、报价、确认合同、付租金、交接与归还。
+    依据设计假设第 11、16、17 条：按天计费、1 天起租，档期在报价时确认，押金不在线收取；租金在合同确认后一次付清；
+    交接和归还由商家录入、用户确认，确认交接后才开始计租；合同线下签署，这里没有合同文件、没有交接照片。
+
+    Every route needs a login (bearer JWT). The customer routes (/api/v1/rental-inquiries…, /api/v1/rental-orders…) need the
+    CUSTOMER role; the account is always the subject of the token and another account's inquiry or order is answered as not
+    found. The merchant routes (/api/v1/provider/…) need the PROVIDER_OPERATOR role and an organization in the token; they only
+    see inquiries and orders whose lessor is that organization.
+
+    规则：
+    - 能租的：商城里交易方式为租赁（saleMode RENT）的商品供给，出租方登记了在线收款账户；供给有城市时只能在那个城市用。
+    - 询价单：一个商家的一种设备，1–10 台；期望起租日不早于明天（北京时间），1–90 天；使用地点从自己的收货地址里选，
+      联系人和手机号是那条地址的收货人（快照）；交接方式 DELIVERY / PICKUP，归还方式 COLLECT / DROP_OFF；询价身份由服务端按账号所属组织给出
+      （默认组织是客户组织时记在组织名下，否则个人；经办人是账号的显示名）。提交不产生费用。
+    - 商家报价：日租金、天数、台数、其他费用行（最多 5 行，可以为 0）、合计、档期是否可用、有效期（晚于现在、不超过 7 天）、合同条款。
+      可以改价（新的一版，版本加 1），可以拒绝（写原因）。提交后 7 天没有报价的询价单自动关闭（closeReason NO_QUOTE）；
+      报价过了有效期的询价单变成 EXPIRED，商家可以再报。
+    - 确认合同：见 confirmRentalContract。确认之前客户可以关闭询价；确认之后询价单是 CONFIRMED，order 指向租赁订单。
+    - 付款时限 30 分钟（交易订单的 payBefore）。超时或取消付款 → 租赁订单 CLOSED，报价失效，要租需要重新询价；
+      关闭之后才到账的钱整笔原路退回，不恢复订单（没付款的合同不占商家档期）。
+    - 已付款 → AWAITING_HANDOVER；商家录入交接 → HANDOVER_RECORDED → 客户确认 → IN_USE（从确认交接起计租）；
+      商家录入归还 → RETURN_RECORDED → 客户确认 → ENDED。客户对记录有异议时不确认，联系商家。
+    - 交接之前（客户确认交接之前）商家可以取消订单，整单原路退款；客户付款后不能自己取消。超期费、赔付按合同线下处理。
+    - 合同：确认时按报价和询价生成（编号 RC + 日期 + 6 位随机数、金额、租期、数量、交接和归还方式、地点、签约双方、条款、确认时间），之后不变。
+    - 商家看到的客户手机号在付款之前打码。交易订单见 contracts/openapi-trade.yaml（source = RENTAL，订单编号以 RO 开头，不在“商品订单”里）。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/rental-inquiries:
+    post:
+      operationId: "submitRentalInquiry"
+      summary: "提交租赁询价单（不产生费用）"
+      description: "同一个 Idempotency-Key 带同样的内容重复提交，返回第一次的询价单（200）；换了内容是 409 RENTAL_IDEMPOTENCY_KEY_REUSED。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalInquiryRequest"
+      responses:
+        "201":
+          description: "新的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalInquiry"
+          headers:
+            ETag:
+              $ref: "#/components/headers/InquiryETag"
+        "200":
+          description: "同一个幂等键重放，返回第一次的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalInquiry"
+          headers:
+            ETag:
+              $ref: "#/components/headers/InquiryETag"
+        "400":
+          description: "缺少或不是 UUID 的 Idempotency-Key；数量不在 1–10、天数不在 1–90；起租日不是明天或以后；交接、归还方式不认识；补充说明超过 200 字（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: "没有这个供给（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: "RENTAL_IDEMPOTENCY_KEY_REUSED：幂等键已用于内容不同的请求；RENTAL_OFFER_UNAVAILABLE：供给已下架、不是租赁商品，或不在使用地点所在城市出租；RENTAL_PAYMENT_UNAVAILABLE：出租方没有开通在线收款。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "RENTAL_ADDRESS_NOT_FOUND：使用地点（收货地址）不存在或不是自己的。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: "listMyRentalInquiries"
+      summary: "我的询价单（“我的 → 需求与报价”里和需求合在一起显示）"
+      description: "最近更新的在前。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/RentalInquiryStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalInquiryPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/rental-inquiries/{inquiryId}:
+    get:
+      operationId: "getMyRentalInquiry"
+      summary: "询价单和最新一版报价（租赁报价单）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+      responses:
+        "200":
+          description: "询价单；ETag 是询价单版本，确认合同时用 If-Match 带回来"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalInquiry"
+          headers:
+            ETag:
+              $ref: "#/components/headers/InquiryETag"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/rental-inquiries/{inquiryId}/close:
+    post:
+      operationId: "closeMyRentalInquiry"
+      summary: "关闭询价（确认合同之前）"
+      description: "待报价、待确认、报价已过期的可以关闭；已经由自己关闭的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+      responses:
+        "200":
+          description: "关闭后的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalInquiry"
+          headers:
+            ETag:
+              $ref: "#/components/headers/InquiryETag"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "RENTAL_STATE_INVALID：已确认合同、商家已拒绝或已自动关闭。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/rental-inquiries/{inquiryId}/confirm:
+    post:
+      operationId: "confirmRentalContract"
+      summary: "确认合同（生成租赁订单和交易订单，去收银台）"
+      description: "服务端校验：勾选了核对、询价单版本（If-Match）对得上、quoteVersion 是最新一版、报价在有效期内、档期可用、起租日没过。生成合同快照、租赁订单（待付款）和交易订单（来源 RENTAL，收款方是出租方，金额是合计，30 分钟内付款）。同一版报价已经确认过时原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalConfirmRequest"
+      responses:
+        "200":
+          description: "租赁订单和要付款的交易订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalConfirmation"
+        "400":
+          description: "询价单 ID、If-Match 无效，或没有带报价版本（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "RENTAL_STATE_INVALID：还没有报价、已关闭、已拒绝，或已经确认了别的版本；RENTAL_QUOTE_CHANGED：商家已经改价，quoteVersion 不是最新的；RENTAL_QUOTE_EXPIRED：报价已过期；RENTAL_SCHEDULE_UNAVAILABLE：商家说这段时间不能出租；RENTAL_START_DATE_PASSED：起租日已过；RENTAL_PAYMENT_UNAVAILABLE：出租方不能在线收款。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "412":
+          description: "RENTAL_VERSION_CONFLICT：If-Match 的版本不是现在的版本（询价单在此期间有变化），请刷新后重试。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "RENTAL_TERMS_NOT_AGREED：没有勾选“我已核对租期、费用与合同条款”。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/rental-orders:
+    get:
+      operationId: "listMyRentalOrders"
+      summary: "我的租赁订单（“我的 → 租赁订单”）"
+      description: "新确认的在前。租赁订单不在“商品订单”里。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/RentalOrderStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页租赁订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalOrderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/rental-orders/{orderId}:
+    get:
+      operationId: "getMyRentalOrder"
+      summary: "租赁订单（含合同、交接和归还记录）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: "租赁订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/rental-orders/{orderId}/handover-confirmation:
+    post:
+      operationId: "confirmRentalHandover"
+      summary: "确认交接"
+      description: "商家已录入交接记录（HANDOVER_RECORDED）时确认：订单进入使用中，从现在起计租。已经确认过的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: "确认后的租赁订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "RENTAL_STATE_INVALID：商家还没有录入记录，或订单已取消、关闭。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/rental-orders/{orderId}/return-confirmation:
+    post:
+      operationId: "confirmRentalReturn"
+      summary: "确认归还"
+      description: "商家已录入归还记录（RETURN_RECORDED）时确认：订单结束。已经确认过的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: "确认后的租赁订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "RENTAL_STATE_INVALID：商家还没有录入记录，或订单已取消、关闭。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/rental-inquiries:
+    get:
+      operationId: "listMerchantRentalInquiries"
+      summary: "出租方收到的询价单"
+      description: "新提交的在前。客户手机号在付款之前打码。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/RentalInquiryStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalInquiryPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+  /api/v1/provider/rental-inquiries/{inquiryId}:
+    get:
+      operationId: "getMerchantRentalInquiry"
+      summary: "出租方看一份询价单"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+      responses:
+        "200":
+          description: "询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalInquiry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+  /api/v1/provider/rental-inquiries/{inquiryId}/quote:
+    put:
+      operationId: "quoteRentalInquiry"
+      summary: "报价或改价"
+      description: "待报价、待确认、报价已过期的询价单可以报；每次是新的一版（版本加 1），询价单回到待确认。内容和最新一版一样、还没过期时没有变化。合计 = 日租金 × 天数 × 台数 + 其他费用。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalQuoteRequest"
+      responses:
+        "200":
+          description: "报价后的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalInquiry"
+        "400":
+          description: "日租金、天数、台数无效；费用行超过 5 行、重名、叫“租金”、金额为负或说明超长；有效期不晚于现在或超过 7 天；没有合同条款（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+        "409":
+          description: "RENTAL_STATE_INVALID：询价单已确认合同、已关闭或已拒绝。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/rental-inquiries/{inquiryId}/decline:
+    post:
+      operationId: "declineRentalInquiry"
+      summary: "拒绝询价（写原因）"
+      description: "已经拒绝的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalReasonRequest"
+      responses:
+        "200":
+          description: "拒绝后的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalInquiry"
+        "400":
+          description: "没有原因或原因超过 80 字（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+        "409":
+          description: "RENTAL_STATE_INVALID：询价单已确认合同或已关闭。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/rental-orders:
+    get:
+      operationId: "listMerchantRentalOrders"
+      summary: "出租方的租赁订单"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/RentalOrderStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页租赁订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalOrderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+  /api/v1/provider/rental-orders/{orderId}:
+    get:
+      operationId: "getMerchantRentalOrder"
+      summary: "出租方看一张租赁订单"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: "租赁订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+  /api/v1/provider/rental-orders/{orderId}/handover:
+    post:
+      operationId: "recordRentalHandover"
+      summary: "录入交接记录"
+      description: "待交接（AWAITING_HANDOVER）时录入，订单变成 HANDOVER_RECORDED 等客户确认；客户确认之前可以再录（覆盖）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalRecordRequest"
+      responses:
+        "200":
+          description: "录入后的租赁订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalOrder"
+        "400":
+          description: "没有说明、说明超过 200 字，或时间晚于现在、早于确认合同（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+        "409":
+          description: "RENTAL_STATE_INVALID：订单不是待交接，或客户已经确认了交接。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/rental-orders/{orderId}/return:
+    post:
+      operationId: "recordRentalReturn"
+      summary: "录入归还记录"
+      description: "使用中（IN_USE）时录入，订单变成 RETURN_RECORDED 等客户确认；客户确认之前可以再录（覆盖）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalRecordRequest"
+      responses:
+        "200":
+          description: "录入后的租赁订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalOrder"
+        "400":
+          description: "没有说明、说明超过 200 字，或时间晚于现在、早于确认合同（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+        "409":
+          description: "RENTAL_STATE_INVALID：订单不是使用中，或客户已经确认了归还。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/rental-orders/{orderId}/cancel:
+    post:
+      operationId: "cancelRentalOrder"
+      summary: "交接之前取消订单，整单原路退款"
+      description: "待交接（含商家已录入、客户还没确认交接）时可以取消；租金整单原路退回（提交后交给渠道，进度见 refund）。已经取消的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalReasonRequest"
+      responses:
+        "200":
+          description: "取消后的租赁订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalOrder"
+        "400":
+          description: "没有原因或原因超过 80 字（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+        "409":
+          description: "RENTAL_STATE_INVALID：还没付款、已关闭，或客户已经确认交接；RENTAL_REFUND_NOT_ALLOWED：交易订单现在不能退款。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  headers:
+    InquiryETag:
+      description: "询价单版本（带引号），确认合同时作为 If-Match 带回来"
+      schema:
+        type: "string"
+  responses:
+    BadRequest:
+      description: "参数缺失或格式不对（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录，或登录已过期（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "登录账号没有客户角色（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    MerchantForbidden:
+      description: "登录账号不是服务商操作员，或令牌里没有机构（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "不存在，或不是当前账号的（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    MerchantNotFound:
+      description: "不存在，或出租方不是本机构（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    InquiryId:
+      name: "inquiryId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    OrderId:
+      name: "orderId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      description: "客户端为这次提交生成的 UUID；重试时带同一个"
+      schema:
+        type: "string"
+        format: "uuid"
+    IfMatch:
+      name: "If-Match"
+      in: "header"
+      required: true
+      description: "读询价单时的 ETag（询价单版本），可以带引号或 W/ 前缀"
+      schema:
+        type: "string"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true
+    RentalErrorCode:
+      type: "string"
+      enum:
+        - "RENTAL_IDEMPOTENCY_KEY_REUSED"
+        - "RENTAL_OFFER_UNAVAILABLE"
+        - "RENTAL_PAYMENT_UNAVAILABLE"
+        - "RENTAL_ADDRESS_NOT_FOUND"
+        - "RENTAL_STATE_INVALID"
+        - "RENTAL_VERSION_CONFLICT"
+        - "RENTAL_QUOTE_CHANGED"
+        - "RENTAL_QUOTE_EXPIRED"
+        - "RENTAL_SCHEDULE_UNAVAILABLE"
+        - "RENTAL_START_DATE_PASSED"
+        - "RENTAL_TERMS_NOT_AGREED"
+        - "RENTAL_REFUND_NOT_ALLOWED"
+      description: "租赁接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。RENTAL_ADDRESS_NOT_FOUND、RENTAL_TERMS_NOT_AGREED 是 422，RENTAL_VERSION_CONFLICT 是 412，其余是 409。"
+    RentalInquiryStatus:
+      type: "string"
+      enum:
+        - "PENDING"
+        - "QUOTED"
+        - "EXPIRED"
+        - "CONFIRMED"
+        - "DECLINED"
+        - "CLOSED"
+      description: "询价单：PENDING 待报价；QUOTED 待确认（有有效报价）；EXPIRED 报价已过期（商家可以再报）；CONFIRMED 已确认合同（有租赁订单）；DECLINED 商家拒绝（见 declineReason）；CLOSED 已关闭（见 closeReason）。"
+    RentalCloseReason:
+      type: "string"
+      enum:
+        - "CUSTOMER"
+        - "NO_QUOTE"
+      description: "CUSTOMER 客户关闭；NO_QUOTE 提交 7 天内没有报价，自动关闭。"
+    RentalOrderStatus:
+      type: "string"
+      enum:
+        - "PENDING_PAYMENT"
+        - "CLOSED"
+        - "AWAITING_HANDOVER"
+        - "HANDOVER_RECORDED"
+        - "IN_USE"
+        - "RETURN_RECORDED"
+        - "ENDED"
+        - "CANCELLED"
+      description: "租赁订单：PENDING_PAYMENT 待付款；CLOSED 已关闭（未付款，报价失效，要租需要重新询价）；AWAITING_HANDOVER 待交接；HANDOVER_RECORDED 待交接，商家已录入交接记录、待你确认；IN_USE 使用中（确认交接起计租）；RETURN_RECORDED 待归还，商家已录入归还记录、待你确认；ENDED 已结束；CANCELLED 交接前出租方取消，租金整单原路退款。"
+    RentalHandoverMode:
+      type: "string"
+      enum:
+        - "DELIVERY"
+        - "PICKUP"
+      description: "交接方式：DELIVERY 商家送达；PICKUP 到店自提。"
+    RentalReturnMode:
+      type: "string"
+      enum:
+        - "COLLECT"
+        - "DROP_OFF"
+      description: "归还方式：COLLECT 商家上门取回；DROP_OFF 送回门店。"
+    RentalLesseeKind:
+      type: "string"
+      enum:
+        - "ORGANIZATION"
+        - "PERSONAL"
+      description: "询价身份：ORGANIZATION 记在客户组织名下；PERSONAL 个人。"
+    RentalLessee:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "kind"
+        - "organizationName"
+        - "contactName"
+      properties:
+        kind:
+          $ref: "#/components/schemas/RentalLesseeKind"
+        organizationName:
+          type:
+            - "string"
+            - "null"
+          description: "记在组织名下时的组织名，个人为 null"
+        contactName:
+          type: "string"
+          description: "账号的显示名（经办人）"
+    RentalMerchant:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "merchantId"
+        - "name"
+      properties:
+        merchantId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+      description: "出租方（商家）"
+    RentalItem:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "offerId"
+        - "productId"
+        - "productName"
+        - "skuName"
+        - "coverUrl"
+        - "referenceAmountMinor"
+        - "referenceUnit"
+      properties:
+        offerId:
+          type: "string"
+          format: "uuid"
+          description: "商城的租赁供给 ID"
+        productId:
+          type: "string"
+          format: "uuid"
+        productName:
+          type: "string"
+        skuName:
+          type: "string"
+        coverUrl:
+          type:
+            - "string"
+            - "null"
+        referenceAmountMinor:
+          type:
+            - "integer"
+            - "null"
+          format: "int64"
+          description: "商品页的参考价（分），如 ¥380/天 起；没有标价时为 null"
+        referenceUnit:
+          type: "string"
+          enum:
+            - "DAY"
+            - "HALF_DAY"
+            - "ITEM"
+          description: "参考价的单位"
+      description: "询价的设备：提交时的快照"
+    RentalPlace:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "addressId"
+        - "recipientName"
+        - "phone"
+        - "provinceName"
+        - "cityCode"
+        - "cityName"
+        - "detail"
+      properties:
+        addressId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "所选收货地址的 ID；合同里为 null"
+        recipientName:
+          type: "string"
+          maxLength: 20
+          description: "联系人（地址的收货人）"
+        phone:
+          type: "string"
+          description: "手机号；商家在客户付款之前看到的是打码的，如 138****1234"
+        provinceName:
+          type: "string"
+        cityCode:
+          type: "string"
+        cityName:
+          type: "string"
+        detail:
+          type: "string"
+          maxLength: 80
+      description: "使用地点：所选收货地址的快照"
+    RentalFee:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "name"
+        - "note"
+        - "amountMinor"
+      properties:
+        name:
+          type: "string"
+          maxLength: 20
+        note:
+          type:
+            - "string"
+            - "null"
+          maxLength: 40
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+          description: "可以为 0（含，不另收费）"
+      description: "报价的其他费用行"
+    RentalQuote:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "version"
+        - "dailyRentMinor"
+        - "days"
+        - "quantity"
+        - "rentMinor"
+        - "fees"
+        - "totalMinor"
+        - "scheduleAvailable"
+        - "validUntil"
+        - "expired"
+        - "terms"
+        - "quotedAt"
+      properties:
+        version:
+          type: "integer"
+          minimum: 1
+          description: "报价版本；确认合同时作为 quoteVersion 带回来"
+        dailyRentMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        days:
+          type: "integer"
+          minimum: 1
+          maximum: 90
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 10
+        rentMinor:
+          type: "integer"
+          format: "int64"
+          description: "租金 = 日租金 × 天数 × 台数"
+        fees:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/RentalFee"
+          maxItems: 5
+        totalMinor:
+          type: "integer"
+          format: "int64"
+          description: "合计 = 租金 + 其他费用；确认后付这么多"
+        scheduleAvailable:
+          type: "boolean"
+          description: "商家确认这段时间可以出租"
+        validUntil:
+          type: "string"
+          format: "date-time"
+        expired:
+          type: "boolean"
+          description: "已过有效期（按现在的时间算）"
+        terms:
+          type: "string"
+          maxLength: 2000
+          description: "合同条款（文字，可以换行）"
+        quotedAt:
+          type: "string"
+          format: "date-time"
+      description: "最新一版报价"
+    RentalOrderSummary:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "rentalOrderId"
+        - "status"
+        - "tradeOrderId"
+      properties:
+        rentalOrderId:
+          type: "string"
+          format: "uuid"
+        status:
+          $ref: "#/components/schemas/RentalOrderStatus"
+        tradeOrderId:
+          type: "string"
+          format: "uuid"
+    RentalInquiry:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "inquiryId"
+        - "status"
+        - "closeReason"
+        - "declineReason"
+        - "lessee"
+        - "merchant"
+        - "item"
+        - "quantity"
+        - "startDate"
+        - "endDate"
+        - "days"
+        - "handoverMode"
+        - "returnMode"
+        - "place"
+        - "note"
+        - "submittedAt"
+        - "quoteDeadline"
+        - "quote"
+        - "confirmable"
+        - "closable"
+        - "order"
+        - "updatedAt"
+        - "version"
+      properties:
+        inquiryId:
+          type: "string"
+          format: "uuid"
+        status:
+          $ref: "#/components/schemas/RentalInquiryStatus"
+        closeReason:
+          anyOf:
+            - $ref: "#/components/schemas/RentalCloseReason"
+            - type: "null"
+        declineReason:
+          type:
+            - "string"
+            - "null"
+          maxLength: 80
+        lessee:
+          $ref: "#/components/schemas/RentalLessee"
+        merchant:
+          $ref: "#/components/schemas/RentalMerchant"
+        item:
+          $ref: "#/components/schemas/RentalItem"
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 10
+          description: "有报价时是报价的台数，否则是询价的台数"
+        startDate:
+          type: "string"
+          format: "date"
+          description: "期望起租日（北京时间）"
+        endDate:
+          type: "string"
+          format: "date"
+          description: "到期日 = 起租日 + 天数 − 1"
+        days:
+          type: "integer"
+          minimum: 1
+          maximum: 90
+          description: "有报价时是报价的天数，否则是询价的天数"
+        handoverMode:
+          $ref: "#/components/schemas/RentalHandoverMode"
+        returnMode:
+          $ref: "#/components/schemas/RentalReturnMode"
+        place:
+          $ref: "#/components/schemas/RentalPlace"
+        note:
+          type:
+            - "string"
+            - "null"
+          maxLength: 200
+        submittedAt:
+          type: "string"
+          format: "date-time"
+        quoteDeadline:
+          type: "string"
+          format: "date-time"
+          description: "提交后 7 天，之前没有报价就自动关闭"
+        quote:
+          anyOf:
+            - $ref: "#/components/schemas/RentalQuote"
+            - type: "null"
+        confirmable:
+          type: "boolean"
+          description: "现在可以确认合同（待确认、报价没过期、档期可用、起租日没过）；商家看到的总是 false"
+        closable:
+          type: "boolean"
+          description: "现在可以关闭询价（待报价、待确认、报价已过期）；商家看到的总是 false"
+        order:
+          anyOf:
+            - $ref: "#/components/schemas/RentalOrderSummary"
+            - type: "null"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+          description: "和 ETag 相同"
+    RentalInquiryPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/RentalInquiry"
+    RentalConfirmation:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "inquiryId"
+        - "rentalOrderId"
+        - "tradeOrderId"
+        - "payBefore"
+      properties:
+        inquiryId:
+          type: "string"
+          format: "uuid"
+        rentalOrderId:
+          type: "string"
+          format: "uuid"
+        tradeOrderId:
+          type: "string"
+          format: "uuid"
+          description: "去收银台付这张交易订单（contracts/openapi-trade.yaml）"
+        payBefore:
+          type: "string"
+          format: "date-time"
+          description: "付款截止：确认后 30 分钟"
+    RentalContract:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "contractNo"
+        - "confirmedAt"
+        - "quoteVersion"
+        - "lessee"
+        - "lessor"
+        - "productName"
+        - "skuName"
+        - "quantity"
+        - "startDate"
+        - "endDate"
+        - "days"
+        - "dailyRentMinor"
+        - "rentMinor"
+        - "fees"
+        - "totalMinor"
+        - "handoverMode"
+        - "returnMode"
+        - "place"
+        - "terms"
+      properties:
+        contractNo:
+          type: "string"
+          description: "合同编号，如 RC20261119048213"
+        confirmedAt:
+          type: "string"
+          format: "date-time"
+        quoteVersion:
+          type: "integer"
+          minimum: 1
+        lessee:
+          $ref: "#/components/schemas/RentalLessee"
+        lessor:
+          $ref: "#/components/schemas/RentalMerchant"
+        productName:
+          type: "string"
+        skuName:
+          type: "string"
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 10
+        startDate:
+          type: "string"
+          format: "date"
+        endDate:
+          type: "string"
+          format: "date"
+        days:
+          type: "integer"
+          minimum: 1
+          maximum: 90
+        dailyRentMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        rentMinor:
+          type: "integer"
+          format: "int64"
+        fees:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/RentalFee"
+        totalMinor:
+          type: "integer"
+          format: "int64"
+        handoverMode:
+          $ref: "#/components/schemas/RentalHandoverMode"
+        returnMode:
+          $ref: "#/components/schemas/RentalReturnMode"
+        place:
+          $ref: "#/components/schemas/RentalPlace"
+        terms:
+          type: "string"
+      description: "合同：确认时按报价和询价生成，之后不变。合同线下签署，没有文件。"
+    RentalPayment:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "tradeOrderId"
+        - "amountMinor"
+        - "payBefore"
+        - "paidAt"
+      properties:
+        tradeOrderId:
+          type: "string"
+          format: "uuid"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+        payBefore:
+          type: "string"
+          format: "date-time"
+        paidAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+    RentalRecord:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "occurredAt"
+        - "note"
+        - "recordedAt"
+        - "confirmedAt"
+      properties:
+        occurredAt:
+          type: "string"
+          format: "date-time"
+          description: "商家写的交接（归还）时间"
+        note:
+          type: "string"
+          maxLength: 200
+          description: "设备编号、配件、外观等"
+        recordedAt:
+          type: "string"
+          format: "date-time"
+        confirmedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "客户确认的时间；为 null 表示待你确认"
+    RentalRefund:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "refundId"
+        - "amountMinor"
+        - "status"
+      properties:
+        refundId:
+          type: "string"
+          format: "uuid"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+        status:
+          type: "string"
+          enum:
+            - "REQUESTED"
+            - "PROCESSING"
+            - "SUCCEEDED"
+            - "CLOSED"
+            - "ABNORMAL"
+          description: "交易模块的退款状态"
+    RentalOrder:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "rentalOrderId"
+        - "inquiryId"
+        - "status"
+        - "contract"
+        - "payment"
+        - "handoverRecord"
+        - "returnRecord"
+        - "rentStartedAt"
+        - "endedAt"
+        - "closedAt"
+        - "cancelledAt"
+        - "cancelReason"
+        - "refund"
+        - "handoverConfirmable"
+        - "returnConfirmable"
+        - "createdAt"
+        - "updatedAt"
+        - "version"
+      properties:
+        rentalOrderId:
+          type: "string"
+          format: "uuid"
+        inquiryId:
+          type: "string"
+          format: "uuid"
+        status:
+          $ref: "#/components/schemas/RentalOrderStatus"
+        contract:
+          $ref: "#/components/schemas/RentalContract"
+        payment:
+          $ref: "#/components/schemas/RentalPayment"
+        handoverRecord:
+          anyOf:
+            - $ref: "#/components/schemas/RentalRecord"
+            - type: "null"
+        returnRecord:
+          anyOf:
+            - $ref: "#/components/schemas/RentalRecord"
+            - type: "null"
+        rentStartedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "确认交接的时间，从这时起计租"
+        endedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        closedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        cancelledAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        cancelReason:
+          type:
+            - "string"
+            - "null"
+          maxLength: 80
+        refund:
+          anyOf:
+            - $ref: "#/components/schemas/RentalRefund"
+            - type: "null"
+        handoverConfirmable:
+          type: "boolean"
+          description: "现在可以确认交接；商家看到的总是 false"
+        returnConfirmable:
+          type: "boolean"
+          description: "现在可以确认归还；商家看到的总是 false"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+    RentalOrderPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/RentalOrder"
+    RentalInquiryRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "offerId"
+        - "quantity"
+        - "startDate"
+        - "days"
+        - "handoverMode"
+        - "returnMode"
+        - "addressId"
+      properties:
+        offerId:
+          type: "string"
+          format: "uuid"
+          description: "商品详情里的租赁供给 ID"
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 10
+        startDate:
+          type: "string"
+          format: "date"
+          description: "期望起租日 YYYY-MM-DD（北京时间），不早于明天"
+        days:
+          type: "integer"
+          minimum: 1
+          maximum: 90
+        handoverMode:
+          type: "string"
+          enum:
+            - "DELIVERY"
+            - "PICKUP"
+          description: "见 RentalHandoverMode"
+        returnMode:
+          type: "string"
+          enum:
+            - "COLLECT"
+            - "DROP_OFF"
+          description: "见 RentalReturnMode"
+        addressId:
+          type: "string"
+          format: "uuid"
+          description: "自己的一条收货地址（使用地点）"
+        note:
+          type:
+            - "string"
+            - "null"
+          maxLength: 200
+          description: "补充说明，可以换行"
+    RentalConfirmRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "quoteVersion"
+        - "agreed"
+      properties:
+        quoteVersion:
+          type: "integer"
+          minimum: 1
+          description: "页面上这版报价的 version"
+        agreed:
+          type: "boolean"
+          description: "勾选了“我已核对租期、费用与合同条款”；不是 true 时 422"
+    RentalFeeRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "name"
+        - "amountMinor"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 20
+          description: "不能叫“租金”，同一版里不能重名"
+        note:
+          type:
+            - "string"
+            - "null"
+          maxLength: 40
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+    RentalQuoteRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "dailyRentMinor"
+        - "days"
+        - "quantity"
+        - "scheduleAvailable"
+        - "validUntil"
+        - "terms"
+      properties:
+        dailyRentMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+          maximum: 10000000000
+        days:
+          type: "integer"
+          minimum: 1
+          maximum: 90
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 10
+        fees:
+          type:
+            - "array"
+            - "null"
+          items:
+            $ref: "#/components/schemas/RentalFeeRequest"
+          maxItems: 5
+        scheduleAvailable:
+          type: "boolean"
+          description: "这段时间能不能出租"
+        validUntil:
+          type: "string"
+          format: "date-time"
+          description: "报价有效期：晚于现在，不超过 7 天"
+        terms:
+          type: "string"
+          minLength: 1
+          maxLength: 2000
+          description: "合同条款，可以换行"
+    RentalReasonRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "reason"
+      properties:
+        reason:
+          type: "string"
+          minLength: 1
+          maxLength: 80
+    RentalRecordRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "note"
+      properties:
+        occurredAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "交接（归还）时间；不填时是现在，不能晚于现在"
+        note:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+          description: "设备编号、配件、外观等"

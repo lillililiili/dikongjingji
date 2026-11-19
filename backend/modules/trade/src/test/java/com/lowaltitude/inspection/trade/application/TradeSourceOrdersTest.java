@@ -132,6 +132,11 @@ class TradeSourceOrdersTest {
         OpenedOrder activity = sourceOrders.open(command(ENROLLMENT, 1, NOW.plusSeconds(900)));
 
         assertThat(venue.orderNo()).startsWith("VO20261119");
+        // F3：设备租赁的订单编号以 RO 开头。
+        OpenedOrder rental = sourceOrders.open(new OpenCommand("RENTAL", ENROLLMENT, BUYER, ORGANIZER, "370500",
+                List.of(line(1)), NOW.plusSeconds(1800)));
+        assertThat(rental.orderNo()).startsWith("RO20261119");
+        assertThat(store.order(rental.orderId()).source).isEqualTo("RENTAL");
         assertThat(activity.orderNo()).startsWith("AO20261119");
         assertThat(venue.orderId()).isNotEqualTo(activity.orderId());
         assertThat(store.order(venue.orderId()).source).isEqualTo("VENUE");
@@ -1313,7 +1318,7 @@ class TradeSourceOrdersTest {
             public UUID insertSourceOrder(String orderNo, UUID buyerId, UUID merchantId, String merchantName,
                                           String subMchid, String source, UUID sourceRef, String cityCode,
                                           long goodsMinor, Instant payBefore, String requestHash, Instant at) {
-                if (!Set.of("ACTIVITY", "VENUE").contains(source) || sourceRef == null) {
+                if (!Set.of("ACTIVITY", "VENUE", "RENTAL").contains(source) || sourceRef == null) {
                     throw new IllegalStateException("trade_order_source_check / ck_trade_order_source_ref");
                 }
                 if (findBySourceRef(source, sourceRef) != null) {

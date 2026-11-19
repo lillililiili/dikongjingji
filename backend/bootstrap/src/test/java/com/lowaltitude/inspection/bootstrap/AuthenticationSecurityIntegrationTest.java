@@ -371,6 +371,51 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    // 设备租赁（F3）的十八个接口全部要登录，没有公开的。
+    @Test
+    void rentalRoutesRequireALogin() throws Exception {
+        String inquiry = "/api/v1/rental-inquiries/e1000000-0000-4000-8000-000000000001";
+        String order = "/api/v1/rental-orders/e2000000-0000-4000-8000-000000000001";
+        String merchantInquiry = "/api/v1/provider/rental-inquiries/e1000000-0000-4000-8000-000000000001";
+        String merchantOrder = "/api/v1/provider/rental-orders/e2000000-0000-4000-8000-000000000001";
+
+        for (var request : List.of(
+                post("/api/v1/rental-inquiries"), get("/api/v1/rental-inquiries"), get(inquiry),
+                post(inquiry + "/close"), post(inquiry + "/confirm"), get("/api/v1/rental-orders"), get(order),
+                post(order + "/handover-confirmation"), post(order + "/return-confirmation"),
+                get("/api/v1/provider/rental-inquiries"), get(merchantInquiry), put(merchantInquiry + "/quote"),
+                post(merchantInquiry + "/decline"), get("/api/v1/provider/rental-orders"), get(merchantOrder),
+                post(merchantOrder + "/handover"), post(merchantOrder + "/return"), post(merchantOrder + "/cancel"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+    }
+
+    // 客户按令牌里的账号读自己的租赁订单；出租方按令牌里的机构读；角色不对时 403，服务不被调用。
+    @Test
+    void rentalRoutesUseTheSubjectRolesAndOrganizationOfTheToken() throws Exception {
+        com.lowaltitude.inspection.rental.application.RentalService rentals = applicationContext.getBean(
+                com.lowaltitude.inspection.rental.application.RentalService.class);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+
+        mockMvc.perform(get("/api/v1/rental-orders").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/provider/rental-orders").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(rentals).listOrders(SUBJECT_ID, null, 1, 20);
+        org.mockito.Mockito.verify(rentals).merchantOrders(ORGANIZATION_ID, null, 1, 20);
+
+        mockMvc.perform(get("/api/v1/provider/rental-orders").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/rental-orders").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoMoreInteractions(rentals);
+    }
+
     // 需求与报价（F1）的十四个接口全部要登录，没有公开的。
     @Test
     void demandRoutesRequireALogin() throws Exception {
@@ -1242,6 +1287,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.rental.application.RentalService testRentalService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.rental.application.RentalService.class);
         }
 
         @Bean

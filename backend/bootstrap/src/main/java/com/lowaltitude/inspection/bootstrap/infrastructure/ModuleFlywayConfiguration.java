@@ -135,6 +135,14 @@ public class ModuleFlywayConfiguration {
                 .load();
     }
 
+    // 设备租赁（F3）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 商城供给、收货地址、交易订单只存 ID 和快照，不引用它们的表。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway rentalFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.rental(dataSource);
+    }
+
     // 收货地址表引用 identity_user，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")
