@@ -93,7 +93,7 @@ test.describe('商城频道', () => {
     await expect(dog).toHaveAttribute('data-sale-mode', 'RENT')
     await expect(dog.locator('.mall-card__amount')).toHaveText('¥380')
     await expect(dog.locator('.mall-card__unit')).toHaveText(['/天', '起'])
-    await expect(dog.locator('.mall-card__sellers')).toHaveText('租赁 · 1 家')
+    await expect(dog.locator('.mall-card__sellers')).toHaveText('租赁 · 2 家')
     await expect(dog.locator('.mall-card__rent')).toHaveText('租赁')
     await expect(dog.locator('.mall-card__action')).toHaveText('联系询价')
 
