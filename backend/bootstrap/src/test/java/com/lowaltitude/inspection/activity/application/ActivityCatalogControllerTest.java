@@ -66,6 +66,9 @@ class ActivityCatalogControllerTest {
                 .andExpect(jsonPath("$.items[0].price.mode").value("PER_PERSON"))
                 .andExpect(jsonPath("$.items[0].price.amountMinor").value(12000))
                 .andExpect(jsonPath("$.items[0].price.currency").value("CNY"))
+                // 1.2.0：能不能在线报名付款。
+                .andExpect(jsonPath("$.items[0].price.length()").value(4))
+                .andExpect(jsonPath("$.items[0].price.onlinePayment").value(true))
                 .andExpect(jsonPath("$.items[0].coverImage").value(nullValue()))
                 .andExpect(jsonPath("$.items[0].scheduleNote").value(nullValue()))
                 .andExpect(jsonPath("$.items[0].nextSession.sessionId").value(SESSION_ID.toString()))
@@ -109,6 +112,7 @@ class ActivityCatalogControllerTest {
                         .param("cityCode", "370500"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("青少年无人机编程挑战赛（东营站）"))
+                .andExpect(jsonPath("$.price.onlinePayment").value(true))
                 .andExpect(jsonPath("$.organizer.name").value("示例青少年科技机构"))
                 .andExpect(jsonPath("$.coOrganizer").value(nullValue()))
                 .andExpect(jsonPath("$.location.latitude").value(37.4487))
@@ -153,7 +157,7 @@ class ActivityCatalogControllerTest {
                 null,
                 "东营低空与机器人体验馆",
                 null,
-                new ActivityPriceView(ActivityPriceMode.PER_PERSON, 12000L, "CNY"),
+                new ActivityPriceView(ActivityPriceMode.PER_PERSON, 12000L, "CNY", true),
                 new ActivityAgeRangeView(8, 15),
                 ActivityEnrollmentStatus.OPEN,
                 new ActivityNextSessionView(SESSION_ID, STARTS_AT, 60, 12));
@@ -166,7 +170,7 @@ class ActivityCatalogControllerTest {
                 "青少年无人机编程挑战赛（东营站）",
                 "图形化编程 · 现场闯关 · 完赛证明",
                 null,
-                new ActivityPriceView(ActivityPriceMode.PER_PERSON, 12000L, "CNY"),
+                new ActivityPriceView(ActivityPriceMode.PER_PERSON, 12000L, "CNY", true),
                 new ActivityAgeRangeView(8, 15),
                 ActivityEnrollmentStatus.FULL_WAITLIST,
                 new ActivityOrganizerView(UUID.fromString("a1000000-0000-4000-8000-000000000001"), "示例青少年科技机构"),

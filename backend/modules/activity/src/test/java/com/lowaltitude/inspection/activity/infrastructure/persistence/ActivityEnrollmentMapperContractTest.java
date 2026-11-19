@@ -28,7 +28,8 @@ class ActivityEnrollmentMapperContractTest {
 
         // 接口里每个方法都带着一条语句，没有漏掉注解的。
         assertThat(statements).hasSize(ActivityEnrollmentMapper.class.getDeclaredMethods().length);
-        assertThat(statements).hasSize(25);
+        // V002 的 25 条，加上 E09 收费报名的 11 条。
+        assertThat(statements).hasSize(36);
         assertThat(statements.values()).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
     }
 
@@ -96,11 +97,12 @@ class ActivityEnrollmentMapperContractTest {
 
         assertThat(count).contains(ActivityEnrollmentMapper.ENROLLMENT_BUCKET);
         assertThat(page).contains(ActivityEnrollmentMapper.ENROLLMENT_BUCKET);
+        // E09：待付款的算“待参加”（或场次已结束时“已结束”），没付款就关闭的算“已取消”。
         assertThat(ActivityEnrollmentMapper.ENROLLMENT_BUCKET)
-                .contains("#{bucket} = 'CANCELLED' AND e.status = 'CANCELLED'")
-                .contains("#{bucket} = 'UPCOMING' AND e.status = 'CONFIRMED'")
+                .contains("#{bucket} = 'CANCELLED' AND e.status IN ('CANCELLED', 'CLOSED')")
+                .contains("#{bucket} = 'UPCOMING' AND e.status IN ('CONFIRMED', 'PENDING_PAYMENT')")
                 .contains("COALESCE(s.ends_at, s.starts_at) > #{now}")
-                .contains("#{bucket} = 'FINISHED' AND e.status = 'CONFIRMED'")
+                .contains("#{bucket} = 'FINISHED' AND e.status IN ('CONFIRMED', 'PENDING_PAYMENT')")
                 .contains("COALESCE(s.ends_at, s.starts_at) <= #{now}");
         assertThat(page)
                 .contains("CASE WHEN #{bucket} = 'UPCOMING' THEN s.starts_at END ASC")
@@ -161,6 +163,109 @@ class ActivityEnrollmentMapperContractTest {
                 .contains("e.status = 'CONFIRMED'")
                 .contains("NOT EXISTS")
                 .contains("t.status <> 'CANCELLED'");
+    }
+
+    // ---- E09 收费报名 ----
+
+    // 收费报名是待付款的，带单价、金额、交易订单和付款截止；凭证的状态由服务给出（收费时待付款）。
+    @Test
+    void aPaidEnrollmentIsInsertedPendingWithItsPaymentAndTicketsTakeTheirStatus() {
+        assertThat(normalized(sql("insertPaidEnrollment")))
+                .contains("id, account_id, activity_id, session_id, idempotency_key, request_hash,"
+                        + " status, unit_amount_minor, amount_minor, trade_order_id, pay_before,")
+                .contains("#{enrollmentId}, #{accountId}, #{activityId}, #{sessionId}, #{idempotencyKey},"
+                        + " #{requestHash}, 'PENDING_PAYMENT', #{unitAmountMinor}, #{amountMinor}, #{tradeOrderId},"
+                        + " #{payBefore},");
+        assertThat(normalized(sql("insertTicket"))).contains("#{ticketCode}, #{status}, #{at}, #{at}");
+        // 报名人取消的凭证记下原因。
+        assertThat(sql("cancelTicket")).contains("cancel_cause = 'BUYER'");
+        // 场次一并读出单价、主办机构、城市、标题、封面和场次名，建交易订单要用。
+        assertThat(ActivityEnrollmentMapper.SESSION_COLUMNS)
+                .contains("a.price_amount_minor")
+                .contains("a.organizer_id")
+                .contains("a.city_code")
+                .contains("a.title")
+                .contains("a.cover_url")
+                .contains("s.label");
+        assertThat(ActivityEnrollmentMapper.ENROLLMENT_COLUMNS)
+                .contains("e.unit_amount_minor")
+                .contains("e.amount_minor")
+                .contains("e.trade_order_id")
+                .contains("e.pay_before");
+        assertThat(sql("findTickets")).contains("t.cancel_cause").contains("t.refund_id");
+    }
+
+    // 付款结果只认报名单和它的交易订单两个 ID 一起；锁报名单在锁场次之后（服务里保证）。
+    @Test
+    void paymentResultsFindTheEnrollmentByItsTradeOrderToo() {
+        assertThat(normalized(sql("findPaidEnrollment")))
+                .endsWith("WHERE e.id = #{enrollmentId} AND e.trade_order_id = #{tradeOrderId}");
+        assertThat(normalized(sql("lockPaidEnrollment")))
+                .endsWith("WHERE e.id = #{enrollmentId} AND e.trade_order_id = #{tradeOrderId} FOR UPDATE");
+        assertThat(sql("findPaidEnrollment")).isEqualTo(ActivityEnrollmentMapper.PAID_ENROLLMENT);
+    }
+
+    // 每一步只改处在前一个状态的行：到账只改待付款的；关闭只改待付款的；恢复只改因关闭作废的。
+    @Test
+    void everyPaymentStepOnlyMovesRowsInTheStateItExpects() {
+        assertThat(normalized(sql("confirmPayment")))
+                .contains("SET status = 'CONFIRMED'")
+                .endsWith("WHERE id = #{enrollmentId} AND status = 'PENDING_PAYMENT'");
+        assertThat(normalized(sql("activatePendingTickets")))
+                .contains("SET status = 'ACTIVE'")
+                .endsWith("WHERE enrollment_id = #{enrollmentId} AND status = 'PENDING_PAYMENT'");
+        assertThat(normalized(sql("closeUnpaid")))
+                .contains("SET status = 'CLOSED', closed_at = #{at}")
+                .endsWith("WHERE id = #{enrollmentId} AND status = 'PENDING_PAYMENT'");
+        assertThat(normalized(sql("cancelPendingTickets")))
+                .contains("SET status = 'CANCELLED', cancelled_at = #{at}, cancel_cause = 'PAYMENT_CLOSED'")
+                .endsWith("WHERE enrollment_id = #{enrollmentId} AND status = 'PENDING_PAYMENT'");
+        assertThat(normalized(sql("restoreClosedTickets")))
+                .contains("SET status = 'ACTIVE', cancelled_at = NULL, cancel_cause = NULL")
+                .endsWith("WHERE enrollment_id = #{enrollmentId} AND status = 'CANCELLED'"
+                        + " AND cancel_cause = 'PAYMENT_CLOSED'");
+        assertThat(normalized(sql("restoreClosed")))
+                .contains("SET status = 'CONFIRMED', closed_at = NULL")
+                .endsWith("WHERE id = #{enrollmentId} AND status = 'CLOSED'");
+        // 恢复前看这些人在这一场有没有另报（别的报名单里没取消的凭证）。
+        assertThat(normalized(sql("countOtherActiveTickets")))
+                .contains("WHERE other.session_id = #{sessionId} AND other.enrollment_id <> #{enrollmentId}"
+                        + " AND other.status <> 'CANCELLED'")
+                .contains("t.enrollment_id = #{enrollmentId} AND t.status = 'CANCELLED'"
+                        + " AND t.cancel_cause = 'PAYMENT_CLOSED'");
+        // 退款只记在报名人刚取消、还没记过退款的凭证上。
+        assertThat(normalized(sql("setTicketRefund")))
+                .startsWith("<script>")
+                .contains("SET refund_id = #{refundId}")
+                .contains("WHERE enrollment_id = #{enrollmentId} AND status = 'CANCELLED' AND cancel_cause = 'BUYER'"
+                        + " AND refund_id IS NULL AND id IN <foreach collection=\"ticketIds\"");
+    }
+
+    @Test
+    void theV003MigrationAddsThePaymentStatesAndKeepsExistingRowsValid() throws Exception {
+        String migration = normalized(migration("/db/migration/activity/V003__activity_paid_enrollment.sql"));
+
+        assertThat(migration)
+                .contains("CHECK (status IN ('PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED', 'CLOSED'))")
+                .contains("ALTER TABLE activity_enrollment ADD COLUMN trade_order_id uuid;")
+                .contains("ADD CONSTRAINT uq_activity_enrollment_trade_order UNIQUE (trade_order_id);")
+                .contains("CHECK ((status = 'CLOSED') = (closed_at IS NOT NULL))")
+                .contains("CHECK (status IN ('PENDING_PAYMENT', 'ACTIVE', 'CHECKED_IN', 'CANCELLED'))")
+                .contains("CHECK (cancel_cause IN ('BUYER', 'PAYMENT_CLOSED'))")
+                .contains("UPDATE activity_enrollment_ticket SET cancel_cause = 'BUYER'"
+                        + " WHERE status = 'CANCELLED' AND cancel_cause IS NULL;")
+                .contains("CHECK ((status = 'CANCELLED') = (cancel_cause IS NOT NULL))")
+                .contains("'PAYMENT_CONFIRMED', 'PAYMENT_CLOSED', 'PAYMENT_RESTORED', 'REFUND_REQUESTED'")
+                .contains("ALTER TABLE activity_enrollment_event ALTER COLUMN actor_id DROP NOT NULL;")
+                .contains("CHECK (actor_id IS NOT NULL OR event_type IN ('PAYMENT_CONFIRMED', 'PAYMENT_CLOSED',"
+                        + " 'PAYMENT_RESTORED'))");
+        // 免费报名（已有的数据）没有交易订单和金额，只能是已报名或已取消；收费报名的四项都有，金额是单价的整数倍。
+        assertThat(migration)
+                .contains("(trade_order_id IS NULL AND unit_amount_minor IS NULL AND amount_minor IS NULL"
+                        + " AND pay_before IS NULL AND status IN ('CONFIRMED', 'CANCELLED'))")
+                .contains("amount_minor % unit_amount_minor = 0");
+        // 交易表属于别的模块：不加外键。待付款的凭证仍占着“一人一场一张”的唯一索引（V002 的条件不改）。
+        assertThat(migration).doesNotContain("REFERENCES").doesNotContain("uq_activity_ticket_session_participant ON");
     }
 
     @Test
@@ -266,9 +371,12 @@ class ActivityEnrollmentMapperContractTest {
     }
 
     private String migration() throws Exception {
-        try (var stream = getClass().getResourceAsStream(
-                "/db/migration/activity/V002__activity_enrollment.sql")) {
-            assertThat(stream).isNotNull();
+        return migration("/db/migration/activity/V002__activity_enrollment.sql");
+    }
+
+    private String migration(String path) throws Exception {
+        try (var stream = getClass().getResourceAsStream(path)) {
+            assertThat(stream).as(path).isNotNull();
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
     }

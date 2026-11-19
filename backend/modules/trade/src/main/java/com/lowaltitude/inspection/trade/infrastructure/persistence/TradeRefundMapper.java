@@ -35,8 +35,9 @@ public interface TradeRefundMapper {
             """)
     RefundOrderRow lockBuyerOrder(@Param("buyerId") UUID buyerId, @Param("orderId") UUID orderId);
 
+    /** 商家退款只对商城订单：业务来源（E09 收费报名）的订单由业务单的退改退款。 */
     @Select(REFUND_ORDER_COLUMNS + """
-            WHERE o.id = #{orderId} AND o.merchant_id = #{merchantId}
+            WHERE o.id = #{orderId} AND o.merchant_id = #{merchantId} AND o.source = 'MALL'
             FOR UPDATE
             """)
     RefundOrderRow lockMerchantOrder(@Param("merchantId") UUID merchantId, @Param("orderId") UUID orderId);

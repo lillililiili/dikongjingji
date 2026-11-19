@@ -14,10 +14,15 @@ public final class TradeViews {
     public record TradeOrderView(
             UUID orderId,
             String orderNo,
+            /** MALL 商城；ACTIVITY 收费活动报名（E09）。 */
             String source,
+            /** 业务单 ID（收费报名时是报名单 ID）；商城订单为 null。 */
+            UUID sourceRef,
             TradeOrderStatus status,
             TradeMerchantView merchant,
+            /** 业务来源的订单是收费报名的场次等，不是商品：productId 是业务项目 ID（如活动 ID），offerId 是选项 ID（如场次 ID）。 */
             List<TradeOrderLineView> lines,
+            /** 业务来源的订单不发货，为 null。 */
             TradeDeliveryView delivery,
             TradeAmountsView amounts,
             String buyerNote,
@@ -34,6 +39,7 @@ public final class TradeViews {
     ) {
     }
 
+    /** kind 是商城的商家类型；业务来源的订单（收费报名的主办机构）为 null。 */
     public record TradeMerchantView(UUID organizationId, String name, String kind) {
     }
 

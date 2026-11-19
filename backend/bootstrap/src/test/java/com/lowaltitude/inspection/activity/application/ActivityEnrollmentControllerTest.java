@@ -84,7 +84,10 @@ class ActivityEnrollmentControllerTest {
             Map.entry(Error.SESSION_FULL, new Rejection(409, "ACT_SESSION_FULL")),
             Map.entry(Error.CANCEL_NOT_ALLOWED, new Rejection(409, "ACT_CANCEL_NOT_ALLOWED")),
             Map.entry(Error.CHECKIN_NOT_OPEN, new Rejection(409, "ACT_CHECKIN_NOT_OPEN")),
-            Map.entry(Error.TICKET_NOT_VALID, new Rejection(409, "ACT_TICKET_NOT_VALID")));
+            Map.entry(Error.TICKET_NOT_VALID, new Rejection(409, "ACT_TICKET_NOT_VALID")),
+            // E09 收费报名：错误码用 ACTIVITY_ 前缀（docs/redesign/03-App实现任务计划.md §20.4）。
+            Map.entry(Error.AMOUNT_CHANGED, new Rejection(409, "ACTIVITY_AMOUNT_CHANGED")),
+            Map.entry(Error.PAYMENT_UNAVAILABLE, new Rejection(409, "ACTIVITY_PAYMENT_UNAVAILABLE")));
 
     private final ActivityEnrollmentService service = mock(ActivityEnrollmentService.class);
     private final IdentityProfilePort profiles = mock(IdentityProfilePort.class);
@@ -363,6 +366,40 @@ class ActivityEnrollmentControllerTest {
         verify(service, times(2)).enroll(SUBJECT, KEY, command);
     }
 
+    // 收费报名（E09）：页面看到的应付金额原样交给服务；返回的报名单带付款信息，待付款的凭证没有凭证号。
+    @Test
+    void aPaidEnrollmentCarriesTheExpectedAmountAndAnswersWithItsPayment() throws Exception {
+        EnrollCommand command = new EnrollCommand(ACTIVITY, SESSION, List.of(SELF, CHILD), true, 24_000L);
+        UUID tradeOrder = UUID.fromString("b1000000-0000-4000-8000-000000000001");
+        EnrollmentView base = enrollment();
+        EnrollmentView pending = new EnrollmentView(base.enrollmentId(), base.status(), base.activity(), base.session(),
+                base.location(), base.createdAt(), base.cancellableUntil(), true,
+                List.of(new TicketView(TICKET, SELF, "王女士（示例）", ParticipantRelation.SELF, null, null,
+                        TicketStatus.PENDING_PAYMENT, null, null, null)),
+                new EnrollmentPaymentView(EnrollmentPaymentStatus.PENDING_PAYMENT, tradeOrder, 24_000L, 12_000L,
+                        CREATED_AT.plusMinutes(15)));
+        when(service.enroll(SUBJECT, KEY, command)).thenReturn(new EnrollmentResult(pending, true));
+
+        mockMvc.perform(post("/api/v1/activity-enrollments")
+                        .principal(customer)
+                        .header("Idempotency-Key", KEY.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"activityId\":\"%s\",\"sessionId\":\"%s\",\"participantIds\":[\"%s\",\"%s\"],"
+                                + "\"noticeAgreed\":true,\"expectedAmountMinor\":24000}")
+                                .formatted(ACTIVITY, SESSION, SELF, CHILD)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.payment.status").value("PENDING_PAYMENT"))
+                .andExpect(jsonPath("$.payment.tradeOrderId").value(tradeOrder.toString()))
+                .andExpect(jsonPath("$.payment.amountMinor").value(24_000))
+                .andExpect(jsonPath("$.payment.unitAmountMinor").value(12_000))
+                .andExpect(jsonPath("$.payment.payBefore").isNotEmpty())
+                .andExpect(jsonPath("$.tickets[0].status").value("PENDING_PAYMENT"))
+                .andExpect(jsonPath("$.tickets[0].ticketCode").value(nullValue()))
+                .andExpect(jsonPath("$.tickets[0].refund").value(nullValue()));
+
+        verify(service).enroll(SUBJECT, KEY, command);
+    }
+
     // 没写或写成 null 的“同意报名须知”按没同意交给服务，由服务拒绝。
     @Test
     void aMissingNoticeAgreementReachesTheServiceAsFalse() throws Exception {
@@ -443,7 +480,12 @@ class ActivityEnrollmentControllerTest {
 
         mockMvc.perform(get("/api/v1/activity-enrollments/{id}", ENROLLMENT).principal(customer))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(9))
+                .andExpect(jsonPath("$.length()").value(10))
+                // 1.2.0：免费报名的付款只有 FREE，其余为 null。
+                .andExpect(jsonPath("$.payment.length()").value(5))
+                .andExpect(jsonPath("$.payment.status").value("FREE"))
+                .andExpect(jsonPath("$.payment.tradeOrderId").value(nullValue()))
+                .andExpect(jsonPath("$.tickets[0].refund").value(nullValue()))
                 .andExpect(jsonPath("$.enrollmentId").value(ENROLLMENT.toString()))
                 .andExpect(jsonPath("$.status").value("UPCOMING"))
                 .andExpect(jsonPath("$.createdAt").value("2026-11-17T04:00:00Z"))
@@ -464,7 +506,7 @@ class ActivityEnrollmentControllerTest {
                 .andExpect(jsonPath("$.session.checkInOpensAt").value(nullValue()))
                 .andExpect(jsonPath("$.location.name").value("体验馆一层大厅"))
                 .andExpect(jsonPath("$.location.latitude").value(37.43))
-                .andExpect(jsonPath("$.tickets[0].length()").value(9))
+                .andExpect(jsonPath("$.tickets[0].length()").value(10))
                 .andExpect(jsonPath("$.tickets[0].ticketId").value(TICKET.toString()))
                 .andExpect(jsonPath("$.tickets[0].participantId").value(SELF.toString()))
                 .andExpect(jsonPath("$.tickets[0].participantName").value("王女士（示例）"))
@@ -586,6 +628,8 @@ class ActivityEnrollmentControllerTest {
         assertThat(REJECTIONS.values().stream().map(Rejection::code)).doesNotHaveDuplicates();
         assertThat(REJECTIONS.values().stream().map(Rejection::code).filter(code -> code.startsWith("ACT_")))
                 .hasSize(11);
+        assertThat(REJECTIONS.values().stream().map(Rejection::code).filter(code -> code.startsWith("ACTIVITY_")))
+                .hasSize(2);
     }
 
     @Test
@@ -704,10 +748,11 @@ class ActivityEnrollmentControllerTest {
                 true,
                 List.of(
                         new TicketView(TICKET, SELF, "王女士（示例）", ParticipantRelation.SELF, null,
-                                TICKET_CODE, TicketStatus.ACTIVE, null, null),
+                                TICKET_CODE, TicketStatus.ACTIVE, null, null, null),
                         new TicketView(UUID.fromString("a6000000-0000-4000-8000-000000000002"), CHILD, "小明",
                                 ParticipantRelation.CHILD, 8, "ACT-3F8N-W1ZC-6RYB", TicketStatus.CHECKED_IN,
-                                STARTS_AT.minusMinutes(20), null)));
+                                STARTS_AT.minusMinutes(20), null, null)),
+                new EnrollmentPaymentView(EnrollmentPaymentStatus.FREE, null, null, null, null));
     }
 
     private static CheckinView checkin(boolean repeated) {

@@ -12,7 +12,8 @@ import org.apache.ibatis.annotations.Update;
 
 /**
  * 参与人、报名单和凭证的读写。全部用绑定参数；参与人和报名单的每条语句都以所属账号为条件，
- * 核销以主办或承办机构为条件。“当前时间”由调用方传入。
+ * 核销以主办或承办机构为条件；收费报名的付款结果（E09）以报名单和它的交易订单两个 ID 一起为条件。
+ * “当前时间”由调用方传入。
  */
 public interface ActivityEnrollmentMapper {
 
@@ -159,7 +160,13 @@ public interface ActivityEnrollmentMapper {
                    s.ends_at,
                    s.enrollment_closes_at,
                    s.capacity,
-                   s.enrolled_count
+                   s.enrolled_count,
+                   a.price_amount_minor,
+                   a.organizer_id,
+                   a.city_code,
+                   a.title,
+                   a.cover_url,
+                   s.label
             FROM activity_session s
             JOIN activity a ON a.id = s.activity_id
             WHERE s.id = #{sessionId}
@@ -235,16 +242,46 @@ public interface ActivityEnrollmentMapper {
             @Param("at") OffsetDateTime at
     );
 
+    /**
+     * 收费报名（E09）：待付款，记下单价、金额、交易订单和付款截止时间。ID 由服务先定好，
+     * 交易订单的业务单 ID 就是它（交易订单在同一个事务里先建）。
+     */
+    @Insert("""
+            INSERT INTO activity_enrollment (
+                id, account_id, activity_id, session_id, idempotency_key, request_hash,
+                status, unit_amount_minor, amount_minor, trade_order_id, pay_before,
+                notice_agreed_at, created_at, updated_at
+            )
+            VALUES (
+                #{enrollmentId}, #{accountId}, #{activityId}, #{sessionId}, #{idempotencyKey}, #{requestHash},
+                'PENDING_PAYMENT', #{unitAmountMinor}, #{amountMinor}, #{tradeOrderId}, #{payBefore},
+                #{at}, #{at}, #{at}
+            )
+            """)
+    int insertPaidEnrollment(
+            @Param("enrollmentId") UUID enrollmentId,
+            @Param("accountId") UUID accountId,
+            @Param("activityId") UUID activityId,
+            @Param("sessionId") UUID sessionId,
+            @Param("idempotencyKey") UUID idempotencyKey,
+            @Param("requestHash") String requestHash,
+            @Param("unitAmountMinor") long unitAmountMinor,
+            @Param("amountMinor") long amountMinor,
+            @Param("tradeOrderId") UUID tradeOrderId,
+            @Param("payBefore") OffsetDateTime payBefore,
+            @Param("at") OffsetDateTime at
+    );
+
     @Select("""
             INSERT INTO activity_enrollment_ticket (
                 enrollment_id, session_id, participant_id,
                 participant_name, participant_relation, participant_age,
-                ticket_code, created_at, updated_at
+                ticket_code, status, created_at, updated_at
             )
             VALUES (
                 #{enrollmentId}, #{sessionId}, #{participantId},
                 #{name}, #{relation}, #{age},
-                #{ticketCode}, #{at}, #{at}
+                #{ticketCode}, #{status}, #{at}, #{at}
             )
             RETURNING id
             """)
@@ -256,6 +293,7 @@ public interface ActivityEnrollmentMapper {
             @Param("relation") String relation,
             @Param("age") Integer age,
             @Param("ticketCode") String ticketCode,
+            @Param("status") String status,
             @Param("at") OffsetDateTime at
     );
 
@@ -291,7 +329,11 @@ public interface ActivityEnrollmentMapper {
                    s.label session_label,
                    s.starts_at,
                    s.ends_at,
-                   s.check_in_opens_at
+                   s.check_in_opens_at,
+                   e.unit_amount_minor,
+                   e.amount_minor,
+                   e.trade_order_id,
+                   e.pay_before
             FROM activity_enrollment e
             JOIN activity a ON a.id = e.activity_id
             JOIN activity_session s ON s.id = e.session_id
@@ -299,13 +341,16 @@ public interface ActivityEnrollmentMapper {
             WHERE e.account_id = #{accountId}
             """;
 
-    /** 待参加：没取消、场次还没结束；已结束：没取消、场次已结束；已取消：全部凭证都取消了。 */
+    /**
+     * 待参加：已报名或待付款、场次还没结束；已结束：已报名或待付款、场次已结束；
+     * 已取消：全部凭证都取消了，或者没付款就关闭了（E09）。
+     */
     String ENROLLMENT_BUCKET = """
               AND (
-                  (#{bucket} = 'CANCELLED' AND e.status = 'CANCELLED')
-                  OR (#{bucket} = 'UPCOMING' AND e.status = 'CONFIRMED'
+                  (#{bucket} = 'CANCELLED' AND e.status IN ('CANCELLED', 'CLOSED'))
+                  OR (#{bucket} = 'UPCOMING' AND e.status IN ('CONFIRMED', 'PENDING_PAYMENT')
                       AND COALESCE(s.ends_at, s.starts_at) > #{now})
-                  OR (#{bucket} = 'FINISHED' AND e.status = 'CONFIRMED'
+                  OR (#{bucket} = 'FINISHED' AND e.status IN ('CONFIRMED', 'PENDING_PAYMENT')
                       AND COALESCE(s.ends_at, s.starts_at) <= #{now})
               )
             """;
@@ -358,7 +403,9 @@ public interface ActivityEnrollmentMapper {
                    t.ticket_code,
                    t.status,
                    t.checked_in_at,
-                   t.cancelled_at
+                   t.cancelled_at,
+                   t.cancel_cause,
+                   t.refund_id
             FROM activity_enrollment_ticket t
             WHERE t.enrollment_id IN
             <foreach collection="enrollmentIds" item="id" open="(" separator="," close=")">
@@ -373,6 +420,7 @@ public interface ActivityEnrollmentMapper {
             UPDATE activity_enrollment_ticket
             SET status = 'CANCELLED',
                 cancelled_at = #{at},
+                cancel_cause = 'BUYER',
                 version = version + 1,
                 updated_at = #{at}
             WHERE id = #{ticketId}
@@ -402,6 +450,150 @@ public interface ActivityEnrollmentMapper {
             """)
     int cancelEnrollmentIfEmpty(
             @Param("enrollmentId") UUID enrollmentId,
+            @Param("at") OffsetDateTime at
+    );
+
+    // ---- 收费报名的付款结果（E09） ----
+    // 由交易模块在改交易订单状态的同一个事务里调用（交易订单已锁）；之后先锁场次、再锁报名单，和报名、取消一样。
+
+    String PAID_ENROLLMENT = """
+            SELECT e.id enrollment_id,
+                   e.account_id,
+                   e.session_id,
+                   e.status,
+                   e.trade_order_id,
+                   e.unit_amount_minor
+            FROM activity_enrollment e
+            WHERE e.id = #{enrollmentId}
+              AND e.trade_order_id = #{tradeOrderId}
+            """;
+
+    @Select(PAID_ENROLLMENT)
+    PaidEnrollmentRow findPaidEnrollment(
+            @Param("enrollmentId") UUID enrollmentId,
+            @Param("tradeOrderId") UUID tradeOrderId
+    );
+
+    @Select(PAID_ENROLLMENT + """
+            FOR UPDATE
+            """)
+    PaidEnrollmentRow lockPaidEnrollment(
+            @Param("enrollmentId") UUID enrollmentId,
+            @Param("tradeOrderId") UUID tradeOrderId
+    );
+
+    /** 付款到账：待付款 → 已报名。 */
+    @Update("""
+            UPDATE activity_enrollment
+            SET status = 'CONFIRMED',
+                version = version + 1,
+                updated_at = #{at}
+            WHERE id = #{enrollmentId}
+              AND status = 'PENDING_PAYMENT'
+            """)
+    int confirmPayment(@Param("enrollmentId") UUID enrollmentId, @Param("at") OffsetDateTime at);
+
+    /** 付款到账：待付款的凭证生效。 */
+    @Update("""
+            UPDATE activity_enrollment_ticket
+            SET status = 'ACTIVE',
+                version = version + 1,
+                updated_at = #{at}
+            WHERE enrollment_id = #{enrollmentId}
+              AND status = 'PENDING_PAYMENT'
+            """)
+    int activatePendingTickets(@Param("enrollmentId") UUID enrollmentId, @Param("at") OffsetDateTime at);
+
+    /** 订单关闭（超时或取消）：待付款 → 已关闭。 */
+    @Update("""
+            UPDATE activity_enrollment
+            SET status = 'CLOSED',
+                closed_at = #{at},
+                version = version + 1,
+                updated_at = #{at}
+            WHERE id = #{enrollmentId}
+              AND status = 'PENDING_PAYMENT'
+            """)
+    int closeUnpaid(@Param("enrollmentId") UUID enrollmentId, @Param("at") OffsetDateTime at);
+
+    /** 订单关闭：待付款的凭证作废，返回作废了几张（名额由调用方在场次锁内释放）。 */
+    @Update("""
+            UPDATE activity_enrollment_ticket
+            SET status = 'CANCELLED',
+                cancelled_at = #{at},
+                cancel_cause = 'PAYMENT_CLOSED',
+                version = version + 1,
+                updated_at = #{at}
+            WHERE enrollment_id = #{enrollmentId}
+              AND status = 'PENDING_PAYMENT'
+            """)
+    int cancelPendingTickets(@Param("enrollmentId") UUID enrollmentId, @Param("at") OffsetDateTime at);
+
+    /**
+     * 关闭之后才到账的付款要恢复报名时，这张报名单里因关闭作废的参与人，在这一场另有没取消的凭证的个数。
+     * 大于 0 就不能恢复（同一个人同一场只能有一张有效凭证）。
+     */
+    @Select("""
+            SELECT count(*)
+            FROM activity_enrollment_ticket other
+            WHERE other.session_id = #{sessionId}
+              AND other.enrollment_id <> #{enrollmentId}
+              AND other.status <> 'CANCELLED'
+              AND other.participant_id IN (
+                  SELECT t.participant_id
+                  FROM activity_enrollment_ticket t
+                  WHERE t.enrollment_id = #{enrollmentId}
+                    AND t.status = 'CANCELLED'
+                    AND t.cancel_cause = 'PAYMENT_CLOSED'
+              )
+            """)
+    int countOtherActiveTickets(@Param("enrollmentId") UUID enrollmentId, @Param("sessionId") UUID sessionId);
+
+    /** 恢复：因关闭作废的凭证重新生效，返回恢复了几张。 */
+    @Update("""
+            UPDATE activity_enrollment_ticket
+            SET status = 'ACTIVE',
+                cancelled_at = NULL,
+                cancel_cause = NULL,
+                version = version + 1,
+                updated_at = #{at}
+            WHERE enrollment_id = #{enrollmentId}
+              AND status = 'CANCELLED'
+              AND cancel_cause = 'PAYMENT_CLOSED'
+            """)
+    int restoreClosedTickets(@Param("enrollmentId") UUID enrollmentId, @Param("at") OffsetDateTime at);
+
+    /** 恢复：已关闭 → 已报名。 */
+    @Update("""
+            UPDATE activity_enrollment
+            SET status = 'CONFIRMED',
+                closed_at = NULL,
+                version = version + 1,
+                updated_at = #{at}
+            WHERE id = #{enrollmentId}
+              AND status = 'CLOSED'
+            """)
+    int restoreClosed(@Param("enrollmentId") UUID enrollmentId, @Param("at") OffsetDateTime at);
+
+    /** 取消已付款的凭证后记下这次取消的退款（只记在本人刚取消的凭证上）。 */
+    @Update("""
+            <script>
+            UPDATE activity_enrollment_ticket
+            SET refund_id = #{refundId},
+                version = version + 1,
+                updated_at = #{at}
+            WHERE enrollment_id = #{enrollmentId}
+              AND status = 'CANCELLED'
+              AND cancel_cause = 'BUYER'
+              AND refund_id IS NULL
+              AND id IN
+            <foreach collection="ticketIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+            </script>
+            """)
+    int setTicketRefund(
+            @Param("enrollmentId") UUID enrollmentId,
+            @Param("ticketIds") List<UUID> ticketIds,
+            @Param("refundId") UUID refundId,
             @Param("at") OffsetDateTime at
     );
 
@@ -470,7 +662,14 @@ public interface ActivityEnrollmentMapper {
             OffsetDateTime endsAt,
             OffsetDateTime enrollmentClosesAt,
             int capacity,
-            int enrolledCount
+            int enrolledCount,
+            /** 按人收费时的单价（分）；免费、询价时为空。 */
+            Long priceAmountMinor,
+            UUID organizerId,
+            String cityCode,
+            String title,
+            String coverUrl,
+            String label
     ) {
     }
 
@@ -495,7 +694,22 @@ public interface ActivityEnrollmentMapper {
             String sessionLabel,
             OffsetDateTime startsAt,
             OffsetDateTime endsAt,
-            OffsetDateTime checkInOpensAt
+            OffsetDateTime checkInOpensAt,
+            /** 以下四项只有收费报名才有（E09）。 */
+            Long unitAmountMinor,
+            Long amountMinor,
+            UUID tradeOrderId,
+            OffsetDateTime payBefore
+    ) {
+    }
+
+    record PaidEnrollmentRow(
+            UUID enrollmentId,
+            UUID accountId,
+            UUID sessionId,
+            String status,
+            UUID tradeOrderId,
+            Long unitAmountMinor
     ) {
     }
 
@@ -509,7 +723,11 @@ public interface ActivityEnrollmentMapper {
             String ticketCode,
             String status,
             OffsetDateTime checkedInAt,
-            OffsetDateTime cancelledAt
+            OffsetDateTime cancelledAt,
+            /** BUYER 报名人取消；PAYMENT_CLOSED 没付款、订单关闭。 */
+            String cancelCause,
+            /** 收费报名取消后的退款（交易模块的退款单 ID）。 */
+            UUID refundId
     ) {
     }
 

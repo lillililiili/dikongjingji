@@ -9,7 +9,9 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
+import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueProjectRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueRow;
 
 /**
@@ -27,10 +29,20 @@ public final class ExperienceCatalogReadService {
 
     private final ExperienceCatalogReadStore store;
     private final Clock clock;
+    private final Predicate<UUID> operatorCanCollect;
 
+    /** 没有接交易模块：项目的 onlinePayment 一律为 false。 */
     ExperienceCatalogReadService(ExperienceCatalogReadStore store, Clock clock) {
+        this(store, clock, operatorId -> false);
+    }
+
+    /**
+     * @param operatorCanCollect 场馆运营机构能不能在线收款（登记了有效的微信收款账户，E10）；只在有标价大于 0 的项目时才问
+     */
+    ExperienceCatalogReadService(ExperienceCatalogReadStore store, Clock clock, Predicate<UUID> operatorCanCollect) {
         this.store = store;
         this.clock = clock;
+        this.operatorCanCollect = operatorCanCollect;
     }
 
     public ExperienceItemPageView listExperienceItems(String typeCode, int page, int size) {
@@ -71,6 +83,10 @@ public final class ExperienceCatalogReadService {
 
     public VenueDetailView findVenue(UUID venueId, String cityCode) {
         VenueRow venue = requireVenue(venueId, cityCode);
+        List<VenueProjectRow> projects = store.findProjects(venueId);
+        // 运营机构能不能收款只问一次，而且只在有要付款的项目时问。
+        boolean canCollect = projects.stream().anyMatch(project -> project.priceAmountMinor() > 0)
+                && operatorCanCollect.test(venue.operatorId());
         return new VenueDetailView(
                 venue.venueId(),
                 venue.name(),
@@ -81,7 +97,7 @@ public final class ExperienceCatalogReadService {
                 venue.longitude(),
                 blankToNull(venue.phone()),
                 new VenueOperatorView(venue.operatorId(), venue.operatorName()),
-                store.findProjects(venueId).stream()
+                projects.stream()
                         .map(row -> new VenueProjectView(
                                 row.projectId(),
                                 row.name(),
@@ -90,7 +106,9 @@ public final class ExperienceCatalogReadService {
                                 row.capacity(),
                                 blankToNull(row.limitNote()),
                                 row.priceAmountMinor(),
-                                row.currency() == null ? "CNY" : row.currency().trim()))
+                                row.currency() == null ? "CNY" : row.currency().trim(),
+                                // E10：标价大于 0 并且运营机构能在线收款时为 true；标价为 0 的不用付款，为 false。
+                                row.priceAmountMinor() > 0 && canCollect))
                         .toList(),
                 store.findInfoItems(venueId).stream()
                         .map(row -> new VenueInfoItemView(row.label(), row.content()))
@@ -272,7 +290,9 @@ record VenueProjectView(
         int capacity,
         String limitNote,
         long priceAmountMinor,
-        String currency
+        String currency,
+        /** 1.1.0：能不能在线预约付款（标价大于 0 且运营机构能在线收款）；标价为 0 的为 false，提交即预约成功。 */
+        boolean onlinePayment
 ) {
 }
 

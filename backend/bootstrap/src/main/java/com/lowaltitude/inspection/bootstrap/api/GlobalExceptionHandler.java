@@ -7,6 +7,7 @@ import com.lowaltitude.inspection.account.application.AddressNotFoundException;
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentException;
 import com.lowaltitude.inspection.activity.application.ActivityNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
+import com.lowaltitude.inspection.experience.application.VenueBookingException;
 import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
 import com.lowaltitude.inspection.mall.application.MallCartException;
 import com.lowaltitude.inspection.trade.application.TradeException;
@@ -287,6 +288,82 @@ public class GlobalExceptionHandler {
                 .body(new ApiError(code, message, traceId(request)));
     }
 
+    /** 到馆预约（E10，契约 openapi-experience.yaml 1.1.0 的 VenueErrorCode）。 */
+    @ExceptionHandler(VenueBookingException.class)
+    public ResponseEntity<ApiError> handleVenueBooking(
+            VenueBookingException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                code = "VENUE_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case SESSION_NOT_OPEN -> {
+                code = "VENUE_SESSION_NOT_OPEN";
+                message = "这一场已经开始或停止预约，请换一场";
+            }
+            case PARTICIPANT_NOT_ELIGIBLE -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "VENUE_PARTICIPANT_NOT_ELIGIBLE";
+                message = "有参与人不满这个项目的最低年龄";
+            }
+            case PARTICIPANT_ALREADY_BOOKED -> {
+                code = "VENUE_PARTICIPANT_ALREADY_BOOKED";
+                message = "有参与人已经约过这一场";
+            }
+            case SEATS_NOT_ENOUGH -> {
+                code = "VENUE_SEATS_NOT_ENOUGH";
+                message = "余位不够了，请减少人数或换一场";
+            }
+            case AMOUNT_CHANGED -> {
+                code = "VENUE_AMOUNT_CHANGED";
+                message = "项目价格有变化，请重新确认";
+            }
+            case PAYMENT_UNAVAILABLE -> {
+                code = "VENUE_PAYMENT_UNAVAILABLE";
+                message = "场馆暂未开通在线支付";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.PRECONDITION_FAILED;
+                code = "VENUE_VERSION_CONFLICT";
+                message = "预约已更新，请刷新后重试";
+            }
+            case RESCHEDULE_NOT_ALLOWED -> {
+                code = "VENUE_RESCHEDULE_NOT_ALLOWED";
+                message = "这张预约现在不能改期";
+            }
+            case CANCEL_NOT_ALLOWED -> {
+                code = "VENUE_CANCEL_NOT_ALLOWED";
+                message = "这张预约现在不能取消";
+            }
+            case CHECKIN_NOT_OPEN -> {
+                code = "VENUE_CHECKIN_NOT_OPEN";
+                message = "不在核销时间内";
+            }
+            case CODE_NOT_VALID -> {
+                code = "VENUE_CODE_NOT_VALID";
+                message = "核销码已作废";
+            }
+            default -> throw new IllegalStateException("unhandled venue booking error " + exception.error());
+        }
+        return ResponseEntity.status(status)
+                .body(new ApiError(code, message, traceId(request)));
+    }
+
     @ExceptionHandler(ActivityEnrollmentException.class)
     public ResponseEntity<ApiError> handleActivityEnrollment(
             ActivityEnrollmentException exception,
@@ -349,7 +426,15 @@ public class GlobalExceptionHandler {
             }
             case TICKET_NOT_VALID -> {
                 code = "ACT_TICKET_NOT_VALID";
-                message = "凭证已取消";
+                message = "凭证已取消或还没付款";
+            }
+            case AMOUNT_CHANGED -> {
+                code = "ACTIVITY_AMOUNT_CHANGED";
+                message = "活动价格有变化，请重新确认";
+            }
+            case PAYMENT_UNAVAILABLE -> {
+                code = "ACTIVITY_PAYMENT_UNAVAILABLE";
+                message = "主办方暂未开通在线支付";
             }
             default -> throw new IllegalStateException(
                     "unhandled activity enrollment error " + exception.error());

@@ -77,7 +77,7 @@ class ExperienceCatalogControllerTest {
                 VENUE_ID, "东营低空与机器人体验馆", null, "09:30–18:00 · 周一闭馆", "东营区示例路 66 号",
                 37.4487, 118.5823, "0546-8000 0000",
                 new VenueOperatorView(UUID.randomUUID(), "东营低空与机器人体验馆"),
-                List.of(new VenueProjectView(PROJECT_ID, "机器人避障闯关", 30, 6, 8, null, 3900, "CNY")),
+                List.of(new VenueProjectView(PROJECT_ID, "机器人避障闯关", 30, 6, 8, null, 3900, "CNY", true)),
                 List.of(new VenueInfoItemView("到馆须知", "请提前 10 分钟到馆")),
                 6));
 
@@ -85,6 +85,8 @@ class ExperienceCatalogControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.phone").value("0546-8000 0000"))
                 .andExpect(jsonPath("$.projects[0].priceAmountMinor").value(3900))
+                // 1.1.0：能不能在线预约付款。
+                .andExpect(jsonPath("$.projects[0].onlinePayment").value(true))
                 .andExpect(jsonPath("$.projects[0].limitNote").value(nullValue()))
                 .andExpect(jsonPath("$.infoItems[0].label").value("到馆须知"))
                 .andExpect(jsonPath("$.deviceCount").value(6));

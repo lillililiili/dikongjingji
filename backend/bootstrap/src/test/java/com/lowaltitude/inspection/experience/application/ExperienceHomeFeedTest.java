@@ -90,7 +90,7 @@ class ExperienceHomeFeedTest {
     }
 
     private static VenueProjectView project(int number, String name) {
-        return new VenueProjectView(projectId(number), name, 30, 6, 8, null, 3900L, "CNY");
+        return new VenueProjectView(projectId(number), name, 30, 6, 8, null, 3900L, "CNY", true);
     }
 
     private static VenueDetailView detail(UUID id, List<VenueProjectView> projects) {

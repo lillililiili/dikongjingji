@@ -56,7 +56,8 @@ record StoredActivityCard(
         int nextCapacity,
         int nextEnrolledCount,
         boolean hasOpenSession,
-        boolean hasFullSession
+        boolean hasFullSession,
+        UUID organizerId
 ) {
 }
 

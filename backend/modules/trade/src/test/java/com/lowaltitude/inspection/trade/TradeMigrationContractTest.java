@@ -46,6 +46,62 @@ class TradeMigrationContractTest {
         }
     }
 
+    // ---- V005：业务来源（E09 收费活动报名） ----
+
+    // 来源加 ACTIVITY；业务单 ID 商城为空、其余必填并且同一来源唯一；非商城订单只能不发货；商家类型只在商城必填。
+    @Test
+    void sourceOrdersCarryTheirBusinessReferenceAndNoDelivery() throws Exception {
+        String sql = statementsOf("/db/migration/trade/V005__trade_sources.sql");
+
+        assertThat(sql)
+                .contains("ADD CONSTRAINT trade_order_source_check CHECK (source IN ('MALL', 'ACTIVITY'));")
+                .contains("ALTER TABLE trade_order ADD COLUMN source_ref uuid;")
+                .contains("CHECK ((source = 'MALL') = (source_ref IS NULL));")
+                .contains("CREATE UNIQUE INDEX uq_trade_order_source_ref ON trade_order (source, source_ref)"
+                        + " WHERE source_ref IS NOT NULL;")
+                .contains("CHECK (delivery_mode IN ('EXPRESS', 'PICKUP', 'NONE'));")
+                .contains("CHECK ((source = 'MALL') = (delivery_mode <> 'NONE'));")
+                .contains("ALTER TABLE trade_order ALTER COLUMN merchant_kind DROP NOT NULL;")
+                .contains("CHECK (source <> 'MALL' OR merchant_kind IS NOT NULL);");
+        // 业务单不加外键：业务表属于别的模块。
+        assertThat(sql).doesNotContain("REFERENCES");
+        // 改的都是 V001 里自动命名的约束。
+        assertThat(migration())
+                .contains("source varchar(16) NOT NULL CHECK (source IN ('MALL')),")
+                .contains("delivery_mode varchar(16) NOT NULL CHECK (delivery_mode IN ('EXPRESS', 'PICKUP')),");
+    }
+
+    // 退款发起方加 SOURCE，只有它可以不记操作人（付款到账时业务收不下的自动退款）；状态变化原因加 SOURCE_REFUND，
+    // 其余原因和 V002 一样。
+    @Test
+    void sourceRefundsMayHaveNoRequesterAndHaveTheirOwnCause() throws Exception {
+        String sql = statementsOf("/db/migration/trade/V005__trade_sources.sql");
+
+        assertThat(sql)
+                .contains("CHECK (initiator IN ('BUYER_CANCEL', 'MERCHANT', 'SOURCE'));")
+                .contains("ALTER TABLE trade_refund ALTER COLUMN requested_by DROP NOT NULL;")
+                .contains("CHECK (requested_by IS NOT NULL OR initiator = 'SOURCE');")
+                .contains("'REFUND_QUERIED', 'MERCHANT_REFUND', 'REFUND_REJECTED', 'SOURCE_REFUND'));");
+        assertThat(fulfilment()).contains("'REFUND_QUERIED', 'MERCHANT_REFUND', 'REFUND_REJECTED'));");
+        // 已有的数据都是商城订单，不用改数据。
+        assertThat(sql).doesNotContain("UPDATE ").doesNotContain("DELETE ");
+    }
+
+    // ---- V006：到馆预约（E10） ----
+
+    // 只放开来源的取值；不发货、必带业务单这些 V005 的约束对 VENUE 同样成立。
+    @Test
+    void venueBookingsAreTheThirdSource() throws Exception {
+        String sql = statementsOf("/db/migration/trade/V006__trade_venue_source.sql");
+
+        assertThat(sql).isEqualTo("ALTER TABLE trade_order DROP CONSTRAINT trade_order_source_check;"
+                + " ALTER TABLE trade_order ADD CONSTRAINT trade_order_source_check"
+                + " CHECK (source IN ('MALL', 'ACTIVITY', 'VENUE'));");
+        assertThat(migration("/db/migration/trade/V005__trade_sources.sql"))
+                .contains("CHECK ((source = 'MALL') = (source_ref IS NULL))")
+                .contains("CHECK ((source = 'MALL') = (delivery_mode <> 'NONE'))");
+    }
+
     // ---- V004：商家名称长度 ----
 
     // 订单上的商家名称快照来自 identity_organization.organization_name（160），V001 只给了 120；V004 放宽到一样长。

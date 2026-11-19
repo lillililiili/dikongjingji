@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Activity API
-  version: 1.1.0
+  version: 1.2.0
   description: |-
     1.0.0 (confirmed by the user on 2026-11-16, docs/redesign/03-App实现任务计划.md §7): the read-only
     catalog of contests, training, study tours and open days for the home "赛事研学" channel: list,
@@ -20,14 +20,41 @@ info:
       列表里的 age 按今天算，能不能报这一场、凭证上的年龄按场次当天算。日期都按北京时间（Asia/Shanghai）。
     - “本人”是账号持有人，第一次读取参与人时按账号显示名自动建立，不能删除；不收出生年月，按成年人处理，
       所以只有活动的年龄上限低于 18 岁时不能报。
-    - 只有免费活动（price.mode 为 FREE）可以在这里报名；收费、询价、候补、团队报名都不在这个版本。
+    - 1.1.0 只有免费活动（price.mode 为 FREE）可以在这里报名；1.2.0 起按人收费的活动也可以（见下面的收费报名规则）。
+      询价、候补、团队报名都不在这个版本。
     - 一次报名可以带 1–10 个参与人，每人一张凭证（一人一码）。同一参与人在同一场次只有一张有效凭证，取消后可以重新报名。
     - 场次开始前可以取消，可以只取消其中几张凭证；名下凭证全部取消后报名单变成已取消。场次开始后不能取消，已签到的凭证不能取消。
     - 核销窗口：从场次的签到开放时间（checkInOpensAt，未设置时为开始前 1 小时）到场次结束（没有结束时间的场次到开始时间为止）。
       只有活动的主办或承办机构的操作员能核销，别的机构的凭证当作不存在。重复核销返回第一次的结果（repeated 为 true），不改任何数据。
     - 凭证的 EXPIRED 和报名单的 UPCOMING / FINISHED 是服务端按场次时间算出来的，不落库：场次结束后，没签到的凭证读成 EXPIRED，没取消的报名单读成 FINISHED。
 
-    Waitlist and payment are not part of this version.
+    1.2.0 (2026-11-19, docs/redesign/03-App实现任务计划.md §20, step E09): paid enrolment through the
+    unified trade module (contracts/openapi-trade.yaml 0.2.0). No new route: EnrollRequest gains
+    expectedAmountMinor, Enrollment gains payment, Ticket gains refund and the PENDING_PAYMENT status,
+    and two error codes are added (ACTIVITY_AMOUNT_CHANGED, ACTIVITY_PAYMENT_UNAVAILABLE).
+    ActivityPrice (list card and detail) gains onlinePayment, which tells the App whether the
+    enrolment form can take an online payment.
+
+    收费报名规则（E09）：
+    - 能在线付款的活动：按人收费（price.mode 为 PER_PERSON）、单价大于 0、主办机构登记了微信收款账户，
+      这时 price.onlinePayment 为 true。主办机构没登记时 onlinePayment 为 false，提交报名回 ACTIVITY_PAYMENT_UNAVAILABLE。
+      询价活动仍不能在线报名。
+    - 提交报名 = 占名额 + 建交易订单（来源 ACTIVITY，收款方是主办机构，钱进它自己的子商户号，平台不经手），
+      金额 = 单价 × 人数。请求要带页面看到的 expectedAmountMinor，和服务端算的不一致时回 ACTIVITY_AMOUNT_CHANGED，
+      页面重新读活动。收费活动不带 expectedAmountMinor 是 400。
+    - 付款时限 15 分钟，并且不晚于报名截止（payment.payBefore）。付款用交易接口：
+      POST /api/v1/trade/orders/{payment.tradeOrderId}/payments（收银台），付款结果只认验签后的回调或服务端查单。
+      付款前报名单的 payment.status 是 PENDING_PAYMENT，凭证是 PENDING_PAYMENT，没有凭证号（ticketCode 为 null），
+      不能核销；这几个人在这一场仍算已报名（ALREADY_ENROLLED），不能重复报。
+    - 付款到账：报名单 payment.status 变成 PAID，凭证变成 ACTIVE 并给出凭证号。
+    - 超时或取消：交易订单关闭，报名单 payment.status 变成 CLOSED（status 为 CANCELLED，进“已取消”页签），
+      凭证作废（CANCELLED，没有凭证号），名额释放。
+    - 关闭之后才到账的付款：场次没开始、名额够、这些人没有在这一场另报时恢复报名；否则整笔自动原路退款，报名单保持已关闭。
+    - 退改：场次开始前可以取消其中几位，每位按报名时的单价原路退款，提交即退（不用主办方确认）；已签到的不能退。
+      同一次取消的几位合成一笔退款，凭证上的 refund 给出这一位的金额和那笔退款的进度。
+    - 收费报名的订单不出现在交易的“商品订单”列表里，也不能用商家的发货、核销、退款接口操作。
+
+    Waitlist, team enrolment, rescheduling and results are not part of this version.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -335,10 +362,12 @@ paths:
   /api/v1/activity-enrollments:
     post:
       operationId: enrollInFreeActivity
-      summary: 给 1–10 个参与人报名一个免费活动的场次
+      summary: 给 1–10 个参与人报名一个场次（免费，或 1.2.0 起按人收费）
       description: >-
         名额在锁住场次后扣减。同一个 Idempotency-Key 带同样的活动、场次和参与人（顺序无关）重复提交，
-        返回第一次的报名单（200），不会多占名额；同一个键用于不同的请求返回 409。幂等键按账号隔离。
+        返回第一次的报名单（200），不会多占名额，收费报名也不会建第二张交易订单；同一个键用于不同的请求返回 409。
+        幂等键按账号隔离。收费活动在同一步里建交易订单，返回的报名单 payment.status 为 PENDING_PAYMENT，
+        带 tradeOrderId 和 payBefore，凭证没有凭证号，付款后才生效。
       security:
         - bearerAuth: []
       parameters:
@@ -364,7 +393,8 @@ paths:
                 $ref: "#/components/schemas/Enrollment"
         "400":
           description: >-
-            缺少或不是 UUID 的 Idempotency-Key；参与人为空、超过 10 个或有重复；没有同意报名须知（COMMON_INVALID_ARGUMENT）
+            缺少或不是 UUID 的 Idempotency-Key；参与人为空、超过 10 个或有重复；没有同意报名须知；
+            收费活动没有带 expectedAmountMinor（COMMON_INVALID_ARGUMENT）
           content:
             application/json:
               schema:
@@ -383,10 +413,12 @@ paths:
         "409":
           description: >-
             ACT_IDEMPOTENCY_KEY_REUSED：幂等键已用于不同的请求。
-            ACT_ENROLLMENT_UNSUPPORTED：活动不是免费的，暂不支持在线报名。
+            ACT_ENROLLMENT_UNSUPPORTED：活动既不免费也不是单价大于 0 的按人收费（询价等），暂不支持在线报名。
             ACT_ENROLLMENT_NOT_OPEN：报名已截止或场次已结束。
-            ACT_PARTICIPANT_ALREADY_ENROLLED：有参与人在这一场已有有效凭证。
+            ACT_PARTICIPANT_ALREADY_ENROLLED：有参与人在这一场已有有效或待付款的凭证。
             ACT_SESSION_FULL：剩余名额不够这次的人数。
+            ACTIVITY_PAYMENT_UNAVAILABLE：收费活动的主办方暂未开通在线支付。
+            ACTIVITY_AMOUNT_CHANGED：expectedAmountMinor 和按当前单价算的应付金额不一致，请重新读活动。
           content:
             application/json:
               schema:
@@ -469,6 +501,10 @@ paths:
         不带请求体或 ticketIds 为空：取消这张报名单里所有还没用的凭证（已签到的保留）。
         取消的名额立即放回场次；名下凭证全部取消后报名单变成 CANCELLED。
         已经取消的再取消一次没有变化，仍返回 200。
+        收费报名（1.2.0）：待付款的只能整张取消——关闭交易订单（发起过支付的先向微信查单、关单），
+        返回的报名单 payment.status 为 CLOSED；查单发现已经付了款时什么都不取消，返回已付款的报名单（payment.status 为 PAID），
+        要取消请再提交一次。已付款的按凭证取消，这次取消的几位按报名时的单价合成一笔原路退款，提交即退，
+        凭证的 refund 给出金额和进度。微信暂时不可用时回 503（TRADE_CHANNEL_UNAVAILABLE，见交易契约）。
       security:
         - bearerAuth: []
       parameters:
@@ -499,7 +535,9 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: ACT_CANCEL_NOT_ALLOWED：场次已经开始，或点名要取消的凭证已签到。
+          description: >-
+            ACT_CANCEL_NOT_ALLOWED：场次已经开始，或点名要取消的凭证已签到；待付款的报名单只点名了其中几张凭证
+            （只能整张取消）；已付款的这几位已经不能在线退款（超过付款后一年或退款次数上限）。
           content:
             application/json:
               schema:
@@ -549,7 +587,7 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "409":
           description: >-
-            ACT_TICKET_NOT_VALID：凭证已取消。
+            ACT_TICKET_NOT_VALID：凭证已取消，或还没付款（PENDING_PAYMENT）。
             ACT_CHECKIN_NOT_OPEN：还没到签到开放时间，或场次已结束。
           content:
             application/json:
@@ -673,6 +711,7 @@ components:
         - mode
         - amountMinor
         - currency
+        - onlinePayment
       properties:
         mode:
           $ref: "#/components/schemas/ActivityPriceMode"
@@ -686,6 +725,13 @@ components:
           type: string
           enum:
             - CNY
+        onlinePayment:
+          type: boolean
+          description: >-
+            1.2.0：现在能不能在线报名并付款。按人收费（PER_PERSON）、单价大于 0、主办机构登记了有效的微信收款账户时为 true；
+            其余一律 false——免费活动也是 false（免费报名不用付款，能不能报名看 mode 是 FREE），询价活动、单价为 0 的也是 false。
+            按人收费但为 false 时报名表照常显示，底部写“主办方暂未开通在线支付”，不能提交（提交会回 ACTIVITY_PAYMENT_UNAVAILABLE）。
+            列表卡片和详情用同一个对象，都带这个字段。
     ActivityAgeRange:
       type: object
       additionalProperties: false
@@ -997,9 +1043,11 @@ components:
         - ACT_CANCEL_NOT_ALLOWED
         - ACT_CHECKIN_NOT_OPEN
         - ACT_TICKET_NOT_VALID
+        - ACTIVITY_AMOUNT_CHANGED
+        - ACTIVITY_PAYMENT_UNAVAILABLE
       description: >-
         报名接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。
-        ACT_PARTICIPANT_NOT_ELIGIBLE 是 422，其余都是 409。
+        ACT_PARTICIPANT_NOT_ELIGIBLE 是 422，其余都是 409。1.2.0 新加的两个收费报名错误码用 ACTIVITY_ 前缀。
     ParticipantRelation:
       type: string
       enum:
@@ -1023,17 +1071,38 @@ components:
         - FINISHED
         - CANCELLED
       description: >-
-        待参加 / 已结束 / 已取消，也是“我的报名”的三个页签。CANCELLED 是名下凭证全部取消；
-        UPCOMING 和 FINISHED 按场次是否结束算出来，不落库（场次开始后、结束前仍是 UPCOMING）。
+        待参加 / 已结束 / 已取消，也是“我的报名”的三个页签。CANCELLED 是名下凭证全部取消，或收费报名没付款就关闭了；
+        UPCOMING 和 FINISHED 按场次是否结束算出来，不落库（场次开始后、结束前仍是 UPCOMING）。待付款的报名单在 UPCOMING 里。
     TicketStatus:
       type: string
       enum:
+        - PENDING_PAYMENT
         - ACTIVE
         - CHECKED_IN
         - EXPIRED
         - CANCELLED
       description: >-
-        未使用 / 已签到 / 已过期 / 已取消。EXPIRED 是算出来的：场次结束时还没签到的凭证。
+        待付款 / 未使用 / 已签到 / 已过期 / 已取消。EXPIRED 是算出来的：场次结束时还没签到的凭证。
+        PENDING_PAYMENT（1.2.0）：收费报名付款前，没有凭证号、不能核销。
+    EnrollmentPaymentStatus:
+      type: string
+      enum:
+        - FREE
+        - PENDING_PAYMENT
+        - PAID
+        - CLOSED
+      description: >-
+        免费报名 / 待付款 / 已付款（之后按凭证取消、退款了也仍是 PAID，看凭证的 refund）/ 没付款就关闭了（超时或取消）。
+    TicketRefundStatus:
+      type: string
+      enum:
+        - REQUESTED
+        - PROCESSING
+        - SUCCEEDED
+        - CLOSED
+        - ABNORMAL
+      description: >-
+        和交易模块的退款状态一样：已申请（还没交给微信）/ 退款中 / 已退款 / 退款关闭（被拒绝）/ 退款异常（人工处理）。
     Participant:
       type: object
       additionalProperties: false
@@ -1172,6 +1241,15 @@ components:
           type: boolean
           const: true
           description: 已阅读并同意报名须知；不是 true 一律 400
+        expectedAmountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+          description: >-
+            1.2.0：页面看到的应付金额（分）= 单价 × 人数。收费活动必填，和服务端算的不一致时回 ACTIVITY_AMOUNT_CHANGED；
+            免费活动不用带，带了也不看。
     CancelEnrollmentRequest:
       type: object
       additionalProperties: false
@@ -1264,6 +1342,7 @@ components:
         - status
         - checkedInAt
         - cancelledAt
+        - refund
       properties:
         ticketId:
           type: string
@@ -1283,9 +1362,13 @@ components:
           minimum: 0
           description: 报名时算出的场次当天周岁；“本人”为 null
         ticketCode:
-          type: string
+          type:
+            - string
+            - "null"
           pattern: "^ACT-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$"
-          description: 凭证号，也是二维码的内容；随机生成，不含任何个人信息
+          description: >-
+            凭证号，也是二维码的内容；随机生成，不含任何个人信息。
+            1.2.0：收费报名付款前（PENDING_PAYMENT）、以及没付款就作废的凭证为 null。
         status:
           $ref: "#/components/schemas/TicketStatus"
         checkedInAt:
@@ -1298,6 +1381,64 @@ components:
             - string
             - "null"
           format: date-time
+        refund:
+          anyOf:
+            - $ref: "#/components/schemas/TicketRefund"
+            - type: "null"
+          description: 1.2.0：收费报名取消这一位之后的退款；免费报名、没取消、没付款就作废的为 null
+    TicketRefund:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - amountMinor
+      properties:
+        status:
+          $ref: "#/components/schemas/TicketRefundStatus"
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 这一位退的钱（分），即报名时的单价
+    EnrollmentPayment:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - tradeOrderId
+        - amountMinor
+        - unitAmountMinor
+        - payBefore
+      description: 1.2.0：报名单的付款。免费报名只有 status = FREE，其余四项为 null。
+      properties:
+        status:
+          $ref: "#/components/schemas/EnrollmentPaymentStatus"
+        tradeOrderId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: 交易订单 ID（contracts/openapi-trade.yaml 的 TradeOrder.orderId），收银台和查单用它
+        amountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: 报名时的总金额（分）= 单价 × 报名人数
+        unitAmountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: 报名时的单价（分），每取消一位退这么多
+        payBefore:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 付款截止时间：提交后 15 分钟，并且不晚于报名截止
     Enrollment:
       type: object
       additionalProperties: false
@@ -1311,6 +1452,7 @@ components:
         - cancellableUntil
         - cancellable
         - tickets
+        - payment
       properties:
         enrollmentId:
           type: string
@@ -1332,12 +1474,14 @@ components:
           description: 取消的最后期限，即场次开始时间
         cancellable:
           type: boolean
-          description: 现在还能不能取消：场次没开始，并且还有未使用的凭证
+          description: 现在还能不能取消：场次没开始，并且还有未使用或待付款的凭证
         tickets:
           type: array
           description: 每个参与人一张，包含已取消的
           items:
             $ref: "#/components/schemas/Ticket"
+        payment:
+          $ref: "#/components/schemas/EnrollmentPayment"
     EnrollmentPage:
       type: object
       additionalProperties: false

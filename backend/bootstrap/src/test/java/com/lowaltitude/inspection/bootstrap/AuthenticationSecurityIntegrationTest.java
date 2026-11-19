@@ -323,6 +323,63 @@ class AuthenticationSecurityIntegrationTest {
         org.mockito.Mockito.verifyNoMoreInteractions(enrollments);
     }
 
+    // 到馆预约（E10）的七个接口全部要登录：公开的只有 /api/v1/venues 下的四个读取接口和 /api/v1/experiences。
+    @Test
+    void venueBookingAndCheckinRoutesRequireALogin() throws Exception {
+        String session = "/api/v1/venue-sessions/b5000000-0000-4000-8000-000000000001/participants";
+        String booking = "/api/v1/venue-bookings/b6000000-0000-4000-8000-000000000001";
+
+        for (var request : List.of(
+                get(session),
+                post("/api/v1/venue-bookings"),
+                get("/api/v1/venue-bookings"),
+                get(booking),
+                post(booking + "/reschedule"),
+                post(booking + "/cancel"),
+                post("/api/v1/venue-checkins"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+    }
+
+    // 登录后账号、角色、机构都取自令牌：客户读自己的参与人，服务商操作员按本机构核销，互相不能越界。
+    @Test
+    void venueBookingUsesTheSubjectRolesAndOrganizationOfTheToken() throws Exception {
+        com.lowaltitude.inspection.experience.application.VenueBookingService bookings = applicationContext.getBean(
+                com.lowaltitude.inspection.experience.application.VenueBookingService.class);
+        UUID session = UUID.fromString("b5000000-0000-4000-8000-000000000001");
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+        String checkin = "{\"code\":\"VEN-7K2M-9QXD-4HTP\"}";
+
+        mockMvc.perform(get("/api/v1/venue-sessions/{id}/participants", session)
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/venue-checkins")
+                        .header("Authorization", "Bearer " + operatorToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(checkin))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(bookings).listParticipants(SUBJECT_ID, "测试客户", session);
+        org.mockito.Mockito.verify(bookings).checkIn(SUBJECT_ID, ORGANIZATION_ID, "VEN-7K2M-9QXD-4HTP");
+
+        mockMvc.perform(post("/api/v1/venue-checkins")
+                        .header("Authorization", "Bearer " + customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(checkin))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        mockMvc.perform(get("/api/v1/venue-sessions/{id}/participants", session)
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        org.mockito.Mockito.verifyNoMoreInteractions(bookings);
+    }
+
     @Test
     void anonymousExperienceAndVenueReadsArePublicButOtherMethodsRequireAuthentication() throws Exception {
         String venue = "/api/v1/venues/b2000000-0000-4000-8000-000000000001";
@@ -586,7 +643,7 @@ class AuthenticationSecurityIntegrationTest {
 
         org.mockito.Mockito.when(orders.completePickup(ORGANIZATION_ID, SUBJECT_ID, orderId, 0, "123456"))
                 .thenReturn(new com.lowaltitude.inspection.trade.application.TradeViews.TradeOrderView(
-                        orderId, "MO2026111900000001", "MALL",
+                        orderId, "MO2026111900000001", "MALL", null,
                         com.lowaltitude.inspection.trade.application.TradeOrderStatus.COMPLETED, null, List.of(), null,
                         null, null, null, null, null, null, null, null, List.of(), false, 1));
         mockMvc.perform(get("/api/v1/provider/trade/orders")
@@ -1094,6 +1151,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         ActivityEnrollmentService testActivityEnrollmentService() {
             return org.mockito.Mockito.mock(ActivityEnrollmentService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
         }
 
         @Bean

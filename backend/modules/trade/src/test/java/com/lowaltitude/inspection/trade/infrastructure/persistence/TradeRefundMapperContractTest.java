@@ -55,12 +55,13 @@ class TradeRefundMapperContractTest {
         }
     }
 
-    // 买家取消只锁自己的订单，商家退款只锁本机构的订单；按 ID 锁只给回调、查询和定时任务用。
+    // 买家取消只锁自己的订单，商家退款只锁本机构的商城订单（E09：业务来源的订单由业务单退改）；
+    // 按 ID 锁只给回调、查询、定时任务和业务来源的退款用。
     @Test
     void theBuyerAndMerchantEntriesAreLimitedToTheirOwnOrders() {
         assertThat(where("lockBuyerOrder")).isEqualTo("WHERE o.id = #{orderId} AND o.buyer_id = #{buyerId} FOR UPDATE");
         assertThat(where("lockMerchantOrder"))
-                .isEqualTo("WHERE o.id = #{orderId} AND o.merchant_id = #{merchantId} FOR UPDATE");
+                .isEqualTo("WHERE o.id = #{orderId} AND o.merchant_id = #{merchantId} AND o.source = 'MALL' FOR UPDATE");
         assertThat(where("lockOrder")).isEqualTo("WHERE o.id = #{orderId} FOR UPDATE");
     }
 

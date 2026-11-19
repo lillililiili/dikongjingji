@@ -58,10 +58,11 @@ class TradeOrderMapperContractTest {
                 .doesNotContain("FOR UPDATE");
         assertThat(normalized(sql("lockBuyerOrder")))
                 .contains("WHERE o.id = #{orderId} AND o.buyer_id = #{buyerId} FOR UPDATE");
+        // E09：买家的“商品订单”列表只列商城订单；单张读取（收银台要用）不限来源。
         for (String method : List.of("countBuyerOrders", "findBuyerOrders")) {
             assertThat(normalized(sql(method)))
                     .as(method)
-                    .contains("WHERE o.buyer_id = #{buyerId}")
+                    .contains("WHERE o.buyer_id = #{buyerId} AND o.source = 'MALL'")
                     .contains("<if test=\"statuses != null and statuses.size() > 0\">")
                     .contains("AND o.status IN <foreach collection=\"statuses\" item=\"status\" open=\"(\""
                             + " separator=\",\" close=\")\">#{status}</foreach>");
@@ -194,16 +195,19 @@ class TradeOrderMapperContractTest {
     // ---- 商家（E05） ----
 
     // 商家的读写都以 merchant_id 为条件（机构只从令牌里取），不看 buyer_id；别的机构的订单查不到。
+    // E09：商家接口只看商城订单，收费报名等业务来源的订单不能在这里查看、发货、核销。
     @Test
     void everyMerchantReadIsLimitedToTheMerchantsOwnOrders() {
-        assertThat(where("findMerchantOrder")).isEqualTo("WHERE o.id = #{orderId} AND o.merchant_id = #{merchantId}");
+        assertThat(where("findMerchantOrder"))
+                .isEqualTo("WHERE o.id = #{orderId} AND o.merchant_id = #{merchantId} AND o.source = 'MALL'");
         assertThat(where("lockMerchantOrder"))
-                .isEqualTo("WHERE o.id = #{orderId} AND o.merchant_id = #{merchantId} FOR UPDATE");
+                .isEqualTo("WHERE o.id = #{orderId} AND o.merchant_id = #{merchantId} AND o.source = 'MALL' FOR UPDATE");
         for (String method : List.of("countMerchantOrders", "findMerchantOrders")) {
             assertThat(normalized(sql(method)))
                     .as(method)
                     .startsWith("<script>")
-                    .contains("WHERE o.merchant_id = #{merchantId} <if test=\"status != null\"> AND o.status = #{status} </if>")
+                    .contains("WHERE o.merchant_id = #{merchantId} AND o.source = 'MALL'"
+                            + " <if test=\"status != null\"> AND o.status = #{status} </if>")
                     .doesNotContain("buyer_id = #{")
                     .doesNotContain("<foreach");
         }

@@ -1772,7 +1772,7 @@ class TradePaymentServiceTest {
 
         TradeOrderMapper.OrderRow toOrderRow() {
             return new TradeOrderMapper.OrderRow(id, orderNo, buyerId, UUID.nameUUIDFromBytes(new byte[] {1}),
-                    "LOCAL_STORE", MERCHANT_NAME, "MALL", status, deliveryMode, payableMinor, 0, payableMinor, paidMinor,
+                    "LOCAL_STORE", MERCHANT_NAME, "MALL", null, status, deliveryMode, payableMinor, 0, payableMinor, paidMinor,
                     0, "CNY", null, payBefore, paidAt, null, null, closedAt, createdAt, version);
         }
 

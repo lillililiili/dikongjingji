@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 参与人、报名和核销（契约 contracts/openapi-activity.yaml 1.1.0）。都要登录。
+ * 参与人、报名和核销（契约 contracts/openapi-activity.yaml 1.2.0；1.2.0 加了收费报名）。都要登录。
  * 账号只从令牌里取，没有任何指定别人的参数；不是自己的参与人、报名单一律当作不存在。
  * 参与人和报名要客户角色；核销要服务商操作员角色，并且只能核销本机构主办或承办的活动。
  */
@@ -114,7 +114,8 @@ public final class ActivityEnrollmentController {
                         request.activityId(),
                         request.sessionId(),
                         request.participantIds(),
-                        Boolean.TRUE.equals(request.noticeAgreed())));
+                        Boolean.TRUE.equals(request.noticeAgreed()),
+                        request.expectedAmountMinor()));
         // 第一次创建返回 201；同一个幂等键重放返回 200 和同一张报名单。
         return ResponseEntity.status(result.created() ? 201 : 200).body(result.enrollment());
     }
@@ -137,6 +138,7 @@ public final class ActivityEnrollmentController {
         return service.readEnrollment(customer(authentication), enrollmentId);
     }
 
+    /** 待付款的整张取消（关交易订单，名额在关闭后释放）；已付款的按凭证取消并原路退款。 */
     @PostMapping("/api/v1/activity-enrollments/{enrollmentId}/cancel")
     public EnrollmentView cancel(
             Authentication authentication,
@@ -203,11 +205,13 @@ public final class ActivityEnrollmentController {
     record PhotoUseRequest(Boolean authorized) {
     }
 
+    /** expectedAmountMinor：页面看到的应付金额（分），收费活动必填。 */
     record EnrollRequest(
             UUID activityId,
             UUID sessionId,
             List<UUID> participantIds,
-            Boolean noticeAgreed
+            Boolean noticeAgreed,
+            Long expectedAmountMinor
     ) {
     }
 

@@ -187,10 +187,12 @@ class TradeOrderControllerTest {
         mockMvc.perform(submit().principal(customer).content(BODY))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("ETag", "\"0\""))
-                .andExpect(jsonPath("$.length()").value(18))
+                .andExpect(jsonPath("$.length()").value(19))
                 .andExpect(jsonPath("$.orderId").value(ORDER.toString()))
                 .andExpect(jsonPath("$.orderNo").value("MO2026111800000042"))
                 .andExpect(jsonPath("$.source").value("MALL"))
+                // 0.2.0：商城订单没有业务单。
+                .andExpect(jsonPath("$.sourceRef").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.status").value("PENDING_PAYMENT"))
                 .andExpect(jsonPath("$.merchant.organizationId").value(MERCHANT.toString()))
                 .andExpect(jsonPath("$.merchant.kind").value("LOCAL_STORE"))
@@ -713,6 +715,7 @@ class TradeOrderControllerTest {
                 ORDER,
                 "MO2026111800000042",
                 "MALL",
+                null,
                 status,
                 new TradeMerchantView(MERCHANT, "示例无人机专卖店", "LOCAL_STORE"),
                 List.of(new TradeOrderLineView(

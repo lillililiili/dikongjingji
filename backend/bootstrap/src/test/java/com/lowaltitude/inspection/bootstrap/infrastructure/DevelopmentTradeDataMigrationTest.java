@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
 
 import javax.sql.DataSource;
 
@@ -35,7 +36,7 @@ class DevelopmentTradeDataMigrationTest {
 
         assertThat(migrationMethod.getAnnotation(Profile.class).value()).containsExactly("dev");
         assertThat(migrationMethod.getAnnotation(DependsOn.class).value())
-                .containsExactlyInAnyOrder("tradeFlyway", "mallDevelopmentDataFlyway");
+                .containsExactlyInAnyOrder("tradeFlyway", "mallDevelopmentDataFlyway", "activityDevelopmentDataFlyway");
 
         migrationMethod.setAccessible(true);
         Flyway flyway = (Flyway) migrationMethod.invoke(new ModuleFlywayConfiguration(), mock(DataSource.class));
@@ -84,6 +85,49 @@ class DevelopmentTradeDataMigrationTest {
         assertThat(role).contains("ON CONFLICT DO NOTHING");
         // 密码只存哈希。
         assertThat(user).contains("crypt('test-password', gen_salt('bf', 10))");
+    }
+
+    // E09：收费示例活动的两家主办机构（活动开发数据建的）登记了收款账户，子商户号和商城示例商家的错开；可以重复执行。
+    @Test
+    void theOrganizersOfThePaidSampleActivitiesCanCollectPayments() throws Exception {
+        String sql = read("db/development/trade/R__dev_trade_activity_merchant_accounts.sql");
+        String activities = read("db/development/activity/R__dev_activity_catalog.sql");
+        String mallAccounts = read("db/development/trade/R__dev_trade_merchant_accounts.sql");
+
+        assertThat(sql)
+                .contains("('a1000000-0000-4000-8000-000000000001', '1900000201', true)")
+                .contains("('a1000000-0000-4000-8000-000000000002', '1900000202', true)")
+                .contains("ON CONFLICT (organization_id) DO UPDATE")
+                .doesNotContain("DELETE FROM");
+        assertThat(activities)
+                .contains("('a1000000-0000-4000-8000-000000000001', 'DEV-ACT-YOUTH-TECH'")
+                .contains("('a1000000-0000-4000-8000-000000000002', 'DEV-ACT-STUDY'");
+        assertThat(mallAccounts).doesNotContain("1900000201").doesNotContain("1900000202");
+        assertThat(getClass().getClassLoader()
+                .getResource("db/migration/trade/R__dev_trade_activity_merchant_accounts.sql")).isNull();
+    }
+
+    // E10：两家场馆的运营机构登记了收款账户；dev-organizer 是体验馆的操作员，能核销这家场馆的到馆码。
+    @Test
+    void theVenueOperatorsCanCollectPaymentsAndDevOrganizerWorksForTheExperienceHall() throws Exception {
+        String sql = read("db/development/trade/R__dev_trade_venue_merchant_accounts.sql");
+        String venues = read("db/development/experience/R__dev_experience_catalog.sql");
+        String identity = read("db/development/identity/R__dev_identity_accounts.sql");
+
+        assertThat(sql)
+                .contains("('a1000000-0000-4000-8000-000000000004', '1900000204', true)")
+                .contains("('a1000000-0000-4000-8000-000000000005', '1900000205', true)")
+                .contains("ON CONFLICT (organization_id) DO UPDATE");
+        assertThat(venues)
+                .contains("('b2000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000004',")
+                .contains("('b2000000-0000-4000-8000-000000000002', 'a1000000-0000-4000-8000-000000000005',");
+        assertThat(identity).contains("SELECT 'a1000000-0000-4000-8000-0000000000a4', id, "
+                + "'a1000000-0000-4000-8000-000000000004'");
+        // 重排场次时已约人数把已有的有效预约算进去，之后取消、关单不会减成负数。
+        assertThat(venues).contains("b.status IN ('PENDING_PAYMENT', 'CONFIRMED', 'CHECKED_IN')");
+        for (String other : List.of("R__dev_trade_merchant_accounts.sql", "R__dev_trade_activity_merchant_accounts.sql")) {
+            assertThat(read("db/development/trade/" + other)).doesNotContain("1900000204").doesNotContain("1900000205");
+        }
     }
 
     private static String section(String sql, String from, String to) {

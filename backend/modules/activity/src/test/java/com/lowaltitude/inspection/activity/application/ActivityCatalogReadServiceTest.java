@@ -21,6 +21,7 @@ class ActivityCatalogReadServiceTest {
     private static final OffsetDateTime NOW = OffsetDateTime.parse("2026-11-16T04:00:00Z");
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-16T04:00:00Z"), ZoneOffset.UTC);
     private static final UUID ACTIVITY_ID = UUID.fromString("a2000000-0000-4000-8000-000000000001");
+    private static final UUID ORGANIZER = UUID.fromString("a1000000-0000-4000-8000-000000000001");
 
     private final FakeStore store = new FakeStore();
     private final ActivityCatalogReadService service = new ActivityCatalogReadService(store, CLOCK);
@@ -105,7 +106,7 @@ class ActivityCatalogReadServiceTest {
         store.cards = List.of(new StoredActivityCard(
                 ACTIVITY_ID, "OPEN_DAY", "无人机开放体验日", "http://insecure.example/cover.jpg",
                 "东营低空与机器人体验馆", "  ", "FREE", 9900L, "CNY", null, null, true,
-                UUID.randomUUID(), NOW.plusDays(1), 80, 55, true, false));
+                UUID.randomUUID(), NOW.plusDays(1), 80, 55, true, false, ORGANIZER));
 
         ActivityCardView card = service.search("370500", null, null, false, false, 1, 20).items().get(0);
 
@@ -116,12 +117,48 @@ class ActivityCatalogReadServiceTest {
         assertThat(card.ageRange().minAge()).isNull();
     }
 
+    // E09：price.onlinePayment 只在按人收费、单价大于 0、主办机构能在线收款时为 true；
+    // 免费、询价、单价为 0 的不问交易模块；一页里同一家主办机构只问一次。
+    @Test
+    void onlinePaymentNeedsAPositivePerPersonPriceAndAnOrganizerThatCanCollect() {
+        UUID unregistered = UUID.fromString("a1000000-0000-4000-8000-000000000003");
+        List<UUID> asked = new ArrayList<>();
+        ActivityCatalogReadService paying = new ActivityCatalogReadService(store, CLOCK, organizer -> {
+            asked.add(organizer);
+            return ORGANIZER.equals(organizer);
+        });
+        store.cards = List.of(
+                priced("PER_PERSON", 12000L, ORGANIZER),
+                priced("PER_PERSON", 16800L, ORGANIZER),
+                priced("PER_PERSON", 9900L, unregistered),
+                priced("PER_PERSON", 0L, ORGANIZER),
+                priced("FREE", null, ORGANIZER),
+                priced("INQUIRY", null, ORGANIZER));
+
+        List<ActivityCardView> cards = paying.search("370500", null, null, false, false, 1, 20).items();
+
+        assertThat(cards).extracting(card -> card.price().onlinePayment())
+                .containsExactly(true, true, false, false, false, false);
+        assertThat(asked).containsExactly(ORGANIZER, unregistered);
+        // 详情也一样；没接交易模块的服务一律 false。
+        store.detail = Optional.of(detail(true));
+        assertThat(paying.findDetail(ACTIVITY_ID, "370500").price())
+                .isEqualTo(new ActivityPriceView(ActivityPriceMode.PER_PERSON, 12000L, "CNY", true));
+        assertThat(service.findDetail(ACTIVITY_ID, "370500").price().onlinePayment()).isFalse();
+    }
+
+    private static StoredActivityCard priced(String mode, Long amountMinor, UUID organizer) {
+        return new StoredActivityCard(
+                UUID.randomUUID(), "CONTEST", "挑战赛", null, "体验馆", null, mode, amountMinor, "CNY", 8, 15, false,
+                UUID.randomUUID(), NOW.plusDays(12), 60, 48, true, false, organizer);
+    }
+
     @Test
     void httpsCoverIsReturnedWithTheTitleAsAlternativeText() {
         store.cards = List.of(new StoredActivityCard(
                 ACTIVITY_ID, "CONTEST", "挑战赛", "https://media.example.com/a.jpg",
                 "体验馆", null, "PER_PERSON", 12000L, "CNY", 8, 15, true,
-                UUID.randomUUID(), NOW.plusDays(12), 60, 48, true, false));
+                UUID.randomUUID(), NOW.plusDays(12), 60, 48, true, false, ORGANIZER));
 
         ActivityCardView card = service.search("370500", null, null, false, false, 1, 20).items().get(0);
 
@@ -218,7 +255,7 @@ class ActivityCatalogReadServiceTest {
         return new StoredActivityCard(
                 UUID.randomUUID(), "CONTEST", "挑战赛", null, "体验馆", null,
                 "PER_PERSON", 12000L, "CNY", 8, 15, waitlist,
-                UUID.randomUUID(), NOW.plusDays(12), capacity, enrolled, hasOpen, hasFull);
+                UUID.randomUUID(), NOW.plusDays(12), capacity, enrolled, hasOpen, hasFull, ORGANIZER);
     }
 
     private static StoredActivityDetail detail(boolean waitlistAllowed) {

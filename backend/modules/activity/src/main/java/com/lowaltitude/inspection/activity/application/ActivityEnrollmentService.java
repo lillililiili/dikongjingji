@@ -4,9 +4,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -21,25 +23,44 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentException.Error;
+import com.lowaltitude.inspection.activity.application.ActivityPaymentPort.OpenPayment;
+import com.lowaltitude.inspection.activity.application.ActivityPaymentPort.OpenedPayment;
+import com.lowaltitude.inspection.activity.application.ActivityPaymentPort.RefundProgress;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper.CheckinRow;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper.EnrollmentKeyRow;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper.EnrollmentRow;
+import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper.PaidEnrollmentRow;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper.ParticipantRow;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper.SessionRow;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper.TicketRow;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 /**
- * 免费活动报名：参与人、报名、凭证、取消、核销（契约 contracts/openapi-activity.yaml 1.1.0）。
+ * 活动报名：参与人、报名、凭证、取消、核销（契约 contracts/openapi-activity.yaml 1.2.0）。
  *
  * <p>规则（用户 2026-11-17 确认“按原型先做”）：
- * 未成年人由监护人账号添加为“子女”后代为报名；免费报名在场次开始前可以取消；
- * 只有免费活动能在这里报名，收费、询价、候补、团队报名都不在这一步。
+ * 未成年人由监护人账号添加为“子女”后代为报名；报名在场次开始前可以取消；候补、团队报名都不在这一步。
  *
- * <p>名额只在锁住场次那一行之后增减。直接依赖 mapper 接口，测试里用内存实现替换。
+ * <p>收费报名（E09，docs/redesign/03-App实现任务计划.md §20.1）：按人收费、单价大于 0、主办机构能在线收款的活动。
+ * 提交时就占名额、在同一个事务里建交易订单，报名单和凭证都是“待付款”（凭证不给二维码、不能核销）；
+ * 付款截止 15 分钟且不晚于报名截止。付款只认交易模块转来的渠道结果：到账后凭证生效；超时或取消关闭后名额释放；
+ * 关闭之后才到账的，场次没开始、名额够、这些人没另报时恢复，否则交易模块整笔退回。
+ * 已付款的在场次开始前可以取消其中几位，每位按报名时的单价原路退款（提交即退，不用主办方确认），已签到的不能退。
+ *
+ * <p>名额只在锁住场次那一行之后增减。同时动交易订单和报名单的路径一律先锁交易订单、再锁场次和报名单。
+ * 直接依赖 mapper 接口，测试里用内存实现替换。
  */
 public class ActivityEnrollmentService {
+
+    /** 收费报名的付款时限（设计假设 3）。 */
+    static final Duration PAY_WINDOW = Duration.ofMinutes(15);
+    private static final Logger log = LoggerFactory.getLogger(ActivityEnrollmentService.class);
+    private static final DateTimeFormatter SESSION_TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     static final int MAX_CHILDREN = 10;
     static final int MAX_PARTICIPANTS_PER_ENROLLMENT = 10;
@@ -54,15 +75,33 @@ public class ActivityEnrollmentService {
     private final ActivityEnrollmentMapper mapper;
     private final Clock clock;
     private final Supplier<String> ticketCodes;
+    private final ActivityPaymentPort payments;
+    private final TransactionOperations tx;
 
+    /** 没有接交易模块：只能免费报名。 */
     ActivityEnrollmentService(
             ActivityEnrollmentMapper mapper,
             Clock clock,
             Supplier<String> ticketCodes
     ) {
+        this(mapper, clock, ticketCodes, ActivityPaymentPort.unavailable(), TransactionOperations.withoutTransaction());
+    }
+
+    /**
+     * @param tx 取消报名时用：待付款的要先在事务外关交易订单（要调渠道），其余的在一个事务里取消
+     */
+    ActivityEnrollmentService(
+            ActivityEnrollmentMapper mapper,
+            Clock clock,
+            Supplier<String> ticketCodes,
+            ActivityPaymentPort payments,
+            TransactionOperations tx
+    ) {
         this.mapper = mapper;
         this.clock = clock;
         this.ticketCodes = ticketCodes;
+        this.payments = payments;
+        this.tx = tx;
     }
 
     // ---- 参与人 ----
@@ -194,8 +233,13 @@ public class ActivityEnrollmentService {
         if (!isListed(session)) {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
         }
-        if (!ActivityPriceMode.FREE.name().equals(session.priceMode())) {
+        boolean paid = isPaid(session);
+        if (!paid && !ActivityPriceMode.FREE.name().equals(session.priceMode())) {
             throw new ActivityEnrollmentException(Error.ENROLLMENT_UNSUPPORTED);
+        }
+        // 主办方收不了款时，换人、换场次都没有用，所以最先判断。
+        if (paid && !payments.merchantCanCollect(session.organizerId())) {
+            throw new ActivityEnrollmentException(Error.PAYMENT_UNAVAILABLE);
         }
         OffsetDateTime now = now();
         ActivityEnrollmentStatus status = ActivityEnrollmentStatus.ofSession(
@@ -229,13 +273,22 @@ public class ActivityEnrollmentService {
             throw new ActivityEnrollmentException(Error.SESSION_FULL);
         }
 
-        UUID enrollmentId = mapper.insertEnrollment(
-                accountId,
-                session.activityId(),
-                session.sessionId(),
-                idempotencyKey,
-                requestHash,
-                now);
+        UUID enrollmentId;
+        String ticketStatus;
+        if (paid) {
+            enrollmentId = enrollPaid(accountId, idempotencyKey, requestHash, session, participants.size(),
+                    command.expectedAmountMinor(), now);
+            ticketStatus = TicketStatus.PENDING_PAYMENT.name();
+        } else {
+            enrollmentId = mapper.insertEnrollment(
+                    accountId,
+                    session.activityId(),
+                    session.sessionId(),
+                    idempotencyKey,
+                    requestHash,
+                    now);
+            ticketStatus = TicketStatus.ACTIVE.name();
+        }
         for (ParticipantRow row : participants) {
             mapper.insertTicket(
                     enrollmentId,
@@ -245,11 +298,73 @@ public class ActivityEnrollmentService {
                     row.relation(),
                     isChild(row) ? ageOn(row.birthMonth(), sessionDate) : null,
                     ticketCodes.get(),
+                    ticketStatus,
                     now);
         }
         mapper.insertEvent(enrollmentId, null, "ENROLLED", accountId, now);
         mapper.addEnrolled(session.sessionId(), participants.size(), now);
         return new EnrollmentResult(readEnrollment(accountId, enrollmentId), true);
+    }
+
+    /**
+     * 收费报名：核对页面带来的应付金额，在同一个事务里先建交易订单（业务单 ID 就是报名单 ID），再写待付款的报名单。
+     * 付款截止是 15 分钟后，且不晚于报名截止（报名截止不晚于场次开始）。返回报名单 ID。
+     */
+    private UUID enrollPaid(
+            UUID accountId,
+            UUID idempotencyKey,
+            String requestHash,
+            SessionRow session,
+            int people,
+            Long expectedAmountMinor,
+            OffsetDateTime now
+    ) {
+        if (expectedAmountMinor == null) {
+            throw new IllegalArgumentException("expected amount is required for a paid activity");
+        }
+        long unit = session.priceAmountMinor();
+        long amount = Math.multiplyExact(unit, people);
+        if (expectedAmountMinor != amount) {
+            throw new ActivityEnrollmentException(Error.AMOUNT_CHANGED);
+        }
+        OffsetDateTime payBefore = now.plus(PAY_WINDOW);
+        if (session.enrollmentClosesAt().isBefore(payBefore)) {
+            payBefore = session.enrollmentClosesAt();
+        }
+        UUID enrollmentId = UUID.randomUUID();
+        OpenedPayment opened = payments.open(new OpenPayment(
+                enrollmentId,
+                accountId,
+                session.organizerId(),
+                session.cityCode().trim(),
+                session.activityId(),
+                session.sessionId(),
+                session.title(),
+                sessionName(session),
+                session.coverUrl(),
+                unit,
+                people,
+                payBefore.toInstant()));
+        mapper.insertPaidEnrollment(
+                enrollmentId,
+                accountId,
+                session.activityId(),
+                session.sessionId(),
+                idempotencyKey,
+                requestHash,
+                unit,
+                amount,
+                opened.tradeOrderId(),
+                OffsetDateTime.ofInstant(opened.payBefore(), clock.getZone()),
+                now);
+        return enrollmentId;
+    }
+
+    /** 订单上显示的场次：北京时间的日期和开始时间，有场次名时跟在后面。 */
+    private static String sessionName(SessionRow session) {
+        String time = SESSION_TIME.format(session.startsAt().atZoneSameInstant(ActivityCatalogReadService.ACTIVITY_ZONE));
+        String label = session.label() == null ? "" : session.label().trim();
+        return label.isEmpty() ? time : time + " " + label;
     }
 
     @Transactional(readOnly = true)
@@ -262,7 +377,8 @@ public class ActivityEnrollmentService {
         if (row == null) {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
         }
-        return toEnrollment(row, mapper.findTickets(List.of(enrollmentId)), now());
+        List<TicketRow> tickets = mapper.findTickets(List.of(enrollmentId));
+        return toEnrollment(row, tickets, refundsOf(tickets), now());
     }
 
     @Transactional(readOnly = true)
@@ -281,9 +397,10 @@ public class ActivityEnrollmentService {
                 : mapper.findTickets(rows.stream().map(EnrollmentRow::enrollmentId).toList())
                         .stream()
                         .collect(Collectors.groupingBy(TicketRow::enrollmentId));
+        Map<UUID, RefundProgress> refunds = refundsOf(tickets.values().stream().flatMap(List::stream).toList());
         List<EnrollmentView> items = rows.stream()
                 .map(row -> toEnrollment(
-                        row, tickets.getOrDefault(row.enrollmentId(), List.of()), now))
+                        row, tickets.getOrDefault(row.enrollmentId(), List.of()), refunds, now))
                 .toList();
         return new EnrollmentPageView(page, size, total, (long) page * size < total, items);
     }
@@ -291,17 +408,53 @@ public class ActivityEnrollmentService {
     /**
      * 取消报名。ticketIds 为空表示取消这张报名单里所有还没用的凭证；场次开始后不能取消。
      * 已经取消的再取消一次没有变化。
+     *
+     * <p>收费报名（E09）：待付款的整张取消——在事务外关交易订单（发起过支付的先向渠道查单、关单），
+     * 关闭后名额由 {@link #onPaymentClosed} 释放；查单发现已经付了款时，返回已付款的报名单，什么都不取消。
+     * 已付款的先锁交易订单，再按凭证取消，这次取消的几位按报名时的单价一起退一笔款，提交后交给渠道。
      */
-    @Transactional
     public EnrollmentView cancel(UUID accountId, UUID enrollmentId, List<UUID> ticketIds) {
         requireAccount(accountId);
         if (enrollmentId == null
                 || (ticketIds != null && ticketIds.stream().anyMatch(Objects::isNull))) {
             throw new IllegalArgumentException("cancellation is invalid");
         }
+        EnrollmentRow row = tx.execute(status -> mapper.findEnrollment(accountId, enrollmentId));
+        if (row == null) {
+            throw new ActivityEnrollmentException(Error.NOT_FOUND);
+        }
+        if (EnrollmentRecord.PENDING_PAYMENT.equals(row.status())) {
+            cancelUnpaid(accountId, row, ticketIds);
+            return tx.execute(status -> readEnrollment(accountId, enrollmentId));
+        }
+        return tx.execute(status -> cancelTickets(accountId, enrollmentId, ticketIds));
+    }
+
+    /** 待付款的报名单只能整张取消：交易订单是一整笔，没法只关其中几位。 */
+    private void cancelUnpaid(UUID accountId, EnrollmentRow row, List<UUID> ticketIds) {
+        if (ticketIds != null && !ticketIds.isEmpty()) {
+            Set<UUID> all = tx.execute(status -> mapper.findTickets(List.of(row.enrollmentId())).stream()
+                    .map(TicketRow::ticketId)
+                    .collect(Collectors.toSet()));
+            if (!all.containsAll(ticketIds)) {
+                throw new IllegalArgumentException("ticket does not belong to the enrollment");
+            }
+            if (!Set.copyOf(ticketIds).equals(all)) {
+                throw new ActivityEnrollmentException(Error.CANCEL_NOT_ALLOWED);
+            }
+        }
+        payments.cancelUnpaid(accountId, row.tradeOrderId());
+    }
+
+    /** 在事务里取消还有效的凭证；收费报名先锁交易订单，取消后按凭证退款。 */
+    private EnrollmentView cancelTickets(UUID accountId, UUID enrollmentId, List<UUID> ticketIds) {
         EnrollmentRow row = mapper.findEnrollment(accountId, enrollmentId);
         if (row == null) {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
+        }
+        boolean paid = row.tradeOrderId() != null;
+        if (paid) {
+            payments.lockOrder(row.tradeOrderId());
         }
         SessionRow session = mapper.lockSession(row.sessionId());
         List<TicketRow> tickets = mapper.findTickets(List.of(enrollmentId));
@@ -327,20 +480,117 @@ public class ActivityEnrollmentService {
         if (!now.isBefore(session.startsAt())) {
             throw new ActivityEnrollmentException(Error.CANCEL_NOT_ALLOWED);
         }
-        int released = 0;
+        List<UUID> cancelled = new ArrayList<>();
         for (TicketRow ticket : active) {
             if (mapper.cancelTicket(enrollmentId, ticket.ticketId(), now) > 0) {
                 mapper.insertEvent(enrollmentId, ticket.ticketId(), "TICKET_CANCELLED", accountId, now);
-                released++;
+                cancelled.add(ticket.ticketId());
             }
         }
-        if (released > 0) {
-            mapper.addEnrolled(session.sessionId(), -released, now);
+        if (!cancelled.isEmpty()) {
+            mapper.addEnrolled(session.sessionId(), -cancelled.size(), now);
+        }
+        if (paid && !cancelled.isEmpty()) {
+            refundCancelled(accountId, row, cancelled, now);
         }
         if (mapper.cancelEnrollmentIfEmpty(enrollmentId, now) > 0) {
             mapper.insertEvent(enrollmentId, null, "ENROLLMENT_CANCELLED", accountId, now);
         }
         return readEnrollment(accountId, enrollmentId);
+    }
+
+    /**
+     * 这次取消的几位一起退一笔：每位按报名时的单价。幂等键由这几张凭证算出——同一张凭证只能取消一次，
+     * 所以同一笔退款不会建两次。
+     */
+    private void refundCancelled(UUID accountId, EnrollmentRow row, List<UUID> cancelled, OffsetDateTime now) {
+        long amount = Math.multiplyExact(row.unitAmountMinor(), cancelled.size());
+        String key = "activity-refund:" + cancelled.stream().map(UUID::toString).sorted().collect(Collectors.joining(","));
+        UUID refundId = payments.requestRefund(
+                row.tradeOrderId(),
+                amount,
+                "取消活动报名 " + cancelled.size() + " 人",
+                UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)),
+                accountId);
+        mapper.setTicketRefund(row.enrollmentId(), cancelled, refundId, now);
+        mapper.insertEvent(row.enrollmentId(), null, "REFUND_REQUESTED", accountId, now);
+    }
+
+    // ---- 收费报名的付款结果（E09） ----
+
+    /**
+     * 交易订单付款到账（交易模块在同一个事务里调用，交易订单已锁）。待付款的报名单确认、凭证生效；
+     * 已经确认过的直接收下；没付款就关闭了的，场次没开始、名额够、这些人在这一场没有另报时恢复，否则收不下。
+     *
+     * @return false 表示收不下，交易模块随即整笔原路退款，报名单保持“已关闭”
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean onPaymentConfirmed(UUID tradeOrderId, UUID enrollmentId) {
+        PaidEnrollmentRow found = mapper.findPaidEnrollment(enrollmentId, tradeOrderId);
+        if (found == null) {
+            log.error("trade order {} was paid for an unknown enrollment {}", tradeOrderId, enrollmentId);
+            return false;
+        }
+        SessionRow session = mapper.lockSession(found.sessionId());
+        PaidEnrollmentRow row = mapper.lockPaidEnrollment(enrollmentId, tradeOrderId);
+        OffsetDateTime now = now();
+        return switch (row.status()) {
+            case EnrollmentRecord.PENDING_PAYMENT -> {
+                mapper.confirmPayment(enrollmentId, now);
+                mapper.activatePendingTickets(enrollmentId, now);
+                mapper.insertEvent(enrollmentId, null, "PAYMENT_CONFIRMED", null, now);
+                yield true;
+            }
+            case EnrollmentRecord.CLOSED -> restore(row, session, now);
+            // 已经按付款处理过（之后可能又按凭证取消了）。
+            default -> true;
+        };
+    }
+
+    private boolean restore(PaidEnrollmentRow row, SessionRow session, OffsetDateTime now) {
+        long closed = mapper.findTickets(List.of(row.enrollmentId())).stream()
+                .filter(ticket -> "CANCELLED".equals(ticket.status()))
+                .filter(ticket -> TicketCancelCause.PAYMENT_CLOSED.name().equals(ticket.cancelCause()))
+                .count();
+        if (closed == 0
+                || !isListed(session)
+                || !now.isBefore(session.startsAt())
+                || session.enrolledCount() + closed > session.capacity()
+                || mapper.countOtherActiveTickets(row.enrollmentId(), row.sessionId()) > 0) {
+            log.warn("enrollment {} was paid after it closed and cannot be restored; it will be refunded",
+                    row.enrollmentId());
+            return false;
+        }
+        int restored = mapper.restoreClosedTickets(row.enrollmentId(), now);
+        mapper.restoreClosed(row.enrollmentId(), now);
+        mapper.addEnrolled(row.sessionId(), restored, now);
+        mapper.insertEvent(row.enrollmentId(), null, "PAYMENT_RESTORED", null, now);
+        return true;
+    }
+
+    /**
+     * 交易订单没付款就关闭了（超时或取消；交易模块在同一个事务里调用，交易订单已锁）：
+     * 待付款的报名单关闭、凭证作废、名额释放。别的状态不动。
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void onPaymentClosed(UUID tradeOrderId, UUID enrollmentId) {
+        PaidEnrollmentRow found = mapper.findPaidEnrollment(enrollmentId, tradeOrderId);
+        if (found == null) {
+            log.error("trade order {} closed for an unknown enrollment {}", tradeOrderId, enrollmentId);
+            return;
+        }
+        SessionRow session = mapper.lockSession(found.sessionId());
+        PaidEnrollmentRow row = mapper.lockPaidEnrollment(enrollmentId, tradeOrderId);
+        if (!EnrollmentRecord.PENDING_PAYMENT.equals(row.status())) {
+            return;
+        }
+        OffsetDateTime now = now();
+        int released = mapper.cancelPendingTickets(enrollmentId, now);
+        if (released > 0) {
+            mapper.addEnrolled(session.sessionId(), -released, now);
+        }
+        mapper.closeUnpaid(enrollmentId, now);
+        mapper.insertEvent(enrollmentId, null, "PAYMENT_CLOSED", null, now);
     }
 
     // ---- 核销 ----
@@ -362,7 +612,8 @@ public class ActivityEnrollmentService {
         if (row == null) {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
         }
-        if ("CANCELLED".equals(row.status())) {
+        // 取消了的、还没付款的（E09）都不能核销。
+        if ("CANCELLED".equals(row.status()) || TicketStatus.PENDING_PAYMENT.name().equals(row.status())) {
             throw new ActivityEnrollmentException(Error.TICKET_NOT_VALID);
         }
         if ("CHECKED_IN".equals(row.status())) {
@@ -417,6 +668,13 @@ public class ActivityEnrollmentService {
         return ParticipantEligibilityReason.ELIGIBLE;
     }
 
+    /** 能在线付款的活动：按人收费、单价大于 0。主办机构能不能收款另外判断。 */
+    private static boolean isPaid(SessionRow session) {
+        return ActivityPriceMode.PER_PERSON.name().equals(session.priceMode())
+                && session.priceAmountMinor() != null
+                && session.priceAmountMinor() > 0;
+    }
+
     private static boolean isListed(SessionRow session) {
         return "PUBLISHED".equals(session.activityStatus())
                 && "ACTIVE".equals(session.sessionStatus());
@@ -461,33 +719,37 @@ public class ActivityEnrollmentService {
                 eligibility);
     }
 
+    /** 凭证上的退款进度：交易模块记着；拿不到时按“已申请”显示。 */
+    private Map<UUID, RefundProgress> refundsOf(List<TicketRow> tickets) {
+        List<UUID> refundIds = tickets.stream()
+                .map(TicketRow::refundId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        return refundIds.isEmpty() ? Map.of() : payments.refundStates(refundIds);
+    }
+
     private static EnrollmentView toEnrollment(
             EnrollmentRow row,
             List<TicketRow> ticketRows,
+            Map<UUID, RefundProgress> refunds,
             OffsetDateTime now
     ) {
         boolean ended = !sessionEnd(row.startsAt(), row.endsAt()).isAfter(now);
         EnrollmentStatus status;
-        if ("CANCELLED".equals(row.status())) {
+        if (EnrollmentRecord.CANCELLED.equals(row.status()) || EnrollmentRecord.CLOSED.equals(row.status())) {
             status = EnrollmentStatus.CANCELLED;
         } else {
             status = ended ? EnrollmentStatus.FINISHED : EnrollmentStatus.UPCOMING;
         }
         List<TicketView> tickets = ticketRows.stream()
-                .map(ticket -> new TicketView(
-                        ticket.ticketId(),
-                        ticket.participantId(),
-                        ticket.participantName(),
-                        ParticipantRelation.valueOf(ticket.participantRelation()),
-                        ticket.participantAge(),
-                        ticket.ticketCode(),
-                        ticketStatus(ticket.status(), ended),
-                        ticket.checkedInAt(),
-                        ticket.cancelledAt()))
+                .map(ticket -> toTicket(ticket, ended, row.unitAmountMinor(), refunds))
                 .toList();
+        // 待付款的也能取消（关交易订单）；已付款的按凭证取消并退款。
         boolean cancellable = status == EnrollmentStatus.UPCOMING
                 && now.isBefore(row.startsAt())
-                && tickets.stream().anyMatch(ticket -> ticket.status() == TicketStatus.ACTIVE);
+                && tickets.stream().anyMatch(ticket -> ticket.status() == TicketStatus.ACTIVE
+                        || ticket.status() == TicketStatus.PENDING_PAYMENT);
         return new EnrollmentView(
                 row.enrollmentId(),
                 status,
@@ -511,7 +773,54 @@ public class ActivityEnrollmentService {
                 row.createdAt(),
                 row.startsAt(),
                 cancellable,
-                tickets);
+                tickets,
+                toPayment(row));
+    }
+
+    private static EnrollmentPaymentView toPayment(EnrollmentRow row) {
+        if (row.tradeOrderId() == null) {
+            return new EnrollmentPaymentView(EnrollmentPaymentStatus.FREE, null, null, null, null);
+        }
+        EnrollmentPaymentStatus status = switch (row.status()) {
+            case EnrollmentRecord.PENDING_PAYMENT -> EnrollmentPaymentStatus.PENDING_PAYMENT;
+            case EnrollmentRecord.CLOSED -> EnrollmentPaymentStatus.CLOSED;
+            // 已报名，或付过款之后全部取消了。
+            default -> EnrollmentPaymentStatus.PAID;
+        };
+        return new EnrollmentPaymentView(
+                status, row.tradeOrderId(), row.amountMinor(), row.unitAmountMinor(), row.payBefore());
+    }
+
+    /**
+     * 待付款的凭证、没付款就作废的凭证不给凭证号（凭证号就是二维码的内容，付款前不能拿去签到）。
+     * 收费报名取消后的凭证带上这一位的退款：金额是报名时的单价，进度按这次取消的那笔退款。
+     */
+    private static TicketView toTicket(
+            TicketRow ticket,
+            boolean sessionEnded,
+            Long unitAmountMinor,
+            Map<UUID, RefundProgress> refunds
+    ) {
+        boolean neverPaid = TicketStatus.PENDING_PAYMENT.name().equals(ticket.status())
+                || TicketCancelCause.PAYMENT_CLOSED.name().equals(ticket.cancelCause());
+        TicketRefundView refund = null;
+        if (ticket.refundId() != null && unitAmountMinor != null) {
+            RefundProgress progress = refunds.get(ticket.refundId());
+            refund = new TicketRefundView(
+                    progress == null ? TicketRefundStatus.REQUESTED : TicketRefundStatus.valueOf(progress.status()),
+                    unitAmountMinor);
+        }
+        return new TicketView(
+                ticket.ticketId(),
+                ticket.participantId(),
+                ticket.participantName(),
+                ParticipantRelation.valueOf(ticket.participantRelation()),
+                ticket.participantAge(),
+                neverPaid ? null : ticket.ticketCode(),
+                ticketStatus(ticket.status(), sessionEnded),
+                ticket.checkedInAt(),
+                ticket.cancelledAt(),
+                refund);
     }
 
     /** 没签到、场次也结束了的凭证算过期；这个状态按时间算，不落库。 */
@@ -629,19 +938,63 @@ enum EnrollmentStatus {
     }
 }
 
+/** 凭证状态（契约 TicketStatus）。待付款（E09）：凭证号已生成，付款前不给、不能核销。 */
 enum TicketStatus {
+    PENDING_PAYMENT,
     ACTIVE,
     CHECKED_IN,
     EXPIRED,
     CANCELLED
 }
 
+/** 凭证的取消原因（activity_enrollment_ticket.cancel_cause）。 */
+enum TicketCancelCause {
+    BUYER,
+    PAYMENT_CLOSED
+}
+
+/** 报名单落库的状态（activity_enrollment.status）。 */
+final class EnrollmentRecord {
+    static final String PENDING_PAYMENT = "PENDING_PAYMENT";
+    static final String CANCELLED = "CANCELLED";
+    static final String CLOSED = "CLOSED";
+
+    private EnrollmentRecord() {
+    }
+}
+
+/** 报名单的付款状态（契约 EnrollmentPaymentStatus）。 */
+enum EnrollmentPaymentStatus {
+    FREE,
+    PENDING_PAYMENT,
+    PAID,
+    CLOSED
+}
+
+/** 凭证的退款进度（契约 TicketRefundStatus），和交易模块的退款状态一样。 */
+enum TicketRefundStatus {
+    REQUESTED,
+    PROCESSING,
+    SUCCEEDED,
+    CLOSED,
+    ABNORMAL
+}
+
+/**
+ * @param expectedAmountMinor 页面看到的应付金额（分）；收费活动必填，和服务端按当前单价算的不一致时拒绝
+ */
 record EnrollCommand(
         UUID activityId,
         UUID sessionId,
         List<UUID> participantIds,
-        boolean noticeAgreed
+        boolean noticeAgreed,
+        Long expectedAmountMinor
 ) {
+
+    /** 免费活动不用带金额。 */
+    EnrollCommand(UUID activityId, UUID sessionId, List<UUID> participantIds, boolean noticeAgreed) {
+        this(activityId, sessionId, participantIds, noticeAgreed, null);
+    }
 }
 
 record EnrollmentResult(EnrollmentView enrollment, boolean created) {
@@ -686,7 +1039,21 @@ record EnrollmentView(
         OffsetDateTime createdAt,
         OffsetDateTime cancellableUntil,
         boolean cancellable,
-        List<TicketView> tickets
+        List<TicketView> tickets,
+        EnrollmentPaymentView payment
+) {
+}
+
+/**
+ * 报名单的付款（E09）。免费报名只有 status = FREE，其余为 null；收费报名带交易订单（去收银台用）、
+ * 总金额、单价和付款截止时间。
+ */
+record EnrollmentPaymentView(
+        EnrollmentPaymentStatus status,
+        UUID tradeOrderId,
+        Long amountMinor,
+        Long unitAmountMinor,
+        OffsetDateTime payBefore
 ) {
 }
 
@@ -718,8 +1085,13 @@ record TicketView(
         String ticketCode,
         TicketStatus status,
         OffsetDateTime checkedInAt,
-        OffsetDateTime cancelledAt
+        OffsetDateTime cancelledAt,
+        TicketRefundView refund
 ) {
+}
+
+/** 收费报名取消后这一位的退款（E09）：金额是报名时的单价。 */
+record TicketRefundView(TicketRefundStatus status, long amountMinor) {
 }
 
 record CheckinView(

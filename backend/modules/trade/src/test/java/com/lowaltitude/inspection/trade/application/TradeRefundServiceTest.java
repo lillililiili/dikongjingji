@@ -1336,7 +1336,7 @@ class TradeRefundServiceTest {
 
         TradeOrderMapper.OrderRow toOrderRow() {
             return new TradeOrderMapper.OrderRow(id, orderNo, buyerId, merchantId, "LOCAL_STORE", "示例机器人商家",
-                    "MALL", status, "EXPRESS", payableMinor, 0, payableMinor, paidMinor, refundedMinor, "CNY", null,
+                    "MALL", null, status, "EXPRESS", payableMinor, 0, payableMinor, paidMinor, refundedMinor, "CNY", null,
                     payBefore, paidAt, null, null, closedAt, createdAt, version);
         }
 

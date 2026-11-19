@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.1.0
+  version: 0.2.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -20,6 +20,23 @@ info:
     E08（2026-11-18）复查修正：TradeOrder 加必填字段 closeReason（已关闭时是买家取消还是超时关闭）；商家接口的
     delivery.recipientPhone、addressLine 只在订单付款之后给，待付款、已关闭时为 null；提交订单时单价或商品金额为 0 的报价按 400 拒绝；
     checkPayment 同一张订单 2 秒内只真正向微信查一次，其余直接返回订单。
+    0.2.0（2026-11-19，E09，docs/redesign/03-App实现任务计划.md §20）：接入第一个业务来源——收费活动报名（source = ACTIVITY，
+    报名接口见 contracts/openapi-activity.yaml 1.2.0）。没有新接口：报名接口在服务端建交易订单，App 用这里的收银台接口
+    （launchPayment、checkPayment、readMyOrder）付款。变化：
+    - TradeOrder 加 sourceRef（业务单 ID，收费报名时是报名单 ID；商城订单为 null）；TradeOrderSource 加 ACTIVITY。
+    - 业务来源的订单不发货：delivery 为 null；merchant.kind（商城的商家类型）为 null；收款方是活动的主办机构，
+      钱同样直接进它自己的子商户号。订单行记的是业务项目：productId 是活动 ID，offerId 是场次 ID，productName 是活动名，
+      skuName 是场次（如“11月28日 09:00 上午场”），quantity 是报名人数。订单编号以 AO 开头（商城是 MO）。
+    - 付款截止时间由业务决定（收费报名 15 分钟，且不晚于报名截止），不是商城的 30 分钟。
+    - listMyOrders（“商品订单”）只列商城订单；收费报名的订单在“我的报名”里看。readMyOrder 和收银台照常可用。
+    - cancelMyOrder：待付款的收费报名订单照常关闭（关闭后报名名额释放）；已付款的回 409 TRADE_ORDER_STATE_INVALID，
+      退款只能由报名单的退改发起（按凭证原路退款，退款记录照常出现在 refunds 里）。cancellable 对已付款的收费报名订单为 false。
+    - 商家接口（listMerchantOrders、shipOrder、completePickup、refundOrder）只看、只改商城订单，收费报名的订单当作不存在（404）。
+    - 关闭之后才到账的付款：业务这边能恢复就恢复；不能时整笔自动原路退款（订单进入 REFUNDING，退款原因“订单已关闭，付款自动原路退回”）。
+    - E10（2026-11-19，§21，同在 0.2.0 未发布版本内）：第二个业务来源——到馆预约（source = VENUE，接口见
+      contracts/openapi-experience.yaml 1.1.0）。规则和收费报名一样：收款方是场馆运营机构，不发货，订单编号以 VO 开头；
+      订单行的 productId 是项目 ID，offerId 是场次 ID，productName 是“场馆名 项目名”，skuName 是场次时间，quantity 是人数；
+      付款截止 15 分钟且不晚于场次开始；不在“商品订单”里，商家接口当作不存在；已付款的只能由预约的取消整单退款。
 
     渠道与资金（用户 2026-11-18 确认）：
     - 唯一的支付渠道是微信支付，产品是“平台收付通”的普通支付：每笔钱直接进卖出商品的商家（二级商户）自己的商户号，
@@ -91,6 +108,7 @@ paths:
     get:
       operationId: listMyOrders
       summary: 我的订单（商品）
+      description: 只列商城订单（0.2.0 起）：收费报名等业务来源的订单不在这里。
       security:
         - bearerAuth: []
       parameters:
@@ -223,6 +241,8 @@ paths:
       description: |-
         不带请求体。待付款的直接关闭；发起过支付的先向微信查单：已经付了回 409 TRADE_ORDER_STATE_INVALID（刷新后是已付款，
         再取消就是退款）；微信不通时回 503。已付款、未发货（未自提）的把还没退的钱全退，订单进入 REFUNDING，结果以微信为准。
+        业务来源（0.2.0 起，收费报名）的订单：待付款的同样关闭，关闭后业务那边释放名额；已付款的回 409 TRADE_ORDER_STATE_INVALID，
+        退款由业务单的退改发起。
         重复调用靠状态和幂等键保证：已关闭、退款中、已退款的订单再取消原样返回；同一个 Idempotency-Key 只建一笔退款。
       responses:
         "200":
@@ -344,7 +364,7 @@ paths:
     get:
       operationId: listMerchantOrders
       summary: 本机构卖出的订单（商家操作员；没有页面，供受权调用和开发脚本）
-      description: 新的在前。机构只从令牌里取。订单付款之后 delivery.recipientPhone 是完整手机号、addressLine 是收货地址（发货要用），待付款、已关闭时两者为 null；取货码不给商家。
+      description: 新的在前。机构只从令牌里取。订单付款之后 delivery.recipientPhone 是完整手机号、addressLine 是收货地址（发货要用），待付款、已关闭时两者为 null；取货码不给商家。只有商城订单（0.2.0 起）：收费报名等业务来源的订单不在这里，发货、核销、退款接口也当作不存在。
       security:
         - bearerAuth: []
       parameters:
@@ -757,8 +777,8 @@ components:
       enum: [ALL, TO_PAY, TO_SHIP, TO_RECEIVE, DONE, REFUND]
     TradeOrderSource:
       type: string
-      description: 一期只有 MALL；以后接入的业务在这里加
-      enum: [MALL]
+      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）。以后接入的业务在这里加
+      enum: [MALL, ACTIVITY, VENUE]
     DeliveryMode:
       type: string
       enum: [EXPRESS, PICKUP]
@@ -892,8 +912,11 @@ components:
           format: uuid
         name:
           type: string
+          description: 下单时的商家（收费报名时是主办机构）名称快照
         kind:
-          $ref: "#/components/schemas/MerchantKind"
+          type: [string, "null"]
+          enum: [FACTORY_DIRECT, AUTHORIZED_DEALER, LOCAL_STORE, null]
+          description: 商城的商家类型（取值同 MerchantKind）；业务来源的订单（0.2.0 起，收费报名）为 null
     MediaAsset:
       type: object
       additionalProperties: false
@@ -1018,6 +1041,7 @@ components:
         - orderId
         - orderNo
         - source
+        - sourceRef
         - status
         - merchant
         - lines
@@ -1042,16 +1066,24 @@ components:
           description: 给人看的订单编号
         source:
           $ref: "#/components/schemas/TradeOrderSource"
+        sourceRef:
+          type: [string, "null"]
+          format: uuid
+          description: 0.2.0：业务单 ID（收费报名时是报名单 ID）；商城订单为 null
         status:
           $ref: "#/components/schemas/TradeOrderStatus"
         merchant:
           $ref: "#/components/schemas/TradeMerchant"
         lines:
           type: array
+          description: 商城订单是商品；业务来源的订单是业务项目（收费报名：productId 活动、offerId 场次、quantity 人数）
           items:
             $ref: "#/components/schemas/TradeOrderLine"
         delivery:
-          $ref: "#/components/schemas/TradeDelivery"
+          oneOf:
+            - $ref: "#/components/schemas/TradeDelivery"
+            - type: "null"
+          description: 0.2.0：业务来源的订单不发货，为 null
         amounts:
           $ref: "#/components/schemas/TradeAmounts"
         buyerNote:
@@ -1062,7 +1094,7 @@ components:
         payBefore:
           type: [string, "null"]
           format: date-time
-          description: 待付款时的截止时间
+          description: 待付款时的截止时间（商城 30 分钟；收费报名 15 分钟且不晚于报名截止）
         paidAt:
           type: [string, "null"]
           format: date-time
@@ -1082,7 +1114,7 @@ components:
             $ref: "#/components/schemas/TradeRefund"
         cancellable:
           type: boolean
-          description: 买家现在能不能取消（待付款，或已付款未发货 / 未自提）
+          description: 买家现在能不能取消（待付款，或已付款未发货 / 未自提的商城订单；已付款的收费报名订单为 false）
         version:
           type: integer
     TradeOrderPage:

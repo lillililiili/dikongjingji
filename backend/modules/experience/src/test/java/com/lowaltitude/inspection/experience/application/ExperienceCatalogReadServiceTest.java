@@ -103,6 +103,35 @@ class ExperienceCatalogReadServiceTest {
                 new VenueInfoItemView("到馆须知", "请提前 10 分钟到馆，出示核销码入场"));
     }
 
+    // E10：项目的 onlinePayment 只在标价大于 0、运营机构能在线收款时为 true；标价为 0 的为 false（不用付款）。
+    // 只问一次运营机构；没有要付款的项目时不问；没接交易模块的服务一律 false。
+    @Test
+    void projectsSayWhetherTheyCanBePaidOnline() {
+        store.venue = Optional.of(venue());
+        store.projects = List.of(
+                new VenueProjectRow(PROJECT_ID, "机器人避障闯关", 30, 6, 8, null, 3900, "CNY"),
+                new VenueProjectRow(UUID.randomUUID(), "无人机模拟飞行", 30, 8, 8, null, 3900, "CNY"),
+                new VenueProjectRow(UUID.randomUUID(), "免费参观", 20, null, 30, null, 0, "CNY"));
+        java.util.List<UUID> asked = new java.util.ArrayList<>();
+        ExperienceCatalogReadService paying = new ExperienceCatalogReadService(store, CLOCK, operator -> {
+            asked.add(operator);
+            return true;
+        });
+
+        assertThat(paying.findVenue(VENUE_ID, "370500").projects())
+                .extracting(VenueProjectView::onlinePayment)
+                .containsExactly(true, true, false);
+        assertThat(asked).containsExactly(venue().operatorId());
+        assertThat(service.findVenue(VENUE_ID, "370500").projects())
+                .extracting(VenueProjectView::onlinePayment)
+                .containsOnly(false);
+
+        asked.clear();
+        store.projects = List.of(new VenueProjectRow(UUID.randomUUID(), "免费参观", 20, null, 30, null, 0, "CNY"));
+        paying.findVenue(VENUE_ID, "370500");
+        assertThat(asked).isEmpty();
+    }
+
     @Test
     void venueIsNotFoundWhenUnpublishedOrInAnotherCity() {
         store.venue = Optional.empty();

@@ -8,8 +8,11 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * 活动目录只读服务：频道列表、有场次的日期、活动详情（契约 contracts/openapi-activity.yaml）。
@@ -26,10 +29,21 @@ public final class ActivityCatalogReadService {
 
     private final ActivityCatalogReadStore store;
     private final Clock clock;
+    private final Predicate<UUID> organizerCanCollect;
 
+    /** 没有接交易模块：price.onlinePayment 一律为 false。 */
     ActivityCatalogReadService(ActivityCatalogReadStore store, Clock clock) {
+        this(store, clock, organizerId -> false);
+    }
+
+    /**
+     * @param organizerCanCollect 主办机构能不能在线收款（登记了有效的微信收款账户，E09）；
+     *                            只对按人收费、单价大于 0 的活动才问
+     */
+    ActivityCatalogReadService(ActivityCatalogReadStore store, Clock clock, Predicate<UUID> organizerCanCollect) {
         this.store = store;
         this.clock = clock;
+        this.organizerCanCollect = organizerCanCollect;
     }
 
     public ActivityPageView search(
@@ -64,8 +78,10 @@ public final class ActivityCatalogReadService {
 
         long total = store.countListed(query);
         int offset = Math.multiplyExact(page - 1, size);
+        // 一页里同一家主办机构只问一次。
+        Map<UUID, Boolean> collecting = new HashMap<>();
         List<ActivityCardView> items = store.findListedPage(query, size, offset).stream()
-                .map(ActivityCatalogReadService::toCard)
+                .map(row -> toCard(row, collecting))
                 .toList();
         return new ActivityPageView(page, size, total, (long) page * size < total, items);
     }
@@ -131,7 +147,7 @@ public final class ActivityCatalogReadService {
                 row.title(),
                 blankToNull(row.subtitle()),
                 secureMedia(row.coverUrl(), row.title()),
-                toPrice(row.priceMode(), row.priceAmountMinor(), row.currency()),
+                toPrice(row.priceMode(), row.priceAmountMinor(), row.currency(), row.organizerId(), new HashMap<>()),
                 new ActivityAgeRangeView(row.minAge(), row.maxAge()),
                 status,
                 new ActivityOrganizerView(row.organizerId(), row.organizerName()),
@@ -152,7 +168,7 @@ public final class ActivityCatalogReadService {
                 sessions);
     }
 
-    private static ActivityCardView toCard(StoredActivityCard row) {
+    private ActivityCardView toCard(StoredActivityCard row, Map<UUID, Boolean> collecting) {
         // 进列表的活动一定还有未开始的场次：有可报的就是报名中；否则有未截止但已满的就是已满；其余只剩报名截止。
         ActivityEnrollmentStatus status;
         if (row.hasOpenSession()) {
@@ -171,7 +187,7 @@ public final class ActivityCatalogReadService {
                 secureMedia(row.coverUrl(), row.title()),
                 row.venueName(),
                 blankToNull(row.scheduleNote()),
-                toPrice(row.priceMode(), row.priceAmountMinor(), row.currency()),
+                toPrice(row.priceMode(), row.priceAmountMinor(), row.currency(), row.organizerId(), collecting),
                 new ActivityAgeRangeView(row.minAge(), row.maxAge()),
                 status,
                 new ActivityNextSessionView(
@@ -181,12 +197,26 @@ public final class ActivityCatalogReadService {
                         seatsLeft(row.nextCapacity(), row.nextEnrolledCount())));
     }
 
-    private static ActivityPriceView toPrice(String mode, Long amountMinor, String currency) {
+    /**
+     * onlinePayment（E09）：能不能在线报名付款——按人收费、单价大于 0、主办机构能在线收款时为 true；
+     * 免费、询价的活动一律 false（免费报名不用付款，看 mode）。
+     */
+    private ActivityPriceView toPrice(
+            String mode,
+            Long amountMinor,
+            String currency,
+            UUID organizerId,
+            Map<UUID, Boolean> collecting
+    ) {
         ActivityPriceMode priceMode = ActivityPriceMode.valueOf(mode);
+        boolean priced = priceMode == ActivityPriceMode.PER_PERSON && amountMinor != null && amountMinor > 0;
+        boolean onlinePayment = priced && organizerId != null
+                && collecting.computeIfAbsent(organizerId, organizerCanCollect::test);
         return new ActivityPriceView(
                 priceMode,
                 priceMode == ActivityPriceMode.PER_PERSON ? amountMinor : null,
-                currency == null ? "CNY" : currency.trim());
+                currency == null ? "CNY" : currency.trim(),
+                onlinePayment);
     }
 
     private static int seatsLeft(int capacity, int enrolledCount) {
@@ -307,7 +337,8 @@ record ActivitySessionView(
 record ActivityMediaView(String url, String alt) {
 }
 
-record ActivityPriceView(ActivityPriceMode mode, Long amountMinor, String currency) {
+/** onlinePayment：现在能不能在线报名付款（1.2.0，见 toPrice）。 */
+record ActivityPriceView(ActivityPriceMode mode, Long amountMinor, String currency, boolean onlinePayment) {
 }
 
 record ActivityAgeRangeView(Integer minAge, Integer maxAge) {

@@ -121,7 +121,13 @@ SET project_id = EXCLUDED.project_id,
     starts_at = EXCLUDED.starts_at,
     ends_at = EXCLUDED.ends_at,
     capacity = EXCLUDED.capacity,
-    booked_count = EXCLUDED.booked_count,
+    -- E10：重排场次时把这一场已有的有效预约（待付款、待到馆、已核销）算进已约人数，
+    -- 免得之后取消、关单时把已约人数减成负数。预约的人数不会超过容量，所以结果不小于已有预约的人数。
+    booked_count = LEAST(EXCLUDED.capacity, EXCLUDED.booked_count + (
+        SELECT COALESCE(sum(b.people), 0)
+        FROM venue_booking b
+        WHERE b.session_id = venue_session.id
+          AND b.status IN ('PENDING_PAYMENT', 'CONFIRMED', 'CHECKED_IN'))),
     updated_at = now();
 
 INSERT INTO venue_device (id, venue_id, category, name, summary, trial_mode, sort_order)

@@ -61,7 +61,8 @@ final class PostgresActivityCatalogReadStore implements ActivityCatalogReadStore
                         row.nextCapacity(),
                         row.nextEnrolledCount(),
                         row.hasOpenSession(),
-                        row.hasFullSession()))
+                        row.hasFullSession(),
+                        row.organizerId()))
                 .toList();
     }
 

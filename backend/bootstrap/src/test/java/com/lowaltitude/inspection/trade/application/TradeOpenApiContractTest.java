@@ -136,7 +136,8 @@ class TradeOpenApiContractTest {
     void contractIsTheDraftAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("0.1.0");
+        // 0.2.0：E09 接入收费活动报名（业务来源 ACTIVITY）。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("0.2.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -452,7 +453,15 @@ class TradeOpenApiContractTest {
         assertThat(enumOf("MerchantKind")).containsExactlyElementsOf(
                 Arrays.stream(MallMerchantKind.values()).map(Enum::name).toList());
         assertThat(enumOf("DeliveryMode")).containsExactly("EXPRESS", "PICKUP");
-        assertThat(enumOf("TradeOrderSource")).containsExactly("MALL");
+        // 0.2.0：收费活动报名、到馆预约（TradeSourceOrders 的订单来源和 V005、V006 trade_order.source 的取值）。
+        assertThat(enumOf("TradeOrderSource")).containsExactly("MALL", "ACTIVITY", "VENUE");
+        assertThat(enumOf("TradeOrderSource").subList(1, 3))
+                .containsExactlyInAnyOrderElementsOf(TradeSourceOrders.ORDER_PREFIXES.keySet());
+        // 商家类型只在商城订单上有，业务来源的订单为 null；取值仍是 MerchantKind 的那几个。
+        assertThat(strings(map(map(map(schemas.get("TradeMerchant")).get("properties")).get("kind")).get("enum")))
+                .containsExactlyElementsOf(java.util.stream.Stream.concat(
+                        Arrays.stream(MallMerchantKind.values()).map(Enum::name), java.util.stream.Stream.of((String) null))
+                        .toList());
         // 每个页签服务都认，契约外的页签服务都不认。
         assertThat(enumOf("TradeOrderTab")).allSatisfy(tab -> assertThat(TradeOrderStatus.ofTab(tab)).isNotNull());
         assertThat(enumOf("TradeOrderTab")).containsExactly("ALL", "TO_PAY", "TO_SHIP", "TO_RECEIVE", "DONE", "REFUND");

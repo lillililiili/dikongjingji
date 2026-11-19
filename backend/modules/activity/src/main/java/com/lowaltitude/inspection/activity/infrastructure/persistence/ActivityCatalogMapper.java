@@ -93,7 +93,8 @@ public interface ActivityCatalogMapper {
                          AND full_session.status = 'ACTIVE'
                          AND full_session.enrollment_closes_at > #{now}
                          AND full_session.enrolled_count >= full_session.capacity
-                   ) has_full_session
+                   ) has_full_session,
+                   a.organizer_id
             FROM activity a
             JOIN LATERAL (
                 SELECT s.id, s.starts_at, s.capacity, s.enrolled_count
@@ -217,7 +218,9 @@ public interface ActivityCatalogMapper {
             int nextCapacity,
             int nextEnrolledCount,
             boolean hasOpenSession,
-            boolean hasFullSession
+            boolean hasFullSession,
+            /** 主办机构：卡片上的 price.onlinePayment 要看它能不能在线收款（E09）。 */
+            UUID organizerId
     ) {
     }
 

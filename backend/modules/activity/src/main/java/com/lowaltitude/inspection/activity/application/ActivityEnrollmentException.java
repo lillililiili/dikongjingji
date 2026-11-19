@@ -16,7 +16,11 @@ public final class ActivityEnrollmentException extends RuntimeException {
         SESSION_FULL,
         CANCEL_NOT_ALLOWED,
         CHECKIN_NOT_OPEN,
-        TICKET_NOT_VALID
+        TICKET_NOT_VALID,
+        /** 收费报名（E09）：页面带来的应付金额和服务端按当前单价算的不一致，要重新读活动。 */
+        AMOUNT_CHANGED,
+        /** 收费报名（E09）：主办机构没有登记有效的微信收款账户。 */
+        PAYMENT_UNAVAILABLE
     }
 
     private final Error error;

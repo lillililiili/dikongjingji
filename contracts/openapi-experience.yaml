@@ -1,11 +1,33 @@
 openapi: 3.1.0
 info:
   title: Experience and Venue Catalog API
-  version: 1.0.0
-  description: >-
-    Read-only catalog for the home "体验" channel (docs/redesign/03-App实现任务计划.md §8):
-    online experience items, the venues of a city, a venue's projects, sessions and devices.
-    Venue booking, payment, check-in codes and simulation results are not part of this version.
+  version: 1.1.0
+  description: |-
+    1.0.0: read-only catalog for the home "体验" channel (docs/redesign/03-App实现任务计划.md §8):
+    online experience items, the venues of a city, a venue's projects, sessions and devices. These five routes stay public.
+
+    1.1.0 (2026-11-19, docs/redesign/03-App实现任务计划.md §21, step E10): venue booking (到馆预约) through the
+    unified trade module (contracts/openapi-trade.yaml, order source VENUE). VenueProject gains onlinePayment;
+    seven new routes need a login (bearer JWT): participants for a session, book, my bookings, one booking,
+    reschedule, cancel, and check-in for venue operators. The account is always the subject of the access
+    token; a booking of another account is answered as not found. Participant and booking routes need the
+    CUSTOMER role; check-in needs the PROVIDER_OPERATOR role and an organisation in the token.
+
+    到馆预约规则（§21.1）：
+    - 能约：场馆已发布、项目启用、场次没开始且有余位。标价大于 0 的要付款，场馆运营机构登记了微信收款账户时
+      项目的 onlinePayment 为 true；为 false 时确认页写“场馆暂未开通在线支付”，不能提交（提交回 VENUE_PAYMENT_UNAVAILABLE）。
+      标价为 0 的项目 onlinePayment 为 false，提交即预约成功，不用付款。
+    - 参与人复用活动报名的“本人和子女”（参与人接口见 contracts/openapi-activity.yaml），按项目最低年龄在场次当天算周岁，
+      “本人”按成年人处理；一单最多 10 人，不超过余位；同一个人同一场次只能有一张有效预约（待付款也算）。
+    - 一单一码：付款成功（免费的提交即）生成一个核销码（VEN- 加 12 位随机字符），一单几个人共用。
+    - 付款时限 15 分钟，不晚于场次开始；超时或取消 → 预约关闭（CLOSED）、名额释放。关闭之后才到账的付款：
+      场次没开始、余位够、这些人没有另约这一场时恢复，否则整单自动原路退款，预约保持已关闭。
+    - 改期：开场前可以改到同一项目的另一场（要有余位），立即生效，不用场馆确认；旧码作废、换新码；同项目同价，不补差价。
+    - 取消：开场前可以取消，整单原路全额退款（一单一码，不拆人），提交即退；免费的直接取消。已核销的不能取消。
+    - 没到馆：场次结束后预约读成 EXPIRED（按时间算，不落库），不自动退款。
+    - 核销：场馆运营机构的操作员按核销码核销，开场前 30 分钟到场次结束之间；整单一次核销；别的机构的码当作不存在；
+      重复核销返回第一次的时间。
+    - 到馆订单不出现在交易的“商品订单”里，也不能用商家的发货、核销、退款接口操作。
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -160,8 +182,391 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/venue-sessions/{sessionId}/participants:
+    get:
+      operationId: listParticipantsForVenueSession
+      summary: 我的参与人（本人和子女，和活动报名同一份名单），附上这一场能不能约和原因
+      description: >-
+        参与人的增删改用活动的参与人接口（contracts/openapi-activity.yaml）。年龄按场次当天（北京时间）、按出生年月算周岁；
+        “本人”按成年人处理，只有项目最低年龄高于 18 岁时不能约。已经在这一场有有效（待付款也算）预约的人是 ALREADY_BOOKED。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: 参与人，“本人”在最前
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueParticipantList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 场次不存在、已取消，或项目、场馆已下线（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/venue-bookings:
+    post:
+      operationId: bookVenueSession
+      summary: 提交到馆预约：一个场次、1–10 个参与人
+      description: >-
+        名额在锁住场次后扣减。标价大于 0 的项目同一步建交易订单（来源 VENUE，收款方是场馆运营机构），
+        返回的预约 status 为 PENDING_PAYMENT，payment 带 tradeOrderId 和 payBefore（15 分钟，不晚于场次开始），
+        App 用交易接口 POST /api/v1/trade/orders/{tradeOrderId}/payments 付款；付款只认验签后的回调或服务端查单，
+        到账后 status 变成 CONFIRMED 并给出核销码。标价为 0 的项目提交即 CONFIRMED，马上给核销码。
+        同一个 Idempotency-Key 带同样的场次和参与人（顺序无关）重复提交，返回第一次的预约（200），
+        不多占名额、不建第二张交易订单；同一个键用于不同的请求回 409。拒绝的顺序：场次不存在 → 场馆暂未开通在线支付 →
+        场次已开始 → 参与人（已约过 / 年龄不够）→ 余位 → 应付金额。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VenueBookRequest"
+      responses:
+        "201":
+          description: 预约已建（待付款，或免费项目已预约成功）
+          headers:
+            ETag:
+              $ref: "#/components/headers/BookingETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueBooking"
+        "200":
+          description: 同一个幂等键的重放，返回第一次的预约（按现在的状态）
+          headers:
+            ETag:
+              $ref: "#/components/headers/BookingETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueBooking"
+        "400":
+          description: >-
+            缺少或不是 UUID 的 Idempotency-Key；参与人为空、超过 10 个或有重复；没有带 expectedAmountMinor；
+            没有同意到馆须知（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 场次不存在或已下线，或者有参与人不是这个账号的（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            VENUE_IDEMPOTENCY_KEY_REUSED：幂等键已用于不同的请求。
+            VENUE_PAYMENT_UNAVAILABLE：要付款的项目，场馆暂未开通在线支付。
+            VENUE_SESSION_NOT_OPEN：场次已经开始。
+            VENUE_PARTICIPANT_ALREADY_BOOKED：有参与人在这一场已有有效或待付款的预约。
+            VENUE_SEATS_NOT_ENOUGH：余位不够这次的人数。
+            VENUE_AMOUNT_CHANGED：expectedAmountMinor 和按当前单价算的应付金额不一致，请重新读场馆。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: VENUE_PARTICIPANT_NOT_ELIGIBLE：有参与人在场次当天不满项目的最低年龄。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: listMyVenueBookings
+      summary: 我的到馆预约
+      description: >-
+        UPCOMING（待付款和待到馆）按场次开始时间从近到远；FINISHED（已核销、已过期）和 CANCELLED（已取消、没付款就关闭）
+        最近的在前。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: bucket
+          in: query
+          required: false
+          description: 页签；不传为 UPCOMING
+          schema:
+            $ref: "#/components/schemas/VenueBookingBucket"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 这一页的预约
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueBookingPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/venue-bookings/{bookingId}:
+    get:
+      operationId: getMyVenueBooking
+      summary: 一张到馆预约和它的核销码
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: 预约；ETag 是预约版本，改期时用 If-Match 带回来
+          headers:
+            ETag:
+              $ref: "#/components/headers/BookingETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueBooking"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/venue-bookings/{bookingId}/reschedule:
+    post:
+      operationId: rescheduleMyVenueBooking
+      summary: 改期到同一项目的另一场
+      description: >-
+        只有待到馆（CONFIRMED，已付款或免费）的预约、在原场次开始前可以改；目标是同一项目的另一场、没开始、有余位，
+        这些人在目标场次没有别的有效预约。立即生效，不用场馆确认；两个场次的名额一出一进；旧核销码作废、换新码；
+        同项目同价，不补差价，钱不动。已经在目标场次上时原样返回（重复提交没有变化）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VenueRescheduleRequest"
+      responses:
+        "200":
+          description: 改期后的预约（新的场次和核销码）
+          headers:
+            ETag:
+              $ref: "#/components/headers/BookingETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueBooking"
+        "400":
+          description: 预约 ID、目标场次或 If-Match 无效（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 预约或目标场次不存在（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            VENUE_RESCHEDULE_NOT_ALLOWED：预约不是待到馆（待付款、已核销、已取消），原场次已经开始，或目标场次不是同一个项目。
+            VENUE_SESSION_NOT_OPEN：目标场次已经开始或已下线。
+            VENUE_SEATS_NOT_ENOUGH：目标场次余位不够。
+            VENUE_PARTICIPANT_ALREADY_BOOKED：有参与人在目标场次已有别的有效预约。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "412":
+          description: VENUE_VERSION_CONFLICT：If-Match 的版本不是现在的版本，请刷新后重试。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/venue-bookings/{bookingId}/cancel:
+    post:
+      operationId: cancelMyVenueBooking
+      summary: 取消到馆预约（整单）
+      description: >-
+        不带请求体。待付款的关闭交易订单（发起过支付的先向微信查单、关单），返回的预约 status 为 CLOSED；查单发现已经付了款时
+        什么都不取消，返回已付款的预约（CONFIRMED），要取消请再提交一次；微信暂时不可用时回 503（TRADE_CHANNEL_UNAVAILABLE，见交易契约）。
+        待到馆的在场次开始前可以取消：名额释放，付过款的整单原路全额退款（提交即退，不用场馆确认），refund 给出金额和进度；
+        免费的直接取消。已经取消、关闭的再取消一次没有变化，仍返回 200。已核销、已开场（含已过期）的不能取消，也不退款。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: 取消（或关闭）后的预约
+          headers:
+            ETag:
+              $ref: "#/components/headers/BookingETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueBooking"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >-
+            VENUE_CANCEL_NOT_ALLOWED：已核销，或场次已经开始；付过款的已经不能在线退款（超过付款后一年或退款次数上限）。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "412":
+          description: VENUE_VERSION_CONFLICT：取消的同时预约被改期了，请刷新后重试。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/venue-checkins:
+    post:
+      operationId: checkInVenueBooking
+      summary: 场馆运营机构的操作员按核销码核销整单
+      description: >-
+        需要 PROVIDER_OPERATOR 角色，机构取自令牌。核销码不分大小写，前后空格忽略。核销窗口从场次开始前 30 分钟到场次结束。
+        一单一码，整单一次核销。同一个码再核销一次返回第一次的时间，repeated 为 true，不改任何数据。
+        别的机构运营的场馆的码、改期后作废的旧码当作不存在。
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VenueCheckinRequest"
+      responses:
+        "200":
+          description: 核销结果；重复核销也是 200
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VenueCheckin"
+        "400":
+          description: 核销码格式不对（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 不是服务商操作员，或令牌里没有机构（COMMON_FORBIDDEN）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: 没有这个码，它属于别的机构运营的场馆，或是改期后作废的旧码（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            VENUE_CODE_NOT_VALID：预约已取消，码已作废。
+            VENUE_CHECKIN_NOT_OPEN：还没到开场前 30 分钟，或场次已结束。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    BookingETag:
+      description: 预约版本（带引号），改期时作为 If-Match 带回来
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: 参数无效（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没有登录或令牌无效（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: 没有客户角色（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 不存在，或不是这个账号的（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
   parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    BookingId:
+      name: bookingId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 客户端为这一次提交生成的 UUID；按账号隔离
+      schema:
+        type: string
+        format: uuid
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: 读预约时的 ETag（预约版本），可以带引号或 W/ 前缀
+      schema:
+        type: string
     CityCode:
       name: cityCode
       in: query
@@ -370,6 +775,7 @@ components:
         - limitNote
         - priceAmountMinor
         - currency
+        - onlinePayment
       properties:
         projectId:
           type: string
@@ -400,6 +806,11 @@ components:
           type: string
           enum:
             - CNY
+        onlinePayment:
+          type: boolean
+          description: >-
+            1.1.0：能不能在线预约付款——标价大于 0、场馆运营机构登记了有效的微信收款账户时为 true。
+            标价大于 0 但为 false 时确认页写“场馆暂未开通在线支付”，不能提交；标价为 0 的项目为 false，提交即预约成功，不用付款。
     VenueInfoItem:
       type: object
       additionalProperties: false
@@ -589,3 +1000,432 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/VenueDevice"
+    VenueErrorCode:
+      type: string
+      enum:
+        - VENUE_IDEMPOTENCY_KEY_REUSED
+        - VENUE_SESSION_NOT_OPEN
+        - VENUE_PARTICIPANT_NOT_ELIGIBLE
+        - VENUE_PARTICIPANT_ALREADY_BOOKED
+        - VENUE_SEATS_NOT_ENOUGH
+        - VENUE_AMOUNT_CHANGED
+        - VENUE_PAYMENT_UNAVAILABLE
+        - VENUE_VERSION_CONFLICT
+        - VENUE_RESCHEDULE_NOT_ALLOWED
+        - VENUE_CANCEL_NOT_ALLOWED
+        - VENUE_CHECKIN_NOT_OPEN
+        - VENUE_CODE_NOT_VALID
+      description: >-
+        到馆预约接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。
+        VENUE_PARTICIPANT_NOT_ELIGIBLE 是 422，VENUE_VERSION_CONFLICT 是 412，其余都是 409。
+    VenueBookingStatus:
+      type: string
+      enum:
+        - PENDING_PAYMENT
+        - CONFIRMED
+        - CHECKED_IN
+        - EXPIRED
+        - CANCELLED
+        - CLOSED
+      description: >-
+        待付款 / 待到馆（已付款或免费，有核销码）/ 已核销 / 已过期（场次结束还没核销，按时间算，不落库，不退款）/
+        已取消（付款后或免费的取消，付过款的整单退款）/ 已关闭（没付款就超时或取消）。
+    VenueBookingBucket:
+      type: string
+      enum:
+        - UPCOMING
+        - FINISHED
+        - CANCELLED
+      description: >-
+        “我的到馆预约”的页签：UPCOMING 待付款和待到馆；FINISHED 已核销和已过期；CANCELLED 已取消和已关闭。
+    VenuePaymentStatus:
+      type: string
+      enum:
+        - FREE
+        - PENDING_PAYMENT
+        - PAID
+        - CLOSED
+      description: 免费（标价为 0）/ 待付款 / 已付款（之后取消退款了也仍是 PAID，看 refund）/ 没付款就关闭了
+    VenueRefundStatus:
+      type: string
+      enum:
+        - REQUESTED
+        - PROCESSING
+        - SUCCEEDED
+        - CLOSED
+        - ABNORMAL
+      description: 和交易模块的退款状态一样：已申请 / 退款中 / 已退款 / 退款关闭（被拒绝）/ 退款异常（人工处理）
+    VenueParticipantRelation:
+      type: string
+      enum:
+        - SELF
+        - CHILD
+      description: 本人（账号持有人，按成年人处理） / 子女
+    VenueEligibilityReason:
+      type: string
+      enum:
+        - ELIGIBLE
+        - UNDER_MIN_AGE
+        - ALREADY_BOOKED
+      description: >-
+        可以约 / 场次当天不满项目的最低年龄 / 这一场已有有效（或待付款）的预约。已有预约时优先给 ALREADY_BOOKED。
+    VenueParticipant:
+      type: object
+      additionalProperties: false
+      required:
+        - participantId
+        - relation
+        - name
+        - ageAtSession
+        - eligible
+        - reason
+      properties:
+        participantId:
+          type: string
+          format: uuid
+          description: 和活动报名的参与人是同一个 ID
+        relation:
+          $ref: "#/components/schemas/VenueParticipantRelation"
+        name:
+          type: string
+        ageAtSession:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 场次当天的周岁（北京时间，按出生年月算）；“本人”为 null
+        eligible:
+          type: boolean
+        reason:
+          $ref: "#/components/schemas/VenueEligibilityReason"
+    VenueParticipantList:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - seatsLeft
+        - maxPeople
+        - items
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        seatsLeft:
+          type: integer
+          minimum: 0
+          description: 这一场现在的余位；一单的人数不能超过它
+        maxPeople:
+          type: integer
+          const: 10
+          description: 一单最多几个人
+        items:
+          type: array
+          description: “本人”在最前，其余按添加顺序
+          items:
+            $ref: "#/components/schemas/VenueParticipant"
+    VenueBookRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - participantIds
+        - expectedAmountMinor
+        - noticeAgreed
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        participantIds:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        expectedAmountMinor:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 页面看到的应付金额（分）= 单价 × 人数；标价为 0 的项目带 0。和服务端算的不一致时回 VENUE_AMOUNT_CHANGED
+        noticeAgreed:
+          type: boolean
+          const: true
+          description: 已阅读并同意到馆须知；不是 true 一律 400
+    VenueRescheduleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: 目标场次：同一项目的另一场
+    VenueCheckinRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 24
+          description: 核销码，如 VEN-7K2M-QX9D-4HPA，不分大小写
+    VenueBookingVenue:
+      type: object
+      additionalProperties: false
+      required:
+        - venueId
+        - name
+        - address
+        - phone
+      properties:
+        venueId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type:
+            - string
+            - "null"
+    VenueBookingProject:
+      type: object
+      additionalProperties: false
+      required:
+        - projectId
+        - name
+        - durationMinutes
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        durationMinutes:
+          type: integer
+          minimum: 1
+    VenueBookingSession:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - startsAt
+        - endsAt
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+    VenueBookedParticipant:
+      type: object
+      additionalProperties: false
+      required:
+        - participantId
+        - name
+        - relation
+        - age
+      properties:
+        participantId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: 预约时的姓名快照；之后改名或删除参与人，预约不变
+        relation:
+          $ref: "#/components/schemas/VenueParticipantRelation"
+        age:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 预约时算出的场次当天周岁；“本人”为 null。改期不重算
+    VenueBookingPayment:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - tradeOrderId
+        - amountMinor
+        - unitAmountMinor
+        - payBefore
+      properties:
+        status:
+          $ref: "#/components/schemas/VenuePaymentStatus"
+        tradeOrderId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: 交易订单 ID（contracts/openapi-trade.yaml 的 TradeOrder.orderId），收银台和查单用它；免费的为 null
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 预约时的总金额（分）= 单价 × 人数；免费的为 0
+        unitAmountMinor:
+          type: integer
+          format: int64
+          minimum: 0
+        payBefore:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 付款截止时间：提交后 15 分钟，并且不晚于场次开始；免费的为 null
+    VenueBookingRefund:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - amountMinor
+      properties:
+        status:
+          $ref: "#/components/schemas/VenueRefundStatus"
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 整单退的钱（分），即预约时的总金额
+    VenueBooking:
+      type: object
+      additionalProperties: false
+      required:
+        - bookingId
+        - status
+        - venue
+        - project
+        - session
+        - people
+        - participants
+        - code
+        - payment
+        - refund
+        - createdAt
+        - checkedInAt
+        - cancelledAt
+        - cancellable
+        - reschedulable
+        - version
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/VenueBookingStatus"
+        venue:
+          $ref: "#/components/schemas/VenueBookingVenue"
+        project:
+          $ref: "#/components/schemas/VenueBookingProject"
+        session:
+          $ref: "#/components/schemas/VenueBookingSession"
+          description: 现在的场次（改期后是新的场次）
+        people:
+          type: integer
+          minimum: 1
+          maximum: 10
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/VenueBookedParticipant"
+        code:
+          type:
+            - string
+            - "null"
+          pattern: "^VEN-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$"
+          description: >-
+            核销码，一单一个（几个人共用），也是二维码的内容；随机生成，不含个人信息。
+            只在 CONFIRMED、CHECKED_IN 时给；待付款、已关闭、已取消、已过期的为 null。改期后是新码，旧码作废。
+        payment:
+          $ref: "#/components/schemas/VenueBookingPayment"
+        refund:
+          anyOf:
+            - $ref: "#/components/schemas/VenueBookingRefund"
+            - type: "null"
+          description: 付过款的预约取消后的整单退款；其余为 null
+        createdAt:
+          type: string
+          format: date-time
+        checkedInAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        cancelledAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        cancellable:
+          type: boolean
+          description: 现在能不能取消：待付款或待到馆，并且场次没开始
+        reschedulable:
+          type: boolean
+          description: 现在能不能改期：待到馆，并且场次没开始（目标场次的条件提交时再判断）
+        version:
+          type: integer
+          minimum: 0
+          description: 预约版本，也是 ETag；改期时用 If-Match 带回来
+    VenueBookingPage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VenueBooking"
+    VenueCheckin:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - venueName
+        - projectName
+        - sessionStartsAt
+        - people
+        - checkedInAt
+        - repeated
+      properties:
+        code:
+          type: string
+        venueName:
+          type: string
+        projectName:
+          type: string
+        sessionStartsAt:
+          type: string
+          format: date-time
+        people:
+          type: integer
+          minimum: 1
+          description: 这一单几个人，到场核对人数用
+        checkedInAt:
+          type: string
+          format: date-time
+          description: 第一次核销的时间
+        repeated:
+          type: boolean
+          description: 这个码之前已经核销过

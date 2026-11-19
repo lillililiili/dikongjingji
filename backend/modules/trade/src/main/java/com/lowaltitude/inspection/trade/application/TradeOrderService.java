@@ -65,7 +65,10 @@ public class TradeOrderService {
     static final int MAX_TRACKING_LENGTH = 40;
     private static final ZoneId ORDER_ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter ORDER_DAY = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final String CITY_CODE_PATTERN = "^[A-Z0-9]{4,16}$";
+    static final String CITY_CODE_PATTERN = "^[A-Z0-9]{4,16}$";
+    private static final String MALL_ORDER_PREFIX = "MO";
+    /** 业务来源订单的配送方式（E09）：不发货。 */
+    private static final String NO_DELIVERY = "NONE";
     /** 买家已经付过款的状态：商家从这时起能看到完整手机号和收货地址。 */
     private static final Set<String> PAID_STATUSES = Set.of(
             TradeOrderStatus.PAID.name(),
@@ -81,17 +84,30 @@ public class TradeOrderService {
     private final TradeCheckoutPort checkout;
     private final Clock clock;
     private final Supplier<String> orderNoSuffix;
+    private final TradeSourceEvents events;
 
+    /** 只有商城订单（没有业务来源的监听者）。 */
     TradeOrderService(
             TradeOrderMapper mapper,
             TradeCheckoutPort checkout,
             Clock clock,
             Supplier<String> orderNoSuffix
     ) {
+        this(mapper, checkout, clock, orderNoSuffix, TradeSourceEvents.none());
+    }
+
+    TradeOrderService(
+            TradeOrderMapper mapper,
+            TradeCheckoutPort checkout,
+            Clock clock,
+            Supplier<String> orderNoSuffix,
+            TradeSourceEvents events
+    ) {
         this.mapper = mapper;
         this.checkout = checkout;
         this.clock = clock;
         this.orderNoSuffix = orderNoSuffix;
+        this.events = events;
     }
 
     // ---- 提交订单 ----
@@ -140,7 +156,7 @@ public class TradeOrderService {
 
         Instant now = clock.instant();
         UUID orderId = mapper.insertOrder(
-                newOrderNo(now),
+                newOrderNo(MALL_ORDER_PREFIX, now),
                 buyerId,
                 quote.merchantId(),
                 quote.merchantKind(),
@@ -224,6 +240,8 @@ public class TradeOrderService {
      * 买家取消。待付款：关闭（同一张已关闭、退款中、已退款的单再取消一次没有变化）。已付款未发货的要退款，
      * 抛 REFUND_REQUIRED 交给退款服务；发起过支付的抛 PAYMENT_IN_PROGRESS 交给支付服务先查单。
      * version 是页面上看到的订单版本，对不上说明订单已经变了。
+     * 业务来源（E09 收费报名）的订单：待付款的同样可以关（关闭后通知业务模块释放名额）；已付款的不能在这里取消，
+     * 退款由业务单的退改发起。
      */
     @Transactional
     public TradeOrderView cancel(UUID buyerId, UUID orderId, int version) {
@@ -241,6 +259,9 @@ public class TradeOrderService {
             return read(buyerId, orderId);
         }
         if (current == TradeOrderStatus.PAID) {
+            if (!TradeSourceEvents.MALL.equals(row.source())) {
+                throw new TradeException(Error.ORDER_STATE_INVALID);
+            }
             throw new TradeException(Error.REFUND_REQUIRED);
         }
         if (current != TradeOrderStatus.PENDING_PAYMENT) {
@@ -257,6 +278,7 @@ public class TradeOrderService {
         mapper.closeUnpaid(orderId, version, now);
         mapper.insertTransition(
                 orderId, TradeOrderStatus.PENDING_PAYMENT.name(), TradeOrderStatus.CLOSED.name(), "BUYER_CANCEL", buyerId, now);
+        events.closed(orderId);
         return read(buyerId, orderId);
     }
 
@@ -269,6 +291,7 @@ public class TradeOrderService {
             if (mapper.closeUnpaid(row.id(), row.version(), now) > 0) {
                 mapper.insertTransition(
                         row.id(), TradeOrderStatus.PENDING_PAYMENT.name(), TradeOrderStatus.CLOSED.name(), "TIMEOUT", null, now);
+                events.closed(row.id());
                 closed++;
             }
         }
@@ -477,10 +500,12 @@ public class TradeOrderService {
             boolean forBuyer
     ) {
         TradeOrderStatus status = TradeOrderStatus.valueOf(row.status());
+        boolean mall = TradeSourceEvents.MALL.equals(row.source());
         return new TradeOrderView(
                 row.id(),
                 row.orderNo(),
                 row.source(),
+                row.sourceRef(),
                 status,
                 new TradeMerchantView(row.merchantId(), row.merchantName(), row.merchantKind()),
                 lines.stream()
@@ -519,8 +544,8 @@ public class TradeOrderService {
                                 refund.createdAt(),
                                 refund.succeededAt()))
                         .toList(),
-                // 待付款直接关；已付款未发货（未自提）的取消即全额退款。
-                status == TradeOrderStatus.PENDING_PAYMENT || status == TradeOrderStatus.PAID,
+                // 待付款直接关；已付款未发货（未自提）的商城订单取消即全额退款。业务来源的已付款订单由业务单退改。
+                status == TradeOrderStatus.PENDING_PAYMENT || (status == TradeOrderStatus.PAID && mall),
                 row.version());
     }
 
@@ -534,6 +559,10 @@ public class TradeOrderService {
     }
 
     private static TradeDeliveryView toDelivery(OrderRow row, DeliveryRow delivery, boolean forBuyer) {
+        if (NO_DELIVERY.equals(row.deliveryMode())) {
+            // 业务来源的订单（E09）不发货，没有配送行。
+            return null;
+        }
         if (delivery == null) {
             return new TradeDeliveryView(row.deliveryMode(), null, null, null, null, null, null, null, null, row.shippedAt());
         }
@@ -663,11 +692,14 @@ public class TradeOrderService {
         }
     }
 
-    /** “MO” + 北京时间日期 + 8 位随机数字；撞号就换一个（同一天一亿个号，几乎不会撞）。 */
-    private String newOrderNo(Instant now) {
+    /**
+     * 前缀 + 北京时间日期 + 8 位随机数字；撞号就换一个（同一天一亿个号，几乎不会撞）。
+     * 商城订单前缀 MO，收费报名的订单 AO（E09，见 TradeSourceOrders）。
+     */
+    String newOrderNo(String prefix, Instant now) {
         String day = ORDER_DAY.format(now.atZone(ORDER_ZONE));
         for (int attempt = 0; attempt < 5; attempt++) {
-            String candidate = "MO" + day + orderNoSuffix.get();
+            String candidate = prefix + day + orderNoSuffix.get();
             // 买家锁只挡住同一个买家；不同买家同时抽到同一个号时，靠这把号码锁让后来的那个看到先插入的单。
             mapper.lockOrderNo(candidate);
             if (mapper.countOrderNo(candidate) == 0) {

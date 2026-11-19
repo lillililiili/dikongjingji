@@ -7,6 +7,7 @@ import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMap
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradePaymentMapper;
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeReconciliationMapper;
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeRefundMapper;
+import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeSourceMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -20,14 +21,44 @@ import org.springframework.transaction.support.TransactionTemplate;
 @MapperScan(basePackageClasses = TradeOrderMapper.class)
 public class TradeApplicationConfiguration {
 
+    /**
+     * 业务来源（E09 收费报名等）的付款和关闭通知。监听者和退款服务都在第一次用到时才取：
+     * 业务模块的监听者依赖它自己的服务，那个服务又通过 {@link TradeSourceOrders} 依赖交易模块，构造时取会成环。
+     */
     @Bean
-    TradeOrderService tradeOrderService(TradeOrderMapper mapper, TradeCheckoutPort checkout) {
+    TradeSourceEvents tradeSourceEvents(
+            ObjectProvider<TradeSourceListener> listeners,
+            TradeSourceMapper sources,
+            ObjectProvider<TradeRefundService> refunds
+    ) {
+        return new TradeSourceEvents(
+                () -> listeners.orderedStream().toList(),
+                sources,
+                refunds::getObject,
+                AfterCommit.spring());
+    }
+
+    @Bean
+    TradeOrderService tradeOrderService(TradeOrderMapper mapper, TradeCheckoutPort checkout, TradeSourceEvents events) {
         SecureRandom random = new SecureRandom();
         return new TradeOrderService(
                 mapper,
                 checkout,
                 Clock.systemUTC(),
-                () -> String.format("%08d", random.nextInt(100_000_000)));
+                () -> String.format("%08d", random.nextInt(100_000_000)),
+                events);
+    }
+
+    @Bean
+    TradeSourceOrders tradeSourceOrders(
+            TradeSourceMapper sources,
+            TradeOrderMapper orders,
+            TradeOrderService orderService,
+            TradePaymentService payments,
+            TradeRefundService refunds
+    ) {
+        return new TradeSourceOrders(sources, orders, orderService, payments, refunds, AfterCommit.spring(),
+                Clock.systemUTC());
     }
 
     /** 没有配置支付渠道（trade.wechat.enabled 不是 true）时 channels 给 null，发起支付、退款回“渠道不可用”。 */
@@ -38,7 +69,8 @@ public class TradeApplicationConfiguration {
             TradeOrderService orderService,
             ObjectProvider<PaymentChannel> channels,
             PlatformTransactionManager transactionManager,
-            TradeRefundService refunds
+            TradeRefundService refunds,
+            TradeSourceEvents events
     ) {
         SecureRandom random = new SecureRandom();
         return new TradePaymentService(
@@ -51,7 +83,8 @@ public class TradeApplicationConfiguration {
                 () -> twelveDigits(random),
                 // 取货码 6 位数字，不可预测。
                 () -> String.format("%06d", random.nextInt(1_000_000)),
-                refunds);
+                refunds,
+                events);
     }
 
     @Bean

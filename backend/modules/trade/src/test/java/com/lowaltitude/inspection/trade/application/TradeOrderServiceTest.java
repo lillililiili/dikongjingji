@@ -1964,7 +1964,7 @@ class TradeOrderServiceTest {
             Instant createdAt;
 
             OrderRow toRow() {
-                return new OrderRow(id, orderNo, buyerId, merchantId, merchantKind, merchantName, "MALL", status,
+                return new OrderRow(id, orderNo, buyerId, merchantId, merchantKind, merchantName, "MALL", null, status,
                         deliveryMode, goodsMinor, shippingMinor, payableMinor, paidMinor, refundedMinor, currency,
                         buyerNote, payBefore, paidAt, shippedAt, completedAt, closedAt, createdAt, version);
             }

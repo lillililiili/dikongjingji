@@ -200,6 +200,60 @@ public class TradeRefundService {
         return tx.execute(status -> view(refunds.lockRefund(refundId)));
     }
 
+    // ---- 业务来源发起的退款（E09） ----
+
+    /**
+     * 业务来源的订单（收费报名）由业务模块发起退款：报名单按凭证退改，或付款到账时业务收不下的自动全额退款。
+     * 在调用方的事务里执行，不调渠道：调用方在事务提交后再 {@link #submit}（定时任务也会兜底重提）。
+     * 规则和商家退款一样（付款后一年内、最多 50 次、合计不超过实付）；退的是剩下的全部时订单进入退款中。
+     * 同一个幂等键、同样的金额和原因重放返回同一笔退款。
+     *
+     * @param amountMinor 为 null 时退还没退的全部
+     * @param actorId     发起人；自动退款没有，为 null
+     */
+    UUID createSourceRefund(UUID orderId, Long amountMinor, String reason, UUID idempotencyKey, UUID actorId) {
+        if (orderId == null || idempotencyKey == null || (amountMinor != null && amountMinor < 1)) {
+            throw new IllegalArgumentException("source refund is invalid");
+        }
+        String why = reason == null ? "" : reason.trim();
+        if (why.isEmpty() || why.length() > MAX_REASON || why.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("refund reason is invalid");
+        }
+        Instant now = clock.instant();
+        RefundOrderRow order = refunds.lockOrder(orderId);
+        if (order == null) {
+            throw new TradeException(Error.NOT_FOUND);
+        }
+        RefundRow replayed = refunds.findRefundByKey(orderId, idempotencyKey);
+        if (replayed != null) {
+            if (!"SOURCE".equals(replayed.initiator()) || !why.equals(replayed.reason())
+                    || (amountMinor != null && replayed.amountMinor() != amountMinor)) {
+                throw new TradeException(Error.IDEMPOTENCY_CONFLICT);
+            }
+            return replayed.id();
+        }
+        TradeOrderStatus current = TradeOrderStatus.valueOf(order.status());
+        if (current != TradeOrderStatus.PAID && current != TradeOrderStatus.SHIPPED
+                && current != TradeOrderStatus.COMPLETED && current != TradeOrderStatus.REFUND_FAILED) {
+            throw new TradeException(Error.ORDER_STATE_INVALID);
+        }
+        PaidPaymentRow payment = requirePayment(order);
+        requireWithinLimits(order, now);
+        long refundable = refundable(order);
+        long amount = amountMinor == null ? refundable : amountMinor;
+        if (refundable <= 0 || amount > refundable) {
+            throw new TradeException(Error.REFUND_EXCEEDS_PAID);
+        }
+        UUID created = refunds.insertRefund(orderId, payment.id(), newOutRefundNo(now), amount, why,
+                "SOURCE", actorId, idempotencyKey, now);
+        if (amount == refundable) {
+            refunds.markOrderRefunding(orderId, now);
+            orders.insertTransition(orderId, order.status(), TradeOrderStatus.REFUNDING.name(), "SOURCE_REFUND",
+                    actorId, now);
+        }
+        return created;
+    }
+
     // ---- 提交给渠道 ----
 
     /**

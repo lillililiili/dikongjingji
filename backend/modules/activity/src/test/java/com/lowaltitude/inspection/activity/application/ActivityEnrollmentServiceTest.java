@@ -11,15 +11,21 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentException.Error;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionOperations;
 
 /**
  * 报名服务的规则测试。mapper 换成内存实现（按 SQL 的条件和 V002 的约束写），时钟固定；
@@ -1184,6 +1190,468 @@ class ActivityEnrollmentServiceTest {
         assertThat(mapper.events).extracting(event -> event.eventType()).containsExactly("ENROLLED", "TICKET_CHECKED_IN");
     }
 
+    // ---- 收费报名（E09） ----
+
+    /**
+     * 收费报名：交易模块换成记下调用的端口替身，取消未付款订单时替身像交易模块一样回调付款结果。
+     * 交易模块这一侧的规则见 TradeSourceOrdersTest。
+     */
+    @Nested
+    class PaidEnrollment {
+
+        private static final long UNIT = 12_000;
+
+        private final FakePayments payments = new FakePayments();
+        private final ActivityEnrollmentService paid = paidAt(NOW);
+
+        PaidEnrollment() {
+            mapper.session.priceMode = "PER_PERSON";
+            mapper.session.priceAmountMinor = UNIT;
+            payments.callback = paid;
+        }
+
+        @Test
+        void submittingTakesTheSeatsAndOpensATradeOrderInTheSameStep() {
+            UUID self = self();
+            UUID child = child("小明", "2018-05");
+
+            EnrollmentResult result = paid.enroll(ACCOUNT, KEY, paidCommand(2 * UNIT, self, child));
+
+            EnrollmentView view = result.enrollment();
+            assertThat(result.created()).isTrue();
+            assertThat(view.status()).isEqualTo(EnrollmentStatus.UPCOMING);
+            assertThat(view.cancellable()).isTrue();
+            UUID order = payments.orderOf(view.enrollmentId());
+            OffsetDateTime payBefore = now().plusMinutes(15);
+            assertThat(view.payment()).isEqualTo(new EnrollmentPaymentView(
+                    EnrollmentPaymentStatus.PENDING_PAYMENT, order, 2 * UNIT, UNIT, payBefore));
+            // 待付款的凭证已经生成，但不给凭证号（二维码的内容）。
+            assertThat(view.tickets())
+                    .extracting(TicketView::status, TicketView::ticketCode, TicketView::refund)
+                    .containsExactly(
+                            tuple(TicketStatus.PENDING_PAYMENT, null, null),
+                            tuple(TicketStatus.PENDING_PAYMENT, null, null));
+            assertThat(mapper.tickets).extracting(row -> row.ticketCode).doesNotContainNull();
+            // 名额现在就占上。
+            assertThat(mapper.session.enrolledCount).isEqualTo(50);
+            // 交易订单：收款方是主办机构，金额是单价 × 人数，订单上的场次是北京时间。
+            assertThat(payments.opened).containsExactly(new ActivityPaymentPort.OpenPayment(
+                    view.enrollmentId(), ACCOUNT, ORGANIZER, "370500", ACTIVITY_ID, SESSION_ID, TITLE,
+                    "11月28日 09:00 上午场", COVER, UNIT, 2, payBefore.toInstant()));
+            InMemoryMapper.Enrollment stored = mapper.enrollments.get(0);
+            assertThat(stored.status).isEqualTo("PENDING_PAYMENT");
+            assertThat(stored.tradeOrderId).isEqualTo(order);
+            assertThat(stored.amountMinor).isEqualTo(2 * UNIT);
+            assertThat(mapper.events).containsExactly(
+                    new InMemoryMapper.Event(view.enrollmentId(), null, "ENROLLED", ACCOUNT, now()));
+        }
+
+        // 付款时限 15 分钟，但不晚于报名截止。
+        @Test
+        void thePaymentDeadlineNeverPassesTheEnrollmentDeadline() {
+            Instant late = CLOSES_AT.minusMinutes(5).toInstant();
+            ActivityEnrollmentService almostClosed = paidAt(late);
+            payments.callback = almostClosed;
+
+            EnrollmentView view = almostClosed.enroll(ACCOUNT, KEY, paidCommand(UNIT, self())).enrollment();
+
+            assertThat(view.payment().payBefore()).isEqualTo(CLOSES_AT);
+            assertThat(payments.opened.get(0).payBefore()).isEqualTo(CLOSES_AT.toInstant());
+        }
+
+        @Test
+        void aChangedPriceOrAMissingAmountIsRejectedBeforeAnythingIsWritten() {
+            UUID self = self();
+
+            assertRejected(Error.AMOUNT_CHANGED, () -> paid.enroll(ACCOUNT, KEY, paidCommand(UNIT - 1, self)));
+            assertInvalid(() -> paid.enroll(ACCOUNT, KEY, command(self)));
+
+            assertNothingEnrolled();
+            assertThat(payments.opened).isEmpty();
+        }
+
+        @Test
+        void anOrganizerThatCannotCollectPaymentsTurnsTheEnrollmentAway() {
+            UUID self = self();
+            payments.collecting.clear();
+
+            assertRejected(Error.PAYMENT_UNAVAILABLE, () -> paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self)));
+            // 没接交易模块的服务（只能免费报名）也一样。
+            assertRejected(Error.PAYMENT_UNAVAILABLE, () -> service.enroll(ACCOUNT, KEY, paidCommand(UNIT, self)));
+
+            assertNothingEnrolled();
+        }
+
+        // 按人收费但单价为 0、询价的活动仍然不能在线报名。
+        @Test
+        void onlyAPositivePerPersonPriceCanBePaidOnline() {
+            UUID self = self();
+            mapper.session.priceAmountMinor = 0L;
+            assertRejected(Error.ENROLLMENT_UNSUPPORTED, () -> paid.enroll(ACCOUNT, KEY, paidCommand(0L, self)));
+            mapper.session.priceMode = "INQUIRY";
+            mapper.session.priceAmountMinor = null;
+            assertRejected(Error.ENROLLMENT_UNSUPPORTED, () -> paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self)));
+
+            assertNothingEnrolled();
+        }
+
+        @Test
+        void aRepeatedSubmissionReturnsTheSameEnrollmentWithoutASecondOrder() {
+            UUID self = self();
+            EnrollmentView first = paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self)).enrollment();
+
+            EnrollmentResult again = paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self));
+
+            assertThat(again.created()).isFalse();
+            assertThat(again.enrollment()).isEqualTo(first);
+            assertThat(payments.opened).hasSize(1);
+            assertThat(mapper.session.enrolledCount).isEqualTo(49);
+        }
+
+        // 待付款的人在这一场仍算“已报名”，不能再报一次。
+        @Test
+        void participantsAwaitingPaymentCountAsEnrolled() {
+            UUID self = self();
+            paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self));
+
+            assertThat(paid.listParticipants(ACCOUNT, "王女士", SESSION_ID).items().get(0).eligibility().reason())
+                    .isEqualTo(ParticipantEligibilityReason.ALREADY_ENROLLED);
+            assertRejected(Error.PARTICIPANT_ALREADY_ENROLLED,
+                    () -> paid.enroll(ACCOUNT, SECOND_KEY, paidCommand(UNIT, self)));
+        }
+
+        // ---- 付款结果 ----
+
+        @Test
+        void aConfirmedPaymentActivatesTheTicketsOnceAndShowsTheirCodes() {
+            EnrollmentView pending = paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self())).enrollment();
+            UUID order = payments.orderOf(pending.enrollmentId());
+
+            assertThat(paid.onPaymentConfirmed(order, pending.enrollmentId())).isTrue();
+            assertThat(paid.onPaymentConfirmed(order, pending.enrollmentId())).isTrue();
+
+            EnrollmentView view = paid.readEnrollment(ACCOUNT, pending.enrollmentId());
+            assertThat(view.payment().status()).isEqualTo(EnrollmentPaymentStatus.PAID);
+            assertThat(view.tickets()).extracting(TicketView::status, TicketView::ticketCode)
+                    .containsExactly(tuple(TicketStatus.ACTIVE, "ACT-TEST-0000-0001"));
+            assertThat(mapper.events).extracting(InMemoryMapper.Event::eventType, InMemoryMapper.Event::actorId)
+                    .containsExactly(tuple("ENROLLED", ACCOUNT), tuple("PAYMENT_CONFIRMED", null));
+            // 先锁场次，再锁报名单。
+            assertThat(mapper.enrollmentLocks).allSatisfy(locksBefore -> assertThat(locksBefore).isPositive());
+            // 别的交易订单报来的付款对不上这张报名单：收不下。
+            assertThat(paid.onPaymentConfirmed(UUID.randomUUID(), pending.enrollmentId())).isFalse();
+        }
+
+        @Test
+        void aClosedOrderVoidsTheTicketsAndReleasesTheSeats() {
+            EnrollmentView pending = paid.enroll(ACCOUNT, KEY, paidCommand(2 * UNIT, self(), child("小明", "2018-05")))
+                    .enrollment();
+            UUID order = payments.orderOf(pending.enrollmentId());
+
+            paid.onPaymentClosed(order, pending.enrollmentId());
+            paid.onPaymentClosed(order, pending.enrollmentId());
+
+            EnrollmentView view = paid.readEnrollment(ACCOUNT, pending.enrollmentId());
+            assertThat(view.status()).isEqualTo(EnrollmentStatus.CANCELLED);
+            assertThat(view.cancellable()).isFalse();
+            assertThat(view.payment().status()).isEqualTo(EnrollmentPaymentStatus.CLOSED);
+            assertThat(view.tickets()).extracting(TicketView::status, TicketView::ticketCode)
+                    .containsOnly(tuple(TicketStatus.CANCELLED, null));
+            assertThat(mapper.tickets).extracting(row -> row.cancelCause).containsOnly("PAYMENT_CLOSED");
+            assertThat(mapper.session.enrolledCount).isEqualTo(48);
+            assertThat(mapper.enrolledDeltas).containsExactly(2, -2);
+            assertThat(mapper.events).extracting(InMemoryMapper.Event::eventType)
+                    .containsExactly("ENROLLED", "PAYMENT_CLOSED");
+            // 已关闭的进“已取消”，不在“待参加”里。
+            assertThat(paid.listEnrollments(ACCOUNT, "CANCELLED", 1, 20).items())
+                    .extracting(EnrollmentView::enrollmentId).containsExactly(pending.enrollmentId());
+            assertThat(paid.listEnrollments(ACCOUNT, "UPCOMING", 1, 20).items()).isEmpty();
+            // 关闭之后这些人可以重新报。
+            assertThat(paid.listParticipants(ACCOUNT, "王女士", SESSION_ID).items().get(0).eligibility().eligible())
+                    .isTrue();
+        }
+
+        @Test
+        void pendingEnrollmentsAreListedAsUpcoming() {
+            EnrollmentView pending = paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self())).enrollment();
+
+            assertThat(paid.listEnrollments(ACCOUNT, "UPCOMING", 1, 20).items())
+                    .extracting(EnrollmentView::enrollmentId).containsExactly(pending.enrollmentId());
+        }
+
+        // 关闭之后才到账：场次没开始、名额够、这些人没另报时恢复。
+        @Test
+        void aPaymentAfterTheCloseRestoresTheEnrollmentWhenNothingStandsInTheWay() {
+            EnrollmentView pending = paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self())).enrollment();
+            UUID order = payments.orderOf(pending.enrollmentId());
+            paid.onPaymentClosed(order, pending.enrollmentId());
+
+            assertThat(paid.onPaymentConfirmed(order, pending.enrollmentId())).isTrue();
+
+            EnrollmentView view = paid.readEnrollment(ACCOUNT, pending.enrollmentId());
+            assertThat(view.status()).isEqualTo(EnrollmentStatus.UPCOMING);
+            assertThat(view.payment().status()).isEqualTo(EnrollmentPaymentStatus.PAID);
+            assertThat(view.tickets()).extracting(TicketView::status, TicketView::ticketCode, TicketView::cancelledAt)
+                    .containsExactly(tuple(TicketStatus.ACTIVE, "ACT-TEST-0000-0001", null));
+            assertThat(mapper.session.enrolledCount).isEqualTo(49);
+            assertThat(mapper.events).extracting(InMemoryMapper.Event::eventType)
+                    .containsExactly("ENROLLED", "PAYMENT_CLOSED", "PAYMENT_RESTORED");
+        }
+
+        @Test
+        void aPaymentAfterTheCloseIsTurnedAwayWhenTheSessionStartedTheSeatsAreGoneOrThePersonEnrolledAgain() {
+            UUID self = self();
+            EnrollmentView pending = paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self)).enrollment();
+            UUID order = payments.orderOf(pending.enrollmentId());
+            paid.onPaymentClosed(order, pending.enrollmentId());
+
+            // 场次已经开始。
+            assertThat(paidAt(STARTS_AT.toInstant()).onPaymentConfirmed(order, pending.enrollmentId())).isFalse();
+            // 名额满了。
+            mapper.session.enrolledCount = mapper.session.capacity;
+            assertThat(paid.onPaymentConfirmed(order, pending.enrollmentId())).isFalse();
+            mapper.session.enrolledCount = 48;
+            // 这个人在这一场又报了一次（免费报名不受影响，这里直接另报一张收费的）。
+            paid.enroll(ACCOUNT, SECOND_KEY, paidCommand(UNIT, self));
+            assertThat(paid.onPaymentConfirmed(order, pending.enrollmentId())).isFalse();
+
+            assertThat(mapper.enrollments.get(0).status).isEqualTo("CLOSED");
+            assertThat(mapper.events).extracting(InMemoryMapper.Event::eventType)
+                    .doesNotContain("PAYMENT_RESTORED");
+        }
+
+        // ---- 取消 ----
+
+        @Test
+        void cancellingAnUnpaidEnrollmentClosesItsTradeOrder() {
+            EnrollmentView pending = paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self())).enrollment();
+            UUID order = payments.orderOf(pending.enrollmentId());
+
+            EnrollmentView cancelled = paid.cancel(ACCOUNT, pending.enrollmentId(), null);
+
+            assertThat(payments.cancelled).containsExactly(order);
+            assertThat(cancelled.status()).isEqualTo(EnrollmentStatus.CANCELLED);
+            assertThat(cancelled.payment().status()).isEqualTo(EnrollmentPaymentStatus.CLOSED);
+            assertThat(mapper.session.enrolledCount).isEqualTo(48);
+            // 交易订单只能整笔关：只取消其中几位的不行。
+            EnrollmentView two = paid.enroll(ACCOUNT, SECOND_KEY,
+                    paidCommand(2 * UNIT, self(), child("小明", "2018-05"))).enrollment();
+            assertRejected(Error.CANCEL_NOT_ALLOWED,
+                    () -> paid.cancel(ACCOUNT, two.enrollmentId(), ids(two.tickets().get(0).ticketId())));
+            assertInvalid(() -> paid.cancel(ACCOUNT, two.enrollmentId(), ids(UUID.randomUUID())));
+            assertThat(payments.cancelled).hasSize(1);
+            // 列出全部凭证等于整张取消。
+            paid.cancel(ACCOUNT, two.enrollmentId(),
+                    ids(two.tickets().get(0).ticketId(), two.tickets().get(1).ticketId()));
+            assertThat(payments.cancelled).hasSize(2);
+        }
+
+        // 取消时向渠道查单发现已经付了：按付款处理，返回已付款的报名单，什么都不取消。
+        @Test
+        void cancellingAnEnrollmentThatWasJustPaidKeepsIt() {
+            EnrollmentView pending = paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self())).enrollment();
+            payments.paidBeforeCancel = true;
+
+            EnrollmentView view = paid.cancel(ACCOUNT, pending.enrollmentId(), null);
+
+            assertThat(view.payment().status()).isEqualTo(EnrollmentPaymentStatus.PAID);
+            assertThat(view.tickets()).extracting(TicketView::status).containsExactly(TicketStatus.ACTIVE);
+            assertThat(mapper.session.enrolledCount).isEqualTo(49);
+        }
+
+        @Test
+        void cancellingPaidTicketsRefundsEachAtTheEnrollmentPriceInOneRefundPerCancellation() {
+            EnrollmentView confirmed = confirmedEnrollment(self(), child("小明", "2018-05"), child("小红", "2018-12"));
+            UUID order = payments.orderOf(confirmed.enrollmentId());
+            TicketView first = confirmed.tickets().get(0);
+
+            EnrollmentView afterOne = paid.cancel(ACCOUNT, confirmed.enrollmentId(), ids(first.ticketId()));
+
+            assertThat(payments.refunds).hasSize(1);
+            FakePayments.Refund refund = payments.refunds.get(0);
+            assertThat(refund.tradeOrderId()).isEqualTo(order);
+            assertThat(refund.amountMinor()).isEqualTo(UNIT);
+            assertThat(refund.reason()).isEqualTo("取消活动报名 1 人");
+            assertThat(refund.actorId()).isEqualTo(ACCOUNT);
+            assertThat(refund.idempotencyKey()).isEqualTo(UUID.nameUUIDFromBytes(
+                    ("activity-refund:" + first.ticketId()).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            // 先锁交易订单，再锁场次。
+            assertThat(payments.sessionLocksAtOrderLock).containsExactly(mapper.sessionLocks - 1);
+            assertThat(afterOne.payment().status()).isEqualTo(EnrollmentPaymentStatus.PAID);
+            assertThat(afterOne.tickets().get(0).refund())
+                    .isEqualTo(new TicketRefundView(TicketRefundStatus.REQUESTED, UNIT));
+            assertThat(afterOne.tickets().get(0).ticketCode()).isEqualTo(first.ticketCode());
+            assertThat(afterOne.tickets().subList(1, 3)).extracting(TicketView::refund).containsOnlyNulls();
+            assertThat(mapper.events).extracting(InMemoryMapper.Event::eventType)
+                    .endsWith("TICKET_CANCELLED", "REFUND_REQUESTED");
+
+            // 退款到账后，凭证上看到“已退款”。
+            payments.progress.put(refund.refundId(), new ActivityPaymentPort.RefundProgress("SUCCEEDED", UNIT));
+            assertThat(paid.readEnrollment(ACCOUNT, confirmed.enrollmentId()).tickets().get(0).refund())
+                    .isEqualTo(new TicketRefundView(TicketRefundStatus.SUCCEEDED, UNIT));
+
+            // 剩下两位一起取消：一笔退两位的钱，报名单进“已取消”。
+            EnrollmentView all = paid.cancel(ACCOUNT, confirmed.enrollmentId(), null);
+
+            assertThat(payments.refunds).extracting(FakePayments.Refund::amountMinor).containsExactly(UNIT, 2 * UNIT);
+            assertThat(all.status()).isEqualTo(EnrollmentStatus.CANCELLED);
+            assertThat(all.payment().status()).isEqualTo(EnrollmentPaymentStatus.PAID);
+            assertThat(all.tickets()).extracting(ticket -> ticket.refund().amountMinor()).containsOnly(UNIT);
+            assertThat(mapper.session.enrolledCount).isEqualTo(48);
+            // 再取消一次没有变化，也不会再退。
+            paid.cancel(ACCOUNT, confirmed.enrollmentId(), null);
+            assertThat(payments.refunds).hasSize(2);
+        }
+
+        @Test
+        void paidTicketsCannotBeCancelledOnceTheSessionStarts() {
+            EnrollmentView confirmed = confirmedEnrollment(self());
+
+            assertRejected(Error.CANCEL_NOT_ALLOWED,
+                    () -> paidAt(STARTS_AT.toInstant()).cancel(ACCOUNT, confirmed.enrollmentId(), null));
+
+            assertThat(payments.refunds).isEmpty();
+            assertThat(mapper.tickets).extracting(row -> row.status).containsOnly("ACTIVE");
+        }
+
+        @Test
+        void aCheckedInTicketIsNeverRefunded() {
+            EnrollmentView confirmed = confirmedEnrollment(self(), child("小明", "2018-05"));
+            TicketView checkedIn = confirmed.tickets().get(0);
+            ActivityEnrollmentService atTheDoor = paidAt(STARTS_AT.minusMinutes(30).toInstant());
+            atTheDoor.checkIn(OPERATOR, ORGANIZER, checkedIn.ticketCode());
+
+            assertRejected(Error.CANCEL_NOT_ALLOWED,
+                    () -> atTheDoor.cancel(ACCOUNT, confirmed.enrollmentId(), ids(checkedIn.ticketId())));
+            atTheDoor.cancel(ACCOUNT, confirmed.enrollmentId(), null);
+
+            // 只退了没签到的那一位。
+            assertThat(payments.refunds).extracting(FakePayments.Refund::amountMinor).containsExactly(UNIT);
+            assertThat(mapper.ticket(checkedIn.ticketId()).status).isEqualTo("CHECKED_IN");
+            assertThat(mapper.ticket(checkedIn.ticketId()).refundId).isNull();
+        }
+
+        @Test
+        void aTicketAwaitingPaymentCannotBeCheckedIn() {
+            paid.enroll(ACCOUNT, KEY, paidCommand(UNIT, self()));
+            String code = mapper.tickets.get(0).ticketCode;
+
+            assertRejected(Error.TICKET_NOT_VALID,
+                    () -> paidAt(STARTS_AT.minusMinutes(30).toInstant()).checkIn(OPERATOR, ORGANIZER, code));
+            assertThat(mapper.tickets.get(0).status).isEqualTo("PENDING_PAYMENT");
+        }
+
+        // 免费报名：付款状态是 FREE，凭证没有退款。
+        @Test
+        void aFreeEnrollmentShowsNoPayment() {
+            mapper.session.priceMode = "FREE";
+            mapper.session.priceAmountMinor = null;
+
+            EnrollmentView view = paid.enroll(ACCOUNT, KEY, command(self())).enrollment();
+
+            assertThat(view.payment())
+                    .isEqualTo(new EnrollmentPaymentView(EnrollmentPaymentStatus.FREE, null, null, null, null));
+            assertThat(view.tickets()).extracting(TicketView::refund).containsOnlyNulls();
+            assertThat(payments.opened).isEmpty();
+        }
+
+        // ---- 辅助 ----
+
+        private ActivityEnrollmentService paidAt(Instant instant) {
+            return new ActivityEnrollmentService(
+                    mapper,
+                    Clock.fixed(instant, ZoneOffset.UTC),
+                    () -> String.format("ACT-TEST-0000-%04d", ++issuedCodes),
+                    payments,
+                    TransactionOperations.withoutTransaction());
+        }
+
+        private EnrollCommand paidCommand(Long expectedAmountMinor, UUID... participantIds) {
+            return new EnrollCommand(ACTIVITY_ID, SESSION_ID, ids(participantIds), true, expectedAmountMinor);
+        }
+
+        private EnrollmentView confirmedEnrollment(UUID... participantIds) {
+            EnrollmentView pending = paid.enroll(ACCOUNT, KEY,
+                    paidCommand(UNIT * participantIds.length, participantIds)).enrollment();
+            paid.onPaymentConfirmed(payments.orderOf(pending.enrollmentId()), pending.enrollmentId());
+            return paid.readEnrollment(ACCOUNT, pending.enrollmentId());
+        }
+    }
+
+    /** 交易模块的替身：记下每次调用；取消未付款订单时像交易模块一样回调关闭（或查单发现已付款时回调到账）。 */
+    private final class FakePayments implements ActivityPaymentPort {
+
+        final Set<UUID> collecting = new HashSet<>(Set.of(ORGANIZER));
+        final List<OpenPayment> opened = new ArrayList<>();
+        final Map<UUID, UUID> enrollmentOfOrder = new HashMap<>();
+        final List<Integer> sessionLocksAtOrderLock = new ArrayList<>();
+        final List<Refund> refunds = new ArrayList<>();
+        final Map<UUID, RefundProgress> progress = new HashMap<>();
+        final List<UUID> cancelled = new ArrayList<>();
+        boolean paidBeforeCancel;
+        ActivityEnrollmentService callback;
+
+        UUID orderOf(UUID enrollmentId) {
+            return UUID.nameUUIDFromBytes(("order:" + enrollmentId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+
+        @Override
+        public boolean merchantCanCollect(UUID organizationId) {
+            return collecting.contains(organizationId);
+        }
+
+        @Override
+        public OpenedPayment open(OpenPayment request) {
+            if (!collecting.contains(request.organizerId())) {
+                throw new ActivityEnrollmentException(Error.PAYMENT_UNAVAILABLE);
+            }
+            opened.add(request);
+            UUID order = orderOf(request.enrollmentId());
+            enrollmentOfOrder.put(order, request.enrollmentId());
+            return new OpenedPayment(order, request.payBefore());
+        }
+
+        @Override
+        public void lockOrder(UUID tradeOrderId) {
+            sessionLocksAtOrderLock.add(mapper.sessionLocks);
+        }
+
+        @Override
+        public UUID requestRefund(UUID tradeOrderId, long amountMinor, String reason, UUID idempotencyKey,
+                                  UUID actorId) {
+            UUID refundId = new UUID(0x5000L, refunds.size() + 1);
+            refunds.add(new Refund(refundId, tradeOrderId, amountMinor, reason, idempotencyKey, actorId));
+            progress.put(refundId, new RefundProgress("REQUESTED", amountMinor));
+            return refundId;
+        }
+
+        @Override
+        public Map<UUID, RefundProgress> refundStates(Collection<UUID> refundIds) {
+            Map<UUID, RefundProgress> found = new HashMap<>();
+            refundIds.forEach(id -> {
+                if (progress.containsKey(id)) {
+                    found.put(id, progress.get(id));
+                }
+            });
+            return found;
+        }
+
+        @Override
+        public void cancelUnpaid(UUID accountId, UUID tradeOrderId) {
+            cancelled.add(tradeOrderId);
+            UUID enrollmentId = enrollmentOfOrder.get(tradeOrderId);
+            if (paidBeforeCancel) {
+                callback.onPaymentConfirmed(tradeOrderId, enrollmentId);
+            } else {
+                callback.onPaymentClosed(tradeOrderId, enrollmentId);
+            }
+        }
+
+        record Refund(UUID refundId, UUID tradeOrderId, long amountMinor, String reason, UUID idempotencyKey,
+                      UUID actorId) {
+        }
+    }
+
     // ---- 辅助 ----
 
     private ActivityEnrollmentService at(Instant instant) {
@@ -1245,8 +1713,10 @@ class ActivityEnrollmentServiceTest {
      */
     private static final class InMemoryMapper implements ActivityEnrollmentMapper {
 
-        private static final Set<String> EVENT_TYPES =
-                Set.of("ENROLLED", "TICKET_CANCELLED", "ENROLLMENT_CANCELLED", "TICKET_CHECKED_IN");
+        private static final Set<String> EVENT_TYPES = Set.of("ENROLLED", "TICKET_CANCELLED", "ENROLLMENT_CANCELLED",
+                "TICKET_CHECKED_IN", "PAYMENT_CONFIRMED", "PAYMENT_CLOSED", "PAYMENT_RESTORED", "REFUND_REQUESTED");
+        /** V003：只有付款到账、关闭、恢复可以没有操作人。 */
+        private static final Set<String> SYSTEM_EVENTS = Set.of("PAYMENT_CONFIRMED", "PAYMENT_CLOSED", "PAYMENT_RESTORED");
 
         final Session session = new Session();
         final List<Participant> participants = new ArrayList<>();
@@ -1259,6 +1729,8 @@ class ActivityEnrollmentServiceTest {
         final List<List<UUID>> ticketQueries = new ArrayList<>();
         int sessionLocks;
         int ticketLocks;
+        /** 每次锁报名单时已经锁过几次场次：用来确认先锁场次、后锁报名单。 */
+        final List<Integer> enrollmentLocks = new ArrayList<>();
         private long sequence;
 
         Participant participant(UUID id) {
@@ -1411,9 +1883,15 @@ class ActivityEnrollmentServiceTest {
                     session.sessionStatus,
                     session.startsAt,
                     session.endsAt,
-                    CLOSES_AT,
+                    session.enrollmentClosesAt,
                     session.capacity,
-                    session.enrolledCount);
+                    session.enrolledCount,
+                    session.priceAmountMinor,
+                    ORGANIZER,
+                    "370500",
+                    TITLE,
+                    session.coverUrl,
+                    session.label);
         }
 
         @Override
@@ -1471,6 +1949,39 @@ class ActivityEnrollmentServiceTest {
         }
 
         @Override
+        public int insertPaidEnrollment(
+                UUID enrollmentId,
+                UUID accountId,
+                UUID activityId,
+                UUID sessionId,
+                UUID idempotencyKey,
+                String requestHash,
+                long unitAmountMinor,
+                long amountMinor,
+                UUID tradeOrderId,
+                OffsetDateTime payBefore,
+                OffsetDateTime at
+        ) {
+            if (findEnrollmentByKey(accountId, idempotencyKey) != null) {
+                throw new IllegalStateException("UNIQUE (account_id, idempotency_key)");
+            }
+            if (enrollments.stream().anyMatch(row -> tradeOrderId.equals(row.tradeOrderId))) {
+                throw new IllegalStateException("uq_activity_enrollment_trade_order");
+            }
+            if (unitAmountMinor <= 0 || amountMinor <= 0 || amountMinor % unitAmountMinor != 0 || payBefore == null) {
+                throw new IllegalStateException("ck_activity_enrollment_payment");
+            }
+            Enrollment row = new Enrollment(enrollmentId, accountId, activityId, sessionId, idempotencyKey, requestHash, at);
+            row.status = "PENDING_PAYMENT";
+            row.unitAmountMinor = unitAmountMinor;
+            row.amountMinor = amountMinor;
+            row.tradeOrderId = tradeOrderId;
+            row.payBefore = payBefore;
+            enrollments.add(row);
+            return 1;
+        }
+
+        @Override
         public UUID insertTicket(
                 UUID enrollmentId,
                 UUID sessionId,
@@ -1479,8 +1990,12 @@ class ActivityEnrollmentServiceTest {
                 String relation,
                 Integer age,
                 String ticketCode,
+                String status,
                 OffsetDateTime at
         ) {
+            if (!Set.of("PENDING_PAYMENT", "ACTIVE").contains(status)) {
+                throw new IllegalStateException("a new ticket is pending or active");
+            }
             boolean sameSeat = tickets.stream().anyMatch(row -> row.sessionId.equals(sessionId)
                     && row.participantId.equals(participantId)
                     && !row.status.equals("CANCELLED"));
@@ -1491,13 +2006,15 @@ class ActivityEnrollmentServiceTest {
                 throw new IllegalStateException("ticket_code UNIQUE");
             }
             Ticket row = new Ticket(nextId(), enrollmentId, sessionId, participantId, name, relation, age, ticketCode);
+            row.status = status;
             tickets.add(row);
             return row.id;
         }
 
         @Override
         public int insertEvent(UUID enrollmentId, UUID ticketId, String eventType, UUID actorId, OffsetDateTime at) {
-            if (!EVENT_TYPES.contains(eventType) || enrollmentId == null || actorId == null || at == null) {
+            if (!EVENT_TYPES.contains(eventType) || enrollmentId == null || at == null
+                    || (actorId == null && !SYSTEM_EVENTS.contains(eventType))) {
                 throw new IllegalStateException("activity_enrollment_event constraint");
             }
             events.add(new Event(enrollmentId, ticketId, eventType, actorId, at));
@@ -1540,9 +2057,11 @@ class ActivityEnrollmentServiceTest {
             return enrollments.stream()
                     .filter(row -> row.accountId.equals(accountId))
                     .filter(row -> switch (bucket) {
-                        case "CANCELLED" -> row.status.equals("CANCELLED");
-                        case "UPCOMING" -> row.status.equals("CONFIRMED") && end.isAfter(now);
-                        case "FINISHED" -> row.status.equals("CONFIRMED") && !end.isAfter(now);
+                        case "CANCELLED" -> Set.of("CANCELLED", "CLOSED").contains(row.status);
+                        case "UPCOMING" -> Set.of("CONFIRMED", "PENDING_PAYMENT").contains(row.status)
+                                && end.isAfter(now);
+                        case "FINISHED" -> Set.of("CONFIRMED", "PENDING_PAYMENT").contains(row.status)
+                                && !end.isAfter(now);
                         default -> false;
                     })
                     .toList();
@@ -1567,7 +2086,11 @@ class ActivityEnrollmentServiceTest {
                     session.label,
                     session.startsAt,
                     session.endsAt,
-                    session.checkInOpensAt);
+                    session.checkInOpensAt,
+                    row.unitAmountMinor,
+                    row.amountMinor,
+                    row.tradeOrderId,
+                    row.payBefore);
         }
 
         @Override
@@ -1588,7 +2111,9 @@ class ActivityEnrollmentServiceTest {
                             row.ticketCode,
                             row.status,
                             row.checkedInAt,
-                            row.cancelledAt))
+                            row.cancelledAt,
+                            row.cancelCause,
+                            row.refundId))
                     .toList();
         }
 
@@ -1598,6 +2123,7 @@ class ActivityEnrollmentServiceTest {
                 if (row.id.equals(ticketId) && row.enrollmentId.equals(enrollmentId) && row.status.equals("ACTIVE")) {
                     row.status = "CANCELLED";
                     row.cancelledAt = at;
+                    row.cancelCause = "BUYER";
                     return 1;
                 }
             }
@@ -1616,6 +2142,131 @@ class ActivityEnrollmentServiceTest {
                 }
             }
             return 0;
+        }
+
+        // ---- 收费报名的付款结果 ----
+
+        private Enrollment paid(UUID enrollmentId, UUID tradeOrderId) {
+            return enrollments.stream()
+                    .filter(row -> row.id.equals(enrollmentId) && tradeOrderId.equals(row.tradeOrderId))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        @Override
+        public PaidEnrollmentRow findPaidEnrollment(UUID enrollmentId, UUID tradeOrderId) {
+            Enrollment row = paid(enrollmentId, tradeOrderId);
+            return row == null ? null : new PaidEnrollmentRow(
+                    row.id, row.accountId, row.sessionId, row.status, row.tradeOrderId, row.unitAmountMinor);
+        }
+
+        @Override
+        public PaidEnrollmentRow lockPaidEnrollment(UUID enrollmentId, UUID tradeOrderId) {
+            enrollmentLocks.add(sessionLocks);
+            return findPaidEnrollment(enrollmentId, tradeOrderId);
+        }
+
+        private int moveEnrollment(UUID enrollmentId, String from, String to, OffsetDateTime closedAt) {
+            for (Enrollment row : enrollments) {
+                if (row.id.equals(enrollmentId) && row.status.equals(from)) {
+                    row.status = to;
+                    row.closedAt = closedAt;
+                    return 1;
+                }
+            }
+            return 0;
+        }
+
+        @Override
+        public int confirmPayment(UUID enrollmentId, OffsetDateTime at) {
+            return moveEnrollment(enrollmentId, "PENDING_PAYMENT", "CONFIRMED", null);
+        }
+
+        @Override
+        public int closeUnpaid(UUID enrollmentId, OffsetDateTime at) {
+            return moveEnrollment(enrollmentId, "PENDING_PAYMENT", "CLOSED", at);
+        }
+
+        @Override
+        public int restoreClosed(UUID enrollmentId, OffsetDateTime at) {
+            return moveEnrollment(enrollmentId, "CLOSED", "CONFIRMED", null);
+        }
+
+        @Override
+        public int activatePendingTickets(UUID enrollmentId, OffsetDateTime at) {
+            int changed = 0;
+            for (Ticket row : tickets) {
+                if (row.enrollmentId.equals(enrollmentId) && row.status.equals("PENDING_PAYMENT")) {
+                    row.status = "ACTIVE";
+                    changed++;
+                }
+            }
+            return changed;
+        }
+
+        @Override
+        public int cancelPendingTickets(UUID enrollmentId, OffsetDateTime at) {
+            int changed = 0;
+            for (Ticket row : tickets) {
+                if (row.enrollmentId.equals(enrollmentId) && row.status.equals("PENDING_PAYMENT")) {
+                    row.status = "CANCELLED";
+                    row.cancelledAt = at;
+                    row.cancelCause = "PAYMENT_CLOSED";
+                    changed++;
+                }
+            }
+            return changed;
+        }
+
+        @Override
+        public int countOtherActiveTickets(UUID enrollmentId, UUID sessionId) {
+            Set<UUID> closed = tickets.stream()
+                    .filter(row -> row.enrollmentId.equals(enrollmentId) && row.status.equals("CANCELLED")
+                            && "PAYMENT_CLOSED".equals(row.cancelCause))
+                    .map(row -> row.participantId)
+                    .collect(java.util.stream.Collectors.toSet());
+            return (int) tickets.stream()
+                    .filter(row -> row.sessionId.equals(sessionId) && !row.enrollmentId.equals(enrollmentId))
+                    .filter(row -> !row.status.equals("CANCELLED") && closed.contains(row.participantId))
+                    .count();
+        }
+
+        @Override
+        public int restoreClosedTickets(UUID enrollmentId, OffsetDateTime at) {
+            int changed = 0;
+            for (Ticket row : tickets) {
+                if (row.enrollmentId.equals(enrollmentId) && row.status.equals("CANCELLED")
+                        && "PAYMENT_CLOSED".equals(row.cancelCause)) {
+                    boolean sameSeat = tickets.stream().anyMatch(other -> other != row
+                            && other.sessionId.equals(row.sessionId)
+                            && other.participantId.equals(row.participantId)
+                            && !other.status.equals("CANCELLED"));
+                    if (sameSeat) {
+                        throw new IllegalStateException("uq_activity_ticket_session_participant");
+                    }
+                    row.status = "ACTIVE";
+                    row.cancelledAt = null;
+                    row.cancelCause = null;
+                    changed++;
+                }
+            }
+            return changed;
+        }
+
+        @Override
+        public int setTicketRefund(UUID enrollmentId, List<UUID> ticketIds, UUID refundId, OffsetDateTime at) {
+            if (ticketIds.isEmpty()) {
+                throw new IllegalStateException("IN () is not valid SQL");
+            }
+            int changed = 0;
+            for (Ticket row : tickets) {
+                if (row.enrollmentId.equals(enrollmentId) && ticketIds.contains(row.id) && row.status.equals("CANCELLED")
+                        && "BUYER".equals(row.cancelCause) && row.refundId == null) {
+                    row.refundId = refundId;
+                    changed++;
+                }
+            }
+            return changed;
         }
 
         // ---- 核销 ----
@@ -1661,6 +2312,8 @@ class ActivityEnrollmentServiceTest {
             String activityStatus = "PUBLISHED";
             String sessionStatus = "ACTIVE";
             String priceMode = "FREE";
+            Long priceAmountMinor;
+            OffsetDateTime enrollmentClosesAt = CLOSES_AT;
             Integer minAge;
             Integer maxAge;
             boolean waitlistAllowed;
@@ -1717,6 +2370,11 @@ class ActivityEnrollmentServiceTest {
             final OffsetDateTime noticeAgreedAt;
             String status = "CONFIRMED";
             OffsetDateTime cancelledAt;
+            OffsetDateTime closedAt;
+            Long unitAmountMinor;
+            Long amountMinor;
+            UUID tradeOrderId;
+            OffsetDateTime payBefore;
 
             Enrollment(
                     UUID id,
@@ -1751,6 +2409,8 @@ class ActivityEnrollmentServiceTest {
             OffsetDateTime checkedInAt;
             UUID checkedInBy;
             OffsetDateTime cancelledAt;
+            String cancelCause;
+            UUID refundId;
 
             Ticket(
                     UUID id,

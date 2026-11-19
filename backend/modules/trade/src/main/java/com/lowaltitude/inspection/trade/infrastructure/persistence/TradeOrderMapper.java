@@ -215,6 +215,7 @@ public interface TradeOrderMapper {
                    o.merchant_kind,
                    o.merchant_name,
                    o.source,
+                   o.source_ref,
                    o.status,
                    o.delivery_mode,
                    o.goods_minor,
@@ -252,8 +253,10 @@ public interface TradeOrderMapper {
             """)
     OrderRow findOrder(@Param("orderId") UUID orderId);
 
+    /** 买家的“商品订单”只列商城订单：收费报名等业务来源的订单在各自的业务页面里看（E09）。 */
     String BUYER_FILTER = """
             WHERE o.buyer_id = #{buyerId}
+              AND o.source = 'MALL'
             <if test="statuses != null and statuses.size() > 0">
               AND o.status IN
               <foreach collection="statuses" item="status" open="(" separator="," close=")">#{status}</foreach>
@@ -298,23 +301,27 @@ public interface TradeOrderMapper {
             """)
     List<DeliveryRow> findDeliveries(@Param("orderIds") List<UUID> orderIds);
 
-    // ---- 商家（E05）：只看、只改本机构卖出的订单 ----
+    // ---- 商家（E05）：只看、只改本机构卖出的商城订单 ----
+    // 业务来源的订单（E09 收费报名）不给商家的列表、发货、核销、退款接口：钱只能由业务单的退改退回。
 
     @Select(ORDER_COLUMNS + """
             WHERE o.id = #{orderId}
               AND o.merchant_id = #{merchantId}
+              AND o.source = 'MALL'
             """)
     OrderRow findMerchantOrder(@Param("merchantId") UUID merchantId, @Param("orderId") UUID orderId);
 
     @Select(ORDER_COLUMNS + """
             WHERE o.id = #{orderId}
               AND o.merchant_id = #{merchantId}
+              AND o.source = 'MALL'
             FOR UPDATE
             """)
     OrderRow lockMerchantOrder(@Param("merchantId") UUID merchantId, @Param("orderId") UUID orderId);
 
     String MERCHANT_FILTER = """
             WHERE o.merchant_id = #{merchantId}
+              AND o.source = 'MALL'
             <if test="status != null">
               AND o.status = #{status}
             </if>
@@ -455,6 +462,8 @@ public interface TradeOrderMapper {
             String merchantKind,
             String merchantName,
             String source,
+            /** 业务单 ID：商城订单为空。 */
+            UUID sourceRef,
             String status,
             String deliveryMode,
             long goodsMinor,

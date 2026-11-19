@@ -387,7 +387,7 @@ class TradeMerchantControllerTest {
     private static TradeOrderView merchantOrder(TradeOrderStatus status, int version) {
         TradeOrderView base = TradeOrderControllerTest.order(status, version);
         TradeDeliveryView delivery = base.delivery();
-        return new TradeOrderView(base.orderId(), base.orderNo(), base.source(), base.status(), base.merchant(),
+        return new TradeOrderView(base.orderId(), base.orderNo(), base.source(), base.sourceRef(), base.status(), base.merchant(),
                 base.lines(),
                 new TradeDeliveryView(delivery.mode(), delivery.recipientName(), delivery.phoneMasked(), "13800138000",
                         delivery.addressLine(), delivery.pickupPoint(), null, delivery.carrierName(),

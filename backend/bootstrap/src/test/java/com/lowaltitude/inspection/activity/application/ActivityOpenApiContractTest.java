@@ -68,6 +68,8 @@ class ActivityOpenApiContractTest {
             Map.entry("EnrollmentActivity", EnrollmentActivityView.class),
             Map.entry("EnrollmentSession", EnrollmentSessionView.class),
             Map.entry("Ticket", TicketView.class),
+            Map.entry("TicketRefund", TicketRefundView.class),
+            Map.entry("EnrollmentPayment", EnrollmentPaymentView.class),
             Map.entry("Checkin", CheckinView.class));
 
     /** 请求体：字段名与控制器的请求对象一致；哪些必填由服务的校验决定，这里逐个写明。 */
@@ -95,13 +97,16 @@ class ActivityOpenApiContractTest {
             "ParticipantRelation", ParticipantRelation.class,
             "ParticipantEligibilityReason", ParticipantEligibilityReason.class,
             "EnrollmentStatus", EnrollmentStatus.class,
-            "TicketStatus", TicketStatus.class);
+            "TicketStatus", TicketStatus.class,
+            "EnrollmentPaymentStatus", EnrollmentPaymentStatus.class,
+            "TicketRefundStatus", TicketRefundStatus.class);
 
     @Test
-    void contractIsVersionOnePointOneAndDeclaresBearerJwt() {
+    void contractIsVersionOnePointTwoAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
+        // 1.2.0：收费报名（E09）。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.2.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         // 没有全局的 security：每个操作自己写明公开还是要登录，漏写会被下面的用例发现。
@@ -376,6 +381,7 @@ class ActivityOpenApiContractTest {
     }
 
     // 报名的每一种业务拒绝：全局异常处理给出的状态码和错误码，契约里至少有一个接口在同一个状态码下写了它。
+    // 1.1.0 的错误码是 ACT_ 前缀，1.2.0 收费报名新加的两个是 ACTIVITY_ 前缀（§20.4 定的名字）。
     @Test
     void everyBusinessErrorCodeIsDeclaredUnderTheStatusTheHandlerAnswers() {
         GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -385,7 +391,7 @@ class ActivityOpenApiContractTest {
                     new ActivityEnrollmentException(error), new MockHttpServletRequest());
             String code = response.getBody().code();
             String status = String.valueOf(response.getStatusCode().value());
-            if (!code.startsWith("ACT_")) {
+            if (!code.startsWith("ACT_") && !code.startsWith("ACTIVITY_")) {
                 assertThat(code).as(error.name()).isIn("COMMON_NOT_FOUND", "COMMON_FORBIDDEN");
                 continue;
             }
@@ -402,7 +408,7 @@ class ActivityOpenApiContractTest {
                 .containsExactlyInAnyOrderElementsOf(produced);
         // 反过来，契约里提到的 ACT_ 错误码都是服务端真的会给出的。
         Set<String> mentioned = new TreeSet<>();
-        Matcher matcher = Pattern.compile("ACT_[A-Z_]+").matcher(contractText());
+        Matcher matcher = Pattern.compile("ACT(IVITY)?_[A-Z_]+").matcher(contractText());
         while (matcher.find()) {
             mentioned.add(matcher.group());
         }

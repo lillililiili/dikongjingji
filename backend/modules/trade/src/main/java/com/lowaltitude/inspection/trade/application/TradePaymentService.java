@@ -73,6 +73,7 @@ public class TradePaymentService {
     private final Supplier<String> outTradeNoSuffix;
     private final Supplier<String> pickupCodes;
     private final TradeRefundService refunds;
+    private final TradeSourceEvents events;
     /** 每张订单上次真正查单的时间（见 {@link #takeCheckSlot}）。 */
     private final Map<UUID, Instant> lastChecks = new ConcurrentHashMap<>();
 
@@ -87,6 +88,22 @@ public class TradePaymentService {
             Supplier<String> pickupCodes,
             TradeRefundService refunds
     ) {
+        this(payments, orders, orderService, channels, tx, clock, outTradeNoSuffix, pickupCodes, refunds,
+                TradeSourceEvents.none());
+    }
+
+    TradePaymentService(
+            TradePaymentMapper payments,
+            TradeOrderMapper orders,
+            TradeOrderService orderService,
+            Supplier<PaymentChannel> channels,
+            TransactionOperations tx,
+            Clock clock,
+            Supplier<String> outTradeNoSuffix,
+            Supplier<String> pickupCodes,
+            TradeRefundService refunds,
+            TradeSourceEvents events
+    ) {
         this.payments = payments;
         this.orders = orders;
         this.orderService = orderService;
@@ -96,6 +113,7 @@ public class TradePaymentService {
         this.outTradeNoSuffix = outTradeNoSuffix;
         this.pickupCodes = pickupCodes;
         this.refunds = refunds;
+        this.events = events;
     }
 
     // ---- 发起支付 ----
@@ -368,6 +386,7 @@ public class TradePaymentService {
             return false;
         }
         orders.insertTransition(orderId, PENDING, CLOSED, "TIMEOUT", null, now);
+        events.closed(orderId);
         return true;
     }
 
@@ -522,11 +541,14 @@ public class TradePaymentService {
             Instant paidAt = result.succeededAt() != null ? result.succeededAt() : now;
             payments.markSucceeded(payment.id(), result.transactionId(), paidAt, now);
             payments.markOrderPaid(order.id(), paidAt, now);
+            // 只有自提的商城订单有取货码；没有配送行的业务来源订单（E09）这一句不改任何行。
             payments.assignPickupCode(order.id(), pickupCodes.get(), now);
             orders.insertTransition(order.id(), order.status(), TradeOrderStatus.PAID.name(), cause, null, now);
             if (CLOSED.equals(order.status())) {
                 log.warn("order {} was paid after it closed; reopened as paid", order.id());
             }
+            // 业务来源的订单（E09）：同一事务里告诉业务模块；收不下就全额自动退款，提交后交给渠道。
+            events.paid(order.id(), payment.id());
             return Applied.APPLIED;
         });
     }
