@@ -89,6 +89,19 @@ class MallOpenApiContractTest {
                                 .toList()));
     }
 
+    // 1.2.0：商品详情的每个供给说明这家商家能不能在线收款，总是给出（不会是 null）。
+    @Test
+    void eachOfferAlwaysSaysWhetherItsMerchantTakesPaymentOnline() {
+        Map<String, Object> offer = map(schemas().get("MallOffer"));
+
+        assertThat(map(root().get("info")).get("version")).isEqualTo("1.2.0");
+        assertThat(map(map(offer.get("properties")).get("onlinePayment")).get("type")).isEqualTo("boolean");
+        assertThat(strings(offer.get("required"))).contains("onlinePayment");
+        assertThat(Arrays.stream(MallOfferView.class.getRecordComponents())
+                .filter(component -> component.getName().equals("onlinePayment"))
+                .map(RecordComponent::getType)).containsExactly(boolean.class);
+    }
+
     @Test
     void everySchemaInTheContractIsCoveredByThisTest() {
         List<String> covered = new ArrayList<>(SCHEMA_RECORDS.keySet());

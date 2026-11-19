@@ -1,7 +1,9 @@
 package com.lowaltitude.inspection.mall.application;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -22,9 +24,12 @@ public final class MallCatalogReadService {
     private static final String ALL = "ALL";
 
     private final MallCatalogReadStore store;
+    private final MallInquiryPorts.MerchantPayments payments;
 
-    MallCatalogReadService(MallCatalogReadStore store) {
+    /** payments：商家能不能在线收款（交易模块的收款账户登记），给商品详情里每个供给的 onlinePayment。 */
+    MallCatalogReadService(MallCatalogReadStore store, MallInquiryPorts.MerchantPayments payments) {
         this.store = store;
+        this.payments = payments;
     }
 
     /** 不带搜索和筛选的列表。 */
@@ -135,6 +140,8 @@ public final class MallCatalogReadService {
         if (offers.isEmpty()) {
             throw new MallProductNotFoundException();
         }
+        // 每家商家在这次请求里只问一次交易模块。
+        Map<UUID, Boolean> collecting = new HashMap<>();
         return new MallProductDetailView(
                 product.productId(),
                 MallCategory.valueOf(product.category()),
@@ -157,7 +164,8 @@ public final class MallCatalogReadService {
                                 MallPriceUnit.valueOf(row.priceUnit()),
                                 blankToNull(row.deliveryNote()),
                                 blankToNull(row.shippingNote()),
-                                blankToNull(row.fulfilledFrom())))
+                                blankToNull(row.fulfilledFrom()),
+                                collecting.computeIfAbsent(row.merchantId(), payments::canCollect)))
                         .toList(),
                 store.findSpecs(productId).stream()
                         .map(row -> new MallSpecView(row.label(), row.value()))
@@ -246,7 +254,8 @@ record MallOfferView(
         MallPriceUnit unit,
         String deliveryNote,
         String shippingNote,
-        String fulfilledFrom
+        String fulfilledFrom,
+        boolean onlinePayment
 ) {
 }
 

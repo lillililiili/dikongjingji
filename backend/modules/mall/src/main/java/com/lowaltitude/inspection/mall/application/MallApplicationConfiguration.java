@@ -16,8 +16,9 @@ import org.springframework.context.annotation.Configuration;
 public class MallApplicationConfiguration {
 
     @Bean
-    MallCatalogReadService mallCatalogReadService(MallCatalogMapper mapper) {
-        return new MallCatalogReadService(new PostgresMallCatalogReadStore(mapper));
+    MallCatalogReadService mallCatalogReadService(MallCatalogMapper mapper,
+                                                  MallInquiryPorts.MerchantPayments payments) {
+        return new MallCatalogReadService(new PostgresMallCatalogReadStore(mapper), payments);
     }
 
     @Bean

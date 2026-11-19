@@ -72,7 +72,7 @@ class MallCatalogControllerTest {
                 List.of(new MallOfferView(
                         UUID.randomUUID(), UUID.randomUUID(), "标准版",
                         new MallMerchantView(UUID.randomUUID(), "示例机器人商家", MallMerchantKind.FACTORY_DIRECT),
-                        null, "CNY", MallPriceUnit.ITEM, "按配置报价", null, null)),
+                        null, "CNY", MallPriceUnit.ITEM, "按配置报价", null, null, true)),
                 List.of(new MallSpecView("适用年龄", "8 岁以上")),
                 List.of(new MallPackItemView("机器人主机", 1))));
 
@@ -82,6 +82,8 @@ class MallCatalogControllerTest {
                 .andExpect(jsonPath("$.offers[0].merchant.kind").value("FACTORY_DIRECT"))
                 .andExpect(jsonPath("$.offers[0].amountMinor").value(nullValue()))
                 .andExpect(jsonPath("$.offers[0].currency").value("CNY"))
+                .andExpect(jsonPath("$.offers[0].onlinePayment").value(true))
+                .andExpect(jsonPath("$.offers[0].length()").value(11))
                 .andExpect(jsonPath("$.specs[0].label").value("适用年龄"))
                 .andExpect(jsonPath("$.packItems[0].quantity").value(1));
     }

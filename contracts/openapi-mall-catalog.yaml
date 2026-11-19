@@ -1,12 +1,15 @@
 openapi: 3.1.0
 info:
   title: Mall Catalog API
-  version: 1.1.0
+  version: 1.2.0
   description: >-
     Read-only catalog for the home "商城" channel (docs/redesign/03-App实现任务计划.md §9):
     products of a category that have an active offer in the city, and one product with its offers.
-    1.1.0 adds keyword search and filters to the list. Cart, orders, payment and after-sale
-    rules are not part of this version.
+    1.1.0 adds keyword search and filters to the list. 1.2.0 (2026-11-19) adds onlinePayment to each
+    offer of the product detail: whether that offer's merchant has an active online payment account
+    (registered with the unified trade module), so the page does not preselect a merchant that cannot
+    take an order, a rental or an inquiry it would have to pay online. Cart, orders, payment and
+    after-sale rules are not part of this contract.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -343,6 +346,7 @@ components:
         - deliveryNote
         - shippingNote
         - fulfilledFrom
+        - onlinePayment
       properties:
         offerId:
           type: string
@@ -381,6 +385,13 @@ components:
             - string
             - "null"
           description: Who ships or hands over, e.g. 示例机器人商家 东营仓
+        onlinePayment:
+          type: boolean
+          description: >-
+            (1.2.0) true when this offer's merchant can take payment online (an active payment account in
+            the trade module). Buying, renting and ordering by quote all pay this merchant online, so a
+            false offer cannot be ordered, rented or asked for a quote; show it but do not preselect it.
+            Same meaning as price.onlinePayment for activities.
     MallSpec:
       type: object
       additionalProperties: false

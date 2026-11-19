@@ -18,8 +18,16 @@ class MallCatalogReadServiceTest {
 
     private static final UUID PRODUCT_ID = UUID.fromString("c2000000-0000-4000-8000-000000000101");
 
+    private static final UUID COLLECTING = UUID.fromString("c1000000-0000-4000-8000-000000000001");
+    private static final UUID NOT_COLLECTING = UUID.fromString("c1000000-0000-4000-8000-000000000006");
+
     private final FakeStore store = new FakeStore();
-    private final MallCatalogReadService service = new MallCatalogReadService(store);
+    /** 问过交易模块的商家（按顺序）：每次请求每家只问一次。 */
+    private final List<UUID> asked = new java.util.ArrayList<>();
+    private final MallCatalogReadService service = new MallCatalogReadService(store, merchantId -> {
+        asked.add(merchantId);
+        return COLLECTING.equals(merchantId);
+    });
 
     @Test
     void listPassesCategorySortAndPagingToTheStore() {
@@ -141,10 +149,38 @@ class MallCatalogReadServiceTest {
             assertThat(offer.amountMinor()).isEqualTo(129900L);
             assertThat(offer.shippingNote()).isNull();
             assertThat(offer.fulfilledFrom()).isEqualTo("示例机器人商家 东营仓");
+            assertThat(offer.onlinePayment()).isFalse();
         });
+        assertThat(asked).hasSize(1);
         assertThat(view.specs()).containsExactly(new MallSpecView("适用年龄", "8 岁以上"));
         assertThat(view.packItems()).containsExactly(new MallPackItemView("机器人主机", 1));
         assertThat(store.offerCity).isEqualTo("370500");
+    }
+
+    // F3 的缺口：租赁、询价、购买都要商家能在线收款，详情里每个供给说清楚，页面不先选上收不了款的那家。
+    @Test
+    void eachOfferSaysWhetherItsMerchantCanTakePaymentOnlineAskingOncePerMerchant() {
+        store.product = Optional.of(new ProductRow(PRODUCT_ID, "ROBOT", "巡检机器狗", null, null, "RENT", null));
+        store.offers = List.of(
+                offer(NOT_COLLECTING, "示例设备租赁商", 36000L),
+                offer(COLLECTING, "示例机器人商家", 38000L),
+                offer(NOT_COLLECTING, "示例设备租赁商", 72000L));
+
+        MallProductDetailView view = service.findProduct(PRODUCT_ID, "370500");
+
+        assertThat(view.offers()).extracting(offer -> offer.merchant().name(), MallOfferView::onlinePayment)
+                .containsExactly(
+                        org.assertj.core.api.Assertions.tuple("示例设备租赁商", false),
+                        org.assertj.core.api.Assertions.tuple("示例机器人商家", true),
+                        org.assertj.core.api.Assertions.tuple("示例设备租赁商", false));
+        assertThat(asked).containsExactly(NOT_COLLECTING, COLLECTING);
+        // 下一次请求重新问（收款账户可能刚登记或停用）。
+        service.findProduct(PRODUCT_ID, "370500");
+        assertThat(asked).hasSize(4);
+        // 列表不问。
+        store.cards = List.of();
+        service.listProducts("370500", null, null, 1, 20);
+        assertThat(asked).hasSize(4);
     }
 
     @Test
@@ -160,6 +196,11 @@ class MallCatalogReadServiceTest {
                 .isInstanceOf(MallProductNotFoundException.class);
         assertInvalid(() -> service.findProduct(null, "370500"));
         assertInvalid(() -> service.findProduct(PRODUCT_ID, null));
+    }
+
+    private static OfferRow offer(UUID merchantId, String merchantName, long amountMinor) {
+        return new OfferRow(UUID.randomUUID(), UUID.randomUUID(), "标准版", merchantId, merchantName, "FACTORY_DIRECT",
+                amountMinor, "CNY", "DAY", null, null, null);
     }
 
     private static void assertInvalid(Runnable call) {
