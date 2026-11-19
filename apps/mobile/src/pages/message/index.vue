@@ -5,6 +5,7 @@ import { ref } from 'vue'
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { ROOT_TABS } from '@/app-shell/navigation/root-tabs'
 import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
+import { buildDemandQuotesUrl } from '@/features/demand/navigation/demand-routes'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
   buildInspectionDeliveryUrl,
@@ -38,6 +39,8 @@ const center = createMessageCenter({
 // A notification only carries stable ids; the page it opens reads the facts from the server.
 function targetUrl(message: MessageItem): string {
   const { type, id, subId } = message.target
+  // A quote came in, or the demand closed without any: its quotes page says which.
+  if (type === 'DEMAND') return buildDemandQuotesUrl(id)
   if (type === 'INSPECTION_PLAN') return buildInspectionPlanConfirmationUrl(id)
   if (type === 'INSPECTION_DELIVERY' && subId) return buildInspectionDeliveryUrl(id, subId)
   return buildInspectionFulfillmentUrl(id)

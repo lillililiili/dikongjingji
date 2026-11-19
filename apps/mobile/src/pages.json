@@ -220,6 +220,34 @@
       }
     },
     {
+      "path": "pages/demand/publish",
+      "style": {
+        "navigationBarTitleText": "发布服务需求",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/demand/quotes",
+      "style": {
+        "navigationBarTitleText": "报价比选",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/demand/compare",
+      "style": {
+        "navigationBarTitleText": "方案对比",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/demands",
+      "style": {
+        "navigationBarTitleText": "需求与报价",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/venue/detail",
       "style": {
         "navigationBarTitleText": "场馆详情",

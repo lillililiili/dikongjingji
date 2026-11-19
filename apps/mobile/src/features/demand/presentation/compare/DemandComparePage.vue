@@ -1,0 +1,562 @@
+<script setup lang="ts">
+import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import { computed, ref, watch } from 'vue'
+
+import { ApiRequestError } from '@/shared/http/public-api-request'
+
+import {
+  buildDemandCompareRows,
+  describeDemandPublisher,
+  formatDemandAmount,
+  resolveDemandFollowUp,
+} from '../../application/demand-view'
+import { demandApi } from '../../data/demand-api-client'
+import type { Demand, DemandQuote } from '../../domain/demand'
+import DemandConfirmSheet from '../shared/DemandConfirmSheet.vue'
+import DemandPageHeader from '../shared/DemandPageHeader.vue'
+import DemandSummaryCard from '../shared/DemandSummaryCard.vue'
+import { useDemandChoice } from '../shared/use-demand-choice'
+
+const props = defineProps<{
+  demandId: string | null
+  // Null for a guest. The page host reads it again every time the page is shown.
+  accessToken: string | null
+  refreshKey: number
+}>()
+
+const emit = defineEmits<{
+  back: []
+  login: []
+  republish: [demandId: string]
+}>()
+
+type PageState =
+  | { kind: 'loading' }
+  | { kind: 'ready'; demand: Demand; quotes: DemandQuote[]; demandVersion: number }
+  | { kind: 'missing' }
+  | { kind: 'error' }
+
+const state = ref<PageState>({ kind: 'loading' })
+const pickedId = ref<string | null>(null)
+const notice = ref<string | null>(null)
+let requestVersion = 0
+
+const ready = computed(() => (state.value.kind === 'ready' ? state.value : null))
+const demand = computed(() => ready.value?.demand ?? null)
+const quotes = computed(() => ready.value?.quotes ?? [])
+const rows = computed(() => buildDemandCompareRows(quotes.value))
+const choosable = computed(() => quotes.value.filter((quote) => quote.choosable))
+const picked = computed(() => choosable.value.find((quote) => quote.quoteId === pickedId.value) ?? null)
+// Three columns fit a phone; more scroll sideways with the labels kept at the left.
+const tableWidth = computed(() => `${64 + Math.max(quotes.value.length, 1) * 104}px`)
+const columns = computed(() => `64px repeat(${Math.max(quotes.value.length, 1)}, minmax(0, 1fr))`)
+const followUp = resolveDemandFollowUp()
+
+function isUnauthorized(error: unknown): boolean {
+  return error instanceof ApiRequestError && (error.status === 401 || error.code === 'COMMON_UNAUTHORIZED')
+}
+
+async function load(): Promise<void> {
+  const token = props.accessToken
+  const demandId = props.demandId
+  if (!token) {
+    emit('login')
+    return
+  }
+  if (!demandId) {
+    state.value = { kind: 'missing' }
+    return
+  }
+  const requested = ++requestVersion
+  if (state.value.kind !== 'ready') state.value = { kind: 'loading' }
+  try {
+    const [loadedDemand, list] = await Promise.all([
+      demandApi.read(token, demandId),
+      demandApi.listQuotes(token, demandId, 'ALL'),
+    ])
+    if (requested !== requestVersion) return
+    state.value = { kind: 'ready', demand: loadedDemand, quotes: list.items, demandVersion: list.demandVersion }
+    // Keep the column the user picked while it can still be chosen, otherwise the first that can.
+    if (!list.items.some((quote) => quote.choosable && quote.quoteId === pickedId.value)) {
+      pickedId.value = list.items.find((quote) => quote.choosable)?.quoteId ?? null
+    }
+  } catch (error) {
+    if (requested !== requestVersion) return
+    if (isUnauthorized(error)) {
+      emit('login')
+      return
+    }
+    const missing = error instanceof ApiRequestError && (error.status === 404 || error.status === 400)
+    state.value = { kind: missing ? 'missing' : 'error' }
+  }
+}
+
+function pick(quote: DemandQuote): void {
+  if (quote.choosable) pickedId.value = quote.quoteId
+}
+
+const choice = useDemandChoice({
+  getAccessToken: () => props.accessToken,
+  getDemandVersion: () => ready.value?.demandVersion ?? null,
+  getDemandId: () => props.demandId,
+  onLogin: () => emit('login'),
+  reload: load,
+  notify: (message) => { notice.value = message },
+})
+const { asking: choosing, busy: choosingBusy } = choice
+
+watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void load() }, { immediate: true })
+</script>
+
+<template>
+  <view class="demand-compare" data-testid="demand-compare-page" :data-status="demand?.status">
+    <view class="demand-compare__top">
+      <DemandPageHeader
+        title="方案对比"
+        :badge="demand ? describeDemandPublisher(demand.publisher) : null"
+        @back="emit('back')"
+      />
+    </view>
+
+    <view v-if="state.kind === 'loading'" class="demand-compare__body" aria-label="正在加载">
+      <view class="demand-compare__skeleton" />
+    </view>
+
+    <view v-else-if="state.kind === 'missing' || state.kind === 'error'" class="demand-compare__state" data-testid="demand-compare-error">
+      <text class="demand-compare__state-title">{{ state.kind === 'missing' ? '没有找到这份需求' : '加载失败' }}</text>
+      <button v-if="state.kind === 'error'" class="demand-compare__state-button" @click="load">重试</button>
+    </view>
+
+    <template v-else-if="demand">
+      <view class="demand-compare__body">
+        <DemandSummaryCard :demand="demand" :quote-count="quotes.length" />
+
+        <view v-if="quotes.length === 0" class="demand-compare__empty" data-testid="demand-compare-empty">
+          还没有可以对比的报价
+        </view>
+
+        <scroll-view v-else class="demand-compare__scroll" scroll-x :show-scrollbar="false">
+          <view
+            class="demand-compare__table"
+            data-testid="demand-compare-table"
+            :style="{ minWidth: quotes.length > 3 ? tableWidth : '100%' }"
+          >
+            <view class="demand-compare__row demand-compare__row--head" role="radiogroup" aria-label="选择方案" :style="{ gridTemplateColumns: columns }">
+              <text class="demand-compare__corner">对比项</text>
+              <button
+                v-for="quote in quotes"
+                :key="quote.quoteId"
+                :class="['demand-compare__head', { 'demand-compare__head--on': quote.quoteId === pickedId || quote.status === 'CHOSEN' }]"
+                :data-testid="`demand-compare-head-${quote.quoteId}`"
+                role="radio"
+                :aria-checked="quote.quoteId === pickedId"
+                :aria-disabled="!quote.choosable"
+                @click="pick(quote)"
+              >
+                <view
+                  v-if="quote.quoteId === pickedId || quote.status === 'CHOSEN'"
+                  class="demand-compare__radio demand-compare__radio--on"
+                >
+                  <UniIcons type="checkmarkempty" size="12" color="#ffffff" />
+                </view>
+                <view v-else-if="quote.choosable" class="demand-compare__radio" />
+                <text class="demand-compare__head-name">{{ quote.provider.name }}</text>
+              </button>
+            </view>
+            <view
+              v-for="row in rows"
+              :key="row.label"
+              class="demand-compare__row"
+              :style="{ gridTemplateColumns: columns }"
+            >
+              <text class="demand-compare__label">{{ row.label }}</text>
+              <text
+                v-for="(cell, column) in row.cells"
+                :key="quotes[column].quoteId"
+                :class="[
+                  'demand-compare__cell',
+                  {
+                    'demand-compare__cell--price': row.price,
+                    'demand-compare__cell--on': quotes[column].quoteId === pickedId || quotes[column].status === 'CHOSEN',
+                  },
+                ]"
+              >
+                {{ cell }}
+              </text>
+            </view>
+          </view>
+        </scroll-view>
+
+        <view v-if="demand.status === 'OPEN' || demand.status === 'QUOTED'" class="demand-compare__other">
+          <view class="demand-compare__other-copy">
+            <text class="demand-compare__other-title">都不合适？</text>
+            <text class="demand-compare__other-text">可以改一改需求后重新发布</text>
+          </view>
+          <button class="demand-compare__other-button" data-testid="demand-compare-republish" @click="emit('republish', demand.demandId)">
+            重新发布
+          </button>
+        </view>
+      </view>
+
+      <view v-if="demand.status === 'CHOSEN'" class="demand-compare__bar demand-compare__bar--gate" data-testid="demand-follow-up">
+        <UniIcons type="info" size="14" color="#ba470b" />
+        <view class="demand-compare__gate-copy">
+          <text class="demand-compare__gate-title">
+            已选定 {{ demand.chosen?.providerName }} · {{ followUp.title }}
+          </text>
+          <text class="demand-compare__gate-text">{{ followUp.text }}</text>
+        </view>
+      </view>
+      <view v-else-if="picked" class="demand-compare__bar">
+        <button
+          class="demand-compare__choose"
+          data-testid="demand-compare-choose"
+          @click="choice.ask(picked)"
+        >
+          确认选择 {{ picked.provider.name }}
+        </button>
+      </view>
+    </template>
+
+    <view v-if="notice" class="demand-compare__toast" role="status" data-testid="demand-compare-notice">
+      <text class="demand-compare__toast-text">{{ notice }}</text>
+      <button class="demand-compare__toast-close" aria-label="关闭提示" @click="notice = null">
+        <UniIcons type="closeempty" size="14" color="#738096" />
+      </button>
+    </view>
+
+    <DemandConfirmSheet
+      v-if="choosing"
+      :title="`选择 ${choosing.provider.name} 的报价？`"
+      :text="`总价 ${formatDemandAmount(choosing.amountMinor)}（方案 v${choosing.version}）。选定后不能再选别家，其余报价会标为未选中。选定不产生费用，方案确认和付款还没有开通。`"
+      keep-label="再想想"
+      go-label="确认选择"
+      :busy="choosingBusy"
+      @keep="choice.keep"
+      @go="choice.confirm"
+    />
+  </view>
+</template>
+
+<style scoped>
+/* Sizes and colours follow the 2026-11-14 prototype board PlanCompare (对比明细, 390 wide). */
+.demand-compare {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  color: #202c42;
+  background: #f5f7fc;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+}
+
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  line-height: 1.2;
+}
+
+button::after {
+  border: 0;
+}
+
+.demand-compare__top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.demand-compare__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 24px;
+}
+
+.demand-compare__scroll {
+  width: 100%;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.demand-compare__table {
+  display: flex;
+  flex-direction: column;
+}
+
+.demand-compare__row {
+  display: grid;
+  border-top: 1px solid #f0f1f3;
+}
+
+.demand-compare__row--head {
+  border-top: 0;
+}
+
+.demand-compare__corner {
+  display: flex;
+  padding: 0 0 8px 12px;
+  align-items: flex-end;
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.demand-compare__head {
+  display: flex;
+  min-width: 0;
+  min-height: 68px;
+  padding: 10px 2px 8px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.demand-compare__head--on {
+  background: #fff0e3;
+}
+
+.demand-compare__radio {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border: 1.5px solid #c9d3e1;
+  border-radius: 50%;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.demand-compare__radio--on {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: #ff6a00;
+}
+
+.demand-compare__head-name {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demand-compare__label {
+  display: flex;
+  padding: 10px 0 10px 12px;
+  align-items: center;
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.demand-compare__cell {
+  display: flex;
+  min-width: 0;
+  padding: 10px 6px;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  color: #202c42;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+  /* Chinese wraps between characters anyway; a time like 23:02 stays whole. */
+  overflow-wrap: anywhere;
+}
+
+.demand-compare__cell--on {
+  background: #fffaf5;
+}
+
+.demand-compare__cell--price {
+  color: #e85400;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.demand-compare__empty {
+  padding: 36px 16px;
+  border-radius: 14px;
+  color: #627187;
+  background: #ffffff;
+  font-size: 14px;
+  text-align: center;
+}
+
+.demand-compare__other {
+  display: flex;
+  padding: 12px 14px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.demand-compare__other-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.demand-compare__other-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.demand-compare__other-text {
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.demand-compare__other-button {
+  height: 36px;
+  flex: none;
+  padding: 0 16px;
+  border: 1px solid #c9d3e1;
+  border-radius: 999px;
+  color: #202c42;
+  background: #ffffff;
+  font-size: 14px;
+  line-height: 34px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.demand-compare__bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid #e5ebf3;
+  background: #ffffff;
+}
+
+.demand-compare__bar--gate {
+  align-items: flex-start;
+  gap: 6px;
+  background: #fffaf5;
+}
+
+.demand-compare__gate-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.demand-compare__gate-title {
+  color: #ba470b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.demand-compare__gate-text {
+  color: #536178;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.demand-compare__choose {
+  overflow: hidden;
+  height: 46px;
+  flex: 1;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #ff6a00;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 46px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demand-compare__toast {
+  position: fixed;
+  z-index: 20;
+  right: 16px;
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  left: 16px;
+  display: flex;
+  min-height: 44px;
+  padding: 4px 4px 4px 12px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #ffd8b8;
+  border-radius: 10px;
+  background: #fff0e3;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+}
+
+.demand-compare__toast-text {
+  min-width: 0;
+  flex: 1;
+  color: #ba470b;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.demand-compare__toast-close {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.demand-compare__skeleton {
+  height: 320px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #edf0f3 25%, #f7f8fa 37%, #edf0f3 63%);
+}
+
+.demand-compare__state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 32px;
+}
+
+.demand-compare__state-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.demand-compare__state-button {
+  height: 40px;
+  margin-top: 8px;
+  padding: 0 20px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #ff6a00;
+  font-size: 15px;
+  line-height: 40px;
+}
+</style>

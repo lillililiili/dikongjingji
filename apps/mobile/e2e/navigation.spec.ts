@@ -477,10 +477,12 @@ test.describe('专业服务子类型', () => {
     await page.getByTestId('service-type-aerial').click()
     await expect(placeholder).toContainText('搜索航拍服务、场景或关键词')
     await expect(page.getByTestId('service-entry-guarantees')).toContainText('成果可追溯')
+    // 发布需求 opens the demand form with the type picked (F1, preview builds); a guest signs in
+    // first and comes back to it. demand.spec.ts follows the form itself.
     await page.getByTestId('service-entry-publish').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')
-    // The toast node stays in the page after it fades, so wait for it to hide before the next one.
-    await expect(page.locator('.uni-sample-toast')).toBeHidden({ timeout: 5000 })
+    await expect(page).toHaveURL(/login\?returnUrl=.*demand.*publish.*AERIAL/)
+    await page.goBack()
+    await expect(page.getByTestId('service-type-aerial')).toHaveClass(/service-channel__type--active/)
     const url = page.url()
     await page.getByTestId('home-search-submit').click()
     await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')

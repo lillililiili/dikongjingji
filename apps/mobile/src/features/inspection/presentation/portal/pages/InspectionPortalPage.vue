@@ -25,12 +25,21 @@ import InspectionCategoryGrid from '../components/InspectionCategoryGrid.vue'
 import InspectionGuaranteeStrip from '../components/InspectionGuaranteeStrip.vue'
 import InspectionProcess from '../components/InspectionProcess.vue'
 
+// The host decides whether publishing a demand is open (preview builds); this page only offers it
+// and reports the tap.
+const props = withDefaults(defineProps<{
+  showRequestAction?: boolean
+}>(), { showRequestAction: false })
+
+const emit = defineEmits<{
+  publishDemand: []
+}>()
+
 const currentCityStore = useCurrentCityStore()
 const { currentCity } = storeToRefs(currentCityStore)
 const content = ref<InspectionPortalContent>(EMPTY_PORTAL_CONTENT)
 const isLoading = ref(true)
 const loadError = ref('')
-const showRequestAction = import.meta.env.DEV
 const portalPreviewEnabled =
   import.meta.env.DEV ||
   import.meta.env.VITE_PLATFORM_PREVIEW_ENABLED === 'true'
@@ -107,12 +116,6 @@ function viewAllServices(): void {
   navigateToCatalog(buildPortalViewAllUrl(currentCity.value?.code))
 }
 
-function showUnavailable(message: string): void {
-  uni.showToast({
-    title: message,
-    icon: 'none',
-  })
-}
 </script>
 
 <template>
@@ -143,16 +146,16 @@ function showUnavailable(message: string): void {
             :categories="content.categories"
             @select="selectCategory"
           />
-          <!-- Publishing a request is not built yet, so the bar is only there in development. -->
-          <view v-if="showRequestAction" class="portal-request" data-testid="portal-request">
+          <!-- Publishing a demand (F1) is open in preview builds only; the host says whether. -->
+          <view v-if="props.showRequestAction" class="portal-request" data-testid="portal-request">
             <view class="portal-request__copy">
-              <text class="portal-request__title">非标需求？发布巡检需求</text>
+              <text class="portal-request__title">非标需求？发布后多家报价</text>
               <text class="portal-request__note">说明场景和范围，由服务商给出方案</text>
             </view>
             <button
               class="portal-request__action"
               data-testid="portal-request-action"
-              @click="showUnavailable('发布巡检需求将在下一阶段接入')"
+              @click="emit('publishDemand')"
             >
               发布巡检需求
             </button>

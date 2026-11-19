@@ -2,6 +2,8 @@
 import { onPageScroll } from '@dcloudio/uni-app'
 import { computed, nextTick, ref, watch } from 'vue'
 
+import { buildDemandPublishUrl } from '@/features/demand/navigation/demand-routes'
+import type { DemandType } from '@/features/demand/domain/demand'
 import { InspectionPortalPage } from '@/features/inspection/presentation/public'
 import { loadPlatformServiceContent } from '@/features/platform/application/load-platform-service-content'
 import { createPlatformFeatureGateway } from '@/features/platform/application/platform-feature-gateway'
@@ -48,11 +50,12 @@ const activeChannelLabel = computed(() =>
   PLATFORM_SERVICE_CHANNELS.find((channel) =>
     channel.code === activeChannel.value)?.label ?? '',
 )
+// Publishing a demand (F1) is open in preview builds; public builds keep the entries hidden.
 const featureGateway = createPlatformFeatureGateway(PLATFORM_PREVIEW_ENABLED
   ? {
       SEARCH: 'NEXT_PHASE',
       OPEN_ITEM: 'NEXT_PHASE',
-      PUBLISH_DEMAND: 'NEXT_PHASE',
+      PUBLISH_DEMAND: 'ENABLED',
     }
   : {
       SEARCH: 'HIDDEN',
@@ -104,10 +107,25 @@ async function selectChannel(channel: PlatformChannelCode): Promise<void> {
   })
 }
 
+const DEMAND_TYPE_OF_CHANNEL: Record<PlatformChannelCode, DemandType> = {
+  INSPECTION: 'INSPECTION',
+  AERIAL: 'AERIAL',
+  SURVEY: 'SURVEY',
+  MAINTENANCE: 'MAINTENANCE',
+  SUPPORT: 'TECH_SUPPORT',
+}
+
+const inspectionRequestShown =
+  featureGateway.resolve({ type: 'PUBLISH_DEMAND', channel: 'INSPECTION' }).action === 'EXECUTE'
+
 function handleIntent(intent: PlatformFeatureIntent): void {
   const resolution = featureGateway.resolve(intent)
   if (resolution.action === 'SHOW_NEXT_PHASE') {
     uni.showToast({ title: resolution.message, icon: 'none' })
+    return
+  }
+  if (resolution.action === 'EXECUTE' && intent.type === 'PUBLISH_DEMAND') {
+    uni.navigateTo({ url: buildDemandPublishUrl({ type: DEMAND_TYPE_OF_CHANNEL[intent.channel] }) })
   }
 }
 
@@ -180,7 +198,11 @@ onPageScroll(({ scrollTop }) => {
       @touchend="finishContentSwipe"
       @touchcancel="cancelContentSwipe"
     >
-      <InspectionPortalPage v-if="activeChannel === 'INSPECTION'" />
+      <InspectionPortalPage
+        v-if="activeChannel === 'INSPECTION'"
+        :show-request-action="inspectionRequestShown"
+        @publish-demand="handleIntent({ type: 'PUBLISH_DEMAND', channel: 'INSPECTION' })"
+      />
       <PlatformServiceChannelContent
         v-else-if="channelContent"
         :content="channelContent"
@@ -200,7 +222,7 @@ onPageScroll(({ scrollTop }) => {
         </text>
         <button
           class="service-channel__notice-action"
-          @click="handleIntent({ type: 'PUBLISH_DEMAND' })"
+          @click="handleIntent({ type: 'PUBLISH_DEMAND', channel: activeChannel })"
         >
           发布需求
         </button>

@@ -130,6 +130,12 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   },
   '/pages/venue/booking': { required: 'bookingId', allowed: ['bookingId'] },
   '/pages/mine/venue-bookings': { allowed: ['bucket'] },
+  // Demand pages (features/demand/navigation/demand-routes.ts, F1), repeated for the same reason;
+  // demand-routes.test.ts checks them.
+  '/pages/demand/publish': { allowed: ['demandId', 'type', 'from'] },
+  '/pages/demand/quotes': { required: 'demandId', allowed: ['demandId'] },
+  '/pages/demand/compare': { required: 'demandId', allowed: ['demandId'] },
+  '/pages/mine/demands': { allowed: ['status'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.

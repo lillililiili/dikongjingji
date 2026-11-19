@@ -121,6 +121,30 @@ test.describe('公开构建', () => {
     }
   })
 
+  test('PUB-011 需求发布未开通：专业服务没有发布入口，“我的”里没有需求与报价，需求页面只有说明', async ({ page }) => {
+    await page.goto('/#/pages/home/index')
+    await page.getByTestId('home-card-service').click()
+    await expect(page.getByTestId('inspection-portal')).toBeVisible()
+    await expect(page.getByTestId('portal-request')).toHaveCount(0)
+    await expect(page.getByTestId('service-entry-publish')).toHaveCount(0)
+
+    await page.goto('/#/pages/mine/index')
+    await expect(page.locator('.platform-mine__status-card')).toBeVisible()
+    await expect(page.getByTestId('mine-link-demands')).toHaveCount(0)
+    for (const route of [
+      '/pages/demand/publish?type=INSPECTION',
+      '/pages/demand/quotes?demandId=00000000-0000-4000-8000-000000000001',
+      '/pages/demand/compare?demandId=00000000-0000-4000-8000-000000000001',
+      '/pages/mine/demands',
+    ]) {
+      await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
+      await expect(page.getByTestId('demand-unavailable')).toContainText('需求发布功能尚未开通')
+      await expect(page.getByTestId('demand-publish')).toHaveCount(0)
+      await expect(page.getByTestId('demand-list')).toHaveCount(0)
+      await expect(page.getByTestId('demand-quotes')).toHaveCount(0)
+    }
+  })
+
   test('PUB-010 到馆预约未开通：“我的”里没有入口，确认页、核销码、我的到馆预约只有说明', async ({ page }) => {
     await page.goto('/#/pages/mine/index')
     await expect(page.locator('.platform-mine__status-card')).toBeVisible()

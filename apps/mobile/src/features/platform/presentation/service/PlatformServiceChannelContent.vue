@@ -62,7 +62,7 @@ const PROCESS_ICONS: Record<PlatformServiceProcessStepCode, string> = {
       <button
         class="service-entry__publish"
         data-testid="service-entry-publish"
-        @click="emit('intent', { type: 'PUBLISH_DEMAND' })"
+        @click="emit('intent', { type: 'PUBLISH_DEMAND', channel: content.code })"
       >
         发布需求
       </button>

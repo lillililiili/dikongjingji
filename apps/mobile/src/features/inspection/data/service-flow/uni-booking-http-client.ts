@@ -22,6 +22,8 @@ export class ApiRequestError extends Error {
     message: string,
     readonly status: number,
     readonly code: string | null,
+    // The ApiError's details, when the server sent some (for example the field of a 422).
+    readonly details: Record<string, unknown> | null = null,
   ) { super(message) }
 }
 
@@ -67,11 +69,14 @@ function assertAllowedApiBaseUrl(baseUrl: string): void {
 }
 
 function errorFromResponse(data: unknown, status: number): ApiRequestError {
-  const payload = data as { message?: unknown; code?: unknown }
+  const payload = data as { message?: unknown; code?: unknown; details?: unknown }
   return new ApiRequestError(
     typeof payload?.message === 'string' ? payload.message : `请求失败（${status}）`,
     status,
     typeof payload?.code === 'string' ? payload.code : null,
+    payload?.details && typeof payload.details === 'object' && !Array.isArray(payload.details)
+      ? payload.details as Record<string, unknown>
+      : null,
   )
 }
 

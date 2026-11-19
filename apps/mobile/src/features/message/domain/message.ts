@@ -1,9 +1,10 @@
 // Mirrors contracts/openapi-notification.yaml. The server decides who may read what; the recipient
 // is always the signed-in account.
 
-export type MessageCategory = 'SERVICE_PROGRESS'
+// 1.1.0 adds DEMAND_QUOTE (需求与报价) with the target DEMAND: id is the demand, subId is null.
+export type MessageCategory = 'SERVICE_PROGRESS' | 'DEMAND_QUOTE'
 
-export type MessageTargetType = 'INSPECTION_PLAN' | 'INSPECTION_FULFILLMENT' | 'INSPECTION_DELIVERY'
+export type MessageTargetType = 'INSPECTION_PLAN' | 'INSPECTION_FULFILLMENT' | 'INSPECTION_DELIVERY' | 'DEMAND'
 
 export interface MessageTarget {
   type: MessageTargetType

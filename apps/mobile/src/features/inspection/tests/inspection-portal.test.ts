@@ -273,9 +273,12 @@ describe('inspection portal layout from the 2026-11-14 prototype (HomeSvc)', () 
     expect(platformHomePageSource).toContain('<PlatformHeroBanner')
   })
 
-  it('shows the request bar only where the request action is offered', () => {
-    expect(portalPageSource).toContain('v-if="showRequestAction" class="portal-request"')
-    expect(portalPageSource).toContain('const showRequestAction = import.meta.env.DEV')
+  // Publishing a demand (F1) opens in preview builds only; the service channel decides and handles the tap.
+  it('shows the request bar only where the host offers publishing a demand', () => {
+    expect(portalPageSource).toContain('v-if="props.showRequestAction" class="portal-request"')
+    expect(portalPageSource).toContain("{ showRequestAction: false }")
+    expect(portalPageSource).toContain("@click=\"emit('publishDemand')\"")
+    expect(portalPageSource).not.toContain('下一阶段接入')
   })
 
   it('uses the board sizes for scenes, guarantees and hot services', () => {

@@ -139,7 +139,7 @@ describe('platform service visual contract', () => {
 
   it('follows the prototype entry: guarantee line, one request card, service flow', () => {
     expect(channelContentSource).not.toContain('<PlatformHeroBanner')
-    expect(channelContentSource).toContain("emit('intent', { type: 'PUBLISH_DEMAND' })")
+    expect(channelContentSource).toContain("emit('intent', { type: 'PUBLISH_DEMAND', channel: content.code })")
     expect(channelContentSource).toContain("emit('intent', { type: 'SEARCH', channel: content.code })")
     expect(serviceFixtureSource).toContain("guarantees: ['资质审核', '服务记录', '报价留档']")
     for (const code of ['AERIAL', 'SURVEY', 'MAINTENANCE', 'SUPPORT']) {

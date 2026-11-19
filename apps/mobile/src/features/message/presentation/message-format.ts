@@ -9,6 +9,7 @@ import type { MessageCategory } from '../domain/message'
 
 export const MESSAGE_CATEGORY_LABELS: Record<MessageCategory, string> = {
   SERVICE_PROGRESS: '服务进度',
+  DEMAND_QUOTE: '需求与报价',
 }
 
 // "今天 14:05", "昨天 09:30", otherwise "11/3 16:20". Days are Beijing days.

@@ -39,6 +39,7 @@ describe('platform service channels', () => {
 describe('platform feature gateway', () => {
   const intent: PlatformFeatureIntent = {
     type: 'PUBLISH_DEMAND',
+    channel: 'AERIAL',
   }
 
   it('executes an enabled feature', () => {
