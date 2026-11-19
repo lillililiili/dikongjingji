@@ -142,6 +142,35 @@
       }
     },
     {
+      "path": "pages/trade/cashier",
+      "style": {
+        "navigationBarTitleText": "收银台",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/trade/pay-result",
+      "style": {
+        "navigationBarTitleText": "支付结果",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/goods-orders",
+      "style": {
+        "navigationBarTitleText": "商品订单",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/mine/goods-order",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/activity/enroll",
       "style": {
         "navigationBarTitleText": "填写报名",

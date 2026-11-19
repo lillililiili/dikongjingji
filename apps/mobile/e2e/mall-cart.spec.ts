@@ -4,6 +4,8 @@ import { resolve } from 'node:path'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+import { databaseAvailable, purgeBuyerOrders } from './support/trade-fixtures'
+
 // 购物车、收货地址、确认订单（D 步，停在“提交订单”）。真实后端、开发账号 dev-customer、商城示例数据。
 // 每条用例开始前清空这个账号的购物车和地址，所以可以反复跑。失效商品的样子用接口桩（让真实商品下架要改库）。
 const API = 'http://127.0.0.1:18420'
@@ -114,6 +116,8 @@ test.describe('购物车与确认订单', () => {
   test.afterAll(async ({ request }) => {
     const signedIn = await apiLogin(request)
     if (signedIn) await resetAccount(request, signedIn)
+    // CART-002 submits a real order; this account's orders are test data.
+    if (databaseAvailable()) purgeBuyerOrders()
   })
 
   test('CART-001 没登录点底栏“购物车”：先登录，登录后回到空购物车', async ({ page }) => {
@@ -204,8 +208,10 @@ test.describe('购物车与确认订单', () => {
     await expect(page.getByTestId('checkout-address')).toContainText('山东省东营市 东营区 示例路 88 号')
     await page.getByTestId('checkout-agree').click()
     await page.getByTestId('checkout-submit').click()
-    await expect(page.locator('uni-toast')).toContainText('下单和付款要等支付渠道确定后开放')
-    await expect(page.getByTestId('checkout')).toBeVisible()
+    // Since E07 the order is made and the cashier replaces the confirm page (trade-orders.spec.ts
+    // covers paying it). The cart lines that were bought leave the cart.
+    await expect(page.getByTestId('cashier-amount')).toHaveText('¥1,759')
+    await expect(page.getByTestId('cashier-goods')).toContainText('（共 2 件）')
   })
 
   test('CART-003 器材店的商品立即购买：只能到店自提，不要地址', async ({ page }) => {

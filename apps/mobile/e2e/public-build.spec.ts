@@ -103,4 +103,21 @@ test.describe('公开构建', () => {
     await expect(page.getByTestId('cart')).toHaveCount(0)
     await expect(page.locator('.root-tab-bar__item', { hasText: '购物车' }).locator('.root-tab-bar__badge')).toHaveCount(0)
   })
+
+  test('PUB-009 商品订单、收银台、支付结果未开通：页面只有说明，“我的”里没有商品订单入口', async ({ page }) => {
+    await page.goto('/#/pages/mine/index')
+    await expect(page.locator('.platform-mine__status-card')).toBeVisible()
+    await expect(page.getByTestId('mine-goods-orders')).toHaveCount(0)
+    for (const route of [
+      '/pages/mine/goods-orders',
+      '/pages/mine/goods-order?orderId=00000000-0000-4000-8000-000000000001',
+      '/pages/trade/cashier?orderId=00000000-0000-4000-8000-000000000001',
+      '/pages/trade/pay-result?orderId=00000000-0000-4000-8000-000000000001',
+    ]) {
+      await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
+      await expect(page.getByTestId('trade-unavailable')).toContainText('商品订单功能尚未开通')
+      await expect(page.getByTestId('goods-orders')).toHaveCount(0)
+      await expect(page.getByTestId('cashier')).toHaveCount(0)
+    }
+  })
 })

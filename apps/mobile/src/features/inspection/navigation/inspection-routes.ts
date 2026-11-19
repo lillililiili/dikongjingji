@@ -116,6 +116,12 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
     allowed: ['items', 'offerId', 'quantity', 'cityCode'],
   },
   '/pages/mine/addresses': { allowed: ['select'] },
+  // Trade pages (features/trade/navigation/trade-routes.ts), repeated for the same reason;
+  // trade-routes.test.ts checks them.
+  '/pages/trade/cashier': { required: 'orderId', allowed: ['orderId'] },
+  '/pages/trade/pay-result': { required: 'orderId', allowed: ['orderId'] },
+  '/pages/mine/goods-orders': { allowed: ['tab'] },
+  '/pages/mine/goods-order': { required: 'orderId', allowed: ['orderId'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.

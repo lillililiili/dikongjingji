@@ -12,6 +12,7 @@ import {
   buildAddressBookUrl,
 } from '@/features/mall/navigation/mall-routes'
 import MallCheckoutPage from '@/features/mall/presentation/checkout/MallCheckoutPage.vue'
+import { buildCashierUrl } from '@/features/trade/navigation/trade-routes'
 
 const addressChoice = useAddressChoiceStore()
 const source = ref<CheckoutSource | null>(null)
@@ -44,6 +45,11 @@ function chooseAddress(): void {
 
 function backToCart(): void {
   uni.switchTab({ url: CART_TAB_PATH })
+}
+
+// The order exists now: the cashier replaces this page, so going back never resubmits it.
+function openCashier(orderId: string): void {
+  uni.redirectTo({ url: buildCashierUrl(orderId) })
 }
 
 function openLogin(): void {
@@ -86,5 +92,6 @@ onShow(() => {
     @choose-address="chooseAddress"
     @back-to-cart="backToCart"
     @address-gone="addressChoice.choose(null)"
+    @submitted="openCashier"
   />
 </template>

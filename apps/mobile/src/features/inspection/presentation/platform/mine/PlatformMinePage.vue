@@ -14,6 +14,8 @@ import {
 
 const props = defineProps<{
   state: PlatformMineViewState
+  // The 商品订单 link in the 我的订单 card (trade module, preview builds only).
+  goodsOrdersEntry?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,6 +28,7 @@ const emit = defineEmits<{
   selectFeature: [entry: PlatformMineFeatureEntry]
   selectLink: [code: string]
   viewAllOrders: []
+  viewGoodsOrders: []
 }>()
 
 const content = computed(() => props.state.kind === 'ready' ? props.state.content : undefined)
@@ -122,7 +125,18 @@ const STATUS_ICONS: Record<InspectionMineStatus, string> = {
         </view>
 
         <view v-if="content.statusCounts" class="platform-mine__status-card">
-          <text class="platform-mine__status-heading">我的订单</text>
+          <view class="platform-mine__status-head">
+            <text class="platform-mine__status-heading">我的订单</text>
+            <!-- Where the board has 全部 ›: the goods orders of the trade module. -->
+            <button
+              v-if="props.goodsOrdersEntry"
+              class="platform-mine__goods-orders"
+              data-testid="mine-goods-orders"
+              @click="emit('viewGoodsOrders')"
+            >
+              商品订单 ›
+            </button>
+          </view>
           <view class="platform-mine__status-row">
             <button
               v-for="item in INSPECTION_STATUS_ITEMS"
@@ -323,6 +337,9 @@ button::after{border:0}
 .platform-mine__location{margin-top:4px;color:#627187;font-size:12px;line-height:17px}
 .platform-mine__status-card{display:flex;margin:0;padding:10px 8px 8px;flex-direction:column;gap:8px;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
 .platform-mine__status-heading{padding:0 8px;font-size:16px;font-weight:700;line-height:22px}
+.platform-mine__status-head{display:flex;align-items:center;justify-content:space-between}
+.platform-mine__goods-orders{display:flex;min-height:44px;margin:-6px 0;padding:0 8px;align-items:center;color:#627187;background:transparent;font-size:13px;line-height:44px}
+.platform-mine__goods-orders::after{display:none}
 .platform-mine__status-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 .platform-mine__status-item{min-height:52px;gap:4px;justify-content:center}
 .platform-mine__status-icon{width:auto;height:24px;justify-content:center}

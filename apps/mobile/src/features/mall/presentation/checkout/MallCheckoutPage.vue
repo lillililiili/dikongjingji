@@ -3,6 +3,11 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { formatAddressLine, maskPhone } from '@/features/account/application/address-form'
+import { classifySubmitFailure } from '@/features/trade/application/submit-order'
+import { createSubmitKeyHolder } from '@/features/trade/application/trade-keys'
+import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
+import { tradeApi } from '@/features/trade/data/trade-api-client'
+import type { SubmitOrderInput } from '@/features/trade/domain/trade-order'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
 import { resolveMallIntent, type MallIntent } from '../../application/mall-intent'
@@ -29,6 +34,8 @@ const emit = defineEmits<{
   backToCart: []
   // The picked address is gone (deleted on the address page): fall back to the default one.
   addressGone: []
+  // The order was made; the host replaces this page with the cashier.
+  submitted: [orderId: string]
 }>()
 
 type CheckoutState =
@@ -46,6 +53,10 @@ const deliveryMode = ref<DeliveryMode | null>(null)
 const note = ref('')
 const agreed = ref(false)
 const agreeTip = ref(false)
+const submitting = ref(false)
+// Learned from the server on submit: this merchant has no payment account, so nothing can be paid.
+const paymentUnavailable = ref(false)
+const submitKeys = createSubmitKeyHolder()
 let requestVersion = 0
 
 const preview = computed(() => (state.value.kind === 'ready' ? state.value.preview : null))
@@ -122,8 +133,24 @@ function runIntent(intent: MallIntent): void {
   }
 }
 
-// The order itself is not built: the button checks what the page can check, then says why it stops.
-function submit(): void {
+function submitInput(current: CheckoutPreview, mode: DeliveryMode, source: CheckoutSource): SubmitOrderInput {
+  return {
+    cityCode: props.cityCode,
+    source: source.kind === 'CART'
+      ? { kind: 'CART', cartItemIds: [...source.cartItemIds] }
+      : { kind: 'OFFER', offerId: source.offerId, quantity: source.quantity },
+    deliveryMode: mode,
+    // The address the page shows: the picked one, else the default the preview chose.
+    addressId: mode === 'EXPRESS' ? current.address?.addressId ?? null : null,
+    buyerNote: note.value,
+    // What the buyer saw. The server works the amount out again and refuses if it differs.
+    expectedPayableMinor: current.amounts.payableMinor,
+  }
+}
+
+// The button checks what the page can check, then the server makes the order (trade module).
+// Public builds never show this page; there the gate keeps the old notice-free behaviour.
+async function submit(): Promise<void> {
   if (!agreed.value) {
     agreeTip.value = true
     return
@@ -132,7 +159,42 @@ function submit(): void {
     uni.showToast({ title: '请先添加收货地址', icon: 'none' })
     return
   }
-  runIntent({ type: 'SUBMIT_ORDER' })
+  if (!TRADE_PREVIEW_ENABLED) {
+    runIntent({ type: 'SUBMIT_ORDER' })
+    return
+  }
+  const token = props.accessToken
+  const current = preview.value
+  const mode = deliveryMode.value
+  if (!token || !current || !mode || !props.source || submitting.value || paymentUnavailable.value) return
+  const input = submitInput(current, mode, props.source)
+  submitting.value = true
+  try {
+    const order = await tradeApi.submit(token, input, submitKeys.keyFor(input))
+    // Stays "submitting" while the host replaces the page, so a second tap cannot slip in.
+    emit('submitted', order.orderId)
+  } catch (error) {
+    submitting.value = false
+    const failure = classifySubmitFailure(error)
+    switch (failure.kind) {
+      case 'UNAUTHORIZED':
+        emit('login')
+        break
+      case 'MERCHANT_PAYMENT_UNAVAILABLE':
+        paymentUnavailable.value = true
+        break
+      case 'GOODS_CHANGED':
+        state.value = { kind: 'stale', message: failure.message }
+        break
+      case 'AMOUNT_CHANGED':
+      case 'DELIVERY_CHANGED':
+        uni.showToast({ title: failure.message, icon: 'none' })
+        void load()
+        break
+      default:
+        uni.showToast({ title: failure.message, icon: 'none' })
+    }
+  }
 }
 
 watch(
@@ -332,7 +394,10 @@ watch(
     </view>
 
     <view v-if="preview" class="checkout__bar">
-      <text v-if="agreeTip && !agreed" class="checkout__tip" role="status" data-testid="checkout-agree-tip">
+      <text v-if="paymentUnavailable" class="checkout__tip" role="status" data-testid="checkout-payment-unavailable">
+        该商家暂未开通在线支付，暂时不能下单
+      </text>
+      <text v-else-if="agreeTip && !agreed" class="checkout__tip" role="status" data-testid="checkout-agree-tip">
         请先阅读并同意《交易协议》
       </text>
       <view class="checkout__bar-row">
@@ -340,12 +405,12 @@ watch(
           应付<text class="checkout__bar-value" data-testid="checkout-payable">{{ formatMallAmount(preview.amounts.payableMinor) }}</text>
         </text>
         <button
-          :class="['checkout__submit', { 'checkout__submit--off': !deliveryMode }]"
+          :class="['checkout__submit', { 'checkout__submit--off': !deliveryMode || paymentUnavailable }]"
           data-testid="checkout-submit"
-          :disabled="!deliveryMode"
+          :disabled="!deliveryMode || paymentUnavailable || submitting"
           @click="submit"
         >
-          提交订单
+          {{ submitting ? '正在提交…' : '提交订单' }}
         </button>
       </view>
     </view>

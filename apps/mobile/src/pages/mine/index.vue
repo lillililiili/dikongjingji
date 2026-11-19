@@ -25,6 +25,8 @@ import {
   buildInspectionOrderCenterUrl,
 } from '@/features/inspection/navigation/inspection-routes'
 import PlatformMinePage from '@/features/inspection/presentation/platform/mine/PlatformMinePage.vue'
+import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
+import { buildGoodsOrdersUrl } from '@/features/trade/navigation/trade-routes'
 import {
   resolveAuthenticatedMineUser,
   resolvePlatformMineState,
@@ -206,6 +208,11 @@ function openAllOrders(): void {
   uni.navigateTo({ url: buildInspectionOrderCenterUrl('ALL') })
 }
 
+// Goods orders ask for a login themselves and come back to their own list.
+function openGoodsOrders(): void {
+  uni.navigateTo({ url: buildGoodsOrdersUrl() })
+}
+
 function openStatus(status: InspectionMineStatus): void {
   uni.navigateTo({ url: buildInspectionOrderCenterUrl(status) })
 }
@@ -228,6 +235,7 @@ onShow(() => {
   <view data-testid="mine-page">
     <PlatformMinePage
       :state="state"
+      :goods-orders-entry="TRADE_PREVIEW_ENABLED"
       @retry="loadRecentOrders"
       @login="openLogin"
       @customer-service="showUnavailable"
@@ -237,6 +245,7 @@ onShow(() => {
       @select-feature="showUnavailable"
       @select-link="openLink"
       @view-all-orders="openAllOrders"
+      @view-goods-orders="openGoodsOrders"
     />
     <RootAppTabBar active="MINE" />
   </view>
