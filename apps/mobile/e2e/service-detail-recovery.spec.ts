@@ -172,3 +172,20 @@ test.describe('M03 不可用时的恢复', () => {
     await expect(page.getByTestId('inspection-catalog')).toBeVisible()
   })
 })
+
+// 验收清单已知问题 4：没有评分时，评价那一行不能以“·”开头。
+test('SDR-109 没有评分时，评价和服务次数之间才有分隔点', async ({ page }) => {
+  await page.route(`**${DETAIL_PATH}?**`, async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    body.reviews = { ...body.reviews, average: null, total: 0, positiveRate: null }
+    await route.fulfill({ response, json: body })
+  })
+  await openDetail(page, SERVICE_ID, '370500')
+
+  const metrics = page.locator('.service-detail-hero__metrics')
+  await expect(metrics).toContainText('0条评价')
+  const text = (await metrics.innerText()).replace(/\s+/g, ' ').trim()
+  expect(text.startsWith('·')).toBe(false)
+  expect(text).toMatch(/^0条评价 · 已服务/)
+})

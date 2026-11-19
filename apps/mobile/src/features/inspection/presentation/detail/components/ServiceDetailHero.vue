@@ -65,11 +65,12 @@ const priceLabel = computed(() => {
           <UniIcons type="star-filled" size="12" color="#ff8a00" />
           <text>{{ detail.ratingAverage.toFixed(1) }}分</text>
         </view>
+        <!-- A separator only goes between two shown items, never at the start of the line. -->
         <text v-if="detail.reviewCount !== null">
-          ·　{{ detail.reviewCount }}条评价
+          {{ detail.ratingAverage !== null ? '·　' : '' }}{{ detail.reviewCount }}条评价
         </text>
         <text v-if="detail.completedCountLabel">
-          ·　{{ detail.completedCountLabel }}
+          {{ detail.ratingAverage !== null || detail.reviewCount !== null ? '·　' : '' }}{{ detail.completedCountLabel }}
         </text>
       </view>
 
