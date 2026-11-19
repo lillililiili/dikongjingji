@@ -201,4 +201,19 @@ test.describe('公开构建', () => {
       await expect(page.getByTestId('rental-orders')).toHaveCount(0)
     }
   })
+
+  test('PUB-014 询价商品未开通：询价单、报价比选只有说明，商品详情没有“询价怎么走”', async ({ page }) => {
+    for (const route of [
+      '/pages/mall/inquiry?productId=c2000000-0000-4000-8000-000000000203&cityCode=370500',
+      '/pages/mall/inquiry-quotes?inquiryId=00000000-0000-4000-8000-000000000001',
+    ]) {
+      await page.goto(`/#${route}`)
+      await expect(page.getByTestId('mall-inquiry-unavailable')).toContainText('询价功能尚未开通')
+      await expect(page.getByTestId('mall-inquiry')).toHaveCount(0)
+      await expect(page.getByTestId('inquiry-quotes')).toHaveCount(0)
+    }
+    await page.goto('/#/pages/mall/product?productId=c2000000-0000-4000-8000-000000000203&cityCode=370500')
+    await expect(page.getByTestId('mall-product-inquiry-steps')).toHaveCount(0)
+    await expect(page.getByTestId('mall-product-primary')).toHaveCount(0)
+  })
 })

@@ -151,7 +151,11 @@ export interface PaymentLaunch {
 
 export interface SubmitOrderInput {
   cityCode: string
-  source: { kind: 'CART'; cartItemIds: string[] } | { kind: 'OFFER'; offerId: string; quantity: number }
+  source:
+    | { kind: 'CART'; cartItemIds: string[] }
+    | { kind: 'OFFER'; offerId: string; quantity: number }
+    // The chosen quote of a goods inquiry (contract 0.3.0): quantity and price are the quote's.
+    | { kind: 'QUOTE'; inquiryQuoteId: string }
   deliveryMode: TradeDeliveryMode
   addressId: string | null
   buyerNote: string

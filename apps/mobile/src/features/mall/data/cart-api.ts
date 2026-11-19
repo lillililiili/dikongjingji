@@ -87,6 +87,8 @@ export function createCartApi(request: CartRequest): CartApi {
       const query = [`cityCode=${encodeURIComponent(input.cityCode)}`]
       if (input.source.kind === 'CART') {
         input.source.cartItemIds.forEach((id) => query.push(`cartItemIds=${encodeURIComponent(id)}`))
+      } else if (input.source.kind === 'QUOTE') {
+        query.push(`inquiryQuoteId=${encodeURIComponent(input.source.inquiryQuoteId)}`)
       } else {
         query.push(`offerId=${encodeURIComponent(input.source.offerId)}`, `quantity=${input.source.quantity}`)
       }

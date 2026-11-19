@@ -75,9 +75,11 @@ export interface CheckoutPreview {
   blockers: CheckoutBlocker[]
 }
 
-// Where the lines of a confirm page come from: chosen cart lines, or one offer bought at once.
+// Where the lines of a confirm page come from: chosen cart lines, one offer bought at once, or the
+// chosen quote of an inquiry (F4: quantity and price are the quote's and cannot be changed).
 export type CheckoutSource =
   | { kind: 'CART'; cartItemIds: string[] }
   | { kind: 'OFFER'; offerId: string; quantity: number }
+  | { kind: 'QUOTE'; inquiryQuoteId: string }
 
 export const CART_MAX_QUANTITY = 99

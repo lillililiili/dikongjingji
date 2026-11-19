@@ -113,8 +113,11 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/cart/index': { allowed: [] },
   '/pages/cart/checkout': {
     required: 'cityCode',
-    allowed: ['items', 'offerId', 'quantity', 'cityCode'],
+    allowed: ['items', 'offerId', 'quantity', 'inquiryQuoteId', 'inquiryId', 'cityCode'],
   },
+  // Inquiry goods (F4).
+  '/pages/mall/inquiry': { required: 'productId', allowed: ['productId', 'cityCode'] },
+  '/pages/mall/inquiry-quotes': { required: 'inquiryId', allowed: ['inquiryId'] },
   '/pages/mine/addresses': { allowed: ['select'] },
   // Trade pages (features/trade/navigation/trade-routes.ts), repeated for the same reason;
   // trade-routes.test.ts checks them.

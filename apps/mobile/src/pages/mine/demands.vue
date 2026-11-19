@@ -18,10 +18,15 @@ import {
   buildInspectionLoginUrl,
 } from '@/features/inspection/navigation/inspection-routes'
 import {
+  buildMallInquiryQuotesUrl,
+  buildMallInquiryUrl,
+} from '@/features/mall/navigation/mall-routes'
+import {
   buildRentalInquiryUrl,
   buildRentalOrderUrl,
   buildRentalQuoteUrl,
 } from '@/features/rental/navigation/rental-routes'
+import { buildGoodsOrderUrl } from '@/features/trade/navigation/trade-routes'
 
 const initialFilter = ref<DemandListFilter>('ALL')
 const accessToken = ref<string | null>(null)
@@ -49,8 +54,8 @@ onLoad((query) => {
   initialFilter.value = parseDemandListFilter(query?.status)
 })
 
-// Every return reads the list again: a demand may have been sent, chosen or cancelled meanwhile, a
-// rental inquiry quoted or confirmed.
+// Every return reads the list again: a demand may have been sent, chosen or cancelled meanwhile, an
+// inquiry quoted, chosen or confirmed.
 onShow(() => {
   accessToken.value = getBookingAuthContext().getAccessToken()
   refreshKey.value += 1
@@ -79,6 +84,9 @@ onReachBottom(() => {
     @rental-quote="(inquiryId) => open(buildRentalQuoteUrl(inquiryId))"
     @rental-order="(rentalOrderId) => open(buildRentalOrderUrl(rentalOrderId))"
     @reinquire="(target) => open(buildRentalInquiryUrl(target))"
+    @mall-quotes="(inquiryId) => open(buildMallInquiryQuotesUrl(inquiryId))"
+    @goods-order="(orderId) => open(buildGoodsOrderUrl(orderId))"
+    @mall-reinquire="(target) => open(buildMallInquiryUrl(target))"
   />
   <DemandUnavailable v-else-if="!DEMAND_PREVIEW_ENABLED" />
 </template>

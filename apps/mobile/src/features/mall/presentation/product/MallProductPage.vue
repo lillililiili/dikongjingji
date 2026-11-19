@@ -32,7 +32,18 @@ const emit = defineEmits<{
   buyNow: [offerId: string, quantity: number]
   // 联系询价 on a rental product (F3): the rental inquiry form for this offer.
   rent: [productId: string, offerId: string]
+  // 联系询价 on an inquiry product (F4): the inquiry form, which picks the merchants itself.
+  inquire: [productId: string]
 }>()
+
+// 询价怎么走 (PdInquiryFull board): how an inquiry product gets its price. The quote window is 72
+// hours (§25.1 rule 3), not the board's two working days.
+const INQUIRY_STEPS = [
+  { title: '填询价单', note: '不收费' },
+  { title: '商家报价', note: '72 小时内' },
+  { title: '比选选定', note: '看价格和交期' },
+  { title: '确认下单', note: '选定后付款' },
+] as const
 
 type DetailState =
   | { kind: 'loading' }
@@ -122,6 +133,11 @@ function runIntent(type: 'ADD_TO_CART' | 'BUY_NOW' | 'INQUIRE'): void {
     emit('rent', product.value.productId, offer.offerId)
     return
   }
+  // An inquiry product is asked about on the inquiry form (preview builds, like this button).
+  if (type === 'INQUIRE' && product.value.saleMode === 'INQUIRY' && MALL_PREVIEW_ENABLED) {
+    emit('inquire', product.value.productId)
+    return
+  }
   const resolution = resolveMallIntent(
     { type, productId: product.value.productId, offerId: offer.offerId },
     MALL_PREVIEW_ENABLED,
@@ -209,7 +225,7 @@ onLoad((query) => {
               {{ formatMallOfferPrice(selectedOffer.amountMinor, selectedOffer.unit) }}
             </text>
             <text class="mall-product__price-note">
-              {{ product.offers.length }} 家{{ product.saleMode === 'RENT' ? '可租' : '在售' }}
+              {{ product.offers.length }} 家{{ product.saleMode === 'RENT' ? '可租' : product.saleMode === 'INQUIRY' ? '可报价' : '在售' }}
             </text>
           </view>
           <text class="mall-product__name" data-testid="mall-product-name">{{ product.name }}</text>
@@ -228,10 +244,39 @@ onLoad((query) => {
           </view>
         </view>
 
+        <view
+          v-if="MALL_PREVIEW_ENABLED && product.saleMode === 'INQUIRY'"
+          class="mall-product__card"
+          data-testid="mall-product-inquiry-steps"
+        >
+          <view class="mall-product__section-heading">
+            <text class="mall-product__section-title">询价怎么走</text>
+            <text class="mall-product__section-note mall-product__section-note--free">提交询价不产生费用</text>
+          </view>
+          <view class="mall-product__steps" role="list" aria-label="询价流程">
+            <view
+              v-for="(step, index) in INQUIRY_STEPS"
+              :key="step.title"
+              class="mall-product__step"
+              role="listitem"
+            >
+              <view
+                :class="[
+                  'mall-product__step-line',
+                  { 'mall-product__step-line--first': index === 0, 'mall-product__step-line--last': index === INQUIRY_STEPS.length - 1 },
+                ]"
+              />
+              <text class="mall-product__step-no">{{ index + 1 }}</text>
+              <text class="mall-product__step-title">{{ step.title }}</text>
+              <text class="mall-product__step-note">{{ step.note }}</text>
+            </view>
+          </view>
+        </view>
+
         <view class="mall-product__card">
           <view class="mall-product__section-heading">
             <text class="mall-product__section-title">
-              {{ product.saleMode === 'RENT' ? '选择可租商家' : '选择在售商家' }}
+              {{ product.saleMode === 'RENT' ? '选择可租商家' : product.saleMode === 'INQUIRY' ? '可报价商家' : '选择在售商家' }}
             </text>
             <text class="mall-product__section-note">同型号 · 不同供给</text>
           </view>
@@ -258,6 +303,10 @@ onLoad((query) => {
             </view>
             <text class="mall-product__offer-price">{{ formatMallOfferPrice(offer.amountMinor, offer.unit) }}</text>
           </button>
+          <text
+            v-if="MALL_PREVIEW_ENABLED && product.saleMode === 'INQUIRY'"
+            class="mall-product__offers-hint"
+          >在询价单里选发给哪几家，报价后再比选。</text>
         </view>
 
         <view v-if="selectedOffer" class="mall-product__card">
@@ -626,6 +675,76 @@ button::after {
   margin-left: auto;
   color: #627187;
   font-size: 12px;
+}
+
+.mall-product__section-note--free {
+  color: #11804a;
+  white-space: nowrap;
+}
+
+/* 询价怎么走: four numbered steps joined by a line (PdInquiryFull board). */
+.mall-product__steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mall-product__step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.mall-product__step-line {
+  position: absolute;
+  top: 11px;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: #ffd8b8;
+}
+
+.mall-product__step-line--first {
+  left: 50%;
+}
+
+.mall-product__step-line--last {
+  right: 50%;
+}
+
+.mall-product__step-no {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  color: #ba470b;
+  background: #fff0e3;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 24px;
+  text-align: center;
+}
+
+.mall-product__step-title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.mall-product__step-note {
+  color: #738096;
+  font-size: 11px;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.mall-product__offers-hint {
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
 }
 
 .mall-product__offer {

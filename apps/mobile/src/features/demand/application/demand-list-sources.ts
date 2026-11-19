@@ -1,38 +1,52 @@
 import type { MergedKeys } from '@/shared/list/merged-pages'
 
+import type { MallInquiry, MallInquiryStatus } from '../../mall/domain/inquiry'
 import type { RentalInquiry, RentalInquiryStatus } from '../../rental/domain/rental'
 import type { Demand, DemandStatus } from '../domain/demand'
 import type { DemandListFilter } from '../navigation/demand-routes'
 
 /**
- * 我的 → 需求与报价 shows the account's demands and its rental inquiries (询价单, F3 §24.1 rule 10)
- * in one list, newest change first. Both servers sort by their last change, so the two paged lists
- * are merged on the client (shared/list/merged-pages.ts).
+ * 我的 → 需求与报价 shows the account's demands, its rental inquiries (询价单, F3 §24.1 rule 10) and
+ * its goods inquiries (询价单, F4 §25.1 rule 7) in one list, newest change first. Every server sorts
+ * by the last change, so the paged lists are merged on the client (shared/list/merged-pages.ts).
  */
 export type DemandListItem =
   | { kind: 'DEMAND'; id: string; updatedAt: string; demand: Demand }
   | { kind: 'RENTAL'; id: string; updatedAt: string; inquiry: RentalInquiry }
+  | { kind: 'MALL'; id: string; updatedAt: string; inquiry: MallInquiry }
 
 export type DemandListSource =
   | { kind: 'DEMAND'; status: DemandStatus | null }
   | { kind: 'RENTAL'; status: RentalInquiryStatus | null }
+  | { kind: 'MALL'; status: MallInquiryStatus | null }
 
-// Each status chip of the board, for each kind of record. A rental inquiry has no draft; its
-// "quoted" chip also holds expired quotes, its "closed" chip the declined ones.
+// Each status chip of the board, for each kind of record. Inquiries have no draft; a rental
+// inquiry's "quoted" chip also holds expired quotes, its "closed" chip the declined ones. A goods
+// inquiry's statuses are the chips' own.
 export function demandListSources(filter: DemandListFilter): DemandListSource[] {
   switch (filter) {
-    case 'ALL': return [{ kind: 'DEMAND', status: null }, { kind: 'RENTAL', status: null }]
-    case 'OPEN': return [{ kind: 'DEMAND', status: 'OPEN' }, { kind: 'RENTAL', status: 'PENDING' }]
+    case 'ALL': return [{ kind: 'DEMAND', status: null }, { kind: 'RENTAL', status: null }, { kind: 'MALL', status: null }]
+    case 'OPEN': return [
+      { kind: 'DEMAND', status: 'OPEN' },
+      { kind: 'RENTAL', status: 'PENDING' },
+      { kind: 'MALL', status: 'OPEN' },
+    ]
     case 'QUOTED': return [
       { kind: 'DEMAND', status: 'QUOTED' },
       { kind: 'RENTAL', status: 'QUOTED' },
       { kind: 'RENTAL', status: 'EXPIRED' },
+      { kind: 'MALL', status: 'QUOTED' },
     ]
-    case 'CHOSEN': return [{ kind: 'DEMAND', status: 'CHOSEN' }, { kind: 'RENTAL', status: 'CONFIRMED' }]
+    case 'CHOSEN': return [
+      { kind: 'DEMAND', status: 'CHOSEN' },
+      { kind: 'RENTAL', status: 'CONFIRMED' },
+      { kind: 'MALL', status: 'CHOSEN' },
+    ]
     case 'CLOSED': return [
       { kind: 'DEMAND', status: 'CLOSED' },
       { kind: 'RENTAL', status: 'DECLINED' },
       { kind: 'RENTAL', status: 'CLOSED' },
+      { kind: 'MALL', status: 'CLOSED' },
     ]
     case 'DRAFT': return [{ kind: 'DEMAND', status: 'DRAFT' }]
   }
@@ -45,6 +59,10 @@ export function demandListItem(demand: Demand): DemandListItem {
 
 export function rentalListItem(inquiry: RentalInquiry): DemandListItem {
   return { kind: 'RENTAL', id: `rental:${inquiry.inquiryId}`, updatedAt: inquiry.updatedAt, inquiry }
+}
+
+export function mallInquiryListItem(inquiry: MallInquiry): DemandListItem {
+  return { kind: 'MALL', id: `mall:${inquiry.inquiryId}`, updatedAt: inquiry.updatedAt, inquiry }
 }
 
 export const DEMAND_LIST_KEYS: MergedKeys<DemandListItem> = {

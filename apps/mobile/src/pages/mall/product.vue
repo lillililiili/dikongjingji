@@ -8,6 +8,7 @@ import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspec
 import { cartApi } from '@/features/mall/data/cart-api-client'
 import {
   buildBuyNowCheckoutUrl,
+  buildMallInquiryUrl,
   buildMallProductUrl,
 } from '@/features/mall/navigation/mall-routes'
 import MallProductPage from '@/features/mall/presentation/product/MallProductPage.vue'
@@ -63,6 +64,11 @@ function rent(rentProductId: string, offerId: string): void {
   uni.navigateTo({ url: buildRentalInquiryUrl({ offerId, productId: rentProductId, cityCode }) })
 }
 
+// The inquiry form of an inquiry product (F4) also asks for a login itself.
+function inquire(inquiryProductId: string): void {
+  uni.navigateTo({ url: buildMallInquiryUrl({ productId: inquiryProductId, cityCode }) })
+}
+
 onLoad((query) => {
   productId = typeof query?.productId === 'string' ? query.productId : ''
   cityCode = typeof query?.cityCode === 'string' ? query.cityCode : ''
@@ -70,5 +76,5 @@ onLoad((query) => {
 </script>
 
 <template>
-  <MallProductPage :busy="busy" @add-to-cart="addToCart" @buy-now="buyNow" @rent="rent" />
+  <MallProductPage :busy="busy" @add-to-cart="addToCart" @buy-now="buyNow" @rent="rent" @inquire="inquire" />
 </template>

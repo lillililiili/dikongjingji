@@ -4,14 +4,17 @@ import type { MallSaleMode } from '../domain/mall'
 // Since step D the cart and the confirm page are real; ADD_TO_CART and BUY_NOW only reach this gate
 // in a build where they are not shown. Since step E07 the confirm page submits real orders in
 // preview builds; SUBMIT_ORDER is only left for public builds, which do not show the page. Since
-// step F3 联系询价 on a rental product opens the rental inquiry form; INQUIRE still reaches this
-// gate for inquiry-only goods.
+// step F3 联系询价 on a rental product opens the rental inquiry form, and since step F4 on an
+// inquiry product the goods inquiry form; INQUIRE only reaches this gate in a build where neither is
+// shown (or for a BUY product sold without a listed price).
 export type MallIntent =
   | { type: 'ADD_TO_CART'; productId: string; offerId: string }
   | { type: 'BUY_NOW'; productId: string; offerId: string }
   | { type: 'INQUIRE'; productId: string; offerId: string }
   | { type: 'SUBMIT_ORDER' }
   | { type: 'READ_AGREEMENT'; document: 'TRADE_AGREEMENT' }
+  // 咨询 on a quote (F4): talking to the merchant waits for the customer service sessions (step G).
+  | { type: 'CONSULT_MERCHANT' }
 
 export type MallIntentResolution =
   | { action: 'SHOW_NOTICE'; message: string }
@@ -23,6 +26,7 @@ const NOTICES: Record<MallIntent['type'], string> = {
   INQUIRE: '询价功能即将开放',
   SUBMIT_ORDER: '下单和付款要等支付渠道确定后开放',
   READ_AGREEMENT: '协议正文待提供',
+  CONSULT_MERCHANT: '咨询功能即将开放',
 }
 
 // Preview builds explain that the entry is coming; public builds do not show it at all.

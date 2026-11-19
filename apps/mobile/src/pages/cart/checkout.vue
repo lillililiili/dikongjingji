@@ -6,10 +6,14 @@ import { useAddressChoiceStore } from '@/features/account/state/address-choice'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import type { CheckoutSource } from '@/features/mall/domain/cart'
+import { buildMyDemandsUrl } from '@/features/demand/navigation/demand-routes'
 import {
   CART_TAB_PATH,
   MALL_CHECKOUT_PATH,
+  MALL_INQUIRY_QUOTES_PATH,
   buildAddressBookUrl,
+  buildMallInquiryQuotesUrl,
+  buildQuoteCheckoutUrl,
 } from '@/features/mall/navigation/mall-routes'
 import MallCheckoutPage from '@/features/mall/presentation/checkout/MallCheckoutPage.vue'
 import { buildCashierUrl } from '@/features/trade/navigation/trade-routes'
@@ -17,6 +21,8 @@ import { buildCashierUrl } from '@/features/trade/navigation/trade-routes'
 const addressChoice = useAddressChoiceStore()
 const source = ref<CheckoutSource | null>(null)
 const cityCode = ref('')
+// Quote mode (F4): the inquiry whose chosen quote is being ordered.
+const inquiryId = ref<string | null>(null)
 const accessToken = ref<string | null>(null)
 const refreshKey = ref(0)
 const shown = ref(false)
@@ -47,6 +53,21 @@ function backToCart(): void {
   uni.switchTab({ url: CART_TAB_PATH })
 }
 
+function previousRoute(): string | null {
+  const pages = getCurrentPages()
+  const previous = pages[pages.length - 2]
+  return previous ? `/${previous.route}` : null
+}
+
+// A quote that cannot be ordered leads back to its quotes page, which reads the inquiry again.
+function backToQuotes(): void {
+  if (previousRoute() === MALL_INQUIRY_QUOTES_PATH) {
+    uni.navigateBack()
+    return
+  }
+  uni.redirectTo({ url: inquiryId.value ? buildMallInquiryQuotesUrl(inquiryId.value) : buildMyDemandsUrl() })
+}
+
 // The order exists now: the cashier replaces this page, so going back never resubmits it.
 function openCashier(orderId: string): void {
   uni.redirectTo({ url: buildCashierUrl(orderId) })
@@ -61,7 +82,12 @@ onLoad((query) => {
   const items = decode(query?.items).split(',').map((id) => id.trim()).filter(Boolean)
   const offerId = decode(query?.offerId)
   const quantity = Number(decode(query?.quantity))
-  if (items.length > 0) {
+  const inquiryQuoteId = decode(query?.inquiryQuoteId)
+  if (inquiryQuoteId) {
+    inquiryId.value = decode(query?.inquiryId) || null
+    source.value = { kind: 'QUOTE', inquiryQuoteId }
+    returnUrl = buildQuoteCheckoutUrl(inquiryQuoteId, inquiryId.value ?? '', cityCode.value)
+  } else if (items.length > 0) {
     source.value = { kind: 'CART', cartItemIds: items }
     returnUrl = `${MALL_CHECKOUT_PATH}?items=${items.map(encodeURIComponent).join(',')}&cityCode=${encodeURIComponent(cityCode.value)}`
   } else if (offerId && Number.isInteger(quantity) && quantity > 0) {
@@ -91,6 +117,7 @@ onShow(() => {
     @login="openLogin"
     @choose-address="chooseAddress"
     @back-to-cart="backToCart"
+    @back-to-quotes="backToQuotes"
     @address-gone="addressChoice.choose(null)"
     @submitted="openCashier"
   />

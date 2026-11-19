@@ -3,7 +3,11 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { formatAddressLine, maskPhone } from '@/features/account/application/address-form'
-import { classifySubmitFailure } from '@/features/trade/application/submit-order'
+import {
+  classifySubmitFailure,
+  isQuoteUnavailableCode,
+  quoteUnavailableMessage,
+} from '@/features/trade/application/submit-order'
 import { createSubmitKeyHolder } from '@/features/trade/application/trade-keys'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
 import { tradeApi } from '@/features/trade/data/trade-api-client'
@@ -32,6 +36,8 @@ const emit = defineEmits<{
   login: []
   chooseAddress: []
   backToCart: []
+  // Quote mode: the quote can no longer be ordered, back to its quotes page.
+  backToQuotes: []
   // The picked address is gone (deleted on the address page): fall back to the default one.
   addressGone: []
   // The order was made; the host replaces this page with the cashier.
@@ -60,6 +66,8 @@ const submitKeys = createSubmitKeyHolder()
 let requestVersion = 0
 
 const preview = computed(() => (state.value.kind === 'ready' ? state.value.preview : null))
+// Ordering a chosen inquiry quote (F4): one line whose quantity and price are the quote's.
+const quoteMode = computed(() => props.source?.kind === 'QUOTE')
 const addressNeeded = computed(() => preview.value?.blockers.includes('ADDRESS_REQUIRED') ?? false)
 const pickupNote = computed(() =>
   preview.value?.deliveryOptions.find((option) => option.mode === 'PICKUP')?.note ?? null)
@@ -103,6 +111,10 @@ async function load(): Promise<void> {
       emit('login')
       return
     }
+    if (error instanceof ApiRequestError && isQuoteUnavailableCode(error.code)) {
+      state.value = { kind: 'stale', message: quoteUnavailableMessage(error.code) }
+      return
+    }
     if (error instanceof ApiRequestError && error.status === 409) {
       state.value = { kind: 'stale', message: error.message }
       return
@@ -133,12 +145,23 @@ function runIntent(intent: MallIntent): void {
   }
 }
 
+function copySource(source: CheckoutSource): SubmitOrderInput['source'] {
+  switch (source.kind) {
+    case 'CART': return { kind: 'CART', cartItemIds: [...source.cartItemIds] }
+    case 'QUOTE': return { kind: 'QUOTE', inquiryQuoteId: source.inquiryQuoteId }
+    case 'OFFER': return { kind: 'OFFER', offerId: source.offerId, quantity: source.quantity }
+  }
+}
+
+function leave(): void {
+  if (quoteMode.value) emit('backToQuotes')
+  else emit('backToCart')
+}
+
 function submitInput(current: CheckoutPreview, mode: DeliveryMode, source: CheckoutSource): SubmitOrderInput {
   return {
     cityCode: props.cityCode,
-    source: source.kind === 'CART'
-      ? { kind: 'CART', cartItemIds: [...source.cartItemIds] }
-      : { kind: 'OFFER', offerId: source.offerId, quantity: source.quantity },
+    source: copySource(source),
     deliveryMode: mode,
     // The address the page shows: the picked one, else the default the preview chose.
     addressId: mode === 'EXPRESS' ? current.address?.addressId ?? null : null,
@@ -184,6 +207,7 @@ async function submit(): Promise<void> {
         paymentUnavailable.value = true
         break
       case 'GOODS_CHANGED':
+      case 'QUOTE_UNAVAILABLE':
         state.value = { kind: 'stale', message: failure.message }
         break
       case 'AMOUNT_CHANGED':
@@ -219,16 +243,20 @@ watch(
     </view>
 
     <view v-else-if="state.kind === 'stale'" class="checkout__state" data-testid="checkout-stale">
-      <text class="checkout__state-title">商品有变化</text>
+      <text class="checkout__state-title">{{ quoteMode ? '这份报价不能下单' : '商品有变化' }}</text>
       <text class="checkout__state-text">{{ state.message }}</text>
-      <button class="checkout__state-button" data-testid="checkout-back-to-cart" @click="emit('backToCart')">
-        返回购物车
+      <button
+        class="checkout__state-button"
+        :data-testid="quoteMode ? 'checkout-back-to-quotes' : 'checkout-back-to-cart'"
+        @click="leave"
+      >
+        {{ quoteMode ? '返回报价比选' : '返回购物车' }}
       </button>
     </view>
 
     <view v-else-if="state.kind === 'missing'" class="checkout__state" data-testid="checkout-missing">
-      <text class="checkout__state-title">没有找到要结算的商品</text>
-      <button class="checkout__state-button" @click="emit('backToCart')">返回购物车</button>
+      <text class="checkout__state-title">{{ quoteMode ? '没有找到这份报价' : '没有找到要结算的商品' }}</text>
+      <button class="checkout__state-button" @click="leave">{{ quoteMode ? '返回报价比选' : '返回购物车' }}</button>
     </view>
 
     <view v-else-if="state.kind === 'error'" class="checkout__state" data-testid="checkout-error">
@@ -291,6 +319,10 @@ watch(
               <text class="checkout__line-qty">× {{ line.quantity }}</text>
             </view>
           </view>
+        </view>
+        <view v-if="quoteMode" class="checkout__quote-note" data-testid="checkout-quote-note">
+          <UniIcons type="info" size="14" color="#ba470b" />
+          <text>按所选报价下单，数量和单价不能修改</text>
         </view>
 
         <view class="checkout__row checkout__row--delivery">
@@ -473,6 +505,19 @@ button::after {
   flex-direction: column;
   gap: 10px;
   padding: 12px 16px 16px;
+}
+
+.checkout__quote-note {
+  display: flex;
+  margin: -4px 0 12px;
+  padding: 8px 10px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  color: #ba470b;
+  background: #fff6ee;
+  font-size: 12px;
+  line-height: 17px;
 }
 
 .checkout__skeleton {

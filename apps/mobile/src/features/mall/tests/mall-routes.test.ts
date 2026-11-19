@@ -10,8 +10,13 @@ import {
   buildAddressBookUrl,
   buildBuyNowCheckoutUrl,
   buildCartCheckoutUrl,
+  buildMallInquiryQuotesUrl,
+  buildMallInquiryUrl,
   buildMallProductUrl,
+  buildQuoteCheckoutUrl,
+  parseMallInquiryTarget,
 } from '../navigation/mall-routes'
+import pagesJson from '../../../pages.json?raw'
 
 describe('mall routes', () => {
   it('carries only stable ids', () => {
@@ -38,5 +43,31 @@ describe('mall routes', () => {
     expect(normalizeInspectionReturnUrl('/pages/cart/checkout?items=c1')).toBe('/pages/home/index')
     expect(normalizeInspectionReturnUrl('/pages/mall/product?productId=p1&next=https://evil.example'))
       .toBe('/pages/mall/product?productId=p1')
+  })
+})
+
+describe('goods inquiry routes (F4)', () => {
+  it('carries only stable ids and the city', () => {
+    expect(buildMallInquiryUrl({ productId: 'p 1', cityCode: '370500' })).toBe('/pages/mall/inquiry?productId=p%201&cityCode=370500')
+    expect(buildMallInquiryQuotesUrl('i-1')).toBe('/pages/mall/inquiry-quotes?inquiryId=i-1')
+    expect(buildQuoteCheckoutUrl('q-1', 'i-1', '370500')).toBe('/pages/cart/checkout?inquiryQuoteId=q-1&inquiryId=i-1&cityCode=370500')
+    expect(parseMallInquiryTarget({ productId: ' p1 ', cityCode: '370500' })).toEqual({ productId: 'p1', cityCode: '370500' })
+    expect(parseMallInquiryTarget({ productId: 'p1' })).toBeNull()
+  })
+
+  it('can be returned to after signing in', () => {
+    for (const url of [
+      buildMallInquiryUrl({ productId: 'p1', cityCode: '370500' }),
+      buildMallInquiryQuotesUrl('i1'),
+      buildQuoteCheckoutUrl('q1', 'i1', '370500'),
+    ]) {
+      expect(normalizeInspectionReturnUrl(url)).toBe(url)
+    }
+    expect(normalizeInspectionReturnUrl('/pages/mall/inquiry-quotes')).toBe('/pages/home/index')
+  })
+
+  it('registers both pages', () => {
+    expect(pagesJson).toContain('"path": "pages/mall/inquiry"')
+    expect(pagesJson).toContain('"path": "pages/mall/inquiry-quotes"')
   })
 })

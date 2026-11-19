@@ -14,7 +14,9 @@ export function createTradeKey(): string {
 export function submitSignature(input: SubmitOrderInput): string {
   const source = input.source.kind === 'CART'
     ? `cart:${[...input.source.cartItemIds].sort().join(',')}`
-    : `offer:${input.source.offerId}x${input.source.quantity}`
+    : input.source.kind === 'QUOTE'
+      ? `quote:${input.source.inquiryQuoteId}`
+      : `offer:${input.source.offerId}x${input.source.quantity}`
   return [
     input.cityCode,
     source,

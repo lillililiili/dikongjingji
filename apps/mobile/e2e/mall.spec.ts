@@ -361,7 +361,7 @@ test.describe('商品详情', () => {
     await expect(page.getByTestId('mall-category-robot')).toHaveAttribute('aria-pressed', 'true')
   })
 
-  test('MALL-102 租赁和询价商品只有“联系询价”，不能加购物车', async ({ page }) => {
+  test('MALL-102 租赁和询价商品只有“联系询价”，不能加购物车，游客先登录再进询价单', async ({ page }) => {
     await openProduct(page, DOG_ID)
     await expect(page.getByTestId('mall-product-name')).toHaveText('巡检机器狗')
     await expect(page.getByTestId('mall-product-price')).toHaveText('¥380/天')
@@ -380,9 +380,13 @@ test.describe('商品详情', () => {
     await expect(page.locator('.mall-product__offer')).toHaveCount(3)
     await expect(page.getByTestId('mall-product-cart')).toHaveCount(0)
     await expect(page.getByTestId('mall-product-primary')).toHaveText('联系询价')
-    // Inquiry-only goods still go through the typed gate.
+    // Since F4 an inquiry product first explains how its price is reached, and 联系询价 opens the
+    // goods inquiry form, which asks a guest to sign in first and comes back to itself
+    // (e2e/mall-inquiry.spec.ts covers the form).
+    await expect(page.getByTestId('mall-product-inquiry-steps')).toContainText('询价怎么走')
+    await expect(page.getByTestId('mall-product')).toContainText('可报价商家')
     await page.getByTestId('mall-product-primary').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('询价功能即将开放')
+    await expect(page).toHaveURL(/pages\/service\/inspection\/login\?returnUrl=.*mall.*inquiry/)
   })
 
   test('MALL-103 本城不卖、已下架、缺参数的链接都落到“商品不存在”，并能回商城', async ({ page }) => {

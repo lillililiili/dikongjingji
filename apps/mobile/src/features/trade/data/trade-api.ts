@@ -66,6 +66,8 @@ export function createTradeApi(request: TradeRequest): TradeApi {
       }
       if (input.source.kind === 'CART') {
         body.cartItemIds = input.source.cartItemIds
+      } else if (input.source.kind === 'QUOTE') {
+        body.inquiryQuoteId = input.source.inquiryQuoteId
       } else {
         body.offerId = input.source.offerId
         body.quantity = input.source.quantity

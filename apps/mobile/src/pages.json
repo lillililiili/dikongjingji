@@ -304,6 +304,20 @@
       }
     },
     {
+      "path": "pages/mall/inquiry",
+      "style": {
+        "navigationBarTitleText": "填写询价单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mall/inquiry-quotes",
+      "style": {
+        "navigationBarTitleText": "报价比选",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/proservice/catalog",
       "style": {
         "navigationBarTitleText": "服务目录",
