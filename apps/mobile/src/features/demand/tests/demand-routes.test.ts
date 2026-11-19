@@ -32,6 +32,11 @@ describe('demand routes', () => {
     expect(buildDemandPublishUrl({ type: 'AERIAL' })).toBe('/pages/demand/publish?type=AERIAL')
     expect(buildDemandPublishUrl({ demandId: 'd 1', type: 'AERIAL' })).toBe('/pages/demand/publish?demandId=d%201')
     expect(buildDemandPublishUrl({ from: 'd1' })).toBe('/pages/demand/publish?from=d1')
+    expect(buildDemandPublishUrl({ type: 'AERIAL', providerId: 'p 1' }))
+      .toBe('/pages/demand/publish?type=AERIAL&providerId=p%201')
+    // A draft or a copy keeps its own invitations.
+    expect(buildDemandPublishUrl({ demandId: 'd1', providerId: 'p1' })).toBe('/pages/demand/publish?demandId=d1')
+    expect(buildDemandPublishUrl({ from: 'd1', providerId: 'p1' })).toBe('/pages/demand/publish?from=d1')
     expect(buildDemandQuotesUrl('d1')).toBe('/pages/demand/quotes?demandId=d1')
     expect(buildDemandCompareUrl('d1')).toBe('/pages/demand/compare?demandId=d1')
     expect(buildMyDemandsUrl()).toBe('/pages/mine/demands')
@@ -44,6 +49,8 @@ describe('demand routes', () => {
     expect(parseDemandPublishTarget({ type: 'SUPPORT' })).toEqual({})
     expect(parseDemandPublishTarget({ from: 'd1', type: 'TECH_SUPPORT' })).toEqual({ type: 'TECH_SUPPORT', from: 'd1' })
     expect(parseDemandPublishTarget(undefined)).toEqual({})
+    expect(parseDemandPublishTarget({ type: 'AERIAL', providerId: 'p1' })).toEqual({ type: 'AERIAL', providerId: 'p1' })
+    expect(parseDemandPublishTarget({ from: 'd1', providerId: 'p1' })).toEqual({ from: 'd1' })
     expect(parseDemandListFilter('QUOTED')).toBe('QUOTED')
     expect(parseDemandListFilter('nope')).toBe('ALL')
     expect(demandStatusOfFilter('ALL')).toBeNull()
@@ -57,6 +64,7 @@ describe('demand routes', () => {
       buildDemandPublishUrl({ type: 'MAINTENANCE' }),
       buildDemandPublishUrl({ demandId: 'd1' }),
       buildDemandPublishUrl({ from: 'd1' }),
+      buildDemandPublishUrl({ type: 'SURVEY', providerId: '22222222-2222-2222-2222-222222222222' }),
       buildDemandQuotesUrl('d1'),
       buildDemandCompareUrl('d1'),
       buildMyDemandsUrl(),

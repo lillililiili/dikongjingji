@@ -145,6 +145,25 @@ test.describe('公开构建', () => {
     }
   })
 
+  test('PUB-012 四类专业服务未开通：目录、服务详情、服务商主页只有说明，巡检详情没有“查看服务商”链接', async ({ page }) => {
+    for (const route of [
+      '/pages/proservice/catalog?type=AERIAL&cityCode=370500',
+      '/pages/proservice/detail?serviceId=f2100000-0000-4000-8000-000000000001&cityCode=370500',
+      '/pages/provider/detail?providerId=22222222-2222-2222-2222-222222222222&cityCode=370500',
+    ]) {
+      await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
+      await expect(page.getByTestId('proservice-unavailable')).toContainText('专业服务目录尚未开通')
+      await expect(page.getByTestId('pro-catalog')).toHaveCount(0)
+      await expect(page.getByTestId('pro-detail')).toHaveCount(0)
+      await expect(page.getByTestId('provider-page')).toHaveCount(0)
+    }
+
+    const detail = '/pages/service/inspection/detail?serviceId=66666666-6666-6666-6666-666666666666&cityCode=370500'
+    await page.goto(`/?r=${encodeURIComponent(detail)}#${detail}`)
+    await expect(page.locator('.service-detail-hero__provider')).toBeVisible()
+    await expect(page.getByTestId('detail-open-provider')).toHaveCount(0)
+  })
+
   test('PUB-010 到馆预约未开通：“我的”里没有入口，确认页、核销码、我的到馆预约只有说明', async ({ page }) => {
     await page.goto('/#/pages/mine/index')
     await expect(page.locator('.platform-mine__status-card')).toBeVisible()

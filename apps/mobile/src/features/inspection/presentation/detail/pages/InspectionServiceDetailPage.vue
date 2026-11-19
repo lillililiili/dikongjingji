@@ -42,8 +42,13 @@ const canRetryLoad = ref(false)
 const hasDetail = computed(() => Boolean(detail.value.serviceId))
 // A reservation needs at least one item, so a service without any cannot be booked.
 const canReserve = computed(() => Boolean(routeServiceId.value && detail.value.inspectionItems.length))
+const props = defineProps<{
+  // The provider page belongs to the professional-service catalog (F2, preview builds).
+  providerPageEnabled?: boolean
+}>()
 const emit = defineEmits<{
   reserve: [intent: ReserveServiceIntent]
+  openProvider: [providerId: string, cityCode: string]
 }>()
 
 onLoad((query: DetailRouteQuery | undefined) => {
@@ -140,7 +145,11 @@ function reserveService(): void {
       v-if="hasDetail"
       class="inspection-service-detail__content"
     >
-      <ServiceDetailHero :detail="detail" />
+      <ServiceDetailHero
+        :detail="detail"
+        :provider-link-enabled="props.providerPageEnabled"
+        @open-provider="emit('openProvider', $event, detailCityCode)"
+      />
       <ServicePricingCard :detail="detail" />
       <InspectionScope
         v-if="detail.inspectionItems.length"

@@ -16,6 +16,9 @@ export interface DemandPublishTarget {
   type?: DemandType
   // A new demand filled from an earlier one (重新发布).
   from?: string
+  // A new demand that invites this provider only (发布需求 on a service or provider page). The
+  // page still checks the provider against the inviteable list of the city and type.
+  providerId?: string
 }
 
 // Only stable ids and the type travel in the URL; the page reads the demand from the server.
@@ -24,6 +27,9 @@ export function buildDemandPublishUrl(target: DemandPublishTarget = {}): string 
   if (target.demandId) parameters.push(`demandId=${encodeURIComponent(target.demandId)}`)
   else if (target.from) parameters.push(`from=${encodeURIComponent(target.from)}`)
   if (!target.demandId && target.type) parameters.push(`type=${target.type}`)
+  if (!target.demandId && !target.from && target.providerId) {
+    parameters.push(`providerId=${encodeURIComponent(target.providerId)}`)
+  }
   return parameters.length ? `${DEMAND_PUBLISH_PATH}?${parameters.join('&')}` : DEMAND_PUBLISH_PATH
 }
 
@@ -33,9 +39,11 @@ export function parseDemandPublishTarget(query: Record<string, unknown> | undefi
   if (demandId) return { demandId }
   const type = read('type')
   const from = read('from')
+  const providerId = from ? '' : read('providerId')
   return {
     ...(isDemandType(type) ? { type } : {}),
     ...(from ? { from } : {}),
+    ...(providerId ? { providerId } : {}),
   }
 }
 

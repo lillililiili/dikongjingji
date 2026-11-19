@@ -12,6 +12,7 @@ import {
   formFromDemand,
   formatDemandBudget,
   formatDemandDueDate,
+  preselectInvitedProvider,
   switchDemandType,
   toDemandDraftInput,
   toggleDemandDeliverable,
@@ -64,6 +65,22 @@ describe('demand form', () => {
     expect(toggleInvitedProvider(form, PROVIDER('b')).invited.map((item) => item.providerId)).toEqual(['a', 'c'])
     expect(changeDemandCity(form, CITY).invited).toHaveLength(3)
     expect(changeDemandCity(form, { code: '370100', name: '济南市' }).invited).toEqual([])
+  })
+
+  // 发布需求 on a service or provider page: 仅邀请这家 only when the city's list has the provider.
+  it('preselects the provider of a service page only when it can be invited', () => {
+    const form = createDemandForm('AERIAL', CITY)
+    const listed = [PROVIDER('a'), PROVIDER('b')]
+    const picked = preselectInvitedProvider(form, listed, 'b')
+    expect(picked.found).toBe(true)
+    expect(picked.form.quoteScope).toBe('INVITE')
+    expect(picked.form.invited).toEqual([PROVIDER('b')])
+    expect(toDemandDraftInput(picked.form).invitedProviderIds).toEqual(['b'])
+
+    const missing = preselectInvitedProvider(form, listed, 'z')
+    expect(missing.found).toBe(false)
+    expect(missing.form).toBe(form)
+    expect(missing.form.quoteScope).toBe('MATCH')
   })
 
   it('finds the first missing field top to bottom, like the server', () => {

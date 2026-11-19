@@ -5,10 +5,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { buildDemandPublishUrl } from '@/features/demand/navigation/demand-routes'
 import type { DemandType } from '@/features/demand/domain/demand'
 import { InspectionPortalPage } from '@/features/inspection/presentation/public'
-import { loadPlatformServiceContent } from '@/features/platform/application/load-platform-service-content'
 import { createPlatformFeatureGateway } from '@/features/platform/application/platform-feature-gateway'
 import { PLATFORM_PREVIEW_ENABLED } from '@/features/platform/application/platform-preview'
-import { developmentPlatformContentRepository } from '@/features/platform/data/development/development-platform-content-repository'
 import {
   DEFAULT_PLATFORM_CHANNEL,
   PLATFORM_SERVICE_CHANNELS,
@@ -16,10 +14,20 @@ import {
   type PlatformChannelCode,
 } from '@/features/platform/domain/platform-channel'
 import { resolvePlatformSwipeTarget } from '@/features/platform/domain/platform-channel-swipe'
-import type { PlatformContentRepository } from '@/features/platform/domain/platform-content-repository'
 import type { PlatformFeatureIntent } from '@/features/platform/domain/platform-feature-intent'
-import type { PlatformServiceChannelContent as PlatformServiceChannelViewContent } from '@/features/platform/domain/platform-service-content'
-import PlatformServiceChannelContent from '@/features/platform/presentation/service/PlatformServiceChannelContent.vue'
+import {
+  PLATFORM_SERVICE_CHANNEL_CONTENT,
+  PLATFORM_SERVICE_PREVIEW_SIZE,
+  type PlatformServiceChannelContent as PlatformServiceChannelViewContent,
+} from '@/features/platform/domain/platform-service-content'
+import PlatformServiceChannelContent, {
+  type PlatformServiceListState,
+} from '@/features/platform/presentation/service/PlatformServiceChannelContent.vue'
+import { proServiceApi } from '@/features/proservice/data/proservice-api-client'
+import {
+  buildProServiceCatalogUrl,
+  buildProServiceDetailUrl,
+} from '@/features/proservice/navigation/proservice-routes'
 
 interface PlatformTouchPoint {
   clientX: number
@@ -28,6 +36,7 @@ interface PlatformTouchPoint {
 
 const props = defineProps<{
   active: boolean
+  cityCode: string
 }>()
 
 const emit = defineEmits<{
@@ -35,7 +44,7 @@ const emit = defineEmits<{
 }>()
 
 const activeChannel = ref<PlatformChannelCode>(DEFAULT_PLATFORM_CHANNEL)
-const channelContent = ref<PlatformServiceChannelViewContent | null>(null)
+const channelList = ref<PlatformServiceListState>({ kind: 'loading' })
 const currentScrollTop = ref(0)
 const contentTouchStart = ref<PlatformTouchPoint | null>(null)
 const scrollPositions = new Map<PlatformChannelCode, number>()
@@ -50,55 +59,58 @@ const activeChannelLabel = computed(() =>
   PLATFORM_SERVICE_CHANNELS.find((channel) =>
     channel.code === activeChannel.value)?.label ?? '',
 )
-// Publishing a demand (F1) is open in preview builds; public builds keep the entries hidden.
+// The copy of the open type; null on inspection, which has its own portal.
+const channelContent = computed<PlatformServiceChannelViewContent | null>(() =>
+  activeChannel.value === 'INSPECTION' ? null : PLATFORM_SERVICE_CHANNEL_CONTENT[activeChannel.value])
+// The four types (their lists, the catalog and publishing a demand) are open in preview builds;
+// public builds keep them hidden.
 const featureGateway = createPlatformFeatureGateway(PLATFORM_PREVIEW_ENABLED
   ? {
-      SEARCH: 'NEXT_PHASE',
-      OPEN_ITEM: 'NEXT_PHASE',
+      SEARCH: 'ENABLED',
       PUBLISH_DEMAND: 'ENABLED',
     }
   : {
       SEARCH: 'HIDDEN',
-      OPEN_ITEM: 'HIDDEN',
       PUBLISH_DEMAND: 'HIDDEN',
     })
 
-function createContentRepository(): PlatformContentRepository | null {
-  return PLATFORM_PREVIEW_ENABLED ? developmentPlatformContentRepository : null
-}
-
+// The first few services of the open type in the App's city (查看全部服务 opens the catalog).
 async function loadChannelContent(): Promise<boolean> {
   const requestedChannel = activeChannel.value
   const requestVersion = ++channelRequestVersion
-  if (requestedChannel === 'INSPECTION') {
-    channelContent.value = null
-    return true
+  const content = channelContent.value
+  if (!content) return true
+  channelList.value = { kind: 'loading' }
+  try {
+    const page = await proServiceApi.listServices({
+      type: content.serviceType,
+      cityCode: props.cityCode,
+      keyword: '',
+      facet: null,
+      priceMode: null,
+      sort: 'DEFAULT',
+    }, 1, PLATFORM_SERVICE_PREVIEW_SIZE)
+    if (requestVersion !== channelRequestVersion || requestedChannel !== activeChannel.value) return false
+    channelList.value = { kind: 'ready', page }
+  } catch {
+    if (requestVersion !== channelRequestVersion || requestedChannel !== activeChannel.value) return false
+    channelList.value = { kind: 'error' }
   }
-  const result = await loadPlatformServiceContent(
-    requestedChannel,
-    createContentRepository(),
-  )
-  if (requestVersion !== channelRequestVersion || requestedChannel !== activeChannel.value) {
-    return false
-  }
-  channelContent.value = result.kind === 'ready' ? result.content : null
   return true
 }
 
 // Only inspection searches the home catalog, so other types take over the search box.
 function reportSearchPlaceholder(): void {
-  emit('searchPlaceholderChange', activeChannel.value === 'INSPECTION'
-    ? null
-    : channelContent.value?.searchPlaceholder ?? `搜索${activeChannelLabel.value}服务`)
+  emit('searchPlaceholderChange', channelContent.value?.searchPlaceholder ?? null)
 }
 
 async function selectChannel(channel: PlatformChannelCode): Promise<void> {
   if (!visibleChannels.includes(channel)) return
   scrollPositions.set(activeChannel.value, currentScrollTop.value)
   activeChannel.value = channel
+  reportSearchPlaceholder()
   const loaded = await loadChannelContent()
   if (!loaded) return
-  reportSearchPlaceholder()
   await nextTick()
   if (channel !== activeChannel.value) return
   uni.pageScrollTo({
@@ -118,16 +130,45 @@ const DEMAND_TYPE_OF_CHANNEL: Record<PlatformChannelCode, DemandType> = {
 const inspectionRequestShown =
   featureGateway.resolve({ type: 'PUBLISH_DEMAND', channel: 'INSPECTION' }).action === 'EXECUTE'
 
+function openCatalog(channel: PlatformChannelCode, keyword = ''): void {
+  if (channel === 'INSPECTION') return
+  uni.navigateTo({
+    url: buildProServiceCatalogUrl({
+      type: PLATFORM_SERVICE_CHANNEL_CONTENT[channel].serviceType,
+      cityCode: props.cityCode,
+      keyword,
+    }),
+  })
+}
+
+function openService(serviceId: string): void {
+  uni.navigateTo({ url: buildProServiceDetailUrl(serviceId, props.cityCode) })
+}
+
 function handleIntent(intent: PlatformFeatureIntent): void {
   const resolution = featureGateway.resolve(intent)
   if (resolution.action === 'SHOW_NEXT_PHASE') {
     uni.showToast({ title: resolution.message, icon: 'none' })
     return
   }
-  if (resolution.action === 'EXECUTE' && intent.type === 'PUBLISH_DEMAND') {
+  if (resolution.action !== 'EXECUTE') return
+  if (intent.type === 'PUBLISH_DEMAND') {
     uni.navigateTo({ url: buildDemandPublishUrl({ type: DEMAND_TYPE_OF_CHANNEL[intent.channel] }) })
   }
+  if (intent.type === 'SEARCH') openCatalog(intent.channel)
 }
+
+// The home search box while one of the four types is open: the type's catalog with the keyword.
+// False on inspection, whose search the home page handles itself.
+function searchServices(keyword: string): boolean {
+  if (activeChannel.value === 'INSPECTION') return false
+  const resolution = featureGateway.resolve({ type: 'SEARCH', channel: activeChannel.value })
+  if (resolution.action !== 'EXECUTE') return false
+  openCatalog(activeChannel.value, keyword)
+  return true
+}
+
+defineExpose({ searchServices })
 
 function firstTouch(event: TouchEvent): PlatformTouchPoint | null {
   return event.changedTouches[0] ?? event.touches[0] ?? null
@@ -159,8 +200,13 @@ function finishContentSwipe(event: TouchEvent): void {
 watch(() => props.active, (active) => {
   if (active || activeChannel.value === DEFAULT_PLATFORM_CHANNEL) return
   activeChannel.value = DEFAULT_PLATFORM_CHANNEL
-  channelContent.value = null
+  channelList.value = { kind: 'loading' }
   reportSearchPlaceholder()
+})
+
+// A new city reads the open type's services again.
+watch(() => props.cityCode, () => {
+  if (activeChannel.value !== 'INSPECTION') void loadChannelContent()
 })
 
 // The channel stays mounted behind v-show, so scrolling on other home channels must not count here.
@@ -207,26 +253,11 @@ onPageScroll(({ scrollTop }) => {
         v-else-if="channelContent"
         :content="channelContent"
         :type-label="activeChannelLabel"
+        :list="channelList"
         @intent="handleIntent"
+        @open-service="openService"
+        @retry="loadChannelContent"
       />
-      <view
-        v-else
-        class="service-channel__notice"
-        data-testid="service-channel-notice"
-      >
-        <text class="service-channel__notice-title">
-          {{ activeChannelLabel }}服务
-        </text>
-        <text class="service-channel__notice-copy">
-          该类服务按项目报价，发布需求后由已审核的服务商报价
-        </text>
-        <button
-          class="service-channel__notice-action"
-          @click="handleIntent({ type: 'PUBLISH_DEMAND', channel: activeChannel })"
-        >
-          发布需求
-        </button>
-      </view>
     </main>
   </view>
 </template>
@@ -304,40 +335,5 @@ button::after {
   margin: 0 auto;
   padding: 4px var(--app-page-horizontal-gutter) 12px;
   box-sizing: border-box;
-}
-
-.service-channel__notice {
-  display: flex;
-  padding: 14px;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  border-radius: 14px;
-  background: #ffffff;
-}
-
-.service-channel__notice-title {
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 24px;
-}
-
-.service-channel__notice-copy {
-  color: #666b73;
-  font-size: 13px;
-  line-height: 19px;
-}
-
-.service-channel__notice-action {
-  display: inline-flex;
-  height: 44px;
-  margin-top: 8px;
-  padding: 0 24px;
-  align-items: center;
-  border-radius: 999px;
-  color: #ffffff;
-  background: #ff6a00;
-  font-size: 15px;
-  font-weight: 500;
 }
 </style>

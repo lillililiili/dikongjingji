@@ -483,13 +483,14 @@ test.describe('专业服务子类型', () => {
     await expect(page).toHaveURL(/login\?returnUrl=.*demand.*publish.*AERIAL/)
     await page.goBack()
     await expect(page.getByTestId('service-type-aerial')).toHaveClass(/service-channel__type--active/)
-    const url = page.url()
+    // The search box of a type opens that type's catalog (F2); proservice.spec.ts follows it.
     await page.getByTestId('home-search-submit').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')
-    expect(page.url()).toBe(url)
+    await expect(page).toHaveURL(/proservice\/catalog\?type=AERIAL&cityCode=/)
+    await page.getByTestId('pro-catalog-back').click()
+    await expect(page.getByTestId('service-type-aerial')).toHaveClass(/service-channel__type--active/)
 
     await page.getByTestId('service-type-survey').click()
-    await expect(page.getByTestId('service-channel-notice')).toBeVisible()
+    await expect(page.getByTestId('service-entry-survey')).toBeVisible()
     await expect(placeholder).toContainText('搜索测绘服务')
 
     await page.getByTestId('home-channel-recommend').click()

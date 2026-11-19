@@ -24,6 +24,7 @@ import {
   formFromDemand,
   formatDemandBudget,
   formatDemandDueDate,
+  preselectInvitedProvider,
   switchDemandType,
   toDemandDraftInput,
   toggleDemandDeliverable,
@@ -201,7 +202,9 @@ async function load(): Promise<void> {
       form.value = createDemandForm(props.target.type ?? 'INSPECTION', currentFormCity())
       demandId.value = null
       await loadPublisher(token)
-      if (requested === requestVersion) state.value = { kind: 'form' }
+      if (requested !== requestVersion) return
+      state.value = { kind: 'form' }
+      if (props.target.providerId) await preselectProvider(props.target.providerId, requested)
       return
     }
     const demand = await demandApi.read(token, source)
@@ -309,6 +312,25 @@ async function loadProviders(): Promise<void> {
     }
     providersState.value = 'error'
   }
+}
+
+// Opened from a service or provider page: 仅邀请这家 when the provider can be invited for this
+// city and type, which the server's inviteable list decides; 平台匹配 otherwise, with a word why.
+async function preselectProvider(providerId: string, requested: number): Promise<void> {
+  const city = form.value.city
+  if (!city) return
+  await loadProviders()
+  if (requested !== requestVersion || form.value.city?.code !== city.code || form.value.invited.length) return
+  if (providersState.value !== 'ready') {
+    show('没能确认要邀请的服务商，报价范围先按平台匹配', 'info')
+    return
+  }
+  const picked = preselectInvitedProvider(form.value, providers.value, providerId)
+  if (!picked.found) {
+    show(`这家服务商暂不接${cityShort.value}的${info.value.label}需求，报价范围先按平台匹配`, 'info')
+    return
+  }
+  form.value = picked.form
 }
 
 function pickScope(scope: 'MATCH' | 'INVITE'): void {
@@ -460,7 +482,7 @@ function providerLine(provider: DemandProvider): string {
   return [provider.certificationLabel, provider.description].filter(Boolean).join(' · ')
 }
 
-watch(() => [props.accessToken, props.target.demandId, props.target.from, props.target.type], () => {
+watch(() => [props.accessToken, props.target.demandId, props.target.from, props.target.type, props.target.providerId], () => {
   void load()
 }, { immediate: true })
 </script>

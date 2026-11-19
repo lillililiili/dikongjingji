@@ -74,6 +74,7 @@ const experienceChannelOpened = ref(activeChannel.value === 'EXPERIENCE')
 const experienceChannel = ref<{ loadMore(): Promise<void> } | null>(null)
 const mallChannelOpened = ref(activeChannel.value === 'MALL')
 const mallChannel = ref<{ loadMore(): Promise<void> } | null>(null)
+const serviceChannel = ref<{ searchServices(keyword: string): boolean } | null>(null)
 // Set when a home entry asks for one mall category; the token makes a repeated request count.
 const requestedMallCategory = ref<{ category: HomeMallCategory; token: number } | null>(null)
 // The search box searches the mall while the mall channel is showing; an empty keyword ends it.
@@ -212,6 +213,8 @@ function submitSearch(): void {
     searchMall(keyword.value)
     return
   }
+  // Aerial, survey, maintenance and support search their own catalog (F2, preview builds).
+  if (activeChannel.value === 'SERVICE' && serviceChannel.value?.searchServices(keyword.value)) return
   if (
     isHomeChannelSearchable(activeChannel.value)
     && serviceSearchPlaceholder.value === null
@@ -334,7 +337,9 @@ onHide(() => {
       v-show="activeChannel === 'SERVICE'"
     >
       <PlatformServiceChannel
+        ref="serviceChannel"
         :active="activeChannel === 'SERVICE'"
+        :city-code="currentCityStore.currentCity.code"
         @search-placeholder-change="serviceSearchPlaceholder = $event"
       />
     </view>

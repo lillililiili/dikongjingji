@@ -4,7 +4,7 @@ import homeRouteSource from '../../../pages/home/index.vue?raw'
 import inspectionRouteSource from '../../../pages/service/inspection/index.vue?raw'
 import serviceRouteSource from '../../../pages/service/index.vue?raw'
 import previewSource from '../application/platform-preview.ts?raw'
-import serviceFixtureSource from '../data/development/platform-service.fixture.ts?raw'
+import serviceContentSource from '../domain/platform-service-content.ts?raw'
 import channelContentSource from '../presentation/service/PlatformServiceChannelContent.vue?raw'
 import servicePageSource from '../presentation/service/PlatformServiceChannel.vue?raw'
 import platformChannelSource from '../domain/platform-channel.ts?raw'
@@ -28,20 +28,29 @@ describe('platform service page integration', () => {
     )
   })
 
-  it('uses a side-effect-free static development import so App-Plus does not split code', () => {
+  it('reads the four types from the catalog API, not from development fixtures', () => {
     expect(previewSource).toContain(
       "export const PLATFORM_PREVIEW_ENABLED = import.meta.env.DEV || import.meta.env.VITE_PLATFORM_PREVIEW_ENABLED === 'true'",
     )
     expect(servicePageSource).toContain('PLATFORM_PREVIEW_ENABLED')
     expect(servicePageSource).not.toContain('import.meta.env.DEV')
-    expect(servicePageSource).toContain(
-      "import { developmentPlatformContentRepository } from '@/features/platform/data/development/development-platform-content-repository'",
-    )
+    expect(servicePageSource).toContain('proServiceApi.listServices(')
+    expect(servicePageSource).toContain('PLATFORM_SERVICE_PREVIEW_SIZE')
+    expect(servicePageSource).not.toContain('data/development')
+    expect(servicePageSource).not.toContain('fixture')
     expect(servicePageSource).not.toContain('await import(')
-    expect(servicePageSource).not.toContain("import('@/features/platform/data/development")
   })
 
-  it('preserves channel scroll while loading static preview content', () => {
+  it('sends 查看全部服务 and the search box of a type to its catalog with the city', () => {
+    expect(servicePageSource).toContain('buildProServiceCatalogUrl({')
+    expect(servicePageSource).toContain('cityCode: props.cityCode')
+    expect(servicePageSource).toContain('defineExpose({ searchServices })')
+    expect(servicePageSource).toContain("if (activeChannel.value === 'INSPECTION') return false")
+    expect(homeRouteSource).toContain("serviceChannel.value?.searchServices(keyword.value)")
+    expect(homeRouteSource).toContain(':city-code="currentCityStore.currentCity.code"')
+  })
+
+  it('preserves channel scroll while loading a type', () => {
     expect(servicePageSource).toContain('onPageScroll')
     expect(servicePageSource).toContain('uni.pageScrollTo')
   })
@@ -70,7 +79,7 @@ describe('platform service page integration', () => {
 
   it('hands the search box to the open service type and resets it when leaving', () => {
     expect(servicePageSource).toContain("emit('searchPlaceholderChange'")
-    expect(servicePageSource).toContain('channelContent.value?.searchPlaceholder')
+    expect(servicePageSource).toContain('channelContent.value?.searchPlaceholder ?? null')
     expect(servicePageSource).toMatch(
       /watch\(\(\) => props\.active, \(active\) => \{\s*if \(active \|\| activeChannel\.value === DEFAULT_PLATFORM_CHANNEL\) return/,
     )
@@ -128,23 +137,27 @@ describe('platform service visual contract', () => {
     expect(channelContentSource).not.toContain('持证飞手')
   })
 
-  // The earlier preview page showed made-up prices, ratings and sales for aerial services.
-  it('shows no price, rating or sales figure for types that have no catalog', () => {
-    for (const source of [channelContentSource, serviceFixtureSource]) {
+  // Prices come from the server's cards only; the channel itself writes no figure, rating or sales.
+  it('shows no price, rating or sales figure of its own', () => {
+    for (const source of [channelContentSource, serviceContentSource]) {
       expect(source).not.toContain('¥')
       expect(source).not.toContain('rating')
       expect(source).not.toContain('已售')
     }
   })
 
-  it('follows the prototype entry: guarantee line, one request card, service flow', () => {
+  it('follows the prototype entry: guarantee line, the type\'s services, request strip, service flow', () => {
     expect(channelContentSource).not.toContain('<PlatformHeroBanner')
+    expect(channelContentSource).toContain('<ProServiceCard')
     expect(channelContentSource).toContain("emit('intent', { type: 'PUBLISH_DEMAND', channel: content.code })")
     expect(channelContentSource).toContain("emit('intent', { type: 'SEARCH', channel: content.code })")
-    expect(serviceFixtureSource).toContain("guarantees: ['资质审核', '服务记录', '报价留档']")
+    expect(channelContentSource).toContain('closedCityText(list.page.cityName, list.page.type)')
+    expect(serviceContentSource).toContain("guarantees: ['资质审核', '服务记录', '报价留档']")
     for (const code of ['AERIAL', 'SURVEY', 'MAINTENANCE', 'SUPPORT']) {
-      expect(serviceFixtureSource).toContain(`code: '${code}'`)
+      expect(serviceContentSource).toContain(`code: '${code}'`)
     }
+    // Support is filed as TECH_SUPPORT in the catalog and the demand form.
+    expect(serviceContentSource).toContain("serviceType: 'TECH_SUPPORT'")
   })
 
 })

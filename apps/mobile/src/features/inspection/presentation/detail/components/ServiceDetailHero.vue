@@ -6,7 +6,17 @@ import type { InspectionServiceDetail } from '../../../domain/inspection-service
 
 const props = defineProps<{
   detail: InspectionServiceDetail
+  // Whether the provider page is open (preview builds, F2); without it the row is not a link.
+  providerLinkEnabled?: boolean
 }>()
+
+const emit = defineEmits<{
+  openProvider: [providerId: string]
+}>()
+
+function openProvider(): void {
+  if (props.providerLinkEnabled && props.detail.provider) emit('openProvider', props.detail.provider.id)
+}
 
 const serviceCitiesLabel = computed(() =>
   props.detail.serviceCityNames.length
@@ -120,8 +130,14 @@ const priceLabel = computed(() => {
             </text>
           </view>
         </view>
-        <text class="service-detail-hero__provider-link">查看服务商</text>
-        <UniIcons type="right" size="12" color="#627187" />
+        <button
+          v-if="providerLinkEnabled"
+          class="service-detail-hero__provider-link"
+          data-testid="detail-open-provider"
+          @click="openProvider"
+        >
+          查看服务商 ›
+        </button>
       </view>
     </view>
   </view>
@@ -315,9 +331,20 @@ const priceLabel = computed(() => {
 }
 
 .service-detail-hero__provider-link {
+  height: 44px;
   flex: 0 0 auto;
+  margin: 0;
+  padding: 0 0 0 4px;
+  border: 0;
   color: #627187;
+  background: transparent;
+  font-family: inherit;
   font-size: 13px;
-  line-height: 18px;
+  line-height: 44px;
+  white-space: nowrap;
+}
+
+.service-detail-hero__provider-link::after {
+  border: 0;
 }
 </style>

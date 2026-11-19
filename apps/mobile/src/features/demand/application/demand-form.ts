@@ -110,6 +110,18 @@ export function toggleInvitedProvider(form: DemandForm, provider: DemandProvider
   return { ...form, invited }
 }
 
+// 发布需求 from a service or provider page: 仅邀请这家, but only when the provider is on the
+// inviteable list of the form's city and type; otherwise the form stays on 平台匹配.
+export function preselectInvitedProvider(
+  form: DemandForm,
+  providers: readonly DemandProvider[],
+  providerId: string,
+): { form: DemandForm; found: boolean } {
+  const provider = providers.find((item) => item.providerId === providerId)
+  if (!provider) return { form, found: false }
+  return { form: { ...form, quoteScope: 'INVITE', invited: [provider] }, found: true }
+}
+
 export function toDemandDraftInput(form: DemandForm): DemandDraftInput {
   return {
     type: form.type,

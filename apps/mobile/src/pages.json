@@ -269,6 +269,27 @@
       }
     },
     {
+      "path": "pages/proservice/catalog",
+      "style": {
+        "navigationBarTitleText": "服务目录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/proservice/detail",
+      "style": {
+        "navigationBarTitleText": "服务详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/provider/detail",
+      "style": {
+        "navigationBarTitleText": "服务商主页",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/play/index",
       "style": {
         "navigationBarTitleText": "趣玩挑战",
