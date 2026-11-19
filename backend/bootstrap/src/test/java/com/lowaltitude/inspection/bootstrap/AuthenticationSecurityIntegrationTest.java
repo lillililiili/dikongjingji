@@ -343,6 +343,64 @@ class AuthenticationSecurityIntegrationTest {
         }
     }
 
+    // 需求与报价（F1）的十四个接口全部要登录，没有公开的。
+    @Test
+    void demandRoutesRequireALogin() throws Exception {
+        String demand = "/api/v1/demands/d1000000-0000-4000-8000-000000000001";
+        String providerDemand = "/api/v1/provider/demands/d1000000-0000-4000-8000-000000000001";
+
+        for (var request : List.of(
+                post("/api/v1/demands"),
+                get("/api/v1/demands"),
+                get(demand),
+                put(demand),
+                delete(demand),
+                post(demand + "/submit"),
+                post(demand + "/cancel"),
+                get(demand + "/quotes"),
+                post(demand + "/choice"),
+                get("/api/v1/demand-providers"),
+                get("/api/v1/provider/demands"),
+                get(providerDemand),
+                put(providerDemand + "/quote"),
+                delete(providerDemand + "/quote"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+    }
+
+    // 客户的需求按令牌里的账号读；服务商按令牌里的机构读；角色不对时 403，服务不被调用。
+    @Test
+    void demandRoutesUseTheSubjectRolesAndOrganizationOfTheToken() throws Exception {
+        com.lowaltitude.inspection.demand.application.DemandService demands = applicationContext.getBean(
+                com.lowaltitude.inspection.demand.application.DemandService.class);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+
+        mockMvc.perform(get("/api/v1/demands").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/provider/demands").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/demand-providers?cityCode=370500")
+                        .header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(demands).list(SUBJECT_ID, null, 1, 20);
+        org.mockito.Mockito.verify(demands).listForProvider(ORGANIZATION_ID, 1, 20);
+        org.mockito.Mockito.verify(demands).invitableProviders("370500", null);
+
+        mockMvc.perform(get("/api/v1/provider/demands").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        mockMvc.perform(get("/api/v1/demands").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        org.mockito.Mockito.verifyNoMoreInteractions(demands);
+    }
+
     // 登录后账号、角色、机构都取自令牌：客户读自己的参与人，服务商操作员按本机构核销，互相不能越界。
     @Test
     void venueBookingUsesTheSubjectRolesAndOrganizationOfTheToken() throws Exception {
@@ -1156,6 +1214,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.demand.application.DemandService testDemandService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.demand.application.DemandService.class);
         }
 
         @Bean

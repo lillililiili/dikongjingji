@@ -1,0 +1,1534 @@
+openapi: 3.1.0
+info:
+  title: Demand API
+  version: 1.0.0
+  description: |-
+    1.0.0（步骤 F1，docs/redesign/03-App实现任务计划.md §22）：需求发布与报价比选。
+    客户发布一份需求（巡检、航拍、测绘、设备维护、技术支持）→ 服务商报价（截止前可以改价、撤回）→ 客户比选并选定一家。
+    停在“选定报价”：不建付款单，不建服务订单，金额只做展示和比较。
+
+    Every route needs a login (bearer JWT). The customer routes (/api/v1/demands…) also need the CUSTOMER role;
+    /api/v1/demand-providers needs only a login; the provider routes (/api/v1/provider/demands…) need the
+    PROVIDER_OPERATOR role and an organization in the access token. The account and the provider are always
+    taken from the token: no parameter names another account, and a demand of another account is answered as
+    not found.
+
+    需求规则：
+    - 发布身份：账号的默认组织是客户组织时，需求记在组织名下（publisher.kind = ORGANIZATION，页面显示“企业 · 组织名”），
+      否则是个人（PERSONAL）。组织名是发布时的快照。
+    - 标题由服务端按类型给出：“{类型名}需求”，比如“巡检需求”。
+    - 草稿（DRAFT）可以不完整，只要有类型；内容填了就要合法（长度、城市在平台城市目录里、交付物属于这个类型、预算 min ≤ max）。
+      提交时再按页面从上到下检查必填项：服务城市、服务地点、作业范围、期望完成日期不早于今天（北京时间）、至少一项交付物、
+      “仅邀请”时 1–3 家服务这个城市的服务商；第一处不满足的返回 422 DEMAND_INCOMPLETE，details.field 是请求里的字段名。
+    - 期望完成日期可以不填，表示时间可协商。预算两头都可以不填（面议）；填了单位是分。
+    - 报价范围：MATCH 平台匹配（发布城市里有服务商资料、有在用服务覆盖这个城市的服务商都能看到并报价），
+      INVITE 仅邀请（只有被邀请的 1–3 家能看到）。
+    - 提交后状态 OPEN（待报价），报价截止时间 quoteDeadline 是提交后 72 小时。收到至少一份有效报价时变成 QUOTED（报价中）；
+      有效报价都撤回了又回到 OPEN。截止时仍是 OPEN（没有有效报价）的需求由定时任务关闭：CLOSED，closeReason = NO_QUOTES，
+      并给发布人发一条站内信。截止后不再收新报价、不能改价，但客户在每份报价的有效期内仍可以选。
+    - 选定之前（OPEN、QUOTED）可以取消：CLOSED，closeReason = CANCELLED，还有效的报价随之关闭。只有草稿可以删除；
+      提交后不能再改内容。
+    - 选定一份报价：需求变成 CHOSEN（已选定），被选的报价 CHOSEN（已选中），其余还有效的 NOT_CHOSEN（未选中）。
+      要带上读需求时的 ETag（If-Match）和报价的版本号；同一份同一版重复选定原样返回。
+
+    报价规则：
+    - 一家服务商对一份需求只有一份报价（quoteId 不变），截止前可以改：内容变了版本号加 1，客户看到的是最新一版；
+      内容和现在的有效报价一样时没有变化。撤回后截止前可以再报（版本号继续加）。被选中或需求结束后不能改、不能撤回。
+    - 金额是分，大于 0；做法不超过 40 个字，排期不超过 60 个字，交付物说明不超过 120 个字，工期 1–3650 天；
+      有效期晚于现在、不超过 30 天。过了有效期的报价读成 EXPIRED，不能选。
+    - 服务商有了报价后，它报过价的需求一直能看到（看结果）；还在收报价的需求按平台匹配或邀请看到。
+      服务商只看到需求内容：没有发布人的账号、组织、联系方式。
+    - 客户收到新报价（第一次报价，或撤回后重新报价）时有一条站内信（contracts/openapi-notification.yaml 的 DEMAND_QUOTE），
+      改价不再发。站内信里只有需求标题，没有服务商的信息。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/demands:
+    post:
+      operationId: createDemand
+      summary: 新建需求（草稿），可以同一步提交
+      description: >-
+        submit 为 true 时同一步提交：必填项不满足时整步回滚（不留草稿），返回 422。
+        同一个 Idempotency-Key 带同样的内容重复请求，返回第一次的需求（200）；换了内容是 409 DEMAND_IDEMPOTENCY_KEY_REUSED。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDemandRequest"
+      responses:
+        "201":
+          description: 新建的需求
+          headers:
+            ETag:
+              $ref: "#/components/headers/DemandETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+        "200":
+          description: 同一个幂等键重放，返回第一次的需求
+          headers:
+            ETag:
+              $ref: "#/components/headers/DemandETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+        "400":
+          description: >-
+            缺少或不是 UUID 的 Idempotency-Key；没有类型或类型、报价范围、交付物编码不认识；交付物不属于这个类型或重复；
+            城市编码不在平台城市目录里；文字超长或含控制字符；期望日期不是 YYYY-MM-DD；预算无效或 min > max；
+            邀请超过 3 家、重复或不是服务商（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: DEMAND_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用于内容不同的请求。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          $ref: "#/components/responses/Incomplete"
+    get:
+      operationId: listMyDemands
+      summary: 我发布的需求（“我的 → 需求与报价”）
+      description: 最近更新的在前（草稿按最近保存）。status 不传时全部，含草稿。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/DemandStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 一页需求
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemandPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/demands/{demandId}:
+    get:
+      operationId: getMyDemand
+      summary: 我的一份需求
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+      responses:
+        "200":
+          description: 需求；ETag 是需求版本，选定时用 If-Match 带回来
+          headers:
+            ETag:
+              $ref: "#/components/headers/DemandETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateMyDraft
+      summary: 改草稿（整份替换）
+      description: 只能改草稿；交付物和邀请按这次请求整份替换。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDemandRequest"
+      responses:
+        "200":
+          description: 改好的草稿
+          headers:
+            ETag:
+              $ref: "#/components/headers/DemandETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+        "400":
+          description: 需求 ID 无效，或内容无效（规则同新建，COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: DEMAND_STATE_INVALID：需求已经提交，不能再改。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteMyDraft
+      summary: 删除草稿
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+      responses:
+        "204":
+          description: 已删除
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: DEMAND_STATE_INVALID：只有草稿能删除，提交过的需求可以取消。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/demands/{demandId}/submit:
+    post:
+      operationId: submitMyDraft
+      summary: 提交草稿
+      description: >-
+        检查必填项后变成 OPEN，报价截止时间是现在起 72 小时。已经提交过的需求原样返回（重复提交没有变化）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+      responses:
+        "200":
+          description: 提交后的需求
+          headers:
+            ETag:
+              $ref: "#/components/headers/DemandETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Incomplete"
+  /api/v1/demands/{demandId}/cancel:
+    post:
+      operationId: cancelMyDemand
+      summary: 取消需求（选定之前）
+      description: 待报价、报价中的需求可以取消，还有效的报价随之关闭。已经取消的原样返回。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+      responses:
+        "200":
+          description: 取消后的需求
+          headers:
+            ETag:
+              $ref: "#/components/headers/DemandETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: DEMAND_STATE_INVALID：草稿（可以删除）、已选定或已因无人报价关闭的需求不能取消。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/demands/{demandId}/quotes:
+    get:
+      operationId: listQuotesOfMyDemand
+      summary: 报价比选
+      description: >-
+        这份需求收到的报价（每家最新一版），不含已撤回的。sort：ALL 按第一次报价的先后；PRICE 金额从低到高；
+        DURATION 工期从短到长；相同时按第一次报价的先后。choosable 表示现在可以选它
+        （需求还在待报价或报价中、报价有效且没过有效期）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/DemandQuoteSort"
+      responses:
+        "200":
+          description: 报价列表；还没有报价时 items 为空
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemandQuoteList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/demands/{demandId}/choice:
+    post:
+      operationId: chooseQuote
+      summary: 选定一份报价
+      description: >-
+        If-Match 是读需求时的 ETag；quoteVersion 是比选页上这份报价的版本。同一份同一版已经选定时原样返回。
+        不产生费用。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoiceRequest"
+      responses:
+        "200":
+          description: 选定后的需求
+          headers:
+            ETag:
+              $ref: "#/components/headers/DemandETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demand"
+        "400":
+          description: 需求 ID、If-Match 无效，或没有带报价 ID、版本（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 需求不存在或不是自己的，或报价不属于这份需求（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            DEMAND_STATE_INVALID：需求已选定别的报价、已关闭或还是草稿；
+            DEMAND_QUOTE_CHANGED：这份报价已更新（版本不是最新）或已撤回，请刷新后再选；
+            DEMAND_QUOTE_EXPIRED：这份报价已过有效期。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "412":
+          description: DEMAND_VERSION_CONFLICT：If-Match 的版本不是现在的版本（需求在此期间有变化），请刷新后重试。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/demand-providers:
+    get:
+      operationId: listInvitableProviders
+      summary: 可以邀请的服务商
+      description: >-
+        服务这个城市（有服务商资料、至少一项在用服务覆盖它）的服务商，按名称排。type 只校验，
+        现在的服务商资料不分服务类型。只要登录。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cityCode
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/DemandType"
+      responses:
+        "200":
+          description: 服务商；没有时 items 为空
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemandProviderList"
+        "400":
+          description: 没有城市编码、城市编码格式不对，或类型不认识（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 令牌里的账号无效（COMMON_FORBIDDEN）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/demands:
+    get:
+      operationId: listProviderDemands
+      summary: 服务商能看到的需求
+      description: >-
+        还在收报价、平台匹配到本机构服务城市或邀请了本机构的需求，以及本机构报过价的需求；新提交的在前。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 一页需求
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderDemandPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+  /api/v1/provider/demands/{demandId}:
+    get:
+      operationId: getProviderDemand
+      summary: 服务商看一份需求和自己的报价
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+      responses:
+        "200":
+          description: 需求内容和本机构的报价
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderDemand"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+  /api/v1/provider/demands/{demandId}/quote:
+    put:
+      operationId: submitProviderQuote
+      summary: 报价或改价
+      description: >-
+        第一次是报价（版本 1）；之后是改价，内容变了版本号加 1。撤回后再报版本号继续加。内容和现在的有效报价一样时没有变化。
+        要本机构有服务商资料。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteRequest"
+      responses:
+        "200":
+          description: 需求内容和本机构现在的报价
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderDemand"
+        "400":
+          description: >-
+            需求 ID 无效；金额不是正数或超过上限；做法、排期、交付物说明为空、超长或含控制字符；工期不在 1–3650 天；
+            有效期不晚于现在或超过 30 天（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "409":
+          description: >-
+            DEMAND_QUOTING_CLOSED：报价已截止，或需求已选定、已关闭；
+            DEMAND_QUOTE_LOCKED：本机构的报价已被选中、未被选中或已随需求关闭，不能再改。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: withdrawProviderQuote
+      summary: 撤回报价（选定之前）
+      description: 已经撤回的原样返回。撤回后这份需求没有有效报价时，需求回到待报价。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DemandId"
+      responses:
+        "200":
+          description: 需求内容和本机构撤回后的报价
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderDemand"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          description: 需求不存在、本机构看不到，或本机构没有报过价（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: DEMAND_QUOTE_LOCKED：报价已被选中、未被选中或已随需求关闭，不能撤回。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    DemandETag:
+      description: 需求版本（带引号），选定报价时作为 If-Match 带回来
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: 参数缺失或格式不对（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没有登录，或登录已过期（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: 登录账号没有客户角色（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ProviderForbidden:
+      description: 登录账号不是服务商操作员、令牌里没有机构，或本机构没有服务商资料（报价时）（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 需求不存在，或不是当前账号发布的（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ProviderNotFound:
+      description: 需求不存在、还是草稿，或本机构看不到（不在匹配城市、没被邀请、也没报过价）（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Incomplete:
+      description: >-
+        DEMAND_INCOMPLETE：提交时必填项不满足。details.field 是第一处的字段名：cityCode、address、scope、
+        dueDate（早于今天）、deliverables、invitedProviderIds（仅邀请时没有邀请，或邀请的服务商不服务这个城市）。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    DemandId:
+      name: demandId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 客户端为这次新建生成的 UUID；重试时带同一个
+      schema:
+        type: string
+        format: uuid
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: 读需求时的 ETag（需求版本），可以带引号或 W/ 前缀
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - traceId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    DemandErrorCode:
+      type: string
+      enum:
+        - DEMAND_IDEMPOTENCY_KEY_REUSED
+        - DEMAND_INCOMPLETE
+        - DEMAND_STATE_INVALID
+        - DEMAND_VERSION_CONFLICT
+        - DEMAND_QUOTING_CLOSED
+        - DEMAND_QUOTE_CHANGED
+        - DEMAND_QUOTE_EXPIRED
+        - DEMAND_QUOTE_LOCKED
+      description: >-
+        需求接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。DEMAND_INCOMPLETE 是 422（details.field），
+        DEMAND_VERSION_CONFLICT 是 412，其余是 409。
+    DemandType:
+      type: string
+      enum:
+        - INSPECTION
+        - AERIAL
+        - SURVEY
+        - MAINTENANCE
+        - TECH_SUPPORT
+      description: |-
+        服务类型：INSPECTION 巡检、AERIAL 航拍、SURVEY 测绘、MAINTENANCE 设备维护、TECH_SUPPORT 技术支持。
+        各类型可选的交付物（页面按这个顺序显示）：
+        巡检 INSPECTION_REPORT、ORTHOPHOTO、HAZARD_LIST、MODEL_3D、VIDEO_FOOTAGE；
+        航拍 VIDEO_FOOTAGE、PHOTOS、PANORAMA、EDITED_FILM；
+        测绘 ORTHOPHOTO、MODEL_3D、POINT_CLOUD、TOPOGRAPHIC_MAP、SURVEY_REPORT；
+        设备维护 REPAIR_RECORD、TEST_REPORT、PARTS_LIST、MAINTENANCE_ADVICE；
+        技术支持 SERVICE_RECORD、ISSUE_LIST、OPERATION_TRAINING、SOLUTION_ADVICE。
+    DemandDeliverableCode:
+      type: string
+      enum:
+        - INSPECTION_REPORT
+        - ORTHOPHOTO
+        - HAZARD_LIST
+        - MODEL_3D
+        - VIDEO_FOOTAGE
+        - PHOTOS
+        - PANORAMA
+        - EDITED_FILM
+        - POINT_CLOUD
+        - TOPOGRAPHIC_MAP
+        - SURVEY_REPORT
+        - REPAIR_RECORD
+        - TEST_REPORT
+        - PARTS_LIST
+        - MAINTENANCE_ADVICE
+        - SERVICE_RECORD
+        - ISSUE_LIST
+        - OPERATION_TRAINING
+        - SOLUTION_ADVICE
+      description: >-
+        交付物编码和名称：INSPECTION_REPORT 巡检报告、ORTHOPHOTO 正射影像、HAZARD_LIST 隐患清单、MODEL_3D 三维模型、
+        VIDEO_FOOTAGE 视频素材、PHOTOS 照片、PANORAMA 全景图、EDITED_FILM 成片剪辑、POINT_CLOUD 点云数据、
+        TOPOGRAPHIC_MAP 地形图、SURVEY_REPORT 测绘报告、REPAIR_RECORD 维修记录、TEST_REPORT 检测报告、
+        PARTS_LIST 更换件清单、MAINTENANCE_ADVICE 保养建议、SERVICE_RECORD 服务记录、ISSUE_LIST 问题清单、
+        OPERATION_TRAINING 操作培训、SOLUTION_ADVICE 方案建议。返回时同时给出 label。
+    DemandStatus:
+      type: string
+      enum:
+        - DRAFT
+        - OPEN
+        - QUOTED
+        - CHOSEN
+        - CLOSED
+      description: DRAFT 草稿；OPEN 待报价；QUOTED 报价中；CHOSEN 已选定；CLOSED 已关闭（见 closeReason）。
+    DemandCloseReason:
+      type: string
+      enum:
+        - NO_QUOTES
+        - CANCELLED
+      description: NO_QUOTES 报价期内没有服务商报价；CANCELLED 发布人取消。
+    DemandQuoteScope:
+      type: string
+      enum:
+        - MATCH
+        - INVITE
+      description: MATCH 平台匹配；INVITE 仅邀请指定服务商（1–3 家）。
+    DemandPublisherKind:
+      type: string
+      enum:
+        - ORGANIZATION
+        - PERSONAL
+      description: ORGANIZATION 记在客户组织名下；PERSONAL 个人。
+    DemandQuoteStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - EXPIRED
+        - WITHDRAWN
+        - CHOSEN
+        - NOT_CHOSEN
+        - CLOSED
+      description: >-
+        ACTIVE 有效；EXPIRED 已过有效期（有效、但现在晚于 validUntil，按时间算出）；WITHDRAWN 已撤回（只有服务商自己看得到）；
+        CHOSEN 已选中；NOT_CHOSEN 未选中；CLOSED 需求被取消或关闭。
+    DemandQuoteSort:
+      type: string
+      enum:
+        - ALL
+        - PRICE
+        - DURATION
+      description: ALL 按第一次报价的先后；PRICE 金额从低到高；DURATION 工期从短到长。
+    DemandPublisher:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - organizationName
+      properties:
+        kind:
+          $ref: "#/components/schemas/DemandPublisherKind"
+        organizationName:
+          type:
+            - string
+            - "null"
+          description: 记在组织名下时是发布时的组织名，个人为 null
+    DemandDeliverable:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - label
+      properties:
+        code:
+          $ref: "#/components/schemas/DemandDeliverableCode"
+        label:
+          type: string
+    DemandProvider:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - name
+        - certificationLabel
+        - description
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        certificationLabel:
+          type:
+            - string
+            - "null"
+          description: 比如“企业认证”；没有时为 null
+        description:
+          type:
+            - string
+            - "null"
+          description: 团队介绍；没有时为 null
+    DemandProviderList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemandProvider"
+    DemandChosen:
+      type: object
+      additionalProperties: false
+      required:
+        - quoteId
+        - quoteVersion
+        - providerName
+        - amountMinor
+        - chosenAt
+      description: 选定的报价摘要（列表里“已选定 某某 · 方案 v2 · ¥18,600”）
+      properties:
+        quoteId:
+          type: string
+          format: uuid
+        quoteVersion:
+          type: integer
+          minimum: 1
+        providerName:
+          type: string
+        amountMinor:
+          type: integer
+          format: int64
+          description: 选定那一版的金额（分）
+        chosenAt:
+          type: string
+          format: date-time
+    Demand:
+      type: object
+      additionalProperties: false
+      required:
+        - demandId
+        - status
+        - closeReason
+        - type
+        - title
+        - publisher
+        - cityCode
+        - cityName
+        - address
+        - scope
+        - dueDate
+        - budgetMinMinor
+        - budgetMaxMinor
+        - deliverables
+        - note
+        - quoteScope
+        - invitedProviders
+        - submittedAt
+        - quoteDeadline
+        - quotingOpen
+        - quoteCount
+        - chosen
+        - editable
+        - cancellable
+        - deletable
+        - createdAt
+        - updatedAt
+        - version
+      description: 客户看到的需求。草稿里没填的字段为 null。
+      properties:
+        demandId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/DemandStatus"
+        closeReason:
+          anyOf:
+            - $ref: "#/components/schemas/DemandCloseReason"
+            - type: "null"
+          description: 只在 CLOSED 时有
+        type:
+          $ref: "#/components/schemas/DemandType"
+        title:
+          type: string
+          description: “{类型名}需求”
+        publisher:
+          $ref: "#/components/schemas/DemandPublisher"
+        cityCode:
+          type:
+            - string
+            - "null"
+        cityName:
+          type:
+            - string
+            - "null"
+        address:
+          type:
+            - string
+            - "null"
+          maxLength: 80
+        scope:
+          type:
+            - string
+            - "null"
+          maxLength: 60
+          description: 作业范围，比如“约 1.2 平方公里”
+        dueDate:
+          type:
+            - string
+            - "null"
+          format: date
+          description: 期望完成日期（北京时间）；null 表示时间可协商
+        budgetMinMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+        budgetMaxMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+        deliverables:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemandDeliverable"
+        note:
+          type:
+            - string
+            - "null"
+          maxLength: 500
+        quoteScope:
+          $ref: "#/components/schemas/DemandQuoteScope"
+        invitedProviders:
+          type: array
+          maxItems: 3
+          description: 仅邀请时被邀请的服务商；平台匹配时为空
+          items:
+            $ref: "#/components/schemas/DemandProvider"
+        submittedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        quoteDeadline:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 提交后 72 小时
+        quotingOpen:
+          type: boolean
+          description: 现在还收报价（待报价或报价中，并且没到截止时间）
+        quoteCount:
+          type: integer
+          minimum: 0
+          description: 收到的报价份数（每家一份），不含已撤回的
+        chosen:
+          anyOf:
+            - $ref: "#/components/schemas/DemandChosen"
+            - type: "null"
+          description: 只在 CHOSEN 时有
+        editable:
+          type: boolean
+          description: 可以改（草稿）
+        cancellable:
+          type: boolean
+          description: 可以取消（待报价、报价中）
+        deletable:
+          type: boolean
+          description: 可以删除（草稿）
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          minimum: 0
+          description: 和 ETag 相同
+    DemandPage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Demand"
+    DemandQuoteProvider:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - name
+        - certificationLabel
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        certificationLabel:
+          type:
+            - string
+            - "null"
+    DemandQuote:
+      type: object
+      additionalProperties: false
+      required:
+        - quoteId
+        - provider
+        - version
+        - status
+        - amountMinor
+        - method
+        - schedule
+        - durationDays
+        - deliverables
+        - validUntil
+        - submittedAt
+        - revisedAt
+        - choosable
+      description: 客户看到的一份报价（最新一版）
+      properties:
+        quoteId:
+          type: string
+          format: uuid
+        provider:
+          $ref: "#/components/schemas/DemandQuoteProvider"
+        version:
+          type: integer
+          minimum: 1
+          description: 报价版本（“方案 v2”）；选定时作为 quoteVersion 带回来
+        status:
+          $ref: "#/components/schemas/DemandQuoteStatus"
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+        method:
+          type: string
+          maxLength: 40
+          description: 做法，比如“无人机 + 机器狗”
+        schedule:
+          type: string
+          maxLength: 60
+          description: 排期，比如“共 6 次 · 11/02 首次进场”
+        durationDays:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        deliverables:
+          type: string
+          maxLength: 120
+          description: 交付物说明
+        validUntil:
+          type: string
+          format: date-time
+        submittedAt:
+          type: string
+          format: date-time
+          description: 第一次报价的时间
+        revisedAt:
+          type: string
+          format: date-time
+          description: 最近一次改价的时间
+        choosable:
+          type: boolean
+    DemandQuoteList:
+      type: object
+      additionalProperties: false
+      required:
+        - demandId
+        - demandStatus
+        - demandVersion
+        - sort
+        - items
+      properties:
+        demandId:
+          type: string
+          format: uuid
+        demandStatus:
+          $ref: "#/components/schemas/DemandStatus"
+        demandVersion:
+          type: integer
+          minimum: 0
+          description: 需求版本，可以直接作为选定时的 If-Match
+        sort:
+          $ref: "#/components/schemas/DemandQuoteSort"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemandQuote"
+    ProviderQuote:
+      type: object
+      additionalProperties: false
+      required:
+        - quoteId
+        - version
+        - status
+        - amountMinor
+        - method
+        - schedule
+        - durationDays
+        - deliverables
+        - validUntil
+        - submittedAt
+        - revisedAt
+      description: 服务商自己的报价（含已撤回）
+      properties:
+        quoteId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/DemandQuoteStatus"
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+        method:
+          type: string
+          maxLength: 40
+        schedule:
+          type: string
+          maxLength: 60
+        durationDays:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        deliverables:
+          type: string
+          maxLength: 120
+        validUntil:
+          type: string
+          format: date-time
+        submittedAt:
+          type: string
+          format: date-time
+        revisedAt:
+          type: string
+          format: date-time
+          description: 最近一次改价或撤回的时间
+    ProviderDemand:
+      type: object
+      additionalProperties: false
+      required:
+        - demandId
+        - status
+        - type
+        - title
+        - cityCode
+        - cityName
+        - address
+        - scope
+        - dueDate
+        - budgetMinMinor
+        - budgetMaxMinor
+        - deliverables
+        - note
+        - invited
+        - submittedAt
+        - quoteDeadline
+        - quotingOpen
+        - myQuote
+      description: 服务商看到的需求：只有需求内容，没有发布人的账号、组织和联系方式。
+      properties:
+        demandId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/DemandStatus"
+        type:
+          $ref: "#/components/schemas/DemandType"
+        title:
+          type: string
+        cityCode:
+          type: string
+        cityName:
+          type: string
+        address:
+          type: string
+        scope:
+          type: string
+        dueDate:
+          type:
+            - string
+            - "null"
+          format: date
+        budgetMinMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+        budgetMaxMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+        deliverables:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemandDeliverable"
+        note:
+          type:
+            - string
+            - "null"
+        invited:
+          type: boolean
+          description: true 表示发布人邀请了本机构；false 是平台匹配看到的
+        submittedAt:
+          type: string
+          format: date-time
+        quoteDeadline:
+          type: string
+          format: date-time
+        quotingOpen:
+          type: boolean
+          description: 现在还可以报价、改价
+        myQuote:
+          anyOf:
+            - $ref: "#/components/schemas/ProviderQuote"
+            - type: "null"
+          description: 本机构的报价；还没报过时为 null
+    ProviderDemandPage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderDemand"
+    CreateDemandRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+      description: 草稿只要类型；submit 为 true 时按提交的规则检查必填项。
+      properties:
+        type:
+          type: string
+          enum:
+            - INSPECTION
+            - AERIAL
+            - SURVEY
+            - MAINTENANCE
+            - TECH_SUPPORT
+          description: 见 DemandType
+        cityCode:
+          type:
+            - string
+            - "null"
+          description: 平台城市目录里的城市编码
+        address:
+          type:
+            - string
+            - "null"
+          maxLength: 80
+          description: 去掉首尾空白后计算长度，不能含控制字符
+        scope:
+          type:
+            - string
+            - "null"
+          maxLength: 60
+        dueDate:
+          type:
+            - string
+            - "null"
+          format: date
+          description: YYYY-MM-DD（北京时间）；不填表示时间可协商；提交时不能早于今天
+        budgetMinMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+          maximum: 10000000000
+        budgetMaxMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          maximum: 10000000000
+          description: 两头都填时 min ≤ max
+        deliverables:
+          type:
+            - array
+            - "null"
+          description: 属于这个类型的交付物编码（见 DemandType），不能重复，按页面顺序
+          items:
+            type: string
+            enum:
+              - INSPECTION_REPORT
+              - ORTHOPHOTO
+              - HAZARD_LIST
+              - MODEL_3D
+              - VIDEO_FOOTAGE
+              - PHOTOS
+              - PANORAMA
+              - EDITED_FILM
+              - POINT_CLOUD
+              - TOPOGRAPHIC_MAP
+              - SURVEY_REPORT
+              - REPAIR_RECORD
+              - TEST_REPORT
+              - PARTS_LIST
+              - MAINTENANCE_ADVICE
+              - SERVICE_RECORD
+              - ISSUE_LIST
+              - OPERATION_TRAINING
+              - SOLUTION_ADVICE
+        note:
+          type:
+            - string
+            - "null"
+          maxLength: 500
+          description: 可以换行
+        quoteScope:
+          type:
+            - string
+            - "null"
+          enum:
+            - MATCH
+            - INVITE
+            - null
+          description: 不填是 MATCH
+        invitedProviderIds:
+          type:
+            - array
+            - "null"
+          maxItems: 3
+          description: 只在 INVITE 时使用（MATCH 时忽略）；不能重复，都要是有服务商资料的服务商
+          items:
+            type: string
+            format: uuid
+        submit:
+          type:
+            - boolean
+            - "null"
+          description: true 时同一步提交；不填或 false 只存草稿
+    UpdateDemandRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+      description: 整份替换草稿内容，字段规则同 CreateDemandRequest。
+      properties:
+        type:
+          type: string
+          enum:
+            - INSPECTION
+            - AERIAL
+            - SURVEY
+            - MAINTENANCE
+            - TECH_SUPPORT
+        cityCode:
+          type:
+            - string
+            - "null"
+        address:
+          type:
+            - string
+            - "null"
+          maxLength: 80
+        scope:
+          type:
+            - string
+            - "null"
+          maxLength: 60
+        dueDate:
+          type:
+            - string
+            - "null"
+          format: date
+        budgetMinMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+          maximum: 10000000000
+        budgetMaxMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          maximum: 10000000000
+        deliverables:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+            enum:
+              - INSPECTION_REPORT
+              - ORTHOPHOTO
+              - HAZARD_LIST
+              - MODEL_3D
+              - VIDEO_FOOTAGE
+              - PHOTOS
+              - PANORAMA
+              - EDITED_FILM
+              - POINT_CLOUD
+              - TOPOGRAPHIC_MAP
+              - SURVEY_REPORT
+              - REPAIR_RECORD
+              - TEST_REPORT
+              - PARTS_LIST
+              - MAINTENANCE_ADVICE
+              - SERVICE_RECORD
+              - ISSUE_LIST
+              - OPERATION_TRAINING
+              - SOLUTION_ADVICE
+        note:
+          type:
+            - string
+            - "null"
+          maxLength: 500
+        quoteScope:
+          type:
+            - string
+            - "null"
+          enum:
+            - MATCH
+            - INVITE
+            - null
+        invitedProviderIds:
+          type:
+            - array
+            - "null"
+          maxItems: 3
+          items:
+            type: string
+            format: uuid
+    ChoiceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - quoteId
+        - quoteVersion
+      properties:
+        quoteId:
+          type: string
+          format: uuid
+        quoteVersion:
+          type: integer
+          minimum: 1
+          description: 比选页上这份报价的 version
+    QuoteRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - amountMinor
+        - method
+        - schedule
+        - durationDays
+        - deliverables
+        - validUntil
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10000000000
+        method:
+          type: string
+          minLength: 1
+          maxLength: 40
+        schedule:
+          type: string
+          minLength: 1
+          maxLength: 60
+        durationDays:
+          type: integer
+          minimum: 1
+          maximum: 3650
+        deliverables:
+          type: string
+          minLength: 1
+          maxLength: 120
+        validUntil:
+          type: string
+          format: date-time
+          description: 晚于现在，不超过 30 天

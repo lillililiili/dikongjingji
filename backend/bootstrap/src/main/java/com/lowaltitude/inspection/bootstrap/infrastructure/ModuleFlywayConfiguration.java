@@ -104,6 +104,14 @@ public class ModuleFlywayConfiguration {
         return factory.notification(dataSource);
     }
 
+    // 需求与报价（F1）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 服务商资料在巡检模块，需求表不引用它。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway demandFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.demand(dataSource);
+    }
+
     // 收货地址表引用 identity_user，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")

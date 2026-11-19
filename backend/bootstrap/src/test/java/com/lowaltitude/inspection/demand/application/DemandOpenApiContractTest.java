@@ -1,0 +1,632 @@
+package com.lowaltitude.inspection.demand.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.RecordComponent;
+import java.lang.reflect.Type;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.lowaltitude.inspection.bootstrap.api.ApiError;
+import com.lowaltitude.inspection.bootstrap.api.GlobalExceptionHandler;
+import com.lowaltitude.inspection.demand.application.DemandException.Error;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.yaml.snakeyaml.Yaml;
+
+/**
+ * 契约 contracts/openapi-demand.yaml 和实现逐项对照（F1）：两个控制器的每个路由都在契约里并且要登录；参数、请求头、
+ * 请求体、返回对象指向对应的 schema；每个对象的字段、类型、枚举与 Java 一致；长度和数量上限与服务一致；
+ * 业务错误码与全局异常处理给出的一致。改了一边忘了另一边会立刻失败。
+ */
+class DemandOpenApiContractTest {
+
+    private static final Path CONTRACT = Path.of("..", "..", "contracts", "openapi-demand.yaml");
+    private static final String SCHEMA_PREFIX = "#/components/schemas/";
+
+    /** 返回对象：字段全部必有（可空的写成 null）。 */
+    private static final Map<String, Class<? extends Record>> SCHEMA_RECORDS = Map.ofEntries(
+            Map.entry("Demand", DemandView.class),
+            Map.entry("DemandPage", DemandPageView.class),
+            Map.entry("DemandPublisher", DemandPublisherView.class),
+            Map.entry("DemandDeliverable", DemandDeliverableView.class),
+            Map.entry("DemandProvider", DemandProviderView.class),
+            Map.entry("DemandProviderList", DemandProviderListView.class),
+            Map.entry("DemandChosen", DemandChosenView.class),
+            Map.entry("DemandQuoteProvider", DemandQuoteProviderView.class),
+            Map.entry("DemandQuote", DemandQuoteView.class),
+            Map.entry("DemandQuoteList", DemandQuoteListView.class),
+            Map.entry("ProviderQuote", ProviderQuoteView.class),
+            Map.entry("ProviderDemand", ProviderDemandView.class),
+            Map.entry("ProviderDemandPage", ProviderDemandPageView.class));
+
+    private static final Map<String, Class<? extends Record>> REQUEST_RECORDS = Map.of(
+            "CreateDemandRequest", DemandController.CreateDemandRequest.class,
+            "UpdateDemandRequest", DemandController.UpdateDemandRequest.class,
+            "ChoiceRequest", DemandController.ChoiceRequest.class,
+            "QuoteRequest", DemandProviderController.QuoteRequest.class);
+
+    private static final Map<String, List<String>> REQUEST_REQUIRED = Map.of(
+            "CreateDemandRequest", List.of("type"),
+            "UpdateDemandRequest", List.of("type"),
+            "ChoiceRequest", List.of("quoteId", "quoteVersion"),
+            "QuoteRequest", List.of("amountMinor", "method", "schedule", "durationDays", "deliverables", "validUntil"));
+
+    private static final Map<String, Class<? extends Enum<?>>> SCHEMA_ENUMS = Map.ofEntries(
+            Map.entry("DemandType", DemandType.class),
+            Map.entry("DemandDeliverableCode", DemandDeliverable.class),
+            Map.entry("DemandStatus", DemandStatus.class),
+            Map.entry("DemandCloseReason", DemandCloseReason.class),
+            Map.entry("DemandQuoteScope", DemandQuoteScope.class),
+            Map.entry("DemandPublisherKind", DemandPublisherKind.class),
+            Map.entry("DemandQuoteStatus", DemandQuoteStatus.class),
+            Map.entry("DemandQuoteSort", DemandQuoteSort.class));
+
+    private static final List<Class<?>> CONTROLLERS = List.of(DemandController.class, DemandProviderController.class);
+
+    @Test
+    void contractIsVersionOneAndDeclaresBearerJwt() {
+        Map<String, Object> root = root();
+
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.0.0");
+        assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
+                .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
+        assertThat(root).doesNotContainKey("security");
+    }
+
+    @Test
+    void everyRouteIsDeclaredWithItsMethodAndNeedsALogin() {
+        List<Operation> operations = allOperations();
+
+        assertThat(operations).extracting(Operation::key).containsExactlyInAnyOrder(
+                "POST /api/v1/demands",
+                "GET /api/v1/demands",
+                "GET /api/v1/demands/{demandId}",
+                "PUT /api/v1/demands/{demandId}",
+                "DELETE /api/v1/demands/{demandId}",
+                "POST /api/v1/demands/{demandId}/submit",
+                "POST /api/v1/demands/{demandId}/cancel",
+                "GET /api/v1/demands/{demandId}/quotes",
+                "POST /api/v1/demands/{demandId}/choice",
+                "GET /api/v1/demand-providers",
+                "GET /api/v1/provider/demands",
+                "GET /api/v1/provider/demands/{demandId}",
+                "PUT /api/v1/provider/demands/{demandId}/quote",
+                "DELETE /api/v1/provider/demands/{demandId}/quote");
+        assertThat(operations).allSatisfy(operation -> {
+            Map<String, Object> declared = declared(operation);
+            assertThat(declared).as(operation.key()).isNotNull();
+            assertThat(declared.get("security"))
+                    .as(operation.key() + " security")
+                    .isEqualTo(List.of(Map.of("bearerAuth", List.of())));
+            assertThat(map(declared.get("responses")).keySet())
+                    .as(operation.key() + " responses")
+                    .contains("400", "401", "403");
+            if (operation.path().contains("{demandId}")) {
+                assertThat(map(declared.get("responses"))).as(operation.key()).containsKey("404");
+            }
+        });
+    }
+
+    @Test
+    void contractDeclaresNoOperationTheControllersDoNotHave() {
+        Set<String> implemented = new TreeSet<>();
+        allOperations().forEach(operation -> implemented.add(operation.key()));
+        Set<String> declared = new TreeSet<>();
+        map(root().get("paths")).forEach((path, item) -> map(item).keySet()
+                .forEach(method -> declared.add(method.toUpperCase() + " " + path)));
+
+        assertThat(implemented).hasSize(14);
+        assertThat(declared).containsExactlyElementsOf(implemented);
+    }
+
+    @Test
+    void everyParameterOfEveryRouteIsDeclaredInTheSamePlace() {
+        assertThat(allOperations()).allSatisfy(operation -> {
+            Map<String, Map<String, Object>> declared = new LinkedHashMap<>();
+            for (Object entry : list(declared(operation).get("parameters"))) {
+                Map<String, Object> parameter = resolve(map(entry));
+                declared.put(parameter.get("in") + " " + parameter.get("name"), parameter);
+            }
+            Set<String> implemented = new TreeSet<>();
+            for (Parameter parameter : operation.method().getParameters()) {
+                RequestParam query = parameter.getAnnotation(RequestParam.class);
+                PathVariable path = parameter.getAnnotation(PathVariable.class);
+                RequestHeader header = parameter.getAnnotation(RequestHeader.class);
+                if (query != null) {
+                    implemented.add("query " + name(query.name(), query.value(), parameter));
+                }
+                if (path != null) {
+                    String key = "path " + name(path.name(), path.value(), parameter);
+                    implemented.add(key);
+                    assertThat(declared.get(key)).as(operation.key() + " " + key).isNotNull();
+                    assertThat(declared.get(key).get("required")).as(key).isEqualTo(true);
+                    assertThat(map(declared.get(key).get("schema"))).containsEntry("format", "uuid");
+                }
+                if (header != null) {
+                    String key = "header " + name(header.name(), header.value(), parameter);
+                    implemented.add(key);
+                    assertThat(declared.get(key)).as(operation.key() + " " + key).isNotNull();
+                    assertThat(declared.get(key).get("required")).as(key).isEqualTo(header.required());
+                }
+            }
+            assertThat(declared.keySet())
+                    .as(operation.key() + " parameters")
+                    .containsExactlyInAnyOrderElementsOf(implemented);
+        });
+        // 页大小上限和服务一致。
+        Map<String, Object> size = map(map(map(root().get("components")).get("parameters")).get("Size"));
+        assertThat(map(size.get("schema")).get("maximum")).isEqualTo(50);
+    }
+
+    // 幂等键只在新建时要；If-Match 只在选定时要。返回客户需求的接口都带 ETag。
+    @Test
+    void onlyCreatingTakesTheIdempotencyKeyAndOnlyChoosingTakesIfMatch() {
+        Map<String, List<String>> headers = new LinkedHashMap<>();
+        for (Operation operation : allOperations()) {
+            headers.put(operation.key(), list(declared(operation).get("parameters")).stream()
+                    .map(entry -> resolve(map(entry)))
+                    .filter(parameter -> "header".equals(parameter.get("in")))
+                    .map(parameter -> (String) parameter.get("name"))
+                    .toList());
+        }
+        assertThat(headers).containsEntry("POST /api/v1/demands", List.of("Idempotency-Key"))
+                .containsEntry("POST /api/v1/demands/{demandId}/choice", List.of("If-Match"));
+        assertThat(headers.values().stream().filter(names -> !names.isEmpty())).hasSize(2);
+
+        for (Operation operation : allOperations()) {
+            Map<String, Object> responses = map(declared(operation).get("responses"));
+            boolean returnsDemand = returnedBody(operation.method()) == DemandView.class;
+            responses.keySet().stream().filter(code -> code.startsWith("2")).forEach(code -> {
+                Map<String, Object> headersOf = map(map(responses.get(code)).get("headers"));
+                if (returnsDemand) {
+                    assertThat(headersOf).as(operation.key() + " " + code).containsKey("ETag");
+                } else {
+                    assertThat(headersOf).as(operation.key() + " " + code).isNull();
+                }
+            });
+        }
+    }
+
+    @Test
+    void everyRequestBodyAndSuccessResponsePointsAtTheSchemaOfItsJavaType() {
+        assertThat(allOperations()).allSatisfy(operation -> {
+            Map<String, Object> declared = declared(operation);
+            Parameter body = Arrays.stream(operation.method().getParameters())
+                    .filter(parameter -> parameter.isAnnotationPresent(RequestBody.class))
+                    .findFirst()
+                    .orElse(null);
+            if (body == null) {
+                assertThat(declared).as(operation.key()).doesNotContainKey("requestBody");
+            } else {
+                Map<String, Object> requestBody = map(declared.get("requestBody"));
+                assertThat(requestBody).as(operation.key() + " requestBody").isNotNull();
+                assertThat(requestBody.get("required")).isEqualTo(body.getAnnotation(RequestBody.class).required());
+                assertThat(jsonSchemaRef(requestBody))
+                        .as(operation.key() + " requestBody schema")
+                        .isEqualTo(SCHEMA_PREFIX + schemaOf(REQUEST_RECORDS, body.getType()));
+            }
+            Map<String, Object> responses = map(declared.get("responses"));
+            List<String> success = responses.keySet().stream().filter(code -> code.startsWith("2")).toList();
+            Class<?> returned = returnedBody(operation.method());
+            assertThat(success).as(operation.key() + " success responses").isNotEmpty();
+            if (returned == Void.class) {
+                assertThat(success).as(operation.key()).containsExactly("204");
+                assertThat(map(responses.get("204"))).doesNotContainKey("content");
+            } else {
+                assertThat(success).allSatisfy(code -> assertThat(jsonSchemaRef(map(responses.get(code))))
+                        .as(operation.key() + " " + code)
+                        .isEqualTo(SCHEMA_PREFIX + schemaOf(SCHEMA_RECORDS, returned)));
+            }
+        });
+        assertThat(successCodes("post", "/api/v1/demands")).containsExactlyInAnyOrder("201", "200");
+        assertThat(successCodes("delete", "/api/v1/demands/{demandId}")).containsExactly("204");
+    }
+
+    @Test
+    void everyResponseObjectHasExactlyTheFieldsTheContractRequires() {
+        Map<String, Object> schemas = schemas();
+
+        assertThat(SCHEMA_RECORDS).allSatisfy((schemaName, recordType) -> {
+            Map<String, Object> schema = map(schemas.get(schemaName));
+            List<String> fields = fields(recordType);
+
+            assertThat(schema).as(schemaName).isNotNull();
+            assertThat(schema.get("additionalProperties")).as(schemaName).isEqualTo(false);
+            assertThat(map(schema.get("properties")).keySet())
+                    .as(schemaName + " properties")
+                    .containsExactlyInAnyOrderElementsOf(fields);
+            assertThat(strings(schema.get("required")))
+                    .as(schemaName + " required")
+                    .containsExactlyInAnyOrderElementsOf(fields);
+        });
+    }
+
+    @Test
+    void everyRequestObjectHasTheControllersFieldsAndTheRequiredOnes() {
+        Map<String, Object> schemas = schemas();
+
+        assertThat(REQUEST_RECORDS).allSatisfy((schemaName, recordType) -> {
+            Map<String, Object> schema = map(schemas.get(schemaName));
+
+            assertThat(schema.get("additionalProperties")).as(schemaName).isEqualTo(false);
+            assertThat(map(schema.get("properties")).keySet())
+                    .as(schemaName + " properties")
+                    .containsExactlyInAnyOrderElementsOf(fields(recordType));
+            assertThat(strings(schema.get("required")))
+                    .as(schemaName + " required")
+                    .containsExactlyInAnyOrderElementsOf(REQUEST_REQUIRED.get(schemaName));
+        });
+        List<Class<?>> requestTypes = new ArrayList<>();
+        for (Class<?> controller : CONTROLLERS) {
+            Arrays.stream(controller.getDeclaredClasses()).filter(Class::isRecord).forEach(requestTypes::add);
+        }
+        assertThat(requestTypes).containsExactlyInAnyOrderElementsOf(REQUEST_RECORDS.values());
+    }
+
+    // 字段名对了还不够：每个字段的类型、格式和指向的 schema 也要和 Java 类型对得上，基本类型不能声明成可空。
+    @Test
+    void everyFieldIsDeclaredWithTheTypeOfItsJavaComponent() {
+        Map<String, Object> schemas = schemas();
+        Map<String, Class<? extends Record>> records = new LinkedHashMap<>(SCHEMA_RECORDS);
+        records.putAll(REQUEST_RECORDS);
+
+        assertThat(records).allSatisfy((schemaName, recordType) -> {
+            Map<String, Object> properties = map(map(schemas.get(schemaName)).get("properties"));
+            for (RecordComponent component : recordType.getRecordComponents()) {
+                String field = schemaName + "." + component.getName();
+                Map<String, Object> property = map(properties.get(component.getName()));
+                Class<?> type = component.getType();
+
+                if (type.isRecord() || type.isEnum()) {
+                    String expected = SCHEMA_PREFIX + (type.isRecord()
+                            ? schemaOf(SCHEMA_RECORDS, type)
+                            : schemaOf(SCHEMA_ENUMS, type));
+                    assertThat(refOf(property)).as(field).isEqualTo(expected);
+                    continue;
+                }
+                List<String> declaredTypes = types(property);
+                assertThat(declaredTypes).as(field + " type").contains(jsonType(type));
+                if (type.isPrimitive()) {
+                    assertThat(declaredTypes).as(field + " is never null").doesNotContain("null");
+                }
+                if (type == UUID.class) {
+                    assertThat(property.get("format")).as(field).isEqualTo("uuid");
+                }
+                if (type == OffsetDateTime.class) {
+                    assertThat(property.get("format")).as(field).isEqualTo("date-time");
+                }
+                if (type == LocalDate.class) {
+                    assertThat(property.get("format")).as(field).isEqualTo("date");
+                }
+                if (type == List.class) {
+                    Class<?> element = (Class<?>) ((ParameterizedType) component.getGenericType())
+                            .getActualTypeArguments()[0];
+                    Map<String, Object> items = map(property.get("items"));
+                    if (element.isRecord()) {
+                        assertThat(items.get("$ref")).as(field + " items")
+                                .isEqualTo(SCHEMA_PREFIX + schemaOf(SCHEMA_RECORDS, element));
+                    } else if (element == UUID.class) {
+                        assertThat(items).as(field + " items").containsEntry("format", "uuid");
+                    } else if (element == String.class) {
+                        assertThat(items).as(field + " items").containsEntry("type", "string");
+                    } else {
+                        throw new AssertionError("no rule for the element type of " + field);
+                    }
+                }
+            }
+        });
+    }
+
+    @Test
+    void enumValuesMatchTheContract() {
+        Map<String, Object> schemas = schemas();
+
+        assertThat(SCHEMA_ENUMS).allSatisfy((schemaName, enumType) ->
+                assertThat(strings(map(schemas.get(schemaName)).get("enum")))
+                        .as(schemaName)
+                        .containsExactlyElementsOf(names(enumType)));
+        // 请求里按字符串收的编码：契约里写出的取值就是 Java 认的那些。
+        for (String request : List.of("CreateDemandRequest", "UpdateDemandRequest")) {
+            Map<String, Object> properties = map(map(schemas.get(request)).get("properties"));
+            assertThat(strings(map(properties.get("type")).get("enum"))).as(request)
+                    .containsExactlyElementsOf(names(DemandType.class));
+            assertThat(list(map(properties.get("quoteScope")).get("enum")).stream().filter(Objects::nonNull))
+                    .as(request).containsExactlyElementsOf(names(DemandQuoteScope.class));
+            assertThat(strings(map(map(properties.get("deliverables")).get("items")).get("enum"))).as(request)
+                    .containsExactlyElementsOf(names(DemandDeliverable.class));
+        }
+    }
+
+    // 每种类型可选的交付物和中文名写在契约的描述里，App 照着显示；和 Java 的白名单逐项对照。
+    @Test
+    void typeAndDeliverableLabelsInTheContractMatchTheJavaSide() {
+        Map<String, Object> schemas = schemas();
+        String types = (String) map(schemas.get("DemandType")).get("description");
+        String deliverables = (String) map(schemas.get("DemandDeliverableCode")).get("description");
+
+        for (DemandType type : DemandType.values()) {
+            assertThat(types).contains(type.name() + " " + type.label());
+            assertThat(types).contains(type.label() + " " + String.join("、",
+                    type.deliverables().stream().map(Enum::name).toList()));
+        }
+        for (DemandDeliverable deliverable : DemandDeliverable.values()) {
+            assertThat(deliverables).contains(deliverable.name() + " " + deliverable.label());
+        }
+    }
+
+    // 契约写的长度和数量上限就是服务校验的那些。
+    @Test
+    void limitsInTheContractAreTheOnesTheServiceEnforces() {
+        Map<String, Object> schemas = schemas();
+        for (String schemaName : List.of("CreateDemandRequest", "UpdateDemandRequest", "Demand")) {
+            Map<String, Object> properties = map(map(schemas.get(schemaName)).get("properties"));
+            assertThat(map(properties.get("address")).get("maxLength")).as(schemaName).isEqualTo(DemandService.MAX_ADDRESS);
+            assertThat(map(properties.get("scope")).get("maxLength")).as(schemaName).isEqualTo(DemandService.MAX_SCOPE);
+            assertThat(map(properties.get("note")).get("maxLength")).as(schemaName).isEqualTo(DemandService.MAX_NOTE);
+        }
+        for (String schemaName : List.of("CreateDemandRequest", "UpdateDemandRequest")) {
+            Map<String, Object> properties = map(map(schemas.get(schemaName)).get("properties"));
+            assertThat(map(properties.get("invitedProviderIds")).get("maxItems"))
+                    .as(schemaName).isEqualTo(DemandService.MAX_INVITATIONS);
+            assertThat(((Number) map(properties.get("budgetMaxMinor")).get("maximum")).longValue())
+                    .isEqualTo(DemandService.MAX_AMOUNT_MINOR);
+        }
+        for (String schemaName : List.of("QuoteRequest", "DemandQuote", "ProviderQuote")) {
+            Map<String, Object> properties = map(map(schemas.get(schemaName)).get("properties"));
+            assertThat(map(properties.get("method")).get("maxLength")).as(schemaName).isEqualTo(DemandService.MAX_METHOD);
+            assertThat(map(properties.get("schedule")).get("maxLength")).as(schemaName)
+                    .isEqualTo(DemandService.MAX_SCHEDULE);
+            assertThat(map(properties.get("deliverables")).get("maxLength")).as(schemaName)
+                    .isEqualTo(DemandService.MAX_QUOTE_DELIVERABLES);
+            assertThat(map(properties.get("durationDays")).get("maximum")).as(schemaName)
+                    .isEqualTo(DemandService.MAX_DURATION_DAYS);
+        }
+        assertThat(((Number) map(map(map(schemas.get("QuoteRequest")).get("properties")).get("amountMinor"))
+                .get("maximum")).longValue()).isEqualTo(DemandService.MAX_AMOUNT_MINOR);
+        assertThat(contractText()).contains("72 小时").contains("30 天");
+        assertThat(DemandService.QUOTE_WINDOW).hasHours(72);
+        assertThat(DemandService.MAX_QUOTE_VALIDITY).hasDays(30);
+    }
+
+    // 每一种业务拒绝：全局异常处理给出的状态码和错误码，契约里至少有一个接口在同一个状态码下写了它。
+    @Test
+    void everyBusinessErrorCodeIsDeclaredUnderTheStatusTheHandlerAnswers() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        Set<String> produced = new TreeSet<>();
+        for (Error error : Error.values()) {
+            ResponseEntity<ApiError> response = handler.handleDemand(
+                    new DemandException(error, error == Error.INCOMPLETE ? "address" : null),
+                    new MockHttpServletRequest());
+            String code = response.getBody().code();
+            String status = String.valueOf(response.getStatusCode().value());
+            if (!code.startsWith("DEMAND_")) {
+                assertThat(code).as(error.name()).isIn("COMMON_NOT_FOUND", "COMMON_FORBIDDEN");
+                continue;
+            }
+            produced.add(code);
+            assertThat(allOperations().stream()
+                    .map(operation -> resolveResponse(map(map(declared(operation).get("responses")).get(status))))
+                    .filter(declaredResponse -> declaredResponse != null && declaredResponse.get("description") != null)
+                    .map(declaredResponse -> (String) declaredResponse.get("description")))
+                    .as(code + " under " + status)
+                    .anyMatch(description -> description.contains(code));
+        }
+
+        assertThat(strings(map(schemas().get("DemandErrorCode")).get("enum")))
+                .containsExactlyInAnyOrderElementsOf(produced);
+        Set<String> mentioned = new TreeSet<>();
+        Matcher matcher = Pattern.compile("DEMAND_[A-Z_]+").matcher(contractText());
+        while (matcher.find()) {
+            mentioned.add(matcher.group());
+        }
+        // 站内信的分类 DEMAND_QUOTE 在描述里提到，不是错误码。
+        mentioned.remove("DEMAND_QUOTE");
+        assertThat(mentioned).containsExactlyElementsOf(produced);
+    }
+
+    // 提交时缺了什么：details.field 是请求里的字段名，契约列出的就是服务会给的那几个。
+    @Test
+    void theIncompleteFieldsAreTheRequestFieldNames() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        List<String> fields = List.of("cityCode", "address", "scope", "dueDate", "deliverables", "invitedProviderIds");
+        String description = (String) map(map(map(root().get("components")).get("responses")).get("Incomplete"))
+                .get("description");
+
+        for (String field : fields) {
+            ResponseEntity<ApiError> response = handler.handleDemand(
+                    new DemandException(Error.INCOMPLETE, field), new MockHttpServletRequest());
+            assertThat(response.getStatusCode().value()).isEqualTo(422);
+            assertThat(response.getBody().details()).isEqualTo(Map.of("field", field));
+            assertThat(response.getBody().message()).doesNotContain("还没有填完整");
+            assertThat(description).contains(field);
+            assertThat(fields(DemandController.CreateDemandRequest.class)).contains(field);
+        }
+    }
+
+    @Test
+    void everySchemaInTheContractIsCoveredByThisTest() {
+        List<String> covered = new ArrayList<>(SCHEMA_RECORDS.keySet());
+        covered.addAll(REQUEST_RECORDS.keySet());
+        covered.addAll(SCHEMA_ENUMS.keySet());
+        covered.add("DemandErrorCode");
+        covered.add("ApiError");
+
+        assertThat(schemas().keySet()).containsExactlyInAnyOrderElementsOf(covered);
+    }
+
+    // ---- 控制器一侧 ----
+
+    private record Operation(String httpMethod, String path, Method method) {
+        String key() {
+            return httpMethod + " " + path;
+        }
+    }
+
+    private static List<Operation> allOperations() {
+        List<Operation> operations = new ArrayList<>();
+        for (Class<?> controller : CONTROLLERS) {
+            for (Method method : controller.getDeclaredMethods()) {
+                RequestMapping mapping = AnnotatedElementUtils.findMergedAnnotation(method, RequestMapping.class);
+                if (mapping != null) {
+                    assertThat(mapping.path()).as(method.getName()).hasSize(1);
+                    assertThat(mapping.method()).as(method.getName()).hasSize(1);
+                    operations.add(new Operation(mapping.method()[0].name(), mapping.path()[0], method));
+                }
+            }
+        }
+        return operations;
+    }
+
+    private static String name(String name, String value, Parameter parameter) {
+        if (!name.isEmpty()) {
+            return name;
+        }
+        return value.isEmpty() ? parameter.getName() : value;
+    }
+
+    private static Class<?> returnedBody(Method method) {
+        Type type = method.getGenericReturnType();
+        if (type instanceof ParameterizedType parameterized && parameterized.getRawType() == ResponseEntity.class) {
+            return (Class<?>) parameterized.getActualTypeArguments()[0];
+        }
+        return method.getReturnType();
+    }
+
+    private static List<String> fields(Class<? extends Record> type) {
+        return Arrays.stream(type.getRecordComponents()).map(RecordComponent::getName).toList();
+    }
+
+    private static List<String> names(Class<? extends Enum<?>> type) {
+        return Arrays.stream(type.getEnumConstants()).map(Enum::name).toList();
+    }
+
+    private static String schemaOf(Map<String, ? extends Class<?>> registered, Class<?> type) {
+        return registered.entrySet().stream()
+                .filter(entry -> entry.getValue() == type)
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(type.getSimpleName() + " has no schema in this test"));
+    }
+
+    private static String jsonType(Class<?> type) {
+        if (type == boolean.class || type == Boolean.class) {
+            return "boolean";
+        }
+        if (type == int.class || type == Integer.class || type == long.class || type == Long.class) {
+            return "integer";
+        }
+        if (type == String.class || type == UUID.class || type == OffsetDateTime.class || type == LocalDate.class) {
+            return "string";
+        }
+        if (type == List.class) {
+            return "array";
+        }
+        throw new AssertionError("no JSON type rule for " + type.getName());
+    }
+
+    // ---- 契约一侧 ----
+
+    private static String contractText() {
+        try {
+            return Files.readString(CONTRACT);
+        } catch (java.io.IOException exception) {
+            throw new java.io.UncheckedIOException(exception);
+        }
+    }
+
+    private static Map<String, Object> root() {
+        return new Yaml().load(contractText());
+    }
+
+    private static Map<String, Object> schemas() {
+        return map(map(root().get("components")).get("schemas"));
+    }
+
+    private static Map<String, Object> declared(Operation operation) {
+        Map<String, Object> item = map(map(root().get("paths")).get(operation.path()));
+        return item == null ? null : map(item.get(operation.httpMethod().toLowerCase()));
+    }
+
+    private static List<String> successCodes(String httpMethod, String path) {
+        Map<String, Object> responses = map(map(map(map(root().get("paths")).get(path)).get(httpMethod)).get("responses"));
+        return responses.keySet().stream().filter(code -> code.startsWith("2")).toList();
+    }
+
+    private static Map<String, Object> resolve(Map<String, Object> parameter) {
+        Object ref = parameter.get("$ref");
+        if (ref == null) {
+            return parameter;
+        }
+        String name = ((String) ref).substring("#/components/parameters/".length());
+        return map(map(map(root().get("components")).get("parameters")).get(name));
+    }
+
+    /** 响应可以直接写，也可以引用 components.responses 里的。 */
+    private static Map<String, Object> resolveResponse(Map<String, Object> response) {
+        if (response == null || response.get("$ref") == null) {
+            return response;
+        }
+        String name = ((String) response.get("$ref")).substring("#/components/responses/".length());
+        return map(map(map(root().get("components")).get("responses")).get(name));
+    }
+
+    private static String jsonSchemaRef(Map<String, Object> bodyOrResponse) {
+        Map<String, Object> content = map(bodyOrResponse.get("content"));
+        return (String) map(map(content.get("application/json")).get("schema")).get("$ref");
+    }
+
+    private static String refOf(Map<String, Object> property) {
+        if (property.get("$ref") != null) {
+            return (String) property.get("$ref");
+        }
+        return list(property.get("anyOf")).stream()
+                .map(option -> (String) map(option).get("$ref"))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static List<String> types(Map<String, Object> property) {
+        Object type = property.get("type");
+        return type instanceof String single ? List.of(single) : strings(type);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> map(Object value) {
+        return (Map<String, Object>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Object> list(Object value) {
+        return value == null ? List.of() : (List<Object>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> strings(Object value) {
+        return (List<String>) value;
+    }
+}

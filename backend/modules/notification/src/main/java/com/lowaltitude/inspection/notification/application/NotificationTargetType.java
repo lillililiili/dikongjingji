@@ -4,5 +4,7 @@ package com.lowaltitude.inspection.notification.application;
 public enum NotificationTargetType {
     INSPECTION_PLAN,
     INSPECTION_FULFILLMENT,
-    INSPECTION_DELIVERY
+    INSPECTION_DELIVERY,
+    /** 一份需求（F1）：页面再读它的报价。 */
+    DEMAND
 }

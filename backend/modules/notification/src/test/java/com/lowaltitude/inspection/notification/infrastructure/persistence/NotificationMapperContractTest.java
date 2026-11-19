@@ -71,6 +71,25 @@ class NotificationMapperContractTest {
                 .doesNotContain("INSERT INTO");
     }
 
+    // F1：分类加需求与报价，跳转目标加需求；已有的巡检通知仍然满足约束。
+    @Test
+    void theV002MigrationAddsTheDemandCategoryAndTarget() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream("/db/migration/notification/V002__notification_demand.sql")) {
+            assertThat(stream).isNotNull();
+            migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(migration)
+                .contains("CHECK (category IN ('SERVICE_PROGRESS', 'DEMAND_QUOTE'))")
+                .contains("CHECK (target_type IN ('INSPECTION_PLAN', 'INSPECTION_FULFILLMENT', 'INSPECTION_DELIVERY',"
+                        + " 'DEMAND'))")
+                .doesNotContain("UPDATE ")
+                .doesNotContain("DELETE ");
+        assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationCategory.values())
+                .map(Enum::name)).containsExactly("SERVICE_PROGRESS", "DEMAND_QUOTE");
+    }
+
     private static Method method(String name) {
         return Arrays.stream(NotificationMapper.class.getDeclaredMethods())
                 .filter(candidate -> candidate.getName().equals(name))

@@ -24,5 +24,6 @@
         <module>modules/notification</module>
         <module>modules/account</module>
         <module>modules/trade</module>
+        <module>modules/demand</module>
     </modules>
 </project>

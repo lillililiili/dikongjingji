@@ -125,6 +125,23 @@ class NotificationControllerTest {
                 .contains("required: [page, size, total, hasMore, unreadCount, items]");
     }
 
+    // 契约里的分类和跳转目标就是服务端的两个枚举（1.1.0 加了需求与报价）。
+    @Test
+    void contractEnumsMatchTheJavaSide() throws Exception {
+        java.util.Map<String, Object> root = new org.yaml.snakeyaml.Yaml().load(java.nio.file.Files.readString(
+                java.nio.file.Path.of("..", "..", "contracts", "openapi-notification.yaml")));
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, java.util.Map<String, Object>> schemas = (java.util.Map<String, java.util.Map<String, Object>>)
+                ((java.util.Map<String, Object>) root.get("components")).get("schemas");
+
+        org.assertj.core.api.Assertions.assertThat(schemas.get("NotificationCategory").get("enum"))
+                .isEqualTo(java.util.Arrays.stream(NotificationCategory.values()).map(Enum::name).toList());
+        org.assertj.core.api.Assertions.assertThat(schemas.get("NotificationTargetType").get("enum"))
+                .isEqualTo(java.util.Arrays.stream(NotificationTargetType.values()).map(Enum::name).toList());
+        org.assertj.core.api.Assertions.assertThat(((java.util.Map<String, Object>) root.get("info")).get("version"))
+                .isEqualTo("1.1.0");
+    }
+
     @Test
     void badArgumentsAreBadRequests() throws Exception {
         when(service.list(SUBJECT, 0, 20)).thenThrow(new IllegalArgumentException("page is invalid"));

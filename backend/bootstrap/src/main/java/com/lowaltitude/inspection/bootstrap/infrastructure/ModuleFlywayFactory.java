@@ -70,6 +70,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway demand(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/demand",
+                "flyway_history_demand",
+                true);
+    }
+
     private static Flyway build(DataSource dataSource, String location, String historyTable, boolean baselineOnMigrate) {
         return Flyway.configure()
                 .dataSource(dataSource)

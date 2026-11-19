@@ -6,6 +6,7 @@ import com.lowaltitude.inspection.account.application.AddressLimitException;
 import com.lowaltitude.inspection.account.application.AddressNotFoundException;
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentException;
 import com.lowaltitude.inspection.activity.application.ActivityNotFoundException;
+import com.lowaltitude.inspection.demand.application.DemandException;
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
 import com.lowaltitude.inspection.experience.application.VenueBookingException;
 import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
@@ -286,6 +287,74 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(status)
                 .body(new ApiError(code, message, traceId(request)));
+    }
+
+    /** 需求与报价（F1，契约 openapi-demand.yaml 的 DemandErrorCode）。DEMAND_INCOMPLETE 的 details.field 指出第一处缺项。 */
+    @ExceptionHandler(DemandException.class)
+    public ResponseEntity<ApiError> handleDemand(DemandException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        java.util.Map<String, Object> details = null;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                code = "DEMAND_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case INCOMPLETE -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "DEMAND_INCOMPLETE";
+                String field = exception.field() == null ? "" : exception.field();
+                message = switch (field) {
+                    case "cityCode" -> "请选择服务城市";
+                    case "address" -> "请填写服务地点";
+                    case "scope" -> "请填写作业范围";
+                    case "dueDate" -> "期望完成日期不能早于今天";
+                    case "deliverables" -> "请至少选择一项交付物";
+                    case "invitedProviderIds" -> "请邀请 1–3 家服务这个城市的服务商";
+                    default -> "需求还没有填完整";
+                };
+                details = java.util.Map.of("field", field);
+            }
+            case STATE_INVALID -> {
+                code = "DEMAND_STATE_INVALID";
+                message = "需求当前状态不允许这个操作";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.PRECONDITION_FAILED;
+                code = "DEMAND_VERSION_CONFLICT";
+                message = "需求已更新，请刷新后重试";
+            }
+            case QUOTING_CLOSED -> {
+                code = "DEMAND_QUOTING_CLOSED";
+                message = "报价已截止，不能再报价或改价";
+            }
+            case QUOTE_CHANGED -> {
+                code = "DEMAND_QUOTE_CHANGED";
+                message = "这份报价已更新或撤回，请刷新后再选";
+            }
+            case QUOTE_EXPIRED -> {
+                code = "DEMAND_QUOTE_EXPIRED";
+                message = "这份报价已过有效期";
+            }
+            case QUOTE_LOCKED -> {
+                code = "DEMAND_QUOTE_LOCKED";
+                message = "报价已被选中或需求已结束，不能再修改";
+            }
+            default -> throw new IllegalStateException("unhandled demand error " + exception.error());
+        }
+        return ResponseEntity.status(status)
+                .body(new ApiError(code, message, traceId(request), details));
     }
 
     /** 到馆预约（E10，契约 openapi-experience.yaml 1.1.0 的 VenueErrorCode）。 */

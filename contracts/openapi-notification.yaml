@@ -1,12 +1,15 @@
 openapi: 3.1.0
 info:
   title: Notification API
-  version: 1.0.0
+  version: 1.1.0
   description: >-
     The signed-in account's in-app notifications (docs/redesign/03-App实现任务计划.md §15.4).
     Every route needs a login. The recipient is always the subject of the access token: there is
     no parameter that names another account, and a notification of another account is answered
-    as not found. This version only carries inspection service progress.
+    as not found. 1.0.0 carries inspection service progress; 1.1.0 (2026-11-19, §22, step F1) adds the
+    category DEMAND_QUOTE (需求与报价: a provider quoted on one of the account's demands, or a demand closed
+    without any quote) with the target type DEMAND (id is the demand; the page reads its quotes itself).
+    Notification text never carries a provider's quote content.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -116,15 +119,15 @@ components:
   schemas:
     NotificationCategory:
       type: string
-      enum: [SERVICE_PROGRESS]
-      description: 服务进度
+      enum: [SERVICE_PROGRESS, DEMAND_QUOTE]
+      description: 服务进度 / 需求与报价（1.1.0）
     NotificationTargetType:
       type: string
-      enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY]
+      enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY, DEMAND]
       description: >-
         Where tapping the notification leads. INSPECTION_PLAN: id is the plan. INSPECTION_FULFILLMENT
         and INSPECTION_DELIVERY: id is the service order, subId the visit when the notification is
-        about one visit.
+        about one visit. DEMAND (1.1.0): id is the demand, subId is null.
     NotificationTarget:
       type: object
       additionalProperties: false
@@ -150,7 +153,9 @@ components:
           $ref: "#/components/schemas/NotificationCategory"
         eventCode:
           type: string
-          description: Stable code of what happened, for example INSPECTION_DELIVERY_PUBLISHED
+          description: >-
+            Stable code of what happened, for example INSPECTION_DELIVERY_PUBLISHED; for DEMAND_QUOTE it is
+            DEMAND_QUOTE_RECEIVED or DEMAND_CLOSED_NO_QUOTES
         title:
           type: string
           maxLength: 80
