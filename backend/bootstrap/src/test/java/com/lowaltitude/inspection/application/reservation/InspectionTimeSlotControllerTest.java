@@ -58,6 +58,7 @@ import org.springframework.test.web.servlet.MockMvc;
         ActivityEnrollmentService.class,
         VenueBookingService.class,
         com.lowaltitude.inspection.demand.application.DemandService.class,
+        com.lowaltitude.inspection.proservice.application.ProServiceReadService.class,
         ExperienceCatalogReadService.class,
         MallCatalogReadService.class,
         MallCartService.class,

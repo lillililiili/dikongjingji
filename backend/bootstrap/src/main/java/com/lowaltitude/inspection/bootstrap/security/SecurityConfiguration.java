@@ -105,6 +105,11 @@ public class SecurityConfiguration {
                                 "/api/v1/mall/products",
                                 "/api/v1/mall/products/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
+                        // 四类专业服务的目录、详情和服务商主页（F2）：公开只读。
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/pro-services",
+                                "/api/v1/pro-services/*",
+                                "/api/v1/providers/*").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
                         // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。

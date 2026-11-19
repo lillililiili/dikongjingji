@@ -63,6 +63,36 @@ public interface InspectionProviderDirectoryMapper {
             """)
     List<String> findCitiesServed(@Param("providerId") UUID providerId);
 
+    /**
+     * 服务商主页（F2）：这家服务商在这个城市能被看到、能预约的巡检服务。可见条件和巡检目录同一份（VISIBLE_IN_CITY）。
+     */
+    @Select("""
+            SELECT service.id service_id,
+                   service.title,
+                   service.summary,
+                   service.category_name,
+                   service.price_mode,
+                   service.starting_amount_minor,
+                   service.unit_label,
+                   service.price_note
+            """ + InspectionServiceCatalogMapper.FROM_SERVICE + InspectionServiceCatalogMapper.VISIBLE_IN_CITY + """
+              AND service.provider_id = #{providerId}
+            ORDER BY service.title ASC, service.id ASC
+            """)
+    List<ServiceRow> findServicesOf(@Param("providerId") UUID providerId, @Param("cityCode") String cityCode);
+
     record ProviderRow(UUID providerId, String name, String certificationLabel, String description) {
+    }
+
+    record ServiceRow(
+            UUID serviceId,
+            String title,
+            String summary,
+            String categoryName,
+            String priceMode,
+            Long startingAmountMinor,
+            String unitLabel,
+            String priceNote
+    ) {
     }
 }

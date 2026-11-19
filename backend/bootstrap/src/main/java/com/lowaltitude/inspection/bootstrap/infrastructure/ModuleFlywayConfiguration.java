@@ -112,6 +112,29 @@ public class ModuleFlywayConfiguration {
         return factory.demand(dataSource);
     }
 
+    // 四类专业服务（F2）的表引用 identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 服务商资料在巡检模块，专业服务表不引用它。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway proserviceFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.proservice(dataSource);
+    }
+
+    // 示例专业服务挂在示例服务商名下：服务商机构和服务商资料由巡检的开发数据建（“示例机器人商家”的机构也由商城的开发数据建），
+    // 所以排在两份开发数据之后。
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn({"proserviceFlyway", "inspectionDevelopmentDataFlyway", "mallDevelopmentDataFlyway"})
+    Flyway proserviceDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/proservice")
+                .table("flyway_history_proservice_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     // 收货地址表引用 identity_user，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")

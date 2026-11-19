@@ -1,0 +1,605 @@
+openapi: 3.1.0
+info:
+  title: Professional Service Catalog API
+  version: 1.0.0
+  description: |-
+    1.0.0（步骤 F2，docs/redesign/03-App实现任务计划.md §23）：航拍、测绘、设备维护、技术支持四类专业服务的目录、服务详情和服务商主页。
+    全部公开只读，不需要登录。这四类服务不走预约：详情和服务商主页的主按钮是“发布需求”（contracts/openapi-demand.yaml），
+    类型编码和需求的 DemandType 一致，可以直接预选；服务商主页和详情里的 providerId 可以作为“仅邀请”的服务商。
+
+    规则：
+    - 服务按城市上架（平台城市目录的城市编码）。目录里 cityOpen 为 false 表示这个城市还没有这一类服务
+      （页面显示“这个城市还没有开通”，可切换城市），和“有服务、但关键词或筛选没有结果”（cityOpen 为 true、items 为空）不同。
+      城市编码不在平台城市目录里时也按未开通返回。
+    - 价格两种：PRICE_FROM 起步价，有金额（分）、单位（如“/次起”“/平方公里起”）和一句起步价含什么（note）；
+      PROJECT 按项目报价，没有金额和单位，note 是“方案确认后定价”。按价格排序时按项目报价的总排在最后，
+      同价、同为按项目报价的按综合顺序。不提供距离排序（四类服务没有服务点坐标）。
+    - 卡片和详情没有授权照片时 coverUrl 为 null，App 按 category.code 画场景图标，不用示意照片。
+    - sample 为 true 是示例数据（金额和服务商沿用原型），页面标“示例”。
+    - 筛选：deliverables 是筛选项编码，可以重复传或用逗号分隔，服务有其中任意一项即可；
+      航拍、测绘的筛选项是成果类型，设备维护、技术支持的是服务方式（目录响应的 facetGroup 给出这一类的标题和选项）。
+      priceMode 只看起步价或只看按项目报价。keyword 匹配标题、简介和卡片标签，不区分大小写，不超过 40 个字。
+    - 服务详情要求服务在 cityCode 这个城市上架，否则是 404。provider 在服务商资料停用时为 null（页面不显示服务商行）。
+    - 服务商主页只给有在用服务商资料的服务商，否则 404。inspectionServices、proServices 是这家在 cityCode 能看到的服务；
+      cities 是它的巡检服务和四类服务覆盖的全部城市（平台城市目录里有的），按城市编码排。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/pro-services:
+    get:
+      operationId: listProServices
+      summary: 四类专业服务目录
+      security: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/ProServiceType"
+        - $ref: "#/components/parameters/CityCode"
+        - name: keyword
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 40
+        - name: deliverables
+          in: query
+          required: false
+          description: 筛选项编码，可以重复传，也可以逗号分隔
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/ProServiceFacet"
+        - name: priceMode
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProServicePriceMode"
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProServiceSort"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: 一页服务；城市未开通时 cityOpen 为 false、items 为空
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProServicePage"
+        "400":
+          description: >-
+            没有类型、类型或筛选项、报价方式、排序不认识；没有城市编码或格式不对；关键词超长或含控制字符；
+            页码、页大小无效（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/pro-services/{serviceId}:
+    get:
+      operationId: getProService
+      summary: 服务详情
+      security: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: 服务详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProServiceDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: 服务不存在、已下架，或不在这个城市上架（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/providers/{providerId}:
+    get:
+      operationId: getProviderPage
+      summary: 服务商主页
+      security: []
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: 服务商主页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: 服务商不存在，或没有在用的服务商资料（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  responses:
+    BadRequest:
+      description: ID 不是 UUID，或没有城市编码、格式不对（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    CityCode:
+      name: cityCode
+      in: query
+      required: true
+      description: 平台城市目录的城市编码（contracts/openapi-platform-city.yaml）
+      schema:
+        type: string
+        pattern: "^[A-Z0-9]{4,16}$"
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - traceId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    ProServiceType:
+      type: string
+      enum:
+        - AERIAL
+        - SURVEY
+        - MAINTENANCE
+        - TECH_SUPPORT
+      description: >-
+        AERIAL 航拍、SURVEY 测绘、MAINTENANCE 设备维护、TECH_SUPPORT 技术支持（和需求的 DemandType 同名）。
+    ProServiceFacet:
+      type: string
+      enum:
+        - VIDEO_FOOTAGE
+        - PHOTOS
+        - ORTHOPHOTO
+        - MODEL_3D
+        - ON_SITE
+        - MAIL_IN
+        - REMOTE
+        - STATIONED
+      description: |-
+        筛选项编码和名称：VIDEO_FOOTAGE 视频素材、PHOTOS 照片、ORTHOPHOTO 正射影像、MODEL_3D 三维模型、ON_SITE 上门、MAIL_IN 送修、REMOTE 远程、STATIONED 驻场。
+        各类的筛选组：
+        AERIAL 成果类型 VIDEO_FOOTAGE、PHOTOS；
+        SURVEY 成果类型 ORTHOPHOTO、MODEL_3D；
+        MAINTENANCE 服务方式 ON_SITE、MAIL_IN；
+        TECH_SUPPORT 支持方式 REMOTE、STATIONED。
+    ProServiceCategory:
+      type: string
+      enum:
+        - ENGINEERING
+        - ENERGY
+        - TOURISM
+        - EVENT
+        - MODELING
+        - PARK
+        - TERRAIN
+        - CORRIDOR
+        - GENERAL
+        - DRONE
+        - ROBOT
+        - ROBOT_DOG
+        - FLIGHT
+        - SOFTWARE
+      description: >-
+        场景分类（没有授权照片时按它画图标）：ENGINEERING 工程、ENERGY 能源、TOURISM 文旅、EVENT 活动、MODELING 建模、
+        PARK 园区、TERRAIN 地形、CORRIDOR 线路、GENERAL 综合、DRONE 无人机、ROBOT 机器人、ROBOT_DOG 机器狗、FLIGHT 飞行、
+        SOFTWARE 软件。
+    ProServicePriceMode:
+      type: string
+      enum:
+        - PRICE_FROM
+        - PROJECT
+      description: PRICE_FROM 起步价；PROJECT 按项目报价。
+    ProServiceSort:
+      type: string
+      enum:
+        - DEFAULT
+        - PRICE_ASC
+        - PRICE_DESC
+      description: DEFAULT 综合；PRICE_ASC 价格从低到高；PRICE_DESC 价格从高到低。按项目报价的总在最后。
+    ProServiceCategoryView:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - label
+      properties:
+        code:
+          $ref: "#/components/schemas/ProServiceCategory"
+        label:
+          type: string
+    ProServicePrice:
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - amountMinor
+        - unit
+        - note
+      properties:
+        mode:
+          $ref: "#/components/schemas/ProServicePriceMode"
+        amountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: 起步价（分）；按项目报价为 null
+        unit:
+          type:
+            - string
+            - "null"
+          description: 起步价的单位，如“/次起”；按项目报价为 null
+        note:
+          type:
+            - string
+            - "null"
+          description: 起步价含什么；按项目报价是“方案确认后定价”
+    ProServiceFacetView:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - label
+      properties:
+        code:
+          $ref: "#/components/schemas/ProServiceFacet"
+        label:
+          type: string
+    ProServiceFacetGroup:
+      type: object
+      additionalProperties: false
+      required:
+        - label
+        - options
+      description: 这一类服务的筛选组（“成果类型”“服务方式”“支持方式”）
+      properties:
+        label:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProServiceFacetView"
+    ProServiceCard:
+      type: object
+      additionalProperties: false
+      required:
+        - serviceId
+        - type
+        - category
+        - title
+        - summary
+        - tags
+        - price
+        - coverUrl
+        - sample
+      properties:
+        serviceId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ProServiceType"
+        category:
+          $ref: "#/components/schemas/ProServiceCategoryView"
+        title:
+          type: string
+          maxLength: 40
+        summary:
+          type: string
+          maxLength: 80
+          description: 如“园区全景 · 工程进度 · 宣传素材”
+        tags:
+          type: array
+          items:
+            type: string
+        price:
+          $ref: "#/components/schemas/ProServicePrice"
+        coverUrl:
+          type:
+            - string
+            - "null"
+          format: uri
+          description: 授权照片（HTTPS）；没有时为 null
+        sample:
+          type: boolean
+    ProServicePage:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - cityCode
+        - cityName
+        - cityOpen
+        - facetGroup
+        - sort
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        type:
+          $ref: "#/components/schemas/ProServiceType"
+        cityCode:
+          type: string
+        cityName:
+          type:
+            - string
+            - "null"
+          description: 城市不在平台城市目录里时为 null
+        cityOpen:
+          type: boolean
+          description: 这个城市有没有这一类服务（不管关键词和筛选）
+        facetGroup:
+          $ref: "#/components/schemas/ProServiceFacetGroup"
+        sort:
+          $ref: "#/components/schemas/ProServiceSort"
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProServiceCard"
+    ProServiceLine:
+      type: object
+      additionalProperties: false
+      required:
+        - label
+        - detail
+      description: 一行“标题 + 说明”
+      properties:
+        label:
+          type: string
+          maxLength: 40
+        detail:
+          type: string
+          maxLength: 120
+    ProServiceCity:
+      type: object
+      additionalProperties: false
+      required:
+        - cityCode
+        - cityName
+      properties:
+        cityCode:
+          type: string
+        cityName:
+          type: string
+    ProServiceProvider:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - name
+        - certificationLabel
+        - description
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        certificationLabel:
+          type:
+            - string
+            - "null"
+          description: 平台审核标签，如“资质已审核”“企业认证”
+        description:
+          type:
+            - string
+            - "null"
+    ProServiceDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - serviceId
+        - type
+        - category
+        - title
+        - summary
+        - price
+        - coverUrl
+        - sample
+        - capabilities
+        - priceRows
+        - scope
+        - outputs
+        - serviceModes
+        - terms
+        - steps
+        - guarantees
+        - provider
+        - cities
+      description: >-
+        服务详情。各段为空数组时不显示那一段，段落标题按类型由页面给出：scope 是航拍“拍摄内容”、测绘“作业范围”、
+        设备维护“适用设备”、技术支持“支持内容”；outputs（航拍“成果格式”、测绘“交付成果”）；serviceModes（设备维护“服务方式”、
+        技术支持“支持方式”）；terms（测绘“精度说明”、设备维护“保修与收费边界”、技术支持“响应说明”）。
+      properties:
+        serviceId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ProServiceType"
+        category:
+          $ref: "#/components/schemas/ProServiceCategoryView"
+        title:
+          type: string
+        summary:
+          type: string
+        price:
+          $ref: "#/components/schemas/ProServicePrice"
+        coverUrl:
+          type:
+            - string
+            - "null"
+          format: uri
+        sample:
+          type: boolean
+        capabilities:
+          type: array
+          description: 能力标签
+          items:
+            type: string
+        priceRows:
+          type: array
+          description: 价格与取消（计价方式、影响价格、取消说明）
+          items:
+            $ref: "#/components/schemas/ProServiceLine"
+        scope:
+          type: array
+          items:
+            type: string
+        outputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProServiceLine"
+        serviceModes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProServiceLine"
+        terms:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProServiceLine"
+        steps:
+          type: array
+          description: 服务流程
+          items:
+            type: string
+        guarantees:
+          type: array
+          description: 服务保障
+          items:
+            type: string
+        provider:
+          anyOf:
+            - $ref: "#/components/schemas/ProServiceProvider"
+            - type: "null"
+        cities:
+          type: array
+          description: 这项服务上架的城市（可服务城市）
+          items:
+            $ref: "#/components/schemas/ProServiceCity"
+    ProviderInspectionService:
+      type: object
+      additionalProperties: false
+      required:
+        - serviceId
+        - title
+        - summary
+        - categoryName
+        - price
+      description: 服务商的一项巡检服务（打开巡检详情 /api/v1/inspection/services/{serviceId}）
+      properties:
+        serviceId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        summary:
+          type: string
+        categoryName:
+          type: string
+        price:
+          $ref: "#/components/schemas/ProServicePrice"
+    ProviderPage:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - name
+        - certificationLabel
+        - description
+        - cityCode
+        - inspectionServices
+        - proServices
+        - cities
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        certificationLabel:
+          type:
+            - string
+            - "null"
+        description:
+          type:
+            - string
+            - "null"
+        cityCode:
+          type: string
+        inspectionServices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderInspectionService"
+        proServices:
+          type: array
+          description: 按类型（航拍、测绘、设备维护、技术支持）再按综合顺序
+          items:
+            $ref: "#/components/schemas/ProServiceCard"
+        cities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProServiceCity"

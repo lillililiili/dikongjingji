@@ -78,6 +78,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway proservice(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/proservice",
+                "flyway_history_proservice",
+                true);
+    }
+
     private static Flyway build(DataSource dataSource, String location, String historyTable, boolean baselineOnMigrate) {
         return Flyway.configure()
                 .dataSource(dataSource)

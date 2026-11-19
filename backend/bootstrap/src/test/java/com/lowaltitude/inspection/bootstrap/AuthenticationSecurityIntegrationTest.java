@@ -343,6 +343,34 @@ class AuthenticationSecurityIntegrationTest {
         }
     }
 
+    // 四类专业服务（F2）的目录、详情和服务商主页公开只读：不带令牌也能读，写方法仍然要登录。
+    @Test
+    void proServiceReadsArePublic() throws Exception {
+        com.lowaltitude.inspection.proservice.application.ProServiceReadService proServices =
+                applicationContext.getBean(com.lowaltitude.inspection.proservice.application.ProServiceReadService.class);
+        UUID service = UUID.fromString("f2100000-0000-4000-8000-000000000001");
+        UUID provider = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+        mockMvc.perform(get("/api/v1/pro-services?type=AERIAL&cityCode=370500")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/pro-services/{id}?cityCode=370500", service)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/providers/{id}?cityCode=370500", provider)).andExpect(status().isOk());
+        org.mockito.Mockito.verify(proServices).list("AERIAL", "370500", null, null, null, null, 1, 20);
+        org.mockito.Mockito.verify(proServices).detail(service, "370500");
+        org.mockito.Mockito.verify(proServices).provider(provider, "370500");
+
+        for (var request : List.of(
+                post("/api/v1/pro-services"),
+                put("/api/v1/pro-services/" + service),
+                delete("/api/v1/providers/" + provider))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        // 只放行这三个路径，旁边的路径仍然要登录。
+        mockMvc.perform(get("/api/v1/providers/{id}/cases", provider))
+                .andExpect(status().isUnauthorized());
+    }
+
     // 需求与报价（F1）的十四个接口全部要登录，没有公开的。
     @Test
     void demandRoutesRequireALogin() throws Exception {
@@ -1214,6 +1242,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.proservice.application.ProServiceReadService testProServiceReadService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.proservice.application.ProServiceReadService.class);
         }
 
         @Bean

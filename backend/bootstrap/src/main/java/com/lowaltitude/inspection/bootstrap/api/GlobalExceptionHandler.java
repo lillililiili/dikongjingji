@@ -14,6 +14,7 @@ import com.lowaltitude.inspection.mall.application.MallCartException;
 import com.lowaltitude.inspection.trade.application.TradeException;
 import com.lowaltitude.inspection.mall.application.MallProductNotFoundException;
 import com.lowaltitude.inspection.notification.application.NotificationNotFoundException;
+import com.lowaltitude.inspection.proservice.application.ProServiceNotFoundException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
 import com.lowaltitude.inspection.application.reservation.FileTypeUnsupportedException;
@@ -193,7 +194,8 @@ public class GlobalExceptionHandler {
             VenueNotFoundException.class,
             MallProductNotFoundException.class,
             NotificationNotFoundException.class,
-            AddressNotFoundException.class
+            AddressNotFoundException.class,
+            ProServiceNotFoundException.class
     })
     public ResponseEntity<ApiError> handleReservationNotFound(
             RuntimeException exception,

@@ -25,5 +25,6 @@
         <module>modules/account</module>
         <module>modules/trade</module>
         <module>modules/demand</module>
+        <module>modules/proservice</module>
     </modules>
 </project>

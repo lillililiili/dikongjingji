@@ -1,9 +1,13 @@
 package com.lowaltitude.inspection.demand.application;
 
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
@@ -12,12 +16,13 @@ import com.lowaltitude.inspection.notification.application.NewNotification;
 import com.lowaltitude.inspection.notification.application.NotificationCategory;
 import com.lowaltitude.inspection.notification.application.NotificationService;
 import com.lowaltitude.inspection.notification.application.NotificationTargetType;
+import com.lowaltitude.inspection.proservice.application.ProServiceReadService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 需求模块的三个端口接到别的模块（F1，§22.3）：平台城市目录、巡检模块的服务商名录、站内信。需求模块不读它们的表。
+ * 需求模块的三个端口接到别的模块（F1，§22.3）：平台城市目录、巡检模块的服务商名录（加上专业服务模块的服务城市）、站内信。需求模块不读它们的表。
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(prefix = "spring.datasource", name = "url")
@@ -40,12 +45,28 @@ public class DemandPortsConfiguration {
         };
     }
 
+    /**
+     * 服务商名录：有在用的服务商资料（巡检模块），并且在这个城市有在用的巡检服务或已上架的四类专业服务（F2）。
+     */
     @Bean
-    DemandPorts.ProviderDirectory demandProviderDirectory(InspectionProviderDirectory directory) {
+    DemandPorts.ProviderDirectory demandProviderDirectory(
+            InspectionProviderDirectory directory,
+            ProServiceReadService proServices
+    ) {
         return new DemandPorts.ProviderDirectory() {
             @Override
             public List<DemandPorts.Provider> providersIn(String cityCode) {
-                return directory.providersIn(cityCode).stream().map(DemandPortsConfiguration::provider).toList();
+                Map<UUID, InspectionProviderDirectory.ProviderCard> found = new LinkedHashMap<>();
+                directory.providersIn(cityCode).forEach(card -> found.put(card.providerId(), card));
+                List<UUID> others = proServices.providerIdsIn(cityCode).stream()
+                        .filter(providerId -> !found.containsKey(providerId))
+                        .toList();
+                directory.find(others).forEach(card -> found.put(card.providerId(), card));
+                return found.values().stream()
+                        .sorted(Comparator.comparing(InspectionProviderDirectory.ProviderCard::name)
+                                .thenComparing(InspectionProviderDirectory.ProviderCard::providerId))
+                        .map(DemandPortsConfiguration::provider)
+                        .toList();
             }
 
             @Override
@@ -55,7 +76,9 @@ public class DemandPortsConfiguration {
 
             @Override
             public Set<String> citiesServed(UUID providerId) {
-                return directory.citiesServed(providerId);
+                Set<String> cities = new TreeSet<>(directory.citiesServed(providerId));
+                cities.addAll(proServices.citiesOf(providerId));
+                return cities;
             }
         };
     }

@@ -70,6 +70,16 @@ class ModuleFlywayFactoryTest {
     }
 
     @Test
+    void keepsProServiceVersionsInTheirOwnHistoryTable() {
+        Flyway proservice = new ModuleFlywayFactory().proservice(mock(DataSource.class));
+
+        assertThat(proservice.getConfiguration().getTable()).isEqualTo("flyway_history_proservice");
+        assertThat(locationDescriptors(proservice)).containsExactly("classpath:db/migration/proservice");
+        assertThat(proservice.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(proservice.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    @Test
     void keepsMallVersionsInTheirOwnHistoryTable() {
         Flyway mall = new ModuleFlywayFactory().mall(mock(DataSource.class));
 
