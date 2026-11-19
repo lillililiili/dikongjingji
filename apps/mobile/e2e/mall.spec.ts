@@ -100,7 +100,7 @@ test.describe('商城频道', () => {
     const survey = page.getByTestId(`mall-product-${SURVEY_ID}`)
     await expect(survey.locator('.mall-card__amount')).toHaveText('询价')
     await expect(survey.locator('.mall-card__unit')).toHaveCount(0)
-    await expect(survey.locator('.mall-card__sellers')).toHaveText('2 家可询价')
+    await expect(survey.locator('.mall-card__sellers')).toHaveText('3 家可询价')
   })
 
   test('MALL-003 类目页签筛选；课程类目为空时能回到全部', async ({ page }) => {
@@ -377,7 +377,7 @@ test.describe('商品详情', () => {
     await openProduct(page, SURVEY_ID)
     await expect(page.getByTestId('mall-product-name')).toHaveText('行业测绘无人机')
     await expect(page.getByTestId('mall-product-price')).toHaveText('询价')
-    await expect(page.locator('.mall-product__offer')).toHaveCount(2)
+    await expect(page.locator('.mall-product__offer')).toHaveCount(3)
     await expect(page.getByTestId('mall-product-cart')).toHaveCount(0)
     await expect(page.getByTestId('mall-product-primary')).toHaveText('联系询价')
     // Inquiry-only goods still go through the typed gate.
