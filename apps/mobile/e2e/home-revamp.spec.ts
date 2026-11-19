@@ -324,3 +324,42 @@ test('VIS-HOME 首页与趣玩在 320/375/430 无横向溢出并留存截图', a
     await page.screenshot({ path: resolve(visualOutput, `play-game-${width}.png`) })
   }
 })
+
+// 验收清单已知问题 2：定位一直没有回应（系统弹窗没人点、定位服务卡住）时，首页不能一直停在“选择城市”。
+test('HOME-901 定位一直不回应，几秒后退回默认城市并显示内容', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: () => undefined,
+        watchPosition: () => 0,
+        clearWatch: () => undefined,
+      },
+    })
+  })
+  await page.goto('/#/pages/home/index')
+  await expect(page.getByTestId('home-city')).toContainText('东营', { timeout: 12_000 })
+  await expect(page.getByTestId('home-page')).toBeVisible()
+})
+
+// 验收清单已知问题 3：App 里状态栏盖在页面上面，首页往上滑时卡片不能从时间和灵动岛下面露出来。
+// 浏览器里状态栏高度是 0，这里把它设成 44px 模拟 App。
+test('HOME-902 往上滑时状态栏那一条有底色，内容不从下面露出来', async ({ page }) => {
+  await page.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const style = document.createElement('style')
+      style.textContent = ':root, body, uni-page-body { --status-bar-height: 44px !important; }'
+      document.head.appendChild(style)
+    })
+  })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/#/pages/home/index')
+  await expect(page.getByTestId('home-city')).toContainText('东营')
+  await page.mouse.wheel(0, 600)
+  await page.waitForTimeout(500)
+  const topClasses = await page.evaluate(() => {
+    const element = document.elementFromPoint(200, 20)
+    return element ? element.closest('[class]')?.className ?? '' : ''
+  })
+  expect(String(topClasses)).toContain('home-page__status-bar')
+})

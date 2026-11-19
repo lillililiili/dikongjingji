@@ -130,8 +130,14 @@ function restoreDefaultCity(): CurrentCity {
   return city
 }
 
+// How long the first city waits for the location. Past this the default city is used, as when
+// location is refused; the city sheet can still locate again later.
+const LOCATE_TIMEOUT_MS = 6000
+
 function locateCurrentCityName(): Promise<string> {
   return new Promise((resolve, reject) => {
+    // An unanswered permission prompt or a stuck location service never calls back.
+    setTimeout(() => reject(new Error('LOCATION_TIMEOUT')), LOCATE_TIMEOUT_MS)
     uni.getLocation({
       type: 'gcj02',
       geocode: true,
@@ -283,6 +289,9 @@ onHide(() => {
 
 <template>
   <view class="home-page" data-testid="home-page">
+    <!-- The status bar is drawn over the page in the App; this strip keeps scrolled content from
+         showing under the clock. Its height is 0 in a browser. -->
+    <view class="home-page__status-bar" />
     <HomeHeader
       v-model:keyword="keyword"
       :city-name="cityName"
@@ -426,6 +435,16 @@ onHide(() => {
   padding-bottom: var(--app-root-tabbar-content-offset);
   background: #f7f8fa;
   box-sizing: border-box;
+}
+
+.home-page__status-bar {
+  position: fixed;
+  z-index: 30;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--status-bar-height);
+  background: #fff3e8;
 }
 
 .home-page__placeholder {
