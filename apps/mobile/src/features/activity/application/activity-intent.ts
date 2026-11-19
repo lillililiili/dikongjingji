@@ -1,8 +1,8 @@
-import type { ActivityEnrollmentStatus, ActivityPriceMode } from '../domain/activity'
+import type { ActivityDetail, ActivityEnrollmentStatus } from '../domain/activity'
 
 // Entries that are not built yet. They go through this typed gate instead of ad-hoc toasts.
-// ENROLL here means signing up for an activity that charges or quotes; a free one has its own
-// pages (see canEnrollOnline).
+// ENROLL here means signing up for an activity that quotes a price; free and paid-per-person ones
+// have their own pages (see resolveEnrollmentPayMode).
 export type ActivityIntent =
   | { type: 'ENROLL'; activityId: string; sessionId: string }
   | { type: 'JOIN_WAITLIST'; activityId: string; sessionId: string }
@@ -15,16 +15,36 @@ export type ActivityIntentResolution =
   | { action: 'HIDE' }
 
 const NOTICES: Record<ActivityIntent['type'], string> = {
-  ENROLL: '收费活动报名即将开放',
+  ENROLL: '询价活动暂不支持在线报名',
   JOIN_WAITLIST: '候补功能即将开放',
   TEAM_ENROLL: '团队报名即将开放',
   CONSULT: '咨询功能即将开放',
   READ_AGREEMENT: '协议正文待提供',
 }
 
-// Only free activities can be signed up for online at this stage.
-export function canEnrollOnline(priceMode: ActivityPriceMode): boolean {
-  return priceMode === 'FREE'
+/**
+ * How the sign-up form works for an activity (plan §20.1):
+ * FREE signs up; ONLINE_PAYMENT signs up and goes on to pay the organiser; PAYMENT_UNAVAILABLE shows
+ * the form but cannot submit (the organiser has no online payment); UNSUPPORTED (a quoted price, or a
+ * per-person price without an amount) has no form, only the typed gate.
+ */
+export type EnrollmentPayMode = 'FREE' | 'ONLINE_PAYMENT' | 'PAYMENT_UNAVAILABLE' | 'UNSUPPORTED'
+
+export function resolveEnrollmentPayMode(
+  activity: Pick<ActivityDetail, 'price' | 'onlinePayment'>,
+): EnrollmentPayMode {
+  if (activity.price.mode === 'FREE') return 'FREE'
+  if (activity.price.mode !== 'PER_PERSON' || !activity.price.amountMinor || activity.price.amountMinor <= 0) {
+    return 'UNSUPPORTED'
+  }
+  return activity.onlinePayment ? 'ONLINE_PAYMENT' : 'PAYMENT_UNAVAILABLE'
+}
+
+export const PAYMENT_UNAVAILABLE_TEXT = '主办方暂未开通在线支付'
+
+// What the form sends as expectedAmountMinor and shows as the total: unit price × people.
+export function enrollmentTotalMinor(unitAmountMinor: number, people: number): number {
+  return unitAmountMinor * people
 }
 
 // Preview builds explain that the entry is coming; public builds do not show it at all.

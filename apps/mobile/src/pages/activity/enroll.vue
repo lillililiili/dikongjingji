@@ -11,6 +11,7 @@ import {
 import ActivityEnrollPage from '@/features/activity/presentation/enroll/ActivityEnrollPage.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
+import { buildCashierUrl } from '@/features/trade/navigation/trade-routes'
 
 const activityId = ref('')
 const sessionId = ref('')
@@ -46,6 +47,12 @@ function openTicket(enrollmentId: string): void {
   uni.redirectTo({ url: buildActivityTicketUrl(enrollmentId) })
 }
 
+// A paid sign-up goes on to the cashier in the form's place, like the mall's confirm page; back
+// from the cashier lands on the activity.
+function openCashier(tradeOrderId: string): void {
+  uni.redirectTo({ url: buildCashierUrl(tradeOrderId) })
+}
+
 onLoad((query) => {
   activityId.value = typeof query?.activityId === 'string' ? query.activityId : ''
   sessionId.value = typeof query?.sessionId === 'string' ? query.sessionId : ''
@@ -71,5 +78,6 @@ onShow(() => {
     @login="openLogin"
     @manage-people="openPeople"
     @done="openTicket"
+    @pay="openCashier"
   />
 </template>

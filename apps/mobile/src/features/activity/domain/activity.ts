@@ -106,6 +106,9 @@ export interface ActivityDetail {
   waitlistAllowed: boolean
   teamEnrollmentAllowed: boolean
   sessions: ActivitySession[]
+  // price.onlinePayment (1.2.0): paid per person, above zero, and the organiser can take money
+  // online. Only such a paid activity can be signed up for and paid in the app.
+  onlinePayment: boolean
 }
 
 export const ACTIVITY_PAGE_SIZE = 10

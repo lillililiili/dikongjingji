@@ -8,6 +8,13 @@ import {
   formatTradeAmount,
   formatTradeTime,
 } from '../../application/order-view'
+import {
+  isEnrollmentOrder,
+  orderDestination,
+  orderLinkLabel,
+  paidFrame,
+  type TradeOrderDestination,
+} from '../../application/order-source'
 import { checkPaymentUntilSettled, paymentCheckResult } from '../../application/payment-check'
 import { isUnauthorizedFailure, readTradeFailure } from '../../application/start-payment'
 import { tradeApi } from '../../data/trade-api-client'
@@ -23,10 +30,12 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  back: []
+  // The order's own page when the order is known: back from a sign-up's result is its ticket.
+  back: [destination: TradeOrderDestination | null]
   login: []
   home: []
-  viewOrder: []
+  // The goods order, or the ticket of the enrolment this order pays for (查看凭证).
+  viewOrder: [destination: TradeOrderDestination]
   repay: []
 }>()
 
@@ -45,6 +54,15 @@ let alive = true
 
 const order = computed(() => (state.value.kind === 'ready' ? state.value.order : null))
 const result = computed(() => (order.value ? paymentCheckResult(order.value) : null))
+const destination = computed(() => (order.value ? orderDestination(order.value) : null))
+const linkLabel = computed(() => (order.value ? orderLinkLabel(order.value) : '查看订单'))
+const paid = computed(() => (order.value ? paidFrame(order.value) : { title: '已支付', note: null }))
+const enrollment = computed(() => Boolean(order.value && isEnrollmentOrder(order.value)))
+
+function viewOrder(): void {
+  if (destination.value) emit('viewOrder', destination.value)
+}
+
 const view = computed<'PENDING' | 'PAID' | 'FAILED' | 'CLOSED' | null>(() => {
   if (!result.value) return null
   if (result.value === 'PAID') return 'PAID'
@@ -116,7 +134,7 @@ onBeforeUnmount(() => {
 
 <template>
   <view class="pay-result" data-testid="pay-result">
-    <TradePageHeader title="支付结果" test-id="pay-result" @back="emit('back')" />
+    <TradePageHeader title="支付结果" test-id="pay-result" @back="emit('back', destination)" />
 
     <view v-if="state.kind === 'loading'" class="pay-result__body">
       <view class="pay-result__card pay-result__status" role="status" data-testid="pay-result-pending">
@@ -152,11 +170,12 @@ onBeforeUnmount(() => {
         <view class="pay-result__icon pay-result__icon--paid">
           <image class="pay-result__glyph" src="/static/images/trade/check-green.svg" mode="aspectFit" />
         </view>
-        <text class="pay-result__title">已支付</text>
+        <text class="pay-result__title" data-testid="pay-result-paid-title">{{ paid.title }}</text>
         <text class="pay-result__amount" data-testid="pay-result-amount">{{ formatTradeAmount(order.amounts.paidMinor) }}</text>
+        <text v-if="paid.note" class="pay-result__note" data-testid="pay-result-paid-note">{{ paid.note }}</text>
         <view class="pay-result__actions">
           <button class="pay-result__secondary" data-testid="pay-result-home" @click="emit('home')">返回首页</button>
-          <button class="pay-result__primary" data-testid="pay-result-view-order" @click="emit('viewOrder')">查看订单</button>
+          <button class="pay-result__primary" data-testid="pay-result-view-order" @click="viewOrder">{{ linkLabel }}</button>
         </view>
       </view>
 
@@ -168,7 +187,7 @@ onBeforeUnmount(() => {
         <text class="pay-result__text">{{ describeClosedOrder(order).line }}</text>
         <view class="pay-result__actions">
           <button class="pay-result__secondary" @click="emit('home')">返回首页</button>
-          <button class="pay-result__primary" data-testid="pay-result-view-order" @click="emit('viewOrder')">查看订单</button>
+          <button class="pay-result__primary" data-testid="pay-result-view-order" @click="viewOrder">{{ linkLabel }}</button>
         </view>
       </view>
 
@@ -178,9 +197,9 @@ onBeforeUnmount(() => {
         </view>
         <text class="pay-result__title">支付失败</text>
         <text class="pay-result__text">支付未成功，如已扣款将原路退回</text>
-        <text class="pay-result__note">订单仍为待付款，超时订单自动取消</text>
+        <text class="pay-result__note">{{ enrollment ? '名额仍为你保留，超时自动释放' : '订单仍为待付款，超时订单自动取消' }}</text>
         <view class="pay-result__actions">
-          <button class="pay-result__secondary" data-testid="pay-result-view-order" @click="emit('viewOrder')">查看订单</button>
+          <button class="pay-result__secondary" data-testid="pay-result-view-order" @click="viewOrder">{{ linkLabel }}</button>
           <button class="pay-result__primary" data-testid="pay-result-repay" @click="emit('repay')">重新支付</button>
         </view>
         <button class="pay-result__refresh" data-testid="pay-result-refresh" @click="runCheck(0)">刷新结果</button>

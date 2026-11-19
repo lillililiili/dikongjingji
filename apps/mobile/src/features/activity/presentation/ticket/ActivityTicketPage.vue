@@ -1,15 +1,28 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
 
-import { describeTicket, pickInitialTicket } from '../../application/enrollment-view'
+import {
+  cancelRefundMinor,
+  describeCancelConfirm,
+  describeTicket,
+  describeTicketRefund,
+  describeTicketSteps,
+  formatPayCountdown,
+  paymentRemainingMs,
+  pickInitialTicket,
+} from '../../application/enrollment-view'
 import { ticketQrImage } from '../../application/ticket-qr'
 import { enrollmentApi } from '../../data/enrollment-api-client'
 import type { Enrollment, EnrollmentTicket } from '../../domain/enrollment'
-import { formatActivityDateTime, formatActivityShortDateTime } from '../shared/activity-format'
+import {
+  formatActivityAmount,
+  formatActivityDateTime,
+  formatActivityShortDateTime,
+} from '../shared/activity-format'
 
 const props = defineProps<{
   enrollmentId: string
@@ -22,7 +35,14 @@ const emit = defineEmits<{
   back: []
   login: []
   openActivity: [activityId: string, cityCode: string]
+  // 去付款: the trade cashier of this sign-up's order.
+  pay: [tradeOrderId: string]
 }>()
+
+// Once the time to pay has run out the server closes the order within a minute; the page asks it
+// again this often (and at most this many times) instead of deciding on its own that it closed.
+const OVERDUE_RELOAD_MS = 10_000
+const OVERDUE_RELOADS = 6
 
 type TicketState =
   | { kind: 'loading' }
@@ -34,7 +54,11 @@ const state = ref<TicketState>({ kind: 'loading' })
 const selectedTicketId = ref<string | null>(null)
 const cancelSheetOpen = ref(false)
 const cancelling = ref(false)
+const now = ref(Date.now())
 let requestVersion = 0
+let timer: ReturnType<typeof setInterval> | null = null
+let lastOverdueReload = 0
+let overdueReloads = 0
 
 const enrollment = computed(() => state.value.kind === 'ready' ? state.value.enrollment : null)
 const ticket = computed<EnrollmentTicket | null>(() =>
@@ -42,34 +66,51 @@ const ticket = computed<EnrollmentTicket | null>(() =>
 const view = computed(() =>
   ticket.value && enrollment.value ? describeTicket(ticket.value, enrollment.value) : null)
 const live = computed(() => view.value?.tone === 'LIVE')
+const pending = computed(() => view.value?.tone === 'PENDING')
 // A code that can no longer be used is drawn grey on a grey page.
 const grey = computed(() => view.value?.tone === 'EXPIRED' || view.value?.tone === 'CANCELLED')
-const qrImage = computed(() => ticket.value ? ticketQrImage(ticket.value.ticketCode) : '')
+// Unpaid or closed before payment: there is no code to draw.
+const qrImage = computed(() => ticket.value?.ticketCode ? ticketQrImage(ticket.value.ticketCode) : '')
+const remainingMs = computed(() => enrollment.value ? paymentRemainingMs(enrollment.value, now.value) : 0)
+const countdown = computed(() => formatPayCountdown(remainingMs.value))
+const refund = computed(() => ticket.value?.refund ? describeTicketRefund(ticket.value.refund) : null)
+const amountText = computed(() => {
+  const payment = enrollment.value?.payment
+  if (!payment?.amountMinor || payment.status === 'FREE') return ''
+  return payment.unitAmountMinor
+    ? `${formatActivityAmount(payment.amountMinor)}（${formatActivityAmount(payment.unitAmountMinor)} × ${enrollment.value?.tickets.length} 人）`
+    : formatActivityAmount(payment.amountMinor)
+})
 const whoMeta = computed(() => {
   if (!ticket.value) return ''
   return ticket.value.age !== null ? `${ticket.value.age} 岁 · 一人一码` : '一人一码'
 })
 const activeTickets = computed(() =>
   enrollment.value?.tickets.filter((item) => item.status === 'ACTIVE') ?? [])
-const canCancel = computed(() => Boolean(enrollment.value?.cancellable) && live.value)
-const finished = computed(() =>
-  enrollment.value?.status === 'FINISHED' && ticket.value?.status === 'CHECKED_IN')
-const steps = computed(() => {
-  if (!view.value) return []
-  return [
-    { label: '报名成功', state: 'DONE' as const },
-    view.value.checkInStep,
-    { label: '完成', state: finished.value ? 'DONE' as const : 'TODO' as const },
-  ]
+const canCancel = computed(() => Boolean(enrollment.value?.cancellable) && (live.value || pending.value))
+const canPay = computed(() => pending.value && remainingMs.value > 0 && Boolean(enrollment.value?.payment.tradeOrderId))
+const progress = computed(() =>
+  ticket.value && enrollment.value ? describeTicketSteps(ticket.value, enrollment.value) : { steps: [], doneWidth: '0' })
+// The line runs between the centres of the first and the last step.
+const stepInset = computed(() => `${(50 / Math.max(progress.value.steps.length, 1)).toFixed(1)}%`)
+// Unpaid sign-ups can only be cancelled whole, so the sheet counts every unpaid ticket.
+const cancelCount = computed(() => (pending.value ? enrollment.value?.tickets.length ?? 0 : 1))
+const cancelLine = computed(() => enrollment.value ? describeCancelConfirm(enrollment.value, cancelCount.value) : '')
+const cancelOneRefund = computed(() => {
+  const amount = enrollment.value ? cancelRefundMinor(enrollment.value, 1) : null
+  return amount === null ? null : formatActivityAmount(amount)
 })
-// The orange line reaches the last finished step.
-const progressWidth = computed(() => {
-  if (finished.value) return '66.6%'
-  return view.value?.checkInStep.state === 'DONE' ? '33.3%' : '0'
+const cancelAllRefund = computed(() => {
+  const amount = enrollment.value ? cancelRefundMinor(enrollment.value, activeTickets.value.length) : null
+  return amount === null ? '' : `（共退 ${formatActivityAmount(amount)}）`
 })
 const note = computed(() => {
   if (!view.value || !enrollment.value) return ''
   switch (view.value.tone) {
+    case 'PENDING':
+      return remainingMs.value > 0
+        ? `请在 ${countdown.value} 内付款，超时名额自动释放`
+        : '付款时间已到，正在确认订单状态'
     case 'LIVE':
       return enrollment.value.cancellable
         ? `${formatActivityShortDateTime(enrollment.value.cancellableUntil)} 前可取消`
@@ -79,6 +120,12 @@ const note = computed(() => {
     case 'EXPIRED':
       return '没有签到记录'
     case 'CANCELLED':
+      if (enrollment.value.payment.status === 'CLOSED') return '没有扣款，需要时可以重新报名'
+      if (ticket.value?.refund) {
+        return ticket.value.refund.status === 'SUCCEEDED'
+          ? `${formatActivityAmount(ticket.value.refund.amountMinor)} 已原路退回`
+          : `${refund.value?.text} · 原路退回，到账时间以微信支付为准`
+      }
       return '免费报名，不涉及退款'
   }
 })
@@ -89,6 +136,7 @@ function isUnauthorized(error: unknown): boolean {
 }
 
 function show(loaded: Enrollment): void {
+  if (loaded.payment.status !== 'PENDING_PAYMENT') overdueReloads = 0
   state.value = { kind: 'ready', enrollment: loaded }
   const stillThere = loaded.tickets.some((item) => item.ticketId === selectedTicketId.value)
   if (!stillThere) selectedTicketId.value = pickInitialTicket(loaded)?.ticketId ?? null
@@ -125,11 +173,17 @@ async function load(): Promise<void> {
 async function cancel(ticketIds?: string[]): Promise<void> {
   const token = props.accessToken
   if (!token || !enrollment.value || cancelling.value) return
+  const wasUnpaid = enrollment.value.payment.status === 'PENDING_PAYMENT'
   cancelling.value = true
   try {
-    show(await enrollmentApi.cancel(token, enrollment.value.enrollmentId, ticketIds))
+    const updated = await enrollmentApi.cancel(token, enrollment.value.enrollmentId, ticketIds)
+    show(updated)
     cancelSheetOpen.value = false
-    uni.showToast({ title: '已取消', icon: 'none' })
+    // The server found the payment while closing: nothing was cancelled, the sign-up stands.
+    const title = wasUnpaid && updated.payment.status === 'PAID'
+      ? '已经付款，报名已生效'
+      : updated.payment.status === 'PAID' ? '已取消，报名费原路退回' : '已取消'
+    uni.showToast({ title, icon: 'none' })
   } catch (error) {
     if (isUnauthorized(error)) {
       emit('login')
@@ -171,7 +225,29 @@ function openNavigation(): void {
   })
 }
 
+function pay(): void {
+  const orderId = enrollment.value?.payment.tradeOrderId
+  if (canPay.value && orderId) emit('pay', orderId)
+}
+
+// Reaching the deadline asks the server; it may have closed the order, or seen a late payment.
+function tick(): void {
+  now.value = Date.now()
+  if (!pending.value || remainingMs.value > 0 || overdueReloads >= OVERDUE_RELOADS) return
+  if (now.value - lastOverdueReload < OVERDUE_RELOAD_MS) return
+  lastOverdueReload = now.value
+  overdueReloads += 1
+  void load()
+}
+
 watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { void load() }, { immediate: true })
+
+onMounted(() => {
+  timer = setInterval(tick, 1000)
+})
+onBeforeUnmount(() => {
+  if (timer) clearInterval(timer)
+})
 </script>
 
 <template>
@@ -206,13 +282,13 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
       <view class="ticket__status">
         <view class="ticket__status-line">
           <UniIcons
-            :type="view.tone === 'CANCELLED' ? 'closeempty' : view.tone === 'EXPIRED' ? 'info' : 'checkmarkempty'"
+            :type="view.tone === 'CANCELLED' ? 'closeempty' : view.tone === 'EXPIRED' ? 'info' : view.tone === 'PENDING' ? 'wallet' : 'checkmarkempty'"
             size="22"
             color="#ffffff"
           />
           <text class="ticket__status-title" data-testid="ticket-status-title">{{ view.title }}</text>
         </view>
-        <text class="ticket__status-sub">{{ view.subtitle }}</text>
+        <text class="ticket__status-sub" data-testid="ticket-status-sub">{{ view.subtitle }}</text>
       </view>
 
       <view class="ticket__card">
@@ -253,6 +329,19 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
             <text class="ticket__place-label">地点</text>
             <text class="ticket__place-text">{{ enrollment.location.name }} · {{ enrollment.location.address }}</text>
           </view>
+          <view v-if="amountText" class="ticket__place">
+            <text class="ticket__place-label">报名费</text>
+            <text class="ticket__place-text" data-testid="ticket-amount">{{ amountText }}</text>
+          </view>
+          <view v-if="refund" class="ticket__place">
+            <text class="ticket__place-label">退款</text>
+            <text
+              :class="['ticket__place-text', 'ticket__refund', `ticket__refund--${refund.tone.toLowerCase()}`]"
+              data-testid="ticket-refund"
+            >
+              {{ refund.text }} · 原路退回
+            </text>
+          </view>
         </view>
 
         <view class="ticket__tear">
@@ -263,12 +352,17 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
         <view class="ticket__code-block">
           <view class="ticket__qr">
             <image
+              v-if="qrImage"
               :class="['ticket__qr-image', { 'ticket__qr-image--off': !live }]"
               data-testid="ticket-qr"
               :src="qrImage"
               mode="aspectFit"
               :aria-label="live ? '签到二维码' : '已失效的二维码'"
             />
+            <view v-else class="ticket__qr-empty" data-testid="ticket-qr-empty">
+              <UniIcons :type="pending ? 'wallet' : 'closeempty'" size="34" color="#91a0b4" />
+              <text class="ticket__qr-empty-text">{{ pending ? '付款后生成' : '未生成二维码' }}</text>
+            </view>
             <text
               v-if="view.stamp"
               :class="['ticket__stamp', { 'ticket__stamp--used': view.tone === 'USED' }]"
@@ -277,12 +371,32 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
               {{ view.stamp }}
             </text>
           </view>
-          <text class="ticket__code">凭证号 <text data-testid="ticket-code">{{ ticket.ticketCode }}</text></text>
+          <text v-if="ticket.ticketCode" class="ticket__code">凭证号 <text data-testid="ticket-code">{{ ticket.ticketCode }}</text></text>
           <text :class="['ticket__hint', { 'ticket__hint--strong': !live }]">{{ view.hint }}</text>
         </view>
       </view>
 
-      <view v-if="live" class="ticket__actions">
+      <view v-if="pending" class="ticket__actions">
+        <button
+          :class="['ticket__action', 'ticket__action--pay', { 'ticket__action--off': !canPay }]"
+          data-testid="ticket-pay"
+          :disabled="!canPay"
+          @click="pay"
+        >
+          <UniIcons type="wallet" size="22" :color="canPay ? '#ffffff' : '#91a0b4'" />
+          <text>{{ canPay ? `去付款 · ${countdown}` : '付款时间已到' }}</text>
+        </button>
+        <button
+          :class="['ticket__action', { 'ticket__action--off': !canCancel }]"
+          data-testid="ticket-cancel"
+          :disabled="!canCancel"
+          @click="cancelSheetOpen = true"
+        >
+          <UniIcons type="undo" size="22" :color="canCancel ? '#ff6a00' : '#91a0b4'" />
+          <text>取消报名</text>
+        </button>
+      </view>
+      <view v-else-if="live" class="ticket__actions">
         <button class="ticket__action" data-testid="ticket-navigate" @click="openNavigation">
           <UniIcons type="paperplane" size="22" color="#ff6a00" />
           <text>导航到场馆</text>
@@ -308,10 +422,17 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
         <UniIcons type="right" size="16" color="#91a0b4" />
       </button>
 
-      <view class="ticket__steps">
-        <view class="ticket__steps-line" />
-        <view class="ticket__steps-line ticket__steps-line--done" :style="{ width: progressWidth }" />
-        <view v-for="step in steps" :key="step.label" class="ticket__step">
+      <view
+        class="ticket__steps"
+        data-testid="ticket-steps"
+        :style="{ gridTemplateColumns: `repeat(${progress.steps.length}, minmax(0, 1fr))` }"
+      >
+        <view class="ticket__steps-line" :style="{ left: stepInset, right: stepInset }" />
+        <view
+          class="ticket__steps-line ticket__steps-line--done"
+          :style="{ left: stepInset, width: progress.doneWidth }"
+        />
+        <view v-for="step in progress.steps" :key="step.label" class="ticket__step">
           <view :class="['ticket__dot', `ticket__dot--${step.state.toLowerCase()}`]">
             <UniIcons
               v-if="step.state !== 'TODO'"
@@ -327,7 +448,7 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
       </view>
 
       <view :class="['ticket__note', `ticket__note--${view.tone.toLowerCase()}`]" data-testid="ticket-note">
-        <UniIcons type="info" size="16" :color="live ? '#159a70' : '#738096'" />
+        <UniIcons type="info" size="16" :color="live ? '#159a70' : pending ? '#ff6a00' : '#738096'" />
         <text>{{ note }}</text>
       </view>
     </template>
@@ -335,18 +456,32 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
     <view v-if="cancelSheetOpen && enrollment && ticket" class="ticket__mask" @click.self="cancelSheetOpen = false">
       <view class="ticket__sheet" role="dialog" aria-label="取消报名" data-testid="ticket-cancel-sheet">
         <text class="ticket__sheet-title">取消报名？</text>
-        <text class="ticket__sheet-text">取消后名额会让给别人，需要时可以重新报名。</text>
+        <text class="ticket__sheet-text" data-testid="ticket-cancel-text">{{ cancelLine }}</text>
         <view class="ticket__sheet-row">
           <text class="ticket__sheet-label">场次</text>
           <text>{{ formatActivityDateTime(enrollment.session.startsAt) }}</text>
         </view>
         <view class="ticket__sheet-row">
           <text class="ticket__sheet-label">参与人</text>
-          <text>{{ ticket.participantName }}</text>
+          <text>{{ pending ? enrollment.tickets.map((item) => item.participantName).join('、') : ticket.participantName }}</text>
+        </view>
+        <view v-if="!pending && cancelOneRefund" class="ticket__sheet-row">
+          <text class="ticket__sheet-label">退款</text>
+          <text class="ticket__sheet-refund" data-testid="ticket-cancel-refund">原路退回 {{ cancelOneRefund }}</text>
         </view>
         <view class="ticket__sheet-actions">
           <button class="ticket__sheet-keep" @click="cancelSheetOpen = false">再想想</button>
           <button
+            v-if="pending"
+            class="ticket__sheet-confirm"
+            data-testid="ticket-cancel-unpaid"
+            :disabled="cancelling"
+            @click="cancel()"
+          >
+            取消报名
+          </button>
+          <button
+            v-else
             class="ticket__sheet-confirm"
             data-testid="ticket-cancel-one"
             :disabled="cancelling"
@@ -356,13 +491,13 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
           </button>
         </view>
         <button
-          v-if="activeTickets.length > 1"
+          v-if="!pending && activeTickets.length > 1"
           class="ticket__sheet-all"
           data-testid="ticket-cancel-all"
           :disabled="cancelling"
           @click="cancel()"
         >
-          {{ activeTickets.length }} 人全部取消
+          {{ activeTickets.length }} 人全部取消{{ cancelAllRefund }}
         </button>
       </view>
     </view>
@@ -585,7 +720,8 @@ button::after {
   white-space: nowrap;
 }
 
-.ticket__fact-value--live {
+.ticket__fact-value--live,
+.ticket__fact-value--pending {
   color: #ba470b;
 }
 
@@ -663,6 +799,38 @@ button::after {
   opacity: 0.18;
 }
 
+.ticket__qr-empty {
+  display: flex;
+  width: 168px;
+  height: 168px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1.5px dashed #c9d3e1;
+  border-radius: 12px;
+  background: #f5f7fc;
+  box-sizing: border-box;
+}
+
+.ticket__qr-empty-text {
+  color: #738096;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.ticket__refund--pending {
+  color: #ba470b;
+}
+
+.ticket__refund--done {
+  color: #11804a;
+}
+
+.ticket__refund--alert {
+  color: #d64f67;
+}
+
 .ticket__stamp {
   position: absolute;
   top: 42px;
@@ -726,6 +894,12 @@ button::after {
   font-size: 13px;
   line-height: 18px;
   white-space: nowrap;
+}
+
+.ticket__action--pay {
+  color: #ffffff;
+  background: #ff6a00;
+  font-weight: 500;
 }
 
 .ticket__action--off,
@@ -845,6 +1019,11 @@ button::after {
   background: #e2f6ed;
 }
 
+.ticket__note--pending {
+  color: #ba470b;
+  background: #fff0e3;
+}
+
 .ticket__mask {
   position: fixed;
   z-index: 1200;
@@ -888,6 +1067,11 @@ button::after {
 .ticket__sheet-label {
   flex: none;
   color: #627187;
+}
+
+.ticket__sheet-refund {
+  color: #ba470b;
+  font-weight: 500;
 }
 
 .ticket__sheet-actions {

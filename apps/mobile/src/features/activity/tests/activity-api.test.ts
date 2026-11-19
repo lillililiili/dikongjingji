@@ -171,5 +171,15 @@ describe('activity api', () => {
     expect(detail.coOrganizer).toBeNull()
     expect(detail.sessions[0]).toEqual(detailDto.sessions[0])
     expect(detail.price).toEqual({ mode: 'PER_PERSON', amountMinor: 12000 })
+    // A server before 1.2.0 says nothing about online payment: none.
+    expect(detail.onlinePayment).toBe(false)
+
+    const paid = await apiReturning({ ...detailDto, price: { ...CARD_DTO.price, onlinePayment: true } }).api
+      .loadDetail(CARD_DTO.activityId, '370500')
+    expect(paid.onlinePayment).toBe(true)
+    // Only a per-person price is ever paid online, whatever the flag says.
+    const free = await apiReturning({ ...detailDto, price: { mode: 'FREE', amountMinor: null, currency: 'CNY', onlinePayment: true } }).api
+      .loadDetail(CARD_DTO.activityId, '370500')
+    expect(free.onlinePayment).toBe(false)
   })
 })

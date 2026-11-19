@@ -142,6 +142,8 @@ export function describeOrderStatus(order: TradeOrder, now: number): { label: st
         ? { label: '已超时', tone: 'MUTED' }
         : { label: '待付款', tone: 'ACTION' }
     case 'PAID':
+      // A business order ships nothing (a paid sign-up): it is simply paid.
+      if (!order.delivery) return { label: '已付款', tone: 'DONE' }
       return order.delivery.mode === 'PICKUP'
         ? { label: '待自提', tone: 'ACTION' }
         : { label: '待发货', tone: 'ACTION' }
@@ -171,20 +173,21 @@ export function describeOrderHeader(order: TradeOrder, now: number): { title: st
           line: `请在 ${formatCountdown(paymentRemainingMs(order, now))} 内完成支付，超时订单自动取消`,
         }
     case 'PAID':
+      if (!order.delivery) return { title: '已付款', line: '支付结果以微信支付回执为准' }
       return order.delivery.mode === 'PICKUP'
         ? { title: '待自提', line: '请凭取货码到自提点取货' }
         : { title: '待发货', line: '商家正在备货，发货后可在这里查看运单号' }
     case 'SHIPPED':
       return {
         title: '已发货',
-        line: order.delivery.shippedAt
+        line: order.delivery?.shippedAt
           ? `${formatTradeTime(autoReceiptAt(order.delivery.shippedAt))} 将自动确认收货（发货 ${AUTO_RECEIPT_DAYS} 天后）`
           : `发货 ${AUTO_RECEIPT_DAYS} 天后自动确认收货`,
       }
     case 'COMPLETED':
       return {
         title: '已完成',
-        line: order.delivery.mode === 'PICKUP' ? '已取货，交易完成' : '已确认收货，交易完成',
+        line: order.delivery?.mode === 'PICKUP' ? '已取货，交易完成' : '已确认收货，交易完成',
       }
     case 'CLOSED':
       return describeClosedOrder(order)
@@ -229,11 +232,11 @@ export function listCardHint(order: TradeOrder, now: number): TradeCardHint | nu
   if (canPay(order, now)) {
     return { kind: 'COUNTDOWN', text: `剩 ${formatCountdown(paymentRemainingMs(order, now))} 未支付将自动取消` }
   }
-  if (order.status === 'SHIPPED' && order.delivery.shippedAt) {
+  if (order.status === 'SHIPPED' && order.delivery?.shippedAt) {
     const carrier = order.delivery.carrierName ? ` · ${order.delivery.carrierName}` : ''
     return { kind: 'SHIPPED', text: `${formatTradeTime(order.delivery.shippedAt)} 已发货${carrier}` }
   }
-  if (order.status === 'PAID' && order.delivery.mode === 'PICKUP' && order.delivery.pickupPoint) {
+  if (order.status === 'PAID' && order.delivery?.mode === 'PICKUP' && order.delivery.pickupPoint) {
     return { kind: 'NOTE', text: `自提点 ${order.delivery.pickupPoint}` }
   }
   if (order.status === 'CLOSED') {
@@ -249,14 +252,15 @@ export function pieceCount(order: TradeOrder): number {
 // The first line stands for the order on a card; several lines are counted, not listed.
 export function listCardGoods(order: TradeOrder): { name: string; spec: string } {
   const first = order.lines[0]
-  const delivery = TRADE_DELIVERY_LABELS[order.delivery.mode]
+  const delivery = order.delivery ? TRADE_DELIVERY_LABELS[order.delivery.mode] : ''
+  const withDelivery = (text: string) => (delivery ? `${text} · ${delivery}` : text)
   if (!first) return { name: '', spec: delivery }
   if (order.lines.length === 1) {
-    return { name: first.productName, spec: `${first.skuName} × ${first.quantity} · ${delivery}` }
+    return { name: first.productName, spec: withDelivery(`${first.skuName} × ${first.quantity}`) }
   }
   return {
     name: `${first.productName} 等 ${order.lines.length} 种商品`,
-    spec: `共 ${pieceCount(order)} 件 · ${delivery}`,
+    spec: withDelivery(`共 ${pieceCount(order)} 件`),
   }
 }
 

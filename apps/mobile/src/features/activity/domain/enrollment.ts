@@ -1,6 +1,6 @@
 import type { ActivityImage, ActivityLocation, ActivityType } from './activity'
 
-// 契约 contracts/openapi-activity.yaml 1.1.0：参与人、报名单、凭证。
+// 契约 contracts/openapi-activity.yaml 1.2.0：参与人、报名单、凭证，以及收费报名的付款和退款。
 
 export type ParticipantRelation = 'SELF' | 'CHILD'
 
@@ -30,7 +30,28 @@ export interface Participant {
 
 export type EnrollmentStatus = 'UPCOMING' | 'FINISHED' | 'CANCELLED'
 
-export type TicketStatus = 'ACTIVE' | 'CHECKED_IN' | 'EXPIRED' | 'CANCELLED'
+export type TicketStatus = 'PENDING_PAYMENT' | 'ACTIVE' | 'CHECKED_IN' | 'EXPIRED' | 'CANCELLED'
+
+// 免费 / 待付款 / 已付款（之后退了几位也仍是 PAID，看凭证的 refund）/ 没付款就关闭了。
+export type EnrollmentPaymentStatus = 'FREE' | 'PENDING_PAYMENT' | 'PAID' | 'CLOSED'
+
+// Same as the trade module's refund status.
+export type TicketRefundStatus = 'REQUESTED' | 'PROCESSING' | 'SUCCEEDED' | 'CLOSED' | 'ABNORMAL'
+
+export interface TicketRefund {
+  status: TicketRefundStatus
+  // What this one person gets back (the unit price at sign-up).
+  amountMinor: number
+}
+
+export interface EnrollmentPayment {
+  status: EnrollmentPaymentStatus
+  // The trade order the cashier pays; null on a free enrolment.
+  tradeOrderId: string | null
+  amountMinor: number | null
+  unitAmountMinor: number | null
+  payBefore: string | null
+}
 
 export interface EnrollmentTicket {
   ticketId: string
@@ -38,10 +59,12 @@ export interface EnrollmentTicket {
   participantName: string
   relation: ParticipantRelation
   age: number | null
-  ticketCode: string
+  // Null until a paid sign-up is paid, and on a ticket voided before payment.
+  ticketCode: string | null
   status: TicketStatus
   checkedInAt: string | null
   cancelledAt: string | null
+  refund: TicketRefund | null
 }
 
 export interface Enrollment {
@@ -67,6 +90,7 @@ export interface Enrollment {
   cancellableUntil: string
   cancellable: boolean
   tickets: EnrollmentTicket[]
+  payment: EnrollmentPayment
 }
 
 export interface EnrollmentPage {

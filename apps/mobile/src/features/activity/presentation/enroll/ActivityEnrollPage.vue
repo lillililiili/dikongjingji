@@ -5,9 +5,12 @@ import { computed, ref, watch } from 'vue'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
 import {
-  canEnrollOnline,
+  PAYMENT_UNAVAILABLE_TEXT,
+  enrollmentTotalMinor,
   resolveActivityIntent,
+  resolveEnrollmentPayMode,
   type ActivityIntent,
+  type EnrollmentPayMode,
 } from '../../application/activity-intent'
 import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
 import {
@@ -22,6 +25,7 @@ import { enrollmentApi } from '../../data/enrollment-api-client'
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
 import { MAX_ENROLLMENT_PARTICIPANTS, type Participant } from '../../domain/enrollment'
 import {
+  formatActivityAmount,
   formatActivityDay,
   formatActivitySessionSeats,
   formatActivityTime,
@@ -42,7 +46,10 @@ const emit = defineEmits<{
   back: []
   login: []
   managePeople: []
+  // A free sign-up (or one already paid): its ticket.
   done: [enrollmentId: string]
+  // A paid sign-up waiting for payment: the trade cashier of its order.
+  pay: [tradeOrderId: string]
 }>()
 
 type FormState =
@@ -64,6 +71,10 @@ let requestVersion = 0
 let peopleVersion = 0
 
 const activity = computed(() => state.value.kind === 'ready' ? state.value.activity : null)
+const payMode = computed<EnrollmentPayMode>(() =>
+  activity.value ? resolveEnrollmentPayMode(activity.value) : 'UNSUPPORTED')
+const paid = computed(() => payMode.value === 'ONLINE_PAYMENT' || payMode.value === 'PAYMENT_UNAVAILABLE')
+const unitAmount = computed(() => (paid.value ? activity.value?.price.amountMinor ?? 0 : 0))
 // Sessions that are over are not offered; ones that cannot be booked stay visible but disabled.
 const sessions = computed<ActivitySession[]>(() =>
   activity.value?.sessions.filter((session) => session.status !== 'ENDED') ?? [])
@@ -94,16 +105,35 @@ const forChildren = computed(() => {
 const noticeLead = computed(() => enrollmentNoticeLead(picked.value))
 const tooMany = computed(() =>
   selectedSession.value !== null && picked.value.length > selectedSession.value.seatsLeft)
+// What the page shows and sends as expectedAmountMinor; null for a free activity.
+const totalAmount = computed(() =>
+  payMode.value === 'ONLINE_PAYMENT' ? enrollmentTotalMinor(unitAmount.value, picked.value.length) : null)
+const priceText = computed(() => {
+  if (!paid.value) return '免费'
+  return picked.value.length > 0
+    ? formatActivityAmount(enrollmentTotalMinor(unitAmount.value, picked.value.length))
+    : `${formatActivityAmount(unitAmount.value)}/人`
+})
+const submitLabel = computed(() => {
+  if (submitting.value) return '提交中…'
+  if (payMode.value === 'PAYMENT_UNAVAILABLE') return '暂不能报名'
+  return payMode.value === 'ONLINE_PAYMENT' ? '提交并支付' : '提交报名'
+})
 const canSubmit = computed(() =>
-  selectedSession.value?.status === 'OPEN'
+  (payMode.value === 'FREE' || payMode.value === 'ONLINE_PAYMENT')
+  && selectedSession.value?.status === 'OPEN'
   && picked.value.length > 0
   && picked.value.length <= MAX_ENROLLMENT_PARTICIPANTS
   && !tooMany.value
   && agreed.value
   && !submitting.value)
 const countLine = computed(() => {
+  if (payMode.value === 'PAYMENT_UNAVAILABLE') return PAYMENT_UNAVAILABLE_TEXT
   if (tooMany.value) return `本场只剩 ${selectedSession.value?.seatsLeft} 个名额`
-  return picked.value.length > 0 ? `已选 ${picked.value.length} 人` : '请选择参与人'
+  if (picked.value.length === 0) return '请选择参与人'
+  return paid.value
+    ? `${formatActivityAmount(unitAmount.value)} × ${picked.value.length} 人`
+    : `已选 ${picked.value.length} 人`
 })
 
 function isSessionOpen(session: ActivitySession): boolean {
@@ -160,7 +190,7 @@ async function load(): Promise<void> {
   try {
     const loaded = await activityApi.loadDetail(props.activityId, props.cityCode)
     if (requested !== requestVersion) return
-    if (!canEnrollOnline(loaded.price.mode)) {
+    if (resolveEnrollmentPayMode(loaded) === 'UNSUPPORTED') {
       state.value = { kind: 'unsupported' }
       return
     }
@@ -200,33 +230,46 @@ function runIntent(intent: ActivityIntent): void {
   }
 }
 
+// The two refusals of a paid sign-up say what to do; the rest show the server's words.
+function describeSubmitFailure(error: unknown): string {
+  if (!(error instanceof ApiRequestError)) return '提交失败，请稍后重试'
+  if (error.code === 'ACTIVITY_AMOUNT_CHANGED') return '报名费有调整，已更新为最新金额，请确认后再提交'
+  if (error.code === 'ACTIVITY_PAYMENT_UNAVAILABLE') return PAYMENT_UNAVAILABLE_TEXT
+  if (error.status === 503 || error.code === 'TRADE_CHANNEL_UNAVAILABLE') return '微信支付暂不可用，请稍后再试'
+  return error.message
+}
+
 async function submit(): Promise<void> {
   const token = props.accessToken
   const session = selectedSession.value
   if (!canSubmit.value || !token || !session || !activity.value) return
   const participantIds = picked.value.map((person) => person.participantId)
+  const expectedAmountMinor = totalAmount.value
   submitting.value = true
   try {
     const enrollment = await enrollmentApi.enroll(
       token,
-      keys.keyFor(session.sessionId, participantIds),
+      keys.keyFor(session.sessionId, participantIds, expectedAmountMinor),
       {
         activityId: activity.value.activityId,
         sessionId: session.sessionId,
         participantIds,
         noticeAgreed: true,
+        ...(expectedAmountMinor === null ? {} : { expectedAmountMinor }),
       },
     )
+    // Unpaid: pay now. A replay of a sign-up already paid (or closed) shows its ticket.
+    if (enrollment.payment.status === 'PENDING_PAYMENT' && enrollment.payment.tradeOrderId) {
+      emit('pay', enrollment.payment.tradeOrderId)
+      return
+    }
     emit('done', enrollment.enrollmentId)
   } catch (error) {
     if (isUnauthorized(error)) {
       emit('login')
       return
     }
-    uni.showToast({
-      title: error instanceof ApiRequestError ? error.message : '提交失败，请稍后重试',
-      icon: 'none',
-    })
+    uni.showToast({ title: describeSubmitFailure(error), icon: 'none', duration: 2500 })
     // A refusal usually means seats or eligibility changed; show what is true now.
     if (error instanceof ApiRequestError && (error.status === 409 || error.status === 422)) {
       void load()
@@ -367,7 +410,10 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
       <view class="activity-enroll__card activity-enroll__card--rules">
         <text class="activity-enroll__heading">退改规则</text>
         <text v-if="activity.refundNote" class="activity-enroll__rule">{{ activity.refundNote }}</text>
-        <text class="activity-enroll__rule">免费报名在场次开始前都可以取消，名额会让给别人。</text>
+        <text v-if="paid" class="activity-enroll__rule" data-testid="activity-enroll-paid-rule">
+          场次开始前可以取消其中几位，每位按报名时的单价原路退回；已签到的不能退。提交后 15 分钟内未付款，名额自动释放。
+        </text>
+        <text v-else class="activity-enroll__rule">免费报名在场次开始前都可以取消，名额会让给别人。</text>
         <view class="activity-enroll__agree">
           <button
             class="activity-enroll__agree-toggle"
@@ -401,7 +447,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
       data-testid="activity-enroll-unsupported"
     >
       <text class="activity-enroll__state-title">这个活动暂不支持在线报名</text>
-      <text class="activity-enroll__state-text">目前只开放免费活动的在线报名</text>
+      <text class="activity-enroll__state-text">询价活动请先咨询主办方</text>
       <button class="activity-enroll__state-button" @click="emit('back')">返回</button>
     </view>
 
@@ -433,20 +479,21 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
     <view v-if="state.kind === 'ready'" class="activity-enroll__bar">
       <view class="activity-enroll__total">
         <text
-          :class="['activity-enroll__count', { 'activity-enroll__count--warn': tooMany }]"
+          :class="['activity-enroll__count', { 'activity-enroll__count--warn': tooMany || payMode === 'PAYMENT_UNAVAILABLE' }]"
           data-testid="activity-enroll-count"
         >
           {{ countLine }}
         </text>
-        <text class="activity-enroll__price">免费</text>
+        <text class="activity-enroll__price" data-testid="activity-enroll-price">{{ priceText }}</text>
       </view>
       <button
         :class="['activity-enroll__submit', { 'activity-enroll__submit--off': !canSubmit }]"
         data-testid="activity-enroll-submit"
+        :data-mode="payMode"
         :disabled="!canSubmit"
         @click="submit"
       >
-        {{ submitting ? '提交中…' : '提交报名' }}
+        {{ submitLabel }}
       </button>
     </view>
   </view>

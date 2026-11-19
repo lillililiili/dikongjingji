@@ -8,8 +8,8 @@ import { ApiRequestError } from '@/shared/http/public-api-request'
 import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
 
 import {
-  canEnrollOnline,
   isActivitySessionSelectable,
+  resolveEnrollmentPayMode,
   resolveActivityIntent,
   resolveActivityPrimaryAction,
   type ActivityIntent,
@@ -123,8 +123,9 @@ function runPrimaryAction(): void {
   const action = primaryAction.value
   const session = selectedSession.value
   if (!action?.enabled || !session || !activity.value) return
-  // A free activity has a real sign-up form; the form asks for a login when it needs one.
-  if (action.kind === 'ENROLL' && canEnrollOnline(activity.value.price.mode) && ACTIVITY_PREVIEW_ENABLED) {
+  // Free and per-person activities have a real sign-up form; the form asks for a login when it needs
+  // one, and says so when the organiser cannot take payment online (plan §20.1). Quoted prices stay a prompt.
+  if (action.kind === 'ENROLL' && resolveEnrollmentPayMode(activity.value) !== 'UNSUPPORTED' && ACTIVITY_PREVIEW_ENABLED) {
     uni.navigateTo({
       url: buildActivityEnrollUrl(activity.value.activityId, session.sessionId, cityCode),
     })

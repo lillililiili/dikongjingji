@@ -19,6 +19,7 @@ import {
   formatTradeTime,
   type TradeOrderAction,
 } from '../../application/order-view'
+import { isEnrollmentOrder, orderDestination, type TradeOrderDestination } from '../../application/order-source'
 import { isUnauthorizedFailure, readTradeFailure } from '../../application/start-payment'
 import { createTradeKey } from '../../application/trade-keys'
 import { tradeApi } from '../../data/trade-api-client'
@@ -36,6 +37,8 @@ const emit = defineEmits<{
   back: []
   login: []
   pay: []
+  // The order is not a goods order (a paid sign-up): its own page shows it instead.
+  elsewhere: [destination: TradeOrderDestination]
 }>()
 
 type DetailState =
@@ -65,7 +68,7 @@ const actions = computed(() => (order.value ? detailActions(order.value, now.val
 const payment = computed(() => (order.value ? describePayment(order.value) : null))
 const delivery = computed(() => order.value?.delivery ?? null)
 // Only while the goods wait to be picked up; after a refund the server still sends the code.
-const pickupCode = computed(() => (order.value?.status === 'PAID' ? order.value.delivery.pickupCode : null))
+const pickupCode = computed(() => (order.value?.status === 'PAID' ? order.value.delivery?.pickupCode ?? null : null))
 const shipped = computed(() => Boolean(delivery.value?.shippedAt && delivery.value.mode === 'EXPRESS'))
 
 async function load(): Promise<void> {
@@ -83,6 +86,10 @@ async function load(): Promise<void> {
   try {
     const loaded = await tradeApi.read(token, props.orderId)
     if (requested !== requestVersion) return
+    if (isEnrollmentOrder(loaded)) {
+      emit('elsewhere', orderDestination(loaded))
+      return
+    }
     now.value = Date.now()
     state.value = { kind: 'ready', order: loaded }
   } catch (error) {
@@ -223,7 +230,7 @@ onBeforeUnmount(() => {
           <view class="goods-order__merchant">
             <image class="goods-order__merchant-icon" src="/static/images/trade/store.svg" mode="aspectFit" />
             <text class="goods-order__merchant-name" data-testid="goods-order-merchant">{{ order.merchant.name }}</text>
-            <text class="goods-order__merchant-kind">{{ TRADE_MERCHANT_KIND_LABELS[order.merchant.kind] }}</text>
+            <text v-if="order.merchant.kind" class="goods-order__merchant-kind">{{ TRADE_MERCHANT_KIND_LABELS[order.merchant.kind] }}</text>
           </view>
           <view v-for="line in order.lines" :key="line.lineId" class="goods-order__line">
             <image v-if="coverOfLine(line)" class="goods-order__cover" :src="coverOfLine(line) ?? ''" mode="aspectFit" />

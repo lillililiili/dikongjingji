@@ -1,7 +1,9 @@
 import type {
   Enrollment,
   EnrollmentPage,
+  EnrollmentPayment,
   EnrollmentStatus,
+  EnrollmentTicket,
   Participant,
 } from '../domain/enrollment'
 
@@ -12,10 +14,25 @@ type EnrollmentRequest = <T>(input: {
   headers?: Record<string, string>
 }) => Promise<T>
 
+// A server before 1.2.0 sends neither payment nor refund; such an enrolment is free.
+type EnrollmentDto = Omit<Enrollment, 'payment' | 'tickets'> & {
+  payment?: Partial<EnrollmentPayment> & Pick<EnrollmentPayment, 'status'> | null
+  tickets: Array<Omit<EnrollmentTicket, 'refund'> & { refund?: EnrollmentTicket['refund'] }>
+}
+
 interface EnrollmentPageDto {
   total: number
   hasMore: boolean
-  items: Enrollment[]
+  items: EnrollmentDto[]
+}
+
+export interface EnrollInput {
+  activityId: string
+  sessionId: string
+  participantIds: string[]
+  noticeAgreed: boolean
+  // What the page showed (unit price × people) for a paid activity; left out for a free one.
+  expectedAmountMinor?: number
 }
 
 export interface EnrollmentApi {
@@ -30,7 +47,7 @@ export interface EnrollmentApi {
   enroll(
     accessToken: string,
     idempotencyKey: string,
-    input: { activityId: string; sessionId: string; participantIds: string[]; noticeAgreed: boolean },
+    input: EnrollInput,
   ): Promise<Enrollment>
   loadEnrollments(
     accessToken: string,
@@ -94,10 +111,11 @@ export function createEnrollmentApi(request: EnrollmentRequest): EnrollmentApi {
       })
     },
     async enroll(accessToken, idempotencyKey, input) {
-      return toEnrollment(await request<Enrollment>({
+      const { expectedAmountMinor, ...rest } = input
+      return toEnrollment(await request<EnrollmentDto>({
         url: '/api/v1/activity-enrollments',
         method: 'POST',
-        data: input,
+        data: expectedAmountMinor === undefined ? rest : { ...rest, expectedAmountMinor },
         headers: { ...auth(accessToken), 'Idempotency-Key': idempotencyKey },
       }))
     },
@@ -110,14 +128,14 @@ export function createEnrollmentApi(request: EnrollmentRequest): EnrollmentApi {
       return { total: dto.total, hasMore: dto.hasMore, items: dto.items.map(toEnrollment) }
     },
     async loadEnrollment(accessToken, enrollmentId) {
-      return toEnrollment(await request<Enrollment>({
+      return toEnrollment(await request<EnrollmentDto>({
         url: enrollmentUrl(enrollmentId),
         method: 'GET',
         headers: auth(accessToken),
       }))
     },
     async cancel(accessToken, enrollmentId, ticketIds) {
-      return toEnrollment(await request<Enrollment>({
+      return toEnrollment(await request<EnrollmentDto>({
         url: `${enrollmentUrl(enrollmentId)}/cancel`,
         method: 'POST',
         data: ticketIds && ticketIds.length > 0 ? { ticketIds } : {},
@@ -146,7 +164,7 @@ function toParticipant(dto: Participant): Participant {
   }
 }
 
-function toEnrollment(dto: Enrollment): Enrollment {
+function toEnrollment(dto: EnrollmentDto): Enrollment {
   return {
     enrollmentId: dto.enrollmentId,
     status: dto.status,
@@ -180,10 +198,18 @@ function toEnrollment(dto: Enrollment): Enrollment {
       participantName: ticket.participantName,
       relation: ticket.relation,
       age: ticket.age ?? null,
-      ticketCode: ticket.ticketCode,
+      ticketCode: ticket.ticketCode ?? null,
       status: ticket.status,
       checkedInAt: ticket.checkedInAt ?? null,
       cancelledAt: ticket.cancelledAt ?? null,
+      refund: ticket.refund ? { status: ticket.refund.status, amountMinor: ticket.refund.amountMinor } : null,
     })),
+    payment: {
+      status: dto.payment?.status ?? 'FREE',
+      tradeOrderId: dto.payment?.tradeOrderId ?? null,
+      amountMinor: dto.payment?.amountMinor ?? null,
+      unitAmountMinor: dto.payment?.unitAmountMinor ?? null,
+      payBefore: dto.payment?.payBefore ?? null,
+    },
   }
 }

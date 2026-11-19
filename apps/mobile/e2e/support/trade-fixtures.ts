@@ -43,7 +43,7 @@ export async function apiLogin(request: APIRequestContext, loginName: string): P
   return { token: accessToken, headers: { Authorization: `Bearer ${accessToken}` } }
 }
 
-function psql(sql: string): string {
+export function psql(sql: string): string {
   return execFileSync('docker', [
     'exec', '-i', POSTGRES_CONTAINER, 'sh', '-c',
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -q -v ON_ERROR_STOP=1',

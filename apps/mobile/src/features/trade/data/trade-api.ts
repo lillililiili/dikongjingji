@@ -1,5 +1,6 @@
 import {
   TRADE_CLOSE_REASONS,
+  TRADE_ORDER_SOURCES,
   type PaymentLaunch,
   type SubmitOrderInput,
   type TradeCloseReason,
@@ -7,6 +8,7 @@ import {
   type TradeOrder,
   type TradeOrderLine,
   type TradeOrderPage,
+  type TradeOrderSource,
   type TradeOrderTab,
   type TradeRefund,
 } from '../domain/trade-order'
@@ -35,10 +37,13 @@ export interface TradeApi {
 }
 
 // The DTO as it arrives: the server sends null for empty fields, older fixtures may omit them.
-type TradeOrderDto = Omit<TradeOrder, 'lines' | 'delivery' | 'refunds' | 'closeReason'> & {
+type TradeOrderDto = Omit<TradeOrder, 'lines' | 'delivery' | 'refunds' | 'closeReason' | 'source' | 'sourceRef' | 'merchant'> & {
+  source?: string | null
+  sourceRef?: string | null
+  merchant: { organizationId: string; name: string; kind?: TradeOrder['merchant']['kind'] }
   closeReason?: string | null
   lines: Array<Partial<TradeOrderLine> & Omit<TradeOrderLine, 'coverImage'>>
-  delivery: Partial<TradeDelivery> & Pick<TradeDelivery, 'mode'>
+  delivery?: (Partial<TradeDelivery> & Pick<TradeDelivery, 'mode'>) | null
   refunds?: Array<Partial<TradeRefund> & Omit<TradeRefund, 'succeededAt'>>
 }
 
@@ -136,11 +141,14 @@ export function createTradeApi(request: TradeRequest): TradeApi {
 }
 
 export function toTradeOrder(dto: TradeOrderDto): TradeOrder {
+  const source = toSource(dto.source)
   return {
     orderId: dto.orderId,
     orderNo: dto.orderNo,
+    source,
+    sourceRef: source === 'MALL' ? null : dto.sourceRef ?? null,
     status: dto.status,
-    merchant: { organizationId: dto.merchant.organizationId, name: dto.merchant.name, kind: dto.merchant.kind },
+    merchant: { organizationId: dto.merchant.organizationId, name: dto.merchant.name, kind: dto.merchant.kind ?? null },
     lines: dto.lines.map((line) => ({
       lineId: line.lineId,
       productId: line.productId,
@@ -153,17 +161,7 @@ export function toTradeOrder(dto: TradeOrderDto): TradeOrder {
       subtotalMinor: line.subtotalMinor,
     })),
     // The buyer's copy never carries the full phone number; it is not kept even if sent.
-    delivery: {
-      mode: dto.delivery.mode,
-      recipientName: dto.delivery.recipientName ?? null,
-      phoneMasked: dto.delivery.phoneMasked ?? null,
-      addressLine: dto.delivery.addressLine ?? null,
-      pickupPoint: dto.delivery.pickupPoint ?? null,
-      pickupCode: dto.delivery.pickupCode ?? null,
-      carrierName: dto.delivery.carrierName ?? null,
-      trackingNo: dto.delivery.trackingNo ?? null,
-      shippedAt: dto.delivery.shippedAt ?? null,
-    },
+    delivery: dto.delivery ? toDelivery(dto.delivery) : null,
     amounts: {
       goodsMinor: dto.amounts.goodsMinor,
       shippingMinor: dto.amounts.shippingMinor,
@@ -189,6 +187,27 @@ export function toTradeOrder(dto: TradeOrderDto): TradeOrder {
     cancellable: Boolean(dto.cancellable),
     version: dto.version,
   }
+}
+
+function toDelivery(delivery: Partial<TradeDelivery> & Pick<TradeDelivery, 'mode'>): TradeDelivery {
+  return {
+    mode: delivery.mode,
+    recipientName: delivery.recipientName ?? null,
+    phoneMasked: delivery.phoneMasked ?? null,
+    addressLine: delivery.addressLine ?? null,
+    pickupPoint: delivery.pickupPoint ?? null,
+    pickupCode: delivery.pickupCode ?? null,
+    carrierName: delivery.carrierName ?? null,
+    trackingNo: delivery.trackingNo ?? null,
+    shippedAt: delivery.shippedAt ?? null,
+  }
+}
+
+// A server before 0.2.0 sends no source: every order was a mall order then.
+function toSource(source: string | null | undefined): TradeOrderSource {
+  return source && (TRADE_ORDER_SOURCES as readonly string[]).includes(source)
+    ? (source as TradeOrderSource)
+    : 'MALL'
 }
 
 // Only a closed order has a reason, and only the two the contract names; anything else reads as unknown.

@@ -104,6 +104,41 @@ describe('enrolment api', () => {
     expect(enrollment.tickets[0]).toMatchObject({ age: null, checkedInAt: null, cancelledAt: null })
   })
 
+  it('reads an enrolment of an older server as free, without refunds', async () => {
+    const enrollment = await apiReturning(ENROLLMENT_DTO).api.loadEnrollment(TOKEN, 'e1')
+    expect(enrollment.payment).toEqual({
+      status: 'FREE', tradeOrderId: null, amountMinor: null, unitAmountMinor: null, payBefore: null,
+    })
+    expect(enrollment.tickets[0].refund).toBeNull()
+  })
+
+  it('sends the amount the page showed for a paid activity and reads the payment and refunds', async () => {
+    const paidDto = {
+      ...ENROLLMENT_DTO,
+      payment: {
+        status: 'PAID', tradeOrderId: 'o1', amountMinor: 33600, unitAmountMinor: 16800, payBefore: null,
+      },
+      tickets: [
+        { ...ENROLLMENT_DTO.tickets[0], refund: null },
+        {
+          ...ENROLLMENT_DTO.tickets[0],
+          ticketId: 't2',
+          ticketCode: null,
+          status: 'CANCELLED',
+          refund: { status: 'PROCESSING', amountMinor: 16800 },
+        },
+      ],
+    }
+    const { api, request } = apiReturning(paidDto)
+    const input = { activityId: 'a1', sessionId: 's1', participantIds: ['p1', 'p2'], noticeAgreed: true, expectedAmountMinor: 33600 }
+
+    const enrollment = await api.enroll(TOKEN, 'key-2', input)
+
+    expect(request.mock.calls[0][0].data).toEqual(input)
+    expect(enrollment.payment).toEqual(paidDto.payment)
+    expect(enrollment.tickets[1]).toMatchObject({ ticketCode: null, refund: { status: 'PROCESSING', amountMinor: 16800 } })
+  })
+
   it('reads a page of one status and one enrolment', async () => {
     const { api, request } = apiReturning({ page: 2, size: 10, total: 11, hasMore: false, items: [ENROLLMENT_DTO] })
 

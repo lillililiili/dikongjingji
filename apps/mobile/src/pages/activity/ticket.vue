@@ -10,6 +10,7 @@ import {
 import ActivityTicketPage from '@/features/activity/presentation/ticket/ActivityTicketPage.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
+import { buildCashierUrl } from '@/features/trade/navigation/trade-routes'
 
 const enrollmentId = ref('')
 const accessToken = ref<string | null>(null)
@@ -33,6 +34,11 @@ function openActivity(activityId: string, cityCode: string): void {
   uni.navigateTo({ url: buildActivityDetailUrl(activityId, cityCode) })
 }
 
+// The sign-up's order is paid at the trade cashier; back from it returns here.
+function openCashier(tradeOrderId: string): void {
+  uni.navigateTo({ url: buildCashierUrl(tradeOrderId) })
+}
+
 onLoad((query) => {
   enrollmentId.value = typeof query?.enrollmentId === 'string' ? query.enrollmentId : ''
 })
@@ -53,5 +59,6 @@ onShow(() => {
     @back="goBack"
     @login="openLogin"
     @open-activity="openActivity"
+    @pay="openCashier"
   />
 </template>

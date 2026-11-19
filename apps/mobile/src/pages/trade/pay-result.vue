@@ -3,10 +3,10 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import { HOME_ROOT_PATH } from '@/app-shell/navigation/root-tabs'
+import { leaveTradePage, showOrderDestination } from '@/app-shell/navigation/trade-destination'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
-import { leaveToGoodsOrders, showGoodsOrder } from '@/features/trade/navigation/trade-navigation'
 import { buildCashierUrl, buildPayResultUrl } from '@/features/trade/navigation/trade-routes'
 import TradePayResultPage from '@/features/trade/presentation/pay-result/TradePayResultPage.vue'
 import TradeUnavailable from '@/features/trade/presentation/shared/TradeUnavailable.vue'
@@ -54,10 +54,10 @@ onShow(() => {
     :order-id="orderId"
     :access-token="accessToken"
     :refresh-key="refreshKey"
-    @back="leaveToGoodsOrders"
+    @back="(destination) => leaveTradePage(destination, false)"
     @login="openLogin"
     @home="goHome"
-    @view-order="showGoodsOrder(orderId)"
+    @view-order="showOrderDestination"
     @repay="repay"
   />
   <TradeUnavailable v-else-if="!TRADE_PREVIEW_ENABLED" />

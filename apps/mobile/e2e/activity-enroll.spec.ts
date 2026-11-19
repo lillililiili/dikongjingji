@@ -11,8 +11,8 @@ const API = 'http://127.0.0.1:18420'
 const visualOutput = resolve(__dirname, '../../../.planning/activity-enroll/visual')
 const OPEN_DAY_ID = 'a2000000-0000-4000-8000-000000000005'
 const OPEN_DAY_SESSION = 'a3000000-0000-4000-8000-000000000502'
-const CONTEST_ID = 'a2000000-0000-4000-8000-000000000001'
-const CONTEST_SESSION = 'a3000000-0000-4000-8000-000000000101'
+const INQUIRY_ID = 'a2000000-0000-4000-8000-000000000004'
+const INQUIRY_SESSION = 'a3000000-0000-4000-8000-000000000401'
 const CITY = '370500'
 const ENROLL_URL = `/#/pages/activity/enroll?activityId=${OPEN_DAY_ID}&sessionId=${OPEN_DAY_SESSION}&cityCode=${CITY}`
 
@@ -342,15 +342,16 @@ test.describe('免费活动报名', () => {
     await expect(self).toHaveAttribute('aria-disabled', 'false')
   })
 
-  test('ENR-005 收费活动不能在线报名：详情页给提示，直接打开报名表也进不去', async ({ page }) => {
+  // 收费（按人）活动从 E09 起可以在线报名付款，见 activity-paid.spec.ts。
+  test('ENR-005 询价活动不能在线报名：详情页给提示，直接打开报名表也进不去', async ({ page }) => {
     await signIn(page, session)
-    await page.goto(`/#/pages/activity/detail?activityId=${CONTEST_ID}&cityCode=${CITY}`)
-    await page.getByTestId(`activity-session-${CONTEST_SESSION}`).click()
+    await page.goto(`/#/pages/activity/detail?activityId=${INQUIRY_ID}&cityCode=${CITY}`)
+    await page.getByTestId(`activity-session-${INQUIRY_SESSION}`).click()
     await page.locator('[data-testid="activity-detail-primary"]:not([disabled])').click()
-    await expect(page.locator('uni-toast')).toContainText('收费活动报名即将开放')
+    await expect(page.locator('uni-toast')).toContainText('询价活动暂不支持在线报名')
     await expect(page.getByTestId('activity-detail-title')).toBeVisible()
 
-    await page.goto(`/#/pages/activity/enroll?activityId=${CONTEST_ID}&sessionId=${CONTEST_SESSION}&cityCode=${CITY}`)
+    await page.goto(`/#/pages/activity/enroll?activityId=${INQUIRY_ID}&sessionId=${INQUIRY_SESSION}&cityCode=${CITY}`)
     await expect(page.getByTestId('activity-enroll-unsupported')).toBeVisible()
     await expect(page.getByTestId('activity-enroll-submit')).toHaveCount(0)
   })

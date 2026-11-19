@@ -5,8 +5,11 @@ import type {
   EnrollmentTicket,
   Participant,
   ParticipantEligibilityReason,
+  TicketRefund,
+  TicketRefundStatus,
 } from '../domain/enrollment'
 import {
+  formatActivityAmount,
   formatActivityShortDateTime,
   formatActivityTime,
 } from '../presentation/shared/activity-format'
@@ -79,7 +82,8 @@ export function enrollmentNoticeLead(selected: Participant[]): string {
     : '我已阅读并同意'
 }
 
-export type TicketTone = 'LIVE' | 'USED' | 'EXPIRED' | 'CANCELLED'
+// PENDING: a paid sign-up before payment (no code yet). CANCELLED also covers one closed unpaid.
+export type TicketTone = 'PENDING' | 'LIVE' | 'USED' | 'EXPIRED' | 'CANCELLED'
 
 export interface TicketView {
   tone: TicketTone
@@ -95,6 +99,16 @@ export interface TicketView {
 
 export function describeTicket(ticket: EnrollmentTicket, enrollment: Enrollment): TicketView {
   switch (ticket.status) {
+    case 'PENDING_PAYMENT':
+      return {
+        tone: 'PENDING',
+        title: '待付款',
+        subtitle: '付款后凭证生效，超时名额自动释放',
+        signText: '付款后可签到',
+        hint: '付款后生成签到二维码 · 一人一码',
+        stamp: null,
+        checkInStep: { label: '签到', state: 'TODO' },
+      }
     case 'CHECKED_IN': {
       const time = ticket.checkedInAt ? formatActivityShortDateTime(ticket.checkedInAt) : ''
       return {
@@ -118,10 +132,21 @@ export function describeTicket(ticket: EnrollmentTicket, enrollment: Enrollment)
         checkInStep: { label: '未签到', state: 'ENDED' },
       }
     case 'CANCELLED':
+      if (enrollment.payment.status === 'CLOSED') {
+        return {
+          tone: 'CANCELLED',
+          title: '已关闭，未付款',
+          subtitle: '没有在时限内付款或已取消，名额已释放',
+          signText: '已关闭',
+          hint: '没有付款，未生成签到二维码',
+          stamp: '已关闭',
+          checkInStep: { label: '签到', state: 'TODO' },
+        }
+      }
       return {
         tone: 'CANCELLED',
         title: '报名已取消',
-        subtitle: '名额已释放，需要时可以重新报名',
+        subtitle: ticket.refund ? REFUND_SUBTITLES[ticket.refund.status] : '名额已释放，需要时可以重新报名',
         signText: '已取消',
         hint: '报名已取消，二维码已作废',
         stamp: '已取消',
@@ -142,12 +167,130 @@ export function describeTicket(ticket: EnrollmentTicket, enrollment: Enrollment)
   }
 }
 
+const REFUND_SUBTITLES: Record<TicketRefundStatus, string> = {
+  REQUESTED: '名额已释放，报名费正在原路退回',
+  PROCESSING: '名额已释放，报名费正在原路退回',
+  SUCCEEDED: '名额已释放，报名费已原路退回',
+  CLOSED: '退款没有成功，平台正在人工处理',
+  ABNORMAL: '退款没有成功，平台正在人工处理',
+}
+
+// The short words of a refund: 退款中 / 已退款 / 退款异常.
+export const TICKET_REFUND_LABELS: Record<TicketRefundStatus, string> = {
+  REQUESTED: '退款中',
+  PROCESSING: '退款中',
+  SUCCEEDED: '已退款',
+  CLOSED: '退款异常',
+  ABNORMAL: '退款异常',
+}
+
+export type RefundTone = 'PENDING' | 'DONE' | 'ALERT'
+
+export function describeTicketRefund(refund: TicketRefund): { text: string; tone: RefundTone } {
+  const tone: RefundTone = refund.status === 'SUCCEEDED'
+    ? 'DONE'
+    : refund.status === 'CLOSED' || refund.status === 'ABNORMAL' ? 'ALERT' : 'PENDING'
+  return { text: `${TICKET_REFUND_LABELS[refund.status]} ${formatActivityAmount(refund.amountMinor)}`, tone }
+}
+
+export interface TicketStep {
+  label: string
+  state: 'TODO' | 'DONE' | 'ENDED'
+}
+
+/**
+ * The progress row under the ticket. Free: 报名成功 / 签到 / 完成. Paid adds 已支付 in front, like the
+ * board EnrollTicket. `doneWidth` is how far the orange line runs, as a share of the row.
+ */
+export function describeTicketSteps(
+  ticket: EnrollmentTicket,
+  enrollment: Enrollment,
+): { steps: TicketStep[]; doneWidth: string } {
+  const view = describeTicket(ticket, enrollment)
+  const finished = enrollment.status === 'FINISHED' && ticket.status === 'CHECKED_IN'
+  const tail: TicketStep[] = [view.checkInStep, { label: '完成', state: finished ? 'DONE' : 'TODO' }]
+  let steps: TicketStep[]
+  switch (enrollment.payment.status) {
+    case 'FREE':
+      steps = [{ label: '报名成功', state: 'DONE' }, ...tail]
+      break
+    case 'PAID':
+      steps = [{ label: '已支付', state: 'DONE' }, { label: '报名成功', state: 'DONE' }, ...tail]
+      break
+    case 'PENDING_PAYMENT':
+      steps = [{ label: '待付款', state: 'TODO' }, { label: '报名成功', state: 'TODO' }, ...tail]
+      break
+    case 'CLOSED':
+      steps = [{ label: '未付款', state: 'ENDED' }, { label: '报名成功', state: 'TODO' }, ...tail]
+      break
+  }
+  // The line joins the centres of the first and the last finished step.
+  let lastDone = -1
+  while (lastDone + 1 < steps.length && steps[lastDone + 1].state === 'DONE') lastDone += 1
+  const column = 100 / steps.length
+  return { steps, doneWidth: lastDone > 0 ? `${(lastDone * column).toFixed(1)}%` : '0' }
+}
+
+// What the person gets back when these tickets are cancelled; null when nothing is paid back.
+export function cancelRefundMinor(enrollment: Enrollment, ticketCount: number): number | null {
+  const unit = enrollment.payment.unitAmountMinor
+  return enrollment.payment.status === 'PAID' && unit ? unit * ticketCount : null
+}
+
+// The line of the cancel confirmation.
+export function describeCancelConfirm(enrollment: Enrollment, ticketCount: number): string {
+  if (enrollment.payment.status === 'PENDING_PAYMENT') {
+    return '还没有付款，取消后报名关闭、名额释放，不会扣款。'
+  }
+  const refund = cancelRefundMinor(enrollment, ticketCount)
+  if (refund === null) return '取消后名额会让给别人，需要时可以重新报名。'
+  const unit = formatActivityAmount(enrollment.payment.unitAmountMinor as number)
+  return ticketCount > 1
+    ? `取消后名额会让给别人，每人原路退回 ${unit}，共 ${formatActivityAmount(refund)}。`
+    : `取消后名额会让给别人，原路退回 ${unit}。`
+}
+
+// "14:45" left to pay, or "1:05:09". Never negative.
+export function formatPayCountdown(remainingMs: number): string {
+  const total = Math.max(0, Math.floor(remainingMs / 1000))
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  const two = (value: number) => String(value).padStart(2, '0')
+  return hours > 0 ? `${hours}:${two(minutes)}:${two(seconds)}` : `${two(minutes)}:${two(seconds)}`
+}
+
+export function paymentRemainingMs(enrollment: Enrollment, now: number): number {
+  if (enrollment.payment.status !== 'PENDING_PAYMENT' || !enrollment.payment.payBefore) return 0
+  return new Date(enrollment.payment.payBefore).getTime() - now
+}
+
+// The amount on a card of 我的报名: the total paid (or to pay), or 免费.
+export function enrollmentPriceText(enrollment: Enrollment): string {
+  return enrollment.payment.amountMinor ? formatActivityAmount(enrollment.payment.amountMinor) : '免费'
+}
+
 export interface EnrollmentCardView {
   statusText: string
-  statusTone: 'UPCOMING' | 'DONE' | 'MUTED'
+  statusTone: 'ACTION' | 'UPCOMING' | 'DONE' | 'MUTED'
   who: string
   when: string
   note: string
+  noteTone: 'PLAIN' | 'PENDING' | 'DONE' | 'ALERT'
+}
+
+// "¥240 已原路退回", "退款中 ¥120", "退款异常": the refunds of a paid card, or nothing.
+function describeCardRefunds(enrollment: Enrollment): { note: string; noteTone: EnrollmentCardView['noteTone'] } | null {
+  const refunds = enrollment.tickets.flatMap((ticket) => (ticket.refund ? [ticket.refund] : []))
+  if (refunds.length === 0) return null
+  const total = refunds.reduce((sum, refund) => sum + refund.amountMinor, 0)
+  if (refunds.some((refund) => refund.status === 'ABNORMAL' || refund.status === 'CLOSED')) {
+    return { note: '退款异常，平台正在人工处理', noteTone: 'ALERT' }
+  }
+  if (refunds.some((refund) => refund.status !== 'SUCCEEDED')) {
+    return { note: `退款中 ${formatActivityAmount(total)} · 原路退回`, noteTone: 'PENDING' }
+  }
+  return { note: `${formatActivityAmount(total)} 已原路退回`, noteTone: 'DONE' }
 }
 
 // One card of 我的报名.
@@ -157,17 +300,35 @@ export function describeEnrollmentCard(enrollment: Enrollment): EnrollmentCardVi
     .filter((part): part is string => Boolean(part))
     .join(' · ')
   const who = `参与人：${names}`
+  const refunds = describeCardRefunds(enrollment)
+  if (enrollment.payment.status === 'CLOSED') {
+    return { statusText: '已关闭', statusTone: 'MUTED', who, when, note: '未付款，名额已释放', noteTone: 'PLAIN' }
+  }
   if (enrollment.status === 'CANCELLED') {
-    return { statusText: '已取消', statusTone: 'MUTED', who, when, note: '' }
+    return { statusText: '已取消', statusTone: 'MUTED', who, when, note: refunds?.note ?? '', noteTone: refunds?.noteTone ?? 'PLAIN' }
+  }
+  if (enrollment.payment.status === 'PENDING_PAYMENT') {
+    return {
+      statusText: '待付款',
+      statusTone: 'ACTION',
+      who,
+      when,
+      note: enrollment.payment.payBefore
+        ? `请在 ${formatActivityShortDateTime(enrollment.payment.payBefore)} 前付款`
+        : '付款后报名生效',
+      noteTone: 'PENDING',
+    }
   }
   const active = enrollment.tickets.filter((ticket) => ticket.status !== 'CANCELLED')
   const activeWho = `参与人：${active.map((ticket) => ticket.participantName).join('、')}`
   const checkedIn = active.filter((ticket) => ticket.status === 'CHECKED_IN').length
   if (enrollment.status === 'FINISHED') {
     return checkedIn > 0
-      ? { statusText: '已完成', statusTone: 'DONE', who: activeWho, when, note: `${checkedIn} 人已签到` }
-      : { statusText: '未到场', statusTone: 'MUTED', who: activeWho, when, note: '没有签到记录' }
+      ? { statusText: '已完成', statusTone: 'DONE', who: activeWho, when, note: `${checkedIn} 人已签到`, noteTone: 'PLAIN' }
+      : { statusText: '未到场', statusTone: 'MUTED', who: activeWho, when, note: '没有签到记录', noteTone: 'PLAIN' }
   }
+  // Someone taken off a paid sign-up: the refund matters more than the deadline.
+  if (refunds) return { statusText: '待参加', statusTone: 'UPCOMING', who: activeWho, when, ...refunds }
   return {
     statusText: '待参加',
     statusTone: 'UPCOMING',
@@ -176,12 +337,14 @@ export function describeEnrollmentCard(enrollment: Enrollment): EnrollmentCardVi
     note: enrollment.cancellable
       ? `${formatActivityShortDateTime(enrollment.cancellableUntil)} 前可取消`
       : (checkedIn > 0 ? `${checkedIn} 人已签到` : ''),
+    noteTone: 'PLAIN',
   }
 }
 
 // The ticket a page opens on: one that can still be used, else the first.
 export function pickInitialTicket(enrollment: Enrollment): EnrollmentTicket | null {
   return enrollment.tickets.find((ticket) => ticket.status === 'ACTIVE')
+    ?? enrollment.tickets.find((ticket) => ticket.status === 'PENDING_PAYMENT')
     ?? enrollment.tickets.find((ticket) => ticket.status === 'CHECKED_IN')
     ?? enrollment.tickets[0]
     ?? null
@@ -198,15 +361,15 @@ export function createEnrollmentKey(): string {
 
 /**
  * One idempotency key per distinct submission. Tapping submit again after a timeout reuses the
- * key, so the server answers with the first result; changing the session or the people makes a
- * new request and gets a new key.
+ * key, so the server answers with the first result; changing the session, the people or the amount
+ * the page shows (a paid activity whose price changed) makes a new request and gets a new key.
  */
 export function createEnrollmentKeyHolder(createKey: () => string) {
   let signature = ''
   let key = ''
   return {
-    keyFor(sessionId: string, participantIds: string[]): string {
-      const next = `${sessionId}|${[...participantIds].sort().join(',')}`
+    keyFor(sessionId: string, participantIds: string[], expectedAmountMinor: number | null = null): string {
+      const next = `${sessionId}|${[...participantIds].sort().join(',')}|${expectedAmountMinor ?? ''}`
       if (next !== signature) {
         signature = next
         key = createKey()

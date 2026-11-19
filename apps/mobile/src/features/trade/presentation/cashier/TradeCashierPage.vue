@@ -3,18 +3,25 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import {
-  TRADE_COMMAND_CONFIRMS,
   TRADE_CHANNEL_UNAVAILABLE_TEXT,
   classifyOrderCommandFailure,
 } from '../../application/order-commands'
 import {
+  cancelUnpaidConfirm,
+  cashierClosedNote,
+  cashierCountdownLine,
+  cashierDueNote,
+  cashierRows,
+  isEnrollmentOrder,
+  orderDestination,
+  orderLinkLabel,
+  type TradeOrderDestination,
+} from '../../application/order-source'
+import {
   TRADE_PAYMENT_METHOD_LABEL,
-  cashierGoodsLine,
   canPay,
   describeCashierClosed,
-  formatCountdown,
   formatTradeAmount,
-  paymentRemainingMs,
 } from '../../application/order-view'
 import { isUnauthorizedFailure, readTradeFailure, startPayment } from '../../application/start-payment'
 import { createTradeKey } from '../../application/trade-keys'
@@ -32,11 +39,13 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  back: []
+  // The order's own page when the order is known: the way back from a sign-up's cashier is its ticket.
+  back: [destination: TradeOrderDestination | null]
   login: []
   // Go on to the result page; the server tells what happened.
   result: []
-  viewOrder: []
+  // The goods order, or the ticket of the enrolment this order pays for.
+  viewOrder: [destination: TradeOrderDestination]
   rebuy: [productId: string | null]
 }>()
 
@@ -68,7 +77,11 @@ const closedFrame = computed(() =>
   order.value ? describeCashierClosed(order.value, now.value, cancelledHere.value) : { title: '', text: '' })
 const closedTitle = computed(() => closedFrame.value.title)
 const closedText = computed(() => closedFrame.value.text)
-const countdown = computed(() => (order.value ? formatCountdown(paymentRemainingMs(order.value, now.value)) : ''))
+const countdownLine = computed(() => (order.value ? cashierCountdownLine(order.value, now.value) : ''))
+const dueNote = computed(() => (order.value ? cashierDueNote(order.value) : null))
+const rows = computed(() => (order.value ? cashierRows(order.value) : []))
+const enrollment = computed(() => Boolean(order.value && isEnrollmentOrder(order.value)))
+const destination = computed(() => (order.value ? orderDestination(order.value) : null))
 const amountText = computed(() => (order.value ? formatTradeAmount(order.value.amounts.payableMinor) : ''))
 
 async function load(): Promise<void> {
@@ -137,7 +150,7 @@ async function cancel(): Promise<void> {
   const token = props.accessToken
   const current = order.value
   if (!token || !current || cancelling.value) return
-  if (!(await confirmDialog(TRADE_COMMAND_CONFIRMS.CANCEL))) return
+  if (!(await confirmDialog(cancelUnpaidConfirm(current)))) return
   cancelling.value = true
   try {
     const cancelled = await tradeApi.cancel(token, current.orderId, {
@@ -146,7 +159,7 @@ async function cancel(): Promise<void> {
     })
     cancelledHere.value = true
     state.value = { kind: 'ready', order: cancelled }
-    uni.showToast({ title: '订单已取消', icon: 'none' })
+    uni.showToast({ title: isEnrollmentOrder(cancelled) ? '报名已取消' : '订单已取消', icon: 'none' })
   } catch (error) {
     const failure = classifyOrderCommandFailure(error)
     if (failure.kind === 'UNAUTHORIZED') {
@@ -177,7 +190,7 @@ onBeforeUnmount(() => {
 
 <template>
   <view class="cashier" data-testid="cashier">
-    <TradePageHeader :title="closed ? '支付结果' : '收银台'" test-id="cashier" @back="emit('back')" />
+    <TradePageHeader :title="closed ? '支付结果' : '收银台'" test-id="cashier" @back="emit('back', destination)" />
 
     <view v-if="state.kind === 'loading'" class="cashier__body" data-testid="cashier-loading" aria-label="正在加载">
       <view class="cashier__skeleton" />
@@ -186,7 +199,7 @@ onBeforeUnmount(() => {
 
     <view v-else-if="state.kind === 'missing'" class="cashier__state" data-testid="cashier-missing">
       <text class="cashier__state-title">没有找到这笔订单</text>
-      <button class="cashier__state-button" @click="emit('back')">返回</button>
+      <button class="cashier__state-button" @click="emit('back', null)">返回</button>
     </view>
 
     <view v-else-if="state.kind === 'error'" class="cashier__state" data-testid="cashier-error">
@@ -200,7 +213,8 @@ onBeforeUnmount(() => {
         <view v-if="!closed" class="cashier__card cashier__due">
           <text class="cashier__due-label">应付金额</text>
           <text class="cashier__due-amount" data-testid="cashier-amount">{{ amountText }}</text>
-          <text class="cashier__due-time" data-testid="cashier-countdown">剩余支付时间 {{ countdown }} · 超时订单自动取消</text>
+          <text v-if="dueNote" class="cashier__due-note" data-testid="cashier-due-note">{{ dueNote }}</text>
+          <text class="cashier__due-time" data-testid="cashier-countdown">{{ countdownLine }}</text>
         </view>
 
         <view v-else class="cashier__card cashier__closed" data-testid="cashier-closed">
@@ -209,7 +223,7 @@ onBeforeUnmount(() => {
           </view>
           <text class="cashier__closed-title">{{ closedTitle }}</text>
           <text class="cashier__closed-text">{{ closedText }}</text>
-          <text class="cashier__closed-note">没有扣款，可以重新下单</text>
+          <text class="cashier__closed-note" data-testid="cashier-closed-note">{{ cashierClosedNote(order) }}</text>
         </view>
 
         <view class="cashier__card cashier__rows">
@@ -224,9 +238,9 @@ onBeforeUnmount(() => {
             <text class="cashier__row-label">收款方</text>
             <text class="cashier__row-value" data-testid="cashier-payee">{{ order.merchant.name }}</text>
           </view>
-          <view class="cashier__row cashier__row--line">
-            <text class="cashier__row-label">商品</text>
-            <text class="cashier__row-value cashier__row-value--goods" data-testid="cashier-goods">{{ cashierGoodsLine(order) }}</text>
+          <view v-for="row in rows" :key="row.key" class="cashier__row cashier__row--line">
+            <text class="cashier__row-label">{{ row.label }}</text>
+            <text class="cashier__row-value cashier__row-value--goods" :data-testid="`cashier-${row.key}`">{{ row.value }}</text>
           </view>
         </view>
 
@@ -257,8 +271,16 @@ onBeforeUnmount(() => {
             取消支付
           </button>
         </template>
-        <view v-else class="cashier__bar-pair">
-          <button class="cashier__secondary" data-testid="cashier-view-order" @click="emit('viewOrder')">查看订单</button>
+        <button
+          v-else-if="enrollment && destination"
+          class="cashier__primary cashier__primary--wide"
+          data-testid="cashier-view-order"
+          @click="emit('viewOrder', destination)"
+        >
+          {{ orderLinkLabel(order) }}
+        </button>
+        <view v-else-if="destination" class="cashier__bar-pair">
+          <button class="cashier__secondary" data-testid="cashier-view-order" @click="emit('viewOrder', destination)">查看订单</button>
           <button
             class="cashier__primary"
             data-testid="cashier-rebuy"
@@ -371,6 +393,12 @@ button::after {
   font-size: 36px;
   font-weight: 700;
   line-height: 44px;
+}
+
+.cashier__due-note {
+  color: #627187;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 .cashier__due-time {
@@ -617,5 +645,11 @@ button::after {
   box-shadow: 0 4px 10px rgba(243, 108, 23, 0.16);
   font-weight: 500;
   line-height: 46px;
+}
+
+/* A sign-up's closed cashier has one way on: its own ticket. */
+.cashier__primary--wide {
+  width: 100%;
+  flex: none;
 }
 </style>

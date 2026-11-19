@@ -2,6 +2,8 @@
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
+import { destinationUrl } from '@/app-shell/navigation/trade-destination'
+import type { TradeOrderDestination } from '@/features/trade/application/order-source'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
@@ -32,6 +34,11 @@ function openLogin(): void {
   uni.redirectTo({ url: buildInspectionLoginUrl(buildGoodsOrderUrl(orderId.value)) })
 }
 
+// A paid sign-up has no goods page; its ticket takes this page's place.
+function openElsewhere(destination: TradeOrderDestination): void {
+  uni.redirectTo({ url: destinationUrl(destination) })
+}
+
 function pay(): void {
   uni.navigateTo({ url: buildCashierUrl(orderId.value) })
 }
@@ -56,6 +63,7 @@ onShow(() => {
     @back="goBack"
     @login="openLogin"
     @pay="pay"
+    @elsewhere="openElsewhere"
   />
   <TradeUnavailable v-else-if="!TRADE_PREVIEW_ENABLED" />
 </template>

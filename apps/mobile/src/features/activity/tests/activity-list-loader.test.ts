@@ -6,10 +6,11 @@ import {
   type ActivityListState,
 } from '../application/activity-list-loader'
 import {
-  canEnrollOnline,
+  enrollmentTotalMinor,
   isActivitySessionSelectable,
   resolveActivityIntent,
   resolveActivityPrimaryAction,
+  resolveEnrollmentPayMode,
 } from '../application/activity-intent'
 import type { ActivityCard, ActivityListQuery, ActivityPage } from '../domain/activity'
 
@@ -200,10 +201,20 @@ describe('activity primary action', () => {
 })
 
 describe('activity intents', () => {
-  it('opens online sign-up for free activities only', () => {
-    expect(canEnrollOnline('FREE')).toBe(true)
-    expect(canEnrollOnline('PER_PERSON')).toBe(false)
-    expect(canEnrollOnline('INQUIRY')).toBe(false)
+  it('opens the sign-up form for free and per-person activities, paying only where the organiser can collect', () => {
+    const perPerson = { mode: 'PER_PERSON' as const, amountMinor: 16800 }
+    expect(resolveEnrollmentPayMode({ price: { mode: 'FREE', amountMinor: null }, onlinePayment: false })).toBe('FREE')
+    expect(resolveEnrollmentPayMode({ price: perPerson, onlinePayment: true })).toBe('ONLINE_PAYMENT')
+    expect(resolveEnrollmentPayMode({ price: perPerson, onlinePayment: false })).toBe('PAYMENT_UNAVAILABLE')
+    expect(resolveEnrollmentPayMode({ price: { mode: 'INQUIRY', amountMinor: null }, onlinePayment: false })).toBe('UNSUPPORTED')
+    // A per-person price without an amount cannot be paid for at all.
+    expect(resolveEnrollmentPayMode({ price: { mode: 'PER_PERSON', amountMinor: 0 }, onlinePayment: true })).toBe('UNSUPPORTED')
+    expect(resolveEnrollmentPayMode({ price: { mode: 'PER_PERSON', amountMinor: null }, onlinePayment: true })).toBe('UNSUPPORTED')
+  })
+
+  it('totals the unit price for the people chosen', () => {
+    expect(enrollmentTotalMinor(16800, 2)).toBe(33600)
+    expect(enrollmentTotalMinor(16800, 0)).toBe(0)
   })
 
   it('says that the agreement texts are not available yet', () => {
@@ -215,7 +226,7 @@ describe('activity intents', () => {
 
   it('explains in preview builds and hides in public builds', () => {
     expect(resolveActivityIntent({ type: 'ENROLL', activityId: 'a', sessionId: 's' }, true))
-      .toEqual({ action: 'SHOW_NOTICE', message: '收费活动报名即将开放' })
+      .toEqual({ action: 'SHOW_NOTICE', message: '询价活动暂不支持在线报名' })
     expect(resolveActivityIntent({ type: 'JOIN_WAITLIST', activityId: 'a', sessionId: 's' }, true))
       .toEqual({ action: 'SHOW_NOTICE', message: '候补功能即将开放' })
     expect(resolveActivityIntent({ type: 'TEAM_ENROLL', activityId: 'a' }, true))

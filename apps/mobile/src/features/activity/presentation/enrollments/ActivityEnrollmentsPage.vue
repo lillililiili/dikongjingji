@@ -4,7 +4,13 @@ import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
-import { ENROLLMENT_TABS, describeEnrollmentCard } from '../../application/enrollment-view'
+import {
+  ENROLLMENT_TABS,
+  describeCancelConfirm,
+  describeEnrollmentCard,
+  enrollmentPriceText,
+  paymentRemainingMs,
+} from '../../application/enrollment-view'
 import { enrollmentApi } from '../../data/enrollment-api-client'
 import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import {
@@ -29,6 +35,8 @@ const emit = defineEmits<{
   openTicket: [enrollmentId: string]
   openActivity: [activityId: string, cityCode: string]
   browse: []
+  // 去付款: the trade cashier of an unpaid sign-up.
+  pay: [tradeOrderId: string]
 }>()
 
 type ListState =
@@ -51,6 +59,8 @@ const cards = computed(() => items.value.map((enrollment) => ({
   cover: enrollment.activity.coverImage?.url
     ?? resolveActivityPreviewCover(enrollment.activity.activityId),
   typeLabel: ACTIVITY_TYPE_LABELS[enrollment.activity.type],
+  price: enrollmentPriceText(enrollment),
+  unpaid: enrollment.payment.status === 'PENDING_PAYMENT',
 })))
 const emptyText = computed(() => ({
   UPCOMING: '还没有待参加的活动',
@@ -119,11 +129,29 @@ function selectTab(status: EnrollmentStatus): void {
   void load()
 }
 
+// Before the deadline the cashier; past it the server is about to close the order, so the ticket
+// page (which asks the server again) says what happened instead.
+function pay(enrollment: Enrollment): void {
+  const orderId = enrollment.payment.tradeOrderId
+  if (orderId && paymentRemainingMs(enrollment, Date.now()) > 0) {
+    emit('pay', orderId)
+    return
+  }
+  emit('openTicket', enrollment.enrollmentId)
+}
+
 function askCancel(enrollment: Enrollment): void {
-  const count = enrollment.tickets.filter((ticket) => ticket.status === 'ACTIVE').length
+  const unpaid = enrollment.payment.status === 'PENDING_PAYMENT'
+  const count = unpaid
+    ? enrollment.tickets.length
+    : enrollment.tickets.filter((ticket) => ticket.status === 'ACTIVE').length
+  // Free: the E07 wording; paid: how much goes back; unpaid: nothing was charged.
+  const content = enrollment.payment.status === 'FREE'
+    ? `${count} 人的名额会让给别人，需要时可以重新报名。`
+    : describeCancelConfirm(enrollment, count)
   uni.showModal({
     title: '取消报名？',
-    content: `${count} 人的名额会让给别人，需要时可以重新报名。`,
+    content,
     confirmText: '取消报名',
     cancelText: '再想想',
     success: (result) => {
@@ -241,11 +269,17 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
             <view class="enrollments__text">
               <view class="enrollments__title-line">
                 <text class="enrollments__activity">{{ card.enrollment.activity.title }}</text>
-                <text class="enrollments__price">免费</text>
+                <text class="enrollments__price" data-testid="enrollment-price">{{ card.price }}</text>
               </view>
               <text class="enrollments__who">{{ card.view.who }}</text>
               <text class="enrollments__when">{{ card.view.when }}</text>
-              <text v-if="card.view.note" class="enrollments__note">{{ card.view.note }}</text>
+              <text
+                v-if="card.view.note"
+                :class="['enrollments__note', `enrollments__note--${card.view.noteTone.toLowerCase()}`]"
+                data-testid="enrollment-note"
+              >
+                {{ card.view.note }}
+              </text>
             </view>
           </view>
         </button>
@@ -269,6 +303,15 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
               取消报名
             </button>
             <button
+              v-if="card.unpaid"
+              class="enrollments__action enrollments__action--primary"
+              :data-testid="`enrollment-pay-${card.enrollment.enrollmentId}`"
+              @click="pay(card.enrollment)"
+            >
+              去付款
+            </button>
+            <button
+              v-else
               :class="['enrollments__action', { 'enrollments__action--primary': card.enrollment.status === 'UPCOMING' }]"
               :data-testid="`enrollment-ticket-${card.enrollment.enrollmentId}`"
               @click="emit('openTicket', card.enrollment.enrollmentId)"
@@ -485,6 +528,10 @@ button::after {
   color: #6a4fe0;
 }
 
+.enrollments__status--action {
+  color: #ba470b;
+}
+
 .enrollments__status--done {
   color: #11804a;
 }
@@ -562,6 +609,18 @@ button::after {
   color: #738096;
   font-size: 13px;
   line-height: 18px;
+}
+
+.enrollments__note--pending {
+  color: #ba470b;
+}
+
+.enrollments__note--done {
+  color: #11804a;
+}
+
+.enrollments__note--alert {
+  color: #d64f67;
 }
 
 .enrollments__actions {

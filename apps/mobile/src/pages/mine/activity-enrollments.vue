@@ -15,6 +15,7 @@ import {
   MINE_TAB_PATH,
   buildInspectionLoginUrl,
 } from '@/features/inspection/navigation/inspection-routes'
+import { buildCashierUrl } from '@/features/trade/navigation/trade-routes'
 
 const STATUSES: readonly EnrollmentStatus[] = ['UPCOMING', 'FINISHED', 'CANCELLED']
 
@@ -46,6 +47,11 @@ function openActivity(activityId: string, cityCode: string): void {
   uni.navigateTo({ url: buildActivityDetailUrl(activityId, cityCode) })
 }
 
+// The sign-up's order is paid at the trade cashier; back from it returns here.
+function openCashier(tradeOrderId: string): void {
+  uni.navigateTo({ url: buildCashierUrl(tradeOrderId) })
+}
+
 onLoad((query) => {
   const status = query?.status as EnrollmentStatus | undefined
   if (status && STATUSES.includes(status)) initialStatus.value = status
@@ -74,5 +80,6 @@ onReachBottom(() => {
     @open-ticket="openTicket"
     @open-activity="openActivity"
     @browse="openHomeChannel('ACTIVITY')"
+    @pay="openCashier"
   />
 </template>

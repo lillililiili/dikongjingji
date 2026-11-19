@@ -21,16 +21,15 @@ import {
   listCardHint,
 } from '../application/order-view'
 import type { TradeOrder, TradeOrderStatus } from '../domain/trade-order'
-import { NOW, paidOrder, tradeOrder } from './trade-fixtures'
+import { EXPRESS_DELIVERY, NOW, paidOrder, tradeOrder } from './trade-fixtures'
 
 const SHIPPED_AT = '2026-11-18T02:24:00Z'
 
 function shippedOrder(overrides: Partial<TradeOrder> = {}): TradeOrder {
-  const base = paidOrder()
   return paidOrder({
     status: 'SHIPPED',
     cancellable: false,
-    delivery: { ...base.delivery, carrierName: '示例快递', trackingNo: 'SF1', shippedAt: SHIPPED_AT },
+    delivery: { ...EXPRESS_DELIVERY, carrierName: '示例快递', trackingNo: 'SF1', shippedAt: SHIPPED_AT },
     ...overrides,
   })
 }
@@ -78,7 +77,7 @@ describe('order states', () => {
     for (const [status, label] of Object.entries(labels)) {
       expect(describeOrderStatus(tradeOrder({ status: status as TradeOrderStatus }), NOW).label).toBe(label)
     }
-    const pickup = paidOrder({ delivery: { ...paidOrder().delivery, mode: 'PICKUP' } })
+    const pickup = paidOrder({ delivery: { ...EXPRESS_DELIVERY, mode: 'PICKUP' } })
     expect(describeOrderStatus(pickup, NOW)).toEqual({ label: '待自提', tone: 'ACTION' })
     expect(describeOrderStatus(tradeOrder(), Date.parse('2026-11-18T03:00:00Z'))).toEqual({ label: '已超时', tone: 'MUTED' })
     expect(describeOrderStatus(tradeOrder({ status: 'COMPLETED' }), NOW).tone).toBe('DONE')
@@ -91,7 +90,7 @@ describe('order states', () => {
     expect(describeOrderHeader(tradeOrder(), Date.parse('2026-11-18T02:31:00Z')).title).toBe('支付已超时')
     expect(describeOrderHeader(shippedOrder(), NOW))
       .toEqual({ title: '已发货', line: '11/28 10:24 将自动确认收货（发货 10 天后）' })
-    expect(describeOrderHeader(paidOrder({ delivery: { ...paidOrder().delivery, mode: 'PICKUP' } }), NOW).title).toBe('待自提')
+    expect(describeOrderHeader(paidOrder({ delivery: { ...EXPRESS_DELIVERY, mode: 'PICKUP' } }), NOW).title).toBe('待自提')
     expect(describeOrderHeader(paidOrder(), NOW).title).toBe('待发货')
     expect(describeOrderHeader(tradeOrder({ status: 'CLOSED', payBefore: null }), NOW))
       .toEqual({ title: '订单已关闭', line: '订单未支付，已关闭，没有扣款' })
@@ -132,7 +131,7 @@ describe('card and cashier text', () => {
   it('hints the countdown, the shipment, the pickup point or the closing', () => {
     expect(listCardHint(tradeOrder(), NOW)).toEqual({ kind: 'COUNTDOWN', text: '剩 29:45 未支付将自动取消' })
     expect(listCardHint(shippedOrder(), NOW)).toEqual({ kind: 'SHIPPED', text: '11/18 10:24 已发货 · 示例快递' })
-    const pickup = paidOrder({ delivery: { ...paidOrder().delivery, mode: 'PICKUP', pickupPoint: '体验馆自提点' } })
+    const pickup = paidOrder({ delivery: { ...EXPRESS_DELIVERY, mode: 'PICKUP', pickupPoint: '体验馆自提点' } })
     expect(listCardHint(pickup, NOW)).toEqual({ kind: 'NOTE', text: '自提点 体验馆自提点' })
     expect(listCardHint(tradeOrder({ status: 'CLOSED', payBefore: null }), NOW)).toEqual({ kind: 'NOTE', text: '订单未支付，已关闭' })
     expect(listCardHint(tradeOrder({ status: 'CLOSED', payBefore: null, closeReason: 'BUYER_CANCEL' }), NOW))

@@ -58,7 +58,12 @@ export function formatActivityTime(iso: string): string {
 export function formatActivityPrice(price: ActivityPrice): string {
   if (price.mode === 'FREE') return '免费'
   if (price.mode === 'INQUIRY' || price.amountMinor === null) return '询价'
-  const yuan = price.amountMinor / 100
+  return formatActivityAmount(price.amountMinor)
+}
+
+// "¥120", "¥1,299", "¥99.50" from fen.
+export function formatActivityAmount(amountMinor: number): string {
+  const yuan = amountMinor / 100
   // Whole yuan stays short; anything else keeps both decimals.
   const amount = Number.isInteger(yuan)
     ? yuan.toLocaleString('zh-CN')

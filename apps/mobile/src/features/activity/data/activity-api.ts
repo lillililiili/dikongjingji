@@ -23,6 +23,8 @@ interface ActivityPriceDto {
   mode: ActivityPriceMode
   amountMinor: number | null
   currency: string
+  // 1.2.0; a server before it sends nothing, which reads as no online payment.
+  onlinePayment?: boolean
 }
 
 export interface ActivityCardDto {
@@ -142,6 +144,7 @@ function toDetail(dto: ActivityDetailDto): ActivityDetail {
     waitlistAllowed: dto.waitlistAllowed,
     teamEnrollmentAllowed: dto.teamEnrollmentAllowed,
     sessions: dto.sessions.map((session) => ({ ...session })),
+    onlinePayment: dto.price.mode === 'PER_PERSON' && dto.price.onlinePayment === true,
   }
 }
 

@@ -241,7 +241,7 @@ test.describe('活动详情', () => {
     await expect(page.getByTestId('activity-detail')).toContainText('示例青少年科技机构')
     await expect(page.getByTestId('activity-detail')).toContainText('东营区示例路 66 号')
     await expect(page.getByTestId('activity-detail')).toContainText('8–15 岁，由监护人代报名并到场')
-    await expect(page.getByTestId('activity-detail')).toContainText('活动开始 48 小时前可免费取消')
+    await expect(page.getByTestId('activity-detail')).toContainText('活动开始前可在线取消')
     await expect(page.locator('.root-tab-bar')).toHaveCount(0)
 
     const primary = page.getByTestId('activity-detail-primary')
@@ -259,9 +259,8 @@ test.describe('活动详情', () => {
     await expect(primary).not.toHaveAttribute('disabled', 'true')
     await expect(page.getByTestId('activity-session-note')).toContainText('报名截止')
 
-    await primary.click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('收费活动报名即将开放')
-    await expect(page.getByTestId('activity-detail')).toBeVisible()
+    // 收费报名（E09）的去处在 activity-paid.spec.ts 里验；这里只看按钮通向报名。
+    await expect(primary).toHaveAttribute('data-kind', 'ENROLL')
 
     await sessions.nth(1).click()
     await expect(primary).toHaveText('加入候补')
