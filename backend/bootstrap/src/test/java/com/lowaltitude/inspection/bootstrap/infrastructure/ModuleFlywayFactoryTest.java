@@ -90,6 +90,16 @@ class ModuleFlywayFactoryTest {
     }
 
     @Test
+    void keepsContentVersionsInTheirOwnHistoryTable() {
+        Flyway content = new ModuleFlywayFactory().content(mock(DataSource.class));
+
+        assertThat(content.getConfiguration().getTable()).isEqualTo("flyway_history_content");
+        assertThat(locationDescriptors(content)).containsExactly("classpath:db/migration/content");
+        assertThat(content.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(content.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    @Test
     void keepsSupportVersionsInTheirOwnHistoryTable() {
         Flyway support = new ModuleFlywayFactory().support(mock(DataSource.class));
 

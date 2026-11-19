@@ -28,5 +28,6 @@
         <module>modules/proservice</module>
         <module>modules/rental</module>
         <module>modules/support</module>
+        <module>modules/content</module>
     </modules>
 </project>

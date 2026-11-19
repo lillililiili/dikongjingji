@@ -1,0 +1,195 @@
+package com.lowaltitude.inspection.content.application;
+
+import java.net.URI;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper;
+import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper.ArticleRow;
+import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper.BlockItemRow;
+import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper.BlockRow;
+import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper.TopicItemRow;
+import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper.TopicRow;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 发现页的图文内容和专题（H1，docs/redesign/03-App实现任务计划.md §27，契约 contracts/openapi-content.yaml）。公开只读。
+ *
+ * <ul>
+ *   <li>按城市展示：这个城市的内容 + 不分城市的知识；只给已发布、发布时间已到的。</li>
+ *   <li>推荐频道两类都有，新发布的在前；第一页另带这个城市今天正在进行的专题。</li>
+ *   <li>“内容中提到”和专题挂的活动、场馆只给类型和稳定 ID（加录入时的名称），页面到各自的模块读真实数据；
+ *       专题挂的图文在本模块里按城市可见性过滤后给出卡片。</li>
+ * </ul>
+ */
+public class ContentReadService {
+
+    static final int MAX_PAGE_SIZE = 50;
+    static final ZoneId BEIJING = ZoneId.of("Asia/Shanghai");
+    private static final String CITY_CODE_PATTERN = "^[A-Z0-9]{4,16}$";
+
+    private final ContentMapper mapper;
+    private final Clock clock;
+
+    public ContentReadService(ContentMapper mapper) {
+        this(mapper, Clock.systemUTC());
+    }
+
+    ContentReadService(ContentMapper mapper, Clock clock) {
+        this.mapper = mapper;
+        this.clock = clock;
+    }
+
+    @Transactional(readOnly = true)
+    public ContentFeedView feed(String cityCode, String channelCode, int page, int size) {
+        String city = requireCity(cityCode);
+        ContentFeedChannel channel = channelCode == null || channelCode.isBlank()
+                ? ContentFeedChannel.RECOMMEND
+                : parse(ContentFeedChannel.class, channelCode);
+        if (page < 1 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("page is invalid");
+        }
+        String kind = channel == ContentFeedChannel.RECOMMEND ? null : channel.name();
+        OffsetDateTime now = now();
+        long total = mapper.countFeed(city, kind, now);
+        List<ContentArticleCardView> items = mapper.findFeedPage(city, kind, now, size,
+                        Math.multiplyExact(page - 1, size)).stream()
+                .map(ContentReadService::card)
+                .toList();
+        List<ContentTopicCardView> topics = channel == ContentFeedChannel.RECOMMEND && page == 1
+                ? mapper.findCurrentTopics(city, today()).stream().map(ContentReadService::topicCard).toList()
+                : List.of();
+        return new ContentFeedView(channel, city, page, size, total, (long) page * size < total, topics, items);
+    }
+
+    @Transactional(readOnly = true)
+    public ContentArticleView article(UUID articleId, String cityCode) {
+        String city = requireCity(cityCode);
+        if (articleId == null) {
+            throw new IllegalArgumentException("article id is required");
+        }
+        ArticleRow row = mapper.findArticle(articleId, city, now());
+        if (row == null) {
+            throw new ContentNotFoundException();
+        }
+        Map<UUID, List<ContentBlockItemView>> items = new LinkedHashMap<>();
+        for (BlockItemRow item : mapper.findBlockItems(articleId)) {
+            items.computeIfAbsent(item.blockId(), id -> new ArrayList<>())
+                    .add(new ContentBlockItemView(item.title(), blankToNull(item.text())));
+        }
+        List<ContentBlockView> blocks = new ArrayList<>();
+        for (BlockRow block : mapper.findBlocks(articleId)) {
+            ContentBlockType type = ContentBlockType.valueOf(block.blockType());
+            blocks.add(new ContentBlockView(type, block.text(), List.copyOf(items.getOrDefault(block.id(), List.of()))));
+        }
+        ContentArticleCardView card = card(row);
+        return new ContentArticleView(card.articleId(), card.kind(), card.title(), card.author(), card.sponsored(),
+                card.cityCode(), card.coverImage(), card.sample(), card.publishedAt(), blocks,
+                mapper.findRefs(articleId).stream()
+                        .map(ref -> new ContentRefView(ContentRefType.valueOf(ref.refType()), ref.refId(), ref.title()))
+                        .toList());
+    }
+
+    @Transactional(readOnly = true)
+    public ContentTopicView topic(UUID topicId, String cityCode) {
+        String city = requireCity(cityCode);
+        if (topicId == null) {
+            throw new IllegalArgumentException("topic id is required");
+        }
+        TopicRow row = mapper.findTopic(topicId, city);
+        if (row == null) {
+            throw new ContentNotFoundException();
+        }
+        List<UUID> activities = new ArrayList<>();
+        List<UUID> venues = new ArrayList<>();
+        List<ContentArticleCardView> articles = new ArrayList<>();
+        OffsetDateTime now = now();
+        for (TopicItemRow item : mapper.findTopicItems(topicId)) {
+            switch (item.itemType()) {
+                case "ACTIVITY" -> activities.add(item.itemId());
+                case "VENUE" -> venues.add(item.itemId());
+                case "ARTICLE" -> {
+                    // 挂的图文没发布、下线了或不在这个城市展示时不给出。
+                    ArticleRow article = mapper.findArticle(item.itemId(), city, now);
+                    if (article != null) {
+                        articles.add(card(article));
+                    }
+                }
+                default -> throw new IllegalStateException("unknown topic item type " + item.itemType());
+            }
+        }
+        ContentTopicCardView card = topicCard(row);
+        return new ContentTopicView(card.topicId(), card.title(), card.subtitle(), card.publisher(), row.cityCode(),
+                card.startsOn(), card.endsOn(), card.coverImage(), card.sample(), List.copyOf(activities),
+                List.copyOf(venues), List.copyOf(articles));
+    }
+
+    // ---- 内部 ----
+
+    private static ContentArticleCardView card(ArticleRow row) {
+        return new ContentArticleCardView(row.id(), ContentArticleKind.valueOf(row.kind()), row.title(),
+                new ContentAuthorView(ContentAuthorKind.valueOf(row.authorKind()), row.authorOrgId(), row.authorName()),
+                row.sponsored(), row.cityCode(), secureMedia(row.coverUrl(), row.title()), row.sample(),
+                row.publishedAt());
+    }
+
+    private static ContentTopicCardView topicCard(TopicRow row) {
+        return new ContentTopicCardView(row.id(), row.title(), blankToNull(row.subtitle()),
+                new ContentAuthorView(ContentAuthorKind.valueOf(row.publisherKind()), row.publisherOrgId(),
+                        row.publisherName()),
+                row.startsOn(), row.endsOn(), secureMedia(row.coverUrl(), row.title()), row.sample());
+    }
+
+    /** 只给带主机名的 HTTPS 图片地址，其余当没有封面。 */
+    static ContentMediaView secureMedia(String url, String alt) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(url.trim());
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getHost().isBlank()) {
+                return null;
+            }
+            return new ContentMediaView(uri.toString(), alt);
+        } catch (IllegalArgumentException invalid) {
+            return null;
+        }
+    }
+
+    private static String requireCity(String cityCode) {
+        String city = cityCode == null ? "" : cityCode.trim();
+        if (!city.matches(CITY_CODE_PATTERN)) {
+            throw new IllegalArgumentException("city code is invalid");
+        }
+        return city;
+    }
+
+    private static <E extends Enum<E>> E parse(Class<E> type, String code) {
+        try {
+            return Enum.valueOf(type, code.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException unknown) {
+            throw new IllegalArgumentException("query value is invalid", unknown);
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private OffsetDateTime now() {
+        return OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+    }
+
+    private LocalDate today() {
+        return LocalDate.ofInstant(clock.instant(), BEIJING);
+    }
+}

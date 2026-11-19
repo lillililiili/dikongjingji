@@ -110,6 +110,11 @@ public class SecurityConfiguration {
                                 "/api/v1/pro-services",
                                 "/api/v1/pro-services/*",
                                 "/api/v1/providers/*").permitAll()
+                        // 发现页的图文内容和专题（H1）公开只读。
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/content/feed",
+                                "/api/v1/content/articles/*",
+                                "/api/v1/content/topics/*").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
                         // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。

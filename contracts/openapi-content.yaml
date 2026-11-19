@@ -1,0 +1,518 @@
+openapi: "3.1.0"
+info:
+  title: "Content API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（步骤 H1，docs/redesign/03-App实现任务计划.md §27）：发现页的图文内容（案例、知识）和专题。公开只读，不需要登录。
+
+    规则：
+    - 内容按城市展示：这个城市的内容 + 不分城市的知识；只给已发布、发布时间已到的。案例由服务商、商家发布，知识由平台或机构发布；
+      商家发布的内容 sponsored 为 true（页面标“广告”）。示例数据 sample 为 true（页面标“示例”）。
+    - 推荐频道两类都有；案例、知识频道各一类；都按发布时间新的在前。推荐频道第一页另给这个城市今天正在进行的专题（topics）。
+    - “内容中提到”（refs）和专题挂的活动、场馆只给类型和稳定 ID：页面到巡检、专业服务、商城、赛事研学、体验各自的接口读真实的
+      名称、价格和状态，读不到的不显示。专题挂的图文在这里按城市过滤后给出卡片。
+    - 内容详情的“主页”：服务商进服务商主页；商家没有主页，走提示；平台没有。“咨询服务商”进客服会话（contracts/openapi-support.yaml）。
+    - 没有运营端：内容和专题只能由开发种子（以后由运营端）录入。视频、直播不在这一版。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/content/feed:
+    get:
+      operationId: "getContentFeed"
+      summary: "发现页一个图文频道的一页"
+      description: "这个城市的内容和不分城市的知识，只给已发布、发布时间已到的，新发布的在前。"
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+        - name: "channel"
+          in: "query"
+          required: false
+          description: "不传是 RECOMMEND"
+          schema:
+            $ref: "#/components/schemas/ContentFeedChannel"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页内容"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentFeed"
+        "400":
+          description: "城市编码无效、频道不认识，或页码、条数不对（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/content/articles/{articleId}:
+    get:
+      operationId: "getContentArticle"
+      summary: "图文详情"
+      security: []
+      parameters:
+        - name: "articleId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: "图文详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentArticle"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: "不存在、没有发布，或不在这个城市展示（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/content/topics/{topicId}:
+    get:
+      operationId: "getContentTopic"
+      summary: "专题详情"
+      description: "已发布、是这个城市的专题都能打开，过了起止日期的也能（分享出去的链接）。"
+      security: []
+      parameters:
+        - name: "topicId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: "专题详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentTopic"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: "不存在、没有发布，或不是这个城市的（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  responses:
+    BadRequest:
+      description: "参数缺失或格式不对（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    CityCode:
+      name: "cityCode"
+      in: "query"
+      required: true
+      description: "当前城市编码"
+      schema:
+        type: "string"
+        pattern: "^[A-Z0-9]{4,16}$"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true
+    ContentArticleKind:
+      type: "string"
+      enum:
+        - "CASE"
+        - "KNOWLEDGE"
+      description: "CASE 案例（服务商、商家发布）；KNOWLEDGE 知识（平台或机构发布）。"
+    ContentAuthorKind:
+      type: "string"
+      enum:
+        - "PROVIDER"
+        - "MERCHANT"
+        - "PLATFORM"
+      description: "作者或专题发布方：PROVIDER 服务商（“主页”进服务商主页 /api/v1/providers/{organizationId}）；MERCHANT 商家（没有商家主页，走提示；内容一律标“广告”）；PLATFORM 平台或城市运营（没有机构，没有主页）。"
+    ContentFeedChannel:
+      type: "string"
+      enum:
+        - "RECOMMEND"
+        - "CASE"
+        - "KNOWLEDGE"
+      description: "发现页的图文频道：RECOMMEND 推荐（两类都有，第一页另带当前的专题）；CASE 案例；KNOWLEDGE 知识。“赛事”“研学”频道由 App 直接读活动列表（contracts/openapi-activity.yaml），“视频”“直播”这一步不显示。"
+    ContentBlockType:
+      type: "string"
+      enum:
+        - "PARAGRAPH"
+        - "HEADING"
+        - "FACTS"
+        - "STEPS"
+        - "LIST"
+        - "TIP"
+        - "NOTICE"
+      description: "正文块：PARAGRAPH 段落、HEADING 小标题、TIP 提示、NOTICE 文末说明（有 text，items 为空）；FACTS 要点表（items 的 title 是名称、text 是值）、STEPS 编号步骤、LIST 条目列表（有 items，text 为 null）。"
+    ContentRefType:
+      type: "string"
+      enum:
+        - "INSPECTION_SERVICE"
+        - "PRO_SERVICE"
+        - "PRODUCT"
+        - "ACTIVITY"
+        - "VENUE"
+      description: "“内容中提到”的对象，refId 是它的稳定 ID，页面按类型到各自的接口读真实数据：INSPECTION_SERVICE 巡检服务（/api/v1/inspection/services/{id}）；PRO_SERVICE 专业服务（/api/v1/pro-services/{id}）；PRODUCT 商品（/api/v1/mall/products/{id}，购买或租赁看它的 saleMode）；ACTIVITY 活动（/api/v1/activities/{id}）；VENUE 场馆（/api/v1/venues/{id}）。"
+    ContentMedia:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "url"
+        - "alt"
+      properties:
+        url:
+          type: "string"
+          format: "uri"
+        alt:
+          type: "string"
+    ContentAuthor:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "kind"
+        - "organizationId"
+        - "name"
+      properties:
+        kind:
+          $ref: "#/components/schemas/ContentAuthorKind"
+        organizationId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "服务商、商家的机构 ID；平台为 null"
+        name:
+          type: "string"
+          description: "发布时的名称"
+    ContentArticleCard:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "articleId"
+        - "kind"
+        - "title"
+        - "author"
+        - "sponsored"
+        - "cityCode"
+        - "coverImage"
+        - "sample"
+        - "publishedAt"
+      properties:
+        articleId:
+          type: "string"
+          format: "uuid"
+        kind:
+          $ref: "#/components/schemas/ContentArticleKind"
+        title:
+          type: "string"
+          maxLength: 60
+        author:
+          $ref: "#/components/schemas/ContentAuthor"
+        sponsored:
+          type: "boolean"
+          description: "广告（商家发布的内容一律是广告）"
+        cityCode:
+          type:
+            - "string"
+            - "null"
+          description: "城市；null 表示不分城市（只有知识）"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/ContentMedia"
+            - type: "null"
+        sample:
+          type: "boolean"
+          description: "示例数据，页面标“示例”"
+        publishedAt:
+          type: "string"
+          format: "date-time"
+      description: "瀑布流里的图文卡片；没有授权图片时 coverImage 为 null，页面用纯色块加标题"
+    ContentTopicCard:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "topicId"
+        - "title"
+        - "subtitle"
+        - "publisher"
+        - "startsOn"
+        - "endsOn"
+        - "coverImage"
+        - "sample"
+      properties:
+        topicId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 40
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 60
+        publisher:
+          $ref: "#/components/schemas/ContentAuthor"
+        startsOn:
+          type: "string"
+          format: "date"
+          description: "北京时间，含当天"
+        endsOn:
+          type: "string"
+          format: "date"
+          description: "北京时间，含当天"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/ContentMedia"
+            - type: "null"
+        sample:
+          type: "boolean"
+      description: "推荐频道顶部的专题卡"
+    ContentFeed:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "channel"
+        - "cityCode"
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "topics"
+        - "items"
+      properties:
+        channel:
+          $ref: "#/components/schemas/ContentFeedChannel"
+        cityCode:
+          type: "string"
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        hasMore:
+          type: "boolean"
+        topics:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ContentTopicCard"
+          description: "推荐频道第一页：这个城市今天正在进行的专题（新开始的在前）；其余为空"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ContentArticleCard"
+          description: "新发布的在前"
+    ContentBlockItem:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "title"
+        - "text"
+      properties:
+        title:
+          type: "string"
+          maxLength: 60
+        text:
+          type:
+            - "string"
+            - "null"
+          maxLength: 200
+    ContentBlock:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "type"
+        - "text"
+        - "items"
+      properties:
+        type:
+          $ref: "#/components/schemas/ContentBlockType"
+        text:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ContentBlockItem"
+    ContentRef:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "type"
+        - "refId"
+        - "title"
+      properties:
+        type:
+          $ref: "#/components/schemas/ContentRefType"
+        refId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 60
+          description: "录入时的名称；真实的名称、价格和状态按 type + refId 读，读不到（下架、本城不卖）时不显示这一项"
+      description: "“内容中提到”的一项"
+    ContentArticle:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "articleId"
+        - "kind"
+        - "title"
+        - "author"
+        - "sponsored"
+        - "cityCode"
+        - "coverImage"
+        - "sample"
+        - "publishedAt"
+        - "blocks"
+        - "refs"
+      properties:
+        articleId:
+          type: "string"
+          format: "uuid"
+        kind:
+          $ref: "#/components/schemas/ContentArticleKind"
+        title:
+          type: "string"
+          maxLength: 60
+        author:
+          $ref: "#/components/schemas/ContentAuthor"
+        sponsored:
+          type: "boolean"
+        cityCode:
+          type:
+            - "string"
+            - "null"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/ContentMedia"
+            - type: "null"
+        sample:
+          type: "boolean"
+        publishedAt:
+          type: "string"
+          format: "date-time"
+        blocks:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ContentBlock"
+          description: "按顺序"
+        refs:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ContentRef"
+          description: "按顺序"
+      description: "图文详情"
+    ContentTopic:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "topicId"
+        - "title"
+        - "subtitle"
+        - "publisher"
+        - "cityCode"
+        - "startsOn"
+        - "endsOn"
+        - "coverImage"
+        - "sample"
+        - "activityIds"
+        - "venueIds"
+        - "articles"
+      properties:
+        topicId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 40
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 60
+        publisher:
+          $ref: "#/components/schemas/ContentAuthor"
+        cityCode:
+          type: "string"
+        startsOn:
+          type: "string"
+          format: "date"
+        endsOn:
+          type: "string"
+          format: "date"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/ContentMedia"
+            - type: "null"
+        sample:
+          type: "boolean"
+        activityIds:
+          type: "array"
+          items:
+            type: "string"
+            format: "uuid"
+          description: "本季活动，按专题里的顺序；页面按 ID 读活动详情（/api/v1/activities/{id}），读不到的不显示"
+        venueIds:
+          type: "array"
+          items:
+            type: "string"
+            format: "uuid"
+          description: "到馆体验的场馆；页面按 ID 读场馆和场次（/api/v1/venues/{id}、/sessions）"
+        articles:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ContentArticleCard"
+          description: "相关内容：专题挂的、在这个城市能看到的图文"
+      description: "专题详情"

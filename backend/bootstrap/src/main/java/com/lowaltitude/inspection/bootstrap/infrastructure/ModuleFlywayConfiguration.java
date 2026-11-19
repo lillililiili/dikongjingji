@@ -151,6 +151,31 @@ public class ModuleFlywayConfiguration {
         return factory.support(dataSource);
     }
 
+    // 发现页内容（H1）的表引用 identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 提到的服务、商品、活动、场馆只存 ID，不引用它们的表。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway contentFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.content(dataSource);
+    }
+
+    // 示例内容的作者是商城、专业服务、活动开发数据建的机构，提到的对象指向这些开发数据，所以排在它们之后。
+    // 发布时间和专题起止日期相对执行当天，用和活动一样的日期占位符让每天第一次启动重排。
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn({"contentFlyway", "proserviceDevelopmentDataFlyway", "activityDevelopmentDataFlyway",
+            "experienceDevelopmentDataFlyway"})
+    Flyway contentDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/content")
+                .placeholders(seedDatePlaceholder())
+                .table("flyway_history_content_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     // 收货地址表引用 identity_user，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")

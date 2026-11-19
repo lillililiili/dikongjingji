@@ -371,6 +371,34 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    // 发现页的图文内容和专题（H1）公开只读：不带令牌也能读；写方法和旁边的路径仍然要登录。
+    @Test
+    void contentReadsArePublic() throws Exception {
+        com.lowaltitude.inspection.content.application.ContentReadService content =
+                applicationContext.getBean(com.lowaltitude.inspection.content.application.ContentReadService.class);
+        UUID article = UUID.fromString("f3000000-0000-4000-8000-000000000001");
+        UUID topic = UUID.fromString("f3100000-0000-4000-8000-000000000001");
+
+        mockMvc.perform(get("/api/v1/content/feed?cityCode=370500&channel=CASE")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/content/articles/{id}?cityCode=370500", article)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/content/topics/{id}?cityCode=370500", topic)).andExpect(status().isOk());
+        org.mockito.Mockito.verify(content).feed("370500", "CASE", 1, 20);
+        org.mockito.Mockito.verify(content).article(article, "370500");
+        org.mockito.Mockito.verify(content).topic(topic, "370500");
+
+        for (var request : List.of(
+                post("/api/v1/content/feed"),
+                put("/api/v1/content/articles/" + article),
+                delete("/api/v1/content/topics/" + topic),
+                get("/api/v1/content/articles"),
+                get("/api/v1/content/articles/" + article + "/refs"),
+                get("/api/v1/content/topics/" + topic + "/items"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+    }
+
     // 询价商品（F4）的十个接口全部要登录；客户和商家各按令牌里的账号、机构，角色不对时 403。
     @Test
     void mallInquiryRoutesRequireALoginAndTheRightRole() throws Exception {
@@ -1375,6 +1403,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.content.application.ContentReadService testContentReadService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.content.application.ContentReadService.class);
         }
 
         @Bean
