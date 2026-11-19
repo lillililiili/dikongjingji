@@ -107,6 +107,7 @@ class TradeOrderControllerTest {
             Map.entry(Error.REFUND_LIMIT_REACHED, new Rejection(409, "TRADE_REFUND_LIMIT_REACHED")),
             // E06：读对账结果时那天的账单还没全部导入。
             Map.entry(Error.RECONCILIATION_NOT_READY, new Rejection(409, "TRADE_RECONCILIATION_NOT_READY")),
+            Map.entry(Error.QUOTE_ALREADY_ORDERED, new Rejection(409, "TRADE_INQUIRY_QUOTE_ORDERED")),
             // 只在交易模块内部流转，由支付服务、退款服务接住；万一漏出来，对买家就是“订单状态不允许”。
             Map.entry(Error.PAYMENT_IN_PROGRESS, new Rejection(409, "TRADE_ORDER_STATE_INVALID")),
             Map.entry(Error.REFUND_REQUIRED, new Rejection(409, "TRADE_ORDER_STATE_INVALID"))));

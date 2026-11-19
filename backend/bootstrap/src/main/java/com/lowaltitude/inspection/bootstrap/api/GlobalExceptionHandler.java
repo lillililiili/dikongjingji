@@ -12,6 +12,7 @@ import com.lowaltitude.inspection.experience.application.VenueBookingException;
 import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
 import com.lowaltitude.inspection.mall.application.MallCartException;
 import com.lowaltitude.inspection.trade.application.TradeException;
+import com.lowaltitude.inspection.mall.application.MallInquiryException;
 import com.lowaltitude.inspection.mall.application.MallProductNotFoundException;
 import com.lowaltitude.inspection.notification.application.NotificationNotFoundException;
 import com.lowaltitude.inspection.proservice.application.ProServiceNotFoundException;
@@ -636,6 +637,64 @@ public class GlobalExceptionHandler {
                 .body(new ApiError(code, message, traceId(request)));
     }
 
+    @ExceptionHandler(MallInquiryException.class)
+    public ResponseEntity<ApiError> handleMallInquiry(MallInquiryException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                code = "MALL_INQUIRY_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case OFFER_UNAVAILABLE -> {
+                code = "MALL_INQUIRY_OFFER_UNAVAILABLE";
+                message = "有商家在这个城市不再供应这件商品";
+            }
+            case MERCHANT_UNAVAILABLE -> {
+                code = "MALL_INQUIRY_MERCHANT_UNAVAILABLE";
+                message = "有商家暂未开通在线支付，不能向它询价";
+            }
+            case STATE_INVALID -> {
+                code = "MALL_INQUIRY_STATE_INVALID";
+                message = "询价单当前状态不允许这个操作";
+            }
+            case QUOTING_CLOSED -> {
+                code = "MALL_INQUIRY_QUOTING_CLOSED";
+                message = "报价已截止，不能再报价或改价";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.PRECONDITION_FAILED;
+                code = "MALL_INQUIRY_VERSION_CONFLICT";
+                message = "询价单已更新，请刷新后重试";
+            }
+            case QUOTE_CHANGED -> {
+                code = "MALL_INQUIRY_QUOTE_CHANGED";
+                message = "这份报价已更新或撤回，请刷新后再选";
+            }
+            case QUOTE_EXPIRED -> {
+                code = "MALL_INQUIRY_QUOTE_EXPIRED";
+                message = "这份报价已过有效期，请重新询价";
+            }
+            case QUOTE_NOT_CHOSEN -> {
+                code = "MALL_INQUIRY_QUOTE_NOT_CHOSEN";
+                message = "只能按选定的报价下单";
+            }
+            default -> throw new IllegalStateException("unhandled mall inquiry error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
     @ExceptionHandler(TradeException.class)
     public ResponseEntity<ApiError> handleTrade(
             TradeException exception,
@@ -708,6 +767,10 @@ public class GlobalExceptionHandler {
             case RECONCILIATION_NOT_READY -> {
                 code = "TRADE_RECONCILIATION_NOT_READY";
                 message = "这一天的账单还没有全部导入";
+            }
+            case QUOTE_ALREADY_ORDERED -> {
+                code = "TRADE_INQUIRY_QUOTE_ORDERED";
+                message = "这份报价已经下过单，请到商品订单里查看";
             }
             // 支付、退款服务会接住这两个；万一漏出来，对买家来说就是“订单状态变了”。
             case PAYMENT_IN_PROGRESS, REFUND_REQUIRED -> {

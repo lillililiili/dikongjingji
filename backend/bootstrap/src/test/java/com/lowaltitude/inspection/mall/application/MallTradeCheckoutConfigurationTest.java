@@ -48,13 +48,14 @@ class MallTradeCheckoutConfigurationTest {
 
     private final MallCartService carts = mock(MallCartService.class);
     private final AccountAddressService addresses = mock(AccountAddressService.class);
-    private final TradeCheckoutPort port = new MallTradeCheckoutConfiguration().mallTradeCheckout(carts, addresses);
+    private final MallInquiryService inquiries = mock(MallInquiryService.class);
+    private final TradeCheckoutPort port = new MallTradeCheckoutConfiguration().mallTradeCheckout(carts, addresses, inquiries);
 
     @Test
     void anExpressQuoteTakesTheAmountsAndLinesFromThePreviewAndTheChosenAddress() {
         CheckoutRequest request = new CheckoutRequest(
                 "370500", List.of(CART_A, CART_B), null, null, "EXPRESS", ADDRESS_ID);
-        when(carts.preview(ACCOUNT, "370500", List.of(CART_A, CART_B), null, null, "EXPRESS"))
+        when(carts.preview(ACCOUNT, "370500", List.of(CART_A, CART_B), null, null, "EXPRESS", null))
                 .thenReturn(preview(DeliveryMode.EXPRESS, bothOptions()));
         when(addresses.findForUse(ACCOUNT, ADDRESS_ID)).thenReturn(Optional.of(ADDRESS));
 
@@ -78,7 +79,7 @@ class MallTradeCheckoutConfigurationTest {
 
     @Test
     void anExpressQuoteWithoutAnAddressIdUsesTheDefaultAndHasNoAddressWhenThereIsNone() {
-        when(carts.preview(ACCOUNT, "370500", null, OFFER_A, 2, "EXPRESS"))
+        when(carts.preview(ACCOUNT, "370500", null, OFFER_A, 2, "EXPRESS", null))
                 .thenReturn(preview(DeliveryMode.EXPRESS, List.of(new DeliveryOptionView(DeliveryMode.EXPRESS, null))));
         when(addresses.findForUse(ACCOUNT, null)).thenReturn(Optional.empty());
 
@@ -92,7 +93,7 @@ class MallTradeCheckoutConfigurationTest {
 
     @Test
     void aPickupQuoteHasThePickupPointAndNeverReadsTheAddressBook() {
-        when(carts.preview(ACCOUNT, "370500", List.of(CART_A), null, null, "PICKUP"))
+        when(carts.preview(ACCOUNT, "370500", List.of(CART_A), null, null, "PICKUP", null))
                 .thenReturn(preview(DeliveryMode.PICKUP, bothOptions()));
 
         CheckoutQuote quote = port.quote(
@@ -107,7 +108,7 @@ class MallTradeCheckoutConfigurationTest {
     // 要的方式不可用时预览会换成可用的那种，报价照实给出，由交易模块判断“配送方式不可用”。
     @Test
     void theModeTheMallCanDoIsPassedOnEvenWhenItIsNotTheOneAskedFor() {
-        when(carts.preview(ACCOUNT, "370500", List.of(CART_A), null, null, "EXPRESS"))
+        when(carts.preview(ACCOUNT, "370500", List.of(CART_A), null, null, "EXPRESS", null))
                 .thenReturn(preview(DeliveryMode.PICKUP,
                         List.of(new DeliveryOptionView(DeliveryMode.PICKUP, "东营区示例路 1 号门店"))));
 
@@ -121,7 +122,7 @@ class MallTradeCheckoutConfigurationTest {
 
     @Test
     void anOrderNoModeCanDeliverHasNoModeNoPickupPointAndNoAddress() {
-        when(carts.preview(ACCOUNT, "370500", List.of(CART_A), null, null, "EXPRESS"))
+        when(carts.preview(ACCOUNT, "370500", List.of(CART_A), null, null, "EXPRESS", null))
                 .thenReturn(preview(null, List.of()));
 
         CheckoutQuote quote = port.quote(
@@ -135,13 +136,13 @@ class MallTradeCheckoutConfigurationTest {
 
     @Test
     void refusalsFromTheMallAndTheAddressBookAreNotSwallowed() {
-        when(carts.preview(ACCOUNT, "370500", List.of(CART_A), null, null, "EXPRESS"))
+        when(carts.preview(ACCOUNT, "370500", List.of(CART_A), null, null, "EXPRESS", null))
                 .thenThrow(new MallCartException(MallCartException.Error.MULTIPLE_MERCHANTS));
         assertThatThrownBy(() -> port.quote(
                 ACCOUNT, new CheckoutRequest("370500", List.of(CART_A), null, null, "EXPRESS", ADDRESS_ID)))
                 .isInstanceOf(MallCartException.class);
 
-        when(carts.preview(ACCOUNT, "370500", List.of(CART_B), null, null, "EXPRESS"))
+        when(carts.preview(ACCOUNT, "370500", List.of(CART_B), null, null, "EXPRESS", null))
                 .thenReturn(preview(DeliveryMode.EXPRESS, bothOptions()));
         when(addresses.findForUse(ACCOUNT, ADDRESS_ID)).thenThrow(new AddressNotFoundException());
         assertThatThrownBy(() -> port.quote(
@@ -167,6 +168,28 @@ class MallTradeCheckoutConfigurationTest {
     }
 
     // ---- 辅助 ----
+
+    // F4：按询价报价下单时带上这份报价下过的上一张订单；订单建好后在报价上记下它。别的来源不碰询价。
+    @Test
+    void anInquiryQuoteCarriesItsPreviousOrderAndRecordsTheNewOne() {
+        UUID quoteId = UUID.fromString("f4100000-0000-4000-8000-000000000001");
+        UUID previous = UUID.fromString("f4200000-0000-4000-8000-000000000001");
+        UUID placed = UUID.fromString("f4200000-0000-4000-8000-000000000002");
+        when(carts.preview(ACCOUNT, "370500", null, null, null, "PICKUP", quoteId))
+                .thenReturn(preview(DeliveryMode.PICKUP, bothOptions()));
+        when(inquiries.orderQuote(ACCOUNT, quoteId)).thenReturn(
+                new MallInquiryOrderQuote(quoteId, OFFER_A, 2, 2880000, "测绘版", previous));
+        CheckoutRequest request = new CheckoutRequest("370500", null, null, null, "PICKUP", null, quoteId);
+
+        CheckoutQuote quote = port.quote(ACCOUNT, request);
+        port.orderPlaced(ACCOUNT, request, placed);
+        port.orderPlaced(ACCOUNT, new CheckoutRequest("370500", List.of(CART_A), null, null, "PICKUP", null), placed);
+
+        org.assertj.core.api.Assertions.assertThat(quote.previousOrderId()).isEqualTo(previous);
+        org.mockito.Mockito.verify(inquiries).orderQuote(ACCOUNT, quoteId);
+        org.mockito.Mockito.verify(inquiries).recordOrder(ACCOUNT, quoteId, placed);
+        org.mockito.Mockito.verifyNoMoreInteractions(inquiries);
+    }
 
     private static List<DeliveryOptionView> bothOptions() {
         return List.of(

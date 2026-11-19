@@ -137,7 +137,7 @@ class TradeOpenApiContractTest {
         Map<String, Object> root = root();
 
         // 0.2.0：E09 接入收费活动报名（业务来源 ACTIVITY）。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("0.2.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("0.3.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -566,6 +566,8 @@ class TradeOpenApiContractTest {
                 Map.entry(Error.FORBIDDEN, List.copyOf(IMPLEMENTED.keySet())),
                 // E06：读对账结果时那天还没全部导入。
                 Map.entry(Error.RECONCILIATION_NOT_READY, List.of(RECONCILIATION)),
+                // F4：按询价报价下单，这份报价已经有一张没关闭的订单。
+                Map.entry(Error.QUOTE_ALREADY_ORDERED, List.of("POST /api/v1/trade/orders")),
                 Map.entry(Error.ORDER_EXPIRED, List.of(launch)),
                 // 取消有进行中支付单的订单时，微信不通也会 503。
                 // 取消已付款订单要退款，渠道没配置也是 503。
@@ -595,6 +597,26 @@ class TradeOpenApiContractTest {
         }
         assertThat((String) map(map(map(root().get("components")).get("responses")).get("VersionConflict"))
                 .get("description")).contains("TRADE_VERSION_CONFLICT");
+    }
+
+    // F4：按询价报价下单时，商城的询价拒绝（不是选定的、过期了）也原样透出。
+    @Test
+    void theInquiryRefusalsASubmissionCanMeetAreDeclared() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        List<String> codes = new ArrayList<>();
+        for (com.lowaltitude.inspection.mall.application.MallInquiryException.Error error : List.of(
+                com.lowaltitude.inspection.mall.application.MallInquiryException.Error.QUOTE_NOT_CHOSEN,
+                com.lowaltitude.inspection.mall.application.MallInquiryException.Error.QUOTE_EXPIRED)) {
+            ResponseEntity<ApiError> answer = handler.handleMallInquiry(
+                    new com.lowaltitude.inspection.mall.application.MallInquiryException(error),
+                    new MockHttpServletRequest());
+            assertThat(answer.getStatusCode().value()).isEqualTo(409);
+            codes.add(answer.getBody().code());
+        }
+
+        assertThat(enumOf("TradeErrorCode")).containsAll(codes);
+        assertThat(map(map(map(schemas().get("SubmitOrderRequest")).get("properties")).get("inquiryQuoteId")))
+                .containsEntry("format", "uuid");
     }
 
     // 提交时商城报价的拒绝原样透出，契约的错误码里写着这三个。

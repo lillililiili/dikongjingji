@@ -228,7 +228,7 @@ class MallCartControllerTest {
 
     @Test
     void anExpressPreviewCarriesTheAddressTheAccountChose() throws Exception {
-        when(carts.preview(SUBJECT, "370500", List.of(LINE, SECOND_LINE), null, null, "EXPRESS"))
+        when(carts.preview(SUBJECT, "370500", List.of(LINE, SECOND_LINE), null, null, "EXPRESS", null))
                 .thenReturn(preview(DeliveryMode.EXPRESS));
         when(addresses.findForUse(SUBJECT, ADDRESS)).thenReturn(Optional.of(address()));
 
@@ -262,7 +262,7 @@ class MallCartControllerTest {
 
     @Test
     void anExpressPreviewWithoutAnyAddressAsksForOne() throws Exception {
-        when(carts.preview(SUBJECT, "370500", null, OFFER, 2, null)).thenReturn(preview(DeliveryMode.EXPRESS));
+        when(carts.preview(SUBJECT, "370500", null, OFFER, 2, null, null)).thenReturn(preview(DeliveryMode.EXPRESS));
         when(addresses.findForUse(SUBJECT, null)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/v1/mall/checkout-preview")
@@ -280,7 +280,7 @@ class MallCartControllerTest {
 
     @Test
     void aPickupPreviewNeverReadsAnAddress() throws Exception {
-        when(carts.preview(SUBJECT, "370500", List.of(LINE), null, null, "PICKUP"))
+        when(carts.preview(SUBJECT, "370500", List.of(LINE), null, null, "PICKUP", null))
                 .thenReturn(preview(DeliveryMode.PICKUP));
 
         mockMvc.perform(get("/api/v1/mall/checkout-preview")
@@ -299,7 +299,7 @@ class MallCartControllerTest {
 
     @Test
     void aPreviewWithoutACommonDeliveryModeSaysSoAndReadsNoAddress() throws Exception {
-        when(carts.preview(SUBJECT, "370500", List.of(LINE, SECOND_LINE), null, null, null))
+        when(carts.preview(SUBJECT, "370500", List.of(LINE, SECOND_LINE), null, null, null, null))
                 .thenReturn(preview(null));
 
         // 逗号分隔的写法和重复参数的写法一样。
@@ -318,7 +318,7 @@ class MallCartControllerTest {
 
     @Test
     void someoneElsesAddressInAnExpressPreviewIsNotFound() throws Exception {
-        when(carts.preview(SUBJECT, "370500", List.of(LINE), null, null, null))
+        when(carts.preview(SUBJECT, "370500", List.of(LINE), null, null, null, null))
                 .thenReturn(preview(DeliveryMode.EXPRESS));
         when(addresses.findForUse(SUBJECT, ADDRESS)).thenThrow(new AddressNotFoundException());
 
@@ -358,7 +358,7 @@ class MallCartControllerTest {
     void everyBusinessRejectionMapsToItsStatusAndCode(Error error) throws Exception {
         Rejection expected = REJECTIONS.get(error);
         assertThat(expected).as("no expected status and code for " + error).isNotNull();
-        when(carts.preview(SUBJECT, "370500", null, OFFER, 1, null)).thenThrow(new MallCartException(error));
+        when(carts.preview(SUBJECT, "370500", null, OFFER, 1, null, null)).thenThrow(new MallCartException(error));
 
         mockMvc.perform(get("/api/v1/mall/checkout-preview")
                         .principal(customer)

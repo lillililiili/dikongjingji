@@ -52,7 +52,8 @@ public final class TradeOrderController {
                         request.addressId(),
                         request.buyerNote(),
                         request.expectedPayableMinor(),
-                        request.agreementAccepted()));
+                        request.agreementAccepted(),
+                        request.inquiryQuoteId()));
         return ResponseEntity.status(result.created() ? 201 : 200)
                 .eTag(Integer.toString(result.order().version()))
                 .body(result.order());
@@ -145,7 +146,8 @@ public final class TradeOrderController {
             UUID addressId,
             String buyerNote,
             Long expectedPayableMinor,
-            Boolean agreementAccepted
+            Boolean agreementAccepted,
+            UUID inquiryQuoteId
     ) {
     }
 }

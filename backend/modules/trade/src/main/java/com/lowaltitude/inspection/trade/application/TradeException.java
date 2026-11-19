@@ -28,7 +28,9 @@ public final class TradeException extends RuntimeException {
         /** 一张订单最多退 50 次，或已过可退款的期限（付款后一年）。 */
         REFUND_LIMIT_REACHED,
         /** 这一天的账单还没全部导入（微信 10 点后才出账单，或导入失败）。 */
-        RECONCILIATION_NOT_READY
+        RECONCILIATION_NOT_READY,
+        /** 这份询价报价已经下过一张还没关闭的订单（F4：一份报价同时只能有一张订单）。 */
+        QUOTE_ALREADY_ORDERED
     }
 
     private final Error error;

@@ -4,6 +4,7 @@ import java.time.Clock;
 
 import com.lowaltitude.inspection.mall.infrastructure.persistence.MallCartMapper;
 import com.lowaltitude.inspection.mall.infrastructure.persistence.MallCatalogMapper;
+import com.lowaltitude.inspection.mall.infrastructure.persistence.MallInquiryMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -20,8 +21,13 @@ public class MallApplicationConfiguration {
     }
 
     @Bean
-    MallCartService mallCartService(MallCartMapper mapper) {
-        return new MallCartService(mapper, Clock.systemUTC());
+    MallCartService mallCartService(MallCartMapper mapper, MallInquiryService inquiries) {
+        return new MallCartService(mapper, Clock.systemUTC(), inquiries::orderQuote);
+    }
+
+    @Bean
+    MallInquiryService mallInquiryService(MallInquiryMapper mapper, MallInquiryPorts.MerchantPayments payments) {
+        return new MallInquiryService(mapper, payments, Clock.systemUTC());
     }
 
     @Bean

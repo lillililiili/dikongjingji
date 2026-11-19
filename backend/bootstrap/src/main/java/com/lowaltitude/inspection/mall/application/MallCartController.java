@@ -85,11 +85,12 @@ public final class MallCartController {
             @RequestParam(required = false) UUID offerId,
             @RequestParam(required = false) Integer quantity,
             @RequestParam(required = false) String deliveryMode,
-            @RequestParam(required = false) UUID addressId
+            @RequestParam(required = false) UUID addressId,
+            @RequestParam(required = false) UUID inquiryQuoteId
     ) {
         UUID accountId = CustomerAccount.of(authentication);
         CheckoutPreview preview = carts.preview(
-                accountId, trim(cityCode), cartItemIds, offerId, quantity, deliveryMode);
+                accountId, trim(cityCode), cartItemIds, offerId, quantity, deliveryMode, inquiryQuoteId);
         AddressView address = preview.deliveryMode() == DeliveryMode.EXPRESS
                 ? addresses.findForUse(accountId, addressId).orElse(null)
                 : null;

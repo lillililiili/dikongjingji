@@ -371,6 +371,40 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    // 询价商品（F4）的十个接口全部要登录；客户和商家各按令牌里的账号、机构，角色不对时 403。
+    @Test
+    void mallInquiryRoutesRequireALoginAndTheRightRole() throws Exception {
+        String inquiry = "/api/v1/mall/inquiries/e4000000-0000-4000-8000-000000000001";
+        String merchantInquiry = "/api/v1/provider/mall/inquiries/e4000000-0000-4000-8000-000000000001";
+        for (var request : List.of(
+                get("/api/v1/mall/inquiry-offers"), post("/api/v1/mall/inquiries"), get("/api/v1/mall/inquiries"),
+                get(inquiry), post(inquiry + "/choice"), post(inquiry + "/close"),
+                get("/api/v1/provider/mall/inquiries"), get(merchantInquiry), put(merchantInquiry + "/quote"),
+                post(merchantInquiry + "/decline"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        com.lowaltitude.inspection.mall.application.MallInquiryService inquiries = applicationContext.getBean(
+                com.lowaltitude.inspection.mall.application.MallInquiryService.class);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+
+        mockMvc.perform(get("/api/v1/mall/inquiries").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/provider/mall/inquiries").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(inquiries).list(SUBJECT_ID, null, 1, 20);
+        org.mockito.Mockito.verify(inquiries).merchantInquiries(ORGANIZATION_ID, null, 1, 20);
+        mockMvc.perform(get("/api/v1/provider/mall/inquiries").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/mall/inquiries").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoMoreInteractions(inquiries);
+    }
+
     // 设备租赁（F3）的十八个接口全部要登录，没有公开的。
     @Test
     void rentalRoutesRequireALogin() throws Exception {
@@ -1287,6 +1321,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.mall.application.MallInquiryService testMallInquiryService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.mall.application.MallInquiryService.class);
         }
 
         @Bean

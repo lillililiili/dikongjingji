@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.2.0
+  version: 0.3.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -42,6 +42,12 @@ info:
       offerId 是租赁供给 ID（其他费用行是报价费用行的 ID），productName 是商品名，skuName 是租期，quantity 是台数；
       付款截止 30 分钟。不在“商品订单”里，商家接口当作不存在。已付款的不能由买家取消；交接之前出租方可以取消，整单原路退款。
       关闭之后才到账的付款一律自动整笔退款（关闭后报价和档期已经释放，不恢复）。
+
+    0.3.0（2026-11-19，F4，§25）：submitOrder 加第三种来源 inquiryQuoteId——按选定的询价报价下单（报价见 contracts/openapi-mall-inquiry.yaml）。
+      下的仍是普通商城订单（source = MALL，订单编号 MO 开头），商品订单、发货、退款、对账都不变；单价和数量按报价，不能改，
+      和 cartItemIds、offerId 三选一（quantity 不用）。一份报价同时只能有一张没关闭的订单：上一张还没关闭（待付款、已付款、
+      已发货、退款中……）时 409 TRADE_INQUIRY_QUOTE_ORDERED；上一张没付款就关闭了、报价还在有效期内时可以再下。
+      报价不是询价单选定的那一份时 409 MALL_INQUIRY_QUOTE_NOT_CHOSEN，过了有效期时 409 MALL_INQUIRY_QUOTE_EXPIRED。
 
     渠道与资金（用户 2026-11-18 确认）：
     - 唯一的支付渠道是微信支付，产品是“平台收付通”的普通支付：每笔钱直接进卖出商品的商家（二级商户）自己的商户号，
@@ -766,9 +772,12 @@ components:
         - TRADE_VERSION_CONFLICT
         - TRADE_CHANNEL_UNAVAILABLE
         - TRADE_RECONCILIATION_NOT_READY
+        - TRADE_INQUIRY_QUOTE_ORDERED
         - MALL_CHECKOUT_MULTIPLE_MERCHANTS
         - MALL_CHECKOUT_ITEM_UNAVAILABLE
         - MALL_CART_NOT_PURCHASABLE
+        - MALL_INQUIRY_QUOTE_NOT_CHOSEN
+        - MALL_INQUIRY_QUOTE_EXPIRED
     TradeOrderStatus:
       type: string
       description: |-
@@ -817,11 +826,15 @@ components:
           items:
             type: string
             format: uuid
-          description: 来自购物车时给；和 offerId 二选一
+          description: 来自购物车时给；和 offerId、inquiryQuoteId 三选一
         offerId:
           type: string
           format: uuid
           description: 立即购买时给，和 quantity 一起
+        inquiryQuoteId:
+          type: [string, "null"]
+          format: uuid
+          description: 按选定的询价报价下单时给（0.3.0）；数量、单价按报价，quantity 不用
         quantity:
           type: integer
           minimum: 1

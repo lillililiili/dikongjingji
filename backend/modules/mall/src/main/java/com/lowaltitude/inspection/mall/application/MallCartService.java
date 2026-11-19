@@ -32,10 +32,23 @@ public class MallCartService {
 
     private final MallCartMapper mapper;
     private final Clock clock;
+    private final InquiryQuotes inquiryQuotes;
 
     MallCartService(MallCartMapper mapper, Clock clock) {
+        this(mapper, clock, (accountId, quoteId) -> {
+            throw new MallInquiryException(MallInquiryException.Error.NOT_FOUND);
+        });
+    }
+
+    MallCartService(MallCartMapper mapper, Clock clock, InquiryQuotes inquiryQuotes) {
         this.mapper = mapper;
         this.clock = clock;
+        this.inquiryQuotes = inquiryQuotes;
+    }
+
+    /** 按询价报价下单时取那份报价（F4，由询价服务实现）：不是选定的、过期的由它抛询价的业务异常。 */
+    interface InquiryQuotes {
+        MallInquiryOrderQuote orderQuote(UUID accountId, UUID quoteId);
     }
 
     // ---- 购物车 ----
@@ -146,20 +159,41 @@ public class MallCartService {
             Integer quantity,
             String deliveryModeCode
     ) {
+        return preview(accountId, cityCode, cartItemIds, offerId, quantity, deliveryModeCode, null);
+    }
+
+    /**
+     * 同上，第三种来源（F4）：选定的询价报价（inquiryQuoteId）。数量是询价单的、单价是报价的，都不能改；
+     * 规格写报价里的型号配置；配送方式按这家供给支持的。三种来源只能给一种。
+     */
+    @Transactional(readOnly = true)
+    public CheckoutPreview preview(
+            UUID accountId,
+            String cityCode,
+            List<UUID> cartItemIds,
+            UUID offerId,
+            Integer quantity,
+            String deliveryModeCode,
+            UUID inquiryQuoteId
+    ) {
         requireAccount(accountId);
         requireCityCode(cityCode);
         boolean fromCart = cartItemIds != null && !cartItemIds.isEmpty();
-        if (fromCart == (offerId != null)) {
-            throw new IllegalArgumentException("checkout needs either cart items or one offer");
+        int sources = (fromCart ? 1 : 0) + (offerId != null ? 1 : 0) + (inquiryQuoteId != null ? 1 : 0);
+        if (sources != 1) {
+            throw new IllegalArgumentException("checkout needs cart items, one offer or one inquiry quote");
         }
         DeliveryMode wanted = DeliveryMode.parse(deliveryModeCode);
         List<Line> lines = fromCart
                 ? cartLines(accountId, cartItemIds)
-                : List.of(directLine(offerId, quantity));
+                : offerId != null ? List.of(directLine(offerId, quantity)) : List.of(quotedLine(accountId, inquiryQuoteId));
 
         List<CheckoutLineView> views = new ArrayList<>();
         for (Line line : lines) {
-            if (invalidReason(line.offer(), cityCode) != null) {
+            CartInvalidReason reason = invalidReason(line.offer(), cityCode);
+            // 询价商品本来就不是“能直接买”的：按报价下单时只看上下架和城市。
+            if (reason != null && !(line.quoted() && reason == CartInvalidReason.NOT_PURCHASABLE
+                    && soldInCity(line.offer(), cityCode))) {
                 throw new MallCartException(Error.ITEM_UNAVAILABLE);
             }
             views.add(toLine(line));
@@ -235,6 +269,22 @@ public class MallCartService {
         return new Line(null, offer, quantity);
     }
 
+    private Line quotedLine(UUID accountId, UUID inquiryQuoteId) {
+        MallInquiryOrderQuote quote = inquiryQuotes.orderQuote(accountId, inquiryQuoteId);
+        OfferRow offer = mapper.findOffer(quote.offerId());
+        if (offer == null) {
+            throw new MallCartException(Error.ITEM_UNAVAILABLE);
+        }
+        return new Line(null, offer, quote.quantity(), quote.unitAmountMinor(), quote.model());
+    }
+
+    /** 商品、规格、供给都在售，并且在这个城市（或全国）卖。 */
+    private static boolean soldInCity(OfferRow offer, String cityCode) {
+        String offerCity = blankToNull(offer.offerCityCode());
+        return "PUBLISHED".equals(offer.productStatus()) && "ACTIVE".equals(offer.skuStatus())
+                && "ACTIVE".equals(offer.offerStatus()) && (offerCity == null || offerCity.equals(cityCode));
+    }
+
     // ---- 规则 ----
 
     /** 这个供给在这个城市现在能不能买；能买返回 null。 */
@@ -292,13 +342,13 @@ public class MallCartService {
 
     private static CheckoutLineView toLine(Line line) {
         OfferRow offer = line.offer();
-        long unit = offer.unitAmountMinor();
+        long unit = line.quoted() ? line.quotedUnitMinor() : offer.unitAmountMinor();
         return new CheckoutLineView(
                 line.cartItemId(),
                 offer.offerId(),
                 offer.productId(),
                 offer.productName(),
-                offer.skuName(),
+                line.quoted() ? line.quotedModel() : offer.skuName(),
                 MallCatalogReadService.secureMedia(offer.coverUrl(), offer.productName()),
                 unit,
                 line.quantity(),
@@ -331,7 +381,16 @@ public class MallCartService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private record Line(UUID cartItemId, OfferRow offer, int quantity) {
+    /** 一行：购物车行、单个供给，或按询价报价（quotedUnitMinor、quotedModel 不为空）。 */
+    private record Line(UUID cartItemId, OfferRow offer, int quantity, Long quotedUnitMinor, String quotedModel) {
+        Line(UUID cartItemId, OfferRow offer, int quantity) {
+            this(cartItemId, offer, quantity, null, null);
+        }
+
+        boolean quoted() {
+            return quotedUnitMinor != null;
+        }
+
         String shippingNote() {
             return offer.shippingNote();
         }

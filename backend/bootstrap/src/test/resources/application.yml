@@ -33,3 +33,6 @@ demand:
 rental:
   deadline:
     enabled: false
+mall:
+  inquiry-deadline:
+    enabled: false

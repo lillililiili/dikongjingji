@@ -629,6 +629,75 @@ class MallCartServiceTest {
         assertThat(expressOnly.amounts().shippingMinor()).isEqualTo(800L);
     }
 
+    // ---- 按询价报价结算（F4） ----
+
+    @Test
+    void aChosenInquiryQuoteIsOneLineAtTheQuotedPriceAndTheInquiryQuantity() {
+        Offer drone = mapper.offer(buy(FACTORY, null).saleMode("INQUIRY").product("行业测绘无人机", "按配置报价")
+                .fee(1500).pickup("东营门店"));
+        UUID quoteId = UUID.randomUUID();
+        List<UUID> askedBy = new ArrayList<>();
+        MallCartService quoted = new MallCartService(mapper, clock, (accountId, id) -> {
+            askedBy.add(accountId);
+            return new MallInquiryOrderQuote(id, drone.id, 2, 2880000, "测绘版 · RTK", null);
+        });
+
+        // 数量取询价单的，传进来的数量不用。
+        CheckoutPreview preview = quoted.preview(ACCOUNT, DONGYING, null, null, 5, "EXPRESS", quoteId);
+
+        assertThat(askedBy).containsExactly(ACCOUNT);
+        assertThat(preview.lines()).singleElement().satisfies(line -> {
+            assertThat(line.cartItemId()).isNull();
+            assertThat(line.offerId()).isEqualTo(drone.id);
+            assertThat(line.skuName()).isEqualTo("测绘版 · RTK");
+            assertThat(line.unitAmountMinor()).isEqualTo(2880000L);
+            assertThat(line.quantity()).isEqualTo(2);
+            assertThat(line.subtotalMinor()).isEqualTo(5760000L);
+        });
+        // 配送方式和运费按这家供给。
+        assertThat(preview.deliveryOptions()).extracting(DeliveryOptionView::mode)
+                .containsExactly(DeliveryMode.EXPRESS, DeliveryMode.PICKUP);
+        assertThat(preview.amounts()).isEqualTo(new CheckoutAmountsView(5760000L, 1500L, 5761500L, "CNY"));
+        assertThat(quoted.preview(ACCOUNT, DONGYING, null, null, null, "PICKUP", quoteId).amounts().payableMinor())
+                .isEqualTo(5760000L);
+        assertThat(mapper.lines).isEmpty();
+    }
+
+    @Test
+    void anInquiryQuoteIsRefusedWhenItsOfferIsNoLongerSoldHereOrTheQuoteCannotBeOrdered() {
+        Offer drone = mapper.offer(buy(FACTORY, null).saleMode("INQUIRY"));
+        Map<UUID, UUID> offerOfQuote = new HashMap<>();
+        MallCartService quoted = new MallCartService(mapper, clock, (accountId, id) -> {
+            if (!offerOfQuote.containsKey(id)) {
+                throw new MallInquiryException(MallInquiryException.Error.QUOTE_NOT_CHOSEN);
+            }
+            return new MallInquiryOrderQuote(id, offerOfQuote.get(id), 1, 100, "型号", null);
+        });
+        UUID quoteId = UUID.randomUUID();
+        offerOfQuote.put(quoteId, drone.id);
+        UUID gone = UUID.randomUUID();
+        offerOfQuote.put(gone, UUID.randomUUID());
+
+        assertThat(quoted.preview(ACCOUNT, DONGYING, null, null, null, null, quoteId).lines()).hasSize(1);
+        assertThatThrownBy(() -> quoted.preview(ACCOUNT, DONGYING, null, null, null, null, UUID.randomUUID()))
+                .isInstanceOfSatisfying(MallInquiryException.class, exception ->
+                        assertThat(exception.error()).isEqualTo(MallInquiryException.Error.QUOTE_NOT_CHOSEN));
+        assertRejected(() -> quoted.preview(ACCOUNT, JINAN, null, null, null, null, quoteId), Error.ITEM_UNAVAILABLE);
+        assertRejected(() -> quoted.preview(ACCOUNT, DONGYING, null, null, null, null, gone), Error.ITEM_UNAVAILABLE);
+        drone.offerStatus = "INACTIVE";
+        assertRejected(() -> quoted.preview(ACCOUNT, DONGYING, null, null, null, null, quoteId), Error.ITEM_UNAVAILABLE);
+        drone.offerStatus = "ACTIVE";
+        drone.productStatus = "OFFLINE";
+        assertRejected(() -> quoted.preview(ACCOUNT, DONGYING, null, null, null, null, quoteId), Error.ITEM_UNAVAILABLE);
+        // 三种来源只能给一种。
+        assertInvalid(() -> quoted.preview(ACCOUNT, DONGYING, null, drone.id, 1, null, quoteId));
+        assertInvalid(() -> quoted.preview(ACCOUNT, DONGYING, List.of(UUID.randomUUID()), null, null, null, quoteId));
+        // 没接询价模块的服务（旧构造）不认识报价。
+        assertThatThrownBy(() -> service.preview(ACCOUNT, DONGYING, null, null, null, null, quoteId))
+                .isInstanceOfSatisfying(MallInquiryException.class, exception ->
+                        assertThat(exception.error()).isEqualTo(MallInquiryException.Error.NOT_FOUND));
+    }
+
     // ---- 辅助 ----
 
     private static MallMerchantView robotMerchant() {

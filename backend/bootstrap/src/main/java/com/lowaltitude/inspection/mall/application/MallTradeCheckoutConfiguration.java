@@ -19,7 +19,8 @@ import org.springframework.context.annotation.Configuration;
 public class MallTradeCheckoutConfiguration {
 
     @Bean
-    TradeCheckoutPort mallTradeCheckout(MallCartService carts, AccountAddressService addresses) {
+    TradeCheckoutPort mallTradeCheckout(MallCartService carts, AccountAddressService addresses,
+                                        MallInquiryService inquiries) {
         return new TradeCheckoutPort() {
             @Override
             public CheckoutQuote quote(UUID accountId, CheckoutRequest request) {
@@ -29,7 +30,12 @@ public class MallTradeCheckoutConfiguration {
                         request.cartItemIds(),
                         request.offerId(),
                         request.quantity(),
-                        request.deliveryMode());
+                        request.deliveryMode(),
+                        request.inquiryQuoteId());
+                // 按询价报价下单（F4）：带上用这份报价下过的上一张订单，交易模块据此拒绝第二张没关闭的订单。
+                UUID previousOrderId = request.inquiryQuoteId() == null
+                        ? null
+                        : inquiries.orderQuote(accountId, request.inquiryQuoteId()).lastOrderId();
                 String mode = preview.deliveryMode() == null ? null : preview.deliveryMode().name();
                 AddressSnapshot address = null;
                 if (preview.deliveryMode() == DeliveryMode.EXPRESS) {
@@ -62,12 +68,20 @@ public class MallTradeCheckoutConfiguration {
                         address,
                         preview.amounts().goodsMinor(),
                         preview.amounts().shippingMinor(),
-                        preview.amounts().payableMinor());
+                        preview.amounts().payableMinor(),
+                        previousOrderId);
             }
 
             @Override
             public void removeCartLines(UUID accountId, List<UUID> cartItemIds) {
                 carts.remove(accountId, cartItemIds);
+            }
+
+            @Override
+            public void orderPlaced(UUID accountId, CheckoutRequest request, UUID orderId) {
+                if (request.inquiryQuoteId() != null) {
+                    inquiries.recordOrder(accountId, request.inquiryQuoteId(), orderId);
+                }
             }
         };
     }

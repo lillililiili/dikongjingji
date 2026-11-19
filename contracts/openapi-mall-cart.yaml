@@ -1,8 +1,11 @@
 openapi: 3.1.0
 info:
   title: Mall Cart API
-  version: 1.0.0
+  version: 1.1.0
   description: |-
+    1.1.0（2026-11-19，F4，docs/redesign/03-App实现任务计划.md §25）：确认订单预览加第三种来源 inquiryQuoteId——选定的询价报价
+      （contracts/openapi-mall-inquiry.yaml）。数量是询价单的、单价是报价的，都不能改；行的 skuName 是报价里的型号配置，
+      cartItemId 为 null；配送方式、运费按这家供给。只能用自己的询价单里选定的那一份、还在有效期内的报价。
     1.0.0（用户 2026-11-17 确认“按原型做”）：商城的购物车和确认订单页的预览。到“提交订单”为止，这个版本不建订单、
     不收款：下单要等统一交易模块（AGENTS.md §3、§11）。
     Every route needs a login (bearer JWT) and the CUSTOMER role. The account is always the subject of
@@ -211,7 +214,7 @@ paths:
     get:
       operationId: previewMyCheckout
       summary: 确认订单页的内容：一个商家的几样商品、配送方式、收货地址和金额
-      description: 只读，不建订单。来源是 cartItemIds，或 offerId + quantity，二选一。
+      description: 只读，不建订单。来源是 cartItemIds、offerId + quantity、inquiryQuoteId 三选一。
       security:
         - bearerAuth: []
       parameters:
@@ -257,6 +260,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: inquiryQuoteId
+          in: query
+          required: false
+          description: 按选定的询价报价下单（1.1.0）；和 cartItemIds、offerId 三选一，quantity 不用
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: 预览；blockers 不为空时这一单还不能提交
@@ -266,7 +276,7 @@ paths:
                 $ref: "#/components/schemas/CheckoutPreview"
         "400":
           description: >-
-            城市编码无效；cartItemIds 和 offerId 都给或都没给；cartItemIds 超过 20 个；立即购买的数量不在 1–99；
+            城市编码无效；cartItemIds、offerId、inquiryQuoteId 不是正好给了一个；cartItemIds 超过 20 个；立即购买的数量不在 1–99；
             配送方式无效（COMMON_INVALID_ARGUMENT）
           content:
             application/json:
@@ -277,7 +287,8 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
-          description: 某一行不在当前账号的购物车里、供给不存在，或快递时 addressId 不是自己的地址（COMMON_NOT_FOUND）
+          description: >-
+            某一行不在当前账号的购物车里、供给不存在、询价报价不是自己的，或快递时 addressId 不是自己的地址（COMMON_NOT_FOUND）
           content:
             application/json:
               schema:
@@ -287,6 +298,8 @@ paths:
             MALL_CHECKOUT_ITEM_UNAVAILABLE：有一行已失效（下架、商家不卖、当前城市不卖或不再按件标价）。
             MALL_CHECKOUT_MULTIPLE_MERCHANTS：几行属于不同商家，每次只能结算一个商家。
             MALL_CART_NOT_PURCHASABLE：立即购买的商品是租赁、询价或没有按件标价。
+            按询价报价时还有（contracts/openapi-mall-inquiry.yaml 的错误码）：MALL_INQUIRY_QUOTE_NOT_CHOSEN 不是询价单选定的那一份；
+            MALL_INQUIRY_QUOTE_EXPIRED 报价已过有效期。
           content:
             application/json:
               schema:

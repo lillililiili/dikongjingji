@@ -1,0 +1,1162 @@
+openapi: "3.1.0"
+info:
+  title: "Mall Inquiry API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（步骤 F4，docs/redesign/03-App实现任务计划.md §25）：询价商品——询价单、商家报价、比选、按报价转为订单。
+
+    Every route needs a login (bearer JWT). The customer routes (/api/v1/mall/inquiries…, /api/v1/mall/inquiry-offers) need the
+    CUSTOMER role; the account is always the subject of the token and another account's inquiry is answered as not found.
+    The merchant routes (/api/v1/provider/mall/inquiries…) need the PROVIDER_OPERATOR role and an organization in the token; they
+    only see inquiries sent to that organization, without the customer's identity.
+
+    规则：
+    - 询价商品是商城里交易方式为询价（saleMode INQUIRY）的商品，没有明码价。提交询价不产生费用。
+    - 询价单：配置和用途说明（必填，不超过 200 字，可以换行）、数量 1–99、交付城市（当前城市）、期望交付日期（可不填）、
+      发给哪些商家：这件商品在这个城市的询价供给里选 1–3 家（每家商家一个供给，商家要开通了在线收款，见 listMallInquiryOffers 的 canInquire）。
+      询价身份由服务端按账号所属组织给出，只给客户自己看。
+    - 提交后 72 小时内收报价（quoteDeadline）。截止时一家都没报的自动关闭（NO_QUOTES）；报过但截止后报价都已失效、还没选的也关闭（QUOTES_LAPSED）。
+    - 商家报价：单价、型号配置、交期（天）、包含内容、有效期（不超过 7 天）；截止前可以改价（新的一版），可以拒绝（写原因，报过的随之撤回）。
+      商家只看到商品、配置说明、数量、城市和日期。
+    - 比选：综合 / 总价 / 交期排序（sort）。选定一份后询价单“已选定”，其余报价失效。
+    - 转为订单：用 chosen.quoteId 作 inquiryQuoteId 去确认订单预览（contracts/openapi-mall-cart.yaml 1.1.0）和提交订单
+      （contracts/openapi-trade.yaml 0.3.0）。数量、单价按报价，不能改；配送方式、运费按这家供给；下的是普通商城订单（source = MALL）。
+      一份报价同时只能有一张没关闭的订单：上一张没付款就关闭了、报价还在有效期内时可以再下。chosen.orderId 是最近下的那张订单。
+    - 收到报价不发站内信（以后统一加）。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/mall/inquiry-offers:
+    get:
+      operationId: "listMallInquiryOffers"
+      summary: "询价商品在这个城市可以发询价的商家（填写询价单时选）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "productId"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+        - name: "cityCode"
+          in: "query"
+          required: true
+          schema:
+            type: "string"
+            pattern: "^[A-Z0-9]{4,16}$"
+      responses:
+        "200":
+          description: "在售的询价供给，按商家名排；不是询价商品或没有供给时 items 为空"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallInquiryOfferList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/mall/inquiries:
+    post:
+      operationId: "submitMallInquiry"
+      summary: "提交询价单（不产生费用）"
+      description: "同一个 Idempotency-Key 带同样的内容重复提交，返回第一次的询价单（200）；换了内容是 409 MALL_INQUIRY_IDEMPOTENCY_KEY_REUSED。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MallInquiryRequest"
+      responses:
+        "201":
+          description: "新的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallInquiry"
+          headers:
+            ETag:
+              $ref: "#/components/headers/InquiryETag"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallInquiry"
+          headers:
+            ETag:
+              $ref: "#/components/headers/InquiryETag"
+        "400":
+          description: "缺少或不是 UUID 的 Idempotency-Key；配置说明为空或超过 200 字；数量不在 1–99；城市编码无效；期望日期不晚于今天；供给不是 1–3 个、重复或属于同一家商家（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: "MALL_INQUIRY_IDEMPOTENCY_KEY_REUSED：幂等键已用于内容不同的请求；MALL_INQUIRY_OFFER_UNAVAILABLE：有供给不是这件询价商品在这个城市的在售供给；MALL_INQUIRY_MERCHANT_UNAVAILABLE：有商家没开通在线收款。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: "listMyMallInquiries"
+      summary: "我的询价单（“我的 → 需求与报价”里和需求单、租赁询价单合在一起显示）"
+      description: "最近更新的在前。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/MallInquiryStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallInquiryPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/mall/inquiries/{inquiryId}:
+    get:
+      operationId: "getMyMallInquiry"
+      summary: "报价比选：询价单和各家报价"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+        - name: "sort"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/MallInquirySort"
+      responses:
+        "200":
+          description: "询价单和报价；ETag 是询价单版本，选定时用 If-Match 带回来"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallInquiryDetail"
+          headers:
+            ETag:
+              $ref: "#/components/headers/InquiryETag"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/mall/inquiries/{inquiryId}/choice:
+    post:
+      operationId: "chooseMallInquiryQuote"
+      summary: "选定一份报价"
+      description: "If-Match 是读询价单时的 ETag，quoteVersion 是比选页上这份报价的版本。选定后其余报价失效；同一份已经选定时原样返回。截止之后在报价有效期内仍可以选。选定后用 chosen.quoteId 作 inquiryQuoteId 去确认订单。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MallInquiryChoiceRequest"
+      responses:
+        "200":
+          description: "选定后的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallInquiry"
+          headers:
+            ETag:
+              $ref: "#/components/headers/InquiryETag"
+        "400":
+          description: "询价单 ID、If-Match 无效，或没有带报价 ID、版本（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: "询价单不是自己的，或报价不属于这张询价单（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: "MALL_INQUIRY_STATE_INVALID：已选定别的报价或已关闭；MALL_INQUIRY_QUOTE_CHANGED：报价已改价（版本不是最新）或已撤回、失效；MALL_INQUIRY_QUOTE_EXPIRED：报价已过有效期。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "412":
+          description: "MALL_INQUIRY_VERSION_CONFLICT：If-Match 的版本不是现在的版本，请刷新后重试。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/mall/inquiries/{inquiryId}/close:
+    post:
+      operationId: "closeMyMallInquiry"
+      summary: "关闭询价单（选定之前）"
+      description: "有效报价随之失效。已经由自己关闭的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+      responses:
+        "200":
+          description: "关闭后的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallInquiry"
+          headers:
+            ETag:
+              $ref: "#/components/headers/InquiryETag"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "MALL_INQUIRY_STATE_INVALID：已选定或已自动关闭。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/mall/inquiries:
+    get:
+      operationId: "listMerchantMallInquiries"
+      summary: "发给本机构的询价单"
+      description: "新提交的在前。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/MallInquiryStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantInquiryPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+  /api/v1/provider/mall/inquiries/{inquiryId}:
+    get:
+      operationId: "getMerchantMallInquiry"
+      summary: "商家看一张询价单和自己的报价"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+      responses:
+        "200":
+          description: "询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantInquiry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+  /api/v1/provider/mall/inquiries/{inquiryId}/quote:
+    put:
+      operationId: "quoteMallInquiry"
+      summary: "报价或改价（截止之前）"
+      description: "每次是新的一版（版本加 1）；内容和最新的有效一版一样时没有变化。合计 = 单价 × 询价单的数量。拒绝过的不能再报。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MallInquiryQuoteRequest"
+      responses:
+        "200":
+          description: "报价后的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantInquiry"
+        "400":
+          description: "单价不是正数或超过上限；型号配置为空或超过 60 字；交期不在 1–365 天；包含内容超过 120 字；有效期不晚于现在或超过 7 天（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+        "409":
+          description: "MALL_INQUIRY_STATE_INVALID：询价单已选定、已关闭，或本机构已拒绝；MALL_INQUIRY_QUOTING_CLOSED：报价已截止。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/mall/inquiries/{inquiryId}/decline:
+    post:
+      operationId: "declineMallInquiry"
+      summary: "拒绝询价（写原因）"
+      description: "报过的有效报价随之撤回。已经拒绝的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InquiryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MallInquiryDeclineRequest"
+      responses:
+        "200":
+          description: "拒绝后的询价单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantInquiry"
+        "400":
+          description: "没有原因或原因超过 80 字（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/MerchantForbidden"
+        "404":
+          $ref: "#/components/responses/MerchantNotFound"
+        "409":
+          description: "MALL_INQUIRY_STATE_INVALID：询价单已选定或已关闭。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  headers:
+    InquiryETag:
+      description: "询价单版本（带引号），选定报价时作为 If-Match 带回来"
+      schema:
+        type: "string"
+  responses:
+    BadRequest:
+      description: "参数缺失或格式不对（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录，或登录已过期（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "登录账号没有客户角色（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    MerchantForbidden:
+      description: "登录账号不是服务商操作员，或令牌里没有机构（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "不存在，或不是当前账号的（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    MerchantNotFound:
+      description: "不存在，或没有发给本机构（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    InquiryId:
+      name: "inquiryId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      description: "客户端为这次提交生成的 UUID；重试时带同一个"
+      schema:
+        type: "string"
+        format: "uuid"
+    IfMatch:
+      name: "If-Match"
+      in: "header"
+      required: true
+      description: "读询价单时的 ETag（询价单版本），可以带引号或 W/ 前缀"
+      schema:
+        type: "string"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true
+    MallInquiryErrorCode:
+      type: "string"
+      enum:
+        - "MALL_INQUIRY_IDEMPOTENCY_KEY_REUSED"
+        - "MALL_INQUIRY_OFFER_UNAVAILABLE"
+        - "MALL_INQUIRY_MERCHANT_UNAVAILABLE"
+        - "MALL_INQUIRY_STATE_INVALID"
+        - "MALL_INQUIRY_QUOTING_CLOSED"
+        - "MALL_INQUIRY_VERSION_CONFLICT"
+        - "MALL_INQUIRY_QUOTE_CHANGED"
+        - "MALL_INQUIRY_QUOTE_EXPIRED"
+        - "MALL_INQUIRY_QUOTE_NOT_CHOSEN"
+      description: "询价接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。MALL_INQUIRY_VERSION_CONFLICT 是 412，其余是 409。MALL_INQUIRY_QUOTE_NOT_CHOSEN、MALL_INQUIRY_QUOTE_EXPIRED 也会在确认订单预览和提交订单（inquiryQuoteId）时出现。"
+    MallInquiryStatus:
+      type: "string"
+      enum:
+        - "OPEN"
+        - "QUOTED"
+        - "CHOSEN"
+        - "CLOSED"
+      description: "询价单：OPEN 待报价；QUOTED 报价中（至少一份有效报价）；CHOSEN 已选定（chosen 是选定的报价）；CLOSED 已关闭（见 closeReason）。"
+    MallInquiryCloseReason:
+      type: "string"
+      enum:
+        - "CUSTOMER"
+        - "NO_QUOTES"
+        - "QUOTES_LAPSED"
+      description: "CUSTOMER 客户关闭；NO_QUOTES 截止时一家都没报；QUOTES_LAPSED 截止后报价都已失效（过期、撤回）还没有选。"
+    MallInquiryInvitationStatus:
+      type: "string"
+      enum:
+        - "INVITED"
+        - "QUOTED"
+        - "DECLINED"
+      description: "发给一家商家的状态：INVITED 待报价；QUOTED 已报价；DECLINED 商家拒绝（见 declineReason）。"
+    MallInquiryQuoteStatus:
+      type: "string"
+      enum:
+        - "ACTIVE"
+        - "EXPIRED"
+        - "WITHDRAWN"
+        - "CHOSEN"
+        - "LAPSED"
+      description: "一份报价（每家最新一版）：ACTIVE 有效；EXPIRED 已过有效期；WITHDRAWN 商家拒绝时撤回（客户看不到）；CHOSEN 已选中；LAPSED 选了别家或询价单关闭后失效。"
+    MallInquirySort:
+      type: "string"
+      enum:
+        - "ALL"
+        - "PRICE"
+        - "LEAD_TIME"
+      description: "比选排序：ALL 综合（按报价先后）；PRICE 总价从低到高；LEAD_TIME 交期从短到长；相同时按报价先后。"
+    MallInquiryBuyerKind:
+      type: "string"
+      enum:
+        - "ORGANIZATION"
+        - "PERSONAL"
+      description: "询价身份：ORGANIZATION 记在客户组织名下；PERSONAL 个人。"
+    MallMerchantKind:
+      type: "string"
+      enum:
+        - "FACTORY_DIRECT"
+        - "AUTHORIZED_DEALER"
+        - "LOCAL_STORE"
+      description: "商家类型：FACTORY_DIRECT 厂家直营；AUTHORIZED_DEALER 授权经销；LOCAL_STORE 本地门店（同 openapi-mall-catalog.yaml）。"
+    MallMedia:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "url"
+        - "alt"
+      properties:
+        url:
+          type: "string"
+          format: "uri"
+        alt:
+          type: "string"
+    MallMerchant:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "organizationId"
+        - "name"
+        - "kind"
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        kind:
+          $ref: "#/components/schemas/MallMerchantKind"
+    MallInquiryBuyer:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "kind"
+        - "organizationName"
+        - "contactName"
+      properties:
+        kind:
+          $ref: "#/components/schemas/MallInquiryBuyerKind"
+        organizationName:
+          type:
+            - "string"
+            - "null"
+        contactName:
+          type: "string"
+          description: "账号的显示名（经办人）"
+      description: "询价身份，只给客户自己看"
+    MallInquiryProduct:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "productId"
+        - "name"
+        - "coverImage"
+      properties:
+        productId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MallMedia"
+            - type: "null"
+    MallInquiryMerchant:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "offerId"
+        - "merchant"
+        - "status"
+        - "declineReason"
+      properties:
+        offerId:
+          type: "string"
+          format: "uuid"
+        merchant:
+          $ref: "#/components/schemas/MallMerchant"
+        status:
+          $ref: "#/components/schemas/MallInquiryInvitationStatus"
+        declineReason:
+          type:
+            - "string"
+            - "null"
+          maxLength: 80
+      description: "发给的一家商家"
+    MallInquiryChosen:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "quoteId"
+        - "quoteVersion"
+        - "offerId"
+        - "merchant"
+        - "unitAmountMinor"
+        - "quantity"
+        - "totalMinor"
+        - "validUntil"
+        - "chosenAt"
+        - "orderId"
+      properties:
+        quoteId:
+          type: "string"
+          format: "uuid"
+        quoteVersion:
+          type: "integer"
+          minimum: 1
+        offerId:
+          type: "string"
+          format: "uuid"
+        merchant:
+          $ref: "#/components/schemas/MallMerchant"
+        unitAmountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 99
+        totalMinor:
+          type: "integer"
+          format: "int64"
+        validUntil:
+          type: "string"
+          format: "date-time"
+          description: "过了有效期就不能再按它下单"
+        chosenAt:
+          type: "string"
+          format: "date-time"
+        orderId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "用这份报价最近下的那张商城订单（交易订单 ID）；还没下单时为 null"
+      description: "选定的报价：“转为订单”用 quoteId 作 inquiryQuoteId"
+    MallInquiry:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "inquiryId"
+        - "status"
+        - "closeReason"
+        - "buyer"
+        - "product"
+        - "requirement"
+        - "quantity"
+        - "cityCode"
+        - "expectedDate"
+        - "merchants"
+        - "submittedAt"
+        - "quoteDeadline"
+        - "quotingOpen"
+        - "quoteCount"
+        - "chosen"
+        - "closable"
+        - "updatedAt"
+        - "version"
+      properties:
+        inquiryId:
+          type: "string"
+          format: "uuid"
+        status:
+          $ref: "#/components/schemas/MallInquiryStatus"
+        closeReason:
+          anyOf:
+            - $ref: "#/components/schemas/MallInquiryCloseReason"
+            - type: "null"
+        buyer:
+          $ref: "#/components/schemas/MallInquiryBuyer"
+        product:
+          $ref: "#/components/schemas/MallInquiryProduct"
+        requirement:
+          type: "string"
+          maxLength: 200
+          description: "配置和用途说明"
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 99
+        cityCode:
+          type: "string"
+          description: "交付城市"
+        expectedDate:
+          type:
+            - "string"
+            - "null"
+          format: "date"
+          description: "期望交付日期（北京时间）；不填为 null"
+        merchants:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/MallInquiryMerchant"
+          maxItems: 3
+        submittedAt:
+          type: "string"
+          format: "date-time"
+        quoteDeadline:
+          type: "string"
+          format: "date-time"
+          description: "提交后 72 小时"
+        quotingOpen:
+          type: "boolean"
+          description: "还在收报价（待报价、报价中，并且没到截止时间）"
+        quoteCount:
+          type: "integer"
+          minimum: 0
+          description: "收到的报价份数（每家一份，不含撤回的）"
+        chosen:
+          anyOf:
+            - $ref: "#/components/schemas/MallInquiryChosen"
+            - type: "null"
+        closable:
+          type: "boolean"
+          description: "可以关闭（待报价、报价中）"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+          description: "和 ETag 相同"
+    MallInquiryPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/MallInquiry"
+    MallInquiryQuote:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "quoteId"
+        - "version"
+        - "offerId"
+        - "merchant"
+        - "status"
+        - "unitAmountMinor"
+        - "quantity"
+        - "totalMinor"
+        - "model"
+        - "leadDays"
+        - "includes"
+        - "validUntil"
+        - "quotedAt"
+        - "choosable"
+      properties:
+        quoteId:
+          type: "string"
+          format: "uuid"
+        version:
+          type: "integer"
+          minimum: 1
+          description: "报价版本（“第 2 版报价”）；选定时作为 quoteVersion 带回来"
+        offerId:
+          type: "string"
+          format: "uuid"
+        merchant:
+          $ref: "#/components/schemas/MallMerchant"
+        status:
+          $ref: "#/components/schemas/MallInquiryQuoteStatus"
+        unitAmountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+          description: "单价（分）"
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 99
+        totalMinor:
+          type: "integer"
+          format: "int64"
+          description: "合计 = 单价 × 数量"
+        model:
+          type: "string"
+          maxLength: 60
+          description: "型号配置"
+        leadDays:
+          type: "integer"
+          minimum: 1
+          maximum: 365
+          description: "交期（天）"
+        includes:
+          type:
+            - "string"
+            - "null"
+          maxLength: 120
+          description: "包含内容，如“含 2 名飞手培训”"
+        validUntil:
+          type: "string"
+          format: "date-time"
+        quotedAt:
+          type: "string"
+          format: "date-time"
+        choosable:
+          type: "boolean"
+          description: "现在可以选它"
+      description: "一家商家最新的一版报价"
+    MallInquiryDetail:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "inquiry"
+        - "sort"
+        - "quotes"
+      properties:
+        inquiry:
+          $ref: "#/components/schemas/MallInquiry"
+        sort:
+          $ref: "#/components/schemas/MallInquirySort"
+        quotes:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/MallInquiryQuote"
+      description: "询价单和各家报价（不含撤回的）"
+    MallInquiryOffer:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "offerId"
+        - "merchant"
+        - "deliveryNote"
+        - "canInquire"
+      properties:
+        offerId:
+          type: "string"
+          format: "uuid"
+        merchant:
+          $ref: "#/components/schemas/MallMerchant"
+        deliveryNote:
+          type:
+            - "string"
+            - "null"
+        canInquire:
+          type: "boolean"
+          description: "false：这家没开通在线收款，不能发询价"
+    MallInquiryOfferList:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "productId"
+        - "cityCode"
+        - "items"
+      properties:
+        productId:
+          type: "string"
+          format: "uuid"
+        cityCode:
+          type: "string"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/MallInquiryOffer"
+    MallMerchantQuote:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "quoteId"
+        - "version"
+        - "status"
+        - "unitAmountMinor"
+        - "quantity"
+        - "totalMinor"
+        - "model"
+        - "leadDays"
+        - "includes"
+        - "validUntil"
+        - "quotedAt"
+      properties:
+        quoteId:
+          type: "string"
+          format: "uuid"
+        version:
+          type: "integer"
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/MallInquiryQuoteStatus"
+        unitAmountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 99
+        totalMinor:
+          type: "integer"
+          format: "int64"
+        model:
+          type: "string"
+          maxLength: 60
+        leadDays:
+          type: "integer"
+          minimum: 1
+          maximum: 365
+        includes:
+          type:
+            - "string"
+            - "null"
+          maxLength: 120
+        validUntil:
+          type: "string"
+          format: "date-time"
+        quotedAt:
+          type: "string"
+          format: "date-time"
+      description: "商家自己最新的一版报价"
+    MallMerchantInquiry:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "inquiryId"
+        - "status"
+        - "product"
+        - "offerId"
+        - "requirement"
+        - "quantity"
+        - "cityCode"
+        - "expectedDate"
+        - "submittedAt"
+        - "quoteDeadline"
+        - "quotingOpen"
+        - "invitationStatus"
+        - "declineReason"
+        - "myQuote"
+      properties:
+        inquiryId:
+          type: "string"
+          format: "uuid"
+        status:
+          $ref: "#/components/schemas/MallInquiryStatus"
+        product:
+          $ref: "#/components/schemas/MallInquiryProduct"
+        offerId:
+          type: "string"
+          format: "uuid"
+          description: "发给本机构的那个供给"
+        requirement:
+          type: "string"
+        quantity:
+          type: "integer"
+        cityCode:
+          type: "string"
+        expectedDate:
+          type:
+            - "string"
+            - "null"
+          format: "date"
+        submittedAt:
+          type: "string"
+          format: "date-time"
+        quoteDeadline:
+          type: "string"
+          format: "date-time"
+        quotingOpen:
+          type: "boolean"
+          description: "本机构现在还可以报价、改价"
+        invitationStatus:
+          $ref: "#/components/schemas/MallInquiryInvitationStatus"
+        declineReason:
+          type:
+            - "string"
+            - "null"
+        myQuote:
+          anyOf:
+            - $ref: "#/components/schemas/MallMerchantQuote"
+            - type: "null"
+      description: "商家看到的询价单：没有客户的身份和联系方式"
+    MallMerchantInquiryPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/MallMerchantInquiry"
+    MallInquiryRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "productId"
+        - "requirement"
+        - "quantity"
+        - "cityCode"
+        - "offerIds"
+      properties:
+        productId:
+          type: "string"
+          format: "uuid"
+        requirement:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+          description: "配置和用途说明，可以换行"
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 99
+        cityCode:
+          type: "string"
+          pattern: "^[A-Z0-9]{4,16}$"
+          description: "交付城市（当前城市）"
+        expectedDate:
+          type:
+            - "string"
+            - "null"
+          format: "date"
+          description: "YYYY-MM-DD（北京时间），可以不填，填了要晚于今天"
+        offerIds:
+          type: "array"
+          items:
+            type: "string"
+            format: "uuid"
+          minItems: 1
+          maxItems: 3
+          description: "发给哪些商家：这件商品在这个城市的询价供给（见 listMallInquiryOffers），不同商家，1–3 个"
+    MallInquiryChoiceRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "quoteId"
+        - "quoteVersion"
+      properties:
+        quoteId:
+          type: "string"
+          format: "uuid"
+        quoteVersion:
+          type: "integer"
+          minimum: 1
+    MallInquiryQuoteRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "unitAmountMinor"
+        - "model"
+        - "leadDays"
+        - "validUntil"
+      properties:
+        unitAmountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+          maximum: 10000000000
+        model:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+        leadDays:
+          type: "integer"
+          minimum: 1
+          maximum: 365
+        includes:
+          type:
+            - "string"
+            - "null"
+          maxLength: 120
+        validUntil:
+          type: "string"
+          format: "date-time"
+          description: "晚于现在，不超过 7 天"
+    MallInquiryDeclineRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "reason"
+      properties:
+        reason:
+          type: "string"
+          minLength: 1
+          maxLength: 80

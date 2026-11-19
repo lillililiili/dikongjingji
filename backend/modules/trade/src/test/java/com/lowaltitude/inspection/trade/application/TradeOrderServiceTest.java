@@ -374,6 +374,81 @@ class TradeOrderServiceTest {
         assertThat(mapper.orders).hasSize(3);
     }
 
+    // ---- 按询价报价下单（F4） ----
+
+    private static final UUID INQUIRY_QUOTE = UUID.fromString("e1000000-0000-4000-8000-000000000001");
+
+    @Test
+    void anInquiryQuoteOrderAsksTheMallWithTheQuoteAndTellsItTheNewOrder() {
+        // 数量是询价单的：请求里带了也不往商城传。
+        TradeOrderView order = service.submit(BUYER, KEY, fromQuote(7)).order();
+
+        CheckoutRequest asked = new CheckoutRequest("370500", List.of(), null, null, "EXPRESS", ADDRESS_ID, INQUIRY_QUOTE);
+        assertThat(checkout.requests).containsExactly(asked);
+        assertThat(checkout.placed).containsExactly(new Placed(BUYER, asked, order.orderId()));
+        assertThat(checkout.removed).isEmpty();
+        assertThat(order.source()).isEqualTo("MALL");
+        assertThat(order.status()).isEqualTo(TradeOrderStatus.PENDING_PAYMENT);
+        // 同一个键重放不再通知商城；换一份报价是另一份内容。
+        assertThat(service.submit(BUYER, KEY, fromQuote(null)).created()).isFalse();
+        assertThat(checkout.placed).hasSize(1);
+        SubmitCommand otherQuote = new SubmitCommand("370500", null, null, null, "EXPRESS", ADDRESS_ID, null,
+                GOODS + SHIPPING, true, UUID.randomUUID());
+        assertRefused(() -> service.submit(BUYER, KEY, otherQuote), Error.IDEMPOTENCY_CONFLICT);
+        // 不带报价的请求，内容摘要和以前一样（老的幂等键照旧能重放）。
+        UUID cartKey = UUID.randomUUID();
+        service.submit(BUYER, cartKey, fromCart(GOODS + SHIPPING));
+        assertThat(service.submit(BUYER, cartKey, new SubmitCommand("370500", List.of(CART_A, CART_B), null, null,
+                "EXPRESS", ADDRESS_ID, "请周末送", GOODS + SHIPPING, true, null)).created()).isFalse();
+    }
+
+    @Test
+    void aQuoteWithAnOrderThatIsStillOpenCannotBeOrderedAgain() {
+        UUID first = service.submit(BUYER, KEY, fromQuote(null)).order().orderId();
+        checkout.respond = request -> withPrevious(quoteOf("EXPRESS", ADDRESS, GOODS + SHIPPING), first);
+        int written = mapper.orders.size();
+
+        for (String status : List.of("PENDING_PAYMENT", "PAID", "SHIPPED", "COMPLETED", "REFUNDING", "REFUNDED",
+                "REFUND_FAILED")) {
+            mapper.orders.getFirst().status = status;
+            assertRefused(() -> service.submit(BUYER, UUID.randomUUID(), fromQuote(null)), Error.QUOTE_ALREADY_ORDERED);
+        }
+        assertThat(mapper.orders).hasSize(written);
+        assertThat(checkout.placed).hasSize(1);
+
+        // 上一张没付款关闭了：可以再下一张。
+        mapper.orders.getFirst().status = "CLOSED";
+        UUID second = service.submit(BUYER, UUID.randomUUID(), fromQuote(null)).order().orderId();
+        assertThat(second).isNotEqualTo(first);
+        assertThat(checkout.placed).extracting(Placed::orderId).containsExactly(first, second);
+    }
+
+    @Test
+    void anInquiryQuoteIsTheOnlySourceOfItsOrder() {
+        for (SubmitCommand mixed : List.of(
+                new SubmitCommand("370500", List.of(CART_A), null, null, "EXPRESS", ADDRESS_ID, null, 1L, true,
+                        INQUIRY_QUOTE),
+                new SubmitCommand("370500", null, OFFER_A, 1, "EXPRESS", ADDRESS_ID, null, 1L, true, INQUIRY_QUOTE))) {
+            assertThatThrownBy(() -> service.submit(BUYER, KEY, mixed)).isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(checkout.requests).isEmpty();
+        assertNothingWritten();
+    }
+
+    private static SubmitCommand fromQuote(Integer quantity) {
+        return new SubmitCommand("370500", null, null, quantity, "EXPRESS", ADDRESS_ID, null, GOODS + SHIPPING, true,
+                INQUIRY_QUOTE);
+    }
+
+    private static CheckoutQuote withPrevious(CheckoutQuote quote, UUID previousOrderId) {
+        return new CheckoutQuote(quote.merchantId(), quote.merchantName(), quote.merchantKind(), quote.lines(),
+                quote.deliveryMode(), quote.pickupPoint(), quote.address(), quote.goodsMinor(), quote.shippingMinor(),
+                quote.payableMinor(), previousOrderId);
+    }
+
+    private record Placed(UUID accountId, CheckoutRequest request, UUID orderId) {
+    }
+
     // ---- 订单号 ----
 
     @Test
@@ -1411,6 +1486,7 @@ class TradeOrderServiceTest {
 
         final List<CheckoutRequest> requests = new ArrayList<>();
         final List<List<UUID>> removed = new ArrayList<>();
+        final List<Placed> placed = new ArrayList<>();
         Function<CheckoutRequest, CheckoutQuote> respond = request -> "PICKUP".equals(request.deliveryMode())
                 ? quoteOf("PICKUP", null, GOODS)
                 : quoteOf("EXPRESS", ADDRESS, GOODS + SHIPPING);
@@ -1424,6 +1500,11 @@ class TradeOrderServiceTest {
         @Override
         public void removeCartLines(UUID accountId, List<UUID> cartItemIds) {
             removed.add(cartItemIds);
+        }
+
+        @Override
+        public void orderPlaced(UUID accountId, CheckoutRequest request, UUID orderId) {
+            placed.add(new Placed(accountId, request, orderId));
         }
     }
 

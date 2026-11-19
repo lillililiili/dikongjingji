@@ -131,14 +131,23 @@ public class TradeOrderService {
             return new SubmitResult(read(buyerId, replayed.id()), false);
         }
 
-        CheckoutQuote quote = checkout.quote(buyerId, new CheckoutRequest(
+        CheckoutRequest request = new CheckoutRequest(
                 normalized.cityCode(),
                 normalized.cartItemIds(),
                 normalized.offerId(),
                 normalized.quantity(),
                 normalized.deliveryMode(),
-                normalized.addressId()));
+                normalized.addressId(),
+                normalized.inquiryQuoteId());
+        CheckoutQuote quote = checkout.quote(buyerId, request);
         requirePricedLines(quote);
+        // 一份询价报价同时只能有一张订单：上一张关闭了（没付款）才能再下。买家锁挡住了同一个人同时提交两次。
+        if (quote.previousOrderId() != null) {
+            OrderRow previous = mapper.findOrder(quote.previousOrderId());
+            if (previous != null && !TradeOrderStatus.CLOSED.name().equals(previous.status())) {
+                throw new TradeException(Error.QUOTE_ALREADY_ORDERED);
+            }
+        }
         // 商家收不了款时，买家改配送方式、填地址、刷新价格都没有用，所以最先判断。
         MerchantAccountRow account = mapper.findMerchantAccount(quote.merchantId());
         if (account == null || !account.active()) {
@@ -204,6 +213,7 @@ public class TradeOrderService {
         if (!normalized.cartItemIds().isEmpty()) {
             checkout.removeCartLines(buyerId, normalized.cartItemIds());
         }
+        checkout.orderPlaced(buyerId, request, orderId);
         return new SubmitResult(read(buyerId, orderId), true);
     }
 
@@ -628,10 +638,12 @@ public class TradeOrderService {
             throw new IllegalArgumentException("cart items are invalid");
         }
         boolean fromCart = !cartItemIds.isEmpty();
-        if (fromCart == (command.offerId() != null)) {
-            throw new IllegalArgumentException("order needs either cart items or one offer");
+        boolean fromQuote = command.inquiryQuoteId() != null;
+        int sources = (fromCart ? 1 : 0) + (command.offerId() != null ? 1 : 0) + (fromQuote ? 1 : 0);
+        if (sources != 1) {
+            throw new IllegalArgumentException("order needs cart items, one offer or one inquiry quote");
         }
-        if (!fromCart && (command.quantity() == null || command.quantity() < 1 || command.quantity() > 99)) {
+        if (command.offerId() != null && (command.quantity() == null || command.quantity() < 1 || command.quantity() > 99)) {
             throw new IllegalArgumentException("quantity is invalid");
         }
         if (!"EXPRESS".equals(command.deliveryMode()) && !"PICKUP".equals(command.deliveryMode())) {
@@ -650,13 +662,15 @@ public class TradeOrderService {
         return new SubmitCommand(
                 command.cityCode().trim(),
                 cartItemIds.stream().distinct().toList(),
-                fromCart ? null : command.offerId(),
-                fromCart ? null : command.quantity(),
+                command.offerId(),
+                // 按询价报价下单时数量是询价单的，请求里的数量不用。
+                command.offerId() != null ? command.quantity() : null,
                 command.deliveryMode(),
                 "EXPRESS".equals(command.deliveryMode()) ? command.addressId() : null,
                 note == null || note.isEmpty() ? null : note,
                 command.expectedPayableMinor(),
-                true);
+                true,
+                command.inquiryQuoteId());
     }
 
     /**
@@ -683,7 +697,9 @@ public class TradeOrderService {
                 command.deliveryMode(),
                 Objects.toString(command.addressId(), ""),
                 Objects.toString(command.buyerNote(), ""),
-                Long.toString(command.expectedPayableMinor()));
+                Long.toString(command.expectedPayableMinor()))
+                // 询价报价（F4）只在有时才加进摘要：以前的订单的摘要不变，重放照常认得出。
+                + (command.inquiryQuoteId() == null ? "" : "|quote:" + command.inquiryQuoteId());
         try {
             return HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
@@ -730,7 +746,7 @@ public class TradeOrderService {
         }
     }
 
-    /** 提交订单的内容（契约 SubmitOrderRequest）。 */
+    /** 提交订单的内容（契约 SubmitOrderRequest）。inquiryQuoteId 是第三种来源：选定的询价报价（F4）。 */
     public record SubmitCommand(
             String cityCode,
             List<UUID> cartItemIds,
@@ -740,7 +756,14 @@ public class TradeOrderService {
             UUID addressId,
             String buyerNote,
             Long expectedPayableMinor,
-            Boolean agreementAccepted
+            Boolean agreementAccepted,
+            UUID inquiryQuoteId
     ) {
+        public SubmitCommand(String cityCode, List<UUID> cartItemIds, UUID offerId, Integer quantity,
+                             String deliveryMode, UUID addressId, String buyerNote, Long expectedPayableMinor,
+                             Boolean agreementAccepted) {
+            this(cityCode, cartItemIds, offerId, quantity, deliveryMode, addressId, buyerNote, expectedPayableMinor,
+                    agreementAccepted, null);
+        }
     }
 }
