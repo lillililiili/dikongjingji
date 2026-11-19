@@ -3,7 +3,9 @@ import type { MallSaleMode } from '../domain/mall'
 // Entries that are not built. They go through this typed gate instead of ad-hoc toasts.
 // Since step D the cart and the confirm page are real; ADD_TO_CART and BUY_NOW only reach this gate
 // in a build where they are not shown. Since step E07 the confirm page submits real orders in
-// preview builds; SUBMIT_ORDER is only left for public builds, which do not show the page.
+// preview builds; SUBMIT_ORDER is only left for public builds, which do not show the page. Since
+// step F3 联系询价 on a rental product opens the rental inquiry form; INQUIRE still reaches this
+// gate for inquiry-only goods.
 export type MallIntent =
   | { type: 'ADD_TO_CART'; productId: string; offerId: string }
   | { type: 'BUY_NOW'; productId: string; offerId: string }

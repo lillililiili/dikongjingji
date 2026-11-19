@@ -11,6 +11,7 @@ import {
   buildMallProductUrl,
 } from '@/features/mall/navigation/mall-routes'
 import MallProductPage from '@/features/mall/presentation/product/MallProductPage.vue'
+import { buildRentalInquiryUrl } from '@/features/rental/navigation/rental-routes'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
 const badgeStore = useRootTabBadgeStore()
@@ -57,6 +58,11 @@ function buyNow(offerId: string, quantity: number): void {
   uni.navigateTo({ url: buildBuyNowCheckoutUrl(offerId, quantity, cityCode) })
 }
 
+// The form asks for a login itself and comes back to itself.
+function rent(rentProductId: string, offerId: string): void {
+  uni.navigateTo({ url: buildRentalInquiryUrl({ offerId, productId: rentProductId, cityCode }) })
+}
+
 onLoad((query) => {
   productId = typeof query?.productId === 'string' ? query.productId : ''
   cityCode = typeof query?.cityCode === 'string' ? query.cityCode : ''
@@ -64,5 +70,5 @@ onLoad((query) => {
 </script>
 
 <template>
-  <MallProductPage :busy="busy" @add-to-cart="addToCart" @buy-now="buyNow" />
+  <MallProductPage :busy="busy" @add-to-cart="addToCart" @buy-now="buyNow" @rent="rent" />
 </template>

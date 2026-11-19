@@ -23,12 +23,15 @@ import {
   formatMallOfferPrice,
 } from '../shared/mall-format'
 
-// The page host owns the account: it adds to the cart and opens the confirm page.
+// The page host owns the account: it adds to the cart, opens the confirm page and the rental
+// inquiry form.
 const props = withDefaults(defineProps<{ busy?: boolean }>(), { busy: false })
 
 const emit = defineEmits<{
   addToCart: [offerId: string, quantity: number]
   buyNow: [offerId: string, quantity: number]
+  // 联系询价 on a rental product (F3): the rental inquiry form for this offer.
+  rent: [productId: string, offerId: string]
 }>()
 
 type DetailState =
@@ -112,6 +115,11 @@ function runIntent(type: 'ADD_TO_CART' | 'BUY_NOW' | 'INQUIRE'): void {
   if (!product.value || !offer) return
   if ((type === 'ADD_TO_CART' || type === 'BUY_NOW') && primaryAction.value?.cartAvailable) {
     buySheetOpen.value = true
+    return
+  }
+  // A rental product is asked about on the rental inquiry form (preview builds, like this button).
+  if (type === 'INQUIRE' && product.value.saleMode === 'RENT' && MALL_PREVIEW_ENABLED) {
+    emit('rent', product.value.productId, offer.offerId)
     return
   }
   const resolution = resolveMallIntent(

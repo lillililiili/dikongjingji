@@ -10,6 +10,8 @@ import {
 } from '@/features/activity/navigation/activity-routes'
 import { DEMAND_PREVIEW_ENABLED } from '@/features/demand/application/demand-preview'
 import { buildMyDemandsUrl } from '@/features/demand/navigation/demand-routes'
+import { RENTAL_PREVIEW_ENABLED } from '@/features/rental/application/rental-preview'
+import { buildMyRentalOrdersUrl } from '@/features/rental/navigation/rental-routes'
 import { EXPERIENCE_PREVIEW_ENABLED } from '@/features/experience/application/experience-preview'
 import { buildVenueBookingsUrl } from '@/features/experience/navigation/experience-routes'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
@@ -74,9 +76,11 @@ const featureEntries: PlatformMineFeatureEntry[] = [
 // Activity sign-up lives behind the same switch as the 赛事研学 channel; both pages ask for a
 // login themselves and come back here if the user gives up.
 // Venue booking (E10) sits next to it behind the 体验 channel's switch, which reads the same flag.
+// Rental orders (F3, §24.3) follow; the Mine board has no such entry yet, the plan adds it.
 const joinEntries: PlatformMineLinkEntry[] = [
   ...(ACTIVITY_PREVIEW_ENABLED ? [{ code: 'ACTIVITY_ENROLLMENTS', title: '活动报名', icon: 'flag' }] : []),
   ...(EXPERIENCE_PREVIEW_ENABLED ? [{ code: 'VENUE_BOOKINGS', title: '到馆预约', icon: 'location' }] : []),
+  ...(RENTAL_PREVIEW_ENABLED ? [{ code: 'RENTAL_ORDERS', title: '租赁订单', icon: 'calendar' }] : []),
 ]
 // 需求与报价 (F1) follows them in the Mine board's order; the list asks for a login itself.
 const linkRows: PlatformMineLinkEntry[] = [
@@ -212,6 +216,7 @@ function openLink(code: string): void {
   if (code === 'ACTIVITY_PARTICIPANTS') uni.navigateTo({ url: ACTIVITY_PARTICIPANTS_PATH })
   if (code === 'VENUE_BOOKINGS') uni.navigateTo({ url: buildVenueBookingsUrl() })
   if (code === 'DEMANDS') uni.navigateTo({ url: buildMyDemandsUrl() })
+  if (code === 'RENTAL_ORDERS') uni.navigateTo({ url: buildMyRentalOrdersUrl() })
 }
 
 function openAllOrders(): void {

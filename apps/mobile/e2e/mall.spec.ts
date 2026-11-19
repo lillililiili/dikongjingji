@@ -369,8 +369,10 @@ test.describe('商品详情', () => {
     await expect(page.getByTestId('mall-product-cart')).toHaveCount(0)
     await expect(page.getByTestId('mall-product-primary')).toHaveText('联系询价')
 
+    // Since F3 a rental product's 联系询价 opens the rental inquiry form, which asks a guest to sign
+    // in first and comes back to itself (e2e/rental.spec.ts covers the form).
     await page.getByTestId('mall-product-primary').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('询价功能即将开放')
+    await expect(page).toHaveURL(/pages\/service\/inspection\/login\?returnUrl=.*rental.*inquiry/)
 
     await openProduct(page, SURVEY_ID)
     await expect(page.getByTestId('mall-product-name')).toHaveText('行业测绘无人机')
@@ -378,6 +380,9 @@ test.describe('商品详情', () => {
     await expect(page.locator('.mall-product__offer')).toHaveCount(2)
     await expect(page.getByTestId('mall-product-cart')).toHaveCount(0)
     await expect(page.getByTestId('mall-product-primary')).toHaveText('联系询价')
+    // Inquiry-only goods still go through the typed gate.
+    await page.getByTestId('mall-product-primary').click()
+    await expect(page.locator('.uni-sample-toast')).toContainText('询价功能即将开放')
   })
 
   test('MALL-103 本城不卖、已下架、缺参数的链接都落到“商品不存在”，并能回商城', async ({ page }) => {

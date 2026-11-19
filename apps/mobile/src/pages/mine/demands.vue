@@ -17,6 +17,11 @@ import {
   MINE_TAB_PATH,
   buildInspectionLoginUrl,
 } from '@/features/inspection/navigation/inspection-routes'
+import {
+  buildRentalInquiryUrl,
+  buildRentalOrderUrl,
+  buildRentalQuoteUrl,
+} from '@/features/rental/navigation/rental-routes'
 
 const initialFilter = ref<DemandListFilter>('ALL')
 const accessToken = ref<string | null>(null)
@@ -44,7 +49,8 @@ onLoad((query) => {
   initialFilter.value = parseDemandListFilter(query?.status)
 })
 
-// Every return reads the list again: a demand may have been sent, chosen or cancelled meanwhile.
+// Every return reads the list again: a demand may have been sent, chosen or cancelled meanwhile, a
+// rental inquiry quoted or confirmed.
 onShow(() => {
   accessToken.value = getBookingAuthContext().getAccessToken()
   refreshKey.value += 1
@@ -70,6 +76,9 @@ onReachBottom(() => {
     @view="(demandId) => open(buildDemandPublishUrl({ demandId }))"
     @quotes="(demandId) => open(buildDemandQuotesUrl(demandId))"
     @republish="(demandId) => open(buildDemandPublishUrl({ from: demandId }))"
+    @rental-quote="(inquiryId) => open(buildRentalQuoteUrl(inquiryId))"
+    @rental-order="(rentalOrderId) => open(buildRentalOrderUrl(rentalOrderId))"
+    @reinquire="(target) => open(buildRentalInquiryUrl(target))"
   />
   <DemandUnavailable v-else-if="!DEMAND_PREVIEW_ENABLED" />
 </template>

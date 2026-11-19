@@ -3,7 +3,29 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import {
+  loadMoreMerged,
+  mergedHasMore,
+  mergedItems,
+  type MergedSource,
+} from '@/shared/list/merged-pages'
 
+import { rentalCoverUrl } from '../../../rental/application/rental-cover'
+import {
+  describeRentalInquiryCard,
+  rentalCloseConfirm,
+  type RentalInquiryCardAction,
+} from '../../../rental/application/rental-inquiry-card'
+import { rentalApi } from '../../../rental/data/rental-api-client'
+import type { RentalInquiry } from '../../../rental/domain/rental'
+import type { RentalInquiryTarget } from '../../../rental/navigation/rental-routes'
+import {
+  DEMAND_LIST_KEYS,
+  demandListItem,
+  demandListSources,
+  rentalListItem,
+  type DemandListItem,
+} from '../../application/demand-list-sources'
 import {
   DEMAND_FILTER_LABELS,
   describeDemandCard,
@@ -13,7 +35,6 @@ import { demandApi } from '../../data/demand-api-client'
 import { DEMAND_PAGE_SIZE, type Demand } from '../../domain/demand'
 import {
   DEMAND_LIST_FILTERS,
-  demandStatusOfFilter,
   type DemandListFilter,
 } from '../../navigation/demand-routes'
 import DemandConfirmSheet from '../shared/DemandConfirmSheet.vue'
@@ -36,28 +57,57 @@ const emit = defineEmits<{
   view: [demandId: string]
   quotes: [demandId: string]
   republish: [demandId: string]
+  // Rental inquiries (询价单, F3): the quote page, the rental order, a new inquiry for the same offer.
+  rentalQuote: [inquiryId: string]
+  rentalOrder: [rentalOrderId: string]
+  reinquire: [target: RentalInquiryTarget]
 }>()
 
 type ListState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error' }
+type Asking =
+  | { action: 'CANCEL' | 'DELETE'; demand: Demand }
+  | { action: 'CLOSE_RENTAL'; inquiry: RentalInquiry }
 
 const filter = ref<DemandListFilter>(props.initialFilter)
 const state = ref<ListState>({ kind: 'loading' })
-const items = ref<Demand[]>([])
-const page = ref(1)
-const hasMore = ref(false)
+const sources = ref<MergedSource<DemandListItem>[]>([])
 const loadingMore = ref(false)
-const asking = ref<{ action: 'CANCEL' | 'DELETE'; demand: Demand } | null>(null)
+const asking = ref<Asking | null>(null)
 const acting = ref(false)
 let requestVersion = 0
 
-const cards = computed(() => items.value.map((demand) => ({ demand, view: describeDemandCard(demand) })))
+const hasMore = computed(() => mergedHasMore(sources.value))
+const cards = computed(() => mergedItems(sources.value, DEMAND_LIST_KEYS).map((item) => (item.kind === 'DEMAND'
+  ? { kind: 'DEMAND' as const, id: item.id, demand: item.demand, view: describeDemandCard(item.demand) }
+  : {
+      kind: 'RENTAL' as const,
+      id: item.id,
+      inquiry: item.inquiry,
+      view: describeRentalInquiryCard(item.inquiry),
+      cover: rentalCoverUrl(item.inquiry.item.coverUrl, item.inquiry.item.productId),
+    })))
 const emptyText = computed(() => (filter.value === 'DRAFT' ? '还没有草稿' : '没有符合条件的记录'))
-const confirmCopy = computed(() => (asking.value?.action === 'DELETE'
-  ? { title: '确认删除这份草稿？', text: '删除后不能恢复，需要时请重新填写。', keep: '暂不删除', go: '确认删除' }
-  : { title: '确认取消这份需求？', text: '取消后服务商不再报价，已收到的报价也会失效。', keep: '暂不取消', go: '确认取消' }))
+const confirmCopy = computed(() => {
+  const current = asking.value
+  if (current?.action === 'CLOSE_RENTAL') return rentalCloseConfirm(current.inquiry)
+  return current?.action === 'DELETE'
+    ? { title: '确认删除这份草稿？', text: '删除后不能恢复，需要时请重新填写。', keep: '暂不删除', go: '确认删除' }
+    : { title: '确认取消这份需求？', text: '取消后服务商不再报价，已收到的报价也会失效。', keep: '暂不取消', go: '确认取消' }
+})
 
 function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiRequestError && (error.status === 401 || error.code === 'COMMON_UNAUTHORIZED')
+}
+
+// One page of the index-th source of the current filter, as list items.
+async function fetchPage(token: string, index: number, page: number): Promise<{ items: DemandListItem[]; hasMore: boolean }> {
+  const source = demandListSources(filter.value)[index]
+  if (source.kind === 'DEMAND') {
+    const loaded = await demandApi.list(token, source.status, page, DEMAND_PAGE_SIZE)
+    return { items: loaded.items.map(demandListItem), hasMore: loaded.hasMore }
+  }
+  const loaded = await rentalApi.listInquiries(token, source.status, page, DEMAND_PAGE_SIZE)
+  return { items: loaded.items.map(rentalListItem), hasMore: loaded.hasMore }
 }
 
 async function load(): Promise<void> {
@@ -69,11 +119,9 @@ async function load(): Promise<void> {
   const requested = ++requestVersion
   if (state.value.kind !== 'ready') state.value = { kind: 'loading' }
   try {
-    const loaded = await demandApi.list(token, demandStatusOfFilter(filter.value), 1, DEMAND_PAGE_SIZE)
+    const pages = await Promise.all(demandListSources(filter.value).map((_, index) => fetchPage(token, index, 1)))
     if (requested !== requestVersion) return
-    items.value = loaded.items
-    page.value = 1
-    hasMore.value = loaded.hasMore
+    sources.value = pages.map((page) => ({ items: page.items, hasMore: page.hasMore, page: 1 }))
     state.value = { kind: 'ready' }
   } catch (error) {
     if (requested !== requestVersion) return
@@ -91,13 +139,9 @@ async function loadMore(): Promise<void> {
   const requested = requestVersion
   loadingMore.value = true
   try {
-    const next = await demandApi.list(token, demandStatusOfFilter(filter.value), page.value + 1, DEMAND_PAGE_SIZE)
-    if (requested !== requestVersion) return
-    // A demand that moved up while scrolling is shown once.
-    const known = new Set(items.value.map((item) => item.demandId))
-    items.value = [...items.value, ...next.items.filter((item) => !known.has(item.demandId))]
-    page.value += 1
-    hasMore.value = next.hasMore
+    // A record that moved up while scrolling is shown once (the merge drops repeated ids).
+    const next = await loadMoreMerged(sources.value, DEMAND_LIST_KEYS, (index, page) => fetchPage(token, index, page))
+    if (requested === requestVersion) sources.value = next
   } catch (error) {
     if (isUnauthorized(error)) {
       emit('login')
@@ -128,32 +172,55 @@ function act(action: DemandCardAction, demand: Demand): void {
   }
 }
 
+function actOnRental(action: RentalInquiryCardAction, inquiry: RentalInquiry): void {
+  switch (action) {
+    case 'QUOTE': emit('rentalQuote', inquiry.inquiryId); return
+    case 'ORDER':
+      if (inquiry.order) emit('rentalOrder', inquiry.order.rentalOrderId)
+      return
+    case 'REINQUIRE':
+      emit('reinquire', { offerId: inquiry.item.offerId, productId: inquiry.item.productId, cityCode: inquiry.place.cityCode })
+      return
+    case 'CLOSE':
+      asking.value = { action: 'CLOSE_RENTAL', inquiry }
+  }
+}
+
+async function runAsked(token: string, target: Asking): Promise<void> {
+  if (target.action === 'CLOSE_RENTAL') {
+    await rentalApi.closeInquiry(token, target.inquiry.inquiryId)
+    uni.showToast({ title: '询价已关闭', icon: 'none' })
+  } else if (target.action === 'DELETE') {
+    await demandApi.deleteDraft(token, target.demand.demandId)
+    uni.showToast({ title: '草稿已删除', icon: 'none' })
+  } else {
+    await demandApi.cancel(token, target.demand.demandId)
+    uni.showToast({ title: '需求已取消', icon: 'none' })
+  }
+}
+
+function refusedText(target: Asking): string {
+  if (target.action === 'CLOSE_RENTAL') return '询价单已确认或已关闭，不能再关闭'
+  return target.action === 'DELETE' ? '只有草稿能删除' : '需求已选定或已关闭，不能取消'
+}
+
 async function confirmAction(): Promise<void> {
   const token = props.accessToken
   const target = asking.value
   if (!token || !target || acting.value) return
   acting.value = true
   try {
-    if (target.action === 'DELETE') {
-      await demandApi.deleteDraft(token, target.demand.demandId)
-      uni.showToast({ title: '草稿已删除', icon: 'none' })
-    } else {
-      await demandApi.cancel(token, target.demand.demandId)
-      uni.showToast({ title: '需求已取消', icon: 'none' })
-    }
+    await runAsked(token, target)
   } catch (error) {
     if (isUnauthorized(error)) {
       asking.value = null
       emit('login')
       return
     }
-    // The demand moved on meanwhile (chosen, submitted, closed): the list below shows where it is.
-    uni.showToast({
-      title: error instanceof ApiRequestError && error.code === 'DEMAND_STATE_INVALID'
-        ? (target.action === 'DELETE' ? '只有草稿能删除' : '需求已选定或已关闭，不能取消')
-        : '没有成功，请稍后重试',
-      icon: 'none',
-    })
+    // The record moved on meanwhile (chosen, submitted, closed): the list below shows where it is.
+    const refused = error instanceof ApiRequestError
+      && (error.code === 'DEMAND_STATE_INVALID' || error.code === 'RENTAL_STATE_INVALID')
+    uni.showToast({ title: refused ? refusedText(target) : '没有成功，请稍后重试', icon: 'none' })
   } finally {
     acting.value = false
     asking.value = null
@@ -213,58 +280,110 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
     </view>
 
     <view v-else class="demand-list__body">
-      <view
-        v-for="card in cards"
-        :key="card.demand.demandId"
-        class="demand-list__card"
-        :data-testid="`demand-card-${card.demand.demandId}`"
-        :data-status="card.demand.status"
-      >
-        <button
-          class="demand-list__main"
-          :data-testid="`demand-card-open-${card.demand.demandId}`"
-          @click="act(card.view.open, card.demand)"
+      <template v-for="card in cards" :key="card.id">
+        <view
+          v-if="card.kind === 'DEMAND'"
+          class="demand-list__card"
+          :data-testid="`demand-card-${card.demand.demandId}`"
+          :data-status="card.demand.status"
         >
-          <view class="demand-list__head">
-            <text :class="['demand-list__kind', { 'demand-list__kind--draft': card.view.kind === '草稿' }]">
-              {{ card.view.kind }}
-            </text>
-            <text class="demand-list__publisher">{{ card.view.publisher }}</text>
-            <text
-              :class="['demand-list__status', `demand-list__status--${card.view.tone.toLowerCase()}`]"
-              data-testid="demand-card-status"
-            >
-              {{ card.view.statusText }}
-            </text>
-          </view>
-          <view class="demand-list__content">
-            <view class="demand-list__image">
-              <UniIcons type="compose" size="26" color="#91a0b4" />
-            </view>
-            <view class="demand-list__copy">
-              <text class="demand-list__title">{{ card.view.title }}</text>
-              <text v-if="card.view.meta" class="demand-list__meta" data-testid="demand-card-meta">{{ card.view.meta }}</text>
+          <button
+            class="demand-list__main"
+            :data-testid="`demand-card-open-${card.demand.demandId}`"
+            @click="act(card.view.open, card.demand)"
+          >
+            <view class="demand-list__head">
+              <text :class="['demand-list__kind', { 'demand-list__kind--draft': card.view.kind === '草稿' }]">
+                {{ card.view.kind }}
+              </text>
+              <text class="demand-list__publisher">{{ card.view.publisher }}</text>
               <text
-                :class="['demand-list__line', `demand-list__line--${card.view.tone.toLowerCase()}`]"
-                data-testid="demand-card-line"
+                :class="['demand-list__status', `demand-list__status--${card.view.tone.toLowerCase()}`]"
+                data-testid="demand-card-status"
               >
-                {{ card.view.line }}
+                {{ card.view.statusText }}
               </text>
             </view>
-          </view>
-        </button>
-        <view class="demand-list__actions">
-          <button
-            v-for="button in card.view.buttons"
-            :key="button.action"
-            :class="['demand-list__action', { 'demand-list__action--primary': button.primary }]"
-            :data-testid="`demand-card-${button.action.toLowerCase()}-${card.demand.demandId}`"
-            @click="act(button.action, card.demand)"
-          >
-            {{ button.label }}
+            <view class="demand-list__content">
+              <view class="demand-list__image">
+                <UniIcons type="compose" size="26" color="#91a0b4" />
+              </view>
+              <view class="demand-list__copy">
+                <text class="demand-list__title">{{ card.view.title }}</text>
+                <text v-if="card.view.meta" class="demand-list__meta" data-testid="demand-card-meta">{{ card.view.meta }}</text>
+                <text
+                  :class="['demand-list__line', `demand-list__line--${card.view.tone.toLowerCase()}`]"
+                  data-testid="demand-card-line"
+                >
+                  {{ card.view.line }}
+                </text>
+              </view>
+            </view>
           </button>
+          <view class="demand-list__actions">
+            <button
+              v-for="button in card.view.buttons"
+              :key="button.action"
+              :class="['demand-list__action', { 'demand-list__action--primary': button.primary }]"
+              :data-testid="`demand-card-${button.action.toLowerCase()}-${card.demand.demandId}`"
+              @click="act(button.action, card.demand)"
+            >
+              {{ button.label }}
+            </button>
+          </view>
         </view>
-      </view>
+
+        <view
+          v-else
+          class="demand-list__card"
+          :data-testid="`rental-inquiry-card-${card.inquiry.inquiryId}`"
+          :data-status="card.inquiry.status"
+        >
+          <button
+            class="demand-list__main"
+            :data-testid="`rental-inquiry-card-open-${card.inquiry.inquiryId}`"
+            @click="actOnRental('QUOTE', card.inquiry)"
+          >
+            <view class="demand-list__head">
+              <text class="demand-list__kind demand-list__kind--inquiry">{{ card.view.kind }}</text>
+              <text class="demand-list__publisher">{{ card.view.publisher }}</text>
+              <text
+                :class="['demand-list__status', `demand-list__status--${card.view.tone.toLowerCase()}`]"
+                data-testid="rental-inquiry-card-status"
+              >
+                {{ card.view.statusText }}
+              </text>
+            </view>
+            <view class="demand-list__content">
+              <image v-if="card.cover" class="demand-list__image" :src="card.cover" mode="aspectFill" />
+              <view v-else class="demand-list__image">
+                <UniIcons type="gear" size="26" color="#91a0b4" />
+              </view>
+              <view class="demand-list__copy">
+                <text class="demand-list__title">{{ card.view.title }}</text>
+                <text class="demand-list__meta" data-testid="rental-inquiry-card-meta">{{ card.view.meta }}</text>
+                <text
+                  :class="['demand-list__line', `demand-list__line--${card.view.tone.toLowerCase()}`]"
+                  data-testid="rental-inquiry-card-line"
+                >
+                  {{ card.view.line }}
+                </text>
+              </view>
+            </view>
+          </button>
+          <view class="demand-list__actions">
+            <button
+              v-for="button in card.view.buttons"
+              :key="button.action"
+              :class="['demand-list__action', { 'demand-list__action--primary': button.primary }]"
+              :data-testid="`rental-inquiry-card-${button.action.toLowerCase()}-${card.inquiry.inquiryId}`"
+              @click="actOnRental(button.action, card.inquiry)"
+            >
+              {{ button.label }}
+            </button>
+          </view>
+        </view>
+      </template>
 
       <button
         v-if="hasMore"
@@ -422,6 +541,11 @@ button::after {
 .demand-list__kind--draft {
   color: #536178;
   background: #eef2f8;
+}
+
+.demand-list__kind--inquiry {
+  color: #ba470b;
+  background: #fff0e3;
 }
 
 .demand-list__publisher {

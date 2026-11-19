@@ -24,11 +24,12 @@ export const TRADE_ORDER_TABS: readonly TradeOrderTab[] = [
 export type TradeDeliveryMode = 'EXPRESS' | 'PICKUP'
 
 // Where the order came from (0.2.0): a mall order, a paid activity enrolment whose page is the
-// enrolment's ticket (sourceRef is the enrolment id), or a venue booking (E10) whose page is the
-// booking's code (sourceRef is the booking id).
-export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE'
+// enrolment's ticket (sourceRef is the enrolment id), a venue booking (E10) whose page is the
+// booking's code (sourceRef is the booking id), or an equipment rental (F3) whose page is the rental
+// order (sourceRef is the rental order id).
+export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE' | 'RENTAL'
 
-export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE']
+export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE', 'RENTAL']
 
 export type TradeMerchantKind = 'FACTORY_DIRECT' | 'AUTHORIZED_DEALER' | 'LOCAL_STORE'
 
@@ -104,6 +105,8 @@ export interface TradeOrder {
   merchant: TradeMerchant
   // A paid enrolment: productName is the activity, skuName the session, quantity the number of people.
   // A venue booking: productName is "venue project", skuName the session time, quantity the people.
+  // A rental: the first line is the rent (productName the device, skuName the period, quantity the
+  // units); further lines are the merchant's other fees.
   lines: TradeOrderLine[]
   // Null on business orders, which ship nothing.
   delivery: TradeDelivery | null

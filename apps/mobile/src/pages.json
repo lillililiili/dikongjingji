@@ -248,6 +248,41 @@
       }
     },
     {
+      "path": "pages/rental/inquiry",
+      "style": {
+        "navigationBarTitleText": "填写租赁询价单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/rental/quote",
+      "style": {
+        "navigationBarTitleText": "租赁报价单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/rental/order",
+      "style": {
+        "navigationBarTitleText": "租赁订单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/rental/contract",
+      "style": {
+        "navigationBarTitleText": "合同详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/rental-orders",
+      "style": {
+        "navigationBarTitleText": "租赁订单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/venue/detail",
       "style": {
         "navigationBarTitleText": "场馆详情",

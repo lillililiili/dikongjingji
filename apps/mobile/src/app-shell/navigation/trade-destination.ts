@@ -1,5 +1,6 @@
 import { ACTIVITY_TICKET_PATH, buildActivityTicketUrl } from '@/features/activity/navigation/activity-routes'
 import { VENUE_BOOKING_PATH, buildVenueBookingUrl } from '@/features/experience/navigation/experience-routes'
+import { RENTAL_ORDER_PATH, buildRentalOrderUrl } from '@/features/rental/navigation/rental-routes'
 import type { TradeOrderDestination } from '@/features/trade/application/order-source'
 import { leaveToGoodsOrders, showGoodsOrder } from '@/features/trade/navigation/trade-navigation'
 import { buildGoodsOrderUrl } from '@/features/trade/navigation/trade-routes'
@@ -11,6 +12,7 @@ export function destinationUrl(destination: TradeOrderDestination): string {
   switch (destination.kind) {
     case 'ACTIVITY_ENROLLMENT': return buildActivityTicketUrl(destination.enrollmentId)
     case 'VENUE_BOOKING': return buildVenueBookingUrl(destination.bookingId)
+    case 'RENTAL_ORDER': return buildRentalOrderUrl(destination.rentalOrderId)
     case 'GOODS_ORDER': return buildGoodsOrderUrl(destination.orderId)
   }
 }
@@ -19,6 +21,7 @@ export function destinationUrl(destination: TradeOrderDestination): string {
 function ownPagePath(destination: TradeOrderDestination): string | null {
   if (destination.kind === 'ACTIVITY_ENROLLMENT') return ACTIVITY_TICKET_PATH
   if (destination.kind === 'VENUE_BOOKING') return VENUE_BOOKING_PATH
+  if (destination.kind === 'RENTAL_ORDER') return RENTAL_ORDER_PATH
   return null
 }
 
@@ -29,7 +32,7 @@ function previousRoute(): string | null {
 }
 
 /**
- * 查看订单 / 查看凭证 / 查看核销码 from the cashier or the result page. A goods order keeps its E07
+ * 查看订单 / 查看凭证 / 查看核销码 / 查看租赁订单 from the cashier or the result page. A goods order keeps its E07
  * behaviour; a sign-up's ticket or a booking's code replaces the page, or is gone back to when the
  * payment started from it.
  */
@@ -46,9 +49,9 @@ export function showOrderDestination(destination: TradeOrderDestination): void {
 }
 
 /**
- * Back from the cashier or the result page. Goods: the order list (E07). A sign-up or a venue
- * booking: the page under this one when there is one (the activity or venue, or the ticket or code
- * page the payment started from), else its own page.
+ * Back from the cashier or the result page. Goods: the order list (E07). A sign-up, a venue
+ * booking or a rental: the page under this one when there is one (the activity, venue or rental
+ * quote, or the ticket, code or rental order page the payment started from), else its own page.
  */
 export function leaveTradePage(destination: TradeOrderDestination | null, fromCashier: boolean): void {
   if (destination && destination.kind !== 'GOODS_ORDER') {

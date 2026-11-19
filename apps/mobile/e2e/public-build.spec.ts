@@ -180,4 +180,25 @@ test.describe('公开构建', () => {
       await expect(page.getByTestId('venue-bookings')).toHaveCount(0)
     }
   })
+
+  test('PUB-013 设备租赁未开通：“我的”里没有租赁订单，询价单、报价单、租赁订单、合同、我的租赁订单只有说明', async ({ page }) => {
+    await page.goto('/#/pages/mine/index')
+    await expect(page.locator('.platform-mine__status-card')).toBeVisible()
+    await expect(page.getByTestId('mine-link-rental_orders')).toHaveCount(0)
+    for (const route of [
+      '/pages/rental/inquiry?offerId=00000000-0000-4000-8000-000000000001&productId=c2000000-0000-4000-8000-000000000401&cityCode=370500',
+      '/pages/rental/quote?inquiryId=00000000-0000-4000-8000-000000000001',
+      '/pages/rental/order?rentalOrderId=00000000-0000-4000-8000-000000000001',
+      '/pages/rental/contract?rentalOrderId=00000000-0000-4000-8000-000000000001',
+      '/pages/mine/rental-orders',
+    ]) {
+      await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
+      await expect(page.getByTestId('rental-unavailable')).toContainText('设备租赁功能尚未开通')
+      await expect(page.getByTestId('rental-inquiry')).toHaveCount(0)
+      await expect(page.getByTestId('rental-quote')).toHaveCount(0)
+      await expect(page.getByTestId('rental-order')).toHaveCount(0)
+      await expect(page.getByTestId('rental-contract')).toHaveCount(0)
+      await expect(page.getByTestId('rental-orders')).toHaveCount(0)
+    }
+  })
 })

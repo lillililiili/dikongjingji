@@ -16,7 +16,7 @@ import {
 import { TRADE_COMMAND_CONFIRMS } from '../application/order-commands'
 import { describeOrderStatus, listCardGoods } from '../application/order-view'
 import { toTradeOrder } from '../data/trade-api'
-import { NOW, enrollmentOrder, paidOrder, tradeOrder, venueOrder } from './trade-fixtures'
+import { NOW, enrollmentOrder, paidOrder, rentalTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
 
 describe('order source (contract 0.2.0)', () => {
   it('reads a sign-up order without delivery or merchant type, and an older order as a mall order', () => {
@@ -106,5 +106,30 @@ describe('order source (contract 0.2.0)', () => {
     expect(failedNote(tradeOrder())).toBe('订单仍为待付款，超时订单自动取消')
     expect(failedNote(enrollmentOrder())).toBe('名额仍为你保留，超时自动释放')
     expect(isSourceOrder(tradeOrder())).toBe(false)
+  })
+
+  it('reads a rental order and leads it to the rental order page (F3)', () => {
+    const order = toTradeOrder({ ...rentalTradeOrder(), merchant: { organizationId: 'org-1', name: '示例机器人商家', kind: null } } as never)
+    expect(order).toMatchObject({ source: 'RENTAL', sourceRef: 'r-1', delivery: null })
+    expect(isSourceOrder(order)).toBe(true)
+    expect(orderDestination(order)).toEqual({ kind: 'RENTAL_ORDER', rentalOrderId: 'r-1' })
+    expect(orderDestination(rentalTradeOrder({ sourceRef: null }))).toEqual({ kind: 'GOODS_ORDER', orderId: 'o-1' })
+  })
+
+  it('describes a rental on the cashier like the board CashierRental', () => {
+    const order = rentalTradeOrder()
+    expect(cashierRows(order)).toEqual([
+      { key: 'rental-item', label: '租赁内容', value: '巡检机器狗 × 1 台' },
+      { key: 'rental-period', label: '租期', value: '11/22–11/26 共 5 天' },
+      { key: 'lessor', label: '出租方', value: '示例机器人商家' },
+    ])
+    expect(cashierDueNote(order)).toBe('租金 · 合同确认后一次付清')
+    expect(cashierCountdownLine(order, NOW)).toBe('剩余支付时间 29:45 · 超时订单关闭，需重新询价')
+    expect(cashierClosedNote(order)).toBe('没有扣款，报价已失效，要租需要重新询价')
+    expect(cancelUnpaidConfirm(order).title).toBe('取消支付')
+    expect(cancelledToast(order)).toBe('租赁订单已关闭')
+    expect(failedNote(order)).toBe('租金仍为待支付，超时订单关闭、报价失效')
+    expect(orderLinkLabel(order)).toBe('查看租赁订单')
+    expect(paidFrame(rentalTradeOrder({ status: 'PAID' }))).toEqual({ title: '租金已支付', note: '商家将按约定时间交接设备，交接后由你确认' })
   })
 })

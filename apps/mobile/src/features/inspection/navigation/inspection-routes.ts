@@ -136,6 +136,13 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/demand/quotes': { required: 'demandId', allowed: ['demandId'] },
   '/pages/demand/compare': { required: 'demandId', allowed: ['demandId'] },
   '/pages/mine/demands': { allowed: ['status'] },
+  // Rental pages (features/rental/navigation/rental-routes.ts, F3), repeated for the same reason;
+  // rental-routes.test.ts checks them.
+  '/pages/rental/inquiry': { required: 'offerId', allowed: ['offerId', 'productId', 'cityCode'] },
+  '/pages/rental/quote': { required: 'inquiryId', allowed: ['inquiryId'] },
+  '/pages/rental/order': { required: 'rentalOrderId', allowed: ['rentalOrderId'] },
+  '/pages/rental/contract': { required: 'rentalOrderId', allowed: ['rentalOrderId'] },
+  '/pages/mine/rental-orders': { allowed: ['status'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.

@@ -112,3 +112,26 @@ export function venueOrder(overrides: Partial<TradeOrder> = {}): TradeOrder {
     ...overrides,
   })
 }
+
+export function rentalTradeOrder(overrides: Partial<TradeOrder> = {}): TradeOrder {
+  return tradeOrder({
+    orderNo: 'RO2026111912345678',
+    source: 'RENTAL',
+    sourceRef: 'r-1',
+    merchant: { organizationId: 'org-1', name: '示例机器人商家', kind: null },
+    lines: [{
+      lineId: 'l-1',
+      productId: 'p-1',
+      offerId: 'o-1',
+      productName: '巡检机器狗',
+      skuName: '11/22–11/26 共 5 天',
+      coverImage: null,
+      unitAmountMinor: 190000,
+      quantity: 1,
+      subtotalMinor: 190000,
+    }],
+    delivery: null,
+    amounts: { goodsMinor: 195000, shippingMinor: 0, payableMinor: 195000, paidMinor: 0, refundedMinor: 0 },
+    ...overrides,
+  })
+}
