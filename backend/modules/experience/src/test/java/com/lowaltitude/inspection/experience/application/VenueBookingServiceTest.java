@@ -134,7 +134,7 @@ class VenueBookingServiceTest {
         assertThat(view.payment()).isEqualTo(new VenueBookingPaymentView(
                 VenuePaymentStatus.PENDING_PAYMENT, order, 2 * PRICE, PRICE, payBefore));
         assertThat(view.refund()).isNull();
-        assertThat(view.venue()).isEqualTo(new BookingVenueView(VENUE, "东营低空与机器人体验馆", "东营区示例路 66 号", null));
+        assertThat(view.venue()).isEqualTo(new BookingVenueView(VENUE, "东营低空与机器人体验馆", "370500", "东营区示例路 66 号", null));
         assertThat(view.project()).isEqualTo(new BookingProjectView(PROJECT, "机器人避障闯关", 30));
         assertThat(view.session()).isEqualTo(new BookingSessionView(SESSION, STARTS_AT, ENDS_AT));
         // 人按“本人在前、其余按姓名”排，年龄是场次当天的。
@@ -920,7 +920,7 @@ class VenueBookingServiceTest {
             Session session = sessions.get(row.sessionId);
             return new BookingRow(row.id, row.status, row.code, row.people, row.unit, row.amount, row.tradeOrderId,
                     row.payBefore, row.refundId, row.checkedInAt, row.cancelledAt, row.createdAt, row.version,
-                    VENUE, "东营低空与机器人体验馆", "东营区示例路 66 号", " ", row.projectId, session.projectName, 30,
+                    VENUE, "东营低空与机器人体验馆", "370500", "东营区示例路 66 号", " ", row.projectId, session.projectName, 30,
                     row.sessionId, session.startsAt, session.endsAt);
         }
 

@@ -182,7 +182,8 @@ class VenueBookingControllerTest {
                 .andExpect(jsonPath("$.payment.tradeOrderId").value(ORDER.toString()))
                 .andExpect(jsonPath("$.payment.amountMinor").value(7800))
                 .andExpect(jsonPath("$.payment.payBefore").value("2026-11-19T02:15:00Z"))
-                .andExpect(jsonPath("$.venue.length()").value(4))
+                .andExpect(jsonPath("$.venue.length()").value(5))
+                .andExpect(jsonPath("$.venue.cityCode").value("370500"))
                 .andExpect(jsonPath("$.project.length()").value(3))
                 .andExpect(jsonPath("$.session.startsAt").value("2026-11-21T02:00:00Z"))
                 .andExpect(jsonPath("$.participants[1].age").value(10))
@@ -325,7 +326,7 @@ class VenueBookingControllerTest {
                 BOOKING,
                 status,
                 new BookingVenueView(UUID.fromString("b2000000-0000-4000-8000-000000000001"), "东营低空与机器人体验馆",
-                        "东营区示例路 66 号", null),
+                        "370500", "东营区示例路 66 号", null),
                 new BookingProjectView(UUID.fromString("b4000000-0000-4000-8000-000000000101"), "机器人避障闯关", 30),
                 new BookingSessionView(SESSION, STARTS_AT, STARTS_AT.plusMinutes(30)),
                 2,

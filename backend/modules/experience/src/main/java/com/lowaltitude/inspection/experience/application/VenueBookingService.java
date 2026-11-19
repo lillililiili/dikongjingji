@@ -579,7 +579,8 @@ public class VenueBookingService {
         return new VenueBookingView(
                 row.bookingId(),
                 status,
-                new BookingVenueView(row.venueId(), row.venueName(), row.venueAddress(), blankToNull(row.venuePhone())),
+                new BookingVenueView(row.venueId(), row.venueName(), row.venueCityCode(), row.venueAddress(),
+                        blankToNull(row.venuePhone())),
                 new BookingProjectView(row.projectId(), row.projectName(), row.durationMinutes()),
                 new BookingSessionView(row.sessionId(), row.startsAt(), row.endsAt()),
                 row.people(),
@@ -740,7 +741,8 @@ record VenueParticipantView(
 record VenueParticipantListView(UUID sessionId, int seatsLeft, int maxPeople, List<VenueParticipantView> items) {
 }
 
-record BookingVenueView(UUID venueId, String name, String address, String phone) {
+// cityCode (E10 review): the App reads the venue's sessions and coordinates with it (reschedule, map).
+record BookingVenueView(UUID venueId, String name, String cityCode, String address, String phone) {
 }
 
 record BookingProjectView(UUID projectId, String name, int durationMinutes) {
