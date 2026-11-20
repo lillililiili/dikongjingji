@@ -24,8 +24,9 @@ export interface DiscoverFeedSource {
 const EVENT_TYPES: readonly ActivityType[] = ['CONTEST', 'TRAINING', 'OPEN_DAY']
 
 /**
- * Reads one page of a discover channel: 推荐 / 案例 / 知识 from the content module, 赛事 / 研学 straight
- * from the activity module's list (the same API the 赛事研学 channel uses).
+ * Reads one page of a discover channel: 推荐 / 视频 / 案例 / 知识 from the content module (推荐 mixes
+ * articles and videos), 赛事 / 研学 straight from the activity module's list (the same API the
+ * 赛事研学 channel uses).
  */
 export function createDiscoverFeedSource(apis: {
   content: Pick<ContentApi, 'loadFeed'>
@@ -52,6 +53,8 @@ export function createDiscoverFeedSource(apis: {
           topics: [],
         }
       }
+      // 直播 is the live module's list; while its tab is hidden nothing asks for it.
+      if (channel === 'LIVE') return { entries: [], hasMore: false, topics: [] }
       const feed = await apis.content.loadFeed(channel, cityCode, page, size)
       return {
         entries: feed.items.map((article) => ({ kind: 'ARTICLE', key: `article:${article.articleId}`, article })),

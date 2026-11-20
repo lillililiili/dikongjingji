@@ -38,6 +38,8 @@ const RESUME_ACTIONS: Record<string, string> = {
   '/pages/support/chat': '联系客服',
   '/pages/mine/settings': '设置',
   '/pages/mine/help': '帮助与反馈',
+  '/pages/content/video': '点赞和关注',
+  '/pages/content/video-feed': '点赞、关注和评论',
 }
 
 /** “预约巡检服务” for a booking return address; '' when there is nothing to continue. */

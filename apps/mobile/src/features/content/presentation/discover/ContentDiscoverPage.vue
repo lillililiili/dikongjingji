@@ -28,6 +28,7 @@ import {
   articleEntries,
   authorInitial,
   formatContentDay,
+  isWaterfallChannel,
   shortCityName,
   splitColumns,
   topicDateRange,
@@ -48,12 +49,16 @@ import {
   type DiscoverChannel,
 } from '../../domain/content'
 import ContentThumb from '../shared/ContentThumb.vue'
+import DiscoverVideoCard from './DiscoverVideoCard.vue'
 
-// 发现 (board Discover): 推荐 / 赛事 / 研学 / 案例 / 知识. 推荐 is a two-column waterfall of articles
-// under the city's current topics; 案例 and 知识 are rows of articles; 赛事 and 研学 are rows of real
-// activities. 视频 and 直播 are not in this step.
+// 发现 (board Discover): 推荐 / 视频 / 赛事 / 研学 / 案例 / 知识. 推荐 is a two-column waterfall of
+// articles and videos under the city's current topics; 视频 the same waterfall of videos only;
+// 案例 and 知识 are rows of articles; 赛事 and 研学 are rows of real activities. 直播 keeps its place
+// between 视频 and 赛事 for the live module and is hidden until that module turns it on.
 const emit = defineEmits<{
   openArticle: [articleId: string, cityCode: string]
+  // A video opens the vertical stream at that video.
+  openVideo: [videoId: string, cityCode: string]
   openTopic: [topicId: string, cityCode: string]
   openActivity: [activityId: string, cityCode: string]
 }>()
@@ -88,7 +93,7 @@ const view = computed<'loading' | 'error' | 'empty' | 'list' | 'no-city'>(() => 
   if (status === 'error') return 'error'
   return feed.value.entries.length || feed.value.topics.length ? 'list' : 'empty'
 })
-const isGrid = computed(() => feed.value.channel === 'RECOMMEND')
+const isGrid = computed(() => isWaterfallChannel(feed.value.channel))
 const articles = computed(() => articleEntries(feed.value.entries))
 const columns = computed(() => splitColumns(articles.value))
 const activities = computed(() => feed.value.entries.flatMap((entry) => (entry.kind === 'ACTIVITY' ? [entry.activity] : [])))
@@ -246,32 +251,38 @@ defineExpose({ loadMore, refresh })
 
         <view v-if="isGrid" class="discover__grid" data-testid="discover-grid">
           <view v-for="(column, columnIndex) in columns" :key="columnIndex" class="discover__column">
-            <button
-              v-for="article in column"
-              :key="article.articleId"
-              class="discover__card"
-              :data-testid="`discover-article-${article.articleId}`"
-              @click="openArticle(article)"
-            >
-              <view :class="['discover__card-cover', { 'discover__card-cover--image': articleImage(article) }]">
-                <ContentThumb
-                  :image="articleImage(article)"
-                  :tone="articleCoverTone(article)"
-                  :tag="CONTENT_KIND_LABELS[article.kind]"
-                  :title="article.title"
-                />
-              </view>
-              <text v-if="articleImage(article)" class="discover__card-title">{{ article.title }}<text v-if="article.sample" class="discover__sample discover__sample--inline" data-testid="content-sample">示例</text></text>
-              <text v-else-if="article.sample" class="discover__sample discover__sample--below" data-testid="content-sample">示例</text>
-              <view class="discover__card-meta">
-                <text class="discover__avatar" :style="{ background: AUTHOR_AVATAR_COLORS[article.author.kind] }" aria-hidden="true">
-                  {{ authorInitial(article.author.name) }}
-                </text>
-                <text class="discover__card-author">{{ article.author.name }}</text>
-                <text v-if="article.sponsored" class="discover__ad" data-testid="content-sponsored">广告</text>
-                <text class="discover__card-date">{{ formatContentDay(article.publishedAt) }}</text>
-              </view>
-            </button>
+            <template v-for="article in column" :key="article.articleId">
+              <DiscoverVideoCard
+                v-if="article.kind === 'VIDEO'"
+                :card="article"
+                @open="emit('openVideo', article.articleId, feed.cityCode)"
+              />
+              <button
+                v-else
+                class="discover__card"
+                :data-testid="`discover-article-${article.articleId}`"
+                @click="openArticle(article)"
+              >
+                <view :class="['discover__card-cover', { 'discover__card-cover--image': articleImage(article) }]">
+                  <ContentThumb
+                    :image="articleImage(article)"
+                    :tone="articleCoverTone(article)"
+                    :tag="CONTENT_KIND_LABELS[article.kind]"
+                    :title="article.title"
+                  />
+                </view>
+                <text v-if="articleImage(article)" class="discover__card-title">{{ article.title }}<text v-if="article.sample" class="discover__sample discover__sample--inline" data-testid="content-sample">示例</text></text>
+                <text v-else-if="article.sample" class="discover__sample discover__sample--below" data-testid="content-sample">示例</text>
+                <view class="discover__card-meta">
+                  <text class="discover__avatar" :style="{ background: AUTHOR_AVATAR_COLORS[article.author.kind] }" aria-hidden="true">
+                    {{ authorInitial(article.author.name) }}
+                  </text>
+                  <text class="discover__card-author">{{ article.author.name }}</text>
+                  <text v-if="article.sponsored" class="discover__ad" data-testid="content-sponsored">广告</text>
+                  <text class="discover__card-date">{{ formatContentDay(article.publishedAt) }}</text>
+                </view>
+              </button>
+            </template>
           </view>
         </view>
 

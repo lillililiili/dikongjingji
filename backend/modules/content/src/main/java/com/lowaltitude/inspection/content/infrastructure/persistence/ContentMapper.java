@@ -25,7 +25,9 @@ public interface ContentMapper {
                    a.city_code,
                    a.cover_url,
                    a.sample,
-                   a.published_at
+                   a.published_at,
+                   a.video_duration_seconds,
+                   a.video_orientation
             FROM content_article a
             """;
 
@@ -33,6 +35,11 @@ public interface ContentMapper {
             a.status = 'PUBLISHED'
               AND a.published_at <= #{now}
               AND (a.city_code IS NULL OR a.city_code = #{cityCode})
+            """;
+
+    /** 1.2.0：图文详情、相关内容和专题只给图文。 */
+    String NOT_VIDEO = """
+              AND a.kind <> 'VIDEO'
             """;
 
     String FEED = "WHERE " + VISIBLE + """
@@ -55,7 +62,21 @@ public interface ContentMapper {
             @Param("offset") int offset
     );
 
-    @Select(ARTICLE_COLUMNS + "WHERE a.id = #{articleId} AND " + VISIBLE)
+    /** 1.2.0：视频卡片也在推荐频道里；视频频道按视频流的顺序（运营排序大的在前，再按发布时间）。 */
+    @Select(ARTICLE_COLUMNS + FEED + """
+            ORDER BY a.video_rank DESC, a.published_at DESC, a.id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<ArticleRow> findVideoFeedPage(
+            @Param("cityCode") String cityCode,
+            @Param("kind") String kind,
+            @Param("now") OffsetDateTime now,
+            @Param("limit") int limit,
+            @Param("offset") int offset
+    );
+
+    /** 图文详情（专题挂的图文也用它）：视频不算，视频有自己的详情。 */
+    @Select(ARTICLE_COLUMNS + "WHERE a.id = #{articleId} AND " + VISIBLE + NOT_VIDEO)
     ArticleRow findArticle(
             @Param("articleId") UUID articleId,
             @Param("cityCode") String cityCode,
@@ -74,7 +95,7 @@ public interface ContentMapper {
             """;
 
     /** R6-3 相关内容：提到这个对象、这个城市能看到的内容，新发布的在前，最多 limit 篇。 */
-    @Select(ARTICLE_COLUMNS + "WHERE " + VISIBLE + MENTIONS + """
+    @Select(ARTICLE_COLUMNS + "WHERE " + VISIBLE + NOT_VIDEO + MENTIONS + """
             ORDER BY a.published_at DESC, a.id DESC
             LIMIT #{limit}
             """)
@@ -167,7 +188,10 @@ public interface ContentMapper {
             String cityCode,
             String coverUrl,
             boolean sample,
-            OffsetDateTime publishedAt
+            OffsetDateTime publishedAt,
+            // 1.2.0：视频的时长和方向；图文为空。
+            Integer videoDurationSeconds,
+            String videoOrientation
     ) {
     }
 

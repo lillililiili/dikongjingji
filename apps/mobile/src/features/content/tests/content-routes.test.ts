@@ -4,6 +4,9 @@ import platformFlagSource from '../../platform/application/platform-preview.ts?r
 import pagesJson from '../../../pages.json?raw'
 import articleHostSource from '../../../pages/content/article.vue?raw'
 import topicHostSource from '../../../pages/content/topic.vue?raw'
+import videoFeedHostSource from '../../../pages/content/video-feed.vue?raw'
+import videoHostSource from '../../../pages/content/video.vue?raw'
+import { normalizeInspectionReturnUrl } from '../../inspection/navigation/inspection-routes'
 import discoverRouteSource from '../../../pages/discover/index.vue?raw'
 import contentFlagSource from '../application/content-preview.ts?raw'
 import {
@@ -15,11 +18,16 @@ import {
   MERCHANT_HOME_NOTICE,
   buildContentArticleUrl,
   buildContentTopicUrl,
+  buildContentVideoFeedUrl,
+  buildContentVideoUrl,
   contentAuthorHome,
   contentRefTargetUrl,
   parseContentArticleTarget,
   parseContentTopicTarget,
+  parseContentVideoFeedTarget,
+  parseContentVideoTarget,
 } from '../navigation/content-routes'
+import { DISCOVER_CHANNELS, DISCOVER_LIVE_CHANNEL_ENABLED, discoverChannels } from '../domain/content'
 import { CITY, articleCard } from './content-fixtures'
 
 const contentSources = import.meta.glob('../**/*.{ts,vue}', {
@@ -66,9 +74,28 @@ describe('content routes', () => {
       .toEqual({ kind: 'NONE' })
   })
 
-  it('registers the article and topic pages', () => {
-    for (const path of ['pages/content/article', 'pages/content/topic']) {
+  it('registers the article, topic and video pages', () => {
+    for (const path of ['pages/content/article', 'pages/content/topic', 'pages/content/video', 'pages/content/video-feed']) {
       expect(pagesJson).toContain(`"path": "${path}"`)
+    }
+    const feed = JSON.parse(pagesJson).pages.find((page: { path: string }) => page.path === 'pages/content/video-feed')
+    expect(feed?.style).toMatchObject({ navigationStyle: 'custom', disableScroll: true })
+  })
+
+  it('opens a video and the stream by stable id and city, and comes back to them after a login', () => {
+    const video = 'f3200000-0000-4000-8000-000000000001'
+    expect(buildContentVideoUrl(video, CITY)).toBe(`/pages/content/video?videoId=${video}&cityCode=${CITY}`)
+    expect(buildContentVideoFeedUrl(CITY, video)).toBe(`/pages/content/video-feed?cityCode=${CITY}&videoId=${video}`)
+    expect(buildContentVideoFeedUrl(CITY)).toBe(`/pages/content/video-feed?cityCode=${CITY}`)
+    expect(buildContentVideoFeedUrl(CITY, null, 'FOLLOWING')).toBe(`/pages/content/video-feed?cityCode=${CITY}&feed=FOLLOWING`)
+    expect(parseContentVideoTarget({ videoId: video, cityCode: CITY })).toEqual({ videoId: video, cityCode: CITY })
+    expect(parseContentVideoFeedTarget({ cityCode: CITY, videoId: video })).toEqual({ cityCode: CITY, startVideoId: video, feed: 'RECOMMEND' })
+    expect(parseContentVideoFeedTarget({ cityCode: CITY, feed: 'FOLLOWING' }))
+      .toEqual({ cityCode: CITY, startVideoId: null, feed: 'FOLLOWING' })
+    expect(parseContentVideoFeedTarget({ cityCode: CITY, feed: 'ALL' }).feed).toBe('RECOMMEND')
+    // The login page keeps these addresses as they are.
+    for (const url of [buildContentVideoUrl(video, CITY), buildContentVideoFeedUrl(CITY, video, 'FOLLOWING')]) {
+      expect(normalizeInspectionReturnUrl(url)).toBe(url)
     }
   })
 })
@@ -99,6 +126,13 @@ describe('content preview gate', () => {
     expect(offenders).toEqual([])
   })
 
+  it('shows only a notice on the video pages in public builds', () => {
+    expect(videoHostSource).toContain('v-if="CONTENT_PREVIEW_ENABLED && target"')
+    expect(videoHostSource).toContain('<ContentUnavailable v-else-if="!CONTENT_PREVIEW_ENABLED" />')
+    expect(videoFeedHostSource).toContain('v-if="CONTENT_PREVIEW_ENABLED && target && target.cityCode"')
+    expect(videoFeedHostSource).toContain('<ContentUnavailable v-else-if="!CONTENT_PREVIEW_ENABLED" />')
+  })
+
   it('shows only a notice on the article and topic pages in public builds', () => {
     expect(articleHostSource).toContain('v-if="CONTENT_PREVIEW_ENABLED && target"')
     expect(articleHostSource).toContain('<ContentUnavailable v-else-if="!CONTENT_PREVIEW_ENABLED" />')
@@ -120,13 +154,19 @@ describe('content preview gate', () => {
     ).toBe('custom')
   })
 
-  it('shows no 视频 or 直播 channel and no counts it has no source for', () => {
-    const page = contentSources['../presentation/discover/ContentDiscoverPage.vue']
-    expect(page).toBeTruthy()
+  it('keeps 直播 in its board place but hidden until the live module turns it on', () => {
+    expect(DISCOVER_LIVE_CHANNEL_ENABLED).toBe(false)
+    expect(DISCOVER_CHANNELS).toEqual(['RECOMMEND', 'VIDEO', 'EVENTS', 'STUDY', 'CASE', 'KNOWLEDGE'])
+    expect(discoverChannels(true)).toEqual(['RECOMMEND', 'VIDEO', 'LIVE', 'EVENTS', 'STUDY', 'CASE', 'KNOWLEDGE'])
+  })
+
+  it('shows no view, play or read counts it has no source for', () => {
     const shipped = Object.entries(contentSources).filter(([path]) => !path.includes('/tests/'))
     expect(shipped.length).toBeGreaterThan(5)
-    for (const [, source] of shipped) {
-      expect(source).not.toMatch(/'视频'|'直播'|观看|阅读量|点赞/)
+    for (const [path, source] of shipped) {
+      // Comments may say what is left out; the code and the page text may not show it.
+      const code = source.split('\n').filter((line) => !/^\s*(\/\/|\*|\/\*\*|<!--)/.test(line)).join('\n')
+      expect(code, path).not.toMatch(/观看|阅读量|播放量|打赏|收藏/)
     }
   })
 })

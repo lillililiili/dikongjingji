@@ -269,11 +269,16 @@ test.describe('公开构建', () => {
     for (const route of [
       '/pages/content/article?articleId=f3000000-0000-4000-8000-000000000001&cityCode=370500',
       '/pages/content/topic?topicId=f3100000-0000-4000-8000-000000000001&cityCode=370500',
+      // 1.2.0 视频详情和竖屏视频流。
+      '/pages/content/video?videoId=f3200000-0000-4000-8000-000000000001&cityCode=370500',
+      '/pages/content/video-feed?cityCode=370500&videoId=f3200000-0000-4000-8000-000000000001',
     ]) {
       await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
       await expect(page.getByTestId('content-unavailable')).toContainText('发现频道尚未开通')
       await expect(page.getByTestId('content-article')).toHaveCount(0)
       await expect(page.getByTestId('content-topic')).toHaveCount(0)
+      await expect(page.getByTestId('content-video')).toHaveCount(0)
+      await expect(page.getByTestId('content-video-feed')).toHaveCount(0)
     }
     expect(calls).toEqual([])
   })

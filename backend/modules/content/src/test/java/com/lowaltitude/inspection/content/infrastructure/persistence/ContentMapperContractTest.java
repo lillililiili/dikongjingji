@@ -29,7 +29,7 @@ class ContentMapperContractTest {
         Map<String, String> statements = statements();
 
         assertThat(statements).hasSize(ContentMapper.class.getDeclaredMethods().length);
-        assertThat(statements).hasSize(10);
+        assertThat(statements).hasSize(11);
         assertThat(statements.values()).allSatisfy(sql -> assertThat(normalized(sql))
                 .startsWith("SELECT")
                 .doesNotContain("${")
@@ -41,20 +41,58 @@ class ContentMapperContractTest {
     @Test
     void articlesAreOnlyReadWhenPublishedAlreadyAndShownInTheCity() {
         assertThat(normalized(ContentMapper.VISIBLE)).isEqualTo(VISIBLE);
-        for (String method : List.of("countFeed", "findFeedPage", "findArticle", "findMentioning")) {
+        for (String method : List.of("countFeed", "findFeedPage", "findVideoFeedPage", "findArticle", "findMentioning")) {
             assertThat(normalized(sql(method))).as(method).contains(VISIBLE);
         }
         assertThat(normalized(sql("findFeedPage")))
                 .contains("AND (CAST(#{kind} AS varchar) IS NULL OR a.kind = #{kind})")
                 .endsWith("ORDER BY a.published_at DESC, a.id DESC LIMIT #{limit} OFFSET #{offset}");
-        assertThat(normalized(sql("findArticle"))).contains("WHERE a.id = #{articleId} AND " + VISIBLE);
+        assertThat(normalized(sql("findArticle"))).contains("WHERE a.id = #{articleId} AND " + VISIBLE)
+                .endsWith("AND a.kind <> 'VIDEO'");
+    }
+
+    // 1.2.0：视频频道和视频流一样按运营排序再按发布时间；推荐频道仍按发布时间（视频和图文混排）。
+    @Test
+    void theVideoChannelIsOrderedLikeTheStream() {
+        assertThat(normalized(sql("findVideoFeedPage")))
+                .contains("AND (CAST(#{kind} AS varchar) IS NULL OR a.kind = #{kind})")
+                .endsWith("ORDER BY a.video_rank DESC, a.published_at DESC, a.id DESC LIMIT #{limit} OFFSET #{offset}");
+        assertThat(normalized(sql("findFeedPage"))).doesNotContain("kind <> 'VIDEO'");
+        assertThat(normalized(sql("findMentioning"))).contains(VISIBLE + " AND a.kind <> 'VIDEO' AND EXISTS");
+    }
+
+    @Test
+    void theV003MigrationAddsVideosWithoutTouchingPublishedOnes() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream("/db/migration/content/V003__content_video.sql")) {
+            assertThat(stream).isNotNull();
+            migration = normalized(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+        }
+        assertThat(migration)
+                .contains("ALTER TABLE content_article DROP CONSTRAINT content_article_kind_check;")
+                .contains("ADD CONSTRAINT ck_content_article_kind CHECK (kind IN ('CASE', 'KNOWLEDGE', 'VIDEO'))")
+                .contains("ADD COLUMN video_duration_seconds integer CHECK (video_duration_seconds BETWEEN 1 AND 3600)")
+                .contains("ADD COLUMN video_orientation varchar(16) CHECK (video_orientation IN ('PORTRAIT', 'LANDSCAPE'))")
+                .contains("CHECK ((kind = 'VIDEO') = (video_duration_seconds IS NOT NULL AND video_orientation IS NOT NULL))")
+                .contains("PRIMARY KEY (video_id, account_id)")
+                .contains("PRIMARY KEY (account_id, organization_id)")
+                .contains("body varchar(200) NOT NULL")
+                .contains("UNIQUE (account_id, idempotency_key)")
+                .contains("CHECK ((status = 'HIDDEN') = (hidden_at IS NOT NULL AND hidden_by IS NOT NULL))")
+                .contains("PRIMARY KEY (comment_id, account_id)")
+                .contains("reason varchar(16) NOT NULL CHECK (reason IN ('AD_SPAM', 'ABUSE', 'ILLEGAL', 'OTHER'))")
+                .contains("video_orientation IN (" + codes("ContentVideoOrientation") + ")")
+                .contains("reason IN (" + codes("ContentCommentReportReason") + ")")
+                .contains("kind IN (" + codes("ContentArticleKind") + ")");
+        // 不引用客服模块的表，不带数据。
+        assertThat(migration).doesNotContain("REFERENCES support_").doesNotContain("INSERT INTO");
     }
 
     // R6-3 相关内容：提到这个对象（类型和 ID 都要对上）的、城市可见的内容，新发布的在前，有上限。
     @Test
     void relatedContentIsFoundThroughTheMentions() {
         assertThat(normalized(sql("findMentioning")))
-                .contains("WHERE " + VISIBLE + " AND EXISTS ( SELECT 1 FROM content_article_ref r"
+                .contains("WHERE " + VISIBLE + " AND a.kind <> 'VIDEO' AND EXISTS ( SELECT 1 FROM content_article_ref r"
                         + " WHERE r.article_id = a.id AND r.ref_type = #{refType} AND r.ref_id = #{refId} )")
                 .endsWith("ORDER BY a.published_at DESC, a.id DESC LIMIT #{limit}");
         assertThat(aliases(sql("findMentioning"))).containsExactlyElementsOf(fields(ContentMapper.ArticleRow.class));
@@ -145,7 +183,8 @@ class ContentMapperContractTest {
         String migration = normalized(migration());
 
         assertThat(migration)
-                .contains("kind IN (" + codes("ContentArticleKind") + ")")
+                // V001 只有图文两类，VIDEO 由 V003 加上（theV003MigrationAddsVideosWithoutTouchingPublishedOnes）。
+                .contains("kind IN ('CASE', 'KNOWLEDGE')")
                 .contains("author_kind IN (" + codes("ContentAuthorKind") + ")")
                 .contains("publisher_kind IN (" + codes("ContentAuthorKind") + ")")
                 .contains("block_type IN (" + codes("ContentBlockType") + ")")

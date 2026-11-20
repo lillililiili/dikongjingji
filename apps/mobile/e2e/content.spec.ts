@@ -95,7 +95,8 @@ test.describe('发现页图文内容与专题', () => {
     await expect(page).toHaveURL(/#\/pages\/discover\/index/)
     await expect(page.getByTestId('root-tab-discover')).toHaveClass(/root-tab-bar__item--active/)
     await expect(page.getByTestId('discover-city')).toContainText('东营')
-    await expect(page.getByRole('tab')).toHaveText(['推荐', '赛事', '研学', '案例', '知识'])
+    // 视频（1.2.0）排在推荐后面；直播另做，这一版不显示。
+    await expect(page.getByRole('tab')).toHaveText(['推荐', '视频', '赛事', '研学', '案例', '知识'])
     await expect(page.getByTestId('discover-channel-recommend')).toHaveAttribute('aria-selected', 'true')
 
     const topic = page.getByTestId(`discover-topic-${TOPIC}`)
@@ -121,6 +122,9 @@ test.describe('发现页图文内容与专题', () => {
     await expect(grid.locator('.discover__card-title')).toHaveCount(6)
     await expect(article(page, CASE_DOG)).toContainText('一台机器狗如何完成园区夜间巡逻')
     await expect(discover(page)).not.toContainText('观看')
+    // 推荐里混着视频（content-video.spec.ts），第一页 10 条：滑到底读完第二页才说没有更多。
+    await page.mouse.move(195, 400)
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
     await expect(page.getByTestId('discover-no-more')).toHaveText('没有更多内容了')
     await assertNoHorizontalOverflow(page)
   })

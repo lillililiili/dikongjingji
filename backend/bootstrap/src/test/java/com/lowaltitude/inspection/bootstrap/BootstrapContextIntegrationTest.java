@@ -68,6 +68,7 @@ import org.springframework.web.bind.annotation.RestController;
         com.lowaltitude.inspection.mall.application.MallInquiryService.class,
         com.lowaltitude.inspection.support.application.SupportService.class,
         com.lowaltitude.inspection.content.application.ContentReadService.class,
+        com.lowaltitude.inspection.content.application.ContentVideoService.class,
         ExperienceCatalogReadService.class,
         MallCatalogReadService.class,
         MallCartService.class,

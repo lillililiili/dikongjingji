@@ -9,6 +9,7 @@ export function articleCard(overrides: Partial<ContentArticleCard> = {}): Conten
     kind: 'CASE',
     title: '一台机器狗如何完成园区夜间巡逻',
     author: { kind: 'PROVIDER', organizationId: 'f2000000-0000-4000-8000-000000000001', name: '鹰眼智能巡检' },
+    video: null,
     sponsored: false,
     cityCode: CITY,
     coverImage: null,

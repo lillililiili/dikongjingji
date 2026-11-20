@@ -14,12 +14,16 @@ record ContentMediaView(String url, String alt) {
 record ContentAuthorView(ContentAuthorKind kind, UUID organizationId, String name) {
 }
 
-/** 瀑布流里的一张图文卡片。cityCode 为 null 表示不分城市。coverImage 没有授权图片时为 null（页面用纯色块加标题）。 */
+/**
+ * 瀑布流里的一张卡片（图文或视频）。cityCode 为 null 表示不分城市。coverImage 没有授权图片时为 null（页面用纯色块加标题）。
+ * video 是视频卡片的时长和方向，图文为 null。
+ */
 record ContentArticleCardView(
         UUID articleId,
         ContentArticleKind kind,
         String title,
         ContentAuthorView author,
+        ContentVideoSummaryView video,
         boolean sponsored,
         String cityCode,
         ContentMediaView coverImage,
@@ -104,4 +108,75 @@ record ContentTopicView(
  * R6-3 相关内容：提到某个对象（“内容中提到”里的类型 + 稳定 ID）的图文卡片，只给这个城市能看到的，新发布的在前。
  */
 record ContentRelatedView(ContentRefType refType, UUID refId, List<ContentArticleCardView> items) {
+}
+
+// ---- 1.2.0 视频 ----
+
+/** 卡片上的视频信息：时长（秒）和画面方向。 */
+record ContentVideoSummaryView(int durationSeconds, ContentVideoOrientation orientation) {
+}
+
+/**
+ * 视频详情，也是视频流里的一条。playUrl 只给带主机名的 HTTPS 地址，没有时为 null；refs 的第一项是视频挂的入口；
+ * liked、followingAuthor 不登录时为 false。
+ */
+record ContentVideoView(
+        UUID videoId,
+        String title,
+        ContentAuthorView author,
+        boolean sponsored,
+        String cityCode,
+        ContentMediaView coverImage,
+        boolean sample,
+        OffsetDateTime publishedAt,
+        int durationSeconds,
+        ContentVideoOrientation orientation,
+        String playUrl,
+        String caption,
+        List<String> tags,
+        List<ContentRefView> refs,
+        long likeCount,
+        long commentCount,
+        boolean liked,
+        boolean followingAuthor
+) {
+}
+
+/** 视频流的一段：nextCursor 为 null 表示没有了。 */
+record ContentVideoPageView(String cityCode, ContentVideoFeed feed, List<ContentVideoView> items, String nextCursor) {
+}
+
+record ContentVideoLikeView(UUID videoId, boolean liked, long likeCount) {
+}
+
+record ContentFollowView(UUID organizationId, boolean following) {
+}
+
+/** 一条评论：authorName 是打码后的显示名，或发布机构的名称（byAuthor）。mine 不登录时为 false。 */
+record ContentCommentView(
+        UUID commentId,
+        UUID videoId,
+        String authorName,
+        boolean byAuthor,
+        boolean mine,
+        String text,
+        OffsetDateTime createdAt
+) {
+}
+
+record ContentCommentPageView(int page, int size, long total, boolean hasMore, List<ContentCommentView> items) {
+}
+
+/** 发评论的结果：created 为 false 表示同一个幂等键的重放。 */
+record ContentCommentPosted(ContentCommentView comment, boolean created) {
+}
+
+record ContentCommentReportView(UUID commentId, ContentCommentReportReason reason, OffsetDateTime reportedAt) {
+}
+
+/** 举报的结果：created 为 false 表示这个账号举报过这一条了。 */
+record ContentCommentReported(ContentCommentReportView report, boolean created) {
+}
+
+record ContentCommentHiddenView(UUID commentId, boolean hidden, OffsetDateTime hiddenAt) {
 }

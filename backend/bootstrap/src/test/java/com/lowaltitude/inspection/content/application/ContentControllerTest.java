@@ -63,7 +63,8 @@ class ContentControllerTest {
                 .andExpect(jsonPath("$.topics[0].length()").value(8))
                 .andExpect(jsonPath("$.topics[0].startsOn").value("2026-11-01"))
                 .andExpect(jsonPath("$.topics[0].publisher.organizationId").isEmpty())
-                .andExpect(jsonPath("$.items[0].length()").value(9))
+                .andExpect(jsonPath("$.items[0].length()").value(10))
+                .andExpect(jsonPath("$.items[0].video").isEmpty())
                 .andExpect(jsonPath("$.items[0].kind").value("CASE"))
                 .andExpect(jsonPath("$.items[0].author.kind").value("PROVIDER"))
                 .andExpect(jsonPath("$.items[0].author.organizationId").value(EAGLE.toString()))
@@ -157,7 +158,7 @@ class ContentControllerTest {
 
     private static ContentArticleCardView card() {
         return new ContentArticleCardView(ARTICLE, ContentArticleKind.CASE, "一台机器狗如何完成园区夜间巡逻",
-                new ContentAuthorView(ContentAuthorKind.PROVIDER, EAGLE, "鹰眼智能巡检"), false, "370500", null, true,
+                new ContentAuthorView(ContentAuthorKind.PROVIDER, EAGLE, "鹰眼智能巡检"), null, false, "370500", null, true,
                 PUBLISHED);
     }
 

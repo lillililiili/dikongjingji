@@ -22,13 +22,16 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.yaml.snakeyaml.Yaml;
 
 /**
- * 契约 contracts/openapi-content.yaml 和实现逐项对照（H1）：三个公开路由、查询参数、返回对象的字段和类型、
+ * 契约 contracts/openapi-content.yaml 和实现逐项对照（H1，1.2.0 起含视频）：路由和谁能调、查询参数、返回对象的字段和类型、
  * 枚举、页大小上限。改了一边忘了另一边会立刻失败。
  */
 class ContentOpenApiContractTest {
@@ -47,39 +50,112 @@ class ContentOpenApiContractTest {
             Map.entry("ContentRef", ContentRefView.class),
             Map.entry("ContentArticle", ContentArticleView.class),
             Map.entry("ContentTopic", ContentTopicView.class),
-            Map.entry("ContentRelated", ContentRelatedView.class));
+            Map.entry("ContentRelated", ContentRelatedView.class),
+            Map.entry("ContentVideoSummary", ContentVideoSummaryView.class),
+            Map.entry("ContentVideo", ContentVideoView.class),
+            Map.entry("ContentVideoPage", ContentVideoPageView.class),
+            Map.entry("ContentVideoLike", ContentVideoLikeView.class),
+            Map.entry("ContentFollow", ContentFollowView.class),
+            Map.entry("ContentComment", ContentCommentView.class),
+            Map.entry("ContentCommentPage", ContentCommentPageView.class),
+            Map.entry("ContentCommentReport", ContentCommentReportView.class),
+            Map.entry("ContentCommentHidden", ContentCommentHiddenView.class));
+
+    /** 请求体：字段名和必填与 Java 一致（原因在 Java 里按文字收，由服务按枚举校验）。 */
+    private static final Map<String, Class<? extends Record>> REQUEST_RECORDS = Map.of(
+            "ContentCommentRequest", ContentVideoController.CommentRequest.class,
+            "ContentCommentReportRequest", ContentVideoController.ReportRequest.class);
+
+    /** 1.2.0 起不登录也能调的读取（带了令牌按登录的人给“我点过赞”等）。 */
+    private static final Set<String> OPTIONAL_LOGIN = Set.of(
+            "GET /api/v1/content/videos",
+            "GET /api/v1/content/videos/{videoId}",
+            "GET /api/v1/content/videos/{videoId}/comments");
 
     private static final Map<String, Class<? extends Enum<?>>> SCHEMA_ENUMS = Map.of(
             "ContentArticleKind", ContentArticleKind.class,
             "ContentAuthorKind", ContentAuthorKind.class,
             "ContentFeedChannel", ContentFeedChannel.class,
             "ContentBlockType", ContentBlockType.class,
-            "ContentRefType", ContentRefType.class);
+            "ContentRefType", ContentRefType.class,
+            "ContentVideoOrientation", ContentVideoOrientation.class,
+            "ContentVideoFeed", ContentVideoFeed.class,
+            "ContentCommentReportReason", ContentCommentReportReason.class);
 
     @Test
-    void contractIsVersionOneAndEveryRouteIsPublic() {
+    void contractIsVersionOneTwoAndEveryRouteSaysWhoMayCallIt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.2.0");
         assertThat(root).doesNotContainKey("security");
-        assertThat(map(root.get("components"))).doesNotContainKey("securitySchemes");
+        assertThat(map(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth")))
+                .containsEntry("type", "http").containsEntry("scheme", "bearer");
         assertThat(operations()).extracting(Operation::key).containsExactlyInAnyOrder(
                 "GET /api/v1/content/feed",
                 "GET /api/v1/content/articles/{articleId}",
                 "GET /api/v1/content/topics/{topicId}",
-                "GET /api/v1/content/related");
+                "GET /api/v1/content/related",
+                "GET /api/v1/content/videos",
+                "GET /api/v1/content/videos/{videoId}",
+                "PUT /api/v1/content/videos/{videoId}/like",
+                "DELETE /api/v1/content/videos/{videoId}/like",
+                "GET /api/v1/content/videos/{videoId}/comments",
+                "POST /api/v1/content/videos/{videoId}/comments",
+                "POST /api/v1/content/comments/{commentId}/reports",
+                "POST /api/v1/content/comments/{commentId}/hide",
+                "PUT /api/v1/content/follows/{organizationId}",
+                "DELETE /api/v1/content/follows/{organizationId}");
         assertThat(operations()).allSatisfy(operation -> {
             Map<String, Object> declared = declared(operation);
-            assertThat(declared.get("security")).as(operation.key()).isEqualTo(List.of());
-            assertThat(map(declared.get("responses")).keySet()).as(operation.key()).contains("200", "400");
-            if (operation.path().contains("{")) {
+            Object security = declared.get("security");
+            if (operation.method().getDeclaringClass() == ContentController.class) {
+                assertThat(security).as(operation.key()).isEqualTo(List.of());
+            } else if (OPTIONAL_LOGIN.contains(operation.key())) {
+                assertThat(security).as(operation.key()).isEqualTo(List.of(Map.of(), Map.of("bearerAuth", List.of())));
+            } else {
+                assertThat(security).as(operation.key()).isEqualTo(List.of(Map.of("bearerAuth", List.of())));
+                assertThat(map(declared.get("responses"))).as(operation.key()).containsKey("401");
+            }
+            assertThat(map(declared.get("responses")).keySet()).as(operation.key()).contains("400");
+            assertThat(map(declared.get("responses")).keySet()).as(operation.key()).containsAnyOf("200", "201");
+            // 取消关注不看机构是否存在（没关注也是 200），没有 404。
+            if (operation.path().contains("{") && !operation.key().equals("DELETE /api/v1/content/follows/{organizationId}")) {
                 assertThat(map(declared.get("responses"))).as(operation.key()).containsKey("404");
             }
         });
         Set<String> declaredKeys = new TreeSet<>();
         map(root.get("paths")).forEach((path, item) -> map(item).keySet()
                 .forEach(method -> declaredKeys.add(method.toUpperCase() + " " + path)));
-        assertThat(declaredKeys).hasSize(4);
+        assertThat(declaredKeys).hasSize(14);
+    }
+
+    // 1.2.0：视频流的条数上限、评论的长度上限、发评论的业务错误码。
+    @Test
+    void videoLimitsAndErrorsMatchTheService() {
+        Map<String, Object> stream = declared(new Operation("GET", "/api/v1/content/videos", null));
+        Map<String, Map<String, Object>> parameters = new LinkedHashMap<>();
+        for (Object entry : list(stream.get("parameters"))) {
+            Map<String, Object> parameter = resolve(map(entry));
+            parameters.put((String) parameter.get("name"), parameter);
+        }
+        assertThat(map(parameters.get("size").get("schema")))
+                .containsEntry("maximum", ContentVideoService.MAX_STREAM_SIZE)
+                .containsEntry("default", ContentVideoService.DEFAULT_STREAM_SIZE);
+        assertThat(map(parameters.get("feed").get("schema")).get("$ref")).isEqualTo(SCHEMA_PREFIX + "ContentVideoFeed");
+        assertThat(map(parameters.get("cursor").get("schema"))).containsEntry("maxLength",
+                ContentVideoService.MAX_CURSOR_LENGTH);
+        assertThat(map(map(map(schemas().get("ContentVideoPage")).get("properties")).get("items")).get("maxItems"))
+                .isEqualTo(ContentVideoService.MAX_STREAM_SIZE);
+        assertThat(map(map(map(schemas().get("ContentCommentRequest")).get("properties")).get("text")))
+                .containsEntry("maxLength", ContentVideoService.MAX_COMMENT_LENGTH);
+        Map<String, Object> comment = map(declared(
+                new Operation("POST", "/api/v1/content/videos/{videoId}/comments", null)).get("responses"));
+        assertThat(comment).containsKeys("201", "200", "409", "422", "429");
+        assertThat((String) map(comment.get("409")).get("description")).startsWith("CONTENT_IDEMPOTENCY_KEY_REUSED");
+        assertThat((String) map(comment.get("422")).get("description")).startsWith("CONTENT_COMMENT_BLOCKED");
+        assertThat((String) map(comment.get("429")).get("description")).startsWith("CONTENT_COMMENT_TOO_FREQUENT");
+        assertThat(map(declared(new Operation("POST", "/api/v1/content/comments/{commentId}/hide", null))
+                .get("responses"))).containsKey("403");
     }
 
     @Test
@@ -94,8 +170,12 @@ class ContentOpenApiContractTest {
             for (Parameter parameter : operation.method().getParameters()) {
                 RequestParam query = parameter.getAnnotation(RequestParam.class);
                 PathVariable path = parameter.getAnnotation(PathVariable.class);
+                RequestHeader header = parameter.getAnnotation(RequestHeader.class);
                 if (query != null) {
                     implemented.add("query " + parameter.getName());
+                }
+                if (header != null) {
+                    implemented.add("header " + header.value());
                 }
                 if (path != null) {
                     String key = "path " + parameter.getName();
@@ -140,11 +220,46 @@ class ContentOpenApiContractTest {
     @Test
     void everySuccessResponsePointsAtTheSchemaOfItsJavaType() {
         assertThat(operations()).allSatisfy(operation -> {
-            Map<String, Object> ok = map(map(declared(operation).get("responses")).get("200"));
-            String ref = (String) map(map(map(ok.get("content")).get("application/json")).get("schema")).get("$ref");
-            assertThat(ref).as(operation.key())
-                    .isEqualTo(SCHEMA_PREFIX + schemaOf(SCHEMA_RECORDS, operation.method().getReturnType()));
+            Class<?> body = operation.method().getReturnType();
+            List<String> codes = List.of("200");
+            if (body == ResponseEntity.class) {
+                // 201 新建、200 重放：两个都是同一个形状。
+                body = (Class<?>) ((ParameterizedType) operation.method().getGenericReturnType())
+                        .getActualTypeArguments()[0];
+                codes = List.of("201", "200");
+            }
+            for (String code : codes) {
+                Map<String, Object> ok = map(map(declared(operation).get("responses")).get(code));
+                assertThat(ok).as(operation.key() + " " + code).isNotNull();
+                String ref = (String) map(map(map(ok.get("content")).get("application/json")).get("schema")).get("$ref");
+                assertThat(ref).as(operation.key() + " " + code)
+                        .isEqualTo(SCHEMA_PREFIX + schemaOf(SCHEMA_RECORDS, body));
+            }
+            // 有请求体的，请求体的形状和 Java 的记录一致。
+            for (Parameter parameter : operation.method().getParameters()) {
+                if (parameter.getAnnotation(RequestBody.class) != null) {
+                    String ref = (String) map(map(map(map(declared(operation).get("requestBody")).get("content"))
+                            .get("application/json")).get("schema")).get("$ref");
+                    assertThat(ref).as(operation.key())
+                            .isEqualTo(SCHEMA_PREFIX + schemaOf(REQUEST_RECORDS, parameter.getType()));
+                }
+            }
         });
+    }
+
+    @Test
+    void requestBodiesHaveExactlyTheFieldsOfTheirRecords() {
+        Map<String, Object> schemas = schemas();
+
+        assertThat(REQUEST_RECORDS).allSatisfy((name, type) -> {
+            Map<String, Object> schema = map(schemas.get(name));
+            List<String> fields = Arrays.stream(type.getRecordComponents()).map(RecordComponent::getName).toList();
+            assertThat(schema.get("additionalProperties")).as(name).isEqualTo(false);
+            assertThat(map(schema.get("properties")).keySet()).as(name).containsExactlyInAnyOrderElementsOf(fields);
+            assertThat(strings(schema.get("required"))).as(name).containsExactlyInAnyOrderElementsOf(fields);
+        });
+        assertThat(map(map(map(schemas.get("ContentCommentReportRequest")).get("properties")).get("reason")).get("$ref"))
+                .isEqualTo(SCHEMA_PREFIX + "ContentCommentReportReason");
     }
 
     @Test
@@ -197,6 +312,8 @@ class ContentOpenApiContractTest {
                     if (element.isRecord()) {
                         assertThat(items.get("$ref")).as(field)
                                 .isEqualTo(SCHEMA_PREFIX + schemaOf(SCHEMA_RECORDS, element));
+                    } else if (element == String.class) {
+                        assertThat(items).as(field).containsEntry("type", "string");
                     } else {
                         assertThat(element).as(field).isEqualTo(UUID.class);
                         assertThat(items).as(field).containsEntry("type", "string").containsEntry("format", "uuid");
@@ -226,12 +343,13 @@ class ContentOpenApiContractTest {
         String refs = (String) map(schemas.get("ContentRefType")).get("description");
         assertThat(refs).contains("/api/v1/inspection/services/{id}", "/api/v1/pro-services/{id}",
                 "/api/v1/mall/products/{id}", "/api/v1/activities/{id}", "/api/v1/venues/{id}");
-        assertThat(contractText()).contains("security: []").doesNotContain("bearerAuth");
+        assertThat(contractText()).contains("security: []");
     }
 
     @Test
     void everySchemaInTheContractIsCoveredByThisTest() {
         List<String> covered = new ArrayList<>(SCHEMA_RECORDS.keySet());
+        covered.addAll(REQUEST_RECORDS.keySet());
         covered.addAll(SCHEMA_ENUMS.keySet());
         covered.add("ApiError");
 
@@ -248,10 +366,12 @@ class ContentOpenApiContractTest {
 
     private static List<Operation> operations() {
         List<Operation> operations = new ArrayList<>();
-        for (Method method : ContentController.class.getDeclaredMethods()) {
-            RequestMapping mapping = AnnotatedElementUtils.findMergedAnnotation(method, RequestMapping.class);
-            if (mapping != null) {
-                operations.add(new Operation(mapping.method()[0].name(), mapping.path()[0], method));
+        for (Class<?> controller : List.of(ContentController.class, ContentVideoController.class)) {
+            for (Method method : controller.getDeclaredMethods()) {
+                RequestMapping mapping = AnnotatedElementUtils.findMergedAnnotation(method, RequestMapping.class);
+                if (mapping != null) {
+                    operations.add(new Operation(mapping.method()[0].name(), mapping.path()[0], method));
+                }
             }
         }
         return operations;

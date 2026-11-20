@@ -5,7 +5,11 @@ import { ref } from 'vue'
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { buildActivityDetailUrl } from '@/features/activity/navigation/activity-routes'
 import { CONTENT_PREVIEW_ENABLED } from '@/features/content/application/content-preview'
-import { buildContentArticleUrl, buildContentTopicUrl } from '@/features/content/navigation/content-routes'
+import {
+  buildContentArticleUrl,
+  buildContentTopicUrl,
+  buildContentVideoFeedUrl,
+} from '@/features/content/navigation/content-routes'
 import ContentDiscoverPage from '@/features/content/presentation/discover/ContentDiscoverPage.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
@@ -28,6 +32,11 @@ function restoreDefaultCity(): void {
 
 function openArticle(articleId: string, cityCode: string): void {
   uni.navigateTo({ url: buildContentArticleUrl(articleId, cityCode) })
+}
+
+// A video card opens the vertical stream at that video (board Discover → VideoFeed).
+function openVideo(videoId: string, cityCode: string): void {
+  uni.navigateTo({ url: buildContentVideoFeedUrl(cityCode, videoId) })
 }
 
 function openTopic(topicId: string, cityCode: string): void {
@@ -55,6 +64,7 @@ onReachBottom(() => {
       v-if="CONTENT_PREVIEW_ENABLED"
       ref="discover"
       @open-article="openArticle"
+      @open-video="openVideo"
       @open-topic="openTopic"
       @open-activity="openActivity"
     />
