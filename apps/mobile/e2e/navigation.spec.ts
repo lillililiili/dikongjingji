@@ -120,7 +120,7 @@ test.describe('底栏', () => {
     )
     await expect(page.getByTestId('root-tab-mine')).toHaveCSS(
       'color',
-      'rgb(138, 143, 151)',
+      'rgb(115, 128, 150)',
     )
     await expect(page.locator('uni-tabbar .uni-tabbar')).toBeHidden()
   })

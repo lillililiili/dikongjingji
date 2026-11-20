@@ -237,12 +237,9 @@ test.describe('公开构建', () => {
     await expect(page.getByTestId('mine-page')).toBeVisible()
     await expect(page.getByTestId('mine-link-help')).toHaveCount(0)
     await expect(page.getByTestId('mine-link-about')).toHaveCount(0)
-    await page.getByTestId('mine-settings').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')
-    await expect(page).toHaveURL(/pages\/mine\/index/)
-    await page.getByTestId('mine-customer-service').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')
-    await expect(page).toHaveURL(/pages\/mine\/index/)
+    // A guest has no settings gear and the page has no headset (boards MineGuest, Mine).
+    await expect(page.getByTestId('mine-settings')).toHaveCount(0)
+    await expect(page.getByTestId('mine-customer-service')).toHaveCount(0)
 
     await page.goto('/?n=detail#/pages/service/inspection/detail?serviceId=33333333-3333-3333-3333-333333333333&cityCode=370500')
     await expect(page.getByTestId('inspection-detail')).toBeVisible()

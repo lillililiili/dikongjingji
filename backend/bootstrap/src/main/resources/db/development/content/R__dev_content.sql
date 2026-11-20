@@ -1,6 +1,7 @@
 -- 仅开发环境：由 @Profile("dev") 的 contentDevelopmentDataFlyway 加载，不在 db/migration 下，生产不会执行。
 -- 发现页的示例图文和专题（H1，§27），文字逐项取自 2026-11-14 修订版原型的 ContentArticle、ContentCase2–3、ContentKnow1–3
--- 和 Topic 画板，全部 sample = true（页面标“示例”）；没有授权图片，cover_url 一律为空（页面用纯色块加标题）。
+-- 和 Topic 画板，全部 sample = true（页面标“示例”）；没有授权图片，cover_url 一律为空：预览构建用画板图片顶替
+-- （apps/mobile/src/features/content/data/preview/content-preview-covers.ts，按 ID 对应），公开构建不显示这些页面。
 -- “内容中提到”和专题挂的活动、场馆指向巡检、专业服务、商城、活动、体验的开发数据（真实的 ID，页面点进去读真实数据）。
 -- 作者：案例由服务商发布，知识由平台（东营城市运营中心，没有机构）或商家发布；商家发布的都是广告。
 -- 光伏热斑案例的作者在原型里是“示例新能源运维公司”，开发数据里没有这家机构，改成提供光伏电站巡检服务的云翼科技，

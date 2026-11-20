@@ -29,3 +29,20 @@ export interface ShareTarget {
   // The page's route with its stable ids, e.g. /pages/mall/product?productId=…&cityCode=….
   path: string
 }
+
+/**
+ * The line under the title. A product adds where it is sold ("¥1,299 起 · 东营可售", board
+ * ShareSheet) when the link's city is the App's current city, so the name is known for certain.
+ */
+export function describeShareSubtitle(
+  target: Pick<ShareTarget, 'subject' | 'subtitle' | 'path'>,
+  currentCity: { code: string; name: string } | null | undefined,
+): string | null {
+  const base = target.subtitle?.trim() || null
+  if (target.subject !== '商品' || !currentCity) return base
+  const cityCode = /[?&]cityCode=([^&#]+)/.exec(target.path)?.[1]
+  if (!cityCode || decodeURIComponent(cityCode) !== currentCity.code) return base
+  const name = currentCity.name.trim().replace(/市$/, '')
+  if (!name) return base
+  return base ? `${base} · ${name}可售` : `${name}可售`
+}

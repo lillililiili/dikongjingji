@@ -85,7 +85,7 @@ describe('chat view', () => {
       unreadCount: 0,
       createdAt: '2026-11-19T02:00:00Z',
     }, now)
-    expect(row).toEqual({ conversationId: ID, title: '示例机器人商家', preview: '我：[卡片] 套装', time: '今天 10:24', unreadCount: 0, initial: '示' })
+    expect(row).toEqual({ conversationId: ID, title: '示例机器人商家', preview: '我：[卡片] 套装', time: '今天 10:24', at: '2026-11-19T02:24:00Z', unreadCount: 0, initial: '示' })
   })
 })
 

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, nextTick, ref, watch } from 'vue'
+
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import type { ChatState } from '../../application/chat-session'
 import { sendableSupportText } from '../../application/chat-session'
-import { SUPPORT_CARD_ICONS, SUPPORT_CARD_LABELS } from '../../application/support-card'
-import { buildChatLines, describeChatPeer, type ChatLine } from '../../application/chat-view'
+import { SUPPORT_CARD_LABELS, resolveSupportCardPicture } from '../../application/support-card'
+import { PLATFORM_WELCOME_TEXT, buildChatLines, describeChatPeer, type ChatLine } from '../../application/chat-view'
 import { SUPPORT_TEXT_LIMIT, type SupportCard, type SupportMessage } from '../../domain/support'
 
 // One conversation (board Chat, 390 wide). The page host owns the session: it loads, polls,
@@ -47,6 +48,21 @@ const pendingCard = computed(() => {
   return alreadySent ? null : card
 })
 const canSend = computed(() => sendableSupportText(draft.value) !== null)
+// An empty conversation with the platform support opens with its greeting (not stored).
+const showWelcome = computed(() => {
+  const current = ready.value
+  return Boolean(current && peer.value?.initial === null && current.messages.length === 0 && !current.hasOlder)
+})
+const cardPicture = (card: SupportCard) => resolveSupportCardPicture(card)
+
+// Icons copied from the board Chat.
+const ICONS = {
+  back: 'M15 5l-7 7 7 7',
+  note: 'M12 3l7 3v6c0 4.5-3 7.5-7 9c-4-1.5-7-4.5-7-9V6z',
+  headset: 'M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2',
+  alert: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7.5v5.5M12 16.5h.01',
+  card: 'M4 9l2-5h12l2 5M4 9v11h16V9M4 9h16M9 20v-6h6v6',
+}
 
 function onInput(event: Event): void {
   const value = (event as Event & { detail?: { value?: string } }).detail?.value ?? ''
@@ -89,7 +105,7 @@ watch(lines, async (next) => {
   <view class="support-chat" data-testid="support-chat" :data-state="state.kind">
     <view class="support-chat__header">
       <button class="support-chat__back" data-testid="support-chat-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="22" color="#202c42" />
+        <LineIcon :d="ICONS.back" :size="24" color="#202c42" />
       </button>
       <view class="support-chat__peer">
         <text class="support-chat__title" data-testid="support-chat-title">{{ peer?.title ?? '客服' }}</text>
@@ -147,8 +163,14 @@ watch(lines, async (next) => {
             {{ ready.loadingOlder ? '正在加载…' : ready.olderFailed ? '加载失败，点此重试' : '查看更早的消息' }}
           </button>
           <view class="support-chat__note">
-            <UniIcons type="info" size="13" color="#738096" />
+            <LineIcon :d="ICONS.note" :size="13" color="#738096" :stroke-width="2" />
             <text>{{ peer.note }}</text>
+          </view>
+          <view v-if="showWelcome" class="support-chat__row" data-testid="support-chat-welcome">
+            <view class="support-chat__avatar">
+              <LineIcon :d="ICONS.headset" :size="20" color="#ff6a00" />
+            </view>
+            <text class="support-chat__bubble support-chat__bubble--theirs">{{ PLATFORM_WELCOME_TEXT }}</text>
           </view>
           <template v-for="line in lines" :key="line.key">
             <text v-if="line.kind === 'TIME'" :id="line.key" class="support-chat__time">{{ line.text }}</text>
@@ -160,7 +182,7 @@ watch(lines, async (next) => {
               :data-mine="line.message.mine"
             >
               <view v-if="!line.message.mine" class="support-chat__avatar">
-                <UniIcons v-if="peer.initial === null" type="headphones" size="20" color="#ff6a00" />
+                <LineIcon v-if="peer.initial === null" :d="ICONS.headset" :size="20" color="#ff6a00" />
                 <text v-else>{{ peer.initial }}</text>
               </view>
               <button
@@ -169,8 +191,14 @@ watch(lines, async (next) => {
                 :data-testid="`support-card-${line.message.seq}`"
                 @click="emit('openCard', cardOf(line.message) as SupportCard)"
               >
-                <view class="support-chat__card-icon">
-                  <UniIcons :type="SUPPORT_CARD_ICONS[(cardOf(line.message) as SupportCard).type]" size="24" color="#ff6a00" />
+                <view :class="['support-chat__card-icon', { 'support-chat__card-icon--contain': cardPicture(cardOf(line.message) as SupportCard)?.contain }]">
+                  <image
+                    v-if="cardPicture(cardOf(line.message) as SupportCard)"
+                    class="support-chat__card-image"
+                    :src="cardPicture(cardOf(line.message) as SupportCard)?.url"
+                    :mode="cardPicture(cardOf(line.message) as SupportCard)?.contain ? 'aspectFit' : 'aspectFill'"
+                  />
+                  <LineIcon v-else :d="ICONS.card" :size="24" color="#ff6a00" />
                 </view>
                 <view class="support-chat__card-copy">
                   <text class="support-chat__card-title">{{ (cardOf(line.message) as SupportCard).title }}</text>
@@ -198,12 +226,18 @@ watch(lines, async (next) => {
                 aria-label="发送失败，点击重试"
                 @click="emit('retrySend', line.outgoing.localId)"
               >
-                <UniIcons type="info-filled" size="18" color="#d64f67" />
+                <LineIcon :d="ICONS.alert" :size="18" color="#d64f67" :stroke-width="2" />
               </button>
               <text v-else class="support-chat__sending">发送中</text>
               <view v-if="'card' in line.outgoing.body" class="support-chat__card support-chat__card--pending">
-                <view class="support-chat__card-icon">
-                  <UniIcons :type="SUPPORT_CARD_ICONS[line.outgoing.body.card.type]" size="24" color="#ff6a00" />
+                <view :class="['support-chat__card-icon', { 'support-chat__card-icon--contain': cardPicture(line.outgoing.body.card)?.contain }]">
+                  <image
+                    v-if="cardPicture(line.outgoing.body.card)"
+                    class="support-chat__card-image"
+                    :src="cardPicture(line.outgoing.body.card)?.url"
+                    :mode="cardPicture(line.outgoing.body.card)?.contain ? 'aspectFit' : 'aspectFill'"
+                  />
+                  <LineIcon v-else :d="ICONS.card" :size="24" color="#ff6a00" />
                 </view>
                 <view class="support-chat__card-copy">
                   <text class="support-chat__card-title">{{ line.outgoing.body.card.title }}</text>
@@ -218,8 +252,14 @@ watch(lines, async (next) => {
 
       <view v-if="pendingCard" class="support-chat__pin" data-testid="support-chat-pending-card">
         <button class="support-chat__pin-copy" @click="emit('openCard', pendingCard)">
-          <view class="support-chat__pin-icon">
-            <UniIcons :type="SUPPORT_CARD_ICONS[pendingCard.type]" size="22" color="#ff6a00" />
+          <view :class="['support-chat__pin-icon', { 'support-chat__card-icon--contain': cardPicture(pendingCard)?.contain }]">
+            <image
+              v-if="cardPicture(pendingCard)"
+              class="support-chat__card-image"
+              :src="cardPicture(pendingCard)?.url"
+              :mode="cardPicture(pendingCard)?.contain ? 'aspectFit' : 'aspectFill'"
+            />
+            <LineIcon v-else :d="ICONS.card" :size="22" color="#ff6a00" />
           </view>
           <view class="support-chat__card-copy">
             <text class="support-chat__card-title">{{ pendingCard.title }}</text>
@@ -453,6 +493,7 @@ button::after {
   border-radius: 12px;
   color: #202c42;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .support-chat__card--pending {
@@ -474,6 +515,21 @@ button::after {
 .support-chat__pin-icon {
   width: 44px;
   height: 44px;
+}
+
+.support-chat__card-icon,
+.support-chat__pin-icon {
+  overflow: hidden;
+}
+
+.support-chat__card-image {
+  width: 100%;
+  height: 100%;
+}
+
+/* A product cut-out on the tint the mall uses for it. */
+.support-chat__card-icon--contain {
+  background: #f0edff;
 }
 
 .support-chat__card-copy {
@@ -526,6 +582,7 @@ button::after {
   gap: 10px;
   border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .support-chat__pin-copy {

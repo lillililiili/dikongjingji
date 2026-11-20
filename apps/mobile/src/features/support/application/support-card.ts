@@ -1,4 +1,7 @@
+import { resolveActivityPreviewCover } from '../../activity/data/preview/activity-preview-covers'
 import { buildActivityDetailUrl, buildActivityTicketUrl } from '../../activity/navigation/activity-routes'
+import { resolveExperiencePreviewCover } from '../../experience/data/preview/experience-preview-covers'
+import { resolveMallPreviewCover } from '../../mall/data/preview/mall-preview-covers'
 import { buildDemandQuotesUrl } from '../../demand/navigation/demand-routes'
 import { buildVenueBookingUrl, buildVenueDetailUrl } from '../../experience/navigation/experience-routes'
 import {
@@ -11,6 +14,8 @@ import { buildRentalOrderUrl, buildRentalQuoteUrl } from '../../rental/navigatio
 import { buildGoodsOrderUrl } from '../../trade/navigation/trade-routes'
 
 import type { SupportCard, SupportCardType } from '../domain/support'
+
+import { SUPPORT_PREVIEW_ENABLED } from './support-preview'
 
 export const SUPPORT_CARD_LABELS: Record<SupportCardType, string> = {
   PRODUCT: '商品',
@@ -28,7 +33,32 @@ export const SUPPORT_CARD_LABELS: Record<SupportCardType, string> = {
   DEMAND: '需求',
 }
 
-// Line icons of uni-icons for the tile of a card (cards carry no picture).
+export interface SupportCardPicture {
+  url: string
+  // A product cut-out, drawn whole on a tint.
+  contain: boolean
+}
+
+/**
+ * Cards carry no picture. On preview builds a card about a product, an activity or a venue shows
+ * the prototype picture its own module already uses (board Chat); other cards keep the icon tile.
+ */
+export function resolveSupportCardPicture(
+  card: Pick<SupportCard, 'type' | 'refId'>,
+  previewEnabled: boolean = SUPPORT_PREVIEW_ENABLED,
+): SupportCardPicture | null {
+  if (!previewEnabled) return null
+  if (card.type === 'PRODUCT') {
+    const cover = resolveMallPreviewCover(card.refId, previewEnabled)
+    return cover ? { url: cover.url, contain: cover.cutout } : null
+  }
+  const url = card.type === 'ACTIVITY'
+    ? resolveActivityPreviewCover(card.refId, previewEnabled)
+    : card.type === 'VENUE' ? resolveExperiencePreviewCover(card.refId, previewEnabled) : null
+  return url ? { url, contain: false } : null
+}
+
+// Line icons of uni-icons for the tile of a card without a picture.
 export const SUPPORT_CARD_ICONS: Record<SupportCardType, string> = {
   PRODUCT: 'shop',
   MALL_ORDER: 'list',

@@ -1,4 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import {
+  resolveArticlePreviewCover,
+  resolveRefPreviewCover,
+  resolveTopicPreviewCover,
+} from '../data/preview/content-preview-covers'
 
 import type { VenueDetail, VenueSession } from '../../experience/domain/experience'
 import type { InspectionServiceDetail } from '../../inspection/domain/inspection-service-detail'
@@ -129,9 +134,16 @@ describe('内容中提到', () => {
       ['场馆', '东营低空与机器人体验馆', { amount: '¥39', unit: '起' }, '看场馆', false,
         `/pages/venue/detail?venueId=${VENUE}&cityCode=${CITY}`],
     ])
-    // The inspection detail's bundled stand-in picture is not a picture of the service.
-    expect(views[0].imageUrl).toBeNull()
+    // The inspection detail's bundled stand-in picture is not a picture of the service; preview
+    // builds (tests run as one) draw the prototype's picture instead, whole on a tint.
+    expect(views[0].imageUrl).toBe('/static/images/preview/content-ref-park-security.webp')
+    expect(views[0].imageContain).toBe(true)
+    expect(views[0].imagePadded).toBe(true)
+    // A picture from the server always wins.
     expect(views[1].imageUrl).toBe('https://cdn.example/survey.jpg')
+    // Goods and activities fall back to their own modules' preview pictures.
+    expect(views[2].imageUrl).toBe('/static/images/preview/robot-dog.jpg')
+    expect(views[3].imageUrl).toBe('/static/images/preview/robot-workshop.jpg')
   })
 
   it('leaves out a mention that cannot be read in this city', async () => {
@@ -213,5 +225,16 @@ describe('专题的本季活动和到馆体验', () => {
       ['模拟飞行', '今天 14:00 场', '已满'],
       ['模拟飞行', '今天 16:00 场', '余 6 位'],
     ])
+  })
+})
+
+describe('preview pictures', () => {
+  it('only stand in on preview builds', () => {
+    expect(resolveArticlePreviewCover('f3000000-0000-4000-8000-000000000001', true)?.url).toBe('/static/images/preview/content-park-patrol.webp')
+    expect(resolveArticlePreviewCover('f3000000-0000-4000-8000-000000000005', true)?.cutout).toBe(true)
+    expect(resolveArticlePreviewCover('f3000000-0000-4000-8000-000000000001', false)).toBeNull()
+    expect(resolveTopicPreviewCover('f3100000-0000-4000-8000-000000000001', true)?.url).toBe('/static/images/preview/content-topic-workshop.jpg')
+    expect(resolveRefPreviewCover('VENUE', 'b2000000-0000-4000-8000-000000000001', true)?.url).toBe('/static/images/preview/venue-indoor.jpg')
+    expect(resolveRefPreviewCover('PRODUCT', 'c2000000-0000-4000-8000-000000000101', false)).toBeNull()
   })
 })

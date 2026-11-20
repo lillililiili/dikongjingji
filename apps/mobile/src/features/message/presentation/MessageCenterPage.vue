@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+
+import IconTile from '@/shared/ui/IconTile.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
+import type { IconTileTone } from '@/shared/ui/icon-tile-tones'
 
 import type { MessageCenterState } from '../application/message-center'
-import type { MessageItem } from '../domain/message'
-import { MESSAGE_CATEGORY_LABELS, formatMessageTime, type MessageConversationRow } from './message-format'
+import type { MessageCategory, MessageItem } from '../domain/message'
+import {
+  MESSAGE_CATEGORY_LABELS,
+  formatMessageTime,
+  mergeMessageRows,
+  type MessageConversationRow,
+} from './message-format'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   state: MessageCenterState
-  // null hides the section (public builds, guests).
+  // null leaves conversations out (public builds, guests).
   conversations?: MessageConversationRow[] | null
 }>(), { conversations: null })
 
@@ -26,76 +34,106 @@ const badge = (count: number): string => (count > 99 ? '99+' : String(count))
 
 // Read once per render pass is enough: the labels only need the day to be right.
 const now = ref(new Date())
+
+// Icons from the board Messages (`icon` in renderVals). Each category keeps the colour the board
+// gives it: 服务进度 blue, 联系客服 / 客服 orange; 需求与报价 has no square on the board and takes violet.
+const ICONS = {
+  progress: 'M9 4h6v3H9zM7 5H5v16h14V5h-2M9 14l2 2 4-4',
+  service: 'M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2',
+  demand: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
+  check: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12l3 3 5-6',
+  chat: 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01',
+}
+const CATEGORY_LOOK: Record<MessageCategory, { d: string; tone: IconTileTone }> = {
+  SERVICE_PROGRESS: { d: ICONS.progress, tone: 'blue' },
+  DEMAND_QUOTE: { d: ICONS.demand, tone: 'violet' },
+  CUSTOMER_SERVICE: { d: ICONS.service, tone: 'orange' },
+}
+
+// The 服务进度 square filters the list to that category; tapping it again shows everything.
+// The other squares of the board (交易物流, 活动提醒, 系统通知) need notifications that do not
+// exist yet (R6).
+const progressOnly = ref(false)
+const ready = computed(() => (props.state.kind === 'ready' ? props.state : null))
+// The square's badge counts unread 服务进度 notifications; it is only known once every page is
+// loaded, so while more pages wait the square shows no number rather than a partial one.
+const progressUnread = computed(() => {
+  const current = ready.value
+  if (!current || current.hasMore) return 0
+  return current.items.filter((item) => item.category === 'SERVICE_PROGRESS' && !item.read).length
+})
+const rows = computed(() => {
+  const current = ready.value
+  if (!current) return []
+  const notices = progressOnly.value
+    ? current.items.filter((item) => item.category === 'SERVICE_PROGRESS')
+    : current.items
+  return mergeMessageRows(notices, progressOnly.value ? [] : props.conversations ?? [], current.hasMore)
+})
+const signedOut = computed(() => props.state.kind === 'guest' || props.state.kind === 'expired')
 </script>
 
 <template>
   <view class="message-center" data-testid="message-page">
-    <view class="message-center__header">
-      <text class="message-center__title">消息</text>
-      <button
-        v-if="state.kind === 'ready' && state.unreadCount > 0"
-        class="message-center__read-all"
-        data-testid="message-read-all"
-        @click="emit('markAllRead')"
-      >
-        <UniIcons type="checkbox" size="18" color="#536178" />
-        <text>全部已读</text>
-      </button>
-    </view>
-
-    <!-- 客服会话 (board Messages: the 联系客服 square and the 客服 rows), newest first. -->
-    <view
-      v-if="conversations && state.kind !== 'guest' && state.kind !== 'expired'"
-      class="message-center__list message-center__conversations"
-      data-testid="message-conversations"
-    >
-      <view class="message-center__section-head">
-        <text class="message-center__section-title">客服会话</text>
-        <button class="message-center__section-action" data-testid="message-contact-platform" @click="emit('contactPlatform')">
-          <UniIcons type="headphones" size="16" color="#ba470b" />
-          <text>联系平台客服</text>
+    <view class="message-center__head" data-testid="message-head">
+      <view class="message-center__header">
+        <text class="message-center__title">消息</text>
+        <button
+          v-if="state.kind === 'ready' && state.unreadCount > 0"
+          class="message-center__read-all"
+          data-testid="message-read-all"
+          @click="emit('markAllRead')"
+        >
+          <LineIcon :d="ICONS.check" :size="18" color="#536178" />
+          <text>全部已读</text>
         </button>
       </view>
-      <button
-        v-for="row in conversations"
-        :key="row.conversationId"
-        class="message-center__item"
-        :data-testid="`conversation-${row.conversationId}`"
-        :data-unread="row.unreadCount"
-        @click="emit('openConversation', row.conversationId)"
-      >
-        <view class="message-center__icon message-center__icon--service">
-          <UniIcons v-if="row.initial === null" type="headphones" size="22" color="#ff6a00" />
-          <text v-else class="message-center__initial">{{ row.initial }}</text>
-        </view>
-        <view class="message-center__copy">
-          <view class="message-center__line">
-            <text :class="['message-center__item-title', { 'message-center__item-title--unread': row.unreadCount > 0 }]">
-              <text class="message-center__category">客服 · </text>{{ row.title }}
-            </text>
-            <text class="message-center__time">{{ row.time }}</text>
+      <view v-if="!signedOut" class="message-center__cats">
+        <button
+          class="message-center__cat"
+          data-testid="message-cat-progress"
+          :aria-pressed="progressOnly"
+          @click="progressOnly = !progressOnly"
+        >
+          <view :class="['message-center__cat-tile', { 'message-center__cat-tile--on': progressOnly }]">
+            <IconTile tone="blue" :d="ICONS.progress" :size="44" />
+            <text v-if="progressUnread > 0" class="message-center__cat-badge">{{ badge(progressUnread) }}</text>
           </view>
-          <view class="message-center__line message-center__line--body">
-            <text :class="['message-center__body', { 'message-center__body--read': row.unreadCount === 0 }]">{{ row.preview }}</text>
-            <text v-if="row.unreadCount > 0" class="message-center__count" data-testid="conversation-unread">{{ badge(row.unreadCount) }}</text>
+          <text :class="['message-center__cat-label', { 'message-center__cat-label--on': progressOnly }]">服务进度</text>
+        </button>
+        <button
+          v-if="conversations"
+          class="message-center__cat"
+          data-testid="message-contact-platform"
+          @click="emit('contactPlatform')"
+        >
+          <view class="message-center__cat-tile">
+            <IconTile tone="orange" :d="ICONS.service" :size="44" />
           </view>
-        </view>
-      </button>
-      <text v-if="conversations.length === 0" class="message-center__conversations-empty">订单、售后和投诉都可以联系平台客服；商家和服务商在商品、订单页点“咨询”</text>
+          <text class="message-center__cat-label">联系客服</text>
+        </button>
+      </view>
     </view>
 
-    <view v-if="state.kind === 'guest'" class="message-center__state" data-testid="message-guest">
-      <text class="message-center__state-title">登录后查看消息</text>
-      <text class="message-center__state-copy">巡检方案、排期、报告交付等进度会通知到这里</text>
-      <button class="message-center__state-action" data-testid="message-login" @click="emit('login')">
+    <!-- Signed out (board MineGuest, frame 消息): one centred prompt. -->
+    <view v-if="state.kind === 'guest'" class="message-center__blank" data-testid="message-guest">
+      <view class="message-center__blank-icon">
+        <LineIcon :d="ICONS.chat" :size="46" color="#ff6a00" :stroke-width="1.5" />
+      </view>
+      <text class="message-center__blank-title">登录后查看消息</text>
+      <text class="message-center__blank-copy">订单进度、服务通知和客服回复都在这里</text>
+      <button class="message-center__blank-action" data-testid="message-login" @click="emit('login')">
         登录 / 注册
       </button>
     </view>
 
-    <view v-else-if="state.kind === 'expired'" class="message-center__state" data-testid="message-expired">
-      <text class="message-center__state-title">登录已过期</text>
-      <text class="message-center__state-copy">重新登录后可以继续查看消息</text>
-      <button class="message-center__state-action" data-testid="message-login" @click="emit('login')">
+    <view v-else-if="state.kind === 'expired'" class="message-center__blank" data-testid="message-expired">
+      <view class="message-center__blank-icon">
+        <LineIcon :d="ICONS.chat" :size="46" color="#ff6a00" :stroke-width="1.5" />
+      </view>
+      <text class="message-center__blank-title">登录已过期</text>
+      <text class="message-center__blank-copy">重新登录后可以继续查看消息</text>
+      <button class="message-center__blank-action" data-testid="message-login" @click="emit('login')">
         重新登录
       </button>
     </view>
@@ -111,53 +149,65 @@ const now = ref(new Date())
       </button>
     </view>
 
-    <view v-else-if="state.items.length === 0" class="message-center__state" data-testid="message-empty">
-      <text class="message-center__state-title">还没有消息</text>
+    <view v-else-if="rows.length === 0" class="message-center__state" data-testid="message-empty">
+      <text class="message-center__state-title">{{ progressOnly ? '没有服务进度消息' : '还没有消息' }}</text>
       <text class="message-center__state-copy">巡检方案、排期、报告交付等进度会通知到这里</text>
     </view>
 
     <template v-else>
-      <view class="message-center__list">
-        <button
-          v-for="message in state.items"
-          :key="message.id"
-          class="message-center__item"
-          :data-testid="`message-${message.id}`"
-          :data-read="message.read"
-          @click="emit('open', message)"
-        >
-          <view :class="['message-center__icon', { 'message-center__icon--service': message.category === 'CUSTOMER_SERVICE' }]">
-            <UniIcons
-              :type="message.category === 'CUSTOMER_SERVICE' ? 'headphones' : 'paperplane'"
-              size="22"
-              :color="message.category === 'CUSTOMER_SERVICE' ? '#ff6a00' : '#2f80ed'"
+      <view class="message-center__list" data-testid="message-list">
+        <template v-for="entry in rows" :key="entry.key">
+          <button
+            v-if="entry.kind === 'notice'"
+            class="message-center__item"
+            data-kind="notice"
+            :data-testid="`message-${entry.message.id}`"
+            :data-read="entry.message.read"
+            @click="emit('open', entry.message)"
+          >
+            <IconTile
+              :tone="CATEGORY_LOOK[entry.message.category].tone"
+              :d="CATEGORY_LOOK[entry.message.category].d"
+              :size="40"
+              :icon-size="22"
             />
-          </view>
-          <view class="message-center__copy">
-            <view class="message-center__line">
-              <text
-                :class="[
-                  'message-center__item-title',
-                  { 'message-center__item-title--unread': !message.read },
-                ]"
-              >
-                <text class="message-center__category">{{ MESSAGE_CATEGORY_LABELS[message.category] }} · </text>{{ message.title }}
-              </text>
-              <text class="message-center__time">{{ formatMessageTime(message.occurredAt, now) }}</text>
+            <view class="message-center__copy">
+              <view class="message-center__line">
+                <text :class="['message-center__item-title', { 'message-center__item-title--unread': !entry.message.read }]">
+                  <text class="message-center__category">{{ MESSAGE_CATEGORY_LABELS[entry.message.category] }} · </text>{{ entry.message.title }}
+                </text>
+                <text class="message-center__time">{{ formatMessageTime(entry.message.occurredAt, now) }}</text>
+              </view>
+              <view class="message-center__line message-center__line--body">
+                <text :class="['message-center__body', { 'message-center__body--read': entry.message.read }]">{{ entry.message.body }}</text>
+                <view v-if="!entry.message.read" class="message-center__dot" aria-label="未读" />
+              </view>
             </view>
-            <view class="message-center__line message-center__line--body">
-              <text
-                :class="[
-                  'message-center__body',
-                  { 'message-center__body--read': message.read },
-                ]"
-              >
-                {{ message.body }}
-              </text>
-              <view v-if="!message.read" class="message-center__dot" aria-label="未读" />
+          </button>
+          <!-- 客服 conversations sit in the same list by the time of their last message. -->
+          <button
+            v-else
+            class="message-center__item"
+            data-kind="conversation"
+            :data-testid="`conversation-${entry.row.conversationId}`"
+            :data-unread="entry.row.unreadCount"
+            @click="emit('openConversation', entry.row.conversationId)"
+          >
+            <IconTile tone="orange" :d="ICONS.service" :size="40" :icon-size="22" />
+            <view class="message-center__copy">
+              <view class="message-center__line">
+                <text :class="['message-center__item-title', { 'message-center__item-title--unread': entry.row.unreadCount > 0 }]">
+                  <text class="message-center__category">客服 · </text>{{ entry.row.title }}
+                </text>
+                <text class="message-center__time">{{ entry.row.time }}</text>
+              </view>
+              <view class="message-center__line message-center__line--body">
+                <text :class="['message-center__body', { 'message-center__body--read': entry.row.unreadCount === 0 }]">{{ entry.row.preview }}</text>
+                <text v-if="entry.row.unreadCount > 0" class="message-center__count" data-testid="conversation-unread">{{ badge(entry.row.unreadCount) }}</text>
+              </view>
             </view>
-          </view>
-        </button>
+          </button>
+        </template>
       </view>
 
       <view class="message-center__more" data-testid="message-more">
@@ -208,11 +258,117 @@ button::after {
   border: 0;
 }
 
+/* The board's white head, painted with the theme's page-head gradient. */
+.message-center__head {
+  padding-top: calc(var(--status-bar-height) + 6px);
+  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
+}
+
 .message-center__header {
   display: flex;
+  padding: 0 6px 0 16px;
   align-items: center;
-  padding: calc(var(--status-bar-height) + 6px) 6px 6px 16px;
-  background: #ffffff;
+  gap: 2px;
+}
+
+.message-center__cats {
+  display: grid;
+  padding: 10px 6px 16px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.message-center__cat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #202c42;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.message-center__cat-tile {
+  position: relative;
+  border-radius: 16px;
+}
+
+.message-center__cat-tile--on {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #ff6a00;
+}
+
+.message-center__cat-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1.5px solid #fff;
+  border-radius: 9px;
+  color: #fff;
+  background: #ff5200;
+  font-size: 11px;
+  line-height: 15px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.message-center__cat-label {
+  white-space: nowrap;
+}
+
+.message-center__cat-label--on {
+  color: #ba470b;
+  font-weight: 500;
+}
+
+.message-center__blank {
+  display: flex;
+  min-height: 560px;
+  padding: 0 40px 64px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+}
+
+.message-center__blank-icon {
+  display: flex;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 10px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff0e3;
+}
+
+.message-center__blank-title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.message-center__blank-copy {
+  color: #627187;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.message-center__blank-action {
+  width: 168px;
+  height: 46px;
+  margin-top: 16px;
+  border-radius: 999px;
+  color: #fff;
+  background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 46px;
+  text-align: center;
 }
 
 .message-center__title {
@@ -238,9 +394,7 @@ button::after {
   flex-direction: column;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .message-center__item {
@@ -255,17 +409,6 @@ button::after {
 
 .message-center__item:last-child {
   border-bottom-color: transparent;
-}
-
-.message-center__icon {
-  display: flex;
-  width: 40px;
-  height: 40px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #e6f0ff;
 }
 
 .message-center__copy {
@@ -287,6 +430,8 @@ button::after {
 }
 
 .message-center__item-title {
+  /* A block, so a long title ends in an ellipsis on one line instead of wrapping (320 wide). */
+  display: block;
   min-width: 0;
   flex: 1;
   overflow: hidden;
@@ -302,6 +447,8 @@ button::after {
 }
 
 .message-center__category {
+  /* uni's text is pre-line by default, which lets the line break after "·". */
+  white-space: nowrap;
   color: #738096;
   font-size: 13px;
   font-weight: 400;
@@ -338,39 +485,6 @@ button::after {
   background: #ff5200;
 }
 
-.message-center__icon--service {
-  background: #fff0e3;
-}
-
-.message-center__initial {
-  color: #ff6a00;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.message-center__section-head {
-  display: flex;
-  padding: 10px 6px 0 14px;
-  align-items: center;
-}
-
-.message-center__section-title {
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 21px;
-}
-
-.message-center__section-action {
-  display: flex;
-  min-height: 44px;
-  margin-left: auto;
-  padding: 0 8px;
-  align-items: center;
-  gap: 4px;
-  color: #ba470b;
-  font-size: 13px;
-}
-
 .message-center__count {
   min-width: 18px;
   height: 18px;
@@ -383,13 +497,6 @@ button::after {
   font-size: 11px;
   line-height: 18px;
   text-align: center;
-}
-
-.message-center__conversations-empty {
-  padding: 4px 14px 14px;
-  color: #738096;
-  font-size: 12px;
-  line-height: 17px;
 }
 
 .message-center__skeleton {

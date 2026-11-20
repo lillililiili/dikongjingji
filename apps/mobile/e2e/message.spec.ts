@@ -181,8 +181,9 @@ test.describe('消息', () => {
     for (const width of [375, 320]) {
       await page.setViewportSize({ width, height: 760 })
       await page.goto(`/?w=${width}#/pages/message/index`)
-      await expect(page.locator('.message-center__item').first()).toBeVisible()
-      await expect(page.locator('.message-center__item').first()).toContainText('服务进度')
+      // 客服会话 share the list by time, so look at the first notification.
+      await expect(page.locator('.message-center__item[data-kind="notice"]').first()).toBeVisible()
+      await expect(page.locator('.message-center__item[data-kind="notice"]').first()).toContainText('服务进度')
       const dimensions = await page.evaluate(() => ({
         clientWidth: document.documentElement.clientWidth,
         scrollWidth: document.documentElement.scrollWidth,

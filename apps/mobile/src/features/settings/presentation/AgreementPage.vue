@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
+
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   AGREEMENT_BODY_PLACEHOLDER,
@@ -8,6 +10,11 @@ import {
   AGREEMENT_DOCUMENTS,
   type AgreementDoc,
 } from '../domain/agreement'
+
+import { SETTINGS_CHEVRON } from './settings-icons'
+
+const HEADSET = 'M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2'
+const CHECK = 'M5 12l5 5 9-10'
 
 // 协议与规则 (board Agreement, 390 wide): one document at a time, the others in 全部协议.
 // The prop is not named doc: uni hands the page's query to the page component, and a `doc` attribute
@@ -33,15 +40,13 @@ function pick(doc: AgreementDoc): void {
 
 <template>
   <view class="agreement" data-testid="agreement-page" :data-doc="current">
-    <view class="agreement__header">
-      <button class="agreement__back" data-testid="agreement-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="22" color="#202c42" />
-      </button>
-      <text class="agreement__heading">协议与规则</text>
-      <button class="agreement__all" data-testid="agreement-all" aria-haspopup="dialog" @click="sheetOpen = true">
-        <text>全部协议</text>
-      </button>
-    </view>
+    <AppPageHeader title="协议与规则" test-id="agreement" @back="emit('back')">
+      <template #actions>
+        <button class="agreement__all" data-testid="agreement-all" aria-haspopup="dialog" @click="sheetOpen = true">
+          <text>全部协议</text>
+        </button>
+      </template>
+    </AppPageHeader>
 
     <view class="agreement__body">
       <view class="agreement__card agreement__card--lead">
@@ -74,9 +79,9 @@ function pick(doc: AgreementDoc): void {
       </view>
 
       <button class="agreement__card agreement__contact" data-testid="agreement-contact" @click="emit('contactPlatform')">
-        <UniIcons type="headphones" size="20" color="#536178" />
+        <LineIcon :d="HEADSET" :size="20" color="#536178" />
         <text class="agreement__contact-text">对内容有疑问，联系平台客服</text>
-        <UniIcons type="right" size="14" color="#91a0b4" />
+        <LineIcon :d="SETTINGS_CHEVRON" :size="14" color="#91a0b4" :stroke-width="2" />
       </button>
     </view>
 
@@ -94,7 +99,7 @@ function pick(doc: AgreementDoc): void {
         >
           <text class="agreement__sheet-name">{{ AGREEMENT_DOCUMENTS[doc].title }}</text>
           <text class="agreement__sheet-version">{{ AGREEMENT_DOCUMENTS[doc].version }}</text>
-          <UniIcons v-if="doc === current" type="checkmarkempty" size="18" color="#ff6a00" />
+          <LineIcon v-if="doc === current" :d="CHECK" :size="18" color="#ff6a00" :stroke-width="2.6" />
         </button>
       </view>
     </template>
@@ -124,34 +129,10 @@ button::after {
   border: 0;
 }
 
-.agreement__header {
-  display: flex;
-  padding: calc(var(--status-bar-height) + 8px) 16px 8px 8px;
-  align-items: center;
-  gap: 4px;
-  /* The page head of the light theme (theme-page-head). */
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-}
-
-.agreement__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-}
-
-.agreement__heading {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 25px;
-  white-space: nowrap;
-}
-
 .agreement__all {
   display: flex;
   height: 44px;
-  margin-left: auto;
+  margin-right: 8px;
   align-items: center;
 }
 
@@ -180,6 +161,7 @@ button::after {
   flex-direction: column;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .agreement__card--lead {
@@ -195,18 +177,16 @@ button::after {
 
 .agreement__title {
   min-width: 0;
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 700;
-  line-height: 24px;
+  line-height: 28px;
 }
 
+/* Sample data says so quietly (R5 #14). */
 .agreement__sample {
   flex-shrink: 0;
-  padding: 1px 6px;
-  border-radius: 6px;
-  color: #ba470b;
-  background: #fff0e3;
-  font-size: 12px;
+  color: #738096;
+  font-size: 11px;
   line-height: 16px;
 }
 

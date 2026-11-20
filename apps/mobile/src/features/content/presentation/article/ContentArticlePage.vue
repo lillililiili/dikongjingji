@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
 
 import type { SupportTarget } from '@/features/support/navigation/support-routes'
@@ -7,6 +6,7 @@ import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { resolveContentRefs, type ContentRefView } from '../../application/content-refs'
 import {
@@ -16,7 +16,8 @@ import {
 } from '../../application/content-view'
 import { contentApi } from '../../data/content-api-client'
 import { contentLinkedApis } from '../../data/content-linked-apis'
-import type { ContentArticle, ContentAuthorKind } from '../../domain/content'
+import { resolveArticlePreviewCover } from '../../data/preview/content-preview-covers'
+import type { ContentArticle } from '../../domain/content'
 import { buildContentArticleUrl, contentAuthorHome } from '../../navigation/content-routes'
 
 // One article (boards ContentArticle, ContentCase2–3, ContentKnow1–3 share this template): the
@@ -63,10 +64,21 @@ const consultLabel = computed(() => {
 const primaryRef = computed(() => refs.value?.[0] ?? null)
 const hasBar = computed(() => Boolean(consultLabel.value || primaryRef.value))
 
-const AUTHOR_BADGES: Record<ContentAuthorKind, { icon: string; background: string; color: string }> = {
-  PROVIDER: { icon: 'auth', background: '#e2f6ed', color: '#159a70' },
-  MERCHANT: { icon: 'shop', background: '#fff0e3', color: '#ba470b' },
-  PLATFORM: { icon: 'flag', background: '#e6f0ff', color: '#1d63c4' },
+// The head picture: the server's, otherwise (preview builds) the board's.
+const cover = computed(() => {
+  const current = article.value
+  if (!current) return null
+  if (current.coverImage) return { ...current.coverImage, cutout: false }
+  return resolveArticlePreviewCover(current.articleId)
+})
+
+// Icons copied from the board ContentArticle.
+const ICONS = {
+  back: 'M15 5l-7 7 7 7',
+  share: 'M12 15V4M8 8l4-4 4 4M5 13v7h14v-7',
+  author: 'M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6zM9 12l2 2 4-4',
+  check: 'M5 12l5 5 9-10',
+  info: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01',
 }
 
 async function load(): Promise<void> {
@@ -126,7 +138,7 @@ void load()
   <view class="article" data-testid="content-article" :data-state="state.kind">
     <view class="article__nav">
       <button class="article__nav-button" data-testid="content-article-back" aria-label="返回" @click="emit('back')">
-        <view class="article__nav-circle"><UniIcons type="left" size="20" color="#ffffff" /></view>
+        <view class="article__nav-circle"><LineIcon :d="ICONS.back" :size="20" color="#ffffff" :stroke-width="2" /></view>
       </button>
       <button
         v-if="article"
@@ -136,7 +148,7 @@ void load()
         aria-haspopup="dialog"
         @click="share"
       >
-        <view class="article__nav-circle"><UniIcons type="redo" size="19" color="#ffffff" /></view>
+        <view class="article__nav-circle"><LineIcon :d="ICONS.share" :size="20" color="#ffffff" /></view>
       </button>
     </view>
 
@@ -147,7 +159,7 @@ void load()
     </view>
 
     <view v-else-if="state.kind === 'missing' || state.kind === 'error'" class="article__state" data-testid="content-article-unavailable">
-      <UniIcons type="info-filled" size="42" color="#b5bac1" />
+      <LineIcon :d="ICONS.info" :size="42" color="#b5bac1" />
       <text class="article__state-title">内容暂不可用</text>
       <text class="article__state-copy">
         {{ state.kind === 'missing' ? '内容已下线，或不在当前城市展示' : '内容加载失败，请检查网络后重试' }}
@@ -162,34 +174,37 @@ void load()
     </view>
 
     <template v-else-if="article && tone">
-      <view v-if="article.coverImage" class="article__hero">
-        <image class="article__hero-image" :src="article.coverImage.url" mode="aspectFill" :aria-label="article.coverImage.alt" />
+      <!-- The head picture is always cropped to fill, a product shot too (board ContentKnow2). -->
+      <view v-if="cover" class="article__hero" data-testid="content-article-hero">
+        <image class="article__hero-image" :src="cover.url" mode="aspectFill" :aria-label="cover.alt" />
         <view class="article__hero-tags">
           <text class="article__hero-tag">{{ CONTENT_KIND_LABELS[article.kind] }}</text>
-          <text v-if="article.sample" class="article__hero-tag" data-testid="content-sample">示例</text>
         </view>
       </view>
       <view v-else class="article__block" :style="{ background: tone.background }" data-testid="content-article-block">
         <view class="article__block-tags">
           <text class="article__hero-tag">{{ CONTENT_KIND_LABELS[article.kind] }}</text>
-          <text v-if="article.sample" class="article__hero-tag" data-testid="content-sample">示例</text>
         </view>
         <text class="article__block-title" :style="{ color: tone.color }" role="heading" aria-level="1" data-testid="content-article-title">{{ article.title }}</text>
       </view>
 
       <view class="article__main">
-        <text v-if="article.coverImage" class="article__title" role="heading" aria-level="1" data-testid="content-article-title">{{ article.title }}</text>
+        <text v-if="cover" class="article__title" role="heading" aria-level="1" data-testid="content-article-title">{{ article.title }}</text>
 
         <view class="article__author" data-testid="content-article-author">
-          <view class="article__author-badge" :style="{ background: AUTHOR_BADGES[article.author.kind].background }">
-            <UniIcons :type="AUTHOR_BADGES[article.author.kind].icon" size="20" :color="AUTHOR_BADGES[article.author.kind].color" />
+          <view class="article__author-badge">
+            <LineIcon :d="ICONS.author" :size="20" color="#159a70" />
           </view>
           <view class="article__author-copy">
             <view class="article__author-line">
               <text class="article__author-name">{{ article.author.name }}</text>
               <text v-if="article.sponsored" class="article__ad" data-testid="content-sponsored">广告</text>
             </view>
-            <text class="article__author-meta" data-testid="content-article-meta">{{ metaLine }}</text>
+            <view class="article__author-meta-line">
+              <text class="article__author-meta" data-testid="content-article-meta">{{ metaLine }}</text>
+              <!-- Sample data says so quietly (R5 #14). -->
+              <text v-if="article.sample" class="article__sample" data-testid="content-sample">示例</text>
+            </view>
           </view>
           <button
             v-if="home.kind !== 'NONE'"
@@ -221,12 +236,12 @@ void load()
           </view>
           <view v-else-if="block.type === 'LIST'" class="article__list">
             <view v-for="item in block.items" :key="item.title" class="article__list-item">
-              <UniIcons type="checkmarkempty" size="16" color="#159a70" />
+              <LineIcon class="article__list-check" :d="ICONS.check" :size="16" color="#159a70" :stroke-width="3" />
               <text class="article__list-text"><text class="article__list-title">{{ item.title }}</text> {{ item.text ?? '' }}</text>
             </view>
           </view>
           <view v-else-if="block.type === 'TIP'" class="article__tip">
-            <UniIcons type="info" size="16" color="#738096" />
+            <LineIcon :d="ICONS.info" :size="16" color="#738096" :stroke-width="2" />
             <text>{{ block.text }}</text>
           </view>
           <text v-else-if="block.type === 'NOTICE'" class="article__notice">{{ block.text }}</text>
@@ -247,9 +262,18 @@ void load()
           :data-type="item.type"
           @click="emit('open', item.url)"
         >
-          <view class="article__ref-thumb" :style="{ background: item.imageUrl ? '#eef2f8' : item.tagTone.background }">
-            <image v-if="item.imageUrl" class="article__ref-image" :src="item.imageUrl" mode="aspectFill" :aria-label="item.title" />
-            <UniIcons v-else :type="item.icon" size="28" :color="item.tagTone.color" />
+          <view
+            :class="['article__ref-thumb', { 'article__ref-thumb--contain': item.imagePadded }]"
+            :style="{ background: item.imagePadded ? '#fff0e3' : item.imageContain ? '#f0edff' : item.imageUrl ? '#eef2f8' : item.tagTone.background }"
+          >
+            <image
+              v-if="item.imageUrl"
+              class="article__ref-image"
+              :src="item.imageUrl"
+              :mode="item.imageContain ? 'aspectFit' : 'aspectFill'"
+              :aria-label="item.title"
+            />
+            <text v-else class="article__ref-initial" :style="{ color: item.tagTone.color }">{{ item.tag }}</text>
           </view>
           <view class="article__ref-copy">
             <view class="article__ref-line">
@@ -427,6 +451,7 @@ button::after {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+  background: #e2f6ed;
 }
 
 .article__author-copy {
@@ -623,6 +648,7 @@ button::after {
   padding: 12px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .article__ref--loading {
@@ -645,6 +671,35 @@ button::after {
 .article__ref-image {
   width: 100%;
   height: 100%;
+}
+
+/* An illustration or a cut-out sits whole on the tint with some air (board ContentArticle). */
+.article__ref-thumb--contain {
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.article__ref-initial {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.article__author-meta-line {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.article__sample {
+  flex-shrink: 0;
+  color: #738096;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.article__list-check {
+  margin-top: 3px;
 }
 
 .article__ref-copy {
@@ -719,6 +774,7 @@ button::after {
 }
 
 .article__bar {
+  box-shadow: var(--app-bar-shadow);
   position: fixed;
   z-index: 15;
   right: 0;
@@ -755,6 +811,7 @@ button::after {
 .article__primary {
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
 }
 
 .article__loading {

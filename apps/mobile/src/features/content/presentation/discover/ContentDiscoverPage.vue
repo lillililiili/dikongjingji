@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { activityApi } from '@/features/activity/data/activity-api-client'
+import { resolveActivityPreviewCover } from '@/features/activity/data/preview/activity-preview-covers'
 import type { ActivityCard } from '@/features/activity/domain/activity'
 import {
   ACTIVITY_TYPE_LABELS,
@@ -15,6 +15,7 @@ import { platformCityApi } from '@/features/inspection/data/service-flow/uni-boo
 import CitySelectionSheet from '@/shared/city/presentation/CitySelectionSheet.vue'
 import { useCitySheet } from '@/shared/city/presentation/use-city-sheet'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   ACTIVITY_TAG_TONES,
@@ -38,7 +39,14 @@ import {
   type DiscoverFeedState,
 } from '../../application/discover-feed'
 import { contentApi } from '../../data/content-api-client'
-import { DISCOVER_CHANNELS, type ContentArticleCard, type DiscoverChannel } from '../../domain/content'
+import { resolveArticlePreviewCover, resolveTopicPreviewCover } from '../../data/preview/content-preview-covers'
+import {
+  DISCOVER_CHANNELS,
+  type ContentArticleCard,
+  type ContentImage,
+  type ContentTopicCard,
+  type DiscoverChannel,
+} from '../../domain/content'
 import ContentThumb from '../shared/ContentThumb.vue'
 
 // 发现 (board Discover): 推荐 / 赛事 / 研学 / 案例 / 知识. 推荐 is a two-column waterfall of articles
@@ -122,6 +130,27 @@ function articleSub(article: ContentArticleCard): string {
   return article.author.name
 }
 
+// Pictures: the server's, otherwise on preview builds the board's (content-preview-covers.ts).
+function articleImage(article: ContentArticleCard): (ContentImage & { cutout?: boolean }) | null {
+  return article.coverImage ?? resolveArticlePreviewCover(article.articleId)
+}
+
+function topicImage(topic: ContentTopicCard): ContentImage | null {
+  return topic.coverImage ?? resolveTopicPreviewCover(topic.topicId)
+}
+
+function activityImage(card: ActivityCard): ContentImage | null {
+  if (card.coverImage) return card.coverImage
+  const url = resolveActivityPreviewCover(card.activityId)
+  return url ? { url, alt: card.title } : null
+}
+
+// Icons copied from the board Discover.
+const ICONS = {
+  caret: 'M6 9l6 6 6-6z',
+  info: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01',
+}
+
 function openArticle(article: ContentArticleCard): void {
   emit('openArticle', article.articleId, feed.value.cityCode)
 }
@@ -145,7 +174,7 @@ defineExpose({ loadMore, refresh })
           @click="citySheet.open"
         >
           <text>{{ cityLabel }}</text>
-          <UniIcons type="bottom" size="12" color="#202c42" />
+          <LineIcon :d="ICONS.caret" :size="14" fill="#202c42" />
         </button>
       </view>
       <view class="discover__tabs" role="tablist" aria-label="内容频道">
@@ -166,12 +195,12 @@ defineExpose({ loadMore, refresh })
 
     <view class="discover__body">
       <view class="discover__note" data-testid="discover-note">
-        <UniIcons type="info" size="14" color="#738096" />
+        <LineIcon class="discover__note-icon" :d="ICONS.info" :size="14" color="#738096" />
         <text>{{ DISCOVER_CHANNEL_NOTES[channel] }}</text>
       </view>
 
       <view v-if="view === 'no-city'" class="discover__state" data-testid="discover-no-city">
-        <UniIcons type="location" size="36" color="#b5bac1" />
+        <LineIcon name="pin" :size="36" color="#b5bac1" />
         <text class="discover__state-title">先选择城市</text>
         <button class="discover__state-action" @click="citySheet.open">选择城市</button>
       </view>
@@ -181,14 +210,14 @@ defineExpose({ loadMore, refresh })
       </template>
 
       <view v-else-if="view === 'error'" class="discover__state" data-testid="discover-error">
-        <UniIcons type="info" size="36" color="#b5bac1" />
+        <LineIcon :d="ICONS.info" :size="36" color="#b5bac1" />
         <text class="discover__state-title">内容加载失败</text>
         <text class="discover__state-copy">请检查网络后重试</text>
         <button class="discover__state-action" data-testid="discover-retry" @click="reload">重新加载</button>
       </view>
 
       <view v-else-if="view === 'empty'" class="discover__state" data-testid="discover-empty">
-        <UniIcons type="paperplane" size="36" color="#b5bac1" />
+        <LineIcon name="doc" :size="36" color="#b5bac1" />
         <text class="discover__state-title">{{ DISCOVER_EMPTY_TEXT[feed.channel] }}</text>
         <text class="discover__state-copy">换个频道或城市看看</text>
       </view>
@@ -204,13 +233,15 @@ defineExpose({ loadMore, refresh })
           <view class="discover__topic-copy">
             <view class="discover__topic-tags">
               <text class="discover__topic-tag">专题</text>
-              <text v-if="topic.sample" class="discover__sample-tag">示例</text>
             </view>
             <text class="discover__topic-title">{{ topic.title }}</text>
             <text v-if="topic.subtitle" class="discover__topic-sub">{{ topic.subtitle }}</text>
-            <text class="discover__topic-meta">{{ topic.publisher.name }} · {{ topicDateRange(topic) }}</text>
+            <view class="discover__topic-meta">
+              <text>{{ topic.publisher.name }}</text>
+              <text>{{ topicDateRange(topic) }}</text>
+            </view>
           </view>
-          <image v-if="topic.coverImage" class="discover__topic-image" :src="topic.coverImage.url" mode="aspectFill" :aria-label="topic.coverImage.alt" />
+          <image v-if="topicImage(topic)" class="discover__topic-image" :src="topicImage(topic)?.url" mode="aspectFill" :aria-label="topicImage(topic)?.alt" />
         </button>
 
         <view v-if="isGrid" class="discover__grid" data-testid="discover-grid">
@@ -222,16 +253,16 @@ defineExpose({ loadMore, refresh })
               :data-testid="`discover-article-${article.articleId}`"
               @click="openArticle(article)"
             >
-              <view :class="['discover__card-cover', { 'discover__card-cover--image': article.coverImage }]">
+              <view :class="['discover__card-cover', { 'discover__card-cover--image': articleImage(article) }]">
                 <ContentThumb
-                  :image="article.coverImage"
+                  :image="articleImage(article)"
                   :tone="articleCoverTone(article)"
                   :tag="CONTENT_KIND_LABELS[article.kind]"
                   :title="article.title"
-                  :sample="article.sample"
                 />
               </view>
-              <text v-if="article.coverImage" class="discover__card-title">{{ article.title }}</text>
+              <text v-if="articleImage(article)" class="discover__card-title">{{ article.title }}<text v-if="article.sample" class="discover__sample discover__sample--inline" data-testid="content-sample">示例</text></text>
+              <text v-else-if="article.sample" class="discover__sample discover__sample--below" data-testid="content-sample">示例</text>
               <view class="discover__card-meta">
                 <text class="discover__avatar" :style="{ background: AUTHOR_AVATAR_COLORS[article.author.kind] }" aria-hidden="true">
                   {{ authorInitial(article.author.name) }}
@@ -254,7 +285,7 @@ defineExpose({ loadMore, refresh })
           >
             <view class="discover__row-thumb">
               <ContentThumb
-                :image="article.coverImage"
+                :image="articleImage(article)"
                 :tone="articleCoverTone(article)"
                 :tag="CONTENT_KIND_LABELS[article.kind]"
               />
@@ -267,7 +298,7 @@ defineExpose({ loadMore, refresh })
               </view>
               <view class="discover__row-meta">
                 <text class="discover__row-date">{{ formatContentDay(article.publishedAt) }}</text>
-                <text v-if="article.sample" class="discover__sample-tag" data-testid="content-sample">示例</text>
+                <text v-if="article.sample" class="discover__sample" data-testid="content-sample">示例</text>
               </view>
             </view>
           </button>
@@ -287,7 +318,7 @@ defineExpose({ loadMore, refresh })
           >
             <view class="discover__row-thumb">
               <ContentThumb
-                :image="activity.coverImage"
+                :image="activityImage(activity)"
                 :tone="ACTIVITY_TAG_TONES[activity.type]"
                 :tag="ACTIVITY_TYPE_LABELS[activity.type]"
                 :tag-tone="ACTIVITY_TAG_TONES[activity.type]"
@@ -365,7 +396,8 @@ button::after {
   display: flex;
   flex-direction: column;
   padding-top: calc(var(--status-bar-height) + 6px);
-  background: #ffffff;
+  /* The board's white head, painted with the theme's page-head gradient. */
+  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
 }
 
 .discover__head {
@@ -452,8 +484,9 @@ button::after {
   display: flex;
   min-height: 132px;
   overflow: hidden;
-  border-radius: 14px;
-  background: #ffffff;
+  border-radius: 20px;
+  background: #fff1df;
+  box-shadow: 0 4px 14px rgba(182, 106, 35, 0.06);
 }
 
 .discover__topic-copy {
@@ -464,7 +497,7 @@ button::after {
   align-items: flex-start;
   gap: 5px;
   padding: 12px 14px;
-  background: linear-gradient(135deg, #fff0e3 0%, #fffaf5 100%);
+  background: linear-gradient(125deg, #fff1dc, #fff9ef);
 }
 
 .discover__topic-tags {
@@ -494,6 +527,8 @@ button::after {
 }
 
 .discover__topic-meta {
+  display: flex;
+  flex-direction: column;
   margin-top: auto;
   color: #738096;
   font-size: 12px;
@@ -502,18 +537,32 @@ button::after {
 
 .discover__topic-image {
   flex-shrink: 0;
-  width: 132px;
-  height: 132px;
+  /* 144 of 358 on the board; narrower screens keep the same share for the title. */
+  width: 37%;
+  max-width: 144px;
+  height: auto;
+  min-height: 132px;
 }
 
-.discover__sample-tag {
-  padding: 0 5px;
-  border-radius: 6px;
-  color: #536178;
-  background: #eef2f8;
+.discover__sample {
+  flex-shrink: 0;
+  color: #91a0b4;
   font-size: 11px;
-  line-height: 16px;
+  line-height: 17px;
   white-space: nowrap;
+}
+
+.discover__sample--inline {
+  margin-left: 6px;
+  font-weight: 400;
+}
+
+.discover__sample--below {
+  padding: 6px 10px 0;
+}
+
+.discover__note-icon {
+  margin-top: 1px;
 }
 
 .discover__grid {
@@ -536,6 +585,7 @@ button::after {
   overflow: hidden;
   border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .discover__card-cover {
@@ -606,6 +656,7 @@ button::after {
   padding: 10px;
   border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .discover__row-thumb {

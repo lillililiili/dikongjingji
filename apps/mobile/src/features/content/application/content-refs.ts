@@ -19,6 +19,7 @@ import { buildActivityDetailUrl } from '../../activity/navigation/activity-route
 import { buildVenueDetailUrl } from '../../experience/navigation/experience-routes'
 import { toBeijingDate } from '../../../shared/time/beijing-time'
 
+import { resolveRefPreviewCover, resolveTopicActivityPreviewCover } from '../data/preview/content-preview-covers'
 import type { ContentRef, ContentRefType } from '../domain/content'
 import { contentRefTargetUrl } from '../navigation/content-routes'
 import type { Tone } from './content-view'
@@ -54,6 +55,10 @@ export interface ContentRefView {
   // Services carry the orange button (board ContentArticle); goods, activities and venues a plain one.
   primary: boolean
   imageUrl: string | null
+  // The picture is drawn whole on a tint (a product cut-out, an illustration) instead of cropped.
+  imageContain?: boolean
+  // An illustration: smaller, on the orange tint.
+  imagePadded?: boolean
   url: string
 }
 
@@ -182,7 +187,14 @@ export async function resolveContentRefs(
   apis: ContentLinkedApis,
 ): Promise<ContentRefView[]> {
   const results = await Promise.allSettled(refs.map((ref) => resolveOne(ref, cityCode, apis)))
-  return results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []))
+  return results.flatMap((result) => (result.status === 'fulfilled' ? [withPreviewPicture(result.value)] : []))
+}
+
+// Preview builds draw the prototype's picture where the module gives none.
+function withPreviewPicture(view: ContentRefView): ContentRefView {
+  if (view.imageUrl) return view
+  const cover = resolveRefPreviewCover(view.type, view.refId)
+  return cover ? { ...view, imageUrl: cover.url, imageContain: cover.contain, imagePadded: cover.padded ?? false } : view
 }
 
 // ---- The topic page's 本季活动 and 到馆体验 ----
@@ -228,7 +240,7 @@ export function toTopicActivityView(activity: ActivityDetail, cityCode: string):
     statusTone: activity.enrollmentStatus === 'OPEN'
       ? 'ok'
       : activity.enrollmentStatus === 'CLOSED' || activity.enrollmentStatus === 'ENDED' ? 'off' : 'warn',
-    imageUrl: httpsOnly(activity.coverImage?.url),
+    imageUrl: httpsOnly(activity.coverImage?.url) ?? resolveTopicActivityPreviewCover(activity.activityId),
     url: buildActivityDetailUrl(activity.activityId, cityCode),
   }
 }

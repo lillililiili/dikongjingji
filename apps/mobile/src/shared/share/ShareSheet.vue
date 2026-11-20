@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
-import { buildShareLink, type ShareTarget } from './share-link'
+import { useCurrentCityStore } from '@/shared/city/state/current-city'
+import LineIcon from '@/shared/ui/LineIcon.vue'
+
+import { buildShareLink, describeShareSubtitle, type ShareTarget } from './share-link'
 
 // The one share panel of the detail pages (board ShareSheet): only 复制链接. Posters and QR codes
 // are not made in the App.
@@ -13,6 +15,24 @@ const copied = ref(false)
 watch(() => props.target, () => { copied.value = false })
 
 const link = computed(() => (props.target ? buildShareLink(props.target.path) : ''))
+
+// "¥1,299 起 · 东营可售" (board ShareSheet): a product says where it is sold, when the link's city
+// is the App's current one and its name is known.
+const cityStore = useCurrentCityStore()
+function knownCity(): { code: string; name: string } | null {
+  if (cityStore.currentCity) return cityStore.currentCity
+  // Before any city is picked the App runs in its default city (as the Mine page restores it).
+  const code = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_CODE?.trim()
+  const name = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_NAME?.trim()
+  return code && name ? { code, name } : null
+}
+const subtitle = computed(() => (props.target ? describeShareSubtitle(props.target, knownCity()) : null))
+
+// Icons copied from the board ShareSheet.
+const ICONS = {
+  info: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01',
+  check: 'M5 12l5 5 9-10',
+}
 
 function copy(): void {
   if (!link.value) return
@@ -36,15 +56,15 @@ function copy(): void {
       <view class="share-sheet__item">
         <image v-if="target.imageUrl" class="share-sheet__image" :src="target.imageUrl" mode="aspectFill" />
         <view v-else class="share-sheet__image share-sheet__image--blank">
-          <UniIcons type="image" size="24" color="#91a0b4" />
+          <LineIcon name="image" :size="24" color="#91a0b4" />
         </view>
         <view class="share-sheet__item-copy">
           <text class="share-sheet__item-title">{{ target.title }}</text>
-          <text v-if="target.subtitle" class="share-sheet__item-sub">{{ target.subtitle }}</text>
+          <text v-if="subtitle" class="share-sheet__item-sub" data-testid="share-subtitle">{{ subtitle }}</text>
         </view>
       </view>
       <view class="share-sheet__note">
-        <UniIcons type="info" size="16" color="#738096" />
+        <LineIcon class="share-sheet__note-icon" :d="ICONS.info" :size="16" color="#738096" :stroke-width="2" />
         <view class="share-sheet__note-copy">
           <text class="share-sheet__note-main">链接只带这个{{ target.subject }}的编号和城市，不包含你的个人信息</text>
           <text class="share-sheet__note-sub">App 内只能复制链接，不生成海报和二维码</text>
@@ -54,7 +74,7 @@ function copy(): void {
         <button class="share-sheet__close" data-testid="share-close" @click="emit('close')">关闭</button>
         <button v-if="!copied" class="share-sheet__copy" data-testid="share-copy" @click="copy">复制链接</button>
         <view v-else class="share-sheet__copied" role="status" data-testid="share-copied">
-          <UniIcons type="checkmarkempty" size="16" color="#159a70" />
+          <LineIcon :d="ICONS.check" :size="16" color="#159a70" :stroke-width="3" />
           <text>链接已复制</text>
         </view>
       </view>
@@ -225,7 +245,12 @@ button::after {
 .share-sheet__copy {
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-weight: 500;
+}
+
+.share-sheet__note-icon {
+  margin-top: 1px;
 }
 
 .share-sheet__copied {

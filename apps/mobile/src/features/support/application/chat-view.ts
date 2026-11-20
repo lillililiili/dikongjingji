@@ -75,6 +75,10 @@ export function describeChatPeer(counterpart: SupportCounterpart): ChatPeer {
   }
 }
 
+// The greeting of the platform support in a conversation with no messages yet (board Chat). It is a
+// constant of the page, never stored or sent, and disappears once the thread has messages.
+export const PLATFORM_WELCOME_TEXT = '你好，这里是平台客服。订单、售后和投诉都可以在这里说，我们协助你和商家、服务商沟通。'
+
 export const SUPPORT_KIND_LABELS = { PLATFORM: '平台客服', MERCHANT: '商家', PROVIDER: '服务商' } as const
 
 // The 客服会话 rows of the message tab: newest first as the server sends them.
@@ -83,6 +87,8 @@ export interface ConversationRow {
   title: string
   preview: string
   time: string
+  // When the last message was sent, so the message tab can place the row among notifications.
+  at: string | null
   unreadCount: number
   initial: string | null
 }
@@ -95,6 +101,7 @@ export function toConversationRow(conversation: SupportConversation, now: Date):
     title: conversation.counterpart.name,
     preview: last ? `${mine ? '我：' : ''}${last.kind === 'CARD' ? `[卡片] ${last.preview}` : last.preview}` : '',
     time: last ? formatMessageTime(last.sentAt, now) : '',
+    at: last?.sentAt ?? conversation.createdAt,
     unreadCount: conversation.unreadCount,
     initial: conversation.counterpart.kind === 'PLATFORM' ? null : Array.from(conversation.counterpart.name.trim())[0] ?? '?',
   }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import minePageSource from '../presentation/platform/mine/PlatformMinePage.vue?raw'
+import mineHostSource from '../../../pages/mine/index.vue?raw'
 import {
   createLatestRequestCoordinator,
   requestLatestInspectionOrders,
@@ -7,44 +8,12 @@ import {
 import type { InspectionOrderPage } from '../domain/service-flow/order-center'
 import {
   INSPECTION_STATUS_ITEMS,
+  MINE_ORDER_STAGES,
+  formatMineBadge,
+  formatMineCity,
   isPlatformAmountLabel,
   resolveAuthenticatedMineUser,
-  resolvePlatformMineState,
-  type PlatformMineContent,
 } from '../presentation/platform/mine/platform-mine'
-
-const content = (): PlatformMineContent => ({
-  user: {
-    displayName: '飞行探索者',
-    avatarUrl: '/static/images/inspection/platform/robot-avatar.png',
-    levelName: 'Lv.3',
-    locationText: '济南市历下区',
-    certificationLabel: '已认证企业用户',
-  },
-  statusCounts: {
-    AWAITING_PLAN: 2,
-    AWAITING_CONFIRMATION: 1,
-    IN_PROGRESS: 1,
-    AWAITING_ACCEPTANCE: 1,
-    COMPLETED: 8,
-  },
-  recentOrders: [
-    {
-      id: 'inspection-order-1',
-      title: '电力巡检',
-      status: 'IN_PROGRESS',
-      imageUrl: '/static/images/inspection/platform/industrial-inspection-robot.png',
-      locationText: '济南市历下区奥体中心',
-      scheduledAtText: '2026-07-31 09:30',
-      orderNumber: 'DI202607310930001',
-      amount: { label: '报价', text: '¥699' },
-    },
-  ],
-  featureEntries: [
-    { code: 'PROJECTS', title: '我的项目', valueText: '3个项目', imageUrl: '/static/images/inspection/platform/mine-feature-projects-v2.png', availability: 'AVAILABLE' },
-    { code: 'EQUIPMENT', title: '我的设备', valueText: '2台设备', imageUrl: '/static/images/inspection/platform/mine-feature-equipment-v2.png', availability: 'UNAVAILABLE' },
-  ],
-})
 
 const orderPage = (): InspectionOrderPage => ({
   items: [],
@@ -88,155 +57,70 @@ describe('platform mine presentation state', () => {
     })).toBeUndefined()
   })
 
-  it('does not request authenticated orders without a token and preserves ready Mine content on failure', async () => {
+  it('writes the city as the board does', () => {
+    expect(formatMineCity('东营市')).toBe('常用城市 东营')
+    expect(formatMineCity('未设置所在地区')).toBe('未设置常用城市')
+    expect(formatMineBadge(3)).toBe('3')
+    expect(formatMineBadge(120)).toBe('99+')
+  })
+
+  it('does not request authenticated orders without a token', async () => {
     const coordinator = createLatestRequestCoordinator()
     let calls = 0
-    const list = async (): Promise<InspectionOrderPage> => {
+    const unauthenticated = await requestLatestInspectionOrders(coordinator, () => null, async () => {
       calls++
-      throw new Error('should not be requested')
-    }
-
-    const unauthenticated = await requestLatestInspectionOrders(
-      coordinator,
-      () => null,
-      list,
-    )
-
+      return orderPage()
+    })
     expect(unauthenticated).toEqual({ status: 'unauthenticated' })
     expect(calls).toBe(0)
-    expect(resolvePlatformMineState({ status: 'ready', content: content() }).kind).toBe('ready')
     const failed = await requestLatestInspectionOrders(
       coordinator,
       () => 'customer-token',
       async () => { throw new Error('network down') },
     )
     expect(failed.status).toBe('error')
-    expect(resolvePlatformMineState({ status: 'ready', content: content() }).kind).toBe('ready')
   })
 
-  it('requests three real orders and discards an older response after token removal', async () => {
-    const coordinator = createLatestRequestCoordinator()
-    let resolveFirst: ((value: InspectionOrderPage) => void) | undefined
-    const first = requestLatestInspectionOrders(
-      coordinator,
-      () => 'customer-token',
-      (input) => {
-        expect(input).toEqual({ stage: 'ALL', page: 1, size: 3 })
-        return new Promise((resolve) => { resolveFirst = resolve })
-      },
-    )
-    const unauthenticated = await requestLatestInspectionOrders(
-      coordinator,
-      () => null,
-      async () => orderPage(),
-    )
-    resolveFirst?.(orderPage())
-
-    expect(unauthenticated).toEqual({ status: 'unauthenticated' })
-    expect(await first).toEqual({ status: 'discarded' })
-
-    const loaded = await requestLatestInspectionOrders(
-      coordinator,
-      () => 'customer-token',
-      async () => orderPage(),
-    )
-    expect(loaded).toEqual({ status: 'success', value: orderPage() })
-  })
-
-  it('supports loading, ready, empty and error states', () => {
-    expect(resolvePlatformMineState({ status: 'loading' })).toEqual({ kind: 'loading' })
-    expect(resolvePlatformMineState({ status: 'ready', content: content() }).kind).toBe('ready')
-    expect(resolvePlatformMineState({
-      status: 'ready',
-      content: {
-        statusCounts: {
-          AWAITING_PLAN: 0,
-          AWAITING_CONFIRMATION: 0,
-          IN_PROGRESS: 0,
-          AWAITING_ACCEPTANCE: 0,
-          COMPLETED: 0,
-        },
-        recentOrders: [],
-        featureEntries: [],
-      },
-    })).toEqual({ kind: 'empty' })
-    expect(resolvePlatformMineState({ status: 'error' })).toEqual({
-      kind: 'error',
-      message: '个人中心加载失败，请稍后重试',
-    })
-  })
-
-  it('uses the five approved inspection statuses in order', () => {
-    expect(INSPECTION_STATUS_ITEMS.map((item) => item.label)).toEqual([
-      '待方案',
-      '待确认',
-      '进行中',
+  it('uses the five order stages of the board, across businesses', () => {
+    expect(MINE_ORDER_STAGES.map((item) => item.label)).toEqual([
+      '待付款',
+      '待发货/履约',
+      '待参加',
       '待验收',
-      '已完成',
+      '退款/售后',
     ])
   })
 
-  it('only permits quote and payable amount labels', () => {
+  it('keeps the inspection labels the order center still uses', () => {
+    expect(INSPECTION_STATUS_ITEMS.map((item) => item.label)).toEqual(['待方案', '待确认', '进行中', '待验收', '已完成'])
     expect(isPlatformAmountLabel('报价')).toBe(true)
-    expect(isPlatformAmountLabel('应付')).toBe(true)
     expect(isPlatformAmountLabel('实付')).toBe(false)
-    expect(isPlatformAmountLabel('退款')).toBe(false)
-  })
-
-  it('keeps certification, counters, feature values and order amount visible', () => {
-    const state = resolvePlatformMineState({ status: 'ready', content: content() })
-    expect(state.kind).toBe('ready')
-    if (state.kind !== 'ready') return
-
-    expect(state.content.user?.certificationLabel).toBe('已认证企业用户')
-    expect(state.content.statusCounts?.COMPLETED).toBe(8)
-    expect(state.content.featureEntries[0]?.valueText).toBe('3个项目')
-    expect(state.content.recentOrders[0]?.amount).toEqual({ label: '报价', text: '¥699' })
   })
 })
 
 describe('platform mine component contract', () => {
-  it('uses approved raster assets, visible counters and a unified unavailable dialog', () => {
-    expect(minePageSource).toContain('defineProps')
-    expect(minePageSource).toContain('defineEmits')
-    expect(minePageSource).toContain("import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'")
-    expect(minePageSource).toContain('v-if="content.user?.avatarUrl"')
-    expect(minePageSource).not.toContain('v-if="content.user?.certificationLabel"')
-    expect(minePageSource).toContain(':src="entry.imageUrl"')
-    // The five order stages use line icons since the page follows the 2026-11-14 prototype.
-    expect(minePageSource).toContain(':type="STATUS_ICONS[item.code]"')
-    expect(minePageSource).not.toContain('mine-status-plan-v2.png')
-    expect(minePageSource).not.toContain(':type="entry.iconType"')
-    expect(minePageSource).not.toContain('v-if="entry.valueText"')
-    expect(minePageSource).not.toContain('v-if="order.amount"')
-    expect(minePageSource).not.toContain('platform-mine__headset-icon::')
-    expect(minePageSource).toContain('<PlatformUnavailableDialog')
-    expect(minePageSource).toContain('resolvePlatformAvailabilityAction')
-    expect(minePageSource).not.toContain('platform-mine__feature-unavailable')
-    expect(minePageSource).not.toContain('fixture')
-    expect(minePageSource).not.toContain('uni.request')
+  it('follows the boards Mine and MineGuest', () => {
+    // The old recent-orders card and the four raster tiles are gone.
+    expect(minePageSource).not.toContain('近期巡检订单')
+    expect(minePageSource).not.toContain('我的项目')
+    expect(minePageSource).not.toContain('mine-feature-')
+    expect(minePageSource).not.toContain('uni-icons')
+    // No headset at the top; 联系客服 is a row.
+    expect(minePageSource).not.toContain('mine-customer-service')
+    expect(minePageSource).toContain('<IconTile')
+    expect(minePageSource).toContain('登录后查看你的订单和服务进度')
+    expect(minePageSource).toContain('var(--app-root-tabbar-content-offset)')
+    expect(minePageSource).toContain('grid-template-columns: repeat(5, minmax(0, 1fr))')
     expect(minePageSource).not.toContain('navigateTo')
-    expect(minePageSource).not.toContain('AppHeader')
-    expect(minePageSource).not.toContain('<AppHeader')
-    expect(minePageSource).not.toContain('searchPlaceholder')
-    expect(minePageSource).not.toContain('message: []')
+    expect(minePageSource).not.toContain('uni.request')
   })
 
-  it('contains no payment, refund or unsupported workflow state', () => {
-    expect(minePageSource).not.toContain('待付款')
-    expect(minePageSource).not.toContain('退款')
-    expect(minePageSource).not.toContain('立即支付')
-    expect(minePageSource).toContain('var(--app-root-tabbar-content-offset)')
-    expect(minePageSource).toContain('grid-template-columns:repeat(5,minmax(0,1fr))')
-    expect(minePageSource).toContain('@media (min-width:420px)')
-    expect(minePageSource).toContain('font-family:system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif')
-    expect(minePageSource).toContain('button{margin:0;padding:0;border:0;background:transparent;font-family:inherit')
-    expect(minePageSource).toContain('.platform-mine__status-label{margin-top:4rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600')
-    expect(minePageSource).toContain('.platform-mine__status-icon{position:relative;display:flex;width:100rpx;height:60rpx;align-items:center;justify-content:flex-start')
-    expect(minePageSource).toContain('.platform-mine__status-image{width:60rpx;height:60rpx')
-    expect(minePageSource).toContain('.platform-mine__status-count{position:absolute;right:0;top:0;display:flex;box-sizing:border-box;min-width:36rpx;height:30rpx;align-items:center;justify-content:center;padding:0 6rpx;border:2rpx solid #fff')
-    expect(minePageSource).toContain('.platform-mine__feature-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4rpx')
-    expect(minePageSource).toContain('padding:12rpx 14rpx')
-    expect(minePageSource).toContain('.platform-mine__feature-title{margin-top:7rpx;overflow-wrap:break-word;font-size:22rpx;font-weight:600')
+  it('reads every number from an existing API and renames 到馆预约', () => {
+    expect(mineHostSource).toContain("title: '体验预约'")
+    expect(mineHostSource).not.toContain("title: '到馆预约'")
+    expect(mineHostSource).toContain("tradeApi.list(token, tab, 1, 1)")
+    expect(mineHostSource).toContain("enrollmentApi.loadEnrollments(token, 'UPCOMING', 1, 10)")
+    expect(mineHostSource).toContain('stageCounts.AWAITING_ACCEPTANCE')
+    expect(mineHostSource).not.toContain('立即支付')
   })
 })

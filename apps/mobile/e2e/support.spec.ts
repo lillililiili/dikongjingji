@@ -270,7 +270,9 @@ test.describe('客服会话、设置与公共页', () => {
     await page.getByTestId('mine-link-demands').click()
     await expect(page).toHaveURL(/pages\/service\/inspection\/login/)
     await page.goBack()
-    await page.getByTestId('mine-settings').click()
+    // A guest has no settings gear (board MineGuest); the order card's hint leads to the login.
+    await expect(page.getByTestId('mine-settings')).toHaveCount(0)
+    await page.getByTestId('mine-orders-login').click()
     await expect(page).toHaveURL(/pages\/service\/inspection\/login\?returnUrl=.*mine.*index/)
   })
 

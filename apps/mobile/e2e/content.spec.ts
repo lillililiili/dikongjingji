@@ -115,8 +115,10 @@ test.describe('发现页图文内容与专题', () => {
     await expect(article(page, KNOW_CHECK).getByTestId('content-sponsored')).toHaveText('广告')
     await expect(article(page, CASE_DOG).getByTestId('content-sponsored')).toHaveCount(0)
     await expect(article(page, KNOW_DRONE).getByTestId('content-sponsored')).toHaveCount(0)
-    // No licensed pictures: plain blocks with the title, no photos, no counts without a source.
-    await expect(grid.locator('image, img')).toHaveCount(0)
+    // No licensed pictures yet: preview builds show the prototype's photos (plan 06 R2), one per
+    // card with the title under it; no counts without a source.
+    await expect(grid.locator('.content-thumb__image')).toHaveCount(6)
+    await expect(grid.locator('.discover__card-title')).toHaveCount(6)
     await expect(article(page, CASE_DOG)).toContainText('一台机器狗如何完成园区夜间巡逻')
     await expect(discover(page)).not.toContainText('观看')
     await expect(page.getByTestId('discover-no-more')).toHaveText('没有更多内容了')

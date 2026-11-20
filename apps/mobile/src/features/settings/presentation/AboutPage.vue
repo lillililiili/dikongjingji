@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { AGREEMENT_DOCUMENTS, type AgreementDoc } from '../domain/agreement'
+
+import { AGREEMENT_ICONS, APP_MARK, SETTINGS_CHEVRON, SETTINGS_RULE_DOCS } from './settings-icons'
 
 // 关于 (board About, 390 wide). The app name follows the prototype (低空产业平台); the filing number
 // and the operator are not decided yet and say so.
@@ -12,26 +15,17 @@ const emit = defineEmits<{
   agreement: [doc: AgreementDoc]
 }>()
 
-const RULES: Array<{ doc: AgreementDoc; icon: string }> = [
-  { doc: 'USER_AGREEMENT', icon: 'compose' },
-  { doc: 'PRIVACY_POLICY', icon: 'locked' },
-  { doc: 'CHILD_PRIVACY_RULES', icon: 'staff' },
-]
+const RULES = SETTINGS_RULE_DOCS.map((doc) => ({ doc, d: AGREEMENT_ICONS[doc] }))
 </script>
 
 <template>
   <view class="about" data-testid="about-page">
-    <view class="about__header">
-      <button class="about__back" data-testid="about-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="22" color="#202c42" />
-      </button>
-      <text class="about__heading">关于</text>
-    </view>
+    <AppPageHeader title="关于" test-id="about" @back="emit('back')" />
 
     <view class="about__body">
       <view class="about__brand">
         <view class="about__icon" role="img" aria-label="App 图标">
-          <UniIcons type="paperplane-filled" size="40" color="#ffffff" />
+          <LineIcon :d="APP_MARK" :size="44" color="#ffffff" :stroke-width="1.7" />
         </view>
         <text class="about__name">低空产业平台</text>
         <text class="about__version" data-testid="about-version">版本 {{ version || '—' }}</text>
@@ -47,9 +41,9 @@ const RULES: Array<{ doc: AgreementDoc; icon: string }> = [
             :data-testid="`about-agreement-${rule.doc.toLowerCase()}`"
             @click="emit('agreement', rule.doc)"
           >
-            <UniIcons :type="rule.icon" size="20" color="#536178" />
+            <LineIcon :d="rule.d" :size="20" color="#536178" />
             <text class="about__row-title">{{ AGREEMENT_DOCUMENTS[rule.doc].title }}</text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon :d="SETTINGS_CHEVRON" :size="14" color="#91a0b4" :stroke-width="2" />
           </button>
         </view>
       </view>
@@ -96,28 +90,6 @@ button {
 
 button::after {
   border: 0;
-}
-
-.about__header {
-  display: flex;
-  padding: calc(var(--status-bar-height) + 8px) 8px 8px;
-  align-items: center;
-  gap: 4px;
-  /* The page head of the light theme (theme-page-head). */
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-}
-
-.about__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-}
-
-.about__heading {
-  font-size: 18px;
-  font-weight: 700;
 }
 
 .about__body {
@@ -178,6 +150,7 @@ button::after {
   flex-direction: column;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .about__row {
@@ -214,7 +187,7 @@ button::after {
 }
 
 .about__copyright {
-  margin-top: auto;
+  /* Right under the filing card, as on the board. */
   padding: 20px 16px calc(28px + env(safe-area-inset-bottom));
   color: #91a0b4;
   font-size: 12px;

@@ -2,23 +2,22 @@
 import type { ContentImage } from '../../domain/content'
 import type { Tone } from '../../application/content-view'
 
-// The picture of an article or activity: the licensed picture when there is one, otherwise a plain
-// block in the kind's tint (no stand-in photos, §27). With `title` the block carries the title, as
-// the waterfall cards and the topic's related articles do.
+// The picture of an article or activity: the server's picture, or on preview builds the board's
+// (the page passes either in). Only when there is neither is it a block in the kind's tint, with
+// the title in it when one is given. "示例" is written next to the title by the page, not here.
 defineProps<{
-  image: ContentImage | null
+  image: (ContentImage & { cutout?: boolean }) | null
   tone: Tone
   tag: string
   // The tag's own colours; by default the dark translucent tag of the board.
   tagTone?: Tone | null
   title?: string | null
-  sample?: boolean
 }>()
 </script>
 
 <template>
-  <view class="content-thumb" :style="{ background: image ? '#eef0f3' : tone.background }">
-    <image v-if="image" class="content-thumb__image" :src="image.url" mode="aspectFill" lazy-load :aria-label="image.alt" />
+  <view class="content-thumb" :style="{ background: image ? (image.cutout ? '#f0edff' : '#eef0f3') : tone.background }">
+    <image v-if="image" class="content-thumb__image" :src="image.url" :mode="image.cutout ? 'aspectFit' : 'aspectFill'" lazy-load :aria-label="image.alt" />
     <text
       v-else-if="title"
       class="content-thumb__title"
@@ -28,7 +27,6 @@ defineProps<{
       class="content-thumb__tag"
       :style="tagTone ? { background: tagTone.background, color: tagTone.color } : undefined"
     >{{ tag }}</text>
-    <text v-if="sample" class="content-thumb__sample" data-testid="content-sample">示例</text>
   </view>
 </template>
 
@@ -71,19 +69,6 @@ defineProps<{
   font-size: 11px;
   font-weight: 500;
   line-height: 18px;
-  white-space: nowrap;
-}
-
-.content-thumb__sample {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  padding: 0 5px;
-  border-radius: 6px;
-  color: #ffffff;
-  background: rgba(32, 44, 66, 0.55);
-  font-size: 11px;
-  line-height: 17px;
   white-space: nowrap;
 }
 </style>

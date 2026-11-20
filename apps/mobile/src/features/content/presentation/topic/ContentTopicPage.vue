@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   loadTopicActivities,
@@ -19,7 +20,8 @@ import {
 } from '../../application/content-view'
 import { contentApi } from '../../data/content-api-client'
 import { contentLinkedApis } from '../../data/content-linked-apis'
-import type { ContentTopic } from '../../domain/content'
+import { resolveArticlePreviewCover, resolveTopicPreviewCover } from '../../data/preview/content-preview-covers'
+import type { ContentArticleCard, ContentTopic } from '../../domain/content'
 import { buildContentTopicUrl } from '../../navigation/content-routes'
 import ContentThumb from '../shared/ContentThumb.vue'
 
@@ -51,6 +53,11 @@ const venues = ref<TopicVenueView[] | null>(null)
 let requestVersion = 0
 
 const topic = computed(() => (state.value.kind === 'ready' ? state.value.topic : null))
+// Pictures: the server's, otherwise on preview builds the board's (content-preview-covers.ts).
+const heroImage = computed(() => (topic.value ? topic.value.coverImage ?? resolveTopicPreviewCover(topic.value.topicId) : null))
+const articleImage = (article: ContentArticleCard) => article.coverImage ?? resolveArticlePreviewCover(article.articleId)
+const CHEVRON = 'M9 6l6 6-6 6'
+const INFO = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01'
 
 async function load(): Promise<void> {
   if (!props.topicId || !props.cityCode) {
@@ -97,12 +104,7 @@ void load()
 
 <template>
   <view class="topic" data-testid="content-topic" :data-state="state.kind">
-    <view class="topic__header">
-      <button class="topic__back" data-testid="content-topic-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="22" color="#202c42" />
-      </button>
-      <text class="topic__header-title" role="heading" aria-level="1">专题</text>
-    </view>
+    <AppPageHeader class="topic__header" title="专题" test-id="content-topic" @back="emit('back')" />
 
     <view v-if="state.kind === 'loading'" class="topic__body" aria-label="正在加载">
       <view class="topic__skeleton topic__skeleton--hero" />
@@ -110,7 +112,7 @@ void load()
     </view>
 
     <view v-else-if="state.kind === 'missing' || state.kind === 'error'" class="topic__state" data-testid="content-topic-unavailable">
-      <UniIcons type="info-filled" size="42" color="#b5bac1" />
+      <LineIcon :d="INFO" :size="42" color="#b5bac1" />
       <text class="topic__state-title">专题暂不可用</text>
       <text class="topic__state-copy">
         {{ state.kind === 'missing' ? '专题已下线，或不是当前城市的专题' : '专题加载失败，请检查网络后重试' }}
@@ -129,7 +131,6 @@ void load()
         <view class="topic__hero-copy">
           <view class="topic__hero-tags">
             <text class="topic__tag">专题</text>
-            <text v-if="topic.sample" class="topic__sample" data-testid="content-sample">示例</text>
           </view>
           <text class="topic__title" role="heading" aria-level="2" data-testid="content-topic-title">{{ topic.title }}</text>
           <text v-if="topic.subtitle" class="topic__subtitle">{{ topic.subtitle }}</text>
@@ -138,7 +139,7 @@ void load()
             <text data-testid="content-topic-dates">{{ topicDateRange(topic) }}</text>
           </view>
         </view>
-        <image v-if="topic.coverImage" class="topic__hero-image" :src="topic.coverImage.url" mode="aspectFill" :aria-label="topic.coverImage.alt" />
+        <image v-if="heroImage" class="topic__hero-image" :src="heroImage.url" mode="aspectFill" :aria-label="heroImage.alt" />
       </view>
 
       <view class="topic__body">
@@ -172,9 +173,9 @@ void load()
           <view v-if="venues === null" class="topic__row-loading" />
           <template v-for="venue in venues ?? []" :key="venue.venueId">
             <button class="topic__venue" :data-testid="`content-topic-venue-${venue.venueId}`" @click="emit('open', venue.url)">
-              <UniIcons type="location" size="16" color="#738096" />
+              <LineIcon name="pin" :size="16" color="#738096" />
               <text class="topic__venue-name">{{ venue.name }}{{ venue.openingNote ? ` · ${venue.openingNote}` : '' }}</text>
-              <UniIcons type="right" size="14" color="#91a0b4" />
+              <LineIcon :d="CHEVRON" :size="14" color="#91a0b4" :stroke-width="2" />
             </button>
             <button
               v-for="session in venue.sessions"
@@ -188,7 +189,7 @@ void load()
                 <text class="topic__session-when">{{ session.when }}</text>
               </view>
               <text :class="['topic__session-seats', { 'topic__session-seats--full': session.full }]">{{ session.seats }}</text>
-              <UniIcons type="right" size="14" color="#91a0b4" />
+              <LineIcon :d="CHEVRON" :size="14" color="#91a0b4" :stroke-width="2" />
             </button>
             <text v-if="!venue.sessions.length" class="topic__venue-empty" data-testid="content-topic-no-session">今天没有可约的场次，进场馆看看其他日期</text>
           </template>
@@ -204,13 +205,14 @@ void load()
             @click="emit('openArticle', article.articleId, cityCode)"
           >
             <view class="topic__article-thumb">
-              <ContentThumb :image="article.coverImage" :tone="articleCoverTone(article)" :tag="CONTENT_KIND_LABELS[article.kind]" :sample="article.sample" />
+              <ContentThumb :image="articleImage(article)" :tone="articleCoverTone(article)" :tag="CONTENT_KIND_LABELS[article.kind]" />
             </view>
             <view class="topic__article-copy">
               <text class="topic__article-title">{{ article.title }}</text>
               <view class="topic__article-meta">
                 <text>{{ article.author.name }}</text>
                 <text v-if="article.sponsored" class="topic__ad" data-testid="content-sponsored">广告</text>
+                <text v-if="article.sample" class="topic__sample" data-testid="content-sample">示例</text>
               </view>
             </view>
           </button>
@@ -219,7 +221,7 @@ void load()
 
       <view class="topic__bar">
         <button class="topic__share" data-testid="content-topic-share" aria-haspopup="dialog" @click="share">
-          <UniIcons type="redo" size="18" color="#202c42" />
+          <LineIcon name="share" :size="18" color="#202c42" />
           <text>分享专题</text>
         </button>
         <button class="topic__all" data-testid="content-topic-all-activities" @click="emit('allActivities')">查看全部活动</button>
@@ -264,25 +266,6 @@ button::after {
   position: sticky;
   z-index: 10;
   top: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: calc(var(--status-bar-height) + 8px) 8px 8px;
-  background: #ffffff;
-}
-
-.topic__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-}
-
-.topic__header-title {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 25px;
 }
 
 .topic__hero {
@@ -317,11 +300,8 @@ button::after {
 }
 
 .topic__sample {
-  padding: 1px 6px;
-  border-radius: 6px;
-  color: #536178;
-  background: #eef2f8;
-  font-size: 12px;
+  color: #91a0b4;
+  font-size: 11px;
   line-height: 17px;
   white-space: nowrap;
 }
@@ -367,6 +347,7 @@ button::after {
   padding: 14px 14px 2px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .topic__card-title {
@@ -596,6 +577,7 @@ button::after {
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .topic__share,
@@ -621,6 +603,7 @@ button::after {
 .topic__all {
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-weight: 500;
 }
 

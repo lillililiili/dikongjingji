@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
+
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import IconTile from '@/shared/ui/IconTile.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { SUPPORT_FEEDBACK_LABELS } from '../../application/chat-view'
 import { HELP_CATEGORIES, type HelpCategory } from '../../application/help-faq'
@@ -20,6 +23,16 @@ const emit = defineEmits<{
   submitFeedback: [type: SupportFeedbackType, text: string]
   contactPlatform: []
 }>()
+
+// Icons copied from the board Help; the two entry squares are its icon tiles (blue, violet).
+const ICONS = {
+  pencil: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
+  complain: 'M12 3l8 3v6c0 4.5-3.2 7.8-8 9c-4.8-1.2-8-4.5-8-9V6zM12 8v5M12 16h.01',
+  headset: 'M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2',
+  check: 'M5 12l5 5 9-10',
+  up: 'M6 15l6-6 6 6',
+  down: 'M6 9l6 6 6-6',
+}
 
 const categoryId = ref<HelpCategory['id']>(HELP_CATEGORIES[0].id)
 const openQuestion = ref<string | null>(HELP_CATEGORIES[0].questions[0].id)
@@ -67,31 +80,22 @@ defineExpose({ reset })
 
 <template>
   <view class="help" data-testid="help-page">
-    <view class="help__header">
-      <button class="help__back" data-testid="help-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="22" color="#202c42" />
-      </button>
-      <text class="help__heading">帮助与反馈</text>
-    </view>
+    <AppPageHeader title="帮助与反馈" test-id="help" @back="emit('back')" />
 
     <view class="help__body">
       <view v-if="sent" class="help__sent" role="status" data-testid="help-feedback-sent">
-        <UniIcons type="checkmarkempty" size="16" color="#159a70" />
+        <LineIcon :d="ICONS.check" :size="16" color="#159a70" :stroke-width="2.4" />
         <text>已收到你的反馈</text>
       </view>
 
       <view class="help__entries">
         <button class="help__entry" data-testid="help-feedback" aria-haspopup="dialog" @click="openSheet">
-          <view class="help__entry-icon help__entry-icon--blue">
-            <UniIcons type="compose" size="22" color="#2f80ed" />
-          </view>
+          <IconTile class="help__entry-tile" tone="blue" :d="ICONS.pencil" :size="40" :icon-size="22" />
           <text class="help__entry-title">提交反馈</text>
           <text class="help__entry-copy">功能问题、页面错误或建议</text>
         </button>
         <button class="help__entry" data-testid="help-complain" @click="emit('contactPlatform')">
-          <view class="help__entry-icon">
-            <UniIcons type="headphones" size="22" color="#ff6a00" />
-          </view>
+          <IconTile class="help__entry-tile" tone="violet" :d="ICONS.complain" :size="40" :icon-size="22" />
           <text class="help__entry-title">投诉服务或商家</text>
           <text class="help__entry-copy">平台客服受理，协助沟通</text>
         </button>
@@ -119,7 +123,7 @@ defineExpose({ reset })
         >
           <button class="help__question-head" :aria-expanded="openQuestion === question.id" @click="toggle(question.id)">
             <text :class="['help__question-text', { 'help__question-text--open': openQuestion === question.id }]">{{ question.question }}</text>
-            <UniIcons :type="openQuestion === question.id ? 'up' : 'down'" size="16" color="#91a0b4" />
+            <LineIcon :d="openQuestion === question.id ? ICONS.up : ICONS.down" :size="16" color="#91a0b4" :stroke-width="2" />
           </button>
           <text v-if="openQuestion === question.id" class="help__answer" data-testid="help-answer">{{ question.answer }}</text>
         </view>
@@ -129,7 +133,7 @@ defineExpose({ reset })
     <view class="help__footer">
       <text class="help__footer-note">没有找到答案？可以直接问平台客服</text>
       <button class="help__contact" data-testid="help-contact-platform" @click="emit('contactPlatform')">
-        <UniIcons type="headphones" size="20" color="#ffffff" />
+        <LineIcon :d="ICONS.headset" :size="20" color="#ffffff" :stroke-width="2" />
         <text>联系平台客服</text>
       </button>
     </view>
@@ -209,28 +213,6 @@ button::after {
   border: 0;
 }
 
-.help__header {
-  display: flex;
-  padding: calc(var(--status-bar-height) + 8px) 8px 8px;
-  align-items: center;
-  gap: 4px;
-  /* The page head of the light theme (theme-page-head). */
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-}
-
-.help__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-}
-
-.help__heading {
-  font-size: 18px;
-  font-weight: 700;
-}
-
 .help__body {
   display: flex;
   flex: 1;
@@ -267,6 +249,11 @@ button::after {
   border-radius: 14px;
   color: #202c42;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
+}
+
+.help__entry-tile {
+  margin-bottom: 6px;
 }
 
 .help__entry-icon {
@@ -302,6 +289,7 @@ button::after {
   flex-direction: column;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .help__faq-title {
@@ -393,6 +381,7 @@ button::after {
   gap: 8px;
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .help__footer-note {
@@ -411,6 +400,7 @@ button::after {
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
   white-space: nowrap;

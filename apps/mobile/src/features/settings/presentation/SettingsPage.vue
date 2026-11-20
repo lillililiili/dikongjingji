@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import type { AgreementDoc } from '../domain/agreement'
 import { AGREEMENT_DOCUMENTS } from '../domain/agreement'
+
+import { AGREEMENT_ICONS, SETTINGS_RULE_DOCS } from './settings-icons'
 
 // 设置 (board Settings, 390 wide) with only what plan §26.2 lists: no phone number, devices,
 // notification switches, privacy export or account deletion yet.
@@ -21,33 +24,35 @@ const emit = defineEmits<{
   logout: []
 }>()
 
-const RULES: Array<{ doc: AgreementDoc; icon: string }> = [
-  { doc: 'USER_AGREEMENT', icon: 'compose' },
-  { doc: 'PRIVACY_POLICY', icon: 'locked' },
-  { doc: 'CHILD_PRIVACY_RULES', icon: 'staff' },
-]
+// Row icons copied from the board Settings (显示名 and 所属组织 take the board Mine's person and
+// organization icons; the board shows the phone number there, which accounts do not have yet).
+const ICONS = {
+  person: 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6',
+  organization: 'M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2',
+  address: 'M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z',
+  help: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8M12 16.5h.01',
+  about: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01',
+  chevron: 'M9 5l7 7-7 7',
+}
+
+const RULES = SETTINGS_RULE_DOCS.map((doc) => ({ doc, d: AGREEMENT_ICONS[doc] }))
 </script>
 
 <template>
   <view class="settings" data-testid="settings-page">
-    <view class="settings__header">
-      <button class="settings__back" data-testid="settings-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="22" color="#202c42" />
-      </button>
-      <text class="settings__title">设置</text>
-    </view>
+    <AppPageHeader title="设置" test-id="settings" @back="emit('back')" />
 
     <view class="settings__body">
       <view class="settings__group">
-        <text class="settings__group-title">账号</text>
+        <text class="settings__group-title">账号与安全</text>
         <view class="settings__card">
           <view class="settings__row settings__row--static">
-            <UniIcons type="person" size="20" color="#536178" />
+            <LineIcon :d="ICONS.person" :size="20" color="#536178" />
             <text class="settings__row-title">显示名</text>
             <text class="settings__row-value" data-testid="settings-display-name">{{ account?.displayName || '—' }}</text>
           </view>
           <view class="settings__row settings__row--static">
-            <UniIcons type="staff" size="20" color="#536178" />
+            <LineIcon :d="ICONS.organization" :size="20" color="#536178" />
             <text class="settings__row-title">所属组织</text>
             <text class="settings__row-value" data-testid="settings-organization">
               {{ account ? account.organizationName || '个人账号' : '—' }}
@@ -57,10 +62,10 @@ const RULES: Array<{ doc: AgreementDoc; icon: string }> = [
       </view>
 
       <button class="settings__card settings__row" data-testid="settings-addresses" @click="emit('addresses')">
-        <UniIcons type="location" size="20" color="#536178" />
+        <LineIcon :d="ICONS.address" :size="20" color="#536178" />
         <text class="settings__row-title">地址管理</text>
         <text v-if="addressCount !== null" class="settings__row-value">{{ addressCount }} 个</text>
-        <UniIcons type="right" size="14" color="#91a0b4" />
+        <LineIcon :d="ICONS.chevron" :size="14" color="#91a0b4" :stroke-width="2" />
       </button>
 
       <view class="settings__group">
@@ -73,23 +78,23 @@ const RULES: Array<{ doc: AgreementDoc; icon: string }> = [
             :data-testid="`settings-agreement-${rule.doc.toLowerCase()}`"
             @click="emit('agreement', rule.doc)"
           >
-            <UniIcons :type="rule.icon" size="20" color="#536178" />
+            <LineIcon :d="rule.d" :size="20" color="#536178" />
             <text class="settings__row-title">{{ AGREEMENT_DOCUMENTS[rule.doc].title }}</text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon :d="ICONS.chevron" :size="14" color="#91a0b4" :stroke-width="2" />
           </button>
         </view>
       </view>
 
       <view class="settings__card">
         <button class="settings__row" data-testid="settings-help" @click="emit('help')">
-          <UniIcons type="help" size="20" color="#536178" />
+          <LineIcon :d="ICONS.help" :size="20" color="#536178" />
           <text class="settings__row-title">帮助与反馈</text>
-          <UniIcons type="right" size="14" color="#91a0b4" />
+          <LineIcon :d="ICONS.chevron" :size="14" color="#91a0b4" :stroke-width="2" />
         </button>
         <button class="settings__row" data-testid="settings-about" @click="emit('about')">
-          <UniIcons type="info" size="20" color="#536178" />
+          <LineIcon :d="ICONS.about" :size="20" color="#536178" />
           <text class="settings__row-title">关于</text>
-          <UniIcons type="right" size="14" color="#91a0b4" />
+          <LineIcon :d="ICONS.chevron" :size="14" color="#91a0b4" :stroke-width="2" />
         </button>
       </view>
     </view>
@@ -125,28 +130,6 @@ button::after {
   border: 0;
 }
 
-.settings__header {
-  display: flex;
-  padding: calc(var(--status-bar-height) + 8px) 8px 8px;
-  align-items: center;
-  gap: 4px;
-  /* The page head of the light theme (theme-page-head). */
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-}
-
-.settings__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-}
-
-.settings__title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
 .settings__body {
   display: flex;
   padding: 12px 16px;
@@ -173,6 +156,7 @@ button::after {
   flex-direction: column;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .settings__row {
@@ -225,6 +209,7 @@ button.settings__card.settings__row {
 }
 
 .settings__logout {
+  box-shadow: var(--app-card-shadow);
   width: 100%;
   height: 50px;
   border-radius: 14px;
