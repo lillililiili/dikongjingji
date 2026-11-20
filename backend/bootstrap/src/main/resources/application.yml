@@ -80,3 +80,11 @@ trade:
     signature-tolerance: ${TRADE_WECHAT_SIGNATURE_TOLERANCE:5m}
     connect-timeout: ${TRADE_WECHAT_CONNECT_TIMEOUT:3s}
     read-timeout: ${TRADE_WECHAT_READ_TIMEOUT:10s}
+
+# 直播（M20）。直播服务商未定：provider 只有 dev profile 下的 fake（本机模拟）可用，其他值一律“不可用”
+# （建不了直播间、回调全部拒绝）。弹幕词表是开发用的小词表，逗号分隔；生产换内容审核服务。
+live:
+  stream:
+    provider: ${LIVE_STREAM_PROVIDER:none}
+  comments:
+    blocked-words: ${LIVE_COMMENT_BLOCKED_WORDS:加微信,加vx,加v信,私下交易,私下转账,代开发票,刷单,赌博,博彩}

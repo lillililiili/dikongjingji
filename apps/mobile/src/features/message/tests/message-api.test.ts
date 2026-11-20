@@ -71,6 +71,9 @@ describe('message api', () => {
     for (const type of ['ACTIVITY_ENROLLMENT', 'ACTIVITY_ORDER', 'VENUE_BOOKING']) {
       expect(toMessageItem(dto('ACTIVITY_REMINDER', type))).toMatchObject({ category: 'ACTIVITY_REMINDER', target: { type } })
     }
+    // 1.4.0 (M20): 直播提醒 opens the live room.
+    expect(toMessageItem(dto('LIVE_REMINDER', 'LIVE_ROOM')))
+      .toMatchObject({ category: 'LIVE_REMINDER', target: { type: 'LIVE_ROOM' } })
     expect(toMessageItem(dto('SYSTEM_NOTICE', 'NOTICE'))).toMatchObject({ category: 'OTHER', target: null })
     // A known category pointing at a page this version does not know still shows, but opens nothing.
     expect(toMessageItem(dto('TRADE_LOGISTICS', 'AFTER_SALES'))).toMatchObject({ category: 'TRADE_LOGISTICS', target: null })

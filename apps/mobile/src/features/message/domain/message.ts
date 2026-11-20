@@ -7,12 +7,15 @@
 // 1.3.0 (R6-5) adds TRADE_LOGISTICS (交易物流) with the target TRADE_ORDER, and ACTIVITY_REMINDER
 // (活动提醒) with ACTIVITY_ENROLLMENT (the sign-up's tickets), ACTIVITY_ORDER (a paid sign-up's
 // order) and VENUE_BOOKING; all four ids are the business object, subId is null.
+// 1.4.0 (M20) adds LIVE_REMINDER (直播提醒: a live room the account set a reminder on has started)
+// with the target LIVE_ROOM: id is the live room, subId is null.
 export type KnownMessageCategory =
   | 'SERVICE_PROGRESS'
   | 'DEMAND_QUOTE'
   | 'CUSTOMER_SERVICE'
   | 'TRADE_LOGISTICS'
   | 'ACTIVITY_REMINDER'
+  | 'LIVE_REMINDER'
 
 // A category a later contract adds is read as OTHER: shown as a plain 通知 row that opens nothing.
 export type MessageCategory = KnownMessageCategory | 'OTHER'
@@ -27,6 +30,7 @@ export type MessageTargetType =
   | 'ACTIVITY_ENROLLMENT'
   | 'ACTIVITY_ORDER'
   | 'VENUE_BOOKING'
+  | 'LIVE_ROOM'
 
 export interface MessageTarget {
   type: MessageTargetType
@@ -59,6 +63,7 @@ const KNOWN_CATEGORIES: readonly KnownMessageCategory[] = [
   'CUSTOMER_SERVICE',
   'TRADE_LOGISTICS',
   'ACTIVITY_REMINDER',
+  'LIVE_REMINDER',
 ]
 
 const KNOWN_TARGET_TYPES: readonly MessageTargetType[] = [
@@ -71,6 +76,7 @@ const KNOWN_TARGET_TYPES: readonly MessageTargetType[] = [
   'ACTIVITY_ENROLLMENT',
   'ACTIVITY_ORDER',
   'VENUE_BOOKING',
+  'LIVE_ROOM',
 ]
 
 export function toMessageCategory(value: string): MessageCategory {

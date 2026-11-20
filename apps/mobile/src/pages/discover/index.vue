@@ -10,6 +10,7 @@ import {
   buildContentTopicUrl,
   buildContentVideoFeedUrl,
 } from '@/features/content/navigation/content-routes'
+import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import ContentDiscoverPage from '@/features/content/presentation/discover/ContentDiscoverPage.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
@@ -47,6 +48,16 @@ function openActivity(activityId: string, cityCode: string): void {
   uni.navigateTo({ url: buildActivityDetailUrl(activityId, cityCode) })
 }
 
+// 直播 (M20): a live room, a preview page or a replay, by the route the live feature built.
+function openUrl(url: string): void {
+  uni.navigateTo({ url })
+}
+
+// 提醒我 without a login: sign in, then land on that room's preview page.
+function openLogin(returnUrl: string): void {
+  uni.navigateTo({ url: buildInspectionLoginUrl(returnUrl) })
+}
+
 onShow(() => {
   if (!CONTENT_PREVIEW_ENABLED) return
   restoreDefaultCity()
@@ -67,6 +78,8 @@ onReachBottom(() => {
       @open-video="openVideo"
       @open-topic="openTopic"
       @open-activity="openActivity"
+      @open-url="openUrl"
+      @login="openLogin"
     />
     <view v-else class="platform-page-unavailable">
       <text>发现频道尚未开通</text>

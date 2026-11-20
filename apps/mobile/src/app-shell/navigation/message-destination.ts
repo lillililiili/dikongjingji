@@ -6,6 +6,7 @@ import {
   buildInspectionFulfillmentUrl,
   buildInspectionPlanConfirmationUrl,
 } from '../../features/inspection/navigation/inspection-routes'
+import { buildLiveRoomUrl } from '../../features/live/navigation/live-routes'
 import type { MessageTarget } from '../../features/message/domain/message'
 import { buildSupportChatUrl } from '../../features/support/navigation/support-routes'
 import { buildGoodsOrderUrl } from '../../features/trade/navigation/trade-routes'
@@ -30,5 +31,7 @@ export function messageTargetUrl(target: MessageTarget | null): string | null {
     case 'ACTIVITY_ENROLLMENT': return buildActivityTicketUrl(id)
     case 'ACTIVITY_ORDER': return buildActivityOrderUrl(id)
     case 'VENUE_BOOKING': return buildVenueBookingUrl(id)
+    // M20 直播提醒: the room went live; the room reads it in the App's current city.
+    case 'LIVE_ROOM': return buildLiveRoomUrl(id)
   }
 }

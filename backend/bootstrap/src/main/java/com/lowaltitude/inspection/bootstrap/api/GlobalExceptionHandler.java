@@ -20,6 +20,7 @@ import com.lowaltitude.inspection.content.application.ContentException;
 import com.lowaltitude.inspection.content.application.ContentNotFoundException;
 import com.lowaltitude.inspection.rental.application.RentalException;
 import com.lowaltitude.inspection.support.application.SupportException;
+import com.lowaltitude.inspection.live.application.LiveException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
 import com.lowaltitude.inspection.application.reservation.FileTypeUnsupportedException;
@@ -705,6 +706,67 @@ public class GlobalExceptionHandler {
                 message = "评论太频繁，请稍后再试";
             }
             default -> throw new IllegalStateException("unmapped content error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
+    @ExceptionHandler(LiveException.class)
+    public ResponseEntity<ApiError> handleLive(LiveException exception, HttpServletRequest request) {
+        HttpStatus status;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "LIVE_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case NOT_SCHEDULED -> {
+                status = HttpStatus.CONFLICT;
+                code = "LIVE_ROOM_NOT_SCHEDULED";
+                message = "直播已经开始或结束";
+            }
+            case NOT_LIVE -> {
+                status = HttpStatus.CONFLICT;
+                code = "LIVE_ROOM_NOT_LIVE";
+                message = "直播不在进行中";
+            }
+            case ENDED -> {
+                status = HttpStatus.CONFLICT;
+                code = "LIVE_ROOM_ENDED";
+                message = "直播已结束";
+            }
+            case COMMENT_BLOCKED -> {
+                status = HttpStatus.CONFLICT;
+                code = "LIVE_COMMENT_BLOCKED";
+                message = "弹幕含有不允许发送的内容";
+            }
+            case COMMENT_TOO_FAST -> {
+                status = HttpStatus.TOO_MANY_REQUESTS;
+                code = "LIVE_COMMENT_TOO_FAST";
+                message = "发得太快了，稍后再发";
+            }
+            case STREAM_UNAVAILABLE -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                code = "LIVE_STREAM_UNAVAILABLE";
+                message = "直播服务暂不可用";
+            }
+            case CALLBACK_REJECTED -> {
+                status = HttpStatus.UNAUTHORIZED;
+                code = "LIVE_CALLBACK_REJECTED";
+                message = "回调未通过校验";
+            }
+            default -> throw new IllegalStateException("unmapped live error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
     }

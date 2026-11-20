@@ -124,6 +124,16 @@ public class SecurityConfiguration {
                                 "/api/v1/content/videos",
                                 "/api/v1/content/videos/*",
                                 "/api/v1/content/videos/*/comments").permitAll()
+                        // 直播（M20）：列表、详情、弹幕增量公开只读；进直播间记一次观看不登录也记（按设备去重）。
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/live/rooms",
+                                "/api/v1/live/rooms/*",
+                                "/api/v1/live/rooms/*/comments").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/live/rooms/*/views").permitAll()
+                        // 直播服务商回调：不登录，靠签名（LiveStreamProvider.verifyCallback）。
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/live/stream-callbacks").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
                         // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。

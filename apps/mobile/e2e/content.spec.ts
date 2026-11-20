@@ -95,8 +95,8 @@ test.describe('发现页图文内容与专题', () => {
     await expect(page).toHaveURL(/#\/pages\/discover\/index/)
     await expect(page.getByTestId('root-tab-discover')).toHaveClass(/root-tab-bar__item--active/)
     await expect(page.getByTestId('discover-city')).toContainText('东营')
-    // 视频（1.2.0）排在推荐后面；直播另做，这一版不显示。
-    await expect(page.getByRole('tab')).toHaveText(['推荐', '视频', '赛事', '研学', '案例', '知识'])
+    // 视频（1.2.0）排在推荐后面，直播（M20）在视频后面；live.spec.ts、content-video.spec.ts 各自覆盖。
+    await expect(page.getByRole('tab')).toHaveText(['推荐', '视频', '直播', '赛事', '研学', '案例', '知识'])
     await expect(page.getByTestId('discover-channel-recommend')).toHaveAttribute('aria-selected', 'true')
 
     const topic = page.getByTestId(`discover-topic-${TOPIC}`)
@@ -121,7 +121,8 @@ test.describe('发现页图文内容与专题', () => {
     await expect(grid.locator('.content-thumb__image')).toHaveCount(6)
     await expect(grid.locator('.discover__card-title')).toHaveCount(6)
     await expect(article(page, CASE_DOG)).toContainText('一台机器狗如何完成园区夜间巡逻')
-    await expect(discover(page)).not.toContainText('观看')
+    // The live bar above the grid counts its viewers (live.spec.ts); the cards carry no counts.
+    await expect(grid).not.toContainText('观看')
     // 推荐里混着视频（content-video.spec.ts），第一页 10 条：滑到底读完第二页才说没有更多。
     await page.mouse.move(195, 400)
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))

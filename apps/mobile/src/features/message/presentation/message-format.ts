@@ -15,6 +15,7 @@ export const MESSAGE_CATEGORY_LABELS: Record<MessageCategory, string> = {
   CUSTOMER_SERVICE: '客服消息',
   TRADE_LOGISTICS: '交易物流',
   ACTIVITY_REMINDER: '活动提醒',
+  LIVE_REMINDER: '直播提醒',
   OTHER: '通知',
 }
 
@@ -29,6 +30,9 @@ export const MESSAGE_ICONS = {
   demand: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
   check: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12l3 3 5-6',
   chat: 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01',
+  // 直播提醒 (M20) has no row on the board Messages: a screen with a play mark, in the violet of the
+  // board Discover's 预告 tag.
+  live: 'M3 6h18v12H3zM10 9.5v5l4.5-2.5z',
 } as const
 
 export interface MessageLook {
@@ -55,6 +59,7 @@ export function messageLook(message: Pick<MessageItem, 'category' | 'target'>): 
         : { label: '活动提醒', d: MESSAGE_ICONS.flag, tone: 'green' }
     case 'DEMAND_QUOTE': return { label: '需求与报价', d: MESSAGE_ICONS.demand, tone: 'violet' }
     case 'CUSTOMER_SERVICE': return { label: '客服消息', d: MESSAGE_ICONS.service, tone: 'orange' }
+    case 'LIVE_REMINDER': return { label: '直播提醒', d: MESSAGE_ICONS.live, tone: 'violet' }
     default: return { label: '通知', d: MESSAGE_ICONS.bell, tone: 'blue', bg: '#eef2f8', ink: '#536178' }
   }
 }

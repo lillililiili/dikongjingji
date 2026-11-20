@@ -163,6 +163,10 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // commenting ask for a login and come back to the same video. content-routes.test.ts checks them.
   '/pages/content/video': { required: 'videoId', allowed: ['videoId', 'cityCode'] },
   '/pages/content/video-feed': { required: 'cityCode', allowed: ['cityCode', 'videoId', 'feed'] },
+  // Live pages (features/live/navigation/live-routes.ts, M20), repeated for the same reason;
+  // live-routes.test.ts checks them.
+  '/pages/live/notice': { required: 'roomId', allowed: ['roomId', 'cityCode'] },
+  '/pages/live/room': { required: 'roomId', allowed: ['roomId', 'cityCode'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.

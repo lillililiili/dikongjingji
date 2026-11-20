@@ -35,8 +35,15 @@ describe('message categories', () => {
       CUSTOMER_SERVICE: '客服消息',
       TRADE_LOGISTICS: '交易物流',
       ACTIVITY_REMINDER: '活动提醒',
+      LIVE_REMINDER: '直播提醒',
       OTHER: '通知',
     })
+  })
+
+  // 1.4.0 (M20): 直播提醒 has no row on the board Messages; it reads 直播提醒 in violet with a screen.
+  it('gives 直播提醒 its own label, tone and icon', () => {
+    expect(messageLook({ category: 'LIVE_REMINDER', target: { type: 'LIVE_ROOM', id: 'r', subId: null } }))
+      .toEqual({ label: '直播提醒', d: 'M3 6h18v12H3zM10 9.5v5l4.5-2.5z', tone: 'violet' })
   })
 
   // Board Messages: 交易物流 orange truck, 服务进度 blue, 活动提醒 green flag, 体验预约 (a venue

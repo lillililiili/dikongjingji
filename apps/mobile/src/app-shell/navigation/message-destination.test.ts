@@ -32,13 +32,19 @@ describe('where a notification opens', () => {
     expect(pathOf(messageTargetUrl({ type: 'CONVERSATION', id: 'c', subId: null }))).toBe('/pages/support/chat')
   })
 
+  // M20 直播提醒: the live room by its id; the room page reads it in the App's current city.
+  it('opens the live room of a live reminder', () => {
+    expect(messageTargetUrl({ type: 'LIVE_ROOM', id: 'f4000000-0000-4000-8000-000000000003', subId: null }))
+      .toBe('/pages/live/room?roomId=f4000000-0000-4000-8000-000000000003')
+  })
+
   it('opens nothing for a target this version does not know', () => {
     expect(messageTargetUrl(null)).toBeNull()
   })
 
   it('only leads to registered pages', () => {
     for (const type of ['TRADE_ORDER', 'ACTIVITY_ENROLLMENT', 'ACTIVITY_ORDER', 'VENUE_BOOKING', 'INSPECTION_PLAN',
-      'INSPECTION_FULFILLMENT', 'DEMAND', 'CONVERSATION'] as const) {
+      'INSPECTION_FULFILLMENT', 'DEMAND', 'CONVERSATION', 'LIVE_ROOM'] as const) {
       expect(routes.has(pathOf(messageTargetUrl({ type, id: 'x', subId: null })))).toBe(true)
     }
   })

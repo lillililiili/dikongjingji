@@ -383,6 +383,23 @@
       }
     },
     {
+      "path": "pages/live/notice",
+      "style": {
+        "navigationBarTitleText": "直播预告",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/live/room",
+      "style": {
+        "navigationBarTitleText": "直播间",
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#000000",
+        "disableScroll": true
+      }
+    },
+    {
       "path": "pages/mine/settings",
       "style": {
         "navigationBarTitleText": "设置",

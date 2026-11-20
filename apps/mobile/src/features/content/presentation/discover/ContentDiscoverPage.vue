@@ -12,6 +12,13 @@ import {
   isPerPersonPrice,
 } from '@/features/activity/presentation/shared/activity-format'
 import { platformCityApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
+import { LIVE_PREVIEW_ENABLED } from '@/features/live/application/live-preview'
+import { LIVE_CHANNEL_NOTE, LIVE_TAB, LIVE_TAB_LABEL, withLiveTab } from '@/features/live/application/live-view'
+import { liveApi } from '@/features/live/data/live-api-client'
+import type { LiveRoomCard } from '@/features/live/domain/live'
+import { buildLiveRoomUrl } from '@/features/live/navigation/live-routes'
+import LiveDiscoverBar from '@/features/live/presentation/discover/LiveDiscoverBar.vue'
+import LiveDiscoverChannel from '@/features/live/presentation/discover/LiveDiscoverChannel.vue'
 import CitySelectionSheet from '@/shared/city/presentation/CitySelectionSheet.vue'
 import { useCitySheet } from '@/shared/city/presentation/use-city-sheet'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
@@ -51,20 +58,29 @@ import {
 import ContentThumb from '../shared/ContentThumb.vue'
 import DiscoverVideoCard from './DiscoverVideoCard.vue'
 
-// 发现 (board Discover): 推荐 / 视频 / 赛事 / 研学 / 案例 / 知识. 推荐 is a two-column waterfall of
-// articles and videos under the city's current topics; 视频 the same waterfall of videos only;
-// 案例 and 知识 are rows of articles; 赛事 and 研学 are rows of real activities. 直播 keeps its place
-// between 视频 and 赛事 for the live module and is hidden until that module turns it on.
+// 发现 (board Discover): 推荐 / 视频 / 直播 / 赛事 / 研学 / 案例 / 知识. 推荐 is a two-column waterfall of
+// articles and videos under the city's current topics, with the live bar on top; 视频 the same
+// waterfall of videos only; 直播 (M20, preview builds) is the live feature's own channel, added by
+// withLiveTab(); 案例 and 知识 are rows of articles; 赛事 and 研学 are rows of real activities.
 const emit = defineEmits<{
   openArticle: [articleId: string, cityCode: string]
   // A video opens the vertical stream at that video.
   openVideo: [videoId: string, cityCode: string]
   openTopic: [topicId: string, cityCode: string]
   openActivity: [activityId: string, cityCode: string]
+  openUrl: [url: string]
+  login: [returnUrl: string]
 }>()
 
+type DiscoverTab = DiscoverChannel | typeof LIVE_TAB
+
 const currentCityStore = useCurrentCityStore()
-const channel = ref<DiscoverChannel>('RECOMMEND')
+const channel = ref<DiscoverTab>('RECOMMEND')
+const tabs = computed<DiscoverTab[]>(() => (LIVE_PREVIEW_ENABLED ? withLiveTab(DISCOVER_CHANNELS) : [...DISCOVER_CHANNELS]))
+// The first room live in the city: the 推荐 live bar and the red dot on 直播.
+const liveNow = ref<LiveRoomCard | null>(null)
+const liveChannel = ref<{ refresh(): void } | null>(null)
+let liveRevision = 0
 const feed = ref<DiscoverFeedState>(emptyDiscoverFeed('RECOMMEND', ''))
 
 const loader = createDiscoverFeedLoader({
@@ -105,22 +121,47 @@ const sectionTitle = computed(() => {
 
 function reload(): void {
   if (!cityCode.value) return
+  loadLiveNow()
+  if (channel.value === LIVE_TAB) {
+    liveChannel.value?.refresh()
+    return
+  }
   void loader.reload(channel.value, cityCode.value)
 }
+
+function loadLiveNow(): void {
+  if (!LIVE_PREVIEW_ENABLED || !cityCode.value) return
+  const requested = ++liveRevision
+  liveApi.loadRooms(cityCode.value, 'LIVE', 1, 1)
+    .then((page) => { if (requested === liveRevision) liveNow.value = page.items[0] ?? null })
+    .catch(() => { if (requested === liveRevision) liveNow.value = null })
+}
+
+function tabLabel(code: DiscoverTab): string {
+  return code === LIVE_TAB ? LIVE_TAB_LABEL : DISCOVER_CHANNEL_LABELS[code]
+}
+
+const channelNote = computed(() => (channel.value === LIVE_TAB ? LIVE_CHANNEL_NOTE : DISCOVER_CHANNEL_NOTES[channel.value]))
 
 /** On show: reads again when the App's city changed elsewhere, or the first time. */
 function refresh(): void {
   if (!cityCode.value) return
+  if (channel.value === LIVE_TAB) {
+    reload()
+    return
+  }
+  loadLiveNow()
   if (feed.value.status === 'idle' || feed.value.cityCode !== cityCode.value || feed.value.channel !== channel.value) {
     reload()
   }
 }
 
 function loadMore(): void {
+  if (channel.value === LIVE_TAB) return
   void loader.loadMore()
 }
 
-function selectChannel(next: DiscoverChannel): void {
+function selectChannel(next: DiscoverTab): void {
   if (next === channel.value) return
   channel.value = next
   uni.pageScrollTo({ scrollTop: 0, duration: 0 })
@@ -184,7 +225,7 @@ defineExpose({ loadMore, refresh })
       </view>
       <view class="discover__tabs" role="tablist" aria-label="内容频道">
         <button
-          v-for="code in DISCOVER_CHANNELS"
+          v-for="code in tabs"
           :key="code"
           :class="['discover__tab', { 'discover__tab--on': code === channel }]"
           role="tab"
@@ -192,7 +233,8 @@ defineExpose({ loadMore, refresh })
           :data-testid="`discover-channel-${code.toLowerCase()}`"
           @click="selectChannel(code)"
         >
-          <text>{{ DISCOVER_CHANNEL_LABELS[code] }}</text>
+          <text>{{ tabLabel(code) }}</text>
+          <view v-if="code === LIVE_TAB && liveNow && code !== channel" class="discover__tab-live" data-testid="discover-live-dot" />
           <view v-if="code === channel" class="discover__tab-bar" />
         </button>
       </view>
@@ -201,7 +243,7 @@ defineExpose({ loadMore, refresh })
     <view class="discover__body">
       <view class="discover__note" data-testid="discover-note">
         <LineIcon class="discover__note-icon" :d="ICONS.info" :size="14" color="#738096" />
-        <text>{{ DISCOVER_CHANNEL_NOTES[channel] }}</text>
+        <text>{{ channelNote }}</text>
       </view>
 
       <view v-if="view === 'no-city'" class="discover__state" data-testid="discover-no-city">
@@ -209,6 +251,14 @@ defineExpose({ loadMore, refresh })
         <text class="discover__state-title">先选择城市</text>
         <button class="discover__state-action" @click="citySheet.open">选择城市</button>
       </view>
+
+      <LiveDiscoverChannel
+        v-else-if="channel === LIVE_TAB"
+        ref="liveChannel"
+        :city-code="cityCode"
+        @open="(url: string) => emit('openUrl', url)"
+        @login="(url: string) => emit('login', url)"
+      />
 
       <template v-else-if="view === 'loading'">
         <view v-for="index in 3" :key="index" class="discover__skeleton" data-testid="discover-loading" />
@@ -248,6 +298,12 @@ defineExpose({ loadMore, refresh })
           </view>
           <image v-if="topicImage(topic)" class="discover__topic-image" :src="topicImage(topic)?.url" mode="aspectFill" :aria-label="topicImage(topic)?.alt" />
         </button>
+
+        <LiveDiscoverBar
+          v-if="isGrid && liveNow"
+          :card="liveNow"
+          @open="emit('openUrl', buildLiveRoomUrl(liveNow.roomId, feed.cityCode))"
+        />
 
         <view v-if="isGrid" class="discover__grid" data-testid="discover-grid">
           <view v-for="(column, columnIndex) in columns" :key="columnIndex" class="discover__column">
@@ -462,6 +518,16 @@ button::after {
   color: #ff6a00;
   font-size: 18px;
   font-weight: 700;
+}
+
+.discover__tab-live {
+  position: absolute;
+  top: 9px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d64f67;
 }
 
 .discover__tab-bar {
