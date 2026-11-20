@@ -2,6 +2,9 @@
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
+import { DEMAND_PREVIEW_ENABLED } from '@/features/demand/application/demand-preview'
+import { buildDemandPublishUrl } from '@/features/demand/navigation/demand-routes'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import {
   createPagedListLoader,
   emptyPagedList,
@@ -50,7 +53,35 @@ const props = defineProps<{
 const emit = defineEmits<{
   // The channel ended or changed the search itself, so the home search box must follow.
   keywordChange: [keyword: string]
+  // The home search box's words for the category tab now showing (boards MallHome, MallDrone, …).
+  searchPlaceholderChange: [placeholder: string]
 }>()
+
+// Search words per category tab, copied from the boards.
+const SEARCH_PLACEHOLDERS: Record<MallCategory | 'ALL', string> = {
+  ALL: '搜索设备、配件或课程',
+  DRONE: '搜索无人机型号或品牌',
+  ROBOT: '搜索机器人型号或品牌',
+  PARTS: '搜索配件名称或适配机型',
+  RENTAL: '搜索可租设备',
+  COURSE: '搜索课程或主题',
+}
+
+// The boards' building icon on the procurement strip.
+const PROCUREMENT_ICON = 'M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2'
+
+// "企业采购 · 发布需求" leads to the demand form (M15). The rental tab's "设备租赁" strip would
+// need a rental inquiry without a product, and the course tab's "企业团培" a training demand;
+// neither exists yet, so those tabs show no strip.
+const procurementStripVisible = computed(() =>
+  DEMAND_PREVIEW_ENABLED
+    && selectedCategory.value !== 'RENTAL'
+    && selectedCategory.value !== 'COURSE',
+)
+
+function openDemandPublish(): void {
+  uni.navigateTo({ url: buildDemandPublishUrl() })
+}
 
 const CATEGORY_TABS: readonly { code: MallCategory | null; label: string }[] = [
   { code: null, label: '全部' },
@@ -178,6 +209,10 @@ watch(() => props.requestedKeyword, (requested) => {
   if (props.active) reload()
 })
 
+watch(selectedCategory, (category) => {
+  emit('searchPlaceholderChange', SEARCH_PLACEHOLDERS[category ?? 'ALL'])
+}, { immediate: true })
+
 // The home page owns the scroll and forwards its reach-bottom event (see ActivityChannel).
 defineExpose({
   loadMore: (): Promise<void> => loader.loadMore(),
@@ -228,7 +263,7 @@ defineExpose({
         :aria-label="filterCount > 0 ? `筛选，已选 ${filterCount} 项` : '筛选'"
         @click="filterSheetOpen = true"
       >
-        <UniIcons type="settings" size="16" :color="filterCount > 0 ? '#ba470b' : '#536178'" />
+        <LineIcon name="sort" :size="16" :stroke-width="2" color="#ba470b" />
         <text>筛选{{ filterCount > 0 ? ` ${filterCount}` : '' }}</text>
       </button>
     </view>
@@ -254,6 +289,20 @@ defineExpose({
         </button>
       </view>
     </scroll-view>
+
+    <view v-if="procurementStripVisible" class="mall-channel__procurement" data-testid="mall-procurement">
+      <LineIcon :d="PROCUREMENT_ICON" :size="18" color="#ba470b" />
+      <text class="mall-channel__procurement-copy">
+        <text class="mall-channel__procurement-title">企业采购</text> · 多家报价、合同与验收留档
+      </text>
+      <button
+        class="mall-channel__procurement-action"
+        data-testid="mall-procurement-publish"
+        @click="openDemandPublish"
+      >
+        <text class="mall-channel__procurement-pill">发布需求</text>
+      </button>
+    </view>
 
     <view
       v-if="list.status === 'loading' || list.status === 'idle'"
@@ -478,14 +527,63 @@ button::after {
   margin-left: auto;
   align-items: center;
   gap: 4px;
-  color: #536178;
+  color: #ba470b;
   font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
-.mall-channel__filter--active {
-  color: #ba470b;
+/* MallHome board: a 44 high strip with an orange wash and a "发布需求" pill. */
+.mall-channel__procurement {
+  display: flex;
+  height: 44px;
+  margin-bottom: 8px;
+  padding: 0 4px 0 12px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #fff0e3 0%, #fffaf5 100%);
+  box-sizing: border-box;
+}
+
+.mall-channel__procurement-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: #627187;
+  font-size: 12px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mall-channel__procurement-title {
+  color: #202c42;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mall-channel__procurement-action {
+  display: flex;
+  height: 44px;
+  padding: 0 4px;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.mall-channel__procurement-pill {
+  display: flex;
+  height: 30px;
+  padding: 0 12px;
+  align-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #ff6a00;
+  box-shadow: 0 4px 10px rgba(243, 108, 23, 0.16);
+  font-size: 13px;
   font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 .mall-channel__chips {

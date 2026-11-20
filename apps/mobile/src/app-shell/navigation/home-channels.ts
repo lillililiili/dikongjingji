@@ -1,3 +1,5 @@
+import type { LineIconName } from '@/shared/ui/line-icons'
+
 export type HomeChannelCode =
   | 'RECOMMEND'
   | 'SERVICE'
@@ -26,16 +28,16 @@ export interface HomeChannelCard {
   channel: HomeChannelCode
   title: string
   subtitle: string
+  /** The board's line icon in the card's corner (HomeFull.html). */
+  icon: LineIconName
 }
-
-export type HomeKingEntryTone = 'ORANGE' | 'BLUE' | 'GREEN' | 'VIOLET' | 'YELLOW'
 
 export interface HomeKingEntry {
   code: string
   label: string
   target: HomeEntryTarget
-  icon: string
-  tone: HomeKingEntryTone
+  /** The board's line icon (HomeFull.html `renderVals`); the tile colour follows its position. */
+  icon: LineIconName
 }
 
 const INSPECTION_SEARCH_PLACEHOLDER = '搜索巡检服务、场景或关键词'
@@ -60,8 +62,8 @@ export const HOME_CHANNELS: readonly HomeChannelDefinition[] = [
 ]
 
 const HOME_CHANNEL_CARDS: readonly (HomeChannelCard & { publicSubtitle?: string })[] = [
-  { channel: 'SERVICE', title: '找专业服务', subtitle: '巡检 · 航拍 · 测绘', publicSubtitle: '巡检' },
-  { channel: 'EXPERIENCE', title: '去体验', subtitle: '仿真 · 演示 · 到馆' },
+  { channel: 'SERVICE', title: '找专业服务', subtitle: '巡检 · 航拍 · 测绘', publicSubtitle: '巡检', icon: 'service' },
+  { channel: 'EXPERIENCE', title: '去体验', subtitle: '仿真 · 演示 · 到馆', icon: 'screenPlay' },
 ]
 
 const toChannel = (channel: HomeChannelCode): HomeEntryTarget => ({ type: 'CHANNEL', channel })
@@ -73,14 +75,14 @@ const toMall = (mallCategory: HomeMallCategory): HomeEntryTarget => ({
 })
 
 const HOME_KING_ENTRIES: readonly HomeKingEntry[] = [
-  { code: 'drone', label: '无人机', target: toMall('DRONE'), icon: 'paperplane', tone: 'BLUE' },
-  { code: 'robot', label: '机器人', target: toMall('ROBOT'), icon: 'gear', tone: 'VIOLET' },
-  { code: 'games', label: '趣玩挑战', target: PLAY_GAMES_TARGET, icon: 'flag', tone: 'ORANGE' },
-  { code: 'rental', label: '设备租赁', target: toMall('RENTAL'), icon: 'shop', tone: 'GREEN' },
-  { code: 'course', label: '培训课程', target: toMall('COURSE'), icon: 'calendar', tone: 'YELLOW' },
-  { code: 'contest', label: '赛事报名', target: toChannel('ACTIVITY'), icon: 'medal', tone: 'BLUE' },
-  { code: 'study-tour', label: '研学体验', target: toChannel('ACTIVITY'), icon: 'map', tone: 'GREEN' },
-  { code: 'venue', label: '线下场馆', target: toChannel('EXPERIENCE'), icon: 'location', tone: 'GREEN' },
+  { code: 'drone', label: '无人机', target: toMall('DRONE'), icon: 'drone' },
+  { code: 'robot', label: '机器人', target: toMall('ROBOT'), icon: 'robot' },
+  { code: 'games', label: '趣玩挑战', target: PLAY_GAMES_TARGET, icon: 'game' },
+  { code: 'rental', label: '设备租赁', target: toMall('RENTAL'), icon: 'rental' },
+  { code: 'course', label: '培训课程', target: toMall('COURSE'), icon: 'course' },
+  { code: 'contest', label: '赛事报名', target: toChannel('ACTIVITY'), icon: 'trophy' },
+  { code: 'study-tour', label: '研学体验', target: toChannel('ACTIVITY'), icon: 'studyTour' },
+  { code: 'venue', label: '线下场馆', target: toChannel('EXPERIENCE'), icon: 'venue' },
 ]
 
 function isChannelVisible(
@@ -127,10 +129,11 @@ export function resolveHomeChannelCards(
 ): readonly HomeChannelCard[] {
   return HOME_CHANNEL_CARDS
     .filter((card) => isChannelVisible(card.channel, previewEnabled))
-    .map(({ channel, title, subtitle, publicSubtitle }) => ({
+    .map(({ channel, title, subtitle, publicSubtitle, icon }) => ({
       channel,
       title,
       subtitle: previewEnabled ? subtitle : publicSubtitle ?? subtitle,
+      icon,
     }))
 }
 

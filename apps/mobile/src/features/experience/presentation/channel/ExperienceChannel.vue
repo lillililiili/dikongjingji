@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { PLAY_GAMES_PATH } from '@/app-shell/navigation/home-channels'
 import {
@@ -23,7 +23,6 @@ import { buildVenueDetailUrl } from '../../navigation/experience-routes'
 import {
   EXPERIENCE_TYPE_LABELS,
   EXPERIENCE_TYPE_TAGS,
-  formatVenueCardNote,
 } from '../shared/experience-format'
 
 type Mode = 'ONLINE' | 'OFFLINE'
@@ -64,8 +63,14 @@ const venueLoader = createPagedListLoader<string, VenueCard>({
 
 function reloadCurrent(): void {
   if (mode.value === 'ONLINE') void itemLoader.reload(selectedType.value)
-  else void venueLoader.reload(props.cityCode)
+  // The online list ends with the city's first venue (ExpCenter board), so both read the venues.
+  void venueLoader.reload(props.cityCode)
 }
+
+// The strip under the online list: the first venue of the city and how many sessions it has today.
+const featuredVenue = computed(() =>
+  venues.value.status === 'ready' ? venues.value.items[0] ?? null : null,
+)
 
 function selectMode(next: Mode): void {
   if (mode.value === next) return
@@ -98,7 +103,8 @@ function coverOf(id: string, coverImage: { url: string } | null): string | null 
   return coverImage?.url ?? resolveExperiencePreviewCover(id)
 }
 
-const GAMES_PICTURE = resolveExperiencePreviewCover('b1000000-0000-4000-8000-000000000001')
+// The games are built into the App, so their picture ships with it (the same one the games page uses).
+const GAMES_PICTURE = '/static/images/home/robot-rover.jpg'
 
 function openGames(): void {
   uni.navigateTo({ url: PLAY_GAMES_PATH })
@@ -110,7 +116,7 @@ watch(() => props.active, (active) => {
 }, { immediate: true })
 
 watch(() => props.cityCode, () => {
-  if (props.active && mode.value === 'OFFLINE') void venueLoader.reload(props.cityCode)
+  if (props.active) void venueLoader.reload(props.cityCode)
 })
 
 // The home page owns the scroll and forwards its reach-bottom event (see ActivityChannel).
@@ -226,6 +232,27 @@ defineExpose({
         <text v-if="items.loadingMore" class="experience-channel__more">正在加载…</text>
       </view>
 
+      <button
+        v-if="featuredVenue"
+        class="experience-channel__venue-strip"
+        data-testid="experience-venue-strip"
+        @click="openVenue(featuredVenue)"
+      >
+        <image
+          v-if="coverOf(featuredVenue.venueId, featuredVenue.coverImage)"
+          class="experience-channel__venue-strip-picture"
+          :src="coverOf(featuredVenue.venueId, featuredVenue.coverImage) ?? ''"
+          :alt="featuredVenue.name"
+          mode="aspectFill"
+        />
+        <text class="experience-channel__venue-strip-copy">
+          <text class="experience-channel__venue-strip-name">{{ featuredVenue.name }}</text>
+          <text v-if="featuredVenue.openSessionsToday > 0" class="experience-channel__venue-strip-seats">
+            · 今日 {{ featuredVenue.openSessionsToday }} 场可约
+          </text>
+        </text>
+        <UniIcons type="right" size="14" color="#91a0b4" />
+      </button>
     </template>
 
     <template v-else>
@@ -268,8 +295,12 @@ defineExpose({
           </view>
           <view class="venue-card__body">
             <text class="venue-card__name">{{ venue.name }}</text>
-            <text v-if="formatVenueCardNote(venue)" class="venue-card__note">{{ formatVenueCardNote(venue) }}</text>
-            <text class="venue-card__address">{{ venue.address }}</text>
+            <view v-if="venue.openingNote || venue.openSessionsToday > 0" class="venue-card__note-row">
+              <text v-if="venue.openingNote" class="venue-card__note">{{ venue.openingNote }}</text>
+              <text v-if="venue.openSessionsToday > 0" class="venue-card__seats">
+                {{ venue.openingNote ? '·' : '' }} 今日 {{ venue.openSessionsToday }} 场可约
+              </text>
+            </view>
           </view>
           <UniIcons type="right" size="14" color="#91a0b4" />
         </button>
@@ -277,7 +308,6 @@ defineExpose({
       </view>
     </template>
 
-    <text class="experience-channel__footnote">体验结束不会自动下单。</text>
   </view>
 </template>
 
@@ -621,19 +651,70 @@ button::after {
 
 .venue-card__note {
   overflow: hidden;
-  color: #11804a;
+  color: #627187;
   font-size: 12px;
   line-height: 17px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.venue-card__address {
-  overflow: hidden;
-  color: #627187;
+.venue-card__note-row {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.venue-card__note {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.venue-card__seats {
+  flex: 0 0 auto;
+  color: #11804a;
   font-size: 12px;
   line-height: 17px;
+  white-space: nowrap;
+}
+
+/* ExpCenter board: the venue strip under the online list. */
+.experience-channel__venue-strip {
+  display: flex;
+  width: 100%;
+  padding: 8px 12px 8px 8px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
+  box-sizing: border-box;
+}
+
+.experience-channel__venue-strip-picture {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+}
+
+.experience-channel__venue-strip-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.experience-channel__venue-strip-name {
+  font-weight: 500;
+}
+
+.experience-channel__venue-strip-seats {
+  color: #11804a;
 }
 </style>

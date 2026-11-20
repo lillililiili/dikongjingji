@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import type { InspectionPortalGuarantee } from '../../../domain/inspection-portal-content'
 
@@ -11,7 +11,7 @@ defineProps<{
 <template>
   <view v-if="guarantees.length" class="guarantee-strip" data-testid="portal-guarantees">
     <view class="guarantee-strip__heading">
-      <UniIcons type="auth" size="15" color="#11804a" />
+      <LineIcon name="shield" :size="16" :stroke-width="2" color="#159a70" />
       <text>巡检保障</text>
     </view>
     <view
@@ -20,7 +20,7 @@ defineProps<{
       class="guarantee-strip__item"
       :aria-label="item.description ? `${item.title}，${item.description}` : item.title"
     >
-      <UniIcons type="checkmarkempty" size="12" color="#11804a" />
+      <LineIcon name="check" :size="12" :stroke-width="3" color="#159a70" />
       <text>{{ item.title }}</text>
     </view>
   </view>

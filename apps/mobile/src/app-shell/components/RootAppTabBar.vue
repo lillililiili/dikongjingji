@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onShow } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed } from 'vue'
 
 import {
@@ -14,6 +13,8 @@ import {
   refreshMessageUnread,
   useRootTabBadgeStore,
 } from '@/app-shell/state/root-tab-badges'
+import LineIcon from '@/shared/ui/LineIcon.vue'
+import type { LineIconName } from '@/shared/ui/line-icons'
 
 const props = defineProps<{
   active: RootTabCode
@@ -25,15 +26,16 @@ const emit = defineEmits<{
   reselect: []
 }>()
 
-const TAB_ICON_TYPES: Record<RootTabCode, string> = {
-  HOME: 'home',
-  DISCOVER: 'navigate',
-  MESSAGE: 'chat',
-  CART: 'cart',
-  MINE: 'person',
+// The five tab icons of the 2026-11-14 boards (HomeFull.html `tabs`).
+const TAB_ICONS: Record<RootTabCode, LineIconName> = {
+  HOME: 'tabHome',
+  DISCOVER: 'tabDiscover',
+  MESSAGE: 'tabMessage',
+  CART: 'tabCart',
+  MINE: 'tabMine',
 }
 const ACTIVE_TAB_COLOR = '#ff6a00'
-const INACTIVE_TAB_COLOR = '#8a8f97'
+const INACTIVE_TAB_COLOR = '#738096'
 
 const badgeStore = useRootTabBadgeStore()
 // The message tab's number comes from the server; a page may still pass its own counts.
@@ -84,13 +86,9 @@ function openTab(tab: RootTabDefinition): void {
       :aria-label="tab.label"
       @click="openTab(tab)"
     >
-      <UniIcons
-        class="root-tab-bar__icon"
-        :type="TAB_ICON_TYPES[tab.code]"
-        size="24"
-        :color="iconColor(tab.code)"
-        aria-hidden="true"
-      />
+      <view class="root-tab-bar__icon">
+        <LineIcon :name="TAB_ICONS[tab.code]" :size="24" :color="iconColor(tab.code)" />
+      </view>
       <text class="root-tab-bar__label">{{ tab.label }}</text>
       <text v-if="badgeLabel(tab.code)" class="root-tab-bar__badge">
         {{ badgeLabel(tab.code) }}
@@ -111,8 +109,9 @@ function openTab(tab: RootTabDefinition): void {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   height: calc(60px + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  border-top: 1px solid #ebedf0;
-  background: #ffffff;
+  border-top: 1px solid #e7ecf4;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 -5px 22px rgba(38, 59, 98, 0.06);
   box-sizing: border-box;
 }
 
@@ -130,7 +129,7 @@ function openTab(tab: RootTabDefinition): void {
   gap: 3px;
   border: 0;
   border-radius: 0;
-  color: #8a8f97;
+  color: #738096;
   background: transparent;
   box-sizing: border-box;
   line-height: 1;
@@ -145,8 +144,13 @@ function openTab(tab: RootTabDefinition): void {
 }
 
 .root-tab-bar__icon {
-  display: block;
+  display: flex;
   line-height: 1;
+}
+
+/* The selected icon floats on a soft orange shadow (light-theme.css `.theme-nav`). */
+.root-tab-bar__item--active .root-tab-bar__icon {
+  filter: drop-shadow(0 2px 4px rgba(255, 106, 0, 0.19));
 }
 
 .root-tab-bar__label {

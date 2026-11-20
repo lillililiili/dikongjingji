@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed } from 'vue'
 
 import type {
   HomeChannelCode,
   HomeChannelDefinition,
 } from '@/app-shell/navigation/home-channels'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 const props = defineProps<{
   cityName: string
@@ -25,6 +25,15 @@ const emit = defineEmits<{
 }>()
 
 const CHANNEL_SCROLL_CONTEXT = 2
+// The boards' solid triangle after the city name (HomeFull.html).
+const CITY_TRIANGLE = 'M6 9l6 6 6-6z'
+
+// The boards write the city without its "市" ("东营"); the full name stays in the city sheet.
+const shortCityName = computed(() =>
+  props.cityName.length > 2 && props.cityName.endsWith('市')
+    ? props.cityName.slice(0, -1)
+    : props.cityName,
+)
 
 // Aligns to an earlier channel so the row only moves once the active one would leave the screen.
 const channelScrollTarget = computed(() => {
@@ -63,8 +72,8 @@ function handleKeywordConfirm(event: Event): void {
         aria-label="切换城市"
         @click="emit('selectCity')"
       >
-        <text class="home-header__city-name">{{ cityName }}</text>
-        <UniIcons type="down" size="13" color="#191919" />
+        <text class="home-header__city-name">{{ shortCityName }}</text>
+        <LineIcon :d="CITY_TRIANGLE" :size="14" fill="#202c42" />
       </button>
       <view class="home-header__divider" />
       <scroll-view
@@ -97,7 +106,7 @@ function handleKeywordConfirm(event: Event): void {
     </view>
 
     <view class="home-header__search-row">
-      <view class="home-header__search">
+      <view :class="['home-header__search', { 'home-header__search--no-scan': !showScan }]">
         <button
           v-if="showScan"
           class="home-header__scan"
@@ -105,7 +114,8 @@ function handleKeywordConfirm(event: Event): void {
           aria-label="扫一扫"
           @click="emit('scan')"
         >
-          <UniIcons type="scan" size="20" color="#191919" />
+          <LineIcon name="scan" :size="20" color="#202c42" />
+          <view class="home-header__scan-divider" />
         </button>
         <input
           class="home-header__input"
@@ -137,8 +147,8 @@ function handleKeywordConfirm(event: Event): void {
   width: 100%;
   padding: calc(var(--status-bar-height) + 2px) 0 10px;
   flex-direction: column;
-  gap: 4px;
-  background: linear-gradient(180deg, #fff3e8 0%, #fff8f2 70%, #f7f8fa 100%);
+  gap: 8px;
+  background: linear-gradient(180deg, #fff0e3 0%, #fff8f2 70%, #f5f7fc 100%);
   box-sizing: border-box;
 }
 
@@ -170,7 +180,7 @@ button::after {
   right: 0;
   bottom: 0;
   width: 40px;
-  background: linear-gradient(90deg, rgba(255, 243, 232, 0), #fff3e8);
+  background: linear-gradient(90deg, rgba(255, 243, 232, 0), #fff0e3);
   content: "";
   pointer-events: none;
 }
@@ -182,7 +192,7 @@ button::after {
   align-items: center;
   gap: 2px;
   margin-right: 6px;
-  color: #191919;
+  color: #202c42;
 }
 
 .home-header__city-name {
@@ -222,7 +232,7 @@ button::after {
   flex: 0 0 auto;
   align-items: center;
   padding: 0 9px;
-  color: #191919;
+  color: #202c42;
   font-size: 15px;
   font-weight: 400;
   white-space: nowrap;
@@ -255,45 +265,44 @@ button::after {
   height: 40px;
   align-items: center;
   gap: 8px;
-  padding: 0 4px 0 12px;
+  padding: 0 4px 0 0;
   border: 1.5px solid #ff6a00;
   border-radius: 999px;
   background: #ffffff;
   box-sizing: border-box;
 }
 
+.home-header__search--no-scan {
+  padding-left: 14px;
+}
+
 .home-header__scan {
   position: relative;
   display: flex;
-  width: 28px;
-  height: 36px;
+  height: 44px;
+  margin: -2px 0;
+  padding: 0 0 0 12px;
   flex: 0 0 auto;
   align-items: center;
-  justify-content: center;
-  border-right: 1px solid #ebedf0;
-  padding-right: 8px;
-  box-sizing: content-box;
+  gap: 8px;
 }
 
-/* Extends the icon to the 44px touch minimum without changing the box height. */
-.home-header__scan::before {
-  position: absolute;
-  top: -4px;
-  right: 0;
-  bottom: -4px;
-  left: -8px;
-  content: "";
+/* A short rule between the scan icon and the words, 16px high as on the board. */
+.home-header__scan-divider {
+  width: 1px;
+  height: 16px;
+  background: #e5ebf3;
 }
 
 .home-header__input {
   min-width: 0;
   flex: 1 1 auto;
-  color: #191919;
+  color: #202c42;
   font-size: 14px;
 }
 
 .home-header__placeholder {
-  color: #8a8f97;
+  color: #738096;
 }
 
 .home-header__submit {

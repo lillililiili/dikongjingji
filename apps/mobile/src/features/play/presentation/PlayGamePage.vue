@@ -17,8 +17,9 @@ import PlayPageHeader from './PlayPageHeader.vue'
 
 const PLAY_GAMES_PATH = '/pages/play/index'
 const CLOCK_TICK_MS = 300
+// The robot starts as the little rover photo of the games page (GamePlay board); the drone keeps its drawing.
 const AVATAR_URLS = {
-  ROBOT: '/static/images/play/avatar-robot.svg',
+  ROBOT: '/static/images/home/robot-rover.jpg',
   DRONE: '/static/images/play/avatar-drone.svg',
 } as const
 const PAD: readonly { direction: PlayDirection; label: string; glyph: string }[] = [
@@ -196,9 +197,9 @@ onUnload(stopClock)
           >
             <image
               v-if="cell.kind === 'AVATAR'"
-              class="play-game__avatar"
+              :class="['play-game__avatar', `play-game__avatar--${game.avatar.toLowerCase()}`]"
               :src="AVATAR_URLS[game.avatar]"
-              mode="aspectFit"
+              :mode="game.avatar === 'ROBOT' ? 'aspectFill' : 'aspectFit'"
             />
             <text v-else-if="cell.kind === 'WALL'">◆</text>
             <text v-else-if="cell.kind === 'STAR'">★</text>
@@ -409,6 +410,12 @@ button::after {
 .play-game__avatar {
   width: 80%;
   height: 80%;
+}
+
+.play-game__avatar--robot {
+  width: 88%;
+  height: 88%;
+  border-radius: 9px;
 }
 
 .play-game__status {

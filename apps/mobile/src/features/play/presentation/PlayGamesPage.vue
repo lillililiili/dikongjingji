@@ -64,7 +64,7 @@ function openGame(game: PlayGame): void {
             <text class="play-games__title">{{ game.title }}</text>
             <text class="play-games__subtitle">{{ game.subtitle }}</text>
           </view>
-          <text class="play-games__pill">开始玩</text>
+          <text class="play-games__pill">开始玩 →</text>
         </view>
       </button>
 
@@ -76,7 +76,7 @@ function openGame(game: PlayGame): void {
           data-testid="play-study-tour"
           @click="openHomeChannel('ACTIVITY')"
         >
-          看看赛事研学
+          看看机器人研学
         </button>
       </view>
     </view>

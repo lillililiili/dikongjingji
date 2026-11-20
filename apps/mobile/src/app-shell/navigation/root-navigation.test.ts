@@ -71,8 +71,9 @@ describe('root tab bar', () => {
     expect(tabBarSource).toContain('grid-template-columns: repeat(5, minmax(0, 1fr))')
     expect(tabBarSource).toContain('height: calc(60px + env(safe-area-inset-bottom))')
     expect(tabBarSource).toContain("ACTIVE_TAB_COLOR = '#ff6a00'")
-    expect(tabBarSource).toContain("INACTIVE_TAB_COLOR = '#8a8f97'")
-    expect(tabBarSource).toContain('size="24"')
+    expect(tabBarSource).toContain("INACTIVE_TAB_COLOR = '#738096'")
+    expect(tabBarSource).toContain(':size="24"')
+    expect(tabBarSource).toContain('border-top: 1px solid #e7ecf4')
   })
 
   it('hides the native bar that uni.switchTab still needs', () => {
@@ -142,7 +143,7 @@ describe('home channels', () => {
     expect(resolveHomeChannelCards(true).map((card) => card.title))
       .toEqual(['找专业服务', '去体验'])
     expect(resolveHomeChannelCards(false)).toEqual([
-      { channel: 'SERVICE', title: '找专业服务', subtitle: '巡检' },
+      { channel: 'SERVICE', title: '找专业服务', subtitle: '巡检', icon: 'service' },
     ])
   })
 

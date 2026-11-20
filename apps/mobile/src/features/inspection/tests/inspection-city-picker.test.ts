@@ -196,6 +196,9 @@ function compileCitySelectionSheet(): Component {
     ) {
       return UniIconsMock
     }
+    if (request === '@/shared/ui/LineIcon.vue') {
+      return UniIconsMock
+    }
     if (request === '../domain/city-directory') {
       return { searchCities }
     }

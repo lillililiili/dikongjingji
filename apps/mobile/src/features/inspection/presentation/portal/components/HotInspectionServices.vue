@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-
 import type { InspectionPortalHotService } from '../../../domain/inspection-portal-content'
 
 defineProps<{
@@ -16,8 +14,16 @@ function priceMain(label: string): string {
   return label.match(/^¥\d+/)?.[0] ?? label
 }
 
+// A label that starts with an amount is a starting price: the board writes "¥699 起/公里".
 function priceUnit(label: string): string {
-  return label.slice(priceMain(label).length)
+  const main = priceMain(label)
+  if (main === label) return ''
+  const rest = label.slice(main.length).trim()
+  return rest.startsWith('起') ? rest : `起${rest}`
+}
+
+function isQuote(label: string): boolean {
+  return priceMain(label) === label
 }
 </script>
 
@@ -31,8 +37,7 @@ function priceUnit(label: string): string {
         data-testid="portal-view-all"
         @click="$emit('viewAll')"
       >
-        查看全部
-        <UniIcons type="right" size="12" color="#627187" />
+        查看全部 ›
       </button>
     </view>
     <scroll-view class="hot-services__scroll" scroll-x :show-scrollbar="false">
@@ -55,7 +60,12 @@ function priceUnit(label: string): string {
             <text class="hot-service-card__title">{{ service.title }}</text>
             <text class="hot-service-card__tag">{{ service.tag }}</text>
             <view v-if="service.priceLabel" class="hot-service-card__price">
-              <text class="hot-service-card__price-main">
+              <text
+                :class="[
+                  'hot-service-card__price-main',
+                  { 'hot-service-card__price-main--quote': isQuote(service.priceLabel) },
+                ]"
+              >
                 {{ priceMain(service.priceLabel) }}
               </text>
               <text class="hot-service-card__price-unit">
@@ -193,9 +203,13 @@ function priceUnit(label: string): string {
 
 .hot-service-card__price-main {
   color: #e85400;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   line-height: 22px;
+}
+
+.hot-service-card__price-main--quote {
+  font-size: 15px;
 }
 
 .hot-service-card__price-unit {

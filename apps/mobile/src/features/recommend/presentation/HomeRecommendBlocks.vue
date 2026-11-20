@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { ref, watch } from 'vue'
 
 import type { HomeEntryTarget } from '@/app-shell/navigation/home-channels'
@@ -14,10 +13,15 @@ import {
   formatActivityPrice,
   isPerPersonPrice,
 } from '../../activity/presentation/shared/activity-format'
+import { CONTENT_PREVIEW_ENABLED } from '../../content/application/content-preview'
+import { shortCityName } from '../../content/application/content-view'
+import { contentApi } from '../../content/data/content-api-client'
+import { resolveArticlePreviewCover } from '../../content/data/preview/content-preview-covers'
+import type { ContentArticleCard } from '../../content/domain/content'
+import { buildContentArticleUrl } from '../../content/navigation/content-routes'
 import { resolveExperiencePreviewCover } from '../../experience/data/preview/experience-preview-covers'
 import type { VenueCard } from '../../experience/domain/experience'
 import { buildVenueDetailUrl } from '../../experience/navigation/experience-routes'
-import { formatVenueCardNote } from '../../experience/presentation/shared/experience-format'
 import { resolveMallPreviewCover } from '../../mall/data/preview/mall-preview-covers'
 import type { MallProductCard } from '../../mall/domain/mall'
 import { buildMallProductUrl } from '../../mall/navigation/mall-routes'
@@ -33,10 +37,15 @@ import {
   formatTodaySlotTime,
   type HomeRecommendContent,
 } from '../application/home-recommend'
+import {
+  createCityNewsLoader,
+  formatCityNewsSource,
+} from '../application/home-city-news'
 import { homeRecommendApi } from '../data/home-recommend-api-client'
 
 const props = defineProps<{
   cityCode: string
+  cityName?: string
 }>()
 
 const emit = defineEmits<{
@@ -49,9 +58,28 @@ const loader = createHomeRecommendLoader(homeRecommendApi, {
   setContent: (next) => { content.value = next },
 })
 
+// The "城市资讯" block reads the discover feed, which only preview builds have.
+const cityNews = ref<ContentArticleCard | null>(null)
+const cityNewsLoader = createCityNewsLoader(contentApi, {
+  setArticle: (article) => { cityNews.value = article },
+})
+
 watch(() => props.cityCode, (cityCode) => {
-  if (cityCode) void loader.load(cityCode)
+  if (!cityCode) return
+  void loader.load(cityCode)
+  if (CONTENT_PREVIEW_ENABLED) void cityNewsLoader.load(cityCode)
 }, { immediate: true })
+
+// The article's own picture, else the same sample picture the discover page shows for it.
+function cityNewsPicture(article: ContentArticleCard): { url: string; cutout: boolean } | null {
+  if (article.coverImage) return { url: article.coverImage.url, cutout: false }
+  const preview = resolveArticlePreviewCover(article.articleId)
+  return preview ? { url: preview.url, cutout: preview.cutout } : null
+}
+
+function openCityNews(article: ContentArticleCard): void {
+  uni.navigateTo({ url: buildContentArticleUrl(article.articleId, props.cityCode) })
+}
 
 function activityCover(card: ActivityCard): string | null {
   return card.coverImage?.url ?? resolveActivityPreviewCover(card.activityId)
@@ -102,7 +130,7 @@ function openVenue(venueId: string): void {
           <text class="home-recommend__slot-seats">{{ formatTodaySeats(slot) }}</text>
         </button>
       </view>
-      <text class="home-recommend__today-note">到馆体验按场次预约，名额以场馆页为准。</text>
+      <text class="home-recommend__today-note">体验结束不会自动下单。</text>
     </view>
 
     <view v-if="content.activities.length" class="home-recommend__section" data-testid="home-activities">
@@ -113,8 +141,7 @@ function openVenue(venueId: string): void {
           data-testid="home-activities-more"
           @click="emit('selectEntry', { type: 'CHANNEL', channel: 'ACTIVITY' })"
         >
-          全部
-          <UniIcons type="right" size="12" color="#627187" />
+          全部 ›
         </button>
       </view>
       <scroll-view class="home-recommend__scroll" scroll-x :show-scrollbar="false">
@@ -167,8 +194,7 @@ function openVenue(venueId: string): void {
           data-testid="home-products-more"
           @click="emit('selectEntry', { type: 'CHANNEL', channel: 'MALL' })"
         >
-          更多
-          <UniIcons type="right" size="12" color="#627187" />
+          更多 ›
         </button>
       </view>
       <view class="home-recommend__products">
@@ -225,8 +251,7 @@ function openVenue(venueId: string): void {
           data-testid="home-venues-more"
           @click="emit('selectEntry', { type: 'CHANNEL', channel: 'EXPERIENCE' })"
         >
-          全部
-          <UniIcons type="right" size="12" color="#627187" />
+          全部 ›
         </button>
       </view>
       <button
@@ -248,10 +273,47 @@ function openVenue(venueId: string): void {
         </view>
         <view class="home-recommend__venue-body">
           <text class="home-recommend__venue-name">{{ venue.name }}</text>
-          <text v-if="formatVenueCardNote(venue)" class="home-recommend__meta">{{ formatVenueCardNote(venue) }}</text>
+          <view
+            v-if="venue.openingNote || venue.openSessionsToday > 0"
+            class="home-recommend__meta-row"
+          >
+            <text v-if="venue.openingNote" class="home-recommend__meta">{{ venue.openingNote }}</text>
+            <text v-if="venue.openSessionsToday > 0" class="home-recommend__venue-seats">
+              {{ venue.openingNote ? '·' : '' }} 今日 {{ venue.openSessionsToday }} 场可约
+            </text>
+          </view>
           <text class="home-recommend__meta">{{ venue.address }}</text>
         </view>
         <text class="home-recommend__venue-action">预约</text>
+      </button>
+    </view>
+
+    <view v-if="cityNews" class="home-recommend__section" data-testid="home-city-news">
+      <view class="home-recommend__heading">
+        <text class="home-recommend__title">城市资讯</text>
+      </view>
+      <button
+        class="home-recommend__news"
+        :data-testid="`home-city-news-${cityNews.articleId}`"
+        @click="openCityNews(cityNews)"
+      >
+        <view class="home-recommend__news-copy">
+          <text class="home-recommend__news-source">
+            {{ formatCityNewsSource(cityNews, shortCityName(cityName)) }}{{ cityNews.sample ? ' · 示例' : '' }}
+          </text>
+          <text class="home-recommend__news-title">{{ cityNews.title }}</text>
+        </view>
+        <image
+          v-if="cityNewsPicture(cityNews)"
+          :class="[
+            'home-recommend__news-picture',
+            { 'home-recommend__news-picture--cutout': cityNewsPicture(cityNews)?.cutout },
+          ]"
+          :src="cityNewsPicture(cityNews)?.url ?? ''"
+          :alt="cityNews.coverImage?.alt ?? '资讯配图'"
+          :mode="cityNewsPicture(cityNews)?.cutout ? 'aspectFit' : 'aspectFill'"
+          lazy-load
+        />
       </button>
     </view>
   </view>
@@ -306,18 +368,16 @@ button::after {
 
 .home-recommend__today-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 2px 8px;
 }
 
 .home-recommend__today-venue {
   min-width: 0;
-  overflow: hidden;
   color: #627187;
   font-size: 12px;
   line-height: 17px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .home-recommend__slots {
@@ -326,36 +386,53 @@ button::after {
   gap: 8px;
 }
 
+/* light-theme.css `.theme-slot`: a tinted tile with a white ring peeking out of the corner. */
 .home-recommend__slot {
+  position: relative;
   display: flex;
   min-width: 0;
-  padding: 10px;
+  min-height: 82px;
+  padding: 12px 9px;
   flex-direction: column;
   gap: 4px;
+  overflow: hidden;
   border-radius: 10px;
-  background: #f5f7fc;
+  background: #e9f1ff;
+  box-sizing: border-box;
 }
 
-.home-recommend__slot:nth-child(3n + 1) {
-  background: #e8f1ff;
+.home-recommend__slot::after {
+  position: absolute;
+  right: -11px;
+  bottom: -10px;
+  width: 45px;
+  height: 45px;
+  border: 8px solid rgba(255, 255, 255, 0.62);
+  border-radius: 50%;
+  box-sizing: content-box;
+  content: '';
+  pointer-events: none;
 }
 
 .home-recommend__slot:nth-child(3n + 2) {
-  background: #eee7ff;
+  background: #eee8ff;
 }
 
 .home-recommend__slot:nth-child(3n + 3) {
   background: #e1f5ed;
 }
 
+/* Project names run longer than the board's four characters; they take a second line. */
 .home-recommend__slot-name {
+  display: -webkit-box;
   max-width: 100%;
   overflow: hidden;
   font-size: 14px;
   font-weight: 500;
   line-height: 20px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .home-recommend__slot-time {
@@ -635,6 +712,70 @@ button::after {
   line-height: 21px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.home-recommend__meta-row {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.home-recommend__meta-row .home-recommend__meta {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.home-recommend__venue-seats {
+  flex: 0 0 auto;
+  color: #11804a;
+  font-size: 12px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.home-recommend__news {
+  display: flex;
+  width: 100%;
+  padding: 12px;
+  gap: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
+  outline: 1px solid rgba(232, 237, 244, 0.5);
+  outline-offset: -1px;
+  box-sizing: border-box;
+}
+
+.home-recommend__news-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.home-recommend__news-source {
+  color: #627187;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.home-recommend__news-title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 21px;
+}
+
+.home-recommend__news-picture {
+  width: 92px;
+  height: 70px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+}
+
+.home-recommend__news-picture--cutout {
+  background: #f0edff;
 }
 
 .home-recommend__venue-action {

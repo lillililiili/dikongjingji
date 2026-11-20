@@ -55,6 +55,8 @@ const { activeChannel } = storeToRefs(channelStore)
 const state = ref<PlatformHomeViewState>({ kind: 'loading' })
 const keyword = ref('')
 const serviceSearchPlaceholder = ref<string | null>(null)
+// The mall channel's words follow its category tab (MallDrone: 搜索无人机型号或品牌, …).
+const mallSearchPlaceholder = ref<string | null>(null)
 const scrollPositions = new Map<HomeChannelCode, number>()
 let currentScrollTop = 0
 let contentRequestVersion = 0
@@ -101,7 +103,8 @@ const isPlaceholderChannel = computed(() =>
   !CHANNELS_WITH_CONTENT.includes(activeChannel.value),
 )
 const searchPlaceholder = computed(() =>
-  serviceSearchPlaceholder.value
+  (activeChannel.value === 'MALL' ? mallSearchPlaceholder.value : null)
+    ?? serviceSearchPlaceholder.value
     ?? resolveHomeSearchPlaceholder(activeChannel.value, PLATFORM_PREVIEW_ENABLED),
 )
 const cityName = computed(
@@ -327,6 +330,7 @@ onHide(() => {
       <HomeRecommendBlocks
         v-if="PLATFORM_PREVIEW_ENABLED && currentCityStore.currentCity"
         :city-code="currentCityStore.currentCity.code"
+        :city-name="currentCityStore.currentCity.name"
         @select-entry="openEntry"
       />
     </view>
@@ -399,6 +403,7 @@ onHide(() => {
         :requested-category="requestedMallCategory"
         :requested-keyword="requestedMallKeyword"
         @keyword-change="keyword = $event"
+        @search-placeholder-change="mallSearchPlaceholder = $event"
       />
     </view>
     <view
@@ -438,7 +443,7 @@ onHide(() => {
 .home-page {
   min-height: 100vh;
   padding-bottom: var(--app-root-tabbar-content-offset);
-  background: #f7f8fa;
+  background: #f5f7fc;
   box-sizing: border-box;
 }
 
@@ -449,7 +454,7 @@ onHide(() => {
   right: 0;
   left: 0;
   height: var(--status-bar-height);
-  background: #fff3e8;
+  background: #fff0e3;
 }
 
 .home-page__placeholder {
