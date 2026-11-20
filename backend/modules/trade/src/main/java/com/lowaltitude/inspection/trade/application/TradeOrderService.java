@@ -85,6 +85,7 @@ public class TradeOrderService {
     private final Clock clock;
     private final Supplier<String> orderNoSuffix;
     private final TradeSourceEvents events;
+    private final TradeBuyerEvents buyerEvents;
 
     /** 只有商城订单（没有业务来源的监听者）。 */
     TradeOrderService(
@@ -103,11 +104,24 @@ public class TradeOrderService {
             Supplier<String> orderNoSuffix,
             TradeSourceEvents events
     ) {
+        this(mapper, checkout, clock, orderNoSuffix, events, TradeBuyerEvents.none());
+    }
+
+    /** @param buyerEvents 发货时告诉买家（R6-5） */
+    TradeOrderService(
+            TradeOrderMapper mapper,
+            TradeCheckoutPort checkout,
+            Clock clock,
+            Supplier<String> orderNoSuffix,
+            TradeSourceEvents events,
+            TradeBuyerEvents buyerEvents
+    ) {
         this.mapper = mapper;
         this.checkout = checkout;
         this.clock = clock;
         this.orderNoSuffix = orderNoSuffix;
         this.events = events;
+        this.buyerEvents = buyerEvents;
     }
 
     // ---- 提交订单 ----
@@ -410,6 +424,7 @@ public class TradeOrderService {
         mapper.markShipped(orderId, version, now);
         mapper.saveTracking(orderId, carrier, tracking, now);
         mapper.insertTransition(orderId, TradeOrderStatus.PAID.name(), TradeOrderStatus.SHIPPED.name(), "SHIPMENT", operatorId, now);
+        buyerEvents.shipped(orderId, now);
         return readForMerchant(merchantId, orderId);
     }
 

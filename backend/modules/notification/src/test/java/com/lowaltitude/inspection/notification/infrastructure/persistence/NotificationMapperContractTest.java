@@ -111,10 +111,37 @@ class NotificationMapperContractTest {
                 .doesNotContain("UPDATE ")
                 .doesNotContain("DELETE ");
         assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationCategory.values())
-                .map(Enum::name)).containsExactly("SERVICE_PROGRESS", "DEMAND_QUOTE", "CUSTOMER_SERVICE");
+                .map(Enum::name)).startsWith("SERVICE_PROGRESS", "DEMAND_QUOTE", "CUSTOMER_SERVICE");
+        assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationTargetType.values())
+                .map(Enum::name)).startsWith("INSPECTION_PLAN", "INSPECTION_FULFILLMENT", "INSPECTION_DELIVERY",
+                        "DEMAND", "CONVERSATION");
+    }
+
+    // R6-5：分类加交易物流、活动提醒，跳转目标加商品订单、报名凭证、报名订单、到馆预约；约束和两个枚举一致。
+    @Test
+    void theV004MigrationAddsTradeLogisticsAndActivityReminders() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/notification/V004__notification_trade_activity.sql")) {
+            assertThat(stream).isNotNull();
+            migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8).replaceAll("\\s+", " ");
+        }
+
+        assertThat(migration)
+                .contains("CHECK (category IN ('SERVICE_PROGRESS', 'DEMAND_QUOTE', 'CUSTOMER_SERVICE', 'TRADE_LOGISTICS',"
+                        + " 'ACTIVITY_REMINDER'))")
+                .contains("CHECK (target_type IN ('INSPECTION_PLAN', 'INSPECTION_FULFILLMENT', 'INSPECTION_DELIVERY',"
+                        + " 'DEMAND', 'CONVERSATION', 'TRADE_ORDER', 'ACTIVITY_ENROLLMENT', 'ACTIVITY_ORDER',"
+                        + " 'VENUE_BOOKING'))")
+                .doesNotContain("UPDATE ")
+                .doesNotContain("DELETE ");
+        assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationCategory.values())
+                .map(Enum::name)).containsExactly("SERVICE_PROGRESS", "DEMAND_QUOTE", "CUSTOMER_SERVICE",
+                        "TRADE_LOGISTICS", "ACTIVITY_REMINDER");
         assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationTargetType.values())
                 .map(Enum::name)).containsExactly("INSPECTION_PLAN", "INSPECTION_FULFILLMENT", "INSPECTION_DELIVERY",
-                        "DEMAND", "CONVERSATION");
+                        "DEMAND", "CONVERSATION", "TRADE_ORDER", "ACTIVITY_ENROLLMENT", "ACTIVITY_ORDER",
+                        "VENUE_BOOKING");
     }
 
     @Test

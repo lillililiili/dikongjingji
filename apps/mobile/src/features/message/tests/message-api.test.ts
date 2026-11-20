@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createMessageApi } from '../data/message-api'
+import { createMessageApi, toMessageItem } from '../data/message-api'
 
 describe('message api', () => {
   it('sends the access token with every call and never names a recipient', async () => {
@@ -55,5 +55,27 @@ describe('message api', () => {
     for (const [input] of request.mock.calls) {
       expect(input.headers).toEqual({ Authorization: 'Bearer token-a' })
     }
+  })
+
+  // 1.3.0 (R6-5): the two new categories and four targets come through; a later contract's category
+  // or target type becomes a plain row that opens nothing instead of breaking the list.
+  it('keeps the new categories and turns unknown ones into a plain row', () => {
+    const dto = (category: string, type: string) => ({
+      id: 'n1', category, title: '订单已发货', body: '示例无人机，示例商家已发出',
+      target: { type, id: 'o1', subId: null }, occurredAt: '2026-11-20T02:00:00Z', read: false,
+    })
+
+    expect(toMessageItem(dto('TRADE_LOGISTICS', 'TRADE_ORDER'))).toMatchObject({
+      category: 'TRADE_LOGISTICS', target: { type: 'TRADE_ORDER', id: 'o1', subId: null },
+    })
+    for (const type of ['ACTIVITY_ENROLLMENT', 'ACTIVITY_ORDER', 'VENUE_BOOKING']) {
+      expect(toMessageItem(dto('ACTIVITY_REMINDER', type))).toMatchObject({ category: 'ACTIVITY_REMINDER', target: { type } })
+    }
+    expect(toMessageItem(dto('SYSTEM_NOTICE', 'NOTICE'))).toMatchObject({ category: 'OTHER', target: null })
+    // A known category pointing at a page this version does not know still shows, but opens nothing.
+    expect(toMessageItem(dto('TRADE_LOGISTICS', 'AFTER_SALES'))).toMatchObject({ category: 'TRADE_LOGISTICS', target: null })
+    // An unknown category never opens a page, even with a known target.
+    expect(toMessageItem(dto('SYSTEM_NOTICE', 'TRADE_ORDER')).target).toBeNull()
+    expect(toMessageItem({ ...dto('TRADE_LOGISTICS', 'TRADE_ORDER'), target: null }).target).toBeNull()
   })
 })

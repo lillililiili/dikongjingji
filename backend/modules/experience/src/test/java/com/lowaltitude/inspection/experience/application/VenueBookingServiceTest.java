@@ -559,6 +559,78 @@ class VenueBookingServiceTest {
         assertRejected(Error.NOT_FOUND, () -> service.readBooking(OTHER_ACCOUNT, pending.bookingId()));
     }
 
+    // ---- 通知（R6-5） ----
+
+    /** 记下体验模块要告诉预约账号的事：“booked 预约 人数 开始时间” / “rescheduled 预约 改期前版本 开始时间”。 */
+    private final List<String> told = new ArrayList<>();
+    private final List<VenueBookingNotifier.Booking> toldBookings = new ArrayList<>();
+
+    private VenueBookingService telling() {
+        VenueBookingService telling = new VenueBookingService(mapper, people, payments,
+                TransactionOperations.withoutTransaction(), Clock.fixed(NOW, ZoneOffset.UTC), this::nextCode,
+                new VenueBookingNotifier() {
+                    @Override
+                    public void booked(Booking booking) {
+                        toldBookings.add(booking);
+                        told.add("booked " + booking.bookingId() + " " + booking.people() + " " + booking.startsAt());
+                    }
+
+                    @Override
+                    public void rescheduled(Booking booking, int fromVersion) {
+                        toldBookings.add(booking);
+                        told.add("rescheduled " + booking.bookingId() + " " + fromVersion + " " + booking.startsAt());
+                    }
+                });
+        payments.callback = telling;
+        return telling;
+    }
+
+    // 收费项目提交时不说，付款到账说一次（场馆名、项目名、开始时间、人数，不带姓名和核销码）；重复到账不再说。
+    @Test
+    void aPaidBookingIsReportedOnceWhenThePaymentArrives() {
+        VenueBookingService telling = telling();
+        VenueBookingView pending = telling.book(ACCOUNT, "王女士", KEY, command(PRICE * 2, SELF, MING)).booking();
+        UUID order = payments.orderOf(pending.bookingId());
+        assertThat(told).isEmpty();
+
+        telling.onPaymentConfirmed(order, pending.bookingId());
+        telling.onPaymentConfirmed(order, pending.bookingId());
+
+        assertThat(told).containsExactly("booked " + pending.bookingId() + " 2 " + STARTS_AT);
+        VenueBookingNotifier.Booking booking = toldBookings.getFirst();
+        assertThat(booking.accountId()).isEqualTo(ACCOUNT);
+        assertThat(booking.venueName()).isEqualTo("东营低空与机器人体验馆");
+        assertThat(booking.projectName()).isNotBlank();
+        assertThat(booking.at()).isEqualTo(NOW);
+    }
+
+    // 免费项目提交即预约成功，马上说；同一个幂等键重放不再说。
+    @Test
+    void aFreeBookingIsReportedAtOnce() {
+        VenueBookingService telling = telling();
+
+        VenueBookingView free = telling.book(ACCOUNT, "王女士", KEY, freeCommand(0, SELF)).booking();
+        telling.book(ACCOUNT, "王女士", KEY, freeCommand(0, SELF));
+
+        assertThat(told).containsExactly("booked " + free.bookingId() + " 1 " + mapper.session(FREE_SESSION).startsAt);
+    }
+
+    // 改期说一次，带上新场次的时间和改期前的版本（同一张预约每改一次都不同）；同一目标重复提交不再说。
+    @Test
+    void aRescheduleIsReportedWithTheNewSessionAndThePreviousVersion() {
+        VenueBookingService telling = telling();
+        VenueBookingView pending = telling.book(ACCOUNT, "王女士", KEY, command(PRICE, SELF)).booking();
+        telling.onPaymentConfirmed(payments.orderOf(pending.bookingId()), pending.bookingId());
+        VenueBookingView paid = telling.readBooking(ACCOUNT, pending.bookingId());
+        told.clear();
+
+        telling.reschedule(ACCOUNT, paid.bookingId(), paid.version(), LATER_SESSION);
+        telling.reschedule(ACCOUNT, paid.bookingId(), paid.version(), LATER_SESSION);
+
+        assertThat(told).containsExactly("rescheduled " + paid.bookingId() + " " + paid.version() + " "
+                + mapper.session(LATER_SESSION).startsAt);
+    }
+
     // ---- 辅助 ----
 
     private VenueBookingService at(Instant instant) {

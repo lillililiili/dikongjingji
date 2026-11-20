@@ -1541,6 +1541,42 @@ class ActivityEnrollmentServiceTest {
             assertThat(mapper.tickets.get(0).status).isEqualTo("PENDING_PAYMENT");
         }
 
+        // R6-5：收费报名提交时不说成功，付款到账才说一次；重复到账不再说；关闭后到账恢复时也说（同一报名单，站内信按报名单去重）。
+        @Test
+        void aPaidEnrollmentIsReportedWhenThePaymentArrives() {
+            List<ActivityEnrollmentNotifier.Enrolled> told = new ArrayList<>();
+            ActivityEnrollmentService telling = new ActivityEnrollmentService(mapper, Clock.fixed(NOW, ZoneOffset.UTC),
+                    () -> String.format("ACT-TEST-0000-%04d", ++issuedCodes), payments,
+                    TransactionOperations.withoutTransaction(), told::add);
+            EnrollmentView pending = telling.enroll(ACCOUNT, KEY,
+                    paidCommand(2 * UNIT, self(), child("小明", "2018-05"))).enrollment();
+            UUID order = payments.orderOf(pending.enrollmentId());
+            assertThat(told).isEmpty();
+
+            telling.onPaymentConfirmed(order, pending.enrollmentId());
+            telling.onPaymentConfirmed(order, pending.enrollmentId());
+
+            assertThat(told).containsExactly(new ActivityEnrollmentNotifier.Enrolled(
+                    ACCOUNT, pending.enrollmentId(), TITLE, STARTS_AT, 2, true, NOW));
+        }
+
+        @Test
+        void aRestoredEnrollmentIsReportedToo() {
+            List<ActivityEnrollmentNotifier.Enrolled> told = new ArrayList<>();
+            ActivityEnrollmentService telling = new ActivityEnrollmentService(mapper, Clock.fixed(NOW, ZoneOffset.UTC),
+                    () -> String.format("ACT-TEST-0000-%04d", ++issuedCodes), payments,
+                    TransactionOperations.withoutTransaction(), told::add);
+            EnrollmentView pending = telling.enroll(ACCOUNT, KEY, paidCommand(UNIT, self())).enrollment();
+            UUID order = payments.orderOf(pending.enrollmentId());
+            telling.onPaymentClosed(order, pending.enrollmentId());
+
+            telling.onPaymentConfirmed(order, pending.enrollmentId());
+
+            assertThat(told).extracting(ActivityEnrollmentNotifier.Enrolled::enrollmentId,
+                    ActivityEnrollmentNotifier.Enrolled::people, ActivityEnrollmentNotifier.Enrolled::paid)
+                    .containsExactly(tuple(pending.enrollmentId(), 1, true));
+        }
+
         // 免费报名：付款状态是 FREE，凭证没有退款。
         @Test
         void aFreeEnrollmentShowsNoPayment() {
@@ -1650,6 +1686,32 @@ class ActivityEnrollmentServiceTest {
         record Refund(UUID refundId, UUID tradeOrderId, long amountMinor, String reason, UUID idempotencyKey,
                       UUID actorId) {
         }
+    }
+
+    // R6-5：免费报名提交即成功，告诉报名的账号一次（活动名、开始时间、人数，不带参与人姓名）；同一个幂等键重放不再说；
+    // 通知出错不让报名失败。
+    @Test
+    void aFreeEnrollmentIsReportedOnceAndANotifierFailureDoesNotUndoIt() {
+        List<ActivityEnrollmentNotifier.Enrolled> told = new ArrayList<>();
+        ActivityEnrollmentService telling = new ActivityEnrollmentService(mapper, Clock.fixed(NOW, ZoneOffset.UTC),
+                () -> String.format("ACT-TEST-0000-%04d", ++issuedCodes), ActivityPaymentPort.unavailable(),
+                TransactionOperations.withoutTransaction(), told::add);
+        UUID self = self();
+        UUID child = child("小明", "2018-05");
+
+        EnrollmentView view = telling.enroll(ACCOUNT, KEY, command(self, child)).enrollment();
+        telling.enroll(ACCOUNT, KEY, command(self, child));
+
+        assertThat(told).containsExactly(new ActivityEnrollmentNotifier.Enrolled(
+                ACCOUNT, view.enrollmentId(), TITLE, STARTS_AT, 2, false, NOW));
+
+        ActivityEnrollmentService failing = new ActivityEnrollmentService(mapper, Clock.fixed(NOW, ZoneOffset.UTC),
+                () -> String.format("ACT-TEST-0000-%04d", ++issuedCodes), ActivityPaymentPort.unavailable(),
+                TransactionOperations.withoutTransaction(), event -> {
+                    throw new IllegalStateException("notification store is down");
+                });
+        UUID other = child("小红", "2018-12");
+        assertThat(failing.enroll(ACCOUNT, SECOND_KEY, command(other)).created()).isTrue();
     }
 
     // ---- 辅助 ----

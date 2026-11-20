@@ -1205,6 +1205,23 @@ class TradeOrderServiceTest {
         assertThat(mapper.deliveries.get(orderId).trackingNo).isEqualTo("SF1234567890");
     }
 
+    // R6-5：发货时告诉买家一次（交易物流“订单已发货”）；同样的物流重试不再说。
+    @Test
+    void shippingTellsTheBuyerOnce() {
+        RecordingBuyerNotifier notifier = new RecordingBuyerNotifier();
+        TradeOrderService telling = new TradeOrderService(mapper, checkout, clock, this::nextSuffix,
+                TradeSourceEvents.none(), new TradeBuyerEvents(mapper, notifier));
+        UUID orderId = mapper.seed(BUYER, TradeOrderStatus.PAID, NOW);
+
+        telling.ship(MERCHANT, OPERATOR, orderId, 0, "顺丰速运", "SF1234567890");
+        telling.ship(MERCHANT, OPERATOR, orderId, 1, "顺丰速运", "SF1234567890");
+
+        assertThat(notifier.told).containsExactly("shipped " + orderId + " " + NOW);
+        assertThat(notifier.facts.getFirst().buyerId()).isEqualTo(BUYER);
+        assertThat(notifier.facts.getFirst().merchantName()).isEqualTo("示例无人机专卖店");
+        assertThat(notifier.facts.getFirst().source()).isEqualTo("MALL");
+    }
+
     @ParameterizedTest
     @EnumSource(value = TradeOrderStatus.class, names = {"PAID", "SHIPPED"}, mode = EnumSource.Mode.EXCLUDE)
     void onlyAPaidOrderCanBeShipped(TradeOrderStatus status) {

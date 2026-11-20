@@ -66,6 +66,7 @@ public class TradeRefundService {
     private final TransactionOperations tx;
     private final Clock clock;
     private final Supplier<String> outRefundNoSuffix;
+    private final TradeBuyerEvents buyerEvents;
 
     TradeRefundService(
             TradeRefundMapper refunds,
@@ -76,6 +77,20 @@ public class TradeRefundService {
             Clock clock,
             Supplier<String> outRefundNoSuffix
     ) {
+        this(refunds, orders, orderService, channels, tx, clock, outRefundNoSuffix, TradeBuyerEvents.none());
+    }
+
+    /** @param buyerEvents 退款到账时告诉买家（R6-5） */
+    TradeRefundService(
+            TradeRefundMapper refunds,
+            TradeOrderMapper orders,
+            TradeOrderService orderService,
+            Supplier<PaymentChannel> channels,
+            TransactionOperations tx,
+            Clock clock,
+            Supplier<String> outRefundNoSuffix,
+            TradeBuyerEvents buyerEvents
+    ) {
         this.refunds = refunds;
         this.orders = orders;
         this.orderService = orderService;
@@ -83,6 +98,7 @@ public class TradeRefundService {
         this.tx = tx;
         this.clock = clock;
         this.outRefundNoSuffix = outRefundNoSuffix;
+        this.buyerEvents = buyerEvents;
     }
 
     // ---- 买家取消已付款的订单 ----
@@ -384,6 +400,7 @@ public class TradeRefundService {
                     if (!next.equals(order.status())) {
                         orders.insertTransition(order.id(), order.status(), next, cause, null, now);
                     }
+                    buyerEvents.refunded(order.id(), refund.id(), refund.amountMinor(), now);
                     return Applied.APPLIED;
                 }
                 case CLOSED, ABNORMAL -> {

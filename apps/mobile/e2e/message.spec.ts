@@ -158,6 +158,53 @@ test.describe('消息', () => {
     await expect(messageBadge(page)).toHaveText('99+')
   })
 
+  test('MSG-008 交易物流 / 服务进度 / 活动提醒三格各带未读数，点格筛选，点通知进对应页面；不认识的分类显示成通知', async ({ page }) => {
+    await signIn(page)
+    const GOODS_ORDER = '80000000-0000-4000-8000-000000000001'
+    const BOOKING = '81000000-0000-4000-8000-000000000001'
+    await stubInbox(page, [
+      notice(1, { category: 'TRADE_LOGISTICS', eventCode: 'TRADE_ORDER_SHIPPED', title: '订单已发货',
+        body: '编程机器人探索套装，示例机器人商家已发出', target: { type: 'TRADE_ORDER', id: GOODS_ORDER, subId: null } }),
+      notice(2, { category: 'ACTIVITY_REMINDER', eventCode: 'VENUE_BOOKED', title: '到馆预约成功',
+        body: '东营低空与机器人体验馆 机器人避障闯关 2 人，11/21 10:00 开始，到馆出示核销码',
+        target: { type: 'VENUE_BOOKING', id: BOOKING, subId: null } }),
+      notice(3, { category: 'ACTIVITY_REMINDER', eventCode: 'ACTIVITY_ENROLLED', title: '报名成功', read: true,
+        body: '青少年无人机编程挑战赛 2 人，11/15 08:30 开始，凭证已生成',
+        target: { type: 'ACTIVITY_ENROLLMENT', id: BOOKING, subId: null } }),
+      notice(4),
+      notice(5, { category: 'SYSTEM_NOTICE', eventCode: 'POLICY_UPDATED', title: '隐私政策更新摘要',
+        body: '查看主要变化与生效日期', target: { type: 'NOTICE', id: BOOKING, subId: null } }),
+    ], 4)
+    await page.route('**/api/v1/notifications/*/read', (route: Route) => route.fulfill({ status: 204, body: '' }))
+    await page.goto('/#/pages/message/index')
+
+    const items = page.locator('.message-center__item[data-kind="notice"]')
+    await expect(items).toHaveCount(5)
+    await expect(page.getByTestId('message-cat-trade')).toContainText('交易物流')
+    await expect(page.getByTestId('message-cat-progress')).toContainText('服务进度')
+    await expect(page.getByTestId('message-cat-activity')).toContainText('活动提醒')
+    await expect(page.getByTestId('message-cat-trade').getByTestId('message-cat-badge')).toHaveText('1')
+    await expect(page.getByTestId('message-cat-progress').getByTestId('message-cat-badge')).toHaveText('1')
+    await expect(page.getByTestId('message-cat-activity').getByTestId('message-cat-badge')).toHaveText('1')
+    await expect(items.nth(0)).toContainText('交易物流 · 订单已发货')
+    await expect(items.nth(1)).toContainText('体验预约 · 到馆预约成功')
+    await expect(items.nth(2)).toContainText('活动提醒 · 报名成功')
+    await expect(items.nth(4)).toContainText('通知 · 隐私政策更新摘要')
+
+    await page.getByTestId('message-cat-activity').click()
+    await expect(items).toHaveCount(2)
+    await page.getByTestId('message-cat-activity').click()
+    await expect(items).toHaveCount(5)
+
+    // 不认识的分类：标为已读，不跳转。
+    await items.nth(4).click()
+    await expect(items.nth(4)).toHaveAttribute('data-read', 'true')
+    await expect(page).toHaveURL(/pages\/message\/index/)
+
+    await items.first().click()
+    await expect(page).toHaveURL(new RegExp(`goods-order\\?orderId=${GOODS_ORDER}`))
+  })
+
   test('MSG-007 用开发账号真实登录后，消息页读到服务端的通知（320 和 375 宽）', async ({ page, request }) => {
     const seed = readFileSync(resolve(
       __dirname,
@@ -183,7 +230,9 @@ test.describe('消息', () => {
       await page.goto(`/?w=${width}#/pages/message/index`)
       // 客服会话 share the list by time, so look at the first notification.
       await expect(page.locator('.message-center__item[data-kind="notice"]').first()).toBeVisible()
-      await expect(page.locator('.message-center__item[data-kind="notice"]').first()).toContainText('服务进度')
+      // R6-5: the newest may be 交易物流 or 活动提醒 now, not only 服务进度.
+      await expect(page.locator('.message-center__item[data-kind="notice"]').first())
+        .toContainText(/服务进度|交易物流|活动提醒|体验预约|需求与报价|客服消息/)
       const dimensions = await page.evaluate(() => ({
         clientWidth: document.documentElement.clientWidth,
         scrollWidth: document.documentElement.scrollWidth,

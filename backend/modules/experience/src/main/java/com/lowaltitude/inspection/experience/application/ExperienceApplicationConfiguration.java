@@ -33,14 +33,15 @@ public class ExperienceApplicationConfiguration {
 
     /**
      * 到馆预约（E10）。付款端口由启动模块接到交易模块，参与人端口接到活动模块的参与人名单；
-     * 都没接时只能约免费项目，并且没有参与人可选。
+     * 都没接时只能约免费项目，并且没有参与人可选。预约成功、改期的通知由启动模块接到站内信（R6-5）。
      */
     @Bean
     VenueBookingService venueBookingService(
             VenueBookingMapper mapper,
             ObjectProvider<VenueParticipantPort> participants,
             ObjectProvider<VenuePaymentPort> payments,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            ObjectProvider<VenueBookingNotifier> notifier
     ) {
         return new VenueBookingService(
                 mapper,
@@ -48,6 +49,7 @@ public class ExperienceApplicationConfiguration {
                 payments.getIfAvailable(VenuePaymentPort::unavailable),
                 new TransactionTemplate(transactionManager),
                 Clock.systemUTC(),
-                new VenueBookingCodes());
+                new VenueBookingCodes(),
+                notifier.getIfAvailable(VenueBookingNotifier::none));
     }
 }

@@ -749,6 +749,30 @@ class TradePaymentServiceTest {
         assertThat(store.order(orderId).pickupCode).isEqualTo("111111");
     }
 
+    // R6-5：付款入账时告诉买家一次（是不是自提由 TradeBuyerEvents 判断）；重复的结果、核对不上的结果不说。
+    @Test
+    void aBookedPaymentIsReportedToTheBuyerOnce() {
+        RecordingBuyerNotifier notifier = new RecordingBuyerNotifier();
+        TradeBuyerEvents buyerEvents = new TradeBuyerEvents(
+                id -> new TradeBuyerEvents.Loaded(new TradeBuyerNotifier.OrderFacts(id, store.order(id).buyerId,
+                        "MALL", null, MERCHANT_NAME, "示例无人机", 3), "PICKUP"),
+                notifier);
+        TradePaymentService telling = new TradePaymentService(store.paymentMapper, store.orderMapper, orderService,
+                () -> channel, TransactionOperations.withoutTransaction(), clock, this::nextSuffix, () -> "042042",
+                refunds, TradeSourceEvents.none(), buyerEvents);
+        UUID orderId = store.pendingOrder(BUYER, NOW);
+        Payment payment = store.payment(orderId, "PREPAID", NOW);
+        UUID mismatchedOrder = store.pendingOrder(BUYER, NOW);
+        Payment mismatched = store.payment(mismatchedOrder, "PREPAID", NOW);
+
+        assertThat(telling.apply(channel, channel.paid(payment), "PAYMENT_NOTIFIED")).isEqualTo(Applied.APPLIED);
+        assertThat(telling.apply(channel, channel.paid(payment), "PAYMENT_QUERIED")).isEqualTo(Applied.ALREADY);
+        assertThat(telling.apply(channel, with(channel.paid(mismatched), SP_MCHID, SUB_MCHID, 1L, "CNY"),
+                "PAYMENT_NOTIFIED")).isEqualTo(Applied.MISMATCH);
+
+        assertThat(notifier.told).containsExactly("readyForPickup " + orderId + " " + NOW);
+    }
+
     // 核对不上的结果不入账，也不生成取货码。
     @Test
     void aMismatchedPaymentGetsNoPickupCode() {
