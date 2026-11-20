@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { openInspectionOrdersOverMine } from './support/open-inspection-orders'
 
 const EMPTY_ORDERS = {
   items: [],
@@ -22,7 +23,7 @@ const detailBack = (page: Page) => page.getByTestId('inspection-detail-back')
 async function openOrders(page: Page): Promise<void> {
   await page.goto('/#/pages/home/index')
   await page.getByTestId('root-tab-mine').click()
-  await page.locator('.platform-mine__view-all').click()
+  await openInspectionOrdersOverMine(page)
   await expect(ordersBack(page)).toBeVisible()
   await page.waitForLoadState('networkidle')
 }
@@ -121,7 +122,7 @@ test.describe('连点返回', () => {
 
     await ordersBack(page).click()
     await expect(page.getByTestId('mine-page')).toBeVisible()
-    await page.locator('.platform-mine__view-all').click()
+    await openInspectionOrdersOverMine(page)
     await expect(ordersBack(page)).toBeVisible()
     await ordersBack(page).click()
 

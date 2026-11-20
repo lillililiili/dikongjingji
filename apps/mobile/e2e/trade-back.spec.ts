@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { openInspectionOrdersOverMine } from './support/open-inspection-orders'
 
 const ID = '40000000-0000-4000-8000-000000000001'
 const SUBMITTED_ROUTE = `/pages/service/inspection/booking-submitted?reservationId=${ID}`
@@ -140,7 +141,7 @@ test.describe('交易页面返回', () => {
 
   test('TB-107 从订单中心进入的页面，App 返回键退回同一个订单中心', async ({ page }) => {
     await openMine(page)
-    await page.locator('.platform-mine__view-all').click()
+    await openInspectionOrdersOverMine(page)
     await expect(orderCenter(page)).toBeVisible()
     const routes = await currentRoutes(page)
 

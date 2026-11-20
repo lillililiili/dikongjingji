@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { openInspectionOrdersOverMine } from './support/open-inspection-orders'
 
 const ORDER_CENTER_URL = '/#/pages/mine/inspection-orders?stage=ALL'
 const EMPTY_ORDERS = {
@@ -56,7 +57,7 @@ async function openOrderCenter(page: Page): Promise<void> {
 async function openOrderCenterFromMine(page: Page): Promise<void> {
   await page.goto('/#/pages/home/index')
   await page.getByTestId('root-tab-mine').click()
-  await page.locator('.platform-mine__view-all').click()
+  await openInspectionOrdersOverMine(page)
   await waitForOrderCenter(page)
 }
 
@@ -178,7 +179,7 @@ test.describe('M08 返回', () => {
     await openOrderCenter(page)
     await backFromOrderCenter(page)
     await expectMine(page)
-    await page.locator('.platform-mine__view-all').click()
+    await openInspectionOrdersOverMine(page)
     await waitForOrderCenter(page)
     await backFromOrderCenter(page)
 
