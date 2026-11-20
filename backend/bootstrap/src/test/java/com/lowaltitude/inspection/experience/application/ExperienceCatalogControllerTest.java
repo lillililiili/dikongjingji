@@ -128,6 +128,53 @@ class ExperienceCatalogControllerTest {
         verify(service).listDevices(VENUE_ID, "370500", "ROBOT", 1, 20);
     }
 
+    // R6-2：商品能在哪体验。城市去掉空白后交给读服务；没有关联时两个空列表，不是 404。
+    @Test
+    void productExperiencesReturnTheItemsAndTheVenuesOfTheCity() throws Exception {
+        UUID product = UUID.fromString("c2000000-0000-4000-8000-000000000101");
+        UUID item = UUID.fromString("b1000000-0000-4000-8000-000000000001");
+        when(service.findProductExperiences(product, "370500")).thenReturn(new ProductExperiencesView(
+                product,
+                List.of(new ProductExperienceItemView(item, ExperienceType.SIMULATION, "机器人避障模拟", null)),
+                List.of(new ProductExperienceVenueView(VENUE_ID, "东营低空与机器人体验馆", "编程机器人探索套装"))));
+        UUID other = UUID.fromString("c2000000-0000-4000-8000-000000000301");
+        when(service.findProductExperiences(other, "370500"))
+                .thenReturn(new ProductExperiencesView(other, List.of(), List.of()));
+
+        mockMvc.perform(get("/api/v1/experience/product-experiences")
+                        .param("productId", product.toString())
+                        .param("cityCode", " 370500 "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productId").value(product.toString()))
+                .andExpect(jsonPath("$.experiences[0].experienceId").value(item.toString()))
+                .andExpect(jsonPath("$.experiences[0].type").value("SIMULATION"))
+                .andExpect(jsonPath("$.experiences[0].summary").value(nullValue()))
+                .andExpect(jsonPath("$.venues[0].venueId").value(VENUE_ID.toString()))
+                .andExpect(jsonPath("$.venues[0].name").value("东营低空与机器人体验馆"))
+                .andExpect(jsonPath("$.venues[0].deviceName").value("编程机器人探索套装"));
+        mockMvc.perform(get("/api/v1/experience/product-experiences")
+                        .param("productId", other.toString())
+                        .param("cityCode", "370500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.experiences").isEmpty())
+                .andExpect(jsonPath("$.venues").isEmpty());
+    }
+
+    @Test
+    void productExperiencesRejectABadProductOrCity() throws Exception {
+        when(service.findProductExperiences(null, "370500"))
+                .thenThrow(new IllegalArgumentException("product id is required"));
+
+        mockMvc.perform(get("/api/v1/experience/product-experiences").param("cityCode", "370500"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        mockMvc.perform(get("/api/v1/experience/product-experiences")
+                        .param("productId", "not-a-uuid")
+                        .param("cityCode", "370500"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+    }
+
     @Test
     void badArgumentsAreBadRequestsAndUnknownVenuesAreNotFound() throws Exception {
         when(service.listVenues(null, 1, 20)).thenThrow(new IllegalArgumentException("city code is invalid"));

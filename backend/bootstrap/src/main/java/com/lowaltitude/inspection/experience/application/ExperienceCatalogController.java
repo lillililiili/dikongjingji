@@ -67,6 +67,15 @@ public final class ExperienceCatalogController {
         return service.listDevices(venueId, trim(cityCode), category, page, size);
     }
 
+    /** R6-2 先体验：商品详情读这件商品的线上体验和本城能看到它的场馆。 */
+    @GetMapping("/api/v1/experience/product-experiences")
+    public ProductExperiencesView productExperiences(
+            @RequestParam(required = false) UUID productId,
+            @RequestParam(required = false) String cityCode
+    ) {
+        return service.findProductExperiences(productId, trim(cityCode));
+    }
+
     private static String trim(String value) {
         return value == null ? null : value.trim();
     }

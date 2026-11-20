@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductExperienceRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductVenueRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueCardRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueDeviceRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueInfoRow;
@@ -79,5 +81,15 @@ final class PostgresExperienceCatalogReadStore implements ExperienceCatalogReadS
     @Override
     public List<VenueDeviceRow> findDevices(UUID venueId, String category, int limit, int offset) {
         return mapper.findDevices(venueId, category, limit, offset);
+    }
+
+    @Override
+    public List<ProductExperienceRow> findProductExperiences(UUID productId, int limit) {
+        return mapper.findProductExperiences(productId, limit);
+    }
+
+    @Override
+    public List<ProductVenueRow> findProductVenues(UUID productId, String cityCode, int limit) {
+        return mapper.findProductVenues(productId, cityCode, limit);
     }
 }

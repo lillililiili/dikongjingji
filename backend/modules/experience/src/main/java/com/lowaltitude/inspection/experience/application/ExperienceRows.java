@@ -77,4 +77,21 @@ public final class ExperienceRows {
             String trialMode
     ) {
     }
+
+    /** 关联了某件商品的线上体验项目（R6-2）。 */
+    public record ProductExperienceRow(
+            UUID experienceId,
+            String type,
+            String title,
+            String summary
+    ) {
+    }
+
+    /** 本城有某件商品（馆内设备关联了它）的场馆，一个场馆一行，带第一件这样的设备的名称（R6-2）。 */
+    public record ProductVenueRow(
+            UUID venueId,
+            String venueName,
+            String deviceName
+    ) {
+    }
 }

@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductExperienceRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductVenueRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueCardRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueDeviceRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueInfoRow;
@@ -37,4 +39,8 @@ interface ExperienceCatalogReadStore {
     long countDevices(UUID venueId, String category);
 
     List<VenueDeviceRow> findDevices(UUID venueId, String category, int limit, int offset);
+
+    List<ProductExperienceRow> findProductExperiences(UUID productId, int limit);
+
+    List<ProductVenueRow> findProductVenues(UUID productId, String cityCode, int limit);
 }

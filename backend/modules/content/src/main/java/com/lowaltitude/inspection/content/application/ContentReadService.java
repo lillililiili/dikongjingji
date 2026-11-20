@@ -34,6 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class ContentReadService {
 
     static final int MAX_PAGE_SIZE = 50;
+    /** R6-3 相关内容：不传 limit 时给 3 篇，最多 6 篇。 */
+    static final int DEFAULT_RELATED_LIMIT = 3;
+    static final int MAX_RELATED_LIMIT = 6;
     static final ZoneId BEIJING = ZoneId.of("Asia/Shanghai");
     private static final String CITY_CODE_PATTERN = "^[A-Z0-9]{4,16}$";
 
@@ -131,6 +134,30 @@ public class ContentReadService {
         return new ContentTopicView(card.topicId(), card.title(), card.subtitle(), card.publisher(), row.cityCode(),
                 card.startsOn(), card.endsOn(), card.coverImage(), card.sample(), List.copyOf(activities),
                 List.copyOf(venues), List.copyOf(articles));
+    }
+
+    /**
+     * R6-3 相关内容：“内容中提到”了这个对象（商品、活动、场馆、服务）的图文，只给这个城市能看到的、已发布的，
+     * 新发布的在前。对象是否存在由它自己的模块判断：没人提到时 items 为空，不是 404。
+     */
+    @Transactional(readOnly = true)
+    public ContentRelatedView related(String refTypeCode, UUID refId, String cityCode, Integer limit) {
+        if (refTypeCode == null || refTypeCode.isBlank()) {
+            throw new IllegalArgumentException("ref type is required");
+        }
+        ContentRefType refType = parse(ContentRefType.class, refTypeCode);
+        if (refId == null) {
+            throw new IllegalArgumentException("ref id is required");
+        }
+        String city = requireCity(cityCode);
+        int size = limit == null ? DEFAULT_RELATED_LIMIT : limit;
+        if (size < 1 || size > MAX_RELATED_LIMIT) {
+            throw new IllegalArgumentException("limit is invalid");
+        }
+        List<ContentArticleCardView> items = mapper.findMentioning(refType.name(), refId, city, now(), size).stream()
+                .map(ContentReadService::card)
+                .toList();
+        return new ContentRelatedView(refType, refId, items);
     }
 
     // ---- 内部 ----

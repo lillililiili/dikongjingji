@@ -382,12 +382,18 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(get("/api/v1/content/feed?cityCode=370500&channel=CASE")).andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/content/articles/{id}?cityCode=370500", article)).andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/content/topics/{id}?cityCode=370500", topic)).andExpect(status().isOk());
+        // R6-3 相关内容。
+        mockMvc.perform(get("/api/v1/content/related?refType=PRODUCT&refId=c2000000-0000-4000-8000-000000000101"
+                + "&cityCode=370500")).andExpect(status().isOk());
         org.mockito.Mockito.verify(content).feed("370500", "CASE", 1, 20);
         org.mockito.Mockito.verify(content).article(article, "370500");
         org.mockito.Mockito.verify(content).topic(topic, "370500");
+        org.mockito.Mockito.verify(content).related("PRODUCT",
+                UUID.fromString("c2000000-0000-4000-8000-000000000101"), "370500", null);
 
         for (var request : List.of(
                 post("/api/v1/content/feed"),
+                post("/api/v1/content/related"),
                 put("/api/v1/content/articles/" + article),
                 delete("/api/v1/content/topics/" + topic),
                 get("/api/v1/content/articles"),
@@ -639,6 +645,14 @@ class AuthenticationSecurityIntegrationTest {
                         .param("date", "2026-11-17"))
                 .andExpect(status().isOk());
         mockMvc.perform(get(venue + "/devices").param("cityCode", "370500")).andExpect(status().isOk());
+        // R6-2 先体验：商品能在哪体验也公开；写方法仍然要登录。
+        mockMvc.perform(get("/api/v1/experience/product-experiences")
+                        .param("productId", "c2000000-0000-4000-8000-000000000101")
+                        .param("cityCode", "370500"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/experience/product-experiences"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
 
         mockMvc.perform(post("/api/v1/venues"))
                 .andExpect(status().isUnauthorized())

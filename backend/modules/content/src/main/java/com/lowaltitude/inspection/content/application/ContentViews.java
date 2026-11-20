@@ -99,3 +99,9 @@ record ContentTopicView(
         List<ContentArticleCardView> articles
 ) {
 }
+
+/**
+ * R6-3 相关内容：提到某个对象（“内容中提到”里的类型 + 稳定 ID）的图文卡片，只给这个城市能看到的，新发布的在前。
+ */
+record ContentRelatedView(ContentRefType refType, UUID refId, List<ContentArticleCardView> items) {
+}
