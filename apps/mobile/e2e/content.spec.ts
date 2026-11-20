@@ -95,7 +95,8 @@ test.describe('发现页图文内容与专题', () => {
     await expect(page).toHaveURL(/#\/pages\/discover\/index/)
     await expect(page.getByTestId('root-tab-discover')).toHaveClass(/root-tab-bar__item--active/)
     await expect(page.getByTestId('discover-city')).toContainText('东营')
-    await expect(page.getByRole('tab')).toHaveText(['推荐', '赛事', '研学', '案例', '知识'])
+    // 直播 (M20) sits after 推荐 in preview builds; live.spec.ts covers it.
+    await expect(page.getByRole('tab')).toHaveText(['推荐', '直播', '赛事', '研学', '案例', '知识'])
     await expect(page.getByTestId('discover-channel-recommend')).toHaveAttribute('aria-selected', 'true')
 
     const topic = page.getByTestId(`discover-topic-${TOPIC}`)
@@ -120,7 +121,8 @@ test.describe('发现页图文内容与专题', () => {
     await expect(grid.locator('.content-thumb__image')).toHaveCount(6)
     await expect(grid.locator('.discover__card-title')).toHaveCount(6)
     await expect(article(page, CASE_DOG)).toContainText('一台机器狗如何完成园区夜间巡逻')
-    await expect(discover(page)).not.toContainText('观看')
+    // The live bar above the grid counts its viewers (live.spec.ts); the articles carry no counts.
+    await expect(grid).not.toContainText('观看')
     await expect(page.getByTestId('discover-no-more')).toHaveText('没有更多内容了')
     await assertNoHorizontalOverflow(page)
   })

@@ -159,6 +159,10 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   },
   '/pages/mine/settings': { allowed: [] },
   '/pages/mine/help': { allowed: [] },
+  // Live pages (features/live/navigation/live-routes.ts, M20), repeated for the same reason;
+  // live-routes.test.ts checks them.
+  '/pages/live/notice': { required: 'roomId', allowed: ['roomId', 'cityCode'] },
+  '/pages/live/room': { required: 'roomId', allowed: ['roomId', 'cityCode'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.
