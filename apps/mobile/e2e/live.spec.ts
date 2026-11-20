@@ -138,7 +138,7 @@ test.describe('平台内直播', () => {
 
   test('LIVE-003 直播间：示例画面、种子弹幕、讲解清单进平台内详情页，上下切换', async ({ page }) => {
     await openRoom(page, DOG)
-    const video = page.getByTestId('live-room-video')
+    const video = page.locator('uni-video[data-testid="live-room-video"]')
     await expect(video).toHaveCount(1)
     await expect(page.locator('video')).toHaveAttribute('src', /\/static\/videos\/preview\/live-night-patrol\.mp4$/)
     await expect(room(page)).toContainText('鹰眼智能巡检')

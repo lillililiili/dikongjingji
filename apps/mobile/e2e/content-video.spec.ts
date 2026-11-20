@@ -106,7 +106,7 @@ test.describe('发现页视频', () => {
 
   test('CVD-001 推荐瀑布流里混着视频卡：封面、“视频”角标、时长、示例和广告；图文卡片不变', async ({ page }) => {
     await openDiscover(page)
-    await expect(page.getByRole('tab')).toHaveText(['推荐', '视频', '赛事', '研学', '案例', '知识'])
+    await expect(page.getByRole('tab')).toHaveText(['推荐', '视频', '直播', '赛事', '研学', '案例', '知识'])
     const grid = page.getByTestId('discover-grid')
     // 第一页 10 条：6 篇图文 + 4 条视频（按发布时间交错）；航测、研学营在第二页。
     await expect(grid.locator('[data-testid^="discover-article-"]')).toHaveCount(6)
@@ -123,7 +123,8 @@ test.describe('发现页视频', () => {
     await expect(videoCard(page, CONTEST).getByTestId('content-sponsored')).toHaveCount(0)
     // 预览构建用示例视频的第一帧作封面。
     await expect(videoCard(page, ROBOT).locator('uni-image.video-card__image')).toHaveCount(1)
-    await expect(discover(page)).not.toContainText('观看')
+    // Video cards carry no view counts; only the live bar above the grid does (live.spec.ts).
+    await expect(page.getByTestId('discover-grid')).not.toContainText('观看')
     await assertNoHorizontalOverflow(page)
 
     await page.mouse.move(195, 400)

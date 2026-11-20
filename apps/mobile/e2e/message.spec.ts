@@ -232,7 +232,7 @@ test.describe('消息', () => {
       await expect(page.locator('.message-center__item[data-kind="notice"]').first()).toBeVisible()
       // R6-5: the newest may be 交易物流 or 活动提醒 now, not only 服务进度.
       await expect(page.locator('.message-center__item[data-kind="notice"]').first())
-        .toContainText(/服务进度|交易物流|活动提醒|体验预约|需求与报价|客服消息/)
+        .toContainText(/服务进度|交易物流|活动提醒|体验预约|直播提醒|需求与报价|客服消息/)
       const dimensions = await page.evaluate(() => ({
         clientWidth: document.documentElement.clientWidth,
         scrollWidth: document.documentElement.scrollWidth,
