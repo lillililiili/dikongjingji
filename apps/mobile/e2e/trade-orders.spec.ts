@@ -290,7 +290,10 @@ test.describe('商品订单与支付', () => {
 
   test('TRD-005 页签切换和空态；地址带的页签直接选中', async ({ page, request }) => {
     await signIn(page, buyer)
+    // 我的页的“待付款”格（board Mine 的订单五阶段）直接进商品订单的待付款页签。
     await openGoodsOrdersFromMine(page)
+    await expect(page.getByTestId('goods-orders-tab-TO_PAY')).toHaveAttribute('aria-selected', 'true')
+    await page.getByTestId('goods-orders-tab-ALL').click()
     await expect(page.getByTestId('goods-orders-tab-ALL')).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByTestId('goods-orders-empty')).toHaveText('暂无相关订单')
 

@@ -114,8 +114,9 @@ test.describe('体验频道', () => {
       '黄河口户外飞行营地',
     ])
     await expect(page.getByTestId(`venue-card-${VENUE_ID}`)).toContainText('09:30–18:00 · 周一闭馆')
-    // Board ExpCenter: two lines, opening hours and today's bookable sessions; no address.
-    await expect(page.getByTestId(`venue-card-${VENUE_ID}`)).toContainText('场可约')
+    // Board ExpCenter: two lines, opening hours and (while sessions are left today) the bookable
+    // count; the address line is gone.
+    await expect(page.getByTestId(`venue-card-${VENUE_ID}`)).not.toContainText('东营区示例路 66 号')
     await expect(page.getByText('已下线的示例场馆')).toHaveCount(0)
 
     // The choice survives a trip to another channel.
