@@ -4,9 +4,12 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 import { providerCredentialLabel } from '@/shared/ui/qualification'
 import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
 import { categoryBadgeColour, categoryBadgeLabel } from '../detail-line-icons'
+import { serviceCitiesLabel } from '../service-cities-label'
 
 const props = defineProps<{
   detail: InspectionServiceDetail
+  // The city the page is open in; the provider row names it among the service cities.
+  cityCode: string
   // Whether the provider page is open (preview builds, F2); without it the row is not a link.
   providerLinkEnabled?: boolean
 }>()
@@ -19,11 +22,7 @@ function openProvider(): void {
   if (props.providerLinkEnabled && props.detail.provider) emit('openProvider', props.detail.provider.id)
 }
 
-const serviceCitiesLabel = computed(() =>
-  props.detail.serviceCityNames.length
-    ? `可服务城市 ${props.detail.serviceCityNames.join('、')}`
-    : '',
-)
+const citiesLabel = computed(() => serviceCitiesLabel(props.detail.serviceCities, props.cityCode))
 
 const STAR = 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z'
 const badgeLabel = computed(() => categoryBadgeLabel(props.detail.categoryLabel))
@@ -148,10 +147,11 @@ const priceLabel = computed(() => {
               {{ providerCredential }}
             </text>
             <text
-              v-if="serviceCitiesLabel"
+              v-if="citiesLabel"
               class="service-detail-hero__cities"
+              data-testid="service-detail-provider-cities"
             >
-              {{ serviceCitiesLabel }}
+              {{ citiesLabel }}
             </text>
             <text
               v-else-if="detail.provider.teamDescription"

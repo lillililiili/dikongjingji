@@ -9,8 +9,11 @@ import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
 import {
-  createReservationIntent,
+  DETAIL_PRIMARY_ACTION_LABELS,
+  createDetailPrimaryIntent,
+  resolveDetailPrimaryAction,
   resolveDetailServiceId,
+  type PublishInspectionDemandIntent,
   type ReserveServiceIntent,
 } from '../../../application/detail/inspection-detail-actions'
 import {
@@ -50,11 +53,19 @@ const canReserve = computed(() => Boolean(routeServiceId.value && detail.value.i
 const props = defineProps<{
   // The provider page belongs to the professional-service catalog (F2, preview builds).
   providerPageEnabled?: boolean
+  // Whether the demand form is open (M15, preview builds); the host decides through its gateway.
+  demandPublishEnabled?: boolean
 }>()
 const emit = defineEmits<{
   reserve: [intent: ReserveServiceIntent]
+  publishDemand: [intent: PublishInspectionDemandIntent]
   openProvider: [providerId: string, cityCode: string]
 }>()
+const primaryActionKind = computed(() =>
+  resolveDetailPrimaryAction(detail.value.primaryAction, Boolean(props.demandPublishEnabled)))
+// 发布需求 needs no inspection items; 立即预约 needs at least one.
+const primaryActionDisabled = computed(() =>
+  primaryActionKind.value === 'PUBLISH_DEMAND' ? !routeServiceId.value : !canReserve.value)
 
 onLoad((query: DetailRouteQuery | undefined) => {
   routeServiceId.value = resolveDetailServiceId(query?.serviceId)
@@ -160,16 +171,20 @@ function share(): void {
   }
 }
 
+// 立即预约 or, on a project-priced service, 发布需求 (named for the reservation it began as).
 function reserveService(): void {
   if (!routeServiceId.value) {
     return
   }
 
-  const intent = createReservationIntent(
+  const intent = createDetailPrimaryIntent(
+    primaryActionKind.value,
     routeServiceId.value,
     detailCityCode.value,
+    detail.value.provider?.id,
   )
-  emit('reserve', intent)
+  if (intent.type === 'PUBLISH_DEMAND') emit('publishDemand', intent)
+  else emit('reserve', intent)
 }
 </script>
 
@@ -186,6 +201,7 @@ function reserveService(): void {
     >
       <ServiceDetailHero
         :detail="detail"
+        :city-code="detailCityCode"
         :provider-link-enabled="props.providerPageEnabled"
         @open-provider="emit('openProvider', $event, detailCityCode)"
       />
@@ -237,7 +253,9 @@ function reserveService(): void {
     </view>
 
     <ServiceDetailBottomBar
-      :disabled="!canReserve"
+      :disabled="primaryActionDisabled"
+      :label="DETAIL_PRIMARY_ACTION_LABELS[primaryActionKind]"
+      :action-kind="primaryActionKind"
       @customer-service="contactCustomerService"
       @reserve="reserveService"
     />

@@ -44,7 +44,7 @@ describe('M03 route and data boundary', () => {
     expect(detailShellSource).toContain('@reserve="handleReserve"')
     expect(detailShellSource).toContain('intent: ReserveServiceIntent')
     expect(detailPageSource).toContain('routeServiceId.value')
-    expect(detailPageSource).toContain(':disabled="!canReserve"')
+    expect(detailPageSource).toContain(':disabled="primaryActionDisabled"')
     expect(detailPageSource).toContain('inspectionServiceDetailApi.loadDetail')
     expect(detailPageSource).not.toContain('inspectionBookingApi.loadServiceSnapshot')
     expect(detailPageSource).not.toContain('import.meta.env.DEV')

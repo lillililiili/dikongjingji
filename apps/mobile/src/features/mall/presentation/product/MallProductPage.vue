@@ -119,7 +119,7 @@ const saleMode = computed(() => product.value?.saleMode ?? 'BUY')
 const selectedOffer = computed<MallOffer | null>(() =>
   product.value?.offers.find((offer) => offer.offerId === selectedOfferId.value) ?? null,
 )
-// What the price, delivery and parties show: the chosen offer, or the first one while none of them
+// What the delivery row and parties show: the chosen offer, or the first one while none of them
 // can be chosen (no merchant takes payment online).
 const shownOffer = computed<MallOffer | null>(() => selectedOffer.value ?? product.value?.offers[0] ?? null)
 // An inquiry product is asked about on its own form, which picks the merchants; buying and renting
@@ -132,11 +132,17 @@ const primaryAction = computed(() => {
 const noPayableOffer = computed(() =>
   Boolean(product.value && product.value.saleMode !== 'INQUIRY' && product.value.offers.length > 0 && !selectedOffer.value),
 )
+// The price card shows the lowest listed price of all the merchants (PdRentalAerial "¥260/天 起");
+// the chosen merchant's own price stays on its card below.
 const price = computed(() => {
-  const offer = shownOffer.value
-  if (!product.value || !offer) return null
-  const listed = product.value.offers.map((item) => item.amountMinor).filter((amount): amount is number => amount !== null)
-  const lowestOfSeveral = new Set(listed).size > 1 && offer.amountMinor === Math.min(...listed)
+  if (!product.value || !shownOffer.value) return null
+  const listedOffers = product.value.offers.filter((item) => item.amountMinor !== null)
+  const lowest = listedOffers.reduce<MallOffer | null>(
+    (best, item) => (best === null || (item.amountMinor as number) < (best.amountMinor as number) ? item : best),
+    null,
+  )
+  const offer = lowest ?? shownOffer.value
+  const lowestOfSeveral = new Set(listedOffers.map((item) => item.amountMinor)).size > 1
   return formatMallDetailPrice(offer.amountMinor, offer.unit, { saleMode: product.value.saleMode, lowestOfSeveral })
 })
 // "3 家在售 · 东营可售" on the right of the price.
@@ -509,12 +515,12 @@ onLoad((query) => {
             </text>
           </view>
           <button
-            v-if="shownOffer?.shippingNote && product.saleMode !== 'INQUIRY'"
+            v-if="shownOffer?.shippingNote && product.saleMode === 'BUY'"
             class="mall-product__delivery"
             data-testid="mall-product-delivery"
             @click="openBuySheet"
           >
-            <text class="mall-product__delivery-label">{{ product.saleMode === 'RENT' ? '交付' : '配送' }}</text>
+            <text class="mall-product__delivery-label">配送</text>
             <text class="mall-product__delivery-value" data-testid="mall-product-shipping">
               {{ shownOffer.shippingNote }}
             </text>

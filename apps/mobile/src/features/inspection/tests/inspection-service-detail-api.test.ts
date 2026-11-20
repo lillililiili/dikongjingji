@@ -207,7 +207,7 @@ describe('inspection service detail api', () => {
       priceNote: '按线路公里计价，起步价含现场巡检和报告',
       priceFactors: ['线路长度', '杆塔数量', '现场条件'],
       cancellationNote: '方案确认前可取消，不收费；确认后按方案约定',
-      serviceCityNames: ['东营'],
+      serviceCities: [{ code: '370500', name: '东营' }],
       // catalog 1.3.0 (R6-4): the platform reviewed this provider's qualification.
       provider: { certificationLabel: '平台认证服务商', qualificationReviewed: true },
     })
@@ -239,6 +239,6 @@ describe('inspection service detail api', () => {
     expect(detail.priceNote).toBe('')
     expect(detail.priceFactors).toEqual([])
     expect(detail.cancellationNote).toBe('')
-    expect(detail.serviceCityNames).toEqual([])
+    expect(detail.serviceCities).toEqual([])
   })
 })

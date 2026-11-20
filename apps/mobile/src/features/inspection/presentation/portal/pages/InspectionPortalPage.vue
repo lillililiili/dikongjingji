@@ -150,7 +150,7 @@ function viewAllServices(): void {
           <view v-if="props.showRequestAction" class="portal-request" data-testid="portal-request">
             <view class="portal-request__copy">
               <text class="portal-request__title">非标需求？发布后多家报价</text>
-              <text class="portal-request__note">说明场景和范围，由服务商给出方案</text>
+              <text class="portal-request__note">报价版本留档，比选后再签约</text>
             </view>
             <button
               class="portal-request__action"

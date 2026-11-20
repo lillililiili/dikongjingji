@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
-defineProps<{
+// The label comes from the page (立即预约, or 发布需求 on a project-priced service); 立即预约 by default.
+withDefaults(defineProps<{
   disabled?: boolean
-}>()
+  label?: string
+  actionKind?: string
+}>(), { label: '立即预约', actionKind: 'RESERVE_SERVICE' })
 
 defineEmits<{
   customerService: []
@@ -25,9 +28,11 @@ defineEmits<{
       <button
         class="service-detail-bottom-bar__primary"
         :disabled="disabled"
+        data-testid="service-detail-primary"
+        :data-action="actionKind"
         @click="$emit('reserve')"
       >
-        立即预约
+        {{ label }}
       </button>
     </view>
   </view>

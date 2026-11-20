@@ -142,7 +142,7 @@ function mapDetail(dto: InspectionServiceDetailDto): InspectionServiceDetail {
     // T03 迁移前的存量数据这三项都是 null，页面按“没有配置”隐藏
     priceFactors: (dto.priceFactors ?? []).filter((factor) => factor.trim() !== ''),
     cancellationNote: dto.cancellationNote ?? '',
-    serviceCityNames: (dto.serviceCities ?? []).map((city) => city.name),
+    serviceCities: (dto.serviceCities ?? []).map(({ code, name }) => ({ code, name })),
     availability: dto.availability,
     primaryAction: dto.primaryAction,
     ratingAverage: dto.reviews.average,

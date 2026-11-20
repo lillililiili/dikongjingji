@@ -65,11 +65,27 @@ export function composePortalPreviewContent(
 
   return {
     hero: previewContent.hero,
-    categories: previewContent.categories,
-    guarantees: previewContent.guarantees,
+    categories: previewCategories(liveContent.categories, previewContent.categories),
+    guarantees: liveContent.guarantees.length
+      ? liveContent.guarantees
+      : previewContent.guarantees,
     hotServices: previewContent.hotServices.map(
       (service) => liveServiceByCategory.get(service.categoryCode) ?? service,
     ),
-    processSteps: previewContent.processSteps,
+    processSteps: liveContent.processSteps.length
+      ? liveContent.processSteps
+      : previewContent.processSteps,
   }
+}
+
+// The server's scenes win when it has any. The board's eighth cell, 更多, only opens the catalog
+// with its filter (see build-portal-navigation), so it is kept after the server's scenes.
+function previewCategories(
+  liveCategories: InspectionPortalContent['categories'],
+  previewCategories: InspectionPortalContent['categories'],
+): InspectionPortalContent['categories'] {
+  if (!liveCategories.length) return previewCategories
+  if (liveCategories.some((category) => category.code === 'MORE')) return liveCategories
+  const moreCategory = previewCategories.find((category) => category.code === 'MORE')
+  return moreCategory ? [...liveCategories, moreCategory] : liveCategories
 }

@@ -338,7 +338,10 @@ test.describe('商品详情', () => {
     await expect(page.locator('.mall-product__offer-price')).toHaveText(['¥1,299', '¥1,350', '¥1,380'])
 
     await offers.nth(1).click()
-    await expect(page.getByTestId('mall-product-price')).toHaveText('¥1,350')
+    // The price card keeps the lowest price of all the merchants; the chosen one's price is on its card.
+    await expect(page.getByTestId('mall-product-price')).toHaveText('¥1,299')
+    await expect(page.getByTestId('mall-product-price-unit')).toHaveText('起')
+    await expect(offers.nth(1)).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('mall-product-seller')).toContainText('示例教育装备代理（授权经销）')
     await expect(page.getByTestId('mall-product-shipping')).toHaveText('东营可买 · 包邮 · 交期 7 天')
 

@@ -39,15 +39,15 @@ SET logo_url = NULL,
     updated_at = now();
 
 -- 开发种子（仅 dev profile 的 flyway_history_inspection_development 加载）：
--- 电力线路巡检的计价方式与取消说明；按项目报价的园区服务（7777…）故意不写 price_note，
--- 用来验证列表卡由服务端派生“方案确认后定价”。
+-- 电力线路巡检的计价方式与取消说明，文案照 2026-11-14 修订版原型 InspDetail 画板（2026-11-20）。
 UPDATE inspection_service
-SET price_note = '按线路公里计价，起步价含现场巡检和报告',
-    cancellation_note = '方案确认前可取消，不收费；确认后按方案约定',
+SET price_note = '按公里计价，现场评估后以方案报价为准',
+    cancellation_note = '方案确认前取消不收费，确认后按方案约定',
     completed_count = 8560,
     updated_at = now()
 WHERE id = '33333333-3333-3333-3333-333333333333';
 
+-- 服务内容就是预约页“巡检项目”的选项；名称照 InspDetail 画板，编码不变（预约冒烟脚本按编码提交）。
 INSERT INTO inspection_service_booking_item (
     service_id,
     item_code,
@@ -60,8 +60,8 @@ INSERT INTO inspection_service_booking_item (
     (
         '33333333-3333-3333-3333-333333333333',
         'POWER_LINE',
-        '杆塔精细巡检',
-        '精细化巡检杆塔本体',
+        '杆塔本体巡检',
+        '巡检杆塔本体',
         'tower',
         10,
         'ACTIVE'
@@ -69,8 +69,8 @@ INSERT INTO inspection_service_booking_item (
     (
         '33333333-3333-3333-3333-333333333333',
         'TOWER',
-        '导线通道检测',
-        '检测导线通道状况',
+        '导线地线巡检',
+        '巡检导线和地线',
         'power-line',
         20,
         'ACTIVE'
@@ -78,8 +78,8 @@ INSERT INTO inspection_service_booking_item (
     (
         '33333333-3333-3333-3333-333333333333',
         'INSULATOR_FITTINGS',
-        '绝缘子缺陷识别',
-        '识别绝缘子及金具缺陷',
+        '绝缘子及金具巡检',
+        '巡检绝缘子及金具',
         'insulator',
         30,
         'ACTIVE'
@@ -87,8 +87,8 @@ INSERT INTO inspection_service_booking_item (
     (
         '33333333-3333-3333-3333-333333333333',
         'CORRIDOR_ENV',
-        '通道隐患排查',
-        '排查通道隐患风险',
+        '通道环境巡检',
+        '巡检线路通道环境',
         'shield',
         40,
         'ACTIVE'

@@ -12,6 +12,11 @@ export interface DetailProcessStep {
   label: string
 }
 
+export interface DetailServiceCity {
+  code: string
+  name: string
+}
+
 export interface DetailProvider {
   id: string
   name: string
@@ -54,8 +59,8 @@ export interface InspectionServiceDetail {
   priceFactors: readonly string[]
   /** 取消说明，只是展示文案，能否取消仍由服务流程状态机决定 */
   cancellationNote: string
-  /** 已开通城市的名称，用于服务商行“可服务城市”；为空时不显示 */
-  serviceCityNames: readonly string[]
+  /** 已开通的城市，用于服务商行“可服务城市”；为空时不显示 */
+  serviceCities: readonly DetailServiceCity[]
   availability: string
   primaryAction: string
   ratingAverage: number | null

@@ -195,7 +195,43 @@ describe('inspection portal navigation', () => {
 })
 
 describe('inspection portal development content boundary', () => {
-  it('fills the approved eight-category layout only in preview mode', () => {
+  it('uses the server scenes and steps when it has them and keeps the board 更多 after them', () => {
+    const live: InspectionPortalContent = {
+      ...fixtureContent,
+      categories: [
+        ...fixtureContent.categories,
+        { code: 'PARK', name: '园区', subtitle: '', imageUrl: '/static/images/inspection/category-park.webp' },
+      ],
+      processSteps: [
+        { code: 'REQUEST', title: '预约需求', icon: '' },
+        { code: 'REPORT', title: '报告验收', icon: '' },
+      ],
+    }
+
+    const preview = composePortalPreviewContent(true, live, DEVELOPMENT_PORTAL_CONTENT)
+
+    expect(preview.categories.map((category) => category.code)).toEqual(['POWER', 'PARK', 'MORE'])
+    expect(preview.categories.at(-1)?.name).toBe('更多')
+    expect(preview.processSteps.map((step) => step.title)).toEqual(['预约需求', '报告验收'])
+    // The server sends no guarantees yet, so the board's three stay.
+    expect(preview.guarantees.map((item) => item.title)).toEqual(['资质审核', '持证飞手', '报告可追溯'])
+  })
+
+  it('falls back to the board scenes and steps only when the server has none', () => {
+    const preview = composePortalPreviewContent(
+      true,
+      { ...fixtureContent, categories: [] },
+      DEVELOPMENT_PORTAL_CONTENT,
+    )
+
+    expect(preview.categories).toHaveLength(8)
+    expect(preview.categories.map((category) => category.name))
+      .toEqual(['电力', '光伏', '油气', '热力', '园区', '设备', '定期', '更多'])
+    expect(preview.processSteps.map((step) => step.title))
+      .toEqual(['预约需求', '确认方案', '服务履约', '报告验收'])
+  })
+
+  it('fills the approved layout only in preview mode', () => {
     const preview = composePortalPreviewContent(
       true,
       fixtureContent,
@@ -207,7 +243,7 @@ describe('inspection portal development content boundary', () => {
       DEVELOPMENT_PORTAL_CONTENT,
     )
 
-    expect(preview.categories).toHaveLength(8)
+    expect(preview.categories.map((category) => category.code)).toEqual(['POWER', 'MORE'])
     expect(preview.guarantees.map((item) => item.title))
       .toEqual(['资质审核', '持证飞手', '报告可追溯'])
     expect(preview.hotServices).toHaveLength(4)

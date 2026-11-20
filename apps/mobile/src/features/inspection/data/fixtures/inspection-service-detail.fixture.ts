@@ -11,7 +11,7 @@ export const DEVELOPMENT_POWER_SERVICE_DETAIL: InspectionServiceDetail = {
   priceNote: '按公里计价，现场评估后以方案报价为准',
   priceFactors: ['线路长度', '杆塔数量', '现场条件'],
   cancellationNote: '方案确认前取消不收费，确认后按方案约定',
-  serviceCityNames: ['东营'],
+  serviceCities: [{ code: '370500', name: '东营市' }],
   availability: 'RESERVABLE',
   primaryAction: 'RESERVE',
   ratingAverage: 4.9,

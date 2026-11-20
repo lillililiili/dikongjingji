@@ -41,7 +41,7 @@ describe('M03 价格与取消 card (T05)', () => {
 
   it('moves the price note out of the hero and shows the service cities next to the certification tag', () => {
     expect(heroSource).not.toContain('service-detail-hero__note')
-    expect(heroSource).toContain('`可服务城市 ${props.detail.serviceCityNames.join(\'、\')}`')
+    expect(heroSource).toContain('serviceCitiesLabel(props.detail.serviceCities, props.cityCode)')
     expect(heroSource).toContain('class="service-detail-hero__certification"')
     expect(heroSource).toContain('background: #e2f6ed')
   })
