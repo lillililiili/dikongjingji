@@ -118,7 +118,12 @@ public class SecurityConfiguration {
                                 "/api/v1/content/articles/*",
                                 "/api/v1/content/topics/*",
                                 // R6-3 相关内容：提到某个对象的图文，公开只读。
-                                "/api/v1/content/related").permitAll()
+                                "/api/v1/content/related",
+                                // 1.2.0 视频详情、视频流和评论列表：不登录也能看；带了令牌就按登录的人给“我点过赞”等。
+                                // 点赞、关注、发评论、举报和隐藏评论走下面的 authenticated()。
+                                "/api/v1/content/videos",
+                                "/api/v1/content/videos/*",
+                                "/api/v1/content/videos/*/comments").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
                         // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。

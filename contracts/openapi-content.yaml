@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "Content API"
-  version: "1.1.0"
+  version: "1.2.0"
   description: |-
     1.0.0（步骤 H1，docs/redesign/03-App实现任务计划.md §27）：发现页的图文内容（案例、知识）和专题。公开只读，不需要登录。
 
@@ -18,6 +18,22 @@ info:
     1.1.0（2026-11-20，docs/redesign/06-原型对齐修正计划.md §3 R6-3“相关内容”）：新增公开读取 GET /api/v1/content/related，
     按“内容中提到”反查：提到某个对象（refType + refId，商品详情用 PRODUCT 和商品 ID）的图文卡片，只给这个城市能看到的、
     已发布、发布时间已到的，新发布的在前；limit 不传为 3，最多 6。没人提到时 items 为空（不是 404）。卡片和发现页的一样。
+
+
+    1.2.0（2026-11-20，docs/redesign/07-视频与直播实现计划.md §2、§4）：视频。
+    - 内容加一类 VIDEO（服务商、商家或平台发布，必须有城市；作者、广告、示例的规则和图文一样）。发现页卡片多一个 video
+      （时长秒数、横竖屏，图文为 null）；推荐频道图文和视频混排（按发布时间），新频道 VIDEO 只有视频（按运营排序再按发布时间）。
+      图文详情、相关内容、专题只给图文，视频的 ID 在这些接口上当作不存在。
+    - 视频详情和竖屏视频流（GET /api/v1/content/videos，游标翻页，从指定的一条开始往下；RECOMMEND 是这个城市的全部视频，
+      FOLLOWING 只有关注的机构发布的、要登录）。每条带点赞数、评论数（只数没隐藏的），以及当前账号是否点过赞、是否关注了发布机构
+      （不登录都是 false）。“内容中提到”的第一项是视频挂的入口。播放地址只给带主机名的 HTTPS 地址，没有时为 null
+      （开发环境没有视频存储，预览构建用 App 内的示例视频）。不做推荐算法、播放量和收藏。
+    - 要登录的写操作（任何登录账号）：点赞 / 取消（PUT / DELETE，天然幂等）、关注 / 取消关注发布机构（只能关注发布过内容的机构）、
+      发评论（≤ 200 字，带 Idempotency-Key；同一账号 60 秒内最多 3 条，超了 429；过关键词过滤，命中 422，直接显示，不先审）、
+      举报评论（同一账号对同一条只记一次，记进客服反馈，类型“内容有误”）。
+    - 受权接口：平台客服（PLATFORM_SUPPORT）或发布这条视频的机构的操作员（PROVIDER_OPERATOR）隐藏单条评论；隐藏后谁都看不到，
+      也不算进评论数。没有审核页面，审核由谁负责仍待定（计划 §4 第 3 条）。
+    - 评论显示名是发评论时的显示名打码（只留第一个字）；发布机构的操作员发的评论显示机构名并标“作者”。
 
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
@@ -150,7 +166,333 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/content/videos:
+    get:
+      operationId: "getContentVideoStream"
+      summary: "竖屏视频流的一段"
+      description: "这个城市已发布的视频，按运营排序（大的在前）、发布时间（新的在前）排。带 startVideoId 时从那一条开始（含它）往下；带 cursor 时接着上一段往下（cursor 优先）。不登录也能看，登录了 liked、followingAuthor 才可能为 true。"
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+        - name: "feed"
+          in: "query"
+          required: false
+          description: "不传是 RECOMMEND；FOLLOWING 要登录"
+          schema:
+            $ref: "#/components/schemas/ContentVideoFeed"
+        - name: "startVideoId"
+          in: "query"
+          required: false
+          description: "从这一条开始（发现页点了哪张卡片）"
+          schema:
+            type: "string"
+            format: "uuid"
+        - name: "cursor"
+          in: "query"
+          required: false
+          description: "上一段的 nextCursor，原样传回"
+          schema:
+            type: "string"
+            maxLength: 200
+        - name: "size"
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 10
+            default: 5
+      responses:
+        "200":
+          description: "一段视频"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentVideoPage"
+        "400":
+          description: "城市编码、feed、startVideoId、cursor 无效，或 size 不在 1–10（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: "startVideoId 不存在、没有发布、不在这个城市，或不在关注流里（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/content/videos/{videoId}:
+    get:
+      operationId: "getContentVideo"
+      summary: "视频详情"
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: "视频详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentVideo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: "不存在、没有发布、不在这个城市，或不是视频（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/content/videos/{videoId}/like:
+    put:
+      operationId: "likeContentVideo"
+      summary: "点赞（已经点过也返回 200）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+      responses:
+        "200":
+          description: "点过赞了"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentVideoLike"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/VideoNotFound"
+    delete:
+      operationId: "unlikeContentVideo"
+      summary: "取消点赞（没点过也返回 200）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+      responses:
+        "200":
+          description: "没有点赞了"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentVideoLike"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/VideoNotFound"
+  /api/v1/content/videos/{videoId}/comments:
+    get:
+      operationId: "listContentVideoComments"
+      summary: "一页评论，新的在前"
+      description: "只有没隐藏的。不登录也能看；登录了自己发的 mine 为 true。"
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页评论"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentCommentPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/VideoNotFound"
+    post:
+      operationId: "postContentVideoComment"
+      summary: "发评论"
+      description: "过关键词过滤后直接显示。同一个 Idempotency-Key 带同样的内容重复提交，返回第一次那条（200），不算进限频。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContentCommentRequest"
+      responses:
+        "201":
+          description: "发出去了"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentComment"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentComment"
+        "400":
+          description: "Idempotency-Key 无效；评论为空、超过 200 字或含控制字符（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/VideoNotFound"
+        "409":
+          description: "CONTENT_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用在内容不同的评论上。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "CONTENT_COMMENT_BLOCKED：评论里有不允许发布的内容（关键词过滤命中，或写了手机号）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: "CONTENT_COMMENT_TOO_FREQUENT：同一账号 60 秒内已经发了 3 条。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/content/comments/{commentId}/reports:
+    post:
+      operationId: "reportContentComment"
+      summary: "举报一条评论"
+      description: "记进客服反馈（类型 CONTENT“内容有误”，contracts/openapi-support.yaml），不承诺处理时限。同一账号对同一条只记一次：再举报返回第一次那条（200，原因以第一次为准）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContentCommentReportRequest"
+      responses:
+        "201":
+          description: "已记下"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentCommentReport"
+        "200":
+          description: "举报过了"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentCommentReport"
+        "400":
+          description: "评论 ID 无效或原因不认识（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: "评论不存在、已隐藏，或视频已下线（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/content/comments/{commentId}/hide:
+    post:
+      operationId: "hideContentComment"
+      summary: "隐藏一条评论（受权接口，没有页面）"
+      description: "平台客服（PLATFORM_SUPPORT）能隐藏任何一条；服务商、商家的操作员（PROVIDER_OPERATOR，令牌里带机构）只能隐藏本机构发布的视频下的评论。已经隐藏的再调返回同样的结果。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+      responses:
+        "200":
+          description: "已隐藏"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentCommentHidden"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: "既不是平台客服也不是服务商、商家的操作员（COMMON_FORBIDDEN）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: "评论不存在，或不是本机构视频下的评论（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/content/follows/{organizationId}:
+    put:
+      operationId: "followContentAuthor"
+      summary: "关注发布机构（已经关注也返回 200）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: "关注了"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentFollow"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: "这家机构没有发布过内容（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: "unfollowContentAuthor"
+      summary: "取消关注（没关注也返回 200）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: "没有关注了"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentFollow"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
   responses:
     BadRequest:
       description: "参数缺失或格式不对（COMMON_INVALID_ARGUMENT）"
@@ -158,7 +500,48 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    VideoNotFound:
+      description: "视频不存在、没有发布，或不是视频（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
   parameters:
+    VideoId:
+      name: "videoId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    CommentId:
+      name: "commentId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    OrganizationId:
+      name: "organizationId"
+      in: "path"
+      required: true
+      description: "发布机构（ContentAuthor.organizationId）"
+      schema:
+        type: "string"
+        format: "uuid"
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
     CityCode:
       name: "cityCode"
       in: "query"
@@ -209,7 +592,8 @@ components:
       enum:
         - "CASE"
         - "KNOWLEDGE"
-      description: "CASE 案例（服务商、商家发布）；KNOWLEDGE 知识（平台或机构发布）。"
+        - "VIDEO"
+      description: "CASE 案例（服务商、商家发布）；KNOWLEDGE 知识（平台或机构发布）；VIDEO 视频（1.2.0，服务商、商家或平台发布，有城市，详情走 /api/v1/content/videos/{videoId}）。"
     ContentAuthorKind:
       type: "string"
       enum:
@@ -223,7 +607,292 @@ components:
         - "RECOMMEND"
         - "CASE"
         - "KNOWLEDGE"
-      description: "发现页的图文频道：RECOMMEND 推荐（两类都有，第一页另带当前的专题）；CASE 案例；KNOWLEDGE 知识。“赛事”“研学”频道由 App 直接读活动列表（contracts/openapi-activity.yaml），“视频”“直播”这一步不显示。"
+        - "VIDEO"
+      description: "发现页的内容频道：RECOMMEND 推荐（图文和视频混排，按发布时间，第一页另带当前的专题）；CASE 案例；KNOWLEDGE 知识；VIDEO 视频（1.2.0，按运营排序再按发布时间，和视频流一样）。“赛事”“研学”频道由 App 直接读活动列表（contracts/openapi-activity.yaml），“直播”不在这个接口。"
+    ContentVideoOrientation:
+      type: "string"
+      enum:
+        - "PORTRAIT"
+        - "LANDSCAPE"
+      description: "画面方向：PORTRAIT 竖屏；LANDSCAPE 横屏（竖屏流里上下留黑）。"
+    ContentVideoFeed:
+      type: "string"
+      enum:
+        - "RECOMMEND"
+        - "FOLLOWING"
+      description: "视频流：RECOMMEND 这个城市的全部视频；FOLLOWING 只有关注的机构发布的（要登录）。"
+    ContentCommentReportReason:
+      type: "string"
+      enum:
+        - "AD_SPAM"
+        - "ABUSE"
+        - "ILLEGAL"
+        - "OTHER"
+      description: "举报原因：AD_SPAM 广告引流；ABUSE 辱骂攻击；ILLEGAL 违法违规；OTHER 其他。"
+    ContentVideoSummary:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "durationSeconds"
+        - "orientation"
+      properties:
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+          maximum: 3600
+        orientation:
+          $ref: "#/components/schemas/ContentVideoOrientation"
+      description: "卡片上的视频信息（时长角标）"
+    ContentVideo:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "videoId"
+        - "title"
+        - "author"
+        - "sponsored"
+        - "cityCode"
+        - "coverImage"
+        - "sample"
+        - "publishedAt"
+        - "durationSeconds"
+        - "orientation"
+        - "playUrl"
+        - "caption"
+        - "tags"
+        - "refs"
+        - "likeCount"
+        - "commentCount"
+        - "liked"
+        - "followingAuthor"
+      properties:
+        videoId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 60
+        author:
+          $ref: "#/components/schemas/ContentAuthor"
+        sponsored:
+          type: "boolean"
+        cityCode:
+          type: "string"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/ContentMedia"
+            - type: "null"
+        sample:
+          type: "boolean"
+        publishedAt:
+          type: "string"
+          format: "date-time"
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+          maximum: 3600
+        orientation:
+          $ref: "#/components/schemas/ContentVideoOrientation"
+        playUrl:
+          type:
+            - "string"
+            - "null"
+          format: "uri"
+          description: "只给带主机名的 HTTPS 地址；没有时为 null"
+        caption:
+          type:
+            - "string"
+            - "null"
+          maxLength: 200
+          description: "一句话说明"
+        tags:
+          type: "array"
+          items:
+            type: "string"
+            maxLength: 20
+          description: "话题，不带 #"
+        refs:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ContentRef"
+          description: "“内容中提到”，按顺序；第一项是视频挂的入口"
+        likeCount:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        commentCount:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+          description: "没隐藏的评论条数"
+        liked:
+          type: "boolean"
+          description: "当前账号点过赞；不登录为 false"
+        followingAuthor:
+          type: "boolean"
+          description: "当前账号关注了发布机构；不登录或平台发布的为 false"
+      description: "视频详情，也是视频流里的一条"
+    ContentVideoPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "cityCode"
+        - "feed"
+        - "items"
+        - "nextCursor"
+      properties:
+        cityCode:
+          type: "string"
+        feed:
+          $ref: "#/components/schemas/ContentVideoFeed"
+        items:
+          type: "array"
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ContentVideo"
+        nextCursor:
+          type:
+            - "string"
+            - "null"
+          description: "还有下一段时给出；没有了为 null"
+    ContentVideoLike:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "videoId"
+        - "liked"
+        - "likeCount"
+      properties:
+        videoId:
+          type: "string"
+          format: "uuid"
+        liked:
+          type: "boolean"
+        likeCount:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+    ContentFollow:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "organizationId"
+        - "following"
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        following:
+          type: "boolean"
+    ContentComment:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "commentId"
+        - "videoId"
+        - "authorName"
+        - "byAuthor"
+        - "mine"
+        - "text"
+        - "createdAt"
+      properties:
+        commentId:
+          type: "string"
+          format: "uuid"
+        videoId:
+          type: "string"
+          format: "uuid"
+        authorName:
+          type: "string"
+          maxLength: 160
+          description: "发评论时的显示名打码（只留第一个字）；发布机构的操作员发的是机构名"
+        byAuthor:
+          type: "boolean"
+          description: "发布这条视频的机构发的（页面标“作者”）"
+        mine:
+          type: "boolean"
+          description: "当前账号发的；不登录为 false"
+        text:
+          type: "string"
+          maxLength: 200
+        createdAt:
+          type: "string"
+          format: "date-time"
+    ContentCommentPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ContentComment"
+          description: "新的在前"
+    ContentCommentRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "text"
+      properties:
+        text:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+    ContentCommentReportRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "reason"
+      properties:
+        reason:
+          $ref: "#/components/schemas/ContentCommentReportReason"
+    ContentCommentReport:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "commentId"
+        - "reason"
+        - "reportedAt"
+      properties:
+        commentId:
+          type: "string"
+          format: "uuid"
+        reason:
+          $ref: "#/components/schemas/ContentCommentReportReason"
+        reportedAt:
+          type: "string"
+          format: "date-time"
+    ContentCommentHidden:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "commentId"
+        - "hidden"
+        - "hiddenAt"
+      properties:
+        commentId:
+          type: "string"
+          format: "uuid"
+        hidden:
+          type: "boolean"
+        hiddenAt:
+          type: "string"
+          format: "date-time"
     ContentBlockType:
       type: "string"
       enum:
@@ -288,10 +957,12 @@ components:
         - "coverImage"
         - "sample"
         - "publishedAt"
+        - "video"
       properties:
         articleId:
           type: "string"
           format: "uuid"
+          description: "内容 ID；视频卡片是视频 ID"
         kind:
           $ref: "#/components/schemas/ContentArticleKind"
         title:
@@ -299,6 +970,11 @@ components:
           maxLength: 60
         author:
           $ref: "#/components/schemas/ContentAuthor"
+        video:
+          anyOf:
+            - $ref: "#/components/schemas/ContentVideoSummary"
+            - type: "null"
+          description: "视频卡片的时长和方向；图文为 null"
         sponsored:
           type: "boolean"
           description: "广告（商家发布的内容一律是广告）"
@@ -317,7 +993,7 @@ components:
         publishedAt:
           type: "string"
           format: "date-time"
-      description: "瀑布流里的图文卡片；没有授权图片时 coverImage 为 null，页面用纯色块加标题"
+      description: "瀑布流里的卡片（图文或视频）；没有授权图片时 coverImage 为 null，页面用纯色块加标题。相关内容和专题里只有图文"
     ContentRelated:
       type: "object"
       additionalProperties: false

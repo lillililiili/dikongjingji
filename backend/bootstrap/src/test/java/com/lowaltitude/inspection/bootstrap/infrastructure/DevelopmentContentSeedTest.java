@@ -100,6 +100,51 @@ class DevelopmentContentSeedTest {
         assertThat(sql).contains("'ARTICLE', 'f3000000-0000-4000-8000-000000000001'");
     }
 
+    // 1.2.0：六条示例视频（画板 Discover、VideoFeed），没有播放地址和封面（预览构建用 App 内的示例视频），
+    // 按 ID 覆盖不删（开发库里的赞和评论留着），挂的入口和作者都是别的开发数据里存在的。
+    @Test
+    void sixSampleVideosFromTheBoardsPointAtRealDevelopmentData() throws Exception {
+        String sql = resource("/db/development/content/R__dev_content_video.sql");
+        String mall = resource("/db/development/mall/R__dev_mall_catalog.sql");
+        String activity = resource("/db/development/activity/R__dev_activity_catalog.sql");
+
+        for (String title : List.of("3 分钟看懂编程机器人", "机器狗园区夜巡实录", "4K 航拍黄河口", "编程挑战赛精彩回顾",
+                "无人机航测三天出图", "研学营的一天")) {
+            assertThat(sql).as(title).contains("'VIDEO', '" + title + "'");
+        }
+        assertThat(count(sql, "'370500', NULL,\n     true, 'PUBLISHED'")).isEqualTo(6);
+        assertThat(sql).contains("${" + ModuleFlywayConfiguration.SEED_DATE_PLACEHOLDER + "}")
+                .contains("ON CONFLICT (id) DO UPDATE")
+                .doesNotContain("DELETE FROM content_article ")
+                .doesNotContain("https://")
+                .doesNotContain("_blob")
+                .doesNotContain("INSERT INTO identity_");
+        // 播放地址都为空；商家发布的是广告；平台发布的没有机构。
+        assertThat(count(sql, "'LANDSCAPE', NULL,") + count(sql, "'PORTRAIT', NULL,")).isEqualTo(6);
+        assertThat(sql).contains("'MERCHANT', 'c1000000-0000-4000-8000-000000000003', '示例科创器材店', true")
+                .contains("'PLATFORM', NULL, '东营城市运营中心', false");
+        assertThat(mall).contains("'c1000000-0000-4000-8000-000000000003'");
+        assertThat(activity).contains("'a1000000-0000-4000-8000-000000000002'");
+
+        Matcher refs = Pattern.compile("'(INSPECTION_SERVICE|PRO_SERVICE|PRODUCT|ACTIVITY|VENUE)', '([0-9a-f-]{36})'")
+                .matcher(sql);
+        int found = 0;
+        while (refs.find()) {
+            found++;
+            String source = switch (refs.group(1)) {
+                case "INSPECTION_SERVICE" -> resource("/db/development/inspection/R__dev_inspection_catalog.sql");
+                case "PRO_SERVICE" -> resource("/db/development/proservice/R__dev_proservice_catalog.sql");
+                case "PRODUCT" -> mall;
+                case "ACTIVITY" -> activity;
+                default -> resource("/db/development/experience/R__dev_experience_catalog.sql");
+            };
+            assertThat(source).as(refs.group(1) + " " + refs.group(2)).contains(refs.group(2));
+        }
+        assertThat(found).isEqualTo(8);
+        // 每条视频都有一个入口（sort_order 10）。
+        assertThat(count(sql, "', 10, '")).isEqualTo(6);
+    }
+
     private static int count(String text, String part) {
         return text.split(Pattern.quote(part), -1).length - 1;
     }

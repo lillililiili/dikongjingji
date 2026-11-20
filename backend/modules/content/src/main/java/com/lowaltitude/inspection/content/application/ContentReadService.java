@@ -64,8 +64,12 @@ public class ContentReadService {
         String kind = channel == ContentFeedChannel.RECOMMEND ? null : channel.name();
         OffsetDateTime now = now();
         long total = mapper.countFeed(city, kind, now);
-        List<ContentArticleCardView> items = mapper.findFeedPage(city, kind, now, size,
-                        Math.multiplyExact(page - 1, size)).stream()
+        int offset = Math.multiplyExact(page - 1, size);
+        // 1.2.0：视频频道按视频流的顺序（运营排序，再按发布时间），其余频道按发布时间。
+        List<ArticleRow> rows = channel == ContentFeedChannel.VIDEO
+                ? mapper.findVideoFeedPage(city, kind, now, size, offset)
+                : mapper.findFeedPage(city, kind, now, size, offset);
+        List<ContentArticleCardView> items = rows.stream()
                 .map(ContentReadService::card)
                 .toList();
         List<ContentTopicCardView> topics = channel == ContentFeedChannel.RECOMMEND && page == 1
@@ -163,9 +167,14 @@ public class ContentReadService {
     // ---- 内部 ----
 
     private static ContentArticleCardView card(ArticleRow row) {
-        return new ContentArticleCardView(row.id(), ContentArticleKind.valueOf(row.kind()), row.title(),
+        ContentArticleKind kind = ContentArticleKind.valueOf(row.kind());
+        ContentVideoSummaryView video = kind == ContentArticleKind.VIDEO
+                ? new ContentVideoSummaryView(row.videoDurationSeconds(),
+                        ContentVideoOrientation.valueOf(row.videoOrientation()))
+                : null;
+        return new ContentArticleCardView(row.id(), kind, row.title(),
                 new ContentAuthorView(ContentAuthorKind.valueOf(row.authorKind()), row.authorOrgId(), row.authorName()),
-                row.sponsored(), row.cityCode(), secureMedia(row.coverUrl(), row.title()), row.sample(),
+                video, row.sponsored(), row.cityCode(), secureMedia(row.coverUrl(), row.title()), row.sample(),
                 row.publishedAt());
     }
 
@@ -178,6 +187,12 @@ public class ContentReadService {
 
     /** 只给带主机名的 HTTPS 图片地址，其余当没有封面。 */
     static ContentMediaView secureMedia(String url, String alt) {
+        String secure = secureUrl(url);
+        return secure == null ? null : new ContentMediaView(secure, alt);
+    }
+
+    /** 只认带主机名的 HTTPS 地址（图片和视频的播放地址），其余为 null。 */
+    static String secureUrl(String url) {
         if (url == null || url.isBlank()) {
             return null;
         }
@@ -186,13 +201,13 @@ public class ContentReadService {
             if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getHost().isBlank()) {
                 return null;
             }
-            return new ContentMediaView(uri.toString(), alt);
+            return uri.toString();
         } catch (IllegalArgumentException invalid) {
             return null;
         }
     }
 
-    private static String requireCity(String cityCode) {
+    static String requireCity(String cityCode) {
         String city = cityCode == null ? "" : cityCode.trim();
         if (!city.matches(CITY_CODE_PATTERN)) {
             throw new IllegalArgumentException("city code is invalid");
@@ -200,7 +215,7 @@ public class ContentReadService {
         return city;
     }
 
-    private static <E extends Enum<E>> E parse(Class<E> type, String code) {
+    static <E extends Enum<E>> E parse(Class<E> type, String code) {
         try {
             return Enum.valueOf(type, code.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException unknown) {
@@ -208,7 +223,7 @@ public class ContentReadService {
         }
     }
 
-    private static String blankToNull(String value) {
+    static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
     }
 

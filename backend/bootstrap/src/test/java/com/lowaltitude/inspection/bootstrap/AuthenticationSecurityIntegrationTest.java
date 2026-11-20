@@ -405,6 +405,38 @@ class AuthenticationSecurityIntegrationTest {
         }
     }
 
+    // 1.2.0 视频：详情、视频流、评论列表不带令牌也能读；点赞、关注、发评论、举报、隐藏要登录。
+    @Test
+    void videoReadsArePublicAndVideoWritesNeedALogin() throws Exception {
+        com.lowaltitude.inspection.content.application.ContentVideoService videos =
+                applicationContext.getBean(com.lowaltitude.inspection.content.application.ContentVideoService.class);
+        UUID video = UUID.fromString("f3200000-0000-4000-8000-000000000001");
+        UUID comment = UUID.fromString("f3300000-0000-4000-8000-000000000001");
+        UUID organization = UUID.fromString("c1000000-0000-4000-8000-000000000001");
+
+        mockMvc.perform(get("/api/v1/content/videos?cityCode=370500&startVideoId=" + video)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/content/videos/{id}?cityCode=370500", video)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/content/videos/{id}/comments", video)).andExpect(status().isOk());
+        org.mockito.Mockito.verify(videos).stream("370500", null, video, null, null, null);
+        org.mockito.Mockito.verify(videos).video(video, "370500", null);
+        org.mockito.Mockito.verify(videos).comments(video, 1, 20, null);
+
+        for (var request : List.of(
+                put("/api/v1/content/videos/" + video + "/like"),
+                delete("/api/v1/content/videos/" + video + "/like"),
+                post("/api/v1/content/videos/" + video + "/comments"),
+                post("/api/v1/content/comments/" + comment + "/reports"),
+                post("/api/v1/content/comments/" + comment + "/hide"),
+                put("/api/v1/content/follows/" + organization),
+                delete("/api/v1/content/follows/" + organization),
+                get("/api/v1/content/videos/" + video + "/likes"),
+                get("/api/v1/content/comments/" + comment))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+    }
+
     // 询价商品（F4）的十个接口全部要登录；客户和商家各按令牌里的账号、机构，角色不对时 403。
     @Test
     void mallInquiryRoutesRequireALoginAndTheRightRole() throws Exception {
@@ -1422,6 +1454,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.content.application.ContentReadService testContentReadService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.content.application.ContentReadService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.content.application.ContentVideoService testContentVideoService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.content.application.ContentVideoService.class);
         }
 
         @Bean

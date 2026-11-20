@@ -80,12 +80,57 @@ class ContentReadServiceTest {
         assertThat(knowledge.total()).isEqualTo(2);
         assertThat(knowledge.hasMore()).isTrue();
         assertThat(service.feed(DONGYING, "KNOWLEDGE", 2, 1).hasMore()).isFalse();
-        assertInvalid(() -> service.feed(DONGYING, "VIDEO", 1, 20));
+        assertInvalid(() -> service.feed(DONGYING, "LIVE", 1, 20));
         assertInvalid(() -> service.feed(DONGYING, "CONTEST", 1, 20));
         assertInvalid(() -> service.feed("dongying", null, 1, 20));
         assertInvalid(() -> service.feed(null, null, 1, 20));
         assertInvalid(() -> service.feed(DONGYING, null, 0, 20));
         assertInvalid(() -> service.feed(DONGYING, null, 1, 51));
+    }
+
+    // 1.2.0：推荐频道图文和视频按发布时间混排，视频卡片带时长和方向；视频频道按运营排序再按发布时间。
+    @Test
+    void videosMixIntoTheRecommendFeedAndHaveTheirOwnChannelInOperatorOrder() {
+        ContentMapper.ArticleRow robot = mapper.video("3 分钟看懂编程机器人", "MERCHANT", ROBOT, "示例机器人商家", true,
+                DONGYING, 16, 192, "LANDSCAPE", 60);
+        ContentMapper.ArticleRow dog = mapper.video("机器狗园区夜巡实录", "PROVIDER", EAGLE, "鹰眼智能巡检", false,
+                DONGYING, 23, 108, "PORTRAIT", 50);
+        mapper.video("济南的视频", "PROVIDER", EAGLE, "鹰眼智能巡检", false, JINAN, 2, 30, "PORTRAIT", 99);
+
+        ContentFeedView recommend = service.feed(DONGYING, null, 1, 20);
+        assertThat(recommend.items()).extracting(ContentArticleCardView::title).containsExactly(
+                "3 分钟看懂编程机器人", "新手买无人机前，先弄清这 4 件事", "一台机器狗如何完成园区夜间巡逻", "机器狗园区夜巡实录",
+                "给孩子选编程机器人，看这 5 点");
+        assertThat(recommend.items().get(0).kind()).isEqualTo(ContentArticleKind.VIDEO);
+        assertThat(recommend.items().get(0).video())
+                .isEqualTo(new ContentVideoSummaryView(192, ContentVideoOrientation.LANDSCAPE));
+        assertThat(recommend.items().get(1).video()).isNull();
+
+        ContentFeedView videos = service.feed(DONGYING, "video", 1, 20);
+        assertThat(videos.channel()).isEqualTo(ContentFeedChannel.VIDEO);
+        assertThat(videos.total()).isEqualTo(2);
+        assertThat(videos.items()).extracting(ContentArticleCardView::articleId).containsExactly(robot.id(), dog.id());
+        // 视频频道按运营排序：把机器狗排到前面。
+        mapper.rank(dog, 70);
+        assertThat(service.feed(DONGYING, "VIDEO", 1, 20).items()).extracting(ContentArticleCardView::articleId)
+                .containsExactly(dog.id(), robot.id());
+        assertThat(mapper.videoPagesAsked).isEqualTo(2);
+    }
+
+    // 视频不是图文：图文详情、相关内容、专题都不给视频。
+    @Test
+    void videosAreNotArticles() {
+        ContentMapper.ArticleRow robot = mapper.video("3 分钟看懂编程机器人", "MERCHANT", ROBOT, "示例机器人商家", true,
+                DONGYING, 16, 192, "LANDSCAPE", 60);
+        UUID kit = UUID.fromString("c2000000-0000-4000-8000-000000000101");
+        mapper.ref(robot, "PRODUCT", kit, "编程机器人探索套装");
+        MutableTopic topic = mapper.topic("黄河口低空体验季", DONGYING, LocalDate.parse("2026-11-01"),
+                LocalDate.parse("2026-11-30"));
+        mapper.item(topic, "ARTICLE", robot.id());
+
+        assertRejected(() -> service.article(robot.id(), DONGYING));
+        assertThat(service.related("PRODUCT", kit, DONGYING, null).items()).isEmpty();
+        assertThat(service.topic(topic.id, DONGYING).articles()).isEmpty();
     }
 
     @Test
@@ -293,16 +338,32 @@ class ContentReadServiceTest {
         final List<RefRow> refs = new ArrayList<>();
         final List<MutableTopic> topics = new ArrayList<>();
         final List<LocalDate> askedToday = new ArrayList<>();
+        final java.util.Map<UUID, Integer> ranks = new java.util.HashMap<>();
         int askedLimit;
+        int videoPagesAsked;
 
         /** status 默认 PUBLISHED（用 status(...) 改成草稿、下线）。daysAgo 为负表示还没到发布时间。 */
         ArticleRow article(String kind, String title, String authorKind, UUID org, String author, boolean sponsored,
                               String city, int daysAgo) {
             ArticleRow row = new ArticleRow(UUID.randomUUID(), kind, title, authorKind, org, author, sponsored, city,
-                    null, true, NOW_UTC.minusDays(daysAgo));
+                    null, true, NOW_UTC.minusDays(daysAgo), null, null);
             articles.add(row);
             statuses.add("PUBLISHED");
             return row;
+        }
+
+        ArticleRow video(String title, String authorKind, UUID org, String author, boolean sponsored, String city,
+                         int daysAgo, int seconds, String orientation, int rank) {
+            ArticleRow row = new ArticleRow(UUID.randomUUID(), "VIDEO", title, authorKind, org, author, sponsored, city,
+                    null, true, NOW_UTC.minusDays(daysAgo), seconds, orientation);
+            articles.add(row);
+            statuses.add("PUBLISHED");
+            ranks.put(row.id(), rank);
+            return row;
+        }
+
+        void rank(ArticleRow row, int rank) {
+            ranks.put(row.id(), rank);
         }
 
         void status(ArticleRow row, String status) {
@@ -365,9 +426,20 @@ class ContentReadServiceTest {
         }
 
         @Override
+        public List<ArticleRow> findVideoFeedPage(String cityCode, String kind, OffsetDateTime now, int limit,
+                                                  int offset) {
+            videoPagesAsked++;
+            return feed(cityCode, kind, now).stream()
+                    .sorted(Comparator.comparing((ArticleRow row) -> ranks.getOrDefault(row.id(), 0)).reversed()
+                            .thenComparing(Comparator.comparing(ArticleRow::publishedAt).reversed()))
+                    .skip(offset).limit(limit).toList();
+        }
+
+        @Override
         public ArticleRow findArticle(UUID articleId, String cityCode, OffsetDateTime now) {
             for (int i = 0; i < articles.size(); i++) {
-                if (articles.get(i).id().equals(articleId) && visible(cityCode, now).test(i)) {
+                if (articles.get(i).id().equals(articleId) && visible(cityCode, now).test(i)
+                        && !articles.get(i).kind().equals("VIDEO")) {
                     return articles.get(i);
                 }
             }
@@ -413,6 +485,7 @@ class ContentReadServiceTest {
                 }
             }
             return feed(cityCode, null, now).stream()
+                    .filter(article -> !article.kind().equals("VIDEO"))
                     .filter(article -> mentioning.contains(article.id()))
                     .limit(limit)
                     .toList();

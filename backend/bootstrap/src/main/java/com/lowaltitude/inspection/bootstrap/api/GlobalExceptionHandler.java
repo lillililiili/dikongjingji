@@ -16,6 +16,7 @@ import com.lowaltitude.inspection.mall.application.MallInquiryException;
 import com.lowaltitude.inspection.mall.application.MallProductNotFoundException;
 import com.lowaltitude.inspection.notification.application.NotificationNotFoundException;
 import com.lowaltitude.inspection.proservice.application.ProServiceNotFoundException;
+import com.lowaltitude.inspection.content.application.ContentException;
 import com.lowaltitude.inspection.content.application.ContentNotFoundException;
 import com.lowaltitude.inspection.rental.application.RentalException;
 import com.lowaltitude.inspection.support.application.SupportException;
@@ -667,6 +668,43 @@ public class GlobalExceptionHandler {
                 message = "对方暂时不能接收消息";
             }
             default -> throw new IllegalStateException("unmapped support error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
+    /** 发现页视频（契约 contracts/openapi-content.yaml 1.2.0）的业务拒绝。 */
+    @ExceptionHandler(ContentException.class)
+    public ResponseEntity<ApiError> handleContent(ContentException exception, HttpServletRequest request) {
+        HttpStatus status;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case UNAUTHORIZED -> {
+                status = HttpStatus.UNAUTHORIZED;
+                code = "COMMON_UNAUTHORIZED";
+                message = "请先登录";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "CONTENT_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case COMMENT_BLOCKED -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "CONTENT_COMMENT_BLOCKED";
+                message = "评论里有不允许发布的内容";
+            }
+            case COMMENT_TOO_FREQUENT -> {
+                status = HttpStatus.TOO_MANY_REQUESTS;
+                code = "CONTENT_COMMENT_TOO_FREQUENT";
+                message = "评论太频繁，请稍后再试";
+            }
+            default -> throw new IllegalStateException("unmapped content error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
     }
