@@ -25,10 +25,24 @@ page {
   --app-action-orange-start: #d04700;
   --app-action-orange-end: #c53f00;
   --app-secondary-text: #66707c;
+  /* Theme layer of the 2026-11-14 boards (light-theme.css). Pages use these instead of
+     writing their own colours, so a card or a page head looks the same everywhere. */
+  --app-ink: #202c42;
+  --app-muted: #738096;
+  --app-muted-strong: #627187;
+  --app-paper: #f5f7fc;
+  --app-orange: #ff6a00;
+  --app-orange-ink: #ba470b;
+  --app-green: #11804a;
+  --app-line: #e5ebf3;
+  --app-head-gradient: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
+  --app-card-shadow: 0 3px 12px rgba(38, 60, 101, 0.063), inset 0 0 0 1px rgba(232, 237, 244, 0.5);
+  --app-primary-shadow: 0 4px 10px rgba(243, 108, 23, 0.16);
+  --app-bar-shadow: 0 -4px 18px rgba(38, 59, 98, 0.063);
 
   min-height: 100%;
-  color: #191919;
-  background: #f7f8fa;
+  color: #202c42;
+  background: #f5f7fc;
   font-family:
     -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC",
     "Microsoft YaHei", sans-serif;
@@ -54,6 +68,16 @@ uni-scroll-view::-webkit-scrollbar,
 
 button {
   box-sizing: border-box;
+}
+
+/* Board card: soft shadow plus a faint 1px edge (light-theme.css `.theme-card`). */
+.app-card {
+  box-shadow: var(--app-card-shadow);
+}
+
+/* Board primary button shadow (light-theme.css `.theme-primary`). */
+.app-primary {
+  box-shadow: var(--app-primary-shadow);
 }
 </style>
 

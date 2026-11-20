@@ -1,4 +1,10 @@
 $inspection-primary: #ff6a00;
-$inspection-page-bg: #f7f8fa;
-$inspection-text-main: #191919;
+$inspection-page-bg: #f5f7fc;
+$inspection-text-main: #202c42;
 
+// Theme layer of the 2026-11-14 boards; App.vue exposes the same values as CSS variables.
+$app-ink: #202c42;
+$app-muted: #738096;
+$app-paper: #f5f7fc;
+$app-orange: #ff6a00;
+$app-card-shadow: 0 3px 12px rgba(38, 60, 101, 0.063), inset 0 0 0 1px rgba(232, 237, 244, 0.5);
