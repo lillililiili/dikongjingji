@@ -1,0 +1,63 @@
+import { describe, expect, it } from 'vitest'
+
+import pages from '../../pages.json'
+import messagePageSource from '../../pages/message/index.vue?raw'
+import centerSource from '../../features/message/presentation/MessageCenterPage.vue?raw'
+import { messageTargetUrl } from './message-destination'
+
+const routes = new Set((pages as { pages: Array<{ path: string }> }).pages.map((page) => `/${page.path}`))
+const pathOf = (url: string | null) => (url ?? '').split('?')[0]
+
+describe('where a notification opens', () => {
+  it('opens the goods order, the sign-up ticket or order, and the venue booking by stable id only (R6-5)', () => {
+    expect(messageTargetUrl({ type: 'TRADE_ORDER', id: 'o 1', subId: null })).toBe('/pages/mine/goods-order?orderId=o%201')
+    expect(messageTargetUrl({ type: 'ACTIVITY_ENROLLMENT', id: 'e1', subId: null }))
+      .toBe('/pages/activity/ticket?enrollmentId=e1')
+    expect(messageTargetUrl({ type: 'ACTIVITY_ORDER', id: 'e1', subId: null }))
+      .toBe('/pages/activity/order?enrollmentId=e1')
+    expect(messageTargetUrl({ type: 'VENUE_BOOKING', id: 'b1', subId: null })).toBe('/pages/venue/booking?bookingId=b1')
+  })
+
+  it('keeps the inspection, demand and conversation targets', () => {
+    expect(pathOf(messageTargetUrl({ type: 'INSPECTION_PLAN', id: 'p', subId: null })))
+      .toBe('/pages/service/inspection/plan-confirmation')
+    expect(pathOf(messageTargetUrl({ type: 'INSPECTION_DELIVERY', id: 'o', subId: 'v' })))
+      .toBe('/pages/service/inspection/delivery')
+    // A delivery without its visit falls back to the fulfilment page, as before.
+    expect(pathOf(messageTargetUrl({ type: 'INSPECTION_DELIVERY', id: 'o', subId: null })))
+      .toBe('/pages/service/inspection/fulfillment')
+    expect(pathOf(messageTargetUrl({ type: 'INSPECTION_FULFILLMENT', id: 'o', subId: null })))
+      .toBe('/pages/service/inspection/fulfillment')
+    expect(pathOf(messageTargetUrl({ type: 'DEMAND', id: 'd', subId: null }))).toBe('/pages/demand/quotes')
+    expect(pathOf(messageTargetUrl({ type: 'CONVERSATION', id: 'c', subId: null }))).toBe('/pages/support/chat')
+  })
+
+  it('opens nothing for a target this version does not know', () => {
+    expect(messageTargetUrl(null)).toBeNull()
+  })
+
+  it('only leads to registered pages', () => {
+    for (const type of ['TRADE_ORDER', 'ACTIVITY_ENROLLMENT', 'ACTIVITY_ORDER', 'VENUE_BOOKING', 'INSPECTION_PLAN',
+      'INSPECTION_FULFILLMENT', 'DEMAND', 'CONVERSATION'] as const) {
+      expect(routes.has(pathOf(messageTargetUrl({ type, id: 'x', subId: null })))).toBe(true)
+    }
+  })
+})
+
+describe('the message tab', () => {
+  // 交易物流 and 活动提醒 only in preview builds; public builds keep 服务进度 alone.
+  it('shows the new squares behind the trade and activity previews', () => {
+    expect(messagePageSource).toContain("...(TRADE_PREVIEW_ENABLED ? ['TRADE_LOGISTICS' as const] : [])")
+    expect(messagePageSource)
+      .toContain("...(ACTIVITY_PREVIEW_ENABLED || EXPERIENCE_PREVIEW_ENABLED ? ['ACTIVITY_REMINDER' as const] : [])")
+    expect(messagePageSource).toContain(':squares="squares"')
+    expect(centerSource).toContain("squares: () => ['SERVICE_PROGRESS']")
+    // 系统通知 is not built.
+    expect(centerSource).not.toContain('系统通知</text>')
+  })
+
+  it('marks an unknown notification read without navigating', () => {
+    expect(messagePageSource).toContain('const url = messageTargetUrl(message.target)')
+    expect(messagePageSource).toContain('if (url) uni.navigateTo({ url })')
+  })
+})

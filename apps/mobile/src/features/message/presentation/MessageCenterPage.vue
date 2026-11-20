@@ -3,22 +3,30 @@ import { computed, ref } from 'vue'
 
 import IconTile from '@/shared/ui/IconTile.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
-import type { IconTileTone } from '@/shared/ui/icon-tile-tones'
 
 import type { MessageCenterState } from '../application/message-center'
-import type { MessageCategory, MessageItem } from '../domain/message'
+import type { MessageItem } from '../domain/message'
 import {
-  MESSAGE_CATEGORY_LABELS,
+  MESSAGE_ICONS as ICONS,
+  MESSAGE_SQUARES,
+  MESSAGE_SQUARE_ORDER,
+  emptyCopy,
   formatMessageTime,
   mergeMessageRows,
+  messageLook,
+  squareUnread,
   type MessageConversationRow,
+  type MessageSquare,
 } from './message-format'
 
 const props = withDefaults(defineProps<{
   state: MessageCenterState
   // null leaves conversations out (public builds, guests).
   conversations?: MessageConversationRow[] | null
-}>(), { conversations: null })
+  // The category squares to show. Public builds only have 服务进度; 交易物流 and 活动提醒 come with
+  // the trade and activity previews (R6-5).
+  squares?: readonly MessageSquare[]
+}>(), { conversations: null, squares: () => ['SERVICE_PROGRESS'] })
 
 const emit = defineEmits<{
   login: []
@@ -35,41 +43,28 @@ const badge = (count: number): string => (count > 99 ? '99+' : String(count))
 // Read once per render pass is enough: the labels only need the day to be right.
 const now = ref(new Date())
 
-// Icons from the board Messages (`icon` in renderVals). Each category keeps the colour the board
-// gives it: 服务进度 blue, 联系客服 / 客服 orange; 需求与报价 has no square on the board and takes violet.
-const ICONS = {
-  progress: 'M9 4h6v3H9zM7 5H5v16h14V5h-2M9 14l2 2 4-4',
-  service: 'M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2',
-  demand: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
-  check: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12l3 3 5-6',
-  chat: 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01',
-}
-const CATEGORY_LOOK: Record<MessageCategory, { d: string; tone: IconTileTone }> = {
-  SERVICE_PROGRESS: { d: ICONS.progress, tone: 'blue' },
-  DEMAND_QUOTE: { d: ICONS.demand, tone: 'violet' },
-  CUSTOMER_SERVICE: { d: ICONS.service, tone: 'orange' },
+// Board order: 交易物流 / 服务进度 / 活动提醒, then 联系客服 (系统通知 is not built).
+const shownSquares = computed(() => MESSAGE_SQUARE_ORDER.filter((square) => props.squares.includes(square)))
+
+// A square filters the list to its category; tapping it again shows everything.
+const filter = ref<MessageSquare | null>(null)
+function pick(square: MessageSquare): void {
+  filter.value = filter.value === square ? null : square
 }
 
-// The 服务进度 square filters the list to that category; tapping it again shows everything.
-// The other squares of the board (交易物流, 活动提醒, 系统通知) need notifications that do not
-// exist yet (R6).
-const progressOnly = ref(false)
 const ready = computed(() => (props.state.kind === 'ready' ? props.state : null))
-// The square's badge counts unread 服务进度 notifications; it is only known once every page is
-// loaded, so while more pages wait the square shows no number rather than a partial one.
-const progressUnread = computed(() => {
+const unreadOf = (square: MessageSquare): number => {
   const current = ready.value
-  if (!current || current.hasMore) return 0
-  return current.items.filter((item) => item.category === 'SERVICE_PROGRESS' && !item.read).length
-})
+  return current ? squareUnread(current.items, current.hasMore, square) : 0
+}
 const rows = computed(() => {
   const current = ready.value
   if (!current) return []
-  const notices = progressOnly.value
-    ? current.items.filter((item) => item.category === 'SERVICE_PROGRESS')
-    : current.items
-  return mergeMessageRows(notices, progressOnly.value ? [] : props.conversations ?? [], current.hasMore)
+  const active = filter.value
+  const notices = active ? current.items.filter((item) => item.category === active) : current.items
+  return mergeMessageRows(notices, active ? [] : props.conversations ?? [], current.hasMore)
 })
+const empty = computed(() => emptyCopy(filter.value, shownSquares.value))
 const signedOut = computed(() => props.state.kind === 'guest' || props.state.kind === 'expired')
 </script>
 
@@ -90,16 +85,18 @@ const signedOut = computed(() => props.state.kind === 'guest' || props.state.kin
       </view>
       <view v-if="!signedOut" class="message-center__cats">
         <button
+          v-for="square in shownSquares"
+          :key="square"
           class="message-center__cat"
-          data-testid="message-cat-progress"
-          :aria-pressed="progressOnly"
-          @click="progressOnly = !progressOnly"
+          :data-testid="MESSAGE_SQUARES[square].testId"
+          :aria-pressed="filter === square"
+          @click="pick(square)"
         >
-          <view :class="['message-center__cat-tile', { 'message-center__cat-tile--on': progressOnly }]">
-            <IconTile tone="blue" :d="ICONS.progress" :size="44" />
-            <text v-if="progressUnread > 0" class="message-center__cat-badge">{{ badge(progressUnread) }}</text>
+          <view :class="['message-center__cat-tile', { 'message-center__cat-tile--on': filter === square }]">
+            <IconTile :tone="MESSAGE_SQUARES[square].tone" :d="MESSAGE_SQUARES[square].d" :size="44" />
+            <text v-if="unreadOf(square) > 0" class="message-center__cat-badge" data-testid="message-cat-badge">{{ badge(unreadOf(square)) }}</text>
           </view>
-          <text :class="['message-center__cat-label', { 'message-center__cat-label--on': progressOnly }]">服务进度</text>
+          <text :class="['message-center__cat-label', { 'message-center__cat-label--on': filter === square }]">{{ MESSAGE_SQUARES[square].label }}</text>
         </button>
         <button
           v-if="conversations"
@@ -150,8 +147,8 @@ const signedOut = computed(() => props.state.kind === 'guest' || props.state.kin
     </view>
 
     <view v-else-if="rows.length === 0" class="message-center__state" data-testid="message-empty">
-      <text class="message-center__state-title">{{ progressOnly ? '没有服务进度消息' : '还没有消息' }}</text>
-      <text class="message-center__state-copy">巡检方案、排期、报告交付等进度会通知到这里</text>
+      <text class="message-center__state-title">{{ empty.title }}</text>
+      <text class="message-center__state-copy">{{ empty.copy }}</text>
     </view>
 
     <template v-else>
@@ -163,18 +160,21 @@ const signedOut = computed(() => props.state.kind === 'guest' || props.state.kin
             data-kind="notice"
             :data-testid="`message-${entry.message.id}`"
             :data-read="entry.message.read"
+            :data-category="entry.message.category"
             @click="emit('open', entry.message)"
           >
             <IconTile
-              :tone="CATEGORY_LOOK[entry.message.category].tone"
-              :d="CATEGORY_LOOK[entry.message.category].d"
+              :tone="messageLook(entry.message).tone"
+              :d="messageLook(entry.message).d"
+              :bg="messageLook(entry.message).bg"
+              :ink="messageLook(entry.message).ink"
               :size="40"
               :icon-size="22"
             />
             <view class="message-center__copy">
               <view class="message-center__line">
                 <text :class="['message-center__item-title', { 'message-center__item-title--unread': !entry.message.read }]">
-                  <text class="message-center__category">{{ MESSAGE_CATEGORY_LABELS[entry.message.category] }} · </text>{{ entry.message.title }}
+                  <text class="message-center__category">{{ messageLook(entry.message).label }} · </text>{{ entry.message.title }}
                 </text>
                 <text class="message-center__time">{{ formatMessageTime(entry.message.occurredAt, now) }}</text>
               </view>

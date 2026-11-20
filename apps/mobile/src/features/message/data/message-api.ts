@@ -1,11 +1,19 @@
-import type { MessageItem, MessagePage, MessageTarget } from '../domain/message'
+import {
+  isMessageTargetType,
+  toMessageCategory,
+  type MessageItem,
+  type MessagePage,
+  type MessageTarget,
+} from '../domain/message'
 
+// Categories and target types stay strings here: a newer server may send ones this version does
+// not know, and the mapper turns those into a plain row instead of failing.
 interface MessageDto {
   id: string
-  category: MessageItem['category']
+  category: string
   title: string
   body: string
-  target: MessageTarget
+  target: { type: string; id: string; subId?: string | null } | null
   occurredAt: string
   read: boolean
 }
@@ -44,15 +52,7 @@ export function createMessageApi(request: MessageRequest): MessageApi {
       return {
         hasMore: dto.hasMore,
         unreadCount: dto.unreadCount,
-        items: dto.items.map((item) => ({
-          id: item.id,
-          category: item.category,
-          title: item.title,
-          body: item.body,
-          target: { type: item.target.type, id: item.target.id, subId: item.target.subId ?? null },
-          occurredAt: item.occurredAt,
-          read: item.read,
-        })),
+        items: dto.items.map(toMessageItem),
       }
     },
     async loadUnreadCount(accessToken) {
@@ -77,5 +77,24 @@ export function createMessageApi(request: MessageRequest): MessageApi {
         headers: headers(accessToken),
       })
     },
+  }
+}
+
+function toMessageTarget(target: MessageDto['target']): MessageTarget | null {
+  if (!target || !isMessageTargetType(target.type) || !target.id) return null
+  return { type: target.type, id: target.id, subId: target.subId ?? null }
+}
+
+export function toMessageItem(item: MessageDto): MessageItem {
+  const category = toMessageCategory(item.category)
+  return {
+    id: item.id,
+    category,
+    title: item.title,
+    body: item.body,
+    // An unknown category opens nothing even if its target type happens to be known.
+    target: category === 'OTHER' ? null : toMessageTarget(item.target),
+    occurredAt: item.occurredAt,
+    read: item.read,
   }
 }

@@ -4,15 +4,12 @@ import { ref } from 'vue'
 
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { ROOT_TABS } from '@/app-shell/navigation/root-tabs'
+import { messageTargetUrl } from '@/app-shell/navigation/message-destination'
 import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
-import { buildDemandQuotesUrl } from '@/features/demand/navigation/demand-routes'
+import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
+import { EXPERIENCE_PREVIEW_ENABLED } from '@/features/experience/application/experience-preview'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
-import {
-  buildInspectionDeliveryUrl,
-  buildInspectionFulfillmentUrl,
-  buildInspectionLoginUrl,
-  buildInspectionPlanConfirmationUrl,
-} from '@/features/inspection/navigation/inspection-routes'
+import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import {
   createMessageCenter,
   type MessageCenterState,
@@ -20,13 +17,22 @@ import {
 import { messageApi } from '@/features/message/data/message-api-client'
 import type { MessageItem } from '@/features/message/domain/message'
 import MessageCenterPage from '@/features/message/presentation/MessageCenterPage.vue'
-import type { MessageConversationRow } from '@/features/message/presentation/message-format'
+import type { MessageConversationRow, MessageSquare } from '@/features/message/presentation/message-format'
 import { toConversationRow } from '@/features/support/application/chat-view'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { supportApi } from '@/features/support/data/support-api-client'
 import { buildSupportChatUrl, buildSupportOpenUrl } from '@/features/support/navigation/support-routes'
+import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
 
 const MESSAGE_PATH = ROOT_TABS.find((tab) => tab.code === 'MESSAGE')?.path ?? '/pages/message/index'
+
+// 交易物流 and 活动提醒 (R6-5) come with the trade and activity / venue previews; public builds keep
+// the 服务进度 square only.
+const squares: MessageSquare[] = [
+  ...(TRADE_PREVIEW_ENABLED ? ['TRADE_LOGISTICS' as const] : []),
+  'SERVICE_PROGRESS',
+  ...(ACTIVITY_PREVIEW_ENABLED || EXPERIENCE_PREVIEW_ENABLED ? ['ACTIVITY_REMINDER' as const] : []),
+]
 
 const badgeStore = useRootTabBadgeStore()
 const state = ref<MessageCenterState>(
@@ -71,21 +77,12 @@ function contactPlatform(): void {
   uni.navigateTo({ url: buildSupportOpenUrl({ kind: 'PLATFORM' }) })
 }
 
-// A notification only carries stable ids; the page it opens reads the facts from the server.
-function targetUrl(message: MessageItem): string {
-  const { type, id, subId } = message.target
-  // Someone replied in a conversation: the chat reads its messages and marks them read.
-  if (type === 'CONVERSATION') return buildSupportChatUrl(id)
-  // A quote came in, or the demand closed without any: its quotes page says which.
-  if (type === 'DEMAND') return buildDemandQuotesUrl(id)
-  if (type === 'INSPECTION_PLAN') return buildInspectionPlanConfirmationUrl(id)
-  if (type === 'INSPECTION_DELIVERY' && subId) return buildInspectionDeliveryUrl(id, subId)
-  return buildInspectionFulfillmentUrl(id)
-}
-
+// A notification only carries stable ids; the page it opens reads the facts from the server. One
+// whose target this version does not know is only marked read.
 function openMessage(message: MessageItem): void {
   void center.markRead(message.id)
-  uni.navigateTo({ url: targetUrl(message) })
+  const url = messageTargetUrl(message.target)
+  if (url) uni.navigateTo({ url })
 }
 
 function openLogin(): void {
@@ -107,6 +104,7 @@ onReachBottom(() => {
     <MessageCenterPage
       :state="state"
       :conversations="conversations"
+      :squares="squares"
       @login="openLogin"
       @retry="center.load()"
       @open="openMessage"
