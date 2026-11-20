@@ -118,7 +118,7 @@ public class ProServiceReadService {
                 .collect(Collectors.groupingBy(ItemRow::kind, LinkedHashMap::new, Collectors.toList()));
         ProServiceProviderView provider = profiles.find(row.providerId())
                 .map(found -> new ProServiceProviderView(found.providerId(), found.name(), found.certificationLabel(),
-                        found.description()))
+                        found.description(), found.qualificationReviewed()))
                 .orElse(null);
         return new ProServiceDetailView(
                 row.id(),
@@ -161,6 +161,7 @@ public class ProServiceReadService {
                 provider.providerId(),
                 provider.name(),
                 provider.certificationLabel(),
+                provider.qualificationReviewed(),
                 provider.description(),
                 city,
                 inspectionServices,

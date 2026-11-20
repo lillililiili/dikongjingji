@@ -58,7 +58,20 @@ class RentalServiceTest {
     private final FakePayments payments = new FakePayments();
     private final RentalService service = at(NOW);
 
+    // R6-4：出租方的资质是否审核过来自身份模块的端口（这里是 reviewedMerchants），每次读的时候问，不存快照。
+    private final java.util.Set<UUID> reviewedMerchants = new java.util.HashSet<>(java.util.Set.of(MERCHANT));
+
     // ---- 询价单 ----
+
+    @Test
+    void theLessorIsMarkedReviewedOnlyWhileItsQualificationIsReviewed() {
+        UUID inquiryId = submit(UUID.randomUUID(), draft()).inquiry().inquiryId();
+        assertThat(service.readInquiry(ACCOUNT, inquiryId).merchant().qualificationReviewed()).isTrue();
+
+        reviewedMerchants.clear();
+        assertThat(service.readInquiry(ACCOUNT, inquiryId).merchant())
+                .isEqualTo(new RentalMerchantView(MERCHANT, "示例机器人商家", false));
+    }
 
     @Test
     void anInquirySnapshotsTheOfferTheAddressAndTheLessee() {
@@ -68,7 +81,7 @@ class RentalServiceTest {
         assertThat(created.created()).isTrue();
         assertThat(view.status()).isEqualTo(RentalInquiryStatus.PENDING);
         assertThat(view.lessee()).isEqualTo(new RentalLesseeView(RentalLesseeKind.ORGANIZATION, "东营港务物流", "王女士"));
-        assertThat(view.merchant()).isEqualTo(new RentalMerchantView(MERCHANT, "示例机器人商家"));
+        assertThat(view.merchant()).isEqualTo(new RentalMerchantView(MERCHANT, "示例机器人商家", true));
         assertThat(view.item()).isEqualTo(new RentalItemView(OFFER, PRODUCT, "巡检机器狗", "标准版", null, 38000L, "DAY"));
         assertThat(view.startDate()).isEqualTo(LocalDate.parse("2026-11-22"));
         assertThat(view.endDate()).isEqualTo(LocalDate.parse("2026-11-26"));
@@ -258,7 +271,7 @@ class RentalServiceTest {
         assertThat(contract.confirmedAt()).isEqualTo(NOW_UTC);
         assertThat(contract.quoteVersion()).isEqualTo(1);
         assertThat(contract.lessee().organizationName()).isEqualTo("东营港务物流");
-        assertThat(contract.lessor()).isEqualTo(new RentalMerchantView(MERCHANT, "示例机器人商家"));
+        assertThat(contract.lessor()).isEqualTo(new RentalMerchantView(MERCHANT, "示例机器人商家", true));
         assertThat(contract.startDate()).isEqualTo(LocalDate.parse("2026-11-22"));
         assertThat(contract.endDate()).isEqualTo(LocalDate.parse("2026-11-26"));
         assertThat(contract.totalMinor()).isEqualTo(38000L * 5 + 5000);
@@ -466,6 +479,7 @@ class RentalServiceTest {
     private RentalService at(Instant instant) {
         int[] next = {0};
         return new RentalService(mapper, new FakeOffers(), new FakeAddresses(), payments,
+                ids -> ids.stream().filter(reviewedMerchants::contains).collect(java.util.stream.Collectors.toSet()),
                 Clock.fixed(instant, ZoneOffset.UTC), () -> String.format("RC20261119%06d", ++next[0]));
     }
 

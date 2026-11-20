@@ -78,7 +78,7 @@ public class InspectionProviderDirectory {
 
     private static ProviderCard toCard(InspectionProviderDirectoryMapper.ProviderRow row) {
         return new ProviderCard(row.providerId(), row.name(), blankToNull(row.certificationLabel()),
-                blankToNull(row.description()));
+                blankToNull(row.description()), row.qualificationReviewed());
     }
 
     private static String blankToNull(String value) {
@@ -98,6 +98,8 @@ public class InspectionProviderDirectory {
     ) {
     }
 
-    public record ProviderCard(UUID providerId, String name, String certificationLabel, String description) {
+    /** qualificationReviewed：平台审核过这家服务商的资质（机构有资质审核通过时间，R6-4）。 */
+    public record ProviderCard(UUID providerId, String name, String certificationLabel, String description,
+                               boolean qualificationReviewed) {
     }
 }

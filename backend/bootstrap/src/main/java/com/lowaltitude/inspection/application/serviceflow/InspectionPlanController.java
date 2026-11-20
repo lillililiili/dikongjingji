@@ -323,14 +323,16 @@ public final class InspectionPlanController {
         }
     }
 
-    public record ProviderSummaryResponse(UUID providerId, String name, String certificationLabel) {
+    public record ProviderSummaryResponse(UUID providerId, String name, String certificationLabel,
+                                          boolean qualificationReviewed) {
         static ProviderSummaryResponse from(ProviderSummary provider) {
             return provider == null
                     ? null
                     : new ProviderSummaryResponse(
                             provider.providerId(),
                             provider.name(),
-                            provider.certificationLabel());
+                            provider.certificationLabel(),
+                            provider.qualificationReviewed());
         }
     }
 

@@ -35,7 +35,9 @@ public final class ProServicePorts {
         Set<String> citiesServed(UUID providerId);
     }
 
-    public record Provider(UUID providerId, String name, String certificationLabel, String description) {
+    /** qualificationReviewed：平台审核过这家服务商的资质（机构有资质审核通过时间，R6-4）。 */
+    public record Provider(UUID providerId, String name, String certificationLabel, String description,
+                           boolean qualificationReviewed) {
     }
 
     /**

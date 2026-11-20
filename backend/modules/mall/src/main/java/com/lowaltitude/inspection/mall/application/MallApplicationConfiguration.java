@@ -27,8 +27,9 @@ public class MallApplicationConfiguration {
     }
 
     @Bean
-    MallInquiryService mallInquiryService(MallInquiryMapper mapper, MallInquiryPorts.MerchantPayments payments) {
-        return new MallInquiryService(mapper, payments, Clock.systemUTC());
+    MallInquiryService mallInquiryService(MallInquiryMapper mapper, MallInquiryPorts.MerchantPayments payments,
+                                          MallInquiryPorts.MerchantQualifications qualifications) {
+        return new MallInquiryService(mapper, payments, qualifications, Clock.systemUTC());
     }
 
     @Bean

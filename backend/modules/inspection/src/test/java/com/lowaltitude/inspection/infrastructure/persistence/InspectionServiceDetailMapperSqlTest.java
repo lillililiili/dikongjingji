@@ -47,7 +47,9 @@ class InspectionServiceDetailMapperSqlTest {
                 "#{serviceId}",
                 "#{cityCode}",
                 "service.status = 'ACTIVE'",
-                "organization_type = 'PROVIDER'");
+                "organization_type = 'PROVIDER'",
+                // R6-4：资质审核和服务商名称在同一个查询里读，来自机构的审核通过时间。
+                "organization.qualification_reviewed_at IS NOT NULL provider_qualification_reviewed");
         assertSelect(
                 "findBookingDetailItems",
                 new Class<?>[]{UUID.class},

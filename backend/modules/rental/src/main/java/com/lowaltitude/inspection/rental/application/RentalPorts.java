@@ -5,10 +5,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * 租赁模块用到的别的模块的能力，由启动模块接上（§24）：商城的租赁供给、账号的收货地址、统一交易模块的付款和退款。
+ * 租赁模块用到的别的模块的能力，由启动模块接上（§24）：商城的租赁供给、账号的收货地址、统一交易模块的付款和退款、
+ * 身份模块里出租方的资质是否审核过（R6-4）。
  * 本模块不读它们的表。付款到账和订单关闭由启动模块转给 {@link RentalService#onPaymentConfirmed} 和
  * {@link RentalService#onPaymentClosed}。加锁顺序：先交易订单（{@link Payments#lockOrder}），再租赁订单。
  */
@@ -21,6 +23,12 @@ public final class RentalPorts {
 
         /** 商城供给的租赁信息；不存在时为空。 */
         Optional<Offer> find(UUID offerId);
+    }
+
+    public interface Qualifications {
+
+        /** 这些机构里平台审核过资质的那些；不认识、停用、没审核的不在结果里。 */
+        Set<UUID> reviewed(Collection<UUID> organizationIds);
     }
 
     public interface Addresses {

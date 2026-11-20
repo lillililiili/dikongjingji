@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 2.1.0
-  description: 巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
+  version: 2.2.0
+  description: >-
+    巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
+    2.2.0（R6-4）：方案和服务单里的服务商（ProviderSummary）加 qualificationReviewed，页面据此显示“资质已审核”。
 servers:
   - url: https://api.example.com
     description: Production placeholder
@@ -1640,7 +1642,7 @@ components:
     ProviderSummary:
       type: object
       additionalProperties: false
-      required: [providerId, name]
+      required: [providerId, name, qualificationReviewed]
       properties:
         providerId:
           type: string
@@ -1649,6 +1651,10 @@ components:
           type: string
         certificationLabel:
           type: [string, "null"]
+          description: 服务商资料里的资质说明，如“企业认证”；qualificationReviewed 为 true 时页面在这个位置显示“资质已审核”
+        qualificationReviewed:
+          type: boolean
+          description: 平台已审核过这家服务商的资质（机构有资质审核通过时间）；只来自数据库，不按文字推断
     CustomerParty:
       type: object
       additionalProperties: false

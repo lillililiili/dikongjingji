@@ -262,6 +262,7 @@ class RentalControllerTest {
                 .andExpect(jsonPath("$.contract.contractNo").value("RC20261119048213"))
                 .andExpect(jsonPath("$.contract.endDate").value("2026-11-26"))
                 .andExpect(jsonPath("$.contract.lessor.name").value("示例机器人商家"))
+                .andExpect(jsonPath("$.contract.lessor.qualificationReviewed").value(true))
                 .andExpect(jsonPath("$.payment.amountMinor").value(195000))
                 .andExpect(jsonPath("$.handoverRecord.note").value("编号 DOG-0118"))
                 .andExpect(jsonPath("$.returnRecord").doesNotExist())
@@ -376,7 +377,7 @@ class RentalControllerTest {
         return new RentalInquiryView(INQUIRY, status, status == RentalInquiryStatus.CLOSED ? RentalCloseReason.CUSTOMER : null,
                 status == RentalInquiryStatus.DECLINED ? "档期已满" : null,
                 new RentalLesseeView(RentalLesseeKind.ORGANIZATION, "东营港务物流", "王女士"),
-                new RentalMerchantView(UUID.fromString("c1000000-0000-4000-8000-000000000001"), "示例机器人商家"),
+                new RentalMerchantView(UUID.fromString("c1000000-0000-4000-8000-000000000001"), "示例机器人商家", true),
                 new RentalItemView(OFFER, UUID.fromString("c2000000-0000-4000-8000-000000000401"), "巡检机器狗", "标准版",
                         null, 38000L, "DAY"),
                 1, LocalDate.parse("2026-11-22"), LocalDate.parse("2026-11-26"), 5, RentalHandoverMode.DELIVERY,
@@ -389,7 +390,7 @@ class RentalControllerTest {
     private static RentalOrderView order(RentalOrderStatus status) {
         RentalContractView contract = new RentalContractView("RC20261119048213", NOW, 2,
                 new RentalLesseeView(RentalLesseeKind.ORGANIZATION, "东营港务物流", "王女士"),
-                new RentalMerchantView(UUID.fromString("c1000000-0000-4000-8000-000000000001"), "示例机器人商家"),
+                new RentalMerchantView(UUID.fromString("c1000000-0000-4000-8000-000000000001"), "示例机器人商家", true),
                 "巡检机器狗", "标准版", 1, LocalDate.parse("2026-11-22"), LocalDate.parse("2026-11-26"), 5, 38000, 190000,
                 List.of(new RentalFeeView("保险", null, 5000)), 195000, RentalHandoverMode.DELIVERY,
                 RentalReturnMode.COLLECT,

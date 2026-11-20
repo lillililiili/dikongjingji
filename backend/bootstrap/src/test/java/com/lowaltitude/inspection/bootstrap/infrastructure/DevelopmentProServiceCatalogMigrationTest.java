@@ -89,7 +89,7 @@ class DevelopmentProServiceCatalogMigrationTest {
                 .contains("('" + ROBOT + "', 'DEV-MALL-ROBOT-MAKER', '示例机器人商家', 'PROVIDER', 'ACTIVE')")
                 .contains("INSERT INTO inspection_provider_profile")
                 .contains("ON CONFLICT (provider_id) DO UPDATE");
-        assertThat(count(sql, "'资质已审核', '[^']+', 'ACTIVE'\\)")).isEqualTo(3);
+        assertThat(count(sql, "'企业认证', '[^']+', 'ACTIVE'\\)")).isEqualTo(3);
         // 机构编码和商城开发数据里的一致，谁先执行都一样。
         assertThat(read("/db/development/mall/R__dev_mall_catalog.sql"))
                 .contains("('" + ROBOT + "', 'DEV-MALL-ROBOT-MAKER', '示例机器人商家', 'PROVIDER')");

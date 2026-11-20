@@ -114,7 +114,8 @@ public interface ServiceFlowPersistenceMapper {
     List<PlanVersionRow> findPlanVersions(@Param("reservationId") UUID reservationId);
 
     @Select("""
-            SELECT o.id provider_id, o.organization_name name, pp.certification_label
+            SELECT o.id provider_id, o.organization_name name, pp.certification_label,
+                   o.qualification_reviewed_at IS NOT NULL qualification_reviewed
             FROM identity_organization o
             LEFT JOIN inspection_provider_profile pp ON pp.provider_id = o.id
             WHERE o.id = #{providerId}
@@ -948,7 +949,7 @@ public interface ServiceFlowPersistenceMapper {
     ) {
     }
 
-    record ProviderRow(UUID providerId, String name, String certificationLabel) {
+    record ProviderRow(UUID providerId, String name, String certificationLabel, boolean qualificationReviewed) {
     }
 
     record CustomerPartyRow(String organizationName, String operatorName) {

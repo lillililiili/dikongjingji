@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Select;
 
 /**
  * 服务商名录（F1 需求报价用）：有服务商资料（在用）的服务商机构，以及它们在用的服务覆盖的城市。
- * 只读巡检模块自己的表和身份模块的机构；不返回联系方式。
+ * 只读巡检模块自己的表和身份模块的机构（名称、资质审核通过时间，R6-4）；不返回联系方式。
  */
 public interface InspectionProviderDirectoryMapper {
 
@@ -16,7 +16,8 @@ public interface InspectionProviderDirectoryMapper {
             SELECT o.id provider_id,
                    o.organization_name name,
                    p.certification_label,
-                   p.team_description description
+                   p.team_description description,
+                   o.qualification_reviewed_at IS NOT NULL qualification_reviewed
             FROM inspection_provider_profile p
             JOIN identity_organization o ON o.id = p.provider_id
             WHERE p.status = 'ACTIVE'
@@ -81,7 +82,8 @@ public interface InspectionProviderDirectoryMapper {
             """)
     List<ServiceRow> findServicesOf(@Param("providerId") UUID providerId, @Param("cityCode") String cityCode);
 
-    record ProviderRow(UUID providerId, String name, String certificationLabel, String description) {
+    record ProviderRow(UUID providerId, String name, String certificationLabel, String description,
+                       boolean qualificationReviewed) {
     }
 
     record ServiceRow(

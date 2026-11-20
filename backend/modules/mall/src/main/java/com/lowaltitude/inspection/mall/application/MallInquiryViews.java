@@ -63,12 +63,17 @@ record MallInquiryView(
 record MallInquiryPageView(int page, int size, long total, boolean hasMore, List<MallInquiryView> items) {
 }
 
+/** 报价里的商家：qualificationReviewed 是平台审核过它的资质（R6-4），页面据此显示“资质已审核”。 */
+record MallInquiryQuoteMerchantView(UUID organizationId, String name, MallMerchantKind kind,
+                                    boolean qualificationReviewed) {
+}
+
 /** 客户看到的一份报价（每家最新一版）。choosable：现在可以选它。 */
 record MallInquiryQuoteView(
         UUID quoteId,
         int version,
         UUID offerId,
-        MallMerchantView merchant,
+        MallInquiryQuoteMerchantView merchant,
         MallInquiryQuoteStatus status,
         long unitAmountMinor,
         int quantity,

@@ -56,7 +56,9 @@ record DemandPublisherView(DemandPublisherKind kind, String organizationName) {
 record DemandDeliverableView(DemandDeliverable code, String label) {
 }
 
-record DemandProviderView(UUID providerId, String name, String certificationLabel, String description) {
+/** qualificationReviewed：平台审核过这家服务商的资质（R6-4）。 */
+record DemandProviderView(UUID providerId, String name, String certificationLabel, String description,
+                          boolean qualificationReviewed) {
 }
 
 record DemandProviderListView(List<DemandProviderView> items) {
@@ -101,7 +103,8 @@ record DemandView(
 record DemandPageView(int page, int size, long total, boolean hasMore, List<DemandView> items) {
 }
 
-record DemandQuoteProviderView(UUID providerId, String name, String certificationLabel) {
+record DemandQuoteProviderView(UUID providerId, String name, String certificationLabel,
+                               boolean qualificationReviewed) {
 }
 
 /** 客户看到的一份报价（最新一版）。 */

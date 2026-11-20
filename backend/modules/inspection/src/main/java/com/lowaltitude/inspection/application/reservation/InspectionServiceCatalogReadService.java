@@ -320,6 +320,7 @@ public final class InspectionServiceCatalogReadService {
                         secureMedia(row.providerLogoUrl(), row.providerName()),
                         row.providerLogoAssetCode(),
                         row.certificationLabel(),
+                        row.providerQualificationReviewed(),
                         row.teamDescription()),
                 mapItems(store.findDetailItems(
                         serviceId, InspectionDetailSectionType.CAPABILITY)),
@@ -755,6 +756,7 @@ record StoredInspectionServiceDetail(
         String providerLogoUrl,
         String providerLogoAssetCode,
         String certificationLabel,
+        boolean providerQualificationReviewed,
         String teamDescription,
         Double ratingAverage,
         long reviewCount,
@@ -829,6 +831,7 @@ record ServiceProviderView(
         MediaAssetView logo,
         String logoAssetCode,
         String certificationLabel,
+        boolean qualificationReviewed,
         String teamDescription
 ) {
 }

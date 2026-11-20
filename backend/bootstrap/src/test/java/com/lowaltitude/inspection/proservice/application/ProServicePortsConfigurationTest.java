@@ -42,11 +42,11 @@ class ProServicePortsConfigurationTest {
     @Test
     void profilesAreTheInspectionProviderProfiles() {
         when(directory.find(List.of(PROVIDER))).thenReturn(List.of(
-                new ProviderCard(PROVIDER, "云翼科技", "企业认证", "专业飞手团队")));
+                new ProviderCard(PROVIDER, "云翼科技", "企业认证", "专业飞手团队", true)));
         ProServicePorts.ProviderProfiles port = configuration.proServiceProviderProfiles(directory);
 
         assertThat(port.find(PROVIDER)).contains(
-                new ProServicePorts.Provider(PROVIDER, "云翼科技", "企业认证", "专业飞手团队"));
+                new ProServicePorts.Provider(PROVIDER, "云翼科技", "企业认证", "专业飞手团队", true));
         assertThat(port.find(UUID.randomUUID())).isEmpty();
         assertThat(port.find(null)).isEmpty();
     }

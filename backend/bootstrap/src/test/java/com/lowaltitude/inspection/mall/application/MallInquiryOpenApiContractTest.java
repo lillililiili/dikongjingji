@@ -53,6 +53,7 @@ class MallInquiryOpenApiContractTest {
     private static final Map<String, Class<? extends Record>> SCHEMA_RECORDS = Map.ofEntries(
             Map.entry("MallMedia", MallMediaView.class),
             Map.entry("MallMerchant", MallMerchantView.class),
+            Map.entry("MallInquiryQuoteMerchant", MallInquiryQuoteMerchantView.class),
             Map.entry("MallInquiryBuyer", MallInquiryBuyerView.class),
             Map.entry("MallInquiryProduct", MallInquiryProductView.class),
             Map.entry("MallInquiryMerchant", MallInquiryMerchantView.class),
@@ -95,7 +96,7 @@ class MallInquiryOpenApiContractTest {
     void contractIsVersionOneAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.0.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");

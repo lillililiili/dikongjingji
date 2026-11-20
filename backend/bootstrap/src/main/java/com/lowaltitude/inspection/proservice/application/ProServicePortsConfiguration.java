@@ -37,7 +37,7 @@ public class ProServicePortsConfiguration {
                 : directory.find(java.util.List.of(providerId)).stream()
                         .findFirst()
                         .map(card -> new ProServicePorts.Provider(card.providerId(), card.name(),
-                                card.certificationLabel(), card.description()));
+                                card.certificationLabel(), card.description(), card.qualificationReviewed()));
     }
 
     @Bean

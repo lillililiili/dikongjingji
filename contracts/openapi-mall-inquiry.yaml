@@ -1,8 +1,9 @@
 openapi: "3.1.0"
 info:
   title: "Mall Inquiry API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
+    1.1.0（R6-4）：报价里的商家改用 MallInquiryQuoteMerchant，多一个 qualificationReviewed（平台审核过它的资质），页面据此显示“资质已审核”。
     1.0.0（步骤 F4，docs/redesign/03-App实现任务计划.md §25）：询价商品——询价单、商家报价、比选、按报价转为订单。
 
     Every route needs a login (bearer JWT). The customer routes (/api/v1/mall/inquiries…, /api/v1/mall/inquiry-offers) need the
@@ -585,6 +586,26 @@ components:
           type: "string"
         kind:
           $ref: "#/components/schemas/MallMerchantKind"
+    MallInquiryQuoteMerchant:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "organizationId"
+        - "name"
+        - "kind"
+        - "qualificationReviewed"
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        kind:
+          $ref: "#/components/schemas/MallMerchantKind"
+        qualificationReviewed:
+          type: "boolean"
+          description: "平台已审核过这家商家的资质（机构有资质审核通过时间）；只来自数据库"
+      description: "报价里的商家"
     MallInquiryBuyer:
       type: "object"
       additionalProperties: false
@@ -832,7 +853,7 @@ components:
           type: "string"
           format: "uuid"
         merchant:
-          $ref: "#/components/schemas/MallMerchant"
+          $ref: "#/components/schemas/MallInquiryQuoteMerchant"
         status:
           $ref: "#/components/schemas/MallInquiryQuoteStatus"
         unitAmountMinor:

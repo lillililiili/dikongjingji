@@ -11,7 +11,8 @@ import java.util.UUID;
 record RentalLesseeView(RentalLesseeKind kind, String organizationName, String contactName) {
 }
 
-record RentalMerchantView(UUID merchantId, String name) {
+/** 出租方：qualificationReviewed 是平台审核过它的资质（R6-4），页面据此显示“资质已审核”。 */
+record RentalMerchantView(UUID merchantId, String name, boolean qualificationReviewed) {
 }
 
 /** 询价的设备：商城供给在提交时的快照；referenceAmountMinor 和 referenceUnit 是商品页的参考价（如 ¥380/天 起）。 */

@@ -46,4 +46,32 @@ class PostgresPlanStoreTest {
 
         assertThat(reservation.address()).isEqualTo("东营市黄河路88号");
     }
+
+    // R6-4：方案和服务单里的服务商带出资质是否审核过，和名称同一个查询。
+    @Test
+    void providerSummaryCarriesWhetherTheQualificationWasReviewed() throws Exception {
+        ServiceFlowPersistenceMapper mapper = mock(ServiceFlowPersistenceMapper.class);
+        UUID reviewed = UUID.randomUUID();
+        UUID unreviewed = UUID.randomUUID();
+        when(mapper.findProvider(reviewed)).thenReturn(Optional.of(
+                new ServiceFlowPersistenceMapper.ProviderRow(reviewed, "云翼科技", "企业认证", true)));
+        when(mapper.findProvider(unreviewed)).thenReturn(Optional.of(
+                new ServiceFlowPersistenceMapper.ProviderRow(unreviewed, "示例测绘服务商", null, false)));
+        PostgresPlanStore store = new PostgresPlanStore(mapper, new AesGcmSensitiveDataCipher(
+                "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="));
+
+        assertThat(store.findProvider(reviewed))
+                .contains(new ProviderSummary(reviewed, "云翼科技", "企业认证", true));
+        assertThat(store.findProvider(unreviewed))
+                .contains(new ProviderSummary(unreviewed, "示例测绘服务商", null, false));
+
+        String sql = String.join("\n", ServiceFlowPersistenceMapper.class
+                .getMethod("findProvider", UUID.class)
+                .getAnnotation(org.apache.ibatis.annotations.Select.class)
+                .value());
+        assertThat(sql)
+                .contains("o.qualification_reviewed_at IS NOT NULL qualification_reviewed")
+                .contains("WHERE o.id = #{providerId}")
+                .doesNotContain("${");
+    }
 }

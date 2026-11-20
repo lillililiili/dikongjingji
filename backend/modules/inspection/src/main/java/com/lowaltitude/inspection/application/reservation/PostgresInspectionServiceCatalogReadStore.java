@@ -173,6 +173,7 @@ final class PostgresInspectionServiceCatalogReadStore
                         row.providerLogoUrl(),
                         row.providerLogoAssetCode(),
                         row.certificationLabel(),
+                        row.providerQualificationReviewed(),
                         row.teamDescription(),
                         row.ratingAverage(),
                         row.reviewCount(),

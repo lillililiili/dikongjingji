@@ -38,4 +38,22 @@ class IdentityMigrationTest {
                 .doesNotContain("identity_role_permission")
                 .doesNotContain("identity_user");
     }
+
+    // R6-4：资质审核通过时间只加一个可空列，不回填、不加约束。
+    @Test
+    void v005AddsANullableQualificationReviewTime() throws Exception {
+        String sql;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/identity/V005__identity_organization_qualification.sql")) {
+            assertThat(stream).isNotNull();
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(sql)
+                .contains("ALTER TABLE identity_organization")
+                .contains("ADD COLUMN qualification_reviewed_at timestamptz;")
+                .doesNotContain("NOT NULL")
+                .doesNotContain("UPDATE ")
+                .doesNotContain("DEFAULT");
+    }
 }
