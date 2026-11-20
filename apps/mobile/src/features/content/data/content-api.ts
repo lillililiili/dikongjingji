@@ -15,6 +15,8 @@ import type {
   ContentRefType,
   ContentTopic,
   ContentTopicCard,
+  ContentVideoOrientation,
+  ContentVideoSummary,
 } from '../domain/content'
 
 interface MediaDto {
@@ -28,11 +30,18 @@ interface AuthorDto {
   name: string
 }
 
+interface VideoSummaryDto {
+  durationSeconds: number
+  orientation: ContentVideoOrientation
+}
+
 interface ArticleCardDto {
   articleId: string
   kind: ContentArticleKind
   title: string
   author: AuthorDto
+  // 1.2.0; older answers (and test stubs) leave it out.
+  video?: VideoSummaryDto | null
   sponsored: boolean
   cityCode: string | null
   coverImage: MediaDto | null
@@ -92,11 +101,22 @@ const BLOCK_TYPES: readonly ContentBlockType[] = ['PARAGRAPH', 'HEADING', 'FACTS
 const REF_TYPES: readonly ContentRefType[] = ['INSPECTION_SERVICE', 'PRO_SERVICE', 'PRODUCT', 'ACTIVITY', 'VENUE']
 
 // The server only hands out HTTPS pictures; this keeps a bad row away from an <image> anyway.
-function toImage(media: MediaDto | null): ContentImage | null {
+export function toImage(media: MediaDto | null): ContentImage | null {
   return media && /^https:\/\//i.test(media.url) ? { url: media.url, alt: media.alt } : null
 }
 
-function toAuthor(dto: AuthorDto): ContentAuthor {
+const ORIENTATIONS: readonly ContentVideoOrientation[] = ['PORTRAIT', 'LANDSCAPE']
+
+// A video card without a usable duration or shape has nothing to badge; the card still opens.
+export function toVideoSummary(dto: VideoSummaryDto | null | undefined): ContentVideoSummary | null {
+  if (!dto || !Number.isInteger(dto.durationSeconds) || dto.durationSeconds < 1) return null
+  return {
+    durationSeconds: dto.durationSeconds,
+    orientation: ORIENTATIONS.includes(dto.orientation) ? dto.orientation : 'PORTRAIT',
+  }
+}
+
+export function toAuthor(dto: AuthorDto): ContentAuthor {
   // A provider or merchant without its organization cannot open a page or a conversation.
   const organizationId = dto.kind === 'PLATFORM' ? null : dto.organizationId?.trim() || null
   return { kind: dto.kind, organizationId, name: dto.name.trim() }
@@ -108,6 +128,7 @@ export function toContentArticleCard(dto: ArticleCardDto): ContentArticleCard {
     kind: dto.kind,
     title: dto.title,
     author: toAuthor(dto.author),
+    video: dto.kind === 'VIDEO' ? toVideoSummary(dto.video) : null,
     // Merchants' content is always an advertisement, whatever a row says.
     sponsored: dto.sponsored || dto.author.kind === 'MERCHANT',
     cityCode: dto.cityCode?.trim() || null,
@@ -145,7 +166,7 @@ function toBlocks(dto: ArticleDto['blocks']): ContentBlock[] {
     .filter((block) => block.text !== null || block.items.length > 0)
 }
 
-function toRefs(dto: ArticleDto['refs']): ContentRef[] {
+export function toRefs(dto: ArticleDto['refs']): ContentRef[] {
   const seen = new Set<string>()
   return dto
     .filter((ref) => REF_TYPES.includes(ref.type))

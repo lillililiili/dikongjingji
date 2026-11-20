@@ -159,6 +159,10 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   },
   '/pages/mine/settings': { allowed: [] },
   '/pages/mine/help': { allowed: [] },
+  // Discover videos (features/content/navigation/content-routes.ts, 1.2.0): liking, following and
+  // commenting ask for a login and come back to the same video. content-routes.test.ts checks them.
+  '/pages/content/video': { required: 'videoId', allowed: ['videoId', 'cityCode'] },
+  '/pages/content/video-feed': { required: 'cityCode', allowed: ['cityCode', 'videoId', 'feed'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.

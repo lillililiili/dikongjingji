@@ -423,6 +423,21 @@
         "navigationBarTitleText": "专题",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/content/video",
+      "style": {
+        "navigationBarTitleText": "视频",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/content/video-feed",
+      "style": {
+        "navigationBarTitleText": "视频",
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
     }
   ],
   "globalStyle": {

@@ -17,6 +17,8 @@ export interface Tone {
 
 export const DISCOVER_CHANNEL_LABELS: Record<DiscoverChannel, string> = {
   RECOMMEND: '推荐',
+  VIDEO: '视频',
+  LIVE: '直播',
   EVENTS: '赛事',
   STUDY: '研学',
   CASE: '案例',
@@ -27,6 +29,8 @@ export const DISCOVER_CHANNEL_LABELS: Record<DiscoverChannel, string> = {
 // editors' pick yet.
 export const DISCOVER_CHANNEL_NOTES: Record<DiscoverChannel, string> = {
   RECOMMEND: '内容由城市运营、服务商和商家发布，按发布时间排序。',
+  VIDEO: '点任意视频进入竖屏播放，上下切换下一条。',
+  LIVE: '平台内直播可互动、看讲解清单；交易在平台内完成，直播间不收款。',
   EVENTS: '赛事由主办方发布，报名、退改和成绩以活动详情为准。',
   STUDY: '研学活动面向未成年人，由监护人代报名；行程和退改以活动详情为准。',
   CASE: '案例由服务商提供，实际范围、周期和费用以报价方案为准。',
@@ -35,6 +39,8 @@ export const DISCOVER_CHANNEL_NOTES: Record<DiscoverChannel, string> = {
 
 export const DISCOVER_EMPTY_TEXT: Record<DiscoverChannel, string> = {
   RECOMMEND: '这个城市还没有发布内容',
+  VIDEO: '这个城市还没有视频',
+  LIVE: '这个城市暂时没有直播',
   EVENTS: '这个城市近期没有赛事和活动',
   STUDY: '这个城市近期没有研学活动',
   CASE: '这个城市还没有案例',
@@ -44,12 +50,15 @@ export const DISCOVER_EMPTY_TEXT: Record<DiscoverChannel, string> = {
 export const CONTENT_KIND_LABELS: Record<ContentArticleKind, string> = {
   CASE: '案例',
   KNOWLEDGE: '知识',
+  VIDEO: '视频',
 }
 
 // The plain block of an article without a licensed picture: its title on the kind's tint.
 export const CONTENT_KIND_TONES: Record<ContentArticleKind, Tone> = {
   CASE: { background: '#e2f6ed', color: '#11804a' },
   KNOWLEDGE: { background: '#e6f0ff', color: '#1d63c4' },
+  // A video without a poster: the board's dark cover.
+  VIDEO: { background: '#202c42', color: '#ffffff' },
 }
 
 const SPONSORED_TONE: Tone = { background: '#fff0e3', color: '#ba470b' }
@@ -118,6 +127,11 @@ export function splitColumns<T>(items: readonly T[]): [T[], T[]] {
   const right: T[] = []
   items.forEach((item, index) => (index % 2 === 0 ? left : right).push(item))
   return [left, right]
+}
+
+// 推荐 and 视频 are two-column waterfalls; 案例 and 知识 rows of articles; 赛事 and 研学 rows of activities.
+export function isWaterfallChannel(channel: DiscoverChannel): boolean {
+  return channel === 'RECOMMEND' || channel === 'VIDEO'
 }
 
 export function articleEntries(entries: readonly DiscoverEntry[]): ContentArticleCard[] {

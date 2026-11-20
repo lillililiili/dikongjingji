@@ -4,10 +4,13 @@ import { buildInspectionDetailUrl } from '../../inspection/navigation/inspection
 import { buildMallProductUrl } from '../../mall/navigation/mall-routes'
 import { buildProServiceDetailUrl, buildProviderPageUrl } from '../../proservice/navigation/proservice-routes'
 
-import type { ContentAuthor, ContentRefType } from '../domain/content'
+import type { ContentAuthor, ContentRefType, ContentVideoFeed } from '../domain/content'
 
 export const CONTENT_ARTICLE_PATH = '/pages/content/article'
 export const CONTENT_TOPIC_PATH = '/pages/content/topic'
+// 1.2.0: a video's detail (board ContentVideo) and the vertical stream (board VideoFeed).
+export const CONTENT_VIDEO_PATH = '/pages/content/video'
+export const CONTENT_VIDEO_FEED_PATH = '/pages/content/video-feed'
 
 // Only the stable id and the city travel; the page reads the article or topic again.
 export function buildContentArticleUrl(articleId: string, cityCode: string): string {
@@ -16,6 +19,22 @@ export function buildContentArticleUrl(articleId: string, cityCode: string): str
 
 export function buildContentTopicUrl(topicId: string, cityCode: string): string {
   return `${CONTENT_TOPIC_PATH}?topicId=${encodeURIComponent(topicId)}&cityCode=${encodeURIComponent(cityCode)}`
+}
+
+export function buildContentVideoUrl(videoId: string, cityCode: string): string {
+  return `${CONTENT_VIDEO_PATH}?videoId=${encodeURIComponent(videoId)}&cityCode=${encodeURIComponent(cityCode)}`
+}
+
+/** The stream in a city, starting at the tapped video when there is one. 推荐 is the default. */
+export function buildContentVideoFeedUrl(
+  cityCode: string,
+  startVideoId: string | null = null,
+  feed: ContentVideoFeed = 'RECOMMEND',
+): string {
+  const parts = [`cityCode=${encodeURIComponent(cityCode)}`]
+  if (startVideoId) parts.push(`videoId=${encodeURIComponent(startVideoId)}`)
+  if (feed === 'FOLLOWING') parts.push('feed=FOLLOWING')
+  return `${CONTENT_VIDEO_FEED_PATH}?${parts.join('&')}`
 }
 
 function read(query: Record<string, unknown> | undefined, key: string): string {
@@ -35,6 +54,22 @@ export function parseContentArticleTarget(query: Record<string, unknown> | undef
 
 export function parseContentTopicTarget(query: Record<string, unknown> | undefined) {
   return { topicId: read(query, 'topicId'), cityCode: read(query, 'cityCode') }
+}
+
+export function parseContentVideoTarget(query: Record<string, unknown> | undefined) {
+  return { videoId: read(query, 'videoId'), cityCode: read(query, 'cityCode') }
+}
+
+export function parseContentVideoFeedTarget(query: Record<string, unknown> | undefined): {
+  cityCode: string
+  startVideoId: string | null
+  feed: ContentVideoFeed
+} {
+  return {
+    cityCode: read(query, 'cityCode'),
+    startVideoId: read(query, 'videoId') || null,
+    feed: read(query, 'feed') === 'FOLLOWING' ? 'FOLLOWING' : 'RECOMMEND',
+  }
 }
 
 /**

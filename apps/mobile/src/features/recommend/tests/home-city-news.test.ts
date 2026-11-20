@@ -14,6 +14,7 @@ function article(id: string, overrides: Partial<ContentArticleCard> = {}): Conte
     kind: 'KNOWLEDGE',
     title: `文章 ${id}`,
     author: { kind: 'PLATFORM', organizationId: null, name: '东营城市运营中心' },
+    video: null,
     sponsored: false,
     cityCode: null,
     coverImage: null,
@@ -35,6 +36,9 @@ describe('home city news', () => {
 
     expect(pickCityNews(feed([provider, sponsored, platform]))?.articleId).toBe('a')
     expect(pickCityNews(feed([provider]))).toBeNull()
+    // A platform video in the mixed feed (content 1.2.0) is not an article.
+    const video = article('v', { kind: 'VIDEO', video: { durationSeconds: 125, orientation: 'PORTRAIT' } })
+    expect(pickCityNews(feed([video, platform]))?.articleId).toBe('a')
   })
 
   it('names the city and the publisher', () => {

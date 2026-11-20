@@ -1,21 +1,31 @@
-// Mirrors contracts/openapi-content.yaml 1.0.0 (step H1): the discover page's articles (cases and
-// knowledge) and topics. Public and read-only; what an article or a topic points at is read again
-// from its own module by type and stable id.
+// Mirrors contracts/openapi-content.yaml (1.0.0 step H1, 1.2.0 videos): the discover page's articles
+// (cases and knowledge), videos and topics. What an article, a video or a topic points at is read
+// again from its own module by type and stable id.
 
 import type { ActivityCard } from '../../activity/domain/activity'
 
-export type ContentArticleKind = 'CASE' | 'KNOWLEDGE'
+export type ContentArticleKind = 'CASE' | 'KNOWLEDGE' | 'VIDEO'
 
 export type ContentAuthorKind = 'PROVIDER' | 'MERCHANT' | 'PLATFORM'
 
-// The article channels of the server.
-export type ContentFeedChannel = 'RECOMMEND' | 'CASE' | 'KNOWLEDGE'
+// The content channels of the server.
+export type ContentFeedChannel = 'RECOMMEND' | 'CASE' | 'KNOWLEDGE' | 'VIDEO'
 
-// The tabs of the discover page: 推荐 / 赛事 / 研学 / 案例 / 知识. 赛事 and 研学 list real activities
-// of the activity module; 视频 and 直播 are not in this step.
-export type DiscoverChannel = 'RECOMMEND' | 'EVENTS' | 'STUDY' | 'CASE' | 'KNOWLEDGE'
+// The tabs of the discover page in the board's order: 推荐 / 视频 / 直播 / 赛事 / 研学 / 案例 / 知识.
+// 赛事 and 研学 list real activities of the activity module. 直播 belongs to the live module, which
+// is built separately: its place is kept here and it stays hidden until that module turns
+// DISCOVER_LIVE_CHANNEL_ENABLED on and gives the tab its list.
+export type DiscoverChannel = 'RECOMMEND' | 'VIDEO' | 'LIVE' | 'EVENTS' | 'STUDY' | 'CASE' | 'KNOWLEDGE'
 
-export const DISCOVER_CHANNELS: readonly DiscoverChannel[] = ['RECOMMEND', 'EVENTS', 'STUDY', 'CASE', 'KNOWLEDGE']
+export const DISCOVER_LIVE_CHANNEL_ENABLED = false
+
+const ALL_DISCOVER_CHANNELS: readonly DiscoverChannel[] = ['RECOMMEND', 'VIDEO', 'LIVE', 'EVENTS', 'STUDY', 'CASE', 'KNOWLEDGE']
+
+export function discoverChannels(liveEnabled: boolean = DISCOVER_LIVE_CHANNEL_ENABLED): readonly DiscoverChannel[] {
+  return ALL_DISCOVER_CHANNELS.filter((channel) => channel !== 'LIVE' || liveEnabled)
+}
+
+export const DISCOVER_CHANNELS: readonly DiscoverChannel[] = discoverChannels()
 
 export type ContentBlockType = 'PARAGRAPH' | 'HEADING' | 'FACTS' | 'STEPS' | 'LIST' | 'TIP' | 'NOTICE'
 
@@ -33,11 +43,22 @@ export interface ContentAuthor {
   name: string
 }
 
+export type ContentVideoOrientation = 'PORTRAIT' | 'LANDSCAPE'
+
+// What a video card shows besides the article fields: the duration badge and the shape.
+export interface ContentVideoSummary {
+  durationSeconds: number
+  orientation: ContentVideoOrientation
+}
+
 export interface ContentArticleCard {
+  // The video's id on a video card.
   articleId: string
   kind: ContentArticleKind
   title: string
   author: ContentAuthor
+  // Only on a video card.
+  video: ContentVideoSummary | null
   // 广告: everything a merchant publishes.
   sponsored: boolean
   // null: shown in every city (knowledge only).
@@ -104,3 +125,64 @@ export type DiscoverEntry =
   | { kind: 'ACTIVITY'; key: string; activity: ActivityCard }
 
 export const CONTENT_FEED_PAGE_SIZE = 10
+
+// ---- 1.2.0 videos ----
+
+export type ContentVideoFeed = 'RECOMMEND' | 'FOLLOWING'
+
+export type ContentCommentReportReason = 'AD_SPAM' | 'ABUSE' | 'ILLEGAL' | 'OTHER'
+
+export const CONTENT_COMMENT_REPORT_REASONS: readonly ContentCommentReportReason[] = ['AD_SPAM', 'ABUSE', 'ILLEGAL', 'OTHER']
+
+// A video: its detail page and one entry of the vertical stream. playUrl is the server's controlled
+// HTTPS address, null when there is none (preview builds then play a bundled sample).
+export interface ContentVideo {
+  videoId: string
+  title: string
+  author: ContentAuthor
+  sponsored: boolean
+  cityCode: string
+  coverImage: ContentImage | null
+  sample: boolean
+  publishedAt: string
+  durationSeconds: number
+  orientation: ContentVideoOrientation
+  playUrl: string | null
+  caption: string | null
+  tags: string[]
+  // 内容中提到; the first one is the video's entry (the card above the caption in the stream).
+  refs: ContentRef[]
+  likeCount: number
+  commentCount: number
+  // The signed-in account's own marks; false when nobody is signed in.
+  liked: boolean
+  followingAuthor: boolean
+}
+
+export interface ContentVideoPage {
+  feed: ContentVideoFeed
+  items: ContentVideo[]
+  // null: nothing after these.
+  nextCursor: string | null
+}
+
+export interface ContentComment {
+  commentId: string
+  videoId: string
+  // The masked display name, or the publishing organization's name (byAuthor).
+  authorName: string
+  byAuthor: boolean
+  mine: boolean
+  text: string
+  createdAt: string
+}
+
+export interface ContentCommentPage {
+  total: number
+  hasMore: boolean
+  items: ContentComment[]
+}
+
+export const CONTENT_VIDEO_STREAM_SIZE = 5
+export const CONTENT_COMMENT_PAGE_SIZE = 20
+export const CONTENT_COMMENT_LIMIT = 200
