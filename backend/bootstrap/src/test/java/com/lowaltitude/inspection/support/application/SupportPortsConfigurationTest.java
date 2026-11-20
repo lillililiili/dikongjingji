@@ -35,7 +35,7 @@ class SupportPortsConfigurationTest {
     void organizationsAndNamesComeFromTheIdentityModule() {
         IdentityOrganizationPort organizations = mock(IdentityOrganizationPort.class);
         when(organizations.findActiveOrganization(MERCHANT))
-                .thenReturn(Optional.of(new IdentityOrganization(MERCHANT, "示例机器人商家", "PROVIDER")));
+                .thenReturn(Optional.of(new IdentityOrganization(MERCHANT, "示例机器人商家", "PROVIDER", null)));
         IdentityProfilePort profiles = mock(IdentityProfilePort.class);
         when(profiles.findProfile(CUSTOMER))
                 .thenReturn(Optional.of(new IdentityProfile(CUSTOMER, "王女士（示例）", "东营示例物流公司", "CUSTOMER")));

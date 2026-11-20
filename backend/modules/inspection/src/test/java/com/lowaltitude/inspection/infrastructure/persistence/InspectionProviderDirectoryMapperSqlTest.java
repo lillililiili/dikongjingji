@@ -35,6 +35,10 @@ class InspectionProviderDirectoryMapperSqlTest {
                 .contains("c.status = 'ACTIVE'")
                 .contains("c.city_code = #{cityCode}");
         assertThat(sql("findProviders")).startsWith("<script>").contains("p.provider_id IN");
+        // R6-4：资质审核只读机构上的审核通过时间，和名称同一个查询。
+        for (String name : List.of("findProvidersIn", "findProviders")) {
+            assertThat(sql(name)).contains("o.qualification_reviewed_at IS NOT NULL qualification_reviewed");
+        }
         assertThat(sql("findCitiesServed"))
                 .doesNotContain("${")
                 .contains("s.provider_id = #{providerId}")
@@ -55,8 +59,9 @@ class InspectionProviderDirectoryMapperSqlTest {
         assertThat(mapper.calls).isEmpty();
 
         assertThat(directory.providersIn(" 370500 ")).containsExactly(
-                new ProviderCard(PROVIDER, "云翼科技", "企业认证", null));
-        assertThat(directory.find(List.of(PROVIDER, PROVIDER))).hasSize(1);
+                new ProviderCard(PROVIDER, "云翼科技", "企业认证", null, true));
+        assertThat(directory.find(List.of(PROVIDER, PROVIDER))).containsExactly(
+                new ProviderCard(PROVIDER, "云翼科技", null, null, false));
         assertThat(directory.citiesServed(PROVIDER)).containsExactly("370100", "370500");
         assertThat(mapper.calls).containsExactly("in:370500", "find:[" + PROVIDER + "]", "cities:" + PROVIDER);
     }
@@ -99,13 +104,13 @@ class InspectionProviderDirectoryMapperSqlTest {
         @Override
         public List<ProviderRow> findProvidersIn(String cityCode) {
             calls.add("in:" + cityCode);
-            return List.of(new ProviderRow(PROVIDER, "云翼科技", " 企业认证 ", " "));
+            return List.of(new ProviderRow(PROVIDER, "云翼科技", " 企业认证 ", " ", true));
         }
 
         @Override
         public List<ProviderRow> findProviders(List<UUID> providerIds) {
             calls.add("find:" + providerIds);
-            return List.of(new ProviderRow(PROVIDER, "云翼科技", null, null));
+            return List.of(new ProviderRow(PROVIDER, "云翼科技", null, null, false));
         }
 
         @Override

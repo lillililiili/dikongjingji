@@ -3,6 +3,7 @@ import { ModuleKind, ScriptTarget, transpileModule } from 'typescript'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Vue from 'vue'
 
+import * as qualification from '../../../shared/ui/qualification'
 import * as orderNavigation from '../application/service-flow/inspection-order-navigation'
 import * as planDomain from '../domain/service-flow/plan'
 import * as inspectionRoutes from '../navigation/inspection-routes'
@@ -38,6 +39,8 @@ function mountPage(source: string, filename: string): BackPressHandler {
     // Step G1: customer service and its preview flag (off: the pages keep their notices).
     '@/features/support/application/support-entry': { openSupportChat: () => undefined },
     '@/features/support/application/support-preview': { SUPPORT_PREVIEW_ENABLED: false },
+    // R6-4: the provider's 资质已审核 tag.
+    '@/shared/ui/qualification': qualification,
     '@dcloudio/uni-app': {
       onBackPress: (handler: BackPressHandler) => {
         backPressHandler = handler

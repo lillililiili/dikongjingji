@@ -30,7 +30,7 @@ describe('demand list cards', () => {
     expect(describeDemandLine(demandOf())).toBe('平台匹配中 · 报价截止 11/22 10:00')
     expect(describeDemandLine(demandOf({
       quoteScope: 'INVITE',
-      invitedProviders: [{ providerId: 'p1', name: '云翼科技', certificationLabel: null, description: null }],
+      invitedProviders: [{ providerId: 'p1', name: '云翼科技', certificationLabel: null, description: null, qualificationReviewed: false }],
     }))).toBe('已邀请 1 家服务商 · 报价截止 11/22 10:00')
     const card = describeDemandCard(demandOf())
     expect(card.meta).toBe('东营经济技术开发区 · 约 1.2 平方公里')
@@ -89,16 +89,25 @@ describe('quotes and comparison', () => {
     ])
     expect(describeDemandQuote(quoteOf({ status: 'NOT_CHOSEN', choosable: false })).statusTag).toBe('未选中')
     expect(describeDemandQuote(quoteOf({ status: 'CHOSEN', choosable: false })).statusTag).toBe('已选中')
+    // R6-4: beside the name, 资质已审核 only when the server says so; otherwise the provider's own label.
+    expect(view.credential).toBe('企业认证')
+    expect(describeDemandQuote(quoteOf({
+      provider: { providerId: 'p1', name: '云翼科技', certificationLabel: '企业认证', qualificationReviewed: true },
+    })).credential).toBe('资质已审核')
+    expect(describeDemandQuote(quoteOf({
+      provider: { providerId: 'p1', name: '云翼科技', certificationLabel: null, qualificationReviewed: false },
+    })).credential).toBeNull()
   })
 
   it('compares only what the quotes give, one cell per quote', () => {
     const rows = buildDemandCompareRows([
       quoteOf(),
-      quoteOf({ quoteId: 'q2', provider: { providerId: 'p2', name: '黄河口飞服', certificationLabel: null }, version: 1, amountMinor: 1_520_000, status: 'EXPIRED', choosable: false }),
+      quoteOf({ quoteId: 'q2', provider: { providerId: 'p2', name: '黄河口飞服', certificationLabel: null, qualificationReviewed: true }, version: 1, amountMinor: 1_520_000, status: 'EXPIRED', choosable: false }),
     ])
     expect(rows.map((row) => row.label)).toEqual(['总价', '方案版本', '资质', '方式', '工期', '周期', '交付物', '有效期', '状态'])
     expect(rows[0]).toEqual({ label: '总价', cells: ['¥18,600', '¥15,200'], price: true })
-    expect(rows[2].cells).toEqual(['企业认证', '—'])
+    // R6-4: a reviewed provider reads 已审核 (PlanCompare board); the others keep their own label.
+    expect(rows[2].cells).toEqual(['企业认证', '已审核'])
     expect(rows[8].cells).toEqual(['可选择', '已过有效期'])
   })
 

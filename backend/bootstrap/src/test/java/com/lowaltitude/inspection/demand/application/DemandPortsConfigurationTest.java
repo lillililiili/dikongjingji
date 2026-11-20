@@ -57,8 +57,8 @@ class DemandPortsConfigurationTest {
     void providersComeFromTheInspectionProfilesAndServeTheCitiesOfBothCatalogs() {
         InspectionProviderDirectory inspection = mock(InspectionProviderDirectory.class);
         ProServiceReadService proServices = mock(ProServiceReadService.class);
-        ProviderCard yunyi = new ProviderCard(PROVIDER, "云翼科技", "企业认证", "专业飞手团队");
-        ProviderCard eagle = new ProviderCard(EAGLE, "鹰眼智能巡检", "资质已审核", null);
+        ProviderCard yunyi = new ProviderCard(PROVIDER, "云翼科技", "企业认证", "专业飞手团队", false);
+        ProviderCard eagle = new ProviderCard(EAGLE, "鹰眼智能巡检", "企业认证", null, true);
         when(inspection.providersIn("370500")).thenReturn(List.of(yunyi));
         when(proServices.providerIdsIn("370500")).thenReturn(List.of(PROVIDER, EAGLE, NO_PROFILE));
         when(inspection.find(List.of(EAGLE, NO_PROFILE))).thenReturn(List.of(eagle));
@@ -68,8 +68,8 @@ class DemandPortsConfigurationTest {
         DemandPorts.ProviderDirectory directory = configuration.demandProviderDirectory(inspection, proServices);
 
         assertThat(directory.providersIn("370500")).containsExactly(
-                new DemandPorts.Provider(PROVIDER, "云翼科技", "企业认证", "专业飞手团队"),
-                new DemandPorts.Provider(EAGLE, "鹰眼智能巡检", "资质已审核", null));
+                new DemandPorts.Provider(PROVIDER, "云翼科技", "企业认证", "专业飞手团队", false),
+                new DemandPorts.Provider(EAGLE, "鹰眼智能巡检", "企业认证", null, true));
         assertThat(directory.find(List.of(PROVIDER))).extracting(DemandPorts.Provider::name).containsExactly("云翼科技");
         assertThat(directory.citiesServed(PROVIDER)).containsExactly("370100", "370500");
     }

@@ -9,6 +9,7 @@ import type { ShareTarget } from '@/shared/share/share-link'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import IconTile from '@/shared/ui/IconTile.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { providerCredentialLabel } from '@/shared/ui/qualification'
 
 import {
   PRO_SERVICE_TYPE_INFO,
@@ -59,6 +60,11 @@ const info = computed(() => (detail.value ? PRO_SERVICE_TYPE_INFO[detail.value.t
 const price = computed(() => (detail.value ? formatProServicePrice(detail.value.price) : null))
 const sections = computed(() => (detail.value ? buildProServiceSections(detail.value) : []))
 const serviceCities = computed(() => (detail.value ? citiesText(detail.value.cities) : ''))
+// The board's green tag beside the provider: 资质已审核 when the platform reviewed it (R6-4), else its own label.
+const providerCredential = computed(() => {
+  const provider = detail.value?.provider
+  return provider ? providerCredentialLabel(provider.qualificationReviewed, provider.certificationLabel) : null
+})
 // The hero pill: 航拍服务 / 测绘服务, but 设备维护 / 技术支持 as the boards write them.
 const heroLabel = computed(() => {
   const label = info.value?.label ?? ''
@@ -195,8 +201,8 @@ void load()
             <view class="pro-detail__provider-copy">
               <text class="pro-detail__provider-name">{{ detail.provider.name }}</text>
               <view class="pro-detail__provider-meta">
-                <text v-if="detail.provider.certificationLabel" class="pro-detail__certification">
-                  {{ detail.provider.certificationLabel }}
+                <text v-if="providerCredential" class="pro-detail__certification" data-testid="pro-detail-credential">
+                  {{ providerCredential }}
                 </text>
                 <text v-if="serviceCities" class="pro-detail__cities">{{ serviceCities }}</text>
               </view>

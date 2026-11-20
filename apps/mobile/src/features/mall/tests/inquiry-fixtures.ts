@@ -32,7 +32,7 @@ export function quoteOf(overrides: Partial<MallInquiryQuote> = {}): MallInquiryQ
     quoteId: 'q-robot',
     version: 1,
     offerId: 'o-robot',
-    merchant: { organizationId: 'm-1', name: '示例机器人商家', kind: 'FACTORY_DIRECT' },
+    merchant: { organizationId: 'm-1', name: '示例机器人商家', kind: 'FACTORY_DIRECT', qualificationReviewed: true },
     status: 'ACTIVE',
     unitAmountMinor: 6_800_000,
     quantity: 2,

@@ -1,8 +1,9 @@
 openapi: 3.1.0
 info:
   title: Professional Service Catalog API
-  version: 1.0.0
+  version: 1.1.0
   description: |-
+    1.1.0（R6-4）：服务详情的服务商和服务商主页加 qualificationReviewed（平台审核过它的资质），页面有审核时在资质说明的位置显示“资质已审核”。
     1.0.0（步骤 F2，docs/redesign/03-App实现任务计划.md §23）：航拍、测绘、设备维护、技术支持四类专业服务的目录、服务详情和服务商主页。
     全部公开只读，不需要登录。这四类服务不走预约：详情和服务商主页的主按钮是“发布需求”（contracts/openapi-demand.yaml），
     类型编码和需求的 DemandType 一致，可以直接预选；服务商主页和详情里的 providerId 可以作为“仅邀请”的服务商。
@@ -433,6 +434,7 @@ components:
         - name
         - certificationLabel
         - description
+        - qualificationReviewed
       properties:
         providerId:
           type: string
@@ -443,11 +445,14 @@ components:
           type:
             - string
             - "null"
-          description: 平台审核标签，如“资质已审核”“企业认证”
+          description: 服务商资料里的资质说明，如“企业认证”；qualificationReviewed 为 true 时页面在这个位置显示“资质已审核”
         description:
           type:
             - string
             - "null"
+        qualificationReviewed:
+          type: boolean
+          description: 平台已审核过这家服务商的资质（机构有资质审核通过时间）；只来自数据库
     ProServiceDetail:
       type: object
       additionalProperties: false
@@ -569,6 +574,7 @@ components:
         - providerId
         - name
         - certificationLabel
+        - qualificationReviewed
         - description
         - cityCode
         - inspectionServices
@@ -584,6 +590,9 @@ components:
           type:
             - string
             - "null"
+        qualificationReviewed:
+          type: boolean
+          description: 平台已审核过这家服务商的资质（机构有资质审核通过时间）；只来自数据库
         description:
           type:
             - string

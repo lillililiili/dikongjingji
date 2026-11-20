@@ -152,7 +152,8 @@
     "provider": {
       "providerId": "30000000-0000-4000-8000-000000000001",
       "name": "测试服务商",
-      "certificationLabel": "资质已审核"
+      "certificationLabel": "企业认证",
+      "qualificationReviewed": true
     },
     "customerParty": {
       "organizationName": "测试客户企业",
@@ -228,7 +229,8 @@
     "provider": {
       "providerId": "30000000-0000-4000-8000-000000000001",
       "name": "测试服务商",
-      "certificationLabel": "资质已审核"
+      "certificationLabel": "企业认证",
+      "qualificationReviewed": true
     },
     "customerParty": {
       "organizationName": "测试客户企业",

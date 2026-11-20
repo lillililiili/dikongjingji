@@ -60,7 +60,9 @@ record ProServiceLineView(String label, String detail) {
 record ProServiceCityView(String cityCode, String cityName) {
 }
 
-record ProServiceProviderView(UUID providerId, String name, String certificationLabel, String description) {
+/** qualificationReviewed：平台审核过这家服务商的资质（R6-4）；为 true 时页面在资质说明的位置显示“资质已审核”。 */
+record ProServiceProviderView(UUID providerId, String name, String certificationLabel, String description,
+                              boolean qualificationReviewed) {
 }
 
 /**
@@ -101,12 +103,13 @@ record ProviderInspectionServiceView(
 }
 
 /**
- * 服务商主页：名称、平台审核标签、简介，在 cityCode 这个城市能看到的巡检服务和四类服务，以及可服务的全部城市。
+ * 服务商主页：名称、资质说明和资质是否审核过、简介，在 cityCode 这个城市能看到的巡检服务和四类服务，以及可服务的全部城市。
  */
 record ProviderPageView(
         UUID providerId,
         String name,
         String certificationLabel,
+        boolean qualificationReviewed,
         String description,
         String cityCode,
         List<ProviderInspectionServiceView> inspectionServices,

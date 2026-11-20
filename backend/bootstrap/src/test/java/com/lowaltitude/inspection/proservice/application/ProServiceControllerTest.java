@@ -108,6 +108,7 @@ class ProServiceControllerTest {
                 .andExpect(jsonPath("$.steps[3]").value("成果验收"))
                 .andExpect(jsonPath("$.provider.providerId").value(PROVIDER.toString()))
                 .andExpect(jsonPath("$.provider.certificationLabel").value("企业认证"))
+                .andExpect(jsonPath("$.provider.qualificationReviewed").value(false))
                 .andExpect(jsonPath("$.cities[0].cityName").value("东营市"));
     }
 
@@ -130,8 +131,8 @@ class ProServiceControllerTest {
     @Test
     void theProviderPageAnswersItsServicesAndCities() throws Exception {
         UUID other = UUID.fromString("f2000000-0000-4000-8000-000000000001");
-        when(service.provider(other, "370500")).thenReturn(new ProviderPageView(other, "鹰眼智能巡检", "资质已审核",
-                "东营本地团队", "370500",
+        when(service.provider(other, "370500")).thenReturn(new ProviderPageView(other, "鹰眼智能巡检", "企业认证",
+                true, "东营本地团队", "370500",
                 List.of(new ProviderInspectionServiceView(INSPECTION, "电力输电线路无人机巡检", "高精度巡检", "电力",
                         new ProServicePriceView(ProServicePriceMode.PRICE_FROM, 69900L, "/公里起", "含现场巡检和报告"))),
                 page().items(),
@@ -139,8 +140,9 @@ class ProServiceControllerTest {
 
         mockMvc.perform(get("/api/v1/providers/" + other + "?cityCode=370500"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(8))
+                .andExpect(jsonPath("$.length()").value(9))
                 .andExpect(jsonPath("$.name").value("鹰眼智能巡检"))
+                .andExpect(jsonPath("$.qualificationReviewed").value(true))
                 .andExpect(jsonPath("$.inspectionServices[0].serviceId").value(INSPECTION.toString()))
                 .andExpect(jsonPath("$.inspectionServices[0].price.unit").value("/公里起"))
                 .andExpect(jsonPath("$.proServices.length()").value(2))
@@ -177,7 +179,7 @@ class ProServiceControllerTest {
                 List.of(), List.of(),
                 List.of("提交需求", "报价比选", "现场拍摄", "成果验收"),
                 List.of("持证飞手", "合规飞行", "素材保密"),
-                new ProServiceProviderView(PROVIDER, "云翼科技", "企业认证", "专业飞手团队"),
+                new ProServiceProviderView(PROVIDER, "云翼科技", "企业认证", "专业飞手团队", false),
                 List.of(new ProServiceCityView("370500", "东营市")));
     }
 }

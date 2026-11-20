@@ -59,7 +59,7 @@ class ProServiceOpenApiContractTest {
     void contractIsVersionOneAndEveryRouteIsPublic() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.0.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
         assertThat(root).doesNotContainKey("security");
         assertThat(map(root.get("components"))).doesNotContainKey("securitySchemes");
         assertThat(operations()).extracting(Operation::key).containsExactlyInAnyOrder(

@@ -37,10 +37,12 @@ public final class DemandPorts {
     }
 
     /**
-     * @param certificationLabel 资质说明，如“企业认证”；可以为空
-     * @param description        一句话介绍（团队说明）；可以为空
+     * @param certificationLabel    资质说明，如“企业认证”；可以为空
+     * @param description           一句话介绍（团队说明）；可以为空
+     * @param qualificationReviewed 平台审核过这家服务商的资质（机构有资质审核通过时间，R6-4）
      */
-    public record Provider(UUID providerId, String name, String certificationLabel, String description) {
+    public record Provider(UUID providerId, String name, String certificationLabel, String description,
+                           boolean qualificationReviewed) {
     }
 
     /**

@@ -133,7 +133,7 @@ class DemandControllerTest {
     @Test
     void invitableProvidersNeedOnlyALogin() throws Exception {
         when(service.invitableProviders("370500", "INSPECTION")).thenReturn(new DemandProviderListView(List.of(
-                new DemandProviderView(PROVIDER, "云翼科技", "企业认证", null))));
+                new DemandProviderView(PROVIDER, "云翼科技", "企业认证", null, true))));
 
         mockMvc.perform(get("/api/v1/demand-providers?cityCode=370500&type=INSPECTION").principal(operator))
                 .andExpect(status().isOk())
@@ -141,6 +141,7 @@ class DemandControllerTest {
                 .andExpect(jsonPath("$.items[0].providerId").value(PROVIDER.toString()))
                 .andExpect(jsonPath("$.items[0].name").value("云翼科技"))
                 .andExpect(jsonPath("$.items[0].certificationLabel").value("企业认证"))
+                .andExpect(jsonPath("$.items[0].qualificationReviewed").value(true))
                 .andExpect(jsonPath("$.items[0].description").doesNotExist());
     }
 
@@ -298,6 +299,7 @@ class DemandControllerTest {
                 .andExpect(jsonPath("$.items[0].quoteId").value(QUOTE.toString()))
                 .andExpect(jsonPath("$.items[0].provider.name").value("云翼科技"))
                 .andExpect(jsonPath("$.items[0].provider.certificationLabel").value("企业认证"))
+                .andExpect(jsonPath("$.items[0].provider.qualificationReviewed").value(true))
                 .andExpect(jsonPath("$.items[0].version").value(2))
                 .andExpect(jsonPath("$.items[0].status").value("ACTIVE"))
                 .andExpect(jsonPath("$.items[0].amountMinor").value(1_860_000))
@@ -458,7 +460,7 @@ class DemandControllerTest {
                 List.of(new DemandDeliverableView(DemandDeliverable.INSPECTION_REPORT, "巡检报告")),
                 null,
                 DemandQuoteScope.INVITE,
-                List.of(new DemandProviderView(PROVIDER, "云翼科技", "企业认证", null)),
+                List.of(new DemandProviderView(PROVIDER, "云翼科技", "企业认证", null, true)),
                 status == DemandStatus.DRAFT ? null : NOW,
                 status == DemandStatus.DRAFT ? null : NOW.plusHours(72),
                 status == DemandStatus.OPEN || status == DemandStatus.QUOTED,
@@ -473,7 +475,7 @@ class DemandControllerTest {
     }
 
     private static DemandQuoteView quote() {
-        return new DemandQuoteView(QUOTE, new DemandQuoteProviderView(PROVIDER, "云翼科技", "企业认证"), 2,
+        return new DemandQuoteView(QUOTE, new DemandQuoteProviderView(PROVIDER, "云翼科技", "企业认证", true), 2,
                 DemandQuoteStatus.ACTIVE, 1_860_000, "无人机 + 机器狗", "共 6 次 · 11/02 首次进场", 90,
                 "巡检报告、隐患清单", NOW.plusDays(7), NOW, NOW.plusHours(1), true);
     }

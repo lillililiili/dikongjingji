@@ -42,6 +42,7 @@ class InspectionServiceCatalogControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.serviceId").value(serviceId.toString()))
                 .andExpect(jsonPath("$.provider.name").value("云翼科技"))
+                .andExpect(jsonPath("$.provider.qualificationReviewed").value(true))
                 .andExpect(jsonPath("$.priceNote").value("按线路公里计价，起步价含现场巡检和报告"))
                 .andExpect(jsonPath("$.priceFactors[0]").value("线路长度"))
                 .andExpect(jsonPath("$.priceFactors[2]").value("现场条件"))
@@ -288,6 +289,7 @@ class InspectionServiceCatalogControllerTest {
                         null,
                         "FEIXIANG_APP_ICON",
                         "企业认证",
+                        true,
                         "专业飞手团队"),
                 List.of(),
                 List.of(),
@@ -326,6 +328,7 @@ class InspectionServiceCatalogControllerTest {
                         null,
                         "FEIXIANG_APP_ICON",
                         "企业认证",
+                        false,
                         "专业飞手团队"),
                 List.of(),
                 List.of(),

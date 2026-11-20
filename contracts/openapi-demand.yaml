@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
   title: Demand API
-  version: 1.0.0
+  version: 1.1.0
   description: |-
+    1.1.0（R6-4）：可邀请的服务商（DemandProvider）和报价里的服务商（DemandQuoteProvider）加 qualificationReviewed（平台审核过它的资质），
+    页面据此显示“资质已审核”。
     1.0.0（步骤 F1，docs/redesign/03-App实现任务计划.md §22）：需求发布与报价比选。
     客户发布一份需求（巡检、航拍、测绘、设备维护、技术支持）→ 服务商报价（截止前可以改价、撤回）→ 客户比选并选定一家。
     停在“选定报价”：不建付款单，不建服务订单，金额只做展示和比较。
@@ -795,6 +797,7 @@ components:
         - name
         - certificationLabel
         - description
+        - qualificationReviewed
       properties:
         providerId:
           type: string
@@ -811,6 +814,9 @@ components:
             - string
             - "null"
           description: 团队介绍；没有时为 null
+        qualificationReviewed:
+          type: boolean
+          description: 平台已审核过这家服务商的资质（机构有资质审核通过时间）；只来自数据库
     DemandProviderList:
       type: object
       additionalProperties: false
@@ -1024,6 +1030,7 @@ components:
         - providerId
         - name
         - certificationLabel
+        - qualificationReviewed
       properties:
         providerId:
           type: string
@@ -1034,6 +1041,9 @@ components:
           type:
             - string
             - "null"
+        qualificationReviewed:
+          type: boolean
+          description: 平台已审核过这家服务商的资质（机构有资质审核通过时间）；只来自数据库
     DemandQuote:
       type: object
       additionalProperties: false

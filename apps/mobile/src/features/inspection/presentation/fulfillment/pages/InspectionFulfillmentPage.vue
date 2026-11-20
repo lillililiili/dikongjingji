@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { providerCredentialLabel } from '@/shared/ui/qualification'
 import { inspectionServiceImage } from '../../../data/inspection-service-images'
 import {
   createLatestRequestCoordinator,
@@ -135,7 +136,7 @@ function showCustomerService(): void {
         :cover-url="inspectionServiceImage({ coverUrl: order.serviceSnapshot.serviceCoverUrl, title: order.serviceSnapshot.serviceTitle })"
         :title="order.serviceSnapshot.serviceTitle"
         :provider-name="order.provider?.name ?? ''"
-        :certification-label="order.provider?.certificationLabel ?? ''"
+        :certification-label="providerCredentialLabel(order.provider?.qualificationReviewed, order.provider?.certificationLabel) ?? ''"
         :progress="describeFulfillmentProgress(order)"
       />
       <FulfillmentArrangementCard

@@ -208,7 +208,23 @@ describe('inspection service detail api', () => {
       priceFactors: ['线路长度', '杆塔数量', '现场条件'],
       cancellationNote: '方案确认前可取消，不收费；确认后按方案约定',
       serviceCityNames: ['东营'],
+      // catalog 1.3.0 (R6-4): the platform reviewed this provider's qualification.
+      provider: { certificationLabel: '平台认证服务商', qualificationReviewed: true },
     })
+  })
+
+  it('reads a provider without the review field as not reviewed', async () => {
+    const example = detailExamples.powerWithPricingAndCancellation as { provider: Record<string, unknown> }
+    const { qualificationReviewed: _dropped, ...older } = example.provider
+    const api = createInspectionServiceDetailApi({
+      async request<T>(): Promise<T> {
+        return { ...example, provider: older } as T
+      },
+    })
+
+    const detail = await api.loadDetail('11111111-1111-4111-8111-111111111111', '370500')
+
+    expect(detail.provider).toMatchObject({ certificationLabel: '平台认证服务商', qualificationReviewed: false })
   })
 
   it('turns the null pre-migration fields of the legacy example into empty values', async () => {

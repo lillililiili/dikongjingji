@@ -349,6 +349,7 @@
         "logo": null,
         "logoAssetCode": "provider-logo-dev-0001",
         "certificationLabel": "平台认证服务商",
+        "qualificationReviewed": true,
         "teamDescription": "持证飞手 12 人，自有巡检无人机 8 架"
       },
       "capabilities": [

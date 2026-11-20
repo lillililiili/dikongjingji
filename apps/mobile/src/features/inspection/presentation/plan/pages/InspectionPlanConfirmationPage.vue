@@ -153,6 +153,7 @@ import { computed, ref } from 'vue'
 import { onBackPress, onLoad } from '@dcloudio/uni-app'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { providerCredentialLabel } from '@/shared/ui/qualification'
 import { inspectionServiceImage } from '../../../data/inspection-service-images'
 import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
 import {
@@ -427,7 +428,7 @@ function showCustomerService(title: string): void {
         :cover-url="inspectionServiceImage({ coverUrl: reservation.serviceCoverUrl, title: reservation.serviceTitle })"
         :title="reservation.serviceTitle"
         :provider-name="plan.provider?.name ?? ''"
-        :certification-label="plan.provider?.certificationLabel ?? ''"
+        :certification-label="providerCredentialLabel(plan.provider?.qualificationReviewed, plan.provider?.certificationLabel) ?? ''"
         :customer="describeCustomerParty(plan.customerParty)"
       />
       <PlanVersionCard

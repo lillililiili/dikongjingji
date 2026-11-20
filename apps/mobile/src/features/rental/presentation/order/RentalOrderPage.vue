@@ -190,6 +190,7 @@ watch(() => [props.refreshKey, props.accessToken, props.rentalOrderId], () => { 
           :quantity="order.contract.quantity"
           :cover-url="inquiry?.item.coverUrl ?? null"
           :merchant-name="order.contract.lessor.name"
+          :merchant-reviewed="order.contract.lessor.qualificationReviewed"
           :lessee="order.contract.lessee"
         />
 

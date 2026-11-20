@@ -3,6 +3,7 @@ defineProps<{
   coverUrl: string
   title: string
   providerName: string
+  // Beside the provider: 资质已审核 when the platform reviewed it (R6-4), else its own label; empty hides it.
   certificationLabel: string
   customer: { isOrganization: boolean; text: string } | null
 }>()
@@ -86,7 +87,7 @@ defineProps<{
 
 .plan-summary__chip--verified {
   color: #11804a;
-  background: #e8f7ef;
+  background: #e2f6ed;
 }
 
 .plan-summary__chip--organization {

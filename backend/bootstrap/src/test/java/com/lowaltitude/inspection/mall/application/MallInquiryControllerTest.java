@@ -231,6 +231,8 @@ class MallInquiryControllerTest {
                 .andExpect(jsonPath("$.inquiry.status").value("QUOTED"))
                 .andExpect(jsonPath("$.quotes[0].length()").value(14))
                 .andExpect(jsonPath("$.quotes[0].version").value(2))
+                .andExpect(jsonPath("$.quotes[0].merchant.length()").value(4))
+                .andExpect(jsonPath("$.quotes[0].merchant.qualificationReviewed").value(true))
                 .andExpect(jsonPath("$.quotes[0].unitAmountMinor").value(2880000))
                 .andExpect(jsonPath("$.quotes[0].totalMinor").value(5760000))
                 .andExpect(jsonPath("$.quotes[0].model").value("测绘版 · RTK"))
@@ -394,7 +396,8 @@ class MallInquiryControllerTest {
     }
 
     private static MallInquiryQuoteView quote(MallInquiryQuoteStatus status, boolean choosable) {
-        return new MallInquiryQuoteView(QUOTE, 2, OFFER, ROBOT, status, 2880000, 2, 5760000, "测绘版 · RTK", 12,
+        return new MallInquiryQuoteView(QUOTE, 2, OFFER,
+                new MallInquiryQuoteMerchantView(MERCHANT, "示例机器人商家", MallMerchantKind.FACTORY_DIRECT, true), status, 2880000, 2, 5760000, "测绘版 · RTK", 12,
                 "含 2 名飞手培训", NOW.plusDays(3), NOW, choosable);
     }
 

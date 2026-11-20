@@ -124,6 +124,7 @@ public class DemandPortsConfiguration {
     }
 
     private static DemandPorts.Provider provider(InspectionProviderDirectory.ProviderCard card) {
-        return new DemandPorts.Provider(card.providerId(), card.name(), card.certificationLabel(), card.description());
+        return new DemandPorts.Provider(card.providerId(), card.name(), card.certificationLabel(), card.description(),
+                card.qualificationReviewed());
     }
 }

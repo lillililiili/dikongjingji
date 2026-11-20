@@ -6,6 +6,7 @@ const props = defineProps<{
   coverUrl: string
   title: string
   providerName: string
+  // Beside the provider: 资质已审核 when the platform reviewed it (R6-4), else its own label; empty hides it.
   certificationLabel: string
   progress: FulfillmentProgressView
 }>()
@@ -111,7 +112,7 @@ const segmentGap = computed(() => (props.progress.segments.length > 12 ? '1px' :
   padding: 1px 6px;
   border-radius: 6px;
   color: #11804a;
-  background: #e8f7ef;
+  background: #e2f6ed;
   font-size: 12px;
   line-height: 17px;
   white-space: nowrap;

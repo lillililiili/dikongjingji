@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -67,11 +68,14 @@ public class MallInquiryService {
 
     private final MallInquiryMapper mapper;
     private final MallInquiryPorts.MerchantPayments payments;
+    private final MallInquiryPorts.MerchantQualifications qualifications;
     private final Clock clock;
 
-    MallInquiryService(MallInquiryMapper mapper, MallInquiryPorts.MerchantPayments payments, Clock clock) {
+    MallInquiryService(MallInquiryMapper mapper, MallInquiryPorts.MerchantPayments payments,
+                       MallInquiryPorts.MerchantQualifications qualifications, Clock clock) {
         this.mapper = mapper;
         this.payments = payments;
+        this.qualifications = qualifications;
         this.clock = clock;
     }
 
@@ -179,11 +183,15 @@ public class MallInquiryService {
             case PRICE -> Comparator.comparingLong(QuoteRow::totalMinor).thenComparing(byTime);
             case LEAD_TIME -> Comparator.comparingInt(QuoteRow::leadDays).thenComparing(byTime);
         });
+        Set<UUID> reviewed = quotes.isEmpty() ? Set.of()
+                : qualifications.reviewed(quotes.stream().map(QuoteRow::merchantId).distinct().toList());
         List<MallInquiryQuoteView> views = quotes.stream().map(quote -> {
             MallInquiryQuoteStatus status = quoteStatus(quote, now);
             InvitationRow invitation = invitations.get(quote.merchantId());
             return new MallInquiryQuoteView(quote.id(), quote.quoteVersion(), quote.offerId(),
-                    merchant(quote.merchantId(), invitation.merchantName(), invitation.merchantKind()), status,
+                    new MallInquiryQuoteMerchantView(quote.merchantId(), invitation.merchantName(),
+                            MallMerchantKind.valueOf(invitation.merchantKind()),
+                            reviewed.contains(quote.merchantId())), status,
                     quote.unitAmountMinor(), quote.quantity(), quote.totalMinor(), quote.modelText(), quote.leadDays(),
                     quote.includesText(), quote.validUntil(), quote.quotedAt(),
                     choosing && status == MallInquiryQuoteStatus.ACTIVE);

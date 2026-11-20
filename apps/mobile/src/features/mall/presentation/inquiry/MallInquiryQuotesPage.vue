@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import QualificationBadge from '@/shared/ui/QualificationBadge.vue'
 import { computed, ref, watch } from 'vue'
 
 import { tradeApi } from '@/features/trade/data/trade-api-client'
@@ -319,6 +320,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
           >
             <view class="inquiry-quotes__card-head">
               <text class="inquiry-quotes__name">{{ card.name }}</text>
+              <QualificationBadge v-if="card.qualificationReviewed" />
               <text
                 v-if="card.badge"
                 :class="['inquiry-quotes__badge', `inquiry-quotes__badge--${card.badge.tone.toLowerCase()}`]"

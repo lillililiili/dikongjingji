@@ -1,4 +1,5 @@
-// Mirrors contracts/openapi-proservice.yaml 1.0.0 (step F2, docs/redesign/03-App实现任务计划.md §23).
+// Mirrors contracts/openapi-proservice.yaml 1.1.0 (1.0.0 was step F2, docs/redesign/03-App实现任务计划.md §23;
+// 1.1.0 adds qualificationReviewed to the provider, R6-4).
 // Aerial, survey, maintenance and tech support services: a catalog, a service page and a provider
 // page, all public reads. None of them is booked; the main action everywhere is 发布需求 (F1).
 
@@ -121,6 +122,8 @@ export interface ProServiceProvider {
   name: string
   certificationLabel: string | null
   description: string | null
+  // The platform reviewed the provider's qualification: 资质已审核 in place of the label.
+  qualificationReviewed: boolean
 }
 
 export interface ProServiceDetail extends Omit<ProServiceCard, 'tags'> {
@@ -149,6 +152,7 @@ export interface ProviderPage {
   name: string
   certificationLabel: string | null
   description: string | null
+  qualificationReviewed: boolean
   cityCode: string
   inspectionServices: ProviderInspectionService[]
   proServices: ProServiceCard[]

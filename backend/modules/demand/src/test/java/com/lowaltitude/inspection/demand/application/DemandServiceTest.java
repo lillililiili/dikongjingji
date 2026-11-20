@@ -170,6 +170,8 @@ class DemandServiceTest {
         assertThat(updated.deliverables()).extracting(DemandDeliverableView::code)
                 .containsExactly(DemandDeliverable.POINT_CLOUD, DemandDeliverable.ORTHOPHOTO);
         assertThat(updated.invitedProviders()).extracting(DemandProviderView::name).containsExactly("鹰眼智能巡检", "云翼科技");
+        assertThat(updated.invitedProviders()).extracting(DemandProviderView::qualificationReviewed)
+                .containsExactly(true, false);
         assertThat(open.status()).isEqualTo(DemandStatus.OPEN);
         assertThat(again).isEqualTo(open);
         assertThat(mapper.events).extracting(InMemoryMapper.Event::type)
@@ -363,6 +365,12 @@ class DemandServiceTest {
         assertThat(byDuration.demandStatus()).isEqualTo(DemandStatus.QUOTED);
         assertThat(byDuration.items()).allSatisfy(quote -> assertThat(quote.choosable()).isTrue());
         assertThat(byDuration.items().get(1).provider().certificationLabel()).isEqualTo("企业认证");
+        // R6-4：资质审核来自服务商名录（机构的审核通过时间），每家各自的。
+        assertThat(byDuration.items()).extracting(quote -> quote.provider().name(),
+                        quote -> quote.provider().qualificationReviewed())
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("东营安巡科技", false),
+                        org.assertj.core.groups.Tuple.tuple("云翼科技", false),
+                        org.assertj.core.groups.Tuple.tuple("鹰眼智能巡检", true));
         assertInvalid(() -> service.quotes(ACCOUNT, open.demandId(), "RATING"));
         assertRejected(Error.NOT_FOUND, () -> service.quotes(OTHER_ACCOUNT, open.demandId(), null));
         // 过了有效期：读成已过期，不能选。
@@ -602,10 +610,10 @@ class DemandServiceTest {
                 SECOND_PROVIDER, Set.of("370500"));
 
         FakeProviders() {
-            all.put(YUNYI, new Provider(YUNYI, "云翼科技", "企业认证", "专业飞手团队"));
-            all.put(EAGLE, new Provider(EAGLE, "鹰眼智能巡检", "企业认证", null));
-            all.put(JINAN, new Provider(JINAN, "济南飞服", null, null));
-            all.put(SECOND_PROVIDER, new Provider(SECOND_PROVIDER, "东营安巡科技", "企业认证", null));
+            all.put(YUNYI, new Provider(YUNYI, "云翼科技", "企业认证", "专业飞手团队", false));
+            all.put(EAGLE, new Provider(EAGLE, "鹰眼智能巡检", "企业认证", null, true));
+            all.put(JINAN, new Provider(JINAN, "济南飞服", null, null, false));
+            all.put(SECOND_PROVIDER, new Provider(SECOND_PROVIDER, "东营安巡科技", "企业认证", null, false));
         }
 
         @Override

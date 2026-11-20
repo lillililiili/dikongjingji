@@ -121,6 +121,8 @@ export type InquiryMerchantCard =
       key: string
       quote: MallInquiryQuote
       name: string
+      // The green 资质已审核 tag beside the name (R6-4); only the server's field turns it on.
+      qualificationReviewed: boolean
       kindLabel: string
       // "报价最低", "交期最短", "已选定", "已过期", "已失效" or null.
       badge: { text: string; tone: 'PRICE' | 'LEAD' | 'CHOSEN' | 'OFF' } | null
@@ -187,6 +189,7 @@ export function describeInquiryMerchants(inquiry: MallInquiry, quotes: MallInqui
     key: quote.quoteId,
     quote,
     name: quote.merchant.name,
+    qualificationReviewed: quote.merchant.qualificationReviewed,
     kindLabel: MALL_MERCHANT_KIND_LABELS[quote.merchant.kind],
     badge: quoteBadge(quote, cheapest, fastest),
     versionText: `第 ${quote.version} 版报价`,

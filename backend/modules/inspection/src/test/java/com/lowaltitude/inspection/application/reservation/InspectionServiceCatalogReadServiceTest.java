@@ -336,6 +336,7 @@ class InspectionServiceCatalogReadServiceTest {
                                 null,
                                 "FEIXIANG_APP_ICON",
                                 "企业认证",
+                                true,
                                 "专业飞手团队",
                                 4.9D,
                                 328L,
@@ -358,6 +359,8 @@ class InspectionServiceCatalogReadServiceTest {
             assertThat(provider.providerId()).isEqualTo(providerId);
             assertThat(provider.name()).isEqualTo("云翼科技");
             assertThat(provider.logoAssetCode()).isEqualTo("FEIXIANG_APP_ICON");
+            assertThat(provider.certificationLabel()).isEqualTo("企业认证");
+            assertThat(provider.qualificationReviewed()).isTrue();
         });
         assertThat(detail.inspectionItems()).singleElement().satisfies(item -> {
             assertThat(item.code()).isEqualTo("TOWER");
@@ -546,6 +549,7 @@ final class DetailCatalogStore implements InspectionServiceCatalogReadStore {
                 null,
                 "FEIXIANG_APP_ICON",
                 "企业认证",
+                false,
                 "专业飞手团队",
                 null,
                 0L,

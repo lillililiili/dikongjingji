@@ -17,6 +17,8 @@ export interface DetailProvider {
   name: string
   logoUrl: string
   certificationLabel: string
+  // (catalog 1.3.0, R6-4) The platform reviewed the provider's qualification: 资质已审核 in place of the label.
+  qualificationReviewed: boolean
   teamDescription: string
 }
 

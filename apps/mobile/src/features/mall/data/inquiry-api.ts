@@ -11,6 +11,7 @@ import {
   type MallInquiryOffer,
   type MallInquiryPage,
   type MallInquiryQuote,
+  type MallInquiryQuoteMerchant,
   type MallInquiryQuoteStatus,
   type MallInquirySort,
   type MallInquiryStatus,
@@ -40,7 +41,9 @@ type InquiryDto = Loose<Omit<MallInquiry, 'status' | 'closeReason' | 'buyer' | '
   chosen?: (Loose<Omit<MallInquiryChosen, 'merchant'>> & { merchant?: MerchantDto | null }) | null
 }
 
-type QuoteDto = Loose<Omit<MallInquiryQuote, 'merchant'>> & { quoteId: string; merchant?: MerchantDto | null }
+type QuoteMerchantDto = Loose<MallInquiryQuoteMerchant>
+
+type QuoteDto = Loose<Omit<MallInquiryQuote, 'merchant'>> & { quoteId: string; merchant?: QuoteMerchantDto | null }
 
 interface PageDto<T> {
   total: number
@@ -232,7 +235,8 @@ export function toMallInquiryQuote(dto: QuoteDto): MallInquiryQuote {
     quoteId: dto.quoteId,
     version: dto.version ?? 1,
     offerId: dto.offerId ?? '',
-    merchant: toMerchant(dto.merchant),
+    // Only an explicit true shows the tag: a missing field never reads as reviewed.
+    merchant: { ...toMerchant(dto.merchant), qualificationReviewed: dto.merchant?.qualificationReviewed === true },
     status: status && QUOTE_STATUSES.includes(status) ? status : 'LAPSED',
     unitAmountMinor: dto.unitAmountMinor ?? 0,
     quantity: dto.quantity ?? 1,

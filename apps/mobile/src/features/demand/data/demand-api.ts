@@ -176,6 +176,8 @@ function toDemandProvider(dto: Nullable<DemandProvider>): DemandProvider {
     name: dto.name ?? '',
     certificationLabel: dto.certificationLabel ?? null,
     description: dto.description ?? null,
+    // Only an explicit true shows 资质已审核.
+    qualificationReviewed: dto.qualificationReviewed === true,
   }
 }
 
@@ -233,6 +235,7 @@ export function toDemandQuote(dto: DemandQuoteDto): DemandQuote {
       providerId: dto.provider?.providerId ?? '',
       name: dto.provider?.name ?? '',
       certificationLabel: dto.provider?.certificationLabel ?? null,
+      qualificationReviewed: dto.provider?.qualificationReviewed === true,
     },
     version: dto.version,
     status: dto.status,

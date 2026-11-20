@@ -122,7 +122,8 @@ final class PostgresPlanStore implements PlanStore {
                 .map(row -> new ProviderSummary(
                         row.providerId(),
                         row.name(),
-                        row.certificationLabel()));
+                        row.certificationLabel(),
+                        row.qualificationReviewed()));
     }
 
     @Override

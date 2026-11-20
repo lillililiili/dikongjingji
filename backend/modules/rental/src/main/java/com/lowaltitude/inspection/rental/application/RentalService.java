@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -33,6 +34,7 @@ import com.lowaltitude.inspection.rental.application.RentalPorts.OpenPayment;
 import com.lowaltitude.inspection.rental.application.RentalPorts.OpenedPayment;
 import com.lowaltitude.inspection.rental.application.RentalPorts.PaymentLine;
 import com.lowaltitude.inspection.rental.application.RentalPorts.Payments;
+import com.lowaltitude.inspection.rental.application.RentalPorts.Qualifications;
 import com.lowaltitude.inspection.rental.application.RentalPorts.RefundProgress;
 import com.lowaltitude.inspection.rental.infrastructure.persistence.RentalMapper;
 import com.lowaltitude.inspection.rental.infrastructure.persistence.RentalMapper.ContractRow;
@@ -94,19 +96,22 @@ public class RentalService {
     private final Offers offers;
     private final Addresses addresses;
     private final Payments payments;
+    private final Qualifications qualifications;
     private final Clock clock;
     private final Supplier<String> contractNumbers;
 
-    RentalService(RentalMapper mapper, Offers offers, Addresses addresses, Payments payments, Clock clock) {
-        this(mapper, offers, addresses, payments, clock, null);
+    RentalService(RentalMapper mapper, Offers offers, Addresses addresses, Payments payments,
+                  Qualifications qualifications, Clock clock) {
+        this(mapper, offers, addresses, payments, qualifications, clock, null);
     }
 
-    RentalService(RentalMapper mapper, Offers offers, Addresses addresses, Payments payments, Clock clock,
-                  Supplier<String> contractNumbers) {
+    RentalService(RentalMapper mapper, Offers offers, Addresses addresses, Payments payments,
+                  Qualifications qualifications, Clock clock, Supplier<String> contractNumbers) {
         this.mapper = mapper;
         this.offers = offers;
         this.addresses = addresses;
         this.payments = payments;
+        this.qualifications = qualifications;
         this.clock = clock;
         this.contractNumbers = contractNumbers != null ? contractNumbers : this::newContractNo;
     }
@@ -620,6 +625,7 @@ public class RentalService {
         Map<UUID, List<RentalFeeView>> fees = feesOf(quotes.values().stream().map(QuoteRow::id).toList());
         Map<UUID, OrderSummaryRow> orders = mapper.findOrderSummaries(ids).stream()
                 .collect(Collectors.toMap(OrderSummaryRow::inquiryId, Function.identity()));
+        Set<UUID> reviewed = qualifications.reviewed(rows.stream().map(InquiryRow::merchantId).distinct().toList());
         OffsetDateTime now = now();
         return rows.stream().map(row -> {
             QuoteRow quote = quotes.get(row.id());
@@ -641,7 +647,7 @@ public class RentalService {
                     row.closeReason() == null ? null : RentalCloseReason.valueOf(row.closeReason()),
                     row.declineReason(),
                     lessee(row.lesseeKind(), row.lesseeOrganizationName(), row.lesseeContactName()),
-                    new RentalMerchantView(row.merchantId(), row.merchantName()),
+                    new RentalMerchantView(row.merchantId(), row.merchantName(), reviewed.contains(row.merchantId())),
                     new RentalItemView(row.offerId(), row.productId(), row.productName(), row.skuName(),
                             row.coverUrl(), row.referenceAmountMinor(), row.referenceUnit()),
                     quote == null ? row.quantity() : quote.quantity(),
@@ -679,6 +685,8 @@ public class RentalService {
                 .collect(Collectors.toMap(record -> record.orderId() + ":" + record.kind(), Function.identity()));
         List<UUID> refundIds = rows.stream().map(OrderRow::refundId).filter(Objects::nonNull).toList();
         Map<UUID, RefundProgress> refunds = refundIds.isEmpty() ? Map.of() : payments.refundStates(refundIds);
+        Set<UUID> reviewed = qualifications.reviewed(
+                contracts.values().stream().map(ContractRow::lessorId).distinct().toList());
         return rows.stream().map(row -> {
             ContractRow contract = contracts.get(row.id());
             RentalOrderStatus status = RentalOrderStatus.valueOf(row.status());
@@ -688,7 +696,8 @@ public class RentalService {
                     row.id(),
                     row.inquiryId(),
                     status,
-                    contractView(contract, fees.getOrDefault(contract.quoteId(), List.of()), forMerchant && !paid),
+                    contractView(contract, fees.getOrDefault(contract.quoteId(), List.of()), forMerchant && !paid,
+                            reviewed.contains(contract.lessorId())),
                     new RentalPaymentView(row.tradeOrderId(), row.totalMinor(), row.payBefore(), row.paidAt()),
                     recordView(records.get(row.id() + ":HANDOVER")),
                     recordView(records.get(row.id() + ":RETURN")),
@@ -708,13 +717,14 @@ public class RentalService {
         }).toList();
     }
 
-    private static RentalContractView contractView(ContractRow row, List<RentalFeeView> fees, boolean maskPhone) {
+    private static RentalContractView contractView(ContractRow row, List<RentalFeeView> fees, boolean maskPhone,
+                                                   boolean lessorReviewed) {
         return new RentalContractView(
                 row.contractNo(),
                 row.confirmedAt(),
                 row.quoteVersion(),
                 lessee(row.lesseeKind(), row.lesseeOrganizationName(), row.lesseeContactName()),
-                new RentalMerchantView(row.lessorId(), row.lessorName()),
+                new RentalMerchantView(row.lessorId(), row.lessorName(), lessorReviewed),
                 row.productName(),
                 row.skuName(),
                 row.quantity(),

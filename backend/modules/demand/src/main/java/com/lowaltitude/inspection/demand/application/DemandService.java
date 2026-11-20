@@ -280,7 +280,8 @@ public class DemandService {
                             row.id(),
                             new DemandQuoteProviderView(row.providerId(),
                                     provider == null ? "服务商" : provider.name(),
-                                    provider == null ? null : provider.certificationLabel()),
+                                    provider == null ? null : provider.certificationLabel(),
+                                    provider != null && provider.qualificationReviewed()),
                             row.quoteVersion(),
                             status,
                             row.amountMinor(),
@@ -593,7 +594,8 @@ public class DemandService {
                 invitations.stream()
                         .map(invitation -> Optional.ofNullable(names.get(invitation.providerId()))
                                 .map(DemandService::toProviderView)
-                                .orElse(new DemandProviderView(invitation.providerId(), "服务商", null, null)))
+                                .orElse(new DemandProviderView(invitation.providerId(), "服务商", null, null,
+                                        false)))
                         .toList(),
                 row.submittedAt(),
                 row.quoteDeadline(),
@@ -666,7 +668,7 @@ public class DemandService {
 
     private static DemandProviderView toProviderView(Provider provider) {
         return new DemandProviderView(provider.providerId(), provider.name(), provider.certificationLabel(),
-                provider.description());
+                provider.description(), provider.qualificationReviewed());
     }
 
     private Map<UUID, Provider> providerMap(List<UUID> ids) {

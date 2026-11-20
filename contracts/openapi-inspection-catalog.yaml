@@ -1,10 +1,11 @@
 openapi: 3.1.0
 info:
   title: Inspection Catalog API
-  version: 1.2.0
+  version: 1.3.0
   description: >
     巡检目录 I1 的逻辑契约。若宿主项目已有统一响应信封、分页或错误格式，
     实现时映射到宿主规范，但不得改变字段语义。
+    1.3.0（R6-4）：服务详情的服务商加 qualificationReviewed（平台审核过它的资质），页面据此显示“资质已审核”。
 paths:
   /api/v1/inspection/portal:
     get:
@@ -554,6 +555,7 @@ components:
       required:
         - providerId
         - name
+        - qualificationReviewed
       properties:
         providerId:
           type: string
@@ -572,6 +574,10 @@ components:
           type:
             - string
             - "null"
+          description: 服务商资料里的资质说明，如“企业认证”；qualificationReviewed 为 true 时页面在这个位置显示“资质已审核”
+        qualificationReviewed:
+          type: boolean
+          description: 平台已审核过这家服务商的资质（机构有资质审核通过时间）；只来自数据库，不按文字推断
         teamDescription:
           type:
             - string

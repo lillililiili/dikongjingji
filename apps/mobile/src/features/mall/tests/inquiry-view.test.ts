@@ -114,7 +114,7 @@ describe('quotes page', () => {
     })
     const quotes = [
       quoteOf({ quoteId: 'q-agent', offerId: 'o-agent', totalMinor: 12_900_000, unitAmountMinor: 6_450_000, leadDays: 12, version: 2,
-        merchant: { organizationId: 'm-5', name: '示例行业装备代理', kind: 'AUTHORIZED_DEALER' } }),
+        merchant: { organizationId: 'm-5', name: '示例行业装备代理', kind: 'AUTHORIZED_DEALER', qualificationReviewed: false } }),
       quoteOf(),
     ]
     const cards = describeInquiryMerchants(inquiry, quotes)
@@ -124,6 +124,9 @@ describe('quotes page', () => {
     expect(fast).toMatchObject({ kind: 'QUOTE', badge: { text: '交期最短' }, validUntil: '11/22', includes: '含 2 名飞手培训' })
     expect(waiting).toMatchObject({ kind: 'WAITING', badge: { text: '待报价' }, line: '商家还没有报价，截止 11/22 10:00' })
     expect(declined).toMatchObject({ kind: 'DECLINED', badge: { text: '已拒绝' }, line: '商家已拒绝：暂无现货' })
+    // R6-4: the green 资质已审核 tag follows each quoting merchant's own field.
+    expect(cheap).toMatchObject({ name: '示例行业装备代理', qualificationReviewed: false })
+    expect(fast).toMatchObject({ name: '示例机器人商家', qualificationReviewed: true })
   })
 
   it('marks chosen, expired and lapsed quotes and their buttons', () => {

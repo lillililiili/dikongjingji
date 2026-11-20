@@ -38,8 +38,8 @@ class ProServiceReadServiceTest {
             mapper,
             code -> Optional.ofNullable(Map.of(DONGYING, "东营市", JINAN, "济南市", WEIFANG, "潍坊市").get(code)),
             providerId -> Optional.ofNullable(Map.of(
-                    YUNYI, new Provider(YUNYI, "云翼科技", "企业认证", "专业飞手团队"),
-                    EAGLE, new Provider(EAGLE, "鹰眼智能巡检", "资质已审核", "东营本地团队")).get(providerId)),
+                    YUNYI, new Provider(YUNYI, "云翼科技", "企业认证", "专业飞手团队", false),
+                    EAGLE, new Provider(EAGLE, "鹰眼智能巡检", "企业认证", "东营本地团队", true)).get(providerId)),
             new ProServicePorts.InspectionOffers() {
                 @Override
                 public List<InspectionService> servicesOf(UUID providerId, String cityCode) {
@@ -210,7 +210,8 @@ class ProServiceReadServiceTest {
         assertThat(detail.terms()).isEmpty();
         assertThat(detail.steps()).containsExactly("提交需求", "报价比选");
         assertThat(detail.guarantees()).containsExactly("持证飞手");
-        assertThat(detail.provider()).isEqualTo(new ProServiceProviderView(YUNYI, "云翼科技", "企业认证", "专业飞手团队"));
+        assertThat(detail.provider()).isEqualTo(new ProServiceProviderView(YUNYI, "云翼科技", "企业认证", "专业飞手团队",
+                false));
         assertThat(detail.cities()).containsExactly(
                 new ProServiceCityView(JINAN, "济南市"), new ProServiceCityView(DONGYING, "东营市"));
         // 停用的城市不算上架城市。
@@ -237,6 +238,7 @@ class ProServiceReadServiceTest {
 
         assertThat(page.name()).isEqualTo("云翼科技");
         assertThat(page.certificationLabel()).isEqualTo("企业认证");
+        assertThat(page.qualificationReviewed()).isFalse();
         assertThat(page.cityCode()).isEqualTo(DONGYING);
         assertThat(page.inspectionServices()).extracting(
                         ProviderInspectionServiceView::title, view -> view.price().mode(), view -> view.price().note())
@@ -251,6 +253,8 @@ class ProServiceReadServiceTest {
                 new ProServiceCityView(JINAN, "济南市"), new ProServiceCityView(DONGYING, "东营市"));
 
         ProviderPageView inJinan = service.provider(EAGLE, JINAN);
+        // R6-4：资质审核来自服务商资料端口（机构的审核通过时间）。
+        assertThat(inJinan.qualificationReviewed()).isTrue();
         assertThat(inJinan.inspectionServices()).isEmpty();
         assertThat(inJinan.proServices()).isEmpty();
         assertThat(inJinan.cities()).extracting(ProServiceCityView::cityCode).containsExactly(DONGYING);

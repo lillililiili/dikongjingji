@@ -220,6 +220,10 @@ class MallInquiryServiceTest {
                 .containsExactly(AGENT, ROBOT);
         MallInquiryDetailView byLead = service.detail(ACCOUNT, id, "LEAD_TIME");
         assertThat(byLead.quotes()).extracting(quote -> quote.merchant().organizationId()).containsExactly(AGENT, ROBOT);
+        // 报价里的商家带出资质是否审核过（经身份模块的端口，一次问齐这张询价单报了价的商家）。
+        assertThat(byLead.quotes()).extracting(quote -> quote.merchant().qualificationReviewed())
+                .containsExactly(false, true);
+        assertThat(qualificationQueries.getLast()).containsExactlyInAnyOrder(ROBOT, AGENT);
         assertThat(byLead.sort()).isEqualTo(MallInquirySort.LEAD_TIME);
         assertThat(byLead.quotes()).allSatisfy(quote -> assertThat(quote.choosable()).isTrue());
         assertThat(byLead.inquiry().quoteCount()).isEqualTo(2);
@@ -352,7 +356,16 @@ class MallInquiryServiceTest {
     // ---- 辅助 ----
 
     private MallInquiryService at(Instant instant) {
-        return new MallInquiryService(mapper, merchantId -> !merchantId.equals(MAKER), Clock.fixed(instant, ZoneOffset.UTC));
+        return new MallInquiryService(mapper, merchantId -> !merchantId.equals(MAKER), this::reviewed,
+                Clock.fixed(instant, ZoneOffset.UTC));
+    }
+
+    // R6-4：只有示例机器人商家审核过资质；记下每次问了哪些商家。
+    private final List<List<UUID>> qualificationQueries = new java.util.ArrayList<>();
+
+    private java.util.Set<UUID> reviewed(java.util.Collection<UUID> merchants) {
+        qualificationQueries.add(List.copyOf(merchants));
+        return merchants.contains(ROBOT) ? java.util.Set.of(ROBOT) : java.util.Set.of();
     }
 
     private MallInquiryCreated submit(UUID key, List<UUID> offers) {

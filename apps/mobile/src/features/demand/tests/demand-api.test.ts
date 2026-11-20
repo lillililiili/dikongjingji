@@ -66,7 +66,7 @@ describe('demand api (contract 1.0.0)', () => {
     expect(demand.chosen).toEqual({
       quoteId: 'q1', quoteVersion: 2, providerName: '云翼科技', amountMinor: 1860000, chosenAt: '2026-11-19T05:00:00Z',
     })
-    expect(demand.invitedProviders).toEqual([{ providerId: 'p1', name: '云翼科技', certificationLabel: '企业认证', description: null }])
+    expect(demand.invitedProviders).toEqual([{ providerId: 'p1', name: '云翼科技', certificationLabel: '企业认证', description: null, qualificationReviewed: false }])
     expect(demand.publisher).toEqual({ kind: 'ORGANIZATION', organizationName: '东营示例物流公司' })
     expect(demand.dueDate).toBeNull()
     expect(demand.budgetMaxMinor).toBe(500000)
@@ -153,7 +153,7 @@ describe('demand api (contract 1.0.0)', () => {
     const list = await api.listQuotes(TOKEN, 'd1', 'PRICE')
     expect(request).toHaveBeenLastCalledWith({ url: '/api/v1/demands/d1/quotes?sort=PRICE', method: 'GET', headers: AUTH })
     expect(list.demandVersion).toBe(3)
-    expect(list.items[0]).toMatchObject({ quoteId: 'q1', version: 2, choosable: true, provider: { certificationLabel: null } })
+    expect(list.items[0]).toMatchObject({ quoteId: 'q1', version: 2, choosable: true, provider: { certificationLabel: null, qualificationReviewed: false } })
 
     request.mockResolvedValue(DEMAND_DTO)
     await api.choose(TOKEN, 'd1', 3, 'q1', 2)
@@ -166,7 +166,7 @@ describe('demand api (contract 1.0.0)', () => {
   })
 
   it('reads the providers of a city for a type', async () => {
-    const { api, request } = apiReturning({ items: [{ providerId: 'p1', name: '云翼科技', certificationLabel: '企业认证', description: '专业飞手团队' }] })
+    const { api, request } = apiReturning({ items: [{ providerId: 'p1', name: '云翼科技', certificationLabel: '企业认证', description: '专业飞手团队', qualificationReviewed: true }] })
     const providers = await api.listProviders(TOKEN, '370500', 'SURVEY')
 
     expect(request).toHaveBeenCalledWith({
@@ -174,7 +174,7 @@ describe('demand api (contract 1.0.0)', () => {
       method: 'GET',
       headers: AUTH,
     })
-    expect(providers).toEqual([{ providerId: 'p1', name: '云翼科技', certificationLabel: '企业认证', description: '专业飞手团队' }])
+    expect(providers).toEqual([{ providerId: 'p1', name: '云翼科技', certificationLabel: '企业认证', description: '专业飞手团队', qualificationReviewed: true }])
   })
 
   it('records a customer organization as the publisher, anything else as personal', async () => {

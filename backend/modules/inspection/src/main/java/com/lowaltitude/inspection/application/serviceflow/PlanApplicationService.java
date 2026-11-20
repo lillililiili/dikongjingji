@@ -656,7 +656,8 @@ record PlanTerms(
 ) {
 }
 
-record ProviderSummary(UUID providerId, String name, String certificationLabel) {
+/** qualificationReviewed：平台审核过这家服务商的资质（机构有资质审核通过时间，R6-4）。 */
+record ProviderSummary(UUID providerId, String name, String certificationLabel, boolean qualificationReviewed) {
 }
 
 record CustomerParty(String organizationName, String operatorName) {

@@ -94,6 +94,12 @@ describe('mall inquiry api', () => {
     expect(inquiry.merchants[0]).toMatchObject({ status: 'DECLINED', declineReason: '缺货', merchant: { kind: 'LOCAL_STORE' } })
     expect(inquiry.chosen).toMatchObject({ quoteId: 'q-1', quoteVersion: 2, orderId: null })
     expect(toMallInquiryQuote({ quoteId: 'q', status: 'WHATEVER' as never }).status).toBe('LAPSED')
+    // R6-4: only an explicit true from the server shows 资质已审核.
+    expect(toMallInquiryQuote({ quoteId: 'q' }).merchant.qualificationReviewed).toBe(false)
+    expect(toMallInquiryQuote({ quoteId: 'q', merchant: { name: '甲', qualificationReviewed: true } }).merchant)
+      .toMatchObject({ name: '甲', qualificationReviewed: true })
+    expect(toMallInquiryQuote({ quoteId: 'q', merchant: { name: '甲', qualificationReviewed: 'yes' as never } }).merchant.qualificationReviewed)
+      .toBe(false)
   })
 })
 

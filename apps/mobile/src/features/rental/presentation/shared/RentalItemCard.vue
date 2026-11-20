@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import QualificationBadge from '@/shared/ui/QualificationBadge.vue'
 import { computed } from 'vue'
 
 import { rentalCoverUrl } from '../../application/rental-cover'
@@ -7,13 +8,14 @@ import { describeRentalLessee } from '../../application/rental-format'
 import type { RentalLessee } from '../../domain/rental'
 
 // The device card at the top of RentalQuote and OrderRental: picture, device × units with the 租赁
-// tag, the lessor, and who rents it.
+// tag, the lessor (with the green 资质已审核 tag when the platform reviewed it, R6-4), and who rents it.
 const props = defineProps<{
   productId: string
   productName: string
   quantity: number
   coverUrl: string | null
   merchantName: string
+  merchantReviewed: boolean
   lessee: RentalLessee
 }>()
 
@@ -32,7 +34,10 @@ const lessee = computed(() => describeRentalLessee(props.lessee))
         <text class="rental-item__name" data-testid="rental-item-name">{{ productName }} ×{{ quantity }}</text>
         <text class="rental-item__tag">租赁</text>
       </view>
-      <text class="rental-item__merchant" data-testid="rental-item-merchant">出租方 {{ merchantName }}</text>
+      <view class="rental-item__line">
+        <text class="rental-item__merchant" data-testid="rental-item-merchant">出租方 {{ merchantName }}</text>
+        <QualificationBadge v-if="merchantReviewed" />
+      </view>
       <view class="rental-item__line">
         <text class="rental-item__kind">{{ lessee.tag }}</text>
         <text class="rental-item__lessee" data-testid="rental-item-lessee">{{ lessee.text }}</text>

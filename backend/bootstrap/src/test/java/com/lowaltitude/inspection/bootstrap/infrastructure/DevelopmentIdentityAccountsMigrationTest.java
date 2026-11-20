@@ -110,6 +110,31 @@ class DevelopmentIdentityAccountsMigrationTest {
         assertThat(sql.split("crypt\\('test-password'", -1)).hasSize(5);
     }
 
+    // R6-4：原型上标了“资质已审核”的四家示例机构写上审核时间；冲突时只改审核时间，不动别的种子负责的名称；
+    // 至少留一家（示例行业装备代理、示例测绘服务商）不写，用来看“不显示”。
+    @Test
+    void qualificationSeedReviewsTheFourBoardOrganizationsAndLeavesOthersUnreviewed() throws Exception {
+        String sql;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/development/identity/R__dev_identity_qualification.sql")) {
+            assertThat(stream).isNotNull();
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(sql)
+                .contains("('22222222-2222-2222-2222-222222222222', 'DEV-PROVIDER-YUNYI', '云翼科技', 'PROVIDER', '2026-11-01 10:00:00+08')")
+                .contains("('f2000000-0000-4000-8000-000000000001', 'DEV-PROVIDER-EAGLE', '鹰眼智能巡检', 'PROVIDER', '2026-11-01 10:00:00+08')")
+                .contains("('c1000000-0000-4000-8000-000000000001', 'DEV-MALL-ROBOT-MAKER', '示例机器人商家', 'PROVIDER', '2026-11-02 10:00:00+08')")
+                .contains("('c1000000-0000-4000-8000-000000000004', 'DEV-MALL-DRONE-MAKER', '示例无人机厂家', 'PROVIDER', '2026-11-02 10:00:00+08')")
+                .contains("ON CONFLICT (id) DO UPDATE\nSET qualification_reviewed_at = EXCLUDED.qualification_reviewed_at,\n    updated_at = now();")
+                .doesNotContain("'c1000000-0000-4000-8000-000000000005'")
+                .doesNotContain("'f2000000-0000-4000-8000-000000000002'")
+                .doesNotContain("organization_name = EXCLUDED")
+                .doesNotContain("DELETE FROM")
+                .doesNotContain("INSERT INTO identity_user ");
+        assertThat(sql.split("'PROVIDER', '2026-", -1)).hasSize(5);
+    }
+
     // 生产迁移目录里不能出现任何账号或口令。
     @Test
     void noVersionedMigrationCreatesAnAccount() throws IOException {

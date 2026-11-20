@@ -198,8 +198,8 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
         <view class="demand-compare__plan">
           <view class="demand-compare__plan-head">
             <text class="demand-compare__plan-name">{{ tabQuote.provider.name }}</text>
-            <text v-if="tabQuote.provider.certificationLabel" class="demand-compare__plan-cert">
-              {{ tabQuote.provider.certificationLabel }}
+            <text v-if="tabView.credential" class="demand-compare__plan-cert" data-testid="demand-compare-credential">
+              {{ tabView.credential }}
             </text>
             <button
               v-if="demand.cityCode"

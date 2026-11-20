@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import com.lowaltitude.inspection.account.application.AccountAddressService;
 import com.lowaltitude.inspection.account.application.AddressNotFoundException;
+import com.lowaltitude.inspection.identity.domain.IdentityOrganizationPort;
 import com.lowaltitude.inspection.mall.application.MallRentalOffers;
 import com.lowaltitude.inspection.trade.application.TradeException;
 import com.lowaltitude.inspection.trade.application.TradeSourceListener;
@@ -17,7 +18,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 租赁模块的端口接到别的模块（F3，§24.2）：商城的租赁供给、账号的收货地址、统一交易模块（订单来源 RENTAL，收款方是出租方）；
+ * 租赁模块的端口接到别的模块（F3，§24.2）：商城的租赁供给、账号的收货地址、统一交易模块（订单来源 RENTAL，收款方是出租方）、
+ * 身份模块的机构（出租方的资质是否审核过，R6-4）；
  * 交易订单付款、关闭时转给租赁服务。几个模块互不依赖。
  */
 @Configuration(proxyBeanMethods = false)
@@ -54,6 +56,11 @@ public class RentalPortsConfiguration {
                 return Optional.empty();
             }
         };
+    }
+
+    @Bean
+    RentalPorts.Qualifications rentalQualifications(IdentityOrganizationPort organizations) {
+        return organizations::qualificationReviewed;
     }
 
     @Bean

@@ -240,6 +240,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
           :quantity="inquiry.quantity"
           :cover-url="inquiry.item.coverUrl"
           :merchant-name="inquiry.merchant.name"
+          :merchant-reviewed="inquiry.merchant.qualificationReviewed"
           :lessee="inquiry.lessee"
         />
 

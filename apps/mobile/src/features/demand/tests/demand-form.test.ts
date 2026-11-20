@@ -23,7 +23,7 @@ import { DEMAND_TYPES, DEMAND_TYPE_INFO } from '../domain/demand'
 import { demandOf } from './demand-fixtures'
 
 const CITY = { code: '370500', name: '东营市' }
-const PROVIDER = (id: string) => ({ providerId: id, name: `服务商${id}`, certificationLabel: null, description: null })
+const PROVIDER = (id: string) => ({ providerId: id, name: `服务商${id}`, certificationLabel: null, description: null, qualificationReviewed: false })
 
 function filled() {
   return { ...createDemandForm('INSPECTION', CITY), address: '开发区', scope: '1.2 平方公里' }
