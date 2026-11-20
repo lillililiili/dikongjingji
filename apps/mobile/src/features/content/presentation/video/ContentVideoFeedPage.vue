@@ -237,6 +237,7 @@ load(props.startVideoId, props.feed)
     @touchend="onTouchEnd"
   >
     <template v-if="current">
+      <!-- The board VideoFeed fills the screen; a landscape clip is cropped, not letterboxed. -->
       <video
         :id="PLAYER_ID"
         :key="current.videoId"
@@ -251,7 +252,7 @@ load(props.startVideoId, props.feed)
         :show-center-play-btn="false"
         :show-fullscreen-btn="false"
         :enable-progress-gesture="false"
-        object-fit="contain"
+        object-fit="cover"
         @play="playing = true"
         @pause="playing = false"
         @timeupdate="onTime"
