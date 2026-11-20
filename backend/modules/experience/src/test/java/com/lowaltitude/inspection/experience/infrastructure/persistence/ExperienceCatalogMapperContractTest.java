@@ -21,7 +21,7 @@ class ExperienceCatalogMapperContractTest {
                 .map(select -> String.join("\n", select.value()))
                 .toList();
 
-        assertThat(statements).hasSize(11);
+        assertThat(statements).hasSize(13);
         assertThat(statements).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
     }
 
@@ -60,6 +60,43 @@ class ExperienceCatalogMapperContractTest {
         assertThat(sql("countActiveProject"))
                 .contains("id = #{projectId}")
                 .contains("venue_id = #{venueId}");
+    }
+
+    // R6-2：商品能在哪体验。线上体验只给已发布的；场馆只给这个城市已发布的、设备启用的，一个场馆一行；都有上限。
+    @Test
+    void productExperiencesOnlyShowPublishedItemsAndTheCitysVenues() throws Exception {
+        assertThat(sql("findProductExperiences"))
+                .contains("WHERE product_id = #{productId}")
+                .contains("status = 'PUBLISHED'")
+                .contains("ORDER BY sort_order ASC, id ASC")
+                .contains("LIMIT #{limit}");
+        assertThat(sql("findProductVenues"))
+                .contains("d.product_id = #{productId}")
+                .contains("d.status = 'ACTIVE'")
+                .contains("v.status = 'PUBLISHED'")
+                .contains("v.city_code = #{cityCode}")
+                .contains("DISTINCT ON (v.id)")
+                .contains("ORDER BY shown.venue_sort ASC, shown.venue_id ASC")
+                .contains("LIMIT #{limit}")
+                // 不读商城的表。
+                .doesNotContain("mall_");
+        assertThat(sql("findProductExperiences")).doesNotContain("mall_");
+    }
+
+    @Test
+    void theV003MigrationOnlyAddsTheProductColumnsWithoutReferencingTheMall() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/experience/V003__experience_product_links.sql")) {
+            assertThat(stream).isNotNull();
+            migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(migration)
+                .contains("ALTER TABLE experience_item ADD COLUMN product_id uuid;")
+                .contains("ALTER TABLE venue_device ADD COLUMN product_id uuid;");
+        String upper = migration.toUpperCase();
+        assertThat(upper).doesNotContain("REFERENCES").doesNotContain("INSERT INTO").doesNotContain("DROP ");
     }
 
     @Test

@@ -174,6 +174,52 @@ class ContentReadServiceTest {
         assertThat(service.article(dogCase.id(), DONGYING).coverImage()).isNull();
     }
 
+    // ---- R6-3 相关内容 ----
+
+    @Test
+    void relatedContentIsWhatMentionsTheObjectVisibleInTheCityNewestFirst() {
+        UUID kit = UUID.fromString("c2000000-0000-4000-8000-000000000101");
+        mapper.ref(dogCase, "PRODUCT", DOG, "巡检机器狗");
+        mapper.ref(robotTips, "PRODUCT", kit, "编程机器人探索套装");
+        mapper.ref(buyDrone, "PRODUCT", kit, "编程机器人探索套装");
+        // 济南的、下线的、还没到发布时间的，和提到别的类型同一个 ID 的，都不给。
+        mapper.ref(jinanCase, "PRODUCT", kit, "编程机器人探索套装");
+        ContentMapper.ArticleRow offline = mapper.article("CASE", "下线", "PROVIDER", EAGLE, "鹰眼智能巡检", false,
+                DONGYING, 1);
+        mapper.status(offline, "OFFLINE");
+        mapper.ref(offline, "PRODUCT", kit, "编程机器人探索套装");
+        ContentMapper.ArticleRow future = mapper.article("CASE", "明天发布", "PROVIDER", EAGLE, "鹰眼智能巡检", false,
+                DONGYING, -1);
+        mapper.ref(future, "PRODUCT", kit, "编程机器人探索套装");
+        mapper.ref(dogCase, "ACTIVITY", kit, "同一个 ID 的活动");
+
+        ContentRelatedView related = service.related("PRODUCT", kit, DONGYING, null);
+
+        assertThat(related.refType()).isEqualTo(ContentRefType.PRODUCT);
+        assertThat(related.refId()).isEqualTo(kit);
+        assertThat(related.items()).extracting(ContentArticleCardView::title)
+                .containsExactly("新手买无人机前，先弄清这 4 件事", "给孩子选编程机器人，看这 5 点");
+        assertThat(related.items().get(1).sponsored()).isTrue();
+        assertThat(mapper.askedLimit).isEqualTo(ContentReadService.DEFAULT_RELATED_LIMIT);
+        assertThat(service.related("product", DOG, DONGYING, 6).items()).extracting(ContentArticleCardView::title)
+                .containsExactly("一台机器狗如何完成园区夜间巡逻");
+        assertThat(mapper.askedLimit).isEqualTo(6);
+        assertThat(service.related("PRODUCT", kit, DONGYING, 1).items()).hasSize(1);
+        // 没人提到：空列表，不是 404。
+        assertThat(service.related("VENUE", VENUE, DONGYING, null).items()).isEmpty();
+    }
+
+    @Test
+    void relatedContentRejectsBadArguments() {
+        assertInvalid(() -> service.related(null, DOG, DONGYING, null));
+        assertInvalid(() -> service.related(" ", DOG, DONGYING, null));
+        assertInvalid(() -> service.related("VIDEO", DOG, DONGYING, null));
+        assertInvalid(() -> service.related("PRODUCT", null, DONGYING, null));
+        assertInvalid(() -> service.related("PRODUCT", DOG, "dongying", null));
+        assertInvalid(() -> service.related("PRODUCT", DOG, DONGYING, 0));
+        assertInvalid(() -> service.related("PRODUCT", DOG, DONGYING, ContentReadService.MAX_RELATED_LIMIT + 1));
+    }
+
     // ---- 专题 ----
 
     @Test
@@ -247,6 +293,7 @@ class ContentReadServiceTest {
         final List<RefRow> refs = new ArrayList<>();
         final List<MutableTopic> topics = new ArrayList<>();
         final List<LocalDate> askedToday = new ArrayList<>();
+        int askedLimit;
 
         /** status 默认 PUBLISHED（用 status(...) 改成草稿、下线）。daysAgo 为负表示还没到发布时间。 */
         ArticleRow article(String kind, String title, String authorKind, UUID org, String author, boolean sponsored,
@@ -353,6 +400,22 @@ class ContentReadServiceTest {
                 }
             }
             return found;
+        }
+
+        @Override
+        public List<ArticleRow> findMentioning(String refType, UUID refId, String cityCode, OffsetDateTime now,
+                                               int limit) {
+            askedLimit = limit;
+            List<UUID> mentioning = new ArrayList<>();
+            for (int i = 0; i < refs.size(); i++) {
+                if (refs.get(i).refType().equals(refType) && refs.get(i).refId().equals(refId)) {
+                    mentioning.add(refArticles.get(i));
+                }
+            }
+            return feed(cityCode, null, now).stream()
+                    .filter(article -> mentioning.contains(article.id()))
+                    .limit(limit)
+                    .toList();
         }
 
         private TopicRow row(MutableTopic t) {

@@ -132,6 +132,29 @@ class ContentControllerTest {
                 .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
     }
 
+    // R6-3 相关内容：参数原样交给读服务（limit 不传为 null，由读服务取默认值），答出卡片。
+    @Test
+    void relatedContentPassesItsParametersAndAnswersTheCards() throws Exception {
+        when(service.related("PRODUCT", DOG, "370500", null))
+                .thenReturn(new ContentRelatedView(ContentRefType.PRODUCT, DOG, List.of(card())));
+        when(service.related("PRODUCT", DOG, "370500", 7)).thenThrow(new IllegalArgumentException("limit is invalid"));
+
+        mockMvc.perform(get("/api/v1/content/related?refType=PRODUCT&refId={id}&cityCode=370500", DOG))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.refType").value("PRODUCT"))
+                .andExpect(jsonPath("$.refId").value(DOG.toString()))
+                .andExpect(jsonPath("$.items[0].articleId").value(ARTICLE.toString()))
+                .andExpect(jsonPath("$.items[0].kind").value("CASE"))
+                .andExpect(jsonPath("$.items[0].publishedAt").value("2026-10-28T02:00:00Z"));
+        mockMvc.perform(get("/api/v1/content/related?refType=PRODUCT&refId={id}&cityCode=370500&limit=7", DOG))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        mockMvc.perform(get("/api/v1/content/related?refType=PRODUCT&refId=not-a-uuid&cityCode=370500"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/content/related?refType=PRODUCT&refId={id}&cityCode=370500&limit=x", DOG))
+                .andExpect(status().isBadRequest());
+    }
+
     private static ContentArticleCardView card() {
         return new ContentArticleCardView(ARTICLE, ContentArticleKind.CASE, "一台机器狗如何完成园区夜间巡逻",
                 new ContentAuthorView(ContentAuthorKind.PROVIDER, EAGLE, "鹰眼智能巡检"), false, "370500", null, true,

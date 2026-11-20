@@ -4,6 +4,17 @@ import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
+import { CONTENT_PREVIEW_ENABLED } from '@/features/content/application/content-preview'
+import { loadRelatedContentRows, type RelatedContentRow } from '@/features/content/application/related-content'
+import { contentApi } from '@/features/content/data/content-api-client'
+import ContentRelatedBlock from '@/features/content/presentation/related/ContentRelatedBlock.vue'
+import { EXPERIENCE_PREVIEW_ENABLED } from '@/features/experience/application/experience-preview'
+import {
+  loadProductExperienceView,
+  type ProductExperienceView,
+} from '@/features/experience/application/product-experience'
+import { experienceApi } from '@/features/experience/data/experience-api-client'
+import ProductTryFirst from '@/features/experience/presentation/product/ProductTryFirst.vue'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { buildSupportHelpUrl } from '@/features/support/navigation/support-routes'
@@ -94,6 +105,11 @@ const badgeStore = useRootTabBadgeStore()
 const state = ref<DetailState>({ kind: 'loading' })
 const selectedOfferId = ref<string | null>(null)
 const cityName = ref<string | null>(null)
+// 先体验，再决定 (R6-2) and 相关内容 (R6-3): read from the experience and content modules by this
+// product's id; null / empty hides the block (and the bar's 先体验).
+const tryFirst = ref<ProductExperienceView | null>(null)
+const relatedRows = ref<RelatedContentRow[]>([])
+const pageCity = ref('')
 let productId = ''
 let cityCode = ''
 let requestVersion = 0
@@ -199,12 +215,35 @@ async function loadProduct(): Promise<void> {
     // online starts selected (catalog 1.2.0). A merchant without it is shown, greyed, never chosen.
     const stillThere = loaded.offers.some((offer) => offer.offerId === selectedOfferId.value && offer.onlinePayment)
     if (!stillThere) selectedOfferId.value = loaded.offers.find((offer) => offer.onlinePayment)?.offerId ?? null
+    loadExtras(requested, loaded.productId)
   } catch (error) {
     if (requested !== requestVersion) return
     const missing = error instanceof ApiRequestError
       && (error.status === 404 || error.status === 400)
     state.value = { kind: missing ? 'missing' : 'error' }
   }
+}
+
+// The two blocks other modules supply, each only on preview builds of its own module. A failed read
+// leaves its block out; a later product load drops what an earlier one brought.
+function loadExtras(requested: number, loadedProductId: string): void {
+  tryFirst.value = null
+  relatedRows.value = []
+  if (EXPERIENCE_PREVIEW_ENABLED) {
+    void loadProductExperienceView(experienceApi, loadedProductId, cityCode).then((view) => {
+      if (requested === requestVersion) tryFirst.value = view
+    })
+  }
+  if (CONTENT_PREVIEW_ENABLED) {
+    void loadRelatedContentRows(contentApi, 'PRODUCT', loadedProductId, cityCode).then((rows) => {
+      if (requested === requestVersion) relatedRows.value = rows
+    })
+  }
+}
+
+// 先体验 in the bar brings the block into view (boards PdFull, PdRental).
+function showTryFirst(): void {
+  uni.pageScrollTo({ selector: '#mall-product-try-first', duration: 300 })
 }
 
 function selectOffer(offer: MallOffer): void {
@@ -361,6 +400,7 @@ function goBack(): void {
 onLoad((query) => {
   productId = typeof query?.productId === 'string' ? query.productId : ''
   cityCode = typeof query?.cityCode === 'string' ? query.cityCode : ''
+  pageCity.value = cityCode
   void loadProduct()
 })
 </script>
@@ -486,6 +526,11 @@ onLoad((query) => {
               :stroke-width="2"
             />
           </button>
+        </view>
+
+        <!-- 先体验，再决定: right under the price card, before the merchants (PdFull) or the rental terms (PdRental). -->
+        <view v-if="tryFirst" id="mall-product-try-first" class="mall-product__try-first">
+          <ProductTryFirst :view="tryFirst" :city-code="pageCity" />
         </view>
 
         <view
@@ -736,6 +781,9 @@ onLoad((query) => {
             </view>
           </view>
         </view>
+
+        <!-- 相关内容: after the parameters and the pack list, before the bar (PdFull, PdRental). -->
+        <ContentRelatedBlock v-if="relatedRows.length" :rows="relatedRows" :city-code="pageCity" />
       </view>
 
       <view v-if="MALL_PREVIEW_ENABLED && (primaryAction || noPayableOffer)" class="mall-product__actions">
@@ -747,6 +795,14 @@ onLoad((query) => {
         >
           <LineIcon name="chat" :size="22" color="#536178" />
           <text>咨询</text>
+        </button>
+        <button
+          v-if="tryFirst"
+          :class="['mall-product__try', { 'mall-product__try--wide': !(primaryAction?.cartAvailable && !noPayableOffer) }]"
+          data-testid="mall-product-try-first"
+          @click="showTryFirst"
+        >
+          先体验
         </button>
         <button
           v-if="noPayableOffer"
@@ -1531,6 +1587,34 @@ button::after {
   font-size: 11px;
   line-height: 15px;
   white-space: nowrap;
+}
+
+/* 先体验: an orange outline pill before the buttons (PdFull: padding 14px next to the two-part pill;
+   PdRental: 18px next to 联系询价). */
+.mall-product__try {
+  display: flex;
+  height: 44px;
+  padding: 0 14px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #ff6a00;
+  border-radius: 999px;
+  color: #ba470b;
+  background: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.mall-product__try--wide {
+  padding: 0 18px;
+}
+
+.mall-product__try-first {
+  display: flex;
+  flex-direction: column;
 }
 
 /* One orange pill: 联系询价 of a rental or inquiry product, or a product nobody can be paid for. */

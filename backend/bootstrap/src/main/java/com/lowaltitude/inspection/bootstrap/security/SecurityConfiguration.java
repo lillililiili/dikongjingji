@@ -100,7 +100,9 @@ public class SecurityConfiguration {
                                 "/api/v1/venues",
                                 "/api/v1/venues/*",
                                 "/api/v1/venues/*/sessions",
-                                "/api/v1/venues/*/devices").permitAll()
+                                "/api/v1/venues/*/devices",
+                                // R6-2 先体验：商品能在哪体验，公开只读。
+                                "/api/v1/experience/product-experiences").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/mall/products",
                                 "/api/v1/mall/products/*").permitAll()
@@ -114,7 +116,9 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/content/feed",
                                 "/api/v1/content/articles/*",
-                                "/api/v1/content/topics/*").permitAll()
+                                "/api/v1/content/topics/*",
+                                // R6-3 相关内容：提到某个对象的图文，公开只读。
+                                "/api/v1/content/related").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
                         // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。

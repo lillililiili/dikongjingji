@@ -5,6 +5,7 @@ import type {
   ExperienceItem,
   ExperienceType,
   Paged,
+  ProductExperiences,
   VenueCard,
   VenueDetail,
   VenueDevice,
@@ -85,6 +86,23 @@ interface VenueDeviceDto {
   trialMode: VenueDeviceTrialMode
 }
 
+interface ProductExperiencesDto {
+  productId: string
+  experiences: {
+    experienceId: string
+    type: ExperienceType
+    title: string
+    summary: string | null
+  }[]
+  venues: {
+    venueId: string
+    name: string
+    deviceName: string
+  }[]
+}
+
+const EXPERIENCE_TYPES: readonly ExperienceType[] = ['SIMULATION', 'RECORDED_DEMO', 'SOFTWARE_TRIAL', 'COURSE_TRIAL']
+
 export interface ExperienceApi {
   loadExperienceItems(type: ExperienceType | null, page: number, size: number): Promise<Paged<ExperienceItem>>
   loadVenues(cityCode: string, page: number, size: number): Promise<Paged<VenueCard>>
@@ -100,6 +118,8 @@ export interface ExperienceApi {
     cityCode: string
     category: VenueDeviceCategory | null
   }, page: number, size: number): Promise<Paged<VenueDevice>>
+  // 1.2.0 (R6-2): the product's online experience items and the city's venues that have it on show.
+  loadProductExperiences(productId: string, cityCode: string): Promise<ProductExperiences>
 }
 
 // The server already filters images to HTTPS; this keeps a bad row from reaching an <image> tag anyway.
@@ -223,6 +243,33 @@ export function createExperienceApi(http: PublicApiHttpClient): ExperienceApi {
         image: toImage(device.image),
         trialMode: device.trialMode,
       }))
+    },
+
+    async loadProductExperiences(productId, cityCode) {
+      const dto = await http.request<ProductExperiencesDto>({
+        method: 'GET',
+        url: `/api/v1/experience/product-experiences?${toQueryString({ productId, cityCode })}`,
+      })
+      const seenVenues = new Set<string>()
+      return {
+        productId: dto.productId,
+        // A type this App does not know yet is left out rather than shown wrongly.
+        experiences: dto.experiences
+          .filter((item) => EXPERIENCE_TYPES.includes(item.type))
+          .map((item) => ({
+            experienceId: item.experienceId,
+            type: item.type,
+            title: item.title,
+            summary: item.summary?.trim() || null,
+          })),
+        venues: dto.venues
+          .filter((venue) => {
+            if (seenVenues.has(venue.venueId)) return false
+            seenVenues.add(venue.venueId)
+            return true
+          })
+          .map((venue) => ({ venueId: venue.venueId, name: venue.name, deviceName: venue.deviceName })),
+      }
     },
   }
 }

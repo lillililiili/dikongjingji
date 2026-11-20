@@ -29,7 +29,7 @@ class ContentMapperContractTest {
         Map<String, String> statements = statements();
 
         assertThat(statements).hasSize(ContentMapper.class.getDeclaredMethods().length);
-        assertThat(statements).hasSize(9);
+        assertThat(statements).hasSize(10);
         assertThat(statements.values()).allSatisfy(sql -> assertThat(normalized(sql))
                 .startsWith("SELECT")
                 .doesNotContain("${")
@@ -41,13 +41,34 @@ class ContentMapperContractTest {
     @Test
     void articlesAreOnlyReadWhenPublishedAlreadyAndShownInTheCity() {
         assertThat(normalized(ContentMapper.VISIBLE)).isEqualTo(VISIBLE);
-        for (String method : List.of("countFeed", "findFeedPage", "findArticle")) {
+        for (String method : List.of("countFeed", "findFeedPage", "findArticle", "findMentioning")) {
             assertThat(normalized(sql(method))).as(method).contains(VISIBLE);
         }
         assertThat(normalized(sql("findFeedPage")))
                 .contains("AND (CAST(#{kind} AS varchar) IS NULL OR a.kind = #{kind})")
                 .endsWith("ORDER BY a.published_at DESC, a.id DESC LIMIT #{limit} OFFSET #{offset}");
         assertThat(normalized(sql("findArticle"))).contains("WHERE a.id = #{articleId} AND " + VISIBLE);
+    }
+
+    // R6-3 相关内容：提到这个对象（类型和 ID 都要对上）的、城市可见的内容，新发布的在前，有上限。
+    @Test
+    void relatedContentIsFoundThroughTheMentions() {
+        assertThat(normalized(sql("findMentioning")))
+                .contains("WHERE " + VISIBLE + " AND EXISTS ( SELECT 1 FROM content_article_ref r"
+                        + " WHERE r.article_id = a.id AND r.ref_type = #{refType} AND r.ref_id = #{refId} )")
+                .endsWith("ORDER BY a.published_at DESC, a.id DESC LIMIT #{limit}");
+        assertThat(aliases(sql("findMentioning"))).containsExactlyElementsOf(fields(ContentMapper.ArticleRow.class));
+    }
+
+    @Test
+    void theV002MigrationOnlyAddsTheMentionLookupIndex() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream("/db/migration/content/V002__content_ref_lookup.sql")) {
+            assertThat(stream).isNotNull();
+            migration = normalized(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+        }
+        assertThat(migration)
+                .isEqualTo("CREATE INDEX idx_content_article_ref_target ON content_article_ref (ref_type, ref_id);");
     }
 
     @Test

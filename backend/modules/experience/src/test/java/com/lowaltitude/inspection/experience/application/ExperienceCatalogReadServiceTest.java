@@ -13,6 +13,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductExperienceRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductVenueRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueCardRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueDeviceRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueInfoRow;
@@ -198,6 +200,45 @@ class ExperienceCatalogReadServiceTest {
         });
     }
 
+    // R6-2 先体验：线上体验和本城场馆原样给出（空白说明当作没有），读的时候带上限；城市只用来查场馆。
+    @Test
+    void productExperiencesListTheItemsAndTheVenuesOfTheCity() {
+        UUID product = UUID.fromString("c2000000-0000-4000-8000-000000000101");
+        UUID item = UUID.fromString("b1000000-0000-4000-8000-000000000001");
+        store.productExperiences = List.of(
+                new ProductExperienceRow(item, "SIMULATION", "机器人避障模拟", "约 3 分钟 · 免登录可试"),
+                new ProductExperienceRow(UUID.randomUUID(), "RECORDED_DEMO", "3 分钟看懂编程机器人", " "));
+        store.productVenues = List.of(new ProductVenueRow(VENUE_ID, "东营低空与机器人体验馆", "编程机器人探索套装"));
+
+        ProductExperiencesView view = service.findProductExperiences(product, "370500");
+
+        assertThat(view.productId()).isEqualTo(product);
+        assertThat(view.experiences()).extracting(ProductExperienceItemView::type)
+                .containsExactly(ExperienceType.SIMULATION, ExperienceType.RECORDED_DEMO);
+        assertThat(view.experiences().get(0)).isEqualTo(
+                new ProductExperienceItemView(item, ExperienceType.SIMULATION, "机器人避障模拟", "约 3 分钟 · 免登录可试"));
+        assertThat(view.experiences().get(1).summary()).isNull();
+        assertThat(view.venues()).containsExactly(
+                new ProductExperienceVenueView(VENUE_ID, "东营低空与机器人体验馆", "编程机器人探索套装"));
+        assertThat(store.productId).isEqualTo(product);
+        assertThat(store.productCity).isEqualTo("370500");
+        assertThat(store.productExperienceLimit).isEqualTo(ExperienceCatalogReadService.MAX_PRODUCT_EXPERIENCES);
+        assertThat(store.productVenueLimit).isEqualTo(ExperienceCatalogReadService.MAX_PRODUCT_VENUES);
+    }
+
+    @Test
+    void aProductWithoutLinksHasTwoEmptyListsAndBadArgumentsAreRejected() {
+        UUID product = UUID.fromString("c2000000-0000-4000-8000-000000000301");
+
+        ProductExperiencesView view = service.findProductExperiences(product, "370500");
+
+        assertThat(view.experiences()).isEmpty();
+        assertThat(view.venues()).isEmpty();
+        assertInvalid(() -> service.findProductExperiences(null, "370500"));
+        assertInvalid(() -> service.findProductExperiences(product, null));
+        assertInvalid(() -> service.findProductExperiences(product, "37-05"));
+    }
+
     private static void assertInvalid(Runnable call) {
         assertThatThrownBy(call::run).isInstanceOf(IllegalArgumentException.class);
     }
@@ -234,6 +275,12 @@ class ExperienceCatalogReadServiceTest {
         OffsetDateTime dayStart;
         OffsetDateTime dayEnd;
         boolean sessionsQueried;
+        List<ProductExperienceRow> productExperiences = List.of();
+        List<ProductVenueRow> productVenues = List.of();
+        UUID productId;
+        String productCity;
+        int productExperienceLimit;
+        int productVenueLimit;
 
         @Override
         public long countExperienceItems(String type) {
@@ -301,6 +348,20 @@ class ExperienceCatalogReadServiceTest {
         @Override
         public List<VenueDeviceRow> findDevices(UUID venueId, String category, int limit, int offset) {
             return devices;
+        }
+
+        @Override
+        public List<ProductExperienceRow> findProductExperiences(UUID productId, int limit) {
+            this.productId = productId;
+            this.productExperienceLimit = limit;
+            return productExperiences;
+        }
+
+        @Override
+        public List<ProductVenueRow> findProductVenues(UUID productId, String cityCode, int limit) {
+            this.productCity = cityCode;
+            this.productVenueLimit = limit;
+            return productVenues;
         }
     }
 }

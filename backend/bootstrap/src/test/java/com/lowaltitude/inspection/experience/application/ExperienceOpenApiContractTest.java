@@ -71,7 +71,10 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenueBookingRefund", VenueBookingRefundView.class),
             Map.entry("VenueBooking", VenueBookingView.class),
             Map.entry("VenueBookingPage", VenueBookingPageView.class),
-            Map.entry("VenueCheckin", VenueCheckinView.class));
+            Map.entry("VenueCheckin", VenueCheckinView.class),
+            Map.entry("ProductExperienceItem", ProductExperienceItemView.class),
+            Map.entry("ProductExperienceVenue", ProductExperienceVenueView.class),
+            Map.entry("ProductExperiences", ProductExperiencesView.class));
 
     /** 请求体：字段名与控制器的请求对象一致；哪些必填由服务的校验决定，这里逐个写明。 */
     private static final Map<String, Class<? extends Record>> REQUEST_RECORDS = Map.of(
@@ -97,17 +100,17 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenueEligibilityReason", VenueEligibilityReason.class));
 
     @Test
-    void contractIsVersionOnePointOneAndDeclaresBearerJwt() {
+    void contractIsVersionOnePointTwoAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.2.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
     }
 
     @Test
-    void theFiveCatalogRoutesStayPublic() {
+    void theSixCatalogRoutesStayPublic() {
         List<Operation> catalog = operations(ExperienceCatalogController.class);
 
         assertThat(catalog).extracting(Operation::key).containsExactlyInAnyOrder(
@@ -115,7 +118,8 @@ class ExperienceOpenApiContractTest {
                 "GET /api/v1/venues",
                 "GET /api/v1/venues/{venueId}",
                 "GET /api/v1/venues/{venueId}/sessions",
-                "GET /api/v1/venues/{venueId}/devices");
+                "GET /api/v1/venues/{venueId}/devices",
+                "GET /api/v1/experience/product-experiences");
         assertThat(catalog).allSatisfy(operation ->
                 assertThat(declared(operation).get("security")).as(operation.key()).isEqualTo(List.of()));
     }
@@ -144,6 +148,30 @@ class ExperienceOpenApiContractTest {
         });
     }
 
+    // R6-2：商品能在哪体验。商品 ID 和城市都必填；两个列表都有上限，和读服务的一致。
+    @Test
+    void productExperiencesNeedTheProductAndTheCityAndAreCapped() {
+        Map<String, Object> declared = map(map(map(root().get("paths"))
+                .get("/api/v1/experience/product-experiences")).get("get"));
+        Map<String, Map<String, Object>> parameters = new LinkedHashMap<>();
+        for (Object entry : list(declared.get("parameters"))) {
+            Map<String, Object> parameter = resolve(map(entry));
+            parameters.put((String) parameter.get("name"), parameter);
+        }
+        assertThat(parameters.keySet()).containsExactly("productId", "cityCode");
+        assertThat(parameters.values()).allSatisfy(parameter -> {
+            assertThat(parameter.get("in")).isEqualTo("query");
+            assertThat(parameter.get("required")).isEqualTo(true);
+        });
+        assertThat(map(parameters.get("productId").get("schema"))).containsEntry("format", "uuid");
+        assertThat(map(declared.get("responses")).keySet()).containsExactlyInAnyOrder("200", "400");
+        Map<String, Object> properties = map(map(schemas().get("ProductExperiences")).get("properties"));
+        assertThat(map(properties.get("experiences")).get("maxItems"))
+                .isEqualTo(ExperienceCatalogReadService.MAX_PRODUCT_EXPERIENCES);
+        assertThat(map(properties.get("venues")).get("maxItems"))
+                .isEqualTo(ExperienceCatalogReadService.MAX_PRODUCT_VENUES);
+    }
+
     @Test
     void contractDeclaresNoOperationTheControllersDoNotHave() {
         Set<String> implemented = new TreeSet<>();
@@ -153,7 +181,7 @@ class ExperienceOpenApiContractTest {
         map(root().get("paths")).forEach((path, item) -> map(item).keySet()
                 .forEach(method -> declared.add(method.toUpperCase() + " " + path)));
 
-        assertThat(implemented).hasSize(12);
+        assertThat(implemented).hasSize(13);
         assertThat(declared).containsExactlyElementsOf(implemented);
     }
 

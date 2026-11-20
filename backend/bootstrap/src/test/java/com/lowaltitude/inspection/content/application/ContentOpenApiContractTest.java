@@ -46,7 +46,8 @@ class ContentOpenApiContractTest {
             Map.entry("ContentBlock", ContentBlockView.class),
             Map.entry("ContentRef", ContentRefView.class),
             Map.entry("ContentArticle", ContentArticleView.class),
-            Map.entry("ContentTopic", ContentTopicView.class));
+            Map.entry("ContentTopic", ContentTopicView.class),
+            Map.entry("ContentRelated", ContentRelatedView.class));
 
     private static final Map<String, Class<? extends Enum<?>>> SCHEMA_ENUMS = Map.of(
             "ContentArticleKind", ContentArticleKind.class,
@@ -59,13 +60,14 @@ class ContentOpenApiContractTest {
     void contractIsVersionOneAndEveryRouteIsPublic() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.0.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
         assertThat(root).doesNotContainKey("security");
         assertThat(map(root.get("components"))).doesNotContainKey("securitySchemes");
         assertThat(operations()).extracting(Operation::key).containsExactlyInAnyOrder(
                 "GET /api/v1/content/feed",
                 "GET /api/v1/content/articles/{articleId}",
-                "GET /api/v1/content/topics/{topicId}");
+                "GET /api/v1/content/topics/{topicId}",
+                "GET /api/v1/content/related");
         assertThat(operations()).allSatisfy(operation -> {
             Map<String, Object> declared = declared(operation);
             assertThat(declared.get("security")).as(operation.key()).isEqualTo(List.of());
@@ -77,7 +79,7 @@ class ContentOpenApiContractTest {
         Set<String> declaredKeys = new TreeSet<>();
         map(root.get("paths")).forEach((path, item) -> map(item).keySet()
                 .forEach(method -> declaredKeys.add(method.toUpperCase() + " " + path)));
-        assertThat(declaredKeys).hasSize(3);
+        assertThat(declaredKeys).hasSize(4);
     }
 
     @Test
@@ -112,6 +114,27 @@ class ContentOpenApiContractTest {
         assertThat(map(parameters.get("channel").get("schema")).get("$ref")).isEqualTo(SCHEMA_PREFIX + "ContentFeedChannel");
         assertThat(map(parameters.get("size").get("schema")).get("maximum")).isEqualTo(ContentReadService.MAX_PAGE_SIZE);
         assertThat(parameters.get("cityCode").get("required")).isEqualTo(true);
+
+        // R6-3 相关内容：类型、ID、城市必填，limit 可选，上限和默认值与读服务一致。
+        Map<String, Object> related = declared(new Operation("GET", "/api/v1/content/related", null));
+        Map<String, Map<String, Object>> relatedParameters = new LinkedHashMap<>();
+        for (Object entry : list(related.get("parameters"))) {
+            Map<String, Object> parameter = resolve(map(entry));
+            relatedParameters.put((String) parameter.get("name"), parameter);
+        }
+        assertThat(relatedParameters.keySet()).containsExactly("refType", "refId", "cityCode", "limit");
+        assertThat(map(relatedParameters.get("refType").get("schema")).get("$ref"))
+                .isEqualTo(SCHEMA_PREFIX + "ContentRefType");
+        assertThat(map(relatedParameters.get("refId").get("schema"))).containsEntry("format", "uuid");
+        for (String required : List.of("refType", "refId", "cityCode")) {
+            assertThat(relatedParameters.get(required).get("required")).as(required).isEqualTo(true);
+        }
+        assertThat(relatedParameters.get("limit").get("required")).isEqualTo(false);
+        assertThat(map(relatedParameters.get("limit").get("schema")))
+                .containsEntry("maximum", ContentReadService.MAX_RELATED_LIMIT)
+                .containsEntry("default", ContentReadService.DEFAULT_RELATED_LIMIT);
+        assertThat(map(map(map(schemas().get("ContentRelated")).get("properties")).get("items")).get("maxItems"))
+                .isEqualTo(ContentReadService.MAX_RELATED_LIMIT);
     }
 
     @Test

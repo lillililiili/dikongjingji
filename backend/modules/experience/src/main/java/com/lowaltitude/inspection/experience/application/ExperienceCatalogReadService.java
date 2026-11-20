@@ -21,6 +21,9 @@ import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueRow
 public final class ExperienceCatalogReadService {
 
     private static final int MAX_PAGE_SIZE = 50;
+    /** R6-2：商品详情“先体验，再决定”最多列出的线上体验项目和场馆数。 */
+    static final int MAX_PRODUCT_EXPERIENCES = 10;
+    static final int MAX_PRODUCT_VENUES = 10;
     private static final String CITY_CODE_PATTERN = "^[A-Z0-9]{4,16}$";
     /** 查询里“不限”的占位值。 */
     private static final String ALL = "ALL";
@@ -167,6 +170,32 @@ public final class ExperienceCatalogReadService {
                         VenueDeviceTrialMode.valueOf(row.trialMode())))
                 .toList();
         return new VenueDevicePageView(page, size, total, hasMore(page, size, total), items);
+    }
+
+    /**
+     * R6-2 先体验：这件商城商品能在哪体验。线上体验项目不分城市，只给已发布的；场馆只给这个城市已发布的、
+     * 馆内有启用的设备关联了这件商品的。都没有时两个列表都是空的（不是 404）：商品是否存在由商城模块判断。
+     */
+    public ProductExperiencesView findProductExperiences(UUID productId, String cityCode) {
+        if (productId == null) {
+            throw new IllegalArgumentException("product id is required");
+        }
+        requireCityCode(cityCode);
+        List<ProductExperienceItemView> experiences = store
+                .findProductExperiences(productId, MAX_PRODUCT_EXPERIENCES)
+                .stream()
+                .map(row -> new ProductExperienceItemView(
+                        row.experienceId(),
+                        ExperienceType.valueOf(row.type()),
+                        row.title(),
+                        blankToNull(row.summary())))
+                .toList();
+        List<ProductExperienceVenueView> venues = store
+                .findProductVenues(productId, cityCode, MAX_PRODUCT_VENUES)
+                .stream()
+                .map(row -> new ProductExperienceVenueView(row.venueId(), row.venueName(), row.deviceName()))
+                .toList();
+        return new ProductExperiencesView(productId, experiences, venues);
     }
 
     private VenueRow requireVenue(UUID venueId, String cityCode) {
@@ -344,5 +373,25 @@ record VenueDevicePageView(
         long total,
         boolean hasMore,
         List<VenueDeviceView> items
+) {
+}
+
+/** R6-2：商品详情“先体验”里的一个线上体验项目。summary 是运营写的时长说明，如“约 3 分钟 · 免登录可试”。 */
+record ProductExperienceItemView(
+        UUID experienceId,
+        ExperienceType type,
+        String title,
+        String summary
+) {
+}
+
+/** R6-2：本城有这件商品可看的场馆，deviceName 是馆内那件设备的名称。 */
+record ProductExperienceVenueView(UUID venueId, String name, String deviceName) {
+}
+
+record ProductExperiencesView(
+        UUID productId,
+        List<ProductExperienceItemView> experiences,
+        List<ProductExperienceVenueView> venues
 ) {
 }

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Experience and Venue Catalog API
-  version: 1.1.0
+  version: 1.2.0
   description: |-
     1.0.0: read-only catalog for the home "体验" channel (docs/redesign/03-App实现任务计划.md §8):
     online experience items, the venues of a city, a venue's projects, sessions and devices. These five routes stay public.
@@ -29,6 +29,13 @@ info:
     - 核销：场馆运营机构的操作员按核销码核销，开场前 30 分钟到场次结束之间；整单一次核销；别的机构的码当作不存在；
       重复核销返回第一次的时间。
     - 到馆订单不出现在交易的“商品订单”里，也不能用商家的发货、核销、退款接口操作。
+    1.2.0 (2026-11-20, docs/redesign/06-原型对齐修正计划.md §3 R6-2 “先体验”): online experience items and venue
+    devices may name one mall product (stored as the product's stable id only; this module does not read the mall's
+    tables). New public route GET /api/v1/experience/product-experiences answers where a product can be tried before
+    buying: its published online experience items (the same in every city) and the published venues of the city
+    with an active device linked to it, one row per venue. Both lists are empty when nothing is linked (not 404);
+    whether the product exists is the mall's business. At most 10 of each.
+
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -179,6 +186,35 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "404":
           description: Venue is not published in that city
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/experience/product-experiences:
+    get:
+      operationId: getProductExperiences
+      summary: Where a mall product can be tried before buying (先体验，再决定)
+      security: []
+      parameters:
+        - name: productId
+          in: query
+          required: true
+          description: The mall product's stable id
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: >-
+            The product's online experience items in the operator's order and the city's venues that have it on show,
+            in the venues' display order; both empty when nothing is linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductExperiences"
+        "400":
+          description: Missing or invalid product id or city
           content:
             application/json:
               schema:
@@ -1001,6 +1037,64 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/VenueDevice"
+    ProductExperienceItem:
+      type: object
+      additionalProperties: false
+      required:
+        - experienceId
+        - type
+        - title
+        - summary
+      properties:
+        experienceId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ExperienceType"
+        title:
+          type: string
+        summary:
+          type:
+            - string
+            - "null"
+          description: Operator's short line with the duration, e.g. 约 3 分钟 · 免登录可试
+    ProductExperienceVenue:
+      type: object
+      additionalProperties: false
+      required:
+        - venueId
+        - name
+        - deviceName
+      properties:
+        venueId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        deviceName:
+          type: string
+          description: The venue's device linked to the product (the first one in the venue's order)
+    ProductExperiences:
+      type: object
+      additionalProperties: false
+      required:
+        - productId
+        - experiences
+        - venues
+      properties:
+        productId:
+          type: string
+          format: uuid
+        experiences:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ProductExperienceItem"
+        venues:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ProductExperienceVenue"
     VenueErrorCode:
       type: string
       enum:

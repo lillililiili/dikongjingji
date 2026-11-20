@@ -74,10 +74,18 @@ interface TopicDto extends TopicCardDto {
   articles: ArticleCardDto[]
 }
 
+interface RelatedDto {
+  refType: ContentRefType
+  refId: string
+  items: ArticleCardDto[]
+}
+
 export interface ContentApi {
   loadFeed(channel: ContentFeedChannel, cityCode: string, page: number, size: number): Promise<ContentFeedPage>
   loadArticle(articleId: string, cityCode: string): Promise<ContentArticle>
   loadTopic(topicId: string, cityCode: string): Promise<ContentTopic>
+  // 1.1.0 (R6-3): the articles that mention an object, newest first.
+  loadRelated(refType: ContentRefType, refId: string, cityCode: string, limit: number): Promise<ContentArticleCard[]>
 }
 
 const BLOCK_TYPES: readonly ContentBlockType[] = ['PARAGRAPH', 'HEADING', 'FACTS', 'STEPS', 'LIST', 'TIP', 'NOTICE']
@@ -189,6 +197,21 @@ export function createContentApi(http: PublicApiHttpClient): ContentApi {
         venueIds: [...new Set(dto.venueIds)],
         articles: dto.articles.map(toContentArticleCard),
       }
+    },
+
+    async loadRelated(refType, refId, cityCode, limit) {
+      const dto = await http.request<RelatedDto>({
+        method: 'GET',
+        url: `/api/v1/content/related?${query({ refType, refId, cityCode, limit })}`,
+      })
+      const seen = new Set<string>()
+      return dto.items
+        .filter((item) => {
+          if (seen.has(item.articleId)) return false
+          seen.add(item.articleId)
+          return true
+        })
+        .map(toContentArticleCard)
     },
   }
 }

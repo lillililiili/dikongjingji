@@ -86,6 +86,29 @@ export interface VenueDevice {
   trialMode: VenueDeviceTrialMode
 }
 
+// R6-2 先体验 (1.2.0): where a mall product can be tried before buying.
+export interface ProductExperienceItem {
+  experienceId: string
+  type: ExperienceType
+  title: string
+  // The operator's line with the duration, e.g. 约 3 分钟 · 免登录可试.
+  summary: string | null
+}
+
+export interface ProductExperienceVenue {
+  venueId: string
+  name: string
+  // The venue's device linked to the product.
+  deviceName: string
+}
+
+export interface ProductExperiences {
+  productId: string
+  experiences: ProductExperienceItem[]
+  // Venues of the city with the product on show, in the venues' order.
+  venues: ProductExperienceVenue[]
+}
+
 export interface Paged<Item> {
   page: number
   size: number

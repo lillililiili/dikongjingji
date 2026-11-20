@@ -62,6 +62,30 @@ public interface ContentMapper {
             @Param("now") OffsetDateTime now
     );
 
+    /** R6-3：“内容中提到”了这个对象的内容。 */
+    String MENTIONS = """
+              AND EXISTS (
+                  SELECT 1
+                  FROM content_article_ref r
+                  WHERE r.article_id = a.id
+                    AND r.ref_type = #{refType}
+                    AND r.ref_id = #{refId}
+              )
+            """;
+
+    /** R6-3 相关内容：提到这个对象、这个城市能看到的内容，新发布的在前，最多 limit 篇。 */
+    @Select(ARTICLE_COLUMNS + "WHERE " + VISIBLE + MENTIONS + """
+            ORDER BY a.published_at DESC, a.id DESC
+            LIMIT #{limit}
+            """)
+    List<ArticleRow> findMentioning(
+            @Param("refType") String refType,
+            @Param("refId") UUID refId,
+            @Param("cityCode") String cityCode,
+            @Param("now") OffsetDateTime now,
+            @Param("limit") int limit
+    );
+
     @Select("""
             SELECT b.id, b.block_type, b.text
             FROM content_article_block b

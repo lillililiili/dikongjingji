@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductExperienceRow;
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductVenueRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueCardRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueDeviceRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueInfoRow;
@@ -199,5 +201,53 @@ public interface ExperienceCatalogMapper {
             @Param("category") String category,
             @Param("limit") int limit,
             @Param("offset") int offset
+    );
+
+    /** R6-2：关联了这件商品的已发布线上体验项目（线上体验不分城市），按运营排序。 */
+    @Select("""
+            SELECT id experience_id,
+                   type,
+                   title,
+                   summary
+            FROM experience_item
+            WHERE product_id = #{productId}
+              AND status = 'PUBLISHED'
+            ORDER BY sort_order ASC, id ASC
+            LIMIT #{limit}
+            """)
+    List<ProductExperienceRow> findProductExperiences(
+            @Param("productId") UUID productId,
+            @Param("limit") int limit
+    );
+
+    /**
+     * R6-2：这个城市里馆内设备关联了这件商品的已发布场馆，一个场馆一行（取排在最前的那件设备的名称），
+     * 按场馆的运营排序。
+     */
+    @Select("""
+            SELECT shown.venue_id,
+                   shown.venue_name,
+                   shown.device_name
+            FROM (
+                SELECT DISTINCT ON (v.id)
+                       v.id venue_id,
+                       v.name venue_name,
+                       d.name device_name,
+                       v.sort_order venue_sort
+                FROM venue_device d
+                JOIN venue v ON v.id = d.venue_id
+                WHERE d.product_id = #{productId}
+                  AND d.status = 'ACTIVE'
+                  AND v.status = 'PUBLISHED'
+                  AND v.city_code = #{cityCode}
+                ORDER BY v.id, d.sort_order ASC, d.id ASC
+            ) shown
+            ORDER BY shown.venue_sort ASC, shown.venue_id ASC
+            LIMIT #{limit}
+            """)
+    List<ProductVenueRow> findProductVenues(
+            @Param("productId") UUID productId,
+            @Param("cityCode") String cityCode,
+            @Param("limit") int limit
     );
 }
