@@ -40,7 +40,7 @@ declare const uni: {
 declare function getCurrentPages(): Array<{ route: string }>
 
 const orderCenter = (page: Page) => page.locator('.inspection-orders__header')
-const backButton = (page: Page) => page.locator('[aria-label="返回我的"]')
+const backButton = (page: Page) => page.getByTestId('inspection-orders-back')
 
 async function waitForOrderCenter(page: Page): Promise<void> {
   await expect(orderCenter(page)).toBeVisible()

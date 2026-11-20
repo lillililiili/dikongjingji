@@ -20,6 +20,9 @@ defineEmits<{
 const displayPrice = computed(() =>
   formatCatalogPrice(props.service.price),
 )
+// The category pictures (热力, 设备, 定期) are small drawings, not photos; the board shows them
+// whole at 56px on a pale orange ground.
+const isDrawing = computed(() => props.service.imageUrl.includes('/inspection/category-'))
 const distanceLabel = computed(() =>
   props.showDistance && props.service.distanceMeters !== undefined
     ? formatCatalogDistance(props.service.distanceMeters)
@@ -34,11 +37,11 @@ const distanceLabel = computed(() =>
     :aria-label="`${service.title}，查看详情`"
     @click="$emit('detail', service.id)"
   >
-    <view class="inspection-card__media">
+    <view :class="['inspection-card__media', { 'inspection-card__media--drawing': isDrawing }]">
       <image
-        class="inspection-card__image"
+        :class="['inspection-card__image', { 'inspection-card__image--drawing': isDrawing }]"
         :src="service.imageUrl"
-        mode="aspectFill"
+        :mode="isDrawing ? 'aspectFit' : 'aspectFill'"
         :style="{ objectPosition: service.imagePosition ?? '50% 50%' }"
         lazy-load
       />
@@ -118,9 +121,7 @@ const distanceLabel = computed(() =>
   border-radius: 14px;
   color: #202c42;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .inspection-card__media {
@@ -136,6 +137,18 @@ const distanceLabel = computed(() =>
   width: 100%;
   height: 100%;
   min-height: 118px;
+}
+
+.inspection-card__media--drawing {
+  align-items: center;
+  justify-content: center;
+  background: #fff0e3;
+}
+
+.inspection-card__image--drawing {
+  width: 56px;
+  height: 56px;
+  min-height: 0;
 }
 
 .inspection-card__category {
@@ -203,10 +216,12 @@ const distanceLabel = computed(() =>
   white-space: nowrap;
 }
 
+/* A tag that does not fit wraps to a second line and is cut off, so no tag is half shown. */
 .inspection-card__tags {
   display: flex;
   height: 20px;
   margin-top: 6px;
+  flex-wrap: wrap;
   gap: 4px;
   overflow: hidden;
 }
@@ -283,7 +298,7 @@ const distanceLabel = computed(() =>
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
-  box-shadow: 0 4px 10px rgba(243, 108, 23, 0.16);
+  box-shadow: var(--app-primary-shadow);
   line-height: 1.2;
 }
 

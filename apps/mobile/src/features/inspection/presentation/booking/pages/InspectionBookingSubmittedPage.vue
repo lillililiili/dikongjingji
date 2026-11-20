@@ -197,7 +197,12 @@ import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import IconTile from '@/shared/ui/IconTile.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
+import { useCurrentCityStore } from '@/shared/city/state/current-city'
+import { inspectionServiceImage } from '../../../data/inspection-service-images'
+import { formatMonthDayTime } from '../../shared/service-flow-format'
 import {
   inspectionBookingApi,
   inspectionPlanApi,
@@ -215,6 +220,7 @@ import {
 } from '../../../application/service-flow/inspection-order-cancellation'
 import { confirmInspectionOrderCancellation } from '../../shared/inspection-cancellation-ui'
 import {
+  buildInspectionDetailUrl,
   buildInspectionOrderCenterUrl,
   buildInspectionPlanConfirmationUrl,
 } from '../../../navigation/inspection-routes'
@@ -330,143 +336,214 @@ function showCustomerService(): void {
   else openSupportChat({ kind: 'PLATFORM' }, card)
 }
 function formatLength(meters: number | null): string { return meters == null ? '待服务商评估' : `${(meters / 1000).toFixed(1).replace(/\.0$/, '')}公里` }
-function formatSubmittedAt(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const part = (number: number): string => String(number).padStart(2, '0')
-  return `${date.getFullYear()}-${part(date.getMonth() + 1)}-${part(date.getDate())} ${part(date.getHours())}:${part(date.getMinutes())}`
-}
 function maskMobile(value: string): string {
   return /^1\d{10}$/.test(value) ? `${value.slice(0, 3)}****${value.slice(-4)}` : value
+}
+
+// Board InspBooked (2026-11-14): status card with a 待方案 / 待确认 / 已取消 chip, the number with
+// 复制, the reservation rows, then 接下来 as a four-step line with 刷新状态.
+const isPlanPublished = computed(() => reservation.value?.status === 'PLAN_PUBLISHED')
+// Opened again from the order list after the plan was confirmed: the plan page and the service
+// order carry the rest, so this page only says the plan is settled.
+const isPlanConfirmed = computed(() => isPlanPublished.value && plan.value?.status === 'CONFIRMED')
+const statusChip = computed(() => {
+  if (isCancelled.value) return '已取消'
+  if (isPlanConfirmed.value) return '已确认'
+  return isPlanPublished.value ? '待确认' : '待方案'
+})
+const statusTitle = computed(() => {
+  if (isCancelled.value) return '订单已取消'
+  if (isPlanConfirmed.value) return '方案已确认'
+  return isPlanPublished.value ? '方案已发布' : '需求已提交'
+})
+const statusCopy = computed(() => {
+  if (isCancelled.value) return '本次服务已停止安排，订单记录将继续保留'
+  if (isPlanConfirmed.value) return '服务商正在安排巡检，进度可在服务履约中查看'
+  if (isPlanPublished.value) {
+    return plan.value?.validUntil
+      ? `服务商已发布方案，请在 ${formatMonthDayTime(plan.value.validUntil)} 前确认`
+      : '服务商已发布方案，请尽快确认'
+  }
+  return '等待服务商确认，方案确认前不收费'
+})
+const copied = ref(false)
+const SLOT_LABELS: Record<string, string> = { MORNING: '上午', AFTERNOON: '下午', EVENING: '晚上' }
+const servicePicture = computed(() => reservation.value
+  ? inspectionServiceImage({ coverUrl: reservation.value.serviceCoverUrl, title: reservation.value.serviceTitle })
+  : '')
+const detailRows = computed(() => {
+  const current = reservation.value
+  if (!current) return []
+  const date = current.preferredServiceDate.slice(5).replace('-', '/')
+  const slot = SLOT_LABELS[current.preferredTimeSlotCode] ?? ''
+  return [
+    { key: 'location', label: '巡检地点', value: current.location.address },
+    { key: 'length', label: '线路长度', value: formatLength(current.lineLengthMeters) },
+    { key: 'time', label: '期望时间', value: slot ? `${date} ${slot}` : date },
+    ...(current.inspectionItems.length
+      ? [{ key: 'items', label: '巡检项目', value: current.inspectionItems.map((item) => item.label).join('、') }]
+      : []),
+    { key: 'contact', label: '联系人', value: `${current.contact.name} ${maskMobile(current.contact.mobile)}` },
+  ]
+})
+type StepState = 'done' | 'current' | 'todo'
+const progressSteps = computed(() => {
+  const current = reservation.value
+  if (!current) return []
+  const published = isPlanPublished.value
+  const steps: Array<{ title: string; note: string; state: StepState }> = [
+    { title: '需求已提交', note: formatMonthDayTime(current.submittedAt), state: 'done' },
+    published
+      ? { title: '服务商确认需求', note: plan.value?.publishedAt ? formatMonthDayTime(plan.value.publishedAt) : '', state: 'done' }
+      : { title: '服务商确认需求', note: '等待联系', state: 'current' },
+    isPlanConfirmed.value
+      ? { title: '确认方案与报价', note: plan.value?.confirmedAt ? formatMonthDayTime(plan.value.confirmedAt) : '', state: 'done' }
+      : published
+        ? { title: '确认方案与报价', note: '等待你确认', state: 'current' }
+        : { title: '确认方案与报价', note: '', state: 'todo' },
+    { title: '现场巡检与报告交付', note: '', state: isPlanConfirmed.value ? 'current' : 'todo' },
+  ]
+  return steps
+})
+const isRefreshing = ref(false)
+async function refreshStatus(): Promise<void> {
+  if (isRefreshing.value) return
+  isRefreshing.value = true
+  try {
+    await loadReservation()
+  } finally {
+    isRefreshing.value = false
+  }
+}
+function copyNumber(): void {
+  copyReservationNo()
+  copied.value = true
+}
+const currentCityStore = useCurrentCityStore()
+function openService(): void {
+  const current = reservation.value
+  if (!current) return
+  uni.navigateTo({ url: buildInspectionDetailUrl(current.serviceId, current.cityCode || currentCityStore.currentCity?.code || '') })
 }
 </script>
 
 <template>
   <view class="booking-submitted">
-    <view class="booking-submitted__header">
-      <button aria-label="返回" @click="returnOrders"><UniIcons type="left" size="22" color="#202c42" /></button>
-      <text>{{ headerTitle }}</text>
-      <text class="booking-submitted__page-step">1/5</text>
-    </view>
+    <AppPageHeader class="booking-submitted__header" :title="headerTitle" test-id="booking-submitted" @back="returnOrders" />
     <view v-if="isLoading" class="booking-submitted__state">正在恢复预约记录…</view>
-    <view v-else-if="loadError" class="booking-submitted__state"><UniIcons type="info-filled" size="40" color="#b5bac1" /><text>{{ loadError }}</text></view>
+    <view v-else-if="loadError" class="booking-submitted__state"><LineIcon name="info" :size="40" color="#b5bac1" /><text>{{ loadError }}</text></view>
     <main v-else-if="reservation" class="booking-submitted__content">
-      <view class="booking-submitted__success">
-        <view class="booking-submitted__success-icon"><UniIcons type="checkmarkempty" size="28" color="#1d63c4" /></view>
-        <text class="booking-submitted__title">{{ isCancelled ? '订单已取消' : '需求已提交' }}</text>
-        <text class="booking-submitted__copy">{{ isCancelled ? '本次服务已停止安排，订单记录将继续保留' : '等待服务商确认，方案确认前不收费' }}</text>
-        <text v-if="!isCancelled" class="booking-submitted__note">进度可在“我的订单”查看</text>
+      <view class="booking-submitted__success app-card" data-testid="booking-submitted-status">
+        <view class="booking-submitted__status-row">
+          <!-- The board's 56px status mark is drawn as the theme's icon tile (blue). -->
+          <IconTile class="booking-submitted__success-icon" tone="blue" :bg="isCancelled ? '#eef2f8' : undefined" :ink="isCancelled ? '#91a0b4' : undefined" :size="56" :name="isCancelled ? 'close' : 'check'" :icon-size="28" />
+          <view class="booking-submitted__status-copy">
+            <text class="booking-submitted__title">{{ statusTitle }}</text>
+            <text class="booking-submitted__copy">{{ statusCopy }}</text>
+            <text v-if="!isCancelled && !isPlanPublished" class="booking-submitted__note">进度可在“我的订单”查看</text>
+            <text :class="['booking-submitted__chip', { 'booking-submitted__chip--cancelled': isCancelled }]" data-testid="booking-submitted-chip">{{ statusChip }}</text>
+          </view>
+        </view>
+        <view class="booking-submitted__number">
+          <text class="booking-submitted__number-label">预约编号</text>
+          <text class="booking-submitted__number-value">{{ reservation.reservationNo }}</text>
+          <button :class="['booking-submitted__copy-button', { 'booking-submitted__copy-button--done': copied }]" data-testid="booking-submitted-copy" @click="copyNumber">{{ copied ? '已复制' : '复制' }}</button>
+        </view>
+        <text class="booking-submitted__time">提交时间：{{ formatMonthDayTime(reservation.submittedAt) }}</text>
       </view>
-      <view class="booking-submitted__card">
-        <view class="booking-submitted__service"><image :src="reservation.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'" mode="aspectFill" /><view><text>{{ reservation.serviceTitle }}</text><text>云翼科技</text></view></view>
-        <button class="booking-submitted__number" @click="copyReservationNo"><text>预约编号</text><text>{{ reservation.reservationNo }}</text><UniIcons type="copy" size="16" color="#50565f" /></button>
-        <view class="booking-submitted__detail-row"><text>巡检地点</text><text>{{ reservation.location.address }}</text></view>
-        <view class="booking-submitted__detail-row"><text>线路长度</text><text>{{ formatLength(reservation.lineLengthMeters) }}</text></view>
-        <view class="booking-submitted__detail-row"><text>期望时间</text><text>{{ reservation.preferredServiceDate }}</text></view>
-        <view class="booking-submitted__detail-row"><text>联系人</text><text>{{ reservation.contact.name }}　{{ maskMobile(reservation.contact.mobile) }}</text></view>
-        <text class="booking-submitted__time">提交时间：{{ formatSubmittedAt(reservation.submittedAt) }}</text>
+      <view class="booking-submitted__card app-card">
+        <text class="booking-submitted__card-title">预约信息</text>
+        <view class="booking-submitted__service" data-testid="booking-submitted-service" @click="openService">
+          <image class="booking-submitted__service-picture" :src="servicePicture" mode="aspectFill" />
+          <text class="booking-submitted__service-title">{{ reservation.serviceTitle }}</text>
+          <LineIcon name="chevronRight" :size="16" color="#91a0b4" :stroke-width="2.4" />
+        </view>
+        <view v-for="row in detailRows" :key="row.key" class="booking-submitted__detail-row"><text>{{ row.label }}</text><text>{{ row.value }}</text></view>
       </view>
-      <view v-if="isCancelled" class="booking-submitted__next-steps">
-        <text class="booking-submitted__timeline-title">订单状态</text>
-        <view class="booking-submitted__timeline-row booking-submitted__timeline-row--cancelled"><UniIcons type="info-filled" size="18" color="#7d8590" /><view><text>订单已取消</text><text>服务已停止安排</text></view></view>
-      </view>
-      <view v-else class="booking-submitted__next-steps">
-        <text class="booking-submitted__timeline-title">接下来</text>
-        <view class="booking-submitted__timeline-row booking-submitted__timeline-row--done"><UniIcons type="checkbox-filled" size="18" color="#16af55" /><view><text>需求已提交</text><text>{{ formatSubmittedAt(reservation.submittedAt) }}</text></view></view>
-        <view class="booking-submitted__timeline-row booking-submitted__timeline-row--current"><UniIcons type="circle-filled" size="18" color="#ff6a00" /><view><text>服务商确认需求</text><text>等待联系</text></view></view>
-        <view class="booking-submitted__timeline-row"><UniIcons type="circle" size="18" color="#b5bac1" /><text>确认方案与报价</text></view>
-        <view class="booking-submitted__timeline-row"><UniIcons type="circle" size="18" color="#b5bac1" /><text>现场巡检与报告交付</text></view>
+      <view class="booking-submitted__next-steps app-card">
+        <view class="booking-submitted__timeline-head">
+          <text class="booking-submitted__timeline-title">{{ isCancelled ? '订单状态' : '接下来' }}</text>
+          <button v-if="!isCancelled" class="booking-submitted__refresh" data-testid="booking-submitted-refresh" :disabled="isRefreshing" @click="refreshStatus">刷新状态</button>
+        </view>
+        <view v-if="isCancelled" class="booking-submitted__timeline-row booking-submitted__timeline-row--cancelled">
+          <view class="booking-submitted__dot booking-submitted__dot--cancelled"><LineIcon name="close" :size="9" color="#ffffff" :stroke-width="4" /></view>
+          <view class="booking-submitted__step-copy"><text>订单已取消</text><text>服务已停止安排</text></view>
+        </view>
+        <view v-else role="list" aria-label="订单进度">
+          <view
+            v-for="(step, index) in progressSteps"
+            :key="step.title"
+            role="listitem"
+            :class="['booking-submitted__timeline-row', `booking-submitted__timeline-row--${step.state}`]"
+          >
+            <view class="booking-submitted__rail">
+              <view v-if="index < progressSteps.length - 1" :class="['booking-submitted__line', { 'booking-submitted__line--done': step.state === 'done' }]" />
+              <view v-if="step.state === 'done'" class="booking-submitted__dot"><LineIcon name="check" :size="9" color="#ffffff" :stroke-width="4" /></view>
+              <view v-else :class="['booking-submitted__dot', 'booking-submitted__dot--open', { 'booking-submitted__dot--current': step.state === 'current' }]"><view v-if="step.state === 'current'" class="booking-submitted__dot-core" /></view>
+            </view>
+            <view class="booking-submitted__step-copy"><text>{{ step.title }}</text><text v-if="step.note">{{ step.note }}</text></view>
+          </view>
+        </view>
       </view>
       <button v-if="canCancel" class="booking-submitted__cancel" :disabled="isCancelling" @click="cancelOrder">{{ isCancelling ? '取消中…' : '取消订单' }}</button>
     </main>
-    <view class="booking-submitted__footer" :class="{ 'booking-submitted__footer--single': footerMode === 'RETURN_ORDERS_ONLY' }"><button v-if="showCustomerContact" class="booking-submitted__contact" @click="showCustomerService"><UniIcons type="chat" size="20" color="#17191d" />联系服务商</button><button @click="handlePrimaryAction">{{ isCancelled ? '返回订单' : (reservation?.currentPlanId ? '查看服务方案' : '返回订单') }}</button></view>
+    <view class="booking-submitted__footer" :class="{ 'booking-submitted__footer--single': footerMode === 'RETURN_ORDERS_ONLY' }">
+      <button v-if="showCustomerContact" class="booking-submitted__contact" @click="showCustomerService"><LineIcon name="chat" :size="22" color="#536178" /><text>联系服务商</text></button>
+      <button class="booking-submitted__primary" @click="handlePrimaryAction">{{ isCancelled ? '返回订单' : (reservation?.currentPlanId ? '查看服务方案' : '返回订单') }}</button>
+    </view>
   </view>
 </template>
 
 <style scoped>
-.booking-submitted{min-height:100vh;background:#f7f8fa;color:#25282d}.booking-submitted__header{display:grid;min-height:calc(48px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);grid-template-columns:44px 1fr 64px;align-items:center;background:#fff;font-size:17px;font-weight:700;text-align:center;box-sizing:border-box}.booking-submitted__header button{height:44px;margin:0;padding:0;border:0;background:transparent}.booking-submitted__header button::after{border:0}.booking-submitted__header button:last-child{display:flex;width:64px;align-items:center;justify-content:center;gap:3px;font-size:12px}.booking-submitted__content{max-width:600px;margin:0 auto;padding:8px 8px 92px}.booking-submitted__success{padding:14px 14px 12px;border:1px solid #eceef1;border-radius:13px;background:#fff}.booking-submitted__success-main{display:grid;grid-template-columns:86px minmax(0,1fr);align-items:center}.booking-submitted__success-icon{display:grid;width:72px;height:72px;place-items:center;border-radius:50%;background:#e7f8e9}.booking-submitted__success-copy{display:flex;align-items:flex-start;flex-direction:column}.booking-submitted__title{font-size:19px;font-weight:700;letter-spacing:1px}.booking-submitted__copy{margin-top:4px;color:#737b85;font-size:12px}.booking-submitted__status{margin-top:6px;padding:2px 8px;border:1px solid #ff6a00;border-radius:10px;color:#ff5a00;font-size:11px}.booking-submitted__number{display:grid;width:100%;min-height:37px;margin-top:10px;padding:0 12px;grid-template-columns:78px 1fr 22px;align-items:center;border:1px solid #e2e5e8;border-radius:7px;background:#fff;color:#25282d;font-size:13px;text-align:left}.booking-submitted__number::after,.booking-submitted__footer button::after{border:0}.booking-submitted__number text:nth-child(2){font-weight:600;letter-spacing:.5px}.booking-submitted__time{display:block;margin-top:7px;color:#737a83;font-size:11px}.booking-submitted__card{margin-top:8px;padding:11px 12px 8px;border:1px solid #eceef1;border-radius:12px;background:#fff;color:#25282d;font-size:12px}.booking-submitted__card-title{display:block;margin-bottom:7px;font-size:15px;font-weight:700}.booking-submitted__service{display:grid;min-height:60px;padding-bottom:7px;grid-template-columns:88px minmax(0,1fr) 18px;gap:10px;align-items:center}.booking-submitted__service image{width:88px;height:60px;border-radius:7px;background:#edf0f2}.booking-submitted__service>text{overflow:hidden;font-size:15px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.booking-submitted__detail-row{display:grid;min-height:28px;grid-template-columns:92px minmax(0,1fr);align-items:center;border-top:1px solid #eceef1}.booking-submitted__detail-row>text:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.booking-submitted__timeline{margin-top:8px;padding:11px 12px 9px;border:1px solid #eceef1;border-radius:12px;background:#fff}.booking-submitted__timeline-title{display:block;margin-bottom:6px;font-size:15px;font-weight:700}.booking-submitted__timeline-row{position:relative;display:grid;min-height:33px;grid-template-columns:24px minmax(0,1fr);align-items:start;color:#41464e;font-size:12px}.booking-submitted__timeline-row:not(:last-child)::after{position:absolute;top:17px;bottom:-4px;left:8px;border-left:1px dashed #b6bbc1;content:''}.booking-submitted__timeline-row--done:not(:last-child)::after{border-color:#16af55}.booking-submitted__timeline-row>view{display:flex;flex-direction:column}.booking-submitted__timeline-row>view text:last-child{margin-top:1px;color:#8b929a;font-size:10px}.booking-submitted__timeline-row--current>view text{color:#ff5a00}.booking-submitted__state{display:flex;min-height:360px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#7e858e;font-size:14px}.booking-submitted__footer{position:fixed;right:0;bottom:0;left:0;padding:0 8px calc(7px + env(safe-area-inset-bottom));background:#fff}.booking-submitted__footer>view{display:flex;margin:0 -8px;padding:6px 12px;align-items:center;gap:6px;color:#a65c2e;background:#fff5ea;font-size:10px}.booking-submitted__footer button{display:block;width:min(100%,584px);height:40px;margin:5px auto 0;border:0;border-radius:22px;color:#fff;background:linear-gradient(90deg,#ff8a00,#ff4d00);font-size:16px;font-weight:700}
-.booking-submitted__content{padding:7px 8px 84px}
-.booking-submitted__success{padding:11px 12px 9px}
-.booking-submitted__success-main{grid-template-columns:76px minmax(0,1fr)}
-.booking-submitted__success-icon{width:64px;height:64px}
-.booking-submitted__title{font-size:18px;letter-spacing:.5px}
-.booking-submitted__copy{margin-top:3px;font-size:11px}
-.booking-submitted__status{margin-top:5px;padding:1px 7px;font-size:10px}
-.booking-submitted__number{min-height:34px;margin-top:8px;padding:0 10px;grid-template-columns:74px 1fr 20px;font-size:12px}
-.booking-submitted__time{margin-top:5px;font-size:10px}
-.booking-submitted__card{margin-top:7px;padding:9px 11px 6px;font-size:11px}
-.booking-submitted__card-title{margin-bottom:5px;font-size:14px}
-.booking-submitted__service{min-height:54px;padding-bottom:5px;grid-template-columns:80px minmax(0,1fr) 18px;gap:9px}
-.booking-submitted__service image{width:80px;height:54px}
-.booking-submitted__service>text{font-size:14px}
-.booking-submitted__detail-row{min-height:25px;grid-template-columns:86px minmax(0,1fr)}
-.booking-submitted__timeline{margin-top:7px;padding:9px 11px 7px}
-.booking-submitted__timeline-title{margin-bottom:4px;font-size:14px}
-.booking-submitted__timeline-row{min-height:29px;grid-template-columns:23px minmax(0,1fr);font-size:11px}
-.booking-submitted__timeline-row:not(:last-child)::after{top:16px;bottom:-3px}
-.booking-submitted__timeline-row>view text:last-child{font-size:9px}
-.booking-submitted__footer{padding-bottom:calc(6px + env(safe-area-inset-bottom))}
-.booking-submitted__footer>view{padding:5px 11px;gap:5px;font-size:9px}
-.booking-submitted__footer button{height:38px;margin-top:4px;border-radius:21px;font-size:15px}
-
-.booking-submitted{background:#fff}
-.booking-submitted__header{min-height:calc(56px + var(--status-bar-height));padding-top:var(--status-bar-height);grid-template-columns:56px 1fr 56px;background:#fff;font-size:19px}
-.booking-submitted__header button{width:56px;height:56px}
-.booking-submitted__page-step{justify-self:center;padding:5px 11px;border-radius:16px;background:#f3f4f5;font-size:13px;font-weight:500}
-.booking-submitted__content{padding:42px 22px 124px}
-.booking-submitted__success{display:flex;padding:0 0 34px;align-items:center;flex-direction:column;border:0;background:transparent}
-.booking-submitted__success-icon{width:94px;height:94px;border:5px solid #20aa49;background:#fff}
-.booking-submitted__title{margin-top:24px;font-size:30px}
-.booking-submitted__copy{margin-top:12px;color:#737985;font-size:15px;text-align:center}
-.booking-submitted__copy>text{color:#20ad4f}
-.booking-submitted__note{margin-top:6px;color:#8a8f97;font-size:12px;text-align:center}
-.booking-submitted__card{margin-top:0;padding:14px;border:0;border-radius:22px;box-shadow:0 10px 32px rgba(32,43,55,.08);font-size:13px}
-.booking-submitted__service{min-height:92px;padding-bottom:12px;grid-template-columns:110px minmax(0,1fr);gap:14px}
-.booking-submitted__service image{width:110px;height:92px;border-radius:14px}
-.booking-submitted__service>view{display:flex;min-width:0;flex-direction:column}
-.booking-submitted__service>view text:first-child{font-size:17px;font-weight:700}
-.booking-submitted__service>view text:last-child{margin-top:8px;color:#7f858d;font-size:13px}
-.booking-submitted__number{min-height:44px;margin-top:4px;font-size:13px}
-.booking-submitted__detail-row{min-height:40px;grid-template-columns:86px minmax(0,1fr);font-size:13px}
-.booking-submitted__time{margin-top:8px;font-size:11px}
-.booking-submitted__next-steps{margin-top:24px;padding:20px 18px;border-radius:22px;background:#fff;box-shadow:0 10px 32px rgba(32,43,55,.08)}
-.booking-submitted__cancel{display:block;width:100%;height:44px;margin-top:16px;border:1px solid #d9dde2;border-radius:14px;color:#c74432;background:#fff;font-size:16px;font-weight:600}.booking-submitted__cancel::after{border:0}
-.booking-submitted__timeline-title{margin-bottom:16px;font-size:20px}
-.booking-submitted__timeline-row{min-height:64px;grid-template-columns:34px minmax(0,1fr);font-size:16px}
-.booking-submitted__timeline-row:not(:last-child)::after{top:20px;bottom:-8px;left:8px}
-.booking-submitted__timeline-row>view text:last-child{margin-top:7px;font-size:12px}
-.booking-submitted__footer{display:grid;padding:10px 22px calc(12px + env(safe-area-inset-bottom));grid-template-columns:1fr 1fr;gap:12px;box-shadow:0 -7px 24px rgba(25,35,48,.07)}
-.booking-submitted__footer--single{grid-template-columns:1fr}
-.booking-submitted__footer button{width:100%;height:52px;margin:0;border-radius:16px;font-size:16px}
-.booking-submitted__footer .booking-submitted__contact{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #aeb3ba;color:#17191d;background:#fff}
-
-/* 2026-11-14 prototype (board InspBooked, 390 wide): the theme layer over the layout above.
-   The result is a compact card with the tick on the left, not a full-screen success mark. */
-.booking-submitted{color:#202c42;background:#f5f7fc}
-.booking-submitted__header{min-height:calc(60px + var(--status-bar-height));grid-template-columns:52px 1fr auto;padding-right:16px;background:linear-gradient(125deg,#fff9f3,#f3f7ff 65%,#edf9f4);font-size:18px;text-align:left}
-.booking-submitted__header button{width:52px;height:44px}
-.booking-submitted__page-step{padding:3px 10px;border-radius:999px;color:#536178;background:rgba(255,255,255,.75);font-size:12px}
-.booking-submitted__content{padding:12px 16px 110px}
-.booking-submitted__success{display:grid;padding:14px;grid-template-columns:56px minmax(0,1fr);column-gap:12px;align-items:start;border-radius:14px;background:#fff;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
-.booking-submitted__success-icon{display:flex;width:56px;height:56px;grid-row:1 / span 3;align-items:center;justify-content:center;border:0;border-radius:16px;background:#e4efff}
-.booking-submitted__title{margin-top:0;color:#202c42;font-size:18px;font-weight:700;line-height:25px;letter-spacing:0}
-.booking-submitted__copy{margin-top:2px;color:#536178;font-size:13px;line-height:18px;text-align:left}
-.booking-submitted__note{margin-top:2px;color:#738096;font-size:12px;line-height:17px;text-align:left}
-.booking-submitted__card{margin-top:10px;padding:14px;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px;font-size:14px}
-.booking-submitted__service{min-height:54px;padding-bottom:10px;grid-template-columns:72px minmax(0,1fr);gap:12px}
-.booking-submitted__service image{width:72px;height:54px;border-radius:10px}
-.booking-submitted__service>view text:first-child{font-size:15px;line-height:21px}
-.booking-submitted__service>view text:last-child{margin-top:2px;color:#627187;font-size:12px}
-.booking-submitted__number{min-height:44px;margin-top:0;padding:0 12px;border:0;border-radius:10px;background:#f5f7fc;font-size:14px}
-.booking-submitted__detail-row{min-height:44px;grid-template-columns:82px minmax(0,1fr);border-color:#f0f1f3;font-size:14px}
-.booking-submitted__detail-row>text:first-child{color:#627187}
-.booking-submitted__time{color:#738096;font-size:12px}
-.booking-submitted__next-steps{margin-top:10px;padding:14px;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
-.booking-submitted__timeline-title{margin-bottom:8px;font-size:16px;line-height:22px}
-.booking-submitted__timeline-row{min-height:48px;grid-template-columns:28px minmax(0,1fr);font-size:14px}
-.booking-submitted__timeline-row>view text:last-child{margin-top:2px;color:#738096;font-size:12px}
-.booking-submitted__cancel{margin-top:10px;border:1px solid #e5ebf3;border-radius:999px;color:#c2452f;font-size:15px;font-weight:500}
-.booking-submitted__footer{padding:10px 16px calc(10px + env(safe-area-inset-bottom));gap:12px;border-top:1px solid #e5ebf3;box-shadow:0 -4px 18px rgba(38,59,98,.06)}
-.booking-submitted__footer button{height:46px;border-radius:999px;color:#fff;background:#ff6a00;font-size:16px;font-weight:500}
-.booking-submitted__footer .booking-submitted__contact{gap:6px;border:1px solid #e5ebf3;color:#202c42;background:#fff}
+/* Sizes and colours follow the 2026-11-14 prototype board InspBooked (390 wide). */
+.booking-submitted { min-height: 100vh; color: #202c42; background: #f5f7fc; }
+.booking-submitted__content { display: flex; max-width: 600px; margin: 0 auto; padding: 12px 16px calc(96px + env(safe-area-inset-bottom)); flex-direction: column; gap: 10px; box-sizing: border-box; }
+.booking-submitted__state { display: flex; min-height: 360px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #738096; font-size: 14px; }
+.booking-submitted__success { display: flex; padding: 14px; flex-direction: column; gap: 12px; border-radius: 14px; background: #fff; }
+.booking-submitted__status-row { display: flex; align-items: flex-start; gap: 12px; }
+.booking-submitted__status-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; align-items: flex-start; gap: 4px; }
+.booking-submitted__title { font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap; }
+.booking-submitted__copy { color: #536178; font-size: 13px; line-height: 19px; }
+.booking-submitted__note { color: #738096; font-size: 12px; line-height: 17px; }
+.booking-submitted__chip { margin-top: 2px; padding: 1px 6px; border-radius: 6px; color: #ba470b; background: #fff0e3; font-size: 12px; line-height: 17px; white-space: nowrap; }
+.booking-submitted__chip--cancelled { color: #536178; background: #eef2f8; }
+.booking-submitted__number { display: flex; min-height: 44px; padding: 0 12px; align-items: center; gap: 12px; border-radius: 10px; background: #f5f7fc; }
+.booking-submitted__number-label { flex: none; color: #627187; font-size: 13px; line-height: 18px; white-space: nowrap; }
+.booking-submitted__number-value { min-width: 0; flex: 1; overflow: hidden; font-size: 14px; font-weight: 500; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.booking-submitted__copy-button { height: 44px; margin: 0 -8px 0 0; padding: 0 8px; flex: none; border: 0; color: #ba470b; background: transparent; font-size: 13px; line-height: 44px; }
+.booking-submitted__copy-button--done { color: #11804a; }
+.booking-submitted__time { margin-top: -6px; color: #738096; font-size: 12px; line-height: 17px; }
+.booking-submitted__card { display: flex; padding: 14px 14px 0; flex-direction: column; border-radius: 14px; background: #fff; }
+.booking-submitted__card-title { margin-bottom: 8px; font-size: 16px; font-weight: 700; line-height: 22px; }
+.booking-submitted__service { display: flex; padding-bottom: 10px; align-items: center; gap: 12px; }
+.booking-submitted__service-picture { width: 72px; height: 48px; flex: none; border-radius: 8px; background: #eef2f8; }
+.booking-submitted__service-title { min-width: 0; flex: 1; overflow: hidden; font-size: 15px; font-weight: 700; line-height: 21px; text-overflow: ellipsis; white-space: nowrap; }
+.booking-submitted__detail-row { display: flex; min-height: 44px; align-items: center; gap: 12px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px; }
+.booking-submitted__detail-row > text:first-child { width: 70px; flex: none; color: #627187; white-space: nowrap; }
+.booking-submitted__detail-row > text:last-child { min-width: 0; flex: 1; }
+.booking-submitted__next-steps { display: flex; padding: 14px 14px 2px; flex-direction: column; gap: 10px; border-radius: 14px; background: #fff; }
+.booking-submitted__timeline-head { display: flex; min-height: 32px; align-items: center; gap: 8px; }
+.booking-submitted__timeline-title { font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap; }
+.booking-submitted__refresh { height: 32px; margin: 0 0 0 auto; padding: 0 12px; border: 1px solid #e5ebf3; border-radius: 999px; color: #536178; background: #fff; font-size: 13px; line-height: 30px; box-sizing: border-box; }
+.booking-submitted__timeline-row { display: flex; padding-bottom: 12px; gap: 10px; }
+.booking-submitted__rail { position: relative; width: 16px; flex: none; }
+.booking-submitted__line { position: absolute; top: 10px; bottom: -14px; left: 7px; width: 2px; background: #e5ebf3; }
+.booking-submitted__line--done { background: #159a70; }
+.booking-submitted__dot { position: absolute; top: 2px; left: 0; display: flex; width: 16px; height: 16px; align-items: center; justify-content: center; border-radius: 50%; background: #159a70; box-sizing: border-box; }
+.booking-submitted__dot--open { border: 2px solid #c9d3e1; background: #fff; }
+.booking-submitted__dot--current { border-color: #ff6a00; }
+.booking-submitted__dot--cancelled { position: static; margin-top: 2px; background: #91a0b4; }
+.booking-submitted__dot-core { width: 6px; height: 6px; border-radius: 50%; background: #ff6a00; }
+.booking-submitted__step-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
+.booking-submitted__step-copy > text:first-child { color: #536178; font-size: 14px; line-height: 20px; }
+.booking-submitted__step-copy > text:last-child:not(:first-child) { color: #738096; font-size: 12px; line-height: 17px; }
+.booking-submitted__timeline-row--done .booking-submitted__step-copy > text:first-child { color: #202c42; font-weight: 500; }
+.booking-submitted__timeline-row--current .booking-submitted__step-copy > text { color: #ba470b !important; }
+.booking-submitted__timeline-row--current .booking-submitted__step-copy > text:first-child { font-weight: 500; }
+.booking-submitted__timeline-row--cancelled .booking-submitted__step-copy > text:first-child { color: #202c42; font-weight: 500; }
+.booking-submitted__cancel { width: 100%; height: 44px; margin: 0; border: 1px solid #c9d3e1; border-radius: 999px; color: #536178; background: #fff; font-size: 15px; line-height: 42px; box-sizing: border-box; }
+.booking-submitted__footer { position: fixed; right: 0; bottom: 0; left: 0; display: flex; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); align-items: center; gap: 10px; border-top: 1px solid #e5ebf3; background: #fff; box-shadow: var(--app-bar-shadow); }
+.booking-submitted__contact { display: flex; width: 68px; height: 44px; margin: 0; padding: 0; flex: none; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; color: #536178; background: transparent; font-size: 12px; line-height: 16px; white-space: nowrap; }
+.booking-submitted__primary { height: 46px; margin: 0; flex: 1; border: 0; border-radius: 999px; color: #fff; background: #ff6a00; box-shadow: var(--app-primary-shadow); font-size: 16px; font-weight: 500; line-height: 46px; }
+.booking-submitted__copy-button::after, .booking-submitted__refresh::after, .booking-submitted__cancel::after, .booking-submitted__contact::after, .booking-submitted__primary::after { border: 0; }
 </style>

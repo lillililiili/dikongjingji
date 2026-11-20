@@ -101,6 +101,13 @@ SET item_label = EXCLUDED.item_label,
     status = EXCLUDED.status,
     updated_at = now();
 
+-- 2026-11-20 原型对齐：交付成果照 InspDetail 画板（高清巡检影像、缺陷清单、点位标注、巡检报告），
+-- 原来的“热成像数据”换成“点位标注”，旧行删掉，免得详情页出现五项。
+DELETE FROM inspection_service_detail_item
+WHERE service_id = '33333333-3333-3333-3333-333333333333'
+  AND section_type = 'DELIVERABLE'
+  AND item_code = 'THERMAL';
+
 INSERT INTO inspection_service_detail_item (
     service_id,
     section_type,
@@ -116,7 +123,7 @@ INSERT INTO inspection_service_detail_item (
         '33333333-3333-3333-3333-333333333333',
         'CAPABILITY',
         'MODELING',
-        '高精度建模',
+        '高清影像',
         NULL,
         'checkbox',
         NULL,
@@ -203,12 +210,12 @@ INSERT INTO inspection_service_detail_item (
     (
         '33333333-3333-3333-3333-333333333333',
         'DELIVERABLE',
-        'THERMAL',
-        '热成像数据',
+        'POINTS',
+        '点位标注',
         NULL,
         'image',
-        'THERMAL_IMAGE',
-        20,
+        NULL,
+        25,
         'ACTIVE'
     ),
     (
@@ -219,7 +226,7 @@ INSERT INTO inspection_service_detail_item (
         NULL,
         'list',
         'DEFECT_LIST_IMAGE',
-        30,
+        20,
         'ACTIVE'
     ),
     (

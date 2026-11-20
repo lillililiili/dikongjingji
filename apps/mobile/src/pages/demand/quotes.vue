@@ -59,7 +59,7 @@ onShow(() => {
     :refresh-key="refreshKey"
     @back="goBack"
     @login="openLogin"
-    @compare="(id) => open(buildDemandCompareUrl(id))"
+    @compare="(id, quoteId) => open(buildDemandCompareUrl(id, quoteId))"
     @view-demand="(id) => open(buildDemandPublishUrl({ demandId: id }))"
     @republish="(id) => open(buildDemandPublishUrl({ from: id }))"
   />

@@ -9,8 +9,10 @@ import deliveryPageSource from '../presentation/delivery/pages/InspectionDeliver
 
 describe('existing-account inspection candidate visual shell', () => {
   it('keeps the real login form inside the new branded account shell', () => {
-    expect(loginPageSource).toContain('inspection-login__skyline')
-    expect(loginPageSource).toContain('inspection-login__robot')
+    // 2026-11-20 board Login: the shared page head and the 登录后继续 card, no robot picture.
+    expect(loginPageSource).toContain('<AppPageHeader')
+    expect(loginPageSource).toContain('登录后继续：')
+    expect(loginPageSource).not.toContain('inspection-login__robot')
     expect(loginPageSource).toContain('inspectionAuthApi.login(')
     expect(loginPageSource).not.toContain('注册')
   })
@@ -24,7 +26,7 @@ describe('existing-account inspection candidate visual shell', () => {
 
   it('matches the submitted and plan-confirmation milestones', () => {
     expect(submittedPageSource).toContain("'需求已提交'")
-    expect(submittedPageSource).toContain('booking-submitted__page-step')
+    expect(submittedPageSource).not.toContain('booking-submitted__page-step')
     expect(submittedPageSource).toContain('booking-submitted__next-steps')
     expect(planPageSource).toContain('方案确认')
     expect(planPageSource).toContain('PlanArrangementCard')

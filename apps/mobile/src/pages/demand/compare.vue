@@ -11,10 +11,12 @@ import {
 } from '@/features/demand/navigation/demand-routes'
 import DemandComparePage from '@/features/demand/presentation/compare/DemandComparePage.vue'
 import DemandUnavailable from '@/features/demand/presentation/shared/DemandUnavailable.vue'
+import { buildProviderPageUrl } from '@/features/proservice/navigation/proservice-routes'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 
 const demandId = ref<string | null>(null)
+const quoteId = ref<string | null>(null)
 const accessToken = ref<string | null>(null)
 const refreshKey = ref(0)
 const shown = ref(false)
@@ -38,9 +40,15 @@ function republish(id: string): void {
   uni.navigateTo({ url: buildDemandPublishUrl({ from: id }) })
 }
 
+function openProvider(providerId: string, cityCode: string): void {
+  uni.navigateTo({ url: buildProviderPageUrl(providerId, cityCode) })
+}
+
 onLoad((query) => {
   const value = typeof query?.demandId === 'string' ? query.demandId.trim() : ''
   demandId.value = value || null
+  const quote = typeof query?.quoteId === 'string' ? query.quoteId.trim() : ''
+  quoteId.value = quote || null
 })
 
 onShow(() => {
@@ -54,11 +62,13 @@ onShow(() => {
   <DemandComparePage
     v-if="DEMAND_PREVIEW_ENABLED && shown"
     :demand-id="demandId"
+    :initial-quote-id="quoteId"
     :access-token="accessToken"
     :refresh-key="refreshKey"
     @back="goBack"
     @login="openLogin"
     @republish="republish"
+    @open-provider="openProvider"
   />
   <DemandUnavailable v-else-if="!DEMAND_PREVIEW_ENABLED" />
 </template>

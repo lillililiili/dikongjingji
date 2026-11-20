@@ -38,6 +38,8 @@ export interface DetailReview {
 
 export interface InspectionServiceDetail {
   serviceId: string
+  /** 类目编码，用来按类目配头图和角标颜色；旧快照里没有 */
+  categoryCode?: string
   categoryLabel: string
   title: string
   subtitle: string

@@ -305,13 +305,12 @@ describe('order center page', () => {
 
 describe('order center narrow H5 layout', () => {
   it('keeps the title, the visit and the amount whole within the padded list and shows every filter', () => {
-    expect(orderCardSource).toContain('.inspection-order-card{box-sizing:border-box;')
-    expect(orderCardSource).toContain('grid-template-columns:96px minmax(0,1fr)')
-    expect(orderCardSource).toContain('.inspection-order-card__aside{display:flex;grid-column:1/-1;')
-    expect(orderCardSource).toContain('.inspection-order-card__title-line>text:first-child{flex:1 1 100%;min-width:0}')
-    expect(orderCardSource).toContain('.inspection-order-card__title-line>text:last-child{flex:0 0 auto;white-space:nowrap}')
-    expect(orderCardSource).toContain('.inspection-order-card__schedule{color:#5f6873;font-size:13px}')
-    expect(orderCardSource).toContain('.inspection-order-card__aside>text:last-child{padding:6px 10px;border:1px solid #ff6508;border-radius:16px;color:#d64d00;font-size:13px;white-space:nowrap}')
+    // 2026-11-20 board OrderList: head row, picture with the title wrapping beside a whole amount,
+    // buttons on their own row at the right.
+    expect(orderCardSource).toContain('.inspection-order-card__title { min-width: 0; flex: 1;')
+    expect(orderCardSource).toContain('.inspection-order-card__amount { flex: none;')
+    expect(orderCardSource).toContain('white-space: nowrap; }')
+    expect(orderCardSource).toContain('.inspection-order-card__actions { display: flex; justify-content: flex-end;')
 
     expect(orderCenterPageSource).not.toContain('scroll-x')
     expect(orderCenterPageSource).toContain('<view class="inspection-orders__filters">')

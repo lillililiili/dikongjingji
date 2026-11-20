@@ -65,7 +65,7 @@ FROM (
 WHERE category.code = dev.code
   AND category.subtitle IS DISTINCT FROM dev.subtitle;
 
--- 服务流程四步，编码和文案与已验收的 M01 画面一致。
+-- 服务流程四步，编码不变；文案 2026-11-20 起照修订版原型 HomeSvc 画板（巡检频道的“服务流程”）。
 DELETE FROM inspection_portal_content
 WHERE content_type = 'PROCESS'
   AND city_code IS NULL
@@ -74,9 +74,9 @@ WHERE content_type = 'PROCESS'
 INSERT INTO inspection_portal_content (
     city_code, content_type, item_code, title, sort_order
 ) VALUES
-    (NULL, 'PROCESS', 'REQUEST', '提交需求', 10),
-    (NULL, 'PROCESS', 'QUOTE', '方案报价', 20),
-    (NULL, 'PROCESS', 'EXECUTE', '现场执行', 30),
+    (NULL, 'PROCESS', 'REQUEST', '预约需求', 10),
+    (NULL, 'PROCESS', 'QUOTE', '确认方案', 20),
+    (NULL, 'PROCESS', 'EXECUTE', '服务履约', 30),
     (NULL, 'PROCESS', 'REPORT', '报告验收', 40)
 ON CONFLICT (COALESCE(city_code, ''), content_type, item_code) DO UPDATE
 SET title = EXCLUDED.title,

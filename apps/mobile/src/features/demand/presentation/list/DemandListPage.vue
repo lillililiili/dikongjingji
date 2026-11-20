@@ -3,6 +3,7 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import {
   loadMoreMerged,
   mergedHasMore,
@@ -42,6 +43,7 @@ import {
   type DemandCardAction,
 } from '../../application/demand-view'
 import { demandApi } from '../../data/demand-api-client'
+import { resolveDemandPreviewCover } from '../../data/preview/demand-preview-covers'
 import { DEMAND_PAGE_SIZE, type Demand } from '../../domain/demand'
 import {
   DEMAND_LIST_FILTERS,
@@ -79,12 +81,24 @@ const emit = defineEmits<{
 }>()
 
 type ListState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error' }
+
+// The DemandList board's underline tabs: which kind of record. 草稿 asks the server for drafts; the
+// other three narrow what the status chip loaded (inquiries have no drafts).
+type KindTab = 'ALL' | 'DEMAND' | 'INQUIRY' | 'DRAFT'
+const KIND_TABS: ReadonlyArray<{ code: KindTab; label: string }> = [
+  { code: 'ALL', label: '全部' },
+  { code: 'DEMAND', label: '需求单' },
+  { code: 'INQUIRY', label: '询价单' },
+  { code: 'DRAFT', label: '草稿' },
+]
+const STATUS_FILTERS = DEMAND_LIST_FILTERS.filter((code) => code !== 'DRAFT')
 type Asking =
   | { action: 'CANCEL' | 'DELETE'; demand: Demand }
   | { action: 'CLOSE_RENTAL'; inquiry: RentalInquiry }
   | { action: 'CLOSE_MALL'; inquiry: MallInquiry }
 
 const filter = ref<DemandListFilter>(props.initialFilter)
+const kindTab = ref<KindTab>(props.initialFilter === 'DRAFT' ? 'DRAFT' : 'ALL')
 const state = ref<ListState>({ kind: 'loading' })
 const sources = ref<MergedSource<DemandListItem>[]>([])
 const loadingMore = ref(false)
@@ -93,10 +107,23 @@ const acting = ref(false)
 let requestVersion = 0
 
 const hasMore = computed(() => mergedHasMore(sources.value))
-const cards = computed(() => mergedItems(sources.value, DEMAND_LIST_KEYS).map((item) => {
+function inKindTab(item: DemandListItem): boolean {
+  if (kindTab.value === 'DEMAND') return item.kind === 'DEMAND' && item.demand.status !== 'DRAFT'
+  if (kindTab.value === 'INQUIRY') return item.kind !== 'DEMAND'
+  return true
+}
+
+const cards = computed(() => mergedItems(sources.value, DEMAND_LIST_KEYS).filter(inKindTab).map((item) => {
   switch (item.kind) {
     case 'DEMAND':
-      return { kind: 'DEMAND' as const, id: item.id, demand: item.demand, view: describeDemandCard(item.demand) }
+      return {
+        kind: 'DEMAND' as const,
+        id: item.id,
+        demand: item.demand,
+        view: describeDemandCard(item.demand),
+        // A draft keeps the document icon (DemandList board); a sent demand shows its scene.
+        cover: item.demand.status === 'DRAFT' ? null : resolveDemandPreviewCover(item.demand.type),
+      }
     case 'RENTAL':
       return {
         kind: 'RENTAL' as const,
@@ -192,6 +219,14 @@ function selectFilter(next: DemandListFilter): void {
   filter.value = next
   state.value = { kind: 'loading' }
   void load()
+}
+
+// A tab starts again from 全部 (as on the board); only 草稿 changes what is read.
+function selectKindTab(next: KindTab): void {
+  if (next === kindTab.value) return
+  kindTab.value = next
+  const nextFilter: DemandListFilter = next === 'DRAFT' ? 'DRAFT' : 'ALL'
+  if (nextFilter !== filter.value) selectFilter(nextFilter)
 }
 
 function act(action: DemandCardAction, demand: Demand): void {
@@ -292,10 +327,24 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
           <text class="demand-list__publish-pill">发布需求</text>
         </button>
       </DemandPageHeader>
-      <scroll-view class="demand-list__filters" scroll-x :show-scrollbar="false">
+      <view class="demand-list__tabs" role="tablist" aria-label="单据类型">
+        <button
+          v-for="item in KIND_TABS"
+          :key="item.code"
+          :class="['demand-list__tab', { 'demand-list__tab--on': kindTab === item.code }]"
+          :data-testid="item.code === 'DRAFT' ? 'demand-filter-draft' : `demand-tab-${item.code.toLowerCase()}`"
+          role="tab"
+          :aria-selected="kindTab === item.code"
+          :aria-pressed="kindTab === item.code"
+          @click="selectKindTab(item.code)"
+        >
+          {{ item.label }}
+        </button>
+      </view>
+      <scroll-view v-if="kindTab !== 'DRAFT'" class="demand-list__filters" scroll-x :show-scrollbar="false">
         <view class="demand-list__filter-row" role="group" aria-label="按状态筛选">
           <button
-            v-for="code in DEMAND_LIST_FILTERS"
+            v-for="code in STATUS_FILTERS"
             :key="code"
             class="demand-list__filter"
             :data-testid="`demand-filter-${code.toLowerCase()}`"
@@ -323,7 +372,7 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
 
     <view v-else-if="cards.length === 0" class="demand-list__state" data-testid="demand-list-empty">
       <view class="demand-list__empty-icon">
-        <UniIcons type="compose" size="28" color="#91a0b4" />
+        <LineIcon name="doc" :size="28" color="#91a0b4" :stroke-width="1.6" />
       </view>
       <text class="demand-list__state-text">{{ emptyText }}</text>
       <button class="demand-list__state-button" data-testid="demand-list-empty-publish" @click="emit('publish')">
@@ -357,8 +406,9 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
               </text>
             </view>
             <view class="demand-list__content">
-              <view class="demand-list__image">
-                <UniIcons type="compose" size="26" color="#91a0b4" />
+              <image v-if="card.cover" class="demand-list__image" :src="card.cover" mode="aspectFill" />
+              <view v-else class="demand-list__image">
+                <LineIcon name="doc" :size="26" color="#91a0b4" :stroke-width="1.6" />
               </view>
               <view class="demand-list__copy">
                 <text class="demand-list__title">{{ card.view.title }}</text>
@@ -567,6 +617,31 @@ button::after {
   box-sizing: border-box;
 }
 
+.demand-list__tabs {
+  display: flex;
+  padding: 0 16px;
+  gap: 22px;
+  border-bottom: 1px solid #f0f1f3;
+  background: #ffffff;
+}
+
+.demand-list__tab {
+  min-height: 44px;
+  padding: 10px 0 7px;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: #627187;
+  font-size: 15px;
+  line-height: 21px;
+  white-space: nowrap;
+}
+
+.demand-list__tab--on {
+  border-bottom-color: #ff6a00;
+  color: #202c42;
+  font-weight: 700;
+}
+
 .demand-list__filters {
   width: 100%;
   background: #f5f7fc;
@@ -616,6 +691,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .demand-list__main {
@@ -688,6 +764,7 @@ button::after {
   flex: none;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   border-radius: 10px;
   background: #eef2f8;
 }
@@ -748,6 +825,7 @@ button::after {
   border-color: #ff6a00;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-weight: 500;
 }
 

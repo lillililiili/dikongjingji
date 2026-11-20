@@ -298,7 +298,8 @@ describe('real inspection catalog adapter', () => {
 
     expect(content.services.map((service) => service.category)).toEqual(codes)
     expect(content.services.every((service) => service.imageUrl.length > 0)).toBe(true)
-    expect(content.services[2].imageUrl).toBe('/static/images/inspection/category-oil-gas.webp')
+    // 2026-11-20: the board InspCatalog photo of an oil and gas line, not the scene drawing.
+    expect(content.services[2].imageUrl).toBe('/static/images/inspection/service-oil-gas.webp')
   })
 
   it('reports a city without inspection services as closed instead of failing', async () => {

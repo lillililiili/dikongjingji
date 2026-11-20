@@ -2,6 +2,7 @@ import type {
   DetailCapability,
   InspectionServiceDetail,
 } from '../../domain/inspection-service-detail'
+import { inspectionDetailHeroImage } from '../inspection-service-images'
 
 export interface InspectionServiceDetailHttpClient {
   request<T>(input: { url: string; method: 'GET' }): Promise<T>
@@ -120,9 +121,11 @@ function mapDetailItems(
 }
 
 function mapDetail(dto: InspectionServiceDetailDto): InspectionServiceDetail {
-  const fallbackHero = '/static/images/inspection/service-power-line.webp'
+  // Without a server cover the head shows the category's picture (炼化厂 for 油气, 光伏板 for 光伏…).
+  const fallbackHero = inspectionDetailHeroImage(dto.category.code)
   return {
     serviceId: dto.serviceId,
+    categoryCode: dto.category.code,
     categoryLabel: dto.category.name,
     title: dto.name,
     subtitle: dto.summary,

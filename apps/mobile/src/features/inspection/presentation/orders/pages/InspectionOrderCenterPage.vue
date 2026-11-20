@@ -42,7 +42,7 @@ import {
   onReachBottom,
   onShow,
 } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import { reactive, ref } from 'vue'
 import {
   getPreviousInspectionPageRoute,
@@ -54,6 +54,7 @@ import type {
   InspectionOrderPage,
   InspectionOrderSummary,
 } from '../../../domain/service-flow/order-center'
+import { buildInspectionFulfillmentUrl } from '../../../navigation/inspection-routes'
 import InspectionOrderCard from '../components/InspectionOrderCard.vue'
 import {
   createInspectionOrderCenterController,
@@ -119,6 +120,11 @@ function openOrder(order: InspectionOrderSummary): void {
   void controller.openOrder(order)
 }
 
+// The card's grey 查看履约 next to 去验收: the visits of the service order, by its stable id only.
+function openFulfillment(order: InspectionOrderSummary): void {
+  if (order.serviceOrderId) uni.navigateTo({ url: buildInspectionFulfillmentUrl(order.serviceOrderId) })
+}
+
 function returnMine(): void {
   void controller.returnMine()
 }
@@ -140,13 +146,7 @@ onBackPress((event) => {
 
 <template>
   <view class="inspection-orders">
-    <view class="inspection-orders__header">
-      <button aria-label="返回我的" @click="returnMine">
-        <UniIcons type="left" size="22" color="#202c42" />
-      </button>
-      <text>我的订单</text>
-      <view aria-hidden="true" />
-    </view>
+    <AppPageHeader class="inspection-orders__header" title="我的订单" centered test-id="inspection-orders" @back="returnMine" />
     <view class="inspection-orders__filters">
       <button
         v-for="item in INSPECTION_ORDER_FILTER_ITEMS"
@@ -179,6 +179,7 @@ onBackPress((event) => {
         :key="order.reservationId"
         :order="order"
         @select="openOrder"
+        @fulfillment="openFulfillment"
       />
       <text v-if="state.isLoadingMore" class="inspection-orders__more">正在加载更多…</text>
       <text v-else-if="!state.hasMore" class="inspection-orders__more">没有更多订单</text>
@@ -188,10 +189,7 @@ onBackPress((event) => {
 
 <style scoped>
 .inspection-orders{min-height:100vh;color:#17191d;background:#f7f8fa}
-.inspection-orders__header{display:grid;height:calc(var(--status-bar-height) + 56px);grid-template-columns:48px 1fr 48px;align-items:end;padding:0 12px 12px}
-.inspection-orders__header>button{width:48px;height:44px;margin:0;padding:0;border:0;background:transparent}
-.inspection-orders__header>button::after,.inspection-orders__filters button::after,.inspection-orders__state button::after{border:0}
-.inspection-orders__header>text{font-size:20px;font-weight:700;text-align:center}
+.inspection-orders__filters button::after,.inspection-orders__state button::after{border:0}
 .inspection-orders__filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;padding:10px 16px;box-sizing:border-box;background:#fff}
 .inspection-orders__filters button{display:inline-flex;width:100%;min-height:44px;align-items:center;justify-content:center;margin:0;padding:0 6px;border-radius:22px;background:#f2f4f7;font-size:15px;white-space:nowrap}
 .inspection-orders__filter-count{margin-left:4px;font-size:12px}
@@ -204,8 +202,6 @@ onBackPress((event) => {
    The board lists every kind of order; this page lists inspection orders only, so it keeps
    its own stage filters and takes the board's header, pills and card look. */
 .inspection-orders{color:#202c42;background:#f5f7fc}
-.inspection-orders__header{height:calc(var(--status-bar-height) + 60px);padding:0 8px 8px;background:linear-gradient(125deg,#fff9f3,#f3f7ff 65%,#edf9f4)}
-.inspection-orders__header>text{font-size:18px;line-height:44px}
 .inspection-orders__filters{display:flex;padding:0 16px 6px;gap:8px;overflow-x:auto;background:linear-gradient(125deg,#fff9f3,#f3f7ff 65%,#edf9f4);scrollbar-width:none}
 .inspection-orders__filters::-webkit-scrollbar{display:none}
 /* A 32-high pill inside a 44-high tap target. */

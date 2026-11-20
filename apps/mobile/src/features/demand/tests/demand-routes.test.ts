@@ -39,6 +39,7 @@ describe('demand routes', () => {
     expect(buildDemandPublishUrl({ from: 'd1', providerId: 'p1' })).toBe('/pages/demand/publish?from=d1')
     expect(buildDemandQuotesUrl('d1')).toBe('/pages/demand/quotes?demandId=d1')
     expect(buildDemandCompareUrl('d1')).toBe('/pages/demand/compare?demandId=d1')
+    expect(buildDemandCompareUrl('d1', 'q1')).toBe('/pages/demand/compare?demandId=d1&quoteId=q1')
     expect(buildMyDemandsUrl()).toBe('/pages/mine/demands')
     expect(buildMyDemandsUrl('DRAFT')).toBe('/pages/mine/demands?status=DRAFT')
   })

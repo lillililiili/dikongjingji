@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import type { BookingServiceSnapshot } from '../../../domain/service-flow/booking'
+import { computed } from 'vue'
 
-defineProps<{ service: BookingServiceSnapshot }>()
+import { inspectionServiceImage } from '../../../data/inspection-service-images'
+import type { BookingServiceSnapshot } from '../../../domain/service-flow/booking'
+import { categoryBadgeLabel } from '../../detail/detail-line-icons'
+
+const props = defineProps<{ service: BookingServiceSnapshot }>()
+const picture = computed(() => inspectionServiceImage({
+  coverUrl: props.service.coverImageUrl,
+  categoryCode: props.service.categoryCode,
+  categoryName: props.service.categoryName,
+  title: props.service.title,
+}))
 </script>
 
 <template>
   <view class="booking-service-card">
     <image
       class="booking-service-card__image"
-      :src="service.coverImageUrl || '/static/images/inspection/inspection-hero-v1.png'"
+      :src="picture"
       mode="aspectFill"
     />
     <view class="booking-service-card__copy">
-      <text class="booking-service-card__category">{{ service.categoryName }}</text>
+      <text class="booking-service-card__category">{{ categoryBadgeLabel(service.categoryName) }}</text>
       <text class="booking-service-card__title">{{ service.title }}</text>
       <text class="booking-service-card__summary">{{ service.summary }}</text>
       <text v-if="service.priceLabel" class="booking-service-card__price">{{ service.priceLabel }}</text>

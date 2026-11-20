@@ -32,10 +32,12 @@ const price = computed(() => formatProServicePrice(props.service.price))
         :cover-url="service.coverUrl"
         :title="service.title"
       />
-      <text v-if="service.sample" class="pro-card__sample" data-testid="pro-service-sample">示例</text>
     </view>
     <view class="pro-card__body">
-      <text class="pro-card__title">{{ service.title }}</text>
+      <view class="pro-card__title-line">
+        <text class="pro-card__title">{{ service.title }}</text>
+        <text v-if="service.sample" class="pro-card__sample" data-testid="pro-service-sample">示例</text>
+      </view>
       <text class="pro-card__summary">{{ service.summary }}</text>
       <view v-if="service.tags.length" class="pro-card__tags">
         <text v-for="tag in service.tags" :key="tag" class="pro-card__tag">{{ tag }}</text>
@@ -67,6 +69,7 @@ const price = computed(() => formatProServicePrice(props.service.price))
   overflow: hidden;
   color: #202c42;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
   font-family: inherit;
   line-height: 1.2;
   text-align: left;
@@ -83,14 +86,17 @@ const price = computed(() => formatProServicePrice(props.service.price))
   flex: 0 0 118px;
 }
 
+.pro-card__title-line {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+}
+
+/* 示例 stays, as quiet grey words (user decision R5-14, 2026-11-20). */
 .pro-card__sample {
-  position: absolute;
-  bottom: 6px;
-  left: 6px;
-  padding: 0 5px;
-  border-radius: 6px;
-  color: #ffffff;
-  background: rgba(32, 44, 66, 0.55);
+  flex: none;
+  color: #738096;
   font-size: 11px;
   line-height: 16px;
   white-space: nowrap;
@@ -105,6 +111,7 @@ const price = computed(() => formatProServicePrice(props.service.price))
 }
 
 .pro-card__title {
+  min-width: 0;
   overflow: hidden;
   font-size: 16px;
   font-weight: 700;
@@ -202,6 +209,7 @@ const price = computed(() => formatProServicePrice(props.service.price))
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 13px;
   font-weight: 500;
   line-height: 18px;

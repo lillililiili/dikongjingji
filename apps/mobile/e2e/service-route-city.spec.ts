@@ -39,7 +39,7 @@ async function openBooking(page: Page, cityCode: string): Promise<void> {
 }
 
 async function backFromDetail(page: Page): Promise<void> {
-  await page.locator('.service-detail-header__action').first().click()
+  await page.getByTestId('inspection-detail-back').click()
   await expect(page.getByTestId('inspection-catalog')).toBeVisible()
 }
 

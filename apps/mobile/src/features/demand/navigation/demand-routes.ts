@@ -51,8 +51,10 @@ export function buildDemandQuotesUrl(demandId: string): string {
   return `${DEMAND_QUOTES_PATH}?demandId=${encodeURIComponent(demandId)}`
 }
 
-export function buildDemandCompareUrl(demandId: string): string {
-  return `${DEMAND_COMPARE_PATH}?demandId=${encodeURIComponent(demandId)}`
+// With a quote, the compare page opens on that provider's tab (查看方案 vN on the quotes page).
+export function buildDemandCompareUrl(demandId: string, quoteId?: string): string {
+  const base = `${DEMAND_COMPARE_PATH}?demandId=${encodeURIComponent(demandId)}`
+  return quoteId ? `${base}&quoteId=${encodeURIComponent(quoteId)}` : base
 }
 
 export function buildMyDemandsUrl(filter: DemandListFilter = 'ALL'): string {

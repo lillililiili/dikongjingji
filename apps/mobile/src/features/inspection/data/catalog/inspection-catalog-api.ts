@@ -5,9 +5,7 @@ import type {
   InspectionPortalHero,
   InspectionPortalHotService,
 } from '../../domain/inspection-portal-content'
-import cableImageUrl from '../../presentation/catalog/assets/service-cable.png'
-import distributionImageUrl from '../../presentation/catalog/assets/service-distribution.png'
-import substationImageUrl from '../../presentation/catalog/assets/service-substation.png'
+import { inspectionServiceImage } from '../inspection-service-images'
 import {
   priceModesForFilter,
   type CatalogFilterOptions,
@@ -94,7 +92,6 @@ interface FilterOptionsDto {
 
 const CITY_NOT_ENABLED_CODE = 'INS_CATALOG_CITY_NOT_ENABLED'
 const DEFAULT_HERO_IMAGE = '/static/images/inspection/inspection-hero-v1.png'
-const DEFAULT_SERVICE_IMAGE = '/static/images/inspection/service-power-line.webp'
 
 /** Shown where the city has no inspection service yet, so the entry page keeps its headline. */
 const CLOSED_CITY_HERO: InspectionPortalHero = {
@@ -120,24 +117,12 @@ const PORTAL_CATEGORY_IMAGES: Record<Exclude<InspectionCategoryCode, 'MORE'>, st
   PERIODIC: '/static/images/inspection/category-periodic.webp',
 }
 
-const CATALOG_IMAGE_BY_API: Record<string, string> = {
-  POWER: '/static/images/inspection/service-power-line.webp',
-  SUBSTATION: substationImageUrl,
-  DISTRIBUTION: distributionImageUrl,
-  CABLE: cableImageUrl,
-  PHOTOVOLTAIC: '/static/images/inspection/service-photovoltaic.webp',
-}
-
 type BusinessPortalCategory = InspectionPortalCategory & {
   code: Exclude<InspectionCategoryCode, 'MORE'>
 }
 
 function serviceImage(service: CatalogServiceDto): string {
-  const code = service.category.code
-  return service.coverImage?.url
-    ?? CATALOG_IMAGE_BY_API[code]
-    ?? PORTAL_CATEGORY_IMAGES[code as Exclude<InspectionCategoryCode, 'MORE'>]
-    ?? DEFAULT_SERVICE_IMAGE
+  return inspectionServiceImage({ coverUrl: service.coverImage?.url, categoryCode: service.category.code })
 }
 
 function toCatalogService(service: CatalogServiceDto): InspectionCatalogService {

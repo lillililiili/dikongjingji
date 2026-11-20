@@ -208,7 +208,7 @@ test.describe('需求发布与报价比选', () => {
     await expect(page.getByTestId('demand-publish')).toBeVisible()
     await expect(page.getByTestId('demand-type-value')).toHaveText('巡检')
     await expect(page.getByTestId('demand-deliverable-inspection_report')).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByTestId('demand-publisher')).toHaveText('企业 · 东营示例物流公司')
+    await expect(page.getByTestId('demand-publisher')).toHaveText('以 东营示例物流公司 身份提交')
     await page.getByTestId('demand-back').click()
 
     await page.getByTestId('service-type-aerial').click()
@@ -257,7 +257,7 @@ test.describe('需求发布与报价比选', () => {
     await expect(card(page, draft.demandId).getByTestId('demand-card-meta')).toHaveText('巡检 · 还差作业范围')
 
     await page.getByTestId(`demand-card-edit-${draft.demandId}`).click()
-    await expect(page.locator('.demand-header__title')).toHaveText('继续填写需求')
+    await expect(page.getByTestId('demand-head').locator('.app-head__title')).toHaveText('继续填写需求')
     await expect(page.getByTestId('demand-address').locator('input')).toHaveValue('东营经济技术开发区')
     await expect(page.getByTestId('demand-budget-value')).toHaveText('1 万–2 万元')
 
@@ -388,7 +388,7 @@ test.describe('需求发布与报价比选', () => {
     const first = await providerQuotes(request, provider, demand.demandId, 18_600)
     await signIn(page, buyer)
     await page.goto(`/#/pages/demand/quotes?demandId=${demand.demandId}`)
-    await expect(page.getByTestId(`demand-quote-detail-${first.quoteId}`)).toHaveText('查看明细 v1')
+    await expect(page.getByTestId(`demand-quote-detail-${first.quoteId}`)).toHaveText('查看方案 v1')
 
     // The provider revises while the page is open: the choice of v1 is refused.
     const revised = await providerQuotes(request, provider, demand.demandId, 16_800)
@@ -398,7 +398,7 @@ test.describe('需求发布与报价比选', () => {
     await page.getByTestId('demand-confirm-go').click()
     expect([409, 412]).toContain((await refused).status())
     await expect(page.getByTestId('demand-quotes-notice')).toContainText('已刷新')
-    await expect(page.getByTestId(`demand-quote-detail-${first.quoteId}`)).toHaveText('查看明细 v2')
+    await expect(page.getByTestId(`demand-quote-detail-${first.quoteId}`)).toHaveText('查看方案 v2')
     await expect(page.getByTestId(`demand-quote-${first.quoteId}`).getByTestId('demand-quote-price')).toHaveText('¥16,800')
     expect((await readDemand(request, buyer, demand.demandId)).status).toBe('QUOTED')
 
@@ -467,9 +467,11 @@ test.describe('需求发布与报价比选', () => {
     await expect(page.getByTestId('demand-list-empty')).toContainText('还没有草稿')
     expect((await listDemands(request, buyer)).map((item) => item.demandId)).toEqual([open.demandId])
 
+    // The status chips sit under 全部 / 需求单 / 询价单, not under 草稿 (DemandList board).
+    await page.getByTestId('demand-tab-demand').click()
     await page.getByTestId('demand-filter-closed').click()
     await page.getByTestId(`demand-card-republish-${open.demandId}`).click()
-    await expect(page.locator('.demand-header__title')).toHaveText('发布服务需求')
+    await expect(page.getByTestId('demand-head').locator('.app-head__title')).toHaveText('发布服务需求')
     await expect(page.getByTestId('demand-address').locator('input')).toHaveValue('取消用的地点')
     await expect(page.getByTestId('demand-type-value')).toHaveText('巡检')
   })
@@ -478,7 +480,7 @@ test.describe('需求发布与报价比选', () => {
     const demand = await createDemand(request, buyer, { ...COMPLETE, note: '园区内有两处高压线，需要避开' }, true)
     await signIn(page, buyer)
     await page.goto(`/#/pages/demand/publish?demandId=${demand.demandId}`)
-    await expect(page.locator('.demand-header__title')).toHaveText('需求详情')
+    await expect(page.getByTestId('demand-head').locator('.app-head__title')).toHaveText('需求详情')
     await expect(page.getByTestId('demand-view-status')).toHaveText('待报价')
     await expect(page.getByTestId('demand-publish')).toContainText('园区内有两处高压线')
     await expect(page.getByTestId('demand-submit')).toHaveCount(0)

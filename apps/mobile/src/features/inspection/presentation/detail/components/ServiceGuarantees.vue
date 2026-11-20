@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import type { DetailCapability } from '../../../domain/inspection-service-detail'
+import { guaranteeIcon } from '../detail-line-icons'
 
 defineProps<{
   items: readonly DetailCapability[]
@@ -9,7 +9,8 @@ defineProps<{
 </script>
 
 <template>
-  <section class="service-guarantees">
+  <!-- Board InspDetail 服务保障: three pale-green pills, each with a shield icon. -->
+  <section class="service-guarantees" data-testid="detail-guarantees">
     <text class="service-guarantees__title">服务保障</text>
     <view class="service-guarantees__row">
       <view
@@ -17,8 +18,8 @@ defineProps<{
         :key="item.code"
         class="service-guarantees__item"
       >
-        <UniIcons :type="item.icon" size="16" color="#11804a" />
-        <text>{{ item.label }}</text>
+        <LineIcon :d="guaranteeIcon(item.label)" :size="18" color="#159a70" :stroke-width="2" />
+        <text class="service-guarantees__label">{{ item.label }}</text>
       </view>
     </view>
   </section>
@@ -34,9 +35,7 @@ defineProps<{
   gap: 10px;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .service-guarantees__title {
@@ -47,17 +46,28 @@ defineProps<{
 }
 
 .service-guarantees__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .service-guarantees__item {
   display: flex;
+  min-width: 0;
+  height: 36px;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  color: #536178;
+  border-radius: 10px;
+  background: #eefaf3;
+}
+
+.service-guarantees__label {
+  overflow: hidden;
+  color: #11804a;
   font-size: 13px;
   line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

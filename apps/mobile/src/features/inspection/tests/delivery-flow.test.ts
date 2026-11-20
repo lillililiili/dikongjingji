@@ -66,7 +66,8 @@ describe('F07 delivery API and route', () => {
 
 describe('F07 delivery page contract', () => {
   it('keeps the page back action below the Android status bar', () => {
-    expect(deliveryPageSource).toContain('padding: calc(8px + var(--status-bar-height)) 8px 8px')
+    // The shared AppPageHeader carries the status-bar inset (2026-11-20).
+    expect(deliveryPageSource).toContain('<AppPageHeader class="delivery__header"')
     expect(deliveryPageSource).not.toContain('env(safe-area-inset-top)')
   })
 

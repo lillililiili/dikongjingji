@@ -268,7 +268,7 @@ test.describe('M04 不可用时的恢复', () => {
     await page.goto(bookingUrl(`?serviceId=${SERVICE_ID}&cityCode=370200`))
     await expect(failureView(page)).not.toContainText('正在加载服务信息…')
 
-    await page.locator('.inspection-booking__back').click()
+    await page.getByTestId('inspection-booking-back').click()
 
     await expect(page.getByTestId('inspection-catalog')).toBeVisible()
   })

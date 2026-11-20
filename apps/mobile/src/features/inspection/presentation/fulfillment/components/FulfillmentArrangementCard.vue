@@ -38,9 +38,7 @@ const emit = defineEmits<{ contactLead: [] }>()
   border-radius: 14px;
   background: #fff;
   /* The card shadow and hairline of the 2026-11-14 prototype's light theme. */
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .fulfillment-arrangement__title {

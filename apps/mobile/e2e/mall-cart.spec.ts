@@ -126,6 +126,7 @@ test.describe('购物车与确认订单', () => {
     await page.getByTestId('cart-login').click()
     await page.locator('.inspection-login__input input').nth(0).fill('dev-customer')
     await page.locator('.inspection-login__input input').nth(1).fill(devPassword())
+    await page.getByTestId('login-agreement').click()
     await page.locator('.inspection-login__submit').click()
 
     await expect(page.getByTestId('cart-empty')).toBeVisible()

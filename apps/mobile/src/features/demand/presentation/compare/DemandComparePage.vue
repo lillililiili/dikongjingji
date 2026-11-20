@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
+import { openSupportChat } from '@/features/support/application/support-entry'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   buildDemandCompareRows,
   describeDemandPublisher,
+  describeDemandQuote,
+  formatDemandInstant,
   formatDemandAmount,
   resolveDemandFollowUp,
 } from '../../application/demand-view'
@@ -19,6 +22,8 @@ import { useDemandChoice } from '../shared/use-demand-choice'
 
 const props = defineProps<{
   demandId: string | null
+  // The provider tab to open first (查看方案 vN on the quotes page); null opens 对比明细.
+  initialQuoteId?: string | null
   // Null for a guest. The page host reads it again every time the page is shown.
   accessToken: string | null
   refreshKey: number
@@ -28,6 +33,7 @@ const emit = defineEmits<{
   back: []
   login: []
   republish: [demandId: string]
+  openProvider: [providerId: string, cityCode: string]
 }>()
 
 type PageState =
@@ -51,6 +57,38 @@ const picked = computed(() => choosable.value.find((quote) => quote.quoteId === 
 const tableWidth = computed(() => `${64 + Math.max(quotes.value.length, 1) * 104}px`)
 const columns = computed(() => `64px repeat(${Math.max(quotes.value.length, 1)}, minmax(0, 1fr))`)
 const followUp = resolveDemandFollowUp()
+
+// The PlanCompare board's tabs: 对比明细, then one tab per provider showing that quote alone.
+const tab = ref<string>(props.initialQuoteId ?? 'compare')
+const tabQuote = computed(() => quotes.value.find((quote) => quote.quoteId === tab.value) ?? null)
+const tabView = computed(() => (tabQuote.value ? describeDemandQuote(tabQuote.value) : null))
+// What the main button would choose: the picked column, or the quote of the open provider tab.
+const target = computed(() => {
+  if (tab.value === 'compare') return picked.value
+  return tabQuote.value?.choosable ? tabQuote.value : null
+})
+// 沟通 goes to the provider in view: the open tab's, else the picked column's, else the first.
+const talkTo = computed(() => tabQuote.value ?? picked.value ?? quotes.value[0] ?? null)
+
+function selectTab(next: string): void {
+  tab.value = next
+}
+
+// 查看方案 on the comparison opens the picked provider's tab (as on the board).
+function viewPlan(): void {
+  const quote = picked.value ?? quotes.value[0]
+  if (quote) tab.value = quote.quoteId
+}
+
+function talk(): void {
+  const quote = talkTo.value
+  if (quote) openSupportChat({ kind: 'PROVIDER', organizationId: quote.provider.providerId })
+}
+
+function openProvider(quote: DemandQuote): void {
+  const cityCode = demand.value?.cityCode
+  if (cityCode) emit('openProvider', quote.provider.providerId, cityCode)
+}
 
 function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiRequestError && (error.status === 401 || error.code === 'COMMON_UNAUTHORIZED')
@@ -80,6 +118,7 @@ async function load(): Promise<void> {
     if (!list.items.some((quote) => quote.choosable && quote.quoteId === pickedId.value)) {
       pickedId.value = list.items.find((quote) => quote.choosable)?.quoteId ?? null
     }
+    if (tab.value !== 'compare' && !list.items.some((quote) => quote.quoteId === tab.value)) tab.value = 'compare'
   } catch (error) {
     if (requested !== requestVersion) return
     if (isUnauthorized(error)) {
@@ -115,7 +154,34 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
         title="方案对比"
         :badge="demand ? describeDemandPublisher(demand.publisher) : null"
         @back="emit('back')"
-      />
+      >
+        <template v-if="quotes.length" #bottom>
+          <scroll-view class="demand-compare__tabs-scroll" scroll-x :show-scrollbar="false">
+            <view class="demand-compare__tabs" role="tablist" aria-label="方案">
+              <button
+                :class="['demand-compare__tab', { 'demand-compare__tab--on': tab === 'compare' }]"
+                data-testid="demand-compare-tab-compare"
+                role="tab"
+                :aria-selected="tab === 'compare'"
+                @click="selectTab('compare')"
+              >
+                对比明细
+              </button>
+              <button
+                v-for="quote in quotes"
+                :key="quote.quoteId"
+                :class="['demand-compare__tab', { 'demand-compare__tab--on': tab === quote.quoteId }]"
+                :data-testid="`demand-compare-tab-${quote.quoteId}`"
+                role="tab"
+                :aria-selected="tab === quote.quoteId"
+                @click="selectTab(quote.quoteId)"
+              >
+                {{ quote.provider.name }}
+              </button>
+            </view>
+          </scroll-view>
+        </template>
+      </DemandPageHeader>
     </view>
 
     <view v-if="state.kind === 'loading'" class="demand-compare__body" aria-label="正在加载">
@@ -128,7 +194,49 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
     </view>
 
     <template v-else-if="demand">
-      <view class="demand-compare__body">
+      <view v-if="tabQuote && tabView" class="demand-compare__body" :data-testid="`demand-compare-plan-${tabQuote.quoteId}`">
+        <view class="demand-compare__plan">
+          <view class="demand-compare__plan-head">
+            <text class="demand-compare__plan-name">{{ tabQuote.provider.name }}</text>
+            <text v-if="tabQuote.provider.certificationLabel" class="demand-compare__plan-cert">
+              {{ tabQuote.provider.certificationLabel }}
+            </text>
+            <button
+              v-if="demand.cityCode"
+              class="demand-compare__plan-link"
+              data-testid="demand-compare-provider"
+              @click="openProvider(tabQuote)"
+            >
+              <text>服务商主页</text>
+              <LineIcon name="forward" :size="12" color="#91a0b4" :stroke-width="2.4" />
+            </button>
+          </view>
+          <view class="demand-compare__plan-line">
+            <view class="demand-compare__plan-meta">
+              <text class="demand-compare__plan-version">
+                方案 v{{ tabQuote.version }} · {{ formatDemandInstant(tabQuote.revisedAt) }} {{ tabQuote.version > 1 ? '更新' : '报价' }}
+              </text>
+              <text v-if="tabQuote.validUntil" class="demand-compare__plan-valid">
+                报价有效期至 {{ formatDemandInstant(tabQuote.validUntil) }}
+              </text>
+            </view>
+            <text class="demand-compare__plan-price">{{ tabView.price }}</text>
+          </view>
+          <text v-if="tabView.statusTag" class="demand-compare__plan-tag">{{ tabView.statusTag }}</text>
+        </view>
+        <view class="demand-compare__plan">
+          <text class="demand-compare__plan-title">方案内容</text>
+          <view class="demand-compare__plan-rows">
+            <template v-for="row in tabView.rows" :key="row.label">
+              <text class="demand-compare__plan-key">{{ row.label }}</text>
+              <text class="demand-compare__plan-value">{{ row.value }}</text>
+            </template>
+          </view>
+          <text class="demand-compare__plan-foot">本平台不承担飞行审批与空中调度。</text>
+        </view>
+      </view>
+
+      <view v-else class="demand-compare__body">
         <DemandSummaryCard :demand="demand" :quote-count="quotes.length" />
 
         <view v-if="quotes.length === 0" class="demand-compare__empty" data-testid="demand-compare-empty">
@@ -157,7 +265,7 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
                   v-if="quote.quoteId === pickedId || quote.status === 'CHOSEN'"
                   class="demand-compare__radio demand-compare__radio--on"
                 >
-                  <UniIcons type="checkmarkempty" size="12" color="#ffffff" />
+                  <LineIcon name="check" :size="12" color="#ffffff" :stroke-width="3" />
                 </view>
                 <view v-else-if="quote.choosable" class="demand-compare__radio" />
                 <text class="demand-compare__head-name">{{ quote.provider.name }}</text>
@@ -199,7 +307,7 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
       </view>
 
       <view v-if="demand.status === 'CHOSEN'" class="demand-compare__bar demand-compare__bar--gate" data-testid="demand-follow-up">
-        <UniIcons type="info" size="14" color="#ba470b" />
+        <LineIcon name="info" :size="14" color="#ba470b" :stroke-width="2" />
         <view class="demand-compare__gate-copy">
           <text class="demand-compare__gate-title">
             已选定 {{ demand.chosen?.providerName }} · {{ followUp.title }}
@@ -207,13 +315,26 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
           <text class="demand-compare__gate-text">{{ followUp.text }}</text>
         </view>
       </view>
-      <view v-else-if="picked" class="demand-compare__bar">
+      <view v-else-if="quotes.length" class="demand-compare__bar">
+        <button class="demand-compare__talk" data-testid="demand-compare-talk" @click="talk">
+          <LineIcon name="chat" :size="22" color="#536178" />
+          <text>沟通</text>
+        </button>
         <button
+          v-if="tab === 'compare'"
+          class="demand-compare__view-plan"
+          data-testid="demand-compare-view-plan"
+          @click="viewPlan"
+        >
+          查看方案
+        </button>
+        <button
+          v-if="target"
           class="demand-compare__choose"
           data-testid="demand-compare-choose"
-          @click="choice.ask(picked)"
+          @click="choice.ask(target)"
         >
-          确认选择 {{ picked.provider.name }}
+          确认选择 {{ target.provider.name }}
         </button>
       </view>
     </template>
@@ -221,7 +342,7 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
     <view v-if="notice" class="demand-compare__toast" role="status" data-testid="demand-compare-notice">
       <text class="demand-compare__toast-text">{{ notice }}</text>
       <button class="demand-compare__toast-close" aria-label="关闭提示" @click="notice = null">
-        <UniIcons type="closeempty" size="14" color="#738096" />
+        <LineIcon name="close" :size="14" color="#738096" :stroke-width="2" />
       </button>
     </view>
 
@@ -277,10 +398,171 @@ button::after {
   padding: 12px 16px 24px;
 }
 
+.demand-compare__tabs-scroll {
+  width: 100%;
+  border-bottom: 1px solid #f0f1f3;
+  background: #ffffff;
+  white-space: nowrap;
+}
+
+.demand-compare__tabs {
+  display: flex;
+  min-width: 100%;
+  padding: 0 16px;
+  justify-content: space-between;
+  gap: 18px;
+  box-sizing: border-box;
+}
+
+.demand-compare__tab {
+  min-height: 44px;
+  flex: none;
+  padding: 10px 0 7px;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: #627187;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.demand-compare__tab--on {
+  border-bottom-color: #ff6a00;
+  color: #202c42;
+  font-weight: 700;
+}
+
+.demand-compare__plan {
+  display: flex;
+  padding: 14px;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: var(--app-card-shadow);
+}
+
+.demand-compare__plan-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.demand-compare__plan-name {
+  overflow: hidden;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demand-compare__plan-cert {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: #11804a;
+  background: #e2f6ed;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.demand-compare__plan-link {
+  display: flex;
+  height: 44px;
+  flex: none;
+  margin: -10px 0 -10px auto;
+  padding-left: 4px;
+  align-items: center;
+  gap: 2px;
+  color: #627187;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.demand-compare__plan-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.demand-compare__plan-meta {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.demand-compare__plan-version {
+  color: #536178;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.demand-compare__plan-valid {
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.demand-compare__plan-price {
+  flex: none;
+  color: #e85400;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 30px;
+  white-space: nowrap;
+}
+
+.demand-compare__plan-tag {
+  color: #11804a;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.demand-compare__plan-title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.demand-compare__plan-rows {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 6px 8px;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.demand-compare__plan-key {
+  color: #627187;
+  white-space: nowrap;
+}
+
+.demand-compare__plan-value {
+  min-width: 0;
+  color: #202c42;
+  word-break: break-all;
+}
+
+.demand-compare__plan-foot {
+  padding-top: 10px;
+  border-top: 1px solid #f0f1f3;
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
 .demand-compare__scroll {
   width: 100%;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .demand-compare__table {
@@ -403,6 +685,7 @@ button::after {
   gap: 10px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .demand-compare__other-copy {
@@ -449,6 +732,7 @@ button::after {
   gap: 10px;
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .demand-compare__bar--gate {
@@ -477,14 +761,45 @@ button::after {
   line-height: 17px;
 }
 
+.demand-compare__talk {
+  display: flex;
+  width: 44px;
+  height: 46px;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: #536178;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.demand-compare__view-plan {
+  height: 46px;
+  flex: none;
+  padding: 0 18px;
+  border: 1px solid #c9d3e1;
+  border-radius: 999px;
+  color: #202c42;
+  background: #ffffff;
+  font-size: 15px;
+  line-height: 44px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
 .demand-compare__choose {
   overflow: hidden;
+  min-width: 0;
   height: 46px;
   flex: 1;
   padding: 0 16px;
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;

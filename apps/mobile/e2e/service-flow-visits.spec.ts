@@ -26,14 +26,22 @@ test.describe('M05 plan confirmation', () => {
     await expect(page.locator('.plan-payment')).toHaveCount(0)
   })
 
+  // 2026-11-20 (R5): the button stays orange; without the tick it says what is missing.
   test('only allows confirming after the customer has checked the plan', async ({ page }) => {
-    await answerApi(page, planAnswers(plan()))
+    let confirmCalls = 0
+    await answerApi(page, (path, method) => {
+      if (path.endsWith('/confirm') && method === 'POST') confirmCalls += 1
+      return planAnswers(plan())(path)
+    })
     await page.goto(`/#/pages/service/inspection/plan-confirmation?planId=${PLAN_ID}`)
 
     const confirm = page.locator('uni-button.plan-confirmation__confirm')
-    await expect(confirm).toHaveAttribute('disabled', /.*/)
-    await page.locator('uni-button.plan-confirmation__agreement').click()
     await expect(confirm).not.toHaveAttribute('disabled', /.*/)
+    await confirm.click()
+    await expect(page.getByText('请先核对服务范围、报价与交付约定')).toBeVisible()
+    expect(confirmCalls).toBe(0)
+    await page.locator('uni-button.plan-confirmation__agreement').click()
+    await expect(page.locator('.plan-confirmation__check--on')).toHaveCount(1)
   })
 
   test('offers an update instead of confirming once the quote has expired', async ({ page }) => {
@@ -80,7 +88,7 @@ test.describe('M05 plan confirmation', () => {
 
     await expect(page.locator('.plan-version__title')).toHaveText('方案 v2')
     await expect(page.locator('.plan-confirmation__error')).toHaveText('方案已更新，请重新核对')
-    await expect(page.locator('uni-button.plan-confirmation__confirm')).toHaveAttribute('disabled', /.*/)
+    await expect(page.locator('.plan-confirmation__check--on')).toHaveCount(0)
   })
 
   test('a tick does not carry over to a plan the customer has not checked', async ({ page }) => {
@@ -106,7 +114,7 @@ test.describe('M05 plan confirmation', () => {
     await page.locator('.uni-modal__btn_primary').click()
 
     await expect(page.locator('.plan-version__title')).toHaveText('方案 v2')
-    await expect(page.locator('uni-button.plan-confirmation__confirm')).toHaveAttribute('disabled', /.*/)
+    await expect(page.locator('.plan-confirmation__check--on')).toHaveCount(0)
   })
 
   test('shows the confirmed state when it was confirmed on another device', async ({ page }) => {

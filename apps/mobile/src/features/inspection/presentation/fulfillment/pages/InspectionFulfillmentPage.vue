@@ -3,7 +3,9 @@ import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
+import { inspectionServiceImage } from '../../../data/inspection-service-images'
 import {
   createLatestRequestCoordinator,
   getPreviousInspectionPageRoute,
@@ -119,23 +121,18 @@ function showCustomerService(): void {
 
 <template>
   <view class="fulfillment">
-    <view class="fulfillment__header">
-      <button class="fulfillment__back" aria-label="返回" @click="returnToOrders">
-        <UniIcons type="back" size="22" color="#191919" />
-      </button>
-      <text class="fulfillment__heading">服务履约</text>
-    </view>
+    <AppPageHeader class="fulfillment__header" title="服务履约" test-id="fulfillment" @back="returnToOrders" />
 
     <view v-if="isLoading" class="fulfillment__state">正在恢复服务安排…</view>
     <view v-else-if="loadError" class="fulfillment__state">
-      <UniIcons type="info-filled" size="40" color="#b5bac1" />
+      <LineIcon name="info" :size="40" color="#b5bac1" />
       <text>{{ loadError }}</text>
       <button class="fulfillment__retry" @click="reload">重新加载</button>
     </view>
 
     <main v-else-if="order && plan" class="fulfillment__content">
       <FulfillmentSummaryCard
-        :cover-url="order.serviceSnapshot.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'"
+        :cover-url="inspectionServiceImage({ coverUrl: order.serviceSnapshot.serviceCoverUrl, title: order.serviceSnapshot.serviceTitle })"
         :title="order.serviceSnapshot.serviceTitle"
         :provider-name="order.provider?.name ?? ''"
         :certification-label="order.provider?.certificationLabel ?? ''"
@@ -151,7 +148,7 @@ function showCustomerService(): void {
         @open-delivery="openDelivery"
       />
       <view class="fulfillment__note">
-        <UniIcons type="info" size="14" color="#8a8f97" />
+        <LineIcon name="info" :size="14" color="#738096" />
         <text class="fulfillment__note-text">履约状态由服务商按实际作业更新，每次交付后由你验收</text>
       </view>
     </main>
@@ -182,37 +179,14 @@ function showCustomerService(): void {
   position: sticky;
   top: 0;
   z-index: 2;
-  display: flex;
-  padding: calc(8px + var(--status-bar-height)) 8px 8px;
-  align-items: center;
-  gap: 4px;
-  /* The page-head gradient of the 2026-11-14 prototype's light theme. */
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
 }
 
-.fulfillment__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  margin: 0;
-  padding: 0;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-}
-
-.fulfillment__back::after,
 .fulfillment__retry::after,
 .fulfillment__accept::after {
   border: 0;
 }
 
-.fulfillment__heading {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 25px;
-}
+
 
 .fulfillment__state {
   display: flex;
@@ -305,6 +279,7 @@ function showCustomerService(): void {
   border-radius: 999px;
   color: #fff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;

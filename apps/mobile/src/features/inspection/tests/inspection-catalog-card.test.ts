@@ -195,7 +195,7 @@ describe('M02 service card price note (T04)', () => {
 
 describe('M02 header copy (T04)', () => {
   it('titles the list 巡检服务 and keeps the AGENTS.md §8 search placeholder', () => {
-    expect(headerSource).toContain('<text class="catalog-header__title">巡检服务</text>')
+    expect(headerSource).toContain('title="巡检服务"')
     expect(headerSource).not.toContain('电力巡检')
     expect(headerSource).toContain('placeholder="搜索巡检服务、场景或关键词"')
   })

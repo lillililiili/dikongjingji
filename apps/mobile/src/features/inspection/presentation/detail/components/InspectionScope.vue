@@ -1,29 +1,26 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import type { DetailCapability } from '../../../domain/inspection-service-detail'
+import { scopeIcon } from '../detail-line-icons'
 
 defineProps<{
   items: readonly DetailCapability[]
+  categoryCode?: string
 }>()
 </script>
 
 <template>
-  <section class="detail-section inspection-scope">
+  <!-- Board InspDetail 服务内容: two columns of one-line tiles with an orange line icon. -->
+  <section class="detail-section inspection-scope" data-testid="detail-scope">
     <text class="detail-section__title">服务内容</text>
     <view class="inspection-scope__grid">
       <view
-        v-for="item in items"
+        v-for="(item, index) in items"
         :key="item.code"
         class="inspection-scope__item"
       >
-        <UniIcons :type="item.icon" size="20" color="#e85400" />
-        <view class="inspection-scope__copy">
-          <text class="inspection-scope__name">{{ item.label }}</text>
-          <text class="inspection-scope__description">
-            {{ item.description }}
-          </text>
-        </view>
+        <LineIcon :d="scopeIcon(categoryCode ?? '', index)" :size="24" color="#ff6a00" />
+        <text class="inspection-scope__name">{{ item.label }}</text>
       </view>
     </view>
   </section>
@@ -39,9 +36,7 @@ defineProps<{
   gap: 10px;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
   box-sizing: border-box;
 }
 
@@ -60,8 +55,9 @@ defineProps<{
 
 .inspection-scope__item {
   display: flex;
+  min-width: 0;
   min-height: 48px;
-  padding: 6px 10px;
+  padding: 0 10px;
   align-items: center;
   gap: 8px;
   border-radius: 10px;
@@ -69,27 +65,12 @@ defineProps<{
   box-sizing: border-box;
 }
 
-.inspection-scope__copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 1px;
-}
-
 .inspection-scope__name {
+  min-width: 0;
   color: #202c42;
   font-size: 13px;
   font-weight: 500;
   line-height: 18px;
-}
-
-.inspection-scope__description {
-  color: #738096;
-  font-size: 11px;
-  line-height: 15px;
-}
-
-.inspection-scope__description:empty {
-  display: none;
+  /* One line at 390; on a 320 phone a long name wraps rather than losing its end. */
 }
 </style>

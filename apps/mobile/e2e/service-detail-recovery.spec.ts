@@ -167,14 +167,15 @@ test.describe('M03 不可用时的恢复', () => {
     await expect(failureCopy(page)).toBeVisible()
     await expect(failureCopy(page)).not.toHaveText('正在读取真实服务数据…')
 
-    await page.locator('.service-detail-header__action').first().click()
+    await page.getByTestId('inspection-detail-back').click()
 
     await expect(page.getByTestId('inspection-catalog')).toBeVisible()
   })
 })
 
 // 验收清单已知问题 4：没有评分时，评价那一行不能以“·”开头。
-test('SDR-109 没有评分时，评价和服务次数之间才有分隔点', async ({ page }) => {
+// 2026-11-20 原型对齐：0 条评价不显示，这一行从服务次数开始。
+test('SDR-109 没有评分也没有评价时，这一行只有服务次数', async ({ page }) => {
   await page.route(`**${DETAIL_PATH}?**`, async (route) => {
     const response = await route.fetch()
     const body = await response.json()
@@ -184,8 +185,9 @@ test('SDR-109 没有评分时，评价和服务次数之间才有分隔点', asy
   await openDetail(page, SERVICE_ID, '370500')
 
   const metrics = page.locator('.service-detail-hero__metrics')
-  await expect(metrics).toContainText('0条评价')
+  await expect(metrics).toContainText('已服务')
   const text = (await metrics.innerText()).replace(/\s+/g, ' ').trim()
   expect(text.startsWith('·')).toBe(false)
-  expect(text).toMatch(/^0条评价 · 已服务/)
+  expect(text).not.toContain('条评价')
+  expect(text).toMatch(/^已服务/)
 })

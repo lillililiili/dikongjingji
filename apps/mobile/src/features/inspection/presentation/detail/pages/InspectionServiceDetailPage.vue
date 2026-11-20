@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
@@ -193,6 +193,7 @@ function reserveService(): void {
       <InspectionScope
         v-if="detail.inspectionItems.length"
         :items="detail.inspectionItems"
+        :category-code="detail.categoryCode"
       />
       <ServiceReviews
         :average="detail.ratingAverage"
@@ -219,7 +220,7 @@ function reserveService(): void {
     </main>
 
     <view v-else class="inspection-service-detail__empty">
-      <UniIcons type="info-filled" size="42" color="#b5bac1" />
+      <LineIcon name="info" :size="42" color="#b5bac1" />
       <text class="inspection-service-detail__empty-title">
         {{ isLoading ? '正在加载服务详情' : '服务详情暂不可用' }}
       </text>

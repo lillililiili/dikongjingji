@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import type { PlanPaymentRow } from '../plan-confirmation-view'
 
 defineProps<{ rows: PlanPaymentRow[] }>()
@@ -16,7 +16,7 @@ defineProps<{ rows: PlanPaymentRow[] }>()
       <text class="plan-payment__amount" :class="{ 'plan-payment__amount--due': row.isDue }">{{ row.amountText }}</text>
     </view>
     <view class="plan-payment__note">
-      <UniIcons type="info" size="14" color="#8a8f97" />
+      <LineIcon name="info" :size="14" color="#738096" />
       <text class="plan-payment__note-text">款项经平台支付渠道付给服务商；本平台不承担飞行审批与空中调度。</text>
     </view>
   </view>
@@ -30,9 +30,7 @@ defineProps<{ rows: PlanPaymentRow[] }>()
   border-radius: 14px;
   background: #fff;
   /* The card shadow and hairline of the 2026-11-14 prototype's light theme. */
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .plan-payment__title {

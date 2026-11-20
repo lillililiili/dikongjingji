@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import type { AcceptanceSheetView } from '../delivery-view'
 
 defineProps<{
@@ -22,7 +22,7 @@ const emit = defineEmits<{
         <text class="acceptance-sheet__label">验收内容</text>
         <view class="acceptance-sheet__items">
           <view v-for="item in sheet.items" :key="item.key" class="acceptance-sheet__item">
-            <UniIcons type="checkmarkempty" size="14" color="#19b866" />
+            <LineIcon name="check" :size="14" color="#159a70" :stroke-width="2.6" />
             <text>{{ item.name }}</text>
           </view>
         </view>

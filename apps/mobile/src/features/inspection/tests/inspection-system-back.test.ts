@@ -9,6 +9,7 @@ import * as inspectionRoutes from '../navigation/inspection-routes'
 import * as fulfillmentView from '../presentation/fulfillment/fulfillment-view'
 import submittedPageSource from '../presentation/booking/pages/InspectionBookingSubmittedPage.vue?raw'
 import fulfillmentPageSource from '../presentation/fulfillment/pages/InspectionFulfillmentPage.vue?raw'
+import * as serviceFlowFormat from '../presentation/shared/service-flow-format'
 
 type BackPressHandler = (event: { from: string }) => boolean
 
@@ -51,6 +52,10 @@ function mountPage(source: string, filename: string): BackPressHandler {
       inspectionBookingApi: {},
       inspectionPlanApi: {},
     },
+    // 2026-11-20: the per-category service picture.
+    '../../../data/inspection-service-images': { inspectionServiceImage: () => '' },
+    '@/shared/city/state/current-city': { useCurrentCityStore: () => ({ currentCity: null }) },
+    '../../shared/service-flow-format': serviceFlowFormat,
     '../../../domain/service-flow/plan': planDomain,
     '../../../navigation/inspection-routes': inspectionRoutes,
     '../../shared/inspection-cancellation-ui': {},

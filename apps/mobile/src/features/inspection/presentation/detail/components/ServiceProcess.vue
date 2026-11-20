@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import type { DetailProcessStep } from '../../../domain/inspection-service-detail'
+import { processStepIcon } from '../detail-line-icons'
 
 defineProps<{
   steps: readonly DetailProcessStep[]
@@ -7,17 +9,21 @@ defineProps<{
 </script>
 
 <template>
-  <section class="detail-section service-process">
+  <!-- Board InspDetail 服务流程: 28px pale-blue circles with a blue line icon, “›” between steps. -->
+  <section class="detail-section service-process" data-testid="detail-process">
     <text class="detail-section__title">服务流程</text>
     <view class="service-process__track">
-      <view
-        v-for="(step, index) in steps"
-        :key="step.code"
-        class="service-process__step"
-      >
-        <view class="service-process__marker">{{ index + 1 }}</view>
-        <text class="service-process__label">{{ step.label }}</text>
-      </view>
+      <template v-for="(step, index) in steps" :key="step.code">
+        <view class="service-process__step">
+          <view class="service-process__marker">
+            <LineIcon :d="processStepIcon(step.label, index)" :size="16" color="#2f80ed" :stroke-width="2" />
+          </view>
+          <text class="service-process__label">{{ step.label }}</text>
+        </view>
+        <view v-if="index < steps.length - 1" class="service-process__arrow" aria-hidden="true">
+          <LineIcon name="chevronRight" :size="12" color="#91a0b4" :stroke-width="2.4" />
+        </view>
+      </template>
     </view>
   </section>
 </template>
@@ -32,9 +38,7 @@ defineProps<{
   gap: 10px;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
   box-sizing: border-box;
 }
 
@@ -51,24 +55,12 @@ defineProps<{
 }
 
 .service-process__step {
-  position: relative;
   display: flex;
   min-width: 0;
   flex: 1 1 0;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-}
-
-/* A short line to the next step, in place of the board's arrow. */
-.service-process__step + .service-process__step::before {
-  position: absolute;
-  top: 14px;
-  right: calc(50% + 20px);
-  left: calc(-50% + 20px);
-  height: 1px;
-  background: #c9d3e1;
-  content: '';
 }
 
 .service-process__marker {
@@ -78,16 +70,19 @@ defineProps<{
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  color: #1d63c4;
   background: #e6f0ff;
-  font-size: 13px;
-  font-weight: 700;
+}
+
+.service-process__arrow {
+  display: flex;
+  flex: none;
+  margin: 8px -6px 0;
 }
 
 .service-process__label {
   color: #536178;
   font-size: 12px;
   line-height: 17px;
-  text-align: center;
+  white-space: nowrap;
 }
 </style>

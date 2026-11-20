@@ -3,6 +3,9 @@ import { openSupportChat } from '@/features/support/application/support-entry'
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
 
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
+
 import { platformCityApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import CitySelectionSheet from '@/shared/city/presentation/CitySelectionSheet.vue'
 import { useCitySheet } from '@/shared/city/presentation/use-city-sheet'
@@ -209,22 +212,20 @@ reload()
 <template>
   <view class="pro-catalog" data-testid="pro-catalog" :data-type="type" :data-sort="sort">
     <view class="pro-catalog__top">
-      <view class="pro-catalog__header">
-        <button class="pro-catalog__back" data-testid="pro-catalog-back" aria-label="返回" @click="emit('back')">
-          <UniIcons type="left" size="22" color="#202c42" />
-        </button>
-        <text class="pro-catalog__title">服务目录</text>
-        <button class="pro-catalog__service" data-testid="pro-catalog-customer-service" @click="showCustomerService">
-          <view class="pro-catalog__service-pill">
-            <UniIcons type="headphones" size="15" color="#202c42" />
-            <text>客服</text>
-          </view>
-        </button>
-      </view>
+      <AppPageHeader title="服务目录" test-id="pro-catalog" @back="emit('back')">
+        <template #actions>
+          <button class="pro-catalog__service" data-testid="pro-catalog-customer-service" @click="showCustomerService">
+            <view class="pro-catalog__service-pill">
+              <LineIcon name="headset" :size="16" color="#202c42" />
+              <text>客服</text>
+            </view>
+          </button>
+        </template>
+      </AppPageHeader>
 
       <view class="pro-catalog__search-row">
         <view class="pro-catalog__search">
-          <UniIcons type="search" size="18" color="#738096" />
+          <LineIcon name="search" :size="18" color="#627187" :stroke-width="2" />
           <input
             class="pro-catalog__input"
             data-testid="pro-catalog-search"
@@ -243,7 +244,7 @@ reload()
             aria-label="清除搜索词"
             @click="clearKeyword"
           >
-            <UniIcons type="clear" size="18" color="#91a0b4" />
+            <view class="pro-catalog__clear-dot"><LineIcon name="close" :size="12" color="#ffffff" :stroke-width="2.4" /></view>
           </button>
         </view>
         <button
@@ -254,7 +255,7 @@ reload()
           @click="filterOpen = true"
         >
           <view class="pro-catalog__filter-icon">
-            <UniIcons type="tune" size="18" color="#202c42" />
+            <LineIcon name="filter" :size="18" color="#202c42" />
             <view v-if="hasFilter" class="pro-catalog__filter-dot" data-testid="pro-catalog-filter-dot" aria-label="已设置筛选条件" />
           </view>
           <text>筛选</text>
@@ -294,9 +295,9 @@ reload()
           @click="selectPriceSort"
         >
           <text>价格</text>
-          <view class="pro-catalog__arrows">
-            <UniIcons type="top" size="9" :color="sort === 'PRICE_ASC' ? '#ba470b' : '#91a0b4'" />
-            <UniIcons type="bottom" size="9" :color="sort === 'PRICE_DESC' ? '#ba470b' : '#91a0b4'" />
+          <view class="pro-catalog__arrows" aria-hidden="true">
+            <view :class="['pro-catalog__arrow', 'pro-catalog__arrow--up', { 'pro-catalog__arrow--on': sort === 'PRICE_ASC' }]" />
+            <view :class="['pro-catalog__arrow', 'pro-catalog__arrow--down', { 'pro-catalog__arrow--on': sort === 'PRICE_DESC' }]" />
           </view>
         </button>
         <button
@@ -306,9 +307,9 @@ reload()
           :aria-label="`切换城市，当前${cityLabel}`"
           @click="citySheet.open"
         >
-          <UniIcons type="location" size="15" color="#202c42" />
+          <LineIcon name="pin" :size="15" color="#536178" :stroke-width="2" />
           <text>{{ cityLabel }}</text>
-          <UniIcons type="down" size="12" color="#738096" />
+          <LineIcon d="M6 9l6 6 6-6z" :size="14" color="#202c42" fill="#202c42" :stroke-width="0" />
         </button>
       </view>
     </view>
@@ -426,35 +427,10 @@ button::after {
   background: #ffffff;
 }
 
-/* The light gradient of every page head (as on the demand pages). */
-.pro-catalog__header {
-  display: flex;
-  padding: calc(8px + var(--status-bar-height)) 16px 8px 8px;
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-  align-items: center;
-  gap: 4px;
-}
-
-.pro-catalog__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.pro-catalog__title {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 25px;
-  white-space: nowrap;
-}
-
 .pro-catalog__service {
   display: flex;
   height: 44px;
-  margin-left: auto;
+  margin-right: 8px;
   flex: none;
   align-items: center;
 }
@@ -530,6 +506,16 @@ button::after {
   position: relative;
   display: flex;
   padding: 2px 3px 0 0;
+}
+
+.pro-catalog__clear-dot {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #c9d3e1;
 }
 
 .pro-catalog__filter-dot {
@@ -610,8 +596,36 @@ button::after {
 
 .pro-catalog__arrows {
   display: flex;
+  width: 10px;
+  height: 14px;
   flex-direction: column;
-  line-height: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+/* The board's two small solid triangles (10×14); the active direction turns orange. */
+.pro-catalog__arrow {
+  width: 0;
+  height: 0;
+  border-right: 3.5px solid transparent;
+  border-left: 3.5px solid transparent;
+}
+
+.pro-catalog__arrow--up {
+  border-bottom: 4.5px solid #91a0b4;
+}
+
+.pro-catalog__arrow--down {
+  border-top: 4.5px solid #91a0b4;
+}
+
+.pro-catalog__arrow--up.pro-catalog__arrow--on {
+  border-bottom-color: #ba470b;
+}
+
+.pro-catalog__arrow--down.pro-catalog__arrow--on {
+  border-top-color: #ba470b;
 }
 
 .pro-catalog__city {
@@ -707,6 +721,7 @@ button::after {
   gap: 12px;
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .pro-catalog__bar-copy {
@@ -742,6 +757,7 @@ button::after {
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;

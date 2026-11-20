@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   nextPriceSort,
@@ -21,6 +21,8 @@ defineEmits<{
   sort: [value: CatalogSort]
   city: []
 }>()
+// Board InspCatalog: the city pin is a drop with a 2.5 circle inside.
+const CITY_PIN = 'M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 7.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5z'
 </script>
 
 <template>
@@ -89,11 +91,16 @@ defineEmits<{
         @click="$emit('sort', nextPriceSort(sort))"
       >
         <text>价格</text>
-        <UniIcons
-          :type="sort === 'PRICE_ASC' ? 'arrow-up' : 'arrow-down'"
-          size="11"
-          color="currentColor"
-        />
+        <view class="catalog-sort__arrows" aria-hidden="true">
+          <view
+            class="catalog-sort__arrow catalog-sort__arrow--up"
+            :style="{ borderBottomColor: sort === 'PRICE_ASC' ? '#ba470b' : '#91a0b4' }"
+          />
+          <view
+            class="catalog-sort__arrow catalog-sort__arrow--down"
+            :style="{ borderTopColor: sort === 'PRICE_DESC' ? '#ba470b' : '#91a0b4' }"
+          />
+        </view>
       </button>
       <button
         class="catalog-sort__item catalog-sort__item--city"
@@ -101,13 +108,13 @@ defineEmits<{
         aria-label="切换服务城市"
         @click="$emit('city')"
       >
-        <UniIcons type="location" size="14" color="#202c42" />
+        <LineIcon :d="CITY_PIN" :size="15" color="#536178" :stroke-width="2" />
         <text>{{ cityName }}</text>
-        <UniIcons type="down" size="10" color="#202c42" />
+        <LineIcon d="M6 9l6 6 6-6z" :size="14" fill="#202c42" />
       </button>
     </view>
     <view v-if="distanceNote" class="catalog-toolbar__note" role="status">
-      <UniIcons type="info" size="14" color="#ba470b" />
+      <LineIcon name="info" :size="14" color="#ff6a00" :stroke-width="2" />
       <text data-testid="catalog-distance-note">{{ distanceNote }}</text>
     </view>
   </view>
@@ -230,6 +237,28 @@ defineEmits<{
 .catalog-sort__item--city text {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.catalog-sort__arrows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* Two 7×4.5 triangles, the board's 10×14 price arrows. */
+.catalog-sort__arrow {
+  width: 0;
+  height: 0;
+  border-right: 3.5px solid transparent;
+  border-left: 3.5px solid transparent;
+}
+
+.catalog-sort__arrow--up {
+  border-bottom: 4.5px solid #91a0b4;
+}
+
+.catalog-sort__arrow--down {
+  border-top: 4.5px solid #91a0b4;
 }
 
 .catalog-toolbar__note {

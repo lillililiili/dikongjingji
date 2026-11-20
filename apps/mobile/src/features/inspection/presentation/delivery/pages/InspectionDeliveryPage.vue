@@ -3,7 +3,8 @@ import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onBackPress, onLoad } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import {
   createAcceptanceCoordinator,
   executeDeliveryFileAction,
@@ -360,16 +361,11 @@ function messageOf(error: unknown, fallback: string): string {
 
 <template>
   <view class="delivery">
-    <view class="delivery__header">
-      <button class="delivery__back" aria-label="返回" @click="returnToFulfillment">
-        <UniIcons type="back" size="22" color="#191919" />
-      </button>
-      <text class="delivery__heading">交付与验收</text>
-    </view>
+    <AppPageHeader class="delivery__header" title="交付与验收" test-id="delivery" @back="returnToFulfillment" />
 
     <view v-if="isLoading && !delivery" class="delivery__state">正在恢复报告交付记录…</view>
     <view v-else-if="loadError" class="delivery__state">
-      <UniIcons type="info-filled" size="40" color="#b5bac1" />
+      <LineIcon name="info" :size="40" color="#b5bac1" />
       <text>{{ loadError }}</text>
       <button class="delivery__retry" @click="reload">重新加载</button>
     </view>
@@ -389,7 +385,7 @@ function messageOf(error: unknown, fallback: string): string {
 
       <view v-if="acceptanceBanner" class="delivery__accepted" role="status">
         <view class="delivery__accepted-icon">
-          <UniIcons type="checkmarkempty" size="18" color="#ffffff" />
+          <LineIcon name="check" :size="18" color="#ffffff" :stroke-width="2.6" />
         </view>
         <view class="delivery__accepted-copy">
           <text class="delivery__accepted-title">{{ acceptanceBanner.title }}</text>
@@ -445,38 +441,15 @@ function messageOf(error: unknown, fallback: string): string {
   position: sticky;
   top: 0;
   z-index: 2;
-  display: flex;
-  padding: calc(8px + var(--status-bar-height)) 8px 8px;
-  align-items: center;
-  gap: 4px;
-  /* The page-head gradient of the 2026-11-14 prototype's light theme. */
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
 }
 
-.delivery__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  margin: 0;
-  padding: 0;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-}
-
-.delivery__back::after,
 .delivery__retry::after,
 .delivery__question::after,
 .delivery__accept::after {
   border: 0;
 }
 
-.delivery__heading {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 25px;
-}
+
 
 .delivery__state {
   display: flex;
@@ -633,8 +606,8 @@ function messageOf(error: unknown, fallback: string): string {
 }
 
 .delivery__question {
-  border: 1px solid #c4c8ce;
-  color: #191919;
+  border: 1px solid #c9d3e1;
+  color: #202c42;
   background: #fff;
 }
 
@@ -642,6 +615,7 @@ function messageOf(error: unknown, fallback: string): string {
   border: 0;
   color: #fff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-weight: 500;
   line-height: 46px;
 }

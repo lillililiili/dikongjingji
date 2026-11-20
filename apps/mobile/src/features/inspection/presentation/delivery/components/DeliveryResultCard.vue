@@ -1,19 +1,26 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import type {
   DeliveryIssueRow,
   DeliveryResultTile,
 } from '../delivery-view'
 
-defineProps<{
+const props = defineProps<{
   tiles: DeliveryResultTile[]
   issues: DeliveryIssueRow[]
 }>()
+
+// Board DeliveryOne puts three figures in one row, Delivery two: as many columns as figures, at most 3.
+const tileColumns = computed(() => ({
+  gridTemplateColumns: `repeat(${Math.max(1, Math.min(props.tiles.length, 3))}, minmax(0, 1fr))`,
+}))
 </script>
 
 <template>
   <view class="delivery-result">
     <text class="delivery-result__title">巡检结果摘要</text>
-    <view class="delivery-result__tiles">
+    <view class="delivery-result__tiles" :style="tileColumns">
       <view
         v-for="tile in tiles"
         :key="tile.key"
@@ -44,9 +51,7 @@ defineProps<{
   border-radius: 14px;
   background: #fff;
   /* The card shadow and hairline of the 2026-11-14 prototype's light theme. */
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .delivery-result__title {
@@ -68,28 +73,31 @@ defineProps<{
   flex-direction: column;
   gap: 2px;
   border-radius: 10px;
-  background: #f7f8fa;
+  background: #f5f7fc;
 }
 
 .delivery-result__tile--issue {
-  background: #fff3e8;
+  background: #fff0e3;
 }
 
 .delivery-result__tile-label {
-  color: #666b73;
+  color: #627187;
   font-size: 12px;
   line-height: 17px;
 }
 
 .delivery-result__tile--issue .delivery-result__tile-label,
 .delivery-result__tile--issue .delivery-result__tile-value {
-  color: #d94f00;
+  color: #ba470b;
 }
 
 .delivery-result__tile-value {
   font-size: 20px;
   font-weight: 700;
   line-height: 28px;
+  /* A long figure (“420,000 ㎡”) wraps at the space first, and only breaks inside the number on
+     the narrowest phones, so it never runs out of a third column. */
+  word-break: keep-all;
   overflow-wrap: anywhere;
 }
 
@@ -123,7 +131,7 @@ defineProps<{
 
 .delivery-result__issue-count {
   flex-shrink: 0;
-  color: #555a62;
+  color: #536178;
   white-space: nowrap;
 }
 

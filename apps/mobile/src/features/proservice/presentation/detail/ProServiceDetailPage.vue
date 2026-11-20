@@ -6,6 +6,9 @@ import { openSupportChat } from '@/features/support/application/support-entry'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import IconTile from '@/shared/ui/IconTile.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   PRO_SERVICE_TYPE_INFO,
@@ -14,13 +17,18 @@ import {
   buildProServiceSections,
   citiesText,
   formatProServicePrice,
-  modeIcon,
-  stepIcon,
 } from '../../application/proservice-view'
 import { proServiceApi } from '../../data/proservice-api-client'
 import { buildProServiceDetailUrl } from '../../navigation/proservice-routes'
 import type { ProServiceDetail, ProServiceType } from '../../domain/proservice'
 import ProServiceCover from '../shared/ProServiceCover.vue'
+import {
+  guaranteeIconPath,
+  modeIconPath,
+  outputIcon,
+  scopeIconPath,
+  stepIconPath,
+} from '../shared/proservice-board-icons'
 
 // One service of the four types (SvcAerial, SvcSurvey, SvcMaint, SvcTech boards share this
 // template): no booking and no time slots; the main action is 发布需求.
@@ -51,6 +59,11 @@ const info = computed(() => (detail.value ? PRO_SERVICE_TYPE_INFO[detail.value.t
 const price = computed(() => (detail.value ? formatProServicePrice(detail.value.price) : null))
 const sections = computed(() => (detail.value ? buildProServiceSections(detail.value) : []))
 const serviceCities = computed(() => (detail.value ? citiesText(detail.value.cities) : ''))
+// The hero pill: 航拍服务 / 测绘服务, but 设备维护 / 技术支持 as the boards write them.
+const heroLabel = computed(() => {
+  const label = info.value?.label ?? ''
+  return label.length > 2 ? label : `${label}服务`
+})
 
 async function load(): Promise<void> {
   if (!props.serviceId || !props.cityCode) {
@@ -118,18 +131,13 @@ void load()
 <template>
   <view class="pro-detail" data-testid="pro-detail" :data-state="state.kind">
     <view class="pro-detail__header">
-      <button class="pro-detail__icon-button" data-testid="pro-detail-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="22" color="#202c42" />
-      </button>
-      <text class="pro-detail__title">服务详情</text>
-      <button
-        class="pro-detail__icon-button pro-detail__share"
-        data-testid="pro-detail-share"
-        aria-label="分享"
-        @click="share"
-      >
-        <UniIcons type="redo" size="20" color="#202c42" />
-      </button>
+      <AppPageHeader title="服务详情" test-id="pro-detail" @back="emit('back')">
+        <template #actions>
+          <button class="pro-detail__icon-button" data-testid="pro-detail-share" aria-label="分享" @click="share">
+            <LineIcon name="share" :size="22" color="#202c42" />
+          </button>
+        </template>
+      </AppPageHeader>
     </view>
 
     <view v-if="state.kind === 'loading'" class="pro-detail__body" aria-label="正在加载">
@@ -159,7 +167,7 @@ void load()
           :category="detail.category"
           :cover-url="detail.coverUrl"
           :title="detail.title"
-          :label="`${info.label}服务`"
+          :label="heroLabel"
           :icon-size="72"
           pill
         />
@@ -176,10 +184,9 @@ void load()
             <text :class="['pro-detail__amount', { 'pro-detail__amount--quote': price.quote }]">{{ price.amount }}</text>
             <text v-if="price.unit" class="pro-detail__unit">{{ price.unit }}</text>
           </view>
-          <text v-if="price.note" class="pro-detail__price-note">{{ price.note }}</text>
           <view v-if="detail.capabilities.length" class="pro-detail__capabilities">
             <view v-for="capability in detail.capabilities" :key="capability" class="pro-detail__capability">
-              <UniIcons type="checkmarkempty" size="14" color="#11804a" />
+              <LineIcon name="check" :size="14" color="#159a70" :stroke-width="3" />
               <text>{{ capability }}</text>
             </view>
           </view>
@@ -228,8 +235,8 @@ void load()
 
           <template v-if="section.kind === 'scope'">
             <view class="pro-detail__scope">
-              <view v-for="item in section.items" :key="item" class="pro-detail__scope-item">
-                <UniIcons type="checkbox" size="18" :color="info.badgeColor" />
+              <view v-for="(item, index) in section.items" :key="item" class="pro-detail__scope-item">
+                <LineIcon :d="scopeIconPath(detail.type, index)" :size="24" color="#ff6a00" />
                 <text>{{ item }}</text>
               </view>
             </view>
@@ -237,10 +244,13 @@ void load()
           </template>
 
           <view v-else-if="section.kind === 'outputs'" class="pro-detail__outputs">
-            <view v-for="line in section.lines" :key="line.label" class="pro-detail__output">
-              <view class="pro-detail__output-icon">
-                <UniIcons type="folder-add" size="20" color="#1d63c4" />
-              </view>
+            <view v-for="(line, index) in section.lines" :key="line.label" class="pro-detail__output">
+              <IconTile
+                :d="outputIcon(line.label, index).d"
+                :tone="outputIcon(line.label, index).tone"
+                :size="40"
+                :icon-size="22"
+              />
               <view class="pro-detail__output-copy">
                 <text class="pro-detail__output-label">{{ line.label }}</text>
                 <text class="pro-detail__output-detail">{{ line.detail }}</text>
@@ -251,7 +261,7 @@ void load()
           <view v-else-if="section.kind === 'modes'" class="pro-detail__modes">
             <view v-for="line in section.lines" :key="line.label" class="pro-detail__mode">
               <view class="pro-detail__mode-icon">
-                <UniIcons :type="modeIcon(line.label)" size="18" color="#ba470b" />
+                <LineIcon :d="modeIconPath(line.label)" :size="20" color="#ff6a00" />
               </view>
               <text class="pro-detail__mode-label">{{ line.label }}</text>
               <text class="pro-detail__mode-detail">{{ line.detail }}</text>
@@ -259,6 +269,11 @@ void load()
           </view>
 
           <template v-else-if="section.kind === 'rows'">
+            <!-- SvcSurvey: how precision is held, as the board words it (no number is promised). -->
+            <view v-if="detail.type === 'SURVEY'" class="pro-detail__precision" data-testid="pro-detail-precision">
+              <LineIcon name="shield" :size="16" color="#2f80ed" :stroke-width="2" />
+              <text>精度指标写进方案，验收时按方案核对</text>
+            </view>
             <view class="pro-detail__term-rows">
               <view
                 v-for="(line, index) in section.lines"
@@ -291,22 +306,18 @@ void load()
             <template v-for="(step, index) in detail.steps" :key="step">
               <view class="pro-detail__step">
                 <view class="pro-detail__step-icon">
-                  <UniIcons :type="stepIcon(index, detail.steps.length)" size="15" color="#1d63c4" />
+                  <LineIcon :d="stepIconPath(step, index, detail.steps.length)" :size="16" color="#2f80ed" :stroke-width="2" />
                 </view>
                 <text class="pro-detail__step-label">{{ step }}</text>
               </view>
-              <UniIcons
-                v-if="index < detail.steps.length - 1"
-                class="pro-detail__step-arrow"
-                type="right"
-                size="11"
-                color="#91a0b4"
-              />
+              <view v-if="index < detail.steps.length - 1" class="pro-detail__step-arrow">
+                <LineIcon name="chevronRight" :size="12" color="#91a0b4" :stroke-width="2.4" />
+              </view>
             </template>
           </view>
           <!-- The board's 首付 / 尾款 line is left out: paying for these services is not open. -->
           <view class="pro-detail__step-note">
-            <UniIcons type="info" size="13" color="#627187" />
+            <LineIcon name="info" :size="14" color="#738096" :stroke-width="2" />
             <text>提交需求不产生费用</text>
           </view>
         </view>
@@ -314,8 +325,8 @@ void load()
         <view v-if="detail.guarantees.length" class="pro-detail__card">
           <text class="pro-detail__section-title">服务保障</text>
           <view class="pro-detail__guarantees">
-            <view v-for="guarantee in detail.guarantees" :key="guarantee" class="pro-detail__guarantee">
-              <UniIcons type="auth" size="14" color="#11804a" />
+            <view v-for="(guarantee, index) in detail.guarantees" :key="guarantee" class="pro-detail__guarantee">
+              <LineIcon :d="guaranteeIconPath(index)" :size="18" color="#159a70" :stroke-width="2" />
               <text>{{ guarantee }}</text>
             </view>
           </view>
@@ -324,7 +335,7 @@ void load()
 
       <view class="pro-detail__bar">
         <button class="pro-detail__bar-service" data-testid="pro-detail-customer-service" @click="contactCustomerService">
-          <UniIcons type="headphones" size="20" color="#536178" />
+          <LineIcon name="headset" :size="22" color="#536178" />
           <text>客服</text>
         </button>
         <button class="pro-detail__publish" data-testid="pro-detail-publish" @click="publish">发布需求</button>
@@ -366,11 +377,6 @@ button::after {
   position: sticky;
   z-index: 10;
   top: 0;
-  display: flex;
-  padding: calc(8px + var(--status-bar-height)) 8px 8px;
-  align-items: center;
-  gap: 4px;
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
 }
 
 .pro-detail__icon-button {
@@ -380,17 +386,6 @@ button::after {
   flex: none;
   align-items: center;
   justify-content: center;
-}
-
-.pro-detail__share {
-  margin-left: auto;
-}
-
-.pro-detail__title {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 25px;
-  white-space: nowrap;
 }
 
 .pro-detail__hero {
@@ -466,6 +461,7 @@ button::after {
   gap: 10px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .pro-detail__card--main {
@@ -491,15 +487,13 @@ button::after {
   line-height: 28px;
 }
 
+/* 示例 stays, as quiet grey words (user decision R5-14, 2026-11-20). */
 .pro-detail__sample {
-  margin-top: 5px;
+  margin-top: 7px;
   flex: none;
-  padding: 0 6px;
-  border-radius: 6px;
-  color: #536178;
-  background: #eef2f8;
+  color: #738096;
   font-size: 11px;
-  line-height: 18px;
+  line-height: 16px;
   white-space: nowrap;
 }
 
@@ -533,12 +527,6 @@ button::after {
   color: #e85400;
   font-size: 14px;
   line-height: 20px;
-}
-
-.pro-detail__price-note {
-  color: #738096;
-  font-size: 12px;
-  line-height: 17px;
 }
 
 .pro-detail__capabilities {
@@ -720,17 +708,6 @@ button::after {
   box-sizing: border-box;
 }
 
-.pro-detail__output-icon {
-  display: flex;
-  width: 40px;
-  height: 40px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: #e6f0ff;
-}
-
 .pro-detail__output-copy {
   display: flex;
   min-width: 0;
@@ -788,6 +765,18 @@ button::after {
   color: #627187;
   font-size: 12px;
   line-height: 18px;
+}
+
+.pro-detail__precision {
+  display: flex;
+  padding: 10px 12px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 10px;
+  color: #1d63c4;
+  background: #e6f0ff;
+  font-size: 13px;
+  line-height: 19px;
 }
 
 .pro-detail__term-row {
@@ -878,7 +867,8 @@ button::after {
 }
 
 .pro-detail__step-arrow {
-  margin-top: 8px;
+  display: flex;
+  margin: 8px -6px 0;
   flex: none;
 }
 
@@ -926,6 +916,7 @@ button::after {
   gap: 10px;
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .pro-detail__bar-service {
@@ -949,6 +940,7 @@ button::after {
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;

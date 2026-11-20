@@ -506,7 +506,7 @@ describe('F04 booking page contract', () => {
     expect(bookingPageSource).toContain('env(safe-area-inset-bottom)')
     expect(bookingPageSource).toContain('draft.value.inspectionItemCodes = selected.includes(code)')
     expect(bookingPageSource).toContain('提交预约')
-    expect(bookingPageSource).toContain('<text class="inspection-booking__title">预约服务</text>')
+    expect(bookingPageSource).toContain('<AppPageHeader title="预约服务"')
     expect(bookingPageSource).not.toContain('确认订单')
     expect(bookingPageSource).not.toContain('提交订单')
     const bookingRoute = (JSON.parse(pagesSource) as {
@@ -586,11 +586,12 @@ describe('F04 booking page contract', () => {
 
   it('advances the submitted state to plan confirmation and renders DTO-backed details', () => {
     expect(submittedPageSource).not.toContain('<BookingProgress')
-    expect(submittedPageSource).toContain("isCancelled ? '订单已取消' : '需求已提交'")
+    expect(submittedPageSource).toContain("if (isCancelled.value) return '订单已取消'")
+    expect(submittedPageSource).toContain("isPlanPublished.value ? '方案已发布' : '需求已提交'")
     expect(submittedPageSource).toContain('等待服务商确认，方案确认前不收费')
     expect(submittedPageSource).toContain('进度可在“我的订单”查看')
     expect(submittedPageSource).toContain('uni.setClipboardData')
-    expect(submittedPageSource).toContain('reservation.contact.mobile')
+    expect(submittedPageSource).toContain('maskMobile(current.contact.mobile)')
   })
 
   it('uses a configured API base URL and request correlation header', () => {

@@ -42,9 +42,7 @@ const rows = computed(() => resolveServicePricingRows(props.detail))
   gap: 10px;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
   box-sizing: border-box;
 }
 

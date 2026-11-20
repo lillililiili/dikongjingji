@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import type { DetailCapability } from '../../../domain/inspection-service-detail'
+import { deliverableIcon } from '../detail-line-icons'
 
 defineProps<{
   items: readonly DetailCapability[]
@@ -9,25 +9,20 @@ defineProps<{
 </script>
 
 <template>
-  <section class="detail-section service-deliverables">
+  <!-- Board InspDetail 交付成果: a 36px pale-blue rounded square with a file icon, then the name. -->
+  <section class="detail-section service-deliverables" data-testid="detail-deliverables">
     <text class="detail-section__title">交付成果</text>
-    <view class="service-deliverables__grid">
+    <!-- Three items sit side by side, icon above the name (board InspDetailPark). -->
+    <view :class="['service-deliverables__grid', { 'service-deliverables__grid--three': items.length === 3 }]">
       <view
         v-for="item in items"
         :key="item.code"
         class="service-deliverables__item"
       >
-        <image
-          v-if="item.imageUrl"
-          class="service-deliverables__image"
-          :src="item.imageUrl"
-          mode="aspectFill"
-          :aria-label="item.label"
-        />
-        <view v-else class="service-deliverables__icon">
-          <UniIcons :type="item.icon" size="20" color="#1d63c4" />
+        <view class="service-deliverables__icon">
+          <LineIcon :d="deliverableIcon(item.label)" :size="20" color="#2f80ed" />
         </view>
-        <text>{{ item.label }}</text>
+        <text class="service-deliverables__name">{{ item.label }}</text>
       </view>
     </view>
   </section>
@@ -43,9 +38,7 @@ defineProps<{
   gap: 10px;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
   box-sizing: border-box;
 }
 
@@ -64,31 +57,44 @@ defineProps<{
 
 .service-deliverables__item {
   display: flex;
+  min-width: 0;
   min-height: 48px;
-  padding: 6px 10px 6px 6px;
+  padding: 0 10px 0 6px;
   align-items: center;
   gap: 8px;
   border-radius: 10px;
-  color: #202c42;
   background: #f5f7fc;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 18px;
   box-sizing: border-box;
 }
 
-.service-deliverables__image,
-.service-deliverables__icon {
-  width: 36px;
-  height: 36px;
-  flex: 0 0 auto;
-  border-radius: 8px;
+.service-deliverables__grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.service-deliverables__grid--three .service-deliverables__item {
+  padding: 10px 4px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
 }
 
 .service-deliverables__icon {
   display: flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
   background: #e6f0ff;
+}
+
+.service-deliverables__name {
+  min-width: 0;
+  color: #202c42;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  /* One line at 390; on a 320 phone a long name wraps rather than losing its end. */
 }
 </style>

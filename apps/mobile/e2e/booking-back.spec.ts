@@ -61,7 +61,7 @@ async function expectDocumentKept(page: Page): Promise<void> {
 
 async function backFromBooking(page: Page): Promise<void> {
   await markDocument(page)
-  await page.locator('.inspection-booking__back').click()
+  await page.getByTestId('inspection-booking-back').click()
 }
 
 async function expectDetail(page: Page, details: URL[]): Promise<void> {
@@ -124,7 +124,7 @@ test.describe('M04 返回', () => {
     await openBooking(page)
     await backFromBooking(page)
     await expectDetail(page, details)
-    await page.locator('.service-detail-header__action').first().click()
+    await page.getByTestId('inspection-detail-back').click()
 
     await expectCatalog(page)
     await expect(page.getByTestId('catalog-city-select')).toContainText('东营市')
@@ -135,7 +135,7 @@ test.describe('M04 返回', () => {
 
     await openBooking(page)
     await markDocument(page)
-    await page.locator('.inspection-booking__back').dblclick()
+    await page.getByTestId('inspection-booking-back').dblclick()
 
     await expectDetail(page, details)
   })

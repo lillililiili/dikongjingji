@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import type {
   CatalogCategoryOption,
@@ -58,7 +58,7 @@ function apply(): void {
           aria-label="关闭筛选"
           @click="$emit('close')"
         >
-          <UniIcons type="closeempty" size="24" color="#555a61" />
+          <LineIcon name="close" :size="20" color="#536178" :stroke-width="2" />
         </button>
       </view>
 
@@ -109,16 +109,15 @@ function apply(): void {
         :aria-pressed="draft.includesReport ? 'true' : 'false'"
         @click="draft.includesReport = !draft.includesReport"
       >
-        <UniIcons
-          :type="
-            draft.includesReport
-              ? 'checkbox-filled'
-              : 'circle'
-          "
-          size="20"
-          :color="draft.includesReport ? '#19b866' : '#a8adb4'"
-        />
-        <text>包含巡检报告</text>
+        <text class="catalog-sheet__report-label">包含巡检报告</text>
+        <!-- Board InspCatalog: a 44×26 switch, orange when on. -->
+        <view
+          :class="['catalog-sheet__switch', { 'catalog-sheet__switch--on': draft.includesReport }]"
+          role="switch"
+          :aria-checked="draft.includesReport ? 'true' : 'false'"
+        >
+          <view class="catalog-sheet__switch-knob" />
+        </view>
       </button>
 
       <view class="catalog-sheet__actions">
@@ -240,10 +239,46 @@ function apply(): void {
   align-items: center;
   gap: 8px;
   border: 0;
-  color: #444950;
+  color: #202c42;
   background: transparent;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 21px;
   text-align: left;
+}
+
+.catalog-sheet__report::after {
+  border: 0;
+}
+
+.catalog-sheet__report-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.catalog-sheet__switch {
+  display: flex;
+  width: 44px;
+  height: 26px;
+  flex: none;
+  padding: 2px;
+  justify-content: flex-start;
+  border-radius: 13px;
+  background: #c9d3e1;
+  box-sizing: border-box;
+}
+
+.catalog-sheet__switch--on {
+  justify-content: flex-end;
+  background: #ff6a00;
+}
+
+.catalog-sheet__switch-knob {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .catalog-sheet__actions {

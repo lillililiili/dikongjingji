@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 defineProps<{ terms: string[] }>()
 </script>
@@ -8,7 +8,7 @@ defineProps<{ terms: string[] }>()
   <view class="plan-terms">
     <text class="plan-terms__title">交付约定</text>
     <view v-for="term in terms" :key="term" class="plan-terms__row">
-      <UniIcons type="checkmarkempty" size="16" color="#19b866" />
+      <LineIcon name="check" :size="16" color="#159a70" :stroke-width="2.4" />
       <text class="plan-terms__text">{{ term }}</text>
     </view>
   </view>
@@ -23,9 +23,7 @@ defineProps<{ terms: string[] }>()
   border-radius: 14px;
   background: #fff;
   /* The card shadow and hairline of the 2026-11-14 prototype's light theme. */
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .plan-terms__title {

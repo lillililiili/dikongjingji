@@ -8,6 +8,8 @@ export interface BookingCodeLabel {
 
 export interface BookingServiceSnapshot {
   serviceId: string
+  /** 类目编码，按类目配图用；旧快照里没有 */
+  categoryCode?: string
   categoryName: string
   title: string
   summary: string

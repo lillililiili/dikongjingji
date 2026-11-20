@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 defineProps<{
   disabled?: boolean
@@ -19,7 +19,7 @@ defineEmits<{
         aria-label="联系客服"
         @click="$emit('customerService')"
       >
-        <UniIcons type="headphones" size="20" color="#536178" />
+        <LineIcon name="headset" :size="22" color="#536178" />
         <text>客服</text>
       </button>
       <button
@@ -43,7 +43,7 @@ defineEmits<{
   z-index: 20;
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
-  box-shadow: 0 -4px 18px rgba(38, 59, 98, 0.06);
+  box-shadow: var(--app-bar-shadow);
 }
 
 .service-detail-bottom-bar__inner {
@@ -53,7 +53,7 @@ defineEmits<{
   margin: 0 auto;
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   box-sizing: border-box;
 }
 
@@ -72,8 +72,8 @@ defineEmits<{
 
 .service-detail-bottom-bar__secondary {
   display: flex;
-  width: 46px;
-  height: 46px;
+  width: 56px;
+  height: 44px;
   flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
@@ -81,8 +81,8 @@ defineEmits<{
   gap: 2px;
   color: #536178;
   background: transparent;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .service-detail-bottom-bar__primary {
@@ -95,7 +95,7 @@ defineEmits<{
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
-  box-shadow: 0 4px 10px rgba(243, 108, 23, 0.16);
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
 }

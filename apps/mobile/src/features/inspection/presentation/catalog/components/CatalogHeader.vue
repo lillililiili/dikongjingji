@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 defineProps<{
   keyword: string
@@ -41,87 +42,69 @@ function handleKeywordConfirm(event: Event): void {
 </script>
 
 <template>
-  <header class="catalog-header">
-    <view class="catalog-header__title-row">
-      <button
-        class="catalog-header__icon-button"
-        data-testid="catalog-back"
-        aria-label="返回我要巡检"
-        @click="$emit('back')"
-      >
-        <UniIcons type="left" size="22" color="#202c42" />
-      </button>
-      <text class="catalog-header__title">巡检服务</text>
+  <!-- Board InspCatalog: the shared light page head with 客服 on the right and the search row below. -->
+  <AppPageHeader class="catalog-header" title="巡检服务" test-id="catalog" @back="$emit('back')">
+    <template #actions>
       <button
         class="catalog-header__service"
         aria-label="联系客服"
         @click="$emit('customerService')"
       >
-        <UniIcons type="headphones" size="16" color="#202c42" />
+        <LineIcon name="headset" :size="16" color="#202c42" />
         <text>客服</text>
       </button>
-    </view>
-
-    <view class="catalog-header__search-row">
-      <view class="catalog-search">
-        <UniIcons type="search" size="18" color="#738096" />
-        <input
-          class="catalog-search__input"
-          data-testid="catalog-search-input"
-          type="text"
-          confirm-type="search"
-          maxlength="50"
-          :value="keyword"
-          placeholder="搜索巡检服务、场景或关键词"
-          placeholder-class="catalog-search__placeholder"
-          @input="handleKeywordInput"
-          @confirm="handleKeywordConfirm"
-        />
+    </template>
+    <template #bottom>
+      <view class="catalog-header__search-row">
+        <view class="catalog-search">
+          <LineIcon name="search" :size="18" color="#627187" :stroke-width="2" />
+          <input
+            class="catalog-search__input"
+            data-testid="catalog-search-input"
+            type="text"
+            confirm-type="search"
+            maxlength="50"
+            :value="keyword"
+            placeholder="搜索巡检服务、场景或关键词"
+            placeholder-class="catalog-search__placeholder"
+            @input="handleKeywordInput"
+            @confirm="handleKeywordConfirm"
+          />
+          <button
+            v-if="keyword"
+            class="catalog-search__clear"
+            aria-label="清空搜索"
+            @click="$emit('update:keyword', ''); $emit('search', '')"
+          >
+            <view class="catalog-search__clear-dot">
+              <LineIcon name="close" :size="10" color="#ffffff" :stroke-width="3" />
+            </view>
+          </button>
+        </view>
         <button
-          v-if="keyword"
-          class="catalog-search__clear"
-          aria-label="清空搜索"
-          @click="$emit('update:keyword', ''); $emit('search', '')"
+          class="catalog-header__filter"
+          data-testid="catalog-filter-open"
+          aria-label="打开筛选"
+          @click="$emit('filter')"
         >
-          <UniIcons type="clear" size="18" color="#a3a8af" />
+          <view class="catalog-header__filter-icon">
+            <LineIcon name="filter" :size="18" color="#202c42" />
+            <view
+              v-if="filterActive"
+              class="catalog-header__filter-dot"
+              data-testid="catalog-filter-active"
+              aria-label="已设置筛选条件"
+            />
+          </view>
+          <text>筛选</text>
         </button>
       </view>
-      <button
-        class="catalog-header__filter"
-        data-testid="catalog-filter-open"
-        aria-label="打开筛选"
-        @click="$emit('filter')"
-      >
-        <view class="catalog-header__filter-icon">
-          <UniIcons type="tune" size="18" color="#202c42" />
-          <view
-            v-if="filterActive"
-            class="catalog-header__filter-dot"
-            data-testid="catalog-filter-active"
-            aria-label="已设置筛选条件"
-          />
-        </view>
-        <text>筛选</text>
-      </button>
-    </view>
-  </header>
+    </template>
+  </AppPageHeader>
 </template>
 
 <style scoped>
 /* Sizes and colours follow the 2026-11-14 prototype board InspCatalog (390 wide). */
-.catalog-header {
-  padding-top: var(--status-bar-height);
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-}
-
-.catalog-header__title-row {
-  display: flex;
-  padding: 8px 16px 8px 8px;
-  align-items: center;
-  gap: 4px;
-}
-
-.catalog-header__icon-button,
 .catalog-header__service,
 .catalog-header__filter,
 .catalog-search__clear {
@@ -132,27 +115,10 @@ function handleKeywordConfirm(event: Event): void {
   line-height: 1.2;
 }
 
-.catalog-header__icon-button::after,
 .catalog-header__service::after,
 .catalog-header__filter::after,
 .catalog-search__clear::after {
   border: 0;
-}
-
-.catalog-header__icon-button {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-}
-
-.catalog-header__title {
-  color: #202c42;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 25px;
 }
 
 /* A 34-high pill inside a 44-high tap target. */
@@ -160,7 +126,7 @@ function handleKeywordConfirm(event: Event): void {
   position: relative;
   display: flex;
   height: 44px;
-  margin-left: auto;
+  margin-right: 8px;
   padding: 0 12px;
   flex: 0 0 auto;
   align-items: center;
@@ -215,6 +181,16 @@ function handleKeywordConfirm(event: Event): void {
 
 .catalog-search__placeholder {
   color: #738096;
+}
+
+.catalog-search__clear-dot {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #c9d3e1;
 }
 
 .catalog-search__clear {

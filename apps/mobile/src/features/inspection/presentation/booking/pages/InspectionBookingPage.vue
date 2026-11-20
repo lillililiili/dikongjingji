@@ -3,7 +3,8 @@ import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { storeToRefs } from 'pinia'
 
 import { submitBookingReservation, createBookingSubmissionSession, uploadReservationAttachments } from '../../../application/service-flow/submit-booking-reservation'
@@ -374,19 +375,21 @@ function showCustomerService(): void {
   else uni.showToast({ title: '客服能力由平台统一接入', icon: 'none' })
 }
 
+// Board InspBooking: the 线路长度 ruler.
+const RULER = 'M3.5 16.5l13-13 4 4-13 13zM7 13l2 2M10 10l2.5 2.5M13 7l2 2'
 </script>
 
 <template>
   <view class="inspection-booking">
-    <view class="inspection-booking__header">
-      <button class="inspection-booking__back" aria-label="返回" @click="goBack"><UniIcons type="left" size="22" color="#202c42" /></button>
-      <text class="inspection-booking__title">预约服务</text>
-      <button class="inspection-booking__customer" aria-label="联系客服" @click="showCustomerService"><UniIcons type="headphones" size="20" color="#25282d" /><text>客服</text></button>
-    </view>
+    <AppPageHeader title="预约服务" test-id="inspection-booking" @back="goBack">
+      <template #actions>
+        <button class="inspection-booking__customer" aria-label="联系客服" @click="showCustomerService"><LineIcon name="headset" :size="16" color="#536178" /><text>客服</text></button>
+      </template>
+    </AppPageHeader>
     <scroll-view scroll-y class="inspection-booking__scroll" :show-scrollbar="false">
       <view v-if="isLoading" class="booking-state"><text>正在加载服务信息…</text></view>
       <view v-else-if="loadError" class="booking-state">
-        <UniIcons type="info-filled" size="40" color="#b5bac1" />
+        <LineIcon name="info" :size="40" color="#b5bac1" />
         <text>{{ loadError }}</text>
         <button class="booking-state__action" @click="recoverFromLoadError">{{ canRetryLoad ? '重新加载' : '看看其他服务' }}</button>
       </view>
@@ -395,19 +398,19 @@ function showCustomerService(): void {
         <view class="booking-section">
           <text class="booking-section__title">预约信息</text>
           <view class="booking-row booking-row--selectable" @tap="chooseInspectionLocation">
-            <UniIcons type="location" size="18" color="#e85400" />
+            <LineIcon name="pin" :size="18" color="#ff6a00" />
             <text class="booking-row__label">巡检地点</text>
             <text :class="['booking-row__location', { 'booking-row__location--empty': !draft.locationAddress }]">{{ draft.locationAddress || (isChoosingLocation ? '正在打开地图…' : '请选择巡检地点') }}</text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
           </view>
           <view class="booking-row">
-            <UniIcons type="paperplane" size="18" color="#e85400" />
+            <LineIcon :d="RULER" :size="18" color="#ff6a00" />
             <text class="booking-row__label">线路长度</text>
             <input v-model="draft.lineLengthKm" class="booking-row__input" type="digit" placeholder="请输入预计公里数" />
             <text class="booking-row__suffix">公里</text>
           </view>
           <view class="booking-row booking-row--selectable booking-row--time" @tap="openTimePicker">
-            <UniIcons type="calendar" size="18" color="#e85400" />
+            <LineIcon name="calendar" :size="18" color="#ff6a00" />
             <text class="booking-row__label">期望时间</text>
             <text
               :class="[
@@ -417,7 +420,7 @@ function showCustomerService(): void {
             >
               {{ preferredServiceTimeText || '请选择服务时间' }}
             </text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
           </view>
         </view>
         <view class="booking-section">
@@ -425,7 +428,7 @@ function showCustomerService(): void {
           <view class="booking-items">
             <button v-for="item in availableItems" :key="item.code" :class="['booking-item', { 'booking-item--selected': draft.inspectionItemCodes.includes(item.code) }]" @click="toggleItem(item.code)">
               <text>{{ item.label }}</text>
-              <UniIcons :type="draft.inspectionItemCodes.includes(item.code) ? 'checkbox-filled' : 'circle'" size="18" :color="draft.inspectionItemCodes.includes(item.code) ? '#ff6500' : '#c6cbd1'" />
+              <view :class="['booking-tick', { 'booking-tick--on': draft.inspectionItemCodes.includes(item.code) }]"><LineIcon v-if="draft.inspectionItemCodes.includes(item.code)" name="check" :size="11" color="#ffffff" :stroke-width="3.2" /></view>
             </button>
           </view>
         </view>
@@ -438,21 +441,21 @@ function showCustomerService(): void {
               <button v-if="attachment.status === 'FAILED'" class="booking-attachment__action" @click="retryAttachment(attachment)">重试</button>
               <button class="booking-attachment__action" @click="removeAttachment(attachment.localId)">移除</button>
             </view>
-            <button v-if="canAddAttachment" class="booking-attachment-add" @click="chooseAttachments"><UniIcons type="cloud-upload" size="27" color="#8c939c" /><view><text>上传线路图或现场照片</text><text>支持图片、PDF，最多9个文件</text></view></button>
+            <button v-if="canAddAttachment" class="booking-attachment-add" @click="chooseAttachments"><LineIcon name="upload" :size="26" color="#738096" :stroke-width="1.6" /><view><text>上传线路图或现场照片</text><text>支持图片、PDF，最多9个文件</text></view></button>
           </view>
         </view>
         <view class="booking-section"><text class="booking-section__title">补充说明</text><textarea v-model="draft.note" class="booking-note" placeholder="请补充线路情况、现场环境或其他需求（选填）" maxlength="1000" /></view>
         <view class="booking-section booking-section--contact">
           <text class="booking-section__title">联系人信息</text>
-          <view class="booking-row"><UniIcons type="person-filled" size="15" color="#ff6a00" /><text class="booking-row__label">联系人</text><input v-model="draft.contactName" class="booking-row__input" placeholder="请输入联系人姓名" maxlength="40" /></view>
-          <view class="booking-row"><UniIcons type="phone-filled" size="15" color="#ff6a00" /><text class="booking-row__label">手机号</text><input v-model="draft.contactMobile" class="booking-row__input" type="number" placeholder="请输入联系人手机号" maxlength="11" /></view>
+          <view class="booking-row"><LineIcon name="person" :size="18" color="#ff6a00" /><text class="booking-row__label">联系人</text><input v-model="draft.contactName" class="booking-row__input" placeholder="请输入联系人姓名" maxlength="40" /></view>
+          <view class="booking-row"><LineIcon name="mobile" :size="18" color="#ff6a00" /><text class="booking-row__label">手机号</text><input v-model="draft.contactMobile" class="booking-row__input" type="number" placeholder="请输入联系人手机号" maxlength="11" /></view>
         </view>
         <text v-if="submitError" class="booking-submit-error">{{ submitError }}</text>
       </main>
     </scroll-view>
     <view v-if="service" class="inspection-booking__footer">
-      <view class="inspection-booking__tip"><UniIcons type="shield-filled" size="17" color="#20ad56" /><text>平台保障 · 方案确认前不收取费用</text></view>
-      <label class="booking-agreement"><checkbox :checked="draft.agreementAccepted" color="#ff6a00" @click="draft.agreementAccepted = !draft.agreementAccepted" /><text>我已阅读并同意 <text class="booking-agreement__link">《服务协议》《隐私政策》</text></text></label>
+      <view class="inspection-booking__tip"><LineIcon name="shield" :size="15" color="#159a70" :stroke-width="2" /><text>平台保障 · 方案确认前不收取费用</text></view>
+      <view class="booking-agreement" data-testid="booking-agreement" role="checkbox" :aria-checked="draft.agreementAccepted ? 'true' : 'false'" @click="draft.agreementAccepted = !draft.agreementAccepted"><view :class="['booking-tick', 'booking-tick--round', { 'booking-tick--on': draft.agreementAccepted }]"><LineIcon v-if="draft.agreementAccepted" name="check" :size="11" color="#ffffff" :stroke-width="3.2" /></view><text>我已阅读并同意</text><text class="booking-agreement__link">《服务协议》</text><text class="booking-agreement__link">《隐私政策》</text></view>
       <button class="inspection-booking__submit" :loading="isSubmitting" :disabled="isSubmitting" @click="submit">提交预约</button>
     </view>
     <InspectionTimePickerSheet
@@ -512,10 +515,10 @@ function showCustomerService(): void {
 .inspection-booking__customer{width:auto;height:32px;padding:0 12px 0 10px;gap:4px;border:1px solid #e5ebf3;border-radius:999px;color:#536178;background:#fff;font-size:13px;line-height:18px}
 .inspection-booking__scroll{height:calc(100vh - 150px - var(--status-bar-height) - env(safe-area-inset-bottom))}
 .inspection-booking__content{padding:12px 16px 160px;gap:10px}
-.inspection-booking :deep(.booking-service-card){grid-template-columns:88px minmax(0,1fr);min-height:0;padding:12px;border:0;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
+.inspection-booking :deep(.booking-service-card){grid-template-columns:88px minmax(0,1fr);min-height:0;padding:12px;border:0;border-radius:14px;box-shadow:var(--app-card-shadow)}
 .inspection-booking :deep(.booking-service-card__image){width:88px;height:88px;border-radius:10px}
 .inspection-booking :deep(.booking-service-card__copy){padding:0 0 0 12px;justify-content:space-between}
-.booking-section{padding:14px;border-radius:14px;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
+.booking-section{padding:14px;border-radius:14px;box-shadow:var(--app-card-shadow)}
 .booking-section__title{margin-bottom:6px;color:#202c42;font-size:16px;line-height:22px}
 .booking-row,.booking-section--contact .booking-row{min-height:48px;grid-template-columns:26px auto minmax(0,1fr) auto;border-bottom-color:#f0f1f3;color:#202c42;font-size:14px}
 .booking-row__label{font-weight:400}
@@ -533,4 +536,21 @@ function showCustomerService(): void {
 .booking-agreement{height:36px;color:#536178;font-size:13px}
 .inspection-booking__submit{height:46px;margin-top:2px;border-radius:999px;color:#fff;background:#ff6a00;box-shadow:0 4px 10px rgba(243,108,23,.16);font-size:16px;font-weight:500;line-height:46px}
 .booking-state__action{border-radius:999px;background:#ff6a00}
+/* 2026-11-20 board alignment: shared page head, line icons, round ticks, 12px upload hint. */
+.inspection-booking__customer{display:flex;height:34px;margin-right:8px;padding:0 12px;align-items:center;gap:4px;border:1px solid #e5ebf3;border-radius:999px;color:#202c42;background:transparent;font-size:13px;line-height:18px}
+.inspection-booking__scroll{height:calc(100vh - 150px - var(--status-bar-height) - env(safe-area-inset-bottom))}
+.inspection-booking :deep(.booking-service-card){box-shadow:var(--app-card-shadow);outline:0}
+.booking-section{box-shadow:var(--app-card-shadow);outline:0}
+.booking-tick{display:flex;width:18px;height:18px;flex:none;align-items:center;justify-content:center;border:1.5px solid #c9d3e1;border-radius:50%;background:#fff;box-sizing:border-box}
+.booking-tick--round{border-color:#91a0b4}
+.booking-tick--on{border:0;background:#ff6a00}
+.booking-item{grid-template-columns:minmax(0,1fr) 18px}
+.booking-attachment-add{gap:10px}
+.booking-attachment-add view text:first-child{font-size:14px;line-height:20px}
+.booking-attachment-add view text:last-child{color:#738096;font-size:12px;line-height:17px}
+.booking-agreement{display:flex;min-height:44px;height:auto;align-items:center;gap:8px;color:#536178;font-size:13px;line-height:18px}
+.booking-agreement__link{color:#ba470b}
+.booking-agreement .booking-tick + text{margin-right:0}
+.inspection-booking__tip{gap:6px;justify-content:center}
+.inspection-booking__submit{box-shadow:var(--app-primary-shadow)}
 </style>

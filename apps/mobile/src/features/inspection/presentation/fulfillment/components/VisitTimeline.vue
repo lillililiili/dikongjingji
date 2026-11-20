@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import type { VisitRow } from '../fulfillment-view'
 
 defineProps<{
@@ -30,11 +30,12 @@ const emit = defineEmits<{ openDelivery: [visitId: string] }>()
         <view class="visit-row__rail">
           <view v-if="index < rows.length - 1" class="visit-row__line" />
           <view class="visit-row__dot">
-            <UniIcons
+            <LineIcon
               v-if="row.tone === 'delivered' || row.tone === 'accepted'"
-              type="checkmarkempty"
-              size="11"
+              name="check"
+              :size="11"
               color="#ffffff"
+              :stroke-width="3.2"
             />
             <view v-else-if="row.tone === 'active' || row.isNext" class="visit-row__dot-core" />
           </view>
@@ -75,7 +76,7 @@ const emit = defineEmits<{ openDelivery: [visitId: string] }>()
             @click="emit('openDelivery', row.id)"
           >
             <text>查看交付</text>
-            <UniIcons type="right" size="14" color="#a3a8b0" />
+            <LineIcon name="chevronRight" :size="14" color="#91a0b4" :stroke-width="2" />
           </button>
         </view>
       </view>
@@ -92,9 +93,7 @@ const emit = defineEmits<{ openDelivery: [visitId: string] }>()
   border-radius: 14px;
   background: #fff;
   /* The card shadow and hairline of the 2026-11-14 prototype's light theme. */
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .visit-timeline__head {

@@ -5,15 +5,24 @@ import catalogPageSource from '../presentation/catalog/pages/InspectionCatalogPa
 import detailHeaderSource from '../presentation/detail/components/ServiceDetailHeader.vue?raw'
 import detailPageSource from '../presentation/detail/pages/InspectionServiceDetailPage.vue?raw'
 import homeHeaderSource from '../../../app-shell/components/HomeHeader.vue?raw'
+import appPageHeaderSource from '../../../shared/ui/AppPageHeader.vue?raw'
 
 describe('Android custom-navigation top inset', () => {
   it.each([
     ['home header', homeHeaderSource],
-    ['catalog header', catalogHeaderSource],
-    ['detail header', detailHeaderSource],
+    ['shared page head', appPageHeaderSource],
     ['detail content', detailPageSource],
   ])('keeps %s below the native status bar', (_label, source) => {
     expect(source).toContain('var(--status-bar-height)')
+    expect(source).not.toContain('env(safe-area-inset-top)')
+  })
+
+  // 2026-11-20: the catalog and detail heads are the shared AppPageHeader, which carries the inset.
+  it.each([
+    ['catalog header', catalogHeaderSource],
+    ['detail header', detailHeaderSource],
+  ])('builds the %s on the shared page head', (_label, source) => {
+    expect(source).toContain('<AppPageHeader')
     expect(source).not.toContain('env(safe-area-inset-top)')
   })
 

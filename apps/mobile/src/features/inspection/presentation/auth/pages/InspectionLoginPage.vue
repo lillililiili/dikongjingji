@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { onBackPress, onLoad } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
+import type { AgreementDoc } from '@/features/settings/domain/agreement'
+import { buildAgreementUrl } from '@/features/settings/navigation/settings-routes'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import {
   completeBookingAuthenticationRecovery,
   saveBookingAuthSession,
 } from '../../../application/service-flow/booking-auth-context'
 import { inspectionAuthApi } from '../../../data/service-flow/uni-booking-http-client'
 import { isRootTabReturnUrl, normalizeInspectionReturnUrl } from '../../../navigation/inspection-routes'
+import { describeLoginResume } from '../login-resume'
 
 interface LoginRouteQuery {
   returnUrl?: string
@@ -18,6 +24,9 @@ const password = ref('')
 const returnUrl = ref('/pages/home/index')
 const isSubmitting = ref(false)
 const errorMessage = ref('')
+// Board Login: the agreement is not ticked in advance; 登录 stays orange and says what is missing.
+const agreementAccepted = ref(false)
+const resumeAction = computed(() => describeLoginResume(returnUrl.value))
 
 onLoad((query: LoginRouteQuery | undefined) => {
   returnUrl.value = normalizeInspectionReturnUrl(query?.returnUrl ?? '')
@@ -33,6 +42,10 @@ async function submitLogin(): Promise<void> {
   const normalizedLoginName = loginName.value.trim()
   if (!normalizedLoginName || !password.value) {
     errorMessage.value = '请输入用户名和密码'
+    return
+  }
+  if (!agreementAccepted.value) {
+    uni.showToast({ title: '请先阅读并同意用户协议和隐私政策', icon: 'none' })
     return
   }
 
@@ -65,6 +78,15 @@ function continueToProtectedPage(): void {
   })
 }
 
+// The agreement pages are part of 设置与公共页 (M18, preview builds); public builds name them only.
+function openAgreement(doc: AgreementDoc): void {
+  if (!SUPPORT_PREVIEW_ENABLED) {
+    uni.showToast({ title: '协议正文待提供', icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: buildAgreementUrl(doc) })
+}
+
 function exitLogin(): void {
   completeBookingAuthenticationRecovery()
   uni.reLaunch({ url: '/pages/home/index' })
@@ -73,58 +95,42 @@ function exitLogin(): void {
 
 <template>
   <view class="inspection-login">
-    <view class="inspection-login__header">
-      <button aria-label="返回首页" @click="exitLogin">
-        <UniIcons type="back" size="22" color="#25282d" />
-      </button>
-      <text />
-      <view />
-    </view>
+    <AppPageHeader class="inspection-login__header" title="登录" test-id="login" @back="exitLogin" />
 
     <main class="inspection-login__content">
-      <view class="inspection-login__skyline">
-        <view class="inspection-login__headline">
-          <text class="inspection-login__eyebrow">飞享低空服务平台</text>
-          <text class="inspection-login__title">智启低空新体验</text>
-          <text class="inspection-login__subtitle">登录飞享，便捷管理巡检服务</text>
-        </view>
-        <image
-          class="inspection-login__robot"
-          src="/static/images/inspection/platform/inspection-login-hero.png"
-          mode="aspectFill"
-        />
+      <view v-if="resumeAction" class="inspection-login__resume" data-testid="login-resume">
+        <text class="inspection-login__resume-title">登录后继续：{{ resumeAction }}</text>
+        <text class="inspection-login__resume-text">登录成功后自动回到原操作</text>
       </view>
 
       <view class="inspection-login__form">
         <text class="inspection-login__form-title">账号登录</text>
-        <label>
-          <text>用户名</text>
-          <view class="inspection-login__input">
-            <UniIcons type="person" size="20" color="#8b929b" />
-            <input
-              v-model="loginName"
-              type="text"
-              maxlength="80"
-              placeholder="请输入用户名"
-              confirm-type="next"
-            />
-          </view>
-        </label>
-        <label>
-          <text>密码</text>
-          <view class="inspection-login__input">
-            <UniIcons type="locked" size="20" color="#8b929b" />
-            <input
-              v-model="password"
-              type="text"
-              password
-              maxlength="256"
-              placeholder="请输入密码"
-              confirm-type="done"
-              @confirm="submitLogin"
-            />
-          </view>
-        </label>
+        <view class="inspection-login__input">
+          <LineIcon name="person" :size="18" color="#738096" />
+          <input
+            v-model="loginName"
+            type="text"
+            maxlength="80"
+            placeholder="请输入用户名"
+            placeholder-class="inspection-login__placeholder"
+            aria-label="用户名"
+            confirm-type="next"
+          />
+        </view>
+        <view class="inspection-login__input">
+          <LineIcon name="lock" :size="18" color="#738096" />
+          <input
+            v-model="password"
+            type="text"
+            password
+            maxlength="256"
+            placeholder="请输入密码"
+            placeholder-class="inspection-login__placeholder"
+            aria-label="密码"
+            confirm-type="done"
+            @confirm="submitLogin"
+          />
+        </view>
         <text v-if="errorMessage" class="inspection-login__error">{{ errorMessage }}</text>
         <button
           class="inspection-login__submit"
@@ -133,43 +139,48 @@ function exitLogin(): void {
         >
           {{ isSubmitting ? '正在登录…' : '登录' }}
         </button>
-        <view class="inspection-login__secure">
-          <UniIcons type="shield-filled" size="16" color="#20b55a" />
-          <text>账号信息已加密传输</text>
-        </view>
       </view>
 
-      <text class="inspection-login__notice">
-        当前仅支持平台已开通账号，登录后只能查看本人巡检业务。
-      </text>
+      <view
+        class="inspection-login__agreement"
+        data-testid="login-agreement"
+        role="checkbox"
+        :aria-checked="agreementAccepted ? 'true' : 'false'"
+        @click="agreementAccepted = !agreementAccepted"
+      >
+        <view :class="['inspection-login__tick', { 'inspection-login__tick--on': agreementAccepted }]">
+          <LineIcon v-if="agreementAccepted" name="check" :size="11" color="#ffffff" :stroke-width="3.2" />
+        </view>
+        <text class="inspection-login__agreement-text">我已阅读并同意<text class="inspection-login__link" @click.stop="openAgreement('USER_AGREEMENT')">《用户协议》</text><text class="inspection-login__link" @click.stop="openAgreement('PRIVACY_POLICY')">《隐私政策》</text><text class="inspection-login__link" @click.stop="openAgreement('CHILD_PRIVACY_RULES')">《儿童个人信息保护规则》</text></text>
+      </view>
+
+      <button class="inspection-login__browse" data-testid="login-browse" @click="exitLogin">先随便看看</button>
     </main>
   </view>
 </template>
 
 <style scoped>
-.inspection-login{position:relative;min-height:100vh;overflow:hidden;background:linear-gradient(180deg,#cfe8ff 0,#eef7ff 42%,#f8fafc 72%);color:#171b22}
-.inspection-login::before{position:absolute;top:76px;right:-90px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.55);filter:blur(4px);content:''}
-.inspection-login__header{position:relative;z-index:2;display:grid;height:calc(44px + var(--status-bar-height));padding-top:var(--status-bar-height);grid-template-columns:44px 1fr 44px;align-items:center;background:transparent;box-sizing:border-box}
-.inspection-login__header button{height:44px;min-height:44px;margin:0;padding:0;border:0;background:transparent;line-height:1}
-.inspection-login__header button::after,.inspection-login__submit::after{border:0}
-.inspection-login__content{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:18px 20px calc(28px + env(safe-area-inset-bottom))}
-.inspection-login__skyline{position:relative;height:230px;overflow:hidden;border-radius:28px;background:#e7f4ff;box-shadow:0 20px 55px rgba(65,128,180,.12)}
-.inspection-login__skyline::after{position:absolute;z-index:1;inset:0;background:linear-gradient(90deg,rgba(241,248,255,.96) 0,rgba(241,248,255,.78) 47%,rgba(241,248,255,0) 72%);content:''}
-.inspection-login__headline{position:absolute;z-index:2;top:42px;left:24px;display:flex;width:64%;align-items:flex-start;flex-direction:column}
-.inspection-login__eyebrow{color:#2274d9;font-size:13px;font-weight:600;letter-spacing:1px}
-.inspection-login__title{margin-top:9px;font-size:28px;font-weight:800;line-height:1.18;letter-spacing:1px;white-space:nowrap}
-.inspection-login__subtitle{margin-top:10px;color:#566b80;font-size:14px;line-height:1.55}
-.inspection-login__robot{position:absolute;z-index:0;inset:0;width:100%;height:100%}
-.inspection-login__form{position:relative;margin-top:-16px;padding:26px 22px 22px;border:1px solid rgba(255,255,255,.9);border-radius:24px;background:rgba(255,255,255,.96);box-shadow:0 16px 42px rgba(39,79,112,.14)}
-.inspection-login__form-title{display:block;margin-bottom:22px;font-size:22px;font-weight:800}
-.inspection-login__form label{display:block;margin-top:18px}
-.inspection-login__form label:first-child{margin-top:0}
-.inspection-login__form label>text{display:block;margin-bottom:9px;font-size:14px;font-weight:600}
-.inspection-login__input{display:flex;height:52px;padding:0 15px;align-items:center;gap:10px;border:1px solid #dde4eb;border-radius:14px;background:#f8fafc;box-sizing:border-box}
-.inspection-login__form input{width:100%;height:50px;font-size:15px}
-.inspection-login__error{display:block;margin-top:14px;color:#d73928;font-size:13px}
-.inspection-login__submit{height:52px;min-height:52px;margin-top:24px;border:0;border-radius:16px;color:#fff;background:linear-gradient(90deg,#ff9518,#ff5700);box-shadow:0 10px 24px rgba(255,99,0,.22);font-size:17px;font-weight:700}
-.inspection-login__submit[disabled]{opacity:.62}
-.inspection-login__secure{display:flex;margin-top:15px;align-items:center;justify-content:center;gap:6px;color:#75808a;font-size:12px}
-.inspection-login__notice{display:block;margin:18px 16px 0;color:#75808a;font-size:12px;line-height:1.7;text-align:center}
+/* Sizes and colours follow the 2026-11-14 prototype board Login (390 wide). One-tap login with the
+   phone number is not built; the existing account login keeps the board's layout. */
+.inspection-login { display: flex; min-height: 100vh; flex-direction: column; color: #202c42; background: #f5f7fc; }
+.inspection-login__content { display: flex; width: 100%; max-width: 600px; min-height: 0; margin: 0 auto; padding: 8px 16px calc(24px + env(safe-area-inset-bottom)); flex: 1; flex-direction: column; box-sizing: border-box; }
+.inspection-login__resume { display: flex; padding: 10px 12px; flex-direction: column; gap: 2px; border: 1px solid #ffd8b8; border-radius: 12px; background: #fff0e3; }
+.inspection-login__resume-title { font-size: 13px; font-weight: 500; line-height: 18px; }
+.inspection-login__resume-text { color: #627187; font-size: 12px; line-height: 17px; }
+.inspection-login__form { display: flex; flex-direction: column; }
+.inspection-login__form-title { margin: 28px 0 16px; font-size: 22px; font-weight: 700; line-height: 30px; }
+.inspection-login__input { display: flex; height: 50px; padding: 0 14px; align-items: center; gap: 10px; border-radius: 12px; background: #fff; box-sizing: border-box; }
+.inspection-login__input + .inspection-login__input { margin-top: 12px; }
+.inspection-login__input input { min-width: 0; height: 50px; flex: 1; color: #202c42; font-size: 15px; }
+.inspection-login__placeholder { color: #738096; }
+.inspection-login__error { display: block; margin-top: 12px; color: #d64f67; font-size: 13px; line-height: 18px; }
+.inspection-login__submit { height: 48px; margin: 24px 0 0; border: 0; border-radius: 999px; color: #fff; background: #ff6a00; box-shadow: var(--app-primary-shadow); font-size: 16px; font-weight: 500; line-height: 48px; }
+.inspection-login__submit::after, .inspection-login__browse::after { border: 0; }
+.inspection-login__submit[disabled] { opacity: 0.7; }
+.inspection-login__agreement { display: flex; margin-top: 16px; padding: 6px 0; align-items: flex-start; gap: 8px; color: #627187; font-size: 12px; line-height: 18px; }
+.inspection-login__tick { display: flex; width: 18px; height: 18px; flex: none; align-items: center; justify-content: center; border: 1.5px solid #91a0b4; border-radius: 50%; background: #fff; box-sizing: border-box; }
+.inspection-login__tick--on { border: 0; background: #ff6a00; }
+.inspection-login__agreement-text { min-width: 0; flex: 1; }
+.inspection-login__link { color: #ba470b; }
+.inspection-login__browse { min-height: 44px; margin: auto auto 0; padding: 0 16px; border: 0; color: #627187; background: transparent; font-size: 14px; line-height: 44px; }
 </style>

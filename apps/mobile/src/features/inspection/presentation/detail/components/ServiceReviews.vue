@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import type {
   DetailReview,
@@ -19,6 +19,7 @@ defineEmits<{
   selectFilter: [code: string]
   viewAll: []
 }>()
+const STAR = 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z'
 </script>
 
 <template>
@@ -31,7 +32,7 @@ defineEmits<{
         @click="$emit('viewAll')"
       >
         <text>查看全部</text>
-        <UniIcons type="right" size="15" color="#2f3948" />
+        <LineIcon name="chevronRight" :size="15" color="#2f3948" />
       </button>
     </view>
 
@@ -39,13 +40,7 @@ defineEmits<{
       <view class="service-reviews__summary">
         <text class="service-reviews__average">{{ average.toFixed(1) }}</text>
         <view class="service-reviews__stars" aria-label="五星评价">
-          <UniIcons
-            v-for="star in 5"
-            :key="star"
-            type="star-filled"
-            size="17"
-            color="#ff5c00"
-          />
+          <LineIcon v-for="star in 5" :key="star" :d="STAR" :size="17" color="#ff5c00" fill="#ff5c00" />
         </view>
         <text v-if="positiveRateLabel" class="service-reviews__meta">
           {{ positiveRateLabel }}　·　{{ total }}条评价
@@ -82,7 +77,7 @@ defineEmits<{
         >
           <view class="service-review-card__header">
             <view class="service-review-card__avatar" aria-hidden="true">
-              <UniIcons type="person-filled" size="26" color="#ff7a35" />
+              <LineIcon name="person" :size="22" color="#ff7a35" />
             </view>
             <view class="service-review-card__identity">
               <text class="service-review-card__name">
@@ -95,13 +90,7 @@ defineEmits<{
             <text class="service-review-card__date">{{ review.date }}</text>
           </view>
           <view class="service-review-card__stars">
-            <UniIcons
-              v-for="star in review.rating"
-              :key="star"
-              type="star-filled"
-              size="13"
-              color="#ff5c00"
-            />
+            <LineIcon v-for="star in review.rating" :key="star" :d="STAR" :size="13" color="#ff5c00" fill="#ff5c00" />
           </view>
           <text class="service-review-card__content">{{ review.content }}</text>
           <view
@@ -123,7 +112,7 @@ defineEmits<{
     </template>
 
     <view v-else class="service-reviews__empty">
-      <UniIcons type="chatboxes-filled" size="30" color="#c8cdd4" />
+      <LineIcon name="chatDots" :size="32" color="#c9d3e1" :stroke-width="1.6" />
       <text>暂无评价</text>
       <text>完成服务后可在这里查看真实用户评价</text>
     </view>
@@ -136,9 +125,7 @@ defineEmits<{
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
   box-sizing: border-box;
 }
 
@@ -323,19 +310,20 @@ defineEmits<{
 
 .service-reviews__empty {
   display: flex;
-  min-height: 122px;
-  margin-top: 8px;
+  padding: 8px 0 6px;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 7px;
-  color: #5e6978;
-  font-size: 13px;
+  gap: 4px;
+  color: #536178;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .service-reviews__empty text:last-child {
-  color: #9aa2ad;
-  font-size: 11px;
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
 }
 
 @media (max-width: 359px) {

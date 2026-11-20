@@ -22,7 +22,7 @@ test.describe('M01 热门巡检服务', () => {
   test('HOT-102 从详情返回，回到专业服务频道', async ({ page }) => {
     await openHotService(page)
     await expect(page.getByTestId('inspection-detail')).toBeVisible()
-    await page.locator('[aria-label^="返回巡检服务"]').click()
+    await page.getByTestId('inspection-detail-back').click()
 
     await expect(page.locator('.hot-service-card').first()).toBeVisible()
     await expect(page.getByTestId('home-channel-service')).toHaveClass(/active/)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import { platformCityApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
@@ -128,6 +128,13 @@ const dueOptions = computed(() => buildDemandDueOptions(new Date()))
 const budgetText = computed(() => formatDemandBudget(form.value.budgetMinMinor, form.value.budgetMaxMinor))
 const cityShort = computed(() => form.value.city?.name.replace(/市$/, '') ?? '')
 const publisherText = computed(() => (publisher.value ? describeDemandPublisher(publisher.value) : ''))
+// The Demand board's identity line: 以 东营港务物流 身份提交 (switching identity is not built).
+const identityText = computed(() => {
+  const current = publisher.value
+  if (!current) return ''
+  const name = current.kind === 'ORGANIZATION' && current.organizationName ? current.organizationName : '个人'
+  return `以 ${name} 身份提交`
+})
 const title = computed(() => {
   if (state.value.kind === 'view') return '需求详情'
   return demandId.value ? '继续填写需求' : '发布服务需求'
@@ -566,14 +573,14 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
     <template v-else>
       <view class="demand-publish__body">
         <view v-if="publisherText" class="demand-publish__identity">
-          <text class="demand-publish__publisher" data-testid="demand-publisher">{{ publisherText }}</text>
+          <text class="demand-publish__publisher" data-testid="demand-publisher">{{ identityText }}</text>
         </view>
 
         <view class="demand-publish__group">
           <button class="demand-publish__row" data-testid="demand-type" aria-haspopup="dialog" @click="sheet = 'type'">
             <text class="demand-publish__label">服务类型</text>
             <text class="demand-publish__value" data-testid="demand-type-value">{{ info.label }}</text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon name="chevronRight" :size="16" color="#91a0b4" :stroke-width="2" />
           </button>
           <view class="demand-publish__row demand-publish__row--line">
             <text :class="['demand-publish__label', { 'demand-publish__label--invalid': invalid('cityCode') || invalid('address') }]">
@@ -585,7 +592,7 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
               @click="citySheet.open()"
             >
               <text>{{ form.city?.name ?? '选城市' }}</text>
-              <UniIcons type="bottom" size="12" color="#738096" />
+              <LineIcon name="chevronDown" :size="12" color="#738096" :stroke-width="2.4" />
             </button>
             <input
               class="demand-publish__input"
@@ -618,12 +625,12 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
           <button class="demand-publish__row demand-publish__row--line" data-testid="demand-due" aria-haspopup="dialog" @click="sheet = 'due'">
             <text :class="['demand-publish__label', { 'demand-publish__label--invalid': invalid('dueDate') }]">期望完成</text>
             <text class="demand-publish__value" data-testid="demand-due-value">{{ dueText }}</text>
-            <UniIcons type="calendar" size="18" color="#738096" />
+            <LineIcon name="calendar" :size="18" color="#738096" />
           </button>
           <button class="demand-publish__row demand-publish__row--line" data-testid="demand-budget" aria-haspopup="dialog" @click="sheet = 'budget'">
             <text class="demand-publish__label">预算区间</text>
             <text class="demand-publish__value" data-testid="demand-budget-value">{{ budgetText }}</text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon name="chevronRight" :size="16" color="#91a0b4" :stroke-width="2" />
           </button>
         </view>
 
@@ -671,7 +678,7 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
               @click="row.scope === 'INVITE' && form.quoteScope === 'INVITE' ? openInvite() : pickScope(row.scope)"
             >
               <view v-if="form.quoteScope === row.scope" class="demand-publish__radio demand-publish__radio--on">
-                <UniIcons type="checkmarkempty" size="12" color="#ffffff" />
+                <LineIcon name="check" :size="12" color="#ffffff" :stroke-width="3" />
               </view>
               <view v-else class="demand-publish__radio" />
               <view class="demand-publish__scope-copy">
@@ -685,7 +692,7 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
                   {{ row.sub }}
                 </text>
               </view>
-              <UniIcons v-if="row.more" type="right" size="14" color="#91a0b4" />
+              <LineIcon v-if="row.more" name="chevronRight" :size="16" color="#91a0b4" :stroke-width="2" />
             </button>
           </view>
         </view>
@@ -709,7 +716,7 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
       role="status"
       data-testid="demand-notice"
     >
-      <UniIcons type="info" size="14" :color="notice.tone === 'error' ? '#d64f67' : '#ba470b'" />
+      <LineIcon name="info" :size="14" :color="notice.tone === 'error' ? '#d64f67' : '#ba470b'" :stroke-width="2" />
       <text class="demand-publish__toast-text">{{ notice.text }}</text>
       <button
         v-if="notice.link"
@@ -720,7 +727,7 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
         去查看
       </button>
       <button class="demand-publish__toast-close" aria-label="关闭提示" @click="notice = null">
-        <UniIcons type="closeempty" size="14" color="#738096" />
+        <LineIcon name="close" :size="14" color="#738096" :stroke-width="2" />
       </button>
     </view>
 
@@ -732,7 +739,7 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
         <view class="demand-sheet__head">
           <text class="demand-sheet__title">{{ sheetTitle }}</text>
           <button class="demand-sheet__close" aria-label="关闭" @click="sheet = null">
-            <UniIcons type="closeempty" size="20" color="#202c42" />
+            <LineIcon name="close" :size="20" color="#202c42" :stroke-width="2" />
           </button>
         </view>
         <view class="demand-sheet__options">
@@ -752,7 +759,7 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
                 <text class="demand-sheet__option-sub">{{ DEMAND_TYPE_INFO[type].description }}</text>
               </view>
               <view :class="['demand-publish__radio', { 'demand-publish__radio--on': form.type === type }]">
-                <UniIcons v-if="form.type === type" type="checkmarkempty" size="12" color="#ffffff" />
+                <LineIcon v-if="form.type === type" name="check" :size="12" color="#ffffff" :stroke-width="3" />
               </view>
             </button>
           </template>
@@ -770,13 +777,13 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
                 {{ option.label }}
               </text>
               <view :class="['demand-publish__radio', { 'demand-publish__radio--on': form.dueDate === option.date }]">
-                <UniIcons v-if="form.dueDate === option.date" type="checkmarkempty" size="12" color="#ffffff" />
+                <LineIcon v-if="form.dueDate === option.date" name="check" :size="12" color="#ffffff" :stroke-width="3" />
               </view>
             </button>
             <picker mode="date" :start="today" :value="form.dueDate ?? today" @change="pickDueFromPicker">
               <view class="demand-sheet__option" data-testid="demand-due-other">
                 <text class="demand-sheet__option-label">选择其他日期</text>
-                <UniIcons type="calendar" size="18" color="#738096" />
+                <LineIcon name="calendar" :size="18" color="#738096" />
               </view>
             </picker>
           </template>
@@ -794,7 +801,7 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
                 {{ option.label }}
               </text>
               <view :class="['demand-publish__radio', { 'demand-publish__radio--on': budgetPicked(option.minMinor, option.maxMinor) }]">
-                <UniIcons v-if="budgetPicked(option.minMinor, option.maxMinor)" type="checkmarkempty" size="12" color="#ffffff" />
+                <LineIcon v-if="budgetPicked(option.minMinor, option.maxMinor)" name="check" :size="12" color="#ffffff" :stroke-width="3" />
               </view>
             </button>
           </template>
@@ -824,7 +831,7 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
                   <text v-if="providerLine(provider)" class="demand-sheet__option-sub">{{ providerLine(provider) }}</text>
                 </view>
                 <view :class="['demand-publish__radio', { 'demand-publish__radio--on': isInvited(provider) }]">
-                  <UniIcons v-if="isInvited(provider)" type="checkmarkempty" size="12" color="#ffffff" />
+                  <LineIcon v-if="isInvited(provider)" name="check" :size="12" color="#ffffff" :stroke-width="3" />
                 </view>
               </button>
             </template>
@@ -928,6 +935,7 @@ button::after {
   padding: 2px 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .demand-publish__row {
@@ -997,6 +1005,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .demand-publish__card--scope {
@@ -1121,6 +1130,7 @@ button::after {
   gap: 10px;
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .demand-publish__draft,
@@ -1145,6 +1155,7 @@ button::after {
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;

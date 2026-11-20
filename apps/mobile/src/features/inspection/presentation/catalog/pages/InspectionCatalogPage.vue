@@ -165,7 +165,7 @@ import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { storeToRefs } from 'pinia'
 
 import { createRecentCityStorage } from '@/shared/city/data/recent-city-storage'
@@ -652,11 +652,7 @@ function showCustomerService(): void {
           </view>
 
           <view v-else-if="loadError" class="catalog-state">
-            <UniIcons
-              type="info-filled"
-              size="42"
-              color="#b8bdc4"
-            />
+            <LineIcon name="info" :size="42" color="#b8bdc4" />
             <text class="catalog-state__title">暂时无法加载</text>
             <text class="catalog-state__description">
               {{ loadError }}
@@ -667,7 +663,7 @@ function showCustomerService(): void {
           </view>
 
           <view v-else-if="!currentCity" class="catalog-state">
-            <UniIcons type="location" size="42" color="#b8bdc4" />
+            <LineIcon name="pin" :size="42" color="#b8bdc4" />
             <text class="catalog-state__title">请先选择城市</text>
             <text class="catalog-state__description">
               选择城市后查看当地的巡检服务
@@ -682,7 +678,7 @@ function showCustomerService(): void {
             class="catalog-state"
             data-testid="catalog-city-closed"
           >
-            <UniIcons type="location" size="42" color="#b8bdc4" />
+            <LineIcon name="pin" :size="42" color="#b8bdc4" />
             <text class="catalog-state__title">
               {{ displayCityName }}暂未开通巡检服务
             </text>
@@ -699,7 +695,7 @@ function showCustomerService(): void {
             class="catalog-state"
             data-testid="catalog-empty"
           >
-            <UniIcons type="search" size="42" color="#b8bdc4" />
+            <LineIcon name="search" :size="42" color="#b8bdc4" />
             <text class="catalog-state__title">
               没有找到相关服务
             </text>

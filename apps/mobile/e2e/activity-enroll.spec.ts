@@ -145,6 +145,7 @@ test.describe('免费活动报名', () => {
     await expect(page.locator('.inspection-login__form')).toBeVisible()
     await page.locator('.inspection-login__input input').nth(0).fill('dev-customer')
     await page.locator('.inspection-login__input input').nth(1).fill(devPassword())
+    await page.getByTestId('login-agreement').click()
     await page.locator('.inspection-login__submit').click()
 
     await expect(page.getByTestId('activity-enroll-title')).toHaveText('无人机开放体验日')

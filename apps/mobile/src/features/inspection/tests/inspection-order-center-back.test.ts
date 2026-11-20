@@ -6,6 +6,7 @@ import * as Vue from 'vue'
 import * as orderNavigation from '../application/service-flow/inspection-order-navigation'
 import * as orderCenterView from '../presentation/orders/order-center-view'
 import orderCenterPageSource from '../presentation/orders/pages/InspectionOrderCenterPage.vue?raw'
+import * as inspectionRoutes from '../navigation/inspection-routes'
 
 const MINE_URL = '/pages/mine/index'
 const MINE_ROUTE = 'pages/mine/index'
@@ -68,6 +69,7 @@ function mountOrderCenterPage(): {
       inspectionOrderApi: { list: async () => ({}) },
     },
     '../order-center-view': orderCenterView,
+    '../../../navigation/inspection-routes': inspectionRoutes,
   }
   const testRequire = (request: string): unknown => {
     if (request.endsWith('.vue')) return { default: {} }

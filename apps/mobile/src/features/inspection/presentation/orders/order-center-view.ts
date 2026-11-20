@@ -1,3 +1,4 @@
+import { inspectionServiceImage } from '../../data/inspection-service-images'
 import type {
   InspectionOrderFilter,
   InspectionOrderPage,
@@ -188,6 +189,30 @@ export function getInspectionOrderActionLabel(stage: InspectionOrderStage): stri
   }[stage]
 }
 
+// Board OrderList: the status at the right of the card head, coloured by stage.
+export function getInspectionOrderStageColour(stage: InspectionOrderStage): string {
+  return {
+    AWAITING_PLAN: '#ba470b',
+    AWAITING_CONFIRMATION: '#ba470b',
+    IN_PROGRESS: '#1d63c4',
+    AWAITING_ACCEPTANCE: '#1d63c4',
+    COMPLETED: '#11804a',
+    CANCELLED: '#738096',
+  }[stage]
+}
+
+/**
+ * Board OrderList, the service cards: only 去验收 is the solid orange button; it comes with a grey
+ * outlined 查看履约 (the visits) beside it. Every other stage shows its one button outlined.
+ */
+export function isInspectionOrderActionUrgent(stage: InspectionOrderStage): boolean {
+  return stage === 'AWAITING_ACCEPTANCE'
+}
+
+export function hasInspectionOrderFulfillmentAction(order: InspectionOrderSummary): boolean {
+  return order.stage === 'AWAITING_ACCEPTANCE' && Boolean(order.serviceOrderId) && Boolean(order.pendingAcceptanceVisitId)
+}
+
 export function getInspectionOrderStageLabel(stage: InspectionOrderStage): string {
   return {
     AWAITING_PLAN: '待方案',
@@ -233,7 +258,7 @@ export function toPlatformMineOrder(order: InspectionOrderSummary): PlatformMine
     title: order.serviceTitle,
     status: order.stage,
     statusText: getInspectionOrderStageText(order),
-    imageUrl: order.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png',
+    imageUrl: inspectionServiceImage({ coverUrl: order.serviceCoverUrl, title: order.serviceTitle }),
     locationText: order.locationSummary,
     scheduledAtText: getInspectionOrderScheduleText(order),
     orderNumber: order.reservationNo,

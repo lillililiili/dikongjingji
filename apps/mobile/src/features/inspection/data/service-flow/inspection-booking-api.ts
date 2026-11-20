@@ -125,7 +125,7 @@ export function createInspectionBookingApi(
     async loadServiceSnapshot(serviceId, cityCode) {
       const service = await publicReadHttp.request<{
         serviceId: string
-        category: { name: string }
+        category: { code?: string; name: string }
         name: string
         summary: string
         coverImage: { url: string } | null
@@ -148,6 +148,7 @@ export function createInspectionBookingApi(
 
       return {
         serviceId: service.serviceId,
+        ...(service.category.code ? { categoryCode: service.category.code } : {}),
         categoryName: service.category.name,
         title: service.name,
         summary: service.summary,

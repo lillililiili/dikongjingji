@@ -64,6 +64,7 @@ describe('M04 service lookup', () => {
 
     await expect(api.loadServiceSnapshot(SERVICE_ID, '370100')).resolves.toEqual({
       serviceId: SERVICE_ID,
+      categoryCode: 'POWER',
       categoryName: '电力',
       title: '输电线路无人机巡检',
       summary: '专业无人机电力巡检服务',

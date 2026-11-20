@@ -121,7 +121,8 @@ const screens: Screen[] = [
     async open(page) {
       await answerApi(page, planAnswers(plan()))
       await page.goto(`/#/pages/service/inspection/booking-submitted?reservationId=${RESERVATION_ID}`)
-      await expect(page.locator('.booking-submitted__title')).toHaveText('需求已提交')
+      // The fixture reservation already has a published plan, which the page now says (board InspBooked).
+      await expect(page.locator('.booking-submitted__title')).toHaveText('方案已发布')
     },
   },
   {

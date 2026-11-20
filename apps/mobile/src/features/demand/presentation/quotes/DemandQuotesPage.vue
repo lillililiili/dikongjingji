@@ -34,7 +34,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   back: []
   login: []
-  compare: [demandId: string]
+  compare: [demandId: string, quoteId?: string]
   viewDemand: [demandId: string]
   republish: [demandId: string]
 }>()
@@ -209,9 +209,9 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
             <button
               class="demand-quotes__detail"
               :data-testid="`demand-quote-detail-${card.quote.quoteId}`"
-              @click="emit('compare', demand.demandId)"
+              @click="emit('compare', demand.demandId, card.quote.quoteId)"
             >
-              查看明细 v{{ card.quote.version }}
+              查看方案 v{{ card.quote.version }}
             </button>
             <button
               v-if="card.quote.choosable"
@@ -377,6 +377,7 @@ button::after {
   border: 1.5px solid #ffffff;
   border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .demand-quotes__card--focus {
@@ -484,6 +485,7 @@ button::after {
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 13px;
   font-weight: 500;
   line-height: 36px;
@@ -493,6 +495,7 @@ button::after {
 .demand-quotes__choose--soft {
   color: #ba470b;
   background: #fff0e3;
+  box-shadow: none;
 }
 
 .demand-quotes__empty {

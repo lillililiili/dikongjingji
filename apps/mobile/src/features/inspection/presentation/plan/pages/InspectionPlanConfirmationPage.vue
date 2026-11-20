@@ -151,7 +151,9 @@ import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
 import { onBackPress, onLoad } from '@dcloudio/uni-app'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
+import { inspectionServiceImage } from '../../../data/inspection-service-images'
 import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
 import {
   canCancelInspectionOrder,
@@ -406,18 +408,13 @@ function showCustomerService(title: string): void {
 
 <template>
   <view class="plan-confirmation">
-    <view class="plan-confirmation__header">
-      <button class="plan-confirmation__back" aria-label="返回" @click="goBack">
-        <UniIcons type="back" size="22" color="#191919" />
-      </button>
-      <text class="plan-confirmation__heading">方案确认</text>
-    </view>
+    <AppPageHeader class="plan-confirmation__header" title="方案确认" test-id="plan-confirmation" @back="goBack" />
 
     <view v-if="isLoading" class="plan-confirmation__state">
       正在恢复服务方案…
     </view>
     <view v-else-if="loadError" class="plan-confirmation__state">
-      <UniIcons type="info-filled" size="40" color="#b5bac1" />
+      <LineIcon name="info" :size="40" color="#b5bac1" />
       <text>{{ loadError }}</text>
       <button v-if="routePlanId" class="plan-confirmation__retry" @click="retryLoad">重新加载</button>
     </view>
@@ -427,7 +424,7 @@ function showCustomerService(title: string): void {
       class="plan-confirmation__content"
     >
       <PlanSummaryCard
-        :cover-url="reservation.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'"
+        :cover-url="inspectionServiceImage({ coverUrl: reservation.serviceCoverUrl, title: reservation.serviceTitle })"
         :title="reservation.serviceTitle"
         :provider-name="plan.provider?.name ?? ''"
         :certification-label="plan.provider?.certificationLabel ?? ''"
@@ -474,14 +471,14 @@ function showCustomerService(title: string): void {
           class="plan-confirmation__check"
           :class="{ 'plan-confirmation__check--on': agreementAccepted }"
         >
-          <UniIcons v-if="agreementAccepted" type="checkmarkempty" size="12" color="#ffffff" />
+          <LineIcon v-if="agreementAccepted" name="check" :size="12" color="#ffffff" :stroke-width="3" />
         </view>
         <text>我已核对方案 v{{ plan.planVersion }} 的服务范围、报价与交付约定</text>
       </button>
 
       <view v-if="isConfirmed && confirmation" class="plan-confirmation__status plan-confirmation__status--confirmed">
         <view class="plan-confirmation__status-check">
-          <UniIcons type="checkmarkempty" size="13" color="#ffffff" />
+          <LineIcon name="check" :size="13" color="#ffffff" :stroke-width="3" />
         </view>
         <view class="plan-confirmation__status-copy">
           <text class="plan-confirmation__status-title">{{ confirmation.title }}</text>
@@ -541,7 +538,7 @@ function showCustomerService(title: string): void {
         <button
           v-else
           class="plan-confirmation__primary plan-confirmation__confirm"
-          :disabled="!agreementAccepted || !confirmable"
+          :disabled="isSubmitting || !confirmable"
           @click="confirmPlan"
         >
           {{ isSubmitting ? '正在确认…' : `确认方案 v${plan.planVersion}` }}
@@ -564,27 +561,8 @@ function showCustomerService(title: string): void {
   position: sticky;
   top: 0;
   z-index: 2;
-  display: flex;
-  padding: calc(8px + var(--status-bar-height)) 8px 8px;
-  align-items: center;
-  gap: 4px;
-  /* The page-head gradient of the 2026-11-14 prototype's light theme. */
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
 }
 
-.plan-confirmation__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  margin: 0;
-  padding: 0;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-}
-
-.plan-confirmation__back::after,
 .plan-confirmation__retry::after,
 .plan-confirmation__cancel::after,
 .plan-confirmation__agreement::after,
@@ -593,10 +571,7 @@ function showCustomerService(title: string): void {
   border: 0;
 }
 
-.plan-confirmation__heading {
-  font-size: 18px;
-  font-weight: 700;
-}
+
 
 .plan-confirmation__state {
   display: flex;

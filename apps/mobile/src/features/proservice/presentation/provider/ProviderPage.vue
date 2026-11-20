@@ -4,9 +4,9 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
-  PRO_SERVICE_CATEGORY_ICONS,
   PRO_SERVICE_TYPE_INFO,
   avatarText,
   formatProServicePrice,
@@ -14,10 +14,16 @@ import {
   shortCityName,
 } from '../../application/proservice-view'
 import { proServiceApi } from '../../data/proservice-api-client'
+import {
+  inspectionServicePicture,
+  resolveProServicePreviewCover,
+} from '../../data/preview/proservice-preview-covers'
 import type { ProServicePrice, ProServiceType, ProviderPage } from '../../domain/proservice'
 
 // A provider's page (ProviderPage board): who it is, what it offers in this city and where it
-// works. The board's 案例 and 资质 tabs are left out: there are no cases or qualification rows yet.
+// works. The board's 案例 and 资质 tabs, its 经营主体 / 服务方式 / 授权有效期 rows and its 可交付
+// card are left out: the provider read has no cases, qualification rows, company facts or
+// deliverables yet.
 const props = defineProps<{
   providerId: string
   cityCode: string
@@ -51,9 +57,8 @@ interface ScopeRow {
   title: string
   summary: string
   typeLabel: string
-  icon: string
-  tagColor: string
-  tint: string
+  // A picture for the 96px photo; null leaves the grey placeholder.
+  picture: string | null
   price: ProServicePrice
   sample: boolean
 }
@@ -75,9 +80,7 @@ const scopeRows = computed<ScopeRow[]>(() => {
       title: service.title,
       summary: service.summary,
       typeLabel: `巡检 · ${service.categoryName}`,
-      icon: 'eye',
-      tagColor: '#ff6a00',
-      tint: '#fff0e3',
+      picture: inspectionServicePicture(service.categoryName),
       price: service.price,
       sample: false,
     })),
@@ -88,9 +91,7 @@ const scopeRows = computed<ScopeRow[]>(() => {
       title: service.title,
       summary: service.summary,
       typeLabel: `${PRO_SERVICE_TYPE_INFO[service.type].label} · ${service.category.label}`,
-      icon: PRO_SERVICE_CATEGORY_ICONS[service.category.code] ?? 'gear',
-      tagColor: PRO_SERVICE_TYPE_INFO[service.type].badgeColor,
-      tint: PRO_SERVICE_TYPE_INFO[service.type].tintColor,
+      picture: service.coverUrl ?? resolveProServicePreviewCover(service.type, service.category.code),
       price: service.price,
       sample: service.sample,
     })),
@@ -138,20 +139,23 @@ void load()
   <view class="provider-page" data-testid="provider-page" :data-state="state.kind">
     <view class="provider-page__top">
       <button class="provider-page__back" data-testid="provider-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="22" color="#202c42" />
+        <LineIcon name="back" :size="22" color="#202c42" :stroke-width="2" />
       </button>
       <view v-if="provider" class="provider-page__identity">
         <text class="provider-page__logo" aria-hidden="true">{{ avatarText(provider.name) }}</text>
         <view class="provider-page__identity-copy">
           <text class="provider-page__name" data-testid="provider-name">{{ provider.name }}</text>
-          <view v-if="provider.certificationLabel" class="provider-page__tags">
-            <text class="provider-page__tag" data-testid="provider-certification">{{ provider.certificationLabel }}</text>
+          <view v-if="provider.certificationLabel || provider.description" class="provider-page__tags">
+            <text v-if="provider.certificationLabel" class="provider-page__tag" data-testid="provider-certification">
+              {{ provider.certificationLabel }}
+            </text>
+            <!-- The board's orange tag (东营本地团队): the provider's own one-line description. -->
+            <text v-if="provider.description" class="provider-page__tag provider-page__tag--team" data-testid="provider-description">
+              {{ provider.description }}
+            </text>
           </view>
         </view>
       </view>
-      <text v-if="provider?.description" class="provider-page__description" data-testid="provider-description">
-        {{ provider.description }}
-      </text>
     </view>
 
     <view v-if="state.kind === 'loading'" class="provider-page__body" aria-label="正在加载">
@@ -201,9 +205,14 @@ void load()
           :data-kind="row.kind"
           @click="openRow(row)"
         >
-          <view class="provider-page__service-cover" :style="{ background: row.tint }">
-            <UniIcons :type="row.icon" size="30" :color="row.tagColor" />
-            <text class="provider-page__service-tag" :style="{ background: row.tagColor }">{{ row.typeLabel }}</text>
+          <view class="provider-page__service-cover" :aria-label="row.typeLabel">
+            <image
+              v-if="row.picture"
+              class="provider-page__service-image"
+              :src="row.picture"
+              mode="aspectFill"
+              lazy-load
+            />
           </view>
           <view class="provider-page__service-copy">
             <view class="provider-page__service-title-line">
@@ -245,7 +254,7 @@ void load()
 
       <view class="provider-page__bar">
         <button class="provider-page__consult" data-testid="provider-consult" @click="showConsult">
-          <UniIcons type="chatbubble" size="20" color="#536178" />
+          <LineIcon name="chat" :size="22" color="#536178" />
           <text>咨询</text>
         </button>
         <button class="provider-page__publish" data-testid="provider-publish" @click="publish">发布需求</button>
@@ -286,7 +295,7 @@ button::after {
   padding: calc(8px + var(--status-bar-height)) 16px 16px;
   flex-direction: column;
   gap: 12px;
-  background: linear-gradient(180deg, #fff0e3, #ffffff);
+  background: var(--app-head-gradient);
 }
 
 .provider-page__back {
@@ -335,6 +344,7 @@ button::after {
 
 .provider-page__tags {
   display: flex;
+  min-width: 0;
   gap: 6px;
 }
 
@@ -348,10 +358,12 @@ button::after {
   white-space: nowrap;
 }
 
-.provider-page__description {
-  color: #536178;
-  font-size: 12px;
-  line-height: 17px;
+.provider-page__tag--team {
+  overflow: hidden;
+  min-width: 0;
+  color: #ba470b;
+  background: #fff0e3;
+  text-overflow: ellipsis;
 }
 
 .provider-page__tabs {
@@ -449,6 +461,7 @@ button::after {
   border-radius: 12px;
   color: #202c42;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
   text-align: left;
   box-sizing: border-box;
 }
@@ -463,23 +476,13 @@ button::after {
   justify-content: center;
   overflow: hidden;
   border-radius: 8px;
+  background: #eef2f8;
 }
 
-.provider-page__service-tag {
-  position: absolute;
-  top: 0;
-  left: 0;
-  max-width: 96px;
-  overflow: hidden;
-  padding: 1px 6px;
-  border-radius: 0 0 8px 0;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 16px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  box-sizing: border-box;
+.provider-page__service-image {
+  display: block;
+  width: 96px;
+  height: 84px;
 }
 
 .provider-page__service-copy {
@@ -503,13 +506,11 @@ button::after {
   line-height: 20px;
 }
 
+/* 示例 stays, as quiet grey words (user decision R5-14, 2026-11-20). */
 .provider-page__sample {
   margin-top: 2px;
   flex: none;
-  padding: 0 5px;
-  border-radius: 6px;
-  color: #536178;
-  background: #eef2f8;
+  color: #738096;
   font-size: 11px;
   line-height: 16px;
   white-space: nowrap;
@@ -534,7 +535,7 @@ button::after {
 
 .provider-page__amount {
   color: #e85400;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 20px;
 }
@@ -553,6 +554,7 @@ button::after {
   padding: 4px 14px;
   border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .provider-page__city {
@@ -610,6 +612,7 @@ button::after {
   gap: 10px;
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .provider-page__consult {
@@ -633,6 +636,7 @@ button::after {
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;

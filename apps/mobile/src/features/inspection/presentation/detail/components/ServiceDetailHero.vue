@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
+import { categoryBadgeColour, categoryBadgeLabel } from '../detail-line-icons'
 
 const props = defineProps<{
   detail: InspectionServiceDetail
@@ -24,6 +24,18 @@ const serviceCitiesLabel = computed(() =>
     : '',
 )
 
+const STAR = 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z'
+const badgeLabel = computed(() => categoryBadgeLabel(props.detail.categoryLabel))
+const badgeColour = computed(() => categoryBadgeColour(props.detail.categoryCode ?? ''))
+// “0 条评价” says nothing, so the count only shows when there are reviews.
+const reviewCount = computed(() => (props.detail.reviewCount ? props.detail.reviewCount : null))
+// The boards draw the provider as a round initial; only a real uploaded logo replaces it.
+const providerLogo = computed(() => {
+  const url = props.detail.provider?.logoUrl ?? ''
+  return /^https?:\/\//.test(url) ? url : ''
+})
+const providerInitial = computed(() => props.detail.provider?.name.trim().charAt(0) ?? '')
+
 const priceLabel = computed(() => {
   if (props.detail.priceAmountMinor === null) {
     return '按项目报价'
@@ -43,8 +55,13 @@ const priceLabel = computed(() => {
         lazy-load
         :aria-label="`${detail.title}服务现场`"
       />
-      <view class="service-detail-hero__category">
-        <text>{{ detail.categoryLabel }}</text>
+      <view
+        v-if="badgeLabel"
+        class="service-detail-hero__category"
+        data-testid="detail-category-badge"
+        :style="{ background: badgeColour }"
+      >
+        <text>{{ badgeLabel }}</text>
       </view>
     </view>
 
@@ -72,15 +89,15 @@ const priceLabel = computed(() => {
           v-if="detail.ratingAverage !== null"
           class="service-detail-hero__rating"
         >
-          <UniIcons type="star-filled" size="12" color="#ff8a00" />
+          <LineIcon :d="STAR" :size="12" color="#ff8a00" fill="#ff8a00" :stroke-width="1" />
           <text>{{ detail.ratingAverage.toFixed(1) }}分</text>
         </view>
         <!-- A separator only goes between two shown items, never at the start of the line. -->
-        <text v-if="detail.reviewCount !== null">
-          {{ detail.ratingAverage !== null ? '·　' : '' }}{{ detail.reviewCount }}条评价
+        <text v-if="reviewCount !== null">
+          {{ detail.ratingAverage !== null ? '·　' : '' }}{{ reviewCount }}条评价
         </text>
         <text v-if="detail.completedCountLabel">
-          {{ detail.ratingAverage !== null || detail.reviewCount !== null ? '·　' : '' }}{{ detail.completedCountLabel }}
+          {{ detail.ratingAverage !== null || reviewCount !== null ? '·　' : '' }}{{ detail.completedCountLabel }}
         </text>
       </view>
 
@@ -93,18 +110,25 @@ const priceLabel = computed(() => {
           :key="capability.code"
           class="service-detail-hero__capability"
         >
-          <UniIcons type="checkmarkempty" size="14" color="#11804a" />
+          <LineIcon name="check" :size="14" color="#159a70" :stroke-width="3" />
           <text>{{ capability.label }}</text>
         </view>
       </view>
 
       <view v-if="detail.provider" class="service-detail-hero__provider">
         <image
+          v-if="providerLogo"
           class="service-detail-hero__provider-logo"
-          :src="detail.provider.logoUrl"
+          :src="providerLogo"
           mode="aspectFill"
           :aria-label="`${detail.provider.name}服务商标识`"
         />
+        <text
+          v-else
+          class="service-detail-hero__provider-logo service-detail-hero__provider-initial"
+          data-testid="detail-provider-initial"
+          aria-hidden="true"
+        >{{ providerInitial }}</text>
         <view class="service-detail-hero__provider-copy">
           <text class="service-detail-hero__provider-name">
             {{ detail.provider.name }}
@@ -186,9 +210,7 @@ const priceLabel = computed(() => {
   flex-direction: column;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .service-detail-hero__title {
@@ -281,6 +303,14 @@ const priceLabel = computed(() => {
   flex: 0 0 auto;
   border-radius: 50%;
   background: #fff0e3;
+}
+
+.service-detail-hero__provider-initial {
+  color: #ba470b;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 36px;
+  text-align: center;
 }
 
 .service-detail-hero__provider-copy {

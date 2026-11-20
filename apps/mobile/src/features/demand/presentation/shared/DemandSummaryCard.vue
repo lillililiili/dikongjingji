@@ -3,11 +3,12 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed } from 'vue'
 
 import { describeDemandMeta, describeDemandQuoteSummary } from '../../application/demand-view'
+import { resolveDemandPreviewCover } from '../../data/preview/demand-preview-covers'
 import type { Demand } from '../../domain/demand'
 
 // The demand at the top of the quotes and compare pages (Quote, PlanCompare boards). A demand has
-// no picture yet (attachments come with a later step), so the picture slot shows the document icon
-// of the DemandList board's empty image.
+// no picture of its own yet (attachments come with a later step): preview builds show the board's
+// scene photo for its type, otherwise the document icon of the DemandList board's empty image.
 const props = defineProps<{
   demand: Demand
   quoteCount: number
@@ -15,12 +16,14 @@ const props = defineProps<{
 
 const summary = computed(() => describeDemandQuoteSummary(props.demand, props.quoteCount))
 const meta = computed(() => describeDemandMeta(props.demand))
+const picture = computed(() => resolveDemandPreviewCover(props.demand.type))
 </script>
 
 <template>
   <view class="demand-summary" data-testid="demand-summary">
     <view class="demand-summary__image">
-      <UniIcons type="compose" size="26" color="#91a0b4" />
+      <image v-if="picture" class="demand-summary__photo" :src="picture" mode="aspectFill" data-testid="demand-summary-photo" />
+      <UniIcons v-else type="compose" size="26" color="#91a0b4" />
     </view>
     <view class="demand-summary__body">
       <text class="demand-summary__title">{{ demand.title }}</text>
@@ -44,6 +47,7 @@ const meta = computed(() => describeDemandMeta(props.demand))
   gap: 12px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .demand-summary__image {
@@ -53,8 +57,15 @@ const meta = computed(() => describeDemandMeta(props.demand))
   flex: none;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   border-radius: 10px;
   background: #eef2f8;
+}
+
+.demand-summary__photo {
+  display: block;
+  width: 72px;
+  height: 72px;
 }
 
 .demand-summary__body {

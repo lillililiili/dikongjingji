@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import type {
   PlanChange,
   PlanPreviousVersion,
@@ -33,12 +33,12 @@ const isPreviousOpen = ref(false)
         @click="isPreviousOpen = !isPreviousOpen"
       >
         <text>{{ isPreviousOpen ? '收起' : '查看' }} v{{ previousVersion }}</text>
-        <UniIcons :type="isPreviousOpen ? 'up' : 'down'" size="14" color="#8a8f97" />
+        <LineIcon :name="isPreviousOpen ? 'chevronUp' : 'chevronDown'" :size="14" color="#738096" />
       </button>
     </view>
     <text v-if="validUntilText" class="plan-version__valid">{{ validUntilText }}</text>
     <view v-if="change" class="plan-version__change">
-      <UniIcons :type="change.isIncrease ? 'plusempty' : 'info'" size="14" color="#ff6a00" />
+      <LineIcon :name="change.isIncrease ? 'plus' : 'info'" :size="14" color="#ff6a00" :stroke-width="2" />
       <text class="plan-version__change-text">
         {{ change.text }}<text v-if="change.amountText" class="plan-version__change-amount">{{ change.amountText }}</text>
       </text>
@@ -62,9 +62,7 @@ const isPreviousOpen = ref(false)
   border-radius: 14px;
   background: #fff;
   /* The card shadow and hairline of the 2026-11-14 prototype's light theme. */
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
 }
 
 .plan-version__head {

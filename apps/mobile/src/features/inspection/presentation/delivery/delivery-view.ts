@@ -35,6 +35,8 @@ export interface DeliveryIssueRow {
 export interface DeliveryFileRow {
   fileId: string
   type: InspectionDeliveryFileType
+  /** The one-line row title of board Delivery: what the file is and its format, “巡检报告（PDF）”. */
+  title: string
   name: string
   detailText: string
   linkText: string
@@ -75,6 +77,35 @@ const FILE_PRESENTATION: Record<InspectionDeliveryFileType, {
     canPreview: false,
     itemUnit: '个',
   },
+}
+
+type DeliveryFile = InspectionDelivery['files'][number]
+
+// The format in brackets: PDF, 表格, KML or the extension of the file name.
+function fileFormat(file: DeliveryFile): string {
+  const type = file.contentType.toLowerCase()
+  if (type.includes('pdf')) return 'PDF'
+  if (type.includes('sheet') || type.includes('excel') || type.includes('csv')) return '表格'
+  if (type.includes('kml')) return 'KML'
+  const extension = /\.([a-z0-9]+)$/i.exec(file.displayName)?.[1]
+  return extension ? extension.toUpperCase() : ''
+}
+
+function fileRowTitle(file: DeliveryFile): string {
+  const format = fileFormat(file)
+  const withFormat = (label: string, detail: string): string => (detail ? `${label}（${detail}）` : label)
+  switch (file.type) {
+    case 'INSPECTION_REPORT':
+      return withFormat('巡检报告', format)
+    case 'DEFECT_LIST':
+      return withFormat('缺陷清单', format)
+    case 'POINT_KML':
+      return withFormat('点位标注', ['KML', file.pointCount == null ? '' : `${file.pointCount} 个点位`].filter(Boolean).join(' · '))
+    case 'IMAGE_ARCHIVE':
+      return withFormat('高清巡检影像', file.itemCount == null ? format : `${file.itemCount} 张`)
+    default:
+      return file.displayName
+  }
 }
 
 export function describeDeliveryHeader(
@@ -168,6 +199,7 @@ export function toFileRows(
     return {
       fileId: file.fileId,
       type: file.type,
+      title: fileRowTitle(file),
       name: file.itemCount == null
         ? file.displayName
         : `${file.displayName}（${file.itemCount} ${presentation.itemUnit}）`,

@@ -15,9 +15,9 @@ const EMPTY_ORDERS = {
   },
 }
 
-const ordersBack = (page: Page) => page.locator('[aria-label="返回我的"]')
-const catalogBack = (page: Page) => page.locator('[aria-label="返回我要巡检"]')
-const detailBack = (page: Page) => page.locator('[aria-label="返回巡检服务列表"]')
+const ordersBack = (page: Page) => page.getByTestId('inspection-orders-back')
+const catalogBack = (page: Page) => page.getByTestId('catalog-back')
+const detailBack = (page: Page) => page.getByTestId('inspection-detail-back')
 
 async function openOrders(page: Page): Promise<void> {
   await page.goto('/#/pages/home/index')

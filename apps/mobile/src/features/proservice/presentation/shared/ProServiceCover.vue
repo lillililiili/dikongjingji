@@ -3,10 +3,12 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed } from 'vue'
 
 import { PRO_SERVICE_CATEGORY_ICONS, PRO_SERVICE_TYPE_INFO } from '../../application/proservice-view'
+import { resolveProServicePreviewCover } from '../../data/preview/proservice-preview-covers'
 import type { ProServiceCategoryView, ProServiceType } from '../../domain/proservice'
 
-// The picture area of a service: the authorised photo when there is one, otherwise the scene's
-// icon on the type's tint (SvcCatalog: no stand-in photos). The corner label names the scene.
+// The picture area of a service: the server's photo when there is one, otherwise (preview builds)
+// the board's picture for the scene, otherwise the scene's icon on the type's tint. The corner
+// label names the scene.
 const props = defineProps<{
   type: ProServiceType
   category: ProServiceCategoryView
@@ -21,14 +23,17 @@ const props = defineProps<{
 
 const info = computed(() => PRO_SERVICE_TYPE_INFO[props.type])
 const icon = computed(() => PRO_SERVICE_CATEGORY_ICONS[props.category.code] ?? 'gear')
+const picture = computed(() =>
+  props.coverUrl ?? resolveProServicePreviewCover(props.type, props.category.code, props.pill === true))
 </script>
 
 <template>
-  <view class="pro-cover" :style="{ background: coverUrl ? '#eef0f3' : info.tintColor }">
+  <view class="pro-cover" :style="{ background: picture ? '#eef0f3' : info.tintColor }">
     <image
-      v-if="coverUrl"
+      v-if="picture"
       class="pro-cover__image"
-      :src="coverUrl"
+      data-testid="pro-cover-image"
+      :src="picture"
       mode="aspectFill"
       lazy-load
       :aria-label="title"

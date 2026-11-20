@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import type { InspectionOrderSummary } from '@/features/inspection/domain/service-flow/order-center'
+import { inspectionServiceImage } from '../../../data/inspection-service-images'
 import {
   formatInspectionOrderAmount,
   getInspectionOrderActionLabel,
   getInspectionOrderScheduleText,
+  getInspectionOrderStageColour,
   getInspectionOrderStageText,
+  hasInspectionOrderFulfillmentAction,
+  isInspectionOrderActionUrgent,
 } from '../order-center-view'
 
 const props = defineProps<{
@@ -13,55 +19,83 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [order: InspectionOrderSummary]
+  fulfillment: [order: InspectionOrderSummary]
 }>()
+
+const picture = computed(() => inspectionServiceImage({
+  coverUrl: props.order.serviceCoverUrl,
+  title: props.order.serviceTitle,
+}))
+const stageColour = computed(() => getInspectionOrderStageColour(props.order.stage))
+const showFulfillment = computed(() => hasInspectionOrderFulfillmentAction(props.order))
+const urgent = computed(() => isInspectionOrderActionUrgent(props.order.stage))
 </script>
 
 <template>
-  <button class="inspection-order-card" @click="emit('select', props.order)">
-    <image
-      class="inspection-order-card__image"
-      :src="props.order.serviceCoverUrl || '/static/images/inspection/inspection-hero-v1.png'"
-      mode="aspectFill"
-    />
-    <view class="inspection-order-card__body">
-      <view class="inspection-order-card__title-line">
-        <text>{{ props.order.serviceTitle }}</text>
-        <text>{{ getInspectionOrderStageText(props.order) }}</text>
+  <!-- Board OrderList, the 服务 card: head row (tag, status), picture with title and amount,
+       then the buttons on the right — solid orange only for 去验收, grey outline otherwise.
+       The board's provider name and 资质已审核 need fields the order list does not return yet. -->
+  <view
+    class="inspection-order-card"
+    :data-testid="`inspection-order-${props.order.reservationId}`"
+    @click="emit('select', props.order)"
+  >
+    <view class="inspection-order-card__head">
+      <text class="inspection-order-card__tag">服务</text>
+      <text class="inspection-order-card__number">{{ props.order.reservationNo }}</text>
+      <text class="inspection-order-card__stage" :style="{ color: stageColour }">{{ getInspectionOrderStageText(props.order) }}</text>
+    </view>
+    <view class="inspection-order-card__main">
+      <image class="inspection-order-card__image" :src="picture" mode="aspectFill" />
+      <view class="inspection-order-card__body">
+        <view class="inspection-order-card__title-line">
+          <text class="inspection-order-card__title">{{ props.order.serviceTitle }}</text>
+          <text class="inspection-order-card__amount">{{ formatInspectionOrderAmount(props.order.quoteAmountMinor) }}</text>
+        </view>
+        <text class="inspection-order-card__meta">{{ props.order.locationSummary }}</text>
+        <text class="inspection-order-card__schedule">{{ getInspectionOrderScheduleText(props.order) }}</text>
       </view>
-      <text>{{ props.order.locationSummary }}</text>
-      <text class="inspection-order-card__schedule">{{ getInspectionOrderScheduleText(props.order) }}</text>
-      <text>{{ props.order.reservationNo }}</text>
     </view>
-    <view class="inspection-order-card__aside">
-      <text>{{ formatInspectionOrderAmount(props.order.quoteAmountMinor) }}</text>
-      <text>{{ getInspectionOrderActionLabel(props.order.stage) }}</text>
+    <view class="inspection-order-card__actions">
+      <button
+        v-if="showFulfillment"
+        class="inspection-order-card__secondary"
+        data-testid="inspection-order-fulfillment"
+        @click.stop="emit('fulfillment', props.order)"
+      >
+        查看履约
+      </button>
+      <button
+        :class="urgent ? 'inspection-order-card__primary' : 'inspection-order-card__secondary'"
+        data-testid="inspection-order-action"
+        @click.stop="emit('select', props.order)"
+      >
+        {{ getInspectionOrderActionLabel(props.order.stage) }}
+      </button>
     </view>
-  </button>
+  </view>
 </template>
 
 <style scoped>
-.inspection-order-card{box-sizing:border-box;display:grid;width:100%;grid-template-columns:96px minmax(0,1fr);gap:10px 12px;align-items:start;padding:14px;border:0;border-radius:18px;background:#fff;box-shadow:0 5px 16px rgba(43,66,94,.06);line-height:1.4;text-align:left}
-.inspection-order-card::after{border:0}
-.inspection-order-card__image{width:96px;height:82px;border-radius:13px;background:#eef2f6}
-.inspection-order-card__body{display:flex;min-width:0;flex-direction:column;gap:5px}
-.inspection-order-card__title-line{display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:2px 6px;font-size:15px;font-weight:700}
-.inspection-order-card__title-line>text:first-child{flex:1 1 100%;min-width:0}
-.inspection-order-card__title-line>text:last-child{flex:0 0 auto;white-space:nowrap}
-.inspection-order-card__body>text{overflow:hidden;color:#5f6873;font-size:13px;text-overflow:ellipsis;white-space:nowrap}
-.inspection-order-card__body>.inspection-order-card__schedule{overflow:visible;white-space:normal}
-.inspection-order-card__schedule{color:#5f6873;font-size:13px}
-.inspection-order-card__aside{display:flex;grid-column:1/-1;min-width:0;align-items:center;justify-content:space-between;gap:10px}
-.inspection-order-card__aside>text:first-child{color:#ff6508;font-size:16px;font-weight:800;white-space:nowrap}
-.inspection-order-card__aside>text:last-child{padding:6px 10px;border:1px solid #ff6508;border-radius:16px;color:#d64d00;font-size:13px;white-space:nowrap}
-@media (max-width:380px){.inspection-order-card{grid-template-columns:84px minmax(0,1fr);gap:9px;padding:12px}.inspection-order-card__image{width:84px;height:76px}}
-/* 2026-11-14 prototype (board OrderList): the card look of a service order. */
-.inspection-order-card{grid-template-columns:72px minmax(0,1fr);gap:8px 12px;padding:12px;border-radius:12px;color:#202c42;box-shadow:0 3px 12px rgba(38,60,101,.06);outline:1px solid rgba(232,237,244,.5);outline-offset:-1px}
-.inspection-order-card__image{width:72px;height:72px;border-radius:10px;background:#eef0f3}
-.inspection-order-card__body{gap:3px}
-.inspection-order-card__title-line{font-size:15px;line-height:21px}
-.inspection-order-card__title-line>text:last-child{color:#ba470b;font-size:13px;font-weight:500}
-.inspection-order-card__body>text,.inspection-order-card__schedule{color:#627187;font-size:12px;line-height:17px}
-.inspection-order-card__aside>text:first-child{color:#e85400;font-size:15px;font-weight:700}
-.inspection-order-card__aside>text:last-child{display:flex;height:32px;padding:0 14px;align-items:center;border:1.5px solid #ff6a00;border-radius:999px;color:#ba470b;font-size:13px;font-weight:500}
-@media (max-width:380px){.inspection-order-card{grid-template-columns:72px minmax(0,1fr);gap:8px 10px;padding:12px}.inspection-order-card__image{width:72px;height:72px}}
+/* Sizes and colours follow the 2026-11-14 prototype board OrderList (390 wide). */
+.inspection-order-card { display: flex; padding: 14px; flex-direction: column; gap: 12px; border-radius: 14px; color: #202c42; background: #fff; box-shadow: var(--app-card-shadow); }
+.inspection-order-card__head { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.inspection-order-card__tag { flex: none; padding: 0 6px; border-radius: 6px; color: #11804a; background: #e2f6ed; font-size: 12px; line-height: 20px; }
+.inspection-order-card__number { min-width: 0; overflow: hidden; color: #738096; font-size: 13px; line-height: 21px; text-overflow: ellipsis; white-space: nowrap; }
+.inspection-order-card__stage { flex: none; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; white-space: nowrap; }
+.inspection-order-card__main { display: flex; gap: 12px; }
+.inspection-order-card__image { width: 72px; height: 72px; flex: none; border-radius: 10px; background: #eef2f8; }
+.inspection-order-card__body { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
+.inspection-order-card__title-line { display: flex; align-items: flex-start; gap: 8px; }
+.inspection-order-card__title { min-width: 0; flex: 1; font-size: 15px; font-weight: 700; line-height: 21px; }
+.inspection-order-card__amount { flex: none; font-size: 15px; font-weight: 700; line-height: 21px; white-space: nowrap; }
+.inspection-order-card__meta { overflow: hidden; color: #738096; font-size: 13px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.inspection-order-card__schedule { color: #536178; font-size: 13px; line-height: 18px; }
+.inspection-order-card__actions { display: flex; justify-content: flex-end; gap: 10px; }
+.inspection-order-card__secondary,
+.inspection-order-card__primary { height: 36px; margin: 0; border-radius: 999px; font-size: 14px; line-height: 20px; white-space: nowrap; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+.inspection-order-card__secondary { padding: 0 16px; border: 1px solid #c9d3e1; color: #202c42; background: #fff; }
+.inspection-order-card__primary { padding: 0 18px; border: 0; color: #fff; background: #ff6a00; box-shadow: var(--app-primary-shadow); font-weight: 500; }
+.inspection-order-card__secondary::after,
+.inspection-order-card__primary::after { border: 0; }
 </style>
