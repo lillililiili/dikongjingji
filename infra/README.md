@@ -57,4 +57,10 @@ Android 验收构建还需在被 Git 忽略的 `apps/mobile/.env.production.loca
 
 4. 商家一侧（发货、核销、退款）用 `node infra/scripts/dev-merchant-order.cjs`（开发账号 `dev-merchant`）。到馆预约的核销码用 `node infra/scripts/dev-checkin-venue.cjs <核销码>`（开发账号 `dev-organizer`，开场前 30 分钟到场次结束之间）。模拟微信的控制入口（替买家付款、给出退款结果、改账单）写在 `server.mjs` 开头的注释里。
 
+5. 直播（M20）不需要另外起服务：后端用 dev 配置启动时，`live.stream.provider=fake` 让后端自带一个本机模拟直播服务
+   （签名密钥每次启动随机生成，播放地址是 App 内的示例视频 `/static/videos/preview/live-*.mp4`）。开播、断流、结束、
+   建直播间、设讲解清单、主播弹幕、隐藏弹幕、强制结束都用 `node infra/scripts/dev-live-host.cjs`（开发账号 `dev-merchant`
+   和 `dev-support`，用法写在脚本开头）。模拟回调走开发控制接口 `POST /api/v1/dev/live/rooms/<直播间 ID>/stream-events`，
+   它只在 dev profile 下存在，签名后走和真实回调同一条验签路径。
+
 所有这些只对本机地址运行；开发账号的密码公开写在开发种子里，dev 配置只能用在本机或内网。

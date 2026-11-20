@@ -176,6 +176,31 @@ public class ModuleFlywayConfiguration {
                 .load();
     }
 
+    // 直播（M20）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 讲解项只存类型 + ID，不引用商城、服务、活动、场馆的表。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway liveFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.live(dataSource);
+    }
+
+    // 示例直播间的主办机构由巡检、商城的开发数据建，dev-merchant 由交易的开发数据建（这里给它开通直播主办），
+    // 所以排在它们之后。预告时间相对执行当天，用和活动一样的日期占位符让每天第一次启动重排。
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn({"liveFlyway", "identityDevelopmentDataFlyway", "inspectionDevelopmentDataFlyway",
+            "mallDevelopmentDataFlyway", "tradeDevelopmentDataFlyway"})
+    Flyway liveDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/live")
+                .placeholders(seedDatePlaceholder())
+                .table("flyway_history_live_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     // 收货地址表引用 identity_user，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")

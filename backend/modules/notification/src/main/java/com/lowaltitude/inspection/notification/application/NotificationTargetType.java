@@ -16,5 +16,7 @@ public enum NotificationTargetType {
     /** 一张收费报名的报名订单（R6-5）：id 是报名单，页面看付款和退款。 */
     ACTIVITY_ORDER,
     /** 一张到馆预约（R6-5）：页面再读预约和核销码。 */
-    VENUE_BOOKING
+    VENUE_BOOKING,
+    /** 一个直播间（M20）：页面再读直播间。 */
+    LIVE_ROOM
 }

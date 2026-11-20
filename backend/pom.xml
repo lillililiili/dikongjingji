@@ -29,5 +29,6 @@
         <module>modules/rental</module>
         <module>modules/support</module>
         <module>modules/content</module>
+        <module>modules/live</module>
     </modules>
 </project>

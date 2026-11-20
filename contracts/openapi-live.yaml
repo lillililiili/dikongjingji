@@ -1,0 +1,1506 @@
+openapi: "3.1.0"
+info:
+  title: "Live API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（2026-11-20，docs/redesign/07-视频与直播实现计划.md §3、§4，模块 M20 live）：平台内直播的观看端。
+    原型：Discover（“直播”频道、推荐里的直播条）、LiveNotice（直播预告）、LiveRoom（直播间）。
+
+    谁能调：
+    - 公开（不登录）：直播列表、直播间详情、弹幕增量、进直播间记一次观看；服务商回调（靠签名，不靠登录）。
+    - 观众（登录，CUSTOMER 角色）：我在这个直播间的状态、设提醒 / 取消、发弹幕、点赞、关注 / 取消关注主播机构、举报弹幕。
+      账号只取令牌里的。
+    - 直播主办（LIVE_HOST 角色，令牌里要有机构，身份迁移 V006）：建直播间、改预告、设回看链接、设讲解清单和当前讲解项、
+      以主播身份发弹幕、隐藏本机构直播间的弹幕。只碰本机构的直播间，别的机构的一律当作不存在。没有页面
+      （开发脚本 infra/scripts/dev-live-host.cjs）。
+    - 平台客服（PLATFORM_SUPPORT 角色）：隐藏任何直播间的弹幕、强制结束直播。
+
+    规则：
+    - 状态只有三种：SCHEDULED 预告、LIVE 直播中、ENDED 已结束。开播、断流、结束以直播服务商的回调为准（验签、按事件 ID
+      去重、比上一条旧的事件不处理）；平台客服强制结束直接结束并通知服务商断流。主办方不能自己改状态。
+    - 推流与播放经 LiveStreamProvider 端口接第三方直播服务（服务商未定，概要设计 §14 D20）。建直播间时向服务商建流：
+      推流地址只给主办方（LiveHostRoom.pushUrl），播放地址只在直播中给观众（LiveRoom.playUrl）。
+      生产环境的播放地址是 https；开发环境（dev profile 的模拟服务）给的是 App 内的示例视频路径
+      /static/videos/preview/live-*.mp4，App 只在预览构建认这种地址。
+    - 列表只列当前城市可见的直播间（城市为空的是全国可见）：直播中的在前（开播早的在前，不按人气排），预告按开播时间先后（开播时间
+      过了一天还没开播的不再列），已结束的只列有回看链接的（结束晚的在前）。详情只要当前城市可见就能读，没有回看的
+      已结束直播间也能读。
+    - 讲解清单：0–10 项，每项是平台内一个对象的类型和稳定 ID（PRODUCT 商品、PRO_SERVICE 专业服务、INSPECTION_SERVICE
+      巡检服务、ACTIVITY 活动、VENUE 场馆）加主办方写的标题（1–40 字，只作列表上的快照；App 点开时按 ID 读事实，进平台内
+      现有的详情页）。当前讲解项用序号指向其中一项，可以为空。直播间不收款、不做打赏。
+    - 观看人数口径：直播中进过这个直播间的不同设备数（App 在本机生成的随机标识，按直播间去重），累计不减，是近似值；
+      不登录也记，预告和已结束时不记。
+    - 点赞：可以连点，App 把一段时间里点的次数合在一次请求里（1–30 次）；同一账号在同一直播间每 10 秒最多记 30 次，
+      多出的不记。点赞数累计不减。
+    - 弹幕：只有登录账号能发；去掉首尾空白后 1–50 字，不能换行；同一账号两条之间至少隔 3 秒；过关键词过滤
+      （开发是一份小词表，生产换审核服务）后直接显示。作者名只显示显示名的第一个字加“**”，主播发的显示机构名。
+      弹幕按序号增量轮询（App 2–3 秒一次，没有 WebSocket）：不带 since 取最近的；带 since 取比它新的，太多时只给最新的
+      size 条（弹幕可以丢）。被隐藏的不再返回，hiddenSeqs 告诉 App 最近 100 条里哪些已经隐藏。
+    - 举报弹幕：记到客服的意见反馈里（类型 CONTENT，contracts/openapi-support.yaml），同一账号同一条只记一次。
+    - 设提醒：只有预告能设。开播时给设了提醒的账号各记一条站内信“直播提醒”（contracts/openapi-notification.yaml 1.4.0，
+      分类 LIVE_REMINDER，目标 LIVE_ROOM），在开播的事务提交后写；同一直播间每个账号只记一次（断流后重新开播不再记）。
+    - 关注主播：关注的是主办机构，只能关注办过直播的机构。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/live/rooms:
+    get:
+      operationId: "listLiveRooms"
+      summary: "当前城市的直播：直播中、预告、可回看"
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+        - name: "status"
+          in: "query"
+          required: false
+          description: "只要某一种状态；不给就三种都要"
+          schema:
+            $ref: "#/components/schemas/LiveRoomStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveRoomPage"
+        "400":
+          description: "城市编码不是 6 位数字；状态不认识；页码或条数不对（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live/rooms/{roomId}:
+    get:
+      operationId: "getLiveRoom"
+      summary: "直播间详情"
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: "直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveRoom"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/live/rooms/{roomId}/comments:
+    get:
+      operationId: "listLiveComments"
+      summary: "弹幕增量"
+      description: "不带 since 取最近 size 条；带 since 取序号比它大的，太多时只给最新的 size 条。按序号先后。"
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - name: "since"
+          in: "query"
+          required: false
+          description: "上一次的 cursor"
+          schema:
+            type: "integer"
+            minimum: 0
+        - $ref: "#/components/parameters/CommentSize"
+      responses:
+        "200":
+          description: "新弹幕"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveCommentPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: "sendLiveComment"
+      summary: "发弹幕"
+      description: "同一个 Idempotency-Key 带同样的内容重复提交，返回第一次那条（200）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveCommentRequest"
+      responses:
+        "201":
+          description: "新的一条"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveComment"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveComment"
+        "400":
+          description: "Idempotency-Key 无效；内容为空、超过 50 字、换行或含控制字符（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "LIVE_ROOM_NOT_LIVE：不在直播中。LIVE_COMMENT_BLOCKED：内容没有通过关键词过滤。LIVE_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用在内容不同的弹幕上。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: "LIVE_COMMENT_TOO_FAST：同一账号两条弹幕之间不到 3 秒。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live/rooms/{roomId}/views:
+    post:
+      operationId: "recordLiveView"
+      summary: "进直播间记一次观看"
+      description: "公开。只在直播中记；同一设备在同一直播间只记一次。"
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveViewRequest"
+      responses:
+        "200":
+          description: "现在的观看人数"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveViewCount"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/live/rooms/{roomId}/me:
+    get:
+      operationId: "getMyLiveRoomState"
+      summary: "我在这个直播间的状态：设没设提醒、关没关注主播"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: "状态"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveViewerState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/live/rooms/{roomId}/reminder:
+    put:
+      operationId: "setLiveReminder"
+      summary: "设开播提醒"
+      description: "已经设过也返回 200。只有预告能设。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: "设好以后的状态"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveViewerState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "LIVE_ROOM_NOT_SCHEDULED：已经开播或结束，不能再设提醒。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: "cancelLiveReminder"
+      summary: "取消开播提醒"
+      description: "没设过也返回 200。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: "取消以后的状态"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveViewerState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/live/rooms/{roomId}/likes:
+    post:
+      operationId: "likeLiveRoom"
+      summary: "点赞（合并多次）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveLikeRequest"
+      responses:
+        "200":
+          description: "记了几次、现在的点赞数"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveLikeResult"
+        "400":
+          description: "次数不在 1–30（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "LIVE_ROOM_NOT_LIVE：不在直播中。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live/rooms/{roomId}/comments/{commentId}/report:
+    post:
+      operationId: "reportLiveComment"
+      summary: "举报一条弹幕（记到客服反馈）"
+      description: "同一账号同一条重复举报也返回 200，只记一次。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/CommentId"
+      responses:
+        "200":
+          description: "已记下"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveReportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/live/hosts/{organizationId}/follow:
+    put:
+      operationId: "followLiveHost"
+      summary: "关注主播机构"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: "关注以后"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveFollowState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: "这家机构没有办过直播（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: "unfollowLiveHost"
+      summary: "取消关注主播机构"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: "取消以后"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveFollowState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: "这家机构没有办过直播（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live/stream-callbacks:
+    post:
+      operationId: "receiveLiveStreamCallback"
+      summary: "直播服务商的回调：开播、断流、结束"
+      description: |-
+        不登录，靠签名。请求体和签名头由选定的服务商决定；开发环境的模拟服务用下面的形状：请求头 X-Live-Timestamp（秒）和
+        X-Live-Signature（HMAC-SHA256(timestamp + "\n" + body) 的十六进制），请求体 {eventId, streamId, type: STARTED |
+        INTERRUPTED | ENDED, occurredAt}，时间戳和现在相差 5 分钟以上的不收。同一个 eventId 只处理一次；不认识的流不处理。
+      security: []
+      parameters:
+        - name: "X-Live-Timestamp"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+        - name: "X-Live-Signature"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: "object"
+              additionalProperties: true
+      responses:
+        "204":
+          description: "收到（重复的、过时的、不认识的流也回这个）"
+        "401":
+          description: "LIVE_CALLBACK_REJECTED：签名不对、时间戳过期，或没有可用的直播服务。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live-host/rooms:
+    get:
+      operationId: "listHostLiveRooms"
+      summary: "本机构的直播间，新建的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveHostRoomPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/HostForbidden"
+    post:
+      operationId: "createHostLiveRoom"
+      summary: "建直播间（预告）"
+      description: "向直播服务商建流，推流地址只在主办方的接口里给。同一个 Idempotency-Key 带同样的内容重复提交，返回第一次那个（200）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveRoomRequest"
+      responses:
+        "201":
+          description: "新的直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveHostRoom"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveHostRoom"
+        "400":
+          description: "标题、副标题、主讲、要点、封面、城市或开播时间不对（开播时间要在现在之后、90 天以内）（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/HostForbidden"
+        "409":
+          description: "LIVE_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用在内容不同的直播间上。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: "LIVE_STREAM_UNAVAILABLE：没有可用的直播服务，建不了流。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live-host/rooms/{roomId}:
+    get:
+      operationId: "getHostLiveRoom"
+      summary: "本机构的一个直播间（含推流地址）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: "直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveHostRoom"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/HostForbidden"
+        "404":
+          $ref: "#/components/responses/HostNotFound"
+    put:
+      operationId: "updateHostLiveRoom"
+      summary: "改预告"
+      description: "只有预告能改。设过提醒的观众不另外通知。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveRoomRequest"
+      responses:
+        "200":
+          description: "改好的直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveHostRoom"
+        "400":
+          description: "同建直播间（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/HostForbidden"
+        "404":
+          $ref: "#/components/responses/HostNotFound"
+        "409":
+          description: "LIVE_ROOM_NOT_SCHEDULED：已经开播或结束。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live-host/rooms/{roomId}/replay:
+    put:
+      operationId: "setHostLiveReplay"
+      summary: "设合作平台的回看链接"
+      description: "任何状态都能设；两项都给空就是去掉回看。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveReplayRequest"
+      responses:
+        "200":
+          description: "设好的直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveHostRoom"
+        "400":
+          description: "链接不是 https 或超过 500 字符；只给了链接或只给了平台名（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/HostForbidden"
+        "404":
+          $ref: "#/components/responses/HostNotFound"
+  /api/v1/live-host/rooms/{roomId}/items:
+    put:
+      operationId: "setHostLiveItems"
+      summary: "设讲解清单和当前讲解项"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveItemsRequest"
+      responses:
+        "200":
+          description: "设好的直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveHostRoom"
+        "400":
+          description: "超过 10 项；类型不认识；没有 ID；标题为空或超过 40 字；同一个对象出现两次；当前讲解项不在清单里（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/HostForbidden"
+        "404":
+          $ref: "#/components/responses/HostNotFound"
+        "409":
+          description: "LIVE_ROOM_ENDED：直播已结束。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live-host/rooms/{roomId}/current-item:
+    put:
+      operationId: "setHostLiveCurrentItem"
+      summary: "换当前讲解项"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveCurrentItemRequest"
+      responses:
+        "200":
+          description: "换好的直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveHostRoom"
+        "400":
+          description: "序号不在清单里（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/HostForbidden"
+        "404":
+          $ref: "#/components/responses/HostNotFound"
+        "409":
+          description: "LIVE_ROOM_ENDED：直播已结束。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live-host/rooms/{roomId}/comments:
+    post:
+      operationId: "sendHostLiveComment"
+      summary: "以主播身份发弹幕"
+      description: "显示为主播（机构名）。不限频，不过关键词过滤。同一个 Idempotency-Key 带同样的内容重复提交，返回第一次那条（200）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LiveCommentRequest"
+      responses:
+        "201":
+          description: "新的一条"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveComment"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveComment"
+        "400":
+          description: "Idempotency-Key 无效；内容为空、超过 50 字、换行或含控制字符（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/HostForbidden"
+        "404":
+          $ref: "#/components/responses/HostNotFound"
+        "409":
+          description: "LIVE_ROOM_NOT_LIVE：不在直播中。LIVE_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用在内容不同的弹幕上。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/live-host/rooms/{roomId}/comments/{commentId}/hide:
+    post:
+      operationId: "hideHostLiveComment"
+      summary: "隐藏本机构直播间的一条弹幕"
+      description: "已经隐藏的再隐藏也返回 200。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/CommentId"
+      responses:
+        "200":
+          description: "隐藏以后"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveModeration"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/HostForbidden"
+        "404":
+          $ref: "#/components/responses/HostNotFound"
+  /api/v1/platform/live/rooms/{roomId}/comments/{commentId}/hide:
+    post:
+      operationId: "hidePlatformLiveComment"
+      summary: "平台客服隐藏一条弹幕"
+      description: "已经隐藏的再隐藏也返回 200。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+        - $ref: "#/components/parameters/CommentId"
+      responses:
+        "200":
+          description: "隐藏以后"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveModeration"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/PlatformForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/platform/live/rooms/{roomId}/end:
+    post:
+      operationId: "endPlatformLiveRoom"
+      summary: "平台客服强制结束直播（预告也可以结束）"
+      description: "已经结束的再结束也返回 200。通知直播服务商断流。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: "结束以后的直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveRoom"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/PlatformForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  responses:
+    BadRequest:
+      description: "参数缺失或格式不对（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录，或登录已过期（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "登录账号没有客户角色（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    HostForbidden:
+      description: "登录账号没有直播主办角色，或令牌里没有机构（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    PlatformForbidden:
+      description: "登录账号没有平台客服角色（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "直播间或弹幕不存在，或直播间在当前城市不可见（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    HostNotFound:
+      description: "不存在，或不是本机构的直播间（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    RoomId:
+      name: "roomId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    CommentId:
+      name: "commentId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    OrganizationId:
+      name: "organizationId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    CityCode:
+      name: "cityCode"
+      in: "query"
+      required: true
+      description: "当前城市的 6 位编码"
+      schema:
+        type: "string"
+        pattern: "^[0-9]{6}$"
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      description: "客户端为这次提交生成的 UUID；重试时带同一个"
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 20
+        default: 10
+    CommentSize:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true
+    LiveErrorCode:
+      type: "string"
+      enum:
+        - "LIVE_IDEMPOTENCY_KEY_REUSED"
+        - "LIVE_ROOM_NOT_SCHEDULED"
+        - "LIVE_ROOM_NOT_LIVE"
+        - "LIVE_ROOM_ENDED"
+        - "LIVE_COMMENT_BLOCKED"
+        - "LIVE_COMMENT_TOO_FAST"
+        - "LIVE_STREAM_UNAVAILABLE"
+        - "LIVE_CALLBACK_REJECTED"
+      description: "直播接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。"
+    LiveRoomStatus:
+      type: "string"
+      enum:
+        - "SCHEDULED"
+        - "LIVE"
+        - "ENDED"
+      description: "SCHEDULED 预告；LIVE 直播中；ENDED 已结束。"
+    LiveItemType:
+      type: "string"
+      enum:
+        - "PRODUCT"
+        - "PRO_SERVICE"
+        - "INSPECTION_SERVICE"
+        - "ACTIVITY"
+        - "VENUE"
+      description: "讲解项是平台内的什么：商品、专业服务、巡检服务、活动、场馆。"
+    LiveCommentSide:
+      type: "string"
+      enum:
+        - "VIEWER"
+        - "HOST"
+      description: "VIEWER 观众；HOST 主播（主办机构）。"
+    LiveHost:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "organizationId"
+        - "name"
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+          maxLength: 80
+          description: "主办机构名称（建直播间时的快照）"
+    LiveItem:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "seq"
+        - "type"
+        - "refId"
+        - "title"
+      properties:
+        seq:
+          type: "integer"
+          minimum: 1
+          description: "在清单里的序号，从 1 起"
+        type:
+          $ref: "#/components/schemas/LiveItemType"
+        refId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 40
+          description: "主办方写的标题快照；价格、图片由 App 按 ID 读"
+    LiveRoomCard:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "roomId"
+        - "title"
+        - "subtitle"
+        - "coverUrl"
+        - "host"
+        - "cityCode"
+        - "status"
+        - "scheduledAt"
+        - "startedAt"
+        - "endedAt"
+        - "viewerCount"
+        - "likeCount"
+        - "currentItem"
+        - "hasReplay"
+      properties:
+        roomId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 30
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 40
+        coverUrl:
+          type:
+            - "string"
+            - "null"
+          description: "https 地址；没有时为空"
+        host:
+          $ref: "#/components/schemas/LiveHost"
+        cityCode:
+          type:
+            - "string"
+            - "null"
+          description: "为空表示全国可见"
+        status:
+          $ref: "#/components/schemas/LiveRoomStatus"
+        scheduledAt:
+          type: "string"
+          format: "date-time"
+        startedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        endedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        viewerCount:
+          type: "integer"
+          minimum: 0
+        likeCount:
+          type: "integer"
+          minimum: 0
+        currentItem:
+          anyOf:
+            - $ref: "#/components/schemas/LiveItem"
+            - type: "null"
+        hasReplay:
+          type: "boolean"
+    LiveRoomPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/LiveRoomCard"
+    LiveRoom:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "roomId"
+        - "title"
+        - "subtitle"
+        - "coverUrl"
+        - "host"
+        - "cityCode"
+        - "status"
+        - "scheduledAt"
+        - "startedAt"
+        - "endedAt"
+        - "viewerCount"
+        - "likeCount"
+        - "speakerName"
+        - "speakerTitle"
+        - "topics"
+        - "items"
+        - "currentItemSeq"
+        - "replayUrl"
+        - "replayPlatformName"
+        - "playUrl"
+        - "streamInterrupted"
+      properties:
+        roomId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 30
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 40
+        coverUrl:
+          type:
+            - "string"
+            - "null"
+        host:
+          $ref: "#/components/schemas/LiveHost"
+        cityCode:
+          type:
+            - "string"
+            - "null"
+        status:
+          $ref: "#/components/schemas/LiveRoomStatus"
+        scheduledAt:
+          type: "string"
+          format: "date-time"
+        startedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        endedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        viewerCount:
+          type: "integer"
+          minimum: 0
+        likeCount:
+          type: "integer"
+          minimum: 0
+        speakerName:
+          type:
+            - "string"
+            - "null"
+          maxLength: 20
+          description: "主讲人（比如“王工”）"
+        speakerTitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 30
+          description: "主讲人的身份（比如“项目负责人”）"
+        topics:
+          type: "array"
+          maxItems: 5
+          description: "这场讲什么，0–5 条，每条 1–40 字"
+          items:
+            type: "string"
+            maxLength: 40
+        items:
+          type: "array"
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/LiveItem"
+        currentItemSeq:
+          type:
+            - "integer"
+            - "null"
+          description: "当前讲解的是清单里哪一项；为空表示没有"
+        replayUrl:
+          type:
+            - "string"
+            - "null"
+          description: "合作平台的回看链接（https），在 App 外打开"
+        replayPlatformName:
+          type:
+            - "string"
+            - "null"
+          maxLength: 20
+        playUrl:
+          type:
+            - "string"
+            - "null"
+          description: "只在直播中给：生产是 https；开发环境是 App 内的示例视频路径 /static/videos/preview/live-*.mp4"
+        streamInterrupted:
+          type: "boolean"
+          description: "直播中服务商报了断流，还没恢复"
+    LiveHostRoom:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "room"
+        - "pushUrl"
+      properties:
+        room:
+          $ref: "#/components/schemas/LiveRoom"
+        pushUrl:
+          type: "string"
+          description: "推流地址，给主办方填进服务商的推流工具；不要公开"
+    LiveHostRoomPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/LiveHostRoom"
+    LiveComment:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "commentId"
+        - "seq"
+        - "side"
+        - "authorName"
+        - "text"
+        - "sentAt"
+      properties:
+        commentId:
+          type: "string"
+          format: "uuid"
+        seq:
+          type: "integer"
+          minimum: 1
+          description: "在这个直播间里的序号，越大越新"
+        side:
+          $ref: "#/components/schemas/LiveCommentSide"
+        authorName:
+          type: "string"
+          description: "观众是显示名的第一个字加“**”；主播是机构名"
+        text:
+          type: "string"
+          maxLength: 50
+        sentAt:
+          type: "string"
+          format: "date-time"
+    LiveCommentPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "items"
+        - "cursor"
+        - "hiddenSeqs"
+      properties:
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/LiveComment"
+        cursor:
+          type: "integer"
+          minimum: 0
+          description: "这个直播间现在最新的弹幕序号；下次作 since 带回来"
+        hiddenSeqs:
+          type: "array"
+          description: "最近 100 条里已经隐藏的序号，App 把它们从屏幕上拿掉"
+          items:
+            type: "integer"
+    LiveViewerState:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "roomId"
+        - "reminded"
+        - "followingHost"
+      properties:
+        roomId:
+          type: "string"
+          format: "uuid"
+        reminded:
+          type: "boolean"
+        followingHost:
+          type: "boolean"
+    LiveViewCount:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "viewerCount"
+        - "counted"
+      properties:
+        viewerCount:
+          type: "integer"
+          minimum: 0
+        counted:
+          type: "boolean"
+          description: "这次有没有加一（同一设备第二次进、不在直播中都不加）"
+    LiveLikeResult:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "accepted"
+        - "likeCount"
+      properties:
+        accepted:
+          type: "integer"
+          minimum: 0
+          description: "这次记了几次（每 10 秒最多 30 次）"
+        likeCount:
+          type: "integer"
+          minimum: 0
+    LiveFollowState:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "organizationId"
+        - "following"
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        following:
+          type: "boolean"
+    LiveReportResult:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "commentId"
+        - "reported"
+      properties:
+        commentId:
+          type: "string"
+          format: "uuid"
+        reported:
+          type: "boolean"
+    LiveModeration:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "commentId"
+        - "seq"
+        - "hiddenAt"
+      properties:
+        commentId:
+          type: "string"
+          format: "uuid"
+        seq:
+          type: "integer"
+        hiddenAt:
+          type: "string"
+          format: "date-time"
+    LiveCommentRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "text"
+      properties:
+        text:
+          type: "string"
+          minLength: 1
+          maxLength: 50
+          description: "1–50 字，不能换行"
+    LiveViewRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "deviceId"
+      properties:
+        deviceId:
+          type: "string"
+          format: "uuid"
+          description: "App 在本机生成并保存的随机标识，不是硬件编号"
+    LiveLikeRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "count"
+      properties:
+        count:
+          type: "integer"
+          minimum: 1
+          maximum: 30
+    LiveRoomRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "title"
+        - "scheduledAt"
+      properties:
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 30
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 40
+        coverUrl:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+          description: "https 地址"
+        cityCode:
+          type:
+            - "string"
+            - "null"
+          pattern: "^[0-9]{6}$"
+          description: "为空表示全国可见"
+        scheduledAt:
+          type: "string"
+          format: "date-time"
+          description: "预计开播时间，要在现在之后、90 天以内"
+        speakerName:
+          type:
+            - "string"
+            - "null"
+          maxLength: 20
+        speakerTitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 30
+        topics:
+          type:
+            - "array"
+            - "null"
+          maxItems: 5
+          items:
+            type: "string"
+            maxLength: 40
+    LiveReplayRequest:
+      type: "object"
+      additionalProperties: false
+      required: []
+      properties:
+        replayUrl:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+          description: "https 地址；和平台名同时给或同时不给"
+        replayPlatformName:
+          type:
+            - "string"
+            - "null"
+          maxLength: 20
+    LiveItemRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "type"
+        - "refId"
+        - "title"
+      properties:
+        type:
+          $ref: "#/components/schemas/LiveItemType"
+        refId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+    LiveItemsRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "items"
+      properties:
+        items:
+          type: "array"
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/LiveItemRequest"
+        currentSeq:
+          type:
+            - "integer"
+            - "null"
+          minimum: 1
+          description: "当前讲解第几项（从 1 起）；为空表示没有"
+    LiveCurrentItemRequest:
+      type: "object"
+      additionalProperties: false
+      required: []
+      properties:
+        seq:
+          type:
+            - "integer"
+            - "null"
+          minimum: 1
+          description: "为空表示不讲解任何一项"

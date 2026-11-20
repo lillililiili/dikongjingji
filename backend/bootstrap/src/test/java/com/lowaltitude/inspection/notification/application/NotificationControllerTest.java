@@ -139,7 +139,7 @@ class NotificationControllerTest {
         org.assertj.core.api.Assertions.assertThat(schemas.get("NotificationTargetType").get("enum"))
                 .isEqualTo(java.util.Arrays.stream(NotificationTargetType.values()).map(Enum::name).toList());
         org.assertj.core.api.Assertions.assertThat(((java.util.Map<String, Object>) root.get("info")).get("version"))
-                .isEqualTo("1.3.0");
+                .isEqualTo("1.4.0");
     }
 
     @Test

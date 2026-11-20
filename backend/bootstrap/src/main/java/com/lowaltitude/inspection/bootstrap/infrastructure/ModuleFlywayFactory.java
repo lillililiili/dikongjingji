@@ -110,6 +110,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway live(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/live",
+                "flyway_history_live",
+                true);
+    }
+
     private static Flyway build(DataSource dataSource, String location, String historyTable, boolean baselineOnMigrate) {
         return Flyway.configure()
                 .dataSource(dataSource)

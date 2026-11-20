@@ -493,6 +493,78 @@ class AuthenticationSecurityIntegrationTest {
         org.mockito.Mockito.verifyNoMoreInteractions(support);
     }
 
+    // 直播（M20）：列表、详情、弹幕增量、记一次观看和服务商回调不登录也能调（回调靠签名）；其余都要登录，
+    // 观众接口要客户角色，/live-host 要直播主办角色和机构，/platform/live 要平台客服角色。旁边的路径仍然要登录。
+    @Test
+    void liveReadsArePublicAndEverythingElseNeedsALoginAndTheRightRole() throws Exception {
+        com.lowaltitude.inspection.live.application.LiveService live = applicationContext.getBean(
+                com.lowaltitude.inspection.live.application.LiveService.class);
+        UUID roomId = UUID.fromString("f4000000-0000-4000-8000-000000000001");
+        UUID device = UUID.fromString("f4900000-0000-4000-8000-000000000001");
+        String room = "/api/v1/live/rooms/" + roomId;
+        String comment = room + "/comments/f4100000-0000-4000-8000-000000000001";
+        String hostRoom = "/api/v1/live-host/rooms/" + roomId;
+        String follow = "/api/v1/live/hosts/" + ORGANIZATION_ID + "/follow";
+
+        mockMvc.perform(get("/api/v1/live/rooms?cityCode=370500")).andExpect(status().isOk());
+        mockMvc.perform(get(room + "?cityCode=370500")).andExpect(status().isOk());
+        mockMvc.perform(get(room + "/comments?since=3")).andExpect(status().isOk());
+        mockMvc.perform(post(room + "/views").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"deviceId\":\"" + device + "\"}")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/live/stream-callbacks").contentType(MediaType.APPLICATION_JSON)
+                .header("X-Live-Timestamp", "1").header("X-Live-Signature", "ab").content("{}"))
+                .andExpect(status().isNoContent());
+        org.mockito.Mockito.verify(live).rooms("370500", null, 1, 10);
+        org.mockito.Mockito.verify(live).room(roomId, "370500");
+        org.mockito.Mockito.verify(live).comments(roomId, 3L, null);
+        org.mockito.Mockito.verify(live).recordView(roomId, device);
+        org.mockito.Mockito.verify(live).receiveStreamCallback(
+                Map.of("x-live-timestamp", "1", "x-live-signature", "ab"), "{}");
+
+        for (var request : List.of(
+                get(room + "/me"), put(room + "/reminder"), delete(room + "/reminder"), post(room + "/comments"),
+                post(room + "/likes"), post(comment + "/report"), put(follow), delete(follow),
+                get("/api/v1/live-host/rooms"), post("/api/v1/live-host/rooms"), get(hostRoom), put(hostRoom),
+                put(hostRoom + "/replay"), put(hostRoom + "/items"), put(hostRoom + "/current-item"),
+                post(hostRoom + "/comments"), post(hostRoom + "/comments/f4100000-0000-4000-8000-000000000001/hide"),
+                post("/api/v1/platform/live/rooms/" + roomId + "/comments/f4100000-0000-4000-8000-000000000001/hide"),
+                post("/api/v1/platform/live/rooms/" + roomId + "/end"),
+                post("/api/v1/dev/live/rooms/" + roomId + "/stream-events"),
+                post("/api/v1/live/rooms"), put(room), get(room + "/views"), get("/api/v1/live/stream-callbacks"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> hostClaims = validClaims(List.of(), 7);
+        hostClaims.put("roles", List.of("LIVE_HOST"));
+        String hostToken = signedToken(hostClaims);
+        Map<String, Object> supportClaims = validClaims(List.of(), 7);
+        supportClaims.put("roles", List.of("PLATFORM_SUPPORT"));
+        String supportToken = signedToken(supportClaims);
+
+        mockMvc.perform(get(room + "/me").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/live-host/rooms").header("Authorization", "Bearer " + hostToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/platform/live/rooms/" + roomId + "/end")
+                .header("Authorization", "Bearer " + supportToken)).andExpect(status().isOk());
+        org.mockito.Mockito.verify(live).viewerState(SUBJECT_ID, roomId);
+        org.mockito.Mockito.verify(live).hostRooms(ORGANIZATION_ID, 1, 10);
+        org.mockito.Mockito.verify(live).platformEnd(roomId);
+        for (var refused : List.of(
+                get(room + "/me").header("Authorization", "Bearer " + hostToken),
+                get(room + "/me").header("Authorization", "Bearer " + supportToken),
+                get("/api/v1/live-host/rooms").header("Authorization", "Bearer " + customerToken),
+                get("/api/v1/live-host/rooms").header("Authorization", "Bearer " + supportToken),
+                post("/api/v1/platform/live/rooms/" + roomId + "/end").header("Authorization", "Bearer " + customerToken),
+                post("/api/v1/platform/live/rooms/" + roomId + "/end").header("Authorization", "Bearer " + hostToken))) {
+            mockMvc.perform(refused).andExpect(status().isForbidden());
+        }
+        org.mockito.Mockito.verifyNoMoreInteractions(live);
+    }
+
     // 设备租赁（F3）的十八个接口全部要登录，没有公开的。
     @Test
     void rentalRoutesRequireALogin() throws Exception {
@@ -1427,6 +1499,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.support.application.SupportService testSupportService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.support.application.SupportService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.live.application.LiveService testLiveService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.live.application.LiveService.class);
         }
 
         @Bean
