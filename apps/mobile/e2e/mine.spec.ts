@@ -86,8 +86,9 @@ test.describe('我的', () => {
     await expect(page.getByTestId('mine-todo-acceptance')).toContainText('去验收')
     await expect(page.getByTestId('mine-orders-login')).toHaveCount(0)
 
+    // 待验收 opens 我的订单 (R6-1) on its chip.
     await page.locator('.platform-mine__status-item').nth(3).click()
-    await expect(page).toHaveURL(/pages\/mine\/inspection-orders\?stage=AWAITING_ACCEPTANCE/)
+    await expect(page).toHaveURL(/pages\/mine\/orders\?status=accept$/)
   })
 
   test('MINE-003 资料读不到时只显示“已登录”，不跳去登录页', async ({ page }) => {

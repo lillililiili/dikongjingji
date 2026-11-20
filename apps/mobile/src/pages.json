@@ -171,6 +171,14 @@
       }
     },
     {
+      "path": "pages/mine/orders",
+      "style": {
+        "navigationBarTitleText": "我的订单",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/activity/enroll",
       "style": {
         "navigationBarTitleText": "填写报名",

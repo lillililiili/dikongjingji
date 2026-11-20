@@ -104,6 +104,9 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
     allowed: ['enrollmentId'],
   },
   '/pages/mine/activity-enrollments': { allowed: ['status'] },
+  // Paid enrolment order and refund pages (2026-11-20, R5 #4/#5).
+  '/pages/activity/order': { required: 'enrollmentId', allowed: ['enrollmentId'] },
+  '/pages/activity/refund': { required: 'enrollmentId', allowed: ['enrollmentId', 'ticketId'] },
   // Mall pages (features/mall/navigation/mall-routes.ts), repeated for the same reason;
   // mall-routes.test.ts checks them.
   '/pages/mall/product': {
@@ -125,6 +128,8 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/trade/pay-result': { required: 'orderId', allowed: ['orderId'] },
   '/pages/mine/goods-orders': { allowed: ['tab'] },
   '/pages/mine/goods-order': { required: 'orderId', allowed: ['orderId'] },
+  // 我的订单 merged list (features/orders, R6-1).
+  '/pages/mine/orders': { allowed: ['tab', 'status'] },
   // Venue booking pages (features/experience/navigation/experience-routes.ts, E10), repeated for
   // the same reason; venue-booking-routes.test.ts checks them.
   '/pages/venue/book': {

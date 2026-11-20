@@ -35,13 +35,13 @@ import {
   buildInspectionOrderCenterUrl,
 } from '@/features/inspection/navigation/inspection-routes'
 import PlatformMinePage from '@/features/inspection/presentation/platform/mine/PlatformMinePage.vue'
+import { buildMyOrdersUrl, type MyOrderChip } from '@/features/orders/application/my-orders-route'
 import { SETTINGS_PATH, ABOUT_PATH } from '@/features/settings/navigation/settings-routes'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { buildSupportHelpUrl, buildSupportOpenUrl } from '@/features/support/navigation/support-routes'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
 import { tradeApi } from '@/features/trade/data/trade-api-client'
 import type { TradeOrderTab } from '@/features/trade/domain/trade-order'
-import { buildGoodsOrdersUrl } from '@/features/trade/navigation/trade-routes'
 import {
   resolveAuthenticatedMineUser,
   type MineAcceptanceCard,
@@ -319,20 +319,33 @@ function openLink(code: string): void {
   if (code === 'RENTAL_ORDERS') uni.navigateTo({ url: buildMyRentalOrdersUrl() })
 }
 
-// 全部 ›: there is no list of every order yet (R6); it opens the service orders, whose list has
-// a 全部 tab, as the old 全部订单 did.
+// 全部 ›: 我的订单, every kind of order in one list (plan 06 R6-1, preview builds). A public build
+// has no goods orders yet and keeps the service orders, whose list has a 全部 tab.
 function openAllOrders(): void {
   if (!signedIn()) {
     openLogin()
     return
   }
-  uni.navigateTo({ url: buildInspectionOrderCenterUrl('ALL') })
+  uni.navigateTo({ url: TRADE_PREVIEW_ENABLED ? buildMyOrdersUrl() : buildInspectionOrderCenterUrl('ALL') })
 }
 
-// Each stage opens the existing list that holds it.
+// The stage's status chip of 我的订单.
+const STAGE_CHIPS: Record<MineOrderStage, MyOrderChip> = {
+  TO_PAY: 'pay',
+  TO_SHIP: 'ship',
+  TO_ATTEND: 'attend',
+  TO_ACCEPT: 'accept',
+  REFUND: 'refund',
+}
+
+// Each stage opens 我的订单 on its chip; a public build opens the existing list that holds it.
 function openStage(stage: MineOrderStage): void {
   if (!signedIn()) {
     openLogin()
+    return
+  }
+  if (TRADE_PREVIEW_ENABLED) {
+    uni.navigateTo({ url: buildMyOrdersUrl({ chip: STAGE_CHIPS[stage] }) })
     return
   }
   if (stage === 'TO_ACCEPT') {
@@ -344,12 +357,8 @@ function openStage(stage: MineOrderStage): void {
     else showUnavailable()
     return
   }
-  if (!TRADE_PREVIEW_ENABLED) {
-    showUnavailable()
-    return
-  }
-  const tab: TradeOrderTab = stage === 'TO_PAY' ? 'TO_PAY' : stage === 'TO_SHIP' ? 'TO_SHIP' : 'REFUND'
-  uni.navigateTo({ url: buildGoodsOrdersUrl(tab) })
+  // 待付款, 待发货/履约 and 退款/售后 are goods orders, which a public build does not have yet.
+  showUnavailable()
 }
 
 function openEnrollment(): void {

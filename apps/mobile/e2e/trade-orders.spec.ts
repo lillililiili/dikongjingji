@@ -62,9 +62,15 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1)
 }
 
+// 我的 → 待付款 opens 我的订单 (R6-1) on its 待付款 chip; the goods-only list keeps its own address,
+// opened here on its 待付款 tab as the cell used to.
 async function openGoodsOrdersFromMine(page: Page): Promise<void> {
   await page.goto('/#/pages/mine/index')
   await page.getByTestId('mine-goods-orders').click()
+  await expect(page).toHaveURL(/pages\/mine\/orders\?status=pay$/)
+  await expect(page.getByTestId('my-orders-chip-pay')).toHaveAttribute('aria-pressed', 'true')
+  // A query of its own, so a later goto of the same hash still loads the page afresh.
+  await page.goto('/?from=mine#/pages/mine/goods-orders?tab=TO_PAY')
   await expect(page.getByTestId('goods-orders')).toBeVisible()
 }
 
@@ -290,7 +296,7 @@ test.describe('商品订单与支付', () => {
 
   test('TRD-005 页签切换和空态；地址带的页签直接选中', async ({ page, request }) => {
     await signIn(page, buyer)
-    // 我的页的“待付款”格（board Mine 的订单五阶段）直接进商品订单的待付款页签。
+    // 我的页的“待付款”格（board Mine 的订单五阶段）进我的订单的待付款胶囊；商品订单页的待付款页签。
     await openGoodsOrdersFromMine(page)
     await expect(page.getByTestId('goods-orders-tab-TO_PAY')).toHaveAttribute('aria-selected', 'true')
     await page.getByTestId('goods-orders-tab-ALL').click()

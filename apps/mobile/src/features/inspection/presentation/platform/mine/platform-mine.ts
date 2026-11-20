@@ -2,9 +2,9 @@
 // existing API; a number it cannot read is left out and the page shows no badge or value for it.
 
 /**
- * The five order stages of the board, across businesses. Until there is one order list (R6), each
- * stage opens the existing list that holds it: goods orders (待付款, 待发货/履约, 退款/售后),
- * activity enrolments (待参加) and inspection orders (待验收).
+ * The five order stages of the board, across businesses. In a preview build each stage opens 我的订单
+ * (features/orders, R6-1) on its status chip; a public build opens the existing list that holds
+ * it: activity enrolments (待参加) and inspection orders (待验收).
  */
 export type MineOrderStage = 'TO_PAY' | 'TO_SHIP' | 'TO_ATTEND' | 'TO_ACCEPT' | 'REFUND'
 
