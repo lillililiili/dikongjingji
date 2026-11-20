@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 
 import {
   VENUE_BOOKING_TABS,
@@ -143,12 +143,7 @@ onBeforeUnmount(() => {
 <template>
   <view class="venue-bookings" data-testid="venue-bookings">
     <view class="venue-bookings__top">
-      <header class="venue-bookings__header">
-        <button class="venue-bookings__back" data-testid="venue-bookings-back" aria-label="返回" @click="emit('back')">
-          <UniIcons type="left" size="24" color="#202c42" />
-        </button>
-        <text class="venue-bookings__title">到馆预约</text>
-      </header>
+      <AppPageHeader title="到馆预约" test-id="venue-bookings" @back="emit('back')" />
       <view class="venue-bookings__tabs" role="tablist" aria-label="预约状态">
         <button
           v-for="tab in VENUE_BOOKING_TABS"
@@ -201,7 +196,7 @@ onBeforeUnmount(() => {
           @click="emit('openBooking', card.booking.bookingId)"
         >
           <view class="venue-bookings__line">
-            <text class="venue-bookings__tag">到馆体验</text>
+            <text class="venue-bookings__tag">到馆 · 真机</text>
             <text :class="['venue-bookings__status', `venue-bookings__status--${card.view.statusTone.toLowerCase()}`]">
               {{ card.view.statusText }}
             </text>
@@ -265,7 +260,6 @@ onBeforeUnmount(() => {
       >
         {{ loadingMore ? '正在加载…' : '加载更多' }}
       </button>
-      <text v-else class="venue-bookings__end">没有更多了</text>
     </view>
   </view>
 </template>
@@ -297,34 +291,12 @@ button::after {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: #ffffff;
 }
 
-.venue-bookings__header {
-  display: flex;
-  min-height: calc(60px + var(--status-bar-height));
-  padding: var(--status-bar-height) 8px 0;
-  align-items: center;
-  gap: 4px;
-  box-sizing: border-box;
-}
-
-.venue-bookings__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.venue-bookings__title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
+/* Board ExpRecords: the tabs sit on a white strip under the gradient head. */
 .venue-bookings__tabs {
   display: flex;
+  background: #ffffff;
   padding: 0 16px;
   gap: 22px;
   border-bottom: 1px solid #f0f1f3;
@@ -358,6 +330,7 @@ button::after {
   padding: 14px;
   border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .venue-bookings__main {
@@ -454,12 +427,6 @@ button::after {
   text-align: center;
 }
 
-.venue-bookings__end {
-  color: #91a0b4;
-  font-size: 12px;
-  line-height: 17px;
-  text-align: center;
-}
 
 .venue-bookings__skeleton {
   height: 130px;

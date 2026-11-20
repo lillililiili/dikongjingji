@@ -58,7 +58,8 @@ export function resolveActivityIntent(
 }
 
 export type ActivityPrimaryAction =
-  | { kind: 'CHOOSE_SESSION'; label: '选择场次'; enabled: false }
+  // Stays orange and tappable like the board (user 2026-11-20, R5 #1); tapping asks for a session.
+  | { kind: 'CHOOSE_SESSION'; label: '选择场次'; enabled: true }
   | { kind: 'ENROLL'; label: '立即报名'; enabled: true }
   | { kind: 'JOIN_WAITLIST'; label: '加入候补'; enabled: true }
   | { kind: 'UNAVAILABLE'; label: string; enabled: false }
@@ -73,7 +74,7 @@ export function resolveActivityPrimaryAction(
 ): ActivityPrimaryAction {
   if (activityStatus === 'ENDED') return { kind: 'UNAVAILABLE', label: '活动已结束', enabled: false }
   if (activityStatus === 'CLOSED') return { kind: 'UNAVAILABLE', label: '报名已截止', enabled: false }
-  if (selectedSessionStatus === null) return { kind: 'CHOOSE_SESSION', label: '选择场次', enabled: false }
+  if (selectedSessionStatus === null) return { kind: 'CHOOSE_SESSION', label: '选择场次', enabled: true }
 
   switch (selectedSessionStatus) {
     case 'OPEN':
@@ -88,6 +89,8 @@ export function resolveActivityPrimaryAction(
       return { kind: 'UNAVAILABLE', label: '本场已结束', enabled: false }
   }
 }
+
+export const CHOOSE_SESSION_PROMPT = '请先选择一个场次'
 
 export function isActivitySessionSelectable(status: ActivityEnrollmentStatus): boolean {
   return status === 'OPEN' || status === 'FULL_WAITLIST'

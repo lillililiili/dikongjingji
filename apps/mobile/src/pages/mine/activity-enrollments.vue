@@ -7,6 +7,8 @@ import type { EnrollmentStatus } from '@/features/activity/domain/enrollment'
 import {
   buildActivityDetailUrl,
   buildActivityEnrollmentsUrl,
+  buildActivityOrderUrl,
+  buildActivityRefundUrl,
   buildActivityTicketUrl,
 } from '@/features/activity/navigation/activity-routes'
 import ActivityEnrollmentsPage from '@/features/activity/presentation/enrollments/ActivityEnrollmentsPage.vue'
@@ -52,6 +54,14 @@ function openCashier(tradeOrderId: string): void {
   uni.navigateTo({ url: buildCashierUrl(tradeOrderId) })
 }
 
+function openOrder(enrollmentId: string): void {
+  uni.navigateTo({ url: buildActivityOrderUrl(enrollmentId) })
+}
+
+function openRefund(enrollmentId: string): void {
+  uni.navigateTo({ url: buildActivityRefundUrl(enrollmentId) })
+}
+
 onLoad((query) => {
   const status = query?.status as EnrollmentStatus | undefined
   if (status && STATUSES.includes(status)) initialStatus.value = status
@@ -81,5 +91,7 @@ onReachBottom(() => {
     @open-activity="openActivity"
     @browse="openHomeChannel('ACTIVITY')"
     @pay="openCashier"
+    @open-order="openOrder"
+    @refund="openRefund"
   />
 </template>

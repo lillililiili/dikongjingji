@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   VENUE_PAYMENT_UNAVAILABLE_TEXT,
@@ -96,13 +97,17 @@ const venueNotice = computed(() =>
   ready.value?.venue.infoItems.find((item) => item.label === '到馆须知')?.content ?? null)
 const rules = computed(() => venueBookRules(payMode.value))
 const sessionOpen = computed(() => ready.value?.session.status === 'OPEN')
-const canSubmit = computed(() =>
-  payMode.value !== 'PAYMENT_UNAVAILABLE'
-  && sessionOpen.value
-  && picked.value.length > 0
-  && !tooMany.value
-  && agreed.value
-  && !submitting.value)
+// The button stays orange like the board (R5 #1, 2026-11-20); tapping it with something missing
+// says what. It is only greyed when the booking cannot be paid online at all, or while sending.
+const submitLocked = computed(() => payMode.value === 'PAYMENT_UNAVAILABLE' || submitting.value)
+const missingStep = computed<string | null>(() => {
+  if (!sessionOpen.value) return '这一场不能预约了，请换一场'
+  if (picked.value.length === 0) return '请选择参与人'
+  if (tooMany.value) return countLine.value
+  if (!agreed.value) return '请先阅读并同意到馆须知与退改说明'
+  return null
+})
+const canSubmit = computed(() => !submitLocked.value && missingStep.value === null)
 const countLine = computed(() => {
   if (payMode.value === 'PAYMENT_UNAVAILABLE') return VENUE_PAYMENT_UNAVAILABLE_TEXT
   if (ready.value && !sessionOpen.value) {
@@ -207,6 +212,15 @@ function togglePerson(personId: string, selectable: boolean): void {
     : [...pickedIds.value, personId]
 }
 
+function trySubmit(): void {
+  if (submitLocked.value) return
+  if (missingStep.value) {
+    uni.showToast({ title: missingStep.value, icon: 'none' })
+    return
+  }
+  void submit()
+}
+
 async function submit(): Promise<void> {
   const token = props.accessToken
   const current = ready.value
@@ -245,12 +259,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
 <template>
   <view class="venue-book" data-testid="venue-book">
-    <header class="venue-book__header">
-      <button class="venue-book__back" data-testid="venue-book-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="24" color="#202c42" />
-      </button>
-      <text class="venue-book__title">确认到馆预约</text>
-    </header>
+    <AppPageHeader title="确认到馆预约" test-id="venue-book" @back="emit('back')" />
 
     <view v-if="state.kind === 'loading'" class="venue-book__body" data-testid="venue-book-loading" aria-label="正在加载">
       <view class="venue-book__skeleton" />
@@ -274,7 +283,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
           </view>
         </view>
         <view class="venue-book__slot">
-          <UniIcons type="calendar" size="20" color="#ba470b" />
+          <LineIcon name="calendar" :size="18" color="#ff6a00" />
           <text class="venue-book__slot-text" data-testid="venue-book-slot">{{ slotLine }}</text>
           <button class="venue-book__slot-change" data-testid="venue-book-change" @click="emit('back')">修改场次</button>
         </view>
@@ -309,7 +318,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
           @click="togglePerson(row.person.participantId, row.selectable)"
         >
           <view :class="['venue-book__box', { 'venue-book__box--on': row.picked, 'venue-book__box--off': !row.selectable }]">
-            <UniIcons v-if="row.picked" type="checkmarkempty" size="14" color="#ffffff" />
+            <LineIcon v-if="row.picked" name="check" :size="14" color="#ffffff" :stroke-width="2.6" />
           </view>
           <text class="venue-book__person-name">{{ row.person.name }}</text>
           <text v-if="row.person.relation === 'SELF'" class="venue-book__tag">本人</text>
@@ -346,7 +355,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
       <view class="venue-book__card venue-book__card--rules">
         <text class="venue-book__heading">退改说明</text>
         <view class="venue-book__rule-lead">
-          <UniIcons type="checkbox" size="18" color="#11804a" />
+          <LineIcon name="clock" :size="16" color="#159a70" :stroke-width="2" />
           <text>开场前可以改期或取消</text>
         </view>
         <view v-if="venueNotice" class="venue-book__rule">
@@ -365,7 +374,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
           @click="agreed = !agreed"
         >
           <view :class="['venue-book__box', 'venue-book__box--small', { 'venue-book__box--on': agreed }]">
-            <UniIcons v-if="agreed" type="checkmarkempty" size="12" color="#ffffff" />
+            <LineIcon v-if="agreed" name="check" :size="12" color="#ffffff" :stroke-width="2.6" />
           </view>
           <text class="venue-book__agree-text">{{ agreeText }}</text>
         </button>
@@ -392,11 +401,12 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
         <text class="venue-book__bar-total" data-testid="venue-book-bar-total">{{ totalText }}</text>
       </view>
       <button
-        :class="['venue-book__submit', { 'venue-book__submit--off': !canSubmit }]"
+        :class="['venue-book__submit', { 'venue-book__submit--off': submitLocked }]"
         data-testid="venue-book-submit"
         :data-mode="payMode"
-        :disabled="!canSubmit"
-        @click="submit"
+        :data-ready="canSubmit"
+        :disabled="submitLocked"
+        @click="trySubmit"
       >
         {{ submitLabel }}
       </button>
@@ -428,33 +438,6 @@ button::after {
   border: 0;
 }
 
-.venue-book__header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  min-height: calc(60px + var(--status-bar-height));
-  padding: var(--status-bar-height) 8px 0;
-  align-items: center;
-  gap: 4px;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-
-.venue-book__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.venue-book__title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
 .venue-book__body {
   display: flex;
   flex: 1;
@@ -470,6 +453,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .venue-book__card--people {
@@ -833,6 +817,7 @@ button::after {
   gap: 12px;
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .venue-book__bar-copy {
@@ -869,6 +854,7 @@ button::after {
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;
@@ -879,6 +865,7 @@ button::after {
 .venue-book__submit[disabled] {
   color: #91a0b4;
   background: #eef0f3;
+  box-shadow: none;
 }
 
 /* At 320 wide the button gives way so the count line keeps a few characters. */

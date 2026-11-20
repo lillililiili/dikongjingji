@@ -237,7 +237,7 @@ test.describe('活动详情', () => {
     )
     await expect(page).toHaveURL(new RegExp(`activityId=${CONTEST_ID}.*cityCode=370500`))
     await expect(page.getByTestId('activity-detail-price')).toHaveText('¥120')
-    await expect(page.getByTestId('activity-detail-status')).toHaveText('报名中')
+    await expect(page.getByTestId('activity-detail-seats')).toContainText('个名额')
     await expect(page.getByTestId('activity-detail')).toContainText('示例青少年科技机构')
     await expect(page.getByTestId('activity-detail')).toContainText('东营区示例路 66 号')
     await expect(page.getByTestId('activity-detail')).toContainText('8–15 岁，由监护人代报名并到场')
@@ -246,7 +246,11 @@ test.describe('活动详情', () => {
 
     const primary = page.getByTestId('activity-detail-primary')
     await expect(primary).toHaveText('选择场次')
-    await expect(primary).toHaveAttribute('disabled', 'true')
+    // 画板：没选场次时主按钮仍是橙色可点，点了提示先选场次。
+    await expect(primary).not.toHaveAttribute('disabled', 'true')
+    await expect(page.getByTestId('activity-session-note')).toHaveText('选好场次后显示签到和报名截止时间')
+    await primary.click()
+    await expect(page.getByTestId('activity-session-note')).toHaveText('请先选择一个场次')
 
     const sessions = page.locator('.activity-detail__session')
     await expect(sessions).toHaveCount(3)
@@ -287,7 +291,7 @@ test.describe('活动详情', () => {
     // A hash-only change keeps the same page instance on H5, so the document is reloaded for the second activity.
     await page.goto(`/?second=1#/pages/activity/detail?activityId=${CAMP_ID}&cityCode=370500`)
     await expect(page.getByTestId('activity-detail-title')).toHaveText('黄河口低空研学一日营')
-    await expect(page.getByTestId('activity-detail-status')).toHaveText('已满 · 可候补')
+    await expect(page.locator('.activity-detail__session').first()).toContainText('已满 · 可候补')
     await page.locator('.activity-detail__session').first().click()
     await expect(page.getByTestId('activity-detail-primary')).toHaveText('加入候补')
     // This camp does not take team sign-ups.

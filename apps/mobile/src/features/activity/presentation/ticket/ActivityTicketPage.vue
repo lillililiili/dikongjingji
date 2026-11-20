@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
+import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
+import { canRequestRefund } from '../../application/enrollment-order-view'
 import {
   cancelRefundMinor,
   describeCancelConfirm,
@@ -37,7 +39,14 @@ const emit = defineEmits<{
   openActivity: [activityId: string, cityCode: string]
   // 去付款: the trade cashier of this sign-up's order.
   pay: [tradeOrderId: string]
+  // The order of a paid sign-up (board OrderEnroll).
+  openOrder: [enrollmentId: string]
+  // 申请退款 of a paid sign-up (board EnrollRefund), starting on the person shown.
+  refund: [enrollmentId: string, ticketId: string]
 }>()
+
+// Board EnrollTicket's 申请退改 mark: an arrow turning back.
+const UNDO_ICON = 'M9 7l-5 5 5 5M4 12h11a5 5 0 0 1 5 5v1'
 
 // Once the time to pay has run out the server closes the order within a minute; the page asks it
 // again this often (and at most this many times) instead of deciding on its own that it closed.
@@ -74,12 +83,20 @@ const qrImage = computed(() => ticket.value?.ticketCode ? ticketQrImage(ticket.v
 const remainingMs = computed(() => enrollment.value ? paymentRemainingMs(enrollment.value, now.value) : 0)
 const countdown = computed(() => formatPayCountdown(remainingMs.value))
 const refund = computed(() => ticket.value?.refund ? describeTicketRefund(ticket.value.refund) : null)
-const amountText = computed(() => {
-  const payment = enrollment.value?.payment
-  if (!payment?.amountMinor || payment.status === 'FREE') return ''
-  return payment.unitAmountMinor
-    ? `${formatActivityAmount(payment.amountMinor)}（${formatActivityAmount(payment.unitAmountMinor)} × ${enrollment.value?.tickets.length} 人）`
-    : formatActivityAmount(payment.amountMinor)
+// A paid sign-up's money (amount, payee, order number) lives on its order page.
+// Both pages open only in preview builds.
+const hasOrder = computed(() =>
+  ACTIVITY_PREVIEW_ENABLED && Boolean(enrollment.value && enrollment.value.payment.status !== 'FREE'))
+// A paid ticket in use is refunded on its own page; free and unpaid ones use the sheet.
+const refundsOnPage = computed(() =>
+  ACTIVITY_PREVIEW_ENABLED && Boolean(enrollment.value && live.value && canRequestRefund(enrollment.value)))
+const statusIcon = computed(() => {
+  switch (view.value?.tone) {
+    case 'CANCELLED': return 'close' as const
+    case 'EXPIRED': return 'info' as const
+    case 'PENDING': return 'wallet' as const
+    default: return 'check' as const
+  }
 })
 const whoMeta = computed(() => {
   if (!ticket.value) return ''
@@ -225,6 +242,15 @@ function openNavigation(): void {
   })
 }
 
+function askCancel(): void {
+  if (!canCancel.value) return
+  if (refundsOnPage.value && enrollment.value && ticket.value) {
+    emit('refund', enrollment.value.enrollmentId, ticket.value.ticketId)
+    return
+  }
+  cancelSheetOpen.value = true
+}
+
 function pay(): void {
   const orderId = enrollment.value?.payment.tradeOrderId
   if (canPay.value && orderId) emit('pay', orderId)
@@ -257,10 +283,18 @@ onBeforeUnmount(() => {
   >
     <header class="ticket__header">
       <button class="ticket__back" data-testid="ticket-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="24" :color="state.kind === 'ready' ? '#ffffff' : '#202c42'" />
+        <LineIcon name="back" :size="22" :color="state.kind === 'ready' ? '#ffffff' : '#202c42'" :stroke-width="2" />
       </button>
       <text class="ticket__header-title">报名凭证</text>
-      <view class="ticket__back" />
+      <button
+        v-if="hasOrder && enrollment"
+        class="ticket__back ticket__order-link"
+        data-testid="ticket-order"
+        @click="emit('openOrder', enrollment.enrollmentId)"
+      >
+        订单
+      </button>
+      <view v-else class="ticket__back" />
     </header>
 
     <view v-if="state.kind === 'loading'" class="ticket__body" data-testid="ticket-loading" aria-label="正在加载">
@@ -281,11 +315,7 @@ onBeforeUnmount(() => {
     <template v-else-if="enrollment && ticket && view">
       <view class="ticket__status">
         <view class="ticket__status-line">
-          <UniIcons
-            :type="view.tone === 'CANCELLED' ? 'closeempty' : view.tone === 'EXPIRED' ? 'info' : view.tone === 'PENDING' ? 'wallet' : 'checkmarkempty'"
-            size="22"
-            color="#ffffff"
-          />
+          <LineIcon :name="statusIcon" :size="22" color="#ffffff" :stroke-width="2.6" />
           <text class="ticket__status-title" data-testid="ticket-status-title">{{ view.title }}</text>
         </view>
         <text class="ticket__status-sub" data-testid="ticket-status-sub">{{ view.subtitle }}</text>
@@ -329,10 +359,6 @@ onBeforeUnmount(() => {
             <text class="ticket__place-label">地点</text>
             <text class="ticket__place-text">{{ enrollment.location.name }} · {{ enrollment.location.address }}</text>
           </view>
-          <view v-if="amountText" class="ticket__place">
-            <text class="ticket__place-label">报名费</text>
-            <text class="ticket__place-text" data-testid="ticket-amount">{{ amountText }}</text>
-          </view>
           <view v-if="refund" class="ticket__place">
             <text class="ticket__place-label">退款</text>
             <text
@@ -360,7 +386,7 @@ onBeforeUnmount(() => {
               :aria-label="live ? '签到二维码' : '已失效的二维码'"
             />
             <view v-else class="ticket__qr-empty" data-testid="ticket-qr-empty">
-              <UniIcons :type="pending ? 'wallet' : 'closeempty'" size="34" color="#91a0b4" />
+              <LineIcon :name="pending ? 'wallet' : 'close'" :size="34" color="#91a0b4" />
               <text class="ticket__qr-empty-text">{{ pending ? '付款后生成' : '未生成二维码' }}</text>
             </view>
             <text
@@ -383,32 +409,33 @@ onBeforeUnmount(() => {
           :disabled="!canPay"
           @click="pay"
         >
-          <UniIcons type="wallet" size="22" :color="canPay ? '#ffffff' : '#91a0b4'" />
+          <LineIcon name="wallet" :size="22" :color="canPay ? '#ffffff' : '#91a0b4'" />
           <text>{{ canPay ? `去付款 · ${countdown}` : '付款时间已到' }}</text>
         </button>
         <button
           :class="['ticket__action', { 'ticket__action--off': !canCancel }]"
           data-testid="ticket-cancel"
           :disabled="!canCancel"
-          @click="cancelSheetOpen = true"
+          @click="askCancel"
         >
-          <UniIcons type="undo" size="22" :color="canCancel ? '#ff6a00' : '#91a0b4'" />
+          <LineIcon :d="UNDO_ICON" :size="22" :color="canCancel ? '#ff6a00' : '#91a0b4'" />
           <text>取消报名</text>
         </button>
       </view>
       <view v-else-if="live" class="ticket__actions">
         <button class="ticket__action" data-testid="ticket-navigate" @click="openNavigation">
-          <UniIcons type="paperplane" size="22" color="#ff6a00" />
+          <LineIcon name="navigate" :size="22" color="#ff6a00" />
           <text>导航到场馆</text>
         </button>
         <button
           :class="['ticket__action', { 'ticket__action--off': !canCancel }]"
           data-testid="ticket-cancel"
+          :data-refund-page="refundsOnPage"
           :disabled="!canCancel"
-          @click="cancelSheetOpen = true"
+          @click="askCancel"
         >
-          <UniIcons type="undo" size="22" :color="canCancel ? '#ff6a00' : '#91a0b4'" />
-          <text>取消报名</text>
+          <LineIcon :d="UNDO_ICON" :size="22" :color="canCancel ? '#ff6a00' : '#91a0b4'" />
+          <text>{{ refundsOnPage ? '申请退款' : '取消报名' }}</text>
         </button>
       </view>
       <button
@@ -417,9 +444,9 @@ onBeforeUnmount(() => {
         data-testid="ticket-open-activity"
         @click="emit('openActivity', enrollment.activity.activityId, enrollment.activity.cityCode)"
       >
-        <UniIcons type="flag" size="22" color="#ff6a00" />
+        <LineIcon name="flag" :size="22" color="#ff6a00" />
         <text class="ticket__next-label">查看活动详情</text>
-        <UniIcons type="right" size="16" color="#91a0b4" />
+        <LineIcon name="forward" :size="16" color="#91a0b4" :stroke-width="2" />
       </button>
 
       <view
@@ -434,11 +461,12 @@ onBeforeUnmount(() => {
         />
         <view v-for="step in progress.steps" :key="step.label" class="ticket__step">
           <view :class="['ticket__dot', `ticket__dot--${step.state.toLowerCase()}`]">
-            <UniIcons
+            <LineIcon
               v-if="step.state !== 'TODO'"
-              :type="step.state === 'DONE' ? 'checkmarkempty' : 'closeempty'"
-              size="11"
+              :name="step.state === 'DONE' ? 'check' : 'close'"
+              :size="11"
               color="#ffffff"
+              :stroke-width="3"
             />
           </view>
           <text :class="['ticket__step-label', `ticket__step-label--${step.state.toLowerCase()}`]">
@@ -448,7 +476,12 @@ onBeforeUnmount(() => {
       </view>
 
       <view :class="['ticket__note', `ticket__note--${view.tone.toLowerCase()}`]" data-testid="ticket-note">
-        <UniIcons type="info" size="16" :color="live ? '#159a70' : pending ? '#ff6a00' : '#738096'" />
+        <LineIcon
+          :name="live || pending ? 'clock' : 'info'"
+          :size="16"
+          :color="live ? '#159a70' : pending ? '#ff6a00' : '#738096'"
+          :stroke-width="2"
+        />
         <text>{{ note }}</text>
       </view>
     </template>
@@ -564,6 +597,13 @@ button::after {
   text-align: center;
 }
 
+.ticket__order-link {
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 44px;
+  white-space: nowrap;
+}
+
 .ticket--plain .ticket__header-title {
   color: #202c42;
 }
@@ -643,6 +683,7 @@ button::after {
   margin: 14px 16px 0;
   border-radius: 16px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .ticket__info {
@@ -891,6 +932,7 @@ button::after {
   border-radius: 14px;
   color: #202c42;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
   font-size: 13px;
   line-height: 18px;
   white-space: nowrap;
@@ -899,6 +941,7 @@ button::after {
 .ticket__action--pay {
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-weight: 500;
 }
 
@@ -919,6 +962,7 @@ button::after {
   border-radius: 14px;
   color: #202c42;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
   font-size: 15px;
   line-height: 21px;
   text-align: left;
@@ -938,6 +982,7 @@ button::after {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .ticket__steps-line {

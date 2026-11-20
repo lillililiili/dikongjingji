@@ -176,9 +176,12 @@ test.describe('收费活动报名', () => {
     await expect(page.getByTestId('activity-enroll-paid-rule')).toContainText('每位按报名时的单价原路退回')
     await person(page, CHILD_NAMES[0]).click()
     await person(page, CHILD_NAMES[1]).click()
-    await expect(page.getByTestId('activity-enroll-count')).toHaveText('¥168 × 2 人')
+    await expect(page.getByTestId('activity-enroll-count')).toHaveText('2 人 × ¥168')
     await expect(page.getByTestId('activity-enroll-price')).toHaveText('¥336')
-    await expect(submitOff(page)).toHaveCount(1)
+    // 画板：按钮一直是橙色；没勾同意就点，提示先同意。
+    await expect(page.getByTestId('activity-enroll-submit')).toHaveAttribute('data-ready', 'false')
+    await page.getByTestId('activity-enroll-submit').click()
+    await expect(page.locator('uni-toast')).toContainText('请先阅读并同意报名须知')
     await page.getByTestId('activity-enroll-agree').click()
     await submitOn(page).click()
 
@@ -217,16 +220,25 @@ test.describe('收费活动报名', () => {
     await expect(page.getByTestId('ticket-status-title')).toHaveText('报名成功 · 待参加')
     await expect(page.getByTestId('ticket-code')).toHaveText(/^ACT-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$/)
     await expect(page.getByTestId('ticket-qr').locator('img')).toHaveAttribute('src', /data:image\/svg\+xml/)
-    await expect(page.getByTestId('ticket-amount')).toHaveText('¥336（¥168 × 2 人）')
     await expect(page.getByTestId('ticket-steps')).toContainText('已支付')
     await expect(page.getByTestId('ticket-refund')).toHaveCount(0)
 
-    // 取消其中一位：确认框写明原路退回多少钱。
+    // 订单详情（画板 OrderEnroll）：金额、收款方、订单编号都从服务端读。
+    await page.getByTestId('ticket-order').click()
+    await expect(page.getByTestId('activity-order-amount')).toHaveText('¥336')
+    await expect(page.getByTestId('activity-order-money')).toContainText('2 人 × ¥168')
+    await expect(page.getByTestId('activity-order-parties')).toContainText('示例研学机构 · 经平台支付渠道')
+    await expect(page.getByTestId('activity-order-pay-state')).toHaveText('已支付 · 渠道回执已核验')
+    await expect(page.getByTestId('activity-order-no')).not.toBeEmpty()
+    await page.getByTestId('activity-order-back').click()
+
+    // 退其中一位（画板 EnrollRefund）：从凭证进入只勾当前这位，写明退多少，确认后提交即退。
     await page.locator('[data-testid="ticket-cancel"]:not([disabled])').click()
-    await expect(page.getByTestId('ticket-cancel-text')).toHaveText('取消后名额会让给别人，原路退回 ¥168。')
-    await expect(page.getByTestId('ticket-cancel-refund')).toHaveText('原路退回 ¥168')
-    await expect(page.getByTestId('ticket-cancel-all')).toContainText('2 人全部取消（共退 ¥336）')
-    await page.getByTestId('ticket-cancel-one').click()
+    await expect(page.getByTestId('activity-refund-amount')).toHaveText('¥168')
+    await expect(page.locator('.enroll-refund__person[aria-checked="true"]')).toHaveCount(1)
+    await page.getByTestId('activity-refund-submit').click()
+    await expect(page.locator('.uni-modal')).toContainText('原路退回 ¥168')
+    await page.locator('.uni-modal__btn_primary').click()
     await expect(page.getByTestId('ticket-status-title')).toHaveText('报名已取消')
     await expect(page.getByTestId('ticket-refund')).toHaveText('退款中 ¥168 · 原路退回')
     await expect(page.getByTestId('ticket-stamp')).toHaveText('已取消')

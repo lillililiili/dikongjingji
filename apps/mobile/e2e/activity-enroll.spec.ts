@@ -111,7 +111,6 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 // uni-button shows as enabled to Playwright even when disabled, so the attribute is checked.
-const submitOff = (page: Page) => page.locator('[data-testid="activity-enroll-submit"][disabled]')
 const submitOn = (page: Page) => page.locator('[data-testid="activity-enroll-submit"]:not([disabled])')
 
 test.describe('免费活动报名', () => {
@@ -155,14 +154,16 @@ test.describe('免费活动报名', () => {
     await expect(self).toContainText('本人')
     await expect(self).toContainText('可报名')
     await expect(page.getByTestId('activity-enroll-count')).toHaveText('请选择参与人')
-    await expect(submitOff(page)).toHaveCount(1)
+    // 画板：按钮一直是橙色；缺什么点了就提示什么。
+    await page.getByTestId('activity-enroll-submit').click()
+    await expect(page.locator('uni-toast')).toContainText('请选择参与人')
 
     await self.click()
     await expect(self).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('activity-enroll-count')).toHaveText('已选 1 人')
     // 只选了本人，同意语不带“监护人”。
     await expect(page.locator('.activity-enroll__agree-text')).toContainText('我已阅读并同意')
-    await expect(submitOff(page)).toHaveCount(1)
+    await expect(page.getByTestId('activity-enroll-submit')).toHaveAttribute('data-ready', 'false')
     await page.getByTestId('activity-enroll-agree').click()
     await submitOn(page).click()
 

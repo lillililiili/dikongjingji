@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { onLoad, onReachBottom } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
@@ -9,6 +8,8 @@ import {
   emptyPagedList,
   type PagedListState,
 } from '@/shared/list/paged-list-loader'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { experienceApi } from '../../data/experience-api-client'
 import { buildVenueDetailUrl } from '../../navigation/experience-routes'
@@ -32,8 +33,19 @@ const CATEGORY_TABS: readonly { code: VenueDeviceCategory | null; label: string 
 
 const selectedCategory = ref<VenueDeviceCategory | null>(null)
 const devices = ref<PagedListState<VenueDevice>>(emptyPagedList())
+// Board VenueDevices' subtitle: "东营低空与机器人体验馆 · 6 件". Left out if the venue cannot be read.
+const subtitle = ref<string | undefined>(undefined)
 let venueId = ''
 let cityCode = ''
+
+async function loadSubtitle(): Promise<void> {
+  try {
+    const venue = await experienceApi.loadVenue(venueId, cityCode)
+    subtitle.value = `${venue.name} · ${venue.deviceCount} 件`
+  } catch {
+    subtitle.value = undefined
+  }
+}
 
 const loader = createPagedListLoader<VenueDeviceCategory | null, VenueDevice>({
   loadPage: (category, page, size) =>
@@ -76,6 +88,7 @@ onLoad((query) => {
   venueId = typeof query?.venueId === 'string' ? query.venueId : ''
   cityCode = typeof query?.cityCode === 'string' ? query.cityCode : ''
   reload()
+  if (venueId && cityCode) void loadSubtitle()
 })
 
 onReachBottom(() => {
@@ -85,29 +98,28 @@ onReachBottom(() => {
 
 <template>
   <view class="venue-devices" data-testid="venue-devices">
-    <header class="venue-devices__header">
-      <button class="venue-devices__back" data-testid="venue-devices-back" aria-label="返回" @click="goBack">
-        <UniIcons type="left" size="24" color="#435369" />
-      </button>
-      <text class="venue-devices__header-title">馆内展示设备</text>
-    </header>
+    <view class="venue-devices__top">
+      <AppPageHeader title="馆内展示设备" :subtitle="subtitle" test-id="venue-devices" @back="goBack">
+        <template #bottom>
+          <view class="venue-devices__tabs">
+            <button
+              v-for="tab in CATEGORY_TABS"
+              :key="tab.label"
+              :class="['venue-devices__tab', { 'venue-devices__tab--active': tab.code === selectedCategory }]"
+              :data-testid="`venue-devices-tab-${(tab.code ?? 'all').toLowerCase()}`"
+              :aria-pressed="tab.code === selectedCategory"
+              @click="selectCategory(tab.code)"
+            >
+              {{ tab.label }}
+            </button>
+          </view>
+        </template>
+      </AppPageHeader>
+    </view>
 
     <view class="venue-devices__content">
-      <view class="venue-devices__tabs">
-        <button
-          v-for="tab in CATEGORY_TABS"
-          :key="tab.label"
-          :class="['venue-devices__tab', { 'venue-devices__tab--active': tab.code === selectedCategory }]"
-          :data-testid="`venue-devices-tab-${(tab.code ?? 'all').toLowerCase()}`"
-          :aria-pressed="tab.code === selectedCategory"
-          @click="selectCategory(tab.code)"
-        >
-          {{ tab.label }}
-        </button>
-      </view>
-
       <view class="venue-devices__notice">
-        <UniIcons type="info" size="16" color="#11804a" />
+        <LineIcon name="info" :size="16" color="#11804a" :stroke-width="2" />
         <text>到馆可看真机，能不能试用以现场标注为准</text>
       </view>
 
@@ -160,9 +172,7 @@ onReachBottom(() => {
             </text>
           </view>
         </view>
-        <text class="venue-devices__more">
-          {{ devices.loadingMore ? '正在加载…' : devices.hasMore ? '' : '没有更多设备了' }}
-        </text>
+        <text v-if="devices.loadingMore" class="venue-devices__more">正在加载…</text>
       </view>
     </view>
 
@@ -198,32 +208,11 @@ button::after {
   border: 0;
 }
 
-.venue-devices__header {
+.venue-devices__top {
   position: sticky;
   top: 0;
   z-index: 5;
-  display: flex;
-  min-height: calc(60px + var(--status-bar-height));
-  padding: var(--status-bar-height) 8px 0;
-  align-items: center;
-  gap: 4px;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-
-.venue-devices__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-}
-
-.venue-devices__header-title {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 25px;
+  flex: none;
 }
 
 .venue-devices__content {
@@ -236,7 +225,6 @@ button::after {
   display: flex;
   padding: 2px 16px 8px;
   gap: 8px;
-  background: #ffffff;
 }
 
 /* The pill is 36 high; the button is 44 so the tap target meets the minimum. */

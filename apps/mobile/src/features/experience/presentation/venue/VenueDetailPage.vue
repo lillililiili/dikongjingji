@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
@@ -9,6 +8,9 @@ import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
 import { buildBeijingDayOptions, type BeijingDayOption } from '@/shared/time/beijing-time'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import IconTile from '@/shared/ui/IconTile.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { EXPERIENCE_PREVIEW_ENABLED } from '../../application/experience-preview'
 import { experienceApi } from '../../data/experience-api-client'
@@ -23,6 +25,11 @@ import {
   toDialNumber,
 } from '../shared/experience-format'
 import { openVenueNavigation } from '../shared/venue-navigation'
+
+// Board VenueDetail's marks: the share box with an arrow, and the address pin.
+const SHARE_ICON = 'M12 15V4M8 8l4-4 4 4M5 13v6h14v-6'
+const PIN_ICON = 'M12 21s7-6.2 7-11.5a7 7 0 0 0-14 0C5 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z'
+const SAMPLE_SUFFIX = '（示例）'
 
 type DetailState =
   | { kind: 'loading' }
@@ -76,11 +83,29 @@ const selectedSession = computed<VenueSession | null>(() =>
 const selectedDay = computed(() =>
   days.value.find((day) => day.date === selectedDate.value) ?? days.value[0],
 )
+// The detail page books one person; the confirm page changes the number (board: "今天 14:00 · 1 人").
 const barLine = computed(() =>
   selectedSession.value
-    ? `${selectedDay.value.title} ${formatVenueSessionTime(selectedSession.value)}`
+    ? `${selectedDay.value.title} ${formatVenueSessionTime(selectedSession.value)} · 1 人`
     : '请选择场次',
 )
+
+// Board VenueDetail: "今天", "明天", then "11/07 周六".
+function dayLabel(day: BeijingDayOption, index: number): string {
+  return index < 2 ? day.title : `${day.subtitle} ${day.title}`
+}
+
+// Few seats left reads orange like the board; the server's wording stays.
+function isTight(session: VenueSession): boolean {
+  return session.status === 'OPEN' && session.seatsLeft <= 2
+}
+
+// Sample rules of the development seed end in "（示例）"; the board greys that part.
+function splitSample(content: string): { text: string; sample: boolean } {
+  return content.endsWith(SAMPLE_SUFFIX)
+    ? { text: content.slice(0, -SAMPLE_SUFFIX.length), sample: true }
+    : { text: content, sample: false }
+}
 
 async function loadSessions(): Promise<void> {
   const project = selectedProject.value
@@ -178,10 +203,15 @@ function selectSession(session: VenueSession): void {
 }
 
 // Preview builds only (the bar is hidden otherwise): the confirm page reads the session again.
+// The button stays orange like the board (R5 #1, 2026-11-20); without a session it says so.
 function book(): void {
   const session = selectedSession.value
   const project = selectedProject.value
-  if (!session || !project) return
+  if (!project) return
+  if (!session) {
+    uni.showToast({ title: '请先选择一个场次', icon: 'none' })
+    return
+  }
   uni.navigateTo({
     url: buildVenueBookUrl({
       venueId,
@@ -225,12 +255,7 @@ onLoad((query) => {
 <template>
   <view class="venue-detail" data-testid="venue-detail">
     <!-- With a venue on screen the back button floats on its picture instead. -->
-    <header v-if="!venue" class="venue-detail__header">
-      <button class="venue-detail__back" data-testid="venue-detail-back" aria-label="返回" @click="goBack">
-        <UniIcons type="left" size="24" color="#435369" />
-      </button>
-      <text class="venue-detail__header-title">场馆详情</text>
-    </header>
+    <AppPageHeader v-if="!venue" title="场馆详情" test-id="venue-detail" @back="goBack" />
 
     <view
       v-if="state.kind === 'loading'"
@@ -273,7 +298,7 @@ onLoad((query) => {
           />
           <button class="venue-detail__float" data-testid="venue-detail-back" aria-label="返回" @click="goBack">
             <view class="venue-detail__float-circle">
-              <UniIcons type="left" size="20" color="#ffffff" />
+              <LineIcon name="back" :size="20" color="#ffffff" :stroke-width="2" />
             </view>
           </button>
           <button
@@ -284,7 +309,7 @@ onLoad((query) => {
             @click="openShare"
           >
             <view class="venue-detail__float-circle">
-              <UniIcons type="redo" size="20" color="#ffffff" />
+              <LineIcon :d="SHARE_ICON" :size="20" color="#ffffff" :stroke-width="2" />
             </view>
           </button>
         </view>
@@ -293,7 +318,7 @@ onLoad((query) => {
           <text class="venue-detail__name" data-testid="venue-detail-name">{{ venue.name }}</text>
           <text v-if="venue.openingNote" class="venue-detail__opening">{{ venue.openingNote }}</text>
           <view class="venue-detail__contact">
-            <UniIcons type="location" size="16" color="#738096" />
+            <LineIcon :d="PIN_ICON" :size="16" color="#738096" />
             <text class="venue-detail__address">{{ venue.address }}</text>
             <button
               class="venue-detail__icon-button"
@@ -301,7 +326,7 @@ onLoad((query) => {
               aria-label="导航"
               @click="openNavigation"
             >
-              <UniIcons type="navigate" size="20" color="#ba470b" />
+              <IconTile tone="blue" name="navigate" :size="40" :icon-size="22" />
             </button>
             <button
               v-if="venue.phone"
@@ -310,7 +335,7 @@ onLoad((query) => {
               :aria-label="`拨打 ${venue.phone}`"
               @click="callVenue"
             >
-              <UniIcons type="phone" size="20" color="#ba470b" />
+              <IconTile tone="violet" name="phone" :size="40" :icon-size="22" />
             </button>
           </view>
         </view>
@@ -360,14 +385,14 @@ onLoad((query) => {
             <scroll-view class="venue-detail__days" scroll-x :show-scrollbar="false">
               <view class="venue-detail__day-track">
                 <button
-                  v-for="day in days"
+                  v-for="(day, index) in days"
                   :key="day.date"
                   :class="['venue-detail__day', { 'venue-detail__day--active': day.date === selectedDate }]"
                   :data-testid="`venue-day-${day.date}`"
                   :aria-pressed="day.date === selectedDate"
                   @click="selectDay(day)"
                 >
-                  {{ day.title }} {{ day.subtitle }}
+                  {{ dayLabel(day, index) }}
                 </button>
               </view>
             </scroll-view>
@@ -402,6 +427,7 @@ onLoad((query) => {
                     {
                       'venue-detail__slot--selected': session.sessionId === selectedSessionId,
                       'venue-detail__slot--off': session.status !== 'OPEN',
+                      'venue-detail__slot--tight': isTight(session),
                     },
                   ]"
                   :data-testid="`venue-session-${session.sessionId}`"
@@ -427,7 +453,7 @@ onLoad((query) => {
             <text class="venue-detail__heading-title">馆内展示设备</text>
             <button class="venue-detail__heading-link" data-testid="venue-detail-devices" @click="openDevices">
               <text>{{ venue.deviceCount }} 件</text>
-              <UniIcons type="right" size="12" color="#627187" />
+              <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
             </button>
           </view>
           <view v-if="deviceStrip.length" class="venue-detail__device-strip">
@@ -448,7 +474,10 @@ onLoad((query) => {
           <view class="venue-detail__info">
             <template v-for="item in venue.infoItems" :key="item.label">
               <text class="venue-detail__info-label">{{ item.label }}</text>
-              <text class="venue-detail__info-value">{{ item.content }}</text>
+              <text class="venue-detail__info-value">{{ splitSample(item.content).text }}<text
+                v-if="splitSample(item.content).sample"
+                class="venue-detail__info-sample"
+              >{{ SAMPLE_SUFFIX }}</text></text>
             </template>
             <text class="venue-detail__info-label">运营主体</text>
             <text class="venue-detail__info-value">{{ venue.operatorName }}</text>
@@ -459,14 +488,14 @@ onLoad((query) => {
       <view v-if="EXPERIENCE_PREVIEW_ENABLED && selectedProject" class="venue-detail__actions">
         <view class="venue-detail__bar-copy">
           <text class="venue-detail__bar-line" data-testid="venue-detail-bar-line">{{ barLine }}</text>
-          <text v-if="selectedSession" class="venue-detail__bar-price">
+          <text class="venue-detail__bar-price">
             {{ formatVenuePrice(selectedProject.priceAmountMinor) }}
           </text>
         </view>
         <button
-          :class="['venue-detail__primary', { 'venue-detail__primary--off': !selectedSession }]"
+          class="venue-detail__primary"
           data-testid="venue-detail-book"
-          :disabled="!selectedSession"
+          :data-ready="Boolean(selectedSession)"
           @click="book"
         >
           预约到馆
@@ -499,33 +528,6 @@ button {
 
 button::after {
   border: 0;
-}
-
-.venue-detail__header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  min-height: calc(50px + var(--status-bar-height));
-  padding: var(--status-bar-height) 12px 0;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-  box-sizing: border-box;
-}
-
-.venue-detail__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-}
-
-.venue-detail__header-title {
-  font-size: 18px;
-  font-weight: 700;
 }
 
 .venue-detail__content {
@@ -691,8 +693,8 @@ button::after {
 
 .venue-detail__icon-button {
   display: flex;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 52px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -873,15 +875,16 @@ button::after {
   flex: 0 0 auto;
   align-items: center;
   border-radius: 8px;
-  color: #536178;
-  background: #f5f7fc;
+  color: #202c42;
+  background: #eef2f8;
   font-size: 13px;
   white-space: nowrap;
 }
 
+/* Board VenueDetail: the picked day is solid orange with white text. */
 .venue-detail__day--active {
-  color: #ba470b;
-  background: #fff0e3;
+  color: #ffffff;
+  background: #ff6a00;
   font-weight: 500;
 }
 
@@ -911,28 +914,32 @@ button::after {
 }
 
 .venue-detail__slot-seats {
-  color: #11804a;
+  color: #627187;
   font-size: 12px;
   line-height: 17px;
 }
 
 .venue-detail__slot--selected {
   border-color: #ff6a00;
-  background: #fff8f2;
+  background: #fffaf5;
 }
 
-.venue-detail__slot--selected .venue-detail__slot-time {
+.venue-detail__slot--selected .venue-detail__slot-time,
+.venue-detail__slot--selected .venue-detail__slot-seats,
+.venue-detail__slot--tight .venue-detail__slot-seats {
   color: #ba470b;
 }
 
 .venue-detail__slot--off {
-  border-color: #f0f1f3;
   background: #f5f7fc;
 }
 
-.venue-detail__slot--off .venue-detail__slot-time,
-.venue-detail__slot--off .venue-detail__slot-seats {
+.venue-detail__slot--off .venue-detail__slot-time {
   color: #91a0b4;
+}
+
+.venue-detail__slot--off .venue-detail__slot-seats {
+  color: #738096;
 }
 
 .venue-detail__slot-note {
@@ -1014,7 +1021,8 @@ button::after {
 .venue-detail__info {
   display: grid;
   margin-top: -2px;
-  grid-template-columns: 70px minmax(0, 1fr);
+  /* 70px like the board; a longer label widens the column instead of running into the value. */
+  grid-template-columns: minmax(70px, auto) minmax(0, 1fr);
   gap: 8px 10px;
   font-size: 13px;
   line-height: 19px;
@@ -1022,6 +1030,11 @@ button::after {
 
 .venue-detail__info-label {
   color: #627187;
+  white-space: nowrap;
+}
+
+.venue-detail__info-sample {
+  color: #91a0b4;
 }
 
 .venue-detail__actions {
@@ -1075,10 +1088,5 @@ button::after {
   font-weight: 500;
 }
 
-.venue-detail__primary--off,
-.venue-detail__primary[disabled] {
-  color: #91a0b4;
-  background: #eef0f3;
-  box-shadow: none;
-}
+
 </style>

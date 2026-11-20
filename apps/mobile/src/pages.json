@@ -192,6 +192,20 @@
       }
     },
     {
+      "path": "pages/activity/order",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/refund",
+      "style": {
+        "navigationBarTitleText": "申请退款",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/mine/activity-enrollments",
       "style": {
         "navigationBarTitleText": "我的报名",

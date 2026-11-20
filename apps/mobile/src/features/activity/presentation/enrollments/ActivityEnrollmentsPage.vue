@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 
+import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
+import { canRequestRefund } from '../../application/enrollment-order-view'
 import {
   ENROLLMENT_TABS,
   describeCancelConfirm,
@@ -37,6 +39,9 @@ const emit = defineEmits<{
   browse: []
   // 去付款: the trade cashier of an unpaid sign-up.
   pay: [tradeOrderId: string]
+  // A paid sign-up opens on its order (board EnrollList → OrderEnroll); 申请退款 has its own page.
+  openOrder: [enrollmentId: string]
+  refund: [enrollmentId: string]
 }>()
 
 type ListState =
@@ -53,15 +58,29 @@ const loadingMore = ref(false)
 const cancellingId = ref<string | null>(null)
 let requestVersion = 0
 
-const cards = computed(() => items.value.map((enrollment) => ({
-  enrollment,
-  view: describeEnrollmentCard(enrollment),
-  cover: enrollment.activity.coverImage?.url
-    ?? resolveActivityPreviewCover(enrollment.activity.activityId),
-  typeLabel: ACTIVITY_TYPE_LABELS[enrollment.activity.type],
-  price: enrollmentPriceText(enrollment),
-  unpaid: enrollment.payment.status === 'PENDING_PAYMENT',
-})))
+// "青少年无人机编程挑战赛（东营站）": the bracketed part never breaks across lines (board EnrollList).
+function splitTitle(title: string): { main: string; tail: string } {
+  const at = title.lastIndexOf('（')
+  return at > 0 && title.endsWith('）') ? { main: title.slice(0, at), tail: title.slice(at) } : { main: title, tail: '' }
+}
+
+const cards = computed(() => items.value.map((enrollment) => {
+  const view = describeEnrollmentCard(enrollment)
+  return {
+    enrollment,
+    view,
+    title: splitTitle(enrollment.activity.title),
+    // The board's card shows no "前可取消" line; refunds, payment and check-ins still say something.
+    showNote: Boolean(view.note) && !(view.statusText === '待参加' && view.noteTone === 'PLAIN'),
+    paid: ACTIVITY_PREVIEW_ENABLED && enrollment.payment.status === 'PAID',
+    refundable: ACTIVITY_PREVIEW_ENABLED && canRequestRefund(enrollment),
+    cover: enrollment.activity.coverImage?.url
+      ?? resolveActivityPreviewCover(enrollment.activity.activityId),
+    typeLabel: ACTIVITY_TYPE_LABELS[enrollment.activity.type],
+    price: enrollmentPriceText(enrollment),
+    unpaid: enrollment.payment.status === 'PENDING_PAYMENT',
+  }
+}))
 const emptyText = computed(() => ({
   UPCOMING: '还没有待参加的活动',
   FINISHED: '还没有参加过的活动',
@@ -140,6 +159,14 @@ function pay(enrollment: Enrollment): void {
   emit('openTicket', enrollment.enrollmentId)
 }
 
+function openCard(enrollment: Enrollment, paid: boolean): void {
+  if (paid) {
+    emit('openOrder', enrollment.enrollmentId)
+    return
+  }
+  emit('openTicket', enrollment.enrollmentId)
+}
+
 function askCancel(enrollment: Enrollment): void {
   const unpaid = enrollment.payment.status === 'PENDING_PAYMENT'
   const count = unpaid
@@ -189,27 +216,24 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
 <template>
   <view class="enrollments" data-testid="activity-enrollments">
     <view class="enrollments__top">
-      <header class="enrollments__header">
-        <button class="enrollments__back" data-testid="enrollments-back" aria-label="返回" @click="emit('back')">
-          <UniIcons type="left" size="24" color="#202c42" />
-        </button>
-        <text class="enrollments__title">我的报名</text>
-        <view class="enrollments__back" />
-      </header>
-      <view class="enrollments__tabs" role="tablist" aria-label="报名状态">
-        <button
-          v-for="item in ENROLLMENT_TABS"
-          :key="item.status"
-          :class="['enrollments__tab', { 'enrollments__tab--on': item.status === tab }]"
-          :data-testid="`enrollments-tab-${item.status.toLowerCase()}`"
-          role="tab"
-          :aria-selected="item.status === tab"
-          @click="selectTab(item.status)"
-        >
-          {{ item.label }}
-          <view v-if="item.status === tab" class="enrollments__tab-line" />
-        </button>
-      </view>
+      <AppPageHeader title="我的报名" centered test-id="enrollments" @back="emit('back')">
+        <template #bottom>
+          <view class="enrollments__tabs" role="tablist" aria-label="报名状态">
+            <button
+              v-for="item in ENROLLMENT_TABS"
+              :key="item.status"
+              :class="['enrollments__tab', { 'enrollments__tab--on': item.status === tab }]"
+              :data-testid="`enrollments-tab-${item.status.toLowerCase()}`"
+              role="tab"
+              :aria-selected="item.status === tab"
+              @click="selectTab(item.status)"
+            >
+              {{ item.label }}
+              <view v-if="item.status === tab" class="enrollments__tab-line" />
+            </button>
+          </view>
+        </template>
+      </AppPageHeader>
     </view>
 
     <view v-if="state.kind === 'loading'" class="enrollments__list" data-testid="enrollments-loading" aria-label="正在加载">
@@ -246,11 +270,12 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
         <button
           class="enrollments__main"
           :data-testid="`enrollment-open-${card.enrollment.enrollmentId}`"
-          @click="emit('openTicket', card.enrollment.enrollmentId)"
+          :data-opens="card.paid ? 'order' : 'ticket'"
+          @click="openCard(card.enrollment, card.paid)"
         >
           <view class="enrollments__line">
             <text class="enrollments__type">{{ card.typeLabel }}</text>
-            <text class="enrollments__org">{{ card.enrollment.activity.organizerName }}</text>
+            <text class="enrollments__org">{{ card.enrollment.location.name }}</text>
             <text :class="['enrollments__status', `enrollments__status--${card.view.statusTone.toLowerCase()}`]">
               {{ card.view.statusText }}
             </text>
@@ -268,13 +293,13 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
             </view>
             <view class="enrollments__text">
               <view class="enrollments__title-line">
-                <text class="enrollments__activity">{{ card.enrollment.activity.title }}</text>
+                <text class="enrollments__activity">{{ card.title.main }}<text v-if="card.title.tail" class="enrollments__activity-tail">{{ card.title.tail }}</text></text>
                 <text class="enrollments__price" data-testid="enrollment-price">{{ card.price }}</text>
               </view>
               <text class="enrollments__who">{{ card.view.who }}</text>
               <text class="enrollments__when">{{ card.view.when }}</text>
               <text
-                v-if="card.view.note"
+                v-if="card.showNote"
                 :class="['enrollments__note', `enrollments__note--${card.view.noteTone.toLowerCase()}`]"
                 data-testid="enrollment-note"
               >
@@ -294,7 +319,15 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
           </button>
           <template v-else>
             <button
-              v-if="card.enrollment.cancellable"
+              v-if="card.refundable"
+              class="enrollments__action"
+              :data-testid="`enrollment-refund-${card.enrollment.enrollmentId}`"
+              @click="emit('refund', card.enrollment.enrollmentId)"
+            >
+              申请退款
+            </button>
+            <button
+              v-else-if="card.enrollment.cancellable"
               class="enrollments__action"
               :data-testid="`enrollment-cancel-${card.enrollment.enrollmentId}`"
               :disabled="cancellingId !== null"
@@ -331,7 +364,6 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
       >
         {{ loadingMore ? '加载中…' : '加载更多' }}
       </button>
-      <text v-else class="enrollments__end">没有更多了</text>
     </view>
   </view>
 </template>
@@ -363,34 +395,7 @@ button::after {
   position: sticky;
   top: 0;
   z-index: 5;
-  display: flex;
   flex: none;
-  flex-direction: column;
-  padding-top: var(--status-bar-height);
-  background: #ffffff;
-}
-
-.enrollments__header {
-  display: flex;
-  padding: 8px;
-  align-items: center;
-}
-
-.enrollments__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.enrollments__title {
-  flex: 1;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 25px;
-  text-align: center;
 }
 
 .enrollments__tabs {
@@ -478,6 +483,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .enrollments__main {
@@ -586,6 +592,11 @@ button::after {
   line-height: 21px;
 }
 
+.enrollments__activity-tail {
+  display: inline-block;
+  white-space: nowrap;
+}
+
 .enrollments__price {
   flex: none;
   font-size: 15px;
@@ -646,6 +657,7 @@ button::after {
   border-color: #ff6a00;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-weight: 500;
 }
 
@@ -656,10 +668,4 @@ button::after {
   line-height: 44px;
 }
 
-.enrollments__end {
-  padding: 8px 0;
-  color: #91a0b4;
-  font-size: 12px;
-  text-align: center;
-}
 </style>

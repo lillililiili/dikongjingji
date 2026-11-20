@@ -244,14 +244,17 @@ test.describe('到馆预约', () => {
     await expect(page.getByTestId('venue-book-payee')).toHaveText('东营低空与机器人体验馆 · 经平台支付渠道')
     await expect(page.getByTestId('venue-book')).toContainText('取消后整单原路全额退款，名额同时释放')
     await expect(page.getByTestId('venue-book')).not.toContainText('提醒')
-    await expect(submitOff(page)).toHaveCount(1)
+    // 画板：按钮一直是橙色；没勾同意就点，提示先同意。
+    await expect(page.getByTestId('venue-book-submit')).toHaveAttribute('data-ready', 'false')
+    await page.getByTestId('venue-book-submit').click()
+    await expect(page.locator('uni-toast')).toContainText('请先阅读并同意到馆须知与退改说明')
     await page.getByTestId('venue-book-agree').click()
     await submitOn(page).click()
 
-    // 收银台替换了确认页：收款方是场馆，行是预约内容、人数。
+    // 收银台替换了确认页：收款方是场馆，行是预约内容、人数（画板 CashierVenue：金额下面不再写“到馆体验费”）。
     await expect(page.getByTestId('cashier')).toBeVisible()
     await expect(page.getByTestId('cashier-amount')).toHaveText('¥39')
-    await expect(page.getByTestId('cashier-due-note')).toHaveText('到馆体验费 1 人 × ¥39')
+    await expect(page.getByTestId('cashier-due-note')).toHaveCount(0)
     await expect(page.getByTestId('cashier-countdown')).toHaveText(/^剩余支付时间 1[45]:\d\d · 超时释放场次名额$/)
     await expect(page.getByTestId('cashier-payee')).toHaveText('东营低空与机器人体验馆')
     await expect(page.getByTestId('cashier-venue-item')).toContainText('机器人避障闯关')
@@ -578,7 +581,7 @@ test.describe('到馆预约', () => {
       await tallShot(page, shot('code-unpaid'))
 
       await page.goto(at(`/#/pages/trade/cashier?orderId=${unpaid.payment.tradeOrderId}`))
-      await expect(page.getByTestId('cashier-due-note')).toBeVisible()
+      await expect(page.getByTestId('cashier-countdown')).toBeVisible()
       await assertNoHorizontalOverflow(page)
       await tallShot(page, shot('cashier'))
 

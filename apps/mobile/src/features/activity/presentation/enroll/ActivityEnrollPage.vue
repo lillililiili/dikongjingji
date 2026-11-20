@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settings-preview'
 import { buildAgreementUrl } from '@/features/settings/navigation/settings-routes'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   PAYMENT_UNAVAILABLE_TEXT,
@@ -23,13 +24,16 @@ import {
   enrollmentNoticeLead,
 } from '../../application/enrollment-view'
 import { activityApi } from '../../data/activity-api-client'
+import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import { enrollmentApi } from '../../data/enrollment-api-client'
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
 import { MAX_ENROLLMENT_PARTICIPANTS, type Participant } from '../../domain/enrollment'
 import {
+  ACTIVITY_STATUS_LABELS,
+  ACTIVITY_TYPE_LABELS,
+  formatActivityAgeRange,
   formatActivityAmount,
   formatActivityDay,
-  formatActivitySessionSeats,
   formatActivityTime,
 } from '../shared/activity-format'
 
@@ -82,22 +86,37 @@ const sessions = computed<ActivitySession[]>(() =>
   activity.value?.sessions.filter((session) => session.status !== 'ENDED') ?? [])
 const selectedSession = computed(() =>
   sessions.value.find((session) => session.sessionId === selectedSessionId.value) ?? null)
-const organizerLine = computed(() => {
+// The server's picture when it has one, else the sample picture of a preview build.
+const coverUrl = computed(() =>
+  activity.value
+    ? activity.value.coverImage?.url ?? resolveActivityPreviewCover(activity.value.activityId)
+    : null)
+// Board EventSignup's pill above the title: "研学 · 适合 6–12 岁".
+const typeLine = computed(() => {
   if (!activity.value) return ''
-  const host = `主办：${activity.value.organizer.name}`
-  return activity.value.coOrganizer ? `${host}　承办：${activity.value.coOrganizer.name}` : host
+  const age = formatActivityAgeRange(activity.value.ageRange)
+  const type = ACTIVITY_TYPE_LABELS[activity.value.type]
+  return age ? `${type} · 适合 ${age}` : type
 })
 const rows = computed(() => (activity.value
-  ? people.value.map((person) => {
-      const personState = describeParticipantState(person, activity.value!.ageRange)
-      return {
-        person,
-        selectable: personState.selectable,
-        stateText: personState.text,
-        ageText: describeParticipantAge(person),
-        picked: personState.selectable && pickedIds.value.includes(person.participantId),
-      }
-    })
+  ? people.value
+      .map((person) => {
+        const personState = describeParticipantState(person, activity.value!.ageRange)
+        const ageText = describeParticipantAge(person)
+        return {
+          person,
+          selectable: personState.selectable,
+          stateText: personState.text,
+          ageText,
+          label: ageText ? `${person.name} · ${ageText}` : person.name,
+          relationText: person.relation === 'SELF' ? '本人' : '子女',
+          // On a children's activity the account holder only comes along; the note under the list
+          // says so (board EventSignup), so that row is left out.
+          escortOnly: person.relation === 'SELF' && person.eligibility?.reason === 'OVER_MAX_AGE',
+          picked: personState.selectable && pickedIds.value.includes(person.participantId),
+        }
+      })
+      .filter((row) => !row.escortOnly)
   : []))
 const picked = computed(() => rows.value.filter((row) => row.picked).map((row) => row.person))
 const forChildren = computed(() => {
@@ -121,20 +140,25 @@ const submitLabel = computed(() => {
   if (payMode.value === 'PAYMENT_UNAVAILABLE') return '暂不能报名'
   return payMode.value === 'ONLINE_PAYMENT' ? '提交并支付' : '提交报名'
 })
-const canSubmit = computed(() =>
-  (payMode.value === 'FREE' || payMode.value === 'ONLINE_PAYMENT')
-  && selectedSession.value?.status === 'OPEN'
-  && picked.value.length > 0
-  && picked.value.length <= MAX_ENROLLMENT_PARTICIPANTS
-  && !tooMany.value
-  && agreed.value
-  && !submitting.value)
+// The button stays orange like the board (user 2026-11-20, R5 #1); tapping it with something
+// missing says what is missing. It is only greyed when the form cannot be sent at all.
+const submitLocked = computed(() =>
+  (payMode.value !== 'FREE' && payMode.value !== 'ONLINE_PAYMENT') || submitting.value)
+const missingStep = computed<string | null>(() => {
+  if (selectedSession.value?.status !== 'OPEN') return '请先选择一个场次'
+  if (picked.value.length === 0) return '请选择参与人'
+  if (picked.value.length > MAX_ENROLLMENT_PARTICIPANTS) return `一次最多报名 ${MAX_ENROLLMENT_PARTICIPANTS} 人`
+  if (tooMany.value) return `本场只剩 ${selectedSession.value?.seatsLeft} 个名额`
+  if (!agreed.value) return '请先阅读并同意报名须知'
+  return null
+})
+const canSubmit = computed(() => !submitLocked.value && missingStep.value === null)
 const countLine = computed(() => {
   if (payMode.value === 'PAYMENT_UNAVAILABLE') return PAYMENT_UNAVAILABLE_TEXT
   if (tooMany.value) return `本场只剩 ${selectedSession.value?.seatsLeft} 个名额`
   if (picked.value.length === 0) return '请选择参与人'
   return paid.value
-    ? `${formatActivityAmount(unitAmount.value)} × ${picked.value.length} 人`
+    ? `${picked.value.length} 人 × ${formatActivityAmount(unitAmount.value)}`
     : `已选 ${picked.value.length} 人`
 })
 
@@ -142,9 +166,15 @@ function isSessionOpen(session: ActivitySession): boolean {
   return session.status === 'OPEN'
 }
 
+// "11/15 上午 09:30" like the board.
 function sessionLabel(session: ActivitySession): string {
   const day = formatActivityDay(session.startsAt).split(' ')[0]
-  return `${day} ${session.label ?? formatActivityTime(session.startsAt)}`
+  const time = formatActivityTime(session.startsAt)
+  return session.label ? `${day} ${session.label} ${time}` : `${day} ${time}`
+}
+
+function sessionSeats(session: ActivitySession): string {
+  return session.status === 'OPEN' ? `余 ${session.seatsLeft} 位` : ACTIVITY_STATUS_LABELS[session.status]
 }
 
 function isUnauthorized(error: unknown): boolean {
@@ -246,6 +276,15 @@ function describeSubmitFailure(error: unknown): string {
   return error.message
 }
 
+function trySubmit(): void {
+  if (submitLocked.value) return
+  if (missingStep.value) {
+    uni.showToast({ title: missingStep.value, icon: 'none' })
+    return
+  }
+  void submit()
+}
+
 async function submit(): Promise<void> {
   const token = props.accessToken
   const session = selectedSession.value
@@ -291,17 +330,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
 <template>
   <view class="activity-enroll" data-testid="activity-enroll">
-    <header class="activity-enroll__header">
-      <button
-        class="activity-enroll__back"
-        data-testid="activity-enroll-back"
-        aria-label="返回"
-        @click="emit('back')"
-      >
-        <UniIcons type="left" size="24" color="#202c42" />
-      </button>
-      <text class="activity-enroll__title">填写报名</text>
-    </header>
+    <AppPageHeader title="填写报名预约" plain test-id="activity-enroll" @back="emit('back')" />
 
     <view
       v-if="state.kind === 'loading'"
@@ -317,33 +346,46 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
       v-else-if="state.kind === 'ready' && activity"
       class="activity-enroll__body"
     >
-      <view class="activity-enroll__card activity-enroll__card--tight">
+      <image
+        v-if="coverUrl"
+        class="activity-enroll__cover"
+        :src="coverUrl"
+        :alt="activity.title"
+        mode="aspectFill"
+        data-testid="activity-enroll-cover"
+      />
+      <view class="activity-enroll__intro">
+        <text class="activity-enroll__type" data-testid="activity-enroll-type">{{ typeLine }}</text>
         <text class="activity-enroll__activity" data-testid="activity-enroll-title">{{ activity.title }}</text>
-        <text class="activity-enroll__organizer">{{ organizerLine }}</text>
+        <text class="activity-enroll__meta">主办：{{ activity.organizer.name }}</text>
+        <text class="activity-enroll__meta">地点：{{ activity.location.name }}</text>
       </view>
 
       <view class="activity-enroll__card">
         <text class="activity-enroll__heading">选择场次</text>
-        <view v-if="sessions.length > 0" class="activity-enroll__sessions">
-          <button
-            v-for="session in sessions"
-            :key="session.sessionId"
-            :class="[
-              'activity-enroll__session',
-              {
-                'activity-enroll__session--on': session.sessionId === selectedSessionId,
-                'activity-enroll__session--off': !isSessionOpen(session),
-              },
-            ]"
-            :data-testid="`activity-enroll-session-${session.sessionId}`"
-            :aria-pressed="session.sessionId === selectedSessionId"
-            :aria-disabled="!isSessionOpen(session)"
-            @click="selectSession(session)"
-          >
-            <text class="activity-enroll__session-label">{{ sessionLabel(session) }}</text>
-            <text class="activity-enroll__session-sub">{{ formatActivitySessionSeats(session) }}</text>
-          </button>
-        </view>
+        <button
+          v-for="session in sessions"
+          :key="session.sessionId"
+          :class="[
+            'activity-enroll__choice',
+            'activity-enroll__session',
+            {
+              'activity-enroll__choice--on': session.sessionId === selectedSessionId,
+              'activity-enroll__session--on': session.sessionId === selectedSessionId,
+              'activity-enroll__session--off': !isSessionOpen(session),
+            },
+          ]"
+          :data-testid="`activity-enroll-session-${session.sessionId}`"
+          :aria-pressed="session.sessionId === selectedSessionId"
+          :aria-disabled="!isSessionOpen(session)"
+          @click="selectSession(session)"
+        >
+          <view :class="['activity-enroll__radio', { 'activity-enroll__radio--on': session.sessionId === selectedSessionId }]" />
+          <view class="activity-enroll__choice-text">
+            <text class="activity-enroll__choice-title">{{ sessionLabel(session) }}</text>
+            <text class="activity-enroll__choice-sub">{{ sessionSeats(session) }}</text>
+          </view>
+        </button>
         <text
           v-if="!selectedSession"
           class="activity-enroll__hint"
@@ -354,10 +396,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
       </view>
 
       <view class="activity-enroll__card">
-        <view class="activity-enroll__heading-row">
-          <text class="activity-enroll__heading">参与人</text>
-          <text v-if="forChildren" class="activity-enroll__side-note">由监护人代为报名</text>
-        </view>
+        <text class="activity-enroll__heading">选择参与人</text>
         <view v-if="peopleFailed" class="activity-enroll__people-error">
           <text>参与人没有读出来</text>
           <button
@@ -371,7 +410,11 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
         <button
           v-for="row in rows"
           :key="row.person.participantId"
-          class="activity-enroll__person"
+          :class="[
+            'activity-enroll__choice',
+            'activity-enroll__person',
+            { 'activity-enroll__choice--on': row.picked, 'activity-enroll__choice--off': !row.selectable },
+          ]"
           :data-testid="`activity-enroll-person-${row.person.participantId}`"
           :data-name="row.person.name"
           role="checkbox"
@@ -388,63 +431,65 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
               },
             ]"
           >
-            <UniIcons v-if="row.picked" type="checkmarkempty" size="14" color="#ffffff" />
+            <LineIcon v-if="row.picked" name="check" :size="14" color="#ffffff" :stroke-width="2.4" />
           </view>
-          <text class="activity-enroll__person-name">{{ row.person.name }}</text>
-          <text class="activity-enroll__tag">{{ row.person.relation === 'SELF' ? '本人' : '子女' }}</text>
-          <text v-if="row.ageText" class="activity-enroll__person-age">{{ row.ageText }}</text>
-          <text
-            :class="[
-              'activity-enroll__person-state',
-              { 'activity-enroll__person-state--ok': row.selectable },
-            ]"
-          >
-            {{ row.stateText }}
-          </text>
+          <view class="activity-enroll__choice-text">
+            <text class="activity-enroll__choice-title activity-enroll__person-name">{{ row.label }}</text>
+            <text
+              :class="[
+                'activity-enroll__choice-sub',
+                'activity-enroll__person-state',
+                { 'activity-enroll__person-state--ok': row.selectable },
+              ]"
+            >
+              {{ row.stateText }} · {{ row.relationText }}
+            </text>
+          </view>
         </button>
         <view class="activity-enroll__people-foot">
+          <text v-if="forChildren" class="activity-enroll__note">未成年人由监护人代报名并陪同；陪同家长不占名额。</text>
           <button
             class="activity-enroll__add"
             data-testid="activity-enroll-add-person"
             @click="emit('managePeople')"
           >
-            ＋ 添加参与人
+            <LineIcon name="plus" :size="14" color="#ba470b" :stroke-width="2" />
+            <text>添加参与人</text>
           </button>
-          <text class="activity-enroll__side-note">未成年人需监护人确认</text>
         </view>
       </view>
 
-      <view class="activity-enroll__card activity-enroll__card--rules">
-        <text class="activity-enroll__heading">退改规则</text>
-        <text v-if="activity.refundNote" class="activity-enroll__rule">{{ activity.refundNote }}</text>
-        <text v-if="paid" class="activity-enroll__rule" data-testid="activity-enroll-paid-rule">
+      <view class="activity-enroll__agree">
+        <button
+          class="activity-enroll__agree-toggle"
+          data-testid="activity-enroll-agree"
+          role="checkbox"
+          :aria-checked="agreed"
+          aria-label="同意报名须知"
+          @click="agreed = !agreed"
+        >
+          <view :class="['activity-enroll__box', 'activity-enroll__box--small', { 'activity-enroll__box--on': agreed }]">
+            <LineIcon v-if="agreed" name="check" :size="12" color="#ffffff" :stroke-width="2.4" />
+          </view>
+        </button>
+        <text class="activity-enroll__agree-text">
+          <text @click="agreed = !agreed">{{ noticeLead }}</text>
+          <text
+            class="activity-enroll__link"
+            data-testid="activity-enroll-notice"
+            @click="runIntent({ type: 'READ_AGREEMENT', document: 'ENROLLMENT_NOTICE' })"
+          >
+            报名须知与照片使用说明
+          </text>
+        </text>
+      </view>
+      <!-- Board EventSignup has no rules card; the rules go in its note line under the consent. -->
+      <view class="activity-enroll__rules" data-testid="activity-enroll-rules">
+        <text v-if="activity.refundNote" class="activity-enroll__note">{{ activity.refundNote }}</text>
+        <text v-if="paid" class="activity-enroll__note" data-testid="activity-enroll-paid-rule">
           场次开始前可以取消其中几位，每位按报名时的单价原路退回；已签到的不能退。提交后 15 分钟内未付款，名额自动释放。
         </text>
-        <text v-else class="activity-enroll__rule">免费报名在场次开始前都可以取消，名额会让给别人。</text>
-        <view class="activity-enroll__agree">
-          <button
-            class="activity-enroll__agree-toggle"
-            data-testid="activity-enroll-agree"
-            role="checkbox"
-            :aria-checked="agreed"
-            aria-label="同意报名须知"
-            @click="agreed = !agreed"
-          >
-            <view :class="['activity-enroll__box', 'activity-enroll__box--small', { 'activity-enroll__box--on': agreed }]">
-              <UniIcons v-if="agreed" type="checkmarkempty" size="12" color="#ffffff" />
-            </view>
-          </button>
-          <text class="activity-enroll__agree-text">
-            <text @click="agreed = !agreed">{{ noticeLead }}</text>
-            <text
-              class="activity-enroll__link"
-              data-testid="activity-enroll-notice"
-              @click="runIntent({ type: 'READ_AGREEMENT', document: 'ENROLLMENT_NOTICE' })"
-            >
-              报名须知与照片使用说明
-            </text>
-          </text>
-        </view>
+        <text v-else class="activity-enroll__note">免费报名在场次开始前都可以取消，名额会让给别人。</text>
       </view>
     </view>
 
@@ -494,11 +539,12 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
         <text class="activity-enroll__price" data-testid="activity-enroll-price">{{ priceText }}</text>
       </view>
       <button
-        :class="['activity-enroll__submit', { 'activity-enroll__submit--off': !canSubmit }]"
+        :class="['activity-enroll__submit', { 'activity-enroll__submit--off': submitLocked }]"
         data-testid="activity-enroll-submit"
         :data-mode="payMode"
-        :disabled="!canSubmit"
-        @click="submit"
+        :data-ready="canSubmit"
+        :disabled="submitLocked"
+        @click="trySubmit"
       >
         {{ submitLabel }}
       </button>
@@ -529,138 +575,143 @@ button::after {
   border: 0;
 }
 
-.activity-enroll__header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  min-height: calc(60px + var(--status-bar-height));
-  padding: var(--status-bar-height) 8px 0;
-  align-items: center;
-  gap: 4px;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-
-.activity-enroll__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.activity-enroll__title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
 .activity-enroll__body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 16px 16px;
+  gap: 14px;
+  padding: 16px;
+}
+
+/* Board EventSignup: a 358×170 picture, then the activity on the page itself (no card). */
+.activity-enroll__cover {
+  display: block;
+  width: 100%;
+  height: 170px;
+  border-radius: 18px;
+  background: #eef2f8;
+}
+
+.activity-enroll__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.activity-enroll__type {
+  padding: 5px 9px;
+  border-radius: 20px;
+  color: #4479b3;
+  background: #edf4ff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.activity-enroll__activity {
+  margin: 10px 0 8px;
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 25px;
+}
+
+.activity-enroll__meta {
+  color: #596a81;
+  font-size: 14px;
+  line-height: 23px;
 }
 
 .activity-enroll__card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #ecf0f5;
+  border-radius: 18px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
-.activity-enroll__card--tight {
-  gap: 6px;
-}
-
-.activity-enroll__card--rules {
-  gap: 8px;
-}
-
-.activity-enroll__activity {
+.activity-enroll__heading {
+  margin-bottom: 6px;
   font-size: 16px;
   font-weight: 700;
   line-height: 22px;
 }
 
-.activity-enroll__organizer {
-  color: #627187;
-  font-size: 12px;
-  line-height: 17px;
-}
-
-.activity-enroll__heading-row {
+/* One 58px choice per session or person, like the board's radio / checkbox rows. */
+.activity-enroll__choice {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.activity-enroll__heading {
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 21px;
-}
-
-.activity-enroll__side-note {
-  color: #627187;
-  font-size: 12px;
-  line-height: 17px;
-  white-space: nowrap;
-}
-
-.activity-enroll__sessions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.activity-enroll__session {
-  display: flex;
-  min-height: 56px;
-  flex-direction: column;
+  width: 100%;
+  min-height: 58px;
+  margin-top: 8px;
+  padding: 8px 12px;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  border: 1.5px solid #e5ebf3;
-  border-radius: 10px;
+  gap: 10px;
+  border: 1px solid #e4eaf3;
+  border-radius: 12px;
   background: #ffffff;
+  text-align: left;
   box-sizing: border-box;
 }
 
-.activity-enroll__session-label {
-  color: #202c42;
-  font-size: 14px;
-  font-weight: 500;
+.activity-enroll__choice--on {
+  border-color: #ff963f;
+  background: #fff7ee;
 }
 
-.activity-enroll__session-sub {
-  color: #627187;
-  font-size: 12px;
-}
-
-.activity-enroll__session--on {
-  border-color: #ff6a00;
-  background: #fffaf5;
-}
-
-.activity-enroll__session--on .activity-enroll__session-label {
-  color: #ba470b;
-}
-
+.activity-enroll__choice--off,
 .activity-enroll__session--off {
   background: #f5f7fc;
 }
 
-.activity-enroll__session--off .activity-enroll__session-label,
-.activity-enroll__session--off .activity-enroll__session-sub {
+.activity-enroll__choice-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activity-enroll__choice-title {
+  overflow: hidden;
+  color: #202c42;
+  font-size: 14px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-enroll__choice-sub {
+  color: #718099;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.activity-enroll__session--off .activity-enroll__choice-title,
+.activity-enroll__choice--off .activity-enroll__choice-title {
   color: #738096;
 }
 
+.activity-enroll__radio {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-left: 5px;
+  border: 1.5px solid #9aa8ba;
+  border-radius: 50%;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.activity-enroll__radio--on {
+  border-color: #202c42;
+  background: #ff6a00;
+  box-shadow: inset 0 0 0 2px #ffffff;
+}
+
 .activity-enroll__hint {
+  margin-top: 8px;
   color: #738096;
   font-size: 13px;
   line-height: 18px;
@@ -681,33 +732,18 @@ button::after {
   font-size: 13px;
 }
 
-.activity-enroll__person {
-  display: flex;
-  width: 100%;
-  min-height: 44px;
-  padding: 0 4px;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  box-sizing: border-box;
-}
-
 .activity-enroll__box {
   display: flex;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   flex: none;
+  margin-left: 4px;
   align-items: center;
   justify-content: center;
   border: 1.5px solid #9aa8ba;
-  border-radius: 4px;
+  border-radius: 3px;
   background: #ffffff;
   box-sizing: border-box;
-}
-
-.activity-enroll__box--small {
-  width: 18px;
-  height: 18px;
 }
 
 .activity-enroll__box--on {
@@ -720,74 +756,44 @@ button::after {
   background: #f1f3f6;
 }
 
-.activity-enroll__person-name {
-  min-width: 0;
-  overflow: hidden;
-  color: #202c42;
-  font-size: 15px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.activity-enroll__tag {
-  flex: none;
-  margin-left: -4px;
-  padding: 1px 6px;
-  border-radius: 6px;
-  color: #536178;
-  background: #eef2f8;
-  font-size: 12px;
-  line-height: 17px;
-  white-space: nowrap;
-}
-
-.activity-enroll__person-age {
-  flex: none;
-  color: #627187;
-  font-size: 12px;
-}
-
-.activity-enroll__person-state {
-  flex: none;
-  margin-left: auto;
-  color: #738096;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
 .activity-enroll__person-state--ok {
-  color: #11804a;
+  color: #718099;
 }
 
 .activity-enroll__people-foot {
   display: flex;
+  margin-top: 6px;
   align-items: center;
   gap: 10px;
 }
 
-.activity-enroll__people-foot .activity-enroll__side-note {
-  margin-left: auto;
+.activity-enroll__note {
+  min-width: 0;
+  flex: 1;
+  color: #748197;
+  font-size: 11px;
+  line-height: 17.6px;
 }
 
 .activity-enroll__add {
   display: flex;
   min-height: 36px;
   flex: none;
-  padding: 0 12px;
+  margin-left: auto;
+  padding: 0 4px;
   align-items: center;
-  border: 1px dashed #c9d3e1;
-  border-radius: 8px;
-  color: #536178;
-  background: #ffffff;
+  gap: 2px;
+  color: #ba470b;
   font-size: 13px;
   white-space: nowrap;
-  box-sizing: border-box;
 }
 
-.activity-enroll__rule {
-  color: #536178;
-  font-size: 13px;
-  line-height: 1.6;
+.activity-enroll__rules {
+  display: flex;
+  margin-top: -8px;
+  padding-left: 34px;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .activity-enroll__agree {
@@ -806,11 +812,15 @@ button::after {
   justify-content: center;
 }
 
+.activity-enroll__agree-toggle .activity-enroll__box {
+  margin-left: 0;
+}
+
 .activity-enroll__agree-text {
   min-width: 0;
   color: #202c42;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 20.4px;
 }
 
 .activity-enroll__link {
@@ -865,23 +875,25 @@ button::after {
   bottom: 0;
   display: flex;
   flex: none;
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  padding: 10px 16px calc(20px + env(safe-area-inset-bottom));
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border-top: 1px solid #e5ebf3;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--app-bar-shadow);
 }
 
 .activity-enroll__total {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
 }
 
 .activity-enroll__count {
-  color: #627187;
-  font-size: 12px;
-  line-height: 17px;
+  color: #748197;
+  font-size: 11px;
+  line-height: 17.6px;
 }
 
 .activity-enroll__count--warn {
@@ -889,28 +901,36 @@ button::after {
 }
 
 .activity-enroll__price {
-  color: #e85400;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 28px;
+  color: #e65e00;
+  font-size: 25px;
+  font-weight: 750;
+  line-height: 36px;
 }
 
+/* Board EventSignup: a 192×59 orange button with a 24px radius; the text stays 16px (R5 #2). */
 .activity-enroll__submit {
-  width: 180px;
-  height: 44px;
+  display: flex;
+  width: 192px;
+  max-width: 60%;
+  height: 59px;
   flex: none;
   margin-left: auto;
-  border-radius: 999px;
+  padding: 0 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
-  font-weight: 500;
-  line-height: 44px;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .activity-enroll__submit--off,
 .activity-enroll__submit[disabled] {
   color: #91a0b4;
   background: #eef0f3;
+  box-shadow: none;
 }
 </style>

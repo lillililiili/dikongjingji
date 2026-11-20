@@ -114,7 +114,8 @@ test.describe('体验频道', () => {
       '黄河口户外飞行营地',
     ])
     await expect(page.getByTestId(`venue-card-${VENUE_ID}`)).toContainText('09:30–18:00 · 周一闭馆')
-    await expect(page.getByTestId(`venue-card-${VENUE_ID}`)).toContainText('东营区示例路 66 号')
+    // Board ExpCenter: two lines, opening hours and today's bookable sessions; no address.
+    await expect(page.getByTestId(`venue-card-${VENUE_ID}`)).toContainText('场可约')
     await expect(page.getByText('已下线的示例场馆')).toHaveCount(0)
 
     // The choice survives a trip to another channel.
@@ -174,8 +175,11 @@ test.describe('场馆详情', () => {
     await expect(page.locator('.root-tab-bar')).toHaveCount(0)
 
     const book = page.getByTestId('venue-detail-book')
-    await expect(book).toHaveAttribute('disabled', 'true')
+    // 画板：没选场次时按钮仍是橙色，点了提示先选场次。
+    await expect(book).toHaveAttribute('data-ready', 'false')
     await expect(page.getByTestId('venue-detail-bar-line')).toHaveText('请选择场次')
+    await book.click()
+    await expect(page.locator('uni-toast')).toContainText('请先选择一个场次')
 
     // Tomorrow always has bookable sessions; today may already be over.
     await page.locator('.venue-detail__day').nth(1).click()
@@ -184,7 +188,8 @@ test.describe('场馆详情', () => {
     await open.click()
     await expect(open).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('venue-detail-bar-line')).toContainText('明天')
-    await expect(book).not.toHaveAttribute('disabled', 'true')
+    await expect(page.getByTestId('venue-detail-bar-line')).toContainText('· 1 人')
+    await expect(book).toHaveAttribute('data-ready', 'true')
 
     // E10: no longer a "coming soon" prompt. A guest is sent to sign in first, with the confirm page
     // (venue, project, session and its day in the URL) as where to come back to.
@@ -212,16 +217,16 @@ test.describe('场馆详情', () => {
     await expect(full).toContainText('已满')
     await full.click({ force: true })
     await expect(full).toHaveAttribute('aria-pressed', 'false')
-    await expect(page.getByTestId('venue-detail-book')).toHaveAttribute('disabled', 'true')
+    await expect(page.getByTestId('venue-detail-book')).toHaveAttribute('data-ready', 'false')
 
     const open = page.locator('.venue-detail__slot[data-status="OPEN"]').first()
     await open.click()
-    await expect(page.getByTestId('venue-detail-book')).not.toHaveAttribute('disabled', 'true')
+    await expect(page.getByTestId('venue-detail-book')).toHaveAttribute('data-ready', 'true')
 
     await page.locator('.venue-detail__project').nth(1).click()
     await expect(page.getByTestId('venue-sessions-loading')).toHaveCount(0)
     await expect(page.getByTestId('venue-detail-bar-line')).toHaveText('请选择场次')
-    await expect(page.getByTestId('venue-detail-book')).toHaveAttribute('disabled', 'true')
+    await expect(page.getByTestId('venue-detail-book')).toHaveAttribute('data-ready', 'false')
   })
 
   test('VEN-103 某天没有场次时说明是哪一天、哪个项目没有', async ({ page }) => {
@@ -243,7 +248,9 @@ test.describe('场馆详情', () => {
 
     await expect(page.getByTestId('venue-devices')).toBeVisible()
     await expect(page.locator('.venue-devices__card')).toHaveCount(6)
-    await expect(page.locator('.venue-devices__more')).toHaveText('没有更多设备了')
+    // 画板：页头副标题写场馆和件数，列表底部不写“没有更多”。
+    await expect(page.getByTestId('venue-devices-head')).toContainText('东营低空与机器人体验馆 · 6 件')
+    await expect(page.locator('.venue-devices__more')).toHaveCount(0)
 
     await page.getByTestId('venue-devices-tab-robot').click()
     await expect(page.locator('.venue-devices__name')).toHaveText(['编程机器人探索套装', '巡检机器狗'])

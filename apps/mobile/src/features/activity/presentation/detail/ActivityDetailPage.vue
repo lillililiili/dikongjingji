@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
@@ -7,11 +6,14 @@ import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
 import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
 
 import {
+  CHOOSE_SESSION_PROMPT,
   isActivitySessionSelectable,
   resolveEnrollmentPayMode,
   resolveActivityIntent,
@@ -24,10 +26,7 @@ import { resolveActivityPreviewCover } from '../../data/preview/activity-preview
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
 import { buildActivityDetailUrl, buildActivityEnrollUrl } from '../../navigation/activity-routes'
 import {
-  ACTIVITY_STATUS_LABELS,
   ACTIVITY_TYPE_LABELS,
-  formatActivityAgeRange,
-  formatActivityDateTime,
   formatActivityDay,
   formatActivityPrice,
   formatActivitySessionSeats,
@@ -41,6 +40,9 @@ type DetailState =
   | { kind: 'ready'; activity: ActivityDetail }
   | { kind: 'missing' }
   | { kind: 'error' }
+
+// Board ActDetail's share mark: a box with an arrow up out of it.
+const SHARE_ICON = 'M12 15V4M8 8l4-4 4 4M5 13v6h14v-6'
 
 const state = ref<DetailState>({ kind: 'loading' })
 const selectedSessionId = ref<string | null>(null)
@@ -68,9 +70,21 @@ const coverUrl = computed(() =>
     ? activity.value.coverImage?.url ?? resolveActivityPreviewCover(activity.value.activityId)
     : null,
 )
-const ageText = computed(() =>
-  activity.value ? formatActivityAgeRange(activity.value.ageRange) : null,
-)
+// Board ActDetail: the right of the price row says how many places a session has, and how many
+// are taken once one is picked. Only shown when every session has the same real capacity.
+const seatLine = computed(() => {
+  const current = activity.value
+  if (!current || current.sessions.length === 0) return null
+  const session = selectedSession.value
+  if (session && session.capacity > 0) {
+    return `已报名 ${Math.max(0, session.capacity - session.seatsLeft)} / ${session.capacity}`
+  }
+  const capacities = new Set(current.sessions.map((item) => item.capacity))
+  const [capacity] = [...capacities]
+  return capacities.size === 1 && capacity > 0 ? `每场 ${capacity} 个名额` : null
+})
+// Tapped 选择场次 without a session: the line under the sessions turns into the prompt.
+const askedForSession = ref(false)
 // Team sign-up makes no sense once nothing can be booked any more.
 const teamEntryVisible = computed(() =>
   ACTIVITY_PREVIEW_ENABLED
@@ -79,13 +93,18 @@ const teamEntryVisible = computed(() =>
   && activity.value?.enrollmentStatus !== 'ENDED',
 )
 const sessionNote = computed(() => {
+  const current = activity.value
+  if (current?.enrollmentStatus === 'ENDED') return '本期活动已结束'
+  if (current?.enrollmentStatus === 'CLOSED') return '报名已截止，下次开放请留意赛事研学频道'
   const session = selectedSession.value
-  if (!session) return ''
+  if (!session) return askedForSession.value ? CHOOSE_SESSION_PROMPT : '选好场次后显示签到和报名截止时间'
+  if (session.status === 'FULL_WAITLIST') return '本场已满，加入候补后有名额会通知你'
   const closes = `报名截止 ${formatActivityShortDateTime(session.enrollmentClosesAt)}`
   return session.checkInOpensAt
-    ? `${formatActivityTime(session.checkInOpensAt)} 开始签到 · ${closes}`
+    ? `${formatActivityTime(session.checkInOpensAt)} 起签到 · ${closes}`
     : closes
 })
+const sessionNoteAsks = computed(() => !selectedSession.value && askedForSession.value)
 
 async function loadDetail(): Promise<void> {
   if (!activityId || !cityCode) {
@@ -114,6 +133,7 @@ async function loadDetail(): Promise<void> {
 function selectSession(session: ActivitySession): void {
   if (!isActivitySessionSelectable(session.status)) return
   selectedSessionId.value = session.sessionId
+  askedForSession.value = false
 }
 
 function runIntent(intent: ActivityIntent): void {
@@ -149,6 +169,11 @@ function openShare(): void {
 
 function runPrimaryAction(): void {
   const action = primaryAction.value
+  if (action?.kind === 'CHOOSE_SESSION') {
+    askedForSession.value = true
+    uni.showToast({ title: CHOOSE_SESSION_PROMPT, icon: 'none' })
+    return
+  }
   const session = selectedSession.value
   if (!action?.enabled || !session || !activity.value) return
   // Free and per-person activities have a real sign-up form; the form asks for a login when it needs
@@ -209,17 +234,7 @@ onLoad((query) => {
 <template>
   <view class="activity-detail" data-testid="activity-detail">
     <!-- With an activity on screen the back button floats on its picture instead. -->
-    <header v-if="!activity" class="activity-detail__header">
-      <button
-        class="activity-detail__back"
-        data-testid="activity-detail-back"
-        aria-label="返回"
-        @click="goBack"
-      >
-        <UniIcons type="left" size="24" color="#435369" />
-      </button>
-      <text class="activity-detail__header-title">活动详情</text>
-    </header>
+    <AppPageHeader v-if="!activity" title="活动详情" test-id="activity-detail" @back="goBack" />
 
     <view
       v-if="state.kind === 'loading'"
@@ -272,7 +287,7 @@ onLoad((query) => {
             @click="goBack"
           >
             <view class="activity-detail__float-circle">
-              <UniIcons type="left" size="20" color="#ffffff" />
+              <LineIcon name="back" :size="20" color="#ffffff" :stroke-width="2" />
             </view>
           </button>
           <button
@@ -283,7 +298,7 @@ onLoad((query) => {
             @click="openShare"
           >
             <view class="activity-detail__float-circle">
-              <UniIcons type="redo" size="20" color="#ffffff" />
+              <LineIcon :d="SHARE_ICON" :size="20" color="#ffffff" :stroke-width="2" />
             </view>
           </button>
           <text class="activity-detail__type">{{ ACTIVITY_TYPE_LABELS[activity.type] }}</text>
@@ -298,16 +313,7 @@ onLoad((query) => {
                 {{ formatActivityPrice(activity.price) }}
               </text>
               <text v-if="isPerPersonPrice(activity.price)" class="activity-detail__price-unit">/人</text>
-              <text v-if="ageText" class="activity-detail__age">适合 {{ ageText }}</text>
-              <text
-                :class="[
-                  'activity-detail__status',
-                  `activity-detail__status--${activity.enrollmentStatus.toLowerCase()}`,
-                ]"
-                data-testid="activity-detail-status"
-              >
-                {{ ACTIVITY_STATUS_LABELS[activity.enrollmentStatus] }}
-              </text>
+              <text v-if="seatLine" class="activity-detail__seats" data-testid="activity-detail-seats">{{ seatLine }}</text>
             </view>
           </view>
 
@@ -336,7 +342,7 @@ onLoad((query) => {
               >
                 <text class="activity-detail__session-day">{{ formatActivityDay(session.startsAt) }}</text>
                 <text class="activity-detail__session-time">
-                  {{ formatActivityTime(session.startsAt) }}{{ session.label ? ` ${session.label}` : '' }}
+                  {{ session.label ? `${session.label} ` : '' }}{{ formatActivityTime(session.startsAt) }}
                 </text>
                 <text
                   :class="[
@@ -348,14 +354,12 @@ onLoad((query) => {
                 </text>
               </button>
             </view>
-            <text v-if="sessionNote" class="activity-detail__session-note" data-testid="activity-session-note">
-              {{ sessionNote }}
-            </text>
             <text
-              v-if="selectedSession?.status === 'FULL_WAITLIST'"
-              class="activity-detail__session-note"
+              v-if="activity.sessions.length > 0"
+              :class="['activity-detail__session-note', { 'activity-detail__session-note--ask': sessionNoteAsks }]"
+              data-testid="activity-session-note"
             >
-              本场已满，加入候补后有名额会通知你
+              {{ sessionNote }}
             </text>
             <button
               v-if="teamEntryVisible"
@@ -365,7 +369,7 @@ onLoad((query) => {
             >
               <text class="activity-detail__team-note">学校、机构多人参加</text>
               <text class="activity-detail__team-title">团队报名</text>
-              <UniIcons type="right" size="14" color="#91a0b4" />
+              <LineIcon name="forward" :size="14" color="#ba470b" :stroke-width="2" />
             </button>
           </view>
 
@@ -389,7 +393,7 @@ onLoad((query) => {
                 <text class="activity-detail__location-name">{{ activity.location.name }}</text>
                 <text class="activity-detail__location-address">{{ activity.location.address }}</text>
               </view>
-              <UniIcons type="right" size="14" color="#91a0b4" />
+              <LineIcon name="navigate" :size="18" color="#738096" />
             </button>
             <view v-if="activity.eligibilityNote || activity.seatNote" class="activity-detail__row activity-detail__row--top">
               <text class="activity-detail__row-label">参与条件</text>
@@ -412,7 +416,7 @@ onLoad((query) => {
           data-testid="activity-detail-consult"
           @click="runIntent({ type: 'CONSULT', activityId: activity.activityId })"
         >
-          <UniIcons type="chat" size="22" color="#536178" />
+          <LineIcon name="chat" :size="22" color="#536178" />
           <text>咨询</text>
         </button>
         <button
@@ -455,33 +459,6 @@ button {
 
 button::after {
   border: 0;
-}
-
-.activity-detail__header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  min-height: calc(50px + var(--status-bar-height));
-  padding: var(--status-bar-height) 12px 0;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-  box-sizing: border-box;
-}
-
-.activity-detail__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-}
-
-.activity-detail__header-title {
-  font-size: 18px;
-  font-weight: 700;
 }
 
 .activity-detail__content {
@@ -662,31 +639,11 @@ button::after {
   line-height: 20px;
 }
 
-.activity-detail__age {
-  margin-left: 8px;
+.activity-detail__seats {
+  margin-left: auto;
   color: #627187;
   font-size: 13px;
   line-height: 18px;
-}
-
-.activity-detail__status {
-  margin-left: auto;
-  font-size: 13px;
-  line-height: 18px;
-}
-
-.activity-detail__status--open {
-  color: #11804a;
-}
-
-.activity-detail__status--full_waitlist {
-  color: #ba470b;
-}
-
-.activity-detail__status--full,
-.activity-detail__status--closed,
-.activity-detail__status--ended {
-  color: #738096;
 }
 
 .activity-detail__card--sessions {
@@ -757,42 +714,46 @@ button::after {
   white-space: nowrap;
 }
 
-.activity-detail__session-seats--open {
-  color: #11804a;
-}
-
-.activity-detail__session-seats--full_waitlist {
-  color: #ba470b;
-}
-
-.activity-detail__session--selected {
-  border-color: #ff6a00;
-  background: #fff8f2;
-}
-
-.activity-detail__session--selected .activity-detail__session-day {
-  color: #ba470b;
-}
-
-.activity-detail__session--off {
-  border-color: #f0f1f3;
+/* A full or closed session is dimmed like the board's; a picked one is orange. */
+.activity-detail__session--off,
+.activity-detail__session:not(.activity-detail__session--selected)[data-status="FULL_WAITLIST"] {
   background: #f5f7fc;
 }
 
 .activity-detail__session--off .activity-detail__session-day,
+.activity-detail__session:not(.activity-detail__session--selected)[data-status="FULL_WAITLIST"] .activity-detail__session-day,
+.activity-detail__session--off .activity-detail__session-seats,
+.activity-detail__session:not(.activity-detail__session--selected)[data-status="FULL_WAITLIST"] .activity-detail__session-seats {
+  color: #738096;
+}
+
 .activity-detail__session--off .activity-detail__session-time,
-.activity-detail__session--off .activity-detail__session-seats {
+.activity-detail__session:not(.activity-detail__session--selected)[data-status="FULL_WAITLIST"] .activity-detail__session-time {
   color: #91a0b4;
+}
+
+.activity-detail__session--selected {
+  border-color: #ff6a00;
+  background: #fffaf5;
+}
+
+.activity-detail__session--selected .activity-detail__session-day,
+.activity-detail__session--selected .activity-detail__session-seats--full_waitlist {
+  color: #ba470b;
 }
 
 .activity-detail__session-note {
   margin-top: 8px;
+  padding-bottom: 12px;
   color: #627187;
   font-size: 12px;
   line-height: 17px;
 }
 
-.activity-detail__session-note:last-child,
+.activity-detail__session-note--ask {
+  color: #ba470b;
+}
+
 .activity-detail__sessions:last-child {
   padding-bottom: 12px;
 }
@@ -801,7 +762,6 @@ button::after {
   display: flex;
   width: 100%;
   min-height: 46px;
-  margin-top: 12px;
   align-items: center;
   gap: 6px;
   border-top: 1px solid #f0f1f3;

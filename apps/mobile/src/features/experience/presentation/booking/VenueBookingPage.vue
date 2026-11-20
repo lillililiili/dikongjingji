@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import { ticketQrImage } from '@/shared/qr/ticket-qr'
 import { buildBeijingDayOptions, toBeijingDate, type BeijingDayOption } from '@/shared/time/beijing-time'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   describeRescheduleSlot,
@@ -23,6 +23,9 @@ import type { VenueSession } from '../../domain/experience'
 import type { VenueBooking, VenueOrderInfo } from '../../domain/venue-booking'
 import { formatVenueSessionTime } from '../shared/experience-format'
 import { openVenueNavigation } from '../shared/venue-navigation'
+
+// Board VenueCode's 取消预约 mark: an arrow turning back.
+const UNDO_ICON = 'M9 7L4 12l5 5M4 12h11a5 5 0 0 1 5 5'
 
 const props = defineProps<{
   bookingId: string
@@ -332,17 +335,18 @@ onBeforeUnmount(() => {
     <view class="venue-code__head">
       <header class="venue-code__header">
         <button class="venue-code__back" data-testid="venue-booking-back" aria-label="返回" @click="emit('back')">
-          <UniIcons type="left" size="24" :color="state.kind === 'ready' ? '#ffffff' : '#202c42'" />
+          <LineIcon name="back" :size="22" :color="state.kind === 'ready' ? '#ffffff' : '#202c42'" :stroke-width="2" />
         </button>
         <text class="venue-code__header-title">到馆核销码</text>
         <view class="venue-code__back" />
       </header>
       <view v-if="view" class="venue-code__status">
         <view class="venue-code__status-line">
-          <UniIcons
-            :type="tone === 'PENDING' ? 'wallet' : tone === 'LIVE' || tone === 'USED' ? 'checkmarkempty' : 'closeempty'"
-            size="22"
+          <LineIcon
+            :name="tone === 'PENDING' ? 'wallet' : tone === 'LIVE' || tone === 'USED' ? 'check' : 'close'"
+            :size="22"
             color="#ffffff"
+            :stroke-width="2.6"
           />
           <text class="venue-code__status-title" data-testid="venue-booking-title">{{ view.title }}</text>
         </view>
@@ -400,7 +404,7 @@ onBeforeUnmount(() => {
                 :aria-label="live ? '核销二维码' : '已使用的二维码'"
               />
               <view v-else class="venue-code__qr-empty" data-testid="venue-booking-qr-empty">
-                <UniIcons :type="pending ? 'wallet' : 'closeempty'" size="34" color="#91a0b4" />
+                <LineIcon :name="pending ? 'wallet' : 'close'" :size="34" color="#91a0b4" />
                 <text class="venue-code__qr-empty-text">{{ pending ? '付款后生成' : '核销码已失效' }}</text>
               </view>
               <text
@@ -411,14 +415,14 @@ onBeforeUnmount(() => {
                 {{ view.stamp }}
               </text>
             </view>
-            <text v-if="booking.code" class="venue-code__code">核销码 <text data-testid="venue-booking-code">{{ booking.code }}</text></text>
+            <text v-if="booking.code" class="venue-code__code">凭证号 <text data-testid="venue-booking-code">{{ booking.code }}</text></text>
             <text class="venue-code__hint" data-testid="venue-booking-hint">{{ view.hint }}</text>
           </view>
         </view>
 
         <view v-if="live" class="venue-code__tiles">
           <button class="venue-code__tile" data-testid="venue-booking-navigate" @click="openNavigation">
-            <UniIcons type="paperplane" size="24" color="#ff6a00" />
+            <LineIcon name="navigate" :size="22" color="#ff6a00" />
             <text>导航到场馆</text>
           </button>
           <button
@@ -427,7 +431,7 @@ onBeforeUnmount(() => {
             :disabled="!booking.reschedulable"
             @click="openMove"
           >
-            <UniIcons type="calendar" size="24" :color="booking.reschedulable ? '#ff6a00' : '#91a0b4'" />
+            <LineIcon name="calendar" :size="22" :color="booking.reschedulable ? '#ff6a00' : '#91a0b4'" />
             <text>改期</text>
           </button>
           <button
@@ -436,7 +440,7 @@ onBeforeUnmount(() => {
             :disabled="!booking.cancellable"
             @click="cancelOpen = true"
           >
-            <UniIcons type="undo" size="24" :color="booking.cancellable ? '#ff6a00' : '#91a0b4'" />
+            <LineIcon :d="UNDO_ICON" :size="22" :color="booking.cancellable ? '#ff6a00' : '#91a0b4'" />
             <text>取消预约</text>
           </button>
         </view>
@@ -448,7 +452,7 @@ onBeforeUnmount(() => {
             :disabled="!canPay"
             @click="pay"
           >
-            <UniIcons type="wallet" size="24" :color="canPay ? '#ffffff' : '#91a0b4'" />
+            <LineIcon name="wallet" :size="22" :color="canPay ? '#ffffff' : '#91a0b4'" />
             <text>{{ canPay ? `去付款 · ${formatVenueCountdown(remainingMs)}` : '付款时间已到' }}</text>
           </button>
           <button
@@ -457,7 +461,7 @@ onBeforeUnmount(() => {
             :disabled="!booking.cancellable"
             @click="cancelOpen = true"
           >
-            <UniIcons type="undo" size="24" :color="booking.cancellable ? '#ff6a00' : '#91a0b4'" />
+            <LineIcon :d="UNDO_ICON" :size="22" :color="booking.cancellable ? '#ff6a00' : '#91a0b4'" />
             <text>取消预约</text>
           </button>
         </view>
@@ -475,11 +479,12 @@ onBeforeUnmount(() => {
             >
               <view v-for="step in progress.steps" :key="step.label" class="venue-code__step">
                 <view :class="['venue-code__dot', `venue-code__dot--${step.state.toLowerCase()}`]">
-                  <UniIcons
+                  <LineIcon
                     v-if="step.state !== 'TODO'"
-                    :type="step.state === 'DONE' ? 'checkmarkempty' : 'closeempty'"
-                    size="11"
+                    :name="step.state === 'DONE' ? 'check' : 'close'"
+                    :size="11"
                     color="#ffffff"
+                    :stroke-width="3"
                   />
                 </view>
                 <text :class="['venue-code__step-label', `venue-code__step-label--${step.state.toLowerCase()}`]">
@@ -553,7 +558,7 @@ onBeforeUnmount(() => {
           </template>
         </view>
         <view class="venue-code__sheet-warn">
-          <UniIcons type="info" size="16" color="#ba470b" />
+          <LineIcon name="info" :size="16" color="#ba470b" :stroke-width="2" />
           <text class="venue-code__sheet-warn-text" data-testid="venue-booking-cancel-text">{{ cancelCopy.lead }}</text>
         </view>
         <view class="venue-code__sheet-actions">
@@ -746,6 +751,7 @@ button::after {
   flex-direction: column;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .venue-code__info {
@@ -922,6 +928,7 @@ button::after {
   border-radius: 14px;
   color: #202c42;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
   font-size: 13px;
   line-height: 18px;
   white-space: nowrap;
@@ -943,6 +950,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .venue-code__steps-track {
@@ -1017,6 +1025,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
   font-size: 13px;
   line-height: 19px;
 }

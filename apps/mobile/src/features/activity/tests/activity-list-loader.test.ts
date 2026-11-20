@@ -178,7 +178,7 @@ describe('activity list loader', () => {
 
 describe('activity primary action', () => {
   it('asks for a session first, then follows the chosen session', () => {
-    expect(resolveActivityPrimaryAction('OPEN', null)).toMatchObject({ label: '选择场次', enabled: false })
+    expect(resolveActivityPrimaryAction('OPEN', null)).toMatchObject({ kind: 'CHOOSE_SESSION', label: '选择场次', enabled: true })
     expect(resolveActivityPrimaryAction('OPEN', 'OPEN')).toMatchObject({ kind: 'ENROLL', label: '立即报名', enabled: true })
     expect(resolveActivityPrimaryAction('OPEN', 'FULL_WAITLIST')).toMatchObject({ kind: 'JOIN_WAITLIST', label: '加入候补', enabled: true })
     expect(resolveActivityPrimaryAction('OPEN', 'FULL')).toMatchObject({ label: '本场已满', enabled: false })

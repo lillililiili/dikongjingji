@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settings-preview'
 import { buildAgreementUrl } from '@/features/settings/navigation/settings-routes'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { resolveActivityIntent } from '../../application/activity-intent'
 import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
 import { childBirthMonthRange, formatBirthMonth } from '../../application/enrollment-view'
 import { enrollmentApi } from '../../data/enrollment-api-client'
 import type { Participant } from '../../domain/enrollment'
+
+// Board Participants: the shield with a tick on the green note.
+const SHIELD_ICON = 'M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6zM9 12l2 2 4-4'
 
 const props = defineProps<{
   // Null for a guest. The page host reads it again every time the page is shown.
@@ -224,17 +228,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
 <template>
   <view class="participants" data-testid="participants">
-    <header class="participants__header">
-      <button
-        class="participants__back"
-        data-testid="participants-back"
-        aria-label="返回"
-        @click="emit('back')"
-      >
-        <UniIcons type="left" size="24" color="#202c42" />
-      </button>
-      <text class="participants__title">参与人</text>
-    </header>
+    <AppPageHeader title="参与人" test-id="participants" @back="emit('back')" />
 
     <view
       v-if="state.kind === 'loading'"
@@ -260,7 +254,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
     <view v-else class="participants__body">
       <view class="participants__intro">
-        <UniIcons class="participants__intro-icon" type="auth" size="18" color="#159a70" />
+        <LineIcon class="participants__intro-icon" :d="SHIELD_ICON" :size="18" color="#159a70" :stroke-width="2" />
         <text class="participants__intro-text">参与人用于活动报名，与登录账号分开管理；未成年人由监护人维护。</text>
       </view>
 
@@ -315,7 +309,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
             </view>
             <view class="participants__confirmed">
               <text>监护人确认</text>
-              <UniIcons type="checkmarkempty" size="12" color="#159a70" />
+              <LineIcon name="check" :size="12" color="#159a70" :stroke-width="3" />
             </view>
           </view>
           <button
@@ -369,7 +363,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
     <view v-if="state.kind === 'ready'" class="participants__bar">
       <view v-if="toast" class="participants__toast" role="status" data-testid="participants-toast">
-        <UniIcons type="checkmarkempty" size="18" color="#159a70" />
+        <LineIcon name="check" :size="18" color="#159a70" :stroke-width="2.4" />
         <text class="participants__toast-text">{{ toast }}</text>
         <button
           v-if="toastOffersReturn"
@@ -394,7 +388,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
         <view class="participants__sheet-head">
           <text class="participants__sheet-title">{{ sheetTitle }}</text>
           <button class="participants__sheet-close" aria-label="关闭" @click="closeSheet">
-            <UniIcons type="closeempty" size="20" color="#536178" />
+            <LineIcon name="close" :size="20" color="#536178" :stroke-width="2" />
           </button>
         </view>
 
@@ -435,7 +429,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
               >
                 {{ formBirthMonth ? formatBirthMonth(formBirthMonth) : '请选择' }}
               </text>
-              <UniIcons type="right" size="14" color="#91a0b4" />
+              <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
             </view>
           </picker>
           <view v-else-if="editingChild && editing?.birthMonth" class="participants__field participants__field--last">
@@ -460,7 +454,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
             @click="formConsent = !formConsent"
           >
             <view :class="['participants__box', { 'participants__box--on': formConsent }]">
-              <UniIcons v-if="formConsent" type="checkmarkempty" size="12" color="#ffffff" />
+              <LineIcon v-if="formConsent" name="check" :size="12" color="#ffffff" :stroke-width="2.4" />
             </view>
           </button>
           <text class="participants__consent-text">
@@ -530,33 +524,6 @@ button::after {
   border: 0;
 }
 
-.participants__header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  min-height: calc(60px + var(--status-bar-height));
-  padding: var(--status-bar-height) 8px 0;
-  align-items: center;
-  gap: 4px;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-
-.participants__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.participants__title {
-  font-size: 18px;
-  font-weight: 700;
-}
-
 .participants__body {
   display: flex;
   flex: 1;
@@ -592,6 +559,7 @@ button::after {
   padding: 12px 4px 12px 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .participants__card--child {
@@ -696,8 +664,10 @@ button::after {
 }
 
 .participants__edit {
+  display: flex;
   min-height: 44px;
   flex: none;
+  align-items: center;
   padding: 0 10px;
   color: #536178;
   font-size: 14px;
@@ -718,7 +688,6 @@ button::after {
   flex: 1;
   font-size: 14px;
   line-height: 20px;
-  white-space: nowrap;
 }
 
 .participants__photo-state {

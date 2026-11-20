@@ -6,6 +6,8 @@ import {
   buildActivityDetailUrl,
   buildActivityEnrollUrl,
   buildActivityEnrollmentsUrl,
+  buildActivityOrderUrl,
+  buildActivityRefundUrl,
   buildActivityTicketUrl,
 } from '../navigation/activity-routes'
 
@@ -17,6 +19,9 @@ describe('activity routes', () => {
     expect(buildActivityTicketUrl('e1')).toBe('/pages/activity/ticket?enrollmentId=e1')
     expect(buildActivityEnrollmentsUrl()).toBe('/pages/mine/activity-enrollments?status=UPCOMING')
     expect(buildActivityEnrollmentsUrl('CANCELLED')).toBe('/pages/mine/activity-enrollments?status=CANCELLED')
+    expect(buildActivityOrderUrl('e 1')).toBe('/pages/activity/order?enrollmentId=e%201')
+    expect(buildActivityRefundUrl('e1')).toBe('/pages/activity/refund?enrollmentId=e1')
+    expect(buildActivityRefundUrl('e1', 't1')).toBe('/pages/activity/refund?enrollmentId=e1&ticketId=t1')
   })
 
   // The login page only returns to URLs it knows; every sign-up page must be one of them.

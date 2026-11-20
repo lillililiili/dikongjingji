@@ -5,6 +5,8 @@ import { ref } from 'vue'
 import {
   buildActivityDetailUrl,
   buildActivityEnrollmentsUrl,
+  buildActivityOrderUrl,
+  buildActivityRefundUrl,
   buildActivityTicketUrl,
 } from '@/features/activity/navigation/activity-routes'
 import ActivityTicketPage from '@/features/activity/presentation/ticket/ActivityTicketPage.vue'
@@ -39,6 +41,14 @@ function openCashier(tradeOrderId: string): void {
   uni.navigateTo({ url: buildCashierUrl(tradeOrderId) })
 }
 
+function openOrder(id: string): void {
+  uni.navigateTo({ url: buildActivityOrderUrl(id) })
+}
+
+function openRefund(id: string, ticketId: string): void {
+  uni.navigateTo({ url: buildActivityRefundUrl(id, ticketId) })
+}
+
 onLoad((query) => {
   enrollmentId.value = typeof query?.enrollmentId === 'string' ? query.enrollmentId : ''
 })
@@ -60,5 +70,7 @@ onShow(() => {
     @login="openLogin"
     @open-activity="openActivity"
     @pay="openCashier"
+    @open-order="openOrder"
+    @refund="openRefund"
   />
 </template>
