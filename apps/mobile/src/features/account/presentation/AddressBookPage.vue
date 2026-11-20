@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import type { PlatformProvince } from '@/shared/city/domain/city-directory'
@@ -213,12 +214,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
 <template>
   <view class="addresses" data-testid="address-book">
-    <header class="addresses__header">
-      <button class="addresses__back" data-testid="address-book-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="24" color="#202c42" />
-      </button>
-      <text class="addresses__title">{{ selecting ? '选择收货地址' : '地址管理' }}</text>
-    </header>
+    <AppPageHeader title="地址管理" test-id="address-book" @back="emit('back')" />
 
     <view v-if="state.kind === 'loading'" class="addresses__body" aria-label="正在加载">
       <view class="addresses__skeleton" />
@@ -231,8 +227,8 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
     <view v-else class="addresses__body">
       <view v-if="selecting && addresses.length > 0" class="addresses__hint">
-        <UniIcons type="info" size="16" color="#ff6a00" />
-        <text>点选地址即用于本单</text>
+        <LineIcon name="info" :size="16" color="#ff6a00" :stroke-width="2" />
+        <text>从确认订单进入时，点选地址即用于本单</text>
       </view>
       <view
         v-for="address in addresses"
@@ -258,7 +254,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
           :aria-label="`编辑${address.recipientName}的地址`"
           @click="openEdit(address)"
         >
-          <UniIcons type="compose" size="18" color="#536178" />
+          <LineIcon d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17zM13.5 7.5l3 3" :size="18" color="#536178" />
           <text>编辑</text>
         </button>
       </view>
@@ -283,13 +279,13 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
       <view class="addresses__sheet" role="dialog" data-testid="address-sheet">
         <view class="addresses__sheet-head">
           <button v-if="pickingRegion" class="addresses__sheet-close" aria-label="返回表单" @click="pickingRegion = false">
-            <UniIcons type="left" size="20" color="#536178" />
+            <LineIcon name="back" :size="20" color="#536178" :stroke-width="2" />
           </button>
           <text class="addresses__sheet-title">
             {{ pickingRegion ? '选择所在地区' : sheet === 'edit' ? '编辑收货地址' : '新增收货地址' }}
           </text>
           <button class="addresses__sheet-close addresses__sheet-close--right" aria-label="关闭" @click="closeSheet">
-            <UniIcons type="closeempty" size="20" color="#536178" />
+            <LineIcon name="close" :size="20" color="#536178" :stroke-width="2" />
           </button>
         </view>
 
@@ -371,7 +367,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
               <text :class="['addresses__value', { 'addresses__value--empty': !regionText }]">
                 {{ regionText ?? '请选择省、市' }}
               </text>
-              <UniIcons type="right" size="14" color="#91a0b4" />
+              <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
             </button>
             <view class="addresses__field">
               <text class="addresses__label">详细地址</text>
@@ -460,32 +456,8 @@ button::after {
   border: 0;
 }
 
-.addresses__header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  min-height: calc(60px + var(--status-bar-height));
-  padding: var(--status-bar-height) 8px 0;
-  align-items: center;
-  gap: 4px;
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-  box-sizing: border-box;
-}
 
-.addresses__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-}
 
-.addresses__title {
-  font-size: 18px;
-  font-weight: 700;
-}
 
 .addresses__body {
   display: flex;
@@ -523,6 +495,7 @@ button::after {
   border: 1.5px solid transparent;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .addresses__card--chosen {
@@ -594,6 +567,7 @@ button::after {
   background: #ffffff;
   font-size: 14px;
   text-align: center;
+  box-shadow: var(--app-card-shadow);
 }
 
 .addresses__skeleton {
@@ -632,6 +606,7 @@ button::after {
   padding: 10px 16px calc(24px + env(safe-area-inset-bottom));
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .addresses__add {
@@ -643,6 +618,7 @@ button::after {
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;
+  box-shadow: var(--app-primary-shadow);
 }
 
 .addresses__add--off,

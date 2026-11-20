@@ -34,6 +34,9 @@ const KIT_ID = 'c2000000-0000-4000-8000-000000000101'
 const DRONE_ID = 'c2000000-0000-4000-8000-000000000201'
 const KIT_FACTORY = offerId('101', '1')
 const DRONE_FACTORY = offerId('201', '4')
+// The kit's spec: 原型对齐 R3 renames it in the development seed; until the backend reloads the seed the
+// old name is still served, so either is accepted.
+const KIT_SKU = '(?:标准版|标准套装（1 台 \\+ 数字课程）)'
 const KIT_PRICE = 129900
 const visualOutput = resolve(__dirname, '../../../.planning/trade-orders/visual')
 const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare')
@@ -125,7 +128,7 @@ test.describe('商品订单与支付', () => {
     await expect(page).toHaveURL(/pages\/trade\/cashier\?orderId=/)
     await expect(page.getByTestId('cashier-amount')).toHaveText('¥1,299')
     await expect(page.getByTestId('cashier-payee')).toHaveText('示例机器人商家')
-    await expect(page.getByTestId('cashier-goods')).toHaveText('编程机器人探索套装 · 标准版 × 1')
+    await expect(page.getByTestId('cashier-goods')).toHaveText(new RegExp(`^编程机器人探索套装 · ${KIT_SKU} × 1$`))
     await expect(page.getByTestId('cashier-countdown')).toHaveText(/^剩余支付时间 (29|30):\d\d · 超时订单自动取消$/)
     await expect(page.getByTestId('cashier-method')).toContainText('微信支付')
     const orderId = new URL(page.url().replace('/#/', '/')).searchParams.get('orderId') as string
@@ -180,7 +183,7 @@ test.describe('商品订单与支付', () => {
     const card = page.getByTestId(`goods-order-${orderNo}`)
     await expect(card.getByTestId('goods-order-status')).toHaveText('已完成')
     await expect(card.getByTestId('goods-order-amount')).toHaveText('¥1,299')
-    await expect(card).toContainText('标准版 × 1 · 快递配送')
+    await expect(card).toContainText(new RegExp(`${KIT_SKU} × 1 · 快递配送`))
   })
 
   test('TRD-002 待付款的订单在列表里取消：确认后关闭，待付款页签变空', async ({ page, request }) => {
@@ -191,7 +194,7 @@ test.describe('商品订单与支付', () => {
     const card = page.getByTestId(`goods-order-${order.orderNo}`)
     await expect(card.getByTestId('goods-order-status')).toHaveText('待付款')
     await expect(card.getByTestId('goods-order-hint')).toHaveText(/^剩 (29|30):\d\d 未支付将自动取消$/)
-    await expect(card).toContainText('标准版 × 1 · 到店自提')
+    await expect(card).toContainText(new RegExp(`${KIT_SKU} × 1 · 到店自提`))
 
     await card.getByTestId('goods-order-action-cancel').click()
     await confirmModal(page, '取消后订单将关闭')
@@ -247,6 +250,23 @@ test.describe('商品订单与支付', () => {
   test('TRD-004 没开通在线支付的商家：商品详情灰显、选不中；从链接进确认订单，提交时页面写明，不能再提交', async ({ page, request }) => {
     await addAddressByApi(request, buyer)
     await signIn(page, buyer)
+    // Since 2026-11-20 (原型对齐 R3) the development seed registers 示例无人机厂家 too, so no sample
+    // merchant of a listed product lacks a payment account. The page's handling of one that does is
+    // kept by answering for 示例无人机厂家 as if it had none: the detail flag and the server's refusal.
+    await page.route(`**/api/v1/mall/products/${DRONE_ID}?**`, async (route) => {
+      const response = await route.fetch()
+      const body = await response.json()
+      for (const offer of body.offers ?? []) if (offer.offerId === DRONE_FACTORY) offer.onlinePayment = false
+      await route.fulfill({ response, json: body })
+    })
+    await page.route('**/api/v1/trade/orders', async (route) => {
+      const body = route.request().postDataJSON() as { offerId?: string } | null
+      if (route.request().method() !== 'POST' || body?.offerId !== DRONE_FACTORY) return route.continue()
+      await route.fulfill({
+        status: 409,
+        json: { code: 'TRADE_MERCHANT_PAYMENT_UNAVAILABLE', message: '该商家暂未开通在线支付', traceId: 'e2e', details: null },
+      })
+    })
     await page.goto(`/#/pages/mall/product?productId=${DRONE_ID}&cityCode=${CITY}`)
     // Catalog 1.2.0 (G1): the detail knows the merchant cannot take payment online.
     await expect(page.getByTestId(`mall-offer-unpaid-${DRONE_FACTORY}`)).toHaveText('暂未开通在线支付')

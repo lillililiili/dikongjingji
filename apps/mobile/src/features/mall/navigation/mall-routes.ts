@@ -16,9 +16,16 @@ export function buildCartCheckoutUrl(cartItemIds: string[], cityCode: string): s
     + `&cityCode=${encodeURIComponent(cityCode)}`
 }
 
-export function buildBuyNowCheckoutUrl(offerId: string, quantity: number, cityCode: string): string {
+// `delivery`: the mode picked on 规格与数量, which the confirm page starts from when the offer has it.
+export function buildBuyNowCheckoutUrl(
+  offerId: string,
+  quantity: number,
+  cityCode: string,
+  delivery: 'EXPRESS' | 'PICKUP' | null = null,
+): string {
   return `${MALL_CHECKOUT_PATH}?offerId=${encodeURIComponent(offerId)}&quantity=${quantity}`
     + `&cityCode=${encodeURIComponent(cityCode)}`
+    + (delivery ? `&delivery=${delivery}` : '')
 }
 
 /**

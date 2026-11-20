@@ -145,7 +145,8 @@ test.describe('购物车与确认订单', () => {
     await page.getByTestId('mall-product-cart').click()
     const sheet = page.getByTestId('mall-buy-sheet')
     await expect(sheet).toContainText('示例机器人商家（厂家直营）')
-    await expect(sheet).toContainText('标准版')
+    // 原型对齐 R3 renames the kit's spec in the development seed; either name until it is reloaded.
+    await expect(sheet).toContainText(/标准版|标准套装（1 台 \+ 数字课程）/)
     await expect(page.getByTestId('mall-buy-minus')).toHaveAttribute('aria-disabled', 'true')
     await page.getByTestId('mall-buy-plus').click()
     await expect(page.getByTestId('mall-buy-qty')).toHaveText('2')
@@ -205,7 +206,7 @@ test.describe('购物车与确认订单', () => {
     await page.locator('[data-testid="address-save"]:not([disabled])').click()
 
     await expect(page.getByTestId('checkout-address')).toContainText('王女士 138****2026')
-    await expect(page.getByTestId('checkout-address')).toContainText('山东省东营市 东营区 示例路 88 号')
+    await expect(page.getByTestId('checkout-address')).toContainText('山东省东营市东营区 示例路 88 号')
     await page.getByTestId('checkout-agree').click()
     await page.getByTestId('checkout-submit').click()
     // Since E07 the order is made and the cashier replaces the confirm page (trade-orders.spec.ts

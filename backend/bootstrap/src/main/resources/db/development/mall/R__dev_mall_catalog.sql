@@ -44,8 +44,17 @@ SET category = EXCLUDED.category,
     updated_at = now();
 
 -- 每个商品一个规格（规格多选留到“规格与配送”那一步）。规格编号 = 商品编号把 c2 换成 c3。
+-- 规格名照原型：PdSku / Checkout 的编程机器人和 PdDroneEdu 的教学无人机是“标准套装（1 台 + 数字课程）”，
+-- PdInquiryFull 的行业测绘无人机写的是配置“测绘版 · RTK · 五镜头倾斜相机”，其余仍是“标准版”。
 INSERT INTO mall_sku (id, product_id, name, sort_order)
-SELECT replace(id::text, 'c2000000', 'c3000000')::uuid, id, '标准版', 10
+SELECT replace(id::text, 'c2000000', 'c3000000')::uuid, id,
+       CASE id::text
+           WHEN 'c2000000-0000-4000-8000-000000000101' THEN '标准套装（1 台 + 数字课程）'
+           WHEN 'c2000000-0000-4000-8000-000000000201' THEN '标准套装（1 台 + 数字课程）'
+           WHEN 'c2000000-0000-4000-8000-000000000203' THEN '测绘版 · RTK · 五镜头倾斜相机'
+           ELSE '标准版'
+       END,
+       10
 FROM mall_product
 WHERE id::text LIKE 'c2000000-%'
 ON CONFLICT (id) DO UPDATE
@@ -80,8 +89,8 @@ FROM (
         ('201', '3', 'LOCAL_STORE', '370500', 95000, 'ITEM', '到店自提', '东营可买 · 无运费 · 门店自提', '示例科创器材店 东营门店'),
         ('202', '4', 'FACTORY_DIRECT', NULL, 499900, 'ITEM', '全国发货 · 一年保修', '全国可买 · 包邮 · 48 小时内发货', '示例无人机厂家 总仓'),
         ('202', '3', 'LOCAL_STORE', '370500', 519900, 'ITEM', '到店自提 · 可现场试飞讲解', '东营可买 · 无运费 · 门店自提', '示例科创器材店 东营门店'),
-        ('203', '4', 'FACTORY_DIRECT', NULL, NULL, 'ITEM', '按配置报价 · 含 2 名飞手培训', NULL, '示例无人机厂家'),
-        ('203', '5', 'AUTHORIZED_DEALER', '370500', NULL, 'ITEM', '按项目报价', NULL, '示例行业装备代理'),
+        ('203', '4', 'FACTORY_DIRECT', NULL, NULL, 'ITEM', '按配置报价 · 含 2 名飞手培训', '东营可交付 · 交期以报价为准', '示例无人机厂家'),
+        ('203', '5', 'AUTHORIZED_DEALER', '370500', NULL, 'ITEM', '按项目报价', '东营可交付 · 交期以报价为准', '示例行业装备代理'),
         ('301', '4', 'FACTORY_DIRECT', NULL, 32900, 'ITEM', '全国发货', '全国可买 · 满 99 包邮 · 48 小时内发货', '示例无人机厂家 总仓'),
         ('301', '3', 'LOCAL_STORE', '370500', 32900, 'ITEM', '到店自提', '东营可买 · 无运费 · 门店自提', '示例科创器材店 东营门店'),
         ('302', '1', 'FACTORY_DIRECT', '370500', 46000, 'ITEM', '东营现货', '东营可买 · 包邮 · 48 小时内发货', '示例机器人商家 东营仓'),
@@ -108,36 +117,92 @@ SET sku_id = EXCLUDED.sku_id,
     pickup_point = EXCLUDED.pickup_point,
     updated_at = now();
 
+-- 参数和包装清单照原型 PdFull（101）、PdDroneEdu（201）、PdRental（401）、PdRentalAerial（402）、PdInquiryFull（203）。
+-- 101 的编号沿用最早的写法 md5('dev-mall-spec:' || 参数名)，其余商品把商品编号也算进去，避免重名。
 INSERT INTO mall_product_spec (id, product_id, label, value, sort_order)
-SELECT md5('dev-mall-spec:' || seed.label)::uuid,
-       'c2000000-0000-4000-8000-000000000101', seed.label, seed.value, seed.sort_order
+SELECT CASE seed.product
+           WHEN '101' THEN md5('dev-mall-spec:' || seed.label)::uuid
+           ELSE md5('dev-mall-spec:' || seed.product || ':' || seed.label)::uuid
+       END,
+       ('c2000000-0000-4000-8000-000000000' || seed.product)::uuid, seed.label, seed.value, seed.sort_order
 FROM (
     VALUES
-        ('适用年龄', '8 岁以上', 10),
-        ('编程方式', '图形化 / Python', 20),
-        ('传感器', '超声波、循线、陀螺仪', 30),
-        ('续航', '约 90 分钟', 40),
-        ('连接', '蓝牙 5.0', 50),
-        ('配套课程', '16 课时（数字版）', 60)
-) AS seed(label, value, sort_order)
+        ('101', '适用年龄', '8 岁以上', 10),
+        ('101', '编程方式', '图形化 / Python', 20),
+        ('101', '传感器', '超声波、循线、陀螺仪', 30),
+        ('101', '续航', '约 90 分钟', 40),
+        ('101', '连接', '蓝牙 5.0', 50),
+        ('101', '配套课程', '16 课时（数字版）', 60),
+        ('201', '适用年龄', '10 岁以上', 10),
+        ('201', '编程方式', '图形化 / Python', 20),
+        ('201', '起飞重量', '87 g', 30),
+        ('201', '续航', '约 13 分钟', 40),
+        ('201', '连接', 'Wi-Fi', 50),
+        ('201', '配套课程', '12 课时（数字版）', 60),
+        ('203', '机型', '行业多旋翼', 10),
+        ('203', '定位方式', 'RTK', 20),
+        ('203', '相机', '五镜头倾斜相机', 30),
+        ('203', '成果类型', '正射影像、三维模型', 40),
+        ('203', '适用场景', '地形测绘、园区建模', 50),
+        ('203', '培训', '可含飞手培训', 60),
+        ('401', '适用场景', '园区夜巡、设备点检', 10),
+        ('401', '行走方式', '四足', 20),
+        ('401', '感知', '可见光、热成像', 30),
+        ('401', '续航', '约 2 小时', 40),
+        ('401', '操作方式', '遥控手柄、预设路线', 50),
+        ('401', '上手', '交接时现场讲解', 60),
+        ('402', '适用场景', '活动记录、工程进度、宣传素材', 10),
+        ('402', '相机', '1 英寸 4K/60fps', 20),
+        ('402', '续航', '单电约 31 分钟 · 配 3 电', 30),
+        ('402', '飞手', '持证飞手随机', 40),
+        ('402', '成果交付', '当天拷贝原始素材', 50),
+        ('402', '上手', '飞手操作，不需自行飞行', 60)
+) AS seed(product, label, value, sort_order)
 ON CONFLICT (id) DO UPDATE
-SET label = EXCLUDED.label,
+SET product_id = EXCLUDED.product_id,
+    label = EXCLUDED.label,
     value = EXCLUDED.value,
     sort_order = EXCLUDED.sort_order,
     updated_at = now();
 
 INSERT INTO mall_product_pack_item (id, product_id, name, quantity, sort_order)
-SELECT md5('dev-mall-pack:' || seed.name)::uuid,
-       'c2000000-0000-4000-8000-000000000101', seed.name, seed.quantity, seed.sort_order
+SELECT CASE seed.product
+           WHEN '101' THEN md5('dev-mall-pack:' || seed.name)::uuid
+           ELSE md5('dev-mall-pack:' || seed.product || ':' || seed.name)::uuid
+       END,
+       ('c2000000-0000-4000-8000-000000000' || seed.product)::uuid, seed.name, seed.quantity, seed.sort_order
 FROM (
     VALUES
-        ('机器人主机', 1, 10),
-        ('充电线', 1, 20),
-        ('避障道具', 1, 30),
-        ('快速上手指南', 1, 40)
-) AS seed(name, quantity, sort_order)
+        ('101', '机器人主机', 1, 10),
+        ('101', '充电线', 1, 20),
+        ('101', '避障道具', 1, 30),
+        ('101', '快速上手指南', 1, 40),
+        ('201', '无人机主机', 1, 10),
+        ('201', '电池', 2, 20),
+        ('201', '充电器', 1, 30),
+        ('201', '备用桨叶', 4, 40),
+        ('201', '快速上手指南', 1, 50),
+        ('203', '飞行器', 1, 10),
+        ('203', '遥控器', 1, 20),
+        ('203', '智能电池', 2, 30),
+        ('203', '充电器', 1, 40),
+        ('203', '收纳箱', 1, 50),
+        ('203', '快速上手指南', 1, 60),
+        ('401', '机器狗主机', 1, 10),
+        ('401', '遥控手柄', 1, 20),
+        ('401', '电池', 2, 30),
+        ('401', '充电器', 1, 40),
+        ('401', '运输箱', 1, 50),
+        ('401', '使用手册', 1, 60),
+        ('402', '航拍无人机', 1, 10),
+        ('402', '电池', 3, 20),
+        ('402', '充电管家', 1, 30),
+        ('402', '遥控器', 1, 40),
+        ('402', '运输箱', 1, 50)
+) AS seed(product, name, quantity, sort_order)
 ON CONFLICT (id) DO UPDATE
-SET name = EXCLUDED.name,
+SET product_id = EXCLUDED.product_id,
+    name = EXCLUDED.name,
     quantity = EXCLUDED.quantity,
     sort_order = EXCLUDED.sort_order,
     updated_at = now();

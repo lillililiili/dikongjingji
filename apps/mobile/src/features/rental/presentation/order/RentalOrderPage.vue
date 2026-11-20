@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import TradePartiesCard from '@/features/trade/presentation/shared/TradePartiesCard.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
@@ -212,7 +213,7 @@ watch(() => [props.refreshKey, props.accessToken, props.rentalOrderId], () => { 
                 :class="['rental-order__step-line', 'rental-order__step-line--right', { 'rental-order__step-line--on': chain[position + 1]?.reached, 'rental-order__step-line--none': position === chain.length - 1 }]"
               />
               <view :class="['rental-order__dot', { 'rental-order__dot--reached': step.reached, 'rental-order__dot--done': step.done }]">
-                <UniIcons v-if="step.done" type="checkmarkempty" size="10" color="#ffffff" />
+                <LineIcon v-if="step.done" name="check" :size="10" color="#ffffff" :stroke-width="3" />
                 <view v-else-if="step.current" class="rental-order__dot-core" />
               </view>
               <text :class="['rental-order__step-label', { 'rental-order__step-label--current': step.current, 'rental-order__step-label--reached': step.reached }]">
@@ -233,7 +234,7 @@ watch(() => [props.refreshKey, props.accessToken, props.rentalOrderId], () => { 
             <text class="rental-order__card-title">租赁合同</text>
             <text class="rental-order__tag rental-order__tag--done">已确认</text>
             <text class="rental-order__contract-time">{{ formatRentalInstant(order.contract.confirmedAt) }}</text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
           </button>
           <view class="rental-order__summary">
             <text
@@ -295,15 +296,7 @@ watch(() => [props.refreshKey, props.accessToken, props.rentalOrderId], () => { 
           <text v-if="giveBack.note" class="rental-order__record-note">{{ giveBack.note }}</text>
         </view>
 
-        <view class="rental-order__card">
-          <text class="rental-order__card-title">交易主体</text>
-          <view class="rental-order__grid rental-order__grid--wide">
-            <template v-for="row in parties" :key="row.key">
-              <text class="rental-order__grid-label">{{ row.label }}</text>
-              <text class="rental-order__grid-value">{{ row.value }}</text>
-            </template>
-          </view>
-        </view>
+        <TradePartiesCard test-id="rental-order-parties" :rows="parties" />
       </view>
 
       <view class="rental-order__bar">
@@ -375,6 +368,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .rental-order__card-title {

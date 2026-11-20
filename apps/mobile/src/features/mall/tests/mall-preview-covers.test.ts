@@ -28,8 +28,9 @@ describe('preview pictures of the development samples', () => {
     expect(resolveActivityPreviewCover('a2000000-0000-4000-8000-000000000003', true))
       .toBe('/static/images/preview/camp-yellow-river.jpg')
     expect(resolveActivityPreviewCover('a2000000-0000-4000-8000-000000000003', false)).toBeNull()
+    // R2 (2026-11-20): the indoor venue shows its obstacle course, as on the board VenueDetail.
     expect(resolveExperiencePreviewCover('b2000000-0000-4000-8000-000000000001', true))
-      .toBe('/static/images/preview/venue-exterior.jpg')
+      .toBe('/static/images/preview/venue-indoor.jpg')
     expect(resolveExperiencePreviewCover('b2000000-0000-4000-8000-000000000001', false))
       .toBeNull()
     expect(resolveExperiencePreviewCover('unknown', true)).toBeNull()
@@ -56,8 +57,8 @@ describe('preview pictures of the development samples', () => {
     ]
 
     expect(urls).toHaveLength(30)
-    // Every picture in the folder is used by a sample; none ships for nothing.
-    expect([...shippedPictures].sort()).toEqual([...new Set(urls)].sort())
+    // Every picture these samples use is in the folder. Since R2 the folder also holds the pictures
+    // of other modules (professional services, content), so it is no longer only these.
     for (const url of urls) {
       expect(url, 'every sample has a picture').toBeTruthy()
       expect(shippedPictures.has(url ?? ''), `${url} exists`).toBe(true)

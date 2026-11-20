@@ -7,6 +7,7 @@ import type { MallProductCard } from '../domain/mall'
 import {
   formatMallAmount,
   formatMallCardPrice,
+  formatMallDetailPrice,
   formatMallOfferPrice,
   formatMallSellers,
 } from '../presentation/shared/mall-format'
@@ -62,6 +63,17 @@ describe('mall prices', () => {
     })).toEqual({ amount: '询价', unit: '', from: '' })
     expect(formatMallOfferPrice(null, 'ITEM')).toBe('询价')
     expect(formatMallOfferPrice(38000, 'DAY')).toBe('¥380/天')
+  })
+
+  it('splits a detail price into the amount and the small unit and 起', () => {
+    expect(formatMallDetailPrice(129900, 'ITEM', { saleMode: 'BUY', lowestOfSeveral: true }))
+      .toEqual({ amount: '¥1,299', suffix: '起' })
+    expect(formatMallDetailPrice(135000, 'ITEM', { saleMode: 'BUY', lowestOfSeveral: false }))
+      .toEqual({ amount: '¥1,350', suffix: '' })
+    expect(formatMallDetailPrice(38000, 'DAY', { saleMode: 'RENT', lowestOfSeveral: false }))
+      .toEqual({ amount: '¥380', suffix: '/天 起' })
+    expect(formatMallDetailPrice(null, 'ITEM', { saleMode: 'INQUIRY', lowestOfSeveral: false }))
+      .toEqual({ amount: '询价', suffix: '按配置与数量报价' })
   })
 
   it('counts sellers in the words of the sale mode', () => {

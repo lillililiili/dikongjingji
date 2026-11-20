@@ -54,7 +54,7 @@ export interface CashierRow {
 }
 
 // The rows under 订单号 / 收款方 on the cashier (board Cashier for goods, CashierEnroll for a
-// sign-up, CashierVenue for a venue booking, CashierRental for a rental: the payee is the lessor).
+// sign-up, CashierVenue for a venue booking, CashierRental for a rental contract).
 export function cashierRows(order: TradeOrder): CashierRow[] {
   const line = order.lines[0]
   if (!isSourceOrder(order) || !line) {
@@ -62,9 +62,8 @@ export function cashierRows(order: TradeOrder): CashierRow[] {
   }
   if (isRentalOrder(order)) {
     return [
-      { key: 'rental-item', label: '租赁内容', value: `${line.productName} × ${line.quantity} 台` },
-      { key: 'rental-period', label: '租期', value: line.skuName },
-      { key: 'lessor', label: '出租方', value: order.merchant.name },
+      { key: 'rental-contract', label: '租赁合同', value: `${line.productName} ×${line.quantity} · ${line.skuName}` },
+      { key: 'rental-node', label: '付款节点', value: `租金 ${formatTradeAmount(order.amounts.payableMinor)} · 合同确认后一次付清` },
     ]
   }
   if (isVenueOrder(order)) {
@@ -80,13 +79,33 @@ export function cashierRows(order: TradeOrder): CashierRow[] {
   ]
 }
 
-// "报名费 2 人 × ¥120" / "到馆体验费 1 人 × ¥39" under the amount; nothing for goods.
+// The order of the cashier's rows, as each board draws them: goods and a sign-up start with the
+// order number and the payee; a venue booking starts with what is booked and ends with the order
+// number; a rental starts with the contract, then the payee and the payment node.
+export type CashierLine = { key: 'order-no' } | { key: 'payee' } | CashierRow
+
+export function cashierLayout(order: TradeOrder): CashierLine[] {
+  const rows = cashierRows(order)
+  const orderNo = { key: 'order-no' } as const
+  const payee = { key: 'payee' } as const
+  if (isRentalOrder(order) && rows.length === 2) return [rows[0], payee, rows[1], orderNo]
+  if (isVenueOrder(order)) return [...rows, payee, orderNo]
+  return [orderNo, payee, ...rows]
+}
+
+// The money of a business order goes to the organization through the platform's channel (C2); the
+// boards CashierEnroll, CashierVenue and CashierRental say so after the payee, Cashier does not.
+export function cashierPayeeSuffix(order: TradeOrder): string | null {
+  return isSourceOrder(order) ? ' · 经平台支付渠道' : null
+}
+
+// "报名费 2 人 × ¥120" under the amount (board CashierEnroll); a rental says when its rent is paid.
+// Goods and a venue booking (board CashierVenue) have nothing there.
 export function cashierDueNote(order: TradeOrder): string | null {
   const line = order.lines[0]
-  if (!isSourceOrder(order) || !line) return null
+  if (!isSourceOrder(order) || !line || isVenueOrder(order)) return null
   if (isRentalOrder(order)) return '租金 · 合同确认后一次付清'
-  const fee = isVenueOrder(order) ? '到馆体验费' : '报名费'
-  return `${fee} ${line.quantity} 人 × ${formatTradeAmount(line.unitAmountMinor)}`
+  return `报名费 ${line.quantity} 人 × ${formatTradeAmount(line.unitAmountMinor)}`
 }
 
 export function cashierCountdownLine(order: TradeOrder, now: number): string {

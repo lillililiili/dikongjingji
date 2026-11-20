@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import { createTradeKey } from '@/features/trade/application/trade-keys'
@@ -232,7 +232,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
         <view class="mall-inquiry__card mall-inquiry__product" data-testid="mall-inquiry-product">
           <image v-if="cover" class="mall-inquiry__image" :src="cover" mode="aspectFill" />
           <view v-else class="mall-inquiry__image mall-inquiry__image--empty">
-            <UniIcons type="image" size="24" color="#91a0b4" />
+            <LineIcon name="image" :size="24" color="#91a0b4" />
           </view>
           <view class="mall-inquiry__product-copy">
             <text class="mall-inquiry__product-name" data-testid="mall-inquiry-name">{{ product.name }}</text>
@@ -306,7 +306,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
             >
               {{ draft.expectedDate ? formatExpectedDate(draft.expectedDate) : '选填' }}
             </text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
           </button>
           <view class="mall-inquiry__row mall-inquiry__row--last">
             <text class="mall-inquiry__label">询价身份<text class="mall-inquiry__required">*</text></text>
@@ -330,7 +330,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
             @click="toggleOffer(offer)"
           >
             <view :class="['mall-inquiry__box', { 'mall-inquiry__box--on': draft.offerIds.includes(offer.offerId) }]">
-              <UniIcons v-if="draft.offerIds.includes(offer.offerId)" type="checkmarkempty" size="12" color="#ffffff" />
+              <LineIcon v-if="draft.offerIds.includes(offer.offerId)" name="check" :size="12" color="#ffffff" :stroke-width="3" />
             </view>
             <view class="mall-inquiry__merchant-copy">
               <text class="mall-inquiry__merchant-name">{{ offer.merchant.name }}</text>
@@ -348,7 +348,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
       <view class="mall-inquiry__bar">
         <view v-if="blocked" class="mall-inquiry__blocked" role="status" data-testid="mall-inquiry-blocked">
-          <UniIcons type="info" size="16" color="#ba470b" />
+          <LineIcon name="info" :size="16" color="#ba470b" :stroke-width="2" />
           <text>{{ blocked }}</text>
         </view>
         <button
@@ -372,7 +372,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
             <text class="mall-inquiry__sheet-hint">希望在这一天之前交付，交期以商家报价为准</text>
           </view>
           <button class="mall-inquiry__sheet-close" aria-label="收起" @click="dateSheet = false">
-            <UniIcons type="closeempty" size="20" color="#536178" />
+            <LineIcon name="close" :size="20" color="#536178" :stroke-width="2" />
           </button>
         </view>
         <button
@@ -397,7 +397,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
         <picker mode="date" :start="earliest" :end="latest" :value="draft.expectedDate ?? earliest" @change="pickDate">
           <view class="mall-inquiry__option" data-testid="mall-inquiry-date-other">
             <text>选择其他日期</text>
-            <UniIcons type="calendar" size="18" color="#738096" />
+            <LineIcon name="calendar" :size="18" color="#738096" />
           </view>
         </picker>
       </view>
@@ -693,23 +693,33 @@ button::after {
   background: #ff6a00;
 }
 
+/* Board PdInquiry: the merchant on the left, how it sells on the right of the same row. */
 .mall-inquiry__merchant-copy {
   display: flex;
   min-width: 0;
   flex: 1;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   padding: 4px 0;
 }
 
 .mall-inquiry__merchant-name {
-  font-size: 14px;
-  line-height: 20px;
+  flex: none;
+  font-size: 15px;
+  line-height: 21px;
+  white-space: nowrap;
 }
 
 .mall-inquiry__merchant-note {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
   color: #627187;
   font-size: 12px;
   line-height: 17px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mall-inquiry__merchant--off .mall-inquiry__box {

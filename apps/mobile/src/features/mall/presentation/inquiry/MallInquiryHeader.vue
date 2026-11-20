@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 // The bar of the goods inquiry pages (PdInquiry, QuoteGoods boards): back, a left-aligned title and,
 // on the quotes page, who the inquiry is recorded under.
@@ -16,7 +16,7 @@ const emit = defineEmits<{
 <template>
   <view class="inquiry-header">
     <button class="inquiry-header__back" data-testid="inquiry-back" aria-label="返回" @click="emit('back')">
-      <UniIcons type="left" size="22" color="#202c42" />
+      <LineIcon name="back" :size="22" color="#202c42" :stroke-width="2" />
     </button>
     <text class="inquiry-header__title">{{ title }}</text>
     <text v-if="badge" class="inquiry-header__badge" data-testid="inquiry-header-badge">{{ badge }}</text>

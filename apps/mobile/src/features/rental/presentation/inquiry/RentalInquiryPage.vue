@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import { maskPhone } from '@/features/account/application/address-form'
@@ -252,7 +252,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
           <view class="rental-inquiry__device">
             <image v-if="cover" class="rental-inquiry__image" :src="cover" mode="aspectFill" />
             <view v-else class="rental-inquiry__image rental-inquiry__image--empty">
-              <UniIcons type="gear" size="28" color="#91a0b4" />
+              <LineIcon name="gear" :size="28" color="#91a0b4" />
             </view>
             <view class="rental-inquiry__device-copy">
               <text class="rental-inquiry__device-name" data-testid="rental-inquiry-name">{{ offer.productName }}</text>
@@ -350,7 +350,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
         <view class="rental-inquiry__card rental-inquiry__card--rows">
           <text class="rental-inquiry__card-title rental-inquiry__card-title--rows">使用与交接</text>
           <button class="rental-inquiry__row" data-testid="rental-place" @click="sheet = 'PLACE'">
-            <UniIcons type="location" size="18" color="#ff6a00" />
+            <LineIcon name="pin" :size="18" color="#ff6a00" />
             <text class="rental-inquiry__row-label">使用地点<text class="rental-inquiry__required">*</text></text>
             <text
               :class="['rental-inquiry__row-value', { 'rental-inquiry__row-value--empty': !chosenAddress }]"
@@ -358,10 +358,10 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
             >
               {{ chosenAddress ? chosenAddress.detail : '请选择收货地址' }}
             </text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
           </button>
           <view class="rental-inquiry__row rental-inquiry__row--wrap">
-            <UniIcons type="paperplane" size="18" color="#ff6a00" />
+            <LineIcon name="swap" :size="18" color="#ff6a00" />
             <text class="rental-inquiry__row-label">交接方式<text class="rental-inquiry__required">*</text></text>
             <view class="rental-inquiry__segment" role="radiogroup" aria-label="交接方式">
               <button
@@ -379,7 +379,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
           </view>
           <text class="rental-inquiry__row-note" data-testid="rental-handover-note">{{ handoverNote }}</text>
           <view class="rental-inquiry__row rental-inquiry__row--wrap">
-            <UniIcons type="refreshempty" size="18" color="#ff6a00" />
+            <LineIcon d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4" :size="18" color="#ff6a00" />
             <text class="rental-inquiry__row-label">归还方式<text class="rental-inquiry__required">*</text></text>
             <view class="rental-inquiry__segment" role="radiogroup" aria-label="归还方式">
               <button
@@ -397,12 +397,12 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
           </view>
           <text class="rental-inquiry__row-note">{{ rentalReturnNote(draft.returnMode) }}</text>
           <view class="rental-inquiry__row">
-            <UniIcons type="person" size="18" color="#ff6a00" />
+            <LineIcon name="person" :size="18" color="#ff6a00" />
             <text class="rental-inquiry__row-label">联系人</text>
             <text class="rental-inquiry__row-value" data-testid="rental-contact">{{ chosenAddress?.recipientName ?? '随地址填写' }}</text>
           </view>
           <view class="rental-inquiry__row">
-            <UniIcons type="phone" size="18" color="#ff6a00" />
+            <LineIcon name="phone" :size="18" color="#ff6a00" />
             <text class="rental-inquiry__row-label">手机号</text>
             <text class="rental-inquiry__row-value" data-testid="rental-phone">{{ chosenAddress ? maskPhone(chosenAddress.phone) : '随地址填写' }}</text>
           </view>
@@ -416,7 +416,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
               <text class="rental-inquiry__identity-title">{{ lesseeView.tag }}</text>
               <text class="rental-inquiry__identity-text">{{ lesseeView.text }}</text>
             </view>
-            <view class="rental-inquiry__identity-check"><UniIcons type="checkmarkempty" size="12" color="#ffffff" /></view>
+            <view class="rental-inquiry__identity-check"><LineIcon name="check" :size="12" color="#ffffff" :stroke-width="3" /></view>
           </view>
           <text class="rental-inquiry__card-hint rental-inquiry__card-hint--block">按账号所属组织记录，不能在这里切换</text>
         </view>
@@ -442,11 +442,11 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
       <view class="rental-inquiry__bar">
         <view v-if="blocked" class="rental-inquiry__blocked" role="status" data-testid="rental-blocked">
-          <UniIcons type="info" size="16" color="#ba470b" />
+          <LineIcon name="info" :size="16" color="#ba470b" :stroke-width="2" />
           <text>{{ blocked }}</text>
         </view>
         <view v-else class="rental-inquiry__free">
-          <UniIcons type="checkbox" size="14" color="#11804a" />
+          <LineIcon name="shield" :size="14" color="#11804a" />
           <text>提交询价不产生费用，确认合同后才付款</text>
         </view>
         <button
@@ -469,7 +469,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
             <text class="rental-inquiry__card-hint">这是你的期望日期，档期由商家报价时确认</text>
           </view>
           <button class="rental-inquiry__sheet-close" aria-label="收起" @click="sheet = null">
-            <UniIcons type="closeempty" size="20" color="#536178" />
+            <LineIcon name="close" :size="20" color="#536178" :stroke-width="2" />
           </button>
         </view>
         <view class="rental-inquiry__dates" role="group" aria-label="起租日">
@@ -494,7 +494,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
         <view class="rental-inquiry__sheet-head">
           <text class="rental-inquiry__sheet-title">选择使用地点</text>
           <button class="rental-inquiry__sheet-close" aria-label="收起" @click="sheet = null">
-            <UniIcons type="closeempty" size="20" color="#536178" />
+            <LineIcon name="close" :size="20" color="#536178" :stroke-width="2" />
           </button>
         </view>
         <text v-if="addresses.length === 0" class="rental-inquiry__card-hint rental-inquiry__card-hint--block" data-testid="rental-place-empty">
@@ -518,7 +518,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
             <text v-if="!inCity(address)" class="rental-inquiry__place-off-note">不在这件设备的出租城市</text>
           </view>
           <view v-if="address.addressId === draft.addressId" class="rental-inquiry__identity-check">
-            <UniIcons type="checkmarkempty" size="12" color="#ffffff" />
+            <LineIcon name="check" :size="12" color="#ffffff" :stroke-width="3" />
           </view>
         </button>
         <button class="rental-inquiry__manage" data-testid="rental-place-manage" @click="manageAddresses">
@@ -570,6 +570,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .rental-inquiry__card--rows {
@@ -990,6 +991,7 @@ button::after {
   line-height: 17px;
 }
 
+.rental-inquiry__free,
 .rental-inquiry__blocked {
   display: flex;
   margin: 0 -16px 10px;
@@ -1017,6 +1019,7 @@ button::after {
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;

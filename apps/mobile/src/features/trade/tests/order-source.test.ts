@@ -6,6 +6,8 @@ import {
   cashierClosedNote,
   cashierCountdownLine,
   cashierDueNote,
+  cashierLayout,
+  cashierPayeeSuffix,
   cashierRows,
   failedNote,
   isSourceOrder,
@@ -54,6 +56,8 @@ describe('order source (contract 0.2.0)', () => {
   it('keeps the goods wording of E07 on mall orders', () => {
     const order = tradeOrder()
     expect(cashierRows(order)).toEqual([{ key: 'goods', label: '商品', value: '编程机器人探索套装 · 标准版 × 1' }])
+    expect(cashierLayout(order).map((line) => line.key)).toEqual(['order-no', 'payee', 'goods'])
+    expect(cashierPayeeSuffix(order)).toBeNull()
     expect(cashierDueNote(order)).toBeNull()
     expect(cashierCountdownLine(order, NOW)).toBe('剩余支付时间 29:45 · 超时订单自动取消')
     expect(cashierClosedNote(order)).toBe('没有扣款，可以重新下单')
@@ -89,7 +93,10 @@ describe('order source (contract 0.2.0)', () => {
       { key: 'venue-item', label: '预约内容', value: '东营低空与机器人体验馆 机器人避障闯关 · 11月21日 10:00' },
       { key: 'people', label: '人数', value: '1 人' },
     ])
-    expect(cashierDueNote(order)).toBe('到馆体验费 1 人 × ¥39')
+    // Board CashierVenue: nothing under the amount; what is booked first, the order number last.
+    expect(cashierDueNote(order)).toBeNull()
+    expect(cashierLayout(order).map((line) => line.key)).toEqual(['venue-item', 'people', 'payee', 'order-no'])
+    expect(cashierPayeeSuffix(order)).toBe(' · 经平台支付渠道')
     expect(cashierCountdownLine(order, NOW)).toBe('剩余支付时间 14:45 · 超时释放场次名额')
     expect(cashierClosedNote(order)).toBe('没有扣款，名额已释放')
     expect(cancelUnpaidConfirm(order).title).toBe('取消预约')
@@ -119,10 +126,10 @@ describe('order source (contract 0.2.0)', () => {
   it('describes a rental on the cashier like the board CashierRental', () => {
     const order = rentalTradeOrder()
     expect(cashierRows(order)).toEqual([
-      { key: 'rental-item', label: '租赁内容', value: '巡检机器狗 × 1 台' },
-      { key: 'rental-period', label: '租期', value: '11/22–11/26 共 5 天' },
-      { key: 'lessor', label: '出租方', value: '示例机器人商家' },
+      { key: 'rental-contract', label: '租赁合同', value: '巡检机器狗 ×1 · 11/22–11/26 共 5 天' },
+      { key: 'rental-node', label: '付款节点', value: '租金 ¥1,950 · 合同确认后一次付清' },
     ])
+    expect(cashierLayout(order).map((line) => line.key)).toEqual(['rental-contract', 'payee', 'rental-node', 'order-no'])
     expect(cashierDueNote(order)).toBe('租金 · 合同确认后一次付清')
     expect(cashierCountdownLine(order, NOW)).toBe('剩余支付时间 29:45 · 超时订单关闭，需重新询价')
     expect(cashierClosedNote(order)).toBe('没有扣款，报价已失效，要租需要重新询价')

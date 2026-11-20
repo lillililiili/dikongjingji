@@ -1,45 +1,68 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
+import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
+import { buildSupportHelpUrl } from '@/features/support/navigation/support-routes'
+import TradePartiesCard from '@/features/trade/presentation/shared/TradePartiesCard.vue'
+import {
+  goodsParties,
+  inquiryParties,
+  rentalParties,
+} from '@/features/trade/presentation/shared/trade-parties'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
+import { loadInquiryCityName } from '../../application/inquiry-city'
 import {
   resolveMallIntent,
   resolveMallPrimaryAction,
-  type MallIntent,
 } from '../../application/mall-intent'
 import { MALL_PREVIEW_ENABLED } from '../../application/mall-preview'
 import { mallApi } from '../../data/mall-api-client'
-import { buildMallProductUrl } from '../../navigation/mall-routes'
+import { CART_TAB_PATH, buildMallProductUrl } from '../../navigation/mall-routes'
 import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
+import type { DeliveryMode } from '../../domain/cart'
 import type { MallOffer, MallProductDetail } from '../../domain/mall'
+import type { MallBuyDeliveryLoader } from './buy-delivery'
 import MallBuySheet from './MallBuySheet.vue'
+import MallProductMoreSheet from './MallProductMoreSheet.vue'
 import {
   MALL_BADGE_LABELS,
   MALL_CATEGORY_LABELS,
   MALL_MERCHANT_KIND_LABELS,
+  formatMallDetailPrice,
   formatMallOfferPrice,
 } from '../shared/mall-format'
 
 // The page host owns the account: it adds to the cart, opens the confirm page and the rental
-// inquiry form.
-const props = withDefaults(defineProps<{ busy?: boolean }>(), { busy: false })
+// inquiry form, and reads the delivery options of the 规格与数量 sheet.
+const props = withDefaults(
+  defineProps<{
+    busy?: boolean
+    loadDelivery?: MallBuyDeliveryLoader | null
+  }>(),
+  { busy: false, loadDelivery: null },
+)
 
 const emit = defineEmits<{
   addToCart: [offerId: string, quantity: number]
-  buyNow: [offerId: string, quantity: number]
+  buyNow: [offerId: string, quantity: number, delivery: DeliveryMode | null]
   // 联系询价 on a rental product (F3): the rental inquiry form for this offer.
   rent: [productId: string, offerId: string]
   // 联系询价 on an inquiry product (F4): the inquiry form, which picks the merchants itself.
   inquire: [productId: string]
 }>()
+
+// Board icons that line-icons.ts does not list in this exact form.
+const SHARE_PATH = 'M12 15V4M8 8l4-4 4 4M5 13v6h14v-6'
+const STORE_PATH = 'M4 9l2-5h12l2 5M4 9v11h16V9M4 9h16M9 20v-6h6v6'
 
 // 询价怎么走 (PdInquiryFull board): how an inquiry product gets its price. The quote window is 72
 // hours (§25.1 rule 3), not the board's two working days.
@@ -50,19 +73,33 @@ const INQUIRY_STEPS = [
   { title: '确认下单', note: '选定后付款' },
 ] as const
 
+// 租赁须知 and 租赁怎么走 (PdRental board), in the words of the rental rules settled in §24: one day
+// at least, priced by the day; the deposit is not taken online; handover and return are recorded by
+// the merchant and confirmed by the customer; damage is settled by the contract.
+const RENTAL_TERMS = [
+  { title: '租期', tag: '', text: '1 天起租，按天计费；长期租用的价格以报价为准', d: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4' },
+  { title: '押金', tag: '待定', text: '押金规则待确认，当前不在线收取', d: 'M12 3l7 3v5c0 5-3 8-7 10c-4-2-7-5-7-10V6z' },
+  { title: '交接', tag: '', text: '商家送达或到店自提，双方按清单核对设备和配件，留下交接记录', d: 'M4 9h14l-3-3M20 15H6l3 3' },
+  { title: '损坏处理', tag: '', text: '归还时核对交接记录，人为损坏按合同赔付', d: 'M12 4l9 16H3zM12 10v5M12 18h.01' },
+] as const
+const RENTAL_STEPS = ['提交询价', '商家报价', '确认合同', '交接使用', '归还结束'] as const
+
 type DetailState =
   | { kind: 'loading' }
   | { kind: 'ready'; product: MallProductDetail }
   | { kind: 'missing' }
   | { kind: 'error' }
 
+const badgeStore = useRootTabBadgeStore()
 const state = ref<DetailState>({ kind: 'loading' })
 const selectedOfferId = ref<string | null>(null)
+const cityName = ref<string | null>(null)
 let productId = ''
 let cityCode = ''
 let requestVersion = 0
 
 const product = computed(() => (state.value.kind === 'ready' ? state.value.product : null))
+const saleMode = computed(() => product.value?.saleMode ?? 'BUY')
 const selectedOffer = computed<MallOffer | null>(() =>
   product.value?.offers.find((offer) => offer.offerId === selectedOfferId.value) ?? null,
 )
@@ -79,6 +116,22 @@ const primaryAction = computed(() => {
 const noPayableOffer = computed(() =>
   Boolean(product.value && product.value.saleMode !== 'INQUIRY' && product.value.offers.length > 0 && !selectedOffer.value),
 )
+const price = computed(() => {
+  const offer = shownOffer.value
+  if (!product.value || !offer) return null
+  const listed = product.value.offers.map((item) => item.amountMinor).filter((amount): amount is number => amount !== null)
+  const lowestOfSeveral = new Set(listed).size > 1 && offer.amountMinor === Math.min(...listed)
+  return formatMallDetailPrice(offer.amountMinor, offer.unit, { saleMode: product.value.saleMode, lowestOfSeveral })
+})
+// "3 家在售 · 东营可售" on the right of the price.
+const sellersText = computed(() => {
+  if (!product.value) return ''
+  const count = product.value.offers.length
+  const city = cityName.value?.replace(/市$/, '') ?? null
+  if (saleMode.value === 'RENT') return `租赁 · ${count} 家${city ? ` · ${city}可租` : ''}`
+  if (saleMode.value === 'INQUIRY') return `${count} 家可报价${city ? ` · ${city}可售` : ''}`
+  return `${count} 家在售${city ? ` · ${city}可售` : ''}`
+})
 const packTotal = computed(() =>
   product.value?.packItems.reduce((total, item) => total + item.quantity, 0) ?? 0,
 )
@@ -89,9 +142,42 @@ const cover = computed(() => {
     ? { url: product.value.coverImage.url, cutout: false }
     : resolveMallPreviewCover(product.value.productId)
 })
-// Parameters open, packing list closed, as on the prototype board.
-const specsOpen = ref(true)
-const packOpen = ref(false)
+const parties = computed(() => {
+  const offer = shownOffer.value
+  if (!offer) return []
+  if (saleMode.value === 'INQUIRY') return inquiryParties()
+  const input = {
+    merchantName: offer.merchantName,
+    merchantKindLabel: MALL_MERCHANT_KIND_LABELS[offer.merchantKind],
+    fulfilledFrom: offer.fulfilledFrom,
+    sellerTestId: 'mall-product-seller',
+  }
+  const rows = saleMode.value === 'RENT' ? rentalParties(input) : goodsParties(input)
+  // Public builds take no payment, so they do not name a payee.
+  return MALL_PREVIEW_ENABLED ? rows : rows.filter((row) => row.label !== '收款方')
+})
+const partiesNote = computed(() => {
+  if (saleMode.value === 'INQUIRY') return '选定报价后确定'
+  const count = product.value?.offers.length ?? 0
+  if (saleMode.value === 'RENT' && count === 1) return '本商品 1 家出租'
+  return '随所选商家变化'
+})
+// 售后与保障: only the two lines that promise nothing the platform has not settled (R5 #8).
+const afterSales = computed(() => [
+  { title: '平台协助', text: '与商家协商不成时，可联系平台客服协助沟通' },
+  { title: '发票', text: `由${saleMode.value === 'RENT' ? '出租方' : '销售方'}开具，平台不代开` },
+])
+const specNote = computed(() =>
+  saleMode.value === 'INQUIRY' ? '参数由厂家填报，平台审核后展示；实际配置以报价单为准' : '参数由厂家填报，平台审核后展示')
+// The inquiry 配置 and 交付 rows: the spec the merchants quote for and how it is delivered here.
+const inquiryDelivery = computed(() =>
+  product.value?.offers.find((offer) => offer.shippingNote)?.shippingNote ?? null)
+// One fold open at a time, the parameters first, as on the board.
+const openFold = ref<'spec' | 'pack' | ''>('spec')
+
+function toggleFold(fold: 'spec' | 'pack'): void {
+  openFold.value = openFold.value === fold ? '' : fold
+}
 
 async function loadProduct(): Promise<void> {
   if (!productId || !cityCode) {
@@ -100,6 +186,11 @@ async function loadProduct(): Promise<void> {
   }
   const requested = ++requestVersion
   state.value = { kind: 'loading' }
+  if (!cityName.value) {
+    void loadInquiryCityName(cityCode).then((name) => {
+      if (requested === requestVersion) cityName.value = name
+    }).catch(() => undefined)
+  }
   try {
     const loaded = await mallApi.loadProduct(productId, cityCode)
     if (requested !== requestVersion) return
@@ -122,6 +213,15 @@ function selectOffer(offer: MallOffer): void {
     return
   }
   selectedOfferId.value = offer.offerId
+}
+
+// An inquiry product's merchant row opens the inquiry form, where the merchants are picked.
+function askOffer(offer: MallOffer): void {
+  if (!offer.onlinePayment) {
+    uni.showToast({ title: '这家商家暂未开通在线支付，请选其他商家', icon: 'none' })
+    return
+  }
+  runIntent('INQUIRE')
 }
 
 // 咨询 (step G1): the merchant of the offer on screen, with a card about this product.
@@ -154,6 +254,43 @@ function openShare(): void {
   }
 }
 
+function openCart(): void {
+  uni.switchTab({ url: CART_TAB_PATH })
+}
+
+// 更多 (board MoreSheet): 回首页, 反馈, 举报.
+const moreOpen = ref(false)
+const moreSubtitle = computed(() => {
+  const offer = shownOffer.value
+  const kind = saleMode.value === 'RENT' ? '租赁' : saleMode.value === 'INQUIRY' ? '询价商品' : '商品'
+  return offer ? `${offer.merchantName} · ${kind}` : kind
+})
+
+function moreHome(): void {
+  moreOpen.value = false
+  openHomeChannel('RECOMMEND')
+}
+
+function moreFeedback(): void {
+  moreOpen.value = false
+  uni.navigateTo({ url: buildSupportHelpUrl() })
+}
+
+function moreReport(): void {
+  moreOpen.value = false
+  if (!product.value) return
+  const offer = shownOffer.value
+  openSupportChat(
+    { kind: 'PLATFORM' },
+    {
+      type: 'PRODUCT',
+      refId: product.value.productId,
+      title: product.value.name,
+      subtitle: offer ? formatMallOfferPrice(offer.amountMinor, offer.unit) : '',
+    },
+  )
+}
+
 // Goods with a listed price open 规格与数量; everything else still goes through the gate.
 const buySheetOpen = ref(false)
 
@@ -163,10 +300,27 @@ function addToCart(quantity: number): void {
   buySheetOpen.value = false
 }
 
-function buyNow(quantity: number): void {
+function buyNow(quantity: number, delivery: DeliveryMode | null): void {
   if (!selectedOffer.value) return
-  emit('buyNow', selectedOffer.value.offerId, quantity)
+  emit('buyNow', selectedOffer.value.offerId, quantity, delivery)
   buySheetOpen.value = false
+}
+
+// 10 件以上: a bulk purchase of a listed product is asked about in a conversation with its merchant
+// (the inquiry form only takes inquiry products, §25.1).
+function bulkInquiry(): void {
+  buySheetOpen.value = false
+  consult()
+}
+
+// 已选 and 配送 open the sheet of a product that can be bought.
+function openBuySheet(): void {
+  if (MALL_PREVIEW_ENABLED && primaryAction.value?.cartAvailable) buySheetOpen.value = true
+}
+
+// No merchant takes payment online: the button stays orange and says so (R5 #1).
+function explainNoPayable(): void {
+  uni.showToast({ title: '暂无可在线付款的商家，请稍后再来', icon: 'none' })
 }
 
 function runIntent(type: 'ADD_TO_CART' | 'BUY_NOW' | 'INQUIRE'): void {
@@ -214,12 +368,7 @@ onLoad((query) => {
 <template>
   <view class="mall-product" data-testid="mall-product">
     <!-- With a product on screen the back button floats on its picture instead. -->
-    <header v-if="!product" class="mall-product__header">
-      <button class="mall-product__back" data-testid="mall-product-back" aria-label="返回" @click="goBack">
-        <UniIcons type="left" size="24" color="#435369" />
-      </button>
-      <text class="mall-product__header-title">商品详情</text>
-    </header>
+    <AppPageHeader v-if="!product" title="商品详情" test-id="mall-product" @back="goBack" />
 
     <view
       v-if="state.kind === 'loading'"
@@ -257,36 +406,59 @@ onLoad((query) => {
             mode="aspectFill"
           />
           <text v-else class="mall-product__cover-label">{{ MALL_CATEGORY_LABELS[product.category] }}</text>
-          <button class="mall-product__float" data-testid="mall-product-back" aria-label="返回" @click="goBack">
-            <view class="mall-product__float-circle">
-              <UniIcons type="left" size="20" color="#ffffff" />
-            </view>
-          </button>
-          <button
-            v-if="SUPPORT_PREVIEW_ENABLED"
-            class="mall-product__float mall-product__float--share"
-            data-testid="mall-product-share"
-            aria-label="分享"
-            @click="openShare"
-          >
-            <view class="mall-product__float-circle">
-              <UniIcons type="redo" size="20" color="#ffffff" />
-            </view>
-          </button>
+          <view class="mall-product__floats">
+            <button class="mall-product__float" data-testid="mall-product-back" aria-label="返回" @click="goBack">
+              <view class="mall-product__float-circle">
+                <LineIcon name="back" :size="20" color="#ffffff" :stroke-width="2" />
+              </view>
+            </button>
+            <view class="mall-product__floats-gap" />
+            <button
+              v-if="SUPPORT_PREVIEW_ENABLED"
+              class="mall-product__float"
+              data-testid="mall-product-share"
+              aria-label="分享"
+              @click="openShare"
+            >
+              <view class="mall-product__float-circle">
+                <LineIcon :d="SHARE_PATH" :size="20" color="#ffffff" :stroke-width="2" />
+              </view>
+            </button>
+            <button
+              v-if="MALL_PREVIEW_ENABLED"
+              class="mall-product__float"
+              data-testid="mall-product-to-cart"
+              aria-label="购物车"
+              @click="openCart"
+            >
+              <view class="mall-product__float-circle">
+                <LineIcon name="cart" :size="20" color="#ffffff" :stroke-width="2" />
+              </view>
+              <text v-if="badgeStore.cartCount > 0" class="mall-product__float-badge" data-testid="mall-product-cart-count">
+                {{ badgeStore.cartCount > 99 ? '99+' : badgeStore.cartCount }}
+              </text>
+            </button>
+            <button
+              v-if="SUPPORT_PREVIEW_ENABLED"
+              class="mall-product__float"
+              data-testid="mall-product-more"
+              aria-label="更多"
+              @click="moreOpen = true"
+            >
+              <view class="mall-product__float-circle">
+                <LineIcon name="more" :size="20" color="#ffffff" :stroke-width="3.6" />
+              </view>
+            </button>
+          </view>
         </view>
 
         <view class="mall-product__card mall-product__card--lead">
           <view class="mall-product__price-row">
-            <text
-              v-if="shownOffer"
-              class="mall-product__price"
-              data-testid="mall-product-price"
-            >
-              {{ formatMallOfferPrice(shownOffer.amountMinor, shownOffer.unit) }}
-            </text>
-            <text class="mall-product__price-note">
-              {{ product.offers.length }} 家{{ product.saleMode === 'RENT' ? '可租' : product.saleMode === 'INQUIRY' ? '可报价' : '在售' }}
-            </text>
+            <template v-if="price">
+              <text class="mall-product__price" data-testid="mall-product-price">{{ price.amount }}</text>
+              <text v-if="price.suffix" class="mall-product__price-unit" data-testid="mall-product-price-unit">{{ price.suffix }}</text>
+            </template>
+            <text class="mall-product__price-note" data-testid="mall-product-sellers">{{ sellersText }}</text>
           </view>
           <text class="mall-product__name" data-testid="mall-product-name">{{ product.name }}</text>
           <text v-if="product.summary" class="mall-product__summary">{{ product.summary }}</text>
@@ -296,24 +468,73 @@ onLoad((query) => {
               {{ MALL_BADGE_LABELS[product.experienceBadge] }}
             </text>
           </view>
-          <view v-if="shownOffer?.shippingNote" class="mall-product__delivery">
+          <button
+            v-if="shownOffer?.shippingNote && product.saleMode !== 'INQUIRY'"
+            class="mall-product__delivery"
+            data-testid="mall-product-delivery"
+            @click="openBuySheet"
+          >
             <text class="mall-product__delivery-label">{{ product.saleMode === 'RENT' ? '交付' : '配送' }}</text>
             <text class="mall-product__delivery-value" data-testid="mall-product-shipping">
               {{ shownOffer.shippingNote }}
             </text>
+            <LineIcon
+              v-if="MALL_PREVIEW_ENABLED && primaryAction?.cartAvailable"
+              name="forward"
+              :size="14"
+              color="#91a0b4"
+              :stroke-width="2"
+            />
+          </button>
+        </view>
+
+        <view
+          v-if="MALL_PREVIEW_ENABLED && product.saleMode === 'RENT'"
+          class="mall-product__card mall-product__card--terms"
+          data-testid="mall-product-rental-terms"
+        >
+          <text class="mall-product__section-title mall-product__terms-title">租赁须知</text>
+          <view v-for="term in RENTAL_TERMS" :key="term.title" class="mall-product__term">
+            <view class="mall-product__term-icon">
+              <LineIcon :d="term.d" :size="18" color="#ff6a00" />
+            </view>
+            <view class="mall-product__term-copy">
+              <view class="mall-product__term-heading">
+                <text class="mall-product__term-title">{{ term.title }}</text>
+                <text v-if="term.tag" class="mall-product__term-tag">{{ term.tag }}</text>
+              </view>
+              <text class="mall-product__term-text">{{ term.text }}</text>
+            </view>
           </view>
         </view>
 
         <view
-          v-if="MALL_PREVIEW_ENABLED && product.saleMode === 'INQUIRY'"
-          class="mall-product__card"
-          data-testid="mall-product-inquiry-steps"
+          v-if="MALL_PREVIEW_ENABLED && product.saleMode !== 'BUY'"
+          class="mall-product__card mall-product__card--steps"
+          :data-testid="product.saleMode === 'RENT' ? 'mall-product-rental-steps' : 'mall-product-inquiry-steps'"
         >
           <view class="mall-product__section-heading">
-            <text class="mall-product__section-title">询价怎么走</text>
+            <text class="mall-product__section-title">{{ product.saleMode === 'RENT' ? '租赁怎么走' : '询价怎么走' }}</text>
             <text class="mall-product__section-note mall-product__section-note--free">提交询价不产生费用</text>
           </view>
-          <view class="mall-product__steps" role="list" aria-label="询价流程">
+          <view
+            v-if="product.saleMode === 'RENT'"
+            class="mall-product__steps mall-product__steps--five"
+            role="list"
+            aria-label="租赁流程"
+          >
+            <view v-for="(step, index) in RENTAL_STEPS" :key="step" class="mall-product__step" role="listitem">
+              <view
+                :class="[
+                  'mall-product__step-line',
+                  { 'mall-product__step-line--first': index === 0, 'mall-product__step-line--last': index === RENTAL_STEPS.length - 1 },
+                ]"
+              />
+              <text class="mall-product__step-no mall-product__step-no--wide">{{ index + 1 }}</text>
+              <text class="mall-product__step-title mall-product__step-title--small">{{ step }}</text>
+            </view>
+          </view>
+          <view v-else class="mall-product__steps" role="list" aria-label="询价流程">
             <view
               v-for="(step, index) in INQUIRY_STEPS"
               :key="step.title"
@@ -331,6 +552,7 @@ onLoad((query) => {
               <text class="mall-product__step-note">{{ step.note }}</text>
             </view>
           </view>
+          <text v-if="product.saleMode === 'RENT'" class="mall-product__steps-hint">商家在 7 天内报价，档期在报价时确认。</text>
         </view>
 
         <view class="mall-product__card">
@@ -340,59 +562,117 @@ onLoad((query) => {
             </text>
             <text class="mall-product__section-note">同型号 · 不同供给</text>
           </view>
-          <button
-            v-for="offer in product.offers"
-            :key="offer.offerId"
-            :class="[
-              'mall-product__offer',
-              {
-                'mall-product__offer--selected': offer.offerId === selectedOfferId,
-                'mall-product__offer--unpaid': !offer.onlinePayment,
-              },
-            ]"
-            :data-testid="`mall-offer-${offer.offerId}`"
-            :data-online-payment="offer.onlinePayment"
-            :aria-pressed="offer.offerId === selectedOfferId"
-            :aria-disabled="!offer.onlinePayment"
-            @click="selectOffer(offer)"
-          >
-            <view class="mall-product__radio">
-              <text v-if="offer.offerId === selectedOfferId">✓</text>
-            </view>
-            <view class="mall-product__offer-copy">
-              <view class="mall-product__offer-heading">
-                <text class="mall-product__offer-name">{{ offer.merchantName }}</text>
-                <text class="mall-product__offer-kind">{{ MALL_MERCHANT_KIND_LABELS[offer.merchantKind] }}</text>
+          <template v-if="product.saleMode === 'INQUIRY'">
+            <button
+              v-for="offer in product.offers"
+              :key="offer.offerId"
+              :class="['mall-product__offer', { 'mall-product__offer--unpaid': !offer.onlinePayment }]"
+              :data-testid="`mall-offer-${offer.offerId}`"
+              :data-online-payment="offer.onlinePayment"
+              :aria-disabled="!offer.onlinePayment"
+              @click="askOffer(offer)"
+            >
+              <view class="mall-product__offer-copy">
+                <view class="mall-product__offer-heading">
+                  <text class="mall-product__offer-name">{{ offer.merchantName }}</text>
+                  <text class="mall-product__offer-kind">{{ MALL_MERCHANT_KIND_LABELS[offer.merchantKind] }}</text>
+                </view>
+                <text v-if="offer.deliveryNote" class="mall-product__offer-note">{{ offer.deliveryNote }}</text>
+                <text
+                  v-if="!offer.onlinePayment"
+                  class="mall-product__offer-unpaid"
+                  :data-testid="`mall-offer-unpaid-${offer.offerId}`"
+                >暂未开通在线支付</text>
               </view>
-              <text v-if="offer.deliveryNote" class="mall-product__offer-note">{{ offer.deliveryNote }}</text>
-              <text
-                v-if="!offer.onlinePayment"
-                class="mall-product__offer-unpaid"
-                :data-testid="`mall-offer-unpaid-${offer.offerId}`"
-              >暂未开通在线支付</text>
-            </view>
-            <text class="mall-product__offer-price">{{ formatMallOfferPrice(offer.amountMinor, offer.unit) }}</text>
-          </button>
-          <text
-            v-if="MALL_PREVIEW_ENABLED && product.saleMode === 'INQUIRY'"
-            class="mall-product__offers-hint"
-          >在询价单里选发给哪几家，报价后再比选。</text>
+              <text class="mall-product__offer-price mall-product__offer-price--ask">询价</text>
+              <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
+            </button>
+          </template>
+          <template v-else>
+            <button
+              v-for="offer in product.offers"
+              :key="offer.offerId"
+              :class="[
+                'mall-product__offer',
+                {
+                  'mall-product__offer--selected': offer.offerId === selectedOfferId,
+                  'mall-product__offer--unpaid': !offer.onlinePayment,
+                },
+              ]"
+              :data-testid="`mall-offer-${offer.offerId}`"
+              :data-online-payment="offer.onlinePayment"
+              :aria-pressed="offer.offerId === selectedOfferId"
+              :aria-disabled="!offer.onlinePayment"
+              @click="selectOffer(offer)"
+            >
+              <view class="mall-product__radio">
+                <LineIcon v-if="offer.offerId === selectedOfferId" name="check" :size="12" color="#ffffff" :stroke-width="3" />
+              </view>
+              <view class="mall-product__offer-copy">
+                <view class="mall-product__offer-heading">
+                  <text class="mall-product__offer-name">{{ offer.merchantName }}</text>
+                  <text class="mall-product__offer-kind">{{ MALL_MERCHANT_KIND_LABELS[offer.merchantKind] }}</text>
+                </view>
+                <text v-if="offer.deliveryNote" class="mall-product__offer-note">{{ offer.deliveryNote }}</text>
+                <text
+                  v-if="!offer.onlinePayment"
+                  class="mall-product__offer-unpaid"
+                  :data-testid="`mall-offer-unpaid-${offer.offerId}`"
+                >暂未开通在线支付</text>
+              </view>
+              <text class="mall-product__offer-price">{{ formatMallOfferPrice(offer.amountMinor, offer.unit) }}</text>
+            </button>
+          </template>
+          <text v-if="product.saleMode === 'INQUIRY'" class="mall-product__offers-hint">在询价单里选发给哪几家，报价后再比选。</text>
+          <text v-else-if="product.offers.length > 1" class="mall-product__offers-hint">排序：按价格从低到高。价格为商家当前报价。</text>
         </view>
 
-        <view v-if="shownOffer" class="mall-product__card">
-          <view class="mall-product__section-heading">
-            <text class="mall-product__section-title">交易主体</text>
-            <text class="mall-product__section-note">随所选商家变化</text>
+        <button
+          v-if="MALL_PREVIEW_ENABLED && product.saleMode === 'BUY' && selectedOffer && primaryAction?.cartAvailable"
+          class="mall-product__card mall-product__chosen"
+          data-testid="mall-product-chosen"
+          @click="openBuySheet"
+        >
+          <view class="mall-product__chosen-row">
+            <text class="mall-product__chosen-label">已选</text>
+            <text class="mall-product__chosen-value">{{ selectedOffer.skuName }} · 1 件</text>
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
           </view>
-          <view class="mall-product__parties">
-            <text class="mall-product__party-label">销售方</text>
-            <text class="mall-product__party-value" data-testid="mall-product-seller">
-              {{ shownOffer.merchantName }}（{{ MALL_MERCHANT_KIND_LABELS[shownOffer.merchantKind] }}）
+        </button>
+
+        <view
+          v-if="MALL_PREVIEW_ENABLED && product.saleMode === 'INQUIRY' && shownOffer"
+          class="mall-product__card mall-product__chosen"
+          data-testid="mall-product-inquiry-rows"
+        >
+          <button class="mall-product__chosen-row mall-product__chosen-row--line" @click="runIntent('INQUIRE')">
+            <text class="mall-product__chosen-label">配置</text>
+            <text class="mall-product__chosen-value">{{ shownOffer.skuName }}</text>
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
+          </button>
+          <button v-if="inquiryDelivery" class="mall-product__chosen-row" @click="runIntent('INQUIRE')">
+            <text class="mall-product__chosen-label">交付</text>
+            <text class="mall-product__chosen-value">{{ inquiryDelivery }}</text>
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
+          </button>
+        </view>
+
+        <TradePartiesCard
+          v-if="shownOffer"
+          class="mall-product__parties"
+          :rows="parties"
+          :note="partiesNote"
+          test-id="mall-product-parties"
+        />
+
+        <view v-if="MALL_PREVIEW_ENABLED" class="mall-product__card" data-testid="mall-product-after-sales">
+          <text class="mall-product__section-title">售后与保障</text>
+          <view v-for="item in afterSales" :key="item.title" class="mall-product__after">
+            <LineIcon name="check" :size="16" color="#159a70" :stroke-width="2.2" />
+            <text class="mall-product__after-text">
+              <text class="mall-product__after-title">{{ item.title }}</text>
+              <text class="mall-product__after-copy">{{ item.text }}</text>
             </text>
-            <template v-if="shownOffer.fulfilledFrom">
-              <text class="mall-product__party-label">{{ product.saleMode === 'RENT' ? '交付' : '发货履约' }}</text>
-              <text class="mall-product__party-value">{{ shownOffer.fulfilledFrom }}</text>
-            </template>
           </view>
         </view>
 
@@ -404,18 +684,27 @@ onLoad((query) => {
             <button
               class="mall-product__fold"
               data-testid="mall-product-specs-toggle"
-              :aria-expanded="specsOpen ? 'true' : 'false'"
-              @click="specsOpen = !specsOpen"
+              :aria-expanded="openFold === 'spec' ? 'true' : 'false'"
+              @click="toggleFold('spec')"
             >
               <text class="mall-product__fold-title">参数</text>
               <text class="mall-product__fold-count">{{ product.specs.length }} 项</text>
-              <UniIcons class="mall-product__fold-arrow" :type="specsOpen ? 'up' : 'down'" size="14" color="#738096" />
+              <LineIcon
+                class="mall-product__fold-arrow"
+                :name="openFold === 'spec' ? 'chevronUp' : 'chevronDown'"
+                :size="16"
+                color="#91a0b4"
+                :stroke-width="2"
+              />
             </button>
-            <view v-if="specsOpen" class="mall-product__spec-table">
-              <template v-for="spec in product.specs" :key="spec.label">
-                <text class="mall-product__spec-label">{{ spec.label }}</text>
-                <text class="mall-product__spec-value">{{ spec.value }}</text>
-              </template>
+            <view v-if="openFold === 'spec'" class="mall-product__fold-body">
+              <view class="mall-product__spec-table">
+                <template v-for="spec in product.specs" :key="spec.label">
+                  <text class="mall-product__spec-label">{{ spec.label }}</text>
+                  <text class="mall-product__spec-value">{{ spec.value }}</text>
+                </template>
+              </view>
+              <text class="mall-product__spec-note">{{ specNote }}</text>
             </view>
           </view>
           <view
@@ -426,14 +715,20 @@ onLoad((query) => {
             <button
               class="mall-product__fold"
               data-testid="mall-product-pack-toggle"
-              :aria-expanded="packOpen ? 'true' : 'false'"
-              @click="packOpen = !packOpen"
+              :aria-expanded="openFold === 'pack' ? 'true' : 'false'"
+              @click="toggleFold('pack')"
             >
-              <text class="mall-product__fold-title">包装清单</text>
+              <text class="mall-product__fold-title">{{ product.saleMode === 'RENT' ? '随箱清单' : '包装清单' }}</text>
               <text class="mall-product__fold-count">{{ packTotal }} 件</text>
-              <UniIcons class="mall-product__fold-arrow" :type="packOpen ? 'up' : 'down'" size="14" color="#738096" />
+              <LineIcon
+                class="mall-product__fold-arrow"
+                :name="openFold === 'pack' ? 'chevronUp' : 'chevronDown'"
+                :size="16"
+                color="#91a0b4"
+                :stroke-width="2"
+              />
             </button>
-            <view v-if="packOpen" class="mall-product__pack-list">
+            <view v-if="openFold === 'pack'" class="mall-product__pack-list">
               <view v-for="item in product.packItems" :key="item.name" class="mall-product__pack-row">
                 <text class="mall-product__pack-name">{{ item.name }}</text>
                 <text class="mall-product__pack-quantity">×{{ item.quantity }}</text>
@@ -450,42 +745,68 @@ onLoad((query) => {
           data-testid="mall-product-consult"
           @click="consult"
         >
-          <UniIcons type="chat" size="22" color="#536178" />
+          <LineIcon name="chat" :size="22" color="#536178" />
           <text>咨询</text>
         </button>
-        <view v-if="noPayableOffer" class="mall-product__no-payable" data-testid="mall-product-no-payable">
-          暂无可在线付款的商家
-        </view>
-        <view v-else-if="primaryAction" class="mall-product__action-group">
         <button
-          v-if="primaryAction.cartAvailable"
-          class="mall-product__secondary"
-          data-testid="mall-product-cart"
-          @click="runIntent('ADD_TO_CART')"
+          v-if="noPayableOffer"
+          class="mall-product__solo"
+          data-testid="mall-product-no-payable"
+          @click="explainNoPayable"
         >
-          加入购物车
+          {{ product.saleMode === 'BUY' ? '立即购买' : '联系询价' }}
         </button>
+        <view v-else-if="primaryAction && primaryAction.cartAvailable" class="mall-product__action-group">
+          <button
+            class="mall-product__secondary"
+            data-testid="mall-product-cart"
+            @click="runIntent('ADD_TO_CART')"
+          >
+            加入购物车
+          </button>
+          <button
+            class="mall-product__primary"
+            data-testid="mall-product-primary"
+            :data-intent="primaryAction.intent"
+            @click="runIntent(primaryAction.intent)"
+          >
+            {{ primaryAction.label }}
+          </button>
+        </view>
         <button
-          class="mall-product__primary"
+          v-else-if="primaryAction"
+          class="mall-product__solo"
           data-testid="mall-product-primary"
           :data-intent="primaryAction.intent"
           @click="runIntent(primaryAction.intent)"
         >
           {{ primaryAction.label }}
         </button>
-        </view>
       </view>
 
       <ShareSheet :target="shareTarget" @close="shareTarget = null" />
+
+      <MallProductMoreSheet
+        v-if="moreOpen"
+        :title="product.name"
+        :subtitle="moreSubtitle"
+        :cover-url="cover?.url ?? null"
+        @close="moreOpen = false"
+        @home="moreHome"
+        @feedback="moreFeedback"
+        @report="moreReport"
+      />
 
       <MallBuySheet
         v-if="buySheetOpen && selectedOffer"
         :offer="selectedOffer"
         :cover-url="cover?.url ?? null"
         :busy="props.busy"
+        :load-delivery="props.loadDelivery"
         @close="buySheetOpen = false"
         @add-to-cart="addToCart"
         @buy-now="buyNow"
+        @bulk-inquiry="bulkInquiry"
       />
     </template>
   </view>
@@ -513,33 +834,6 @@ button {
 
 button::after {
   border: 0;
-}
-
-.mall-product__header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  min-height: calc(50px + var(--status-bar-height));
-  padding: var(--status-bar-height) 12px 0;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-  box-sizing: border-box;
-}
-
-.mall-product__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-}
-
-.mall-product__header-title {
-  font-size: 18px;
-  font-weight: 700;
 }
 
 .mall-product__content {
@@ -583,6 +877,7 @@ button::after {
   gap: 8px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .mall-product__state-title {
@@ -636,20 +931,44 @@ button::after {
   font-size: 14px;
 }
 
-.mall-product__float {
+.mall-product__floats {
   position: absolute;
   top: calc(var(--status-bar-height) + 4px);
+  right: 8px;
   left: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.mall-product__floats-gap {
+  flex: 1;
+}
+
+.mall-product__float {
+  position: relative;
   display: flex;
   width: 44px;
   height: 44px;
+  flex: none;
   align-items: center;
   justify-content: center;
 }
 
-.mall-product__float--share {
-  right: 8px;
-  left: auto;
+.mall-product__float-badge {
+  position: absolute;
+  top: 1px;
+  left: 50%;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #ff5200;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .mall-product__float-circle {
@@ -670,16 +989,154 @@ button::after {
   gap: 10px;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 3px 12px rgba(38, 60, 101, 0.06);
-  outline: 1px solid rgba(232, 237, 244, 0.5);
-  outline-offset: -1px;
+  box-shadow: var(--app-card-shadow);
+}
+
+.mall-product__parties {
+  margin: 0 16px;
 }
 
 /* The first card overlaps the picture. */
 .mall-product__card--lead {
   position: relative;
-  margin-top: -36px;
+  margin-top: -24px;
   gap: 6px;
+}
+
+.mall-product__price-unit {
+  color: #e85400;
+  font-size: 13px;
+}
+
+/* 已选 (and the 配置 / 交付 rows of an inquiry product): rows of 48px, label 40px wide. */
+.mall-product__chosen {
+  padding: 0 14px;
+  gap: 0;
+}
+
+.mall-product__chosen-row {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 12px;
+}
+
+.mall-product__chosen-row--line {
+  border-bottom: 1px solid #f0f1f3;
+}
+
+.mall-product__chosen-label {
+  width: 40px;
+  flex: none;
+  color: #627187;
+  font-size: 13px;
+}
+
+.mall-product__chosen-value {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 租赁须知 (PdRental). */
+.mall-product__card--terms {
+  padding: 14px 14px 4px;
+  gap: 0;
+}
+
+.mall-product__terms-title {
+  margin-bottom: 8px;
+}
+
+.mall-product__term {
+  display: flex;
+  padding: 10px 0;
+  align-items: flex-start;
+  gap: 10px;
+  border-top: 1px solid #f0f1f3;
+}
+
+.mall-product__term-icon {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff0e3;
+}
+
+.mall-product__term-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mall-product__term-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mall-product__term-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.mall-product__term-tag {
+  padding: 0 6px;
+  border-radius: 6px;
+  color: #627187;
+  background: #eef2f8;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.mall-product__term-text {
+  color: #536178;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.mall-product__card--steps {
+  gap: 14px;
+}
+
+.mall-product__steps-hint {
+  color: #627187;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* 售后与保障: a green tick, the title in 500 and the words in grey. */
+.mall-product__after {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.mall-product__after :deep(.line-icon) {
+  margin-top: 2px;
+}
+
+.mall-product__after-title {
+  font-weight: 500;
+}
+
+.mall-product__after-copy {
+  margin-left: 4px;
+  color: #536178;
 }
 
 .mall-product__price-row {
@@ -730,6 +1187,7 @@ button::after {
 
 .mall-product__delivery {
   display: flex;
+  width: 100%;
   min-height: 44px;
   margin: 4px 0 -8px;
   align-items: center;
@@ -747,7 +1205,10 @@ button::after {
 .mall-product__delivery-value {
   min-width: 0;
   flex: 1;
+  overflow: hidden;
   font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mall-product__section-heading {
@@ -775,6 +1236,10 @@ button::after {
 .mall-product__steps {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mall-product__steps--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .mall-product__step {
@@ -823,6 +1288,15 @@ button::after {
   white-space: nowrap;
 }
 
+.mall-product__step-no--wide {
+  margin-bottom: 6px;
+}
+
+.mall-product__step-title--small {
+  font-size: 12px;
+  line-height: 17px;
+}
+
 .mall-product__step-note {
   color: #738096;
   font-size: 11px;
@@ -850,7 +1324,7 @@ button::after {
 
 .mall-product__offer--selected {
   border-color: #ff6a00;
-  background: #fff8f2;
+  background: #fffaf5;
 }
 
 /* A merchant that cannot take payment online: shown, greyed, not chosen. */
@@ -932,15 +1406,9 @@ button::after {
   color: #e85400;
 }
 
-.mall-product__parties {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 8px 10px;
-  font-size: 13px;
-}
-
-.mall-product__party-label {
-  color: #627187;
+.mall-product__offer-price--ask {
+  color: #e85400;
+  font-size: 15px;
 }
 
 .mall-product__card--folds {
@@ -976,9 +1444,20 @@ button::after {
   margin-left: auto;
 }
 
+.mall-product__fold-body {
+  display: flex;
+  padding-bottom: 14px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mall-product__spec-note {
+  color: #738096;
+  font-size: 12px;
+}
+
 .mall-product__spec-table {
   display: grid;
-  margin-bottom: 14px;
   grid-template-columns: 96px 1fr;
   overflow: hidden;
   border: 1px solid #f0f1f3;
@@ -1035,7 +1514,7 @@ button::after {
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
-  box-shadow: 0 -4px 18px rgba(38, 59, 98, 0.06);
+  box-shadow: var(--app-bar-shadow);
 }
 
 /* 咨询 on the left of the bar, as on the board PdFull. */
@@ -1054,7 +1533,8 @@ button::after {
   white-space: nowrap;
 }
 
-.mall-product__no-payable {
+/* One orange pill: 联系询价 of a rental or inquiry product, or a product nobody can be paid for. */
+.mall-product__solo {
   display: flex;
   height: 44px;
   min-width: 0;
@@ -1063,9 +1543,10 @@ button::after {
   justify-content: center;
   border-radius: 999px;
   color: #ffffff;
-  background: #c9d3e1;
-  font-size: 15px;
+  background: #ff6a00;
+  font-size: 16px;
   font-weight: 500;
+  box-shadow: var(--app-primary-shadow);
 }
 
 /* One pill: the two buttons share its rounded ends. */
@@ -1076,6 +1557,7 @@ button::after {
   height: 44px;
   overflow: hidden;
   border-radius: 999px;
+  box-shadow: var(--app-primary-shadow);
 }
 
 .mall-product__secondary,

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import {
@@ -11,7 +10,8 @@ import {
   cashierClosedNote,
   cashierCountdownLine,
   cashierDueNote,
-  cashierRows,
+  cashierLayout,
+  cashierPayeeSuffix,
   cancelledToast,
   isSourceOrder,
   orderDestination,
@@ -31,6 +31,7 @@ import { wechatPaymentLauncher } from '../../data/wechat-payment-launcher'
 import { hasBeenPaid, type TradeOrder } from '../../domain/trade-order'
 import TradePageHeader from '../shared/TradePageHeader.vue'
 import { confirmDialog, copyText, wait } from '../shared/trade-presentation'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 const props = defineProps<{
   orderId: string
@@ -80,7 +81,8 @@ const closedTitle = computed(() => closedFrame.value.title)
 const closedText = computed(() => closedFrame.value.text)
 const countdownLine = computed(() => (order.value ? cashierCountdownLine(order.value, now.value) : ''))
 const dueNote = computed(() => (order.value ? cashierDueNote(order.value) : null))
-const rows = computed(() => (order.value ? cashierRows(order.value) : []))
+const layout = computed(() => (order.value ? cashierLayout(order.value) : []))
+const payeeSuffix = computed(() => (order.value ? cashierPayeeSuffix(order.value) : null))
 // A sign-up or a venue booking: one way on, to its own page, instead of 查看订单 / 重新选购.
 const sourceOrder = computed(() => Boolean(order.value && isSourceOrder(order.value)))
 const destination = computed(() => (order.value ? orderDestination(order.value) : null))
@@ -229,20 +231,29 @@ onBeforeUnmount(() => {
         </view>
 
         <view class="cashier__card cashier__rows">
-          <view class="cashier__row">
-            <text class="cashier__row-label">订单号</text>
-            <text class="cashier__row-value" data-testid="cashier-order-no">{{ order.orderNo }}</text>
-            <button class="cashier__copy" data-testid="cashier-copy" @click="copyOrderNo">
-              <text :class="copied ? 'cashier__copied' : 'cashier__copy-text'">{{ copied ? '已复制' : '复制' }}</text>
-            </button>
-          </view>
-          <view class="cashier__row cashier__row--line">
-            <text class="cashier__row-label">收款方</text>
-            <text class="cashier__row-value" data-testid="cashier-payee">{{ order.merchant.name }}</text>
-          </view>
-          <view v-for="row in rows" :key="row.key" class="cashier__row cashier__row--line">
-            <text class="cashier__row-label">{{ row.label }}</text>
-            <text class="cashier__row-value cashier__row-value--goods" :data-testid="`cashier-${row.key}`">{{ row.value }}</text>
+          <view
+            v-for="(line, index) in layout"
+            :key="line.key"
+            :class="['cashier__row', { 'cashier__row--line': index > 0 }]"
+          >
+            <template v-if="line.key === 'order-no'">
+              <text class="cashier__row-label">订单号</text>
+              <text class="cashier__row-value" data-testid="cashier-order-no">{{ order.orderNo }}</text>
+              <button class="cashier__copy" data-testid="cashier-copy" @click="copyOrderNo">
+                <text :class="copied ? 'cashier__copied' : 'cashier__copy-text'">{{ copied ? '已复制' : '复制' }}</text>
+              </button>
+            </template>
+            <template v-else-if="line.key === 'payee'">
+              <text class="cashier__row-label">收款方</text>
+              <text class="cashier__row-value">
+                <text data-testid="cashier-payee">{{ order.merchant.name }}</text>
+                <text v-if="payeeSuffix">{{ payeeSuffix }}</text>
+              </text>
+            </template>
+            <template v-else-if="'label' in line">
+              <text class="cashier__row-label">{{ line.label }}</text>
+              <text class="cashier__row-value cashier__row-value--goods" :data-testid="`cashier-${line.key}`">{{ line.value }}</text>
+            </template>
           </view>
         </view>
 
@@ -253,7 +264,7 @@ onBeforeUnmount(() => {
               <image class="cashier__method-svg" src="/static/images/trade/wallet.svg" mode="aspectFit" />
             </view>
             <text class="cashier__method-name">{{ TRADE_PAYMENT_METHOD_LABEL }}</text>
-            <view class="cashier__method-check"><UniIcons type="checkmarkempty" size="12" color="#ffffff" /></view>
+            <view class="cashier__method-check"><LineIcon name="check" :size="12" color="#ffffff" :stroke-width="3" /></view>
           </view>
           <text class="cashier__methods-note">目前只支持这一种支付方式</text>
         </view>

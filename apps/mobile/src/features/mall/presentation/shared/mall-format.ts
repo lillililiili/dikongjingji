@@ -79,3 +79,26 @@ export function formatMallSellers(card: MallProductCard): string {
 export function formatMallOfferPrice(amountMinor: number | null, unit: MallPriceUnit): string {
   return amountMinor === null ? '询价' : `${formatMallAmount(amountMinor)}${formatMallUnit(unit)}`
 }
+
+export interface MallDetailPriceText {
+  // 26px: "¥1,299", "¥380" or "询价"
+  amount: string
+  // 13px after it: "起", "/天 起", "按配置与数量报价" or ""
+  suffix: string
+}
+
+// The price of a product detail, in the two sizes of the board PdFull: the amount, then the unit and
+// 起 in small type. 起 when the amount is a starting point: a rental (the quote depends on the period)
+// or the lowest of several listed prices.
+export function formatMallDetailPrice(
+  amountMinor: number | null,
+  unit: MallPriceUnit,
+  options: { saleMode: MallSaleMode; lowestOfSeveral: boolean },
+): MallDetailPriceText {
+  if (amountMinor === null) {
+    return { amount: '询价', suffix: options.saleMode === 'INQUIRY' ? '按配置与数量报价' : '' }
+  }
+  const from = options.saleMode === 'RENT' || options.lowestOfSeveral ? '起' : ''
+  const suffix = [formatMallUnit(unit), from].filter(Boolean).join(' ')
+  return { amount: formatMallAmount(amountMinor), suffix }
+}

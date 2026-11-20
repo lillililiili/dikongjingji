@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import {
   loadMoreMerged,
   mergedHasMore,
@@ -21,7 +22,6 @@ import {
   rentalOrderStatusesOfTab,
   type RentalOrderTab,
 } from '../../navigation/rental-routes'
-import RentalPageHeader from '../shared/RentalPageHeader.vue'
 
 const props = defineProps<{
   // Null for a guest. The page host reads it again every time the page is shown.
@@ -145,7 +145,8 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
 <template>
   <view class="rental-orders" data-testid="rental-orders">
     <view class="rental-orders__top">
-      <RentalPageHeader title="租赁订单" @back="emit('back')" />
+      <!-- Same head and tabs as 商品订单 (board OrderList): a centred title and underlined tabs. -->
+      <AppPageHeader title="租赁订单" centered test-id="rental" @back="emit('back')" />
       <scroll-view class="rental-orders__tabs" scroll-x :show-scrollbar="false">
         <view class="rental-orders__tab-row" role="group" aria-label="按状态筛选">
           <button
@@ -159,6 +160,7 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
             <text :class="['rental-orders__tab-pill', { 'rental-orders__tab-pill--on': code === tab }]">
               {{ RENTAL_ORDER_TAB_LABELS[code] }}
             </text>
+            <view v-if="code === tab" class="rental-orders__tab-bar" />
           </button>
         </view>
       </scroll-view>
@@ -176,7 +178,7 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
     </view>
 
     <view v-else-if="cards.length === 0" class="rental-orders__state" data-testid="rental-orders-empty">
-      <view class="rental-orders__empty-icon"><UniIcons type="calendar" size="28" color="#91a0b4" /></view>
+      <view class="rental-orders__empty-icon"><LineIcon name="calendar" :size="28" color="#91a0b4" /></view>
       <text class="rental-orders__state-text">{{ tab === 'ALL' ? '还没有租赁订单' : '没有符合条件的订单' }}</text>
       <button class="rental-orders__state-button" data-testid="rental-orders-browse" @click="emit('browse')">去商城租设备</button>
     </view>
@@ -191,6 +193,7 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
       >
         <button class="rental-orders__main" :data-testid="`rental-order-card-open-${card.order.rentalOrderId}`" @click="emit('open', card.order.rentalOrderId)">
           <view class="rental-orders__head">
+            <text class="rental-orders__kind">租赁</text>
             <text class="rental-orders__merchant">{{ card.order.contract.lessor.name }}</text>
             <text :class="['rental-orders__status', `rental-orders__status--${card.view.tone.toLowerCase()}`]" data-testid="rental-order-card-status">
               {{ card.view.statusText }}
@@ -199,14 +202,16 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
           <view class="rental-orders__content">
             <image v-if="card.cover" class="rental-orders__image" :src="card.cover" mode="aspectFill" />
             <view v-else class="rental-orders__image rental-orders__image--empty">
-              <UniIcons type="gear" size="26" color="#91a0b4" />
+              <LineIcon name="rental" :size="26" color="#91a0b4" />
             </view>
             <view class="rental-orders__copy">
-              <text class="rental-orders__title">{{ card.view.title }}</text>
+              <view class="rental-orders__name-line">
+                <text class="rental-orders__title">{{ card.view.title }}</text>
+                <text class="rental-orders__amount">{{ card.view.amount }}</text>
+              </view>
               <text class="rental-orders__meta">{{ card.view.period }}</text>
               <text class="rental-orders__line" data-testid="rental-order-card-line">{{ card.view.line }}</text>
             </view>
-            <text class="rental-orders__amount">{{ card.view.amount }}</text>
           </view>
         </button>
         <view class="rental-orders__actions">
@@ -272,41 +277,47 @@ button::after {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: #ffffff;
+  background: var(--app-head-gradient);
 }
 
 .rental-orders__tabs {
   width: 100%;
-  background: #f5f7fc;
   white-space: nowrap;
 }
 
 .rental-orders__tab-row {
   display: inline-flex;
-  padding: 6px 16px 0;
-  gap: 6px;
+  padding: 0 8px 4px;
 }
 
 .rental-orders__tab {
+  position: relative;
   flex: none;
-  padding: 6px 0;
+  height: 44px;
+  padding: 0 12px;
 }
 
 .rental-orders__tab-pill {
-  display: flex;
-  height: 32px;
-  padding: 0 12px;
-  align-items: center;
-  border-radius: 999px;
-  background: #ffffff;
-  font-size: 13px;
-  line-height: 32px;
+  color: #627187;
+  font-size: 15px;
+  line-height: 44px;
   white-space: nowrap;
 }
 
 .rental-orders__tab-pill--on {
-  color: #ffffff;
-  background: #202c42;
+  color: #202c42;
+  font-weight: 700;
+}
+
+.rental-orders__tab-bar {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 20px;
+  height: 3px;
+  margin-left: -10px;
+  border-radius: 3px;
+  background: #ff6a00;
 }
 
 .rental-orders__body {
@@ -323,6 +334,23 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
+}
+
+.rental-orders__kind {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 6px;
+  color: #ba470b;
+  background: #fff0e3;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.rental-orders__name-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .rental-orders__main {
@@ -340,7 +368,7 @@ button::after {
 .rental-orders__merchant {
   overflow: hidden;
   min-width: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   line-height: 20px;
   text-overflow: ellipsis;
@@ -388,6 +416,8 @@ button::after {
 }
 
 .rental-orders__title {
+  min-width: 0;
+  flex: 1;
   font-size: 15px;
   font-weight: 700;
   line-height: 21px;
@@ -432,9 +462,11 @@ button::after {
 }
 
 .rental-orders__action--primary {
+  padding: 0 18px;
   border-color: #ff6a00;
   color: #ffffff;
   background: #ff6a00;
+  box-shadow: var(--app-primary-shadow);
   font-weight: 500;
 }
 

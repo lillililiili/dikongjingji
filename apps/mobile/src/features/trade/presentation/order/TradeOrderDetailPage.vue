@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import {
@@ -15,7 +14,6 @@ import {
   describePayment,
   detailActions,
   formatTradeAmount,
-  formatTradeDateTime,
   formatTradeTime,
   type TradeOrderAction,
 } from '../../application/order-view'
@@ -24,8 +22,12 @@ import { isUnauthorizedFailure, readTradeFailure } from '../../application/start
 import { createTradeKey } from '../../application/trade-keys'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
+import LineIcon from '@/shared/ui/LineIcon.vue'
+
 import { tradeApi } from '../../data/trade-api-client'
 import type { TradeOrder } from '../../domain/trade-order'
+import TradePartiesCard from '../shared/TradePartiesCard.vue'
+import { goodsParties } from '../shared/trade-parties'
 import { confirmDialog, copyText, coverOfLine } from '../shared/trade-presentation'
 
 const props = defineProps<{
@@ -167,7 +169,7 @@ onBeforeUnmount(() => {
     <view class="goods-order__head">
       <view class="goods-order__nav">
         <button class="goods-order__back" data-testid="goods-order-back" aria-label="返回" @click="emit('back')">
-          <UniIcons type="left" size="22" color="#ffffff" />
+          <LineIcon name="back" :size="22" color="#ffffff" :stroke-width="2" />
         </button>
         <text class="goods-order__nav-title">订单详情</text>
         <view class="goods-order__nav-spacer" />
@@ -260,6 +262,16 @@ onBeforeUnmount(() => {
           </view>
         </view>
 
+        <TradePartiesCard
+          test-id="goods-order-parties"
+          :rows="goodsParties({
+            merchantName: order.merchant.name,
+            merchantKindLabel: order.merchant.kind ? TRADE_MERCHANT_KIND_LABELS[order.merchant.kind] : null,
+            fulfilledFrom: null,
+          })"
+          footnote="发票由销售方开具，可联系销售方申请"
+        />
+
         <view class="goods-order__card goods-order__section">
           <text class="goods-order__section-title">金额明细</text>
           <view class="goods-order__money"><text class="goods-order__label">商品金额</text><text>{{ formatTradeAmount(order.amounts.goodsMinor) }}</text></view>
@@ -299,7 +311,11 @@ onBeforeUnmount(() => {
           <view class="goods-order__info"><text class="goods-order__info-label">支付时间</text><text>{{ formatTradeTime(order.paidAt) }}</text></view>
           <view class="goods-order__info">
             <text class="goods-order__info-label">支付状态</text>
-            <text class="goods-order__paid" data-testid="goods-order-payment-status">{{ payment }}</text>
+            <text class="goods-order__paid">
+              <text data-testid="goods-order-payment-status">{{ payment }}</text>
+              <!-- The status only comes from a verified WeChat notification or the server's own query. -->
+              <text v-if="payment === '已支付'" data-testid="goods-order-payment-verified"> · 渠道回执已核验</text>
+            </text>
           </view>
         </view>
 
@@ -312,9 +328,9 @@ onBeforeUnmount(() => {
               {{ copied === 'ORDER' ? '已复制' : '复制' }}
             </button>
           </view>
-          <view class="goods-order__info"><text class="goods-order__info-label">下单时间</text><text>{{ formatTradeDateTime(order.createdAt) }}</text></view>
+          <view class="goods-order__info"><text class="goods-order__info-label">下单时间</text><text data-testid="goods-order-created-at">{{ formatTradeTime(order.createdAt) }}</text></view>
           <view v-if="delivery.shippedAt" class="goods-order__info">
-            <text class="goods-order__info-label">发货时间</text><text>{{ formatTradeDateTime(delivery.shippedAt) }}</text>
+            <text class="goods-order__info-label">发货时间</text><text>{{ formatTradeTime(delivery.shippedAt) }}</text>
           </view>
           <view v-if="order.buyerNote" class="goods-order__info goods-order__info--top">
             <text class="goods-order__info-label">留言</text><text class="goods-order__note">{{ order.buyerNote }}</text>
@@ -329,7 +345,7 @@ onBeforeUnmount(() => {
           data-testid="goods-order-contact"
           @click="contactMerchant"
         >
-          <UniIcons type="chat" size="22" color="#536178" />
+          <LineIcon name="chat" :size="22" color="#536178" />
           <text>联系商家</text>
         </button>
         <button

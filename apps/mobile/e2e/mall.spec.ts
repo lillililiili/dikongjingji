@@ -364,7 +364,8 @@ test.describe('商品详情', () => {
   test('MALL-102 租赁和询价商品只有“联系询价”，不能加购物车，游客先登录再进询价单', async ({ page }) => {
     await openProduct(page, DOG_ID)
     await expect(page.getByTestId('mall-product-name')).toHaveText('巡检机器狗')
-    await expect(page.getByTestId('mall-product-price')).toHaveText('¥380/天')
+    await expect(page.getByTestId('mall-product-price')).toHaveText('¥380')
+    await expect(page.getByTestId('mall-product-price-unit')).toHaveText('/天 起')
     await expect(page.getByTestId('mall-product')).toContainText('可租商家')
     await expect(page.getByTestId('mall-product-cart')).toHaveCount(0)
     await expect(page.getByTestId('mall-product-primary')).toHaveText('联系询价')

@@ -24,6 +24,8 @@ const cityCode = ref('')
 // Quote mode (F4): the inquiry whose chosen quote is being ordered.
 const inquiryId = ref<string | null>(null)
 const accessToken = ref<string | null>(null)
+// The delivery mode picked on 规格与数量 (buy now only); the page starts from it when it can.
+const initialDelivery = ref<'EXPRESS' | 'PICKUP' | null>(null)
 const refreshKey = ref(0)
 const shown = ref(false)
 let returnUrl = MALL_CHECKOUT_PATH
@@ -92,6 +94,8 @@ onLoad((query) => {
     returnUrl = `${MALL_CHECKOUT_PATH}?items=${items.map(encodeURIComponent).join(',')}&cityCode=${encodeURIComponent(cityCode.value)}`
   } else if (offerId && Number.isInteger(quantity) && quantity > 0) {
     source.value = { kind: 'OFFER', offerId, quantity }
+    const delivery = decode(query?.delivery)
+    initialDelivery.value = delivery === 'EXPRESS' || delivery === 'PICKUP' ? delivery : null
     returnUrl = `${MALL_CHECKOUT_PATH}?offerId=${encodeURIComponent(offerId)}&quantity=${quantity}&cityCode=${encodeURIComponent(cityCode.value)}`
   }
   // A new confirm page starts from the default address.
@@ -113,6 +117,7 @@ onShow(() => {
     :address-id="addressChoice.addressId"
     :access-token="accessToken"
     :refresh-key="refreshKey"
+    :initial-delivery="initialDelivery"
     @back="goBack"
     @login="openLogin"
     @choose-address="chooseAddress"

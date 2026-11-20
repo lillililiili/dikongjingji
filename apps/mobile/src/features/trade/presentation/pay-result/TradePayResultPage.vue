@@ -19,6 +19,10 @@ import { checkPaymentUntilSettled, paymentCheckResult } from '../../application/
 import { isUnauthorizedFailure, readTradeFailure } from '../../application/start-payment'
 import { tradeApi } from '../../data/trade-api-client'
 import type { TradeOrder } from '../../domain/trade-order'
+import { openSupportChat } from '@/features/support/application/support-entry'
+import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
+import IconTile from '@/shared/ui/IconTile.vue'
+
 import TradePageHeader from '../shared/TradePageHeader.vue'
 import { copyText, wait } from '../shared/trade-presentation'
 
@@ -57,6 +61,19 @@ const result = computed(() => (order.value ? paymentCheckResult(order.value) : n
 const destination = computed(() => (order.value ? orderDestination(order.value) : null))
 const linkLabel = computed(() => (order.value ? orderLinkLabel(order.value) : '查看订单'))
 const paid = computed(() => (order.value ? paidFrame(order.value) : { title: '已支付', note: null }))
+
+// 支付遇到问题 (board PayResult): a conversation with platform support about this order.
+function askForHelp(): void {
+  const current = order.value
+  if (!current) return
+  const first = current.lines[0]
+  openSupportChat(
+    { kind: 'PLATFORM' },
+    current.source === 'MALL'
+      ? { type: 'MALL_ORDER', refId: current.orderId, title: first?.productName ?? '商品订单', subtitle: `订单 ${current.orderNo}` }
+      : null,
+  )
+}
 
 function viewOrder(): void {
   if (destination.value) emit('viewOrder', destination.value)
@@ -137,9 +154,9 @@ onBeforeUnmount(() => {
 
     <view v-if="state.kind === 'loading'" class="pay-result__body">
       <view class="pay-result__card pay-result__status" role="status" data-testid="pay-result-pending">
-        <view class="pay-result__icon pay-result__icon--pending">
+        <IconTile tone="blue" :size="64">
           <image class="pay-result__spinner" src="/static/images/trade/pending.svg" mode="aspectFit" />
-        </view>
+        </IconTile>
         <text class="pay-result__title">支付结果确认中</text>
         <text class="pay-result__text">正在向微信支付确认结果，请勿重复支付</text>
       </view>
@@ -158,17 +175,34 @@ onBeforeUnmount(() => {
 
     <view v-else-if="order" class="pay-result__body">
       <view v-if="view === 'PENDING'" class="pay-result__card pay-result__status" role="status" data-testid="pay-result-pending">
-        <view class="pay-result__icon pay-result__icon--pending">
+        <IconTile tone="blue" :size="64">
           <image class="pay-result__spinner" src="/static/images/trade/pending.svg" mode="aspectFit" />
-        </view>
+        </IconTile>
         <text class="pay-result__title">支付结果确认中</text>
         <text class="pay-result__text">正在向微信支付确认结果，请勿重复支付</text>
+        <view class="pay-result__actions">
+          <button
+            v-if="SUPPORT_PREVIEW_ENABLED"
+            class="pay-result__secondary"
+            data-testid="pay-result-help"
+            @click="askForHelp"
+          >
+            支付遇到问题
+          </button>
+          <button
+            class="pay-result__primary"
+            data-testid="pay-result-pending-refresh"
+            @click="runCheck(0)"
+          >
+            刷新结果
+          </button>
+        </view>
       </view>
 
       <view v-else-if="view === 'PAID'" class="pay-result__card pay-result__status" role="status" data-testid="pay-result-paid">
-        <view class="pay-result__icon pay-result__icon--paid">
+        <IconTile tone="green" :size="64">
           <image class="pay-result__glyph" src="/static/images/trade/check-green.svg" mode="aspectFit" />
-        </view>
+        </IconTile>
         <text class="pay-result__title" data-testid="pay-result-paid-title">{{ paid.title }}</text>
         <text class="pay-result__amount" data-testid="pay-result-amount">{{ formatTradeAmount(order.amounts.paidMinor) }}</text>
         <text v-if="paid.note" class="pay-result__note" data-testid="pay-result-paid-note">{{ paid.note }}</text>
@@ -179,9 +213,9 @@ onBeforeUnmount(() => {
       </view>
 
       <view v-else-if="view === 'CLOSED'" class="pay-result__card pay-result__status" role="status" data-testid="pay-result-closed">
-        <view class="pay-result__icon pay-result__icon--closed">
+        <IconTile tone="blue" bg="#eef2f8" :size="64">
           <image class="pay-result__glyph" src="/static/images/trade/clock-grey.svg" mode="aspectFit" />
-        </view>
+        </IconTile>
         <text class="pay-result__title" data-testid="pay-result-closed-title">{{ describeClosedOrder(order).title }}</text>
         <text class="pay-result__text">{{ describeClosedOrder(order).line }}</text>
         <view class="pay-result__actions">
@@ -191,9 +225,9 @@ onBeforeUnmount(() => {
       </view>
 
       <view v-else class="pay-result__card pay-result__status" role="status" data-testid="pay-result-failed">
-        <view class="pay-result__icon pay-result__icon--failed">
+        <IconTile tone="orange" bg="#fdecec" :size="64">
           <image class="pay-result__glyph" src="/static/images/trade/alert-red.svg" mode="aspectFit" />
-        </view>
+        </IconTile>
         <text class="pay-result__title">支付失败</text>
         <text class="pay-result__text">支付未成功，如已扣款将原路退回</text>
         <text class="pay-result__note">{{ failedNote(order) }}</text>

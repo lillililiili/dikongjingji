@@ -333,9 +333,10 @@ test.describe('设备租赁', () => {
     await expect(page.getByTestId('cashier-due-note')).toHaveText('租金 · 合同确认后一次付清')
     await expect(page.getByTestId('cashier-countdown')).toHaveText(/^剩余支付时间 (30:00|2\d:\d\d) · 超时订单关闭，需重新询价$/)
     await expect(page.getByTestId('cashier-payee')).toHaveText('示例机器人商家')
-    await expect(page.getByTestId('cashier-rental-item')).toHaveText('巡检机器狗 × 1 台')
-    await expect(page.getByTestId('cashier-rental-period')).toContainText('共 4 天')
-    await expect(page.getByTestId('cashier-lessor')).toHaveText('示例机器人商家')
+    // 画板 CashierRental：租赁合同、收款方（经平台支付渠道）、付款节点。
+    await expect(page.getByTestId('cashier-rental-contract')).toContainText('巡检机器狗 ×1 · ')
+    await expect(page.getByTestId('cashier-rental-contract')).toContainText('共 4 天')
+    await expect(page.getByTestId('cashier-rental-node')).toHaveText('租金 ¥1,490 · 合同确认后一次付清')
     await expect(page.getByTestId('cashier-order-no')).toHaveText(/^RO\d{16}$/)
     const tradeOrderId = orderIdFromUrl(page)
 

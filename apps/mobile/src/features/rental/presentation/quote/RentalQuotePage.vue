@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
@@ -230,7 +230,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
     <template v-else-if="inquiry">
       <view class="rental-quote__body">
         <view v-if="notice" class="rental-quote__notice" role="status" data-testid="rental-quote-notice">
-          <UniIcons type="info" size="16" color="#ba470b" />
+          <LineIcon name="info" :size="16" color="#ba470b" :stroke-width="2" />
           <text>{{ notice }}</text>
         </view>
 
@@ -254,7 +254,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
             </view>
             <text class="rental-quote__validity" data-testid="rental-quote-validity">{{ rentalQuoteValidity(quote) }}</text>
             <view class="rental-quote__basis">
-              <UniIcons type="info" size="15" color="#ba470b" />
+              <LineIcon name="sort" :size="15" color="#ff6a00" :stroke-width="2" />
               <text>{{ rentalQuoteBasis(inquiry, quote) }}</text>
             </view>
           </view>
@@ -299,7 +299,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
               <text class="rental-quote__term-text">{{ term.text }}</text>
             </view>
             <view class="rental-quote__foot">
-              <UniIcons type="info" size="14" color="#738096" />
+              <LineIcon name="info" :size="14" color="#738096" :stroke-width="2" />
               <text>确认后生成租赁合同，在租赁订单的“租赁合同”里查看；合同线下签署归档。</text>
             </view>
           </view>
@@ -316,7 +316,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
               <text :class="['rental-quote__pay-amount', { 'rental-quote__pay-amount--off': !payNode.active }]">{{ totalText }}</text>
             </view>
             <view class="rental-quote__foot">
-              <UniIcons type="info" size="14" color="#738096" />
+              <LineIcon name="info" :size="14" color="#738096" :stroke-width="2" />
               <text>款项经平台支付渠道付给出租方；押金不在线收取。</text>
             </view>
           </view>
@@ -336,7 +336,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
             </template>
           </view>
           <view class="rental-quote__foot">
-            <UniIcons type="info" size="14" color="#738096" />
+            <LineIcon name="info" :size="14" color="#738096" :stroke-width="2" />
             <text>{{ formatRentalInstant(inquiry.submittedAt) }} 提交 · 提交询价不产生费用</text>
           </view>
         </view>
@@ -360,7 +360,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
           data-testid="rental-quote-agree"
           @click="toggleAgree"
         >
-          <view v-if="agreed" class="rental-quote__tick"><UniIcons type="checkmarkempty" size="12" color="#ffffff" /></view>
+          <view v-if="agreed" class="rental-quote__tick"><LineIcon name="check" :size="12" color="#ffffff" :stroke-width="3" /></view>
           <view v-else class="rental-quote__tick rental-quote__tick--off" />
           <text>我已核对租期、费用与合同条款</text>
         </button>
@@ -375,7 +375,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
         </view>
         <view class="rental-quote__actions">
           <button class="rental-quote__contact" data-testid="rental-quote-contact" @click="contactMerchant">
-            <UniIcons type="chatbubble" size="20" color="#536178" />
+            <LineIcon name="chat" :size="20" color="#536178" />
             <text>联系商家</text>
           </button>
           <button
@@ -476,6 +476,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .rental-quote__card-title {

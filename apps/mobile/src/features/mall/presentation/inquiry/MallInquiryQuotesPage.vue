@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import { tradeApi } from '@/features/trade/data/trade-api-client'
@@ -261,7 +261,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
     <template v-else-if="inquiry && summary && bar">
       <view class="inquiry-quotes__body">
         <view v-if="notice" class="inquiry-quotes__notice" role="status" data-testid="inquiry-quotes-notice">
-          <UniIcons type="info" size="16" color="#ba470b" />
+          <LineIcon name="info" :size="16" color="#ba470b" :stroke-width="2" />
           <text>{{ notice }}</text>
         </view>
 
@@ -269,7 +269,7 @@ watch(() => [props.refreshKey, props.accessToken, props.inquiryId], () => { void
           <view class="inquiry-quotes__product">
             <image v-if="cover" class="inquiry-quotes__image" :src="cover" mode="aspectFill" />
             <view v-else class="inquiry-quotes__image inquiry-quotes__image--empty">
-              <UniIcons type="image" size="24" color="#91a0b4" />
+              <LineIcon name="image" :size="24" color="#91a0b4" />
             </view>
             <view class="inquiry-quotes__product-copy">
               <text class="inquiry-quotes__title" data-testid="inquiry-quotes-title">{{ summary.title }}</text>
@@ -512,6 +512,7 @@ button::after {
   padding: 12px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .inquiry-quotes__product {
@@ -639,6 +640,7 @@ button::after {
   border-radius: 14px;
   background: #ffffff;
   box-sizing: border-box;
+  box-shadow: var(--app-card-shadow);
 }
 
 .inquiry-quotes__card--chosen {
@@ -826,15 +828,16 @@ button::after {
   line-height: 19px;
 }
 
+/* A grey text link, as 关闭询价 on the board RentalQuote: closing is not the page's main way on. */
 .inquiry-quotes__close {
+  align-self: center;
   height: 44px;
-  border: 1px solid #c9d3e1;
-  border-radius: 999px;
-  background: #ffffff;
+  padding: 0 16px;
+  color: #536178;
+  background: transparent;
   font-size: 14px;
-  line-height: 42px;
+  line-height: 44px;
   text-align: center;
-  box-sizing: border-box;
 }
 
 .inquiry-quotes__bar {

@@ -1,7 +1,7 @@
 -- 仅开发环境：由 @Profile("dev") 的 tradeDevelopmentDataFlyway 加载，生产不会执行。
 -- F4 询价商品要两家能收款的商家报价、比选：给示例行业装备代理登记收款账户（子商户号是编的，借用微信文档示例的号段），
 -- 并加一个开发账号 dev-merchant-2 作它的操作员（infra/scripts/dev-inquiry-merchant.cjs --as dev-merchant-2）。
--- 示例无人机厂家、示例设备租赁商仍然不登记，用来看“该商家暂未开通在线支付”。
+-- 示例设备租赁商仍然不登记，用来看“该商家暂未开通在线支付”（示例无人机厂家 2026-11-20 起在 R__dev_trade_merchant_accounts.sql 登记）。
 -- 机构由商城开发种子建，所以这份排在商城开发数据之后。密码和 R__dev_identity_accounts.sql 的开发账号一样，是公开的。
 
 INSERT INTO trade_merchant_account (organization_id, sub_mchid, active)

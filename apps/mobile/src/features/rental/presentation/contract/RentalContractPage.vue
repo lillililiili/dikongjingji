@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import IconTile from '@/shared/ui/IconTile.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
@@ -130,7 +131,7 @@ watch(() => [props.refreshKey, props.accessToken, props.rentalOrderId], () => { 
       <view class="rental-contract__body">
         <view class="rental-contract__card rental-contract__top">
           <view class="rental-contract__title-row">
-            <view class="rental-contract__icon"><UniIcons type="list" size="22" color="#1d63c4" /></view>
+            <IconTile tone="blue" :size="44" :icon-size="22" name="doc" />
             <view class="rental-contract__title-copy">
               <text class="rental-contract__name" data-testid="rental-contract-name">{{ order.contract.productName }}租赁合同</text>
               <text :class="['rental-contract__tag', `rental-contract__tag--${tag.tone.toLowerCase()}`]" data-testid="rental-contract-tag">
@@ -173,7 +174,7 @@ watch(() => [props.refreshKey, props.accessToken, props.rentalOrderId], () => { 
             <text class="rental-contract__link-name">租赁报价单</text>
             <text class="rental-contract__tag rental-contract__tag--done">已确认 v{{ order.contract.quoteVersion }}</text>
             <text class="rental-contract__link-cta">查看报价</text>
-            <UniIcons type="right" size="14" color="#91a0b4" />
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
           </button>
         </view>
 
@@ -199,7 +200,7 @@ watch(() => [props.refreshKey, props.accessToken, props.rentalOrderId], () => { 
         <view class="rental-contract__card" data-testid="rental-contract-files">
           <text class="rental-contract__card-title">合同文件</text>
           <view class="rental-contract__offline">
-            <UniIcons type="info" size="16" color="#627187" />
+            <LineIcon name="info" :size="16" color="#627187" :stroke-width="2" />
             <text>合同由出租方线下签署、扫描归档，暂不提供在线下载；需要纸质或扫描件请联系出租方。</text>
           </view>
         </view>
@@ -211,7 +212,7 @@ watch(() => [props.refreshKey, props.accessToken, props.rentalOrderId], () => { 
 
       <view class="rental-contract__bar">
         <button class="rental-contract__contact" data-testid="rental-contract-contact" @click="contactMerchant">
-          <UniIcons type="chatbubble" size="20" color="#536178" />
+          <LineIcon name="chat" :size="20" color="#536178" />
           <text>联系商家</text>
         </button>
         <button class="rental-contract__order" data-testid="rental-contract-order" @click="emit('order', order.rentalOrderId)">
@@ -263,6 +264,7 @@ button::after {
   padding: 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .rental-contract__card-title {

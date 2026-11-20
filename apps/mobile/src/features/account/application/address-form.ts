@@ -54,9 +54,10 @@ export function maskPhone(phone: string): string {
   return /^\d{11}$/.test(phone) ? `${phone.slice(0, 3)}****${phone.slice(7)}` : phone
 }
 
-// "山东省东营市 东营区 示例路 88 号"; a municipality's province and city share one name.
+// "山东省东营市东营区 示例路 88 号" (board AddressList): the region runs straight into the detail,
+// which starts with the district; a municipality's province and city share one name.
 export function formatAddressLine(address: Address): string {
   const { provinceName, cityName } = address.region
   const region = provinceName === cityName ? cityName : `${provinceName}${cityName}`
-  return `${region} ${address.detail}`
+  return `${region}${address.detail}`
 }

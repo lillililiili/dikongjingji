@@ -51,9 +51,9 @@ describe('address form', () => {
   it('masks the phone and writes the address on one line', () => {
     expect(maskPhone('13800002026')).toBe('138****2026')
     expect(maskPhone('12345')).toBe('12345')
-    expect(formatAddressLine(ADDRESS)).toBe('山东省东营市 东营区 示例路 88 号')
+    expect(formatAddressLine(ADDRESS)).toBe('山东省东营市东营区 示例路 88 号')
     expect(formatAddressLine({ ...ADDRESS, region: { provinceCode: '110000', provinceName: '北京市', cityCode: '110100', cityName: '北京市' } }))
-      .toBe('北京市 东营区 示例路 88 号')
+      .toBe('北京市东营区 示例路 88 号')
   })
 
   it('finds the province of a city for the picker', () => {

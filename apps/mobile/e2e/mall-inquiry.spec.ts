@@ -206,6 +206,14 @@ test.describe('询价商品', () => {
     test.skip(!(await fakeWechatAvailable(request)), '本机模拟微信没有运行（FAKE_WECHAT=1）')
     await signIn(page, buyer)
 
+    // Since 2026-11-20 (原型对齐 R3) the development seed registers 示例无人机厂家 too; the form's
+    // handling of a merchant that cannot collect is kept by answering for it as if it could not.
+    await page.route('**/api/v1/mall/inquiry-offers?**', async (route) => {
+      const response = await route.fetch()
+      const body = await response.json()
+      for (const item of body.items ?? []) if (item.offerId === MAKER_OFFER) item.canInquire = false
+      await route.fulfill({ response, json: body })
+    })
     // 商品详情：询价商品先讲“询价怎么走”，三家可报价商家，主按钮“联系询价”进询价单。
     await page.goto(`/#/pages/mall/product?productId=${PRODUCT}&cityCode=${CITY}`)
     await expect(page.getByTestId('mall-product-name')).toHaveText('行业测绘无人机')

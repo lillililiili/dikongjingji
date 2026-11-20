@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   CART_INVALID_REASON_TEXT,
@@ -232,7 +232,7 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
         </text>
         <button
           v-if="cart && !isEmpty"
-          class="cart__manage"
+          :class="['cart__manage', { 'cart__manage--done': managing }]"
           data-testid="cart-manage"
           @click="toggleManaging"
         >
@@ -242,7 +242,7 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
     </view>
 
     <view v-if="state.kind === 'guest'" class="cart__blank" data-testid="cart-guest">
-      <view class="cart__blank-icon"><UniIcons type="cart" size="40" color="#c9d3e1" /></view>
+      <view class="cart__blank-icon"><LineIcon name="cart" :size="40" color="#c9d3e1" /></view>
       <text class="cart__blank-title">登录后查看购物车</text>
       <text class="cart__blank-text">加入购物车的商品会保存在你的账号里</text>
       <button class="cart__blank-button" data-testid="cart-login" @click="emit('login')">登录 / 注册</button>
@@ -260,7 +260,7 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
     </view>
 
     <view v-else-if="isEmpty" class="cart__blank" data-testid="cart-empty">
-      <view class="cart__blank-icon"><UniIcons type="cart" size="40" color="#c9d3e1" /></view>
+      <view class="cart__blank-icon"><LineIcon name="cart" :size="40" color="#c9d3e1" /></view>
       <text class="cart__blank-title">购物车是空的</text>
       <text class="cart__blank-text">在商城里挑好商品，加入购物车后在这里结算</text>
       <button class="cart__blank-button" data-testid="cart-browse" @click="emit('browse')">去商城逛逛</button>
@@ -268,8 +268,8 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
     </view>
 
     <view v-else-if="cart" class="cart__body">
-      <view class="cart__tip">
-        <UniIcons type="info" size="14" color="#2f80ed" />
+      <view v-if="!managing" class="cart__tip">
+        <LineIcon name="info" :size="14" color="#2f80ed" :stroke-width="2" />
         <text>每次只能结算一个商家；不同商家请分别下单付款。</text>
       </view>
 
@@ -297,15 +297,10 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
                 },
               ]"
             >
-              <UniIcons
-                v-if="group.items.every((item) => isTicked(item.cartItemId))"
-                type="checkmarkempty"
-                size="12"
-                color="#ffffff"
-              />
+              <LineIcon v-if="group.items.every((item) => isTicked(item.cartItemId))" name="check" :size="12" color="#ffffff" :stroke-width="3" />
             </view>
           </button>
-          <UniIcons type="shop" size="18" color="#202c42" />
+          <LineIcon name="store" :size="18" color="#202c42" />
           <text class="cart__merchant-name">{{ group.merchant.name }}</text>
           <text class="cart__merchant-kind">{{ MALL_MERCHANT_KIND_LABELS[group.merchant.kind] }}</text>
           <text v-if="pickupTag(group.items)" class="cart__merchant-tag">{{ pickupTag(group.items) }}</text>
@@ -328,7 +323,7 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
             @click="tick(item)"
           >
             <view :class="['cart__tick', { 'cart__tick--on': isTicked(item.cartItemId) }]">
-              <UniIcons v-if="isTicked(item.cartItemId)" type="checkmarkempty" size="12" color="#ffffff" />
+              <LineIcon v-if="isTicked(item.cartItemId)" name="check" :size="12" color="#ffffff" :stroke-width="3" />
             </view>
           </button>
           <view v-else class="cart__tick cart__tick--na cart__tick--item" aria-label="当前不可选" />
@@ -339,9 +334,12 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
           <view class="cart__info">
             <text class="cart__name" @click="emit('openProduct', item.productId)">{{ item.productName }}</text>
             <text class="cart__spec">{{ item.skuName }}</text>
-            <text v-if="item.shippingNote" class="cart__ship">{{ item.shippingNote }}</text>
+            <text
+              v-if="item.shippingNote && isActiveMerchant(group.merchant.organizationId)"
+              class="cart__ship"
+            >{{ item.shippingNote }}</text>
             <view v-if="!isActiveMerchant(group.merchant.organizationId)" class="cart__other">
-              <UniIcons type="info" size="12" color="#738096" />
+              <LineIcon name="info" :size="12" color="#738096" :stroke-width="2" />
               <text>与已选商家不同，需分开结算</text>
             </view>
             <view class="cart__price-row">
@@ -400,7 +398,7 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
             @click="tick(item)"
           >
             <view :class="['cart__tick', { 'cart__tick--on': isTicked(item.cartItemId) }]">
-              <UniIcons v-if="isTicked(item.cartItemId)" type="checkmarkempty" size="12" color="#ffffff" />
+              <LineIcon v-if="isTicked(item.cartItemId)" name="check" :size="12" color="#ffffff" :stroke-width="3" />
             </view>
           </button>
           <text v-else class="cart__invalid-tag">失效</text>
@@ -415,13 +413,12 @@ watch(() => [props.refreshKey, props.accessToken, props.cityCode], () => { void 
         </view>
       </view>
 
-      <text class="cart__footnote">询价商品、服务和活动不进购物车，分别在商品详情、专业服务和活动里办理。</text>
     </view>
 
     <view v-if="cart && !isEmpty" class="cart__bar">
       <button class="cart__all" data-testid="cart-all" @click="tickAll">
         <view :class="['cart__tick', { 'cart__tick--on': managing ? everythingPicked : wholeMerchant }]">
-          <UniIcons v-if="managing ? everythingPicked : wholeMerchant" type="checkmarkempty" size="12" color="#ffffff" />
+          <LineIcon v-if="managing ? everythingPicked : wholeMerchant" name="check" :size="12" color="#ffffff" :stroke-width="3" />
         </view>
         <text>{{ managing ? '全选' : '全选本商家' }}</text>
       </button>
@@ -523,6 +520,10 @@ button::after {
   line-height: 44px;
 }
 
+.cart__manage--done {
+  color: #ba470b;
+}
+
 .cart__body {
   display: flex;
   flex: 1;
@@ -549,6 +550,7 @@ button::after {
   padding: 0 12px 12px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .cart__merchant {
@@ -939,8 +941,8 @@ button::after {
 }
 
 .cart__delete {
-  border: 1.5px solid #d64f67;
-  color: #d64f67;
+  border: 1.5px solid #ff6a00;
+  color: #ba470b;
   background: #ffffff;
   line-height: 41px;
   box-sizing: border-box;
@@ -948,9 +950,10 @@ button::after {
 
 .cart__delete--off,
 .cart__delete[disabled] {
-  border-color: #e5ebf3;
-  color: #91a0b4;
-  background: #ffffff;
+  border: 0;
+  color: #ffffff;
+  background: #c9d3e1;
+  line-height: 44px;
 }
 
 .cart__mask {
@@ -1009,7 +1012,7 @@ button::after {
 
 .cart__sheet-confirm {
   color: #ffffff;
-  background: #d64f67;
+  background: #ff6a00;
   font-weight: 500;
 }
 </style>

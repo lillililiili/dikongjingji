@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settings-preview'
 import { buildAgreementUrl } from '@/features/settings/navigation/settings-routes'
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { formatAddressLine, maskPhone } from '@/features/account/application/address-form'
@@ -14,7 +13,12 @@ import { createSubmitKeyHolder } from '@/features/trade/application/trade-keys'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
 import { tradeApi } from '@/features/trade/data/trade-api-client'
 import type { SubmitOrderInput } from '@/features/trade/domain/trade-order'
+import TradePartiesCard from '@/features/trade/presentation/shared/TradePartiesCard.vue'
+import { goodsParties } from '@/features/trade/presentation/shared/trade-parties'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import IconTile from '@/shared/ui/IconTile.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { resolveMallIntent, type MallIntent } from '../../application/mall-intent'
 import { MALL_PREVIEW_ENABLED } from '../../application/mall-preview'
@@ -23,15 +27,20 @@ import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import type { CheckoutLine, CheckoutPreview, CheckoutSource, DeliveryMode } from '../../domain/cart'
 import { MALL_MERCHANT_KIND_LABELS, formatMallAmount } from '../shared/mall-format'
 
-const props = defineProps<{
-  source: CheckoutSource | null
-  cityCode: string
-  // The address picked on the address page; null means the default one.
-  addressId: string | null
-  // Null for a guest. The page host reads it again every time the page is shown.
-  accessToken: string | null
-  refreshKey: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    source: CheckoutSource | null
+    cityCode: string
+    // The address picked on the address page; null means the default one.
+    addressId: string | null
+    // Null for a guest. The page host reads it again every time the page is shown.
+    accessToken: string | null
+    refreshKey: number
+    // The mode picked on 规格与数量; the server keeps it when the offer has it.
+    initialDelivery?: DeliveryMode | null
+  }>(),
+  { initialDelivery: null },
+)
 
 const emit = defineEmits<{
   back: []
@@ -57,7 +66,7 @@ type CheckoutState =
 const NOTE_MAX_LENGTH = 50
 
 const state = ref<CheckoutState>({ kind: 'loading' })
-const deliveryMode = ref<DeliveryMode | null>(null)
+const deliveryMode = ref<DeliveryMode | null>(props.initialDelivery)
 const note = ref('')
 const agreed = ref(false)
 const agreeTip = ref(false)
@@ -237,12 +246,7 @@ watch(
 
 <template>
   <view class="checkout" data-testid="checkout">
-    <header class="checkout__header">
-      <button class="checkout__back" data-testid="checkout-back" aria-label="返回" @click="emit('back')">
-        <UniIcons type="left" size="24" color="#202c42" />
-      </button>
-      <text class="checkout__title">确认订单</text>
-    </header>
+    <AppPageHeader title="确认订单" test-id="checkout" @back="emit('back')" />
 
     <view v-if="state.kind === 'loading'" class="checkout__body" data-testid="checkout-loading" aria-label="正在加载">
       <view class="checkout__skeleton" />
@@ -280,14 +284,14 @@ watch(
         :aria-label="`更换收货地址：${preview.address.recipientName}`"
         @click="emit('chooseAddress')"
       >
-        <view class="checkout__address-icon"><UniIcons type="location" size="20" color="#ff6a00" /></view>
+        <IconTile tone="blue" :size="40" :icon-size="20" name="pin" />
         <view class="checkout__address-text">
           <text class="checkout__address-name">
             {{ preview.address.recipientName }} {{ maskPhone(preview.address.phone) }}
           </text>
           <text class="checkout__address-line">{{ formatAddressLine(preview.address) }}</text>
         </view>
-        <UniIcons type="right" size="16" color="#91a0b4" />
+        <LineIcon name="forward" :size="16" color="#91a0b4" :stroke-width="2" />
       </button>
       <button
         v-else-if="deliveryMode === 'EXPRESS'"
@@ -295,17 +299,17 @@ watch(
         data-testid="checkout-add-address"
         @click="emit('chooseAddress')"
       >
-        <view class="checkout__address-icon"><UniIcons type="plusempty" size="20" color="#ff6a00" /></view>
+        <IconTile tone="blue" :size="40" :icon-size="20" name="plus" />
         <view class="checkout__address-text">
           <text class="checkout__address-name">添加收货地址</text>
           <text class="checkout__address-line">还没有收货地址，添加后才能提交订单</text>
         </view>
-        <UniIcons type="right" size="16" color="#91a0b4" />
+        <LineIcon name="forward" :size="16" color="#91a0b4" :stroke-width="2" />
       </button>
 
       <view class="checkout__card">
         <view class="checkout__merchant">
-          <UniIcons type="shop" size="18" color="#ff6a00" />
+          <LineIcon name="store" :size="18" color="#ff6a00" />
           <text class="checkout__merchant-name" data-testid="checkout-merchant">{{ preview.merchant.name }}</text>
           <text class="checkout__merchant-kind">{{ MALL_MERCHANT_KIND_LABELS[preview.merchant.kind] }}</text>
           <text v-if="preview.lines.length > 1" class="checkout__pieces">共 {{ preview.pieceCount }} 件</text>
@@ -328,7 +332,7 @@ watch(
           </view>
         </view>
         <view v-if="quoteMode" class="checkout__quote-note" data-testid="checkout-quote-note">
-          <UniIcons type="info" size="14" color="#ba470b" />
+          <LineIcon name="info" :size="14" color="#ba470b" :stroke-width="2" />
           <text>按所选报价下单，数量和单价不能修改</text>
         </view>
 
@@ -350,11 +354,11 @@ watch(
             </view>
           </view>
           <view v-if="deliveryMode === 'EXPRESS' && expressNote" class="checkout__mode-note checkout__mode-note--express">
-            <UniIcons type="paperplane" size="14" color="#159a70" />
+            <LineIcon name="truck" :size="14" color="#159a70" :stroke-width="2" />
             <text>{{ expressNote }}</text>
           </view>
           <view v-if="deliveryMode === 'PICKUP' && pickupNote" class="checkout__mode-note" data-testid="checkout-pickup">
-            <UniIcons type="location" size="14" color="#ff6a00" />
+            <LineIcon name="pin" :size="14" color="#ff6a00" :stroke-width="2" />
             <text>自提点 {{ pickupNote }}</text>
           </view>
           <text v-if="!deliveryMode" class="checkout__mode-note checkout__mode-note--warn" data-testid="checkout-no-delivery">
@@ -376,20 +380,15 @@ watch(
         </view>
       </view>
 
-      <view class="checkout__parties">
-        <view class="checkout__parties-head">
-          <UniIcons type="auth" size="18" color="#159a70" />
-          <text class="checkout__parties-title">交易主体</text>
-        </view>
-        <view class="checkout__parties-grid">
-          <text class="checkout__parties-label">销售方</text>
-          <text>{{ preview.merchant.name }}（{{ MALL_MERCHANT_KIND_LABELS[preview.merchant.kind] }}）</text>
-          <template v-if="preview.fulfilledFrom">
-            <text class="checkout__parties-label">发货履约</text>
-            <text>{{ preview.fulfilledFrom }}</text>
-          </template>
-        </view>
-      </view>
+      <TradePartiesCard
+        variant="dashed"
+        test-id="checkout-parties"
+        :rows="goodsParties({
+          merchantName: preview.merchant.name,
+          merchantKindLabel: MALL_MERCHANT_KIND_LABELS[preview.merchant.kind],
+          fulfilledFrom: preview.fulfilledFrom,
+        })"
+      />
 
       <view class="checkout__card">
         <view class="checkout__amount-row">
@@ -399,6 +398,10 @@ watch(
         <view class="checkout__amount-row checkout__amount-row--line">
           <text class="checkout__amount-label">运费</text>
           <text data-testid="checkout-shipping">{{ formatMallAmount(preview.amounts.shippingMinor) }}</text>
+        </view>
+        <view class="checkout__amount-row checkout__amount-row--line checkout__invoice" data-testid="checkout-invoice">
+          <LineIcon name="info" :size="14" color="#738096" :stroke-width="2" />
+          <text>发票由销售方开具，可联系销售方申请</text>
         </view>
         <view class="checkout__amount-row checkout__amount-row--line checkout__amount-row--total">
           <text>应付</text>
@@ -416,7 +419,7 @@ watch(
           @click="agreed = !agreed; agreeTip = false"
         >
           <view :class="['checkout__box', { 'checkout__box--on': agreed }]">
-            <UniIcons v-if="agreed" type="checkmarkempty" size="11" color="#ffffff" />
+            <LineIcon v-if="agreed" name="check" :size="11" color="#ffffff" :stroke-width="3.2" />
           </view>
         </button>
         <text class="checkout__agree-text">
@@ -479,32 +482,8 @@ button::after {
   border: 0;
 }
 
-.checkout__header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  min-height: calc(60px + var(--status-bar-height));
-  padding: var(--status-bar-height) 8px 0;
-  align-items: center;
-  gap: 4px;
-  background: linear-gradient(125deg, #fff9f3, #f3f7ff 65%, #edf9f4);
-  box-sizing: border-box;
-}
 
-.checkout__back {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-}
 
-.checkout__title {
-  font-size: 18px;
-  font-weight: 700;
-}
 
 .checkout__body {
   display: flex;
@@ -580,6 +559,7 @@ button::after {
   color: #202c42;
   background: #ffffff;
   text-align: left;
+  box-shadow: var(--app-card-shadow);
   box-sizing: border-box;
 }
 
@@ -587,16 +567,6 @@ button::after {
   border: 1.5px dashed #ffd8b8;
 }
 
-.checkout__address-icon {
-  display: flex;
-  width: 40px;
-  height: 40px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #fff0e3;
-}
 
 .checkout__address-text {
   display: flex;
@@ -624,6 +594,7 @@ button::after {
   padding: 0 14px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .checkout__merchant {
@@ -801,38 +772,10 @@ button::after {
   font-size: 14px;
 }
 
-.checkout__parties {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px dashed #c9d3e1;
-  border-radius: 14px;
-}
 
-.checkout__parties-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
 
-.checkout__parties-title {
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 21px;
-}
 
-.checkout__parties-grid {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 6px 10px;
-  font-size: 13px;
-  line-height: 18px;
-}
 
-.checkout__parties-label {
-  color: #627187;
-}
 
 .checkout__amount-row {
   display: flex;
@@ -918,6 +861,7 @@ button::after {
   padding: 10px 16px calc(24px + env(safe-area-inset-bottom));
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
+  box-shadow: var(--app-bar-shadow);
 }
 
 .checkout__tip {
@@ -958,11 +902,20 @@ button::after {
   font-size: 16px;
   font-weight: 500;
   line-height: 46px;
+  box-shadow: var(--app-primary-shadow);
 }
 
 .checkout__submit--off,
 .checkout__submit[disabled] {
   color: #ffffff;
   background: #c9d3e1;
+}
+
+.checkout__invoice {
+  justify-content: flex-start;
+  gap: 6px;
+  color: #536178;
+  font-size: 13px;
+  line-height: 18px;
 }
 </style>

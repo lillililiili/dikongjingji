@@ -11,6 +11,8 @@ import {
   buildMallInquiryUrl,
   buildMallProductUrl,
 } from '@/features/mall/navigation/mall-routes'
+import type { DeliveryMode } from '@/features/mall/domain/cart'
+import type { MallBuyDelivery } from '@/features/mall/presentation/product/buy-delivery'
 import MallProductPage from '@/features/mall/presentation/product/MallProductPage.vue'
 import { buildRentalInquiryUrl } from '@/features/rental/navigation/rental-routes'
 import { ApiRequestError } from '@/shared/http/public-api-request'
@@ -51,12 +53,30 @@ async function addToCart(offerId: string, quantity: number): Promise<void> {
   }
 }
 
-function buyNow(offerId: string, quantity: number): void {
+function buyNow(offerId: string, quantity: number, delivery: DeliveryMode | null): void {
   if (!getBookingAuthContext().getAccessToken()) {
     openLogin()
     return
   }
-  uni.navigateTo({ url: buildBuyNowCheckoutUrl(offerId, quantity, cityCode) })
+  uni.navigateTo({ url: buildBuyNowCheckoutUrl(offerId, quantity, cityCode, delivery) })
+}
+
+// 规格与数量 shows the delivery options and fee of the confirm page's preview of this offer; a guest
+// (or a failed read) gets null and the sheet shows the merchant's shipping note instead.
+async function loadDelivery(offerId: string, quantity: number, mode: DeliveryMode | null): Promise<MallBuyDelivery | null> {
+  const token = getBookingAuthContext().getAccessToken()
+  if (!token) return null
+  try {
+    const preview = await cartApi.preview(token, {
+      cityCode,
+      source: { kind: 'OFFER', offerId, quantity },
+      deliveryMode: mode,
+      addressId: null,
+    })
+    return { options: preview.deliveryOptions, mode: preview.deliveryMode, shippingMinor: preview.amounts.shippingMinor }
+  } catch {
+    return null
+  }
 }
 
 // The form asks for a login itself and comes back to itself.
@@ -76,5 +96,12 @@ onLoad((query) => {
 </script>
 
 <template>
-  <MallProductPage :busy="busy" @add-to-cart="addToCart" @buy-now="buyNow" @rent="rent" @inquire="inquire" />
+  <MallProductPage
+    :busy="busy"
+    :load-delivery="loadDelivery"
+    @add-to-cart="addToCart"
+    @buy-now="buyNow"
+    @rent="rent"
+    @inquire="inquire"
+  />
 </template>

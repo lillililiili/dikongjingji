@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed } from 'vue'
 
 import { rentalCoverUrl } from '../../application/rental-cover'
@@ -25,7 +25,7 @@ const lessee = computed(() => describeRentalLessee(props.lessee))
   <view class="rental-item" data-testid="rental-item">
     <image v-if="cover" class="rental-item__image" :src="cover" mode="aspectFill" />
     <view v-else class="rental-item__image rental-item__image--empty">
-      <UniIcons type="gear" size="28" color="#91a0b4" />
+      <LineIcon name="gear" :size="28" color="#91a0b4" />
     </view>
     <view class="rental-item__copy">
       <view class="rental-item__line">
@@ -48,6 +48,7 @@ const lessee = computed(() => describeRentalLessee(props.lessee))
   padding: 12px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: var(--app-card-shadow);
 }
 
 .rental-item__image {
