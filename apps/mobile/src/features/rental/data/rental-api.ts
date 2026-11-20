@@ -9,6 +9,7 @@ import {
   type RentalInquiryPage,
   type RentalInquiryStatus,
   type RentalLessee,
+  type RentalMerchant,
   type RentalOfferView,
   type RentalOrder,
   type RentalOrderPage,
@@ -275,6 +276,15 @@ function orderStatus(value: string | null | undefined): RentalOrderStatus {
   return value && (RENTAL_ORDER_STATUSES as readonly string[]).includes(value) ? value as RentalOrderStatus : 'CLOSED'
 }
 
+// Only an explicit true from the server shows 资质已审核; a missing field never reads as reviewed.
+function toRentalMerchant(dto: Loose<RentalMerchant> | null | undefined): RentalMerchant {
+  return {
+    merchantId: dto?.merchantId ?? '',
+    name: dto?.name ?? '',
+    qualificationReviewed: dto?.qualificationReviewed === true,
+  }
+}
+
 export function toRentalInquiry(dto: RentalInquiryDto): RentalInquiry {
   const quote = dto.quote
   return {
@@ -283,7 +293,7 @@ export function toRentalInquiry(dto: RentalInquiryDto): RentalInquiry {
     closeReason: dto.closeReason === 'CUSTOMER' || dto.closeReason === 'NO_QUOTE' ? dto.closeReason : null,
     declineReason: dto.declineReason ?? null,
     lessee: toLessee(dto.lessee),
-    merchant: { merchantId: dto.merchant?.merchantId ?? '', name: dto.merchant?.name ?? '' },
+    merchant: toRentalMerchant(dto.merchant),
     item: {
       offerId: dto.item?.offerId ?? '',
       productId: dto.item?.productId ?? '',
@@ -344,7 +354,7 @@ export function toRentalOrder(dto: RentalOrderDto): RentalOrder {
       confirmedAt: contract?.confirmedAt ?? '',
       quoteVersion: contract?.quoteVersion ?? 1,
       lessee: toLessee(contract?.lessee),
-      lessor: { merchantId: contract?.lessor?.merchantId ?? '', name: contract?.lessor?.name ?? '' },
+      lessor: toRentalMerchant(contract?.lessor),
       productName: contract?.productName ?? '',
       skuName: contract?.skuName ?? '',
       quantity: contract?.quantity ?? 1,

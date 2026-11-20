@@ -1,3 +1,4 @@
+import { providerCredentialLabel } from '../../../shared/ui/qualification'
 import { formatBeijingTime, padTwo, toBeijingParts } from '../../../shared/time/beijing-time'
 
 import {
@@ -219,6 +220,8 @@ export const DEMAND_QUOTE_STATUS_TAGS: Partial<Record<DemandQuote['status'], str
 
 export interface DemandQuoteView {
   price: string
+  // Beside the provider's name: 资质已审核 when the platform reviewed it (R6-4), else its own label.
+  credential: string | null
   statusTag: string | null
   rows: Array<{ label: string; value: string }>
 }
@@ -227,6 +230,7 @@ export interface DemandQuoteView {
 export function describeDemandQuote(quote: DemandQuote): DemandQuoteView {
   return {
     price: formatDemandAmount(quote.amountMinor),
+    credential: providerCredentialLabel(quote.provider.qualificationReviewed, quote.provider.certificationLabel),
     statusTag: DEMAND_QUOTE_STATUS_TAGS[quote.status] ?? null,
     rows: [
       { label: '方式', value: quote.method },
@@ -250,7 +254,8 @@ export function buildDemandCompareRows(quotes: DemandQuote[]): DemandCompareRow[
   return [
     { label: '总价', cells: quotes.map((quote) => formatDemandAmount(quote.amountMinor)), price: true },
     { label: '方案版本', cells: quotes.map((quote) => `v${quote.version}`) },
-    { label: '资质', cells: quotes.map((quote) => quote.provider.certificationLabel ?? '—') },
+    // PlanCompare board: 已审核 when the platform reviewed the provider (R6-4), else its own label.
+    { label: '资质', cells: quotes.map((quote) => (quote.provider.qualificationReviewed ? '已审核' : providerCredentialLabel(false, quote.provider.certificationLabel) ?? '—')) },
     { label: '方式', cells: quotes.map((quote) => quote.method) },
     { label: '工期', cells: quotes.map((quote) => quote.schedule) },
     { label: '周期', cells: quotes.map((quote) => `${quote.durationDays} 天`) },

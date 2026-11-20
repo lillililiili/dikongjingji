@@ -67,7 +67,7 @@ describe('pro service view', () => {
 
   it('publishes from a provider page as inspection when it has inspection services', () => {
     const page = (inspection: number, types: Array<ProviderPage['proServices'][number]['type']>): ProviderPage => ({
-      providerId: 'p1', name: 'n', certificationLabel: null, description: null, cityCode: '370500',
+      providerId: 'p1', name: 'n', certificationLabel: null, description: null, qualificationReviewed: false, cityCode: '370500',
       inspectionServices: Array.from({ length: inspection }, (_, index) => ({
         serviceId: `i${index}`, title: 't', summary: 's', categoryName: 'c',
         price: { mode: 'PROJECT', amountMinor: null, unit: null, note: null },

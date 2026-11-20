@@ -1,4 +1,4 @@
-// Mirrors contracts/openapi-rental.yaml (1.0.0, step F3). Amounts are in fen, dates are Beijing
+// Mirrors contracts/openapi-rental.yaml (1.1.0; 1.0.0 was step F3). Amounts are in fen, dates are Beijing
 // calendar days (YYYY-MM-DD), instants are ISO strings.
 
 export type RentalInquiryStatus = 'PENDING' | 'QUOTED' | 'EXPIRED' | 'CONFIRMED' | 'DECLINED' | 'CLOSED'
@@ -41,6 +41,8 @@ export interface RentalLessee {
 export interface RentalMerchant {
   merchantId: string
   name: string
+  // (1.1.0, R6-4) The platform reviewed the lessor's qualification: the green 资质已审核 tag.
+  qualificationReviewed: boolean
 }
 
 // The device asked about, as it was when the inquiry was sent.

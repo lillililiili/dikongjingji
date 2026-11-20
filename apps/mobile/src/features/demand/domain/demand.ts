@@ -1,4 +1,5 @@
-// Mirrors contracts/openapi-demand.yaml 1.0.0 (step F1, docs/redesign/03-App实现任务计划.md §22).
+// Mirrors contracts/openapi-demand.yaml 1.1.0 (1.0.0 was step F1, docs/redesign/03-App实现任务计划.md §22;
+// 1.1.0 adds qualificationReviewed to providers, R6-4).
 // The server is the source of truth: status, deadlines, what may be cancelled or chosen all come
 // from it; the page only draws them.
 
@@ -140,6 +141,8 @@ export interface DemandProvider {
   name: string
   certificationLabel: string | null
   description: string | null
+  // The platform reviewed the provider's qualification: shown as 资质已审核 in place of the label.
+  qualificationReviewed: boolean
 }
 
 export interface DemandChosen {
@@ -191,7 +194,7 @@ export interface DemandPage {
 
 export interface DemandQuote {
   quoteId: string
-  provider: { providerId: string; name: string; certificationLabel: string | null }
+  provider: { providerId: string; name: string; certificationLabel: string | null; qualificationReviewed: boolean }
   // 方案 v2; sent back as quoteVersion when choosing.
   version: number
   status: DemandQuoteStatus

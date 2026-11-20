@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { providerCredentialLabel } from '@/shared/ui/qualification'
 
 import {
   PRO_SERVICE_TYPE_INFO,
@@ -68,6 +69,10 @@ const tab = ref<ProviderTab>('scope')
 let requestVersion = 0
 
 const provider = computed(() => (state.value.kind === 'ready' ? state.value.page : null))
+// The board's green 资质已审核 tag when the platform reviewed the provider (R6-4), else its own label.
+const credential = computed(() =>
+  provider.value ? providerCredentialLabel(provider.value.qualificationReviewed, provider.value.certificationLabel) : null,
+)
 // Inspection first (it has its own booking flow), then the four types in the server's order.
 const scopeRows = computed<ScopeRow[]>(() => {
   const page = provider.value
@@ -145,9 +150,9 @@ void load()
         <text class="provider-page__logo" aria-hidden="true">{{ avatarText(provider.name) }}</text>
         <view class="provider-page__identity-copy">
           <text class="provider-page__name" data-testid="provider-name">{{ provider.name }}</text>
-          <view v-if="provider.certificationLabel || provider.description" class="provider-page__tags">
-            <text v-if="provider.certificationLabel" class="provider-page__tag" data-testid="provider-certification">
-              {{ provider.certificationLabel }}
+          <view v-if="credential || provider.description" class="provider-page__tags">
+            <text v-if="credential" class="provider-page__tag" data-testid="provider-certification">
+              {{ credential }}
             </text>
             <!-- The board's orange tag (东营本地团队): the provider's own one-line description. -->
             <text v-if="provider.description" class="provider-page__tag provider-page__tag--team" data-testid="provider-description">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { providerCredentialLabel } from '@/shared/ui/qualification'
 import { computed, ref, watch } from 'vue'
 
 import { platformCityApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
@@ -485,8 +486,11 @@ const SHEET_TITLES: Record<SheetKind, string> = {
 }
 const sheetTitle = computed(() => (sheet.value ? SHEET_TITLES[sheet.value] : ''))
 
+// Demand board: “资质已审核 · 无人机 + 机器狗” — the review (R6-4) or the provider's own label, then its line.
 function providerLine(provider: DemandProvider): string {
-  return [provider.certificationLabel, provider.description].filter(Boolean).join(' · ')
+  return [providerCredentialLabel(provider.qualificationReviewed, provider.certificationLabel), provider.description]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 watch(() => [props.accessToken, props.target.demandId, props.target.from, props.target.type, props.target.providerId], () => {

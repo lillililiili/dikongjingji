@@ -104,5 +104,21 @@ describe('rental api', () => {
     // A record without its recording time is not a record.
     expect(order.handoverRecord).toBeNull()
     expect(order.refund).toBeNull()
+    // R6-4: without the field the lessor is not shown as reviewed.
+    expect(inquiry.merchant.qualificationReviewed).toBe(false)
+    expect(order.contract.lessor.qualificationReviewed).toBe(false)
+  })
+
+  it('reads whether the lessor qualification was reviewed (1.1.0, R6-4)', () => {
+    const inquiry = toRentalInquiry({
+      inquiryId: 'i-1', status: 'QUOTED', version: 1,
+      merchant: { merchantId: 'm-1', name: '示例机器人商家', qualificationReviewed: true },
+    })
+    expect(inquiry.merchant).toEqual({ merchantId: 'm-1', name: '示例机器人商家', qualificationReviewed: true })
+    const order = toRentalOrder({
+      rentalOrderId: 'r-1', status: 'PENDING_PAYMENT', version: 0,
+      contract: { lessor: { merchantId: 'm-6', name: '示例设备租赁商', qualificationReviewed: false } },
+    })
+    expect(order.contract.lessor).toEqual({ merchantId: 'm-6', name: '示例设备租赁商', qualificationReviewed: false })
   })
 })

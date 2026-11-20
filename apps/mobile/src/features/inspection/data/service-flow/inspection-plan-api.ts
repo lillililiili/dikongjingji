@@ -17,6 +17,8 @@ export interface InspectionProviderSummary {
   providerId: string
   name: string
   certificationLabel?: string | null
+  // (service flow 2.2.0, R6-4) The platform reviewed the provider's qualification.
+  qualificationReviewed?: boolean | null
 }
 
 export interface InspectionCustomerParty {

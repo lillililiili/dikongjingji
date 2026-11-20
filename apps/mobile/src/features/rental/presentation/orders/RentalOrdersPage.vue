@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import QualificationBadge from '@/shared/ui/QualificationBadge.vue'
 import {
   loadMoreMerged,
   mergedHasMore,
@@ -195,6 +196,7 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
           <view class="rental-orders__head">
             <text class="rental-orders__kind">租赁</text>
             <text class="rental-orders__merchant">{{ card.order.contract.lessor.name }}</text>
+            <QualificationBadge v-if="card.order.contract.lessor.qualificationReviewed" class="rental-orders__qualified" />
             <text :class="['rental-orders__status', `rental-orders__status--${card.view.tone.toLowerCase()}`]" data-testid="rental-order-card-status">
               {{ card.view.statusText }}
             </text>
@@ -363,6 +365,12 @@ button::after {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* OrderList board: the order card's 资质已审核 tag is 0 5px with an 18px line. */
+.rental-orders__head .rental-orders__qualified {
+  padding: 0 5px;
+  line-height: 18px;
 }
 
 .rental-orders__merchant {

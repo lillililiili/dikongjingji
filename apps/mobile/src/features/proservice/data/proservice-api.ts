@@ -60,6 +60,7 @@ interface DetailDto extends Omit<CardDto, 'tags'> {
     name: string
     certificationLabel: string | null
     description: string | null
+    qualificationReviewed?: boolean | null
   } | null
   cities: ProServiceCity[]
 }
@@ -69,6 +70,7 @@ interface ProviderPageDto {
   name: string
   certificationLabel: string | null
   description: string | null
+  qualificationReviewed?: boolean | null
   cityCode: string
   inspectionServices: Array<{
     serviceId: string
@@ -190,6 +192,8 @@ export function createProServiceApi(http: PublicApiHttpClient): ProServiceApi {
               name: dto.provider.name,
               certificationLabel: dto.provider.certificationLabel?.trim() || null,
               description: dto.provider.description?.trim() || null,
+              // Only an explicit true shows 资质已审核.
+              qualificationReviewed: dto.provider.qualificationReviewed === true,
             }
           : null,
         cities: copyCities(dto.cities),
@@ -206,6 +210,7 @@ export function createProServiceApi(http: PublicApiHttpClient): ProServiceApi {
         name: dto.name,
         certificationLabel: dto.certificationLabel?.trim() || null,
         description: dto.description?.trim() || null,
+        qualificationReviewed: dto.qualificationReviewed === true,
         cityCode: dto.cityCode,
         inspectionServices: dto.inspectionServices.map((service) => ({
           serviceId: service.serviceId,

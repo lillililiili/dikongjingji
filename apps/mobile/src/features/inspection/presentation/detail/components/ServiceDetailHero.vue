@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { providerCredentialLabel } from '@/shared/ui/qualification'
 import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
 import { categoryBadgeColour, categoryBadgeLabel } from '../detail-line-icons'
 
@@ -35,6 +36,11 @@ const providerLogo = computed(() => {
   return /^https?:\/\//.test(url) ? url : ''
 })
 const providerInitial = computed(() => props.detail.provider?.name.trim().charAt(0) ?? '')
+// InspDetail board: the green 资质已审核 tag when the platform reviewed the provider (R6-4), else its own label.
+const providerCredential = computed(() => {
+  const provider = props.detail.provider
+  return provider ? providerCredentialLabel(provider.qualificationReviewed, provider.certificationLabel) : null
+})
 
 const priceLabel = computed(() => {
   if (props.detail.priceAmountMinor === null) {
@@ -135,10 +141,11 @@ const priceLabel = computed(() => {
           </text>
           <view class="service-detail-hero__provider-meta">
             <text
-              v-if="detail.provider.certificationLabel"
+              v-if="providerCredential"
               class="service-detail-hero__certification"
+              data-testid="service-detail-provider-credential"
             >
-              {{ detail.provider.certificationLabel }}
+              {{ providerCredential }}
             </text>
             <text
               v-if="serviceCitiesLabel"

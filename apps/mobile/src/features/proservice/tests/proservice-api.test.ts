@@ -85,6 +85,24 @@ describe('pro service API', () => {
     expect(detail.provider).toBeNull()
   })
 
+  it('reads whether the provider qualification was reviewed (1.1.0, R6-4)', async () => {
+    const http = fakeHttp({
+      ...cardDto(),
+      capabilities: [], priceRows: [], scope: [], outputs: [], serviceModes: [], terms: [],
+      steps: [], guarantees: [], cities: [],
+      provider: { providerId: 'p2', name: '鹰眼智能巡检', certificationLabel: '企业认证', description: null, qualificationReviewed: true },
+    })
+    const detail = await createProServiceApi(http.client).loadService('s1', '370500')
+    expect(detail.provider).toEqual({
+      providerId: 'p2', name: '鹰眼智能巡检', certificationLabel: '企业认证', description: null, qualificationReviewed: true,
+    })
+    const provider = await createProServiceApi(fakeHttp({
+      providerId: 'p3', name: '示例测绘服务商', certificationLabel: '企业认证', description: null, qualificationReviewed: false,
+      cityCode: '370500', inspectionServices: [], proServices: [], cities: [],
+    }).client).loadProvider('p3', '370500')
+    expect(provider.qualificationReviewed).toBe(false)
+  })
+
   it('reads a provider page with its inspection services, the four types and cities', async () => {
     const http = fakeHttp({
       providerId: 'p1',
@@ -105,6 +123,8 @@ describe('pro service API', () => {
     const page = await createProServiceApi(http.client).loadProvider('p1', '370500')
     expect(http.urls[0]).toBe('/api/v1/providers/p1?cityCode=370500')
     expect(page.certificationLabel).toBe('企业认证')
+    // R6-4: without the field the provider is not shown as reviewed.
+    expect(page.qualificationReviewed).toBe(false)
     expect(page.description).toBeNull()
     expect(page.inspectionServices[0].price.amountMinor).toBe(69900)
     expect(page.proServices[0].type).toBe('AERIAL')

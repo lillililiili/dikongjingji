@@ -41,7 +41,7 @@ export function demandOf(overrides: Partial<Demand> = {}): Demand {
 export function quoteOf(overrides: Partial<DemandQuote> = {}): DemandQuote {
   return {
     quoteId: 'q1',
-    provider: { providerId: 'p1', name: '云翼科技', certificationLabel: '企业认证' },
+    provider: { providerId: 'p1', name: '云翼科技', certificationLabel: '企业认证', qualificationReviewed: false },
     version: 2,
     status: 'ACTIVE',
     amountMinor: 1_860_000,

@@ -23,7 +23,7 @@ export function plan(overrides: Record<string, unknown> = {}) {
     planNo: 'FA2',
     reservationId: RESERVATION_ID,
     providerId: 'p1',
-    provider: { providerId: 'p1', name: '鹰眼智能巡检', certificationLabel: '资质已审核' },
+    provider: { providerId: 'p1', name: '鹰眼智能巡检', certificationLabel: '企业认证', qualificationReviewed: true },
     customerParty: { organizationName: '东营港务物流', operatorName: '王女士' },
     status: 'PUBLISHED',
     planVersion: 1,
@@ -109,7 +109,7 @@ export function order(visits: unknown[], overrides: Record<string, unknown> = {}
     status: 'IN_PROGRESS',
     paymentMode: 'NONE',
     paymentNodes: [],
-    provider: { providerId: 'p1', name: '鹰眼智能巡检', certificationLabel: '资质已审核' },
+    provider: { providerId: 'p1', name: '鹰眼智能巡检', certificationLabel: '企业认证', qualificationReviewed: true },
     customerParty: { organizationName: '东营港务物流', operatorName: '王女士' },
     serviceSnapshot: {
       serviceId: 's1',

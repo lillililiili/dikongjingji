@@ -49,6 +49,7 @@ interface InspectionServiceDetailDto {
     logo: MediaAssetDto | null
     logoAssetCode?: string | null
     certificationLabel?: string | null
+    qualificationReviewed?: boolean | null
     teamDescription?: string | null
   } | null
   capabilities: DetailItemDto[]
@@ -158,6 +159,8 @@ function mapDetail(dto: InspectionServiceDetailDto): InspectionServiceDetail {
             '/static/app-icons/feixiang-xxxhdpi.png',
           ),
           certificationLabel: dto.provider.certificationLabel ?? '',
+          // Only an explicit true shows 资质已审核.
+          qualificationReviewed: dto.provider.qualificationReviewed === true,
           teamDescription: dto.provider.teamDescription ?? '',
         }
       : null,

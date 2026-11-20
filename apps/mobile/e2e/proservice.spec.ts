@@ -335,7 +335,8 @@ test.describe('从详情和服务商主页发布需求', () => {
     await page.getByTestId('pro-detail-open-provider').click()
     await expect(page.getByTestId('provider-page')).toHaveAttribute('data-state', 'ready')
     await expect(page.getByTestId('provider-name')).toHaveText('云翼科技')
-    await expect(page.getByTestId('provider-certification')).toHaveText('企业认证')
+    // R6-4: 云翼科技 has a qualification review time in the dev seed, so the tag reads 资质已审核.
+    await expect(page.getByTestId('provider-certification')).toHaveText('资质已审核')
     await expect(page.getByTestId('provider-tab-scope')).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByTestId(`provider-service-${INSPECTION_SOLAR}`)).toContainText('光伏电站巡检服务')
     await expect(page.getByTestId(`provider-service-${AERIAL_PARK}`)).toContainText('园区与工程航拍')

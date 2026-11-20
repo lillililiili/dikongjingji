@@ -184,8 +184,8 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
         >
           <view class="demand-quotes__card-head">
             <text class="demand-quotes__name">{{ card.quote.provider.name }}</text>
-            <text v-if="card.quote.provider.certificationLabel" class="demand-quotes__cert">
-              {{ card.quote.provider.certificationLabel }}
+            <text v-if="card.view.credential" class="demand-quotes__cert" data-testid="demand-quote-credential">
+              {{ card.view.credential }}
             </text>
             <view class="demand-quotes__price">
               <text class="demand-quotes__price-label">总价</text>

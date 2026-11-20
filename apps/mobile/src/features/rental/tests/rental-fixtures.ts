@@ -31,7 +31,7 @@ export function rentalInquiry(overrides: Partial<RentalInquiry> = {}): RentalInq
     closeReason: null,
     declineReason: null,
     lessee: { kind: 'ORGANIZATION', organizationName: '东营港务物流', contactName: '王女士' },
-    merchant: { merchantId: 'm-1', name: '示例机器人商家' },
+    merchant: { merchantId: 'm-1', name: '示例机器人商家', qualificationReviewed: true },
     item: {
       offerId: 'o-1',
       productId: 'p-1',

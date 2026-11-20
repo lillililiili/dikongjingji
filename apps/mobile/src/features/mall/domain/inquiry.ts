@@ -1,6 +1,6 @@
 import type { MallImage, MallMerchantKind } from './mall'
 
-// Mirrors contracts/openapi-mall-inquiry.yaml (1.0.0, step F4): inquiry goods are asked about on an
+// Mirrors contracts/openapi-mall-inquiry.yaml (1.1.0; 1.0.0 was step F4): inquiry goods are asked about on an
 // inquiry form, merchants quote, the customer compares and chooses one quote, then orders it as a
 // normal mall order. Amounts are in fen, instants are ISO strings, dates are Beijing days.
 
@@ -24,6 +24,12 @@ export interface MallInquiryMerchantRef {
   organizationId: string
   name: string
   kind: MallMerchantKind
+}
+
+// A quoting merchant (1.1.0, R6-4): qualificationReviewed is the platform having reviewed its
+// qualification; the quote card then shows the green 资质已审核 tag.
+export interface MallInquiryQuoteMerchant extends MallInquiryMerchantRef {
+  qualificationReviewed: boolean
 }
 
 export interface MallInquiryBuyer {
@@ -94,7 +100,7 @@ export interface MallInquiryQuote {
   quoteId: string
   version: number
   offerId: string
-  merchant: MallInquiryMerchantRef
+  merchant: MallInquiryQuoteMerchant
   status: MallInquiryQuoteStatus
   unitAmountMinor: number
   quantity: number
