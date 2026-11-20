@@ -74,6 +74,7 @@ public class TradePaymentService {
     private final Supplier<String> pickupCodes;
     private final TradeRefundService refunds;
     private final TradeSourceEvents events;
+    private final TradeBuyerEvents buyerEvents;
     /** 每张订单上次真正查单的时间（见 {@link #takeCheckSlot}）。 */
     private final Map<UUID, Instant> lastChecks = new ConcurrentHashMap<>();
 
@@ -104,6 +105,24 @@ public class TradePaymentService {
             TradeRefundService refunds,
             TradeSourceEvents events
     ) {
+        this(payments, orders, orderService, channels, tx, clock, outTradeNoSuffix, pickupCodes, refunds, events,
+                TradeBuyerEvents.none());
+    }
+
+    /** @param buyerEvents 自提的商城订单付款到账时告诉买家可以提货了（R6-5） */
+    TradePaymentService(
+            TradePaymentMapper payments,
+            TradeOrderMapper orders,
+            TradeOrderService orderService,
+            Supplier<PaymentChannel> channels,
+            TransactionOperations tx,
+            Clock clock,
+            Supplier<String> outTradeNoSuffix,
+            Supplier<String> pickupCodes,
+            TradeRefundService refunds,
+            TradeSourceEvents events,
+            TradeBuyerEvents buyerEvents
+    ) {
         this.payments = payments;
         this.orders = orders;
         this.orderService = orderService;
@@ -114,6 +133,7 @@ public class TradePaymentService {
         this.pickupCodes = pickupCodes;
         this.refunds = refunds;
         this.events = events;
+        this.buyerEvents = buyerEvents;
     }
 
     // ---- 发起支付 ----
@@ -549,6 +569,7 @@ public class TradePaymentService {
             }
             // 业务来源的订单（E09）：同一事务里告诉业务模块；收不下就全额自动退款，提交后交给渠道。
             events.paid(order.id(), payment.id());
+            buyerEvents.paid(order.id(), now);
             return Applied.APPLIED;
         });
     }

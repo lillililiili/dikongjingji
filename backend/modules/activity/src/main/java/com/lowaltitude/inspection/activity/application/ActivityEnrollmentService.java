@@ -77,6 +77,7 @@ public class ActivityEnrollmentService {
     private final Supplier<String> ticketCodes;
     private final ActivityPaymentPort payments;
     private final TransactionOperations tx;
+    private final ActivityEnrollmentNotifier notifier;
 
     /** 没有接交易模块：只能免费报名。 */
     ActivityEnrollmentService(
@@ -97,11 +98,24 @@ public class ActivityEnrollmentService {
             ActivityPaymentPort payments,
             TransactionOperations tx
     ) {
+        this(mapper, clock, ticketCodes, payments, tx, ActivityEnrollmentNotifier.none());
+    }
+
+    /** @param notifier 报名成功时告诉报名的账号（R6-5） */
+    ActivityEnrollmentService(
+            ActivityEnrollmentMapper mapper,
+            Clock clock,
+            Supplier<String> ticketCodes,
+            ActivityPaymentPort payments,
+            TransactionOperations tx,
+            ActivityEnrollmentNotifier notifier
+    ) {
         this.mapper = mapper;
         this.clock = clock;
         this.ticketCodes = ticketCodes;
         this.payments = payments;
         this.tx = tx;
+        this.notifier = notifier;
     }
 
     // ---- 参与人 ----
@@ -303,6 +317,10 @@ public class ActivityEnrollmentService {
         }
         mapper.insertEvent(enrollmentId, null, "ENROLLED", accountId, now);
         mapper.addEnrolled(session.sessionId(), participants.size(), now);
+        if (!paid) {
+            // 免费报名提交即成功；收费报名等付款到账（onPaymentConfirmed）再说。
+            notifyEnrolled(accountId, enrollmentId, session, participants.size(), false, now);
+        }
         return new EnrollmentResult(readEnrollment(accountId, enrollmentId), true);
     }
 
@@ -537,8 +555,9 @@ public class ActivityEnrollmentService {
         return switch (row.status()) {
             case EnrollmentRecord.PENDING_PAYMENT -> {
                 mapper.confirmPayment(enrollmentId, now);
-                mapper.activatePendingTickets(enrollmentId, now);
+                int people = mapper.activatePendingTickets(enrollmentId, now);
                 mapper.insertEvent(enrollmentId, null, "PAYMENT_CONFIRMED", null, now);
+                notifyEnrolled(row.accountId(), enrollmentId, session, people, true, now);
                 yield true;
             }
             case EnrollmentRecord.CLOSED -> restore(row, session, now);
@@ -565,7 +584,19 @@ public class ActivityEnrollmentService {
         mapper.restoreClosed(row.enrollmentId(), now);
         mapper.addEnrolled(row.sessionId(), restored, now);
         mapper.insertEvent(row.enrollmentId(), null, "PAYMENT_RESTORED", null, now);
+        notifyEnrolled(row.accountId(), row.enrollmentId(), session, restored, true, now);
         return true;
+    }
+
+    /** 报名成功（R6-5）：只给活动名、开始时间和人数。通知是附带的，出错只记日志，不让报名或入账失败。 */
+    private void notifyEnrolled(UUID accountId, UUID enrollmentId, SessionRow session, int people, boolean paid,
+                                OffsetDateTime now) {
+        try {
+            notifier.enrolled(new ActivityEnrollmentNotifier.Enrolled(
+                    accountId, enrollmentId, session.title(), session.startsAt(), people, paid, now.toInstant()));
+        } catch (RuntimeException exception) {
+            log.error("telling account {} that enrollment {} succeeded failed", accountId, enrollmentId, exception);
+        }
     }
 
     /**

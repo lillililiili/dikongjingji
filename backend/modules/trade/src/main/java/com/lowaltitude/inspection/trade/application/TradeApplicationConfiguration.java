@@ -38,15 +38,27 @@ public class TradeApplicationConfiguration {
                 AfterCommit.spring());
     }
 
+    /** 发货、可以自提、退款到账告诉买家（R6-5）：启动模块接到站内信；没接时什么都不做。 */
     @Bean
-    TradeOrderService tradeOrderService(TradeOrderMapper mapper, TradeCheckoutPort checkout, TradeSourceEvents events) {
+    TradeBuyerEvents tradeBuyerEvents(TradeOrderMapper orders, ObjectProvider<TradeBuyerNotifier> notifier) {
+        return new TradeBuyerEvents(orders, notifier.getIfAvailable(TradeBuyerNotifier::none));
+    }
+
+    @Bean
+    TradeOrderService tradeOrderService(
+            TradeOrderMapper mapper,
+            TradeCheckoutPort checkout,
+            TradeSourceEvents events,
+            TradeBuyerEvents buyerEvents
+    ) {
         SecureRandom random = new SecureRandom();
         return new TradeOrderService(
                 mapper,
                 checkout,
                 Clock.systemUTC(),
                 () -> String.format("%08d", random.nextInt(100_000_000)),
-                events);
+                events,
+                buyerEvents);
     }
 
     @Bean
@@ -70,7 +82,8 @@ public class TradeApplicationConfiguration {
             ObjectProvider<PaymentChannel> channels,
             PlatformTransactionManager transactionManager,
             TradeRefundService refunds,
-            TradeSourceEvents events
+            TradeSourceEvents events,
+            TradeBuyerEvents buyerEvents
     ) {
         SecureRandom random = new SecureRandom();
         return new TradePaymentService(
@@ -84,7 +97,8 @@ public class TradeApplicationConfiguration {
                 // 取货码 6 位数字，不可预测。
                 () -> String.format("%06d", random.nextInt(1_000_000)),
                 refunds,
-                events);
+                events,
+                buyerEvents);
     }
 
     @Bean
@@ -93,7 +107,8 @@ public class TradeApplicationConfiguration {
             TradeOrderMapper orders,
             TradeOrderService orderService,
             ObjectProvider<PaymentChannel> channels,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            TradeBuyerEvents buyerEvents
     ) {
         SecureRandom random = new SecureRandom();
         return new TradeRefundService(
@@ -103,7 +118,8 @@ public class TradeApplicationConfiguration {
                 channels::getIfAvailable,
                 new TransactionTemplate(transactionManager),
                 Clock.systemUTC(),
-                () -> twelveDigits(random));
+                () -> twelveDigits(random),
+                buyerEvents);
     }
 
     @Bean

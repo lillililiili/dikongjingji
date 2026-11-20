@@ -851,6 +851,26 @@ class TradeRefundServiceTest {
         assertThat(store.locks.subList(0, 2)).containsExactly("lockOrder:" + orderId, "lockRefund:" + refund.id);
     }
 
+    // R6-5：退款到账时告诉买家一次（部分退款也说，带上这一笔的金额）；同一结果再报、关闭的退款都不说。
+    @Test
+    void aRefundThatArrivesIsReportedToTheBuyerOnce() {
+        RecordingBuyerNotifier notifier = new RecordingBuyerNotifier();
+        TradeRefundService telling = new TradeRefundService(store.refundMapper, store.orderMapper, orderService,
+                () -> channel, TransactionOperations.withoutTransaction(), clock, this::nextSuffix,
+                new TradeBuyerEvents(id -> new TradeBuyerEvents.Loaded(new TradeBuyerNotifier.OrderFacts(id, BUYER,
+                        "MALL", null, "示例无人机专卖店", "示例无人机", 1), "EXPRESS"), notifier));
+        UUID orderId = store.order(BUYER, "COMPLETED");
+        telling.merchantRefund(MERCHANT, OPERATOR, orderId, KEY, 41_000L, "少发一件");
+        Refund refund = store.onlyRefund();
+        clock.now = NOW.plusSeconds(60);
+
+        telling.apply(result(refund, RefundState.SUCCESS), "REFUND_NOTIFIED");
+        telling.apply(result(refund, RefundState.SUCCESS), "REFUND_QUERIED");
+
+        assertThat(notifier.told).containsExactly(
+                "refunded " + orderId + " " + refund.id + " 41000 " + NOW.plusSeconds(60));
+    }
+
     @Test
     void aPartialRefundReportedTwiceIsAddedOnce() {
         UUID orderId = store.order(BUYER, "COMPLETED");

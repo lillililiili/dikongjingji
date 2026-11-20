@@ -79,6 +79,7 @@ public class VenueBookingService {
     private final TransactionOperations tx;
     private final Clock clock;
     private final Supplier<String> codes;
+    private final VenueBookingNotifier notifier;
 
     VenueBookingService(
             VenueBookingMapper mapper,
@@ -88,12 +89,26 @@ public class VenueBookingService {
             Clock clock,
             Supplier<String> codes
     ) {
+        this(mapper, participants, payments, tx, clock, codes, VenueBookingNotifier.none());
+    }
+
+    /** @param notifier 预约成功、改期时告诉预约的账号（R6-5） */
+    VenueBookingService(
+            VenueBookingMapper mapper,
+            VenueParticipantPort participants,
+            VenuePaymentPort payments,
+            TransactionOperations tx,
+            Clock clock,
+            Supplier<String> codes,
+            VenueBookingNotifier notifier
+    ) {
         this.mapper = mapper;
         this.participants = participants;
         this.payments = payments;
         this.tx = tx;
         this.clock = clock;
         this.codes = codes;
+        this.notifier = notifier;
     }
 
     // ---- 参与人 ----
@@ -248,6 +263,10 @@ public class VenueBookingService {
         }
         mapper.addBooked(session.sessionId(), chosen.size(), now);
         mapper.insertEvent(bookingId, "BOOKED", accountId, null, null, now);
+        if (!paid) {
+            // 免费项目提交即预约成功；收费项目等付款到账（onPaymentConfirmed）再说。
+            notifyBooked(accountId, bookingId, session, chosen.size(), now);
+        }
         return new BookingResult(readBooking(accountId, bookingId), true);
     }
 
@@ -403,6 +422,11 @@ public class VenueBookingService {
         mapper.addBooked(current.sessionId(), -booking.people(), now);
         mapper.addBooked(target.sessionId(), booking.people(), now);
         mapper.insertEvent(bookingId, "RESCHEDULED", accountId, current.sessionId(), target.sessionId(), now);
+        try {
+            notifier.rescheduled(booking(accountId, bookingId, target, booking.people(), now), version);
+        } catch (RuntimeException exception) {
+            log.error("telling account {} that venue booking {} moved failed", accountId, bookingId, exception);
+        }
         return readBooking(accountId, bookingId);
     }
 
@@ -428,6 +452,7 @@ public class VenueBookingService {
             case VenueBookingRecord.PENDING_PAYMENT -> {
                 mapper.confirmPayment(bookingId, codes.get(), now);
                 mapper.insertEvent(bookingId, "PAYMENT_CONFIRMED", null, null, null, now);
+                notifyBooked(booking.accountId(), bookingId, session, booking.people(), now);
                 yield true;
             }
             case VenueBookingRecord.CLOSED -> restore(booking, session, now);
@@ -449,7 +474,23 @@ public class VenueBookingService {
         mapper.restoreClosed(booking.bookingId(), codes.get(), now);
         mapper.addBooked(session.sessionId(), booking.people(), now);
         mapper.insertEvent(booking.bookingId(), "PAYMENT_RESTORED", null, null, null, now);
+        notifyBooked(booking.accountId(), booking.bookingId(), session, booking.people(), now);
         return true;
+    }
+
+    /** 预约成功（R6-5）。通知是附带的，出错只记日志，不让预约或入账失败。 */
+    private void notifyBooked(UUID accountId, UUID bookingId, SessionRow session, int people, OffsetDateTime now) {
+        try {
+            notifier.booked(booking(accountId, bookingId, session, people, now));
+        } catch (RuntimeException exception) {
+            log.error("telling account {} that venue booking {} succeeded failed", accountId, bookingId, exception);
+        }
+    }
+
+    private static VenueBookingNotifier.Booking booking(
+            UUID accountId, UUID bookingId, SessionRow session, int people, OffsetDateTime now) {
+        return new VenueBookingNotifier.Booking(accountId, bookingId, session.venueName(), session.projectName(),
+                session.startsAt(), people, now.toInstant());
     }
 
     /** 交易订单没付款就关闭了（超时或取消）：待付款的预约关闭，名额释放。别的状态不动。 */

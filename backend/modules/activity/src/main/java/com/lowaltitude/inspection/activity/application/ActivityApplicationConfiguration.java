@@ -30,18 +30,23 @@ public class ActivityApplicationConfiguration {
                 port::merchantCanCollect);
     }
 
-    /** 收费报名的付款能力由启动模块接到交易模块（E09）；没接时收费报名一律“暂未开通在线支付”。 */
+    /**
+     * 收费报名的付款能力由启动模块接到交易模块（E09）；没接时收费报名一律“暂未开通在线支付”。
+     * 报名成功的通知由启动模块接到站内信（R6-5）；没接时不通知。
+     */
     @Bean
     ActivityEnrollmentService activityEnrollmentService(
             ActivityEnrollmentMapper mapper,
             ObjectProvider<ActivityPaymentPort> payments,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            ObjectProvider<ActivityEnrollmentNotifier> notifier
     ) {
         return new ActivityEnrollmentService(
                 mapper,
                 Clock.systemUTC(),
                 new ActivityTicketCodes(),
                 payments.getIfAvailable(ActivityPaymentPort::unavailable),
-                new TransactionTemplate(transactionManager));
+                new TransactionTemplate(transactionManager),
+                notifier.getIfAvailable(ActivityEnrollmentNotifier::none));
     }
 }

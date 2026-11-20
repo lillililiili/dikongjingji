@@ -320,10 +320,10 @@ class SupportOpenApiContractTest {
                 assertThat(strings(map(schemas.get(schemaName)).get("enum"))).as(schemaName)
                         .containsExactlyElementsOf(names(enumType)));
         assertThat(REQUEST_ENUM_FIELDS.values()).allSatisfy(name -> assertThat(SCHEMA_ENUMS).containsKey(name));
-        // 站内信契约认得客服消息和会话。
+        // 站内信契约认得客服消息和会话（1.3.0 起后面还有交易物流、活动提醒）。
         assertThat(read(NOTIFICATION_CONTRACT))
-                .contains("enum: [SERVICE_PROGRESS, DEMAND_QUOTE, CUSTOMER_SERVICE]")
-                .contains("enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY, DEMAND, CONVERSATION]")
+                .contains("enum: [SERVICE_PROGRESS, DEMAND_QUOTE, CUSTOMER_SERVICE,")
+                .contains("enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY, DEMAND, CONVERSATION,")
                 .contains("for CUSTOMER_SERVICE it is SUPPORT_REPLIED");
         assertThat(SupportPortsConfiguration.EVENT_CODE).isEqualTo("SUPPORT_REPLIED");
     }
