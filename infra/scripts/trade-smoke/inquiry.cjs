@@ -14,7 +14,7 @@ const crypto = require('node:crypto');
 const { offerId, check, call, fake, psql, login, cleanupBuyer, key, waitFor, finish } = require('./lib.cjs');
 
 // 开发种子：行业测绘无人机（询价商品）在东营有示例机器人商家（dev-merchant，子商户号 1900000101）和示例行业装备代理
-// （dev-merchant-2，1900000105）两家能收款的供给；示例无人机厂家（全国）没开通收款。编程机器人套装是“购买”商品。
+// （dev-merchant-2，1900000105）两家能收款的供给；示例无人机厂家（全国，1900000104）在第 1 步临时停用收款。编程机器人套装是“购买”商品。
 const PRODUCT = 'c2000000-0000-4000-8000-000000000203';
 const ROBOT_OFFER = offerId('203', '1');
 const AGENT_OFFER = offerId('203', '5');
@@ -112,12 +112,18 @@ async function main() {
   let r = await call('POST', '/api/v1/account/addresses', { token: customer, body: { recipientName: '冒烟询价', phone: '13800005678', cityCode: CITY, detail: '东营港 示例港路 8 号', isDefault: true } });
   check('a delivery address in 东营', r.status === 201, r.json);
 
-  // 1. 能发给谁
-  r = await call('GET', `/api/v1/mall/inquiry-offers?productId=${PRODUCT}&cityCode=${CITY}`, { token: customer });
-  const canInquire = Object.fromEntries((r.json?.items ?? []).map((o) => [o.offerId, o.canInquire]));
-  check('three offers; the two collecting merchants can be asked', r.status === 200 && r.json.items.length === 3 && canInquire[ROBOT_OFFER] && canInquire[AGENT_OFFER] && canInquire[MAKER_OFFER] === false, r.json);
-  r = await submit(customer, [MAKER_OFFER]);
-  check('a merchant without payment cannot be asked', r.status === 409 && r.json.code === 'MALL_INQUIRY_MERCHANT_UNAVAILABLE', r.json);
+  // 1. 能发给谁。开发种子 2026-11-20 起也给示例无人机厂家登记了收款账户（商品详情要能看到可付款的商家），
+  // 这里临时停用它的账户来测“没开通收款的商家不能询价”，测完恢复。
+  psql("UPDATE trade_merchant_account SET active = false WHERE sub_mchid = '1900000104'");
+  try {
+    r = await call('GET', `/api/v1/mall/inquiry-offers?productId=${PRODUCT}&cityCode=${CITY}`, { token: customer });
+    const canInquire = Object.fromEntries((r.json?.items ?? []).map((o) => [o.offerId, o.canInquire]));
+    check('three offers; the two collecting merchants can be asked', r.status === 200 && r.json.items.length === 3 && canInquire[ROBOT_OFFER] && canInquire[AGENT_OFFER] && canInquire[MAKER_OFFER] === false, r.json);
+    r = await submit(customer, [MAKER_OFFER]);
+    check('a merchant without payment cannot be asked', r.status === 409 && r.json.code === 'MALL_INQUIRY_MERCHANT_UNAVAILABLE', r.json);
+  } finally {
+    psql("UPDATE trade_merchant_account SET active = true WHERE sub_mchid = '1900000104'");
+  }
   r = await submit(customer, [BUY_OFFER]);
   check('a goods offer is not an inquiry offer', r.status === 409 && r.json.code === 'MALL_INQUIRY_OFFER_UNAVAILABLE', r.json);
   r = await submit(customer, [ROBOT_OFFER, AGENT_OFFER, MAKER_OFFER, BUY_OFFER]);

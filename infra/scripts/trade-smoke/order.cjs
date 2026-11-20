@@ -14,7 +14,7 @@ const { BASE, FAKE, FAKE_DIR, BUYER, offerId, check, call, fake, psql, login, cl
 const KIT_FACTORY = offerId('101', '1');
 const KIT_STORE = offerId('101', '3');
 const FIELD = offerId('302', '1');
-const DRONE_FACTORY = offerId('201', '4'); // 示例无人机厂家：没有登记收款账户
+const DRONE_FACTORY = offerId('201', '4'); // 示例无人机厂家（1900000104），测“没开通收款”时临时停用
 
 
 const cleanup = cleanupBuyer;
@@ -50,8 +50,14 @@ async function main() {
   check('wrong expected amount is refused', r.status === 409 && r.json.code === 'TRADE_AMOUNT_CHANGED', JSON.stringify(r.json));
   r = await call('POST', '/api/v1/trade/orders', { token: customer, headers: { 'Idempotency-Key': key() }, body: { ...pickupBody, deliveryMode: 'EXPRESS' } });
   check('express on a pickup-only offer is refused', r.status === 409 && r.json.code === 'TRADE_DELIVERY_UNAVAILABLE', JSON.stringify(r.json));
-  r = await call('POST', '/api/v1/trade/orders', { token: customer, headers: { 'Idempotency-Key': key() }, body: { cityCode: '370500', offerId: DRONE_FACTORY, quantity: 1, deliveryMode: 'EXPRESS', expectedPayableMinor: 89900, agreementAccepted: true } });
-  check('merchant without payment account is refused first', r.status === 409 && r.json.code === 'TRADE_MERCHANT_PAYMENT_UNAVAILABLE', JSON.stringify(r.json));
+  // 开发种子 2026-11-20 起给示例无人机厂家登记了收款账户；这里临时停用它来测“没开通收款的商家”，测完恢复。
+  psql("UPDATE trade_merchant_account SET active = false WHERE sub_mchid = '1900000104'");
+  try {
+    r = await call('POST', '/api/v1/trade/orders', { token: customer, headers: { 'Idempotency-Key': key() }, body: { cityCode: '370500', offerId: DRONE_FACTORY, quantity: 1, deliveryMode: 'EXPRESS', expectedPayableMinor: 89900, agreementAccepted: true } });
+    check('merchant without payment account is refused first', r.status === 409 && r.json.code === 'TRADE_MERCHANT_PAYMENT_UNAVAILABLE', JSON.stringify(r.json));
+  } finally {
+    psql("UPDATE trade_merchant_account SET active = true WHERE sub_mchid = '1900000104'");
+  }
   r = await call('POST', '/api/v1/trade/orders', { token: customer, headers: { 'Idempotency-Key': key() }, body: { ...pickupBody, agreementAccepted: false } });
   check('agreement required', r.status === 400);
   check('missing idempotency key is 400', (await call('POST', '/api/v1/trade/orders', { token: customer, body: pickupBody })).status === 400);

@@ -44,7 +44,7 @@ class DevelopmentMallInquirySeedTest {
                 .contains("crypt('test-password', gen_salt('bf', 10))")
                 .contains("FROM identity_role WHERE role_code = 'PROVIDER_OPERATOR'")
                 .doesNotContain("DELETE FROM");
-        // 示例无人机厂家（004）不登记，用来看“暂未开通在线支付”。
+        // 询价商家的种子只登记 005；示例无人机厂家（004）的账户在 R__dev_trade_merchant_accounts.sql，不在这里重复。
         assertThat(sql).doesNotContain("c1000000-0000-4000-8000-000000000004");
     }
 
