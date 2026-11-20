@@ -6,6 +6,13 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 
 import { API, BUYER, MERCHANT, apiLogin, databaseAvailable, psql, type Session } from './support/trade-fixtures'
 
+// The login page carries the target as an encoded returnUrl inside the hash (see experience.spec).
+function loginReturnUrl(page: Page): string {
+  const hash = page.url().split('#')[1] ?? ''
+  const query = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : ''
+  return decodeURIComponent(new URLSearchParams(query).get('returnUrl') ?? '')
+}
+
 // 发现页视频（contracts/openapi-content.yaml 1.2.0，计划 docs/redesign/07-视频与直播实现计划.md §2、§4）：
 // 推荐瀑布流里的视频卡（时长角标），“视频”频道，点卡片进竖屏视频流并从这一条开始，上下切换，点赞、关注要登录，
 // 评论（发出、关键词拦截、作者回复标“作者”、举报、受权隐藏），关注流，视频详情（内容中提到进商品页）。
@@ -115,7 +122,7 @@ test.describe('发现页视频', () => {
     await expect(videoCard(page, DOG).getByTestId('content-sponsored')).toHaveCount(0)
     await expect(videoCard(page, CONTEST).getByTestId('content-sponsored')).toHaveCount(0)
     // 预览构建用示例视频的第一帧作封面。
-    await expect(videoCard(page, ROBOT).locator('img, uni-image')).toHaveCount(1)
+    await expect(videoCard(page, ROBOT).locator('uni-image.video-card__image')).toHaveCount(1)
     await expect(discover(page)).not.toContainText('观看')
     await assertNoHorizontalOverflow(page)
 
@@ -187,7 +194,7 @@ test.describe('发现页视频', () => {
 
     await page.getByTestId('video-feed-like').click()
     await expect(page).toHaveURL(/#\/pages\/service\/inspection\/login\?returnUrl=/)
-    expect(decodeURIComponent(page.url())).toContain(`/pages/content/video-feed?cityCode=${CITY}&videoId=${DOG}`)
+    expect(loginReturnUrl(page)).toContain(`/pages/content/video-feed?cityCode=${CITY}&videoId=${DOG}`)
 
     // 评论列表不登录也能看，发评论要登录。
     await openFeed(page, DOG)
@@ -311,7 +318,8 @@ test.describe('发现页视频', () => {
     await expect(page.getByTestId('content-video-title')).toHaveText('3 分钟看懂编程机器人')
     await expect(page.getByTestId('content-video-author')).toContainText('示例机器人商家')
     await expect(page.getByTestId('content-video-author').getByTestId('content-sponsored')).toHaveText('广告')
-    await expect(page.getByTestId('content-video-author')).toContainText('发布 · 东营')
+    // The second half is the current city once one is chosen (this test opens the page directly).
+    await expect(page.getByTestId('content-video-author')).toContainText(/发布 · (东营|视频)/)
     await expect(page.getByTestId('content-video-home')).toHaveText('进店')
     await expect(page.getByTestId('content-video-caption')).toContainText('超声波加循线传感器')
     const refs = page.getByTestId('content-video-refs')
@@ -333,7 +341,7 @@ test.describe('发现页视频', () => {
     await expect(detail).toHaveAttribute('data-state', 'ready')
     await page.getByTestId('content-video-like').click()
     await expect(page).toHaveURL(/#\/pages\/service\/inspection\/login\?returnUrl=/)
-    expect(decodeURIComponent(page.url())).toContain(`/pages/content/video?videoId=${ROBOT}&cityCode=${CITY}`)
+    expect(loginReturnUrl(page)).toContain(`/pages/content/video?videoId=${ROBOT}&cityCode=${CITY}`)
   })
 
   test('CVD-007 服务商的视频进服务商主页；下线或别的城市的视频说清楚，可以从头看', async ({ page }) => {
