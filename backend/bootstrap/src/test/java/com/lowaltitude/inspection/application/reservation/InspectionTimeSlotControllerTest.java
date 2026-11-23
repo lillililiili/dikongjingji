@@ -62,6 +62,7 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.rental.application.RentalService.class,
         com.lowaltitude.inspection.mall.application.MallInquiryService.class,
         com.lowaltitude.inspection.support.application.SupportService.class,
+        com.lowaltitude.inspection.favorite.application.FavoriteService.class,
         com.lowaltitude.inspection.live.application.LiveService.class,
         com.lowaltitude.inspection.content.application.ContentReadService.class,
         com.lowaltitude.inspection.content.application.ContentVideoService.class,

@@ -118,6 +118,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway favorite(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/favorite",
+                "flyway_history_favorite",
+                true);
+    }
+
     private static Flyway build(DataSource dataSource, String location, String historyTable, boolean baselineOnMigrate) {
         return Flyway.configure()
                 .dataSource(dataSource)

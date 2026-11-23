@@ -178,6 +178,14 @@ public class ModuleFlywayConfiguration {
         return datedDevelopmentSeed(dataSource, "content", seedDatePlaceholder());
     }
 
+    // 收藏（计划 08 S5-6）的表引用 identity_user，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 收藏的对象只存类型 + ID，不引用商城、服务、活动、场馆、内容的表。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway favoriteFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.favorite(dataSource);
+    }
+
     // 直播（M20）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     // 讲解项只存类型 + ID，不引用商城、服务、活动、场馆的表。
     @Bean(initMethod = "migrate")

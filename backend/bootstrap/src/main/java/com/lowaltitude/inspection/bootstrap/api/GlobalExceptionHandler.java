@@ -20,6 +20,7 @@ import com.lowaltitude.inspection.content.application.ContentException;
 import com.lowaltitude.inspection.content.application.ContentNotFoundException;
 import com.lowaltitude.inspection.rental.application.RentalException;
 import com.lowaltitude.inspection.support.application.SupportException;
+import com.lowaltitude.inspection.favorite.application.FavoriteException;
 import com.lowaltitude.inspection.live.application.LiveException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
@@ -669,6 +670,33 @@ public class GlobalExceptionHandler {
                 message = "对方暂时不能接收消息";
             }
             default -> throw new IllegalStateException("unmapped support error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
+    /** 收藏（契约 contracts/openapi-favorite.yaml 1.0.0）的业务拒绝。 */
+    @ExceptionHandler(FavoriteException.class)
+    public ResponseEntity<ApiError> handleFavorite(FavoriteException exception, HttpServletRequest request) {
+        HttpStatus status;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case TARGET_UNAVAILABLE -> {
+                status = HttpStatus.CONFLICT;
+                code = "FAVORITE_TARGET_UNAVAILABLE";
+                message = "该内容已下架或当前城市不提供，不能收藏";
+            }
+            case LIMIT_REACHED -> {
+                status = HttpStatus.CONFLICT;
+                code = "FAVORITE_LIMIT_REACHED";
+                message = "收藏已满 500 条，请先取消一些";
+            }
+            default -> throw new IllegalStateException("unmapped favorite error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
     }

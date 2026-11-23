@@ -525,6 +525,33 @@ class AuthenticationSecurityIntegrationTest {
         org.mockito.Mockito.verifyNoMoreInteractions(support);
     }
 
+    // 收藏（计划 08 S5-6）：全部要登录和客户角色；账号只从令牌里取。
+    @Test
+    void favoriteRoutesRequireALoginAndTheCustomerRole() throws Exception {
+        String target = "/api/v1/favorites/PRODUCT/a1000000-0000-4000-8000-000000000001";
+        for (var request : List.of(get("/api/v1/favorites?group=GOODS&cityCode=370500"), get(target),
+                put(target + "?cityCode=370500"), delete(target))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        com.lowaltitude.inspection.favorite.application.FavoriteService favorites = applicationContext.getBean(
+                com.lowaltitude.inspection.favorite.application.FavoriteService.class);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+
+        mockMvc.perform(get("/api/v1/favorites?group=GOODS&cityCode=370500")
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(favorites).list(SUBJECT_ID, "GOODS", "370500", 1, 10);
+        mockMvc.perform(delete(target).header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        org.mockito.Mockito.verifyNoMoreInteractions(favorites);
+    }
+
     // 直播（M20）：列表、详情、弹幕增量、记一次观看和服务商回调不登录也能调（回调靠签名）；其余都要登录，
     // 观众接口要客户角色，/live-host 要直播主办角色和机构，/platform/live 要平台客服角色。旁边的路径仍然要登录。
     @Test
@@ -1536,6 +1563,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.support.application.SupportService testSupportService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.support.application.SupportService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.favorite.application.FavoriteService testFavoriteService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.favorite.application.FavoriteService.class);
         }
 
         @Bean

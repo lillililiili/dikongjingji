@@ -30,5 +30,6 @@
         <module>modules/support</module>
         <module>modules/content</module>
         <module>modules/live</module>
+        <module>modules/favorite</module>
     </modules>
 </project>
