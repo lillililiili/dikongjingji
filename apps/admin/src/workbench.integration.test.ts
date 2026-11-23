@@ -168,11 +168,13 @@ describe('机构工作台（整个运营端 + 假后端）', () => {
     expect(router.currentRoute.value.path).toBe('/workbench/mall-orders')
     // 菜单：只有机构工作台；直播主办多一项“直播间”；没有平台运营的菜单。
     const menu = document.querySelector('.layout__menu')!.textContent ?? ''
-    for (const title of ['商城订单', '商城询价', '租赁询价', '租赁订单', '需求报价', '巡检预约', '客服会话', '直播间', '收款账户']) {
+    for (const title of ['商城订单', '商城询价', '租赁询价', '租赁订单', '需求报价', '服务订单', '巡检预约', '客服会话', '直播间',
+      '服务商资料', '收款账户']) {
       expect(menu).toContain(title)
     }
     expect(menu).not.toContain('城市开通')
     expect(menu).not.toContain('举报与反馈')
+    expect(menu).not.toContain('服务商资料审核')
 
     // 默认页签“待发货”：已付款的快递单。
     const listCall = backend.calls.find((call) => call.url.startsWith('/api/v1/provider/trade/orders'))!

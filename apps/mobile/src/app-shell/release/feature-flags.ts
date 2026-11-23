@@ -26,6 +26,7 @@ export type ReleaseFeatureKey =
   | 'TRADE'
   | 'RENTAL'
   | 'DEMAND'
+  | 'SERVICE_ORDER'
   | 'PROSERVICE'
   | 'CONTENT'
   | 'LIVE'

@@ -17,6 +17,8 @@ import com.lowaltitude.inspection.notification.application.NotificationCategory;
 import com.lowaltitude.inspection.notification.application.NotificationService;
 import com.lowaltitude.inspection.notification.application.NotificationTargetType;
 import com.lowaltitude.inspection.proservice.application.ProServiceReadService;
+import com.lowaltitude.inspection.serviceorder.application.ServiceOrderService;
+import com.lowaltitude.inspection.serviceorder.application.ServiceOrderViews;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -81,6 +83,22 @@ public class DemandPortsConfiguration {
                 return cities;
             }
         };
+    }
+
+    /** S4-3：四类服务选定报价时在同一个事务里生成通用服务订单（服务订单模块不读需求的表，内容是这里给的快照）。 */
+    @Bean
+    DemandPorts.ServiceOrders demandServiceOrders(ServiceOrderService serviceOrders) {
+        return chosen -> serviceOrders.open(new ServiceOrderViews.ServiceOrderOpening(
+                chosen.demandId(), chosen.quoteId(), chosen.quoteVersion(), chosen.accountId(),
+                chosen.organizationId(), chosen.organizationName(), chosen.providerId(), chosen.providerName(),
+                chosen.type(), chosen.title(), chosen.cityCode(), chosen.cityName(), chosen.address(), chosen.scope(),
+                chosen.dueDate(), chosen.amountMinor(), chosen.method(), chosen.schedule(), chosen.durationDays(),
+                chosen.deliverables(), chosen.team(), chosen.nightWork(), chosen.reportHours(), chosen.archiveDays(),
+                chosen.firstVisitDate(),
+                chosen.lines().stream()
+                        .map(line -> new ServiceOrderViews.OpeningLine(line.name(), line.quantity(), line.unit(),
+                                line.unitAmountMinor(), line.amountMinor()))
+                        .toList()));
     }
 
     @Bean

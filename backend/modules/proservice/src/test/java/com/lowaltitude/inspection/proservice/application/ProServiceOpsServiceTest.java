@@ -158,6 +158,6 @@ class ProServiceOpsServiceTest {
 
     private static DetailRow row(UUID id, String status, int version) {
         return new DetailRow(id, status, version, NOW, false, PROVIDER, "AERIAL", "TOURISM", "文旅航拍", "景区宣传片",
-                "PRICE_FROM", 180000L, "/次起", "含 1 架次", null, 0);
+                "PRICE_FROM", 180000L, "/次起", "含 1 架次", null, 0, null);
     }
 }

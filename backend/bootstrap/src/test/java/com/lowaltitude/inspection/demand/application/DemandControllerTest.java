@@ -168,7 +168,7 @@ class DemandControllerTest {
                                 """.formatted(PROVIDER)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("ETag", "\"1\""))
-                .andExpect(jsonPath("$.length()").value(28))
+                .andExpect(jsonPath("$.length()").value(29))
                 .andExpect(jsonPath("$.demandId").value(DEMAND.toString()))
                 .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.closeReason").doesNotExist())
@@ -295,7 +295,7 @@ class DemandControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.demandVersion").value(5))
                 .andExpect(jsonPath("$.sort").value("PRICE"))
-                .andExpect(jsonPath("$.items[0].length()").value(13))
+                .andExpect(jsonPath("$.items[0].length()").value(19))
                 .andExpect(jsonPath("$.items[0].quoteId").value(QUOTE.toString()))
                 .andExpect(jsonPath("$.items[0].provider.name").value("云翼科技"))
                 .andExpect(jsonPath("$.items[0].provider.certificationLabel").value("企业认证"))
@@ -479,13 +479,17 @@ class DemandControllerTest {
                 status == DemandStatus.DRAFT,
                 NOW,
                 NOW,
-                version);
+                version,
+                null);
     }
 
     private static DemandQuoteView quote() {
         return new DemandQuoteView(QUOTE, new DemandQuoteProviderView(PROVIDER, "云翼科技", "企业认证", true), 2,
                 DemandQuoteStatus.ACTIVE, 1_860_000, "无人机 + 机器狗", "共 6 次 · 11/02 首次进场", 90,
-                "巡检报告、隐患清单", NOW.plusDays(7), NOW, NOW.plusHours(1), true);
+                "巡检报告、隐患清单", NOW.plusDays(7), NOW, NOW.plusHours(1), true,
+                List.of(new DemandQuoteLineView("无人机巡检", 6, "次", 180_000L, 1_080_000L),
+                        new DemandQuoteLineView("报告与隐患跟踪", null, null, null, 780_000L)),
+                "东营本地", "机器狗夜巡", 48, 90, LocalDate.parse("2026-11-25"));
     }
 
     private static ProviderDemandView providerDemand() {
@@ -494,7 +498,8 @@ class DemandControllerTest {
                 List.of(new DemandDeliverableView(DemandDeliverable.INSPECTION_REPORT, "巡检报告")), null, false,
                 NOW, NOW.plusHours(72), true,
                 new ProviderQuoteView(QUOTE, 2, DemandQuoteStatus.ACTIVE, 1_860_000, "无人机 + 机器狗",
-                        "共 6 次 · 11/02 首次进场", 90, "巡检报告、隐患清单", NOW.plusDays(7), NOW, NOW.plusHours(1)));
+                        "共 6 次 · 11/02 首次进场", 90, "巡检报告、隐患清单", NOW.plusDays(7), NOW, NOW.plusHours(1),
+                        List.of(), null, null, null, null, null));
     }
 
     private static TestingAuthenticationToken signedIn(UUID subjectId, UUID organizationId, String role) {

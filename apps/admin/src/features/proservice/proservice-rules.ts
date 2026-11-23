@@ -23,6 +23,7 @@ export const LIMITS = {
   label: 40,
   detail: 120,
   items: 10,
+  warrantyText: 40,
 } as const
 
 export const TYPE_OPTIONS: ReadonlyArray<{ value: ProServiceType, label: string, facetLabel: string, facets: ProServiceFacet[] }> = [
@@ -125,6 +126,7 @@ export interface ProServiceForm {
   outputs: Array<{ label: string, detail: string }>
   serviceModes: Array<{ label: string, detail: string }>
   terms: Array<{ label: string, detail: string }>
+  warrantyText: string
 }
 
 export function emptyForm(): ProServiceForm {
@@ -151,6 +153,7 @@ export function emptyForm(): ProServiceForm {
     outputs: [],
     serviceModes: [],
     terms: [],
+    warrantyText: '',
   }
 }
 
@@ -181,6 +184,7 @@ export function formFromDetail(detail: OpsProService): ProServiceForm {
     outputs: lines(detail.outputs),
     serviceModes: lines(detail.serviceModes),
     terms: lines(detail.terms),
+    warrantyText: detail.warrantyText ?? '',
   }
 }
 
@@ -248,7 +252,9 @@ export function toRequest(form: ProServiceForm): { request: ProServiceRequest, p
     terms: lines('terms', '说明行'),
     steps: labels('steps', '服务流程'),
     guarantees: labels('guarantees', '服务保障'),
+    warrantyText: blank(form.warrantyText),
   }
+  if (charCount(form.warrantyText.trim()) > LIMITS.warrantyText) problems.warrantyText = `质保期最多 ${LIMITS.warrantyText} 个字`
   return { request, problems }
 }
 
@@ -258,5 +264,6 @@ export const proServiceRules: FormRules = {
   summary: [required('简介'), maxChars('简介', LIMITS.summary)],
   priceUnit: [maxChars('单位', LIMITS.priceUnit)],
   priceNote: [maxChars('起步价说明', LIMITS.priceNote)],
+  warrantyText: [maxChars('质保期', LIMITS.warrantyText)],
   priceYuan: [matches(/^\d{1,8}(\.\d{1,2})?$/, '起步价写成元，最多两位小数')],
 }

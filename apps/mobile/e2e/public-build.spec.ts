@@ -296,4 +296,22 @@ test.describe('公开构建', () => {
       await expect(page.getByTestId('course-unavailable')).toContainText('线上课程尚未开通')
     }
   })
+
+  test('PUB-018 通用服务订单未开通：订单详情、方案确认、交付与验收只有说明，不读服务订单', async ({ page }) => {
+    const calls: string[] = []
+    page.on('request', (request) => { if (request.url().includes('/api/v1/service-orders')) calls.push(request.url()) })
+
+    for (const route of [
+      '/pages/service-order/detail?orderId=00000000-0000-4000-8000-000000000001',
+      '/pages/service-order/plan?orderId=00000000-0000-4000-8000-000000000001',
+      '/pages/service-order/delivery?orderId=00000000-0000-4000-8000-000000000001',
+    ]) {
+      await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
+      await expect(page.getByTestId('service-order-unavailable')).toContainText('服务订单功能尚未开通')
+      await expect(page.getByTestId('service-order-detail')).toHaveCount(0)
+      await expect(page.getByTestId('service-order-plan')).toHaveCount(0)
+      await expect(page.getByTestId('service-order-delivery')).toHaveCount(0)
+    }
+    expect(calls).toEqual([])
+  })
 })

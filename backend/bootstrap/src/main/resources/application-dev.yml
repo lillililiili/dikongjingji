@@ -22,6 +22,10 @@ mall:
 opsimport:
   files:
     local-dir: ${OPS_IMPORT_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-import-files}
+# 通用服务订单（S4-3）的交付文件：开发环境存在本机目录（LocalServiceOrderFileStore），其他环境没配置时上传、下载返回 503。
+serviceorder:
+  files:
+    local-dir: ${SERVICE_ORDER_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-service-order-files}
 trade:
   merchant-accounts:
     allow-placeholder-sub-mchid: true

@@ -254,6 +254,12 @@ onMounted(() => {
                   :placeholder="form.priceMode === 'PRICE_FROM' ? '起步价含什么（必填）' : '选填'" />
       </el-form-item>
 
+      <el-form-item label="质保期" prop="warrantyText">
+        <el-input v-model="form.warrantyText" :maxlength="LIMITS.warrantyText" show-word-limit
+                  placeholder="选填，如：维修后质保 90 天" />
+        <span class="hint">App 设备维护详情的“保修与收费边界”里显示；不填就不显示</span>
+      </el-form-item>
+
       <h2 class="group">上架城市与筛选</h2>
       <el-form-item label="上架城市">
         <CityMultiSelect v-model="form.cityCodes" :known-names="cityNames" />

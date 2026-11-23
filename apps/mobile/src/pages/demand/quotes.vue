@@ -11,6 +11,7 @@ import {
 } from '@/features/demand/navigation/demand-routes'
 import DemandQuotesPage from '@/features/demand/presentation/quotes/DemandQuotesPage.vue'
 import DemandUnavailable from '@/features/demand/presentation/shared/DemandUnavailable.vue'
+import { buildServiceOrderDetailUrl } from '@/features/serviceorder/navigation/service-order-routes'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 
@@ -62,6 +63,7 @@ onShow(() => {
     @compare="(id, quoteId) => open(buildDemandCompareUrl(id, quoteId))"
     @view-demand="(id) => open(buildDemandPublishUrl({ demandId: id }))"
     @republish="(id) => open(buildDemandPublishUrl({ from: id }))"
+    @service-order="(orderId) => open(buildServiceOrderDetailUrl(orderId))"
   />
   <DemandUnavailable v-else-if="!DEMAND_PREVIEW_ENABLED" />
 </template>

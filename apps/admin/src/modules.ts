@@ -20,7 +20,10 @@ import { merchantProfileModule } from '@/features/merchant-profile/merchant-prof
 import { opsMerchantAccountModule } from '@/features/ops-merchant-account/merchant-account-module'
 import { organizationModule } from '@/features/organization/organization-module'
 import { proServiceModule } from '@/features/proservice/proservice-module'
+import { providerProfileReviewModule } from '@/features/provider-profile-review/provider-profile-review-module'
+import { providerProfileModule } from '@/features/provider-profile/provider-profile-module'
 import { rentalWorkbenchModule } from '@/features/rental-workbench/rental-workbench-module'
+import { serviceOrderWorkbenchModule } from '@/features/service-order-workbench/service-order-workbench-module'
 import { supportDeskModule } from '@/features/support-desk/support-desk-module'
 import { venueModule } from '@/features/venue/venue-module'
 
@@ -45,9 +48,11 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   mallInquiryModule,
   rentalWorkbenchModule,
   demandQuotesModule,
+  serviceOrderWorkbenchModule,
   inspectionWorkbenchModule,
   supportDeskModule,
   liveHostModule,
+  providerProfileModule,
   merchantProfileModule,
   merchantAccountModule,
   contentModule,
@@ -57,4 +62,5 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   liveModule,
   inspectionCatalogModule,
   proServiceModule,
+  providerProfileReviewModule,
 ]

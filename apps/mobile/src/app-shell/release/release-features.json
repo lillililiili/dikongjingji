@@ -8,6 +8,7 @@
     { "key": "TRADE", "flag": "TRADE_PREVIEW_ENABLED", "file": "src/features/trade/application/trade-preview.ts", "publicRelease": false },
     { "key": "RENTAL", "flag": "RENTAL_PREVIEW_ENABLED", "file": "src/features/rental/application/rental-preview.ts", "publicRelease": false },
     { "key": "DEMAND", "flag": "DEMAND_PREVIEW_ENABLED", "file": "src/features/demand/application/demand-preview.ts", "publicRelease": false },
+    { "key": "SERVICE_ORDER", "flag": "SERVICE_ORDER_PREVIEW_ENABLED", "file": "src/features/serviceorder/application/serviceorder-preview.ts", "publicRelease": false },
     { "key": "PROSERVICE", "flag": "PROSERVICE_PREVIEW_ENABLED", "file": "src/features/proservice/application/proservice-preview.ts", "publicRelease": false },
     { "key": "CONTENT", "flag": "CONTENT_PREVIEW_ENABLED", "file": "src/features/content/application/content-preview.ts", "publicRelease": false },
     { "key": "LIVE", "flag": "LIVE_PREVIEW_ENABLED", "file": "src/features/live/application/live-preview.ts", "publicRelease": false },

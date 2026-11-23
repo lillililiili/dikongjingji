@@ -219,6 +219,34 @@ class ProServiceReadServiceTest {
                 .containsExactly(DONGYING);
     }
 
+    // S4-4：质保期从服务读；主页资料只给审核通过的那一份（没有时为 null）。
+    @Test
+    void theDetailCarriesTheWarrantyAndTheProviderPageThePublishedProfile() {
+        assertThat(service.detail(park, DONGYING).warrantyText()).isNull();
+        mapper.warranties.put(park, "维修后质保 90 天");
+        assertThat(service.detail(park, DONGYING).warrantyText()).isEqualTo("维修后质保 90 天");
+        assertThat(service.provider(YUNYI, DONGYING).profile()).isNull();
+
+        ProviderProfileService.ProfileView profile = new ProviderProfileService.ProfileView("示例云翼科技有限公司",
+                "无人机巡检 · 航拍", java.time.LocalDate.parse("2027-10-31"), List.of("巡检报告", "影像存档"),
+                "东营本地团队");
+        ProServiceReadService withProfiles = new ProServiceReadService(mapper, code -> Optional.of("东营市"),
+                providerId -> Optional.of(new Provider(YUNYI, "云翼科技", "企业认证", "专业飞手团队", false)),
+                new ProServicePorts.InspectionOffers() {
+                    @Override
+                    public List<InspectionService> servicesOf(UUID providerId, String cityCode) {
+                        return List.of();
+                    }
+
+                    @Override
+                    public Set<String> citiesServed(UUID providerId) {
+                        return Set.of();
+                    }
+                },
+                providerId -> YUNYI.equals(providerId) ? Optional.of(profile) : Optional.empty());
+        assertThat(withProfiles.provider(YUNYI, DONGYING).profile()).isEqualTo(profile);
+    }
+
     @Test
     void aServiceOutsideTheCityOrUnpublishedIsNotFound() {
         assertNotFound(() -> service.detail(event, JINAN));
@@ -288,10 +316,16 @@ class ProServiceReadServiceTest {
     /** 内存里的 mapper：条件和排序按 ProServiceMapper 的 SQL 写。 */
     private static final class InMemoryMapper implements ProServiceMapper {
 
+        final Map<UUID, String> warranties = new java.util.HashMap<>();
         private final List<Service> services = new ArrayList<>();
         private final List<Item> items = new ArrayList<>();
         int catalogCalls;
         List<String> lastFacets;
+
+        @Override
+        public String findWarranty(UUID serviceId) {
+            return warranties.get(serviceId);
+        }
 
         UUID add(UUID provider, String type, String category, String title, String summary, Long amount, String unit,
                  String note, int sort, List<String> cities, List<String> tags, List<String> facets) {

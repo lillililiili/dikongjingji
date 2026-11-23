@@ -36,6 +36,7 @@ export function detailOf(overrides: Partial<ProServiceDetail> = {}): ProServiceD
     guarantees: ['持证飞手'],
     provider: null,
     cities: [],
+    warrantyText: null,
     ...overrides,
   }
 }

@@ -65,6 +65,14 @@ public class DemandService {
     static final int MAX_METHOD = 40;
     static final int MAX_SCHEDULE = 60;
     static final int MAX_QUOTE_DELIVERABLES = 120;
+    /** 报价明细和对比项（1.3.0）。 */
+    static final int MAX_QUOTE_LINES = 10;
+    static final int MAX_LINE_NAME = 20;
+    static final int MAX_LINE_UNIT = 4;
+    static final int MAX_LINE_QUANTITY = 999;
+    static final int MAX_COMPARE_TEXT = 20;
+    static final int MAX_REPORT_HOURS = 720;
+    static final int MAX_ARCHIVE_DAYS = 3650;
     static final int MAX_DURATION_DAYS = 3650;
     /** 金额上限：一亿元（分）。只做展示和比较，防止误输入。 */
     static final long MAX_AMOUNT_MINOR = 10_000_000_000L;
@@ -79,6 +87,7 @@ public class DemandService {
     private final CityDirectory cities;
     private final ProviderDirectory providers;
     private final Notifier notifier;
+    private final DemandPorts.ServiceOrders serviceOrders;
     private final Clock clock;
 
     DemandService(
@@ -88,10 +97,22 @@ public class DemandService {
             Notifier notifier,
             Clock clock
     ) {
+        this(mapper, cities, providers, notifier, chosen -> null, clock);
+    }
+
+    DemandService(
+            DemandMapper mapper,
+            CityDirectory cities,
+            ProviderDirectory providers,
+            Notifier notifier,
+            DemandPorts.ServiceOrders serviceOrders,
+            Clock clock
+    ) {
         this.mapper = mapper;
         this.cities = cities;
         this.providers = providers;
         this.notifier = notifier;
+        this.serviceOrders = serviceOrders;
         this.clock = clock;
     }
 
@@ -274,6 +295,7 @@ public class DemandService {
         });
         boolean choosing = DemandStatus.OPEN.name().equals(demand.status())
                 || DemandStatus.QUOTED.name().equals(demand.status());
+        Map<UUID, List<DemandQuoteLineView>> lines = lineViews(rows.stream().map(QuoteRow::id).toList());
         List<DemandQuoteView> items = ordered.stream()
                 .map(row -> {
                     DemandQuoteStatus status = quoteStatus(row, now);
@@ -294,7 +316,13 @@ public class DemandService {
                             row.validUntil(),
                             row.firstSubmittedAt(),
                             row.revisedAt(),
-                            choosing && status == DemandQuoteStatus.ACTIVE);
+                            choosing && status == DemandQuoteStatus.ACTIVE,
+                            lines.getOrDefault(row.id(), List.of()),
+                            row.teamText(),
+                            row.nightWorkText(),
+                            row.reportHours(),
+                            row.archiveDays(),
+                            row.firstVisitDate());
                 })
                 .toList();
         return new DemandQuoteListView(demandId, DemandStatus.valueOf(demand.status()), demand.version(), sort, items);
@@ -351,7 +379,44 @@ public class DemandService {
         mapper.markChosen(demandId, quoteId, quoteVersion, now);
         mapper.endActiveQuotes(demandId, DemandQuoteStatus.NOT_CHOSEN.name(), now);
         mapper.insertEvent(demandId, quoteId, "CHOSEN", accountId, quoteVersion, quote.amountMinor(), now);
+        // 1.3.0：四类服务选定后在同一个事务里生成通用服务订单（S4-3）；巡检有自己的预约和方案流程，不生成。
+        if (DemandType.valueOf(demand.type()) != DemandType.INSPECTION) {
+            UUID serviceOrderId = serviceOrders.open(chosenQuote(demand, quote));
+            if (serviceOrderId != null) {
+                mapper.linkServiceOrder(demandId, serviceOrderId);
+            }
+        }
         return read(accountId, demandId);
+    }
+
+    private DemandPorts.ChosenQuote chosenQuote(DemandRow demand, QuoteRow quote) {
+        String providerName = Optional.ofNullable(providerMap(List.of(quote.providerId())).get(quote.providerId()))
+                .map(Provider::name).orElse("服务商");
+        List<DemandPorts.ChosenLine> lines = mapper.findQuoteLines(List.of(quote.id())).stream()
+                .map(line -> new DemandPorts.ChosenLine(line.name(), line.quantity(), line.unit(),
+                        line.unitAmountMinor(), line.amountMinor()))
+                .toList();
+        return new DemandPorts.ChosenQuote(demand.id(), quote.id(), quote.quoteVersion(), demand.accountId(),
+                demand.organizationId(), demand.organizationName(), quote.providerId(), providerName, demand.type(),
+                title(demand), demand.cityCode(), demand.cityName(), demand.address(), demand.scopeText(),
+                demand.dueDate(), quote.amountMinor(), quote.method(), quote.scheduleText(), quote.durationDays(),
+                quote.deliverablesText(), quote.teamText(), quote.nightWorkText(), quote.reportHours(),
+                quote.archiveDays(), quote.firstVisitDate(), lines);
+    }
+
+    /** 我发布的需求按状态的份数（1.3.0，“需求与报价”页签上的数字）。 */
+    @Transactional(readOnly = true)
+    public DemandCountsView counts(UUID accountId) {
+        requireAccount(accountId);
+        Map<String, Long> byStatus = new java.util.HashMap<>();
+        mapper.countByStatus(accountId).forEach(row -> byStatus.put(row.status(), row.count()));
+        long total = byStatus.values().stream().mapToLong(Long::longValue).sum();
+        return new DemandCountsView(total,
+                byStatus.getOrDefault(DemandStatus.DRAFT.name(), 0L),
+                byStatus.getOrDefault(DemandStatus.OPEN.name(), 0L),
+                byStatus.getOrDefault(DemandStatus.QUOTED.name(), 0L),
+                byStatus.getOrDefault(DemandStatus.CHOSEN.name(), 0L),
+                byStatus.getOrDefault(DemandStatus.CLOSED.name(), 0L));
     }
 
     // ---- 服务商 ----
@@ -435,7 +500,7 @@ public class DemandService {
             newOffer = true;
         } else {
             boolean active = DemandQuoteStatus.ACTIVE.name().equals(existing.status());
-            if (active && content.sameAs(existing)) {
+            if (active && content.sameAs(existing, mapper.findQuoteLines(List.of(existing.id())))) {
                 return readForProvider(providerId, demandId);
             }
             mapper.reviseQuote(existing.id(), content.amountMinor(), content.method(), content.schedule(),
@@ -443,6 +508,15 @@ public class DemandService {
             quoteId = existing.id();
             quoteVersion = existing.quoteVersion() + 1;
             newOffer = !active;
+        }
+        mapper.updateQuoteDetails(quoteId, content.team(), content.nightWork(), content.reportHours(),
+                content.archiveDays(), content.firstVisitDate());
+        mapper.deleteQuoteLines(quoteId);
+        int lineSort = 0;
+        for (QuoteLineContent line : content.lines()) {
+            mapper.insertQuoteLine(quoteId, lineSort, line.name(), line.quantity(), line.unit(),
+                    line.unitAmountMinor(), line.amountMinor());
+            lineSort += 10;
         }
         mapper.insertEvent(demandId, quoteId, newOffer ? "QUOTED" : "QUOTE_REVISED", operatorId, quoteVersion,
                 content.amountMinor(), now);
@@ -626,7 +700,19 @@ public class DemandService {
                 status == DemandStatus.DRAFT,
                 row.createdAt(),
                 row.updatedAt(),
-                row.version());
+                row.version(),
+                status == DemandStatus.CHOSEN ? row.serviceOrderId() : null);
+    }
+
+    private Map<UUID, List<DemandQuoteLineView>> lineViews(List<UUID> quoteIds) {
+        if (quoteIds.isEmpty()) {
+            return Map.of();
+        }
+        return mapper.findQuoteLines(quoteIds).stream()
+                .collect(Collectors.groupingBy(DemandMapper.QuoteLineRow::quoteId, Collectors.mapping(
+                        line -> new DemandQuoteLineView(line.name(), line.quantity(), line.unit(),
+                                line.unitAmountMinor(), line.amountMinor()),
+                        Collectors.toList())));
     }
 
     private List<ProviderDemandView> toProviderViews(UUID providerId, List<DemandRow> rows, OffsetDateTime now) {
@@ -641,6 +727,7 @@ public class DemandService {
                         Collectors.mapping(InvitationRow::providerId, Collectors.toSet())));
         Map<UUID, QuoteRow> mine = mapper.findProviderQuotes(providerId, ids).stream()
                 .collect(Collectors.toMap(QuoteRow::demandId, Function.identity(), (left, right) -> left));
+        Map<UUID, List<DemandQuoteLineView>> lines = lineViews(mine.values().stream().map(QuoteRow::id).toList());
         return rows.stream()
                 .map(row -> {
                     QuoteRow quote = mine.get(row.id());
@@ -673,7 +760,13 @@ public class DemandService {
                                     quote.deliverablesText(),
                                     quote.validUntil(),
                                     quote.firstSubmittedAt(),
-                                    quote.revisedAt()));
+                                    quote.revisedAt(),
+                                    lines.getOrDefault(quote.id(), List.of()),
+                                    quote.teamText(),
+                                    quote.nightWorkText(),
+                                    quote.reportHours(),
+                                    quote.archiveDays(),
+                                    quote.firstVisitDate()));
                 })
                 .toList();
     }
@@ -784,13 +877,71 @@ public class DemandService {
                 || draft.validUntil().isAfter(now.plus(MAX_QUOTE_VALIDITY))) {
             throw new IllegalArgumentException("validity is invalid");
         }
+        List<QuoteLineContent> lines = quoteLines(draft.lines(), draft.amountMinor());
+        if (draft.reportHours() != null && (draft.reportHours() < 1 || draft.reportHours() > MAX_REPORT_HOURS)) {
+            throw new IllegalArgumentException("report hours are invalid");
+        }
+        if (draft.archiveDays() != null && (draft.archiveDays() < 0 || draft.archiveDays() > MAX_ARCHIVE_DAYS)) {
+            throw new IllegalArgumentException("archive days are invalid");
+        }
+        LocalDate firstVisit = null;
+        if (blankToNull(draft.firstVisitDate()) != null) {
+            try {
+                firstVisit = LocalDate.parse(draft.firstVisitDate().trim());
+            } catch (DateTimeParseException invalid) {
+                throw new IllegalArgumentException("first visit date is invalid");
+            }
+        }
         return new QuoteContent(
                 draft.amountMinor(),
                 required(draft.method(), MAX_METHOD, "method"),
                 required(draft.schedule(), MAX_SCHEDULE, "schedule"),
                 draft.durationDays(),
                 required(draft.deliverables(), MAX_QUOTE_DELIVERABLES, "deliverables"),
-                draft.validUntil());
+                draft.validUntil(),
+                lines,
+                text(draft.team(), MAX_COMPARE_TEXT, "team", true),
+                text(draft.nightWork(), MAX_COMPARE_TEXT, "night work", true),
+                draft.reportHours(),
+                draft.archiveDays(),
+                firstVisit);
+    }
+
+    /** 报价明细：最多 10 行；有明细时合计等于总价；按次计的行“数量 × 单价 = 金额”。 */
+    private static List<QuoteLineContent> quoteLines(List<QuoteLineDraft> drafts, long amountMinor) {
+        if (drafts == null || drafts.isEmpty()) {
+            return List.of();
+        }
+        if (drafts.size() > MAX_QUOTE_LINES) {
+            throw new IllegalArgumentException("quote lines are invalid");
+        }
+        List<QuoteLineContent> lines = new ArrayList<>();
+        long sum = 0;
+        for (QuoteLineDraft draft : drafts) {
+            if (draft == null || draft.amountMinor() == null || draft.amountMinor() < 1
+                    || draft.amountMinor() > MAX_AMOUNT_MINOR) {
+                throw new IllegalArgumentException("quote line amount is invalid");
+            }
+            String name = required(draft.name(), MAX_LINE_NAME, "line name");
+            boolean counted = draft.quantity() != null || draft.unit() != null || draft.unitAmountMinor() != null;
+            String unit = null;
+            if (counted) {
+                unit = required(draft.unit(), MAX_LINE_UNIT, "line unit");
+                if (draft.quantity() == null || draft.quantity() < 1 || draft.quantity() > MAX_LINE_QUANTITY
+                        || draft.unitAmountMinor() == null || draft.unitAmountMinor() < 1
+                        || Math.multiplyExact((long) draft.quantity(), draft.unitAmountMinor())
+                        != draft.amountMinor()) {
+                    throw new IllegalArgumentException("quote line is invalid");
+                }
+            }
+            lines.add(new QuoteLineContent(name, counted ? draft.quantity() : null, unit,
+                    counted ? draft.unitAmountMinor() : null, draft.amountMinor()));
+            sum = Math.addExact(sum, draft.amountMinor());
+        }
+        if (sum != amountMinor) {
+            throw new IllegalArgumentException("quote lines do not add up to the amount");
+        }
+        return List.copyOf(lines);
     }
 
     private static String required(String value, int max, String what) {
@@ -902,15 +1053,35 @@ public class DemandService {
             String schedule,
             int durationDays,
             String deliverables,
-            OffsetDateTime validUntil
+            OffsetDateTime validUntil,
+            List<QuoteLineContent> lines,
+            String team,
+            String nightWork,
+            Integer reportHours,
+            Integer archiveDays,
+            LocalDate firstVisitDate
     ) {
-        boolean sameAs(QuoteRow row) {
+        boolean sameAs(QuoteRow row, List<DemandMapper.QuoteLineRow> rowLines) {
+            List<QuoteLineContent> existing = rowLines.stream()
+                    .map(line -> new QuoteLineContent(line.name(), line.quantity(), line.unit(),
+                            line.unitAmountMinor(), line.amountMinor()))
+                    .toList();
             return amountMinor == row.amountMinor()
                     && method.equals(row.method())
                     && schedule.equals(row.scheduleText())
                     && durationDays == row.durationDays()
                     && deliverables.equals(row.deliverablesText())
-                    && validUntil.isEqual(row.validUntil());
+                    && validUntil.isEqual(row.validUntil())
+                    && lines.equals(existing)
+                    && Objects.equals(team, row.teamText())
+                    && Objects.equals(nightWork, row.nightWorkText())
+                    && Objects.equals(reportHours, row.reportHours())
+                    && Objects.equals(archiveDays, row.archiveDays())
+                    && Objects.equals(firstVisitDate, row.firstVisitDate());
         }
+    }
+
+    private record QuoteLineContent(String name, Integer quantity, String unit, Long unitAmountMinor,
+                                    long amountMinor) {
     }
 }

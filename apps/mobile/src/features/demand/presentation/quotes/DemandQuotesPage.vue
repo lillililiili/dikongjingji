@@ -2,12 +2,16 @@
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
+import { SERVICE_ORDER_PREVIEW_ENABLED } from '@/features/serviceorder/application/serviceorder-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 
 import {
   DEMAND_SORT_LABELS,
+  demandChoiceText,
   describeDemandPublisher,
   describeDemandQuote,
+  describeDemandQuoteItems,
+  describeDemandQuoteLines,
   formatDemandAmount,
   formatDemandInstant,
   resolveDemandFollowUp,
@@ -37,6 +41,8 @@ const emit = defineEmits<{
   compare: [demandId: string, quoteId?: string]
   viewDemand: [demandId: string]
   republish: [demandId: string]
+  // The service order the choice made (S4-3).
+  serviceOrder: [orderId: string]
 }>()
 
 type PageState =
@@ -53,13 +59,23 @@ let requestVersion = 0
 const ready = computed(() => (state.value.kind === 'ready' ? state.value : null))
 const demand = computed(() => ready.value?.demand ?? null)
 const quotes = computed(() => ready.value?.quotes ?? [])
-const cards = computed(() => quotes.value.map((quote) => ({ quote, view: describeDemandQuote(quote) })))
+const cards = computed(() => quotes.value.map((quote) => ({
+  quote,
+  view: describeDemandQuote(quote),
+  // 1.3.0: the quote's lines and the comparison items it fills; nothing for an older quote.
+  lines: describeDemandQuoteLines(quote.lines),
+  items: describeDemandQuoteItems(quote),
+})))
 const chosenQuote = computed(() => quotes.value.find((quote) => quote.status === 'CHOSEN') ?? null)
 // Like the board, one card stands out: the chosen one, or else the first that can be chosen.
 const focusId = computed(() => chosenQuote.value?.quoteId
   ?? quotes.value.find((quote) => quote.choosable)?.quoteId
   ?? null)
-const followUp = resolveDemandFollowUp()
+const followUp = computed(() => resolveDemandFollowUp(demand.value, SERVICE_ORDER_PREVIEW_ENABLED))
+// The board's foot: what choosing leads to, as this demand makes it.
+const demandChoiceFoot = computed(() => (demand.value && demand.value.type !== 'INSPECTION' && SERVICE_ORDER_PREVIEW_ENABLED
+  ? '选定一家后生成服务订单，服务商出方案后由你确认并一次付清；本平台不承担飞行审批与空中调度。'
+  : '选定一家后需求变为“已选定”，其余报价为“未选中”。选定报价不产生费用；本平台不承担飞行审批与空中调度。'))
 const emptyCopy = computed(() => {
   const current = demand.value
   if (!current) return { title: '', text: '' }
@@ -124,6 +140,7 @@ const choice = useDemandChoice({
   onLogin: () => emit('login'),
   reload: load,
   notify: (message) => { notice.value = message },
+  openServiceOrder: SERVICE_ORDER_PREVIEW_ENABLED ? (orderId) => emit('serviceOrder', orderId) : undefined,
 })
 const { asking: choosing, busy: choosingBusy } = choice
 
@@ -193,10 +210,18 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
             </view>
           </view>
           <view class="demand-quotes__rows">
-            <template v-for="row in card.view.rows" :key="row.label">
+            <template v-for="row in [...card.view.rows.slice(0, -1), ...card.items, ...card.view.rows.slice(-1)]" :key="row.label">
               <text class="demand-quotes__row-label">{{ row.label }}</text>
               <text class="demand-quotes__row-value">{{ row.value }}</text>
             </template>
+          </view>
+          <view v-if="card.lines.length" class="demand-quotes__lines" :data-testid="`demand-quote-lines-${card.quote.quoteId}`">
+            <text class="demand-quotes__lines-title">报价明细</text>
+            <view v-for="line in card.lines" :key="line.key" class="demand-quotes__line" data-testid="demand-quote-line">
+              <text class="demand-quotes__line-name">{{ line.name }}</text>
+              <text class="demand-quotes__line-qty">{{ line.quantity }}</text>
+              <text class="demand-quotes__line-amount">{{ line.amount }}</text>
+            </view>
           </view>
           <view class="demand-quotes__card-actions">
             <text
@@ -243,11 +268,15 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
         </view>
 
         <text class="demand-quotes__foot">
-          选定一家后需求变为“已选定”，其余报价为“未选中”。选定报价不产生费用；本平台不承担飞行审批与空中调度。
+          {{ demandChoiceFoot }}
         </text>
       </view>
 
-      <view v-if="demand.status === 'CHOSEN'" class="demand-quotes__bar" data-testid="demand-chosen-bar">
+      <view
+        v-if="demand.status === 'CHOSEN'"
+        :class="['demand-quotes__bar', { 'demand-quotes__bar--row': followUp.kind === 'ORDER' }]"
+        data-testid="demand-chosen-bar"
+      >
         <view class="demand-quotes__bar-line">
           <text class="demand-quotes__bar-label">已选</text>
           <text class="demand-quotes__bar-name" data-testid="demand-chosen-name">
@@ -255,13 +284,21 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
           </text>
           <text v-if="demand.chosen" class="demand-quotes__bar-amount">{{ formatDemandAmount(demand.chosen.amountMinor) }}</text>
         </view>
-        <view class="demand-quotes__gate" data-testid="demand-follow-up">
+        <view v-if="followUp.kind === 'UNAVAILABLE'" class="demand-quotes__gate" data-testid="demand-follow-up">
           <UniIcons type="info" size="14" color="#ba470b" />
           <view class="demand-quotes__gate-copy">
             <text class="demand-quotes__gate-title">{{ followUp.title }}</text>
             <text class="demand-quotes__gate-text">{{ followUp.text }}</text>
           </view>
         </view>
+        <button
+          v-else
+          class="demand-quotes__order"
+          data-testid="demand-open-service-order"
+          @click="emit('serviceOrder', followUp.serviceOrderId)"
+        >
+          查看订单
+        </button>
       </view>
     </template>
 
@@ -275,7 +312,7 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
     <DemandConfirmSheet
       v-if="choosing"
       :title="`选择 ${choosing.provider.name} 的报价？`"
-      :text="`总价 ${formatDemandAmount(choosing.amountMinor)}（方案 v${choosing.version}）。选定后不能再选别家，其余报价会标为未选中。选定不产生费用，方案确认和付款还没有开通。`"
+      :text="demandChoiceText(demand ?? { type: 'INSPECTION' }, choosing, SERVICE_ORDER_PREVIEW_ENABLED)"
       keep-label="再想想"
       go-label="确认选择"
       :busy="choosingBusy"
@@ -431,7 +468,7 @@ button::after {
 
 .demand-quotes__rows {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: minmax(42px, max-content) minmax(0, 1fr);
   gap: 4px 8px;
   font-size: 13px;
   line-height: 19px;
@@ -586,6 +623,80 @@ button::after {
   color: #e85400;
   font-size: 16px;
   font-weight: 700;
+}
+
+.demand-quotes__lines {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px 2px;
+  border-radius: 10px;
+  background: #f5f7fc;
+}
+
+.demand-quotes__lines-title {
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.demand-quotes__line {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #e9edf3;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.demand-quotes__line:first-of-type {
+  border-top: 0;
+}
+
+.demand-quotes__line-name {
+  min-width: 0;
+  flex: 1;
+}
+
+.demand-quotes__line-qty {
+  flex: none;
+  color: #738096;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.demand-quotes__line-amount {
+  width: 64px;
+  flex: none;
+  font-weight: 500;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Quote board's bar: 已选 … with the orange button on the right. */
+.demand-quotes__bar--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.demand-quotes__bar--row .demand-quotes__bar-line {
+  flex: 1;
+}
+
+.demand-quotes__order {
+  flex: none;
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #ff6a00;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 46px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .demand-quotes__gate {

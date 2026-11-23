@@ -1,5 +1,6 @@
-// Mirrors contracts/openapi-demand.yaml 1.1.0 (1.0.0 was step F1, docs/redesign/03-App实现任务计划.md §22;
-// 1.1.0 adds qualificationReviewed to providers, R6-4).
+// Mirrors contracts/openapi-demand.yaml 1.3.0 (1.0.0 was step F1, docs/redesign/03-App实现任务计划.md §22;
+// 1.1.0 adds qualificationReviewed to providers, R6-4; 1.3.0 adds the quote lines and comparison
+// items, the service order a choice makes and the list counts, S4-3 and S4-4, §28).
 // The server is the source of truth: status, deadlines, what may be cancelled or chosen all come
 // from it; the page only draws them.
 
@@ -177,6 +178,9 @@ export interface Demand {
   quotingOpen: boolean
   quoteCount: number
   chosen: DemandChosen | null
+  // The service order made when the quote was chosen (aerial, survey, maintenance, tech support);
+  // null before a choice, for inspection demands and for choices made before 1.3.0.
+  serviceOrderId: string | null
   editable: boolean
   cancellable: boolean
   deletable: boolean
@@ -190,6 +194,16 @@ export interface DemandPage {
   total: number
   hasMore: boolean
   items: Demand[]
+}
+
+// One line of a quote: "无人机巡检 · 6 次 × ¥1,800 · ¥10,800", or "报告与隐患跟踪 · ¥1,200" when it is
+// not counted by the unit (quantity, unit and unit price are null).
+export interface DemandQuoteLine {
+  name: string
+  quantity: number | null
+  unit: string | null
+  unitAmountMinor: number | null
+  amountMinor: number
 }
 
 export interface DemandQuote {
@@ -207,6 +221,27 @@ export interface DemandQuote {
   submittedAt: string
   revisedAt: string
   choosable: boolean
+  // 1.3.0, all optional for the provider (older quotes have none): an empty list or null leaves the
+  // line out of the page.
+  lines: DemandQuoteLine[]
+  team: string | null
+  nightWork: string | null
+  // Hours after the work until the report.
+  reportHours: number | null
+  // Days the footage is kept; 0 means not included.
+  archiveDays: number | null
+  // YYYY-MM-DD (Beijing).
+  firstVisitDate: string | null
+}
+
+// How many demands of each status the account has (the list's tab numbers); total includes drafts.
+export interface DemandCounts {
+  total: number
+  draft: number
+  open: number
+  quoted: number
+  chosen: number
+  closed: number
 }
 
 export interface DemandQuoteList {

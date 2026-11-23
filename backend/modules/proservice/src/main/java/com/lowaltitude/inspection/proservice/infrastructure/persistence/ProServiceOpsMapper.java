@@ -54,7 +54,7 @@ public interface ProServiceOpsMapper {
     @Select("""
             SELECT s.id service_id, s.status, s.version, s.updated_at, s.sample, s.provider_id, s.type, s.category_code,
                    s.title, s.summary, s.price_mode, s.price_amount_minor, s.price_unit, s.price_note, s.cover_url,
-                   s.sort_order
+                   s.sort_order, s.warranty_text
             FROM pro_service s
             WHERE s.id = #{serviceId}
             """)
@@ -63,12 +63,12 @@ public interface ProServiceOpsMapper {
     @Insert("""
             INSERT INTO pro_service (
                 id, provider_id, type, category_code, title, summary, price_mode, price_amount_minor, price_unit,
-                price_note, cover_url, sample, sort_order, status, created_at, updated_at
+                price_note, cover_url, sample, sort_order, status, warranty_text, created_at, updated_at
             )
             VALUES (
                 #{id}, #{s.providerId}, #{s.type}, #{s.categoryCode}, #{s.title}, #{s.summary}, #{s.priceMode},
                 #{s.priceAmountMinor}, #{s.priceUnit}, #{s.priceNote}, #{s.coverUrl}, false, #{s.sortOrder},
-                'UNPUBLISHED', #{at}, #{at}
+                'UNPUBLISHED', #{s.warrantyText}, #{at}, #{at}
             )
             """)
     int insertService(@Param("id") UUID id, @Param("s") ServiceFields fields, @Param("at") OffsetDateTime at);
@@ -78,7 +78,8 @@ public interface ProServiceOpsMapper {
             SET provider_id = #{s.providerId}, type = #{s.type}, category_code = #{s.categoryCode}, title = #{s.title},
                 summary = #{s.summary}, price_mode = #{s.priceMode}, price_amount_minor = #{s.priceAmountMinor},
                 price_unit = #{s.priceUnit}, price_note = #{s.priceNote}, cover_url = #{s.coverUrl},
-                sort_order = #{s.sortOrder}, version = version + 1, updated_at = #{at}
+                sort_order = #{s.sortOrder}, warranty_text = #{s.warrantyText}, version = version + 1,
+                updated_at = #{at}
             WHERE id = #{id} AND version = #{version}
             """)
     int updateService(@Param("id") UUID id, @Param("s") ServiceFields fields, @Param("version") int version,
@@ -172,12 +173,12 @@ public interface ProServiceOpsMapper {
     record DetailRow(UUID serviceId, String status, int version, OffsetDateTime updatedAt, boolean sample,
                      UUID providerId, String type, String categoryCode, String title, String summary,
                      String priceMode, Long priceAmountMinor, String priceUnit, String priceNote, String coverUrl,
-                     int sortOrder) {
+                     int sortOrder, String warrantyText) {
     }
 
     record ServiceFields(UUID providerId, String type, String categoryCode, String title, String summary,
                          String priceMode, Long priceAmountMinor, String priceUnit, String priceNote,
-                         String coverUrl, int sortOrder) {
+                         String coverUrl, int sortOrder, String warrantyText) {
     }
 
     record ItemRow(String kind, String code, String label, String detail) {

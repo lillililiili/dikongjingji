@@ -362,6 +362,27 @@
       }
     },
     {
+      "path": "pages/service-order/detail",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/service-order/plan",
+      "style": {
+        "navigationBarTitleText": "方案确认",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/service-order/delivery",
+      "style": {
+        "navigationBarTitleText": "交付与验收",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/venue/detail",
       "style": {
         "navigationBarTitleText": "场馆详情",

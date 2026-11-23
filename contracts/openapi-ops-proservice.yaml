@@ -1,8 +1,13 @@
 openapi: "3.1.0"
 info:
   title: "Ops Pro Service API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
+    1.1.0（2026-11-23，S4-4）：
+    - 服务加 warrantyText（质保期，≤40 字，可以不填；App 的设备维护详情在“保修与收费边界”里显示）。
+    - 加“服务商资料审核”：服务商在工作台提交主页资料（经营主体、服务方式、授权有效期、可交付清单、本地团队标签，
+      contracts/openapi-proservice.yaml 1.2.0 的 submitMyProviderProfile），平台运营在这里看待审核的、通过或驳回（驳回写原因）。
+      通过后 App 的服务商主页显示这一份；驳回后主页仍显示上一份通过的。审核记一条改动记录（审核人显示名快照、时间），只追加。
     1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“专业服务目录”——航拍、测绘、设备维护、
     技术支持四类服务的新建、修改、上下架和改动记录。
 
@@ -250,6 +255,89 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/ops/provider-profiles:
+    get:
+      operationId: "listOpsProviderProfiles"
+      summary: "服务商主页资料（待审核在前，1.1.0）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsProviderProfileStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页服务商资料"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProviderProfilePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/provider-profiles/{providerId}:
+    get:
+      operationId: "getOpsProviderProfile"
+      summary: "一家服务商的主页资料、待审核的一份和审核记录"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      responses:
+        "200":
+          description: "服务商资料"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProviderProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ProviderProfileNotFound"
+  /api/v1/ops/provider-profiles/{providerId}/review:
+    post:
+      operationId: "reviewOpsProviderProfile"
+      summary: "审核待审核的一份：通过或驳回"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsProviderProfileReviewRequest"
+      responses:
+        "200":
+          description: "审核后的服务商资料"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProviderProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/ProviderProfileNotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：资料在此期间有变化（服务商又提交了一份）；OPS_STATUS_UNCHANGED：没有待审核的资料"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   securitySchemes:
     bearerAuth:
@@ -257,6 +345,13 @@ components:
       scheme: "bearer"
       bearerFormat: "JWT"
   parameters:
+    ProviderId:
+      name: "providerId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
     ServiceId:
       name: "serviceId"
       in: "path"
@@ -302,6 +397,12 @@ components:
             $ref: "#/components/schemas/ApiError"
     NotFound:
       description: "服务不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ProviderProfileNotFound:
+      description: "这家机构从没提交过服务商资料（COMMON_NOT_FOUND）"
       content:
         application/json:
           schema:
@@ -382,14 +483,16 @@ components:
           format: "uuid"
         subjectType:
           type: "string"
-          enum: [SERVICE]
+          enum: [SERVICE, PROVIDER_PROFILE]
+          description: "SERVICE 服务；PROVIDER_PROFILE 服务商主页资料（1.1.0）"
         subjectId:
           type: "string"
           format: "uuid"
-          description: "服务 ID"
+          description: "服务 ID，或服务商（机构）ID"
         action:
           type: "string"
-          enum: [CREATE, UPDATE, PUBLISH, OFFLINE]
+          enum: [CREATE, UPDATE, PUBLISH, OFFLINE, SUBMIT, APPROVE, REJECT]
+          description: "SUBMIT 服务商提交资料、APPROVE 审核通过、REJECT 驳回（1.1.0，主页资料）"
         summary:
           type: "string"
           maxLength: 300
@@ -534,6 +637,10 @@ components:
         version:
           type: ["integer", "null"]
           minimum: 0
+        warrantyText:
+          type: ["string", "null"]
+          maxLength: 40
+          description: "质保期（1.1.0），如“维修后质保 90 天”；不填时不显示"
     OpsProServiceCity:
       type: "object"
       additionalProperties: false
@@ -615,7 +722,7 @@ components:
       additionalProperties: false
       required: [serviceId, status, version, updatedAt, sample, providerId, providerName, type, categoryCode, title,
                  summary, priceMode, priceAmountMinor, priceUnit, priceNote, coverUrl, sortOrder, cities, tags, facets,
-                 capabilities, priceRows, scopes, outputs, serviceModes, terms, steps, guarantees]
+                 capabilities, priceRows, scopes, outputs, serviceModes, terms, steps, guarantees, warrantyText]
       properties:
         serviceId:
           type: "string"
@@ -699,3 +806,117 @@ components:
           type: "array"
           items:
             type: "string"
+        warrantyText:
+          type: ["string", "null"]
+          maxLength: 40
+    OpsProviderProfileStatus:
+      type: "string"
+      enum: [PENDING, APPROVED, REJECTED]
+      description: "PENDING 待审核；APPROVED 最近一份已通过；REJECTED 最近一份被驳回"
+    OpsProviderProfileContent:
+      type: "object"
+      additionalProperties: false
+      required: [legalEntity, serviceModes, authorizationUntil, deliverables, localTeamLabel]
+      description: "和 openapi-proservice.yaml 的 ProviderProfile 相同"
+      properties:
+        legalEntity:
+          type: "string"
+        serviceModes:
+          type: "string"
+        authorizationUntil:
+          type: ["string", "null"]
+          format: "date"
+        deliverables:
+          type: "array"
+          items:
+            type: "string"
+        localTeamLabel:
+          type: ["string", "null"]
+    OpsProviderProfileRow:
+      type: "object"
+      additionalProperties: false
+      required: [providerId, providerName, status, submittedAt, reviewedAt]
+      properties:
+        providerId:
+          type: "string"
+          format: "uuid"
+        providerName:
+          type: "string"
+        status:
+          $ref: "#/components/schemas/OpsProviderProfileStatus"
+        submittedAt:
+          type: "string"
+          format: "date-time"
+        reviewedAt:
+          type: ["string", "null"]
+          format: "date-time"
+    OpsProviderProfilePage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsProviderProfileRow"
+    OpsProviderProfile:
+      type: "object"
+      additionalProperties: false
+      required: [providerId, providerName, status, published, submitted, rejectReason, submittedAt, reviewedAt,
+                 version, changes]
+      properties:
+        providerId:
+          type: "string"
+          format: "uuid"
+        providerName:
+          type: "string"
+        status:
+          $ref: "#/components/schemas/OpsProviderProfileStatus"
+        published:
+          anyOf:
+            - $ref: "#/components/schemas/OpsProviderProfileContent"
+            - type: "null"
+          description: "App 主页上正在显示的一份"
+        submitted:
+          anyOf:
+            - $ref: "#/components/schemas/OpsProviderProfileContent"
+            - type: "null"
+          description: "最近提交的一份"
+        rejectReason:
+          type: ["string", "null"]
+        submittedAt:
+          type: "string"
+          format: "date-time"
+        reviewedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+          description: "审核时带回来"
+        changes:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsChange"
+    OpsProviderProfileReviewRequest:
+      type: "object"
+      additionalProperties: false
+      required: [decision, version]
+      properties:
+        decision:
+          type: "string"
+          enum: [APPROVE, REJECT]
+        reason:
+          type: ["string", "null"]
+          maxLength: 200
+          description: "驳回时必填"
+        version:
+          type: "integer"
+          minimum: 0

@@ -50,7 +50,8 @@ function quote(status: QuoteStatus): ProviderQuote {
   return {
     quoteId: 'q-1', version: 2, status, amountMinor: 1280050, method: '无人机双光', schedule: '3 天内进场',
     durationDays: 5, deliverables: '巡检报告', validUntil: '2026-11-30T00:00:00Z', submittedAt: '2026-11-22T03:00:00Z',
-    revisedAt: '2026-11-22T04:00:00Z',
+    revisedAt: '2026-11-22T04:00:00Z', lines: [], team: null, nightWork: null, reportHours: null, archiveDays: null,
+    firstVisitDate: null,
   }
 }
 
@@ -62,6 +63,12 @@ function form(overrides: Partial<QuoteForm> = {}): QuoteForm {
     durationDays: 5,
     deliverables: '巡检报告、隐患清单',
     validUntil: new Date(NOW.getTime() + 7 * 86_400_000),
+    lines: [],
+    team: '',
+    nightWork: '',
+    reportHours: null,
+    archiveDays: null,
+    firstVisitDate: null,
     ...overrides,
   }
 }
@@ -92,6 +99,12 @@ describe('需求报价接口', () => {
       durationDays: 5,
       deliverables: '巡检报告、隐患清单',
       validUntil: '2026-11-30T02:00:00.000Z',
+      lines: [],
+      team: null,
+      nightWork: null,
+      reportHours: null,
+      archiveDays: null,
+      firstVisitDate: null,
     })
     for (const item of calls) {
       expect(item.init.headers).not.toHaveProperty('Idempotency-Key')

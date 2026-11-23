@@ -13,6 +13,7 @@ import {
   orderDestination,
   orderLinkLabel,
   paidFrame,
+  resultRows,
   payResultExtraRows,
   type DescribeSourceOrder,
   type SourceOrderView,
@@ -85,6 +86,8 @@ function describe(current: TradeOrder): void {
   describedOrderId = marker
   props.describeSource(current).then((view) => { sourceView.value = view }).catch(() => undefined)
 }
+// A service order (S4-3) has no describer; its rows come from the trade order itself.
+const sourceRows = computed(() => sourceView.value?.resultRows ?? (order.value ? resultRows(order.value) : []))
 
 // 支付遇到问题 (board PayResult): a conversation with platform support about this order.
 function askForHelp(): void {
@@ -299,7 +302,7 @@ onBeforeUnmount(() => {
           <text class="pay-result__row-value" data-testid="pay-result-payee">{{ order.merchant.name }}</text>
         </view>
         <view
-          v-for="row in [...(sourceView?.resultRows ?? []), ...payResultExtraRows(order, view === 'PAID')]"
+          v-for="row in [...sourceRows, ...payResultExtraRows(order, view === 'PAID')]"
           :key="row.key"
           class="pay-result__row pay-result__row--line"
         >

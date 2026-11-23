@@ -26,6 +26,7 @@ import {
   buildRentalOrderUrl,
   buildRentalQuoteUrl,
 } from '@/features/rental/navigation/rental-routes'
+import { buildServiceOrderDetailUrl } from '@/features/serviceorder/navigation/service-order-routes'
 import { buildGoodsOrderUrl } from '@/features/trade/navigation/trade-routes'
 
 const initialFilter = ref<DemandListFilter>('ALL')
@@ -87,6 +88,7 @@ onReachBottom(() => {
     @mall-quotes="(inquiryId) => open(buildMallInquiryQuotesUrl(inquiryId))"
     @goods-order="(orderId) => open(buildGoodsOrderUrl(orderId))"
     @mall-reinquire="(target) => open(buildMallInquiryUrl(target))"
+    @service-order="(orderId) => open(buildServiceOrderDetailUrl(orderId))"
   />
   <DemandUnavailable v-else-if="!DEMAND_PREVIEW_ENABLED" />
 </template>
