@@ -19,6 +19,20 @@ public final class ExperienceRows {
     ) {
     }
 
+    /** 一个已发布的线上体验项目（S5-4 仿真页、试用页读它的模板和试用时长）。 */
+    public record ExperienceItemDetailRow(
+            UUID experienceId,
+            String type,
+            String title,
+            String summary,
+            String coverUrl,
+            boolean loginRequired,
+            UUID productId,
+            String simulationTemplate,
+            Integer trialMinutes
+    ) {
+    }
+
     public record VenueCardRow(
             UUID venueId,
             String name,

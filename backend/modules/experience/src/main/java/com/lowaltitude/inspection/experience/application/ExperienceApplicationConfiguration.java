@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.util.List;
 
 import com.lowaltitude.inspection.experience.infrastructure.persistence.ExperienceCatalogMapper;
+import com.lowaltitude.inspection.experience.infrastructure.persistence.ExperienceRecordMapper;
 import com.lowaltitude.inspection.experience.infrastructure.persistence.VenueBookingMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.ObjectProvider;
@@ -51,5 +52,14 @@ public class ExperienceApplicationConfiguration {
                 Clock.systemUTC(),
                 new VenueBookingCodes(),
                 notifier.getIfAvailable(VenueBookingNotifier::none));
+    }
+
+    /** S5-4 线上体验记录：仿真成绩、软件试用和课程试听。只记登录账号自己的。 */
+    @Bean
+    ExperienceRecordService experienceRecordService(
+            ExperienceRecordMapper mapper,
+            PlatformTransactionManager transactionManager
+    ) {
+        return new ExperienceRecordService(mapper, new TransactionTemplate(transactionManager), Clock.systemUTC());
     }
 }

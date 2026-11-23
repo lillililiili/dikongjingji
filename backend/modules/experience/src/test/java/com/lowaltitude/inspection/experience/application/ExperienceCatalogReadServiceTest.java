@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemDetailRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductExperienceRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductVenueRow;
@@ -52,6 +53,29 @@ class ExperienceCatalogReadServiceTest {
 
         service.listExperienceItems(null, 1, 20);
         assertThat(store.type).isEqualTo("ALL");
+    }
+
+    // S5-4：仿真页、试用页读一个项目的模板和试用时长；没有或没发布（mapper 只查已发布的）时 404。
+    @Test
+    void oneExperienceItemCarriesItsTemplateAndTrialLength() {
+        UUID simulation = UUID.fromString("b1000000-0000-4000-8000-000000000001");
+        UUID product = UUID.fromString("c2000000-0000-4000-8000-000000000101");
+        store.itemDetail = new ExperienceItemDetailRow(
+                simulation, "SIMULATION", "机器人避障模拟", "约 3 分钟", null, false, product, "ROBOT_OBSTACLE", null);
+
+        ExperienceItemDetailView item = service.findExperienceItem(simulation);
+
+        assertThat(item.simulationTemplate()).isEqualTo(SimulationTemplate.ROBOT_OBSTACLE);
+        assertThat(item.trialMinutes()).isNull();
+        assertThat(item.productId()).isEqualTo(product);
+        assertThatThrownBy(() -> service.findExperienceItem(UUID.randomUUID()))
+                .isInstanceOf(VenueNotFoundException.class);
+        assertInvalid(() -> service.findExperienceItem(null));
+
+        store.itemDetail = new ExperienceItemDetailRow(
+                simulation, "SOFTWARE_TRIAL", "图形化编程软件试用", null, null, true, null, null, 25);
+        assertThat(service.findExperienceItem(simulation).trialMinutes()).isEqualTo(25);
+        assertThat(service.findExperienceItem(simulation).simulationTemplate()).isNull();
     }
 
     @Test
@@ -257,6 +281,7 @@ class ExperienceCatalogReadServiceTest {
     private static final class FakeStore implements ExperienceCatalogReadStore {
         long experienceTotal;
         List<ExperienceItemRow> experienceItems = List.of();
+        ExperienceItemDetailRow itemDetail;
         long venueTotal;
         List<VenueCardRow> venueCards = List.of();
         Optional<VenueRow> venue = Optional.empty();
@@ -293,6 +318,11 @@ class ExperienceCatalogReadServiceTest {
             this.limit = limit;
             this.offset = offset;
             return experienceItems;
+        }
+
+        @Override
+        public Optional<ExperienceItemDetailRow> findExperienceItem(UUID experienceId) {
+            return Optional.ofNullable(itemDetail).filter(row -> row.experienceId().equals(experienceId));
         }
 
         @Override
