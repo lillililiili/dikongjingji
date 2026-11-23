@@ -370,6 +370,14 @@ public class TradeOrderService {
     /** 本机构卖出的订单，新的在前。status 为空时全部。 */
     @Transactional(readOnly = true)
     public TradeOrderPageView listForMerchant(UUID merchantId, String status, int page, int size) {
+        return listForMerchant(merchantId, status, null, page, size);
+    }
+
+    /**
+     * 本机构卖出的商城订单（0.5.0 起可按配送方式筛：工作台的“待发货”是 PAID + EXPRESS，“待自提”是 PAID + PICKUP）。
+     */
+    @Transactional(readOnly = true)
+    public TradeOrderPageView listForMerchant(UUID merchantId, String status, String deliveryMode, int page, int size) {
         requireMerchant(merchantId);
         if (page < 1 || page > MAX_PAGE || size < 1 || size > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("page is invalid");
@@ -382,8 +390,15 @@ public class TradeOrderService {
                 throw new IllegalArgumentException("status is invalid");
             }
         }
-        long total = mapper.countMerchantOrders(merchantId, filter);
-        List<OrderRow> rows = mapper.findMerchantOrders(merchantId, filter, size, (page - 1) * size);
+        String mode = null;
+        if (deliveryMode != null && !deliveryMode.isBlank()) {
+            mode = deliveryMode.trim();
+            if (!mode.equals("EXPRESS") && !mode.equals("PICKUP")) {
+                throw new IllegalArgumentException("deliveryMode is invalid");
+            }
+        }
+        long total = mapper.countMerchantOrders(merchantId, filter, mode);
+        List<OrderRow> rows = mapper.findMerchantOrders(merchantId, filter, mode, size, (page - 1) * size);
         return new TradeOrderPageView(page, size, total, (long) page * size < total, assemble(rows, false));
     }
 
@@ -481,6 +496,17 @@ public class TradeOrderService {
         }
         MerchantAccountRow saved = mapper.saveMerchantAccount(organizationId, code, active, clock.instant());
         return new MerchantAccountView(saved.organizationId(), saved.subMchid(), saved.active());
+    }
+
+    /** 商家看自己登记的收款账户（0.5.0，工作台“收款账户”）；没登记过当作不存在。只读，登记仍由平台运营做。 */
+    @Transactional(readOnly = true)
+    public MerchantAccountView readMerchantAccount(UUID merchantId) {
+        requireMerchant(merchantId);
+        MerchantAccountRow account = mapper.findMerchantAccount(merchantId);
+        if (account == null) {
+            throw new TradeException(Error.NOT_FOUND);
+        }
+        return new MerchantAccountView(account.organizationId(), account.subMchid(), account.active());
     }
 
     // ---- 转换 ----

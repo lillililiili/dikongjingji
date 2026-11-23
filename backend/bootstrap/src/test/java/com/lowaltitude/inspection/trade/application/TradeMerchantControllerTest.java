@@ -114,7 +114,7 @@ class TradeMerchantControllerTest {
     // 机构只取自令牌：查询参数、请求体里写别的机构没有用。JWT 带角色和机构也可以。
     @Test
     void theOrganizationAndTheOperatorComeFromTheToken() throws Exception {
-        when(orders.listForMerchant(MERCHANT, null, 1, 20)).thenReturn(new TradeOrderPageView(1, 20, 0, false, List.of()));
+        when(orders.listForMerchant(MERCHANT, null, null, 1, 20)).thenReturn(new TradeOrderPageView(1, 20, 0, false, List.of()));
         when(orders.ship(MERCHANT, OPERATOR, ORDER, 2, "顺丰速运", "SF1234567890"))
                 .thenReturn(merchantOrder(TradeOrderStatus.SHIPPED, 3));
 
@@ -128,7 +128,7 @@ class TradeMerchantControllerTest {
                                 + SOMEONE_ELSE + "\",\"operatorId\":\"" + SOMEONE_ELSE + "\"}"))
                 .andExpect(status().isOk());
 
-        verify(orders).listForMerchant(MERCHANT, null, 1, 20);
+        verify(orders).listForMerchant(MERCHANT, null, null, 1, 20);
         verify(orders).ship(MERCHANT, OPERATOR, ORDER, 2, "顺丰速运", "SF1234567890");
     }
 
@@ -136,9 +136,9 @@ class TradeMerchantControllerTest {
 
     @Test
     void theListPassesTheStatusAndPageAndDefaultsToTheFirstPageOfTwenty() throws Exception {
-        when(orders.listForMerchant(MERCHANT, "PAID", 2, 10)).thenReturn(new TradeOrderPageView(
+        when(orders.listForMerchant(MERCHANT, "PAID", null, 2, 10)).thenReturn(new TradeOrderPageView(
                 2, 10, 11, false, List.of(merchantOrder(TradeOrderStatus.PAID, 1))));
-        when(orders.listForMerchant(MERCHANT, null, 1, 20)).thenReturn(new TradeOrderPageView(1, 20, 0, false, List.of()));
+        when(orders.listForMerchant(MERCHANT, null, null, 1, 20)).thenReturn(new TradeOrderPageView(1, 20, 0, false, List.of()));
 
         mockMvc.perform(get("/api/v1/provider/trade/orders")
                         .principal(operator)
@@ -158,13 +158,13 @@ class TradeMerchantControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty());
 
-        verify(orders).listForMerchant(MERCHANT, "PAID", 2, 10);
-        verify(orders).listForMerchant(MERCHANT, null, 1, 20);
+        verify(orders).listForMerchant(MERCHANT, "PAID", null, 2, 10);
+        verify(orders).listForMerchant(MERCHANT, null, null, 1, 20);
     }
 
     @Test
     void anUnknownStatusOrAnUnreadablePageIsABadRequest() throws Exception {
-        when(orders.listForMerchant(MERCHANT, "paid", 1, 20)).thenThrow(new IllegalArgumentException("status is invalid"));
+        when(orders.listForMerchant(MERCHANT, "paid", null, 1, 20)).thenThrow(new IllegalArgumentException("status is invalid"));
 
         mockMvc.perform(get("/api/v1/provider/trade/orders").principal(operator).param("status", "paid"))
                 .andExpect(status().isBadRequest())
@@ -172,6 +172,55 @@ class TradeMerchantControllerTest {
         mockMvc.perform(get("/api/v1/provider/trade/orders").principal(operator).param("size", "many"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+    }
+
+    // 0.5.0：工作台按配送方式分“待发货”“待自提”；单张订单带 ETag；收款账户只读本机构的。
+    @Test
+    void theListPassesTheDeliveryModeAndOneOrderComesWithItsETag() throws Exception {
+        when(orders.listForMerchant(MERCHANT, "PAID", "PICKUP", 1, 20))
+                .thenReturn(new TradeOrderPageView(1, 20, 0, false, List.of()));
+        when(orders.readForMerchant(MERCHANT, ORDER)).thenReturn(merchantOrder(TradeOrderStatus.PAID, 4));
+
+        mockMvc.perform(get("/api/v1/provider/trade/orders").principal(operator)
+                        .param("status", "PAID").param("deliveryMode", "PICKUP"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/provider/trade/orders/{orderId}", ORDER).principal(operator))
+                .andExpect(status().isOk())
+                .andExpect(header().string("ETag", "\"4\""))
+                .andExpect(jsonPath("$.orderId").value(ORDER.toString()))
+                .andExpect(jsonPath("$.delivery.pickupCode").value(nullValue()));
+
+        verify(orders).listForMerchant(MERCHANT, "PAID", "PICKUP", 1, 20);
+        verify(orders).readForMerchant(MERCHANT, ORDER);
+    }
+
+    @Test
+    void anOrderOfAnotherMerchantAndAMissingAccountAreNotFound() throws Exception {
+        when(orders.readForMerchant(MERCHANT, ORDER)).thenThrow(new TradeException(Error.NOT_FOUND));
+        when(orders.readMerchantAccount(MERCHANT)).thenThrow(new TradeException(Error.NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/provider/trade/orders/{orderId}", ORDER).principal(operator))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
+        mockMvc.perform(get("/api/v1/provider/trade/merchant-account").principal(operator))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("COMMON_NOT_FOUND"));
+    }
+
+    @Test
+    void theMerchantAccountIsReadForTheOrganizationOfTheToken() throws Exception {
+        when(orders.readMerchantAccount(MERCHANT))
+                .thenReturn(new TradeViews.MerchantAccountView(MERCHANT, "1900000101", true));
+
+        mockMvc.perform(get("/api/v1/provider/trade/merchant-account").principal(operator)
+                        .param("organizationId", SOMEONE_ELSE.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$.organizationId").value(MERCHANT.toString()))
+                .andExpect(jsonPath("$.subMchid").value("1900000101"))
+                .andExpect(jsonPath("$.active").value(true));
+
+        verify(orders).readMerchantAccount(MERCHANT);
     }
 
     // ---- 发货 ----
@@ -358,6 +407,8 @@ class TradeMerchantControllerTest {
     private static Stream<Arguments> routes() {
         return Stream.of(
                 Arguments.of("GET orders", get("/api/v1/provider/trade/orders")),
+                Arguments.of("GET order", get("/api/v1/provider/trade/orders/{orderId}", ORDER)),
+                Arguments.of("GET merchant account", get("/api/v1/provider/trade/merchant-account")),
                 Arguments.of("POST shipment", ship("\"0\"").content(SHIP_BODY)),
                 Arguments.of("POST pickup", pickup("\"0\"").content(PICKUP_BODY)),
                 Arguments.of("POST refunds", refund().content(REFUND_BODY)));

@@ -207,7 +207,8 @@ class TradeOrderMapperContractTest {
                     .as(method)
                     .startsWith("<script>")
                     .contains("WHERE o.merchant_id = #{merchantId} AND o.source = 'MALL'"
-                            + " <if test=\"status != null\"> AND o.status = #{status} </if>")
+                            + " <if test=\"status != null\"> AND o.status = #{status} </if>"
+                            + " <if test=\"deliveryMode != null\"> AND o.delivery_mode = #{deliveryMode} </if>")
                     .doesNotContain("buyer_id = #{")
                     .doesNotContain("<foreach");
         }
