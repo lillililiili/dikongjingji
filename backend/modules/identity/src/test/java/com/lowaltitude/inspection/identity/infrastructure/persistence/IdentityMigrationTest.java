@@ -56,4 +56,25 @@ class IdentityMigrationTest {
                 .doesNotContain("UPDATE ")
                 .doesNotContain("DEFAULT");
     }
+
+    // 登录续期：刷新令牌只存哈希，状态、过期和撤销原因都有约束，旧迁移不动。
+    @Test
+    void v008StoresRefreshTokensOnlyAsHashesWithRotationAndRevocation() throws Exception {
+        String sql;
+        try (var stream = getClass().getResourceAsStream("/db/migration/identity/V008__identity_refresh_token.sql")) {
+            assertThat(stream).isNotNull();
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(sql)
+                .contains("CREATE TABLE identity_refresh_token")
+                .contains("token_hash varchar(64) NOT NULL UNIQUE CHECK (token_hash ~ '^[0-9a-f]{64}$')")
+                .contains("CHECK (status IN ('ACTIVE', 'ROTATED', 'REVOKED'))")
+                .contains("revoke_reason IN ('LOGOUT', 'REUSE_DETECTED', 'ACCOUNT_CHANGED')")
+                .contains("family_expires_at timestamptz NOT NULL")
+                .contains("version integer NOT NULL DEFAULT 0")
+                .contains("REFERENCES identity_user(id)")
+                .doesNotContain("refresh_token varchar")
+                .doesNotContain("ALTER TABLE identity_user");
+    }
 }

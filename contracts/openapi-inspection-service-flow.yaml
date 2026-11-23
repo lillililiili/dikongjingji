@@ -1,10 +1,13 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 2.2.0
+  version: 2.3.0
   description: >-
     巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
     2.2.0（R6-4）：方案和服务单里的服务商（ProviderSummary）加 qualificationReviewed，页面据此显示“资质已审核”。
+    2.3.0（2026-11-22 登录续期）：登录响应加 refreshToken、refreshExpiresInSeconds；新增 POST /api/v1/auth/refresh
+    （凭刷新令牌换新的访问令牌和新的刷新令牌，旧的作废；已换掉的令牌再用视为被盗用，这次登录全部撤销）
+    和 POST /api/v1/auth/logout（撤销这次登录）。访问令牌仍是 900 秒。
 servers:
   - url: https://api.example.com
     description: Production placeholder
@@ -30,7 +33,7 @@ paths:
               $ref: "#/components/schemas/LoginRequest"
       responses:
         "200":
-          description: 已签发访问令牌
+          description: 已签发访问令牌和刷新令牌
           content:
             application/json:
               schema:
@@ -39,6 +42,64 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/refresh:
+    post:
+      tags: [Authentication]
+      operationId: refreshLogin
+      summary: 用刷新令牌续期登录
+      description: >-
+        凭刷新令牌换一个新的访问令牌和一个新的刷新令牌（轮换），交上来的刷新令牌随即作废。请求不带 Authorization
+        头（访问令牌此时通常已过期，带了过期令牌会被拒绝）。刷新令牌单个 30 天有效，同一次登录最长 90 天。
+        已经换掉的刷新令牌再被交上来，视为被盗用：这次登录的全部刷新令牌撤销，要重新登录。账号停用、离开默认组织
+        或令牌版本变化后不能续期。所有失败都返回同一个 401，不区分原因。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: 已续期；客户端用新的两个令牌替换旧的
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: 刷新令牌不存在、已过期、已撤销、已被使用过或账号不能再登录
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                default:
+                  value:
+                    code: COMMON_UNAUTHORIZED
+                    message: 登录已过期，请重新登录
+                    traceId: 01JEXAMPLETRACE
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logout
+      summary: 退出登录
+      description: >-
+        撤销这个刷新令牌所属的这次登录（其他设备上的登录不受影响）。不论令牌是否存在都返回 204。
+        已签发的访问令牌不会被收回，最多 900 秒后自然过期；客户端退出时同时删掉本地的两个令牌。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "204":
+          description: 已退出
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/auth/me:
     get:
       tags: [Authentication]
@@ -874,7 +935,7 @@ components:
     LoginResponse:
       type: object
       additionalProperties: false
-      required: [accessToken, tokenType, expiresInSeconds]
+      required: [accessToken, tokenType, expiresInSeconds, refreshToken, refreshExpiresInSeconds]
       properties:
         accessToken:
           type: string
@@ -884,6 +945,26 @@ components:
         expiresInSeconds:
           type: integer
           minimum: 1
+        refreshToken:
+          description: >-
+            不透明的随机串（Base64url，43 位），服务端只存哈希。App 存在本机存储；H5 只放 sessionStorage 或内存。
+            每次续期都会换新，旧的不能再用。
+          type: string
+          minLength: 1
+          maxLength: 128
+        refreshExpiresInSeconds:
+          description: 这个刷新令牌还有多少秒过期（不超过 30 天，也不超过这次登录满 90 天的时刻）。
+          type: integer
+          minimum: 1
+    RefreshTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 128
     CurrentAccount:
       type: object
       additionalProperties: false
