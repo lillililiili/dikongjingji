@@ -14,6 +14,7 @@ import {
   orderLinkLabel,
   paidFrame,
   resultRows,
+  payResultExtraRows,
   type DescribeSourceOrder,
   type SourceOrderView,
   type TradeOrderDestination,
@@ -301,7 +302,7 @@ onBeforeUnmount(() => {
           <text class="pay-result__row-value" data-testid="pay-result-payee">{{ order.merchant.name }}</text>
         </view>
         <view
-          v-for="row in sourceRows"
+          v-for="row in [...sourceRows, ...payResultExtraRows(order, view === 'PAID')]"
           :key="row.key"
           class="pay-result__row pay-result__row--line"
         >

@@ -272,8 +272,11 @@ public final class OpsContractChecker {
                 if (type == UUID.class) {
                     assertThat(property.get("format")).as(field).isEqualTo("uuid");
                 }
-                if (type == OffsetDateTime.class) {
+                if (type == OffsetDateTime.class || type == java.time.Instant.class) {
                     assertThat(property.get("format")).as(field).isEqualTo("date-time");
+                }
+                if (type == java.time.LocalDate.class) {
+                    assertThat(property.get("format")).as(field).isEqualTo("date");
                 }
                 if (type == List.class) {
                     Type element = ((ParameterizedType) component.getGenericType()).getActualTypeArguments()[0];
@@ -400,7 +403,7 @@ public final class OpsContractChecker {
             return "integer";
         }
         if (type == String.class || type == UUID.class || type == OffsetDateTime.class
-                || type == java.time.LocalDate.class) {
+                || type == java.time.Instant.class || type == java.time.LocalDate.class) {
             return "string";
         }
         if (type == List.class) {

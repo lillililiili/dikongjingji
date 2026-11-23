@@ -135,6 +135,24 @@ class TradeMigrationContractTest {
                 + " CHECK (source IN ('MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION'));");
     }
 
+    // ---- V012：线上录播课（S5-5） ----
+
+    // 几个分支并行加来源，所以 V012 不重写整张取值表：读出现有取值、加上 COURSE 再建回去，谁先谁后都不丢对方的取值。
+    @Test
+    void courseOrdersAreAddedToWhateverSourcesExist() throws Exception {
+        String sql = migration("/db/migration/trade/V012__trade_course_source.sql");
+
+        assertThat(sql)
+                .contains("pg_get_constraintdef(constraint_row.oid)")
+                .contains("constraint_row.conname = 'trade_order_source_check'")
+                .contains("array_append(existing, 'COURSE')")
+                .contains("IF NOT ('COURSE' = ANY (existing))")
+                .contains("ALTER TABLE trade_order DROP CONSTRAINT trade_order_source_check;")
+                .contains("ADD CONSTRAINT trade_order_source_check CHECK (source IN (%s))")
+                .doesNotContain("UPDATE ")
+                .doesNotContain("DELETE ");
+    }
+
     // ---- V004：商家名称长度 ----
 
     // 订单上的商家名称快照来自 identity_organization.organization_name（160），V001 只给了 120；V004 放宽到一样长。

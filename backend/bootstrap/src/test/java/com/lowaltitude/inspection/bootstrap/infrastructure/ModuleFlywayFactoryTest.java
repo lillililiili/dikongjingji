@@ -120,6 +120,15 @@ class ModuleFlywayFactoryTest {
     }
 
     @Test
+    void keepsCourseVersionsInTheirOwnHistoryTable() {
+        Flyway course = new ModuleFlywayFactory().course(mock(DataSource.class));
+
+        assertThat(course.getConfiguration().getTable()).isEqualTo("flyway_history_course");
+        assertThat(locationDescriptors(course)).containsExactly("classpath:db/migration/course");
+        assertThat(course.getConfiguration().isBaselineOnMigrate()).isTrue();
+    }
+
+    @Test
     void keepsLiveVersionsInTheirOwnHistoryTable() {
         Flyway live = new ModuleFlywayFactory().live(mock(DataSource.class));
 

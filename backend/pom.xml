@@ -31,6 +31,7 @@
         <module>modules/support</module>
         <module>modules/content</module>
         <module>modules/live</module>
+        <module>modules/course</module>
         <module>modules/opsimport</module>
     </modules>
 </project>

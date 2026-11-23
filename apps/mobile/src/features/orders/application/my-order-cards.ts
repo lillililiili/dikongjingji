@@ -61,7 +61,7 @@ import type { MyOrderItem } from './my-order-sources'
  * Every value comes from each module's own describing functions, so a card says what the
  * module's own list says.
  */
-export type MyOrderTagTone = 'ORANGE' | 'PURPLE' | 'GREEN'
+export type MyOrderTagTone = 'ORANGE' | 'PURPLE' | 'GREEN' | 'BLUE'
 export type MyOrderTone = 'ORANGE' | 'GREEN' | 'GREY' | 'BLUE' | 'PURPLE' | 'RED' | 'SLATE'
 export type MyOrderLineTone = 'MUTED' | 'PLAIN' | 'COUNTDOWN' | 'SHIPPED' | 'ORANGE' | 'GREEN' | 'RED'
 
@@ -87,6 +87,8 @@ export interface MyOrderCardAction {
 export interface MyOrderCardView {
   tag: { label: string; tone: MyOrderTagTone }
   head: string
+  // The board AftersaleList draws the merchant in 14px slate instead of 15px/500 (OrderList).
+  headMuted?: boolean
   status: { text: string; tone: MyOrderTone }
   cover: string | null
   coverAlt: string

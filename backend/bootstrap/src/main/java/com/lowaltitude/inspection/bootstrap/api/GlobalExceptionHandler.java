@@ -28,6 +28,7 @@ import com.lowaltitude.inspection.support.application.SupportException;
 import com.lowaltitude.inspection.application.city.CityOperationException;
 import com.lowaltitude.inspection.identity.application.OnboardingException;
 import com.lowaltitude.inspection.live.application.LiveException;
+import com.lowaltitude.inspection.course.application.CourseException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
 import com.lowaltitude.inspection.application.reservation.FileTypeUnsupportedException;
@@ -511,6 +512,61 @@ public class GlobalExceptionHandler {
             default -> throw new IllegalStateException("unhandled experience record error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
+    /** 课程（S5-5，契约 openapi-course.yaml 1.0.0 的 CourseErrorCode）。不能退款时 details.reason 是原因。 */
+    @ExceptionHandler(CourseException.class)
+    public ResponseEntity<ApiError> handleCourse(CourseException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                code = "COURSE_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case NOT_PURCHASABLE -> {
+                code = "COURSE_NOT_PURCHASABLE";
+                message = "这门课现在不能购买";
+            }
+            case PAYMENT_UNAVAILABLE -> {
+                code = "COURSE_PAYMENT_UNAVAILABLE";
+                message = "开课机构暂未开通在线支付";
+            }
+            case ALREADY_OWNED -> {
+                code = "COURSE_ALREADY_OWNED";
+                message = "你已经开通了这门课";
+            }
+            case AMOUNT_CHANGED -> {
+                code = "COURSE_AMOUNT_CHANGED";
+                message = "课程价格有变化，请核对后再报名";
+            }
+            case NOT_LEARNABLE -> {
+                code = "COURSE_NOT_LEARNABLE";
+                message = "课程没有开通或已过期";
+            }
+            case LESSON_NOT_STARTED -> {
+                code = "COURSE_LESSON_NOT_STARTED";
+                message = "这节课还没有开始播放";
+            }
+            case REFUND_NOT_ALLOWED -> {
+                code = "COURSE_REFUND_NOT_ALLOWED";
+                message = "这门课现在不能在线退款";
+            }
+            default -> throw new IllegalStateException("unhandled course error " + exception.error());
+        }
+        return ResponseEntity.status(status)
+                .body(new ApiError(code, message, traceId(request), exception.details()));
     }
 
     @ExceptionHandler(ServiceOrderException.class)

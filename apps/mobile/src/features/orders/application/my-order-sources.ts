@@ -216,3 +216,17 @@ export const MY_ORDER_KEYS: MergedKeys<MyOrderItem> = {
   idOf: (item) => item.id,
   timeOf: (item) => item.time,
 }
+
+/**
+ * 退款/售后 (board OrderList, Batch5Spec #14): goods after-sales cases are listed in the page under
+ * this chip — not a jump to the list page — with “全部售后单 ›” to it, on 全部 and 商品 only. They do not
+ * join the default list. A goods order whose case is shown is not listed again as an order.
+ */
+export function showsAftersales(tab: MyOrderTab, chip: MyOrderChip | null): boolean {
+  return chip === 'refund' && (tab === 'all' || tab === 'goods')
+}
+
+export function withoutAftersaleOrders(items: MyOrderItem[], aftersaleOrderIds: ReadonlySet<string>): MyOrderItem[] {
+  if (aftersaleOrderIds.size === 0) return items
+  return items.filter((item) => item.kind !== 'GOODS' || !aftersaleOrderIds.has(item.order.orderId))
+}

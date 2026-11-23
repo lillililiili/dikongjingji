@@ -9,6 +9,7 @@ import {
   cashierLayout,
   cashierPayeeSuffix,
   cashierRows,
+  payResultExtraRows,
   failedNote,
   isSourceOrder,
   orderDestination,
@@ -19,7 +20,7 @@ import {
 import { TRADE_COMMAND_CONFIRMS } from '../application/order-commands'
 import { describeOrderStatus, listCardGoods } from '../application/order-view'
 import { toTradeOrder } from '../data/trade-api'
-import { NOW, enrollmentOrder, inspectionTradeOrder, paidOrder, rentalTradeOrder, serviceTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
+import { NOW, courseTradeOrder, enrollmentOrder, inspectionTradeOrder, paidOrder, rentalTradeOrder, serviceTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
 
 describe('order source (contract 0.2.0)', () => {
   it('reads a sign-up order without delivery or merchant type, and an older order as a mall order', () => {
@@ -52,6 +53,19 @@ describe('order source (contract 0.2.0)', () => {
     expect(cashierCountdownLine(order, NOW)).toBe('名额保留 14:45 · 超时自动释放')
     expect(cashierClosedNote(order)).toBe('没有扣款，名额已释放')
     expect(cancelUnpaidConfirm(order).title).toBe('取消报名')
+  })
+
+  it('names the people of a sign-up (trade 0.6.0) and, once paid, the channel transaction', () => {
+    const named = enrollmentOrder({ participantNames: '王小禾、王小川' })
+    expect(cashierRows(named)[2]).toEqual({ key: 'participants', label: '参与人', value: '王小禾、王小川' })
+    expect(payResultExtraRows(named, false)).toEqual([{ key: 'participants', label: '参与人', value: '王小禾、王小川' }])
+    const paid = enrollmentOrder({ participantNames: '王小禾、王小川', channelTransactionId: '4200000001' })
+    expect(payResultExtraRows(paid, true)).toEqual([
+      { key: 'participants', label: '参与人', value: '王小禾、王小川' },
+      { key: 'transaction', label: '渠道交易号', value: '4200000001' },
+    ])
+    // A goods order has no people; an unpaid one no transaction.
+    expect(payResultExtraRows(tradeOrder({ channelTransactionId: '4200000002' }), false)).toEqual([])
   })
 
   it('keeps the goods wording of E07 on mall orders', () => {
@@ -172,6 +186,22 @@ describe('order source (contract 0.2.0)', () => {
       { key: 'service-plan', label: '服务方案', value: '方案 v2' },
     ])
     expect(resultRows(rentalTradeOrder())).toEqual([])
+  })
+
+  it('reads a course order and leads it to the learning page (S5-5)', () => {
+    const order = courseTradeOrder()
+    expect(isSourceOrder(order)).toBe(true)
+    expect(orderDestination(order)).toEqual({ kind: 'COURSE_ENROLLMENT', enrollmentId: 'e-1' })
+    expect(cashierRows(order)).toEqual([
+      { key: 'course', label: '课程', value: '无人机飞行原理 线上课' },
+      { key: 'course-option', label: '规格', value: '单人账号 · 付款后立即开通' },
+    ])
+    expect(cashierDueNote(order)).toBe('课程费 · 线上课不发货')
+    expect(cashierClosedNote(order)).toBe('没有扣款，可以重新报名')
+    expect(cancelledToast(order)).toBe('报名已取消')
+    expect(orderLinkLabel(order)).toBe('查看课程')
+    expect(paidFrame(courseTradeOrder({ status: 'PAID' }))).toEqual({ title: '报名成功 · 课程已开通', note: '可以开始学习了，学到哪里自动记住' })
+    expect(failedNote(order)).toBe('订单仍为待付款，超时订单自动取消')
   })
 })
 

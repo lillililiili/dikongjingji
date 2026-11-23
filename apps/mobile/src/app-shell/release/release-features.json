@@ -13,6 +13,7 @@
     { "key": "CONTENT", "flag": "CONTENT_PREVIEW_ENABLED", "file": "src/features/content/application/content-preview.ts", "publicRelease": false },
     { "key": "LIVE", "flag": "LIVE_PREVIEW_ENABLED", "file": "src/features/live/application/live-preview.ts", "publicRelease": false },
     { "key": "SUPPORT", "flag": "SUPPORT_PREVIEW_ENABLED", "file": "src/features/support/application/support-preview.ts", "publicRelease": false },
+    { "key": "COURSE", "flag": "COURSE_PREVIEW_ENABLED", "file": "src/features/course/application/course-preview.ts", "publicRelease": false },
     { "key": "SETTINGS", "flag": "SETTINGS_PREVIEW_ENABLED", "file": "src/features/settings/application/settings-preview.ts", "publicRelease": false },
     { "key": "PLAY", "flag": null, "file": "src/app-shell/navigation/home-channels.ts", "publicRelease": false }
   ]

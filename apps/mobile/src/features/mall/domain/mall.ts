@@ -51,6 +51,8 @@ export interface MallProductQuery {
   /** Trimmed; empty for no search. */
   keyword?: string
   filters?: MallFilters
+  // (catalog 1.4.0) Only this merchant's offers count: the 在售 tab of the merchant page.
+  merchantId?: string
 }
 
 export interface MallOffer {
@@ -72,6 +74,10 @@ export interface MallOffer {
   // (catalog 1.3.0) Pieces this merchant has for this spec in the city. null: not tracked (no count is
   // shown); 0: sold out, the spec cannot be chosen and the cart refuses it.
   stockQuantity: number | null
+  // (catalog 1.4.0) 开票方 and 售后责任方: the offer's own, else the merchant profile's, else the
+  // merchant's name; null only when none is known (the row is then left out).
+  invoiceIssuer: string | null
+  aftersaleParty: string | null
 }
 
 // (catalog 1.3.0) One active spec of the product, whether or not a merchant here sells it.
@@ -112,6 +118,10 @@ export interface MallProductDetail {
   skus: MallSku[]
   gallery: MallImage[]
   introBlocks: MallIntroBlock[]
+  // (catalog 1.4.0) Takes 7-day no-reason returns (unopened), the platform default; false when the
+  // operator marked it 不支持七天无理由. An older server that does not say reads as false, so the page
+  // never promises it without the server saying so.
+  noReasonReturn: boolean
 }
 
 export interface MallProductPage {

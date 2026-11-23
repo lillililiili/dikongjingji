@@ -49,7 +49,9 @@ class MallTradeCheckoutConfigurationTest {
     private final MallCartService carts = mock(MallCartService.class);
     private final AccountAddressService addresses = mock(AccountAddressService.class);
     private final MallInquiryService inquiries = mock(MallInquiryService.class);
-    private final TradeCheckoutPort port = new MallTradeCheckoutConfiguration().mallTradeCheckout(carts, addresses, inquiries);
+    private final MallCatalogReadService catalog = mock(MallCatalogReadService.class);
+    private final TradeCheckoutPort port = new MallTradeCheckoutConfiguration()
+            .mallTradeCheckout(carts, addresses, inquiries, catalog);
 
     @Test
     void anExpressQuoteTakesTheAmountsAndLinesFromThePreviewAndTheChosenAddress() {
@@ -75,6 +77,24 @@ class MallTradeCheckoutConfigurationTest {
                         100_000, 1, 100_000),
                 new QuotedLine(PRODUCT_B, OFFER_B, "备用电池", "5000mAh", null, 20_000, 2, 40_000));
         verify(addresses).findForUse(ACCOUNT, ADDRESS_ID);
+    }
+
+    // S4-4：发货仓、开票方、售后责任方记成订单快照；不支持七天无理由的商品记在那一行上。
+    @Test
+    void theQuoteCarriesTheTradePartiesAndWhichLinesTakeNoReasonReturns() {
+        when(carts.preview(ACCOUNT, "370500", List.of(CART_A, CART_B), null, null, "PICKUP", null))
+                .thenReturn(preview(DeliveryMode.PICKUP, bothOptions()));
+        when(catalog.tradeTerms(List.of(OFFER_A, OFFER_B))).thenReturn(java.util.Map.of(
+                OFFER_A, new MallCatalogReadService.MallTradeTermsView("示例无人机专卖店", "示例厂家 · 一年保修", true),
+                OFFER_B, new MallCatalogReadService.MallTradeTermsView("示例无人机专卖店", "示例无人机专卖店", false)));
+
+        CheckoutQuote quote = port.quote(ACCOUNT, new CheckoutRequest(
+                "370500", List.of(CART_A, CART_B), null, null, "PICKUP", null));
+
+        assertThat(quote.fulfilledFrom()).isEqualTo("东营仓");
+        assertThat(quote.invoiceIssuer()).isEqualTo("示例无人机专卖店");
+        assertThat(quote.aftersaleParty()).isEqualTo("示例厂家 · 一年保修；示例无人机专卖店");
+        assertThat(quote.lines()).extracting(QuotedLine::noReasonReturn).containsExactly(true, false);
     }
 
     @Test

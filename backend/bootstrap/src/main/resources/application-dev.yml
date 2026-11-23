@@ -29,6 +29,10 @@ serviceorder:
 trade:
   merchant-accounts:
     allow-placeholder-sub-mchid: true
+  # 售后凭证图片（S4-2）：开发环境存在本机目录（LocalTradeAftersaleImageStore）模拟私有对象存储，只经受权接口回读。
+  # 其他环境没配置时上传返回 503。
+  aftersale:
+    image-dir: ${TRADE_AFTERSALE_IMAGE_DIR:${java.io.tmpdir}/lowaltitude-dev-aftersale-images}
 # 运营端素材（S3-1，封面、图集、正文配图、视频）：开发环境存在本机目录（LocalOpsMediaStore）模拟对象存储；地址前缀必须是
 # https，开发默认是一个打不开的主机（App 里看不到，运营端带登录预览）。其他环境没配置时上传返回 503。
 ops:

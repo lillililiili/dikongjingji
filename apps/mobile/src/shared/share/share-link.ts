@@ -16,7 +16,7 @@ function currentLocation(): { origin?: string; pathname?: string } | null {
   return typeof window !== 'undefined' && window.location ? window.location : null
 }
 
-export type ShareSubject = '商品' | '活动' | '场馆' | '服务' | '服务商' | '内容' | '专题' | '直播'
+export type ShareSubject = '商品' | '活动' | '场馆' | '服务' | '服务商' | '内容' | '专题' | '直播' | '课程'
 
 export interface ShareTarget {
   subject: ShareSubject

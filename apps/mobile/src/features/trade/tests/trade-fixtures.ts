@@ -47,6 +47,10 @@ export function tradeOrder(overrides: Partial<TradeOrder> = {}): TradeOrder {
     refunds: [],
     cancellable: true,
     version: 3,
+    parties: { fulfilledFrom: null, invoiceIssuer: null, aftersaleParty: null },
+    channelTransactionId: null,
+    participantNames: null,
+    aftersale: { latestAftersaleId: null, latestStatus: null, applicable: false },
     ...overrides,
   }
 }
@@ -182,6 +186,29 @@ export function inspectionTradeOrder(overrides: Partial<TradeOrder> = {}): Trade
     }],
     delivery: null,
     amounts: { goodsMinor: 558000, shippingMinor: 0, payableMinor: 558000, paidMinor: 0, refundedMinor: 0 },
+    ...overrides,
+  })
+}
+
+export function courseTradeOrder(overrides: Partial<TradeOrder> = {}): TradeOrder {
+  return tradeOrder({
+    orderNo: 'CO2026112312345678',
+    source: 'COURSE',
+    sourceRef: 'e-1',
+    merchant: { organizationId: 'org-3', name: '示例培训机构', kind: null },
+    lines: [{
+      lineId: 'l-1',
+      productId: 'c-1',
+      offerId: 'c-1',
+      productName: '无人机飞行原理 线上课',
+      skuName: '单人账号',
+      coverImage: null,
+      unitAmountMinor: 19900,
+      quantity: 1,
+      subtotalMinor: 19900,
+    }],
+    delivery: null,
+    amounts: { goodsMinor: 19900, shippingMinor: 0, payableMinor: 19900, paidMinor: 0, refundedMinor: 0 },
     ...overrides,
   })
 }

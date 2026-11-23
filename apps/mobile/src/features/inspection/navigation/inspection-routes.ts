@@ -130,6 +130,11 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/trade/pay-result': { required: 'orderId', allowed: ['orderId'] },
   '/pages/mine/goods-orders': { allowed: ['tab'] },
   '/pages/mine/goods-order': { required: 'orderId', allowed: ['orderId'] },
+  // Goods after-sales (features/trade/navigation/aftersale-routes.ts, S4-2); aftersale-routes.test.ts
+  // checks them.
+  '/pages/trade/aftersale-apply': { required: 'orderId', allowed: ['orderId'] },
+  '/pages/trade/aftersale': { required: 'aftersaleId', allowed: ['aftersaleId'] },
+  '/pages/mine/aftersales': { allowed: ['tab'] },
   // 我的订单 merged list (features/orders, R6-1).
   '/pages/mine/orders': { allowed: ['tab', 'status'] },
   // Venue booking pages (features/experience/navigation/experience-routes.ts, E10), repeated for
@@ -180,6 +185,12 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // live-routes.test.ts checks them.
   '/pages/live/notice': { required: 'roomId', allowed: ['roomId', 'cityCode'] },
   '/pages/live/room': { required: 'roomId', allowed: ['roomId', 'cityCode'] },
+  // Course pages (features/course/navigation/course-routes.ts, S5-5), repeated for the same reason;
+  // course-routes.test.ts checks them.
+  '/pages/course/detail': { required: 'courseId', allowed: ['courseId', 'cityCode', 'buy'] },
+  '/pages/course/learn': { required: 'enrollmentId', allowed: ['enrollmentId', 'lessonId'] },
+  '/pages/course/trial': { allowed: ['courseId', 'experienceItemId'] },
+  '/pages/mine/courses': { allowed: ['bucket'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.
