@@ -1,11 +1,13 @@
 import {
   DEMAND_DELIVERABLE_LABELS,
   type Demand,
+  type DemandCounts,
   type DemandDraftInput,
   type DemandPage,
   type DemandProvider,
   type DemandPublisher,
   type DemandQuote,
+  type DemandQuoteLine,
   type DemandQuoteList,
   type DemandQuoteSort,
   type DemandStatus,
@@ -22,7 +24,9 @@ type DemandRequest = <T>(input: {
 // The server sends every field; a missing one reads the same as null.
 type Nullable<T> = { [K in keyof T]?: T[K] | null }
 type DemandDto = Nullable<Demand> & Pick<Demand, 'demandId' | 'status' | 'type' | 'title' | 'version'>
-type DemandQuoteDto = Nullable<DemandQuote> & Pick<DemandQuote, 'quoteId' | 'version' | 'status' | 'amountMinor'>
+type DemandQuoteDto = Nullable<Omit<DemandQuote, 'lines'>> & Pick<DemandQuote, 'quoteId' | 'version' | 'status' | 'amountMinor'> & {
+  lines?: Array<Nullable<DemandQuoteLine>> | null
+}
 
 interface DemandPageDto {
   total: number
@@ -57,6 +61,8 @@ export interface DemandApi {
   // `demandVersion` is the version the quotes were read with; it goes out as If-Match.
   choose(accessToken: string, demandId: string, demandVersion: number, quoteId: string, quoteVersion: number): Promise<Demand>
   listProviders(accessToken: string, cityCode: string, type: DemandType): Promise<DemandProvider[]>
+  // The numbers on the list's tabs (1.3.0).
+  counts(accessToken: string): Promise<DemandCounts>
 }
 
 // Every call carries the access token it was given; a rejected token comes back to the page as an
@@ -149,6 +155,17 @@ export function createDemandApi(request: DemandRequest): DemandApi {
       })
       return dto.items.map(toDemandProvider)
     },
+    async counts(accessToken) {
+      const dto = await request<Nullable<DemandCounts>>({ url: '/api/v1/demand-counts', method: 'GET', headers: auth(accessToken) })
+      return {
+        total: dto.total ?? 0,
+        draft: dto.draft ?? 0,
+        open: dto.open ?? 0,
+        quoted: dto.quoted ?? 0,
+        chosen: dto.chosen ?? 0,
+        closed: dto.closed ?? 0,
+      }
+    },
   }
 }
 
@@ -219,6 +236,7 @@ export function toDemand(dto: DemandDto): Demand {
           chosenAt: dto.chosen.chosenAt,
         }
       : null,
+    serviceOrderId: dto.serviceOrderId?.trim() || null,
     editable: Boolean(dto.editable),
     cancellable: Boolean(dto.cancellable),
     deletable: Boolean(dto.deletable),
@@ -248,5 +266,18 @@ export function toDemandQuote(dto: DemandQuoteDto): DemandQuote {
     submittedAt: dto.submittedAt ?? '',
     revisedAt: dto.revisedAt ?? '',
     choosable: Boolean(dto.choosable),
+    lines: (dto.lines ?? []).map((line) => ({
+      name: line.name ?? '',
+      quantity: line.quantity ?? null,
+      unit: line.unit?.trim() || null,
+      unitAmountMinor: line.unitAmountMinor ?? null,
+      amountMinor: line.amountMinor ?? 0,
+    })),
+    // Blank text reads as not said, so the page leaves the row out instead of drawing an empty cell.
+    team: dto.team?.trim() || null,
+    nightWork: dto.nightWork?.trim() || null,
+    reportHours: dto.reportHours ?? null,
+    archiveDays: dto.archiveDays ?? null,
+    firstVisitDate: dto.firstVisitDate ?? null,
   }
 }

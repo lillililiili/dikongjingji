@@ -32,6 +32,15 @@ import {
 } from '../../rental/application/rental-order-view'
 import type { RentalOrder } from '../../rental/domain/rental'
 import { buildRentalOrderUrl } from '../../rental/navigation/rental-routes'
+import { formatServiceAmount } from '../../serviceorder/application/service-order-format'
+import { describeServiceOrderCard } from '../../serviceorder/application/service-order-view'
+import { resolveServiceOrderPreviewCover } from '../../serviceorder/data/preview/serviceorder-preview-covers'
+import type { ServiceOrderSummary } from '../../serviceorder/domain/service-order'
+import {
+  buildServiceOrderDeliveryUrl,
+  buildServiceOrderDetailUrl,
+  buildServiceOrderPlanUrl,
+} from '../../serviceorder/navigation/service-order-routes'
 import {
   describeOrderStatus,
   formatTradeAmount,
@@ -182,6 +191,36 @@ function rentalCard(order: RentalOrder, cover: string | null, now: number): MyOr
   }
 }
 
+const SERVICE_TONES = { ACTION: 'ORANGE', DONE: 'GREEN', MUTED: 'GREY' } as const
+
+// A general service order (S4-3), drawn like the board's 服务 card: the provider, the status, the
+// demand's scene, who ordered and where the order stands, and the one thing to do next.
+function serviceCard(order: ServiceOrderSummary): MyOrderCardView {
+  const view = describeServiceOrderCard(order)
+  const detail = buildServiceOrderDetailUrl(order.orderId)
+  return {
+    tag: { label: '服务', tone: 'GREEN' },
+    head: order.provider.name,
+    status: { text: view.statusText, tone: SERVICE_TONES[view.tone] },
+    cover: resolveServiceOrderPreviewCover(order.type),
+    coverAlt: order.title,
+    title: order.title,
+    titleTail: '',
+    amount: formatServiceAmount(order.amountMinor),
+    lines: view.lines.map((line) => ({ key: line.key, text: line.text, tone: line.tone })),
+    url: detail,
+    actions: view.buttons.map((button): MyOrderCardAction => {
+      switch (button.kind) {
+        case 'VIEW': return { key: 'view', label: button.label, style: 'OUTLINE', target: { kind: 'URL', url: detail } }
+        // Confirming and paying both happen on the plan page (the payment needs the confirmed plan).
+        case 'CONFIRM_PLAN': return { key: 'plan', label: button.label, style: 'PRIMARY', target: { kind: 'URL', url: buildServiceOrderPlanUrl(order.orderId) } }
+        case 'PAY': return { key: 'pay', label: button.label, style: 'PRIMARY', target: { kind: 'URL', url: buildServiceOrderPlanUrl(order.orderId) } }
+        case 'ACCEPT': return { key: 'accept', label: button.label, style: 'PRIMARY', target: { kind: 'URL', url: buildServiceOrderDeliveryUrl(order.orderId) } }
+      }
+    }),
+  }
+}
+
 // "青少年无人机编程挑战赛（东营站）": the bracketed part never breaks across lines (board OrderList).
 function splitTitle(title: string): { main: string; tail: string } {
   const at = title.lastIndexOf('（')
@@ -286,6 +325,7 @@ export function describeMyOrderCard(
     case 'RENTAL': return rentalCard(item.order, rentalCovers[item.order.inquiryId] ?? null, now)
     case 'ENROLL': return enrollCard(item.enrollment, now)
     case 'VENUE': return venueCard(item.booking, now)
+    case 'SERVICE': return serviceCard(item.order)
     case 'INSPECTION': return null
   }
 }

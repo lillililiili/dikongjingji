@@ -201,11 +201,12 @@ describe('我的订单 sources', () => {
 
   it('reads every list unfiltered for 全部 and only the tab\'s lists for a tab', () => {
     expect(myOrderSources('all', null, everything).map((source) => source.kind))
-      .toEqual(['GOODS', 'RENTAL', 'INSPECTION', 'ENROLL', 'ENROLL', 'ENROLL', 'VENUE', 'VENUE', 'VENUE'])
+      .toEqual(['GOODS', 'RENTAL', 'INSPECTION', 'SERVICE', 'ENROLL', 'ENROLL', 'ENROLL', 'VENUE', 'VENUE', 'VENUE'])
     expect(myOrderSources('goods', null, everything)).toEqual([{ kind: 'GOODS', tab: 'ALL' }])
     expect(myOrderSources('service', null, everything)).toEqual([
       { kind: 'RENTAL', status: null },
       { kind: 'INSPECTION', stage: 'ALL' },
+      { kind: 'SERVICE', status: null },
     ])
     expect(myOrderSources('enroll', 'accept', everything)).toEqual([])
   })
@@ -214,6 +215,7 @@ describe('我的订单 sources', () => {
     expect(myOrderSources('all', 'pay', everything)).toEqual([
       { kind: 'GOODS', tab: 'TO_PAY' },
       { kind: 'RENTAL', status: 'PENDING_PAYMENT' },
+      { kind: 'SERVICE', status: 'AWAITING_PAYMENT' },
       { kind: 'ENROLL', bucket: 'UPCOMING' },
       { kind: 'VENUE', bucket: 'UPCOMING' },
     ])
@@ -221,10 +223,16 @@ describe('我的订单 sources', () => {
       { kind: 'RENTAL', status: 'AWAITING_HANDOVER' },
       { kind: 'RENTAL', status: 'HANDOVER_RECORDED' },
       { kind: 'INSPECTION', stage: 'IN_PROGRESS' },
+      { kind: 'SERVICE', status: 'AWAITING_START' },
+      { kind: 'SERVICE', status: 'IN_SERVICE' },
+      { kind: 'SERVICE', status: 'REWORK' },
     ])
-    expect(myOrderSources('all', 'accept', everything)).toEqual([{ kind: 'INSPECTION', stage: 'AWAITING_ACCEPTANCE' }])
+    expect(myOrderSources('all', 'accept', everything)).toEqual([
+      { kind: 'INSPECTION', stage: 'AWAITING_ACCEPTANCE' },
+      { kind: 'SERVICE', status: 'DELIVERED' },
+    ])
     expect(myOrderSources('all', 'refund', everything).map((source) => source.kind))
-      .toEqual(['GOODS', 'ENROLL', 'ENROLL', 'ENROLL', 'VENUE'])
+      .toEqual(['GOODS', 'SERVICE', 'ENROLL', 'ENROLL', 'ENROLL', 'VENUE'])
   })
 
   it('leaves out kinds whose pages are not open', () => {
@@ -269,6 +277,7 @@ describe('我的订单 loading', () => {
       goods: async (_token, tab, page, size) => { calls.push(`goods ${tab} ${page} ${size}`); return empty },
       rental: async (_token, status, page, size) => { calls.push(`rental ${status} ${page} ${size}`); return empty },
       inspection: async (stage, page, size) => { calls.push(`inspection ${stage} ${page} ${size}`); return empty },
+      service: async (_token, status, page, size) => { calls.push(`service ${status} ${page} ${size}`); return empty },
       enroll: async (_token, bucket, page, size) => { calls.push(`enroll ${bucket} ${page} ${size}`); return empty },
       venue: async (_token, bucket, page, size) => { calls.push(`venue ${bucket} ${page} ${size}`); return empty },
       ...overrides,

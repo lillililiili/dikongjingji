@@ -172,6 +172,7 @@ public interface DemandMapper {
                    d.chosen_at,
                    d.closed_at,
                    d.close_reason,
+                   d.service_order_id,
                    d.created_at,
                    d.updated_at,
                    d.version
@@ -387,7 +388,12 @@ public interface DemandMapper {
                    q.deliverables_text,
                    q.valid_until,
                    q.first_submitted_at,
-                   q.revised_at
+                   q.revised_at,
+                   q.team_text,
+                   q.night_work_text,
+                   q.report_hours,
+                   q.archive_days,
+                   q.first_visit_date
             FROM demand_quote q
             """;
 
@@ -531,6 +537,74 @@ public interface DemandMapper {
             @Param("at") OffsetDateTime at
     );
 
+    // ---- 报价的对比项和明细（1.3.0） ----
+
+    /** 报价或改价之后写对比项（和内容在同一个事务里）。 */
+    @Update("""
+            UPDATE demand_quote
+            SET team_text = #{team},
+                night_work_text = #{nightWork},
+                report_hours = #{reportHours},
+                archive_days = #{archiveDays},
+                first_visit_date = #{firstVisitDate}
+            WHERE id = #{quoteId}
+            """)
+    int updateQuoteDetails(
+            @Param("quoteId") UUID quoteId,
+            @Param("team") String team,
+            @Param("nightWork") String nightWork,
+            @Param("reportHours") Integer reportHours,
+            @Param("archiveDays") Integer archiveDays,
+            @Param("firstVisitDate") LocalDate firstVisitDate
+    );
+
+    @Delete("DELETE FROM demand_quote_line WHERE quote_id = #{quoteId}")
+    int deleteQuoteLines(@Param("quoteId") UUID quoteId);
+
+    @Insert("""
+            INSERT INTO demand_quote_line (quote_id, sort_order, name, quantity, unit, unit_amount_minor, amount_minor)
+            VALUES (#{quoteId}, #{sortOrder}, #{name}, #{quantity}, #{unit}, #{unitAmountMinor}, #{amountMinor})
+            """)
+    int insertQuoteLine(
+            @Param("quoteId") UUID quoteId,
+            @Param("sortOrder") int sortOrder,
+            @Param("name") String name,
+            @Param("quantity") Integer quantity,
+            @Param("unit") String unit,
+            @Param("unitAmountMinor") Long unitAmountMinor,
+            @Param("amountMinor") long amountMinor
+    );
+
+    @Select("""
+            <script>
+            SELECT quote_id, sort_order, name, quantity, unit, unit_amount_minor, amount_minor
+            FROM demand_quote_line
+            WHERE quote_id IN
+            <foreach collection="quoteIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+            ORDER BY quote_id, sort_order
+            </script>
+            """)
+    List<QuoteLineRow> findQuoteLines(@Param("quoteIds") List<UUID> quoteIds);
+
+    // ---- 选定后的服务订单（1.3.0）、计数 ----
+
+    @Update("""
+            UPDATE demand
+            SET service_order_id = #{serviceOrderId}
+            WHERE id = #{demandId}
+              AND status = 'CHOSEN'
+              AND service_order_id IS NULL
+            """)
+    int linkServiceOrder(@Param("demandId") UUID demandId, @Param("serviceOrderId") UUID serviceOrderId);
+
+    @Select("""
+            SELECT status, count(*) AS count
+            FROM demand
+            WHERE account_id = #{accountId}
+            GROUP BY status
+            """)
+    List<StatusCountRow> countByStatus(@Param("accountId") UUID accountId);
+
     // ---- 行 ----
 
     record KeyRow(UUID id, String requestHash) {
@@ -559,6 +633,7 @@ public interface DemandMapper {
             OffsetDateTime chosenAt,
             OffsetDateTime closedAt,
             String closeReason,
+            UUID serviceOrderId,
             OffsetDateTime createdAt,
             OffsetDateTime updatedAt,
             int version
@@ -584,7 +659,26 @@ public interface DemandMapper {
             String deliverablesText,
             OffsetDateTime validUntil,
             OffsetDateTime firstSubmittedAt,
-            OffsetDateTime revisedAt
+            OffsetDateTime revisedAt,
+            String teamText,
+            String nightWorkText,
+            Integer reportHours,
+            Integer archiveDays,
+            LocalDate firstVisitDate
     ) {
+    }
+
+    record QuoteLineRow(
+            UUID quoteId,
+            int sortOrder,
+            String name,
+            Integer quantity,
+            String unit,
+            Long unitAmountMinor,
+            long amountMinor
+    ) {
+    }
+
+    record StatusCountRow(String status, long count) {
     }
 }

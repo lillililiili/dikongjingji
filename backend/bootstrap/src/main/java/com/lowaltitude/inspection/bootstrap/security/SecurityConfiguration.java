@@ -117,6 +117,8 @@ public class SecurityConfiguration {
                                 // 开发环境回读运营端上传的商品图片（只在配置了本机目录时有这个接口）。
                                 "/api/v1/mall/media/products/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
+                        // 服务订单交付文件的短时下载链接（S4-3）：令牌本身就是授权，10 分钟内有效，浏览器直接打开。
+                        .requestMatchers(HttpMethod.GET, "/api/v1/service-order-files/*").permitAll()
                         // 四类专业服务的目录、详情和服务商主页（F2）：公开只读。
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/pro-services",
@@ -149,6 +151,9 @@ public class SecurityConfiguration {
                         // 直播服务商回调：不登录，靠签名（LiveStreamProvider.verifyCallback）。
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/live/stream-callbacks").permitAll()
+                        // 系统通知（S5-9）的详情和“协议有更新”：公开只读，公告不含个人信息，协议页登录前也要显示。
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/system-notices/*").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
                         // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。

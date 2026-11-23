@@ -94,3 +94,9 @@ live:
     provider: ${LIVE_STREAM_PROVIDER:none}
   comments:
     blocked-words: ${LIVE_COMMENT_BLOCKED_WORDS:加微信,加vx,加v信,私下交易,私下转账,代开发票,刷单,赌博,博彩}
+
+# 推送（S5-9）。推送服务商未定：provider 只有 dev profile 下的 fake（本机模拟，记日志和开发表）可用，
+# 其他值一律不推送（站内信照记）。
+notification:
+  push:
+    provider: ${NOTIFICATION_PUSH_PROVIDER:none}

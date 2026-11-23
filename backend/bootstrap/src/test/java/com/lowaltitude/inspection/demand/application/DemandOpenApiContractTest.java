@@ -61,19 +61,23 @@ class DemandOpenApiContractTest {
             Map.entry("DemandQuoteList", DemandQuoteListView.class),
             Map.entry("ProviderQuote", ProviderQuoteView.class),
             Map.entry("ProviderDemand", ProviderDemandView.class),
-            Map.entry("ProviderDemandPage", ProviderDemandPageView.class));
+            Map.entry("ProviderDemandPage", ProviderDemandPageView.class),
+            Map.entry("QuoteLine", DemandQuoteLineView.class),
+            Map.entry("DemandCounts", DemandCountsView.class));
 
     private static final Map<String, Class<? extends Record>> REQUEST_RECORDS = Map.of(
             "CreateDemandRequest", DemandController.CreateDemandRequest.class,
             "UpdateDemandRequest", DemandController.UpdateDemandRequest.class,
             "ChoiceRequest", DemandController.ChoiceRequest.class,
-            "QuoteRequest", DemandProviderController.QuoteRequest.class);
+            "QuoteRequest", DemandProviderController.QuoteRequest.class,
+            "QuoteLineRequest", DemandProviderController.QuoteLineRequest.class);
 
     private static final Map<String, List<String>> REQUEST_REQUIRED = Map.of(
             "CreateDemandRequest", List.of("type"),
             "UpdateDemandRequest", List.of("type"),
             "ChoiceRequest", List.of("quoteId", "quoteVersion"),
-            "QuoteRequest", List.of("amountMinor", "method", "schedule", "durationDays", "deliverables", "validUntil"));
+            "QuoteRequest", List.of("amountMinor", "method", "schedule", "durationDays", "deliverables", "validUntil"),
+            "QuoteLineRequest", List.of("name", "amountMinor"));
 
     private static final Map<String, Class<? extends Enum<?>>> SCHEMA_ENUMS = Map.ofEntries(
             Map.entry("DemandType", DemandType.class),
@@ -91,7 +95,7 @@ class DemandOpenApiContractTest {
     void contractIsVersionOneAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.2.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -112,6 +116,7 @@ class DemandOpenApiContractTest {
                 "GET /api/v1/demands/{demandId}/quotes",
                 "POST /api/v1/demands/{demandId}/choice",
                 "GET /api/v1/demand-providers",
+                "GET /api/v1/demand-counts",
                 "GET /api/v1/provider/demands",
                 "GET /api/v1/provider/demands/{demandId}",
                 "PUT /api/v1/provider/demands/{demandId}/quote",
@@ -139,7 +144,7 @@ class DemandOpenApiContractTest {
         map(root().get("paths")).forEach((path, item) -> map(item).keySet()
                 .forEach(method -> declared.add(method.toUpperCase() + " " + path)));
 
-        assertThat(implemented).hasSize(14);
+        assertThat(implemented).hasSize(15);
         assertThat(declared).containsExactlyElementsOf(implemented);
     }
 
@@ -327,8 +332,10 @@ class DemandOpenApiContractTest {
                             .getActualTypeArguments()[0];
                     Map<String, Object> items = map(property.get("items"));
                     if (element.isRecord()) {
+                        Map<String, Class<? extends Record>> all = new LinkedHashMap<>(SCHEMA_RECORDS);
+                        all.putAll(REQUEST_RECORDS);
                         assertThat(items.get("$ref")).as(field + " items")
-                                .isEqualTo(SCHEMA_PREFIX + schemaOf(SCHEMA_RECORDS, element));
+                                .isEqualTo(SCHEMA_PREFIX + schemaOf(all, element));
                     } else if (element == UUID.class) {
                         assertThat(items).as(field + " items").containsEntry("format", "uuid");
                     } else if (element == String.class) {

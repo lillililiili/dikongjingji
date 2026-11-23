@@ -121,13 +121,15 @@ public final class OpsProServiceController {
             List<LineRequest> terms,
             List<String> steps,
             List<String> guarantees,
-            Integer version
+            Integer version,
+            String warrantyText
     ) {
 
         ServiceDraft draft() {
             return new ServiceDraft(providerId, type, categoryCode, title, summary, priceMode, priceAmountMinor,
                     priceUnit, priceNote, coverUrl, sortOrder, cityCodes, tags, facets, capabilities,
-                    lines(priceRows), scopes, lines(outputs), lines(serviceModes), lines(terms), steps, guarantees);
+                    lines(priceRows), scopes, lines(outputs), lines(serviceModes), lines(terms), steps, guarantees,
+                    warrantyText);
         }
 
         private static List<LineDraft> lines(List<LineRequest> requests) {

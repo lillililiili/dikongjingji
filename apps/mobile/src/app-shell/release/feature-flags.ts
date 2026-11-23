@@ -26,12 +26,14 @@ export type ReleaseFeatureKey =
   | 'TRADE'
   | 'RENTAL'
   | 'DEMAND'
+  | 'SERVICE_ORDER'
   | 'PROSERVICE'
   | 'CONTENT'
   | 'LIVE'
   | 'SUPPORT'
   | 'SETTINGS'
   | 'COURSE'
+  | 'SYSTEM_NOTICE'
   | 'PLAY'
 
 export interface ReleaseFeature {

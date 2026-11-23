@@ -19,16 +19,27 @@ const CHECK = 'M5 12l5 5 9-10'
 // 协议与规则 (board Agreement, 390 wide): one document at a time, the others in 全部协议.
 // The prop is not named doc: uni hands the page's query to the page component, and a `doc` attribute
 // falling through would override it with the raw value of the link.
-const props = defineProps<{ selected: AgreementDoc }>()
+const props = withDefaults(defineProps<{
+  selected: AgreementDoc
+  // 有更新 (S5-9): the latest 系统通知 about each document the host has read; a document without one
+  // (or not read yet) shows no entry.
+  updates?: Partial<Record<AgreementDoc, { noticeId: string } | null>>
+}>(), { updates: () => ({}) })
 
 const emit = defineEmits<{
   back: []
   contactPlatform: []
+  // The document on screen changed (on open and from 全部协议), so the host can read its update.
+  shown: [doc: AgreementDoc]
+  openUpdate: [noticeId: string]
 }>()
 
 const current = ref<AgreementDoc>(props.selected)
 const sheetOpen = ref(false)
 watch(() => props.selected, (doc) => { current.value = doc })
+watch(current, (doc) => emit('shown', doc), { immediate: true })
+
+const update = computed(() => props.updates[current.value] ?? null)
 
 const document = computed(() => AGREEMENT_DOCUMENTS[current.value])
 
@@ -69,6 +80,16 @@ function pick(doc: AgreementDoc): void {
           </view>
         </view>
         <text class="agreement__meta-note">版本和日期为示例，以正式发布的协议为准</text>
+        <button
+          v-if="update"
+          class="agreement__update"
+          data-testid="agreement-update"
+          @click="update && emit('openUpdate', update.noticeId)"
+        >
+          <text class="agreement__update-tag">有更新</text>
+          <text class="agreement__update-text">查看本次更新摘要</text>
+          <LineIcon :d="SETTINGS_CHEVRON" :size="14" color="#91a0b4" :stroke-width="2" />
+        </button>
       </view>
 
       <view class="agreement__card agreement__sections">
@@ -167,6 +188,35 @@ button::after {
 .agreement__card--lead {
   padding: 16px 14px 14px;
   gap: 12px;
+}
+
+.agreement__update {
+  display: flex;
+  min-height: 44px;
+  margin: -6px 0 -8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: #202c42;
+}
+
+.agreement__update-tag {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: #ba470b;
+  background: #fff0e3;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.agreement__update-text {
+  min-width: 0;
+  flex: 1;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
 }
 
 .agreement__title-line {

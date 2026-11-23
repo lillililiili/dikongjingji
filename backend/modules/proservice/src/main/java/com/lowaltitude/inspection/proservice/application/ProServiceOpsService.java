@@ -40,6 +40,8 @@ public class ProServiceOpsService {
     public static final int MAX_SUMMARY = 80;
     public static final int MAX_PRICE_UNIT = 16;
     public static final int MAX_PRICE_NOTE = 40;
+    /** 质保期（1.1.0），如“维修后质保 90 天”。 */
+    public static final int MAX_WARRANTY = 40;
     public static final int MAX_LABEL = 40;
     public static final int MAX_DETAIL = 120;
     public static final int MAX_ITEMS = 10;
@@ -261,8 +263,9 @@ public class ProServiceOpsService {
         lists.put("TERM", lines("TERM", draft.terms()));
         lists.put("STEP", labels("STEP", draft.steps()));
         lists.put("GUARANTEE", labels("GUARANTEE", draft.guarantees()));
+        String warranty = OpsText.optional(draft.warrantyText(), MAX_WARRANTY, "warrantyText");
         ServiceFields fields = new ServiceFields(provider.organizationId(), type.name(), category.name(), title, summary,
-                mode.name(), amount, unit, note, coverUrl, sortOrder);
+                mode.name(), amount, unit, note, coverUrl, sortOrder, warranty);
         return new Normalized(fields, type, cityCodes, facets, lists);
     }
 
@@ -358,6 +361,9 @@ public class ProServiceOpsService {
         if (current.sortOrder() != fields.sortOrder()) {
             changed.add("排序");
         }
+        if (!Objects.equals(current.warrantyText(), fields.warrantyText())) {
+            changed.add("质保期");
+        }
         if (!current.cities().stream().map(CityView::cityCode).toList().equals(next.cities())) {
             changed.add("上架城市（" + next.cities().size() + " 个）");
         }
@@ -404,7 +410,7 @@ public class ProServiceOpsService {
                         .toList(),
                 labelsOf(items, "CAPABILITY"), linesOf(items, "PRICE_ROW"), labelsOf(items, "SCOPE"),
                 linesOf(items, "OUTPUT"), linesOf(items, "SERVICE_MODE"), linesOf(items, "TERM"),
-                labelsOf(items, "STEP"), labelsOf(items, "GUARANTEE"));
+                labelsOf(items, "STEP"), labelsOf(items, "GUARANTEE"), row.warrantyText());
     }
 
     private static List<String> labelsOf(Map<String, List<ItemRow>> items, String kind) {
@@ -487,8 +493,21 @@ public class ProServiceOpsService {
             List<LineDraft> serviceModes,
             List<LineDraft> terms,
             List<String> steps,
-            List<String> guarantees
+            List<String> guarantees,
+            String warrantyText
     ) {
+
+        /** 1.0.0 的写法：没有质保期。 */
+        public ServiceDraft(UUID providerId, String type, String categoryCode, String title, String summary,
+                            String priceMode, Long priceAmountMinor, String priceUnit, String priceNote,
+                            String coverUrl, Integer sortOrder, List<String> cityCodes, List<String> tags,
+                            List<String> facets, List<String> capabilities, List<LineDraft> priceRows,
+                            List<String> scopes, List<LineDraft> outputs, List<LineDraft> serviceModes,
+                            List<LineDraft> terms, List<String> steps, List<String> guarantees) {
+            this(providerId, type, categoryCode, title, summary, priceMode, priceAmountMinor, priceUnit, priceNote,
+                    coverUrl, sortOrder, cityCodes, tags, facets, capabilities, priceRows, scopes, outputs,
+                    serviceModes, terms, steps, guarantees, null);
+        }
     }
 
     // ---- 对外的形状（契约 openapi-ops-proservice.yaml） ----
@@ -542,7 +561,8 @@ public class ProServiceOpsService {
             List<LineView> serviceModes,
             List<LineView> terms,
             List<String> steps,
-            List<String> guarantees
+            List<String> guarantees,
+            String warrantyText
     ) {
     }
 }

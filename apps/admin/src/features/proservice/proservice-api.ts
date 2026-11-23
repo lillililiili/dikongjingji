@@ -2,7 +2,7 @@ import type { ApiClient } from '@/core/http/api-client'
 import type { OpsChange } from '@/core/ops/ops-common'
 import type { Page } from '@/core/ui/use-paged-list'
 
-// 契约 contracts/openapi-ops-proservice.yaml 1.0.0。
+// 契约 contracts/openapi-ops-proservice.yaml 1.1.0（1.1.0 加质保期 warrantyText；服务商资料审核在 provider-profile-review）。
 
 export type ProServiceStatus = 'PUBLISHED' | 'UNPUBLISHED'
 export type ProServiceType = 'AERIAL' | 'SURVEY' | 'MAINTENANCE' | 'TECH_SUPPORT'
@@ -64,6 +64,8 @@ export interface OpsProService {
   terms: ProServiceLine[]
   steps: string[]
   guarantees: string[]
+  /** 质保期（1.1.0），如“维修后质保 90 天”；App 设备维护详情的“保修与收费边界”里显示，没有时为 null。 */
+  warrantyText: string | null
 }
 
 export interface ProServiceRequest {
@@ -89,6 +91,7 @@ export interface ProServiceRequest {
   terms: Array<{ label: string, detail: string }>
   steps: string[]
   guarantees: string[]
+  warrantyText: string | null
   version?: number
 }
 

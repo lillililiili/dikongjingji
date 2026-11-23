@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { onLaunch } from '@dcloudio/uni-app'
+import { onLaunch, onShow } from '@dcloudio/uni-app'
 
 import { warmUpInspectionLanEndpoint } from './features/inspection/data/service-flow/inspection-lan-endpoint'
+import { reportPushDevice } from './features/message/application/push-registration-client'
 
 onLaunch(() => {
   warmUpInspectionLanEndpoint()
+})
+
+// S5-9: report this device's push id when the App comes to the front (launch included). H5 has none
+// and reports nothing; the same account, device and city are reported once.
+onShow(() => {
+  reportPushDevice()
 })
 </script>
 

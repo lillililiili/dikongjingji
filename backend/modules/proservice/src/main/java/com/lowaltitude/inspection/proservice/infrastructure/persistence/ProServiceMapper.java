@@ -175,6 +175,10 @@ public interface ProServiceMapper {
             """)
     List<UUID> findProviderIdsIn(@Param("cityCode") String cityCode);
 
+    /** 质保期（V003），可以为空。 */
+    @Select("SELECT warranty_text FROM pro_service WHERE id = #{serviceId}")
+    String findWarranty(@Param("serviceId") UUID serviceId);
+
     record ServiceRow(
             UUID id,
             UUID providerId,

@@ -46,22 +46,24 @@ class ProServiceOpenApiContractTest {
             Map.entry("ProServiceProvider", ProServiceProviderView.class),
             Map.entry("ProServiceDetail", ProServiceDetailView.class),
             Map.entry("ProviderInspectionService", ProviderInspectionServiceView.class),
-            Map.entry("ProviderPage", ProviderPageView.class));
+            Map.entry("ProviderPage", ProviderPageView.class),
+            Map.entry("ProviderProfile", ProviderProfileService.ProfileView.class),
+            Map.entry("ProviderProfileReview", ProviderProfileService.ReviewView.class));
 
     private static final Map<String, Class<? extends Enum<?>>> SCHEMA_ENUMS = Map.of(
             "ProServiceType", ProServiceType.class,
             "ProServiceFacet", ProServiceFacet.class,
             "ProServiceCategory", ProServiceCategory.class,
             "ProServicePriceMode", ProServicePriceMode.class,
-            "ProServiceSort", ProServiceSort.class);
+            "ProServiceSort", ProServiceSort.class,
+            "ProviderProfileReviewStatus", ProviderProfileService.ReviewStatus.class);
 
     @Test
     void contractIsVersionOneAndEveryRouteIsPublic() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.2.0");
         assertThat(root).doesNotContainKey("security");
-        assertThat(map(root.get("components"))).doesNotContainKey("securitySchemes");
         assertThat(operations()).extracting(Operation::key).containsExactlyInAnyOrder(
                 "GET /api/v1/pro-services",
                 "GET /api/v1/pro-services/{serviceId}",
@@ -77,7 +79,38 @@ class ProServiceOpenApiContractTest {
         Set<String> declaredKeys = new TreeSet<>();
         map(root.get("paths")).forEach((path, item) -> map(item).keySet()
                 .forEach(method -> declaredKeys.add(method.toUpperCase() + " " + path)));
-        assertThat(declaredKeys).hasSize(3);
+        // 1.2.0：工作台的服务商资料两个路由要登录，其余公开。
+        assertThat(declaredKeys).hasSize(5).contains("GET /api/v1/provider/profile", "PUT /api/v1/provider/profile");
+    }
+
+    @Test
+    void theWorkbenchProfileRoutesNeedALoginAndMatchTheController() {
+        Map<String, Object> path = map(map(root().get("paths")).get("/api/v1/provider/profile"));
+        for (String method : List.of("get", "put")) {
+            Map<String, Object> declared = map(path.get(method));
+            assertThat(declared.get("security")).as(method).isEqualTo(List.of(Map.of("bearerAuth", List.of())));
+            assertThat(map(declared.get("responses")).keySet()).as(method).contains("200", "401", "403");
+            assertThat((String) map(map(map(map(map(declared.get("responses")).get("200")).get("content"))
+                    .get("application/json")).get("schema")).get("$ref"))
+                    .isEqualTo(SCHEMA_PREFIX + "ProviderProfileReview");
+        }
+        Map<String, Object> request = map(schemas().get("ProviderProfileRequest"));
+        assertThat(map(request.get("properties")).keySet()).containsExactlyInAnyOrderElementsOf(
+                Arrays.stream(ProviderProfileController.ProfileRequest.class.getRecordComponents())
+                        .map(RecordComponent::getName).toList());
+        assertThat(strings(request.get("required")))
+                .containsExactlyInAnyOrder("legalEntity", "serviceModes", "deliverables", "version");
+        Map<String, Object> properties = map(request.get("properties"));
+        assertThat(map(properties.get("legalEntity")).get("maxLength")).isEqualTo(ProviderProfileService.MAX_LEGAL_ENTITY);
+        assertThat(map(properties.get("serviceModes")).get("maxLength"))
+                .isEqualTo(ProviderProfileService.MAX_SERVICE_MODES);
+        assertThat(map(properties.get("deliverables")).get("maxItems")).isEqualTo(ProviderProfileService.MAX_DELIVERABLES);
+        assertThat(map(map(properties.get("deliverables")).get("items")).get("maxLength"))
+                .isEqualTo(ProviderProfileService.MAX_DELIVERABLE);
+        assertThat(map(properties.get("localTeamLabel")).get("maxLength")).isEqualTo(ProviderProfileService.MAX_LOCAL_TEAM);
+        assertThat(contractText()).contains("PRO_PROVIDER_PROFILE_VERSION_CONFLICT");
+        assertThat(ProviderProfileService.ProfileError.SUBMIT_VERSION_CONFLICT.code())
+                .isEqualTo("PRO_PROVIDER_PROFILE_VERSION_CONFLICT");
     }
 
     @Test
@@ -219,6 +252,7 @@ class ProServiceOpenApiContractTest {
         List<String> covered = new ArrayList<>(SCHEMA_RECORDS.keySet());
         covered.addAll(SCHEMA_ENUMS.keySet());
         covered.add("ApiError");
+        covered.add("ProviderProfileRequest");
 
         assertThat(schemas().keySet()).containsExactlyInAnyOrderElementsOf(covered);
     }
@@ -257,7 +291,8 @@ class ProServiceOpenApiContractTest {
         if (type == int.class || type == Integer.class || type == long.class || type == Long.class) {
             return "integer";
         }
-        if (type == String.class || type == UUID.class) {
+        if (type == String.class || type == UUID.class || type == java.time.LocalDate.class
+                || type == java.time.OffsetDateTime.class) {
             return "string";
         }
         if (type == List.class) {

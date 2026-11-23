@@ -29,6 +29,13 @@
       }
     },
     {
+      "path": "pages/message/notice",
+      "style": {
+        "navigationBarTitleText": "通知详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/cart/index",
       "style": {
         "navigationBarTitleText": "购物车",
@@ -400,6 +407,27 @@
       "path": "pages/mine/rental-orders",
       "style": {
         "navigationBarTitleText": "租赁订单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/service-order/detail",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/service-order/plan",
+      "style": {
+        "navigationBarTitleText": "方案确认",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/service-order/delivery",
+      "style": {
+        "navigationBarTitleText": "交付与验收",
         "navigationStyle": "custom"
       }
     },

@@ -9,6 +9,8 @@
 // order) and VENUE_BOOKING; all four ids are the business object, subId is null.
 // 1.4.0 (M20) adds LIVE_REMINDER (直播提醒: a live room the account set a reminder on has started)
 // with the target LIVE_ROOM: id is the live room, subId is null.
+// 1.5.0 (S5-9) adds SYSTEM_NOTICE (系统通知: a platform announcement, copied into the inbox when the
+// inbox is read) with the target SYSTEM_NOTICE: id is the announcement, subId is null.
 // 1.6.0 (S5-3) adds the target ACTIVITY_WAITLIST (候补转正: id is the waitlist, subId is null).
 export type KnownMessageCategory =
   | 'SERVICE_PROGRESS'
@@ -17,6 +19,7 @@ export type KnownMessageCategory =
   | 'TRADE_LOGISTICS'
   | 'ACTIVITY_REMINDER'
   | 'LIVE_REMINDER'
+  | 'SYSTEM_NOTICE'
 
 // A category a later contract adds is read as OTHER: shown as a plain 通知 row that opens nothing.
 export type MessageCategory = KnownMessageCategory | 'OTHER'
@@ -32,6 +35,7 @@ export type MessageTargetType =
   | 'ACTIVITY_ORDER'
   | 'VENUE_BOOKING'
   | 'LIVE_ROOM'
+  | 'SYSTEM_NOTICE'
   | 'ACTIVITY_WAITLIST'
 
 export interface MessageTarget {
@@ -66,6 +70,7 @@ const KNOWN_CATEGORIES: readonly KnownMessageCategory[] = [
   'TRADE_LOGISTICS',
   'ACTIVITY_REMINDER',
   'LIVE_REMINDER',
+  'SYSTEM_NOTICE',
 ]
 
 const KNOWN_TARGET_TYPES: readonly MessageTargetType[] = [
@@ -79,6 +84,7 @@ const KNOWN_TARGET_TYPES: readonly MessageTargetType[] = [
   'ACTIVITY_ORDER',
   'VENUE_BOOKING',
   'LIVE_ROOM',
+  'SYSTEM_NOTICE',
   'ACTIVITY_WAITLIST',
 ]
 

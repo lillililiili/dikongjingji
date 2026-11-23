@@ -69,3 +69,23 @@ export const DEMAND_LIST_KEYS: MergedKeys<DemandListItem> = {
   idOf: (item) => item.id,
   timeOf: (item) => item.updatedAt,
 }
+
+// The board's underline tabs (DemandList): which kind of record.
+export type DemandKindTab = 'ALL' | 'DEMAND' | 'INQUIRY' | 'DRAFT'
+
+/**
+ * The numbers behind the tabs (全部 7 / 需求单 3 / 询价单 2 / 草稿 2): demand sheets are every
+ * demand but the drafts (demand-counts), inquiries are the rental and goods inquiry lists' totals
+ * together, and 全部 is all three. A total that could not be read leaves every number out rather
+ * than showing a wrong one.
+ */
+export function demandTabCounts(
+  demands: { total: number; draft: number } | null,
+  rentalInquiries: number | null,
+  mallInquiries: number | null,
+): Record<DemandKindTab, number> | null {
+  if (!demands || rentalInquiries === null || mallInquiries === null) return null
+  const sheets = Math.max(demands.total - demands.draft, 0)
+  const inquiries = rentalInquiries + mallInquiries
+  return { ALL: sheets + inquiries + demands.draft, DEMAND: sheets, INQUIRY: inquiries, DRAFT: demands.draft }
+}

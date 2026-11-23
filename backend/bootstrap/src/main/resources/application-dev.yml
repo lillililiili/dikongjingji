@@ -22,6 +22,10 @@ mall:
 opsimport:
   files:
     local-dir: ${OPS_IMPORT_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-import-files}
+# 通用服务订单（S4-3）的交付文件：开发环境存在本机目录（LocalServiceOrderFileStore），其他环境没配置时上传、下载返回 503。
+serviceorder:
+  files:
+    local-dir: ${SERVICE_ORDER_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-service-order-files}
 trade:
   merchant-accounts:
     allow-placeholder-sub-mchid: true
@@ -40,3 +44,9 @@ ops:
 # （至少 12 位）才会建这个账号；不设就不建。见 db/development/identity-operator 和 apps/admin/README.md。
 dev:
   operator-password: ${DEV_OPERATOR_PASSWORD:}
+
+# 推送（S5-9）：开发环境用本机模拟推送（FakePushGateway），每条推送记日志和 notification_push_fake_delivery；
+# 登录后 GET /api/v1/dev/notifications/push-deliveries 看自己收到的。
+notification:
+  push:
+    provider: fake

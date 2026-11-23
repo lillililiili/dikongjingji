@@ -31,20 +31,22 @@ class NotificationControllerTest {
     private static final UUID VISIT = UUID.fromString("61000000-0000-4000-8000-000000000001");
 
     private final NotificationService service = mock(NotificationService.class);
+    private final NotificationPreferenceService preferences = mock(NotificationPreferenceService.class);
+    private final PushDeviceService devices = mock(PushDeviceService.class);
     private final TestingAuthenticationToken customer = new TestingAuthenticationToken(
             new CurrentSubject(SUBJECT, Set.of("CUSTOMER"), ORGANIZATION, Set.of(), 0), null);
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new NotificationController(service))
+        mockMvc = MockMvcBuilders.standaloneSetup(new NotificationController(service, preferences, devices))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
     void listsTheSignedInAccountsNotificationsWithTheUnreadCount() throws Exception {
-        when(service.list(SUBJECT, 2, 10)).thenReturn(new NotificationPageView(
+        when(service.list(SUBJECT, 2, 10, false, null)).thenReturn(new NotificationPageView(
                 2, 10, 11, false, 3,
                 List.of(new NotificationView(
                         NOTIFICATION, NotificationCategory.SERVICE_PROGRESS, "INSPECTION_DELIVERY_PUBLISHED",
@@ -70,7 +72,7 @@ class NotificationControllerTest {
 
     @Test
     void unreadCountAndMarkingReadUseTheSubjectOfTheToken() throws Exception {
-        when(service.unreadCount(SUBJECT)).thenReturn(new UnreadCountView(4));
+        when(service.unreadCount(SUBJECT, false, null)).thenReturn(new UnreadCountView(4));
         when(service.markAllRead(SUBJECT)).thenReturn(new MarkedReadView(4));
         when(service.markRead(SUBJECT, NOTIFICATION)).thenReturn(true);
 
@@ -97,32 +99,85 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.details").value(nullValue()));
     }
 
-    // 契约里的路由和控制器的路由一一对应，而且没有一条是公开的。
+    // 契约里的路由和三个控制器的路由一一对应；只有系统通知的两个读取是公开的（1.5.0）。开发控制接口不在契约里。
     @Test
-    void contractDeclaresExactlyTheControllersRoutesAndNoneIsPublic() throws Exception {
-        String contract = java.nio.file.Files.readString(
-                java.nio.file.Path.of("..", "..", "contracts", "openapi-notification.yaml"));
-        java.util.Set<String> routes = new java.util.TreeSet<>();
-        for (java.lang.reflect.Method method : NotificationController.class.getDeclaredMethods()) {
-            var get = method.getAnnotation(org.springframework.web.bind.annotation.GetMapping.class);
-            var post = method.getAnnotation(org.springframework.web.bind.annotation.PostMapping.class);
-            if (get != null) {
-                routes.add(get.value()[0]);
+    void contractDeclaresExactlyTheControllersRoutesAndOnlyTheNoticeReadsArePublic() throws Exception {
+        java.util.Map<String, Object> root = new org.yaml.snakeyaml.Yaml().load(java.nio.file.Files.readString(
+                java.nio.file.Path.of("..", "..", "contracts", "openapi-notification.yaml")));
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, java.util.Map<String, java.util.Map<String, Object>>> paths =
+                (java.util.Map<String, java.util.Map<String, java.util.Map<String, Object>>>) root.get("paths");
+        java.util.Set<String> contractRoutes = new java.util.TreeSet<>();
+        java.util.Set<String> publicRoutes = new java.util.TreeSet<>();
+        paths.forEach((path, operations) -> operations.forEach((verb, operation) -> {
+            String route = verb.toUpperCase(java.util.Locale.ROOT) + " " + path;
+            contractRoutes.add(route);
+            if (java.util.List.of().equals(operation.get("security"))) {
+                publicRoutes.add(route);
             }
-            if (post != null) {
-                routes.add(post.value()[0]);
+        }));
+        java.util.Set<String> routes = new java.util.TreeSet<>();
+        for (Class<?> controller : java.util.List.of(NotificationController.class, SystemNoticeController.class,
+                SystemNoticeOpsController.class)) {
+            for (java.lang.reflect.Method method : controller.getDeclaredMethods()) {
+                var mapping = org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                        method, org.springframework.web.bind.annotation.RequestMapping.class);
+                if (mapping != null) {
+                    routes.add(mapping.method()[0].name() + " " + mapping.path()[0]);
+                }
             }
         }
 
-        org.assertj.core.api.Assertions.assertThat(routes).hasSize(4);
-        for (String route : routes) {
-            org.assertj.core.api.Assertions.assertThat(contract).contains("  " + route + ":");
-        }
+        org.assertj.core.api.Assertions.assertThat(routes).hasSize(13).isEqualTo(contractRoutes);
+        org.assertj.core.api.Assertions.assertThat(publicRoutes).containsExactly(
+                "GET /api/v1/system-notices/agreement-updates", "GET /api/v1/system-notices/{noticeId}");
+        org.assertj.core.api.Assertions.assertThat(routes).noneMatch(route -> route.contains("/dev/"));
+        String contract = java.nio.file.Files.readString(
+                java.nio.file.Path.of("..", "..", "contracts", "openapi-notification.yaml"));
         org.assertj.core.api.Assertions.assertThat(contract)
                 .contains("security:\n  - bearerAuth: []")
-                .doesNotContain("security: []")
                 .contains("required: [id, category, eventCode, title, body, target, occurredAt, read]")
                 .contains("required: [page, size, total, hasMore, unreadCount, items]");
+    }
+
+    @Test
+    void theInboxPassesTheCityOnAndPreferencesAndDevicesUseTheToken() throws Exception {
+        when(service.list(SUBJECT, 1, 20, true, "370500")).thenReturn(new NotificationPageView(1, 20, 0, false, 0, List.of()));
+        when(service.unreadCount(SUBJECT, true, "370500")).thenReturn(new UnreadCountView(1));
+        when(preferences.read(SUBJECT)).thenReturn(NotificationPreferences.DEFAULTS);
+        when(preferences.update(SUBJECT, null, false, null)).thenReturn(new NotificationPreferences(true, false, true));
+        when(devices.register(SUBJECT, "ANDROID", "cid-1", "370500")).thenReturn(new PushDeviceService.PushDeviceView(
+                ORDER, PushGateway.PushPlatform.ANDROID, Instant.parse("2026-11-22T04:00:00Z")));
+
+        mockMvc.perform(get("/api/v1/notifications").principal(customer).param("systemNotices", "true")
+                        .param("cityCode", "370500"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/notifications/unread-count").principal(customer).param("systemNotices", "true")
+                        .param("cityCode", "370500"))
+                .andExpect(jsonPath("$.count").value(1));
+        mockMvc.perform(get("/api/v1/notifications/preferences").principal(customer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderServicePush").value(true))
+                .andExpect(jsonPath("$.activityPush").value(true))
+                .andExpect(jsonPath("$.discoverDot").value(true))
+                .andExpect(jsonPath("$.length()").value(3));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/v1/notifications/preferences").principal(customer)
+                        .contentType("application/json").content("{\"activityPush\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activityPush").value(false));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/v1/notifications/push-devices").principal(customer)
+                        .contentType("application/json")
+                        .content("{\"platform\":\"ANDROID\",\"pushClientId\":\"cid-1\",\"cityCode\":\"370500\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deviceId").value(ORDER.toString()))
+                .andExpect(jsonPath("$.platform").value("ANDROID"));
+        mockMvc.perform(post("/api/v1/notifications/push-devices/unregister").principal(customer)
+                        .contentType("application/json").content("{\"platform\":\"ANDROID\",\"pushClientId\":\"cid-1\"}"))
+                .andExpect(status().isNoContent());
+
+        verify(devices).unregister(SUBJECT, "ANDROID", "cid-1");
     }
 
     // 契约里的分类和跳转目标就是服务端的两个枚举（1.1.0 加了需求与报价，1.2.0 加了客服消息）。
@@ -145,7 +200,7 @@ class NotificationControllerTest {
 
     @Test
     void badArgumentsAreBadRequests() throws Exception {
-        when(service.list(SUBJECT, 0, 20)).thenThrow(new IllegalArgumentException("page is invalid"));
+        when(service.list(SUBJECT, 0, 20, false, null)).thenThrow(new IllegalArgumentException("page is invalid"));
 
         mockMvc.perform(get("/api/v1/notifications").principal(customer).param("page", "0"))
                 .andExpect(status().isBadRequest())

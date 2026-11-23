@@ -1,5 +1,6 @@
-// Mirrors contracts/openapi-proservice.yaml 1.1.0 (1.0.0 was step F2, docs/redesign/03-App实现任务计划.md §23;
-// 1.1.0 adds qualificationReviewed to the provider, R6-4).
+// Mirrors contracts/openapi-proservice.yaml 1.2.0 (1.0.0 was step F2, docs/redesign/03-App实现任务计划.md §23;
+// 1.1.0 adds qualificationReviewed to the provider, R6-4; 1.2.0 adds the warranty of a service and the
+// reviewed profile of a provider page, S4-4, §28.3).
 // Aerial, survey, maintenance and tech support services: a catalog, a service page and a provider
 // page, all public reads. None of them is booked; the main action everywhere is 发布需求 (F1).
 
@@ -137,6 +138,8 @@ export interface ProServiceDetail extends Omit<ProServiceCard, 'tags'> {
   guarantees: string[]
   provider: ProServiceProvider | null
   cities: ProServiceCity[]
+  // 质保期 such as “维修后质保 90 天” (1.2.0); maintenance shows it under 保修与收费边界.
+  warrantyText: string | null
 }
 
 export interface ProviderInspectionService {
@@ -145,6 +148,17 @@ export interface ProviderInspectionService {
   summary: string
   categoryName: string
   price: ProServicePrice
+}
+
+// The provider's page facts the platform reviewed (1.2.0, ProviderPage board): the three head rows,
+// the local-team tag and the 可交付 card. Null when no profile was ever approved.
+export interface ProviderProfile {
+  legalEntity: string
+  serviceModes: string
+  // YYYY-MM-DD; null leaves the 授权有效期 row out.
+  authorizationUntil: string | null
+  deliverables: string[]
+  localTeamLabel: string | null
 }
 
 export interface ProviderPage {
@@ -157,4 +171,5 @@ export interface ProviderPage {
   inspectionServices: ProviderInspectionService[]
   proServices: ProServiceCard[]
   cities: ProServiceCity[]
+  profile: ProviderProfile | null
 }

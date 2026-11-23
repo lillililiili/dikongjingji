@@ -77,6 +77,7 @@ describe('pro service view', () => {
         tags: [], price: { mode: 'PROJECT', amountMinor: null, unit: null, note: null }, coverUrl: null, sample: false,
       })),
       cities: [],
+      profile: null,
     })
     expect(providerDemandType(page(1, ['SURVEY']))).toBe('INSPECTION')
     expect(providerDemandType(page(0, ['SURVEY', 'AERIAL']))).toBe('SURVEY')

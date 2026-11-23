@@ -13,6 +13,7 @@ import {
   refreshMessageUnread,
   useRootTabBadgeStore,
 } from '@/app-shell/state/root-tab-badges'
+import { reportPushDevice } from '@/features/message/application/push-registration-client'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import type { LineIconName } from '@/shared/ui/line-icons'
 
@@ -51,6 +52,8 @@ onShow(() => {
   // Every root page shows this bar, so the unread number is read again whenever one is shown.
   void refreshMessageUnread()
   void refreshCartCount()
+  // S5-9: after signing in the person lands on a root page; the device is reported once per account.
+  reportPushDevice()
 })
 
 function iconColor(code: RootTabCode): string {

@@ -71,6 +71,11 @@
         </dependency>
         <dependency>
             <groupId>com.lowaltitude</groupId>
+            <artifactId>serviceorder</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.lowaltitude</groupId>
             <artifactId>support</artifactId>
             <version>${project.version}</version>
         </dependency>

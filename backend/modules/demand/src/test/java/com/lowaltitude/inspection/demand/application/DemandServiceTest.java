@@ -517,13 +517,132 @@ class DemandServiceTest {
         assertInvalid(() -> service.invitableProviders("370500", "GARDENING"));
     }
 
+    // ---- 1.3.0：报价明细、对比项、计数、选定后生成服务订单 ----
+
+    @Test
+    void quoteLinesAndComparisonFieldsAreStoredReplacedAndShown() {
+        DemandView open = submitted(KEY, complete());
+        QuoteDraft detailed = new QuoteDraft(1_860_000L, "无人机 + 机器狗", "共 6 次", 90, "巡检报告",
+                NOW_UTC.plusDays(7),
+                List.of(new QuoteLineDraft("无人机巡检", 6, "次", 180_000L, 1_080_000L),
+                        new QuoteLineDraft("机器狗夜巡", 6, "次", 110_000L, 660_000L),
+                        new QuoteLineDraft("报告与隐患跟踪", null, null, null, 120_000L)),
+                "东营本地", "机器狗夜巡", 48, 90, "2026-11-25");
+
+        ProviderDemandView mine = service.submitQuote(YUNYI, OPERATOR, open.demandId(), detailed);
+
+        assertThat(mine.myQuote().lines()).extracting(DemandQuoteLineView::name, DemandQuoteLineView::quantity,
+                        DemandQuoteLineView::amountMinor)
+                .containsExactly(tuple("无人机巡检", 6, 1_080_000L), tuple("机器狗夜巡", 6, 660_000L),
+                        tuple("报告与隐患跟踪", null, 120_000L));
+        DemandQuoteView seen = service.quotes(ACCOUNT, open.demandId(), null).items().getFirst();
+        assertThat(seen.team()).isEqualTo("东营本地");
+        assertThat(seen.nightWork()).isEqualTo("机器狗夜巡");
+        assertThat(seen.reportHours()).isEqualTo(48);
+        assertThat(seen.archiveDays()).isEqualTo(90);
+        assertThat(seen.firstVisitDate()).isEqualTo(LocalDate.parse("2026-11-25"));
+        assertThat(seen.lines()).hasSize(3);
+        // 同样的内容再报一次没有变化；去掉明细是一次改价（版本加 1），明细整组替换。
+        assertThat(service.submitQuote(YUNYI, OPERATOR, open.demandId(), detailed).myQuote().version()).isEqualTo(1);
+        ProviderDemandView plain = quote(YUNYI, open.demandId(), 1_860_000);
+        assertThat(plain.myQuote().version()).isEqualTo(2);
+        assertThat(plain.myQuote().lines()).isEmpty();
+        assertThat(plain.myQuote().team()).isNull();
+    }
+
+    @Test
+    void invalidQuoteLinesAndComparisonFieldsAreRejected() {
+        DemandView open = submitted(KEY, complete());
+        OffsetDateTime valid = NOW_UTC.plusDays(7);
+        // 合计不等于总价；数量 × 单价不等于金额；只填了数量；超过 10 行；报告时效、存档天数、日期不对。
+        assertInvalid(() -> service.submitQuote(YUNYI, OPERATOR, open.demandId(), new QuoteDraft(100_000L, "无人机",
+                "共 6 次", 90, "巡检报告", valid, List.of(new QuoteLineDraft("巡检", null, null, null, 90_000L)),
+                null, null, null, null, null)));
+        assertInvalid(() -> service.submitQuote(YUNYI, OPERATOR, open.demandId(), new QuoteDraft(100_000L, "无人机",
+                "共 6 次", 90, "巡检报告", valid, List.of(new QuoteLineDraft("巡检", 2, "次", 40_000L, 100_000L)),
+                null, null, null, null, null)));
+        assertInvalid(() -> service.submitQuote(YUNYI, OPERATOR, open.demandId(), new QuoteDraft(100_000L, "无人机",
+                "共 6 次", 90, "巡检报告", valid, List.of(new QuoteLineDraft("巡检", 2, null, null, 100_000L)),
+                null, null, null, null, null)));
+        List<QuoteLineDraft> eleven = java.util.stream.IntStream.range(0, 11)
+                .mapToObj(index -> new QuoteLineDraft("第" + index + "项", null, null, null, 10_000L)).toList();
+        assertInvalid(() -> service.submitQuote(YUNYI, OPERATOR, open.demandId(), new QuoteDraft(110_000L, "无人机",
+                "共 6 次", 90, "巡检报告", valid, eleven, null, null, null, null, null)));
+        assertInvalid(() -> service.submitQuote(YUNYI, OPERATOR, open.demandId(), new QuoteDraft(100_000L, "无人机",
+                "共 6 次", 90, "巡检报告", valid, null, null, null, 0, null, null)));
+        assertInvalid(() -> service.submitQuote(YUNYI, OPERATOR, open.demandId(), new QuoteDraft(100_000L, "无人机",
+                "共 6 次", 90, "巡检报告", valid, null, null, null, null, -1, null)));
+        assertInvalid(() -> service.submitQuote(YUNYI, OPERATOR, open.demandId(), new QuoteDraft(100_000L, "无人机",
+                "共 6 次", 90, "巡检报告", valid, null, "团".repeat(21), null, null, null, null)));
+        assertInvalid(() -> service.submitQuote(YUNYI, OPERATOR, open.demandId(), new QuoteDraft(100_000L, "无人机",
+                "共 6 次", 90, "巡检报告", valid, null, null, null, null, null, "11/25")));
+        assertThat(mapper.quotes).isEmpty();
+    }
+
+    @Test
+    void choosingAnAerialQuoteOpensOneServiceOrderAndAnInspectionQuoteDoesNot() {
+        DemandView aerial = submitted(KEY, with(complete(), d -> {
+            d.type = "AERIAL";
+            d.deliverables = List.of("PHOTOS");
+        }));
+        service.submitQuote(YUNYI, OPERATOR, aerial.demandId(), new QuoteDraft(300_000L, "无人机航拍", "半天",
+                1, "照片 50 张", NOW_UTC.plusDays(7),
+                List.of(new QuoteLineDraft("航拍", 1, "次", 300_000L, 300_000L)), "东营本地", null, 72, 30, null));
+        UUID quoteId = mapper.quotes.getFirst().id;
+        int version = service.read(ACCOUNT, aerial.demandId()).version();
+
+        DemandView chosen = service.choose(ACCOUNT, aerial.demandId(), version, quoteId, 1);
+
+        assertThat(chosen.serviceOrderId()).isNotNull();
+        assertThat(openedOrders).singleElement().satisfies(order -> {
+            assertThat(order.type()).isEqualTo("AERIAL");
+            assertThat(order.amountMinor()).isEqualTo(300_000L);
+            assertThat(order.providerName()).isEqualTo("云翼科技");
+            assertThat(order.organizationName()).isEqualTo("东营示例物流公司");
+            assertThat(order.team()).isEqualTo("东营本地");
+            assertThat(order.reportHours()).isEqualTo(72);
+            assertThat(order.lines()).singleElement().satisfies(line -> assertThat(line.unit()).isEqualTo("次"));
+        });
+        // 重复选定原样返回，不再建单。
+        assertThat(service.choose(ACCOUNT, aerial.demandId(), version, quoteId, 1).serviceOrderId())
+                .isEqualTo(chosen.serviceOrderId());
+        assertThat(openedOrders).hasSize(1);
+
+        DemandView inspection = submitted(SECOND_KEY, complete());
+        quote(YUNYI, inspection.demandId(), 100_000);
+        UUID inspectionQuote = mapper.quotes.getLast().id;
+        DemandView chosenInspection = service.choose(ACCOUNT, inspection.demandId(),
+                service.read(ACCOUNT, inspection.demandId()).version(), inspectionQuote, 1);
+        assertThat(chosenInspection.serviceOrderId()).isNull();
+        assertThat(openedOrders).hasSize(1);
+    }
+
+    @Test
+    void countsAreByStatusOfTheAccountsOwnDemandsIncludingDrafts() {
+        create(complete());
+        submitted(KEY, complete());
+        DemandView quoted = submitted(SECOND_KEY, complete());
+        quote(YUNYI, quoted.demandId(), 100_000);
+        service.create(OTHER_ACCOUNT, null, UUID.randomUUID(), complete().build(), false);
+
+        DemandCountsView counts = service.counts(ACCOUNT);
+
+        assertThat(counts).isEqualTo(new DemandCountsView(3, 1, 1, 1, 0, 0));
+        assertThat(service.counts(UUID.randomUUID())).isEqualTo(new DemandCountsView(0, 0, 0, 0, 0, 0));
+    }
+
     // ---- 辅助 ----
 
     /** 第三家东营服务商（只在比选排序里用）。 */
     private static final UUID SECOND_PROVIDER = UUID.fromString("22222222-2222-2222-2222-666666666666");
 
+    private final List<DemandPorts.ChosenQuote> openedOrders = new ArrayList<>();
+
     private DemandService at(Instant instant) {
-        return new DemandService(mapper, FakeCities.INSTANCE, providers, notifier, Clock.fixed(instant, ZoneOffset.UTC));
+        return new DemandService(mapper, FakeCities.INSTANCE, providers, notifier, chosen -> {
+            openedOrders.add(chosen);
+            return UUID.nameUUIDFromBytes(("order:" + chosen.demandId()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }, Clock.fixed(instant, ZoneOffset.UTC));
     }
 
     private DemandView create(DraftBuilder draft) {
@@ -1041,6 +1160,59 @@ class DemandServiceTest {
         }
 
         @Override
+        public int updateQuoteDetails(UUID quoteId, String team, String nightWork, Integer reportHours,
+                                      Integer archiveDays, LocalDate firstVisitDate) {
+            Quote row = quote(quoteId);
+            row.team = team;
+            row.nightWork = nightWork;
+            row.reportHours = reportHours;
+            row.archiveDays = archiveDays;
+            row.firstVisitDate = firstVisitDate;
+            return 1;
+        }
+
+        @Override
+        public int deleteQuoteLines(UUID quoteId) {
+            Quote row = quote(quoteId);
+            int removed = row.lines.size();
+            row.lines.clear();
+            return removed;
+        }
+
+        @Override
+        public int insertQuoteLine(UUID quoteId, int sortOrder, String name, Integer quantity, String unit,
+                                   Long unitAmountMinor, long amountMinor) {
+            quote(quoteId).lines.add(new QuoteLineRow(quoteId, sortOrder, name, quantity, unit, unitAmountMinor,
+                    amountMinor));
+            return 1;
+        }
+
+        @Override
+        public List<QuoteLineRow> findQuoteLines(List<UUID> quoteIds) {
+            return quotes.stream().filter(row -> quoteIds.contains(row.id)).flatMap(row -> row.lines.stream())
+                    .toList();
+        }
+
+        @Override
+        public int linkServiceOrder(UUID demandId, UUID serviceOrderId) {
+            Demand row = demand(demandId);
+            if (row == null || !row.status.equals("CHOSEN") || row.serviceOrderId != null) {
+                return 0;
+            }
+            row.serviceOrderId = serviceOrderId;
+            return 1;
+        }
+
+        @Override
+        public List<StatusCountRow> countByStatus(UUID accountId) {
+            Map<String, Long> counts = new java.util.TreeMap<>();
+            demands.stream().filter(row -> row.accountId.equals(accountId))
+                    .forEach(row -> counts.merge(row.status, 1L, Long::sum));
+            return counts.entrySet().stream().map(entry -> new StatusCountRow(entry.getKey(), entry.getValue()))
+                    .toList();
+        }
+
+        @Override
         public int withdrawQuote(UUID quoteId, OffsetDateTime at) {
             Quote row = quote(quoteId);
             if (!row.status.equals("ACTIVE")) {
@@ -1109,6 +1281,7 @@ class DemandServiceTest {
             String closeReason;
             UUID key;
             String hash;
+            UUID serviceOrderId;
             OffsetDateTime createdAt;
             OffsetDateTime updatedAt;
             int version;
@@ -1116,8 +1289,8 @@ class DemandServiceTest {
             DemandRow toRow() {
                 return new DemandRow(id, accountId, organizationId, organizationName, type, cityCode, cityName,
                         address, scope, dueDate, budgetMin, budgetMax, note, quoteScope, status, submittedAt, deadline,
-                        chosenQuoteId, chosenQuoteVersion, chosenAt, closedAt, closeReason, createdAt, updatedAt,
-                        version);
+                        chosenQuoteId, chosenQuoteVersion, chosenAt, closedAt, closeReason, serviceOrderId, createdAt,
+                        updatedAt, version);
             }
         }
 
@@ -1135,10 +1308,17 @@ class DemandServiceTest {
             OffsetDateTime validUntil;
             OffsetDateTime firstSubmittedAt;
             OffsetDateTime revisedAt;
+            String team;
+            String nightWork;
+            Integer reportHours;
+            Integer archiveDays;
+            LocalDate firstVisitDate;
+            final List<QuoteLineRow> lines = new ArrayList<>();
 
             QuoteRow toRow() {
                 return new QuoteRow(id, demandId, providerId, status, quoteVersion, amount, method, schedule, days,
-                        deliverables, validUntil, firstSubmittedAt, revisedAt);
+                        deliverables, validUntil, firstSubmittedAt, revisedAt, team, nightWork, reportHours,
+                        archiveDays, firstVisitDate);
             }
         }
 

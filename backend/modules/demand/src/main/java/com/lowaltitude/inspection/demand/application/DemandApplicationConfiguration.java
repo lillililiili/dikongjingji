@@ -19,8 +19,9 @@ public class DemandApplicationConfiguration {
             DemandMapper mapper,
             DemandPorts.CityDirectory cities,
             DemandPorts.ProviderDirectory providers,
-            DemandPorts.Notifier notifier
+            DemandPorts.Notifier notifier,
+            DemandPorts.ServiceOrders serviceOrders
     ) {
-        return new DemandService(mapper, cities, providers, notifier, Clock.systemUTC());
+        return new DemandService(mapper, cities, providers, notifier, serviceOrders, Clock.systemUTC());
     }
 }

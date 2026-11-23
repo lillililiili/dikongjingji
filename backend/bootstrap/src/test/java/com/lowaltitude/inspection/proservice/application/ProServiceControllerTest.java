@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -97,7 +98,8 @@ class ProServiceControllerTest {
 
         mockMvc.perform(get("/api/v1/pro-services/" + SERVICE + "?cityCode=370500"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(18))
+                .andExpect(jsonPath("$.length()").value(19))
+                .andExpect(jsonPath("$.warrantyText").value("维修后质保 90 天"))
                 .andExpect(jsonPath("$.coverUrl").doesNotExist())
                 .andExpect(jsonPath("$.capabilities[0]").value("视频素材"))
                 .andExpect(jsonPath("$.priceRows[0].label").value("计价方式"))
@@ -136,11 +138,15 @@ class ProServiceControllerTest {
                 List.of(new ProviderInspectionServiceView(INSPECTION, "电力输电线路无人机巡检", "高精度巡检", "电力",
                         new ProServicePriceView(ProServicePriceMode.PRICE_FROM, 69900L, "/公里起", "含现场巡检和报告"))),
                 page().items(),
-                List.of(new ProServiceCityView("370500", "东营市"))));
+                List.of(new ProServiceCityView("370500", "东营市")),
+                new ProviderProfileService.ProfileView("示例鹰眼智能科技有限公司", "无人机巡检 · 机器狗夜巡",
+                        LocalDate.parse("2027-10-31"), List.of("巡检报告", "隐患清单"), "东营本地团队")));
 
         mockMvc.perform(get("/api/v1/providers/" + other + "?cityCode=370500"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(9))
+                .andExpect(jsonPath("$.length()").value(10))
+                .andExpect(jsonPath("$.profile.legalEntity").value("示例鹰眼智能科技有限公司"))
+                .andExpect(jsonPath("$.profile.deliverables.length()").value(2))
                 .andExpect(jsonPath("$.name").value("鹰眼智能巡检"))
                 .andExpect(jsonPath("$.qualificationReviewed").value(true))
                 .andExpect(jsonPath("$.inspectionServices[0].serviceId").value(INSPECTION.toString()))
@@ -180,6 +186,7 @@ class ProServiceControllerTest {
                 List.of("提交需求", "报价比选", "现场拍摄", "成果验收"),
                 List.of("持证飞手", "合规飞行", "素材保密"),
                 new ProServiceProviderView(PROVIDER, "云翼科技", "企业认证", "专业飞手团队", false),
-                List.of(new ProServiceCityView("370500", "东营市")));
+                List.of(new ProServiceCityView("370500", "东营市")),
+                "维修后质保 90 天");
     }
 }

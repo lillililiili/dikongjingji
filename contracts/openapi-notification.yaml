@@ -28,7 +28,22 @@ info:
     module M20 live, contracts/openapi-live.yaml) adds the category LIVE_REMINDER (直播提醒): a live room the account
     set a reminder on has started (LIVE_STARTED); the target is LIVE_ROOM (id is the live room; the page reads it
     itself). It is written after the go-live transaction commits, at most once per room and account; the text carries
-    only the room title and the host organisation's name. Clients should show a category or a target type they do
+    only the room title and the host organisation's name. 1.5.0 (2026-11-22, docs/redesign/08-后续开发计划.md S5-9) adds the
+    category SYSTEM_NOTICE (系统通知: an announcement the platform operators published to everyone or to one city, event
+    code SYSTEM_NOTICE_PUBLISHED) with the target SYSTEM_NOTICE (id is the announcement; GET /api/v1/system-notices/{id}
+    reads its paragraphs, facts, items and action). An announcement is stored once; listing or counting the inbox with
+    systemNotices=true first copies every published, unexpired announcement for everyone (and, when the optional
+    cityCode is given, for that city) into the account's inbox, once per announcement and account, dated at its
+    publication; a build that does not show 系统通知 leaves systemNotices out and gets none. A withdrawn
+    announcement is no longer copied and leaves the inboxes it reached. 1.5.0 also adds the account's notification
+    switches (GET/PUT /api/v1/notifications/preferences, all on until changed) and the device push ids the App
+    reports (PUT /api/v1/notifications/push-devices, POST .../unregister). Switches only govern pushes: every
+    notification is still written to the inbox. orderServicePush covers SERVICE_PROGRESS, DEMAND_QUOTE,
+    CUSTOMER_SERVICE and TRADE_LOGISTICS; activityPush covers ACTIVITY_REMINDER and LIVE_REMINDER; SYSTEM_NOTICE is
+    always pushed; discoverDot only tells the App whether to show the Discover tab's dot. The push vendor is not chosen:
+    pushes go through a server-side port, a local fake in development and nothing elsewhere, so the push id is any
+    opaque string. Platform operators publish, list and withdraw announcements under /api/v1/ops/notifications/...
+    (role PLATFORM_OPERATOR). Clients should show a category or a target type they do
     not know as a plain row that opens nothing, since later versions may add more.
     1.6.0 (2026-11-23, S5-3 activity waitlist, team sign-up, reschedule and results, contracts/openapi-activity.yaml
     1.4.0; numbered after 1.5.0 of the system-notice branch, S5-9) adds three ACTIVITY_REMINDER events and one target
@@ -63,6 +78,22 @@ paths:
             minimum: 1
             maximum: 50
             default: 20
+        - name: systemNotices
+          in: query
+          required: false
+          description: >-
+            1.5.0: true when the App shows 系统通知; announcements are then copied into the inbox first. Builds
+            without 系统通知 leave it out and neither see nor count them.
+          schema:
+            type: boolean
+            default: false
+        - name: cityCode
+          in: query
+          required: false
+          description: The App's current city (1.5.0); with systemNotices, announcements for this city are copied too
+          schema:
+            type: string
+            pattern: "^[A-Z0-9]{4,16}$"
       responses:
         "200":
           description: The page, with the account's unread count
@@ -78,6 +109,23 @@ paths:
     get:
       operationId: countMyUnreadNotifications
       summary: How many of the account's notifications are unread
+      parameters:
+        - name: systemNotices
+          in: query
+          required: false
+          description: >-
+            1.5.0: true when the App shows 系统通知; announcements are then copied into the inbox first. Builds
+            without 系统通知 leave it out and neither see nor count them.
+          schema:
+            type: boolean
+            default: false
+        - name: cityCode
+          in: query
+          required: false
+          description: The App's current city (1.5.0); with systemNotices, announcements for this city are copied too
+          schema:
+            type: string
+            pattern: "^[A-Z0-9]{4,16}$"
       responses:
         "200":
           description: The count
@@ -124,6 +172,236 @@ paths:
             application/json:
               schema:
                 $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/notifications/preferences:
+    get:
+      operationId: readMyNotificationPreferences
+      summary: The account's notification switches (1.5.0); all on until changed
+      responses:
+        "200":
+          description: The switches
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferences"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateMyNotificationPreferences
+      summary: Change some of the account's notification switches (1.5.0)
+      description: >-
+        Only the switches present are changed; a body with none of them is a bad request. PUT rather than PATCH
+        because uni.request and mini programs have no PATCH. Switches only govern pushes, the inbox keeps every
+        notification.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationPreferencesPatch"
+      responses:
+        "200":
+          description: The switches after the change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferences"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/notifications/push-devices:
+    put:
+      operationId: registerMyPushDevice
+      summary: Report this device's push id after launch or sign-in (1.5.0)
+      description: >-
+        The same device (platform and push id) is one row: signing in with another account moves it to that account,
+        and reporting again refreshes its time and city. The push vendor is not chosen, so any opaque id is accepted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushDeviceRequest"
+      responses:
+        "200":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushDevice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/notifications/push-devices/unregister:
+    post:
+      operationId: unregisterMyPushDevice
+      summary: Stop pushing this account's notifications to this device, before signing out (1.5.0)
+      description: Only a device of this account is revoked; another account's device or one already revoked is left as is.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushDeviceRequest"
+      responses:
+        "204":
+          description: Revoked, or nothing to revoke
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/system-notices/{noticeId}:
+    get:
+      operationId: readSystemNotice
+      summary: One published announcement (1.5.0); public
+      security: []
+      parameters:
+        - name: noticeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: The announcement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemNotice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: No such announcement, or it was withdrawn
+          content:
+            application/json:
+              schema:
+                $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/system-notices/agreement-updates:
+    get:
+      operationId: readLatestAgreementUpdate
+      summary: The latest announcement about an agreement, for 协议与规则's 有更新 (1.5.0); public
+      security: []
+      parameters:
+        - name: agreement
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/AgreementCode"
+      responses:
+        "200":
+          description: The latest published, unexpired announcement for everyone about it, or null
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [latest]
+                properties:
+                  latest:
+                    oneOf:
+                      - $ref: "#/components/schemas/AgreementUpdate"
+                      - type: "null"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/ops/notifications/system-notices:
+    post:
+      operationId: publishSystemNotice
+      summary: Publish an announcement (1.5.0); platform operators only
+      description: >-
+        The same Idempotency-Key returns the announcement it first published and pushes nothing again. After the
+        transaction commits, the announcement is pushed to the devices in its audience (for a city, the devices whose
+        last report was in that city); inboxes receive it when they are next read.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 80
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemNoticeDraft"
+      responses:
+        "201":
+          description: Published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemNotice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    get:
+      operationId: listSystemNotices
+      summary: Every announcement, newest first, withdrawn ones included (1.5.0); platform operators only
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: The page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemNoticePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/notifications/system-notices/{noticeId}/withdraw:
+    post:
+      operationId: withdrawSystemNotice
+      summary: Withdraw an announcement; repeating it changes nothing (1.5.0); platform operators only
+      parameters:
+        - name: noticeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Withdrawn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemNotice"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: No such announcement
+          content:
+            application/json:
+              schema:
+                $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
 components:
   securitySchemes:
     bearerAuth:
@@ -143,15 +421,22 @@ components:
         application/json:
           schema:
             $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
+    Forbidden:
+      description: The account is not a platform operator
+      content:
+        application/json:
+          schema:
+            $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
   schemas:
     NotificationCategory:
       type: string
-      enum: [SERVICE_PROGRESS, DEMAND_QUOTE, CUSTOMER_SERVICE, TRADE_LOGISTICS, ACTIVITY_REMINDER, LIVE_REMINDER]
-      description: 服务进度 / 需求与报价（1.1.0）/ 客服消息（1.2.0）/ 交易物流、活动提醒（1.3.0）/ 直播提醒（1.4.0）
+      enum: [SERVICE_PROGRESS, DEMAND_QUOTE, CUSTOMER_SERVICE, TRADE_LOGISTICS, ACTIVITY_REMINDER, LIVE_REMINDER,
+             SYSTEM_NOTICE]
+      description: 服务进度 / 需求与报价（1.1.0）/ 客服消息（1.2.0）/ 交易物流、活动提醒（1.3.0）/ 直播提醒（1.4.0）/ 系统通知（1.5.0）
     NotificationTargetType:
       type: string
       enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY, DEMAND, CONVERSATION, TRADE_ORDER,
-             ACTIVITY_ENROLLMENT, ACTIVITY_ORDER, VENUE_BOOKING, LIVE_ROOM, ACTIVITY_WAITLIST]
+             ACTIVITY_ENROLLMENT, ACTIVITY_ORDER, VENUE_BOOKING, LIVE_ROOM, SYSTEM_NOTICE, ACTIVITY_WAITLIST]
       description: >-
         Where tapping the notification leads. INSPECTION_PLAN: id is the plan. INSPECTION_FULFILLMENT
         and INSPECTION_DELIVERY: id is the service order, subId the visit when the notification is
@@ -159,7 +444,8 @@ components:
         support conversation, subId is null. 1.3.0, subId always null: TRADE_ORDER, id is the goods order
         (contracts/openapi-trade.yaml); ACTIVITY_ENROLLMENT, id is the enrollment and the page shows its tickets;
         ACTIVITY_ORDER, id is the enrollment and the page shows its payment and refunds; VENUE_BOOKING, id is the
-        venue booking. 1.4.0: LIVE_ROOM, id is the live room, subId is null. 1.6.0: ACTIVITY_WAITLIST, id is the
+        venue booking. 1.4.0: LIVE_ROOM, id is the live room, subId is null. 1.5.0: SYSTEM_NOTICE, id is the
+        announcement (GET /api/v1/system-notices/{id}), subId is null. 1.6.0: ACTIVITY_WAITLIST, id is the
         activity waitlist (contracts/openapi-activity.yaml), subId is null.
     NotificationTarget:
       type: object
@@ -191,7 +477,7 @@ components:
             DEMAND_QUOTE_RECEIVED or DEMAND_CLOSED_NO_QUOTES; for CUSTOMER_SERVICE it is SUPPORT_REPLIED; for
             TRADE_LOGISTICS it is TRADE_ORDER_SHIPPED, TRADE_ORDER_READY_FOR_PICKUP or TRADE_REFUND_SUCCEEDED; for
             ACTIVITY_REMINDER it is ACTIVITY_ENROLLED, ACTIVITY_REFUNDED, VENUE_BOOKED or VENUE_RESCHEDULED; for
-            LIVE_REMINDER it is LIVE_STARTED
+            LIVE_REMINDER it is LIVE_STARTED; for SYSTEM_NOTICE it is SYSTEM_NOTICE_PUBLISHED
         title:
           type: string
           maxLength: 80
@@ -244,3 +530,256 @@ components:
         updated:
           type: integer
           minimum: 0
+    NotificationPreferences:
+      type: object
+      additionalProperties: false
+      required: [orderServicePush, activityPush, discoverDot]
+      description: >-
+        Switches only govern pushes; the inbox keeps every notification. orderServicePush: SERVICE_PROGRESS,
+        DEMAND_QUOTE, CUSTOMER_SERVICE, TRADE_LOGISTICS. activityPush: ACTIVITY_REMINDER, LIVE_REMINDER. SYSTEM_NOTICE has
+        no switch and is always pushed. discoverDot: whether the App shows the Discover tab's update dot.
+      properties:
+        orderServicePush:
+          type: boolean
+        activityPush:
+          type: boolean
+        discoverDot:
+          type: boolean
+    NotificationPreferencesPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        orderServicePush:
+          type: boolean
+        activityPush:
+          type: boolean
+        discoverDot:
+          type: boolean
+    PushPlatform:
+      type: string
+      enum: [ANDROID, IOS]
+    PushDeviceRequest:
+      type: object
+      additionalProperties: false
+      required: [platform, pushClientId]
+      properties:
+        platform:
+          $ref: "#/components/schemas/PushPlatform"
+        pushClientId:
+          type: string
+          description: The id the push service gave this device (uni.getPushClientId and the like); printable ASCII
+          pattern: "^[\\x21-\\x7E]{1,200}$"
+        cityCode:
+          type: [string, "null"]
+          description: The App's current city; only used to pick devices for a city's announcements
+          pattern: "^[A-Z0-9]{4,16}$"
+    PushDevice:
+      type: object
+      additionalProperties: false
+      required: [deviceId, platform, registeredAt]
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/PushPlatform"
+        registeredAt:
+          type: string
+          format: date-time
+    AgreementCode:
+      type: string
+      enum: [PRIVACY_POLICY, USER_AGREEMENT, CHILD_PRIVACY_RULES, TRADE_AGREEMENT, ENROLLMENT_NOTICE]
+      description: The documents of 协议与规则
+    SystemNoticeLink:
+      type: object
+      additionalProperties: false
+      required: [type, agreement]
+      description: >-
+        Where an item or the action leads, as a stable code the App turns into a page. AGREEMENT names the agreement;
+        the others carry agreement null. A page the App does not have yet is shown as not yet available.
+      properties:
+        type:
+          type: string
+          enum: [AGREEMENT, ACTIVITY_PARTICIPANTS, PRIVACY_PERMISSIONS, PERSONAL_DATA_EXPORT, NOTIFICATION_SETTINGS,
+                 PLATFORM_SUPPORT]
+        agreement:
+          oneOf:
+            - $ref: "#/components/schemas/AgreementCode"
+            - type: "null"
+    SystemNoticeFact:
+      type: object
+      additionalProperties: false
+      required: [label, value]
+      properties:
+        label:
+          type: string
+          maxLength: 8
+        value:
+          type: string
+          maxLength: 16
+    SystemNoticeItem:
+      type: object
+      additionalProperties: false
+      required: [title, description, link]
+      properties:
+        title:
+          type: string
+          maxLength: 20
+        description:
+          type: string
+          maxLength: 60
+        link:
+          oneOf:
+            - $ref: "#/components/schemas/SystemNoticeLink"
+            - type: "null"
+    SystemNoticeAction:
+      type: object
+      additionalProperties: false
+      required: [label, link]
+      properties:
+        label:
+          type: string
+          maxLength: 12
+        link:
+          $ref: "#/components/schemas/SystemNoticeLink"
+    SystemNoticeAudience:
+      type: object
+      additionalProperties: false
+      required: [scope, cityCode]
+      description: ALL carries cityCode null; CITY names the city
+      properties:
+        scope:
+          type: string
+          enum: [ALL, CITY]
+        cityCode:
+          type: [string, "null"]
+          pattern: "^[A-Z0-9]{4,16}$"
+    SystemNoticeDraft:
+      type: object
+      additionalProperties: false
+      required: [title, summary, paragraphs, audience]
+      properties:
+        title:
+          type: string
+          maxLength: 40
+        summary:
+          type: string
+          maxLength: 120
+          description: The inbox row's body and the detail's lead
+        paragraphs:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: string
+            maxLength: 500
+        facts:
+          type: array
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/SystemNoticeFact"
+        items:
+          type: array
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/SystemNoticeItem"
+        footnote:
+          type: [string, "null"]
+          maxLength: 200
+        action:
+          oneOf:
+            - $ref: "#/components/schemas/SystemNoticeAction"
+            - type: "null"
+        aboutAgreement:
+          oneOf:
+            - $ref: "#/components/schemas/AgreementCode"
+            - type: "null"
+        audience:
+          $ref: "#/components/schemas/SystemNoticeAudience"
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: After this, accounts that have not received it no longer do; null keeps it open
+    SystemNotice:
+      type: object
+      additionalProperties: false
+      required: [id, title, summary, paragraphs, facts, items, footnote, action, aboutAgreement, audience, publishedAt,
+                 expiresAt, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 40
+        summary:
+          type: string
+          maxLength: 120
+        paragraphs:
+          type: array
+          items:
+            type: string
+        facts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SystemNoticeFact"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SystemNoticeItem"
+        footnote:
+          type: [string, "null"]
+        action:
+          oneOf:
+            - $ref: "#/components/schemas/SystemNoticeAction"
+            - type: "null"
+        aboutAgreement:
+          oneOf:
+            - $ref: "#/components/schemas/AgreementCode"
+            - type: "null"
+        audience:
+          $ref: "#/components/schemas/SystemNoticeAudience"
+        publishedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+        status:
+          type: string
+          enum: [PUBLISHED, WITHDRAWN]
+          description: The public read only returns PUBLISHED ones
+    SystemNoticePage:
+      type: object
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SystemNotice"
+    AgreementUpdate:
+      type: object
+      additionalProperties: false
+      required: [noticeId, title, publishedAt]
+      properties:
+        noticeId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time

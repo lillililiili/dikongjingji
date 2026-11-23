@@ -12,6 +12,7 @@ import {
 } from '../../features/inspection/navigation/inspection-routes'
 import { buildLiveRoomUrl } from '../../features/live/navigation/live-routes'
 import type { MessageTarget } from '../../features/message/domain/message'
+import { buildNoticeDetailUrl } from '../../features/message/navigation/message-routes'
 import { buildSupportChatUrl } from '../../features/support/navigation/support-routes'
 import { buildGoodsOrderUrl } from '../../features/trade/navigation/trade-routes'
 
@@ -37,6 +38,9 @@ export function messageTargetUrl(target: MessageTarget | null): string | null {
     case 'VENUE_BOOKING': return buildVenueBookingUrl(id)
     // M20 直播提醒: the room went live; the room reads it in the App's current city.
     case 'LIVE_ROOM': return buildLiveRoomUrl(id)
+    // S5-9 系统通知: the announcement's detail reads it itself.
+    case 'SYSTEM_NOTICE': return buildNoticeDetailUrl(id)
+    // S5-3 候补转正: the waitlist, with the offer's hold and payment.
     case 'ACTIVITY_WAITLIST': return buildActivityWaitlistUrl(id)
   }
 }
