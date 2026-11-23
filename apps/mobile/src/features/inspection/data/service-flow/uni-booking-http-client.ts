@@ -151,11 +151,12 @@ export interface InspectionLoginResponse {
 }
 
 export const inspectionAuthApi = {
-  login(loginName: string, password: string): Promise<InspectionLoginResponse> {
+  // device (contract 2.4.0): which device signs in, for 登录设备 (S5-8); preview builds send it.
+  login(loginName: string, password: string, device?: Record<string, unknown>): Promise<InspectionLoginResponse> {
     return publicRequest<InspectionLoginResponse>({
       url: '/api/v1/auth/login',
       method: 'POST',
-      data: { loginName, password },
+      data: device ? { loginName, password, device } : { loginName, password },
     })
   },
 }

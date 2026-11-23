@@ -37,7 +37,8 @@ export interface TradeApi {
 }
 
 // The DTO as it arrives: the server sends null for empty fields, older fixtures may omit them.
-type TradeOrderDto = Omit<TradeOrder, 'lines' | 'delivery' | 'refunds' | 'closeReason' | 'source' | 'sourceRef' | 'merchant'> & {
+type TradeOrderDto = Omit<TradeOrder, 'lines' | 'delivery' | 'refunds' | 'closeReason' | 'source' | 'sourceRef' | 'merchant' | 'payer'> & {
+  payer?: { type?: string | null; name?: string | null } | null
   source?: string | null
   sourceRef?: string | null
   merchant: { organizationId: string; name: string; kind?: TradeOrder['merchant']['kind'] }
@@ -188,6 +189,9 @@ export function toTradeOrder(dto: TradeOrderDto): TradeOrder {
     })),
     cancellable: Boolean(dto.cancellable),
     version: dto.version,
+    payer: dto.payer?.type === 'ENTERPRISE' && dto.payer.name
+      ? { type: 'ENTERPRISE', name: dto.payer.name }
+      : { type: 'PERSONAL', name: null },
   }
 }
 

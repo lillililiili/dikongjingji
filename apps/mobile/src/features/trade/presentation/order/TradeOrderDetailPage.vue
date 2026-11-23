@@ -17,7 +17,7 @@ import {
   formatTradeTime,
   type TradeOrderAction,
 } from '../../application/order-view'
-import { isSourceOrder, orderDestination, type TradeOrderDestination } from '../../application/order-source'
+import { isSourceOrder, orderDestination, payerRow, type TradeOrderDestination } from '../../application/order-source'
 import { isUnauthorizedFailure, readTradeFailure } from '../../application/start-payment'
 import { createTradeKey } from '../../application/trade-keys'
 import { openSupportChat } from '@/features/support/application/support-entry'
@@ -264,11 +264,15 @@ onBeforeUnmount(() => {
 
         <TradePartiesCard
           test-id="goods-order-parties"
-          :rows="goodsParties({
-            merchantName: order.merchant.name,
-            merchantKindLabel: order.merchant.kind ? TRADE_MERCHANT_KIND_LABELS[order.merchant.kind] : null,
-            fulfilledFrom: null,
-          })"
+          :rows="[
+            ...goodsParties({
+              merchantName: order.merchant.name,
+              merchantKindLabel: order.merchant.kind ? TRADE_MERCHANT_KIND_LABELS[order.merchant.kind] : null,
+              fulfilledFrom: null,
+            }),
+            // S5-7: an order placed as an enterprise names it as the payer.
+            ...(payerRow(order) ? [{ label: '付款主体', value: payerRow(order)!.value, testId: 'goods-order-payer' }] : []),
+          ]"
           footnote="发票由销售方开具，可联系销售方申请"
         />
 

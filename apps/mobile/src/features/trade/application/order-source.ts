@@ -88,9 +88,19 @@ export function cashierLayout(order: TradeOrder): CashierLine[] {
   const rows = cashierRows(order)
   const orderNo = { key: 'order-no' } as const
   const payee = { key: 'payee' } as const
-  if (isRentalOrder(order) && rows.length === 2) return [rows[0], payee, rows[1], orderNo]
-  if (isVenueOrder(order)) return [...rows, payee, orderNo]
-  return [orderNo, payee, ...rows]
+  // S5-7 (boards CashierRental and the others' enterprise frames): 付款主体 right after the payee,
+  // only when the order was placed as an enterprise.
+  const payer = payerRow(order)
+  const afterPayee = payer ? [payee, payer] : [payee]
+  if (isRentalOrder(order) && rows.length === 2) return [rows[0], ...afterPayee, rows[1], orderNo]
+  if (isVenueOrder(order)) return [...rows, ...afterPayee, orderNo]
+  return [orderNo, ...afterPayee, ...rows]
+}
+
+/** 付款主体: 东营港务物流（企业身份）; nothing for a person, as the boards draw it. */
+export function payerRow(order: TradeOrder): CashierRow | null {
+  if (order.payer?.type !== 'ENTERPRISE' || !order.payer.name) return null
+  return { key: 'payer', label: '付款主体', value: `${order.payer.name}（企业身份）` }
 }
 
 // The money of a business order goes to the organization through the platform's channel (C2); the

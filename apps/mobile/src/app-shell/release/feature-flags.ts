@@ -31,6 +31,7 @@ export type ReleaseFeatureKey =
   | 'LIVE'
   | 'SUPPORT'
   | 'SETTINGS'
+  | 'ACCOUNT'
   | 'PLAY'
 
 export interface ReleaseFeature {

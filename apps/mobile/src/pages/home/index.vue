@@ -4,6 +4,9 @@ import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, watch } from 'vue'
 
 import HomeHeader from '@/app-shell/components/HomeHeader.vue'
+import { ACCOUNT_PREVIEW_ENABLED } from '@/features/account/application/account-preview'
+import { shouldOpenOnboardingNow } from '@/features/account/application/onboarding-consent'
+import { ONBOARDING_PATH } from '@/features/account/navigation/account-routes'
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
 import { resolveHomeCarouselSlides } from '@/app-shell/navigation/home-carousel'
 import {
@@ -282,6 +285,11 @@ onReachBottom(() => {
 })
 
 onShow(() => {
+  // 首次启动 (S5-8): a built preview asks for the privacy consent once before anything else.
+  if (shouldOpenOnboardingNow(ACCOUNT_PREVIEW_ENABLED)) {
+    uni.reLaunch({ url: ONBOARDING_PATH })
+    return
+  }
   pageVisible.value = true
   void loadHomeContent()
   void nextTick(() => restoreChannelScroll(activeChannel.value))

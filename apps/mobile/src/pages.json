@@ -421,6 +421,62 @@
       }
     },
     {
+      "path": "pages/mine/phone",
+      "style": {
+        "navigationBarTitleText": "更换手机号",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/devices",
+      "style": {
+        "navigationBarTitleText": "登录设备管理",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/data",
+      "style": {
+        "navigationBarTitleText": "个人信息查看与导出",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/permissions",
+      "style": {
+        "navigationBarTitleText": "权限管理",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/org",
+      "style": {
+        "navigationBarTitleText": "企业组织",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/org-members",
+      "style": {
+        "navigationBarTitleText": "成员与角色",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/org-invite",
+      "style": {
+        "navigationBarTitleText": "加入组织邀请",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/onboarding/index",
+      "style": {
+        "navigationBarTitleText": "欢迎使用",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/mine/about",
       "style": {
         "navigationBarTitleText": "关于",

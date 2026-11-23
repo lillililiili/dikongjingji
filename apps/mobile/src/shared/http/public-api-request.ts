@@ -5,6 +5,8 @@
 export {
   ApiRequestError,
   publicRequest,
+  // The absolute URL of an API path (for a file the App hands to the browser or the downloader).
+  resolveInspectionApiRequestUrl as resolvePublicApiUrl,
 } from '@/features/inspection/data/service-flow/uni-booking-http-client'
 
 export interface PublicApiHttpClient {

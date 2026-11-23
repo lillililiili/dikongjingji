@@ -124,6 +124,14 @@ export interface TradeOrder {
   cancellable: boolean
   // The order's version; commands that change the order send it back as If-Match.
   version: number
+  // Contract 0.6.0 (S5-7): who pays, as the buyer's identity was when the order was placed. Older
+  // servers and orders say nothing, which is a person.
+  payer?: TradePayer
+}
+
+export interface TradePayer {
+  type: 'PERSONAL' | 'ENTERPRISE'
+  name: string | null
 }
 
 export interface TradeOrderPage {
