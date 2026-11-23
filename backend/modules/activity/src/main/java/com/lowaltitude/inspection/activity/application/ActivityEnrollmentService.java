@@ -263,7 +263,8 @@ public class ActivityEnrollmentService {
                 session.enrollmentClosesAt(),
                 session.capacity(),
                 session.enrolledCount(),
-                session.waitlistAllowed());
+                session.waitlistAllowed(),
+                session.saleStopped());
         if (status == ActivityEnrollmentStatus.CLOSED || status == ActivityEnrollmentStatus.ENDED) {
             throw new ActivityEnrollmentException(Error.ENROLLMENT_NOT_OPEN);
         }
@@ -573,6 +574,8 @@ public class ActivityEnrollmentService {
                 .count();
         if (closed == 0
                 || !isListed(session)
+                // 运营停售之后不再恢复（等同新报名），整笔退款。
+                || session.saleStopped()
                 || !now.isBefore(session.startsAt())
                 || session.enrolledCount() + closed > session.capacity()
                 || mapper.countOtherActiveTickets(row.enrollmentId(), row.sessionId()) > 0) {

@@ -7,6 +7,36 @@ live:
   stream:
     provider: fake
 
+# 运营端资质附件（S3-1）：开发环境存在本机目录（LocalQualificationFileStore），其他环境没配置时上传、下载返回 503。
+identity:
+  qualification-files:
+    local-dir: ${IDENTITY_QUALIFICATION_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-qualification-files}
+
+# 运营端“商品与供给”（S3-1）：商品图片存本机目录、由后端开发接口回读（LocalMallMediaStore，地址是 http，App 按 https 规则
+# 不显示）；批量导入的文件也存本机目录（LocalImportFileStore）。其他环境没配置对象存储时上传、预检返回 503。
+# 收款账户登记接受借微信文档示例号段的占位商户号（1900000xxx，开发种子在用），其他环境拒绝。
+mall:
+  media:
+    local-dir: ${MALL_MEDIA_DIR:${java.io.tmpdir}/lowaltitude-dev-mall-media}
+    public-base-url: ${MALL_MEDIA_PUBLIC_BASE_URL:http://127.0.0.1:18420/api/v1/mall/media}
+opsimport:
+  files:
+    local-dir: ${OPS_IMPORT_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-import-files}
+trade:
+  merchant-accounts:
+    allow-placeholder-sub-mchid: true
+# 运营端素材（S3-1，封面、图集、正文配图、视频）：开发环境存在本机目录（LocalOpsMediaStore）模拟对象存储；地址前缀必须是
+# https，开发默认是一个打不开的主机（App 里看不到，运营端带登录预览）。其他环境没配置时上传返回 503。
+ops:
+  media:
+    local-dir: ${OPS_MEDIA_DIR:${java.io.tmpdir}/lowaltitude-dev-ops-media}
+    public-base-url: ${OPS_MEDIA_PUBLIC_BASE_URL:https://media.dev.localhost}
+
+# 开发用的平台运营账号 dev-operator（运营端登录用）：口令不写进仓库，启动后端前设环境变量 DEV_OPERATOR_PASSWORD
+# （至少 12 位）才会建这个账号；不设就不建。见 db/development/identity-operator 和 apps/admin/README.md。
+dev:
+  operator-password: ${DEV_OPERATOR_PASSWORD:}
+
 # 推送（S5-9）：开发环境用本机模拟推送（FakePushGateway），每条推送记日志和 notification_push_fake_delivery；
 # 登录后 GET /api/v1/dev/notifications/push-deliveries 看自己收到的。
 notification:

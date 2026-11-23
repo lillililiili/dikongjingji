@@ -54,6 +54,11 @@ class LiveMapperContractTest {
                 .endsWith("r.id LIMIT #{limit} OFFSET #{offset}");
         assertThat(normalized(sql("countListed"))).contains(normalized(LiveMapper.LISTED));
         assertThat(normalized(sql("findHostRooms"))).contains("WHERE r.host_org_id = #{hostOrgId}");
+        // 1.1.0：工作台按状态筛，两条语句同一个条件。
+        for (String method : List.of("countHostRooms", "findHostRooms")) {
+            assertThat(normalized(sql(method))).as(method).contains(normalized(LiveMapper.HOSTED))
+                    .contains("(CAST(#{status} AS varchar) IS NULL OR r.status = CAST(#{status} AS varchar))");
+        }
     }
 
     @Test

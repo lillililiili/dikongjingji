@@ -31,7 +31,7 @@ VALUES
     ('f3000000-0000-4000-8000-000000000006', 'KNOWLEDGE', '航拍前的检查清单：场地、天气和电量', 'MERCHANT', 'c1000000-0000-4000-8000-000000000004', '示例无人机厂家', true, NULL, NULL, true, 'PUBLISHED',
      ((DATE '${devSeedDate}' - 30) + time '10:00') AT TIME ZONE 'Asia/Shanghai');
 
--- 正文块：要点表、导语、小标题、段落、小标题、步骤、提示、小标题、条目、文末说明。块 ID 由内容 ID 和序号算出，条目按它挂。
+-- 正文块：要点表、导语、小标题、段落、小标题、步骤、提示（机器狗夜巡案例是配图，见下面）、小标题、条目、文末说明。块 ID 由内容 ID 和序号算出，条目按它挂。
 INSERT INTO content_article_block (id, article_id, sort_order, block_type, text)
 VALUES
     (md5('dev-content-block:1:1')::uuid, 'f3000000-0000-4000-8000-000000000001', 10, 'FACTS', NULL),
@@ -40,7 +40,6 @@ VALUES
     (md5('dev-content-block:1:4')::uuid, 'f3000000-0000-4000-8000-000000000001', 40, 'PARAGRAPH', '物流园区面积大、路线长，夜间值守人手少。人工走一圈要一个多小时，堆场背面和围墙转角常常顾不上，第二天也说不清昨晚到底巡到了哪里。'),
     (md5('dev-content-block:1:5')::uuid, 'f3000000-0000-4000-8000-000000000001', 50, 'HEADING', '怎么巡'),
     (md5('dev-content-block:1:6')::uuid, 'f3000000-0000-4000-8000-000000000001', 60, 'STEPS', NULL),
-    (md5('dev-content-block:1:7')::uuid, 'f3000000-0000-4000-8000-000000000001', 70, 'TIP', '围墙外侧由无人机补充巡查，机器狗负责地面路线'),
     (md5('dev-content-block:1:8')::uuid, 'f3000000-0000-4000-8000-000000000001', 80, 'HEADING', '交付了什么'),
     (md5('dev-content-block:1:9')::uuid, 'f3000000-0000-4000-8000-000000000001', 90, 'LIST', NULL),
     (md5('dev-content-block:1:10')::uuid, 'f3000000-0000-4000-8000-000000000001', 100, 'NOTICE', '案例由服务商提供，实际范围、周期和费用以报价方案为准。'),
@@ -94,6 +93,12 @@ VALUES
     (md5('dev-content-block:6:8')::uuid, 'f3000000-0000-4000-8000-000000000006', 80, 'HEADING', '需要有人带着飞'),
     (md5('dev-content-block:6:9')::uuid, 'f3000000-0000-4000-8000-000000000006', 90, 'LIST', NULL),
     (md5('dev-content-block:6:10')::uuid, 'f3000000-0000-4000-8000-000000000006', 100, 'NOTICE', '内容由厂家提供，仅作参考；能否飞行以当地规定和现场情况为准。');
+
+-- 1.3.0 正文配图（S3-1）：机器狗夜巡案例“怎么巡”后面那张图（画板 ContentArticle），图注就是原来这里的提示。
+-- 没有授权图片，图片地址为空：预览构建用画板图片（content-preview-covers.ts 按内容 ID 和块的位置对应），公开构建不显示。
+INSERT INTO content_article_block (id, article_id, sort_order, block_type, text, image_url, image_alt, image_caption)
+VALUES (md5('dev-content-block:1:7')::uuid, 'f3000000-0000-4000-8000-000000000001', 70, 'IMAGE', NULL, NULL,
+        '无人机在园区上空巡查', '围墙外侧由无人机补充巡查，机器狗负责地面路线');
 
 INSERT INTO content_article_block_item (block_id, sort_order, title, text)
 VALUES
@@ -187,3 +192,8 @@ VALUES
     ('f3100000-0000-4000-8000-000000000001', 30, 'ACTIVITY', 'a2000000-0000-4000-8000-000000000003'),
     ('f3100000-0000-4000-8000-000000000001', 40, 'VENUE', 'b2000000-0000-4000-8000-000000000001'),
     ('f3100000-0000-4000-8000-000000000001', 50, 'ARTICLE', 'f3000000-0000-4000-8000-000000000001');
+
+-- 1.3.0 商家内容（画板 Topic“商家内容”）：示例机器人商家的编程机器人探索套装（商城开发数据里的商品和商家）。
+INSERT INTO content_topic_item (topic_id, sort_order, item_type, item_id, merchant_org_id, merchant_name)
+VALUES ('f3100000-0000-4000-8000-000000000001', 60, 'PRODUCT', 'c2000000-0000-4000-8000-000000000101',
+        'c1000000-0000-4000-8000-000000000001', '示例机器人商家');

@@ -21,6 +21,7 @@ import com.lowaltitude.inspection.mall.application.MallCartService;
 import com.lowaltitude.inspection.account.application.AccountAddressService;
 import com.lowaltitude.inspection.trade.application.TradeOrderService;
 import com.lowaltitude.inspection.trade.application.TradePaymentService;
+import com.lowaltitude.inspection.trade.application.TradeChannelCheckService;
 import com.lowaltitude.inspection.trade.application.TradeReconciliationService;
 import com.lowaltitude.inspection.trade.application.TradeRefundService;
 import com.lowaltitude.inspection.notification.application.NotificationService;
@@ -67,6 +68,20 @@ import org.springframework.web.bind.annotation.RestController;
         com.lowaltitude.inspection.rental.application.RentalService.class,
         com.lowaltitude.inspection.mall.application.MallInquiryService.class,
         com.lowaltitude.inspection.support.application.SupportService.class,
+        // S3-1 运营端
+        com.lowaltitude.inspection.application.city.CityOperationsService.class,
+        com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        // S3-1 第二部分：商品与供给、收款账户、批量导入
+        com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class,
+        com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
+        com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
+        com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,
+        com.lowaltitude.inspection.experience.application.ops.VenueOpsService.class,
+        com.lowaltitude.inspection.content.application.ops.ContentOpsService.class,
+        // S3-1 第三部分：巡检和专业服务目录
+        com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
+        com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
+        com.lowaltitude.inspection.live.application.LiveOpsService.class,
         com.lowaltitude.inspection.live.application.LiveService.class,
         com.lowaltitude.inspection.content.application.ContentReadService.class,
         com.lowaltitude.inspection.content.application.ContentVideoService.class,
@@ -78,6 +93,7 @@ import org.springframework.web.bind.annotation.RestController;
         TradePaymentService.class,
         TradeRefundService.class,
         TradeReconciliationService.class,
+        TradeChannelCheckService.class,
         NotificationService.class,
         com.lowaltitude.inspection.notification.application.NotificationPreferenceService.class,
         com.lowaltitude.inspection.notification.application.PushDeviceService.class,

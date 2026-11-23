@@ -241,6 +241,24 @@ class DemandServiceTest {
         assertThat(seen.address()).isEqualTo("东营经济技术开发区");
     }
 
+    // 1.2.0：工作台按状态筛，只在能看到的范围里筛；草稿和不认识的状态是 400。
+    @Test
+    void providersCanFilterWhatTheySeeByStatus() {
+        DemandView open = submitted(KEY, complete());
+
+        assertThat(service.listForProvider(YUNYI, "OPEN", 1, 20).items()).extracting(ProviderDemandView::demandId)
+                .containsExactly(open.demandId());
+        assertThat(service.listForProvider(YUNYI, " OPEN ", 1, 20).total()).isEqualTo(1);
+        assertThat(service.listForProvider(YUNYI, "QUOTED", 1, 20).items()).isEmpty();
+        assertThat(service.listForProvider(YUNYI, "", 1, 20).total()).isEqualTo(1);
+        assertThat(service.listForProvider(JINAN, "OPEN", 1, 20).items()).isEmpty();
+        for (String invalid : List.of("DRAFT", "open", "ALL")) {
+            assertThatThrownBy(() -> service.listForProvider(YUNYI, invalid, 1, 20))
+                    .as(invalid)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
     @Test
     void inviteOnlyShowsTheDemandToTheInvitedProvidersOnly() {
         DemandView open = submitted(KEY, with(complete(), d -> {
@@ -920,13 +938,15 @@ class DemandServiceTest {
         }
 
         @Override
-        public long countProviderDemands(UUID providerId, List<String> cities) {
-            return visible(providerId, cities).size();
+        public long countProviderDemands(UUID providerId, List<String> cities, String status) {
+            return visible(providerId, cities).stream().filter(row -> status == null || row.status.equals(status)).count();
         }
 
         @Override
-        public List<DemandRow> findProviderDemands(UUID providerId, List<String> cities, int limit, int offset) {
-            return visible(providerId, cities).stream().skip(offset).limit(limit).map(Demand::toRow).toList();
+        public List<DemandRow> findProviderDemands(UUID providerId, List<String> cities, String status, int limit,
+                                                   int offset) {
+            return visible(providerId, cities).stream().filter(row -> status == null || row.status.equals(status))
+                    .skip(offset).limit(limit).map(Demand::toRow).toList();
         }
 
         private List<Demand> visible(UUID providerId, List<String> cities) {

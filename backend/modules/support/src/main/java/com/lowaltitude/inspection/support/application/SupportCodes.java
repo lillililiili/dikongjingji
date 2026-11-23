@@ -49,3 +49,19 @@ enum SupportFeedbackType {
     CONTENT,
     SUGGESTION
 }
+
+/**
+ * 反馈从哪来（S3-1，V002）：USER 用户在帮助与反馈里提交的；VIDEO_COMMENT_REPORT 举报发现页视频评论；
+ * LIVE_COMMENT_REPORT 举报直播弹幕。举报带被举报的对象，运营端据此隐藏。
+ */
+enum SupportFeedbackSource {
+    USER,
+    VIDEO_COMMENT_REPORT,
+    LIVE_COMMENT_REPORT
+}
+
+/** 反馈的处理状态（S3-1）：PENDING 待处理；HANDLED 已处理。 */
+enum SupportFeedbackHandleStatus {
+    PENDING,
+    HANDLED
+}

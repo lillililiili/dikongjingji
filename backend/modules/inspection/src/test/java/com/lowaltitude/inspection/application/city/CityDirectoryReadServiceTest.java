@@ -70,6 +70,32 @@ class CityDirectoryReadServiceTest {
                 .containsExactly("dezhoushi", "dongyingshi");
     }
 
+    // S3-1：App 城市面板只列已开通、筹备中两组（各按城市拼音）；未开通的只在全部城市里，搜索用。
+    @Test
+    void groupsOpenAndPreparingCitiesForTheAppSheet() {
+        List<CityDirectoryReadService.StoredCity> cities = rows().stream()
+                .map(city -> new CityDirectoryReadService.StoredCity(city.cityCode(), city.cityName(),
+                        city.cityPinyin(), city.cityInitials(), city.provinceCode(), city.provinceName(),
+                        city.provincePinyin(), city.provinceInitials(), city.searchCount(),
+                        switch (city.cityCode()) {
+                            case "370500" -> CityServiceStatus.OPEN;
+                            case "370100", "370700", "370200" -> CityServiceStatus.PREPARING;
+                            default -> null;
+                        }))
+                .toList();
+
+        CityDirectoryReadService.DirectoryView view = new CityDirectoryReadService(new FakeStore(cities)).directory();
+
+        assertThat(view.openCities()).extracting(CityDirectoryReadService.CityView::name).containsExactly("东营市");
+        assertThat(view.preparingCities()).extracting(CityDirectoryReadService.CityView::name)
+                .containsExactly("济南市", "青岛市", "潍坊市");
+        assertThat(view.provinces().get(1).cities()).hasSize(6);
+        assertThat(view.provinces().get(1).cities())
+                .filteredOn(city -> city.name().equals("烟台市"))
+                .singleElement()
+                .satisfies(city -> assertThat(city.serviceStatus()).isEqualTo(CityServiceStatus.CLOSED));
+    }
+
     @Test
     void incrementsOnlyValidSixDigitActiveCity() {
         FakeStore store = new FakeStore(rows());

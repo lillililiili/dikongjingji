@@ -89,6 +89,9 @@ class DemandMapperContractTest {
                     .contains("d.quote_scope = 'MATCH' AND d.city_code IN")
                     .contains("i.demand_id = d.id AND i.provider_id = #{providerId}")
                     .contains("q.demand_id = d.id AND q.provider_id = #{providerId}")
+                    // 1.2.0：可按状态筛，在能看到的范围之内。
+                    .contains("<if test=\"status != null\">")
+                    .contains("AND d.status = #{status}")
                     // 在 <script> 里：XML 不认小于号。
                     .doesNotContain("<>")
                     .doesNotContain(" < ");

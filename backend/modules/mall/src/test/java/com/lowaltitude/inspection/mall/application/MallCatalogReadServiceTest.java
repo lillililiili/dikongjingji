@@ -137,7 +137,7 @@ class MallCatalogReadServiceTest {
         store.offers = List.of(new OfferRow(
                 UUID.randomUUID(), UUID.randomUUID(), "标准版",
                 UUID.randomUUID(), "示例机器人商家", "FACTORY_DIRECT",
-                129900L, "CNY", "ITEM", "东营现货", " ", "示例机器人商家 东营仓"));
+                129900L, "CNY", "ITEM", "东营现货", " ", "示例机器人商家 东营仓", 12));
         store.specs = List.of(new SpecRow("适用年龄", "8 岁以上"));
         store.packItems = List.of(new PackItemRow("机器人主机", 1));
 
@@ -155,6 +155,37 @@ class MallCatalogReadServiceTest {
         assertThat(view.specs()).containsExactly(new MallSpecView("适用年龄", "8 岁以上"));
         assertThat(view.packItems()).containsExactly(new MallPackItemView("机器人主机", 1));
         assertThat(store.offerCity).isEqualTo("370500");
+        assertThat(view.offers().getFirst().stockQuantity()).isEqualTo(12);
+        // 运营端没录卖点、图集、图文时都是空的。
+        assertThat(view.sellingPoints()).isEmpty();
+        assertThat(view.gallery()).isEmpty();
+        assertThat(view.introBlocks()).isEmpty();
+    }
+
+    // 1.3.0：卖点、全部启用规格、图集和图文介绍原样给出；图片只认 https，没有 https 图的图片段整段不给。
+    @Test
+    void detailCarriesSellingPointsSkusGalleryAndIntroduction() {
+        store.product = Optional.of(new ProductRow(
+                PRODUCT_ID, "ROBOT", "编程机器人探索套装", "图形化编程入门", null, "BUY", null));
+        store.offers = List.of(offer(UUID.randomUUID(), "示例机器人商家", 129900));
+        UUID standard = UUID.randomUUID();
+        UUID classroom = UUID.randomUUID();
+        store.sellingPoints = List.of("图形化编程", "避障练习");
+        store.skus = List.of(new MallRows.SkuRow(standard, "标准套装"), new MallRows.SkuRow(classroom, "教室套装"));
+        store.gallery = List.of("https://media.example.com/a.jpg", "http://127.0.0.1:18420/api/v1/mall/media/x.jpg");
+        store.intro = List.of(
+                new MallRows.IntroBlockRow("TEXT", "图形化编程，8 岁以上", null),
+                new MallRows.IntroBlockRow("IMAGE", null, "https://media.example.com/b.jpg"),
+                new MallRows.IntroBlockRow("IMAGE", "开发环境的图", "http://127.0.0.1:18420/api/v1/mall/media/y.jpg"));
+
+        MallProductDetailView view = service.findProduct(PRODUCT_ID, "370500");
+
+        assertThat(view.sellingPoints()).containsExactly("图形化编程", "避障练习");
+        assertThat(view.skus()).extracting(MallSkuView::skuId).containsExactly(standard, classroom);
+        assertThat(view.gallery()).extracting(MallMediaView::url).containsExactly("https://media.example.com/a.jpg");
+        assertThat(view.introBlocks()).extracting(MallIntroBlockView::type).containsExactly("TEXT", "IMAGE");
+        assertThat(view.introBlocks().get(1).image().url()).isEqualTo("https://media.example.com/b.jpg");
+        assertThat(view.introBlocks().get(0).image()).isNull();
     }
 
     // F3 的缺口：租赁、询价、购买都要商家能在线收款，详情里每个供给说清楚，页面不先选上收不了款的那家。
@@ -200,7 +231,7 @@ class MallCatalogReadServiceTest {
 
     private static OfferRow offer(UUID merchantId, String merchantName, long amountMinor) {
         return new OfferRow(UUID.randomUUID(), UUID.randomUUID(), "标准版", merchantId, merchantName, "FACTORY_DIRECT",
-                amountMinor, "CNY", "DAY", null, null, null);
+                amountMinor, "CNY", "DAY", null, null, null, null);
     }
 
     private static void assertInvalid(Runnable call) {
@@ -221,6 +252,10 @@ class MallCatalogReadServiceTest {
         List<OfferRow> offers = List.of();
         List<SpecRow> specs = List.of();
         List<PackItemRow> packItems = List.of();
+        List<String> sellingPoints = List.of();
+        List<MallRows.SkuRow> skus = List.of();
+        List<String> gallery = List.of();
+        List<MallRows.IntroBlockRow> intro = List.of();
         String category;
         String sort;
         String offerCity;
@@ -266,6 +301,26 @@ class MallCatalogReadServiceTest {
         @Override
         public List<PackItemRow> findPackItems(UUID productId) {
             return packItems;
+        }
+
+        @Override
+        public List<String> findSellingPoints(UUID productId) {
+            return sellingPoints;
+        }
+
+        @Override
+        public List<MallRows.SkuRow> findSkus(UUID productId) {
+            return skus;
+        }
+
+        @Override
+        public List<String> findGallery(UUID productId) {
+            return gallery;
+        }
+
+        @Override
+        public List<MallRows.IntroBlockRow> findIntroBlocks(UUID productId) {
+            return intro;
         }
     }
 }

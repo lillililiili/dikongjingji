@@ -379,14 +379,22 @@ class DemandControllerTest {
 
     @Test
     void providersListReadAndWithdraw() throws Exception {
-        when(service.listForProvider(PROVIDER, 1, 20))
+        when(service.listForProvider(PROVIDER, null, 1, 20))
                 .thenReturn(new ProviderDemandPageView(1, 20, 1, false, List.of(providerDemand())));
+        when(service.listForProvider(PROVIDER, "QUOTED", 2, 10))
+                .thenReturn(new ProviderDemandPageView(2, 10, 0, false, List.of()));
         when(service.readForProvider(PROVIDER, DEMAND)).thenReturn(providerDemand());
         when(service.withdrawQuote(PROVIDER, OPERATOR, DEMAND)).thenReturn(providerDemand());
 
         mockMvc.perform(get("/api/v1/provider/demands").principal(operator))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].demandId").value(DEMAND.toString()));
+        // 1.2.0：工作台按状态筛。
+        mockMvc.perform(get("/api/v1/provider/demands").principal(operator)
+                        .param("status", "QUOTED").param("page", "2").param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty());
+        verify(service).listForProvider(PROVIDER, "QUOTED", 2, 10);
         mockMvc.perform(get("/api/v1/provider/demands/" + DEMAND).principal(operator))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.address").value("东营经济技术开发区"));

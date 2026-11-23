@@ -51,7 +51,9 @@ class SystemNoticeControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new SystemNoticeController(service),
-                        new SystemNoticeOpsController(service))
+                        new SystemNoticeOpsController(service, new com.lowaltitude.inspection.ops.OpsActors(
+                                subjectId -> Optional.of(new com.lowaltitude.inspection.identity.domain.IdentityProfile(
+                                        subjectId, "平台运营（示例）", "低空产业平台（示例）", "PLATFORM")))))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

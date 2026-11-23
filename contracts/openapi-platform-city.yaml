@@ -1,7 +1,11 @@
 openapi: 3.1.0
 info:
   title: Platform City API
-  version: 1.0.0
+  version: 1.1.0
+  description: |-
+    1.1.0（S3-1）：城市带开通状态 serviceStatus（OPEN 已开通 / PREPARING 筹备中 / CLOSED 未开通，由运营端维护，
+    见 openapi-ops-city.yaml），目录另给 openCities、preparingCities 两组（按城市拼音），App 城市面板照原型 CitySheet
+    只显示这两组；hotCities、provinces 仍是全部可选城市，搜索用。
 servers:
   - url: /
 paths:
@@ -95,6 +99,8 @@ components:
       required:
         - hotCities
         - provinces
+        - openCities
+        - preparingCities
       properties:
         hotCities:
           type: array
@@ -104,6 +110,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Province'
+        openCities:
+          type: array
+          description: 已开通的城市，按城市拼音排
+          items:
+            $ref: '#/components/schemas/City'
+        preparingCities:
+          type: array
+          description: 筹备中的城市，按城市拼音排
+          items:
+            $ref: '#/components/schemas/City'
     Province:
       type: object
       additionalProperties: false
@@ -137,6 +153,7 @@ components:
         - initials
         - provinceCode
         - provinceName
+        - serviceStatus
       properties:
         code:
           type: string
@@ -152,3 +169,10 @@ components:
           pattern: '^[0-9]{6}$'
         provinceName:
           type: string
+        serviceStatus:
+          type: string
+          description: OPEN 已开通；PREPARING 筹备中；CLOSED 未开通
+          enum:
+            - OPEN
+            - PREPARING
+            - CLOSED

@@ -28,6 +28,17 @@ const TOPICS: Record<string, { file: string; alt: string }> = {
   'f3100000-0000-4000-8000-000000000001': { file: 'content-topic-workshop.jpg', alt: '孩子们和老师一起体验编程机器人' },
 }
 
+// (1.3.0) The picture blocks of the sample articles, keyed by article id, in the order of the article's
+// IMAGE blocks: the board ContentArticle's drone picture after 怎么巡.
+const ARTICLE_FIGURES: Record<string, readonly string[]> = {
+  'f3000000-0000-4000-8000-000000000001': ['content-patrol-drone.jpg'],
+}
+
+// (1.3.0) 商家内容 of the sample topic (board Topic): its own product shot, otherwise the mall's.
+const TOPIC_MERCHANT_PRODUCTS: Record<string, string> = {
+  'c2000000-0000-4000-8000-000000000101': 'content-topic-robot-kit.jpg',
+}
+
 // 内容中提到 of the services, which have no preview pictures of their own here. The park
 // security one is the board's illustration, drawn whole on a tint (`icon`).
 const SERVICE_REFS: Record<string, { file: string; icon?: boolean }> = {
@@ -52,6 +63,29 @@ export function resolveTopicPreviewCover(
 ): ContentPreviewCover | null {
   const entry = previewEnabled ? TOPICS[topicId] : undefined
   return entry ? { url: `${DIRECTORY}/${entry.file}`, alt: entry.alt, cutout: false } : null
+}
+
+/**
+ * (1.3.0) The picture of an article's IMAGE block without a licensed picture: `ordinal` counts the
+ * article's IMAGE blocks from 0. Public builds get null and leave the block out.
+ */
+export function resolveArticleFigurePreview(
+  articleId: string,
+  ordinal: number,
+  previewEnabled: boolean = CONTENT_PREVIEW_ENABLED,
+): string | null {
+  const file = previewEnabled ? ARTICLE_FIGURES[articleId]?.[ordinal] : undefined
+  return file ? `${DIRECTORY}/${file}` : null
+}
+
+/** (1.3.0) A topic's merchant product without a picture of its own from the mall. */
+export function resolveTopicMerchantPreview(
+  productId: string,
+  previewEnabled: boolean = CONTENT_PREVIEW_ENABLED,
+): string | null {
+  if (!previewEnabled) return null
+  const file = TOPIC_MERCHANT_PRODUCTS[productId]
+  return file ? `${DIRECTORY}/${file}` : resolveMallPreviewCover(productId, previewEnabled)?.url ?? null
 }
 
 export interface ContentRefPreviewCover {

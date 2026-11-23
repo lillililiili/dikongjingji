@@ -1,8 +1,11 @@
 import type {
   CityDirectory,
+  CityServiceStatus,
   PlatformCity,
   PlatformProvince,
 } from '../domain/city-directory'
+
+const SERVICE_STATUSES: readonly CityServiceStatus[] = ['OPEN', 'PREPARING', 'CLOSED']
 
 export interface PlatformCityHttpClient {
   request<T>(input: {
@@ -40,7 +43,21 @@ function mapCity(value: unknown): PlatformCity {
     initials: requiredString(city, 'initials'),
     provinceCode: requiredString(city, 'provinceCode'),
     provinceName: requiredString(city, 'provinceName'),
+    serviceStatus: serviceStatus(city.serviceStatus),
   }
+}
+
+/** 1.1.0 起每个城市都带开通状态；没带（还是 1.0.0 的后端）留空，按未开通处理；不认识的值算目录无效。 */
+function serviceStatus(value: unknown): CityServiceStatus | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value !== 'string' || !(SERVICE_STATUSES as readonly string[]).includes(value)) invalidDirectory()
+  return value as CityServiceStatus
+}
+
+function optionalCities(value: unknown): PlatformCity[] | undefined {
+  if (value === undefined || value === null) return undefined
+  if (!Array.isArray(value)) invalidDirectory()
+  return value.map(mapCity)
 }
 
 function mapProvince(value: unknown): PlatformProvince {
@@ -63,6 +80,8 @@ function mapDirectory(value: unknown): CityDirectory {
   return {
     hotCities: directory.hotCities.map(mapCity),
     provinces: directory.provinces.map(mapProvince),
+    openCities: optionalCities(directory.openCities),
+    preparingCities: optionalCities(directory.preparingCities),
   }
 }
 

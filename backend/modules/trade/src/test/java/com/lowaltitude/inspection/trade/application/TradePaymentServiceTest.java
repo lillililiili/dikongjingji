@@ -2156,12 +2156,13 @@ class TradePaymentServiceTest {
             }
 
             @Override
-            public long countMerchantOrders(UUID merchantId, String status) {
+            public long countMerchantOrders(UUID merchantId, String status, String deliveryMode) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public List<OrderRow> findMerchantOrders(UUID merchantId, String status, int limit, int offset) {
+            public List<OrderRow> findMerchantOrders(UUID merchantId, String status, String deliveryMode, int limit,
+                                                   int offset) {
                 throw new UnsupportedOperationException();
             }
 

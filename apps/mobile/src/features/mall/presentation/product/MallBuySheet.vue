@@ -3,30 +3,48 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
-import { CART_MAX_QUANTITY, type DeliveryMode } from '../../domain/cart'
-import type { MallOffer } from '../../domain/mall'
-import { MALL_MERCHANT_KIND_LABELS, formatMallAmount } from '../shared/mall-format'
+import type { DeliveryMode } from '../../domain/cart'
+import type { MallOffer, MallSku } from '../../domain/mall'
+import { formatMallAmount } from '../shared/mall-format'
 import type { MallBuyDelivery, MallBuyDeliveryLoader } from './buy-delivery'
+import {
+  BUY_SKU_STATE_TEXT,
+  buyMerchantLine,
+  buyQuantityLimit,
+  buySkuRows,
+  clampBuyQuantity,
+  type BuySkuRow,
+} from './buy-skus'
 
-// 规格与数量 (prototype board PdSku). Every product has one spec for now, so the spec row only shows
-// it. The delivery cards and the 运费 line come from the confirm page's preview of this offer
-// (the host reads it for a signed-in customer); a guest sees the merchant's shipping note instead,
-// and the confirm page asks again either way.
+// 规格与数量 (prototype board PdSku). The specs are every active spec of the product (catalog 1.3.0
+// skus) with the chosen merchant's price on the right; a spec it does not sell, or has sold out, is
+// greyed and cannot be chosen. Picking a spec switches to that merchant's offer of it: the page owns
+// the choice (pick), so 已选 and the merchant rows follow. Without spec information only the chosen
+// offer's own spec shows, as before. The delivery cards and the 运费 line come from the confirm
+// page's preview of this offer (the host reads it for a signed-in customer); a guest sees the
+// merchant's shipping note instead, and the confirm page asks again either way.
 
 const props = withDefaults(
   defineProps<{
     offer: MallOffer
+    offers?: readonly MallOffer[]
+    skus?: readonly MallSku[]
+    cityName?: string | null
     coverUrl: string | null
     busy: boolean
+    initialQuantity?: number
     loadDelivery?: MallBuyDeliveryLoader | null
   }>(),
-  { loadDelivery: null },
+  { offers: () => [], skus: () => [], cityName: null, initialQuantity: 1, loadDelivery: null },
 )
 
 const emit = defineEmits<{
   close: []
-  addToCart: [quantity: number]
-  buyNow: [quantity: number, delivery: DeliveryMode | null]
+  // Another spec of the same merchant: the offer to switch to.
+  pick: [offerId: string]
+  quantity: [quantity: number]
+  addToCart: [offerId: string, quantity: number]
+  buyNow: [offerId: string, quantity: number, delivery: DeliveryMode | null]
   // 10 件以上: ask the merchant about a bulk purchase.
   bulkInquiry: [quantity: number]
 }>()
@@ -35,14 +53,28 @@ const emit = defineEmits<{
 const BULK_QUANTITY = 10
 const DELIVERY_LABELS: Record<DeliveryMode, string> = { EXPRESS: '快递配送', PICKUP: '到店自提' }
 
-const quantity = ref(1)
+const quantity = ref(clampBuyQuantity(props.initialQuantity, props.offer))
 const delivery = ref<MallBuyDelivery | null>(null)
 const chosenMode = ref<DeliveryMode | null>(null)
 let deliveryVersion = 0
 let deliveryTimer: ReturnType<typeof setTimeout> | null = null
 
+const skuRows = computed(() => buySkuRows(props.skus, props.offers, props.offer))
+const limit = computed(() => buyQuantityLimit(props.offer))
+const soldOut = computed(() => props.offer.stockQuantity === 0)
+const merchantLine = computed(() => buyMerchantLine(props.offer, props.cityName))
 const goodsMinor = computed(() => (props.offer.amountMinor ?? 0) * quantity.value)
 const amountText = computed(() => formatMallAmount(goodsMinor.value + (delivery.value?.shippingMinor ?? 0)))
+
+function skuPriceText(row: BuySkuRow): string {
+  if (row.state !== 'AVAILABLE') return BUY_SKU_STATE_TEXT[row.state]
+  return formatMallAmount(row.offer?.amountMinor ?? 0)
+}
+
+function pickSku(row: BuySkuRow): void {
+  if (row.state !== 'AVAILABLE' || !row.offer || row.offer.offerId === props.offer.offerId) return
+  emit('pick', row.offer.offerId)
+}
 
 async function refreshDelivery(): Promise<void> {
   if (!props.loadDelivery) return
@@ -59,7 +91,7 @@ function scheduleDelivery(): void {
 }
 
 function step(delta: number): void {
-  quantity.value = Math.min(CART_MAX_QUANTITY, Math.max(1, quantity.value + delta))
+  quantity.value = Math.min(limit.value, Math.max(1, quantity.value + delta))
 }
 
 function chooseMode(mode: DeliveryMode): void {
@@ -68,7 +100,20 @@ function chooseMode(mode: DeliveryMode): void {
   void refreshDelivery()
 }
 
-watch(quantity, scheduleDelivery)
+watch(quantity, (value) => {
+  emit('quantity', value)
+  scheduleDelivery()
+})
+// Another spec: its stock may be lower (the quantity is clamped, which reads the delivery again),
+// and its price and delivery are read again.
+watch(() => props.offer.offerId, () => {
+  const kept = clampBuyQuantity(quantity.value, props.offer)
+  if (kept !== quantity.value) {
+    quantity.value = kept
+  } else {
+    void refreshDelivery()
+  }
+})
 onMounted(() => void refreshDelivery())
 </script>
 
@@ -79,10 +124,8 @@ onMounted(() => void refreshDelivery())
         <image v-if="coverUrl" class="buy-sheet__cover" :src="coverUrl" mode="aspectFill" />
         <view v-else class="buy-sheet__cover" />
         <view class="buy-sheet__price-block">
-          <text class="buy-sheet__price">{{ formatMallAmount(offer.amountMinor ?? 0) }}</text>
-          <text class="buy-sheet__merchant">
-            {{ offer.merchantName }}（{{ MALL_MERCHANT_KIND_LABELS[offer.merchantKind] }}）
-          </text>
+          <text class="buy-sheet__price" data-testid="mall-buy-price">{{ formatMallAmount(offer.amountMinor ?? 0) }}</text>
+          <text class="buy-sheet__merchant" data-testid="mall-buy-merchant">{{ merchantLine }}</text>
         </view>
         <button class="buy-sheet__close" aria-label="关闭" data-testid="mall-buy-close" @click="emit('close')">
           <LineIcon name="close" :size="20" color="#536178" :stroke-width="2" />
@@ -92,9 +135,27 @@ onMounted(() => void refreshDelivery())
       <view class="buy-sheet__body">
         <view class="buy-sheet__group">
           <text class="buy-sheet__label">规格</text>
-          <view class="buy-sheet__spec" aria-pressed="true">
-            <text class="buy-sheet__spec-name">{{ offer.skuName }}</text>
-            <text>{{ formatMallAmount(offer.amountMinor ?? 0) }}</text>
+          <view class="buy-sheet__specs" role="radiogroup" aria-label="规格">
+            <button
+              v-for="row in skuRows"
+              :key="row.skuId"
+              :class="[
+                'buy-sheet__spec',
+                {
+                  'buy-sheet__spec--on': row.offer?.offerId === offer.offerId,
+                  'buy-sheet__spec--off': row.state !== 'AVAILABLE' && row.offer?.offerId !== offer.offerId,
+                },
+              ]"
+              role="radio"
+              :aria-checked="row.offer?.offerId === offer.offerId"
+              :aria-disabled="row.state !== 'AVAILABLE'"
+              :data-testid="`mall-buy-sku-${row.skuId}`"
+              :data-state="row.state"
+              @click="pickSku(row)"
+            >
+              <text class="buy-sheet__spec-name">{{ row.name }}</text>
+              <text :data-testid="`mall-buy-sku-price-${row.skuId}`">{{ skuPriceText(row) }}</text>
+            </button>
           </view>
         </view>
 
@@ -114,10 +175,10 @@ onMounted(() => void refreshDelivery())
               </button>
               <text class="buy-sheet__qty" data-testid="mall-buy-qty">{{ quantity }}</text>
               <button
-                :class="['buy-sheet__step', { 'buy-sheet__step--off': quantity >= CART_MAX_QUANTITY }]"
+                :class="['buy-sheet__step', { 'buy-sheet__step--off': quantity >= limit }]"
                 data-testid="mall-buy-plus"
                 aria-label="增加数量"
-                :aria-disabled="quantity >= CART_MAX_QUANTITY"
+                :aria-disabled="quantity >= limit"
                 @click="step(1)"
               >
                 +
@@ -173,16 +234,16 @@ onMounted(() => void refreshDelivery())
         <button
           class="buy-sheet__cart"
           data-testid="mall-buy-add"
-          :disabled="busy"
-          @click="emit('addToCart', quantity)"
+          :disabled="busy || soldOut"
+          @click="emit('addToCart', offer.offerId, quantity)"
         >
           加入购物车
         </button>
         <button
           class="buy-sheet__buy"
           data-testid="mall-buy-now"
-          :disabled="busy"
-          @click="emit('buyNow', quantity, chosenMode)"
+          :disabled="busy || soldOut"
+          @click="emit('buyNow', offer.offerId, quantity, chosenMode)"
         >
           去确认订单 {{ amountText }}
         </button>
@@ -287,18 +348,39 @@ button::after {
   font-weight: 500;
 }
 
+.buy-sheet__specs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Board PdSku: chosen #ff6a00 / #fffaf5 / #ba470b; others #e5ebf3 / #fff / #202c42; a spec the
+   merchant does not sell or has sold out #e5ebf3 / #f5f7fc / #91a0b4. */
 .buy-sheet__spec {
   display: flex;
+  width: 100%;
   min-height: 44px;
   padding: 0 12px;
   align-items: center;
   gap: 8px;
-  border: 1.5px solid #ff6a00;
+  border: 1.5px solid #e5ebf3;
   border-radius: 8px;
+  color: #202c42;
+  background: #ffffff;
+  font-size: 13px;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.buy-sheet__spec--on {
+  border-color: #ff6a00;
   color: #ba470b;
   background: #fffaf5;
-  font-size: 13px;
-  box-sizing: border-box;
+}
+
+.buy-sheet__spec--off {
+  color: #91a0b4;
+  background: #f5f7fc;
 }
 
 .buy-sheet__spec-name {

@@ -6,6 +6,12 @@ spring:
     driver-class-name: org.postgresql.Driver
   flyway:
     enabled: false
+  # 运营端资质附件（S3-1）单个不超过 10 MB（身份模块自己再查）；运营端素材上传（/api/v1/ops/media）图片 ≤5 MB、
+  # 视频 ≤50 MB（OpsMediaService 自己再查）；其余接口都不收文件。
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 51MB
   data:
     redis:
       host: ${INSPECTION_REDIS_HOST}

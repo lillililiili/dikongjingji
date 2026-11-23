@@ -48,6 +48,6 @@ class MallRentalOffersTest {
                                 String city) {
         return new OfferRow(OFFER, offerStatus, city, 38000L, "CNY", "DAY", null, "示例机器人商家 东营仓", true, null, 0,
                 "FACTORY_DIRECT", MERCHANT, "示例机器人商家", UUID.randomUUID(), "标准版", skuStatus, PRODUCT, "巡检机器狗",
-                null, saleMode, productStatus);
+                null, saleMode, productStatus, null);
     }
 }

@@ -25,6 +25,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.lowaltitude.inspection.bootstrap.api.GlobalExceptionHandler;
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
 import com.lowaltitude.inspection.trade.application.TradeException.Error;
+import com.lowaltitude.inspection.trade.application.TradeViews.ChannelCheckItemView;
+import com.lowaltitude.inspection.trade.application.TradeViews.ChannelCheckView;
 import com.lowaltitude.inspection.trade.application.TradeViews.MerchantAccountView;
 import com.lowaltitude.inspection.trade.application.TradeViews.ReconciliationDifferenceView;
 import com.lowaltitude.inspection.trade.application.TradeViews.ReconciliationRunView;
@@ -58,12 +60,13 @@ class TradePlatformControllerTest {
 
     private final TradeOrderService service = mock(TradeOrderService.class);
     private final TradeReconciliationService reconciliation = mock(TradeReconciliationService.class);
+    private final TradeChannelCheckService channelCheck = mock(TradeChannelCheckService.class);
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         // 与应用一致：字符串按 UTF-8 写，JSON 的时间写成 ISO 文本。
-        mockMvc = MockMvcBuilders.standaloneSetup(new TradePlatformController(service, reconciliation))
+        mockMvc = MockMvcBuilders.standaloneSetup(new TradePlatformController(service, reconciliation, channelCheck))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setMessageConverters(
                         new StringHttpMessageConverter(StandardCharsets.UTF_8),
@@ -368,6 +371,46 @@ class TradePlatformControllerTest {
                         .principal(signedIn("PLATFORM_OPERATOR")))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("TRADE_CHANNEL_UNAVAILABLE"));
+    }
+
+    // S2-1 支付通道自检：子商户号原样交给服务（不给就是 null），结果原样返回；格式不对由服务拒绝（400）。
+    @Test
+    void aPlatformOperatorChecksThePaymentChannel() throws Exception {
+        Instant at = Instant.parse("2026-11-22T02:00:00Z");
+        when(channelCheck.run("1900000109")).thenReturn(new ChannelCheckView("WECHAT", false, at, List.of(
+                new ChannelCheckItemView("SP_MCHID", "PASS", "服务商户号格式对"),
+                new ChannelCheckItemView("QUERY_PAYMENT", "FAIL", "查单失败"))));
+        when(channelCheck.run(null)).thenReturn(new ChannelCheckView("DISABLED", false, at, List.of()));
+        when(channelCheck.run("12")).thenThrow(new IllegalArgumentException("subMchid must be 8-32 digits"));
+
+        mockMvc.perform(post("/api/v1/platform/trade/channel-checks").param("subMchid", "1900000109")
+                        .principal(signedIn("PLATFORM_OPERATOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$.mode").value("WECHAT"))
+                .andExpect(jsonPath("$.passed").value(false))
+                .andExpect(jsonPath("$.checkedAt").value("2026-11-22T02:00:00Z"))
+                .andExpect(jsonPath("$.items[1].code").value("QUERY_PAYMENT"))
+                .andExpect(jsonPath("$.items[1].status").value("FAIL"));
+        mockMvc.perform(post("/api/v1/platform/trade/channel-checks").principal(jwt(List.of("PLATFORM_OPERATOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mode").value("DISABLED"));
+        mockMvc.perform(post("/api/v1/platform/trade/channel-checks").param("subMchid", "12")
+                        .principal(signedIn("PLATFORM_OPERATOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CUSTOMER", "PROVIDER_OPERATOR", "PROVIDER_ADMIN", "PLATFORM_SUPPORT"})
+    void theChannelCheckIsForPlatformOperatorsOnly(String role) throws Exception {
+        for (TestingAuthenticationToken principal : List.of(signedIn(role), jwt(List.of(role)))) {
+            mockMvc.perform(post("/api/v1/platform/trade/channel-checks").param("subMchid", "1900000109")
+                            .principal(principal))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        }
+        verifyNoInteractions(channelCheck);
     }
 
     private static MockHttpServletRequestBuilder register() {
