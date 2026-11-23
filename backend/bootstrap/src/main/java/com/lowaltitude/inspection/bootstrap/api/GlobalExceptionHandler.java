@@ -291,6 +291,31 @@ public class GlobalExceptionHandler {
                 code = "INS_DELIVERY_FILES_INVALID";
                 message = "交付文件不完整或无效";
             }
+            case PROVIDER_PAYMENT_UNAVAILABLE -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_PROVIDER_PAYMENT_UNAVAILABLE";
+                message = "服务商暂未开通在线收款，暂不能确认方案或付款，请联系服务商";
+            }
+            case PAYMENT_NOT_DUE -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_PAYMENT_NOT_DUE";
+                message = "这笔款项现在不需要支付";
+            }
+            case ORDER_NOT_CANCELLABLE -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_ORDER_NOT_CANCELLABLE";
+                message = "巡检已开始，不能在线取消，请联系客服协商";
+            }
+            case RESCHEDULE_NOT_ALLOWED -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_RESCHEDULE_NOT_ALLOWED";
+                message = "巡检开始前 24 小时内或已有待处理的申请，不能再申请改期";
+            }
+            case RESCHEDULE_STATE_INVALID -> {
+                status = HttpStatus.CONFLICT;
+                code = "INS_RESCHEDULE_STATE_INVALID";
+                message = "改期申请已处理";
+            }
             default -> throw new IllegalStateException(
                     "unhandled plan error " + exception.error());
         }

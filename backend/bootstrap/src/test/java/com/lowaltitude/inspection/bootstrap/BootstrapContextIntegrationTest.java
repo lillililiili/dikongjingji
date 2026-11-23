@@ -81,6 +81,8 @@ import org.springframework.web.bind.annotation.RestController;
         NotificationService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
+        com.lowaltitude.inspection.application.serviceflow.InspectionPaymentService.class,
+        com.lowaltitude.inspection.application.serviceflow.VisitChangeService.class,
         DeliveryApplicationService.class
 })
 @Import({

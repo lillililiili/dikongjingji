@@ -56,7 +56,11 @@ public final class CustomerReservationQueryService {
                         row.acceptedVisitCount(),
                         row.nextVisitDate(),
                         row.pendingAcceptanceVisitId(),
-                        row.pendingAcceptanceVisitNo()))
+                        row.pendingAcceptanceVisitNo(),
+                        row.paymentDueNodeNo(),
+                        row.paymentDueNodeType(),
+                        row.paymentDueVisitNo(),
+                        row.paymentDueAmountMinor()))
                 .toList();
         return new CustomerReservationPage(
                 items,
@@ -117,7 +121,11 @@ record CustomerReservationSummary(
         int acceptedVisitCount,
         LocalDate nextVisitDate,
         UUID pendingAcceptanceVisitId,
-        Integer pendingAcceptanceVisitNo
+        Integer pendingAcceptanceVisitNo,
+        Integer paymentDueNodeNo,
+        String paymentDueNodeType,
+        Integer paymentDueVisitNo,
+        Long paymentDueAmountMinor
 ) { }
 
 record StoredCustomerReservationSummary(
@@ -140,7 +148,11 @@ record StoredCustomerReservationSummary(
         int acceptedVisitCount,
         LocalDate nextVisitDate,
         UUID pendingAcceptanceVisitId,
-        Integer pendingAcceptanceVisitNo
+        Integer pendingAcceptanceVisitNo,
+        Integer paymentDueNodeNo,
+        String paymentDueNodeType,
+        Integer paymentDueVisitNo,
+        Long paymentDueAmountMinor
 ) { }
 
 record CustomerReservationStageCounts(

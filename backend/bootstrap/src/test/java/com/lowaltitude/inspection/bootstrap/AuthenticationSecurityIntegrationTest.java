@@ -70,6 +70,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @MockBean({
         PlanApplicationService.class,
         OrderApplicationService.class,
+        com.lowaltitude.inspection.application.serviceflow.InspectionPaymentService.class,
+        com.lowaltitude.inspection.application.serviceflow.VisitChangeService.class,
         DeliveryApplicationService.class,
         CustomerReservationQueryService.class
 })

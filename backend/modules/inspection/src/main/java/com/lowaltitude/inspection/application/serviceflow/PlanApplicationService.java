@@ -37,6 +37,7 @@ public class PlanApplicationService {
     private final PlanStore store;
     private final Clock clock;
     private final boolean paymentNodesEnabled;
+    private final InspectionPaymentPort payments;
 
     public PlanApplicationService(PlanStore store, Clock clock) {
         this(store, clock, false);
@@ -47,9 +48,23 @@ public class PlanApplicationService {
             Clock clock,
             boolean paymentNodesEnabled
     ) {
+        this(store, clock, paymentNodesEnabled, InspectionPaymentPort.unavailable());
+    }
+
+    /**
+     * @param paymentNodesEnabled 发布方案时是否生成付款节点（inspection.payment.nodes-enabled）；已发布的方案不受影响
+     * @param payments            确认带付款节点的方案前，查服务商能不能在线收款
+     */
+    public PlanApplicationService(
+            PlanStore store,
+            Clock clock,
+            boolean paymentNodesEnabled,
+            InspectionPaymentPort payments
+    ) {
         this.store = store;
         this.clock = clock;
         this.paymentNodesEnabled = paymentNodesEnabled;
+        this.payments = payments;
     }
 
     @Transactional
@@ -244,6 +259,10 @@ public class PlanApplicationService {
         if (plan.version() != expectedPlanVersion) {
             throw new PlanVersionConflictException();
         }
+        // D9：带付款节点的方案要服务商能在线收款才能确认，免得确认之后首付付不出去。
+        if (!plan.terms().paymentNodes().isEmpty() && !payments.merchantCanCollect(plan.providerId())) {
+            throw new ProviderPaymentUnavailableException();
+        }
 
         Instant now = clock.instant();
         UUID orderId = UUID.randomUUID();
@@ -261,6 +280,11 @@ public class PlanApplicationService {
         List<StoredServiceVisit> visits = plan.terms().visits().stream()
                 .map(visit -> StoredServiceVisit.planned(UUID.randomUUID(), orderId, visit))
                 .toList();
+        List<OrderPaymentNode> paymentNodes =
+                orderPaymentNodes(plan.terms().paymentNodes(), visits, now);
+        // 首付要付（金额大于 0）时先待付款，到账后才进入待安排。
+        boolean downPaymentDue = paymentNodes.stream().anyMatch(node ->
+                node.nodeType() == PaymentNodeType.DOWN_PAYMENT && node.paidAt() == null);
         StoredServiceOrder order = new StoredServiceOrder(
                 orderId,
                 orderNumber(now, orderId),
@@ -269,10 +293,10 @@ public class PlanApplicationService {
                 plan.reservation().customerId(),
                 plan.providerId(),
                 plan.terms().paymentNodes().isEmpty() ? PaymentMode.NONE : PaymentMode.NODES,
-                ServiceOrderStatus.ARRANGING,
+                downPaymentDue ? ServiceOrderStatus.AWAITING_PAYMENT : ServiceOrderStatus.ARRANGING,
                 snapshot,
                 visits,
-                orderPaymentNodes(plan.terms().paymentNodes(), visits),
+                paymentNodes,
                 now,
                 0);
         PlanIdempotencyEntry entry = new PlanIdempotencyEntry(
@@ -309,9 +333,11 @@ public class PlanApplicationService {
         return toView(order);
     }
 
+    /** 金额为 0 的节点（方案总价很小，按次分不出来）确认时直接记为已付，不建交易订单。 */
     private static List<OrderPaymentNode> orderPaymentNodes(
             List<PlanPaymentNode> nodes,
-            List<StoredServiceVisit> visits
+            List<StoredServiceVisit> visits,
+            Instant confirmedAt
     ) {
         return nodes.stream()
                 .map(node -> new OrderPaymentNode(
@@ -322,7 +348,7 @@ public class PlanApplicationService {
                                 ? null
                                 : visits.get(node.visitNo() - 1).id(),
                         node.amountMinor(),
-                        null))
+                        node.amountMinor() == 0 ? confirmedAt : null))
                 .toList();
     }
 
@@ -706,10 +732,14 @@ enum PlanStatus {
 }
 
 enum ServiceOrderStatus {
+    /** 确认了带付款节点的方案、首付还没到账（S4-1）。 */
+    AWAITING_PAYMENT,
     ARRANGING,
     IN_PROGRESS,
     DELIVERED,
-    ACCEPTED
+    ACCEPTED,
+    /** 第 1 次巡检开始前取消（C3）。 */
+    CANCELLED
 }
 
 record PlanReservation(
@@ -942,6 +972,8 @@ enum ServiceVisitStatus {
     PENDING_SCHEDULE,
     SCHEDULED,
     IN_PROGRESS,
+    /** 客户退回整改、服务商还没重新交付（B2）。 */
+    REWORK,
     DELIVERED,
     ACCEPTED
 }
@@ -1054,27 +1086,44 @@ record OrderPaymentNode(
 ) {
 }
 
+/**
+ * tradeOrderId：这个节点进行中（待付）或已付的那张交易订单，页面据此去收银台或支付结果；refund：首付的退款（服务单取消时）。
+ */
 record OrderPaymentNodeView(
         int nodeNo,
         PaymentNodeType nodeType,
         Integer visitNo,
         long amountMinor,
         boolean payable,
-        Instant paidAt
+        Instant paidAt,
+        UUID tradeOrderId,
+        NodeRefundRecord refund
 ) {
-    static OrderPaymentNodeView from(OrderPaymentNode node, List<StoredServiceVisit> visits) {
-        boolean due = node.nodeType() == PaymentNodeType.DOWN_PAYMENT
-                || visits.stream().anyMatch(visit ->
-                        visit.id().equals(node.visitId())
-                                && visit.status() == ServiceVisitStatus.ACCEPTED);
-        boolean payable = due && node.paidAt() == null;
+    static OrderPaymentNodeView from(
+            OrderPaymentNode node,
+            StoredServiceOrder order,
+            ServiceOrderExtras extras
+    ) {
+        boolean payable = node.paidAt() == null && PaymentRules.due(node, order);
+        UUID tradeOrderId = extras.attempts().stream()
+                .filter(attempt -> attempt.nodeNo() == node.nodeNo()
+                        && attempt.status() != PaymentAttemptStatus.CLOSED)
+                .map(PaymentAttemptRecord::tradeOrderId)
+                .findFirst()
+                .orElse(null);
+        NodeRefundRecord refund = extras.refunds().stream()
+                .filter(item -> item.nodeNo() == node.nodeNo())
+                .findFirst()
+                .orElse(null);
         return new OrderPaymentNodeView(
                 node.nodeNo(),
                 node.nodeType(),
                 node.visitNo(),
                 node.amountMinor(),
                 payable,
-                node.paidAt());
+                node.paidAt(),
+                tradeOrderId,
+                refund);
     }
 }
 
@@ -1097,9 +1146,24 @@ record ServiceOrderView(
         Instant createdAt,
         Instant deliveredAt,
         Instant acceptedAt,
-        int version
+        int version,
+        ServiceOrderExtras extras,
+        boolean cancellable,
+        Set<UUID> reschedulableVisitIds
 ) {
     static ServiceOrderView from(StoredServiceOrder order, PlanStore store) {
+        ServiceOrderExtras extras = store.findOrderExtras(order.id());
+        Instant now = Instant.now();
+        // 能申请改期的巡检次：时间和状态允许，且没有待处理的申请。
+        Set<UUID> reschedulable = new HashSet<>();
+        for (StoredServiceVisit visit : order.visits()) {
+            boolean pending = extras.latestReschedule(visit.id())
+                    .filter(item -> item.status() == RescheduleStatus.REQUESTED)
+                    .isPresent();
+            if (!pending && PaymentRules.reschedulable(order, visit, now)) {
+                reschedulable.add(visit.id());
+            }
+        }
         return new ServiceOrderView(
                 order.id(),
                 order.serviceOrderNo(),
@@ -1111,7 +1175,7 @@ record ServiceOrderView(
                 store.findCustomerParty(order.reservationId()).orElse(null),
                 order.paymentMode(),
                 order.paymentNodes().stream()
-                        .map(node -> OrderPaymentNodeView.from(node, order.visits()))
+                        .map(node -> OrderPaymentNodeView.from(node, order, extras))
                         .toList(),
                 order.status(),
                 order.serviceSnapshot(),
@@ -1121,7 +1185,10 @@ record ServiceOrderView(
                 order.createdAt(),
                 order.deliveredAt(),
                 order.acceptedAt(),
-                order.version());
+                order.version(),
+                extras,
+                PaymentRules.customerCancellable(order),
+                Set.copyOf(reschedulable));
     }
 }
 
@@ -1188,6 +1255,11 @@ interface PlanStore {
 
     default Optional<StoredServiceVisit> findVisit(UUID visitId) {
         return Optional.empty();
+    }
+
+    /** 付款尝试、首付退款、改期、整改和取消记录（S4-1）；没有数据库时为空。 */
+    default ServiceOrderExtras findOrderExtras(UUID orderId) {
+        return ServiceOrderExtras.EMPTY;
     }
 
     /** Serializes commands on one service order; a no-op outside a real database. */
@@ -1331,6 +1403,36 @@ final class OrderStateInvalidException extends PlanFlowException {
 final class VisitStateInvalidException extends PlanFlowException {
     VisitStateInvalidException() {
         super(PlanFlowError.VISIT_STATE_INVALID);
+    }
+}
+
+final class ProviderPaymentUnavailableException extends PlanFlowException {
+    ProviderPaymentUnavailableException() {
+        super(PlanFlowError.PROVIDER_PAYMENT_UNAVAILABLE);
+    }
+}
+
+final class PaymentNotDueException extends PlanFlowException {
+    PaymentNotDueException() {
+        super(PlanFlowError.PAYMENT_NOT_DUE);
+    }
+}
+
+final class OrderNotCancellableException extends PlanFlowException {
+    OrderNotCancellableException() {
+        super(PlanFlowError.ORDER_NOT_CANCELLABLE);
+    }
+}
+
+final class RescheduleNotAllowedException extends PlanFlowException {
+    RescheduleNotAllowedException() {
+        super(PlanFlowError.RESCHEDULE_NOT_ALLOWED);
+    }
+}
+
+final class RescheduleStateInvalidException extends PlanFlowException {
+    RescheduleStateInvalidException() {
+        super(PlanFlowError.RESCHEDULE_STATE_INVALID);
     }
 }
 

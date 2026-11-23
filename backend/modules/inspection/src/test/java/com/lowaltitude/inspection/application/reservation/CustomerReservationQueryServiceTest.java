@@ -95,6 +95,10 @@ class CustomerReservationQueryServiceTest {
                 0,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
                 null);
     }
 }

@@ -375,7 +375,11 @@ class InspectionReservationControllerTest {
                 stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? 2 : 0,
                 null,
                 stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? PENDING_VISIT : null,
-                stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? 3 : null);
+                stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? 3 : null,
+                null,
+                null,
+                null,
+                null);
     }
 
     @Test

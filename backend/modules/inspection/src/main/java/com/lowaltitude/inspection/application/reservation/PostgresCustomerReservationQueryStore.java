@@ -44,7 +44,11 @@ final class PostgresCustomerReservationQueryStore
                         row.acceptedVisitCount(),
                         row.nextVisitDate(),
                         row.pendingAcceptanceVisitId(),
-                        row.pendingAcceptanceVisitNo()))
+                        row.pendingAcceptanceVisitNo(),
+                        row.paymentDueNodeNo(),
+                        row.paymentDueNodeType(),
+                        row.paymentDueVisitNo(),
+                        row.paymentDueAmountMinor()))
                 .toList();
     }
 
