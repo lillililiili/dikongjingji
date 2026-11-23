@@ -4,5 +4,7 @@ package com.lowaltitude.inspection.identity.domain;
 public enum IdentityAccountStatus {
     ACTIVE,
     LOCKED,
-    DISABLED
+    DISABLED,
+    /** 注销完成、已匿名化（V010）：不能再登录。 */
+    CLOSED
 }

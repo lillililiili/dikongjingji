@@ -10,6 +10,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.lowaltitude.inspection.bootstrap.api.ApiError;
+import com.lowaltitude.inspection.identity.domain.AccountStatePort;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
@@ -59,12 +60,12 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(JwtProperties properties, TokenVersionPort tokenVersionPort) {
+    JwtDecoder jwtDecoder(JwtProperties properties, TokenVersionPort tokenVersionPort, AccountStatePort accountState) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(hmacKey(properties))
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
         OAuth2TokenValidator<Jwt> validator = new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefault(), new IdentityClaimsJwtValidator(tokenVersionPort)
+                JwtValidators.createDefault(), new IdentityClaimsJwtValidator(tokenVersionPort, accountState)
         );
         decoder.setJwtValidator(validator);
         return decoder;
@@ -83,6 +84,13 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/login", "/actuator/health").permitAll()
+                        // S5-8 手机号验证码登录（发码、登录）：不登录；频率和错误次数由身份模块限制。
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/sms-codes",
+                                "/api/v1/auth/phone-login").permitAll()
+                        // 个人信息导出的文件：不带登录头，靠一次性的短时效下载凭据（PersonalDataExportService.download）。
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/account/data-exports/*/file").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/inspection/portal",
                                 "/api/v1/inspection/filters",

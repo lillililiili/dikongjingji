@@ -86,6 +86,7 @@ public class TradeOrderService {
     private final Supplier<String> orderNoSuffix;
     private final TradeSourceEvents events;
     private final TradeBuyerEvents buyerEvents;
+    private final TradePayerPort payers;
 
     /** 只有商城订单（没有业务来源的监听者）。 */
     TradeOrderService(
@@ -116,6 +117,20 @@ public class TradeOrderService {
             TradeSourceEvents events,
             TradeBuyerEvents buyerEvents
     ) {
+        this(mapper, checkout, clock, orderNoSuffix, events, buyerEvents, TradePayerPort.personal());
+    }
+
+    /** @param payers 下单时的付款主体和注销冷静期（S5-7、S5-8） */
+    TradeOrderService(
+            TradeOrderMapper mapper,
+            TradeCheckoutPort checkout,
+            Clock clock,
+            Supplier<String> orderNoSuffix,
+            TradeSourceEvents events,
+            TradeBuyerEvents buyerEvents,
+            TradePayerPort payers
+    ) {
+        this.payers = payers;
         this.mapper = mapper;
         this.checkout = checkout;
         this.clock = clock;
@@ -133,6 +148,7 @@ public class TradeOrderService {
     @Transactional
     public SubmitResult submit(UUID buyerId, UUID idempotencyKey, SubmitCommand command) {
         requireBuyer(buyerId);
+        TradePayerPort.Payer payer = payerFor(buyerId);
         SubmitCommand normalized = validate(idempotencyKey, command);
         String requestHash = hash(normalized);
 
@@ -195,6 +211,7 @@ public class TradeOrderService {
                 idempotencyKey,
                 requestHash,
                 now);
+        recordPayer(orderId, payer);
         int sort = 0;
         for (QuotedLine line : quote.lines()) {
             mapper.insertLine(
@@ -229,6 +246,94 @@ public class TradeOrderService {
         }
         checkout.orderPlaced(buyerId, request, orderId);
         return new SubmitResult(read(buyerId, orderId), true);
+    }
+
+    // ---- 付款主体、企业订单、注销（S5-7、S5-8） ----
+
+    /** 下单前取付款主体；注销冷静期内拒绝（TRADE_ACCOUNT_CLOSING）。业务来源的建单和发起支付也走这里。 */
+    TradePayerPort.Payer payerFor(UUID buyerId) {
+        TradePayerPort.Payer payer = payers.payerFor(buyerId);
+        if (payer == null) {
+            return TradePayerPort.Payer.PERSONAL;
+        }
+        if (payer.closing()) {
+            throw new TradeException(Error.ACCOUNT_CLOSING);
+        }
+        return payer;
+    }
+
+    void recordPayer(UUID orderId, TradePayerPort.Payer payer) {
+        if (payer.enterprise() && payer.organizationId() != null && payer.name() != null) {
+            mapper.updatePayer(orderId, "ENTERPRISE", payer.organizationId(), payer.name());
+        } else {
+            mapper.updatePayer(orderId, "PERSONAL", null, null);
+        }
+    }
+
+    /**
+     * 企业订单（0.6.0）：这家企业以企业身份付款的订单，只给企业当前的成员看；不是成员按不存在回答。
+     * 每项只有概要和经办人，不含收货人和地址。
+     */
+    @Transactional(readOnly = true)
+    public TradeViews.EnterpriseOrderPageView listEnterpriseOrders(
+            UUID accountId, UUID enterpriseId, int page, int size, TradeEnterpriseAccess access) {
+        requireBuyer(accountId);
+        if (enterpriseId == null || page < 1 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("page is invalid");
+        }
+        if (!access.isActiveMember(accountId, enterpriseId)) {
+            throw new TradeException(Error.NOT_FOUND);
+        }
+        TradeOrderMapper.EnterpriseCountRow counts = mapper.countEnterpriseOrders(enterpriseId);
+        List<TradeOrderMapper.EnterpriseOrderRow> rows = mapper.findEnterpriseOrders(
+                enterpriseId, size, Math.multiplyExact(page - 1, size));
+        java.util.Map<UUID, String> names = access.displayNames(
+                rows.stream().map(TradeOrderMapper.EnterpriseOrderRow::buyerId).distinct().toList());
+        List<TradeViews.EnterpriseOrderSummaryView> items = rows.stream()
+                .map(row -> new TradeViews.EnterpriseOrderSummaryView(
+                        row.id(),
+                        row.orderNo(),
+                        row.source(),
+                        row.lineCount() > 1 ? row.firstLine() + " 等 " + row.lineCount() + " 件" : row.firstLine(),
+                        TradeOrderStatus.valueOf(row.status()),
+                        row.payableMinor(),
+                        names.getOrDefault(row.buyerId(), "成员"),
+                        row.createdAt()))
+                .toList();
+        long total = counts == null ? 0 : counts.total();
+        return new TradeViews.EnterpriseOrderPageView(page, size, total, (long) page * size < total,
+                new TradeViews.EnterpriseOrderCountsView(
+                        counts == null ? 0 : counts.pendingPayment(),
+                        counts == null ? 0 : counts.inProgress(),
+                        counts == null ? 0 : counts.completed()),
+                items);
+    }
+
+    /** 进行中的订单数（注销条件，S5-8）：待付款、待发货、已发货、退款中。 */
+    @Transactional(readOnly = true)
+    public long countOpenOrders(UUID buyerId) {
+        return mapper.countOpenOrders(buyerId);
+    }
+
+    /** 个人信息导出（S5-8）：本人的全部订单（各来源），按创建先后，每次读一页直到读完。 */
+    @Transactional(readOnly = true)
+    public List<TradeOrderView> exportOrders(UUID buyerId) {
+        List<TradeOrderView> all = new java.util.ArrayList<>();
+        int page = 1;
+        while (true) {
+            TradeOrderPageView view = list(buyerId, "ALL", page, MAX_PAGE_SIZE);
+            all.addAll(view.items());
+            if (!view.hasMore() || page >= 200) {
+                return all;
+            }
+            page++;
+        }
+    }
+
+    /** 注销到期去标识（S5-8，在调用方的事务里）：配送快照里的收货人和电话改成占位，订单和金额保留。 */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void anonymizeBuyer(UUID buyerId) {
+        mapper.anonymizeBuyerDeliveries(buyerId);
     }
 
     // ---- 读 ----
@@ -597,7 +702,10 @@ public class TradeOrderService {
                         .toList(),
                 // 待付款直接关；已付款未发货（未自提）的商城订单取消即全额退款。业务来源的已付款订单由业务单退改。
                 status == TradeOrderStatus.PENDING_PAYMENT || (status == TradeOrderStatus.PAID && mall),
-                row.version());
+                row.version(),
+                "ENTERPRISE".equals(row.payerType())
+                        ? new TradeViews.TradePayerView("ENTERPRISE", row.payerName())
+                        : TradeViews.TradePayerView.PERSONAL);
     }
 
     /** 已关闭的单是买家取消还是超时关闭；别的状态、或原因不是这两种（不该有）时为 null。 */

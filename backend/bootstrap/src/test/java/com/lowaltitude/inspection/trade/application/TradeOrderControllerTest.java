@@ -108,6 +108,8 @@ class TradeOrderControllerTest {
             // E06：读对账结果时那天的账单还没全部导入。
             Map.entry(Error.RECONCILIATION_NOT_READY, new Rejection(409, "TRADE_RECONCILIATION_NOT_READY")),
             Map.entry(Error.QUOTE_ALREADY_ORDERED, new Rejection(409, "TRADE_INQUIRY_QUOTE_ORDERED")),
+            // 0.6.0（S5-8）：注销冷静期内不能下单和付款。
+            Map.entry(Error.ACCOUNT_CLOSING, new Rejection(409, "TRADE_ACCOUNT_CLOSING")),
             // 只在交易模块内部流转，由支付服务、退款服务接住；万一漏出来，对买家就是“订单状态不允许”。
             Map.entry(Error.PAYMENT_IN_PROGRESS, new Rejection(409, "TRADE_ORDER_STATE_INVALID")),
             Map.entry(Error.REFUND_REQUIRED, new Rejection(409, "TRADE_ORDER_STATE_INVALID"))));
@@ -188,7 +190,9 @@ class TradeOrderControllerTest {
         mockMvc.perform(submit().principal(customer).content(BODY))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("ETag", "\"0\""))
-                .andExpect(jsonPath("$.length()").value(19))
+                // 0.6.0：多了付款主体 payer。
+                .andExpect(jsonPath("$.length()").value(20))
+                .andExpect(jsonPath("$.payer.type").value("PERSONAL"))
                 .andExpect(jsonPath("$.orderId").value(ORDER.toString()))
                 .andExpect(jsonPath("$.orderNo").value("MO2026111800000042"))
                 .andExpect(jsonPath("$.source").value("MALL"))

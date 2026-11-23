@@ -26,7 +26,8 @@ class TradeOrderMapperContractTest {
         Map<String, String> statements = statements();
 
         assertThat(statements).hasSize(TradeOrderMapper.class.getDeclaredMethods().length);
-        assertThat(statements).hasSize(33);
+        // S5-7、S5-8 加了 5 条：付款主体、企业订单两条、进行中订单数、注销去标识。
+        assertThat(statements).hasSize(38);
         assertThat(statements.values()).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
         // 动态 SQL 只有四处 IN 列表（行、配送、退款、关闭原因）、买家订单的状态过滤（foreach 绑定）和商家订单的状态过滤（#{} 绑定）。
         assertThat(statements).allSatisfy((method, sql) -> {
@@ -34,6 +35,16 @@ class TradeOrderMapperContractTest {
                 assertThat(sql).as(method).startsWith("<script>").contains("</script>");
             }
         });
+    }
+
+    // S5-7：企业订单只按付款主体的企业查；S5-8：注销去标识只动这个买家订单的配送快照。
+    @Test
+    void enterpriseOrdersAndClosureAreScoped() {
+        assertThat(sql("findEnterpriseOrders")).contains("WHERE o.payer_organization_id = #{organizationId}");
+        assertThat(sql("countEnterpriseOrders")).contains("WHERE payer_organization_id = #{organizationId}");
+        assertThat(sql("updatePayer")).contains("WHERE id = #{orderId}");
+        assertThat(sql("countOpenOrders")).contains("WHERE buyer_id = #{buyerId}");
+        assertThat(sql("anonymizeBuyerDeliveries")).contains("AND o.buyer_id = #{buyerId}");
     }
 
     @Test

@@ -90,6 +90,8 @@ public class TradeSourceOrders {
         if (account == null || !account.active()) {
             throw new TradeException(Error.MERCHANT_PAYMENT_UNAVAILABLE);
         }
+        // S5-7、S5-8：付款主体（当前身份）记在订单上；注销冷静期内的账号不能建单（调用方的事务随之回滚）。
+        TradePayerPort.Payer payer = orderService.payerFor(command.buyerId());
         String merchantName = sources.findOrganizationName(command.merchantId());
         if (merchantName == null) {
             throw new TradeException(Error.NOT_FOUND);
@@ -114,6 +116,7 @@ public class TradeSourceOrders {
                 command.payBefore(),
                 requestHash(command.source(), command.sourceRef()),
                 now);
+        orderService.recordPayer(orderId, payer);
         // 业务来源的订单行记的是业务项目，不是商品：product_id 是业务项目 ID（如活动 ID），offer_id 是选项 ID（如场次 ID），
         // product_name / sku_name 是它们的名称。
         int sort = 0;

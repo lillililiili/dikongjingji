@@ -759,6 +759,35 @@ class TradeSourceOrdersTest {
         }
 
         final class OrderMapper implements TradeOrderMapper {
+        // ---- S5-7、S5-8（交易迁移 V010）：付款主体、企业订单、注销 ----
+        final java.util.Map<java.util.UUID, String[]> payers = new java.util.HashMap<>();
+
+        @Override
+        public int updatePayer(java.util.UUID orderId, String payerType, java.util.UUID organizationId, String payerName) {
+            payers.put(orderId, new String[] {payerType, organizationId == null ? null : organizationId.toString(), payerName});
+            return 1;
+        }
+
+        @Override
+        public java.util.List<EnterpriseOrderRow> findEnterpriseOrders(java.util.UUID organizationId, int limit, int offset) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public EnterpriseCountRow countEnterpriseOrders(java.util.UUID organizationId) {
+            return new EnterpriseCountRow(0, 0, 0, 0);
+        }
+
+        @Override
+        public long countOpenOrders(java.util.UUID buyerId) {
+            return 0;
+        }
+
+        @Override
+        public int anonymizeBuyerDeliveries(java.util.UUID buyerId) {
+            return 0;
+        }
+
             @Override
             public MerchantAccountRow findMerchantAccount(UUID organizationId) {
                 return accounts.get(organizationId);

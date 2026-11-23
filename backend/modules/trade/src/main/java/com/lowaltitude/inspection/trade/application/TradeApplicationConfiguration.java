@@ -62,7 +62,8 @@ public class TradeApplicationConfiguration {
             TradeOrderMapper mapper,
             TradeCheckoutPort checkout,
             TradeSourceEvents events,
-            TradeBuyerEvents buyerEvents
+            TradeBuyerEvents buyerEvents,
+            ObjectProvider<TradePayerPort> payers
     ) {
         SecureRandom random = new SecureRandom();
         return new TradeOrderService(
@@ -71,7 +72,9 @@ public class TradeApplicationConfiguration {
                 Clock.systemUTC(),
                 () -> String.format("%08d", random.nextInt(100_000_000)),
                 events,
-                buyerEvents);
+                buyerEvents,
+                // 付款主体由启动模块接到身份模块（S5-7）；没接时一律个人。
+                payers.getIfAvailable(TradePayerPort::personal));
     }
 
     @Bean

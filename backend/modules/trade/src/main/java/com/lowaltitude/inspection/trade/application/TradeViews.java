@@ -35,8 +35,40 @@ public final class TradeViews {
             String closeReason,
             List<TradeRefundView> refunds,
             boolean cancellable,
-            int version
+            int version,
+            /** 0.6.0 付款主体（下单时的身份快照，S5-7）。 */
+            TradePayerView payer
     ) {
+
+        /** 0.6.0 之前的写法（测试里还在用）：付款主体是个人。 */
+        public TradeOrderView(UUID orderId, String orderNo, String source, UUID sourceRef, TradeOrderStatus status,
+                              TradeMerchantView merchant, List<TradeOrderLineView> lines, TradeDeliveryView delivery,
+                              TradeAmountsView amounts, String buyerNote, Instant createdAt, Instant payBefore,
+                              Instant paidAt, Instant completedAt, Instant closedAt, String closeReason,
+                              List<TradeRefundView> refunds, boolean cancellable, int version) {
+            this(orderId, orderNo, source, sourceRef, status, merchant, lines, delivery, amounts, buyerNote,
+                    createdAt, payBefore, paidAt, completedAt, closedAt, closeReason, refunds, cancellable, version,
+                    TradePayerView.PERSONAL);
+        }
+    }
+
+    /** 付款主体：PERSONAL 个人（name 为 null），ENTERPRISE 企业（企业名称快照）。 */
+    public record TradePayerView(String type, String name) {
+
+        public static final TradePayerView PERSONAL = new TradePayerView("PERSONAL", null);
+    }
+
+    /** 企业订单列表的一项（0.6.0）。operatorName 是经办人（下单账号的显示名）。 */
+    public record EnterpriseOrderSummaryView(UUID orderId, String orderNo, String source, String title,
+                                             TradeOrderStatus status, long payableMinor, String operatorName,
+                                             Instant createdAt) {
+    }
+
+    public record EnterpriseOrderCountsView(long pendingPayment, long inProgress, long completed) {
+    }
+
+    public record EnterpriseOrderPageView(int page, int size, long total, boolean hasMore,
+                                          EnterpriseOrderCountsView counts, List<EnterpriseOrderSummaryView> items) {
     }
 
     /** kind 是商城的商家类型；业务来源的订单（收费报名的主办机构）为 null。 */

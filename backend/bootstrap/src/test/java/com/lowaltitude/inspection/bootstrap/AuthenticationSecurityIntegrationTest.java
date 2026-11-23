@@ -83,6 +83,13 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
         com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
         com.lowaltitude.inspection.live.application.LiveOpsService.class,
+        // S5-7、S5-8 账号与企业组织（要数据库，测试里不装配）
+        com.lowaltitude.inspection.identity.application.account.PhoneAccountService.class,
+        com.lowaltitude.inspection.identity.application.account.LoginSessionService.class,
+        com.lowaltitude.inspection.identity.application.account.AccountClosureService.class,
+        com.lowaltitude.inspection.identity.application.account.PersonalDataExportService.class,
+        com.lowaltitude.inspection.identity.application.account.EnterpriseService.class,
+        com.lowaltitude.inspection.trade.application.TradeEnterpriseAccess.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -145,8 +152,11 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(jsonPath("$.organizationName").value("测试客户单位"))
                 .andExpect(jsonPath("$.organizationType").value("CUSTOMER"))
                 .andExpect(jsonPath("$.roles").isArray())
-                // 资料里不带登录名、手机号、口令、令牌版本这类字段。
-                .andExpect(jsonPath("$.length()").value(4));
+                // 2.4.0：打码手机号（没有数据库时没有）和当前身份（个人）。
+                .andExpect(jsonPath("$.maskedPhone").doesNotExist())
+                .andExpect(jsonPath("$.identity.type").value("PERSONAL"))
+                // 资料里不带登录名、完整手机号、口令、令牌版本这类字段。
+                .andExpect(jsonPath("$.length()").value(6));
     }
 
     @Test

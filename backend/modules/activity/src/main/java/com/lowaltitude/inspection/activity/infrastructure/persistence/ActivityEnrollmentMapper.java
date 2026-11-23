@@ -641,6 +641,27 @@ public interface ActivityEnrollmentMapper {
             @Param("at") OffsetDateTime at
     );
 
+    /**
+     * 注销到期（S5-8）去标识：参与人的姓名和出生年月清掉、标记删除；报名凭证上的参与人姓名快照改成“已注销用户”。
+     * 报名单和凭证本身保留（主办方的名单、对账要用）。
+     */
+    @Update("""
+            UPDATE activity_participant
+               SET name = '已注销用户', birth_month = NULL, photo_use_authorized = false, status = 'DELETED',
+                   version = version + 1, updated_at = #{at}
+             WHERE owner_id = #{ownerId}
+            """)
+    int anonymizeParticipants(@Param("ownerId") UUID ownerId, @Param("at") java.time.OffsetDateTime at);
+
+    @Update("""
+            UPDATE activity_enrollment_ticket t
+               SET participant_name = '已注销用户', version = t.version + 1
+              FROM activity_enrollment e
+             WHERE e.id = t.enrollment_id
+               AND e.account_id = #{ownerId}
+            """)
+    int anonymizeTicketNames(@Param("ownerId") UUID ownerId);
+
     record ParticipantRow(
             UUID id,
             String relation,

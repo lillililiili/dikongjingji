@@ -26,7 +26,7 @@ class AccountAddressMapperContractTest {
 
         // 接口里每个方法都带着一条语句，没有漏掉注解的。
         assertThat(statements).hasSize(AccountAddressMapper.class.getDeclaredMethods().length);
-        assertThat(statements).hasSize(10);
+        assertThat(statements).hasSize(11);
         assertThat(statements.values()).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
     }
 
@@ -36,6 +36,12 @@ class AccountAddressMapperContractTest {
         // 插入语句没有条件，单独在下一个用例里检查；加锁语句只按账号取锁，在后面单独检查。
         conditioned.remove("insert");
         conditioned.remove("lockOwner");
+        // 注销去标识（S5-8）连已删除的地址一起清，单独检查。
+        conditioned.remove("eraseAll");
+        assertThat(normalized(sql("eraseAll")))
+                .contains("recipient_name = '已注销用户'")
+                .contains("phone = '13000000000'")
+                .endsWith("WHERE owner_id = #{ownerId}");
 
         assertThat(conditioned).hasSize(8);
         assertThat(conditioned).allSatisfy((method, sql) -> assertThat(normalized(sql))

@@ -1787,6 +1787,20 @@ class ActivityEnrollmentServiceTest {
      * 服务一旦写出数据库不会接受的数据，测试就会失败。只有一个活动、一个场次。
      */
     private static final class InMemoryMapper implements ActivityEnrollmentMapper {
+        // S5-8 注销去标识（只记调用次数，规则在 SQL 里）。
+        int anonymizedParticipants;
+
+        @Override
+        public int anonymizeParticipants(UUID ownerId, java.time.OffsetDateTime at) {
+            anonymizedParticipants++;
+            return 0;
+        }
+
+        @Override
+        public int anonymizeTicketNames(UUID ownerId) {
+            return 0;
+        }
+
 
         private static final Set<String> EVENT_TYPES = Set.of("ENROLLED", "TICKET_CANCELLED", "ENROLLMENT_CANCELLED",
                 "TICKET_CHECKED_IN", "PAYMENT_CONFIRMED", "PAYMENT_CLOSED", "PAYMENT_RESTORED", "REFUND_REQUESTED");

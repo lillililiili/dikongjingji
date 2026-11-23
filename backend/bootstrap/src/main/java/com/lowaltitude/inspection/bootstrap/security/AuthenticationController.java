@@ -31,7 +31,8 @@ public class AuthenticationController {
                     "COMMON_INVALID_ARGUMENT", "请求参数无效", traceId(servletRequest)
             ));
         }
-        return authenticationService.authenticate(request.loginName().trim(), request.password())
+        return authenticationService.authenticate(request.loginName().trim(), request.password(),
+                        LoginDeviceRequest.toDevice(request.device()))
                 .<ResponseEntity<?>>map(token -> ResponseEntity.ok(new LoginResponse(
                         token.accessToken(), "Bearer", token.expiresInSeconds()
                 )))

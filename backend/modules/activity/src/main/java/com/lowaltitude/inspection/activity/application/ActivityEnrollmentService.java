@@ -145,6 +145,36 @@ public class ActivityEnrollmentService {
         return new ParticipantListView(items);
     }
 
+    /**
+     * 个人信息导出（S5-8）：本账号保存的参与人，只读，不补“本人”。只给出参与人自己的资料（姓名、关系、出生年月、照片授权）。
+     */
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> exportParticipants(UUID accountId) {
+        List<java.util.Map<String, Object>> items = new ArrayList<>();
+        for (ParticipantRow row : mapper.findParticipants(accountId)) {
+            java.util.Map<String, Object> item = new java.util.LinkedHashMap<>();
+            item.put("name", row.name());
+            item.put("relation", row.relation());
+            item.put("birthMonth", row.birthMonth() == null ? null : row.birthMonth().toString().substring(0, 7));
+            item.put("photoUseAuthorized", row.photoUseAuthorized());
+            items.add(item);
+        }
+        return items;
+    }
+
+    /** 还没开始的报名有几张（注销条件“没有待参加的报名”，S5-8）。 */
+    @Transactional(readOnly = true)
+    public long countUpcomingEnrollments(UUID accountId) {
+        return mapper.countEnrollments(accountId, EnrollmentStatus.UPCOMING.name(), now());
+    }
+
+    /** 注销到期去标识（S5-8，在调用方的事务里）：参与人姓名清掉，凭证上的姓名快照改成“已注销用户”。 */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void anonymizeForClosure(UUID accountId) {
+        mapper.anonymizeParticipants(accountId, now());
+        mapper.anonymizeTicketNames(accountId);
+    }
+
     @Transactional
     public ParticipantView addChild(
             UUID accountId,

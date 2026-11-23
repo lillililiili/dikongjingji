@@ -11,6 +11,13 @@ live:
 identity:
   qualification-files:
     local-dir: ${IDENTITY_QUALIFICATION_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-qualification-files}
+  # S5-8 手机号验证码：开发环境用本机模拟短信（FakeSmsGateway），验证码写日志和 identity_dev_sms_outbox，不发真实短信；
+  # 其他环境没接短信服务商时发送验证码返回 503。
+  sms:
+    provider: fake
+  # S5-8 个人信息导出：开发环境存本机目录（LocalDataExportStore），其他环境没配置时导出记为失败。
+  data-export:
+    local-dir: ${IDENTITY_DATA_EXPORT_DIR:${java.io.tmpdir}/lowaltitude-dev-data-exports}
 
 # 运营端“商品与供给”（S3-1）：商品图片存本机目录、由后端开发接口回读（LocalMallMediaStore，地址是 http，App 按 https 规则
 # 不显示）；批量导入的文件也存本机目录（LocalImportFileStore）。其他环境没配置对象存储时上传、预检返回 503。
