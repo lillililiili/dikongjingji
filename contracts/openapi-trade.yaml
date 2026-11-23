@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.6.0
+  version: 0.9.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -68,6 +68,13 @@ info:
       付款截止 15 分钟；超时或取消只关这一张订单，节点仍待付，可以再发起。不在“商品订单”里，商家接口当作不存在。
       已付款的不能由买家取消：首付只在服务单取消（第 1 次巡检开始前）时由巡检模块整笔原路退款；按次服务费不在线退。
       关闭之后才到账的付款：节点还没付、服务单没取消时照常记为已付；否则整笔自动原路退款。
+    0.9.0（2026-11-23，S5-5，docs/redesign/09-课程实现说明.md）：第六个业务来源——线上录播课（source = COURSE，课程接口见
+      contracts/openapi-course.yaml 1.0.0）。收款方是开课机构，钱同样直接进它自己的子商户号；不发货，订单编号以 CO 开头；
+      订单行的 productId 是课程 ID，offerId 也是课程 ID（一门课只有“单人账号”一种），productName 是课程名，skuName 是“单人账号”，
+      quantity 是 1；付款时限 15 分钟。不在“商品订单”里，商家接口当作不存在。已付款的不能由买家取消，退款只能由课程的退款发起
+      （付款后 7 天内、没开始学非试听课时，整单原路退款）。关闭之后才到账的：这门课没有别的开通时恢复，否则整笔自动原路退回。
+      另外，商城订单完成（确认收货、自动确认收货、自提核销）时，交易模块在同一个事务里把订单的商品行告诉课程模块，
+      附带数字课程的商品随即给买家开通课程（没有新接口，只是服务端之间的端口）。其他操作不变。
 
     渠道与资金（用户 2026-11-18 确认）：
     - 唯一的支付渠道是微信支付，产品是“平台收付通”的普通支付：每笔钱直接进卖出商品的商家（二级商户）自己的商户号，
@@ -894,8 +901,8 @@ components:
       enum: [ALL, TO_PAY, TO_SHIP, TO_RECEIVE, DONE, REFUND]
     TradeOrderSource:
       type: string
-      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）；INSPECTION 巡检付款节点（0.6.0，S4-1）。以后接入的业务在这里加
-      enum: [MALL, ACTIVITY, VENUE, RENTAL, INSPECTION]
+      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）；INSPECTION 巡检付款节点（0.6.0，S4-1）；COURSE 线上录播课（0.9.0，S5-5）。以后接入的业务在这里加
+      enum: [MALL, ACTIVITY, VENUE, RENTAL, INSPECTION, COURSE]
     DeliveryMode:
       type: string
       enum: [EXPRESS, PICKUP]

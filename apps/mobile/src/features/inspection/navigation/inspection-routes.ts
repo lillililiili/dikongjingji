@@ -175,6 +175,12 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // live-routes.test.ts checks them.
   '/pages/live/notice': { required: 'roomId', allowed: ['roomId', 'cityCode'] },
   '/pages/live/room': { required: 'roomId', allowed: ['roomId', 'cityCode'] },
+  // Course pages (features/course/navigation/course-routes.ts, S5-5), repeated for the same reason;
+  // course-routes.test.ts checks them.
+  '/pages/course/detail': { required: 'courseId', allowed: ['courseId', 'cityCode', 'buy'] },
+  '/pages/course/learn': { required: 'enrollmentId', allowed: ['enrollmentId', 'lessonId'] },
+  '/pages/course/trial': { allowed: ['courseId', 'experienceItemId'] },
+  '/pages/mine/courses': { allowed: ['bucket'] },
 }
 
 // A root tab cannot be the target of redirectTo, so the login page relaunches to these.

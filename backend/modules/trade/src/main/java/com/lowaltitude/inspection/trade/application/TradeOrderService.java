@@ -86,6 +86,7 @@ public class TradeOrderService {
     private final Supplier<String> orderNoSuffix;
     private final TradeSourceEvents events;
     private final TradeBuyerEvents buyerEvents;
+    private final TradeCompletionEvents completions;
 
     /** 只有商城订单（没有业务来源的监听者）。 */
     TradeOrderService(
@@ -116,6 +117,20 @@ public class TradeOrderService {
             TradeSourceEvents events,
             TradeBuyerEvents buyerEvents
     ) {
+        this(mapper, checkout, clock, orderNoSuffix, events, buyerEvents, TradeCompletionEvents.none());
+    }
+
+    /** @param completions 商城订单完成时告诉业务模块（S5-5，附带的数字课程开通） */
+    TradeOrderService(
+            TradeOrderMapper mapper,
+            TradeCheckoutPort checkout,
+            Clock clock,
+            Supplier<String> orderNoSuffix,
+            TradeSourceEvents events,
+            TradeBuyerEvents buyerEvents,
+            TradeCompletionEvents completions
+    ) {
+        this.completions = completions;
         this.mapper = mapper;
         this.checkout = checkout;
         this.clock = clock;
@@ -347,6 +362,7 @@ public class TradeOrderService {
         Instant now = clock.instant();
         mapper.markCompleted(orderId, TradeOrderStatus.SHIPPED.name(), version, now);
         mapper.insertTransition(orderId, TradeOrderStatus.SHIPPED.name(), TradeOrderStatus.COMPLETED.name(), "RECEIPT", buyerId, now);
+        completions.completed(orderId, now);
         return read(buyerId, orderId);
     }
 
@@ -359,6 +375,7 @@ public class TradeOrderService {
             if (mapper.markCompleted(row.id(), TradeOrderStatus.SHIPPED.name(), row.version(), now) > 0) {
                 mapper.insertTransition(
                         row.id(), TradeOrderStatus.SHIPPED.name(), TradeOrderStatus.COMPLETED.name(), "AUTO_RECEIPT", null, now);
+                completions.completed(row.id(), now);
                 confirmed++;
             }
         }
@@ -476,6 +493,7 @@ public class TradeOrderService {
         }
         mapper.markCompleted(orderId, TradeOrderStatus.PAID.name(), version, now);
         mapper.insertTransition(orderId, TradeOrderStatus.PAID.name(), TradeOrderStatus.COMPLETED.name(), "PICKUP", operatorId, now);
+        completions.completed(orderId, now);
         return readForMerchant(merchantId, orderId);
     }
 

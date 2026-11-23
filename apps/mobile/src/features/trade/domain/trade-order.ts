@@ -29,9 +29,10 @@ export type TradeDeliveryMode = 'EXPRESS' | 'PICKUP'
 // order (sourceRef is the rental order id).
 // An inspection payment node (S4-1, contract 0.4.0): sourceRef is the payment attempt id; the line's
 // productId is the inspection service order, productName "服务名 · 方案 vN", skuName the node.
-export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE' | 'RENTAL' | 'INSPECTION'
+// An online course (S5-5): sourceRef is the course enrollment.
+export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE' | 'RENTAL' | 'INSPECTION' | 'COURSE'
 
-export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION']
+export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION', 'COURSE']
 
 export type TradeMerchantKind = 'FACTORY_DIRECT' | 'AUTHORIZED_DEALER' | 'LOCAL_STORE'
 

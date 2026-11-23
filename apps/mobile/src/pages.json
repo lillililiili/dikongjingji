@@ -242,6 +242,34 @@
       }
     },
     {
+      "path": "pages/course/detail",
+      "style": {
+        "navigationBarTitleText": "课程详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/course/learn",
+      "style": {
+        "navigationBarTitleText": "课程学习",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/course/trial",
+      "style": {
+        "navigationBarTitleText": "课程试听",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/courses",
+      "style": {
+        "navigationBarTitleText": "我的课程",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/mine/venue-bookings",
       "style": {
         "navigationBarTitleText": "到馆预约",
