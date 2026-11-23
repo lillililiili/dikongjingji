@@ -19,7 +19,7 @@ info:
     - 出方案：服务商在工作台出方案（issueServiceOrderPlan）。方案金额等于合同金额、明细是报价明细，服务商只能写服务安排、
       交付约定（1–5 条）和方案说明。确认之前可以改（方案版本加 1），客户确认的必须是最新一版（planVersion）。方案不设有效期。
     - 确认：客户勾选“我已核对……”后确认最新一版方案（confirmServiceOrderPlan）→ AWAITING_PAYMENT。
-    - 付款：经统一交易模块一次付清合同金额（contracts/openapi-trade.yaml 0.6.0，来源 PRO_SERVICE，订单编号以 PS 开头），
+    - 付款：经统一交易模块一次付清合同金额（contracts/openapi-trade.yaml 0.8.0，来源 PRO_SERVICE，订单编号以 PS 开头），
       收款方是服务商，钱进它自己的子商户号，平台不经手。startServiceOrderPayment 建（或沿用还没关闭的）一张交易订单，
       页面拿 tradeOrderId 去收银台；15 分钟内不付，那一张交易订单关闭，服务订单仍是待付款，可以再发起。
       服务商没有登记有效的收款账户时不能付款（409 SERVICE_ORDER_PAYMENT_UNAVAILABLE，payment.collectable 为 false）。
