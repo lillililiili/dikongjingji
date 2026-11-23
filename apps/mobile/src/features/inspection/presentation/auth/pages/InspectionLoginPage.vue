@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBackPress, onLoad, onReady } from '@dcloudio/uni-app'
 
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
@@ -40,7 +40,10 @@ const PLAIN_FIELD_SCRIPT = `document.querySelectorAll('[data-plain-input] input'
   + `f.setAttribute('autocapitalize','off');f.setAttribute('autocorrect','off');f.setAttribute('spellcheck','false')})`
 let stopKeyboardWatch: () => void = () => {}
 
-onReady(() => {
+// H5: onMounted, not onReady. A page hook registered in this component (the page file only wraps it)
+// is never called on H5, so the fields kept their defaults; by the time this component is mounted
+// its <input> children are in the document.
+onMounted(() => {
   // #ifdef H5
   document.querySelectorAll('[data-plain-input] input').forEach((field) => {
     field.setAttribute('autocapitalize', 'off')
@@ -53,6 +56,9 @@ onReady(() => {
     setTimeout(() => undoNeedlessKeyboardPan(viewport), 50)
   })
   // #endif
+})
+
+onReady(() => {
   // #ifdef APP-PLUS
   const pages = getCurrentPages() as Array<{ $getAppWebview?: () => { evalJS(script: string): void } }>
   pages[pages.length - 1]?.$getAppWebview?.().evalJS(PLAIN_FIELD_SCRIPT)

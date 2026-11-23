@@ -219,7 +219,8 @@ test.describe('线上体验：仿真、结果与记录', () => {
     await expect(page.getByTestId('trial-guest')).toContainText('登录后开始试用')
 
     await signIn(page, session)
-    await page.goto(`/#/pages/experience/software-trial?experienceId=${SOFTWARE}`)
+    // 同一个地址再 goto 只是同文档的锚点跳转，不重新加载，登录令牌的初始化脚本不会跑；要重新加载。
+    await page.reload()
     await expect(page.getByTestId('trial-booting')).toBeVisible()
     await expect(page.getByTestId('trial-remaining')).toHaveText(/^剩余 2[45]:\d\d$/, { timeout: STEP_WAIT })
     await expect(page.getByTestId('trial-screen')).toContainText('软件画面 · 示例')

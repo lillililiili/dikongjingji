@@ -88,13 +88,19 @@ test.describe('登录续期', () => {
 
     await page.goto('/#/pages/mine/index')
 
-    await expect(page.getByTestId('mine-login')).toBeVisible()
+    // 续期失败才回登录页（见文件头）：“我的”的订单请求被拒，转到登录页，登录后回“我的”。
+    await expect(page).toHaveURL(/inspection\/login\?returnUrl=[^&]*pages[^&]*mine[^&]*index/)
     expect(refreshCount).toBe(1)
     const left = await page.evaluate(() => ({
       session: sessionStorage.getItem('inspection.refreshToken'),
       access: localStorage.getItem('inspection.accessToken'),
     }))
     expect(left).toEqual({ session: null, access: null })
+
+    // 不登录直接回“我的”：已是未登录，也不再续期。
+    await page.goto('/#/pages/mine/index')
+    await expect(page.getByTestId('mine-login')).toBeVisible()
+    expect(refreshCount).toBe(1)
   })
 
   test('AR-003 没有刷新令牌的旧登录过期后直接按未登录处理，不发续期请求', async ({ page }) => {
@@ -174,7 +180,9 @@ test.describe('登录续期', () => {
     })
     await page.reload()
 
-    await expect(page.locator('.platform-mine__name')).not.toBeEmpty()
+    // 续期前卡片先显示“已登录”，所以等续期回来、读到账号名字后再看。
+    await expect.poll(() => refreshes).toEqual([200])
+    await expect(page.locator('.platform-mine__name')).not.toHaveText(/^(已登录)?$/)
     await expect(page.getByTestId('mine-login')).toHaveCount(0)
     expect(refreshes).toEqual([200])
     expect(page.url()).not.toContain('inspection/login')

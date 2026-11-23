@@ -191,7 +191,16 @@ async function loadAccount(): Promise<void> {
   if (token === accountToken) return
   try {
     const loaded = await inspectionAccountApi.loadCurrent(token)
-    if (accessToken() !== token) return
+    if (accessToken() !== token) {
+      // The request layer renewed the expired token while the page was loading. Everything read
+      // with the old token is dropped by the checks above and below, so read it all again with the
+      // renewed one; otherwise the card stays at "已登录" and the counts stay empty.
+      if (accessToken()) {
+        void loadAccount()
+        loadSignedIn()
+      }
+      return
+    }
     account.value = loaded
     accountToken = token
     refresh()
