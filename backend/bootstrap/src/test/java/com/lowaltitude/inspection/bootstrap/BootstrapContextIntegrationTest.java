@@ -74,6 +74,9 @@ import org.springframework.web.bind.annotation.RestController;
         com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,
         com.lowaltitude.inspection.experience.application.ops.VenueOpsService.class,
         com.lowaltitude.inspection.content.application.ops.ContentOpsService.class,
+        // S3-1 第三部分：巡检和专业服务目录
+        com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
+        com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
         com.lowaltitude.inspection.live.application.LiveService.class,
         com.lowaltitude.inspection.content.application.ContentReadService.class,
         com.lowaltitude.inspection.content.application.ContentVideoService.class,

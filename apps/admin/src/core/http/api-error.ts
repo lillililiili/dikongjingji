@@ -76,6 +76,12 @@ const MESSAGES: Record<string, string> = {
   OPS_CONTENT_STATUS_CONFLICT: '内容当前的状态不能做这个操作，请刷新后再看',
   OPS_CONTENT_ARTICLE_UNKNOWN: '专题里挂的图文不存在（视频不能挂在相关内容里）',
   OPS_CONTENT_PRODUCT_UNKNOWN: '商品不存在，或在专题的城市没有在售商家',
+  // 巡检和专业服务目录（openapi-ops-inspection-catalog.yaml、openapi-ops-proservice.yaml）
+  OPS_STATUS_UNCHANGED: '已经是这个状态了，请刷新后再看',
+  OPS_PROVIDER_UNKNOWN: '服务商不存在、已停用或不是服务商机构',
+  OPS_INSPECTION_CATEGORY_UNKNOWN: '类目不存在或已停用',
+  OPS_INSPECTION_CATEGORY_CODE_TAKEN: '类目编码已被占用，换一个试试',
+  OPS_INSPECTION_CATEGORY_IN_USE: '类目下还有上架的服务，先下架或给服务换类目',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }

@@ -3,7 +3,9 @@ import { activityModule } from '@/features/activity/activity-module'
 import { cityModule } from '@/features/city/city-module'
 import { contentModule } from '@/features/content/content-module'
 import { feedbackModule } from '@/features/feedback/feedback-module'
+import { inspectionCatalogModule } from '@/features/inspection-catalog/inspection-catalog-module'
 import { organizationModule } from '@/features/organization/organization-module'
+import { proServiceModule } from '@/features/proservice/proservice-module'
 import { venueModule } from '@/features/venue/venue-module'
 
 /**
@@ -18,4 +20,6 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   feedbackModule,
   activityModule,
   venueModule,
+  inspectionCatalogModule,
+  proServiceModule,
 ]
