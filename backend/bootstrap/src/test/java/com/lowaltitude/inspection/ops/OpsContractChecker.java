@@ -280,6 +280,9 @@ public final class OpsContractChecker {
                     Map<String, Object> items = map(property.get("items"));
                     if (element == String.class) {
                         assertThat(items.get("type") != null || items.get("$ref") != null).as(field).isTrue();
+                    } else if (element == UUID.class) {
+                        assertThat(items.get("type")).as(field + " items").isEqualTo("string");
+                        assertThat(items.get("format")).as(field + " items").isEqualTo("uuid");
                     } else if (element instanceof Class<?> elementType && elementType.isEnum()) {
                         assertThat(items.get("$ref")).as(field + " items")
                                 .isEqualTo(SCHEMA_PREFIX + schemaOf(enums, elementType));

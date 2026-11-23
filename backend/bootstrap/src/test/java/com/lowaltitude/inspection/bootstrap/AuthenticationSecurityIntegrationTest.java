@@ -72,6 +72,7 @@ import org.springframework.test.web.servlet.MockMvc;
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        com.lowaltitude.inspection.content.application.ops.ContentOpsService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -548,7 +549,9 @@ class AuthenticationSecurityIntegrationTest {
                 com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class);
         var support = applicationContext.getBean(
                 com.lowaltitude.inspection.support.application.SupportService.class);
-        org.mockito.Mockito.clearInvocations(cities, organizations, support);
+        var contentOps = applicationContext.getBean(
+                com.lowaltitude.inspection.content.application.ops.ContentOpsService.class);
+        org.mockito.Mockito.clearInvocations(cities, organizations, support, contentOps);
         String operatorToken = tokenWithRoles(List.of("PLATFORM_OPERATOR"));
         String supportToken = tokenWithRoles(List.of("PLATFORM_SUPPORT"));
 
@@ -561,6 +564,9 @@ class AuthenticationSecurityIntegrationTest {
         org.mockito.Mockito.verify(cities).cities(null, null, null, 1, 20);
         org.mockito.Mockito.verify(organizations).organizations(null, null, null, 1, 20);
         org.mockito.Mockito.verify(support).opsFeedback(null, null, 1, 20);
+        mockMvc.perform(get("/api/v1/ops/content/articles").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(contentOps).articles(null, null, null, null, 1, 20);
 
         for (String token : List.of(signedToken(List.of(), 7), tokenWithRoles(List.of("PROVIDER_OPERATOR")),
                 tokenWithRoles(List.of("LIVE_HOST")), tokenWithRoles(List.of("PROVIDER_OPERATOR", "LIVE_HOST")))) {
@@ -575,13 +581,14 @@ class AuthenticationSecurityIntegrationTest {
         }
         // 平台客服不是平台运营，平台运营也不处理反馈。
         for (var request : List.of(get("/api/v1/ops/cities"), get("/api/v1/ops/organizations"),
-                get("/api/v1/ops/organizations/" + organization))) {
+                get("/api/v1/ops/organizations/" + organization), get("/api/v1/ops/content/articles"),
+                get("/api/v1/ops/content/topics"))) {
             mockMvc.perform(request.header("Authorization", "Bearer " + supportToken))
                     .andExpect(status().isForbidden());
         }
         mockMvc.perform(get("/api/v1/ops/feedback").header("Authorization", "Bearer " + operatorToken))
                 .andExpect(status().isForbidden());
-        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support);
+        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support, contentOps);
     }
 
     /** 每次新建，请求头不会在几轮之间叠加。 */
@@ -598,7 +605,23 @@ class AuthenticationSecurityIntegrationTest {
                 delete(orgPath + "/attachments/" + attachment), post(orgPath + "/accounts"),
                 put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"),
                 // S3-1 第三部分：素材上传与预览
-                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"));
+                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"),
+                // S3-1 第三部分：发现内容（图文、视频、专题）
+                get("/api/v1/ops/content/articles"), post("/api/v1/ops/content/articles"),
+                get("/api/v1/ops/content/articles/" + attachment), put("/api/v1/ops/content/articles/" + attachment),
+                post("/api/v1/ops/content/articles/" + attachment + "/publish"),
+                post("/api/v1/ops/content/articles/" + attachment + "/offline"),
+                get("/api/v1/ops/content/articles/" + attachment + "/changes"),
+                get("/api/v1/ops/content/videos"), post("/api/v1/ops/content/videos"),
+                get("/api/v1/ops/content/videos/" + attachment), put("/api/v1/ops/content/videos/" + attachment),
+                post("/api/v1/ops/content/videos/" + attachment + "/publish"),
+                post("/api/v1/ops/content/videos/" + attachment + "/offline"),
+                get("/api/v1/ops/content/videos/" + attachment + "/changes"),
+                get("/api/v1/ops/content/topics"), post("/api/v1/ops/content/topics"),
+                get("/api/v1/ops/content/topics/" + attachment), put("/api/v1/ops/content/topics/" + attachment),
+                post("/api/v1/ops/content/topics/" + attachment + "/publish"),
+                post("/api/v1/ops/content/topics/" + attachment + "/offline"),
+                get("/api/v1/ops/content/topics/" + attachment + "/changes"));
     }
 
     private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {
