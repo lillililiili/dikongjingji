@@ -61,8 +61,10 @@ const props = withDefaults(
   defineProps<{
     busy?: boolean
     loadDelivery?: MallBuyDeliveryLoader | null
+    /** The page's scroll position (onPageScroll of the route page), for the top bar. */
+    scrollTop?: number
   }>(),
-  { busy: false, loadDelivery: null },
+  { busy: false, loadDelivery: null, scrollTop: 0 },
 )
 
 const emit = defineEmits<{
@@ -111,6 +113,7 @@ const cityName = ref<string | null>(null)
 // 先体验，再决定 (R6-2) and 相关内容 (R6-3): read from the experience and content modules by this
 // product's id; null / empty hides the block (and the bar's 先体验).
 const tryFirst = ref<ProductExperienceView | null>(null)
+const tryFirstBlock = ref<InstanceType<typeof ProductTryFirst> | null>(null)
 const relatedRows = ref<RelatedContentRow[]>([])
 const pageCity = ref('')
 let productId = ''
@@ -265,8 +268,12 @@ function loadExtras(requested: number, loadedProductId: string): void {
   }
 }
 
-// 先体验 in the bar brings the block into view (boards PdFull, PdRental).
+// 先体验 in the bar opens 选择体验方式 (board ExpPick, S5-4); without the block it cannot.
 function showTryFirst(): void {
+  if (tryFirstBlock.value) {
+    tryFirstBlock.value.openPicker()
+    return
+  }
   uni.pageScrollTo({ selector: '#mall-product-try-first', duration: 300 })
 }
 
@@ -323,6 +330,18 @@ function openCart(): void {
 
 // 更多 (board MoreSheet): 回首页, 反馈, 举报.
 const moreOpen = ref(false)
+
+// The top bar stays at the top while the page scrolls: over the picture only the round buttons show;
+// scrolling down fades in a white bar with the product name and dark icons, as shopping apps do.
+// (The board PdFull draws the first screen only.)
+const TOP_BAR_FADE_START = 40
+const TOP_BAR_FADE_LENGTH = 160
+const topBarProgress = computed(() =>
+  Math.min(1, Math.max(0, (props.scrollTop - TOP_BAR_FADE_START) / TOP_BAR_FADE_LENGTH)))
+const topBarSolid = computed(() => topBarProgress.value >= 0.5)
+const topBarIconColor = computed(() => (topBarSolid.value ? '#202c42' : '#ffffff'))
+const topBarStyle = computed(() => ({ background: `rgba(255, 255, 255, ${topBarProgress.value})` }))
+const topBarCircleStyle = computed(() => ({ background: `rgba(0, 0, 0, ${0.35 * (1 - topBarProgress.value)})` }))
 const moreSubtitle = computed(() => {
   const offer = shownOffer.value
   const kind = saleMode.value === 'RENT' ? '租赁' : saleMode.value === 'INQUIRY' ? '询价商品' : '商品'
@@ -477,13 +496,22 @@ onLoad((query) => {
             mode="aspectFill"
           />
           <text v-else class="mall-product__cover-label">{{ MALL_CATEGORY_LABELS[product.category] }}</text>
-          <view class="mall-product__floats">
+          <view
+            :class="['mall-product__floats', { 'mall-product__floats--solid': topBarSolid }]"
+            :style="topBarStyle"
+            data-testid="mall-product-top-bar"
+            :data-solid="topBarSolid ? 'true' : 'false'"
+          >
             <button class="mall-product__float" data-testid="mall-product-back" aria-label="返回" @click="goBack">
-              <view class="mall-product__float-circle">
-                <LineIcon name="back" :size="20" color="#ffffff" :stroke-width="2" />
+              <view class="mall-product__float-circle" :style="topBarCircleStyle">
+                <LineIcon name="back" :size="20" :color="topBarIconColor" :stroke-width="2" />
               </view>
             </button>
-            <view class="mall-product__floats-gap" />
+            <text
+              class="mall-product__floats-title"
+              :style="{ opacity: topBarProgress }"
+              :aria-hidden="topBarSolid ? 'false' : 'true'"
+            >{{ product.name }}</text>
             <button
               v-if="SUPPORT_PREVIEW_ENABLED"
               class="mall-product__float"
@@ -491,8 +519,8 @@ onLoad((query) => {
               aria-label="分享"
               @click="openShare"
             >
-              <view class="mall-product__float-circle">
-                <LineIcon :d="SHARE_PATH" :size="20" color="#ffffff" :stroke-width="2" />
+              <view class="mall-product__float-circle" :style="topBarCircleStyle">
+                <LineIcon :d="SHARE_PATH" :size="20" :color="topBarIconColor" :stroke-width="2" />
               </view>
             </button>
             <button
@@ -502,8 +530,8 @@ onLoad((query) => {
               aria-label="购物车"
               @click="openCart"
             >
-              <view class="mall-product__float-circle">
-                <LineIcon name="cart" :size="20" color="#ffffff" :stroke-width="2" />
+              <view class="mall-product__float-circle" :style="topBarCircleStyle">
+                <LineIcon name="cart" :size="20" :color="topBarIconColor" :stroke-width="2" />
               </view>
               <text v-if="badgeStore.cartCount > 0" class="mall-product__float-badge" data-testid="mall-product-cart-count">
                 {{ badgeStore.cartCount > 99 ? '99+' : badgeStore.cartCount }}
@@ -516,8 +544,8 @@ onLoad((query) => {
               aria-label="更多"
               @click="moreOpen = true"
             >
-              <view class="mall-product__float-circle">
-                <LineIcon name="more" :size="20" color="#ffffff" :stroke-width="3.6" />
+              <view class="mall-product__float-circle" :style="topBarCircleStyle">
+                <LineIcon name="more" :size="20" :color="topBarIconColor" :stroke-width="3.6" />
               </view>
             </button>
           </view>
@@ -572,7 +600,7 @@ onLoad((query) => {
 
         <!-- 先体验，再决定: right under the price card, before the merchants (PdFull) or the rental terms (PdRental). -->
         <view v-if="tryFirst" id="mall-product-try-first" class="mall-product__try-first">
-          <ProductTryFirst :view="tryFirst" :city-code="pageCity" />
+          <ProductTryFirst ref="tryFirstBlock" :view="tryFirst" :city-code="pageCity" :product-name="product.name" />
         </view>
 
         <view
@@ -1045,16 +1073,32 @@ button::after {
 }
 
 .mall-product__floats {
-  position: absolute;
-  top: calc(var(--status-bar-height) + 4px);
-  right: 8px;
-  left: 8px;
+  position: fixed;
+  z-index: 10;
+  top: 0;
+  right: 0;
+  left: 0;
   display: flex;
+  padding: calc(var(--status-bar-height) + 4px) 8px 4px;
   align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
 }
 
-.mall-product__floats-gap {
+.mall-product__floats--solid {
+  box-shadow: 0 1px 0 #e5ebf3;
+}
+
+.mall-product__floats-title {
+  min-width: 0;
   flex: 1;
+  overflow: hidden;
+  color: #202c42;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mall-product__float {

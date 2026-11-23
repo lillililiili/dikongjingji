@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemDetailRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductExperienceRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductVenueRow;
@@ -20,6 +21,8 @@ interface ExperienceCatalogReadStore {
     long countExperienceItems(String type);
 
     List<ExperienceItemRow> findExperienceItems(String type, int limit, int offset);
+
+    Optional<ExperienceItemDetailRow> findExperienceItem(UUID experienceId);
 
     long countVenues(String cityCode);
 

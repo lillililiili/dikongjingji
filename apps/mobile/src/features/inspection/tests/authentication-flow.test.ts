@@ -523,8 +523,10 @@ describe('inspection login route and recovery', () => {
   it('redirects a missing or expired session to login instead of retrying anonymously', () => {
     expect(bookingHttpSource).toContain('beginBookingAuthenticationRecovery()')
     expect(bookingHttpSource).toContain(
-      "response.statusCode === 401 || error.code === 'COMMON_UNAUTHORIZED'",
+      "error.status === 401 || error.code === 'COMMON_UNAUTHORIZED'",
     )
+    // A 401 first tries one silent renewal with the refresh token (auth-refresh.test.ts).
+    expect(bookingHttpSource).toContain('accessTokenAfterUnauthorized(token)')
   })
 
 })

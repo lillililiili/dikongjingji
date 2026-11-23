@@ -21,6 +21,9 @@ import {
   buildInspectionDeliveryUrl,
   buildInspectionOrderCenterUrl,
 } from '../../../navigation/inspection-routes'
+import { openNodePayment } from '../../../application/service-flow/node-payment'
+import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
+import { describeDuePayment } from '../../shared/payment-view'
 import FulfillmentArrangementCard from '../components/FulfillmentArrangementCard.vue'
 import FulfillmentSummaryCard from '../components/FulfillmentSummaryCard.vue'
 import VisitTimeline from '../components/VisitTimeline.vue'
@@ -43,8 +46,22 @@ const latestLoad = createLatestRequestCoordinator()
 const pendingAcceptance = computed(() =>
   order.value ? describePendingAcceptance(order.value.visits) : null)
 const visitRows = computed(() => order.value
-  ? toVisitRows(order.value.visits, plan.value?.deliveryTerms?.reportDueHours ?? null)
+  ? toVisitRows(order.value.visits, plan.value?.deliveryTerms?.reportDueHours ?? null, order.value)
   : [])
+// S4-1: the smallest unpaid fee (or the down payment) — only where online payment is open.
+const duePayment = computed(() =>
+  TRADE_PREVIEW_ENABLED && order.value ? describeDuePayment(order.value) : null)
+const paying = ref(false)
+
+async function payDue(): Promise<void> {
+  if (!order.value || !duePayment.value || paying.value) return
+  paying.value = true
+  try {
+    await openNodePayment(order.value.id, duePayment.value.nodeNo)
+  } finally {
+    paying.value = false
+  }
+}
 const methodsText = computed(() =>
   plan.value?.serviceMethods?.map((method) => method.label).join(' + ') ?? '')
 
@@ -148,6 +165,19 @@ function showCustomerService(): void {
         :methods-text="methodsText"
         @open-delivery="openDelivery"
       />
+      <view v-if="duePayment" class="fulfillment__due" data-testid="fulfillment-due">
+        <view class="fulfillment__due-copy">
+          <text class="fulfillment__due-title">{{ duePayment.title }}</text>
+          <text class="fulfillment__due-note">{{ duePayment.note }}</text>
+        </view>
+        <button class="fulfillment__due-pay" :disabled="paying" data-testid="fulfillment-pay" @click="payDue">去支付</button>
+      </view>
+      <view v-if="order.status === 'CANCELLED'" class="fulfillment__due fulfillment__due--cancelled" data-testid="fulfillment-cancelled">
+        <view class="fulfillment__due-copy">
+          <text class="fulfillment__due-title">服务单已取消</text>
+          <text class="fulfillment__due-note">第 1 次巡检开始前取消；付过的首付原路退回</text>
+        </view>
+      </view>
       <view class="fulfillment__note">
         <LineIcon name="info" :size="14" color="#738096" />
         <text class="fulfillment__note-text">履约状态由服务商按实际作业更新，每次交付后由你验收</text>
@@ -174,6 +204,63 @@ function showCustomerService(): void {
   flex-direction: column;
   color: #191919;
   background: #f5f7fc;
+}
+
+/* S4-1: the fee reminder of board FulfillmentLater. */
+.fulfillment__due {
+  display: flex;
+  padding: 12px 14px;
+  align-items: center;
+  gap: 12px;
+  border-radius: 14px;
+  background: #fff0e3;
+}
+
+.fulfillment__due--cancelled {
+  background: #eef2f8;
+}
+
+.fulfillment__due-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fulfillment__due-title {
+  color: #ba470b;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 21px;
+}
+
+.fulfillment__due--cancelled .fulfillment__due-title {
+  color: #202c42;
+}
+
+.fulfillment__due-note {
+  color: #536178;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.fulfillment__due-pay {
+  height: 36px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid #ff6a00;
+  border-radius: 999px;
+  color: #ba470b;
+  background: #fff;
+  font-size: 13px;
+  line-height: 34px;
+  white-space: nowrap;
+}
+
+.fulfillment__due-pay::after {
+  border: 0;
 }
 
 .fulfillment__header {

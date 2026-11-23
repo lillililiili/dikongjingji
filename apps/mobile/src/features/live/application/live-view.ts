@@ -136,7 +136,7 @@ export function noticeView(room: Pick<LiveRoom, 'status' | 'scheduledAt' | 'repl
 
 export const LIVE_TAB = 'LIVE' as const
 export const LIVE_TAB_LABEL = '直播'
-export const LIVE_CHANNEL_NOTE = '平台内直播可互动、看讲解清单；交易在平台内完成，直播间不收款。'
+export const LIVE_CHANNEL_NOTE = '平台内直播可互动、看讲解清单，直播间不收款。'
 
 /**
  * The discover tabs with 直播 in the board's place: after 视频 when the channel list has one,
