@@ -85,13 +85,45 @@ describe('content API', () => {
 
     expect(http.urls).toEqual([`/api/v1/content/articles/f3000000-0000-4000-8000-000000000001?cityCode=${CITY}`])
     expect(article.blocks).toEqual([
-      { type: 'FACTS', text: null, items: [{ title: '场景', text: '物流园区夜间安防' }] },
-      { type: 'PARAGRAPH', text: '白天人多车多', items: [] },
-      { type: 'STEPS', text: null, items: [{ title: '白天踏勘，定路线', text: null }] },
+      { type: 'FACTS', text: null, items: [{ title: '场景', text: '物流园区夜间安防' }], image: null },
+      { type: 'PARAGRAPH', text: '白天人多车多', items: [], image: null },
+      { type: 'STEPS', text: null, items: [{ title: '白天踏勘，定路线', text: null }], image: null },
     ])
     expect(article.refs.map((ref) => `${ref.type}:${ref.title}`)).toEqual([
       'INSPECTION_SERVICE:园区综合巡检服务',
       'PRODUCT:巡检机器狗',
+    ])
+  })
+
+  it('maps picture blocks (1.3.0): HTTPS only, kept without a picture so a preview can fill it', async () => {
+    const http = fakeHttp({
+      ...articleCardDto(),
+      blocks: [
+        { type: 'STEPS', text: null, items: [{ title: '白天踏勘，定路线', text: null }] },
+        {
+          type: 'IMAGE',
+          text: 'ignored',
+          items: [],
+          image: { url: 'https://cdn.example/patrol.png', alt: ' 无人机在园区上空巡查 ', caption: ' 围墙外侧由无人机补充巡查 ' },
+        },
+        { type: 'IMAGE', text: null, items: [], image: { url: null, alt: '无人机在园区上空巡查', caption: null } },
+        { type: 'IMAGE', text: null, items: [], image: { url: 'http://cdn.example/plain.png', alt: '明文', caption: ' ' } },
+        { type: 'IMAGE', text: null, items: [] },
+      ],
+      refs: [],
+    })
+    const article = await createContentApi(http.client).loadArticle('f3000000-0000-4000-8000-000000000001', CITY)
+
+    expect(article.blocks).toEqual([
+      { type: 'STEPS', text: null, items: [{ title: '白天踏勘，定路线', text: null }], image: null },
+      {
+        type: 'IMAGE',
+        text: null,
+        items: [],
+        image: { url: 'https://cdn.example/patrol.png', alt: '无人机在园区上空巡查', caption: '围墙外侧由无人机补充巡查' },
+      },
+      { type: 'IMAGE', text: null, items: [], image: { url: null, alt: '无人机在园区上空巡查', caption: null } },
+      { type: 'IMAGE', text: null, items: [], image: { url: null, alt: '明文', caption: null } },
     ])
   })
 
@@ -110,5 +142,34 @@ describe('content API', () => {
     expect(topic.venueIds).toEqual(['v1'])
     expect(topic.articles).toHaveLength(1)
     expect(topic.publisher).toEqual({ kind: 'PLATFORM', organizationId: null, name: '东营城市运营中心' })
+    // An answer from before 1.3.0 has no merchant items.
+    expect(topic.merchantItems).toEqual([])
+  })
+
+  it('maps a topic\'s merchant items (1.3.0) once per product, always as a merchant', async () => {
+    const http = fakeHttp({
+      ...TOPIC,
+      cityCode: CITY,
+      activityIds: [],
+      venueIds: [],
+      articles: [],
+      merchantItems: [
+        { productId: 'c2000000-0000-4000-8000-000000000101', merchant: { kind: 'MERCHANT', organizationId: 'c1000000-0000-4000-8000-000000000001', name: ' 示例机器人商家 ' } },
+        { productId: 'c2000000-0000-4000-8000-000000000101', merchant: { kind: 'MERCHANT', organizationId: 'c1000000-0000-4000-8000-000000000001', name: '重复' } },
+        { productId: 'c2000000-0000-4000-8000-000000000401', merchant: { kind: 'PROVIDER', organizationId: 'f2000000-0000-4000-8000-000000000001', name: '鹰眼智能巡检' } },
+      ],
+    })
+    const topic = await createContentApi(http.client).loadTopic(TOPIC.topicId, CITY)
+
+    expect(topic.merchantItems).toEqual([
+      {
+        productId: 'c2000000-0000-4000-8000-000000000101',
+        merchant: { kind: 'MERCHANT', organizationId: 'c1000000-0000-4000-8000-000000000001', name: '示例机器人商家' },
+      },
+      {
+        productId: 'c2000000-0000-4000-8000-000000000401',
+        merchant: { kind: 'MERCHANT', organizationId: 'f2000000-0000-4000-8000-000000000001', name: '鹰眼智能巡检' },
+      },
+    ])
   })
 })

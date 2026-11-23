@@ -79,7 +79,7 @@ class LiveServiceTest {
             id -> id.equals(VIEWER) ? Optional.of("王女士（示例）") : id.equals(OTHER_VIEWER) ? Optional.of("张工")
                     : Optional.empty(),
             (account, room, title, host, at) -> notices.add(account + " " + room + " " + title + " " + host + " " + at),
-            (account, key, text) -> reports.add(account + " " + key + " " + text),
+            (account, key, text, room, comment) -> reports.add(account + " " + key + " " + text),
             new KeywordCommentFilter(List.of("加微信")),
             new Clock() {
                 @Override
@@ -485,6 +485,24 @@ class LiveServiceTest {
         assertThat(page.total()).isEqualTo(2);
         assertThat(page.items().getFirst().room().roomId()).isEqualTo(second);
         assertThat(service.streamTarget(second)).isEqualTo(new LiveStreamTarget(second, "s-" + second, EAGLE));
+    }
+
+    // 1.1.0：工作台按状态筛本机构的直播间；状态写错是 400。
+    @Test
+    void theHostListCanBeFilteredByStatus() {
+        UUID scheduled = room(EAGLE, "预告");
+        now = NOW.plusSeconds(1);
+        UUID live = room(EAGLE, "直播中");
+        mapper.rooms.get(live).status = "LIVE";
+        room(ROBOT, "别人的");
+
+        assertThat(service.hostRooms(EAGLE, "LIVE", 1, 10).items()).extracting(item -> item.room().roomId())
+                .containsExactly(live);
+        assertThat(service.hostRooms(EAGLE, "SCHEDULED", 1, 10).items()).extracting(item -> item.room().roomId())
+                .containsExactly(scheduled);
+        assertThat(service.hostRooms(EAGLE, "ENDED", 1, 10).total()).isZero();
+        assertThat(service.hostRooms(EAGLE, " ", 1, 10).total()).isEqualTo(2);
+        assertThatThrownBy(() -> service.hostRooms(EAGLE, "OPEN", 1, 10)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

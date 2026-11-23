@@ -105,7 +105,8 @@ final class PostgresActivityCatalogReadStore implements ActivityCatalogReadStore
                         row.seatNote(),
                         row.refundNote(),
                         row.waitlistAllowed(),
-                        row.teamEnrollmentAllowed()));
+                        row.teamEnrollmentAllowed(),
+                        row.enrollmentNotice()));
     }
 
     @Override
@@ -119,7 +120,13 @@ final class PostgresActivityCatalogReadStore implements ActivityCatalogReadStore
                         row.checkInOpensAt(),
                         row.enrollmentClosesAt(),
                         row.capacity(),
-                        row.enrolledCount()))
+                        row.enrolledCount(),
+                        row.saleStopped()))
                 .toList();
+    }
+
+    @Override
+    public List<String> findGallery(UUID activityId) {
+        return mapper.findGallery(activityId);
     }
 }

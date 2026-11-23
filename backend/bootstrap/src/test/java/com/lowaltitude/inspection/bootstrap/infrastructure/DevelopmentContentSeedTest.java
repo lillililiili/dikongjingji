@@ -97,9 +97,25 @@ class DevelopmentContentSeedTest {
             };
             assertThat(source).as(refs.group(1) + " " + id).contains(id);
         }
-        // 12 个关联对象 + 专题的 3 个活动、1 个场馆。
-        assertThat(found).isEqualTo(16);
+        // 12 个关联对象 + 专题的 3 个活动、1 个场馆、1 件商家内容的商品（1.3.0）。
+        assertThat(found).isEqualTo(17);
         assertThat(sql).contains("'ARTICLE', 'f3000000-0000-4000-8000-000000000001'");
+        // 1.3.0 商家内容：商品和发布商家都是商城开发数据里的。
+        assertThat(sql).contains("'PRODUCT', 'c2000000-0000-4000-8000-000000000101',\n"
+                + "        'c1000000-0000-4000-8000-000000000001', '示例机器人商家'");
+        assertThat(mall).contains("('c1000000-0000-4000-8000-000000000001', 'DEV-MALL-ROBOT-MAKER', '示例机器人商家'");
+    }
+
+    // 1.3.0 正文配图（画板 ContentArticle）：机器狗夜巡案例“怎么巡”后面一张图，没有授权图片，地址为空。
+    @Test
+    void theDogPatrolCaseHasItsPictureAfterTheSteps() throws Exception {
+        String sql = seed();
+
+        assertThat(sql).contains("(md5('dev-content-block:1:6')::uuid, 'f3000000-0000-4000-8000-000000000001', 60, 'STEPS', NULL)")
+                .contains("VALUES (md5('dev-content-block:1:7')::uuid, 'f3000000-0000-4000-8000-000000000001', 70, "
+                        + "'IMAGE', NULL, NULL,\n        '无人机在园区上空巡查', '围墙外侧由无人机补充巡查，机器狗负责地面路线');")
+                .doesNotContain("70, 'TIP', '围墙外侧");
+        assertThat(count(sql, "'IMAGE'")).isEqualTo(1);
     }
 
     // 1.2.0：六条示例视频（画板 Discover、VideoFeed），没有播放地址和封面（预览构建用 App 内的示例视频），

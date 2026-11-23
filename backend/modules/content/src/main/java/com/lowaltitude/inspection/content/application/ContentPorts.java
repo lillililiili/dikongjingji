@@ -17,9 +17,10 @@ public final class ContentPorts {
 
     /**
      * 客服模块：把举报记成一条“内容有误”的反馈，返回反馈 ID。同一账号带同一个幂等键再记，返回第一次那条。
+     * S3-1 起带上被举报的评论和它所在的视频，运营端据此隐藏评论。
      */
     public interface Reports {
 
-        UUID record(UUID accountId, UUID idempotencyKey, String text);
+        UUID record(UUID accountId, UUID idempotencyKey, String text, UUID commentId, UUID videoId);
     }
 }

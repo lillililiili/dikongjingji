@@ -1,5 +1,7 @@
 packages:
   - apps/*
+  # 运营端用 npm 和自己的 package-lock.json（S3-1），不进 pnpm 工作区。
+  - '!apps/admin'
 
 allowBuilds:
   '@parcel/watcher': true

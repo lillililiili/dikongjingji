@@ -96,7 +96,13 @@ public class ContentReadService {
         List<ContentBlockView> blocks = new ArrayList<>();
         for (BlockRow block : mapper.findBlocks(articleId)) {
             ContentBlockType type = ContentBlockType.valueOf(block.blockType());
-            blocks.add(new ContentBlockView(type, block.text(), List.copyOf(items.getOrDefault(block.id(), List.of()))));
+            // 1.3.0 配图：地址只给受控 HTTPS 的，没有时 url 为 null（页面决定显示不显示）。
+            ContentBlockImageView image = type == ContentBlockType.IMAGE
+                    ? new ContentBlockImageView(secureUrl(block.imageUrl()), block.imageAlt(),
+                            blankToNull(block.imageCaption()))
+                    : null;
+            blocks.add(new ContentBlockView(type, block.text(), List.copyOf(items.getOrDefault(block.id(), List.of())),
+                    image));
         }
         ContentArticleCardView card = card(row);
         return new ContentArticleView(card.articleId(), card.kind(), card.title(), card.author(), card.sponsored(),
@@ -119,6 +125,7 @@ public class ContentReadService {
         List<UUID> activities = new ArrayList<>();
         List<UUID> venues = new ArrayList<>();
         List<ContentArticleCardView> articles = new ArrayList<>();
+        List<ContentTopicMerchantItemView> merchantItems = new ArrayList<>();
         OffsetDateTime now = now();
         for (TopicItemRow item : mapper.findTopicItems(topicId)) {
             switch (item.itemType()) {
@@ -131,13 +138,16 @@ public class ContentReadService {
                         articles.add(card(article));
                     }
                 }
+                // 1.3.0 商家内容：商品是否还在本城卖由页面到商城读，读不到就不显示。
+                case "PRODUCT" -> merchantItems.add(new ContentTopicMerchantItemView(item.itemId(),
+                        new ContentAuthorView(ContentAuthorKind.MERCHANT, item.merchantOrgId(), item.merchantName())));
                 default -> throw new IllegalStateException("unknown topic item type " + item.itemType());
             }
         }
         ContentTopicCardView card = topicCard(row);
         return new ContentTopicView(card.topicId(), card.title(), card.subtitle(), card.publisher(), row.cityCode(),
                 card.startsOn(), card.endsOn(), card.coverImage(), card.sample(), List.copyOf(activities),
-                List.copyOf(venues), List.copyOf(articles));
+                List.copyOf(venues), List.copyOf(articles), List.copyOf(merchantItems));
     }
 
     /**

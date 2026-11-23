@@ -1,7 +1,10 @@
 package com.lowaltitude.inspection.content.application;
 
+import com.lowaltitude.inspection.content.application.ops.ContentOpsPorts;
+import com.lowaltitude.inspection.content.application.ops.ContentOpsService;
 import com.lowaltitude.inspection.content.infrastructure.ContentWordListFilter;
 import com.lowaltitude.inspection.content.infrastructure.persistence.ContentMapper;
+import com.lowaltitude.inspection.content.infrastructure.persistence.ContentOpsMapper;
 import com.lowaltitude.inspection.content.infrastructure.persistence.ContentVideoMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -39,5 +42,17 @@ public class ContentApplicationConfiguration {
             ContentTextFilter filter
     ) {
         return new ContentVideoService(contentMapper, videoMapper, profiles, reports, filter);
+    }
+
+    /** S3-1 运营端“发现内容”：机构、城市、商品由启动模块接上（ContentOpsPortsConfiguration）。 */
+    @Bean
+    ContentOpsService contentOpsService(
+            ContentOpsMapper opsMapper,
+            ContentMapper contentMapper,
+            ContentOpsPorts.Organizations organizations,
+            ContentOpsPorts.Cities cities,
+            ContentOpsPorts.Products products
+    ) {
+        return new ContentOpsService(opsMapper, contentMapper, organizations, cities, products);
     }
 }

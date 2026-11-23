@@ -14,6 +14,7 @@ import { resolveContentRefs, type ContentRefView } from '../../application/conte
 import {
   CONTENT_KIND_LABELS,
   articleCoverTone,
+  articleFigures,
   articleMetaLine,
 } from '../../application/content-view'
 import { contentApi } from '../../data/content-api-client'
@@ -64,6 +65,8 @@ const consultLabel = computed(() => {
   return author.kind === 'PROVIDER' ? '咨询服务商' : author.kind === 'MERCHANT' ? '咨询商家' : ''
 })
 const primaryRef = computed(() => refs.value?.[0] ?? null)
+// (1.3.0) The pictures of the IMAGE blocks, one entry per block; null where there is none to draw.
+const figures = computed(() => (article.value ? articleFigures(article.value) : []))
 const hasBar = computed(() => Boolean(FAVORITE_PREVIEW_ENABLED || consultLabel.value || primaryRef.value))
 
 // The head picture: the server's, otherwise (preview builds) the board's.
@@ -247,6 +250,11 @@ void load()
             <text>{{ block.text }}</text>
           </view>
           <text v-else-if="block.type === 'NOTICE'" class="article__notice">{{ block.text }}</text>
+          <!-- 1.3.0 正文配图（画板 ContentArticle“怎么巡”后面那张）：358×190 圆角图，下面居中的图注。 -->
+          <view v-else-if="block.type === 'IMAGE' && figures[index]" class="article__figure" data-testid="content-article-figure">
+            <image class="article__figure-image" :src="figures[index]?.url" mode="aspectFill" :aria-label="figures[index]?.alt" />
+            <text v-if="figures[index]?.caption" class="article__figure-caption" data-testid="content-article-figure-caption">{{ figures[index]?.caption }}</text>
+          </view>
         </template>
       </view>
 
@@ -635,6 +643,29 @@ button::after {
   color: #738096;
   font-size: 12px;
   line-height: 18px;
+}
+
+.article__figure {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.article__figure-image {
+  display: block;
+  width: 100%;
+  height: 190px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #eef2f8;
+}
+
+.article__figure-caption {
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+  text-align: center;
 }
 
 .article__refs {

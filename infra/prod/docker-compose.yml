@@ -1,0 +1,181 @@
+# 生产部署（S2-4）。说明、首次部署、发布与回滚见 docs/ops/部署与回滚.md。
+#
+#   docker compose --env-file /etc/low-altitude/prod.env -f infra/prod/docker-compose.yml config
+#   docker compose --env-file /etc/low-altitude/prod.env -f infra/prod/docker-compose.yml up -d
+#
+# 只有 nginx 对外开 80/443；数据库、Redis、MinIO、后端都只在内部网络里。
+# 环境变量的名字和说明见 infra/prod/.env.example；真实值只放服务器上的 /etc/low-altitude/prod.env（权限 600）。
+name: low-altitude-prod
+
+x-logging: &logging
+  # 容器日志按大小轮转：每个容器最多 5 个 20 MB 的文件。
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${LA_DB_NAME:?set LA_DB_NAME}
+      POSTGRES_USER: ${LA_DB_USERNAME:?set LA_DB_USERNAME}
+      POSTGRES_PASSWORD: ${LA_DB_PASSWORD:?set LA_DB_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - ${LA_DATA_DIR:?set LA_DATA_DIR}/postgres:/var/lib/postgresql/data
+    networks: [internal]
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging: *logging
+
+  redis:
+    image: redis:7.2.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${LA_REDIS_PASSWORD:?set LA_REDIS_PASSWORD}
+    # 只做缓存、限流和请求去重（AGENTS.md §4），丢了不影响业务事实；仍开 AOF，重启后去重记录还在。
+    command: ["sh", "-ec", 'exec redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru --requirepass "$$REDIS_PASSWORD"']
+    volumes:
+      - ${LA_DATA_DIR}/redis:/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    logging: *logging
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${LA_MINIO_ACCESS_KEY:?set LA_MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${LA_MINIO_SECRET_KEY:?set LA_MINIO_SECRET_KEY}
+    # 管理控制台不对外：只绑本机回环，要用时 ssh -L 9001:127.0.0.1:9001 登上服务器再开。
+    ports:
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - ${LA_DATA_DIR}/minio:/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live >/dev/null"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    logging: *logging
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    environment:
+      LA_ENVIRONMENT: ${LA_ENVIRONMENT:?set LA_ENVIRONMENT}
+      LA_MINIO_ACCESS_KEY: ${LA_MINIO_ACCESS_KEY}
+      LA_MINIO_SECRET_KEY: ${LA_MINIO_SECRET_KEY}
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks: [internal]
+    restart: "no"
+    entrypoint: ["/bin/sh", "-ec"]
+    # 预约附件的隔离桶和私有桶（巡检）匿名不可读；public-assets 桶只放已授权的展示图（docs/ops/授权图片替换.md），匿名只读。
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${LA_MINIO_ACCESS_KEY}" "$${LA_MINIO_SECRET_KEY}";
+        mc mb --ignore-existing "local/$${LA_ENVIRONMENT}-inspection-quarantine";
+        mc anonymous set none "local/$${LA_ENVIRONMENT}-inspection-quarantine";
+        mc mb --ignore-existing "local/$${LA_ENVIRONMENT}-inspection-private";
+        mc anonymous set none "local/$${LA_ENVIRONMENT}-inspection-private";
+        mc mb --ignore-existing "local/$${LA_ENVIRONMENT}-public-assets";
+        mc anonymous set download "local/$${LA_ENVIRONMENT}-public-assets";
+    logging: *logging
+
+  backend:
+    image: low-altitude/backend:${LA_BACKEND_TAG:?set LA_BACKEND_TAG}
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    # 全部变量都从同一个文件来（微信支付、天气、直播等），下面 environment 里的只是把内部地址固定住。
+    env_file:
+      - ${LA_ENV_FILE:-/etc/low-altitude/prod.env}
+    environment:
+      # 不用 dev：dev 会灌开发账号和示例数据，并打开开发控制接口。
+      SPRING_PROFILES_ACTIVE: prod
+      # 后端在 nginx 后面：按 X-Forwarded-For 认客户端地址（限流按它算），只信内部网络里的代理。
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      TZ: Asia/Shanghai
+      JAVA_TOOL_OPTIONS: ${LA_BACKEND_JAVA_OPTS:--XX:MaxRAMPercentage=75}
+      INSPECTION_ENVIRONMENT: ${LA_ENVIRONMENT}
+      INSPECTION_DB_URL: jdbc:postgresql://postgres:5432/${LA_DB_NAME}
+      INSPECTION_DB_USERNAME: ${LA_DB_USERNAME}
+      INSPECTION_DB_PASSWORD: ${LA_DB_PASSWORD}
+      INSPECTION_REDIS_HOST: redis
+      INSPECTION_REDIS_PORT: "6379"
+      INSPECTION_REDIS_PASSWORD: ${LA_REDIS_PASSWORD}
+      INSPECTION_MINIO_ENABLED: "true"
+      INSPECTION_MINIO_ENDPOINT: http://minio:9000
+      INSPECTION_MINIO_PUBLIC_ENDPOINT: https://${LA_FILES_DOMAIN:?set LA_FILES_DOMAIN}
+      INSPECTION_MINIO_ACCESS_KEY: ${LA_MINIO_ACCESS_KEY}
+      INSPECTION_MINIO_SECRET_KEY: ${LA_MINIO_SECRET_KEY}
+      INSPECTION_CORS_ALLOWED_ORIGINS: https://${LA_H5_DOMAIN:?set LA_H5_DOMAIN}
+      LIVE_STREAM_PROVIDER: ${LIVE_STREAM_PROVIDER:-none}
+    volumes:
+      # 微信支付的两个 PEM，按宿主机上的同一路径只读挂进来（docs/ops/微信支付联调清单.md §2）。
+      - ${LA_SECRETS_DIR:-/etc/low-altitude/secrets}/wechat:/etc/low-altitude/secrets/wechat:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    networks: [internal]
+    healthcheck:
+      # 和镜像里的 HEALTHCHECK 相同：/actuator/health 只回 {"status":"UP"}，不带细节。
+      test: ["CMD", "bash", "-ec", 'exec 3<>/dev/tcp/127.0.0.1/8080; printf "GET /actuator/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3; grep -q "\"status\":\"UP\"" <&3']
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 6
+    logging: *logging
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    environment:
+      LA_API_DOMAIN: ${LA_API_DOMAIN:?set LA_API_DOMAIN}
+      LA_H5_DOMAIN: ${LA_H5_DOMAIN}
+      LA_FILES_DOMAIN: ${LA_FILES_DOMAIN}
+      LA_ENVIRONMENT: ${LA_ENVIRONMENT}
+      TZ: Asia/Shanghai
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+      # HTTPS 证书：fullchain.pem 和 privkey.pem，一张覆盖三个域名（SAN 或通配符）。
+      - ${LA_TLS_DIR:-/etc/low-altitude/tls}:/etc/nginx/tls:ro
+      # H5 静态站点：${LA_WEB_DIR}/current 指向 releases/<版本>（相对链接），回滚只切链接。
+      - ${LA_WEB_DIR:-/srv/low-altitude/web}:/srv/web:ro
+      # 证书续期用的 HTTP-01 验证目录。
+      - ${LA_ACME_DIR:-/srv/low-altitude/acme}:/srv/acme:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/nginx-health || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    logging: *logging
+
+networks:
+  internal:
+    driver: bridge

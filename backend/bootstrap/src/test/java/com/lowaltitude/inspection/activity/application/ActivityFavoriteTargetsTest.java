@@ -44,12 +44,12 @@ class ActivityFavoriteTargetsTest {
 
     private static ActivityDetailView activity(ActivityPriceView price, List<ActivitySessionView> sessions) {
         return new ActivityDetailView(UUID.randomUUID(), ActivityType.CONTEST, "青少年无人机编程挑战赛（东营站）", null,
-                new ActivityMediaView("https://img.example.com/contest.jpg", "比赛"), price, null,
-                ActivityEnrollmentStatus.OPEN, null, null, null, null, null, null, null, false, false, sessions);
+                new ActivityMediaView("https://img.example.com/contest.jpg", "比赛"), List.of(), price, null,
+                ActivityEnrollmentStatus.OPEN, null, null, null, null, null, null, null, null, false, false, sessions);
     }
 
     private static ActivitySessionView session(String startsAt, String endsAt) {
         return new ActivitySessionView(UUID.randomUUID(), "场次", OffsetDateTime.parse(startsAt),
-                OffsetDateTime.parse(endsAt), null, null, 30, 10, ActivityEnrollmentStatus.OPEN);
+                OffsetDateTime.parse(endsAt), null, null, 30, 10, ActivityEnrollmentStatus.OPEN, false);
     }
 }

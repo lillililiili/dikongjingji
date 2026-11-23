@@ -54,6 +54,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway opsimport(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/opsimport",
+                "flyway_history_opsimport",
+                true);
+    }
+
     public Flyway trade(DataSource dataSource) {
         return build(
                 dataSource,

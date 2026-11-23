@@ -61,6 +61,7 @@ function offer(merchantId: string, kind: MallOffer['merchantKind'], amountMinor:
     shippingNote: null,
     fulfilledFrom: null,
     onlinePayment: true,
+    stockQuantity: null,
     ...extra,
   }
 }
@@ -77,6 +78,10 @@ function product(productId: string, overrides: Partial<MallProductDetail>): Mall
     offers: [],
     specs: [],
     packItems: [],
+    sellingPoints: [],
+    skus: [],
+    gallery: [],
+    introBlocks: [],
     ...overrides,
   }
 }

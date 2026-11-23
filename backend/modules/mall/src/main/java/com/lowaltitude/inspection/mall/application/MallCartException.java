@@ -9,7 +9,9 @@ public final class MallCartException extends RuntimeException {
         NOT_SOLD_IN_CITY,
         CART_FULL,
         MULTIPLE_MERCHANTS,
-        ITEM_UNAVAILABLE
+        ITEM_UNAVAILABLE,
+        /** 暂时缺货，或要加的数量（含购物车里已有的）超过现货（cart 1.2.0）。 */
+        OUT_OF_STOCK
     }
 
     private final Error error;

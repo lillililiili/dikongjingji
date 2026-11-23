@@ -29,7 +29,7 @@ class SupportMapperContractTest {
         Map<String, String> statements = statements();
 
         assertThat(statements).hasSize(SupportMapper.class.getDeclaredMethods().length);
-        assertThat(statements).hasSize(23);
+        assertThat(statements).hasSize(29);
         assertThat(statements.values()).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
         // 没有删除和改消息内容的语句：消息只追加。
         assertThat(statements.values()).noneMatch(sql -> sql.contains("DELETE"))
@@ -97,7 +97,7 @@ class SupportMapperContractTest {
         assertThat(normalized(sql("findFeedbackByKey")))
                 .endsWith("WHERE account_id = #{accountId} AND idempotency_key = #{idempotencyKey}");
         assertThat(normalized(sql("insertConversation"))).endsWith("ON CONFLICT DO NOTHING");
-        for (String method : List.of("insertMessage", "insertFeedback")) {
+        for (String method : List.of("insertMessage", "insertFeedback", "insertReportFeedback")) {
             assertThat(normalized(sql(method))).as(method).contains("RETURNING id");
             Options options = method(method).getAnnotation(Options.class);
             assertThat(options).as(method).isNotNull();
@@ -138,6 +138,44 @@ class SupportMapperContractTest {
         String returning = normalized(sql("insertFeedback"));
         assertThat(returning.substring(returning.indexOf("RETURNING ") + "RETURNING ".length()))
                 .isEqualTo("id, account_id, feedback_type, body, request_hash, created_at");
+    }
+
+    // S3-1：运营端处理反馈只按处理状态和来源筛，只处理一次（还是待处理、版本号对得上才改）；举报记来源和对象。
+    @Test
+    void opsFeedbackStatementsFilterOnlyByStatusAndSourceAndHandleOnce() {
+        String filter = "WHERE (CAST(#{handleStatus} AS varchar) IS NULL OR f.handle_status = #{handleStatus})"
+                + " AND (CAST(#{source} AS varchar) IS NULL OR f.source = #{source})";
+        assertThat(normalized(SupportMapper.OPS_FEEDBACK_FILTER)).isEqualTo(filter);
+        for (String method : List.of("countOpsFeedback", "findOpsFeedback")) {
+            assertThat(normalized(sql(method))).as(method).contains(filter);
+        }
+        assertThat(normalized(sql("findOpsFeedback"))).endsWith("LIMIT #{limit} OFFSET #{offset}");
+        assertThat(normalized(sql("handleFeedback")))
+                .contains("SET handle_status = 'HANDLED', handle_note = #{note}, handled_at = #{at},"
+                        + " handled_by = #{handlerId}, handled_by_name = #{handlerName}, version = version + 1")
+                .endsWith("WHERE id = #{feedbackId} AND handle_status = 'PENDING' AND version = #{version}");
+        assertThat(normalized(sql("insertReportFeedback")))
+                .contains("#{source}, #{targetId}, #{targetParentId}");
+        assertThat(aliases(SupportMapper.OPS_FEEDBACK_COLUMNS))
+                .containsExactlyElementsOf(fields(SupportMapper.OpsFeedbackRow.class));
+        String returning = normalized(sql("insertReportFeedback"));
+        assertThat(returning.substring(returning.indexOf("RETURNING ") + "RETURNING ".length()))
+                .isEqualTo("id, account_id, feedback_type, body, request_hash, created_at");
+    }
+
+    @Test
+    void handlingMigrationKeepsTheRulesInTheDatabase() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream("/db/migration/support/V002__support_feedback_handling.sql")) {
+            assertThat(stream).isNotNull();
+            migration = normalized(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+        }
+        assertThat(migration)
+                .contains("source IN (" + codes("SupportFeedbackSource") + ")")
+                .contains("handle_status IN (" + codes("SupportFeedbackHandleStatus") + ")")
+                .contains("handle_note varchar(200)")
+                .contains("CHECK ((source = 'USER') = (target_id IS NULL) AND (target_id IS NULL) = (target_parent_id IS NULL))")
+                .doesNotContain("INSERT INTO").doesNotContain("UPDATE ").doesNotContain("DROP ");
     }
 
     @Test

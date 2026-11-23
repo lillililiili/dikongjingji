@@ -5,7 +5,7 @@ import { buildContentArticleUrl, buildContentVideoUrl } from '../../content/navi
 import { buildVenueDetailUrl } from '../../experience/navigation/experience-routes'
 import { buildInspectionDetailUrl, normalizeInspectionReturnUrl } from '../../inspection/navigation/inspection-routes'
 import { buildMallProductUrl } from '../../mall/navigation/mall-routes'
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import { buildProServiceDetailUrl } from '../../proservice/navigation/proservice-routes'
 import pagesJson from '../../../pages.json?raw'
 import favoriteFlagSource from '../application/favorite-preview.ts?raw'
@@ -81,9 +81,8 @@ describe('favorite routes', () => {
   })
 })
 
-describe('favorite preview flag', () => {
-  it('uses exactly the expression of the shared preview flag', () => {
-    expect(flagExpression(favoriteFlagSource, 'FAVORITE_PREVIEW_ENABLED'))
-      .toBe(flagExpression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+describe('favorite release switch', () => {
+  it('reads its own compile-time constant (release switch FAVORITE)', () => {
+    expect(flagExpression(favoriteFlagSource, 'FAVORITE_PREVIEW_ENABLED')).toBe(moduleFlagExpression('FAVORITE'))
   })
 })

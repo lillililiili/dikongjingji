@@ -57,12 +57,12 @@ class MallFavoriteTargetsTest {
     private static MallProductDetailView product(MallSaleMode mode, List<MallOfferView> offers) {
         return new MallProductDetailView(PRODUCT, MallCategory.ROBOT, "编程机器人探索套装", null,
                 new MallMediaView("https://img.example.com/kit.jpg", "编程机器人探索套装"), mode, null, offers, List.of(),
-                List.of());
+                List.of(), List.of(), List.of(), List.of(), List.of());
     }
 
     private static MallOfferView offer(UUID merchant, Long amount, MallPriceUnit unit) {
         return new MallOfferView(UUID.randomUUID(), UUID.randomUUID(), "标准套装",
                 new MallMerchantView(merchant, "示例商家", MallMerchantKind.FACTORY_DIRECT), amount, "CNY", unit, null,
-                null, null, true);
+                null, null, true, null);
     }
 }

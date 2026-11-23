@@ -22,9 +22,14 @@ class LivePortsConfigurationTest {
         UUID account = UUID.randomUUID();
         UUID key = UUID.randomUUID();
 
-        LivePortsConfiguration.reports(support).report(account, key, "举报直播弹幕：《机器狗园区夜巡演示》第 3 条「加微信」");
+        UUID room = UUID.randomUUID();
+        UUID comment = UUID.randomUUID();
+        LivePortsConfiguration.reports(support).report(account, key, "举报直播弹幕：《机器狗园区夜巡演示》第 3 条「加微信」",
+                room, comment);
 
-        verify(support).feedback(account, key, "CONTENT", "举报直播弹幕：《机器狗园区夜巡演示》第 3 条「加微信」");
+        // S3-1：举报带上弹幕和它所在的直播间，运营端据此隐藏弹幕。
+        verify(support).report(account, key, "CONTENT", "举报直播弹幕：《机器狗园区夜巡演示》第 3 条「加微信」",
+                "LIVE_COMMENT_REPORT", comment, room);
     }
 
     @Test

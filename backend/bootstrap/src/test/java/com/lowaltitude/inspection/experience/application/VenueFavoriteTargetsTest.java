@@ -31,7 +31,7 @@ class VenueFavoriteTargetsTest {
 
     private static VenueDetailView venue(List<VenueProjectView> projects) {
         return new VenueDetailView(UUID.randomUUID(), "东营低空体验馆", null, null, "东营区示例路 1 号", null, null, null,
-                new VenueOperatorView(UUID.randomUUID(), "示例运营机构"), projects, List.of(), 0);
+                new VenueOperatorView(UUID.randomUUID(), "示例运营机构"), projects, List.of(), 0, null);
     }
 
     private static VenueProjectView project(long price) {

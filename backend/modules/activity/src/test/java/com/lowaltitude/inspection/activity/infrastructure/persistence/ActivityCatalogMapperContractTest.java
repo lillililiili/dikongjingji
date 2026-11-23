@@ -20,7 +20,7 @@ class ActivityCatalogMapperContractTest {
     void everyQueryBindsItsParametersAndNeverInterpolatesText() {
         List<String> statements = statements();
 
-        assertThat(statements).hasSize(5);
+        assertThat(statements).hasSize(6);
         assertThat(statements).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
     }
 
@@ -49,7 +49,18 @@ class ActivityCatalogMapperContractTest {
     @Test
     void cardPrefersTheEarliestSessionThatCanStillBeBooked() throws Exception {
         assertThat(sql("findListedPage")).contains(
-                "ORDER BY (s.enrollment_closes_at > #{now} AND s.enrolled_count < s.capacity) DESC,");
+                "ORDER BY (s.sale_status = 'ON_SALE' AND s.enrollment_closes_at > #{now}");
+    }
+
+    // S3-1：停售的场次不算“还能报名”，也不算“已满”（读成报名截止）。
+    @Test
+    void stoppedSessionsNeverCountAsOpenOrFull() throws Exception {
+        assertThat(ActivityCatalogMapper.LISTED_ACTIVITY_FILTER).contains("open_session.sale_status = 'ON_SALE'");
+        assertThat(sql("findListedPage"))
+                .contains("open_session.sale_status = 'ON_SALE'")
+                .contains("full_session.sale_status = 'ON_SALE'");
+        assertThat(sql("findActiveSessions")).contains("s.sale_status = 'STOPPED' sale_stopped");
+        assertThat(sql("findGallery")).contains("ORDER BY g.sort_order ASC");
     }
 
     @Test

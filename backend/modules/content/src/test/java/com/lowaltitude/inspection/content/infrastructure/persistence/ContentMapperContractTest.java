@@ -88,6 +88,29 @@ class ContentMapperContractTest {
         assertThat(migration).doesNotContain("REFERENCES support_").doesNotContain("INSERT INTO");
     }
 
+    // S3-1 运营端：正文配图块、专题商家内容和改动记录；已发布的块和条目照旧满足新约束，不带数据。
+    @Test
+    void theV004MigrationAddsImageBlocksAndMerchantItems() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream("/db/migration/content/V004__content_ops.sql")) {
+            assertThat(stream).isNotNull();
+            migration = normalized(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+        }
+        assertThat(migration)
+                .contains("ALTER TABLE content_article_block DROP CONSTRAINT content_article_block_block_type_check;")
+                .contains("block_type IN (" + codes("ContentBlockType") + ")")
+                .contains("CHECK ((block_type IN ('FACTS', 'STEPS', 'LIST', 'IMAGE')) = (text IS NULL))")
+                .contains("ADD COLUMN image_url varchar(500) CHECK (image_url IS NULL OR image_url LIKE 'https://%')")
+                .contains("CHECK ((block_type = 'IMAGE') = (image_alt IS NOT NULL))")
+                .contains("ALTER TABLE content_topic_item DROP CONSTRAINT content_topic_item_item_type_check;")
+                .contains("CHECK (item_type IN ('ACTIVITY', 'VENUE', 'ARTICLE', 'PRODUCT'))")
+                .contains("CHECK ((item_type = 'PRODUCT') = (merchant_org_id IS NOT NULL AND merchant_name IS NOT NULL))")
+                .contains("CREATE TABLE content_ops_change (")
+                .contains("action varchar(16) NOT NULL CHECK (action IN ('CREATE', 'UPDATE', 'PUBLISH', 'OFFLINE'))");
+        assertThat(migration).doesNotContain("REFERENCES mall_").doesNotContain("INSERT INTO")
+                .doesNotContain("DELETE FROM").doesNotContain("UPDATE content_");
+    }
+
     // R6-3 相关内容：提到这个对象（类型和 ID 都要对上）的、城市可见的内容，新发布的在前，有上限。
     @Test
     void relatedContentIsFoundThroughTheMentions() {
@@ -187,7 +210,8 @@ class ContentMapperContractTest {
                 .contains("kind IN ('CASE', 'KNOWLEDGE')")
                 .contains("author_kind IN (" + codes("ContentAuthorKind") + ")")
                 .contains("publisher_kind IN (" + codes("ContentAuthorKind") + ")")
-                .contains("block_type IN (" + codes("ContentBlockType") + ")")
+                // V001 是最初的七种，IMAGE 由 V004 加上（theV004MigrationAddsImageBlocksAndMerchantItems）。
+                .contains("block_type IN ('PARAGRAPH', 'HEADING', 'FACTS', 'STEPS', 'LIST', 'TIP', 'NOTICE')")
                 .contains("ref_type IN (" + codes("ContentRefType") + ")")
                 .contains("item_type IN ('ACTIVITY', 'VENUE', 'ARTICLE')");
     }

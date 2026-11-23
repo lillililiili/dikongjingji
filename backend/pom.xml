@@ -31,5 +31,6 @@
         <module>modules/content</module>
         <module>modules/live</module>
         <module>modules/favorite</module>
+        <module>modules/opsimport</module>
     </modules>
 </project>
