@@ -3,6 +3,7 @@ package com.lowaltitude.inspection.activity.application;
 import java.time.Clock;
 
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityCatalogMapper;
+import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityCheckinMapper;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.ObjectProvider;
@@ -48,5 +49,11 @@ public class ActivityApplicationConfiguration {
                 payments.getIfAvailable(ActivityPaymentPort::unavailable),
                 new TransactionTemplate(transactionManager),
                 notifier.getIfAvailable(ActivityEnrollmentNotifier::none));
+    }
+
+    /** 核销工作台（S3-3）里活动凭证的一半；和场馆的一半由启动模块的工作台接口合在一起。 */
+    @Bean
+    ActivityCheckinDesk activityCheckinDesk(ActivityCheckinMapper mapper) {
+        return new ActivityCheckinDesk(mapper, Clock.systemUTC());
     }
 }

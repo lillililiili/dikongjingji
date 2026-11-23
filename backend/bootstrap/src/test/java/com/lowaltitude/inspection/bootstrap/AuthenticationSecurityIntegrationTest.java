@@ -263,6 +263,26 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
 
+    // 核销工作台（S3-3）的五个接口全部要登录；登录了但不是服务商操作员是 403（没接数据库时工作台为空也一样）。
+    @Test
+    void checkinWorkbenchRoutesRequireALoginAndAnOperator() throws Exception {
+        String record = "/api/v1/checkin-workbench/records/ACTIVITY/a7000000-0000-4000-8000-000000000001";
+        for (var request : List.of(
+                get("/api/v1/checkin-workbench"),
+                get("/api/v1/checkin-workbench/records"),
+                get(record),
+                post("/api/v1/checkin-workbench/verifications"),
+                post(record + "/resolution"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        mockMvc.perform(get("/api/v1/checkin-workbench")
+                        .header("Authorization", "Bearer " + signedToken(List.of(), 7)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+    }
+
     // 参与人、报名、核销全部要登录：公开的只有 /api/v1/activities 下的三个读取接口。
     @Test
     void activityParticipantEnrollmentAndCheckinRoutesRequireALogin() throws Exception {

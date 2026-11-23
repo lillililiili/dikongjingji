@@ -1,0 +1,572 @@
+openapi: "3.1.0"
+info:
+  title: "Check-in Workbench API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（2026-11-23，S3-3，docs/redesign/08-后续开发计划.md §5 默认决定 D8）：App 内“工作模式”的核销工作台。
+    活动的主办或承办机构、场馆的运营机构的操作员在 App 里扫码或输码核销活动报名凭证（ACT-…）和到馆预约核销码（VEN-…），
+    看本机构当天的场次、本人的核销记录，并对被拦下的凭证做人工处理。名单和权限在 Web 运营端，不在这里。
+    活动凭证由活动模块（contracts/openapi-activity.yaml）、到馆预约由体验模块（contracts/openapi-experience.yaml）处理，
+    这个接口把两边合在一起；两份契约原有的 POST /api/v1/activity-checkins、POST /api/v1/venue-checkins 不变。
+
+    Every route needs a login (bearer JWT) with the PROVIDER_OPERATOR role and an organization in the token; the
+    operator and the organization always come from the token. Records are the operator's own: another operator's record
+    is answered as not found.
+
+    规则：
+    - kinds：这个机构能核销的种类。主办或承办过活动的有 ACTIVITY，运营场馆的有 VENUE；都没有时为空，App 不显示“工作模式”。
+    - 场次：本机构在北京时间这一天开始的场次。活动场次的核销窗口从签到开放时间（未设置时为开始前 1 小时）到场次结束
+      （没有结束时间的到开始时间为止）；场馆场次从开始前 30 分钟到结束。phase 按现在的时间算：UPCOMING 还没开放、
+      OPEN 正在核销、ENDED 已结束。应到人数：活动是有效和已签到的凭证数，场馆是待到馆和已核销的预约人数。
+    - 核销（verifications）：凭证号不分大小写，前后空格忽略；ACT- 开头的是活动凭证（一人一码），VEN- 开头的是到馆预约（一单一码，
+      整单核销）。sessionKind、sessionId 是工作台上正在核销的场次，必须是本机构的，可以不带（不判断场次不符）。
+      判断顺序：不是本机构的（CHECKIN_OTHER_ORGANIZATION）→ 已取消（CHECKIN_CANCELLED）→ 还没付款（CHECKIN_UNPAID，只有活动凭证）
+      → 已核销过（CHECKIN_REPEATED）→ 凭证的场次已结束（CHECKIN_EXPIRED）→ 不是正在核销的场次（CHECKIN_SESSION_MISMATCH）
+      → 还没到核销时间（CHECKIN_NOT_OPEN）→ 核销成功。
+      核销成功和前六种被拦下的都记一条记录：成功是 200 和这条记录；被拦下的是 409，details.record 是这条记录（之后在异常处理里用它）。
+      同一个操作员两分钟内对同一张凭证、同一个场次再扫出同一种结果、还没处理的，不另记，返回原来那条。
+      没有这张凭证（404）、还没到核销时间（CHECKIN_NOT_OPEN）、格式不对（400）不记录。
+    - 记录只存凭证号尾 4 位；持有人只给姓（第一个字加两个星号）；非本机构的凭证不给持有人、场次和金额。
+    - 人工处理（resolution），只能由记录的操作员本人登记一次：
+      场次不符、过期：可以 REJECT（不予核销）；当前场次是同一个活动（场馆是同一个项目）的另一场时，还可以 RELEASE（登记放行）。
+      重复、非本机构、已取消、未付款：只能 BLOCK（拦截）。可做的在记录的 allowedActions 里，核销成功和已处理的为空。
+      RELEASE 要 identityChecked 为 true（已人工核验身份），并且当前场次正在核销、有余位（场馆要够整单人数）、这个人（这些人）在
+      当前场次没有别的有效凭证（预约）：凭证改到当前场次并核销，原场次的名额让出来；到馆预约的核销码不换。
+      备注选填，最多 200 字。用同一种处理方式再提交返回原来的结果；换一种处理方式回 CHECKIN_ALREADY_RESOLVED。
+    - 日期都按北京时间（Asia/Shanghai）；date 不传时为今天。一天的记录最多返回 500 条，新的在前。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/checkin-workbench:
+    get:
+      operationId: "getCheckinWorkbench"
+      summary: "工作台：这个机构能核销的种类和这一天的场次"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Date"
+      responses:
+        "200":
+          description: "种类和场次；不能核销的机构 kinds、sessions 都为空"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckinWorkbench"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/checkin-workbench/records:
+    get:
+      operationId: "listMyCheckinRecords"
+      summary: "本人这一天的核销记录（成功的和被拦下的），新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Date"
+      responses:
+        "200":
+          description: "记录"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckinRecordList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/checkin-workbench/records/{kind}/{recordId}:
+    get:
+      operationId: "getMyCheckinRecord"
+      summary: "本人的一条核销记录"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Kind"
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: "记录"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckinRecord"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/checkin-workbench/verifications:
+    post:
+      operationId: "verifyCheckinCode"
+      summary: "扫码或输码核销"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyRequest"
+      responses:
+        "200":
+          description: "核销成功，返回这条记录（outcome 为 CHECKED_IN）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckinRecord"
+        "400":
+          description: "凭证号格式不对、method 缺失，或当前场次不是本机构的（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: "没有这张凭证（COMMON_NOT_FOUND）；不记录"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            被拦下，已记一条记录，details.record 是这条记录（CheckinRecord）：
+            CHECKIN_OTHER_ORGANIZATION 不是本机构的凭证；CHECKIN_CANCELLED 已取消；CHECKIN_UNPAID 还没付款；
+            CHECKIN_REPEATED 已核销过；CHECKIN_EXPIRED 凭证的场次已结束；CHECKIN_SESSION_MISMATCH 不是正在核销的场次。
+            CHECKIN_NOT_OPEN：凭证是正在核销的场次的，但还没到核销时间；不记录，没有 details。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/checkin-workbench/records/{kind}/{recordId}/resolution:
+    post:
+      operationId: "resolveCheckinRecord"
+      summary: "人工处理一条被拦下的记录（只能登记一次）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Kind"
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveRequest"
+      responses:
+        "200":
+          description: "登记结果（同一种处理方式重复提交也是 200，返回原来的结果）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckinRecord"
+        "400":
+          description: "缺处理方式、登记放行没有勾选已核验身份、备注超过 200 字（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >-
+            CHECKIN_ACTION_NOT_ALLOWED：这条记录不能这样处理（核销成功的，或不在 allowedActions 里）。
+            CHECKIN_ALREADY_RESOLVED：已经用别的处理方式登记过。
+            CHECKIN_RELEASE_NOT_ALLOWED：登记放行时凭证已经变了、当前场次不在核销时间，或有人在当前场次另有凭证（预约）。
+            CHECKIN_SEATS_NOT_ENOUGH：登记放行时当前场次余位不够。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    Date:
+      name: "date"
+      in: "query"
+      required: false
+      description: "北京时间的日期（YYYY-MM-DD），不传为今天"
+      schema:
+        type: "string"
+        format: "date"
+    Kind:
+      name: "kind"
+      in: "path"
+      required: true
+      schema:
+        $ref: "#/components/schemas/CheckinKind"
+    RecordId:
+      name: "recordId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+  responses:
+    BadRequest:
+      description: "参数格式不对（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录，或登录已过期（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "登录账号不是服务商操作员，或令牌里没有机构（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "没有这条记录，或它不是当前操作员的（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    CheckinKind:
+      type: "string"
+      enum:
+        - "ACTIVITY"
+        - "VENUE"
+      description: "活动报名凭证 / 到馆预约"
+    CheckinPhase:
+      type: "string"
+      enum:
+        - "UPCOMING"
+        - "OPEN"
+        - "ENDED"
+      description: "未开始（还没到核销时间） / 进行中（正在核销） / 已结束"
+    CheckinOutcome:
+      type: "string"
+      enum:
+        - "CHECKED_IN"
+        - "REPEATED"
+        - "EXPIRED"
+        - "OTHER_ORGANIZATION"
+        - "SESSION_MISMATCH"
+        - "CANCELLED"
+        - "UNPAID"
+      description: "核销成功 / 重复核销 / 凭证已过期 / 非本机构 / 场次不符 / 已取消 / 未付款（只有活动凭证）"
+    CheckinMethod:
+      type: "string"
+      enum:
+        - "SCAN"
+        - "MANUAL"
+      description: "扫码 / 手动输入凭证号"
+    CheckinAction:
+      type: "string"
+      enum:
+        - "RELEASE"
+        - "REJECT"
+        - "BLOCK"
+      description: "登记放行（改到当前场次并核销） / 不予核销 / 拦截"
+    CheckinErrorCode:
+      type: "string"
+      enum:
+        - "CHECKIN_REPEATED"
+        - "CHECKIN_EXPIRED"
+        - "CHECKIN_OTHER_ORGANIZATION"
+        - "CHECKIN_SESSION_MISMATCH"
+        - "CHECKIN_CANCELLED"
+        - "CHECKIN_UNPAID"
+        - "CHECKIN_NOT_OPEN"
+        - "CHECKIN_ACTION_NOT_ALLOWED"
+        - "CHECKIN_ALREADY_RESOLVED"
+        - "CHECKIN_RELEASE_NOT_ALLOWED"
+        - "CHECKIN_SEATS_NOT_ENOUGH"
+      description: "工作台接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外），都是 409。"
+    CheckinWorkbench:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "date"
+        - "kinds"
+        - "sessions"
+      properties:
+        date:
+          type: "string"
+          format: "date"
+        kinds:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CheckinKind"
+        sessions:
+          type: "array"
+          description: "按开始时间排序"
+          items:
+            $ref: "#/components/schemas/CheckinSession"
+    CheckinSession:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "kind"
+        - "sessionId"
+        - "title"
+        - "placeName"
+        - "label"
+        - "startsAt"
+        - "endsAt"
+        - "checkInOpensAt"
+        - "checkInClosesAt"
+        - "phase"
+        - "expectedPeople"
+        - "checkedInPeople"
+      properties:
+        kind:
+          $ref: "#/components/schemas/CheckinKind"
+        sessionId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          description: "活动标题，或场馆的项目名"
+        placeName:
+          type:
+            - "string"
+            - "null"
+          description: "活动的场地名，或场馆名"
+        label:
+          type:
+            - "string"
+            - "null"
+          description: "活动场次的名称（如“上午场”）；场馆场次为 null"
+        startsAt:
+          type: "string"
+          format: "date-time"
+        endsAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        checkInOpensAt:
+          type: "string"
+          format: "date-time"
+        checkInClosesAt:
+          type: "string"
+          format: "date-time"
+        phase:
+          $ref: "#/components/schemas/CheckinPhase"
+        expectedPeople:
+          type: "integer"
+        checkedInPeople:
+          type: "integer"
+    CheckinSessionRef:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "kind"
+        - "sessionId"
+        - "title"
+        - "label"
+        - "startsAt"
+      properties:
+        kind:
+          $ref: "#/components/schemas/CheckinKind"
+        sessionId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+        label:
+          type:
+            - "string"
+            - "null"
+        startsAt:
+          type: "string"
+          format: "date-time"
+    CheckinRecordList:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "date"
+        - "items"
+      properties:
+        date:
+          type: "string"
+          format: "date"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CheckinRecord"
+    CheckinRecord:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "kind"
+        - "recordId"
+        - "outcome"
+        - "method"
+        - "occurredAt"
+        - "codeTail"
+        - "holderName"
+        - "people"
+        - "amountMinor"
+        - "ticketSession"
+        - "currentSession"
+        - "firstCheckedInAt"
+        - "allowedActions"
+        - "resolution"
+      properties:
+        kind:
+          $ref: "#/components/schemas/CheckinKind"
+        recordId:
+          type: "string"
+          format: "uuid"
+        outcome:
+          $ref: "#/components/schemas/CheckinOutcome"
+        method:
+          $ref: "#/components/schemas/CheckinMethod"
+        occurredAt:
+          type: "string"
+          format: "date-time"
+        codeTail:
+          type: "string"
+          description: "凭证号（核销码）的尾 4 位"
+        holderName:
+          type:
+            - "string"
+            - "null"
+          description: "持有人的姓加两个星号；到馆预约是第一位参与人；非本机构的为 null"
+        people:
+          type: "integer"
+          description: "活动凭证是 1；到馆预约是整单人数"
+        amountMinor:
+          type:
+            - "integer"
+            - "null"
+          description: "这张凭证（这张预约）付的钱（分），免费为 0；非本机构的为 null"
+        ticketSession:
+          anyOf:
+            - $ref: "#/components/schemas/CheckinSessionRef"
+            - type: "null"
+          description: "核销时凭证所属的场次；非本机构的为 null"
+        currentSession:
+          anyOf:
+            - $ref: "#/components/schemas/CheckinSessionRef"
+            - type: "null"
+          description: "核销时工作台上正在核销的场次；没带时为 null"
+        firstCheckedInAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "重复核销时，这张凭证第一次核销的时间"
+        allowedActions:
+          type: "array"
+          description: "现在还可以做的人工处理；核销成功和已处理的为空"
+          items:
+            $ref: "#/components/schemas/CheckinAction"
+        resolution:
+          anyOf:
+            - $ref: "#/components/schemas/CheckinResolution"
+            - type: "null"
+    CheckinResolution:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "action"
+        - "identityChecked"
+        - "note"
+        - "resolvedAt"
+        - "admittedSession"
+      properties:
+        action:
+          $ref: "#/components/schemas/CheckinAction"
+        identityChecked:
+          type: "boolean"
+        note:
+          type:
+            - "string"
+            - "null"
+        resolvedAt:
+          type: "string"
+          format: "date-time"
+        admittedSession:
+          anyOf:
+            - $ref: "#/components/schemas/CheckinSessionRef"
+            - type: "null"
+          description: "登记放行后凭证所在的场次；其他处理为 null"
+    VerifyRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "method"
+      properties:
+        code:
+          type: "string"
+          description: "ACT-XXXX-XXXX-XXXX 或 VEN-XXXX-XXXX-XXXX，不分大小写"
+        method:
+          $ref: "#/components/schemas/CheckinMethod"
+        sessionKind:
+          anyOf:
+            - $ref: "#/components/schemas/CheckinKind"
+            - type: "null"
+          description: "正在核销的场次的种类；和 sessionId 一起带或一起不带"
+        sessionId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+    ResolveRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "action"
+      properties:
+        action:
+          $ref: "#/components/schemas/CheckinAction"
+        identityChecked:
+          type:
+            - "boolean"
+            - "null"
+          description: "已人工核验身份；登记放行时必须为 true"
+        note:
+          type:
+            - "string"
+            - "null"
+          description: "备注，最多 200 字"
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true

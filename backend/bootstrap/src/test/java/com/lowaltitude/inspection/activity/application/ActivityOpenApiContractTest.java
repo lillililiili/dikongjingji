@@ -102,11 +102,11 @@ class ActivityOpenApiContractTest {
             "TicketRefundStatus", TicketRefundStatus.class);
 
     @Test
-    void contractIsVersionOnePointTwoAndDeclaresBearerJwt() {
+    void contractIsVersionOnePointThreeAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        // 1.2.0：收费报名（E09）。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.2.0");
+        // 1.2.0：收费报名（E09）；1.3.0：核销工作台（S3-3）的登记放行，路由和字段不变。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         // 没有全局的 security：每个操作自己写明公开还是要登录，漏写会被下面的用例发现。

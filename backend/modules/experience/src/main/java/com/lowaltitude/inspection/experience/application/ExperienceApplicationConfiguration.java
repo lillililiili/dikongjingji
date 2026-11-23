@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.lowaltitude.inspection.experience.infrastructure.persistence.ExperienceCatalogMapper;
 import com.lowaltitude.inspection.experience.infrastructure.persistence.VenueBookingMapper;
+import com.lowaltitude.inspection.experience.infrastructure.persistence.VenueCheckinMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -51,5 +52,11 @@ public class ExperienceApplicationConfiguration {
                 Clock.systemUTC(),
                 new VenueBookingCodes(),
                 notifier.getIfAvailable(VenueBookingNotifier::none));
+    }
+
+    /** 核销工作台（S3-3）里到馆预约的一半；和活动的一半由启动模块的工作台接口合在一起。 */
+    @Bean
+    VenueCheckinDesk venueCheckinDesk(VenueCheckinMapper mapper) {
+        return new VenueCheckinDesk(mapper, Clock.systemUTC());
     }
 }
