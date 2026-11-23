@@ -323,16 +323,10 @@ public class ActivityEnrollmentService {
         }
 
         UUID enrollmentId = createEnrollment(accountId, idempotencyKey, requestHash, session, participants,
-                command.expectedAmountMinor(), null, true, now);
+                command.participantIds(), command.expectedAmountMinor(), null, true, now);
         return new EnrollmentResult(readEnrollment(accountId, enrollmentId), true);
     }
 
-    /**
-     * 建报名单和凭证（个人报名、团队报名、候补转正共用）。收费的先建交易订单，凭证待付款；免费的提交即成功。
-     *
-     * @param payBefore 付款截止；为空时按 15 分钟且不晚于报名截止算（候补转正带上保留截止时间）
-     * @param takeSeats 是否占名额：候补转正时名额已经为它占住，不再加
-     */
     private UUID createEnrollment(
             UUID accountId,
             UUID idempotencyKey,
@@ -344,13 +338,37 @@ public class ActivityEnrollmentService {
             boolean takeSeats,
             OffsetDateTime now
     ) {
+        return createEnrollment(accountId, idempotencyKey, requestHash, session, participants, null,
+                expectedAmountMinor, payBefore, takeSeats, now);
+    }
+
+    /**
+     * 建报名单和凭证（个人报名、团队报名、候补转正共用）。收费的先建交易订单，凭证待付款；免费的提交即成功。
+     *
+     * @param submittedOrder 页面提交参与人的顺序，交易订单上的姓名照它排（交易契约 participantNames：报名顺序）；
+     *                       凭证仍按 participants（参与人 ID 排好的顺序）生成。为空时姓名也按 participants 排
+     * @param payBefore 付款截止；为空时按 15 分钟且不晚于报名截止算（候补转正带上保留截止时间）
+     * @param takeSeats 是否占名额：候补转正时名额已经为它占住，不再加
+     */
+    private UUID createEnrollment(
+            UUID accountId,
+            UUID idempotencyKey,
+            String requestHash,
+            SessionRow session,
+            List<ParticipantRow> participants,
+            List<UUID> submittedOrder,
+            Long expectedAmountMinor,
+            OffsetDateTime payBefore,
+            boolean takeSeats,
+            OffsetDateTime now
+    ) {
         boolean paid = isPaid(session);
         LocalDate sessionDate = dateOf(session.startsAt());
         UUID enrollmentId;
         String ticketStatus;
         if (paid) {
             enrollmentId = enrollPaid(accountId, idempotencyKey, requestHash, session,
-                    participants.stream().map(ParticipantRow::name).toList(), expectedAmountMinor, payBefore, now);
+                    namesInOrder(participants, submittedOrder), expectedAmountMinor, payBefore, now);
             ticketStatus = TicketStatus.PENDING_PAYMENT.name();
         } else {
             enrollmentId = mapper.insertEnrollment(
@@ -1548,6 +1566,16 @@ public class ActivityEnrollmentService {
     private static String hash(UUID activityId, UUID sessionId, List<UUID> participantIds) {
         return hashText(activityId + "|" + sessionId + "|"
                 + participantIds.stream().map(UUID::toString).collect(Collectors.joining(",")));
+    }
+
+    /** 参与人姓名按页面提交的顺序；没给顺序（团队报名、候补转正）时照 participants 的顺序。 */
+    private static List<String> namesInOrder(List<ParticipantRow> participants, List<UUID> submittedOrder) {
+        if (submittedOrder == null) {
+            return participants.stream().map(ParticipantRow::name).toList();
+        }
+        Map<UUID, String> names = new LinkedHashMap<>();
+        participants.forEach(row -> names.put(row.id(), row.name()));
+        return submittedOrder.stream().map(names::get).toList();
     }
 
     private static String hashText(String text) {

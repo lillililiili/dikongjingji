@@ -87,7 +87,8 @@ public class ContentVideoService {
 
     // ---- 读 ----
 
-    @Transactional(readOnly = true)
+    // 同 ContentReadService.article：读不到不让调用方（收藏）的事务回滚。
+    @Transactional(readOnly = true, noRollbackFor = ContentNotFoundException.class)
     public ContentVideoView video(UUID videoId, String cityCode, ContentActor viewer) {
         String city = ContentReadService.requireCity(cityCode);
         if (videoId == null) {

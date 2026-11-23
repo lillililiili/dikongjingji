@@ -1259,6 +1259,19 @@ class ActivityEnrollmentServiceTest {
                     new InMemoryMapper.Event(view.enrollmentId(), null, "ENROLLED", ACCOUNT, now()));
         }
 
+        // 交易订单上的姓名是页面提交的顺序，不是参与人 ID 的大小顺序（幂等摘要才按排好序的 ID 算）。
+        @Test
+        void theTradeOrderNamesThePeopleInTheOrderTheyWereSubmitted() {
+            UUID self = self();
+            UUID child = child("小明", "2018-05");
+
+            paid.enroll(ACCOUNT, KEY, paidCommand(2 * UNIT, child, self));
+
+            assertThat(payments.opened).singleElement()
+                    .extracting(ActivityPaymentPort.OpenPayment::participantNames)
+                    .isEqualTo(List.of("小明", "王女士"));
+        }
+
         // 付款时限 15 分钟，但不晚于报名截止。
         @Test
         void thePaymentDeadlineNeverPassesTheEnrollmentDeadline() {

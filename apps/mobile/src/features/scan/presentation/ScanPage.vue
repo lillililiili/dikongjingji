@@ -87,6 +87,8 @@ function submitTyped(): void {
   handle(text)
 }
 
+// The H5 input event comes at most once per 100ms, so a link pasted and 识别 tapped right after would
+// read the previous text. Tapping the button first blurs the input, and blur carries the current value.
 function onInput(event: Event): void {
   typed.value = ((event as Event & { detail?: { value?: string } }).detail?.value ?? '').toString().slice(0, 600)
 }
@@ -150,6 +152,7 @@ defineExpose({ scan })
           placeholder-class="scan__placeholder"
           aria-label="码内容或链接"
           @input="onInput"
+          @blur="onInput"
           @confirm="onConfirm"
         />
         <button class="scan__manual-go" data-testid="scan-submit" @click="submitTyped">识别</button>

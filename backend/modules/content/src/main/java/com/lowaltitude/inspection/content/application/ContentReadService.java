@@ -78,7 +78,9 @@ public class ContentReadService {
         return new ContentFeedView(channel, city, page, size, total, (long) page * size < total, topics, items);
     }
 
-    @Transactional(readOnly = true)
+    // “没有这篇”是正常的回答，不让调用方的事务跟着回滚：收藏（S5-6）先按图文读、读不到再按视频读，
+    // 都在收藏自己的事务里。
+    @Transactional(readOnly = true, noRollbackFor = ContentNotFoundException.class)
     public ContentArticleView article(UUID articleId, String cityCode) {
         String city = requireCity(cityCode);
         if (articleId == null) {

@@ -33,6 +33,10 @@ const emit = defineEmits<{ toggle: [] }>()
 
 <style scoped>
 .compare-check {
+  /* It sits inside a tappable card (a uni button). The button's ::after frame is absolutely
+     positioned over the whole card and would take the tap, opening the product instead. */
+  position: relative;
+  z-index: 1;
   display: flex;
   min-height: 44px;
   align-items: center;
