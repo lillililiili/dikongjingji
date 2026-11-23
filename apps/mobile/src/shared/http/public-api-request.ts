@@ -5,6 +5,9 @@
 export {
   ApiRequestError,
   publicRequest,
+  // The full address of an API path (base URL and HTTPS rules), for the few calls that are not a
+  // plain JSON request: multipart uploads and binary reads (trade after-sales pictures).
+  resolveInspectionApiRequestUrl as resolvePublicApiUrl,
 } from '@/features/inspection/data/service-flow/uni-booking-http-client'
 
 export interface PublicApiHttpClient {

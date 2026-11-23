@@ -36,6 +36,7 @@ import {
 } from '@/features/inspection/navigation/inspection-routes'
 import PlatformMinePage from '@/features/inspection/presentation/platform/mine/PlatformMinePage.vue'
 import { buildMyOrdersUrl, type MyOrderChip } from '@/features/orders/application/my-orders-route'
+import { buildAftersalesUrl } from '@/features/trade/navigation/aftersale-routes'
 import { SETTINGS_PATH, ABOUT_PATH } from '@/features/settings/navigation/settings-routes'
 import { loadStaffAccess } from '@/features/staff/application/staff-access'
 import { STAFF_WORK_MODE_ENABLED } from '@/features/staff/application/staff-work-mode'
@@ -376,7 +377,9 @@ function openStage(stage: MineOrderStage): void {
     return
   }
   if (TRADE_PREVIEW_ENABLED) {
-    uni.navigateTo({ url: buildMyOrdersUrl({ chip: STAGE_CHIPS[stage] }) })
+    // 退款/售后 opens the after-sales list (board Mine → AftersaleList, S4-2); the other stages open
+    // 我的订单 on their chip, where 退款/售后 also lists the cases with “全部售后单 ›”.
+    uni.navigateTo({ url: stage === 'REFUND' ? buildAftersalesUrl() : buildMyOrdersUrl({ chip: STAGE_CHIPS[stage] }) })
     return
   }
   if (stage === 'TO_ACCEPT') {

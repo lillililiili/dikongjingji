@@ -37,6 +37,8 @@ function offer(offerId: string, merchantId: string, skuId: string, amountMinor: 
     fulfilledFrom: null,
     onlinePayment: true,
     stockQuantity,
+    invoiceIssuer: null,
+    aftersaleParty: null,
     ...overrides,
   }
 }

@@ -130,6 +130,11 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/trade/pay-result': { required: 'orderId', allowed: ['orderId'] },
   '/pages/mine/goods-orders': { allowed: ['tab'] },
   '/pages/mine/goods-order': { required: 'orderId', allowed: ['orderId'] },
+  // Goods after-sales (features/trade/navigation/aftersale-routes.ts, S4-2); aftersale-routes.test.ts
+  // checks them.
+  '/pages/trade/aftersale-apply': { required: 'orderId', allowed: ['orderId'] },
+  '/pages/trade/aftersale': { required: 'aftersaleId', allowed: ['aftersaleId'] },
+  '/pages/mine/aftersales': { allowed: ['tab'] },
   // 我的订单 merged list (features/orders, R6-1).
   '/pages/mine/orders': { allowed: ['tab', 'status'] },
   // Venue booking pages (features/experience/navigation/experience-routes.ts, E10), repeated for

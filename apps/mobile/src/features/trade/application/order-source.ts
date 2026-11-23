@@ -130,8 +130,27 @@ export function cashierRows(order: TradeOrder): CashierRow[] {
   return [
     { key: 'activity', label: '活动', value: line.productName },
     { key: 'session', label: '场次', value: line.skuName },
-    { key: 'people', label: '人数', value: `${line.quantity} 人` },
+    // Board CashierEnroll names the people (trade 0.6.0 participantNames); an older server only
+    // says how many.
+    order.participantNames
+      ? { key: 'participants', label: '参与人', value: order.participantNames }
+      : { key: 'people', label: '人数', value: `${line.quantity} 人` },
   ]
+}
+
+/**
+ * The extra rows of the payment result (board CashierEnroll, paid frame): a sign-up's people, and
+ * once paid the channel's transaction id. Each only when the server has it.
+ */
+export function payResultExtraRows(order: TradeOrder, paid: boolean): CashierRow[] {
+  const rows: CashierRow[] = []
+  if (isEnrollmentOrder(order) && order.participantNames) {
+    rows.push({ key: 'participants', label: '参与人', value: order.participantNames })
+  }
+  if (paid && order.channelTransactionId) {
+    rows.push({ key: 'transaction', label: '渠道交易号', value: order.channelTransactionId })
+  }
+  return rows
 }
 
 // The order of the cashier's rows, as each board draws them: goods and a sign-up start with the

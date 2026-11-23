@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Mall Catalog API
-  version: 1.3.0
+  version: 1.4.0
   description: >-
     Read-only catalog for the home "商城" channel (docs/redesign/03-App实现任务计划.md §9):
     products of a category that have an active offer in the city, and one product with its offers.
@@ -15,6 +15,12 @@ info:
     sheet can list the specs a merchant does not supply as unavailable), gallery and introBlocks (图文介绍),
     and stockQuantity on each offer (that merchant's stock in the city; null means not tracked, 0 means sold
     out: the spec cannot be chosen, and the cart refuses it, mall cart 1.2.0). Older clients ignore them.
+    1.4.0 (2026-11-23, S4-4 / S5-2, docs/redesign/08-后续开发计划.md §5 A1, S4-4) adds the trade terms the product page
+    and the order carry: invoiceIssuer (开票方) and aftersaleParty (售后责任方) on each offer — taken from the offer, else
+    from the merchant's approved profile (contracts/openapi-mall-merchant.yaml), else the merchant itself — and
+    noReasonReturn on the product (false when the product is marked as not taking 7-day no-reason returns). The list
+    takes an optional merchantId: only that merchant's offers in the city count (price, seller count, matching), for
+    the merchant page's 在售 tab. Older clients ignore them.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -70,6 +76,15 @@ paths:
             maxItems: 8
             items:
               $ref: "#/components/schemas/MallMerchantKind"
+        - name: merchantId
+          in: query
+          required: false
+          description: >-
+            (1.4.0) Only this merchant's active offers in the city count: products it sells there, priced and counted by
+            its offers alone. For the merchant page (contracts/openapi-mall-merchant.yaml). Omit for all merchants.
+          schema:
+            type: string
+            format: uuid
         - name: minPriceMinor
           in: query
           required: false
@@ -353,6 +368,8 @@ components:
         - fulfilledFrom
         - onlinePayment
         - stockQuantity
+        - invoiceIssuer
+        - aftersaleParty
       properties:
         offerId:
           type: string
@@ -406,6 +423,22 @@ components:
           description: >-
             (1.3.0) Pieces this merchant has for this spec in the city (规格面板“现货 N 件”). null means stock is not
             tracked (do not show a count); 0 means sold out: the spec cannot be chosen and the cart refuses it.
+        invoiceIssuer:
+          type:
+            - string
+            - "null"
+          maxLength: 160
+          description: >-
+            (1.4.0) 开票方: the offer's own entry, else the merchant profile's, else the merchant's name. null only when
+            none of them is known.
+        aftersaleParty:
+          type:
+            - string
+            - "null"
+          maxLength: 160
+          description: >-
+            (1.4.0) 售后责任方, e.g. 示例机器人商家 · 厂家保修: the offer's own entry, else the merchant profile's, else the
+            merchant's name.
     MallSku:
       type: object
       additionalProperties: false
@@ -482,6 +515,7 @@ components:
         - skus
         - gallery
         - introBlocks
+        - noReasonReturn
       properties:
         productId:
           type: string
@@ -544,3 +578,9 @@ components:
           description: (1.3.0) 图文介绍, in order; empty when the merchant has not provided one
           items:
             $ref: "#/components/schemas/MallIntroBlock"
+        noReasonReturn:
+          type: boolean
+          description: >-
+            (1.4.0) true when the product takes 7-day no-reason returns (unopened), the platform default; false when the
+            operator marked it 不支持七天无理由. Quality-problem returns are not affected
+            (contracts/openapi-trade-aftersale.yaml).

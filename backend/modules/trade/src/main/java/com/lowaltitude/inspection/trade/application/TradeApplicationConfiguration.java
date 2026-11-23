@@ -132,10 +132,11 @@ public class TradeApplicationConfiguration {
             TradeOrderService orderService,
             ObjectProvider<PaymentChannel> channels,
             PlatformTransactionManager transactionManager,
-            TradeBuyerEvents buyerEvents
+            TradeBuyerEvents buyerEvents,
+            ObjectProvider<TradeAftersaleService> aftersales
     ) {
         SecureRandom random = new SecureRandom();
-        return new TradeRefundService(
+        TradeRefundService service = new TradeRefundService(
                 refunds,
                 orders,
                 orderService,
@@ -144,6 +145,32 @@ public class TradeApplicationConfiguration {
                 Clock.systemUTC(),
                 () -> twelveDigits(random),
                 buyerEvents);
+        // 退款到账或结束时推进售后单（S4-2）；售后服务依赖退款服务，所以第一次用到时才取。
+        service.useSettlements(() -> {
+            TradeAftersaleService aftersale = aftersales.getIfAvailable();
+            return aftersale == null ? TradeRefundService.RefundSettlement.NONE : aftersale;
+        });
+        return service;
+    }
+
+    /** 商品售后（S4-2）。凭证图片的对象存储由启动模块接；没接时上传回 503。 */
+    @Bean
+    TradeAftersaleService tradeAftersaleService(
+            com.lowaltitude.inspection.trade.infrastructure.persistence.TradeAftersaleMapper aftersales,
+            TradeRefundMapper refunds,
+            TradeRefundService refundService,
+            ObjectProvider<TradeAftersaleImageStore> images,
+            PlatformTransactionManager transactionManager
+    ) {
+        SecureRandom random = new SecureRandom();
+        return new TradeAftersaleService(
+                aftersales,
+                refunds,
+                refundService,
+                images.getIfAvailable(TradeAftersaleImageStore::unavailable),
+                new TransactionTemplate(transactionManager),
+                Clock.systemUTC(),
+                () -> String.format("%08d", random.nextInt(100_000_000)));
     }
 
     @Bean

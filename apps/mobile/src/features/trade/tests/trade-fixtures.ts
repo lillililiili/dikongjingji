@@ -47,6 +47,10 @@ export function tradeOrder(overrides: Partial<TradeOrder> = {}): TradeOrder {
     refunds: [],
     cancellable: true,
     version: 3,
+    parties: { fulfilledFrom: null, invoiceIssuer: null, aftersaleParty: null },
+    channelTransactionId: null,
+    participantNames: null,
+    aftersale: { latestAftersaleId: null, latestStatus: null, applicable: false },
     ...overrides,
   }
 }

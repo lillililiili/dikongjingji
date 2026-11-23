@@ -178,6 +178,28 @@
       }
     },
     {
+      "path": "pages/trade/aftersale-apply",
+      "style": {
+        "navigationBarTitleText": "申请售后",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/trade/aftersale",
+      "style": {
+        "navigationBarTitleText": "售后详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/aftersales",
+      "style": {
+        "navigationBarTitleText": "退款/售后",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/mine/orders",
       "style": {
         "navigationBarTitleText": "我的订单",
@@ -392,6 +414,13 @@
       "path": "pages/mall/product",
       "style": {
         "navigationBarTitleText": "商品详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mall/merchant",
+      "style": {
+        "navigationBarTitleText": "商家主页",
         "navigationStyle": "custom"
       }
     },

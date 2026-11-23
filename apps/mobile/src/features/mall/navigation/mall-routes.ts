@@ -6,6 +6,20 @@ export function buildMallProductUrl(productId: string, cityCode: string): string
     + `&cityCode=${encodeURIComponent(cityCode)}`
 }
 
+// 商家主页（S5-2，画板 Merchant）：商品详情的“查看商家主页与资质 ›”和底栏“商家”进来。
+export const MALL_MERCHANT_PATH = '/pages/mall/merchant'
+
+export function buildMallMerchantUrl(merchantId: string, cityCode: string): string {
+  return `${MALL_MERCHANT_PATH}?merchantId=${encodeURIComponent(merchantId)}`
+    + `&cityCode=${encodeURIComponent(cityCode)}`
+}
+
+export function parseMallMerchantTarget(query: Record<string, unknown> | undefined): { merchantId: string; cityCode: string } | null {
+  const read = (key: string) => (typeof query?.[key] === 'string' ? (query[key] as string).trim() : '')
+  const target = { merchantId: read('merchantId'), cityCode: read('cityCode') }
+  return target.merchantId && target.cityCode ? target : null
+}
+
 export const CART_TAB_PATH = '/pages/cart/index'
 export const MALL_CHECKOUT_PATH = '/pages/cart/checkout'
 export const ADDRESS_BOOK_PATH = '/pages/mine/addresses'
