@@ -95,6 +95,11 @@ const MESSAGES: Record<string, string> = {
   // 直播间（openapi-ops-live.yaml）
   OPS_LIVE_ROOM_ENDED: '直播间已经结束了，请刷新后再看',
   OPS_LIVE_ROOM_NOT_ENDED: '直播结束后才能设回看',
+  // 课程（openapi-ops-course.yaml）
+  OPS_COURSE_STATUS_CONFLICT: '课程现在的状态不能这样操作（已经上架、没有上架，或线下班没有目录），请刷新后再看',
+  OPS_COURSE_ORGANIZATION_UNKNOWN: '开课机构不存在、已停用，或不是服务商、平台机构',
+  OPS_COURSE_EXPERIENCE_TAKEN: '这个体验中心试听入口已经给了别的课程',
+  OPS_COURSE_LESSON_IN_USE: '要删的课时已经有人学过，不能删；可以改标题、时长和视频',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }

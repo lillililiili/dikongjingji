@@ -3,6 +3,7 @@ import { activityModule } from '@/features/activity/activity-module'
 import { catalogModule } from '@/features/catalog/catalog-module'
 import { cityModule } from '@/features/city/city-module'
 import { contentModule } from '@/features/content/content-module'
+import { courseModule } from '@/features/course/course-module'
 import { demandQuotesModule } from '@/features/demand-quotes/demand-quotes-module'
 import { feedbackModule } from '@/features/feedback/feedback-module'
 import { importModule } from '@/features/import/import-module'
@@ -45,6 +46,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   merchantAccountModule,
   contentModule,
   activityModule,
+  courseModule,
   venueModule,
   liveModule,
   inspectionCatalogModule,
