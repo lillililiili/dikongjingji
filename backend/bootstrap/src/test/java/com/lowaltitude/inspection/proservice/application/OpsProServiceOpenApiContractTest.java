@@ -10,7 +10,14 @@ import org.junit.jupiter.api.Test;
 class OpsProServiceOpenApiContractTest {
 
     private final OpsContractChecker checker = new OpsContractChecker("openapi-ops-proservice.yaml",
-            OpsProServiceController.class)
+            OpsProServiceController.class, OpsProviderProfileController.class)
+            .response("OpsProviderProfileRow", ProviderProfileService.OpsRowView.class)
+            .response("OpsProviderProfilePage", ProviderProfileService.OpsPageView.class)
+            .response("OpsProviderProfile", ProviderProfileService.OpsDetailView.class)
+            .response("OpsProviderProfileContent", ProviderProfileService.ProfileView.class)
+            .request("OpsProviderProfileReviewRequest", OpsProviderProfileController.ReviewRequest.class,
+                    "decision", "version")
+            .enumeration("OpsProviderProfileStatus", ProviderProfileService.OpsStatus.class)
             .response("OpsProServiceRow", ProServiceOpsService.RowView.class)
             .response("OpsProServicePage", ProServiceOpsService.PageView.class)
             .response("OpsProService", ProServiceOpsService.DetailView.class)
@@ -33,7 +40,7 @@ class OpsProServiceOpenApiContractTest {
 
     @Test
     void contractMatchesTheController() {
-        checker.verifyAll("1.0.0");
+        checker.verifyAll("1.1.0");
     }
 
     @Test

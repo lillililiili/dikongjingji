@@ -22,6 +22,7 @@ import com.lowaltitude.inspection.proservice.application.ProServiceNotFoundExcep
 import com.lowaltitude.inspection.content.application.ContentException;
 import com.lowaltitude.inspection.content.application.ContentNotFoundException;
 import com.lowaltitude.inspection.rental.application.RentalException;
+import com.lowaltitude.inspection.serviceorder.application.ServiceOrderException;
 import com.lowaltitude.inspection.support.application.SupportException;
 import com.lowaltitude.inspection.application.city.CityOperationException;
 import com.lowaltitude.inspection.identity.application.OnboardingException;
@@ -440,6 +441,67 @@ public class GlobalExceptionHandler {
                 message = "这张订单现在不能在线退款";
             }
             default -> throw new IllegalStateException("unhandled rental error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
+    @ExceptionHandler(ServiceOrderException.class)
+    public ResponseEntity<ApiError> handleServiceOrder(ServiceOrderException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case STATE_INVALID -> {
+                code = "SERVICE_ORDER_STATE_INVALID";
+                message = "订单现在的状态不能做这个操作";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.PRECONDITION_FAILED;
+                code = "SERVICE_ORDER_VERSION_CONFLICT";
+                message = "订单已有变化，请刷新后重试";
+            }
+            case PLAN_CHANGED -> {
+                code = "SERVICE_ORDER_PLAN_CHANGED";
+                message = "服务商已更新方案，请查看最新一版后再确认";
+            }
+            case DELIVERY_CHANGED -> {
+                code = "SERVICE_ORDER_DELIVERY_CHANGED";
+                message = "交付已有变化，请刷新后再验收";
+            }
+            case TERMS_NOT_AGREED -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "SERVICE_ORDER_TERMS_NOT_AGREED";
+                message = "请先核对方案的服务范围、金额与交付约定";
+            }
+            case PAYMENT_UNAVAILABLE -> {
+                code = "SERVICE_ORDER_PAYMENT_UNAVAILABLE";
+                message = "服务商暂未开通在线收款";
+            }
+            case REFUND_NOT_ALLOWED -> {
+                code = "SERVICE_ORDER_REFUND_NOT_ALLOWED";
+                message = "这张订单现在不能退这笔款";
+            }
+            case FILE_INVALID -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "SERVICE_ORDER_FILE_INVALID";
+                message = "文件不符合要求";
+            }
+            case FILE_STORE_UNAVAILABLE -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                code = "SERVICE_ORDER_FILE_STORE_UNAVAILABLE";
+                message = "文件存储暂时不可用";
+            }
+            default -> throw new IllegalStateException("unhandled service order error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
     }

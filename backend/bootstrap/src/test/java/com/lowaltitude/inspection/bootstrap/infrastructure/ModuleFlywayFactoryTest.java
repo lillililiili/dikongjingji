@@ -90,6 +90,16 @@ class ModuleFlywayFactoryTest {
     }
 
     @Test
+    void keepsServiceOrderVersionsInTheirOwnHistoryTable() {
+        Flyway serviceorder = new ModuleFlywayFactory().serviceorder(mock(DataSource.class));
+
+        assertThat(serviceorder.getConfiguration().getTable()).isEqualTo("flyway_history_serviceorder");
+        assertThat(locationDescriptors(serviceorder)).containsExactly("classpath:db/migration/serviceorder");
+        assertThat(serviceorder.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(serviceorder.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    @Test
     void keepsContentVersionsInTheirOwnHistoryTable() {
         Flyway content = new ModuleFlywayFactory().content(mock(DataSource.class));
 

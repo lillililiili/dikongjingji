@@ -399,7 +399,8 @@ public final class OpsContractChecker {
         if (type == int.class || type == Integer.class || type == long.class || type == Long.class) {
             return "integer";
         }
-        if (type == String.class || type == UUID.class || type == OffsetDateTime.class) {
+        if (type == String.class || type == UUID.class || type == OffsetDateTime.class
+                || type == java.time.LocalDate.class) {
             return "string";
         }
         if (type == List.class) {

@@ -2261,3 +2261,13 @@ App 页面：收银台（Cashier）、支付结果（PayResult）、我的订单
 | 需求列表 | 各状态计数 `GET /api/v1/demand-counts` | — |
 | 专业服务（`proservice` V003，契约 1.2.0、运营 1.1.0） | 质保期 `warrantyText` | 运营端专业服务目录 |
 | 服务商主页（`proservice` V003） | 经营主体、服务方式、授权有效期、可交付清单、本地团队标签 | 服务商在工作台填、平台在运营端审核；主页只显示审核通过的一份 |
+
+### 28.4 接口与数据
+
+- 服务订单（新模块 `serviceorder`，迁移 `V001__service_order.sql`）：客户 `GET /api/v1/service-orders`、`GET …/{id}`、`POST …/{id}/plan-confirmation`、`…/payments`、`…/cancel`、`…/acceptance`、`…/rework`、`…/files/{fileId}/download-intents`，短时下载 `GET /api/v1/service-order-files/{token}`（不要登录）；服务商 `/api/v1/provider/service-orders…`：列表、详情、`PUT …/plan`、`POST …/start`、上传 `POST …/files`（multipart）、`DELETE …/files/{fileId}`、`GET …/files/{fileId}/content`、`POST …/delivery`、`…/cancel`、`…/termination`。写操作带 If-Match（订单版本）。
+- 交易：`V011__trade_pro_service_source.sql`，来源 `PRO_SERVICE`，订单编号 `PS` 开头；每次付款尝试一张交易订单（`sourceRef` 是付款尝试 ID，订单行 `productId` 是服务订单 ID）。
+- 需求：`V002__demand_quote_details.sql`（报价对比项列、`demand_quote_line`、`demand.service_order_id`）；`GET /api/v1/demand-counts`。
+- 专业服务：`V003__pro_service_warranty_and_provider_profile.sql`（`pro_service.warranty_text`、`pro_provider_profile`、`pro_provider_profile_change`）；工作台 `GET/PUT /api/v1/provider/profile`；运营 `/api/v1/ops/provider-profiles…`。
+- 交付文件存储：`ServiceOrderPorts.Files`；开发环境 `serviceorder.files.local-dir`（`LocalServiceOrderFileStore`），其他环境没配置时 503。
+- 开发数据：云翼科技、鹰眼智能巡检、示例测绘服务商的收款账户（`R__dev_trade_service_order_merchant_accounts.sql`）；设备维护示例服务的质保期；鹰眼智能巡检已通过的主页资料（`R__dev_proservice_provider_profiles.sql`）。
+- 冒烟：`infra/scripts/trade-smoke/service-order.cjs`。

@@ -483,14 +483,16 @@ components:
           format: "uuid"
         subjectType:
           type: "string"
-          enum: [SERVICE]
+          enum: [SERVICE, PROVIDER_PROFILE]
+          description: "SERVICE 服务；PROVIDER_PROFILE 服务商主页资料（1.1.0）"
         subjectId:
           type: "string"
           format: "uuid"
-          description: "服务 ID"
+          description: "服务 ID，或服务商（机构）ID"
         action:
           type: "string"
-          enum: [CREATE, UPDATE, PUBLISH, OFFLINE]
+          enum: [CREATE, UPDATE, PUBLISH, OFFLINE, SUBMIT, APPROVE, REJECT]
+          description: "SUBMIT 服务商提交资料、APPROVE 审核通过、REJECT 驳回（1.1.0，主页资料）"
         summary:
           type: "string"
           maxLength: 300

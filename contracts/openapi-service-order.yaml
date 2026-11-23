@@ -1343,7 +1343,7 @@ components:
         quote:
           $ref: "#/components/schemas/ServiceOrderQuote"
         plan:
-          oneOf:
+          anyOf:
             - $ref: "#/components/schemas/ServiceOrderPlan"
             - type: "null"
           description: "最新一版方案；还没出方案时为 null"
@@ -1381,7 +1381,7 @@ components:
           format: "date-time"
           description: "取消或终止的时间"
         closedBy:
-          oneOf:
+          anyOf:
             - $ref: "#/components/schemas/ServiceOrderParty"
             - type: "null"
         closeReason:

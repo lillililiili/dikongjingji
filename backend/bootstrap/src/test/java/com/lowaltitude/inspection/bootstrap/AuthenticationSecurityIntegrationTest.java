@@ -1773,6 +1773,16 @@ class AuthenticationSecurityIntegrationTest {
         }
 
         @Bean
+        com.lowaltitude.inspection.serviceorder.application.ServiceOrderService testServiceOrderService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.serviceorder.application.ServiceOrderService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.proservice.application.ProviderProfileService testProviderProfileService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.proservice.application.ProviderProfileService.class);
+        }
+
+        @Bean
         com.lowaltitude.inspection.proservice.application.ProServiceReadService testProServiceReadService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.proservice.application.ProServiceReadService.class);
         }

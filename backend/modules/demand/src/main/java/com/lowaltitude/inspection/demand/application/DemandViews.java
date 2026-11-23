@@ -96,7 +96,8 @@ record DemandView(
         boolean deletable,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
-        int version
+        int version,
+        UUID serviceOrderId
 ) {
 }
 
@@ -121,8 +122,22 @@ record DemandQuoteView(
         OffsetDateTime validUntil,
         OffsetDateTime submittedAt,
         OffsetDateTime revisedAt,
-        boolean choosable
+        boolean choosable,
+        List<DemandQuoteLineView> lines,
+        String team,
+        String nightWork,
+        Integer reportHours,
+        Integer archiveDays,
+        LocalDate firstVisitDate
 ) {
+}
+
+/** 报价明细的一行（1.3.0）：不按次计时数量、单位、单价为 null。 */
+record DemandQuoteLineView(String name, Integer quantity, String unit, Long unitAmountMinor, long amountMinor) {
+}
+
+/** 我发布的需求按状态的份数（1.3.0）；total 含草稿。 */
+record DemandCountsView(long total, long draft, long open, long quoted, long chosen, long closed) {
 }
 
 record DemandQuoteListView(
@@ -146,7 +161,13 @@ record ProviderQuoteView(
         String deliverables,
         OffsetDateTime validUntil,
         OffsetDateTime submittedAt,
-        OffsetDateTime revisedAt
+        OffsetDateTime revisedAt,
+        List<DemandQuoteLineView> lines,
+        String team,
+        String nightWork,
+        Integer reportHours,
+        Integer archiveDays,
+        LocalDate firstVisitDate
 ) {
 }
 
@@ -195,15 +216,33 @@ record DemandDraft(
 ) {
 }
 
-/** 服务商的报价内容。 */
+/**
+ * 服务商的报价内容。1.3.0 起可以带明细行和对比项（都可以不填）；firstVisitDate 是 YYYY-MM-DD（北京时间）。
+ */
 record QuoteDraft(
         Long amountMinor,
         String method,
         String schedule,
         Integer durationDays,
         String deliverables,
-        OffsetDateTime validUntil
+        OffsetDateTime validUntil,
+        List<QuoteLineDraft> lines,
+        String team,
+        String nightWork,
+        Integer reportHours,
+        Integer archiveDays,
+        String firstVisitDate
 ) {
+
+    QuoteDraft(Long amountMinor, String method, String schedule, Integer durationDays, String deliverables,
+               OffsetDateTime validUntil) {
+        this(amountMinor, method, schedule, durationDays, deliverables, validUntil, null, null, null, null, null,
+                null);
+    }
+}
+
+/** 报价明细的一行：数量、单位、单价要么都填（金额 = 数量 × 单价），要么都不填。 */
+record QuoteLineDraft(String name, Integer quantity, String unit, Long unitAmountMinor, Long amountMinor) {
 }
 
 /** created 为 false 表示同一个幂等键重放，返回的是第一次建的需求。 */

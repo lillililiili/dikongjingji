@@ -47,6 +47,8 @@ public class ProServiceReadService {
     private final CityDirectory cities;
     private final ProviderProfiles profiles;
     private final InspectionOffers inspection;
+    /** 服务商主页资料（S4-4）：只给平台审核通过的那一份。 */
+    private final java.util.function.Function<UUID, Optional<ProviderProfileService.ProfileView>> publishedProfiles;
 
     ProServiceReadService(
             ProServiceMapper mapper,
@@ -54,10 +56,21 @@ public class ProServiceReadService {
             ProviderProfiles profiles,
             InspectionOffers inspection
     ) {
+        this(mapper, cities, profiles, inspection, providerId -> Optional.empty());
+    }
+
+    ProServiceReadService(
+            ProServiceMapper mapper,
+            CityDirectory cities,
+            ProviderProfiles profiles,
+            InspectionOffers inspection,
+            java.util.function.Function<UUID, Optional<ProviderProfileService.ProfileView>> publishedProfiles
+    ) {
         this.mapper = mapper;
         this.cities = cities;
         this.profiles = profiles;
         this.inspection = inspection;
+        this.publishedProfiles = publishedProfiles;
     }
 
     /**
@@ -138,7 +151,8 @@ public class ProServiceReadService {
                 labels(items, "STEP"),
                 labels(items, "GUARANTEE"),
                 provider,
-                cityViews(mapper.findCities(row.id())));
+                cityViews(mapper.findCities(row.id())),
+                mapper.findWarranty(row.id()));
     }
 
     /**
@@ -166,7 +180,8 @@ public class ProServiceReadService {
                 city,
                 inspectionServices,
                 cards(mapper.findProviderServices(providerId, city)),
-                cityViews(served));
+                cityViews(served),
+                publishedProfiles.apply(providerId).orElse(null));
     }
 
     /** 在这个城市有已上架四类服务的服务商（需求的平台匹配和邀请用）。 */

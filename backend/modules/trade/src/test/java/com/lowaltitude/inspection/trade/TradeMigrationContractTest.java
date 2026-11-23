@@ -113,6 +113,17 @@ class TradeMigrationContractTest {
                 + " CHECK (source IN ('MALL', 'ACTIVITY', 'VENUE', 'RENTAL'));");
     }
 
+    // ---- V011：通用服务订单（S4-3） ----
+
+    @Test
+    void generalServiceOrdersAreASourceAndKeepTheInspectionSource() throws Exception {
+        String sql = statementsOf("/db/migration/trade/V011__trade_pro_service_source.sql");
+
+        assertThat(sql).isEqualTo("ALTER TABLE trade_order DROP CONSTRAINT trade_order_source_check;"
+                + " ALTER TABLE trade_order ADD CONSTRAINT trade_order_source_check"
+                + " CHECK (source IN ('MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION', 'PRO_SERVICE'));");
+    }
+
     // ---- V004：商家名称长度 ----
 
     // 订单上的商家名称快照来自 identity_organization.organization_name（160），V001 只给了 120；V004 放宽到一样长。

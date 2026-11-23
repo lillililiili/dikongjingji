@@ -183,6 +183,14 @@ public class ModuleFlywayConfiguration {
         return factory.rental(dataSource);
     }
 
+    // 通用服务订单（S4-3）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 需求、报价、交易订单和退款只存 ID 和快照，不引用它们的表。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway serviceorderFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.serviceorder(dataSource);
+    }
+
     // 客服会话（G1）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     // 站内信由通知模块自己的表记，这里不引用。
     @Bean(initMethod = "migrate")
@@ -255,10 +263,12 @@ public class ModuleFlywayConfiguration {
         return factory.mall(dataSource);
     }
 
-    // 示例商家和收费活动主办机构的收款账户，引用商城、活动示例数据建的机构，所以排在两份开发数据之后。
+    // 示例商家和收费活动主办机构的收款账户，引用商城、活动示例数据建的机构，所以排在两份开发数据之后；
+    // 专业服务示例服务商的收款账户（S4-3）引用巡检开发数据建的服务商机构，所以也排在它之后。
     @Bean(initMethod = "migrate")
     @Profile("dev")
-    @DependsOn({"tradeFlyway", "mallDevelopmentDataFlyway", "activityDevelopmentDataFlyway"})
+    @DependsOn({"tradeFlyway", "mallDevelopmentDataFlyway", "activityDevelopmentDataFlyway",
+            "inspectionDevelopmentDataFlyway"})
     Flyway tradeDevelopmentDataFlyway(DataSource dataSource) {
         return Flyway.configure()
                 .dataSource(dataSource)

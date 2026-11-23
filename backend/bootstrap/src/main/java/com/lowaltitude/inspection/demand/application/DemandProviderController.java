@@ -1,6 +1,7 @@
 package com.lowaltitude.inspection.demand.application;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.security.core.Authentication;
@@ -49,9 +50,14 @@ public final class DemandProviderController {
             @RequestBody QuoteRequest request
     ) {
         DemandSubjects.Subject subject = DemandSubjects.providerOperator(authentication);
+        List<QuoteLineDraft> lines = request.lines() == null ? null : request.lines().stream()
+                .map(line -> line == null ? null : new QuoteLineDraft(line.name(), line.quantity(), line.unit(),
+                        line.unitAmountMinor(), line.amountMinor()))
+                .toList();
         return service.submitQuote(subject.organizationId(), subject.subjectId(), demandId, new QuoteDraft(
                 request.amountMinor(), request.method(), request.schedule(), request.durationDays(),
-                request.deliverables(), request.validUntil()));
+                request.deliverables(), request.validUntil(), lines, request.team(), request.nightWork(),
+                request.reportHours(), request.archiveDays(), request.firstVisitDate()));
     }
 
     /** 撤回报价（选定之前）。 */
@@ -62,7 +68,9 @@ public final class DemandProviderController {
     }
 
     /**
-     * @param validUntil 报价有效期：晚于现在，不超过 30 天
+     * @param validUntil     报价有效期：晚于现在，不超过 30 天
+     * @param lines          报价明细（1.3.0），最多 10 行，合计等于总价；不填表示没有明细
+     * @param firstVisitDate 首次进场日期 YYYY-MM-DD（1.3.0）
      */
     record QuoteRequest(
             Long amountMinor,
@@ -70,7 +78,16 @@ public final class DemandProviderController {
             String schedule,
             Integer durationDays,
             String deliverables,
-            OffsetDateTime validUntil
+            OffsetDateTime validUntil,
+            List<QuoteLineRequest> lines,
+            String team,
+            String nightWork,
+            Integer reportHours,
+            Integer archiveDays,
+            String firstVisitDate
     ) {
+    }
+
+    record QuoteLineRequest(String name, Integer quantity, String unit, Long unitAmountMinor, Long amountMinor) {
     }
 }

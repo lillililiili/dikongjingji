@@ -85,6 +85,12 @@ public final class DemandController {
         return service.list(DemandSubjects.customer(authentication).subjectId(), status, page, size);
     }
 
+    /** 1.3.0：“需求与报价”页签上的计数。 */
+    @GetMapping("/api/v1/demand-counts")
+    public DemandCountsView counts(Authentication authentication) {
+        return service.counts(DemandSubjects.customer(authentication).subjectId());
+    }
+
     @GetMapping("/api/v1/demands/{demandId}")
     public ResponseEntity<DemandView> demand(Authentication authentication, @PathVariable UUID demandId) {
         return withVersion(ResponseEntity.ok(),
