@@ -229,6 +229,26 @@ class MallCatalogReadServiceTest {
         assertInvalid(() -> service.findProduct(PRODUCT_ID, null));
     }
 
+    // S4-4：体验的馆内设备页要的起价、单位、在售商家数，和列表卡一样算；这个城市没有在售时为空，不问收款。
+    @Test
+    void offerSummaryGivesTheLowestPriceAndTheMerchantCountOfTheCity() {
+        store.product = Optional.of(new ProductRow(PRODUCT_ID, "ROBOT", "巡检机器狗", null, null, "RENT", null));
+        store.offers = List.of(
+                offer(NOT_COLLECTING, "示例设备租赁商", 72000L),
+                offer(COLLECTING, "示例机器人商家", 38000L),
+                offer(NOT_COLLECTING, "示例设备租赁商", 36000L));
+
+        assertThat(service.findOfferSummary(PRODUCT_ID, "370500")).contains(
+                new MallCatalogReadService.MallOfferSummary(MallSaleMode.RENT, 36000L, MallPriceUnit.DAY, true, 2));
+        assertThat(asked).isEmpty();
+
+        store.offers = List.of();
+        assertThat(service.findOfferSummary(PRODUCT_ID, "370500")).isEmpty();
+        store.product = Optional.empty();
+        assertThat(service.findOfferSummary(PRODUCT_ID, "370500")).isEmpty();
+        assertInvalid(() -> service.findOfferSummary(PRODUCT_ID, "x"));
+    }
+
     private static OfferRow offer(UUID merchantId, String merchantName, long amountMinor) {
         return new OfferRow(UUID.randomUUID(), UUID.randomUUID(), "标准版", merchantId, merchantName, "FACTORY_DIRECT",
                 amountMinor, "CNY", "DAY", null, null, null, null);

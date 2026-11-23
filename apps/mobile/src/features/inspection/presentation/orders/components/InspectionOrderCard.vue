@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import type { InspectionOrderSummary } from '@/features/inspection/domain/service-flow/order-center'
+import QualificationBadge from '@/shared/ui/QualificationBadge.vue'
 import { inspectionServiceImage } from '../../../data/inspection-service-images'
 import {
   formatInspectionOrderAmount,
@@ -38,9 +39,9 @@ const stageText = computed(() => payment.value?.stageText ?? getInspectionOrderS
 </script>
 
 <template>
-  <!-- Board OrderList, the 服务 card: head row (tag, status), picture with title and amount,
+  <!-- Board OrderList, the 服务 card: head row (tag, provider, 资质已审核, status), picture with title and amount,
        then the buttons on the right — solid orange only for 去验收, grey outline otherwise.
-       The board's provider name and 资质已审核 need fields the order list does not return yet. -->
+       A reservation without a provider yet shows its number in the provider's place. -->
   <view
     class="inspection-order-card"
     :data-testid="`inspection-order-${props.order.reservationId}`"
@@ -48,7 +49,11 @@ const stageText = computed(() => payment.value?.stageText ?? getInspectionOrderS
   >
     <view class="inspection-order-card__head">
       <text class="inspection-order-card__tag">服务</text>
-      <text class="inspection-order-card__number">{{ props.order.reservationNo }}</text>
+      <template v-if="props.order.provider">
+        <text class="inspection-order-card__provider" data-testid="inspection-order-provider">{{ props.order.provider.name }}</text>
+        <QualificationBadge v-if="props.order.provider.qualificationReviewed" />
+      </template>
+      <text v-else class="inspection-order-card__number">{{ props.order.reservationNo }}</text>
       <text
         class="inspection-order-card__stage"
         :style="{ color: payment ? '#ba470b' : stageColour }"
@@ -98,6 +103,7 @@ const stageText = computed(() => payment.value?.stageText ?? getInspectionOrderS
 .inspection-order-card { display: flex; padding: 14px; flex-direction: column; gap: 12px; border-radius: 14px; color: #202c42; background: #fff; box-shadow: var(--app-card-shadow); }
 .inspection-order-card__head { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .inspection-order-card__tag { flex: none; padding: 0 6px; border-radius: 6px; color: #11804a; background: #e2f6ed; font-size: 12px; line-height: 20px; }
+.inspection-order-card__provider { min-width: 0; overflow: hidden; font-size: 15px; font-weight: 500; line-height: 21px; text-overflow: ellipsis; white-space: nowrap; }
 .inspection-order-card__number { min-width: 0; overflow: hidden; color: #738096; font-size: 13px; line-height: 21px; text-overflow: ellipsis; white-space: nowrap; }
 .inspection-order-card__stage { flex: none; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; white-space: nowrap; }
 .inspection-order-card__main { display: flex; gap: 12px; }

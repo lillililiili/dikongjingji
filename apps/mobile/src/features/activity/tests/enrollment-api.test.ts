@@ -164,4 +164,122 @@ describe('enrolment api', () => {
       ['POST', '/api/v1/activity-enrollments/e1/cancel', {}],
     ])
   })
+
+  // ---- 1.4.0 (S5-3) ----
+
+  it('reads an old server\'s enrolment as an individual one without changes or results', async () => {
+    const { api } = apiReturning(ENROLLMENT_DTO)
+    const enrollment = await api.loadEnrollment(TOKEN, 'e1')
+    expect(enrollment).toMatchObject({ kind: 'INDIVIDUAL', team: null, reschedule: null, changes: [], reschedulable: false })
+    expect(enrollment.tickets[0].result).toBeNull()
+  })
+
+  it('cancels with a reason and reschedules to another session', async () => {
+    const { api, request } = apiReturning({
+      ...ENROLLMENT_DTO,
+      kind: 'TEAM',
+      team: { teamName: '东营港务物流职工子女队', leaderName: '王女士', leaderPhoneMasked: '138****2026' },
+      reschedule: { previousSession: { sessionId: 's0', startsAt: '2026-11-22T06:00:00Z' }, rescheduledAt: '2026-11-20T01:00:00Z' },
+      changes: [{
+        changeId: 'c1', kind: 'RESCHEDULE', reason: 'PLAN_CHANGED', people: 1,
+        fromSession: { sessionId: 's0', startsAt: '2026-11-22T06:00:00Z' },
+        toSession: { sessionId: 's1', label: '下午', startsAt: '2026-11-29T06:00:00Z' },
+        createdAt: '2026-11-20T01:00:00Z',
+      }],
+      reschedulable: true,
+    })
+
+    await api.cancel(TOKEN, 'e1', ['t1'], 'UNWELL')
+    const moved = await api.reschedule(TOKEN, 'e1', 's1', 'PLAN_CHANGED')
+    await api.reschedule(TOKEN, 'e1', 's1')
+
+    expect(request.mock.calls.map(([input]) => [input.method, input.url, input.data])).toEqual([
+      ['POST', '/api/v1/activity-enrollments/e1/cancel', { ticketIds: ['t1'], reason: 'UNWELL' }],
+      ['POST', '/api/v1/activity-enrollments/e1/reschedule', { targetSessionId: 's1', reason: 'PLAN_CHANGED' }],
+      ['POST', '/api/v1/activity-enrollments/e1/reschedule', { targetSessionId: 's1' }],
+    ])
+    expect(moved.kind).toBe('TEAM')
+    expect(moved.reschedule?.previousSession).toEqual({ sessionId: 's0', label: null, startsAt: '2026-11-22T06:00:00Z' })
+    expect(moved.changes[0]).toMatchObject({ kind: 'RESCHEDULE', refundStatus: null, refundAmountMinor: null })
+  })
+
+  it('reads one change with its tickets', async () => {
+    const { api, request } = apiReturning({
+      change: {
+        changeId: 'c 1', kind: 'CANCEL', reason: null, people: 1,
+        fromSession: { sessionId: 's1', label: null, startsAt: '2026-11-29T06:00:00Z' }, toSession: null,
+        refundAmountMinor: 12000, refundStatus: 'SUCCEEDED', refundSucceededAt: '2026-11-21T01:10:00Z',
+        createdAt: '2026-11-20T01:00:00Z',
+      },
+      enrollmentId: 'e1', activityTitle: '挑战赛', organizerName: '体验馆',
+      tickets: [{ ticketId: 't1', participantName: '王小禾', relation: 'CHILD', issued: false, status: 'CANCELLED' }],
+    })
+
+    const detail = await api.loadChange(TOKEN, 'e1', 'c 1')
+
+    expect(request.mock.calls[0][0].url).toBe('/api/v1/activity-enrollments/e1/changes/c%201')
+    expect(detail.change.refundSucceededAt).toBe('2026-11-21T01:10:00Z')
+    expect(detail.tickets[0]).toEqual({
+      ticketId: 't1', participantName: '王小禾', relation: 'CHILD', age: null, issued: false, ticketCode: null, status: 'CANCELLED',
+    })
+    expect(detail.coverImage).toBeNull()
+  })
+
+  it('checks a roster and signs a team up with its own idempotency key', async () => {
+    const { api, request } = apiReturning({
+      eligibleCount: 1,
+      members: [{ name: '李明轩', birthMonth: '2014-06', ageAtSession: 12, eligible: true, reason: 'ELIGIBLE' }],
+    })
+
+    const check = await api.checkTeam(TOKEN, 's1', [{ name: '李明轩', birthMonth: '2014-06' }])
+    expect(check.members[0].participantId).toBeNull()
+    expect(request.mock.calls[0][0]).toMatchObject({
+      url: '/api/v1/activity-team-enrollments/check', method: 'POST',
+      data: { sessionId: 's1', members: [{ name: '李明轩', birthMonth: '2014-06' }] },
+    })
+
+    const team = apiReturning(ENROLLMENT_DTO)
+    await team.api.enrollTeam(TOKEN, 'key-1', {
+      activityId: 'a1', sessionId: 's1', teamName: '队', leaderName: '王女士', leaderPhone: '13800002026',
+      members: [{ participantId: 'p1' }, { name: '李明轩', birthMonth: '2014-06' }],
+      noticeAgreed: true, guardianConsent: true,
+    })
+    expect(team.request.mock.calls[0][0]).toMatchObject({
+      url: '/api/v1/activity-team-enrollments',
+      method: 'POST',
+      headers: { ...AUTH, 'Idempotency-Key': 'key-1' },
+    })
+    expect(team.request.mock.calls[0][0].data).not.toHaveProperty('expectedAmountMinor')
+  })
+
+  it('joins, reads, abandons and confirms a waitlist', async () => {
+    const dto = {
+      waitlistId: 'w1', status: 'OFFERED', activity: ENROLLMENT_DTO.activity,
+      session: { sessionId: 's1', startsAt: '2026-11-29T06:00:00Z' },
+      members: [{ participantId: 'p1', name: '王小禾', relation: 'CHILD', age: 10 }],
+      people: 1, unitAmountMinor: 12000, amountMinor: 12000, holdUntil: '2026-11-20T01:15:00Z',
+      abandonable: true, createdAt: '2026-11-20T01:00:00Z',
+    }
+    const { api, request } = apiReturning(dto)
+
+    const joined = await api.joinWaitlist(TOKEN, 'key-2', { activityId: 'a1', sessionId: 's1', participantIds: ['p1'], noticeAgreed: true })
+    await api.loadWaitlist(TOKEN, 'w 1')
+    await api.abandonWaitlist(TOKEN, 'w1')
+    await api.confirmWaitlist(TOKEN, 'w1', 12000)
+    await api.confirmWaitlist(TOKEN, 'w1')
+
+    expect(joined).toMatchObject({ position: null, ahead: null, tradeOrderId: null, enrollmentId: null })
+    expect(joined.session).toEqual({ sessionId: 's1', label: null, startsAt: '2026-11-29T06:00:00Z', endsAt: null, venueName: null })
+    expect(request.mock.calls.map(([input]) => [input.method, input.url, input.data, input.headers['Idempotency-Key']])).toEqual([
+      ['POST', '/api/v1/activity-waitlists', { activityId: 'a1', sessionId: 's1', participantIds: ['p1'], noticeAgreed: true }, 'key-2'],
+      ['GET', '/api/v1/activity-waitlists/w%201', undefined, undefined],
+      ['POST', '/api/v1/activity-waitlists/w1/abandon', undefined, undefined],
+      ['POST', '/api/v1/activity-waitlists/w1/confirm', { expectedAmountMinor: 12000 }, undefined],
+      ['POST', '/api/v1/activity-waitlists/w1/confirm', {}, undefined],
+    ])
+
+    const page = apiReturning({ total: 1, hasMore: false, items: [dto] })
+    await page.api.loadWaitlists(TOKEN, true, 1, 20)
+    expect(page.request.mock.calls[0][0].url).toBe('/api/v1/activity-waitlists?active=true&page=1&size=20')
+  })
 })

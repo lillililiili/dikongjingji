@@ -1,4 +1,4 @@
-// Mirrors contracts/openapi-trade.yaml (0.7.0). Amounts are in fen.
+// Mirrors contracts/openapi-trade.yaml (0.7.0; PRO_SERVICE from 0.8.0, COURSE from 0.9.0). Amounts are in fen.
 
 export type TradeOrderStatus =
   | 'PENDING_PAYMENT'
@@ -27,12 +27,14 @@ export type TradeDeliveryMode = 'EXPRESS' | 'PICKUP'
 // enrolment's ticket (sourceRef is the enrolment id), a venue booking (E10) whose page is the
 // booking's code (sourceRef is the booking id), or an equipment rental (F3) whose page is the rental
 // order (sourceRef is the rental order id).
-// An inspection payment node (S4-1, contract 0.4.0): sourceRef is the payment attempt id; the line's
+// An inspection payment node (S4-1, contract 0.6.0): sourceRef is the payment attempt id; the line's
 // productId is the inspection service order, productName "服务名 · 方案 vN", skuName the node.
+// A general service order (S4-3, contract 0.8.0) whose page is the service order: sourceRef is the
+// payment attempt, the service order is lines[0].productId.
 // An online course (S5-5): sourceRef is the course enrollment.
-export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE' | 'RENTAL' | 'INSPECTION' | 'COURSE'
+export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE' | 'RENTAL' | 'INSPECTION' | 'PRO_SERVICE' | 'COURSE'
 
-export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION', 'COURSE']
+export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION', 'PRO_SERVICE', 'COURSE']
 
 export type TradeMerchantKind = 'FACTORY_DIRECT' | 'AUTHORIZED_DEALER' | 'LOCAL_STORE'
 

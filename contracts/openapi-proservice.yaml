@@ -1,8 +1,16 @@
 openapi: 3.1.0
 info:
   title: Professional Service Catalog API
-  version: 1.1.0
+  version: 1.2.0
   description: |-
+    1.2.0（2026-11-23，S4-4，docs/redesign/08-后续开发计划.md §5“S4-4”：服务商资料由机构在工作台填、平台在运营端审核）：
+    - 服务详情加 warrantyText（质保期，如“维修后质保 90 天”；设备维护“保修与收费边界”一段里显示，没有时为 null）。
+      由运营端专业服务目录填写（contracts/openapi-ops-proservice.yaml 1.1.0）。
+    - 服务商主页加 profile（经营主体、服务方式、授权有效期、可交付清单、本地团队标签，原型 ProviderPage）：只给平台审核通过的
+      那一份，从没通过过时为 null（页面不显示那几行）。
+    - 加服务商工作台的两个接口（要 PROVIDER_OPERATOR 角色和令牌里的机构，机构要有在用的服务商资料）：
+      getMyProviderProfile 读本机构的资料（已通过的一份 + 正在审核或被驳回的一份）、submitMyProviderProfile 提交一份新资料去审核
+      （审核通过前主页仍显示上一份通过的）。审核在运营端。其余接口仍公开只读。
     1.1.0（R6-4）：服务详情的服务商和服务商主页加 qualificationReviewed（平台审核过它的资质），页面有审核时在资质说明的位置显示“资质已审核”。
     1.0.0（步骤 F2，docs/redesign/03-App实现任务计划.md §23）：航拍、测绘、设备维护、技术支持四类专业服务的目录、服务详情和服务商主页。
     全部公开只读，不需要登录。这四类服务不走预约：详情和服务商主页的主按钮是“发布需求”（contracts/openapi-demand.yaml），
@@ -152,10 +160,79 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/profile:
+    get:
+      operationId: getMyProviderProfile
+      summary: 本机构的服务商主页资料和审核进度（工作台，1.2.0）
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 资料和审核进度
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderProfileReview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+    put:
+      operationId: submitMyProviderProfile
+      summary: 提交一份新的服务商主页资料去审核（工作台，1.2.0）
+      description: >-
+        version 是读到的 ProviderProfileReview.version（还没提交过时是 0）；不对时 409 PRO_PROVIDER_PROFILE_VERSION_CONFLICT。
+        正在审核的会被这一份替换；内容和正在审核的一样时没有变化。审核通过前主页仍显示上一份通过的。
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderProfileRequest"
+      responses:
+        "200":
+          description: 提交后的资料和审核进度
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderProfileReview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "409":
+          description: PRO_PROVIDER_PROFILE_VERSION_CONFLICT：资料在此期间有变化（比如刚审核过），请刷新后重试。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   responses:
     BadRequest:
       description: ID 不是 UUID，或没有城市编码、格式不对（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没有登录，或登录已过期（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ProviderForbidden:
+      description: 登录账号不是服务商操作员、令牌里没有机构，或这家机构没有在用的服务商资料（COMMON_FORBIDDEN）
       content:
         application/json:
           schema:
@@ -475,6 +552,7 @@ components:
         - guarantees
         - provider
         - cities
+        - warrantyText
       description: >-
         服务详情。各段为空数组时不显示那一段，段落标题按类型由页面给出：scope 是航拍“拍摄内容”、测绘“作业范围”、
         设备维护“适用设备”、技术支持“支持内容”；outputs（航拍“成果格式”、测绘“交付成果”）；serviceModes（设备维护“服务方式”、
@@ -545,6 +623,12 @@ components:
           description: 这项服务上架的城市（可服务城市）
           items:
             $ref: "#/components/schemas/ProServiceCity"
+        warrantyText:
+          type:
+            - string
+            - "null"
+          maxLength: 40
+          description: 质保期（1.2.0），如“维修后质保 90 天”；设备维护在“保修与收费边界”里显示
     ProviderInspectionService:
       type: object
       additionalProperties: false
@@ -580,6 +664,7 @@ components:
         - inspectionServices
         - proServices
         - cities
+        - profile
       properties:
         providerId:
           type: string
@@ -612,3 +697,137 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ProServiceCity"
+        profile:
+          anyOf:
+            - $ref: "#/components/schemas/ProviderProfile"
+            - type: "null"
+          description: 平台审核通过的主页资料（1.2.0）；从没通过过时为 null
+    ProviderProfile:
+      type: object
+      additionalProperties: false
+      required:
+        - legalEntity
+        - serviceModes
+        - authorizationUntil
+        - deliverables
+        - localTeamLabel
+      description: 服务商主页资料（原型 ProviderPage 头部三行、“东营本地团队”标签和“可交付”卡）
+      properties:
+        legalEntity:
+          type: string
+          maxLength: 60
+          description: 经营主体（营业执照上的名称）
+        serviceModes:
+          type: string
+          maxLength: 40
+          description: 服务方式，如“无人机巡检 · 机器狗夜巡”
+        authorizationUntil:
+          type:
+            - string
+            - "null"
+          format: date
+          description: 授权有效期（到哪一天）；没有时页面不显示这一行
+        deliverables:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+            maxLength: 12
+          description: 可交付清单，如“巡检报告”“隐患清单”
+        localTeamLabel:
+          type:
+            - string
+            - "null"
+          maxLength: 12
+          description: 本地团队标签，如“东营本地团队”
+    ProviderProfileReviewStatus:
+      type: string
+      enum: [NONE, PENDING, APPROVED, REJECTED]
+      description: NONE 从没提交过；PENDING 待审核；APPROVED 最近一份已通过；REJECTED 最近一份被驳回（见 rejectReason）
+    ProviderProfileReview:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - providerName
+        - status
+        - published
+        - submitted
+        - rejectReason
+        - submittedAt
+        - reviewedAt
+        - version
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        providerName:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProviderProfileReviewStatus"
+        published:
+          anyOf:
+            - $ref: "#/components/schemas/ProviderProfile"
+            - type: "null"
+          description: 主页上正在显示的（最近一次审核通过的）
+        submitted:
+          anyOf:
+            - $ref: "#/components/schemas/ProviderProfile"
+            - type: "null"
+          description: 最近提交的一份（PENDING、REJECTED 时有；APPROVED 时和 published 相同）
+        rejectReason:
+          type:
+            - string
+            - "null"
+        submittedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        reviewedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        version:
+          type: integer
+          minimum: 0
+    ProviderProfileRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - legalEntity
+        - serviceModes
+        - deliverables
+        - version
+      properties:
+        legalEntity:
+          type: string
+          minLength: 1
+          maxLength: 60
+        serviceModes:
+          type: string
+          minLength: 1
+          maxLength: 40
+        authorizationUntil:
+          type:
+            - string
+            - "null"
+          format: date
+          description: 不能早于今天（北京时间）
+        deliverables:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+            minLength: 1
+            maxLength: 12
+          description: 去掉首尾空格后不能重复
+        localTeamLabel:
+          type:
+            - string
+            - "null"
+          maxLength: 12
+        version:
+          type: integer
+          minimum: 0

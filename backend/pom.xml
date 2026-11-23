@@ -27,10 +27,13 @@
         <module>modules/demand</module>
         <module>modules/proservice</module>
         <module>modules/rental</module>
+        <module>modules/serviceorder</module>
         <module>modules/support</module>
         <module>modules/content</module>
         <module>modules/live</module>
+        <module>modules/favorite</module>
         <module>modules/course</module>
         <module>modules/opsimport</module>
+        <module>modules/search</module>
     </modules>
 </project>

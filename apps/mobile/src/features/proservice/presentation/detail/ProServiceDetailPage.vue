@@ -2,6 +2,8 @@
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
 
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
@@ -293,17 +295,21 @@ void load()
             <text v-if="section.note" class="pro-detail__note">{{ section.note }}</text>
           </template>
 
-          <view v-else class="pro-detail__badges">
-            <view v-for="(line, index) in section.lines" :key="line.label" class="pro-detail__badge-row">
-              <text
-                class="pro-detail__badge"
-                :style="{ background: badgeTone(index).background, color: badgeTone(index).color }"
-              >
-                {{ line.label }}
-              </text>
-              <text class="pro-detail__badge-detail">{{ line.detail }}</text>
+          <template v-else>
+            <view v-if="section.lines.length" class="pro-detail__badges">
+              <view v-for="(line, index) in section.lines" :key="line.label" class="pro-detail__badge-row">
+                <text
+                  class="pro-detail__badge"
+                  :style="{ background: badgeTone(index).background, color: badgeTone(index).color }"
+                >
+                  {{ line.label }}
+                </text>
+                <text class="pro-detail__badge-detail">{{ line.detail }}</text>
+              </view>
             </view>
-          </view>
+            <!-- SvcMaint board: the warranty under a hairline (1.2.0 warrantyText, as the server says it). -->
+            <text v-if="section.note" class="pro-detail__warranty" data-testid="pro-detail-warranty">{{ section.note }}</text>
+          </template>
         </view>
 
         <view v-if="detail.steps.length" class="pro-detail__card" data-testid="pro-detail-steps">
@@ -344,6 +350,15 @@ void load()
           <LineIcon name="headset" :size="22" color="#536178" />
           <text>客服</text>
         </button>
+        <!-- 收藏 next to 客服, drawn like the activity page's (plan 08 S5-6; the Svc boards have none). -->
+        <FavoriteButton
+          v-if="FAVORITE_PREVIEW_ENABLED"
+          type="PRO_SERVICE"
+          :target-id="detail.serviceId"
+          :city-code="cityCode"
+          :return-url="buildProServiceDetailUrl(detail.serviceId, cityCode)"
+          :width="44"
+        />
         <button class="pro-detail__publish" data-testid="pro-detail-publish" @click="publish">发布需求</button>
       </view>
       <ShareSheet :target="shareTarget" @close="shareTarget = null" />
@@ -809,6 +824,14 @@ button::after {
   font-size: 13px;
   line-height: 18px;
   text-align: right;
+}
+
+.pro-detail__warranty {
+  padding-top: 10px;
+  border-top: 1px solid #f0f1f3;
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
 }
 
 .pro-detail__badges {

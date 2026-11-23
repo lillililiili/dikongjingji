@@ -37,7 +37,7 @@ class DevelopmentTradeDataMigrationTest {
         assertThat(migrationMethod.getAnnotation(Profile.class).value()).containsExactly("dev");
         assertThat(migrationMethod.getAnnotation(DependsOn.class).value())
                 .containsExactlyInAnyOrder("tradeFlyway", "identityDevelopmentDataFlyway", "mallDevelopmentDataFlyway",
-                        "activityDevelopmentDataFlyway");
+                        "activityDevelopmentDataFlyway", "inspectionDevelopmentDataFlyway");
 
         migrationMethod.setAccessible(true);
         Flyway flyway = (Flyway) migrationMethod.invoke(new ModuleFlywayConfiguration(), mock(DataSource.class));

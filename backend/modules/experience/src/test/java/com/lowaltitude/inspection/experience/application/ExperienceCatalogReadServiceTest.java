@@ -94,7 +94,7 @@ class ExperienceCatalogReadServiceTest {
         store.venueTotal = 1;
         store.venueCards = List.of(new VenueCardRow(
                 VENUE_ID, "东营低空与机器人体验馆", "https://media.example.com/v.jpg",
-                "09:30–18:00 · 周一闭馆", "东营区示例路 66 号", 3));
+                "09:30–18:00 · 周一闭馆", "东营区示例路 66 号", 3, "模拟飞行 · 机器人编程 · 厂家展区"));
 
         VenuePageView page = service.listVenues("370500", 1, 20);
 
@@ -103,6 +103,7 @@ class ExperienceCatalogReadServiceTest {
         assertThat(store.endOfToday.toInstant()).isEqualTo(Instant.parse("2026-11-16T16:00:00Z"));
         assertThat(page.hasMore()).isFalse();
         assertThat(page.items().get(0).openSessionsToday()).isEqualTo(3);
+        assertThat(page.items().get(0).projectSummary()).isEqualTo("模拟飞行 · 机器人编程 · 厂家展区");
         assertThat(page.items().get(0).coverImage())
                 .isEqualTo(new ExperienceMediaView("https://media.example.com/v.jpg", "东营低空与机器人体验馆"));
     }
@@ -213,7 +214,7 @@ class ExperienceCatalogReadServiceTest {
         store.venue = Optional.of(venue());
         store.deviceTotal = 1;
         store.devices = List.of(new VenueDeviceRow(
-                UUID.randomUUID(), "ROBOT", "巡检机器狗", "园区巡逻与巡检演示", null, "DISPLAY_ONLY"));
+                UUID.randomUUID(), "ROBOT", "巡检机器狗", "园区巡逻与巡检演示", null, "DISPLAY_ONLY", null));
 
         VenueDevicePageView page = service.listDevices(VENUE_ID, "370500", "ROBOT", 1, 20);
 
@@ -222,7 +223,43 @@ class ExperienceCatalogReadServiceTest {
             assertThat(device.category()).isEqualTo(VenueDeviceCategory.ROBOT);
             assertThat(device.trialMode()).isEqualTo(VenueDeviceTrialMode.DISPLAY_ONLY);
             assertThat(device.image()).isNull();
+            assertThat(device.product()).isNull();
         });
+    }
+
+    // S4-4：设备关联的商品经商城端口按场馆所在城市取价格和在售家数；这个城市没有在售时不带商品，也不问没关联的。
+    @Test
+    void devicesCarryTheirProductOfferInTheVenueCity() {
+        UUID sold = UUID.fromString("c2000000-0000-4000-8000-000000000101");
+        UUID unsold = UUID.fromString("c2000000-0000-4000-8000-000000000102");
+        List<UUID> asked = new java.util.ArrayList<>();
+        ExperienceCatalogReadService withMall = new ExperienceCatalogReadService(store, CLOCK, operator -> false,
+                (productId, cityCode) -> {
+                    asked.add(productId);
+                    assertThat(cityCode).isEqualTo("370500");
+                    return productId.equals(sold)
+                            ? Optional.of(new VenueDeviceOfferPort.VenueDeviceOffer(
+                                    VenueDeviceOfferPort.SaleMode.BUY, 129_900L,
+                                    VenueDeviceOfferPort.PriceUnit.ITEM, true, 3))
+                            : Optional.empty();
+                });
+        store.venue = Optional.of(venue());
+        store.deviceTotal = 3;
+        store.devices = List.of(
+                new VenueDeviceRow(UUID.randomUUID(), "ROBOT", "编程机器人探索套装", null, null,
+                        "ACCOMPANIED_TRIAL", sold),
+                new VenueDeviceRow(UUID.randomUUID(), "DRONE", "便携航拍无人机", null, null,
+                        "ACCOMPANIED_TRIAL", unsold),
+                new VenueDeviceRow(UUID.randomUUID(), "PARTS", "无人机配件套装", null, null,
+                        "DISPLAY_ONLY", null));
+
+        VenueDevicePageView page = withMall.listDevices(VENUE_ID, "370500", null, 1, 20);
+
+        assertThat(page.items().get(0).product()).isEqualTo(new VenueDeviceProductView(
+                sold, VenueDeviceOfferPort.SaleMode.BUY, 129_900L, VenueDeviceOfferPort.PriceUnit.ITEM, true, 3));
+        assertThat(page.items().get(1).product()).isNull();
+        assertThat(page.items().get(2).product()).isNull();
+        assertThat(asked).containsExactly(sold, unsold);
     }
 
     // R6-2 先体验：线上体验和本城场馆原样给出（空白说明当作没有），读的时候带上限；城市只用来查场馆。

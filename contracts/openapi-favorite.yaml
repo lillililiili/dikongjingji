@@ -1,0 +1,427 @@
+openapi: "3.1.0"
+info:
+  title: "Favorite API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（计划 08 S5-6，docs/redesign/08-后续开发计划.md §5 D10“一期做”）：收藏（原型 Favorites 与各详情页的“收藏”）。
+    商品对比只在 App 本机做（原型 MallCompare），读商城现有的商品详情接口，不入库，所以这里没有对比接口。
+
+    Every route needs a login (bearer JWT) and the CUSTOMER role; the account is always the subject of the token.
+
+    规则：
+    - 能收藏六类对象：PRODUCT 商品、INSPECTION_SERVICE 巡检服务、PRO_SERVICE 专业服务（航拍、测绘、设备维护、技术支持）、
+      ACTIVITY 活动、VENUE 场馆、CONTENT 发现页图文和视频。每个账号对同一对象最多一条收藏。
+    - 收藏（PUT）是幂等的：第一次 201，已经收藏过 200。收藏时按当前城市读一次对象，读不到（不存在、已下架、这个城市不提供）
+      不能收藏；读到时记下对象的标题，对象以后下架了，列表里还能显示它叫什么。
+    - 取消收藏（DELETE）也是幂等的，没收藏过也返回 200。取消后 10 分钟内再收藏同一对象是“撤销”：恢复原来那条（收藏时间和标题
+      不变），不再读对象，所以已下架的对象也能撤销回来；超过 10 分钟就是重新收藏，按上一条规则读对象。
+    - 列表按分组（GOODS 商品；SERVICE 服务：巡检和专业服务；EVENT 活动：活动和场馆；CONTENT 内容）分页，新收藏的在前；
+      counts 是四个分组各自的收藏数。每一条按当前城市从对象所属模块读一次：读到的 available 为 true，带价格、说明、封面；
+      读不到的 available 为 false，只有收藏时记下的标题，页面灰显“已下架”，不能打开，只能取消收藏。
+    - 价格只表示对象当前的标价（最小货币单位）；商品取这个城市在售商家里的最低价，多家或多规格时 from 为 true。
+    - 一个账号最多 500 条收藏，到了上限要先取消一些（FAVORITE_LIMIT_REACHED）。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/favorites:
+    get:
+      operationId: "listMyFavorites"
+      summary: "我的收藏（一个分组的一页，新收藏的在前）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Group"
+        - $ref: "#/components/parameters/CityCode"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页收藏和四个分组的数量"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoritePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/favorites/{targetType}/{targetId}:
+    get:
+      operationId: "getFavoriteState"
+      summary: "这个对象收藏了没有（详情页的“收藏 / 已收藏”）"
+      description: "不读对象本身；没收藏过时 favorited 为 false。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TargetType"
+        - $ref: "#/components/parameters/TargetId"
+      responses:
+        "200":
+          description: "收藏状态"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "addFavorite"
+      summary: "收藏（幂等；取消后 10 分钟内再收藏是撤销）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TargetType"
+        - $ref: "#/components/parameters/TargetId"
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "201":
+          description: "新收藏的"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteState"
+        "200":
+          description: "已经收藏过，或撤销了刚才的取消"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "对象不存在、已下架或当前城市不提供（FAVORITE_TARGET_UNAVAILABLE）；收藏已到 500 条上限（FAVORITE_LIMIT_REACHED）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: "removeFavorite"
+      summary: "取消收藏（幂等，没收藏过也是 200）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TargetType"
+        - $ref: "#/components/parameters/TargetId"
+      responses:
+        "200":
+          description: "取消后的状态（favorited 为 false）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  responses:
+    BadRequest:
+      description: "参数缺失或格式不对，对象类型或分组不认识（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录，或登录已过期（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "登录账号没有客户角色（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "路径不对（COMMON_NOT_FOUND）；对象类型不认识按 400 处理"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    TargetType:
+      name: "targetType"
+      in: "path"
+      required: true
+      schema:
+        $ref: "#/components/schemas/FavoriteTargetType"
+    TargetId:
+      name: "targetId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Group:
+      name: "group"
+      in: "query"
+      required: true
+      schema:
+        $ref: "#/components/schemas/FavoriteGroup"
+    CityCode:
+      name: "cityCode"
+      in: "query"
+      required: true
+      description: "当前城市；对象按这个城市读（价格、在售商家、是否提供）"
+      schema:
+        type: "string"
+        pattern: "^[A-Z0-9]{4,16}$"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 20
+        default: 10
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true
+    FavoriteErrorCode:
+      type: "string"
+      enum:
+        - "FAVORITE_TARGET_UNAVAILABLE"
+        - "FAVORITE_LIMIT_REACHED"
+      description: "收藏接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外），都是 409。"
+    FavoriteTargetType:
+      type: "string"
+      enum:
+        - "PRODUCT"
+        - "INSPECTION_SERVICE"
+        - "PRO_SERVICE"
+        - "ACTIVITY"
+        - "VENUE"
+        - "CONTENT"
+      description: "收藏的对象：PRODUCT 商品；INSPECTION_SERVICE 巡检服务；PRO_SERVICE 专业服务；ACTIVITY 活动；VENUE 场馆；CONTENT 发现页图文或视频。"
+    FavoriteGroup:
+      type: "string"
+      enum:
+        - "GOODS"
+        - "SERVICE"
+        - "EVENT"
+        - "CONTENT"
+      description: "收藏页的四个页签：GOODS 商品（PRODUCT）；SERVICE 服务（INSPECTION_SERVICE、PRO_SERVICE）；EVENT 活动（ACTIVITY、VENUE）；CONTENT 内容（CONTENT）。"
+    FavoritePriceMode:
+      type: "string"
+      enum:
+        - "AMOUNT"
+        - "QUOTE"
+        - "FREE"
+      description: "AMOUNT 有标价（amountMinor）；QUOTE 按项目报价或询价；FREE 免费。"
+    FavoriteState:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "targetType"
+        - "targetId"
+        - "favorited"
+        - "favoritedAt"
+      properties:
+        targetType:
+          $ref: "#/components/schemas/FavoriteTargetType"
+        targetId:
+          type: "string"
+          format: "uuid"
+        favorited:
+          type: "boolean"
+        favoritedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "没收藏时为 null"
+    FavoritePrice:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "mode"
+        - "amountMinor"
+        - "from"
+        - "unitLabel"
+      properties:
+        mode:
+          $ref: "#/components/schemas/FavoritePriceMode"
+        amountMinor:
+          type:
+            - "integer"
+            - "null"
+          format: "int64"
+          minimum: 0
+          description: "AMOUNT 时是标价（分），其余为 null"
+        from:
+          type: "boolean"
+          description: "标价是起步价（多家在售、多个规格、多个项目，或服务的起步价）"
+        unitLabel:
+          type:
+            - "string"
+            - "null"
+          description: "计价单位的显示文字，如“/天”“/人”；按件的商品为 null"
+    FavoriteItem:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "targetType"
+        - "targetId"
+        - "favoritedAt"
+        - "available"
+        - "title"
+        - "meta"
+        - "tag"
+        - "price"
+        - "coverUrl"
+        - "productCategory"
+      properties:
+        targetType:
+          $ref: "#/components/schemas/FavoriteTargetType"
+        targetId:
+          type: "string"
+          format: "uuid"
+        favoritedAt:
+          type: "string"
+          format: "date-time"
+        available:
+          type: "boolean"
+          description: "按当前城市读得到对象；false 时只有 title，页面灰显、不能打开"
+        title:
+          type: "string"
+          maxLength: 160
+          description: "available 时是对象现在的标题，否则是收藏时记下的标题"
+        meta:
+          type:
+            - "string"
+            - "null"
+          description: "一行说明：商品“3 家在售”，服务的服务商，活动最近一场的日期（北京时间“11/15”），场馆的运营机构，内容的作者"
+        tag:
+          type:
+            - "string"
+            - "null"
+          description: "小标签：租赁商品“租赁”，场馆“场馆”，内容“案例 / 知识 / 视频”"
+        price:
+          anyOf:
+            - $ref: "#/components/schemas/FavoritePrice"
+            - type: "null"
+          description: "内容和读不到的对象为 null"
+        coverUrl:
+          type:
+            - "string"
+            - "null"
+          description: "对象自己的封面（只放行 HTTPS）；没有时 App 在预览构建用原型图片"
+        productCategory:
+          type:
+            - "string"
+            - "null"
+          enum:
+            - "DRONE"
+            - "ROBOT"
+            - "PARTS"
+            - "RENTAL"
+            - "COURSE"
+            - null
+          description: "商品的商城类目（App 只让同一类目的商品对比）；不是商品或读不到时为 null"
+    FavoriteCounts:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "goods"
+        - "service"
+        - "event"
+        - "content"
+      properties:
+        goods:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        service:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        event:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        content:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+    FavoritePage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "counts"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+          minimum: 1
+        size:
+          type: "integer"
+          minimum: 1
+        total:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+          description: "这个分组的收藏数"
+        hasMore:
+          type: "boolean"
+        counts:
+          $ref: "#/components/schemas/FavoriteCounts"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/FavoriteItem"

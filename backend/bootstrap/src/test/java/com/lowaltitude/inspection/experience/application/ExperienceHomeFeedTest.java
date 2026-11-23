@@ -86,7 +86,7 @@ class ExperienceHomeFeedTest {
     }
 
     private static VenueCardView venue(UUID id, String name, long openSessionsToday) {
-        return new VenueCardView(id, name, null, "09:30–18:00", "示例路 66 号", openSessionsToday);
+        return new VenueCardView(id, name, null, "09:30–18:00", "示例路 66 号", openSessionsToday, null);
     }
 
     private static VenueProjectView project(int number, String name) {

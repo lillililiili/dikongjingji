@@ -16,11 +16,12 @@ import {
   orderLinkLabel,
   paidFrame,
   payerRow,
+  resultRows,
 } from '../application/order-source'
 import { TRADE_COMMAND_CONFIRMS } from '../application/order-commands'
 import { describeOrderStatus, listCardGoods } from '../application/order-view'
 import { toTradeOrder } from '../data/trade-api'
-import { NOW, courseTradeOrder, enrollmentOrder, inspectionTradeOrder, paidOrder, rentalTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
+import { NOW, courseTradeOrder, enrollmentOrder, inspectionTradeOrder, paidOrder, rentalTradeOrder, serviceTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
 
 describe('order source (contract 0.2.0)', () => {
   it('reads a sign-up order without delivery or merchant type, and an older order as a mall order', () => {
@@ -153,6 +154,39 @@ describe('order source (contract 0.2.0)', () => {
     expect(failedNote(order)).toBe('租金仍为待支付，超时订单关闭、报价失效')
     expect(orderLinkLabel(order)).toBe('查看租赁订单')
     expect(paidFrame(rentalTradeOrder({ status: 'PAID' }))).toEqual({ title: '租金已支付', note: '商家将按约定时间交接设备，交接后由你确认' })
+  })
+
+  it('reads a service order and leads it to the service order, not the payment attempt (0.6.0)', () => {
+    const order = toTradeOrder({ ...serviceTradeOrder(), merchant: { organizationId: 'org-5', name: '云翼科技', kind: null } } as never)
+    expect(order).toMatchObject({ source: 'PRO_SERVICE', sourceRef: 'attempt-1', delivery: null })
+    expect(isSourceOrder(order)).toBe(true)
+    expect(orderDestination(order)).toEqual({ kind: 'SERVICE_ORDER', orderId: 'so-1' })
+    // Without its line there is nowhere else to go.
+    expect(orderDestination(serviceTradeOrder({ lines: [] }))).toEqual({ kind: 'GOODS_ORDER', orderId: 'o-1' })
+  })
+
+  it('describes a service order on the cashier and the result page: payee, item, 方案 vN, one payment', () => {
+    const order = serviceTradeOrder()
+    expect(cashierRows(order)).toEqual([
+      { key: 'service-item', label: '服务项目', value: '设备维护需求 · 云翼科技' },
+      { key: 'service-plan', label: '服务方案', value: '方案 v2' },
+      { key: 'service-node', label: '付款节点', value: '一次付清 ¥3,860 · 确认方案后支付' },
+    ])
+    expect(cashierLayout(order).map((line) => line.key)).toEqual(['service-item', 'service-plan', 'payee', 'service-node', 'order-no'])
+    expect(cashierPayeeSuffix(order)).toBe(' · 经平台支付渠道')
+    expect(cashierDueNote(order)).toBe('方案 v2 · 确认方案后一次付清')
+    expect(cashierCountdownLine(order, NOW)).toBe('剩余支付时间 14:45 · 超时可在订单里重新发起')
+    expect(cashierClosedNote(order)).toBe('没有扣款，服务订单仍待付款，可以重新发起')
+    expect(cancelUnpaidConfirm(order).content).toBe('只关闭这次付款，服务订单仍待付款，之后可以重新发起，确定取消吗？')
+    expect(cancelledToast(order)).toBe('这次付款已取消')
+    expect(failedNote(order)).toBe('服务订单仍为待付款，可以重新发起')
+    expect(orderLinkLabel(order)).toBe('查看订单')
+    expect(paidFrame(serviceTradeOrder({ status: 'PAID' }))).toEqual({ title: '已支付', note: '服务商将按方案安排开工，完成后由你验收' })
+    expect(resultRows(order)).toEqual([
+      { key: 'service-item', label: '服务项目', value: '设备维护需求 · 云翼科技' },
+      { key: 'service-plan', label: '服务方案', value: '方案 v2' },
+    ])
+    expect(resultRows(rentalTradeOrder())).toEqual([])
   })
 
   it('reads a course order and leads it to the learning page (S5-5)', () => {

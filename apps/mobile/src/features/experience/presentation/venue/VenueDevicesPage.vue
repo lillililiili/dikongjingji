@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onLoad, onReachBottom } from '@dcloudio/uni-app'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import {
@@ -11,6 +11,8 @@ import {
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
+import { MALL_PREVIEW_ENABLED } from '../../../mall/application/mall-preview'
+import { buildMallProductUrl } from '../../../mall/navigation/mall-routes'
 import { experienceApi } from '../../data/experience-api-client'
 import { buildVenueDetailUrl } from '../../navigation/experience-routes'
 import { resolveExperiencePreviewCover } from '../../data/preview/experience-preview-covers'
@@ -22,6 +24,7 @@ import {
 import {
   VENUE_DEVICE_CATEGORY_LABELS,
   VENUE_DEVICE_TRIAL_LABELS,
+  formatVenueDeviceOffer,
 } from '../shared/experience-format'
 
 const CATEGORY_TABS: readonly { code: VenueDeviceCategory | null; label: string }[] = [
@@ -64,6 +67,22 @@ function selectCategory(category: VenueDeviceCategory | null): void {
   if (selectedCategory.value === category) return
   selectedCategory.value = category
   reload()
+}
+
+// Board VenueDevices: a device whose product sells in this city opens the product page, where the
+// customer picks a merchant. Without the mall (public build) the card stays a plain card.
+const productLinks = MALL_PREVIEW_ENABLED
+const notice = productLinks
+  ? '到馆可看真机，想买或想租到商品页选商家'
+  : '到馆可看真机，能不能试用以现场标注为准'
+
+const offerTexts = computed(() => new Map(devices.value.items
+  .filter((device) => device.product)
+  .map((device) => [device.deviceId, formatVenueDeviceOffer(device.product!)])))
+
+function openProduct(device: VenueDevice): void {
+  if (!productLinks || !device.product) return
+  uni.navigateTo({ url: buildMallProductUrl(device.product.productId, cityCode) })
 }
 
 function goBack(): void {
@@ -120,7 +139,7 @@ onReachBottom(() => {
     <view class="venue-devices__content">
       <view class="venue-devices__notice">
         <LineIcon name="info" :size="16" color="#11804a" :stroke-width="2" />
-        <text>到馆可看真机，能不能试用以现场标注为准</text>
+        <text>{{ notice }}</text>
       </view>
 
       <view
@@ -144,9 +163,11 @@ onReachBottom(() => {
         <view
           v-for="device in devices.items"
           :key="device.deviceId"
-          class="venue-devices__card"
+          :class="['venue-devices__card', { 'venue-devices__card--link': productLinks && device.product }]"
           :data-testid="`venue-device-${device.deviceId}`"
           :data-category="device.category"
+          :role="productLinks && device.product ? 'link' : undefined"
+          @click="openProduct(device)"
         >
           <view :class="['venue-devices__cover', `venue-devices__cover--${device.category.toLowerCase()}`]">
             <image
@@ -170,6 +191,17 @@ onReachBottom(() => {
             >
               {{ VENUE_DEVICE_TRIAL_LABELS[device.trialMode] }}
             </text>
+            <view
+              v-if="offerTexts.get(device.deviceId)"
+              class="venue-devices__offer"
+              :data-testid="`venue-device-offer-${device.deviceId}`"
+            >
+              <text class="venue-devices__price">{{ offerTexts.get(device.deviceId)?.price }}</text>
+              <text v-if="offerTexts.get(device.deviceId)?.unit" class="venue-devices__unit">
+                {{ offerTexts.get(device.deviceId)?.unit }}
+              </text>
+              <text class="venue-devices__sellers">{{ offerTexts.get(device.deviceId)?.sellers }}</text>
+            </view>
           </view>
         </view>
         <text v-if="devices.loadingMore" class="venue-devices__more">正在加载…</text>
@@ -340,6 +372,10 @@ button::after {
   outline-offset: -1px;
 }
 
+.venue-devices__card--link {
+  cursor: pointer;
+}
+
 .venue-devices__cover {
   display: flex;
   width: 96px;
@@ -429,5 +465,35 @@ button::after {
   color: #738096;
   font-size: 12px;
   text-align: center;
+}
+.venue-devices__offer {
+  display: flex;
+  width: 100%;
+  margin-top: auto;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.venue-devices__price {
+  color: #e85400;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.venue-devices__unit {
+  color: #e85400;
+  font-size: 12px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.venue-devices__sellers {
+  margin-left: auto;
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+  white-space: nowrap;
 }
 </style>

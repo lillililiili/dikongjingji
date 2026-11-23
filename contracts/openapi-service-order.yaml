@@ -1,0 +1,1640 @@
+openapi: "3.1.0"
+info:
+  title: "Service Order API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（2026-11-23，S4-3，docs/redesign/08-后续开发计划.md §5“S4-3”，规则见 docs/redesign/03-App实现任务计划.md §28）：
+    通用服务订单——航拍、测绘、设备维护、技术支持四类需求选定报价之后的方案确认、付款、履约、交付与验收。
+    巡检有自己的预约、方案和多次巡检流程（contracts/openapi-inspection-service-flow.yaml），不走这里。
+
+    Every route needs a login (bearer JWT) except downloadServiceOrderFile, which is opened by the browser with the short-lived
+    token in its path. The customer routes (/api/v1/service-orders…) need the CUSTOMER role; the account is always the subject
+    of the token and another account's order is answered as not found. The provider routes (/api/v1/provider/service-orders…)
+    need the PROVIDER_OPERATOR role and an organization in the token; they only see orders whose provider is that organization.
+
+    规则：
+    - 生成：客户在需求比选里选定一份报价时，需求模块在同一个事务里生成服务订单（contracts/openapi-demand.yaml 1.3.0 的
+      chooseQuote），状态 AWAITING_PLAN（待服务商出方案）。订单记下需求和那一版报价的快照（金额、明细、做法、排期、工期、
+      交付物、对比项），之后改需求、改报价都不影响它。合同金额 amountMinor 就是选定那一版报价的总价。
+    - 出方案：服务商在工作台出方案（issueServiceOrderPlan）。方案金额等于合同金额、明细是报价明细，服务商只能写服务安排、
+      交付约定（1–5 条）和方案说明。确认之前可以改（方案版本加 1），客户确认的必须是最新一版（planVersion）。方案不设有效期。
+    - 确认：客户勾选“我已核对……”后确认最新一版方案（confirmServiceOrderPlan）→ AWAITING_PAYMENT。
+    - 付款：经统一交易模块一次付清合同金额（contracts/openapi-trade.yaml 0.8.0，来源 PRO_SERVICE，订单编号以 PS 开头），
+      收款方是服务商，钱进它自己的子商户号，平台不经手。startServiceOrderPayment 建（或沿用还没关闭的）一张交易订单，
+      页面拿 tradeOrderId 去收银台；15 分钟内不付，那一张交易订单关闭，服务订单仍是待付款，可以再发起。
+      服务商没有登记有效的收款账户时不能付款（409 SERVICE_ORDER_PAYMENT_UNAVAILABLE，payment.collectable 为 false）。
+      付款只认交易模块验签后的回调或查单：到账后 → AWAITING_START（待开工）。
+    - 履约：服务商标记开工（startServiceOrder）→ IN_SERVICE；完成后上传交付文件（PDF、JPEG、PNG、ZIP、Office 文档、MP4，
+      每个 ≤20 MB，一次交付最多 10 个），写交付说明并提交（deliverServiceOrder）→ DELIVERED（待验收），这是第 N 次交付。
+    - 验收：客户确认验收（acceptServiceOrderDelivery）→ COMPLETED；不满意可以“退回整改”，写明原因
+      （returnServiceOrderForRework）→ REWORK，服务商重新交付后再验收（同巡检 B2）。退回整改不自动退款。不自动验收。
+    - 交付文件：客户经短时下载意图（10 分钟）下载，链接里只有一次性生成的令牌，不暴露存储地址；服务商在工作台带登录下载。
+    - 取消与退款（C3 的单次版本）：开工之前（AWAITING_PLAN、PLAN_PENDING、AWAITING_PAYMENT、AWAITING_START）客户或服务商都可以取消
+      → CANCELLED；没付款的不涉及钱（正在付的那张交易订单先关掉，查单发现已经付了就按已付款处理），已付款的整笔原路退款。
+      开工之后不能在线取消：客户联系客服（平台协助沟通、不裁决），服务商和客户协商一致后在工作台“协商终止”
+      （terminateServiceOrder），写退款金额（0 到实付）和原因 → TERMINATED，金额大于 0 时原路退款。
+      关闭、取消之后才到账的付款，交易模块整笔自动原路退回。
+    - 服务商看到的客户只有组织名（企业下单时）和经办人显示名，没有手机号和账号。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/service-orders:
+    get:
+      operationId: "listMyServiceOrders"
+      summary: "我的服务订单（“我的订单”服务页签）"
+      description: "最近更新的在前。status 不传时全部。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/ServiceOrderStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页服务订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/service-orders/{orderId}:
+    get:
+      operationId: "getMyServiceOrder"
+      summary: "服务订单详情（方案、付款、交付与验收）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: "服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/service-orders/{orderId}/plan-confirmation:
+    post:
+      operationId: "confirmServiceOrderPlan"
+      summary: "确认方案"
+      description: "PLAN_PENDING 时确认最新一版方案 → AWAITING_PAYMENT。同一版已经确认过时原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanConfirmRequest"
+      responses:
+        "200":
+          description: "确认后的服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+        "422":
+          description: "SERVICE_ORDER_TERMS_NOT_AGREED：没有勾选“我已核对方案的服务范围、金额与交付约定”。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/service-orders/{orderId}/payments:
+    post:
+      operationId: "startServiceOrderPayment"
+      summary: "发起付款（建或沿用一张交易订单，去收银台）"
+      description: "AWAITING_PAYMENT 时：还有没关闭的交易订单就沿用它，否则新建一张（15 分钟内付款）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: "要付款的交易订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrderPaymentStart"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/service-orders/{orderId}/cancel:
+    post:
+      operationId: "cancelMyServiceOrder"
+      summary: "取消订单（开工之前）"
+      description: "开工之前可以取消：没付款的直接取消（正在付的交易订单先关闭），已付款的整笔原路退款。已经取消的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerCancelRequest"
+      responses:
+        "200":
+          description: "取消后的服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/service-orders/{orderId}/acceptance:
+    post:
+      operationId: "acceptServiceOrderDelivery"
+      summary: "确认验收"
+      description: "DELIVERED 时验收最近一次交付 → COMPLETED。验收后不可撤销；同一次交付再验收一次原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptRequest"
+      responses:
+        "200":
+          description: "验收后的服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/service-orders/{orderId}/rework:
+    post:
+      operationId: "returnServiceOrderForRework"
+      summary: "退回整改"
+      description: "DELIVERED 时把最近一次交付退回，写明原因 → REWORK；服务商重新交付后再验收。不自动退款。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReworkRequest"
+      responses:
+        "200":
+          description: "退回后的服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/service-orders/{orderId}/files/{fileId}/download-intents:
+    post:
+      operationId: "createServiceOrderFileDownload"
+      summary: "生成交付文件的短时下载链接（10 分钟）"
+      description: "只能下载已经交付的文件。返回的 url 是相对路径（/api/v1/service-order-files/{token}），不带登录也能打开，过期后 404。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          description: "下载链接"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadIntent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/FileStoreUnavailable"
+  /api/v1/service-order-files/{token}:
+    get:
+      operationId: "downloadServiceOrderFile"
+      summary: "按短时链接下载交付文件"
+      description: "不需要登录；令牌 10 分钟内有效。返回文件内容（Content-Disposition: attachment）。"
+      security: []
+      parameters:
+        - name: "token"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+      responses:
+        "200":
+          description: "文件内容"
+          content:
+            application/octet-stream:
+              schema:
+                type: "string"
+                format: "binary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: "令牌不存在或已过期（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          $ref: "#/components/responses/FileStoreUnavailable"
+  /api/v1/provider/service-orders:
+    get:
+      operationId: "listProviderServiceOrders"
+      summary: "本机构的服务订单（工作台）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/ServiceOrderStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页服务订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+  /api/v1/provider/service-orders/{orderId}:
+    get:
+      operationId: "getProviderServiceOrder"
+      summary: "本机构的一张服务订单（含还没交付的已上传文件）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: "服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+  /api/v1/provider/service-orders/{orderId}/plan:
+    put:
+      operationId: "issueServiceOrderPlan"
+      summary: "出方案或改方案（确认之前）"
+      description: "AWAITING_PLAN、PLAN_PENDING 时：金额等于合同金额、明细是报价明细，由服务端填；内容和最新一版一样时没有变化，否则方案版本加 1 → PLAN_PENDING。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanRequest"
+      responses:
+        "200":
+          description: "出方案后的服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/provider/service-orders/{orderId}/start:
+    post:
+      operationId: "startServiceOrder"
+      summary: "标记开工"
+      description: "AWAITING_START 时 → IN_SERVICE。开工之后客户不能在线取消。已经开工的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: "开工后的服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/provider/service-orders/{orderId}/files:
+    post:
+      operationId: "uploadServiceOrderFile"
+      summary: "上传一个交付文件（还没提交交付）"
+      description: "IN_SERVICE、REWORK 时。按文件头判断类型：PDF、JPEG、PNG、ZIP（含 docx、xlsx、pptx）、MP4；≤20 MB；还没交付的文件最多 10 个。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              required:
+                - "file"
+              properties:
+                file:
+                  type: "string"
+                  format: "binary"
+      responses:
+        "200":
+          description: "上传好的文件"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrderFile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          description: "SERVICE_ORDER_FILE_INVALID：类型不支持、超过 20 MB、空文件，或还没交付的文件已有 10 个。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          $ref: "#/components/responses/FileStoreUnavailable"
+  /api/v1/provider/service-orders/{orderId}/files/{fileId}:
+    delete:
+      operationId: "removeServiceOrderFile"
+      summary: "删掉一个还没交付的文件"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "204":
+          description: "已删掉"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/provider/service-orders/{orderId}/files/{fileId}/content:
+    get:
+      operationId: "readProviderServiceOrderFile"
+      summary: "下载本机构订单的一个文件（工作台）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          description: "文件内容"
+          content:
+            application/octet-stream:
+              schema:
+                type: "string"
+                format: "binary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "503":
+          $ref: "#/components/responses/FileStoreUnavailable"
+  /api/v1/provider/service-orders/{orderId}/delivery:
+    post:
+      operationId: "deliverServiceOrder"
+      summary: "标记完成并提交交付（第 N 次交付）"
+      description: "IN_SERVICE、REWORK 时：交付说明必填，fileIds 是这次要交付的、已经上传的文件（0–10 个，没列出的留着下次用）→ DELIVERED。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryRequest"
+      responses:
+        "200":
+          description: "交付后的服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+        "422":
+          description: "SERVICE_ORDER_FILE_INVALID：fileIds 里有不属于这张订单、已经交付过或重复的文件，或超过 10 个。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/service-orders/{orderId}/cancel:
+    post:
+      operationId: "cancelProviderServiceOrder"
+      summary: "服务商取消订单（开工之前）"
+      description: "开工之前可以取消，写原因：没付款的直接取消（正在付的交易订单先关闭），已付款的整笔原路退款。已经取消的原样返回。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "200":
+          description: "取消后的服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/provider/service-orders/{orderId}/termination:
+    post:
+      operationId: "terminateServiceOrder"
+      summary: "协商终止（开工之后）"
+      description: "IN_SERVICE、DELIVERED、REWORK 时：和客户协商一致后终止订单，退款金额 0 到实付（分），大于 0 时原路退款 → TERMINATED。平台只协助沟通、不裁决。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TerminateRequest"
+      responses:
+        "200":
+          description: "终止后的服务订单"
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrder"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ProviderForbidden"
+        "404":
+          $ref: "#/components/responses/ProviderNotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  headers:
+    OrderETag:
+      description: "服务订单版本（带引号），写操作作为 If-Match 带回来"
+      schema:
+        type: "string"
+  responses:
+    BadRequest:
+      description: "参数缺失或格式不对（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录，或登录已过期（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "登录账号没有客户角色（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ProviderForbidden:
+      description: "登录账号不是服务商操作员，或令牌里没有机构（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "不存在，或不是当前账号的（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    ProviderNotFound:
+      description: "不存在，或服务商不是本机构（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Conflict:
+      description: >-
+        SERVICE_ORDER_STATE_INVALID：现在的状态不能做这个操作；SERVICE_ORDER_PLAN_CHANGED：确认的方案不是最新一版；
+        SERVICE_ORDER_DELIVERY_CHANGED：验收或退回的不是最近一次待验收的交付；SERVICE_ORDER_PAYMENT_UNAVAILABLE：服务商不能在线收款；
+        SERVICE_ORDER_REFUND_NOT_ALLOWED：交易模块不能为这张单退款（比如退款金额超过实付）。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    VersionConflict:
+      description: "SERVICE_ORDER_VERSION_CONFLICT：If-Match 的版本不是现在的版本（订单在此期间有变化），请刷新后重试。"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    FileStoreUnavailable:
+      description: "SERVICE_ORDER_FILE_STORE_UNAVAILABLE：文件存储暂时不可用。"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    OrderId:
+      name: "orderId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    FileId:
+      name: "fileId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    IfMatch:
+      name: "If-Match"
+      in: "header"
+      required: true
+      description: "读订单时的 ETag（订单版本），可以带引号或 W/ 前缀"
+      schema:
+        type: "string"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true
+    ServiceOrderErrorCode:
+      type: "string"
+      enum:
+        - "SERVICE_ORDER_STATE_INVALID"
+        - "SERVICE_ORDER_VERSION_CONFLICT"
+        - "SERVICE_ORDER_PLAN_CHANGED"
+        - "SERVICE_ORDER_DELIVERY_CHANGED"
+        - "SERVICE_ORDER_TERMS_NOT_AGREED"
+        - "SERVICE_ORDER_PAYMENT_UNAVAILABLE"
+        - "SERVICE_ORDER_REFUND_NOT_ALLOWED"
+        - "SERVICE_ORDER_FILE_INVALID"
+        - "SERVICE_ORDER_FILE_STORE_UNAVAILABLE"
+      description: "服务订单接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。VERSION_CONFLICT 是 412；TERMS_NOT_AGREED、FILE_INVALID 是 422；FILE_STORE_UNAVAILABLE 是 503；其余是 409。"
+    ServiceOrderStatus:
+      type: "string"
+      enum:
+        - "AWAITING_PLAN"
+        - "PLAN_PENDING"
+        - "AWAITING_PAYMENT"
+        - "AWAITING_START"
+        - "IN_SERVICE"
+        - "DELIVERED"
+        - "REWORK"
+        - "COMPLETED"
+        - "CANCELLED"
+        - "TERMINATED"
+      description: "AWAITING_PLAN 待服务商出方案；PLAN_PENDING 待确认方案；AWAITING_PAYMENT 待付款；AWAITING_START 待开工（已付款）；IN_SERVICE 服务中；DELIVERED 待验收；REWORK 整改中；COMPLETED 已完成；CANCELLED 已取消（开工之前）；TERMINATED 协商终止（开工之后）。"
+    ServiceOrderType:
+      type: "string"
+      enum:
+        - "AERIAL"
+        - "SURVEY"
+        - "MAINTENANCE"
+        - "TECH_SUPPORT"
+      description: "航拍、测绘、设备维护、技术支持（和需求类型同名）"
+    ServiceOrderCustomerKind:
+      type: "string"
+      enum:
+        - "ORGANIZATION"
+        - "PERSONAL"
+    ServiceOrderParty:
+      type: "string"
+      enum:
+        - "CUSTOMER"
+        - "PROVIDER"
+      description: "谁取消或终止的"
+    ServiceOrderDeliveryStatus:
+      type: "string"
+      enum:
+        - "SUBMITTED"
+        - "ACCEPTED"
+        - "RETURNED"
+      description: "一次交付：SUBMITTED 待验收；ACCEPTED 已验收；RETURNED 已退回整改"
+    ServiceOrderRefundKind:
+      type: "string"
+      enum:
+        - "CANCEL"
+        - "TERMINATE"
+      description: "CANCEL 开工前取消的整笔退款；TERMINATE 协商终止时服务商退的款"
+    ServiceOrderEventType:
+      type: "string"
+      enum:
+        - "CREATED"
+        - "PLAN_ISSUED"
+        - "PLAN_REVISED"
+        - "PLAN_CONFIRMED"
+        - "PAID"
+        - "STARTED"
+        - "DELIVERED"
+        - "ACCEPTED"
+        - "RETURNED"
+        - "CANCELLED"
+        - "TERMINATED"
+    ServiceOrderCustomer:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "kind"
+        - "organizationName"
+        - "contactName"
+      properties:
+        kind:
+          $ref: "#/components/schemas/ServiceOrderCustomerKind"
+        organizationName:
+          type:
+            - "string"
+            - "null"
+          description: "企业下单时的组织名（快照）"
+        contactName:
+          type: "string"
+          description: "经办人（下单账号的显示名，快照）"
+    ServiceOrderProvider:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "providerId"
+        - "name"
+        - "qualificationReviewed"
+      properties:
+        providerId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        qualificationReviewed:
+          type: "boolean"
+          description: "平台审核过它的资质（页面显示“资质已审核”）"
+    ServiceOrderLine:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "name"
+        - "quantity"
+        - "unit"
+        - "unitAmountMinor"
+        - "amountMinor"
+      description: "报价明细的一行（和 openapi-demand.yaml 的 QuoteLine 相同）；报价没有明细时只有一行“服务费用”"
+      properties:
+        name:
+          type: "string"
+        quantity:
+          type:
+            - "integer"
+            - "null"
+        unit:
+          type:
+            - "string"
+            - "null"
+        unitAmountMinor:
+          type:
+            - "integer"
+            - "null"
+          format: "int64"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+    ServiceOrderQuote:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "quoteId"
+        - "quoteVersion"
+        - "method"
+        - "schedule"
+        - "durationDays"
+        - "deliverables"
+        - "team"
+        - "nightWork"
+        - "reportHours"
+        - "archiveDays"
+        - "firstVisitDate"
+      description: "选定那一版报价的快照"
+      properties:
+        quoteId:
+          type: "string"
+          format: "uuid"
+        quoteVersion:
+          type: "integer"
+          minimum: 1
+        method:
+          type: "string"
+        schedule:
+          type: "string"
+        durationDays:
+          type: "integer"
+        deliverables:
+          type: "string"
+        team:
+          type:
+            - "string"
+            - "null"
+        nightWork:
+          type:
+            - "string"
+            - "null"
+        reportHours:
+          type:
+            - "integer"
+            - "null"
+        archiveDays:
+          type:
+            - "integer"
+            - "null"
+        firstVisitDate:
+          type:
+            - "string"
+            - "null"
+          format: "date"
+    ServiceOrderPlan:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "version"
+        - "amountMinor"
+        - "schedule"
+        - "terms"
+        - "note"
+        - "issuedAt"
+        - "confirmedAt"
+        - "confirmedBy"
+      properties:
+        version:
+          type: "integer"
+          minimum: 1
+          description: "方案版本（“方案 v2”）；确认时作为 planVersion 带回来"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+          description: "方案金额，等于合同金额"
+        schedule:
+          type: "string"
+          maxLength: 60
+          description: "服务安排，比如“11/26 上门检测，约半天”"
+        terms:
+          type: "array"
+          minItems: 1
+          maxItems: 5
+          items:
+            type: "string"
+            maxLength: 60
+          description: "交付约定"
+        note:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+          description: "方案说明"
+        issuedAt:
+          type: "string"
+          format: "date-time"
+          description: "这一版的出具时间"
+        confirmedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        confirmedBy:
+          type:
+            - "string"
+            - "null"
+          description: "确认人（账号显示名）"
+    ServiceOrderRefund:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "refundId"
+        - "kind"
+        - "amountMinor"
+        - "reason"
+        - "status"
+        - "requestedAt"
+      properties:
+        refundId:
+          type: "string"
+          format: "uuid"
+        kind:
+          $ref: "#/components/schemas/ServiceOrderRefundKind"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        reason:
+          type: "string"
+        status:
+          type: "string"
+          enum:
+            - "REQUESTED"
+            - "PROCESSING"
+            - "SUCCEEDED"
+            - "CLOSED"
+            - "ABNORMAL"
+          description: "交易模块的退款状态（只来自渠道回执或查询）"
+        requestedAt:
+          type: "string"
+          format: "date-time"
+    ServiceOrderPayment:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "amountMinor"
+        - "collectable"
+        - "paidAt"
+        - "pendingTradeOrderId"
+        - "pendingPayBefore"
+        - "paidTradeOrderId"
+        - "refundedMinor"
+        - "refunds"
+      properties:
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+          description: "应付金额（合同金额），一次付清"
+        collectable:
+          type: "boolean"
+          description: "服务商登记了有效的收款账户，能在线付款"
+        paidAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        pendingTradeOrderId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "还没关闭、还没付的交易订单（去收银台接着付）"
+        pendingPayBefore:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        paidTradeOrderId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "付了款的那张交易订单（支付回执在交易模块）"
+        refundedMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+          description: "已经发起的退款合计（含还在处理的）"
+        refunds:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ServiceOrderRefund"
+    ServiceOrderFile:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "fileId"
+        - "name"
+        - "contentType"
+        - "sizeBytes"
+        - "uploadedAt"
+      properties:
+        fileId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+          maxLength: 120
+          description: "上传时的文件名"
+        contentType:
+          type: "string"
+        sizeBytes:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        uploadedAt:
+          type: "string"
+          format: "date-time"
+    ServiceOrderDelivery:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "round"
+        - "status"
+        - "note"
+        - "files"
+        - "deliveredAt"
+        - "reviewNote"
+        - "reviewedAt"
+        - "reviewedBy"
+      properties:
+        round:
+          type: "integer"
+          minimum: 1
+          description: "第几次交付"
+        status:
+          $ref: "#/components/schemas/ServiceOrderDeliveryStatus"
+        note:
+          type: "string"
+          maxLength: 1000
+          description: "交付说明"
+        files:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ServiceOrderFile"
+        deliveredAt:
+          type: "string"
+          format: "date-time"
+        reviewNote:
+          type:
+            - "string"
+            - "null"
+          description: "退回整改的原因"
+        reviewedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        reviewedBy:
+          type:
+            - "string"
+            - "null"
+          description: "验收或退回的人（账号显示名）"
+    ServiceOrderEvent:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "type"
+        - "occurredAt"
+        - "planVersion"
+        - "round"
+      properties:
+        type:
+          $ref: "#/components/schemas/ServiceOrderEventType"
+        occurredAt:
+          type: "string"
+          format: "date-time"
+        planVersion:
+          type:
+            - "integer"
+            - "null"
+        round:
+          type:
+            - "integer"
+            - "null"
+          description: "交付、验收、退回时是第几次交付"
+    ServiceOrderActions:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "confirmPlan"
+        - "pay"
+        - "cancel"
+        - "accept"
+        - "rework"
+        - "issuePlan"
+        - "start"
+        - "deliver"
+        - "terminate"
+      description: "当前登录的这一方现在能做的操作（客户接口只会有客户的操作为 true，服务商接口同理）；cancel 两方都有"
+      properties:
+        confirmPlan:
+          type: "boolean"
+        pay:
+          type: "boolean"
+        cancel:
+          type: "boolean"
+        accept:
+          type: "boolean"
+        rework:
+          type: "boolean"
+        issuePlan:
+          type: "boolean"
+        start:
+          type: "boolean"
+        deliver:
+          type: "boolean"
+        terminate:
+          type: "boolean"
+    ServiceOrder:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "orderId"
+        - "orderNo"
+        - "status"
+        - "type"
+        - "title"
+        - "demandId"
+        - "customer"
+        - "provider"
+        - "cityCode"
+        - "cityName"
+        - "address"
+        - "scope"
+        - "dueDate"
+        - "amountMinor"
+        - "lines"
+        - "quote"
+        - "plan"
+        - "payment"
+        - "deliveries"
+        - "stagedFiles"
+        - "events"
+        - "startedAt"
+        - "completedAt"
+        - "closedAt"
+        - "closedBy"
+        - "closeReason"
+        - "actions"
+        - "createdAt"
+        - "updatedAt"
+        - "version"
+      properties:
+        orderId:
+          type: "string"
+          format: "uuid"
+        orderNo:
+          type: "string"
+          description: "订单编号：SV + 北京日期 + 6 位数字"
+        status:
+          $ref: "#/components/schemas/ServiceOrderStatus"
+        type:
+          $ref: "#/components/schemas/ServiceOrderType"
+        title:
+          type: "string"
+          description: "需求标题，比如“航拍需求”"
+        demandId:
+          type: "string"
+          format: "uuid"
+        customer:
+          $ref: "#/components/schemas/ServiceOrderCustomer"
+        provider:
+          $ref: "#/components/schemas/ServiceOrderProvider"
+        cityCode:
+          type: "string"
+        cityName:
+          type: "string"
+        address:
+          type: "string"
+          description: "服务地点（需求里的地址文字）"
+        scope:
+          type: "string"
+          description: "作业范围"
+        dueDate:
+          type:
+            - "string"
+            - "null"
+          format: "date"
+          description: "期望完成日期；为空表示时间可协商"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+          description: "合同金额（选定报价的总价）"
+        lines:
+          type: "array"
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ServiceOrderLine"
+          description: "报价明细（方案明细同此）"
+        quote:
+          $ref: "#/components/schemas/ServiceOrderQuote"
+        plan:
+          anyOf:
+            - $ref: "#/components/schemas/ServiceOrderPlan"
+            - type: "null"
+          description: "最新一版方案；还没出方案时为 null"
+        payment:
+          $ref: "#/components/schemas/ServiceOrderPayment"
+        deliveries:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ServiceOrderDelivery"
+          description: "历次交付，按第几次排"
+        stagedFiles:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ServiceOrderFile"
+          description: "已上传、还没提交交付的文件（只在服务商接口里有，客户接口为空数组）"
+        events:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ServiceOrderEvent"
+          description: "订单记录，按时间排"
+        startedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        completedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        closedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "取消或终止的时间"
+        closedBy:
+          anyOf:
+            - $ref: "#/components/schemas/ServiceOrderParty"
+            - type: "null"
+        closeReason:
+          type:
+            - "string"
+            - "null"
+        actions:
+          $ref: "#/components/schemas/ServiceOrderActions"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+    ServiceOrderSummary:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "orderId"
+        - "orderNo"
+        - "status"
+        - "type"
+        - "title"
+        - "scope"
+        - "cityName"
+        - "customer"
+        - "provider"
+        - "amountMinor"
+        - "planVersion"
+        - "paidAt"
+        - "latestDeliveryAt"
+        - "createdAt"
+        - "updatedAt"
+      properties:
+        orderId:
+          type: "string"
+          format: "uuid"
+        orderNo:
+          type: "string"
+        status:
+          $ref: "#/components/schemas/ServiceOrderStatus"
+        type:
+          $ref: "#/components/schemas/ServiceOrderType"
+        title:
+          type: "string"
+        scope:
+          type: "string"
+        cityName:
+          type: "string"
+        customer:
+          $ref: "#/components/schemas/ServiceOrderCustomer"
+        provider:
+          $ref: "#/components/schemas/ServiceOrderProvider"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        planVersion:
+          type:
+            - "integer"
+            - "null"
+        paidAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        latestDeliveryAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    ServiceOrderPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+          minimum: 1
+        size:
+          type: "integer"
+          minimum: 1
+        total:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ServiceOrderSummary"
+    ServiceOrderPaymentStart:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "orderId"
+        - "tradeOrderId"
+        - "amountMinor"
+        - "payBefore"
+      properties:
+        orderId:
+          type: "string"
+          format: "uuid"
+        tradeOrderId:
+          type: "string"
+          format: "uuid"
+          description: "交易订单 ID，去收银台（contracts/openapi-trade.yaml 的 launchPayment）"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        payBefore:
+          type: "string"
+          format: "date-time"
+    DownloadIntent:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "url"
+        - "expiresAt"
+      properties:
+        url:
+          type: "string"
+          description: "相对路径 /api/v1/service-order-files/{token}，接在 API 地址后面打开"
+        expiresAt:
+          type: "string"
+          format: "date-time"
+    PlanConfirmRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "planVersion"
+        - "agreed"
+      properties:
+        planVersion:
+          type: "integer"
+          minimum: 1
+        agreed:
+          type: "boolean"
+          description: "勾选了“我已核对方案的服务范围、金额与交付约定”"
+    CustomerCancelRequest:
+      type: "object"
+      additionalProperties: false
+      properties:
+        reason:
+          type:
+            - "string"
+            - "null"
+          maxLength: 80
+          description: "取消原因，可以不填"
+    AcceptRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "round"
+      properties:
+        round:
+          type: "integer"
+          minimum: 1
+          description: "页面上看到的待验收的那一次交付"
+    ReworkRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "round"
+        - "reason"
+      properties:
+        round:
+          type: "integer"
+          minimum: 1
+        reason:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+    PlanRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "schedule"
+        - "terms"
+      properties:
+        schedule:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+        terms:
+          type: "array"
+          minItems: 1
+          maxItems: 5
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 60
+        note:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+    DeliveryRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "note"
+        - "fileIds"
+      properties:
+        note:
+          type: "string"
+          minLength: 1
+          maxLength: 1000
+        fileIds:
+          type: "array"
+          maxItems: 10
+          items:
+            type: "string"
+            format: "uuid"
+    ReasonRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "reason"
+      properties:
+        reason:
+          type: "string"
+          minLength: 1
+          maxLength: 80
+    TerminateRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "refundAmountMinor"
+        - "reason"
+      properties:
+        refundAmountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+          description: "退给客户的金额（分），0 到实付"
+        reason:
+          type: "string"
+          minLength: 1
+          maxLength: 200

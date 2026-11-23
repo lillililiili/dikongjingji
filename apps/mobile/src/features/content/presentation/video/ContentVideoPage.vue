@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, getCurrentInstance, ref } from 'vue'
 
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
@@ -17,7 +19,7 @@ import type { ContentVideo } from '../../domain/content'
 import { buildContentVideoUrl, contentAuthorHome } from '../../navigation/content-routes'
 
 // One video (board ContentVideo): the player, the title, the author with 进店 / 主页, the caption,
-// 内容中提到 read from each module, and at the bottom 点赞 (the board's 收藏 is not in this step)
+// 内容中提到 read from each module, and at the bottom 收藏 (board ContentVideo, plan 08 S5-6) and 点赞
 // with the first mentions' pages. 分享 only copies the link.
 const props = defineProps<{
   videoId: string
@@ -297,6 +299,14 @@ void load()
       </view>
 
       <view class="video__bottom">
+        <FavoriteButton
+          v-if="FAVORITE_PREVIEW_ENABLED"
+          type="CONTENT"
+          :target-id="video.videoId"
+          :city-code="cityCode"
+          :return-url="buildContentVideoUrl(video.videoId, cityCode)"
+          icon="star"
+        />
         <button
           class="video__like"
           data-testid="content-video-like"

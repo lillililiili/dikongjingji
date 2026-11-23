@@ -24,7 +24,7 @@ class ProServiceMapperContractTest {
                 .map(ProServiceMapperContractTest::sql)
                 .toList();
 
-        assertThat(statements).hasSize(9);
+        assertThat(statements).hasSize(10);
         assertThat(statements).allSatisfy(sql -> assertThat(sql)
                 .doesNotContain("${")
                 .doesNotContainIgnoringCase("insert ")

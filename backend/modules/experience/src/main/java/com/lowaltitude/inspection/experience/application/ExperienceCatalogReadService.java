@@ -33,19 +33,30 @@ public final class ExperienceCatalogReadService {
     private final ExperienceCatalogReadStore store;
     private final Clock clock;
     private final Predicate<UUID> operatorCanCollect;
+    private final VenueDeviceOfferPort deviceOffers;
 
     /** 没有接交易模块：项目的 onlinePayment 一律为 false。 */
     ExperienceCatalogReadService(ExperienceCatalogReadStore store, Clock clock) {
         this(store, clock, operatorId -> false);
     }
 
+    ExperienceCatalogReadService(ExperienceCatalogReadStore store, Clock clock, Predicate<UUID> operatorCanCollect) {
+        this(store, clock, operatorCanCollect, VenueDeviceOfferPort.none());
+    }
+
     /**
      * @param operatorCanCollect 场馆运营机构能不能在线收款（登记了有效的微信收款账户，E10）；只在有标价大于 0 的项目时才问
      */
-    ExperienceCatalogReadService(ExperienceCatalogReadStore store, Clock clock, Predicate<UUID> operatorCanCollect) {
+    ExperienceCatalogReadService(
+            ExperienceCatalogReadStore store,
+            Clock clock,
+            Predicate<UUID> operatorCanCollect,
+            VenueDeviceOfferPort deviceOffers
+    ) {
         this.store = store;
         this.clock = clock;
         this.operatorCanCollect = operatorCanCollect;
+        this.deviceOffers = deviceOffers;
     }
 
     public ExperienceItemPageView listExperienceItems(String typeCode, int page, int size) {
@@ -97,7 +108,8 @@ public final class ExperienceCatalogReadService {
                         secureMedia(row.coverUrl(), row.name()),
                         blankToNull(row.openingNote()),
                         row.address(),
-                        row.openSessionsToday()))
+                        row.openSessionsToday(),
+                        blankToNull(row.projectSummary())))
                 .toList();
         return new VenuePageView(page, size, total, hasMore(page, size, total), items);
     }
@@ -186,9 +198,27 @@ public final class ExperienceCatalogReadService {
                         row.name(),
                         blankToNull(row.summary()),
                         secureMedia(row.imageUrl(), row.name()),
-                        VenueDeviceTrialMode.valueOf(row.trialMode())))
+                        VenueDeviceTrialMode.valueOf(row.trialMode()),
+                        deviceProduct(row.productId(), cityCode)))
                 .toList();
         return new VenueDevicePageView(page, size, total, hasMore(page, size, total), items);
+    }
+
+    /** 设备关联的商品在这个城市怎么卖：经商城端口问，一页里每件商品只问一次以内。 */
+    private VenueDeviceProductView deviceProduct(UUID productId, String cityCode) {
+        if (productId == null) {
+            return null;
+        }
+        return deviceOffers.offer(productId, cityCode)
+                .filter(offer -> offer.sellerCount() > 0)
+                .map(offer -> new VenueDeviceProductView(
+                        productId,
+                        offer.saleMode(),
+                        offer.fromAmountMinor(),
+                        offer.priceUnit(),
+                        offer.multiplePrices(),
+                        offer.sellerCount()))
+                .orElse(null);
     }
 
     /**
@@ -334,7 +364,9 @@ record VenueCardView(
         ExperienceMediaView coverImage,
         String openingNote,
         String address,
-        long openSessionsToday
+        long openSessionsToday,
+        // 1.5.0（S4-4）：卡片第一行的项目摘要，如“模拟飞行 · 机器人编程 · 厂家展区”；没有时为 null。
+        String projectSummary
 ) {
 }
 
@@ -405,7 +437,19 @@ record VenueDeviceView(
         String name,
         String summary,
         ExperienceMediaView image,
-        VenueDeviceTrialMode trialMode
+        VenueDeviceTrialMode trialMode,
+        // 1.5.0（S4-4）：关联商品在场馆所在城市的价格和在售家数；没关联或这个城市没有在售时为 null。
+        VenueDeviceProductView product
+) {
+}
+
+record VenueDeviceProductView(
+        UUID productId,
+        VenueDeviceOfferPort.SaleMode saleMode,
+        Long fromAmountMinor,
+        VenueDeviceOfferPort.PriceUnit priceUnit,
+        boolean multiplePrices,
+        long sellerCount
 ) {
 }
 

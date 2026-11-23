@@ -124,8 +124,15 @@ public interface ReservationPersistenceMapper {
                    due.node_no payment_due_node_no,
                    due.node_type payment_due_node_type,
                    due.visit_no payment_due_visit_no,
-                   due.amount_minor payment_due_amount_minor
+                   due.amount_minor payment_due_amount_minor,
+                   provider.id provider_id,
+                   provider.organization_name provider_name,
+                   provider.qualification_reviewed_at IS NOT NULL provider_qualification_reviewed
             FROM inspection_reservation r
+            -- S4-4：订单卡头行的服务商名和“资质已审核”；历史订单不按机构现在的状态隐藏。
+            LEFT JOIN identity_organization provider
+              ON provider.id = r.provider_id
+             AND provider.organization_type = 'PROVIDER'
             LEFT JOIN LATERAL (
                 SELECT current_plan.id,
                        current_plan.status,
@@ -623,7 +630,10 @@ public interface ReservationPersistenceMapper {
             Integer paymentDueNodeNo,
             String paymentDueNodeType,
             Integer paymentDueVisitNo,
-            Long paymentDueAmountMinor
+            Long paymentDueAmountMinor,
+            UUID providerId,
+            String providerName,
+            boolean providerQualificationReviewed
     ) { }
     record CustomerReservationCountsRow(
             long allCount,

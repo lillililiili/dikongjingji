@@ -266,7 +266,7 @@ public interface ServiceFlowPersistenceMapper {
     @Select("""
             SELECT assignment_type type, resource_id,
                    display_name_snapshot display_name, role_label,
-                   contact_mobile_masked
+                   contact_mobile_masked, certified_pilot
             FROM inspection_order_assignment
             WHERE service_order_id = #{orderId}
             ORDER BY assigned_at, id
@@ -666,12 +666,12 @@ public interface ServiceFlowPersistenceMapper {
             INSERT INTO inspection_order_assignment (
                 id, service_order_id, assignment_type, resource_id,
                 display_name_snapshot, role_label, contact_mobile_ciphertext,
-                contact_mobile_masked, assigned_by, assigned_at
+                contact_mobile_masked, certified_pilot, assigned_by, assigned_at
             )
             VALUES (
                 gen_random_uuid(), #{orderId}, #{type}, #{resourceId},
                 #{displayName}, #{roleLabel}, #{contactMobileCiphertext},
-                #{contactMobileMasked}, #{actorId}, #{assignedAt}
+                #{contactMobileMasked}, #{certifiedPilot}, #{actorId}, #{assignedAt}
             )
             """)
     void insertOrderAssignment(
@@ -682,6 +682,7 @@ public interface ServiceFlowPersistenceMapper {
             @Param("roleLabel") String roleLabel,
             @Param("contactMobileCiphertext") byte[] contactMobileCiphertext,
             @Param("contactMobileMasked") String contactMobileMasked,
+            @Param("certifiedPilot") boolean certifiedPilot,
             @Param("actorId") UUID actorId,
             @Param("assignedAt") Instant assignedAt);
 
@@ -1015,7 +1016,8 @@ public interface ServiceFlowPersistenceMapper {
             UUID resourceId,
             String displayName,
             String roleLabel,
-            String contactMobileMasked
+            String contactMobileMasked,
+            boolean certifiedPilot
     ) {
     }
 

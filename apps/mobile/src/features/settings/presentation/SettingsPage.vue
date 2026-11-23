@@ -8,9 +8,9 @@ import { AGREEMENT_DOCUMENTS } from '../domain/agreement'
 import { AGREEMENT_ICONS, SETTINGS_RULE_DOCS } from './settings-icons'
 
 // 设置 (board Settings, 390 wide). Plan §26.2 built the account card, 地址管理, 协议与规则, 帮助与
-// 反馈, 关于 and 退出登录. With the ACCOUNT switch (S5-8) the account group becomes the board's 手机号
-// and 登录设备管理, and 隐私 (个人信息查看与导出, 权限管理), 新手引导 and 注销账户 appear; the
-// notification switches belong to S5-9.
+// 反馈, 关于 and 退出登录; S5-9 added the 通知 switches. With the ACCOUNT switch (S5-8) the account
+// group becomes the board's 手机号 and 登录设备管理, and 隐私 (个人信息查看与导出, 权限管理), 新手引导
+// and 注销账户 appear.
 withDefaults(defineProps<{
   // The signed-in account; null while it is read (or could not be).
   account: { displayName: string; organizationName: string | null; maskedPhone?: string | null } | null
@@ -18,7 +18,9 @@ withDefaults(defineProps<{
   accountPages?: boolean
   // 处理中 next to 注销账户 while a closure request runs.
   closureTag?: string | null
-}>(), { accountPages: false, closureTag: null })
+  // The 通知 switches (S5-9); null leaves the group out (public builds, or not read yet).
+  notifications?: { orderServicePush: boolean; activityPush: boolean; discoverDot: boolean } | null
+}>(), { accountPages: false, closureTag: null, notifications: null })
 
 const emit = defineEmits<{
   back: []
@@ -33,7 +35,15 @@ const emit = defineEmits<{
   permissions: []
   onboarding: []
   closure: []
+  toggleNotification: [key: 'orderServicePush' | 'activityPush' | 'discoverDot']
 }>()
+
+// The three switches of the board's 通知 group, in its order. 订单与服务进度's 站内消息 is always on.
+const SWITCH_ICONS = {
+  bell: 'M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0',
+  flag: 'M6 21V4M6 4h11l-2 4 2 4H6',
+  discover: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z',
+}
 
 // Row icons copied from the board Settings (显示名 and 所属组织 take the board Mine's person and
 // organization icons; the board shows the phone number there, which accounts do not have yet).
@@ -92,6 +102,76 @@ const RULES = SETTINGS_RULE_DOCS.map((doc) => ({ doc, d: AGREEMENT_ICONS[doc] })
             <text class="settings__row-value" data-testid="settings-organization">
               {{ account ? account.organizationName || '个人账号' : '—' }}
             </text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 通知 (board Settings): switches only govern pushes, the 消息 tab keeps every notification. -->
+      <view v-if="notifications" class="settings__group" data-testid="settings-notifications">
+        <text class="settings__group-title">通知</text>
+        <view class="settings__card">
+          <view class="settings__notice-block">
+            <view class="settings__notice-head">
+              <LineIcon :d="SWITCH_ICONS.bell" :size="20" color="#536178" />
+              <text class="settings__row-title">订单与服务进度</text>
+            </view>
+            <view class="settings__notice-sub">
+              <view class="settings__notice-copy">
+                <text class="settings__notice-label">站内消息</text>
+                <text class="settings__notice-hint">交易与服务状态必须通知到你</text>
+              </view>
+              <text class="settings__row-value">始终开启</text>
+            </view>
+            <view class="settings__notice-sub settings__notice-sub--switch">
+              <text class="settings__notice-label settings__notice-label--grow">推送</text>
+              <button
+                class="settings__switch"
+                role="switch"
+                :aria-checked="notifications.orderServicePush"
+                aria-label="订单与服务进度推送"
+                data-testid="settings-switch-order-push"
+                @click="emit('toggleNotification', 'orderServicePush')"
+              >
+                <view :class="['settings__switch-track', { 'settings__switch-track--on': notifications.orderServicePush }]">
+                  <view class="settings__switch-knob" />
+                </view>
+              </button>
+            </view>
+          </view>
+          <view class="settings__row settings__row--switch">
+            <LineIcon :d="SWITCH_ICONS.flag" :size="20" color="#536178" />
+            <text class="settings__row-title">活动提醒</text>
+            <button
+              class="settings__switch"
+              role="switch"
+              :aria-checked="notifications.activityPush"
+              aria-label="活动提醒"
+              data-testid="settings-switch-activity"
+              @click="emit('toggleNotification', 'activityPush')"
+            >
+              <view :class="['settings__switch-track', { 'settings__switch-track--on': notifications.activityPush }]">
+                <view class="settings__switch-knob" />
+              </view>
+            </button>
+          </view>
+          <view class="settings__row settings__row--switch settings__row--tall">
+            <LineIcon :d="SWITCH_ICONS.discover" :size="20" color="#536178" />
+            <view class="settings__notice-copy">
+              <text class="settings__row-title">发现内容更新红点</text>
+              <text class="settings__notice-hint">关闭后底栏“发现”不再显示红点</text>
+            </view>
+            <button
+              class="settings__switch"
+              role="switch"
+              :aria-checked="notifications.discoverDot"
+              aria-label="发现内容更新红点"
+              data-testid="settings-switch-discover-dot"
+              @click="emit('toggleNotification', 'discoverDot')"
+            >
+              <view :class="['settings__switch-track', { 'settings__switch-track--on': notifications.discoverDot }]">
+                <view class="settings__switch-knob" />
+              </view>
+            </button>
           </view>
         </view>
       </view>
@@ -293,6 +373,102 @@ button.settings__card.settings__row {
   color: #ba470b;
   font-size: 14px;
   line-height: 20px;
+}
+
+.settings__notice-block {
+  display: flex;
+  padding-bottom: 4px;
+  flex-direction: column;
+  border-bottom: 1px solid #f0f1f3;
+}
+
+.settings__notice-head {
+  display: flex;
+  min-height: 44px;
+  padding: 0 14px;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings__notice-sub {
+  display: flex;
+  padding: 2px 14px 6px 46px;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings__notice-sub--switch {
+  min-height: 44px;
+  padding: 0 10px 0 46px;
+}
+
+.settings__notice-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings__notice-label {
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.settings__notice-label--grow {
+  min-width: 0;
+  flex: 1;
+}
+
+.settings__notice-hint {
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.settings__row--switch {
+  padding: 0 10px 0 14px;
+}
+
+.settings__row--tall {
+  min-height: 56px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* The board's switch: a 52×44 touch target around a 44×26 track. */
+.settings__switch {
+  display: flex;
+  width: 52px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings__switch-track {
+  display: flex;
+  width: 44px;
+  height: 26px;
+  padding: 2px;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  border-radius: 13px;
+  background: #c9d3e1;
+}
+
+.settings__switch-track--on {
+  justify-content: flex-end;
+  background: #ff6a00;
+}
+
+.settings__switch-knob {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .settings__footer {

@@ -88,7 +88,8 @@ record ProServiceDetailView(
         List<String> steps,
         List<String> guarantees,
         ProServiceProviderView provider,
-        List<ProServiceCityView> cities
+        List<ProServiceCityView> cities,
+        String warrantyText
 ) {
 }
 
@@ -114,6 +115,7 @@ record ProviderPageView(
         String cityCode,
         List<ProviderInspectionServiceView> inspectionServices,
         List<ProServiceCardView> proServices,
-        List<ProServiceCityView> cities
+        List<ProServiceCityView> cities,
+        ProviderProfileService.ProfileView profile
 ) {
 }

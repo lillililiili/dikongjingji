@@ -74,11 +74,37 @@ describe('message api', () => {
     // 1.4.0 (M20): 直播提醒 opens the live room.
     expect(toMessageItem(dto('LIVE_REMINDER', 'LIVE_ROOM')))
       .toMatchObject({ category: 'LIVE_REMINDER', target: { type: 'LIVE_ROOM' } })
-    expect(toMessageItem(dto('SYSTEM_NOTICE', 'NOTICE'))).toMatchObject({ category: 'OTHER', target: null })
+    // 1.5.0 (S5-9): 系统通知 opens the announcement.
+    expect(toMessageItem(dto('SYSTEM_NOTICE', 'SYSTEM_NOTICE')))
+      .toMatchObject({ category: 'SYSTEM_NOTICE', target: { type: 'SYSTEM_NOTICE', id: 'o1' } })
+    expect(toMessageItem(dto('ORG_INVITE', 'NOTICE'))).toMatchObject({ category: 'OTHER', target: null })
     // A known category pointing at a page this version does not know still shows, but opens nothing.
     expect(toMessageItem(dto('TRADE_LOGISTICS', 'AFTER_SALES'))).toMatchObject({ category: 'TRADE_LOGISTICS', target: null })
     // An unknown category never opens a page, even with a known target.
-    expect(toMessageItem(dto('SYSTEM_NOTICE', 'TRADE_ORDER')).target).toBeNull()
+    expect(toMessageItem(dto('ORG_INVITE', 'TRADE_ORDER')).target).toBeNull()
     expect(toMessageItem({ ...dto('TRADE_LOGISTICS', 'TRADE_ORDER'), target: null }).target).toBeNull()
+  })
+
+  // 1.5.0: only a build that shows 系统通知 asks for them, with the current city when there is one.
+  it('asks for 系统通知 only when the build shows them', async () => {
+    const urls: string[] = []
+    const api = createMessageApi(async <T>(input: { url: string }) => {
+      urls.push(input.url)
+      return (input.url.includes('unread-count') ? { count: 0 } : { hasMore: false, unreadCount: 0, items: [] }) as T
+    })
+
+    await api.loadPage('t', 1, 20)
+    await api.loadPage('t', 1, 20, { systemNotices: false, cityCode: '370500' })
+    await api.loadPage('t', 2, 20, { systemNotices: true, cityCode: '370500' })
+    await api.loadUnreadCount('t', { systemNotices: true, cityCode: null })
+    await api.loadUnreadCount('t')
+
+    expect(urls).toEqual([
+      '/api/v1/notifications?page=1&size=20',
+      '/api/v1/notifications?page=1&size=20',
+      '/api/v1/notifications?page=2&size=20&systemNotices=true&cityCode=370500',
+      '/api/v1/notifications/unread-count?systemNotices=true',
+      '/api/v1/notifications/unread-count',
+    ])
   })
 })

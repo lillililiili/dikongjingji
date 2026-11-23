@@ -70,6 +70,8 @@ const emit = defineEmits<{
   openActivity: [activityId: string, cityCode: string]
   openUrl: [url: string]
   login: [returnUrl: string]
+  // The search icon of the head (board Discover → SearchPre).
+  search: []
 }>()
 
 type DiscoverTab = DiscoverChannel | typeof LIVE_TAB
@@ -221,6 +223,9 @@ defineExpose({ loadMore, refresh })
         >
           <text>{{ cityLabel }}</text>
           <LineIcon :d="ICONS.caret" :size="14" fill="#202c42" />
+        </button>
+        <button class="discover__search" data-testid="discover-search" aria-label="搜索" @click="emit('search')">
+          <LineIcon name="search" :size="22" color="#202c42" :stroke-width="1.8" />
         </button>
       </view>
       <view class="discover__tabs" role="tablist" aria-label="内容频道">
@@ -488,6 +493,15 @@ button::after {
   color: #202c42;
   font-size: 15px;
   font-weight: 500;
+}
+
+.discover__search {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  align-items: center;
+  justify-content: center;
 }
 
 .discover__tabs {

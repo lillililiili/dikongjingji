@@ -85,7 +85,13 @@ final class PostgresCustomerReservationQueryStore
                 row.paymentDueNodeNo(),
                 row.paymentDueNodeType(),
                 row.paymentDueVisitNo(),
-                row.paymentDueAmountMinor());
+                row.paymentDueAmountMinor(),
+                row.providerName() == null
+                        ? null
+                        : new ReservationProvider(
+                                row.providerId(),
+                                row.providerName(),
+                                row.providerQualificationReviewed()));
     }
 
     private static CustomerReservationCountSnapshot toCounts(

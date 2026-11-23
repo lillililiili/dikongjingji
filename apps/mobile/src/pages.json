@@ -29,6 +29,13 @@
       }
     },
     {
+      "path": "pages/message/notice",
+      "style": {
+        "navigationBarTitleText": "通知详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/cart/index",
       "style": {
         "navigationBarTitleText": "购物车",
@@ -238,7 +245,49 @@
     {
       "path": "pages/activity/refund",
       "style": {
-        "navigationBarTitleText": "申请退款",
+        "navigationBarTitleText": "申请退改",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/waitlist",
+      "style": {
+        "navigationBarTitleText": "候补详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/team-signup",
+      "style": {
+        "navigationBarTitleText": "团队报名",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/team-order",
+      "style": {
+        "navigationBarTitleText": "团队报名订单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/result",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/change",
+      "style": {
+        "navigationBarTitleText": "退改详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/calendar",
+      "style": {
+        "navigationBarTitleText": "选择日期",
         "navigationStyle": "custom"
       }
     },
@@ -362,6 +411,27 @@
       }
     },
     {
+      "path": "pages/service-order/detail",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/service-order/plan",
+      "style": {
+        "navigationBarTitleText": "方案确认",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/service-order/delivery",
+      "style": {
+        "navigationBarTitleText": "交付与验收",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/venue/detail",
       "style": {
         "navigationBarTitleText": "场馆详情",
@@ -414,6 +484,20 @@
       "path": "pages/mall/product",
       "style": {
         "navigationBarTitleText": "商品详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mall/compare",
+      "style": {
+        "navigationBarTitleText": "商品对比",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/favorites",
+      "style": {
+        "navigationBarTitleText": "收藏与对比",
         "navigationStyle": "custom"
       }
     },
@@ -579,6 +663,48 @@
       "path": "pages/mine/about",
       "style": {
         "navigationBarTitleText": "关于",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/search/index",
+      "style": {
+        "navigationBarTitleText": "搜索",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/search/results",
+      "style": {
+        "navigationBarTitleText": "搜索结果",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/order-search",
+      "style": {
+        "navigationBarTitleText": "搜索订单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/place/map-pick",
+      "style": {
+        "navigationBarTitleText": "地图选点",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/scan/index",
+      "style": {
+        "navigationBarTitleText": "扫一扫",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/common/photo-viewer",
+      "style": {
+        "navigationBarTitleText": "查看图片",
         "navigationStyle": "custom"
       }
     },

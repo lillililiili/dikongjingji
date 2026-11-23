@@ -86,7 +86,8 @@ final class PostgresPlanStore implements PlanStore {
                                                         item.resourceId(),
                                                         item.displayName(),
                                                         item.roleLabel(),
-                                                        item.contactMobileMasked()))
+                                                        item.contactMobileMasked(),
+                                                        item.certifiedPilot()))
                                                 .toList(),
                                         toProgress(mapper.findOrderProgress(row.id())),
                                         mapper.findOrderVisits(row.id()).stream()
@@ -411,6 +412,7 @@ final class PostgresPlanStore implements PlanStore {
                             : cipher.encrypt(write.contactMobile())
                                     .getBytes(StandardCharsets.UTF_8),
                     assignment.contactMobileMasked(),
+                    assignment.certifiedPilot(),
                     actor.subjectId(),
                     updatedAt);
         }

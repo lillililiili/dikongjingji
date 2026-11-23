@@ -8,6 +8,9 @@ import { openNodePayment } from '../../../application/service-flow/node-payment'
 import { formatPlanPrice } from '../../../domain/service-flow/plan'
 import { paymentNodeTitle, visitFeeNode } from '../../shared/payment-view'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
+import { openPhotoViewer } from '@/shared/photo/photo-viewer'
+import { formatBeijingTime } from '@/shared/time/beijing-time'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import {
   createAcceptanceCoordinator,
@@ -270,12 +273,33 @@ async function saveFile(fileId: string): Promise<void> {
   }
 }
 
+// A delivered picture opens in the shared viewer (board PhotoViewer, preview builds) from its
+// short-lived controlled link; 下载 there saves it the way 保存 does here.
+async function viewImageFile(file: DeliveryFile): Promise<void> {
+  const intent = await createFileIntent(file)
+  const until = formatBeijingTime(intent.expiresAt)
+  openPhotoViewer({
+    title: file.displayName,
+    subtitle: '报告交付 · 受控文件',
+    startIndex: 0,
+    photos: [{ url: intent.downloadUrl, alt: file.displayName, tag: '', note: `链接 ${until} 前有效` }],
+    save: async () => {
+      await saveFile(file.fileId)
+      return { until }
+    },
+  })
+}
+
 async function previewFile(fileId: string): Promise<void> {
   const file = findFile(fileId)
   if (!file || activeFileAction.value) return
   activeFileAction.value = `${file.fileId}:PREVIEW`
   actionError.value = ''
   try {
+    if (PLACE_PREVIEW_ENABLED && file.contentType.startsWith('image/')) {
+      await viewImageFile(file)
+      return
+    }
     await executeDeliveryFileAction(
       await createFileIntent(file),
       'PREVIEW',

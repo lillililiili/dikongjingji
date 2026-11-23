@@ -4,7 +4,10 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import type { PlatformProvince } from '@/shared/city/domain/city-directory'
+import { currentOrDefaultCity } from '@/shared/city/application/current-or-default-city'
+import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import RegionPickSheet from '@/shared/region/RegionPickSheet.vue'
 
 import { describeRegion, regionOfCity } from '../application/address-book'
 import {
@@ -51,18 +54,15 @@ const form = ref<AddressForm>({ ...EMPTY_ADDRESS_FORM })
 const sheetError = ref('')
 const saving = ref(false)
 const deleteAsked = ref(false)
-// The region picker replaces the form inside the sheet while it is open.
+// The region picker (board RegionPick, shared/region) opens over the form.
 const pickingRegion = ref(false)
 const provinces = ref<PlatformProvince[]>([])
-const regionStep = ref<'PROVINCE' | 'CITY'>('PROVINCE')
-const pickedProvinceCode = ref<string | null>(null)
+const currentCityStore = useCurrentCityStore()
 let requestVersion = 0
 
 const canSave = computed(() => !saving.value && findAddressFormProblems(form.value).length === 0)
 const regionText = computed(() =>
   describeRegion(provinces.value, regionOfCity(provinces.value, form.value.cityCode)))
-const pickedProvince = computed(() =>
-  provinces.value.find((province) => province.code === pickedProvinceCode.value) ?? null)
 const editingDefault = computed(() =>
   sheet.value === 'edit' && addresses.value.find((item) => item.addressId === editingId.value)?.isDefault === true)
 
@@ -132,23 +132,9 @@ function closeSheet(): void {
   sheet.value = 'closed'
 }
 
-function openRegionPicker(): void {
-  const current = regionOfCity(provinces.value, form.value.cityCode)
-  pickedProvinceCode.value = current.provinceCode
-  regionStep.value = current.provinceCode ? 'CITY' : 'PROVINCE'
+async function openRegionPicker(): Promise<void> {
+  await ensureProvinces()
   pickingRegion.value = true
-  void ensureProvinces()
-}
-
-function pickProvince(province: PlatformProvince): void {
-  pickedProvinceCode.value = province.code
-  // A municipality has one city with its own name; picking the province is enough.
-  if (province.cities.length === 1) {
-    form.value = { ...form.value, cityCode: province.cities[0].code }
-    pickingRegion.value = false
-    return
-  }
-  regionStep.value = 'CITY'
 }
 
 function pickCity(cityCode: string): void {
@@ -278,158 +264,115 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
     <view v-if="sheet !== 'closed'" class="addresses__mask" @click.self="closeSheet">
       <view class="addresses__sheet" role="dialog" data-testid="address-sheet">
         <view class="addresses__sheet-head">
-          <button v-if="pickingRegion" class="addresses__sheet-close" aria-label="返回表单" @click="pickingRegion = false">
-            <LineIcon name="back" :size="20" color="#536178" :stroke-width="2" />
-          </button>
           <text class="addresses__sheet-title">
-            {{ pickingRegion ? '选择所在地区' : sheet === 'edit' ? '编辑收货地址' : '新增收货地址' }}
+            {{ sheet === 'edit' ? '编辑收货地址' : '新增收货地址' }}
           </text>
           <button class="addresses__sheet-close addresses__sheet-close--right" aria-label="关闭" @click="closeSheet">
             <LineIcon name="close" :size="20" color="#536178" :stroke-width="2" />
           </button>
         </view>
 
-        <view v-if="pickingRegion" class="addresses__region" data-testid="address-region-picker">
-          <view class="addresses__region-tabs" role="tablist">
+        <view class="addresses__fields">
+          <view class="addresses__field">
+            <text class="addresses__label">收货人</text>
+            <input
+              class="addresses__input"
+              data-testid="address-name"
+              type="text"
+              placeholder="姓名"
+              :maxlength="ADDRESS_NAME_MAX_LENGTH"
+              :value="form.recipientName"
+              @input="setField('recipientName', valueOf($event))"
+            />
+          </view>
+          <view class="addresses__field">
+            <text class="addresses__label">手机号</text>
+            <input
+              class="addresses__input"
+              data-testid="address-phone"
+              type="number"
+              placeholder="11 位手机号"
+              :maxlength="11"
+              :value="form.phone"
+              @input="setField('phone', valueOf($event))"
+            />
+          </view>
+          <button class="addresses__field addresses__field--button" data-testid="address-region" @click="openRegionPicker">
+            <text class="addresses__label">所在地区</text>
+            <text :class="['addresses__value', { 'addresses__value--empty': !regionText }]">
+              {{ regionText ?? '请选择省、市' }}
+            </text>
+            <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
+          </button>
+          <view class="addresses__field">
+            <text class="addresses__label">详细地址</text>
+            <input
+              class="addresses__input"
+              data-testid="address-detail"
+              type="text"
+              placeholder="区县、街道、门牌号"
+              :maxlength="ADDRESS_DETAIL_MAX_LENGTH"
+              :value="form.detail"
+              @input="setField('detail', valueOf($event))"
+            />
+          </view>
+          <view class="addresses__field addresses__field--last">
+            <text class="addresses__label addresses__label--wide">设为默认</text>
             <button
-              :class="['addresses__region-tab', { 'addresses__region-tab--on': regionStep === 'PROVINCE' }]"
-              role="tab"
-              :aria-selected="regionStep === 'PROVINCE'"
-              @click="regionStep = 'PROVINCE'"
+              class="addresses__switch"
+              data-testid="address-default"
+              role="switch"
+              :aria-checked="form.isDefault || editingDefault"
+              :aria-disabled="editingDefault"
+              @click="!editingDefault && (form = { ...form, isDefault: !form.isDefault })"
             >
-              {{ pickedProvince?.name ?? '请选择' }}
-            </button>
-            <button
-              v-if="pickedProvince"
-              :class="['addresses__region-tab', { 'addresses__region-tab--on': regionStep === 'CITY' }]"
-              role="tab"
-              :aria-selected="regionStep === 'CITY'"
-              @click="regionStep = 'CITY'"
-            >
-              {{ pickedProvince.cities.find((city) => city.code === form.cityCode)?.name ?? '请选择' }}
+              <view :class="['addresses__track', { 'addresses__track--on': form.isDefault || editingDefault }]">
+                <view class="addresses__knob" />
+              </view>
             </button>
           </view>
-          <scroll-view class="addresses__region-list" scroll-y>
-            <template v-if="regionStep === 'PROVINCE'">
-              <button
-                v-for="province in provinces"
-                :key="province.code"
-                :class="['addresses__region-item', { 'addresses__region-item--on': province.code === pickedProvinceCode }]"
-                :data-testid="`address-province-${province.code}`"
-                @click="pickProvince(province)"
-              >
-                {{ province.name }}
-              </button>
-            </template>
-            <template v-else-if="pickedProvince">
-              <button
-                v-for="city in pickedProvince.cities"
-                :key="city.code"
-                :class="['addresses__region-item', { 'addresses__region-item--on': city.code === form.cityCode }]"
-                :data-testid="`address-city-${city.code}`"
-                @click="pickCity(city.code)"
-              >
-                {{ city.name }}
-              </button>
-            </template>
-          </scroll-view>
-          <text class="addresses__region-note">地区选到市；区县、街道和门牌请写在详细地址里</text>
         </view>
 
-        <template v-else>
-          <view class="addresses__fields">
-            <view class="addresses__field">
-              <text class="addresses__label">收货人</text>
-              <input
-                class="addresses__input"
-                data-testid="address-name"
-                type="text"
-                placeholder="姓名"
-                :maxlength="ADDRESS_NAME_MAX_LENGTH"
-                :value="form.recipientName"
-                @input="setField('recipientName', valueOf($event))"
-              />
-            </view>
-            <view class="addresses__field">
-              <text class="addresses__label">手机号</text>
-              <input
-                class="addresses__input"
-                data-testid="address-phone"
-                type="number"
-                placeholder="11 位手机号"
-                :maxlength="11"
-                :value="form.phone"
-                @input="setField('phone', valueOf($event))"
-              />
-            </view>
-            <button class="addresses__field addresses__field--button" data-testid="address-region" @click="openRegionPicker">
-              <text class="addresses__label">所在地区</text>
-              <text :class="['addresses__value', { 'addresses__value--empty': !regionText }]">
-                {{ regionText ?? '请选择省、市' }}
-              </text>
-              <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
-            </button>
-            <view class="addresses__field">
-              <text class="addresses__label">详细地址</text>
-              <input
-                class="addresses__input"
-                data-testid="address-detail"
-                type="text"
-                placeholder="区县、街道、门牌号"
-                :maxlength="ADDRESS_DETAIL_MAX_LENGTH"
-                :value="form.detail"
-                @input="setField('detail', valueOf($event))"
-              />
-            </view>
-            <view class="addresses__field addresses__field--last">
-              <text class="addresses__label addresses__label--wide">设为默认</text>
-              <button
-                class="addresses__switch"
-                data-testid="address-default"
-                role="switch"
-                :aria-checked="form.isDefault || editingDefault"
-                :aria-disabled="editingDefault"
-                @click="!editingDefault && (form = { ...form, isDefault: !form.isDefault })"
-              >
-                <view :class="['addresses__track', { 'addresses__track--on': form.isDefault || editingDefault }]">
-                  <view class="addresses__knob" />
-                </view>
-              </button>
-            </view>
-          </view>
+        <text v-if="sheetError" class="addresses__error" data-testid="address-sheet-error">{{ sheetError }}</text>
 
-          <text v-if="sheetError" class="addresses__error" data-testid="address-sheet-error">{{ sheetError }}</text>
-
-          <button
-            v-if="sheet === 'edit' && !deleteAsked"
-            class="addresses__delete"
-            data-testid="address-delete"
-            @click="deleteAsked = true"
-          >
-            删除地址
+        <button
+          v-if="sheet === 'edit' && !deleteAsked"
+          class="addresses__delete"
+          data-testid="address-delete"
+          @click="deleteAsked = true"
+        >
+          删除地址
+        </button>
+        <view v-if="sheet === 'edit' && deleteAsked" class="addresses__delete-ask" role="status">
+          <text class="addresses__delete-text">确定删除这条地址？</text>
+          <button class="addresses__keep" @click="deleteAsked = false">保留</button>
+          <button class="addresses__delete-confirm" data-testid="address-delete-confirm" @click="confirmDelete">
+            确认删除
           </button>
-          <view v-if="sheet === 'edit' && deleteAsked" class="addresses__delete-ask" role="status">
-            <text class="addresses__delete-text">确定删除这条地址？</text>
-            <button class="addresses__keep" @click="deleteAsked = false">保留</button>
-            <button class="addresses__delete-confirm" data-testid="address-delete-confirm" @click="confirmDelete">
-              确认删除
-            </button>
-          </view>
+        </view>
 
-          <view class="addresses__actions">
-            <button class="addresses__cancel" @click="closeSheet">取消</button>
-            <button
-              :class="['addresses__save', { 'addresses__save--off': !canSave }]"
-              data-testid="address-save"
-              :disabled="!canSave"
-              @click="save"
-            >
-              {{ selecting && sheet === 'add' ? '保存并使用' : '保存' }}
-            </button>
-          </view>
-        </template>
+        <view class="addresses__actions">
+          <button class="addresses__cancel" @click="closeSheet">取消</button>
+          <button
+            :class="['addresses__save', { 'addresses__save--off': !canSave }]"
+            data-testid="address-save"
+            :disabled="!canSave"
+            @click="save"
+          >
+            {{ selecting && sheet === 'add' ? '保存并使用' : '保存' }}
+          </button>
+        </view>
       </view>
     </view>
+    <RegionPickSheet
+      v-if="sheet !== 'closed' && pickingRegion"
+      :provinces="provinces"
+      :city-code="form.cityCode || null"
+      :current-city-code="currentOrDefaultCity(currentCityStore.currentCity)?.code ?? null"
+      test-id="address"
+      @close="pickingRegion = false"
+      @confirm="pickCity"
+    />
   </view>
 </template>
 
@@ -843,51 +786,11 @@ button::after {
   background: #eef0f3;
 }
 
-.addresses__region {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 
-.addresses__region-tabs {
-  display: flex;
-  gap: 16px;
-  border-bottom: 1px solid #f0f1f3;
-}
 
-.addresses__region-tab {
-  min-height: 40px;
-  color: #202c42;
-  font-size: 15px;
-}
 
-.addresses__region-tab--on {
-  color: #ff6a00;
-  font-weight: 700;
-}
 
-.addresses__region-list {
-  height: 46vh;
-}
 
-.addresses__region-item {
-  display: block;
-  width: 100%;
-  min-height: 44px;
-  color: #202c42;
-  font-size: 15px;
-  line-height: 44px;
-  text-align: left;
-}
 
-.addresses__region-item--on {
-  color: #ba470b;
-  font-weight: 500;
-}
 
-.addresses__region-note {
-  color: #738096;
-  font-size: 12px;
-  line-height: 17px;
-}
 </style>

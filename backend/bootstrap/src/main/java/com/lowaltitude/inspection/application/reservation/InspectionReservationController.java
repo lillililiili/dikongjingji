@@ -263,7 +263,8 @@ public final class InspectionReservationController {
             Integer paymentDueNodeNo,
             String paymentDueNodeType,
             Integer paymentDueVisitNo,
-            Long paymentDueAmountMinor
+            Long paymentDueAmountMinor,
+            ReservationProviderResponse provider
     ) {
 
         static CustomerReservationSummaryResponse from(CustomerReservationSummary value) {
@@ -292,8 +293,16 @@ public final class InspectionReservationController {
                     value.paymentDueNodeNo(),
                     value.paymentDueNodeType(),
                     value.paymentDueVisitNo(),
-                    value.paymentDueAmountMinor());
+                    value.paymentDueAmountMinor(),
+                    value.provider() == null ? null : new ReservationProviderResponse(
+                            value.provider().providerId(),
+                            value.provider().name(),
+                            value.provider().qualificationReviewed()));
         }
+    }
+
+    /** 契约 2.6.0：订单卡头行的服务商（ProviderSummary 的形状，不带 certificationLabel）。 */
+    public record ReservationProviderResponse(UUID providerId, String name, boolean qualificationReviewed) {
     }
 
     public record CustomerReservationPageResponse(

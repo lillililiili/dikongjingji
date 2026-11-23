@@ -354,7 +354,8 @@ public final class InspectionServiceCatalogReadService {
                 row.availability(),
                 row.primaryAction(),
                 row.completedCount(),
-                row.distanceMeters() == null ? null : Math.round(row.distanceMeters()));
+                row.distanceMeters() == null ? null : Math.round(row.distanceMeters()),
+                blankToNull(row.providerName()));
     }
 
     /**
@@ -590,6 +591,7 @@ record StoredInspectionServiceCard(
         String availability,
         String primaryAction,
         long completedCount,
+        String providerName,
         Double distanceMeters
 ) {
 }
@@ -729,7 +731,9 @@ record InspectionServiceCardView(
         String availability,
         String primaryAction,
         long completedCount,
-        Long distanceMeters
+        Long distanceMeters,
+        // 1.4.0（S4-4）：在用的服务商机构名，热门服务卡第二行显示；机构停用或不是服务商时为 null。
+        String providerName
 ) {
 }
 

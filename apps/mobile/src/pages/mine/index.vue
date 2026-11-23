@@ -21,6 +21,8 @@ import {
   buildActivityTicketUrl,
 } from '@/features/activity/navigation/activity-routes'
 import { DEMAND_PREVIEW_ENABLED } from '@/features/demand/application/demand-preview'
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import { buildFavoritesUrl } from '@/features/favorite/navigation/favorite-routes'
 import { demandApi } from '@/features/demand/data/demand-api-client'
 import { buildMyDemandsUrl } from '@/features/demand/navigation/demand-routes'
 import { RENTAL_PREVIEW_ENABLED } from '@/features/rental/application/rental-preview'
@@ -83,7 +85,7 @@ const joinEntries: PlatformMineLinkEntry[] = [
   ...(RENTAL_PREVIEW_ENABLED ? [{ code: 'RENTAL_ORDERS', title: '租赁订单' }] : []),
 ]
 
-// The rows of the board that exist: 企业组织, 收藏与对比 and 权限管理 are not built.
+// The rows of the board that exist: 企业组织 and 权限管理 are not built.
 // A signed-in account has 联系客服, a guest 关于 (boards Mine and MineGuest). 工作模式 (S3-3) is last and
 // only for an operator of an organization that hosts activities or runs venues, as the server says.
 interface RowValues {
@@ -104,6 +106,8 @@ function resolveLinkRows(signedIn: boolean, values: RowValues): PlatformMineLink
     ...(DEMAND_PREVIEW_ENABLED
       ? [{ code: 'DEMANDS', title: '需求与报价', ...(signedIn && values.demands ? { valueText: values.demands } : {}) }]
       : []),
+    // 收藏与对比 right under 需求与报价, as on board Mine (plan 08 S5-6).
+    ...(FAVORITE_PREVIEW_ENABLED ? [{ code: 'FAVORITES', title: '收藏与对比' }] : []),
     ...(SUPPORT_PREVIEW_ENABLED ? [{ code: 'HELP', title: '帮助与反馈' }] : []),
     ...(SUPPORT_PREVIEW_ENABLED && signedIn ? [{ code: 'SUPPORT', title: '联系客服' }] : []),
     ...(SUPPORT_PREVIEW_ENABLED && !signedIn ? [{ code: 'ABOUT', title: '关于' }] : []),
@@ -383,6 +387,7 @@ function openLink(code: string): void {
   if (code === 'EXPERIENCE_RECORDS') uni.navigateTo({ url: buildExperienceRecordsUrl() })
   if (code === 'DEMANDS') uni.navigateTo({ url: buildMyDemandsUrl() })
   if (code === 'ENTERPRISE') uni.navigateTo({ url: buildOrgUrl(account.value?.identity?.enterpriseId ?? null) })
+  if (code === 'FAVORITES') uni.navigateTo({ url: buildFavoritesUrl() })
   if (code === 'RENTAL_ORDERS') uni.navigateTo({ url: buildMyRentalOrdersUrl() })
   if (code === 'MY_COURSES') uni.navigateTo({ url: buildMyCoursesUrl() })
   if (code === 'STAFF_WORK_MODE') uni.navigateTo({ url: buildStaffVerifyUrl() })

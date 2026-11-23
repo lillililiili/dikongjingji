@@ -113,6 +113,17 @@ class TradeMigrationContractTest {
                 + " CHECK (source IN ('MALL', 'ACTIVITY', 'VENUE', 'RENTAL'));");
     }
 
+    // ---- V011：通用服务订单（S4-3） ----
+
+    @Test
+    void generalServiceOrdersAreASourceAndKeepTheInspectionSource() throws Exception {
+        String sql = statementsOf("/db/migration/trade/V011__trade_pro_service_source.sql");
+
+        assertThat(sql).isEqualTo("ALTER TABLE trade_order DROP CONSTRAINT trade_order_source_check;"
+                + " ALTER TABLE trade_order ADD CONSTRAINT trade_order_source_check"
+                + " CHECK (source IN ('MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION', 'PRO_SERVICE'));");
+    }
+
     // ---- V008：巡检付款节点（S4-1） ----
 
     @Test

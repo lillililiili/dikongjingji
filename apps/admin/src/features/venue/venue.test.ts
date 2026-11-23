@@ -11,6 +11,7 @@ import {
   expandWeekTemplate,
   openingHoursProblem,
   openingNotePreview,
+  projectSummaryPreview,
 } from './venue-rules'
 
 describe('周模板展开', () => {
@@ -51,6 +52,16 @@ describe('营业时间与检票规则', () => {
     expect(openingNotePreview('', '', '周一闭馆')).toBeNull()
   })
 
+  it('项目摘要：填了用填的，没填用启用的前三个项目名（S4-4）', () => {
+    const project = (name: string, sortOrder: number, status: 'ACTIVE' | 'DISABLED' = 'ACTIVE') =>
+      ({ name, sortOrder, status })
+    const projects = [project('编程体验课', 30), project('停用的', 5, 'DISABLED'), project('机器人避障闯关', 10),
+      project('无人机模拟飞行', 20), project('第四个', 40)]
+    expect(projectSummaryPreview(' 模拟飞行 · 厂家展区 ', projects)).toBe('模拟飞行 · 厂家展区')
+    expect(projectSummaryPreview('', projects)).toBe('机器人避障闯关 · 无人机模拟飞行 · 编程体验课')
+    expect(projectSummaryPreview('  ', [])).toBeNull()
+  })
+
   it('迟到规则为空表示到场次结束', () => {
     expect(entryRuleText(30, null)).toBe('开场前 30 分钟开始检票，到场次结束都能入场')
     expect(entryRuleText(15, 10)).toBe('开场前 15 分钟开始检票，开场 10 分钟后停止入场')
@@ -83,7 +94,7 @@ describe('接口拼法', () => {
       infoItems: [{ label: '入口', content: '东门' }, { label: ' ', content: '' }],
     }
     expect(venueBody(draft, 3)).toMatchObject({
-      name: '体验馆', address: '示例路 66 号', coverUrl: null, phone: null, closedNote: null,
+      name: '体验馆', address: '示例路 66 号', coverUrl: null, phone: null, closedNote: null, projectSummary: null,
       checkinOpensMinutes: 30, lateEntryMinutes: null, infoItems: [{ label: '入口', content: '东门' }], version: 3,
     })
     await api.create(draft, 'key-1')

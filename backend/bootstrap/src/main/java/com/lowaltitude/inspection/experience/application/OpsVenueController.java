@@ -205,13 +205,13 @@ public final class OpsVenueController {
     record VenueRequest(UUID operatorId, String name, String cityCode, String coverUrl, String address, String phone,
                         String opensAt, String closesAt, String closedNote, Integer checkinOpensMinutes,
                         Integer lateEntryMinutes, Integer sortOrder, List<InfoItemRequest> infoItems,
-                        Integer version) {
+                        Integer version, String projectSummary) {
 
         VenueDraft draft() {
             return new VenueDraft(operatorId, name, cityCode, coverUrl, address, phone, opensAt, closesAt,
                     closedNote, checkinOpensMinutes, lateEntryMinutes, sortOrder, infoItems == null ? null
                     : infoItems.stream().map(item -> item == null ? null
-                            : new InfoItemDraft(item.label(), item.content())).toList());
+                            : new InfoItemDraft(item.label(), item.content())).toList(), projectSummary);
         }
     }
 

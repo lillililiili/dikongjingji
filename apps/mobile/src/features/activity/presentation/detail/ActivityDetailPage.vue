@@ -3,6 +3,8 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
@@ -24,7 +26,11 @@ import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
 import { activityApi } from '../../data/activity-api-client'
 import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
-import { buildActivityDetailUrl, buildActivityEnrollUrl } from '../../navigation/activity-routes'
+import {
+  buildActivityDetailUrl,
+  buildActivityEnrollUrl,
+  buildActivityTeamSignupUrl,
+} from '../../navigation/activity-routes'
 import {
   ACTIVITY_TYPE_LABELS,
   formatActivityDay,
@@ -137,6 +143,16 @@ function selectSession(session: ActivitySession): void {
 }
 
 function runIntent(intent: ActivityIntent): void {
+  // 团队报名 (S5-3, preview builds): the team form, on the session picked here or the first one open.
+  if (intent.type === 'TEAM_ENROLL' && ACTIVITY_PREVIEW_ENABLED && activity.value
+    && resolveEnrollmentPayMode(activity.value) !== 'UNSUPPORTED') {
+    const picked = selectedSession.value?.status === 'OPEN' ? selectedSession.value : null
+    const session = picked ?? activity.value.sessions.find((item) => item.status === 'OPEN') ?? null
+    uni.navigateTo({
+      url: buildActivityTeamSignupUrl(activity.value.activityId, session?.sessionId ?? '', cityCode),
+    })
+    return
+  }
   // 咨询 (step G1, preview builds): the organiser's conversation with a card about this activity.
   // An organiser that cannot take conversations sends the customer on to the platform support.
   if (intent.type === 'CONSULT' && SUPPORT_PREVIEW_ENABLED && activity.value) {
@@ -181,6 +197,13 @@ function runPrimaryAction(): void {
   if (action.kind === 'ENROLL' && resolveEnrollmentPayMode(activity.value) !== 'UNSUPPORTED' && ACTIVITY_PREVIEW_ENABLED) {
     uni.navigateTo({
       url: buildActivityEnrollUrl(activity.value.activityId, session.sessionId, cityCode),
+    })
+    return
+  }
+  // 加入候补 (S5-3): the sign-up form in its waitlist mode, on the full session picked here.
+  if (action.kind === 'JOIN_WAITLIST' && resolveEnrollmentPayMode(activity.value) !== 'UNSUPPORTED' && ACTIVITY_PREVIEW_ENABLED) {
+    uni.navigateTo({
+      url: buildActivityEnrollUrl(activity.value.activityId, session.sessionId, cityCode, 'waitlist'),
     })
     return
   }
@@ -419,6 +442,15 @@ onLoad((query) => {
           <LineIcon name="chat" :size="22" color="#536178" />
           <text>咨询</text>
         </button>
+        <!-- 收藏 between 咨询 and the main button, as on board ActDetail. -->
+        <FavoriteButton
+          v-if="FAVORITE_PREVIEW_ENABLED"
+          class="activity-detail__favorite"
+          type="ACTIVITY"
+          :target-id="activity.activityId"
+          :city-code="cityCode"
+          :return-url="buildActivityDetailUrl(activity.activityId, cityCode)"
+        />
         <button
           :class="[
             'activity-detail__primary',
@@ -833,6 +865,11 @@ button::after {
   color: #627187;
   font-size: 12px;
   line-height: 17px;
+}
+
+/* Board ActDetail: 6px more after 收藏 before the main button. */
+.activity-detail__favorite {
+  margin-right: 6px;
 }
 
 .activity-detail__actions {

@@ -31,10 +31,10 @@ public class TradeSourceOrders {
 
     /**
      * 各业务来源的订单编号前缀；商城订单是 MO。收费报名 AO（E09），到馆预约 VO（E10），设备租赁 RO（F3），
-     * 巡检付款节点 IO（S4-1），线上录播课 CO（S5-5）。
+     * 巡检付款节点 IO（S4-1），通用服务订单 PS（S4-3），线上录播课 CO（S5-5）。
      */
     static final Map<String, String> ORDER_PREFIXES = Map.of(
-            "ACTIVITY", "AO", "VENUE", "VO", "RENTAL", "RO", "INSPECTION", "IO", "COURSE", "CO");
+            "ACTIVITY", "AO", "VENUE", "VO", "RENTAL", "RO", "INSPECTION", "IO", "PRO_SERVICE", "PS", "COURSE", "CO");
     static final int MAX_LINES = 20;
     static final int MAX_ITEM_NAME = 160;
     static final int MAX_OPTION_NAME = 80;
@@ -177,7 +177,7 @@ public class TradeSourceOrders {
         return refundId;
     }
 
-    /** 这些退款现在的进度（REQUESTED、PROCESSING、SUCCEEDED、CLOSED、ABNORMAL）和金额；不认识的 ID 不返回。 */
+    /** 这些退款现在的进度（REQUESTED、PROCESSING、SUCCEEDED、CLOSED、ABNORMAL）、金额和到账时间；不认识的 ID 不返回。 */
     @Transactional(readOnly = true)
     public List<RefundState> refundStates(Collection<UUID> refundIds) {
         if (refundIds == null || refundIds.isEmpty()) {
@@ -188,7 +188,7 @@ public class TradeSourceOrders {
             return List.of();
         }
         return sources.findRefunds(ids).stream()
-                .map(row -> new RefundState(row.id(), row.status(), row.amountMinor()))
+                .map(row -> new RefundState(row.id(), row.status(), row.amountMinor(), row.succeededAt()))
                 .toList();
     }
 
@@ -318,6 +318,11 @@ public class TradeSourceOrders {
     public record OpenedOrder(UUID orderId, String orderNo, Instant payBefore) {
     }
 
-    public record RefundState(UUID refundId, String status, long amountMinor) {
+    /** succeededAt：到账时间（S5-3 活动退改详情用），没到账时为空。 */
+    public record RefundState(UUID refundId, String status, long amountMinor, Instant succeededAt) {
+
+        public RefundState(UUID refundId, String status, long amountMinor) {
+            this(refundId, status, amountMinor, null);
+        }
     }
 }

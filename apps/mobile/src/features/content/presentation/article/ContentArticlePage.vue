@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import type { SupportTarget } from '@/features/support/navigation/support-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
+import { openPhotoViewer } from '@/shared/photo/photo-viewer'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
 import LineIcon from '@/shared/ui/LineIcon.vue'
@@ -23,7 +27,7 @@ import { buildContentArticleUrl, contentAuthorHome } from '../../navigation/cont
 
 // One article (boards ContentArticle, ContentCase2–3, ContentKnow1–3 share this template): the
 // author with 主页, the body blocks, 内容中提到 read from each module, 咨询 and the first mention's
-// page at the bottom. 收藏 is not in this step (D10).
+// page at the bottom, with 收藏 first (board ContentArticle, plan 08 S5-6).
 const props = defineProps<{
   articleId: string
   cityCode: string
@@ -65,7 +69,7 @@ const consultLabel = computed(() => {
 const primaryRef = computed(() => refs.value?.[0] ?? null)
 // (1.3.0) The pictures of the IMAGE blocks, one entry per block; null where there is none to draw.
 const figures = computed(() => (article.value ? articleFigures(article.value) : []))
-const hasBar = computed(() => Boolean(consultLabel.value || primaryRef.value))
+const hasBar = computed(() => Boolean(FAVORITE_PREVIEW_ENABLED || consultLabel.value || primaryRef.value))
 
 // The head picture: the server's, otherwise (preview builds) the board's.
 const cover = computed(() => {
@@ -74,6 +78,19 @@ const cover = computed(() => {
   if (current.coverImage) return { ...current.coverImage, cutout: false }
   return resolveArticlePreviewCover(current.articleId)
 })
+
+// Tapping the head picture opens it in the shared viewer (board PhotoViewer, preview builds).
+function openCover(): void {
+  const current = article.value
+  const picture = cover.value
+  if (!PLACE_PREVIEW_ENABLED || !current || !picture) return
+  openPhotoViewer({
+    title: current.title,
+    subtitle: current.author.name,
+    startIndex: 0,
+    photos: [{ url: picture.url, alt: picture.alt, tag: '' }],
+  })
+}
 
 // Icons copied from the board ContentArticle.
 const ICONS = {
@@ -179,7 +196,7 @@ void load()
     <template v-else-if="article && tone">
       <!-- The head picture is always cropped to fill, a product shot too (board ContentKnow2). -->
       <view v-if="cover" class="article__hero" data-testid="content-article-hero">
-        <image class="article__hero-image" :src="cover.url" mode="aspectFill" :aria-label="cover.alt" />
+        <image class="article__hero-image" :src="cover.url" mode="aspectFill" :aria-label="cover.alt" data-testid="content-article-hero-image" @click="openCover" />
         <view class="article__hero-tags">
           <text class="article__hero-tag">{{ CONTENT_KIND_LABELS[article.kind] }}</text>
         </view>
@@ -298,6 +315,13 @@ void load()
       </view>
 
       <view v-if="hasBar" class="article__bar">
+        <FavoriteButton
+          v-if="FAVORITE_PREVIEW_ENABLED"
+          type="CONTENT"
+          :target-id="article.articleId"
+          :city-code="cityCode"
+          :return-url="buildContentArticleUrl(article.articleId, cityCode)"
+        />
         <button
           v-if="consultLabel"
           class="article__consult"

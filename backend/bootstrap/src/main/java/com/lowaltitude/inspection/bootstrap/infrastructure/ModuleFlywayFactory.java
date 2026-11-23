@@ -102,6 +102,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway serviceorder(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/serviceorder",
+                "flyway_history_serviceorder",
+                true);
+    }
+
     public Flyway support(DataSource dataSource) {
         return build(
                 dataSource,
@@ -123,6 +131,14 @@ public final class ModuleFlywayFactory {
                 dataSource,
                 "classpath:db/migration/live",
                 "flyway_history_live",
+                true);
+    }
+
+    public Flyway favorite(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/favorite",
+                "flyway_history_favorite",
                 true);
     }
 

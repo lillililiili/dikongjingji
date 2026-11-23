@@ -273,6 +273,14 @@ function openVenue(venueId: string): void {
         </view>
         <view class="home-recommend__venue-body">
           <text class="home-recommend__venue-name">{{ venue.name }}</text>
+          <!-- Board HomeFull: the project summary under the name (experience 1.5.0), then hours and seats.
+               The board's distance needs a position the home page does not ask for; the address stands in
+               for the summary only when the venue has none. -->
+          <text
+            v-if="venue.projectSummary"
+            class="home-recommend__meta"
+            :data-testid="`home-venue-summary-${venue.venueId}`"
+          >{{ venue.projectSummary }}</text>
           <view
             v-if="venue.openingNote || venue.openSessionsToday > 0"
             class="home-recommend__meta-row"
@@ -282,7 +290,7 @@ function openVenue(venueId: string): void {
               {{ venue.openingNote ? '·' : '' }} 今日 {{ venue.openSessionsToday }} 场可约
             </text>
           </view>
-          <text class="home-recommend__meta">{{ venue.address }}</text>
+          <text v-if="!venue.projectSummary" class="home-recommend__meta">{{ venue.address }}</text>
         </view>
         <text class="home-recommend__venue-action">预约</text>
       </button>

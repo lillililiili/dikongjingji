@@ -719,6 +719,33 @@ class AuthenticationSecurityIntegrationTest {
         org.mockito.Mockito.verifyNoMoreInteractions(support);
     }
 
+    // 收藏（计划 08 S5-6）：全部要登录和客户角色；账号只从令牌里取。
+    @Test
+    void favoriteRoutesRequireALoginAndTheCustomerRole() throws Exception {
+        String target = "/api/v1/favorites/PRODUCT/a1000000-0000-4000-8000-000000000001";
+        for (var request : List.of(get("/api/v1/favorites?group=GOODS&cityCode=370500"), get(target),
+                put(target + "?cityCode=370500"), delete(target))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        com.lowaltitude.inspection.favorite.application.FavoriteService favorites = applicationContext.getBean(
+                com.lowaltitude.inspection.favorite.application.FavoriteService.class);
+        String customerToken = signedToken(List.of(), 7);
+        Map<String, Object> operatorClaims = validClaims(List.of(), 7);
+        operatorClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        String operatorToken = signedToken(operatorClaims);
+
+        mockMvc.perform(get("/api/v1/favorites?group=GOODS&cityCode=370500")
+                        .header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(favorites).list(SUBJECT_ID, "GOODS", "370500", 1, 10);
+        mockMvc.perform(delete(target).header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        org.mockito.Mockito.verifyNoMoreInteractions(favorites);
+    }
+
     // 运营端（S3-1）：/api/v1/ops/** 全部要登录；城市开通、机构入驻只给平台运营，举报与反馈只给平台客服；
     // 客户、服务商操作员、直播主办一律 403，服务不被调用。
     @Test
@@ -1199,12 +1226,44 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/notifications/70000000-0000-4000-8000-000000000001/read"))
                 .andExpect(status().isUnauthorized());
 
-        org.mockito.Mockito.when(applicationContext.getBean(NotificationService.class).unreadCount(SUBJECT_ID))
+        org.mockito.Mockito.when(applicationContext.getBean(NotificationService.class).unreadCount(SUBJECT_ID, false, null))
                 .thenReturn(null);
         mockMvc.perform(get("/api/v1/notifications/unread-count")
                         .header("Authorization", "Bearer " + signedToken(List.of(), 7)))
                 .andExpect(status().isOk());
-        org.mockito.Mockito.verify(applicationContext.getBean(NotificationService.class)).unreadCount(SUBJECT_ID);
+        org.mockito.Mockito.verify(applicationContext.getBean(NotificationService.class)).unreadCount(SUBJECT_ID, false, null);
+    }
+
+    // S5-9：通知开关和设备推送标识要登录；公告详情和“协议有更新”公开；发布公告要平台运营。
+    @Test
+    void systemNoticeReadsArePublicAndEverythingElseNeedsALoginAndTheRightRole() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications/preferences")).andExpect(status().isUnauthorized());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/v1/notifications/preferences").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activityPush\":false}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/v1/notifications/push-devices").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"platform\":\"ANDROID\",\"pushClientId\":\"cid\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/ops/notifications/system-notices").header("Idempotency-Key", "k")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+
+        var notices = applicationContext.getBean(
+                com.lowaltitude.inspection.notification.application.SystemNoticeService.class);
+        org.mockito.Mockito.when(notices.latestAbout("PRIVACY_POLICY")).thenReturn(java.util.Optional.empty());
+        mockMvc.perform(get("/api/v1/system-notices/agreement-updates").param("agreement", "PRIVACY_POLICY"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/system-notices/c5000000-0000-4000-8000-000000000001"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/ops/notifications/system-notices")
+                        .header("Authorization", "Bearer " + signedToken(List.of("CUSTOMER"), 7)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        org.mockito.Mockito.verify(notices, org.mockito.Mockito.never()).list(
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -1216,6 +1275,20 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
         mockMvc.perform(get("/api/v1/home/other"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    @Test
+    void anonymousSearchIsPublicAndReadOnly() throws Exception {
+        mockMvc.perform(get("/api/v1/search").param("cityCode", "370500").param("keyword", "测绘"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scope").value("ALL"))
+                .andExpect(jsonPath("$.products.items").isArray());
+        mockMvc.perform(post("/api/v1/search"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        mockMvc.perform(get("/api/v1/search/other"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
     }
@@ -1962,6 +2035,16 @@ class AuthenticationSecurityIntegrationTest {
         }
 
         @Bean
+        com.lowaltitude.inspection.activity.application.ActivityWaitlistService testActivityWaitlistService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.activity.application.ActivityWaitlistService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.activity.application.ActivityResultService testActivityResultService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.activity.application.ActivityResultService.class);
+        }
+
+        @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
         }
@@ -1987,6 +2070,11 @@ class AuthenticationSecurityIntegrationTest {
         }
 
         @Bean
+        com.lowaltitude.inspection.favorite.application.FavoriteService testFavoriteService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.favorite.application.FavoriteService.class);
+        }
+
+        @Bean
         com.lowaltitude.inspection.live.application.LiveService testLiveService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.live.application.LiveService.class);
         }
@@ -2004,6 +2092,16 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.rental.application.RentalService testRentalService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.rental.application.RentalService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.serviceorder.application.ServiceOrderService testServiceOrderService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.serviceorder.application.ServiceOrderService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.proservice.application.ProviderProfileService testProviderProfileService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.proservice.application.ProviderProfileService.class);
         }
 
         @Bean
@@ -2029,6 +2127,23 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         NotificationService testNotificationService() {
             return org.mockito.Mockito.mock(NotificationService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.notification.application.NotificationPreferenceService
+                testNotificationPreferenceService() {
+            return org.mockito.Mockito.mock(
+                    com.lowaltitude.inspection.notification.application.NotificationPreferenceService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.notification.application.PushDeviceService testPushDeviceService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.notification.application.PushDeviceService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.notification.application.SystemNoticeService testSystemNoticeService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.notification.application.SystemNoticeService.class);
         }
 
         @Bean

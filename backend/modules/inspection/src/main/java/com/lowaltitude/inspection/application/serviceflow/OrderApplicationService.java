@@ -88,7 +88,8 @@ public class OrderApplicationService {
                                 input.resourceId(),
                                 input.displayName().trim(),
                                 normalize(input.roleLabel()),
-                                maskMobile(normalize(input.contactMobile()))),
+                                maskMobile(normalize(input.contactMobile())),
+                                Boolean.TRUE.equals(input.certifiedPilot())),
                         normalize(input.contactMobile())))
                 .toList();
         List<OrderProgressEvent> progress = new ArrayList<>(order.progress());
@@ -312,6 +313,8 @@ public class OrderApplicationService {
                     || !validText(input.displayName(), 1, 120)
                     || input.roleLabel() != null && input.roleLabel().length() > 80
                     || !validMobile(input.contactMobile())
+                    // 只有服务团队成员能标记持证飞手（2.6.0）。
+                    || input.type() == AssignmentType.DEVICE && Boolean.TRUE.equals(input.certifiedPilot())
                     || !identities.add(input.type() + ":" + input.resourceId())) {
                 return false;
             }
@@ -478,7 +481,9 @@ public class OrderApplicationService {
                 .append(item.resourceId()).append(':')
                 .append(item.displayName().trim()).append(':')
                 .append(normalize(item.roleLabel())).append(':')
-                .append(normalize(item.contactMobile())));
+                .append(normalize(item.contactMobile()))
+                // 2.6.0 起的持证标记；不标记时摘要和以前一样，旧幂等键重放不受影响。
+                .append(Boolean.TRUE.equals(item.certifiedPilot()) ? ":CERTIFIED_PILOT" : ""));
         return sha256(value.toString());
     }
 
@@ -521,7 +526,9 @@ record AssignmentInput(
         UUID resourceId,
         String displayName,
         String roleLabel,
-        String contactMobile
+        String contactMobile,
+        // 2.6.0：服务团队成员是否持证飞手；不传按否。
+        Boolean certifiedPilot
 ) {
 }
 

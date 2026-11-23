@@ -133,6 +133,8 @@ export interface OpsVenueDetail {
   closesAt: string | null
   closedNote: string | null
   openingNote: string | null
+  /** 1.1.0：首页场馆卡的项目摘要，没填为 null（App 用前三个项目名）。 */
+  projectSummary: string | null
   checkinOpensMinutes: number
   lateEntryMinutes: number | null
   sortOrder: number
@@ -174,6 +176,7 @@ export interface VenueDraft {
   opensAt: string
   closesAt: string
   closedNote: string
+  projectSummary: string
   checkinOpensMinutes: number
   /** 空表示到场次结束都能入场。 */
   lateEntryMinutes: number | null
@@ -230,6 +233,7 @@ export function venueBody(draft: VenueDraft, version: number | null) {
     opensAt: blank(draft.opensAt),
     closesAt: blank(draft.closesAt),
     closedNote: blank(draft.closedNote),
+    projectSummary: blank(draft.projectSummary),
     checkinOpensMinutes: draft.checkinOpensMinutes,
     lateEntryMinutes: draft.lateEntryMinutes,
     sortOrder: draft.sortOrder,

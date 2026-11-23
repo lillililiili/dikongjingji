@@ -39,19 +39,22 @@ SET type = EXCLUDED.type,
     trial_minutes = EXCLUDED.trial_minutes,
     updated_at = now();
 
-INSERT INTO venue (id, operator_id, name, city_code, address, location, phone, opening_note, sort_order, status)
+-- S4-4（体验迁移 V007）：project_summary 是首页“附近场馆”卡片第一行，照画板 HomeFull；营地不填，
+-- App 显示前三个启用项目的名字（验证没填时的拼法）。
+INSERT INTO venue (id, operator_id, name, city_code, address, location, phone, opening_note, sort_order, status,
+                   project_summary)
 VALUES
     ('b2000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000004',
      '东营低空与机器人体验馆', '370500', '东营区示例路 66 号',
      ST_SetSRID(ST_MakePoint(118.5823, 37.4487), 4326)::geography,
-     '0546-8000 0000', '09:30–18:00 · 周一闭馆', 10, 'PUBLISHED'),
+     '0546-8000 0000', '09:30–18:00 · 周一闭馆', 10, 'PUBLISHED', '模拟飞行 · 机器人编程 · 厂家展区'),
     ('b2000000-0000-4000-8000-000000000002', 'a1000000-0000-4000-8000-000000000005',
      '黄河口户外飞行营地', '370500', '黄河口示例路 8 号',
      ST_SetSRID(ST_MakePoint(118.9412, 37.7605), 4326)::geography,
-     '0546-8000 0000', '周六、周日 09:00–17:00', 20, 'PUBLISHED'),
+     '0546-8000 0000', '周六、周日 09:00–17:00', 20, 'PUBLISHED', NULL),
     -- 已下线的场馆：列表和详情都不应返回。
     ('b2000000-0000-4000-8000-000000000003', 'a1000000-0000-4000-8000-000000000004',
-     '已下线的示例场馆', '370500', '东营区示例路 1 号', NULL, NULL, NULL, 30, 'OFFLINE')
+     '已下线的示例场馆', '370500', '东营区示例路 1 号', NULL, NULL, NULL, 30, 'OFFLINE', NULL)
 ON CONFLICT (id) DO UPDATE
 SET operator_id = EXCLUDED.operator_id,
     name = EXCLUDED.name,
@@ -62,6 +65,7 @@ SET operator_id = EXCLUDED.operator_id,
     opening_note = EXCLUDED.opening_note,
     sort_order = EXCLUDED.sort_order,
     status = EXCLUDED.status,
+    project_summary = EXCLUDED.project_summary,
     updated_at = now();
 
 -- S3-1（迁移 V005）：两个示例场馆的结构化营业时间，和上面 opening_note 的文字一致（运营端保存时会按这几项重新生成）。

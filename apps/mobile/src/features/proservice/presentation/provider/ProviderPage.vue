@@ -22,9 +22,9 @@ import {
 import type { ProServicePrice, ProServiceType, ProviderPage } from '../../domain/proservice'
 
 // A provider's page (ProviderPage board): who it is, what it offers in this city and where it
-// works. The board's 案例 and 资质 tabs, its 经营主体 / 服务方式 / 授权有效期 rows and its 可交付
-// card are left out: the provider read has no cases, qualification rows, company facts or
-// deliverables yet.
+// works. The board's 经营主体 / 服务方式 / 授权有效期 rows, its local-team tag and its 可交付 card
+// come from the profile the platform approved (1.2.0) and are left out without one. The 案例 and
+// 资质 tabs are left out: the provider read has no cases or qualification rows yet.
 const props = defineProps<{
   providerId: string
   cityCode: string
@@ -69,6 +69,19 @@ const tab = ref<ProviderTab>('scope')
 let requestVersion = 0
 
 const provider = computed(() => (state.value.kind === 'ready' ? state.value.page : null))
+const profile = computed(() => provider.value?.profile ?? null)
+// The orange tag: the approved local-team label, else (no profile) the provider's own one-liner.
+const teamTag = computed(() => (profile.value ? profile.value.localTeamLabel : provider.value?.description ?? null))
+// "至 2027-10-31"
+const profileRows = computed(() => {
+  const current = profile.value
+  if (!current) return []
+  return [
+    { key: 'entity', label: '经营主体', value: current.legalEntity },
+    { key: 'modes', label: '服务方式', value: current.serviceModes },
+    { key: 'until', label: '授权有效期', value: current.authorizationUntil ? `至 ${current.authorizationUntil}` : '' },
+  ].filter((row) => row.value)
+})
 // The board's green 资质已审核 tag when the platform reviewed the provider (R6-4), else its own label.
 const credential = computed(() =>
   provider.value ? providerCredentialLabel(provider.value.qualificationReviewed, provider.value.certificationLabel) : null,
@@ -150,16 +163,26 @@ void load()
         <text class="provider-page__logo" aria-hidden="true">{{ avatarText(provider.name) }}</text>
         <view class="provider-page__identity-copy">
           <text class="provider-page__name" data-testid="provider-name">{{ provider.name }}</text>
-          <view v-if="credential || provider.description" class="provider-page__tags">
+          <view v-if="credential || teamTag" class="provider-page__tags">
             <text v-if="credential" class="provider-page__tag" data-testid="provider-certification">
               {{ credential }}
             </text>
-            <!-- The board's orange tag (东营本地团队): the provider's own one-line description. -->
-            <text v-if="provider.description" class="provider-page__tag provider-page__tag--team" data-testid="provider-description">
-              {{ provider.description }}
+            <!-- The board's orange tag (东营本地团队). -->
+            <text
+              v-if="teamTag"
+              class="provider-page__tag provider-page__tag--team"
+              :data-testid="profile ? 'provider-team' : 'provider-description'"
+            >
+              {{ teamTag }}
             </text>
           </view>
         </view>
+      </view>
+      <view v-if="profileRows.length" class="provider-page__facts" data-testid="provider-profile">
+        <template v-for="row in profileRows" :key="row.key">
+          <text class="provider-page__fact-label">{{ row.label }}</text>
+          <text class="provider-page__fact-value" :data-testid="`provider-profile-${row.key}`">{{ row.value }}</text>
+        </template>
       </view>
     </view>
 
@@ -235,6 +258,15 @@ void load()
             </view>
           </view>
         </button>
+        <view v-if="profile && profile.deliverables.length" class="provider-page__deliver" data-testid="provider-deliverables">
+          <text class="provider-page__deliver-title">可交付</text>
+          <view class="provider-page__deliver-grid">
+            <view v-for="item in profile.deliverables" :key="item" class="provider-page__deliver-item">
+              <LineIcon name="check" :size="14" color="#159a70" :stroke-width="3" />
+              <text>{{ item }}</text>
+            </view>
+          </view>
+        </view>
       </view>
 
       <view v-else class="provider-page__body" data-testid="provider-cities">
@@ -331,6 +363,56 @@ button::after {
   line-height: 54px;
   text-align: center;
   box-sizing: border-box;
+}
+
+.provider-page__facts {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 6px 8px;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.provider-page__fact-label {
+  color: #627187;
+  white-space: nowrap;
+}
+
+.provider-page__fact-value {
+  min-width: 0;
+  word-break: break-all;
+}
+
+.provider-page__deliver {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.provider-page__deliver-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 21px;
+}
+
+.provider-page__deliver-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+
+.provider-page__deliver-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  color: #536178;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 .provider-page__identity-copy {

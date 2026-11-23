@@ -53,6 +53,7 @@ class InspectionServiceCatalogReadServiceTest {
                                 "RESERVABLE",
                                 "RESERVE",
                                 8_560L,
+                                "示例电力巡检服务商",
                                 null));
                     }
                 });
@@ -70,6 +71,7 @@ class InspectionServiceCatalogReadServiceTest {
             assertThat(card.price().startingAmountMinor()).isEqualTo(120_000L);
             assertThat(card.priceNote()).isEqualTo("含现场巡检和报告");
             assertThat(card.completedCount()).isEqualTo(8_560L);
+            assertThat(card.providerName()).isEqualTo("示例电力巡检服务商");
         });
     }
 
@@ -116,6 +118,7 @@ class InspectionServiceCatalogReadServiceTest {
                 "AVAILABLE",
                 "REQUEST_QUOTE",
                 0L,
+                null,
                 null);
     }
 
@@ -707,6 +710,7 @@ final class PortalCatalogStore implements InspectionServiceCatalogReadStore {
                 "AVAILABLE",
                 "REQUEST_QUOTE",
                 0L,
+                null,
                 distanceMeters);
     }
 

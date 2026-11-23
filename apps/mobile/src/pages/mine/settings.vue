@@ -22,6 +22,11 @@ import {
 } from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import { MINE_TAB_PATH, buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { buildAddressBookUrl } from '@/features/mall/navigation/mall-routes'
+import { SYSTEM_NOTICE_PREVIEW_ENABLED } from '@/features/message/application/notice-preview'
+import { createNotificationSwitches } from '@/features/message/application/notification-switches'
+import { revokePushDevice } from '@/features/message/application/push-registration-client'
+import { notificationExtrasApi } from '@/features/message/data/notification-extras-api-client'
+import type { NotificationPreferences, NotificationSwitch } from '@/features/message/domain/notification-preferences'
 import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settings-preview'
 import type { AgreementDoc } from '@/features/settings/domain/agreement'
 import { ABOUT_PATH, SETTINGS_PATH, buildAgreementUrl } from '@/features/settings/navigation/settings-routes'
@@ -36,6 +41,20 @@ const closure = ref<AccountClosure | null>(null)
 const closureOpen = ref(false)
 const closureBusy = ref(false)
 const badges = useRootTabBadgeStore()
+
+// 通知 switches (S5-9, preview builds): read with the page, each tap saved on its own.
+const notifications = ref<NotificationPreferences | null>(null)
+const switches = createNotificationSwitches({
+  api: notificationExtrasApi,
+  getAccessToken: () => getBookingAuthContext().getAccessToken(),
+  get: () => notifications.value,
+  set: (next) => { notifications.value = next },
+  onSaveFailed: () => uni.showToast({ title: '设置没有保存，请稍后重试', icon: 'none' }),
+})
+
+function toggleNotification(key: NotificationSwitch): void {
+  void switches.toggle(key)
+}
 
 // Settings belong to an account: without one the page goes to sign in and comes back.
 async function load(): Promise<void> {
@@ -58,6 +77,7 @@ async function load(): Promise<void> {
   }
   if (addresses.status === 'fulfilled') addressCount.value = addresses.value.length
   if (loadedClosure.status === 'fulfilled') closure.value = loadedClosure.value
+  if (SYSTEM_NOTICE_PREVIEW_ENABLED) await switches.load()
 }
 
 function goBack(): void {
@@ -77,8 +97,11 @@ function logout(): void {
     confirmText: '退出',
     cancelText: '取消',
     confirmColor: '#ff6a00',
-    success: (result) => {
+    success: async (result) => {
       if (!result.confirm) return
+      // Pushes for this account stop coming to this device (S5-9); a failure does not keep anyone signed in.
+      // The push id is revoked first, while the access token still works.
+      await revokePushDevice()
       // Withdraws the login on the server too (its refresh token), not only on this device.
       signOutBookingSession()
       badges.setMessageUnread(0)
@@ -123,6 +146,7 @@ onShow(() => {
     v-if="SETTINGS_PREVIEW_ENABLED"
     :account="account"
     :address-count="addressCount"
+    :notifications="notifications"
     @back="goBack"
     @addresses="open(buildAddressBookUrl(false))"
     @agreement="(doc: AgreementDoc) => open(buildAgreementUrl(doc))"
@@ -137,7 +161,10 @@ onShow(() => {
     @permissions="open(PERMISSIONS_PATH)"
     @onboarding="open(buildOnboardingUrl('settings'))"
     @closure="openClosure"
+    @toggle-notification="toggleNotification"
   />
+  <SupportUnavailable v-else text="设置尚未开通" />
+  <!-- After the v-if / v-else pair, so 设置尚未开通 hangs off the settings page, not this sheet. -->
   <AccountClosureSheet
     v-if="SETTINGS_PREVIEW_ENABLED && ACCOUNT_PREVIEW_ENABLED && closureOpen && closure"
     :closure="closure"
@@ -146,5 +173,4 @@ onShow(() => {
     @apply="changeClosure('apply')"
     @withdraw="changeClosure('withdraw')"
   />
-  <SupportUnavailable v-else text="设置尚未开通" />
 </template>

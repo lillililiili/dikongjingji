@@ -135,10 +135,11 @@ public final class InspectionOrderController {
             UUID resourceId,
             String displayName,
             String roleLabel,
-            String contactMobile
+            String contactMobile,
+            Boolean certifiedPilot
     ) {
         AssignmentInput toInput() {
-            return new AssignmentInput(type, resourceId, displayName, roleLabel, contactMobile);
+            return new AssignmentInput(type, resourceId, displayName, roleLabel, contactMobile, certifiedPilot);
         }
     }
 

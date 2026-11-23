@@ -206,6 +206,9 @@ test.describe('购物车与确认订单', () => {
     await page.getByTestId('address-region').click()
     await page.getByTestId('address-province-370000').click()
     await page.getByTestId('address-city-370500').click()
+    // The region dialog (board RegionPick) closes on 确认.
+    await expect(page.getByTestId('address-region-picked')).toContainText('山东省 东营市')
+    await page.getByTestId('address-region-confirm').click()
     await expect(page.getByTestId('address-region')).toContainText('山东省 东营市')
     await expect(page.getByTestId('address-default')).toHaveAttribute('aria-checked', 'true')
     await page.locator('[data-testid="address-save"]:not([disabled])').click()

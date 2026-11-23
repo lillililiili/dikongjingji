@@ -25,6 +25,8 @@ defineEmits<{
         <LineIcon name="headset" :size="22" color="#536178" />
         <text>客服</text>
       </button>
+      <!-- 收藏 of a preview build (plan 08 S5-6); the page decides whether it is there. -->
+      <slot name="extra" />
       <button
         class="service-detail-bottom-bar__primary"
         :disabled="disabled"

@@ -36,8 +36,15 @@ describe('message categories', () => {
       TRADE_LOGISTICS: '交易物流',
       ACTIVITY_REMINDER: '活动提醒',
       LIVE_REMINDER: '直播提醒',
+      SYSTEM_NOTICE: '系统通知',
       OTHER: '通知',
     })
+  })
+
+  // 1.5.0 (S5-9): 系统通知 is the board's grey bell.
+  it('draws 系统通知 as the board grey bell', () => {
+    expect(messageLook({ category: 'SYSTEM_NOTICE', target: { type: 'SYSTEM_NOTICE', id: 'n', subId: null } }))
+      .toMatchObject({ label: '系统通知', d: MESSAGE_SQUARES.SYSTEM_NOTICE.d, bg: '#eef2f8', ink: '#536178' })
   })
 
   // 1.4.0 (M20): 直播提醒 has no row on the board Messages; it reads 直播提醒 in violet with a screen.
@@ -77,9 +84,12 @@ describe('category squares', () => {
     item('f', 'OTHER', false),
   ]
 
-  it('keeps the board order without 系统通知', () => {
-    expect(MESSAGE_SQUARE_ORDER.map((square) => MESSAGE_SQUARES[square].label)).toEqual(['交易物流', '服务进度', '活动提醒'])
-    expect(MESSAGE_SQUARE_ORDER.map((square) => MESSAGE_SQUARES[square].tone)).toEqual(['orange', 'blue', 'green'])
+  it('keeps the board order: 交易物流 / 服务进度 / 活动提醒 / 系统通知', () => {
+    expect(MESSAGE_SQUARE_ORDER.map((square) => MESSAGE_SQUARES[square].label))
+      .toEqual(['交易物流', '服务进度', '活动提醒', '系统通知'])
+    expect(MESSAGE_SQUARE_ORDER.map((square) => MESSAGE_SQUARES[square].tone)).toEqual(['orange', 'blue', 'green', 'blue'])
+    // The board's grey overrides the tile tone for 系统通知.
+    expect(MESSAGE_SQUARES.SYSTEM_NOTICE).toMatchObject({ bg: '#eef2f8', ink: '#536178', testId: 'message-cat-system' })
   })
 
   it('counts unread per square only once every page is loaded', () => {

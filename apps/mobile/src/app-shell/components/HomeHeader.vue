@@ -14,6 +14,9 @@ const props = defineProps<{
   keyword: string
   searchPlaceholder: string
   showScan: boolean
+  // Preview builds (S5-1): the box is a button to the search page instead of a field (boards
+  // HomeFull, HomeAct, ExpCenter, Mall2: the box links to SearchPre).
+  searchEntry?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -22,6 +25,7 @@ const emit = defineEmits<{
   selectChannel: [channel: HomeChannelCode]
   search: []
   scan: []
+  openSearch: []
 }>()
 
 const CHANNEL_SCROLL_CONTEXT = 2
@@ -117,7 +121,17 @@ function handleKeywordConfirm(event: Event): void {
           <LineIcon name="scan" :size="20" color="#202c42" />
           <view class="home-header__scan-divider" />
         </button>
+        <button
+          v-if="searchEntry"
+          class="home-header__entry"
+          data-testid="home-search-input"
+          aria-label="搜索"
+          @click="emit('openSearch')"
+        >
+          <text class="home-header__entry-text">{{ searchPlaceholder }}</text>
+        </button>
         <input
+          v-else
           class="home-header__input"
           data-testid="home-search-input"
           type="text"
@@ -132,7 +146,7 @@ function handleKeywordConfirm(event: Event): void {
         <button
           class="home-header__submit"
           data-testid="home-search-submit"
-          @click="emit('search')"
+          @click="searchEntry ? emit('openSearch') : emit('search')"
         >
           搜索
         </button>
@@ -299,6 +313,22 @@ button::after {
   flex: 1 1 auto;
   color: #202c42;
   font-size: 14px;
+}
+
+.home-header__entry {
+  display: flex;
+  height: 40px;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+}
+
+.home-header__entry-text {
+  overflow: hidden;
+  color: #738096;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .home-header__placeholder {

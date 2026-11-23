@@ -101,12 +101,23 @@ function mountPage<TBindings>(
     // Step G1: customer service and its preview flag (off: the pages keep their notices).
     '@/features/support/application/support-entry': { openSupportChat: () => undefined },
     '@/features/support/application/support-preview': { SUPPORT_PREVIEW_ENABLED: false },
+    // Plan 08 S5-10: the shared pickers and their preview flag (off: the system location picker).
+    '@/features/place/application/place-preview': { PLACE_PREVIEW_ENABLED: false },
+    '@/features/place/navigation/place-routes': { buildMapPickUrl: () => '' },
+    '@/features/place/state/map-pick-result': {
+      createMapPickRequestId: () => 'request1',
+      useMapPickResultStore: () => ({ take: () => null, put: () => undefined }),
+    },
+    '@/shared/photo/photo-viewer': { openPhotoViewer: () => undefined },
+    // Plan 08 S5-6: 收藏 on the bar, off here (the button is a component of its own).
+    '@/features/favorite/application/favorite-preview': { FAVORITE_PREVIEW_ENABLED: false },
     pinia: { storeToRefs },
     '@dcloudio/uni-app': {
       onLoad: (handler: (query: ServiceRouteQuery) => void) => {
         onLoadHandler = handler
       },
       onUnload: () => undefined,
+      onShow: () => undefined,
     },
     '@/shared/city/state/current-city': { useCurrentCityStore },
   }

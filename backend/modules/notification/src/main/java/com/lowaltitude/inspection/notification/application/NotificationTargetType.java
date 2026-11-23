@@ -18,5 +18,9 @@ public enum NotificationTargetType {
     /** 一张到馆预约（R6-5）：页面再读预约和核销码。 */
     VENUE_BOOKING,
     /** 一个直播间（M20）：页面再读直播间。 */
-    LIVE_ROOM
+    LIVE_ROOM,
+    /** 一份系统通知（S5-9）：页面再读公告的详情。 */
+    SYSTEM_NOTICE,
+    /** 一条活动候补（S5-3）：id 是候补，页面再读候补和转正后的付款。 */
+    ACTIVITY_WAITLIST
 }

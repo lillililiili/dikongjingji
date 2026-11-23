@@ -23,6 +23,10 @@ info:
     巡检次进入 REWORK、交付进入 RETURNED，服务商重新交付后再验收；不自动退款。
     服务商工作台的预约列表（2.3.0 的 listProviderInspectionReservations、getProviderInspectionReservationSummary）同样带
     paymentDue* 字段和新的阶段推导，付款状态读服务单 paymentNodes。
+    2.6.0（2026-11-23，S4-4 后端补字段，分支上写作 2.5.0，合并时按主线顺延）：CustomerReservationSummary 加 provider
+    （服务商名和 qualificationReviewed，订单卡头行显示，原型画板 OrderList）；安排服务团队的 AssignmentInput 加可选的
+    certifiedPilot（只有 TEAM_MEMBER 能为 true，设备为 true 回 400），服务单的 OrderAssignment 加 certifiedPilot，
+    履约页据此显示“持证飞手 N 名”（画板 Fulfillment、FulfillOne）。
     2.7.0（2026-11-23，S5-7、S5-8，账号部分见 contracts/openapi-identity-account.yaml 1.0.0）：CurrentAccount 加 maskedPhone
     （打码手机号，没有绑定时 null）和 identity（当前身份：个人或企业）；LoginRequest 加可选的 device（登录设备说明）。
     每次登录记一个登录会话，会话 ID 就是这次登录的刷新令牌 family：访问令牌带 sid（会话 ID）和 identity（当前企业，个人时没有）；
@@ -1637,6 +1641,21 @@ components:
         paymentDueAmountMinor:
           type: integer
           minimum: 1
+        provider:
+          description: >
+            2.6.0：这张预约分给的服务商（订单卡头行显示名称和“资质已审核”）；还没分给服务商时不返回。
+            qualificationReviewed 只来自机构的资质审核通过时间。
+          type: object
+          additionalProperties: false
+          required: [providerId, name, qualificationReviewed]
+          properties:
+            providerId:
+              type: string
+              format: uuid
+            name:
+              type: string
+            qualificationReviewed:
+              type: boolean
     CustomerReservationStageCounts:
       type: object
       additionalProperties: false
@@ -2376,10 +2395,13 @@ components:
           description: 服务端加密保存，响应里只返回打码值。
           type: [string, "null"]
           pattern: "^1[3-9][0-9]{9}$"
+        certifiedPilot:
+          description: 2.6.0：服务团队成员是否持证飞手，不传按否；type 为 DEVICE 时不能为 true（400）。
+          type: [boolean, "null"]
     OrderAssignment:
       type: object
       additionalProperties: false
-      required: [type, resourceId, displayName]
+      required: [type, resourceId, displayName, certifiedPilot]
       properties:
         type:
           $ref: "#/components/schemas/AssignmentType"
@@ -2392,6 +2414,9 @@ components:
           type: [string, "null"]
         contactMobileMasked:
           type: [string, "null"]
+        certifiedPilot:
+          description: 2.6.0：服务团队成员是否持证飞手（服务商安排时标记）；设备和 2.6.0 以前的安排为 false。
+          type: boolean
     AssignmentType:
       type: string
       enum: [TEAM_MEMBER, DEVICE]

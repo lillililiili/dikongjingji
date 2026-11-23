@@ -51,6 +51,8 @@ interface CatalogServiceDto {
   priceNote?: string | null
   completedCount?: number | null
   distanceMeters?: number | null
+  /** Catalog contract 1.4.0: the provider organisation; null when it is no longer an active provider. */
+  providerName?: string | null
 }
 
 interface CodeNameDto {
@@ -125,7 +127,7 @@ function serviceImage(service: CatalogServiceDto): string {
   return inspectionServiceImage({ coverUrl: service.coverImage?.url, categoryCode: service.category.code })
 }
 
-function toCatalogService(service: CatalogServiceDto): InspectionCatalogService {
+export function toCatalogService(service: CatalogServiceDto): InspectionCatalogService {
   const amountFen = service.price.startingAmountMinor ?? undefined
   return {
     id: service.serviceId,
@@ -175,6 +177,7 @@ function toHotService(service: CatalogServiceDto): InspectionPortalHotService {
     categoryCode: service.category.code,
     title: service.name,
     tag: service.category.name,
+    ...(service.providerName ? { providerName: service.providerName } : {}),
     imageUrl: serviceImage(service),
     priceLabel: priceLabel(service),
   }

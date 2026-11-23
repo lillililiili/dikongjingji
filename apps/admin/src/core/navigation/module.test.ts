@@ -12,7 +12,7 @@ describe('菜单', () => {
 
     expect(groups.map((group) => group.title)).toEqual(['平台运营'])
     expect(groups[0]!.items.map((item) => item.title)).toEqual(['城市开通', '机构与资质', '商品与供给', '商家资料审核', '收款账户', '批量导入',
-      '活动与场次', '课程', '场馆与设备', '发现内容', '直播间', '巡检服务目录', '专业服务目录'])
+      '活动与场次', '课程', '场馆与设备', '发现内容', '直播间', '巡检服务目录', '专业服务目录', '服务商资料审核', '系统通知'])
   })
 
   it('平台客服只看到举报与反馈；客户没有菜单', () => {
@@ -25,7 +25,7 @@ describe('菜单', () => {
     const operator = buildMenu(ADMIN_MODULES, ['PROVIDER_OPERATOR'])
     expect(operator.map((group) => group.key)).toEqual(['WORKBENCH'])
     expect(operator[0]!.items.map((item) => item.title)).toEqual([
-      '商城订单', '售后', '商城询价', '租赁询价', '租赁订单', '需求报价', '巡检预约', '客服会话', '商家资料', '收款账户',
+      '商城订单', '售后', '商城询价', '租赁询价', '租赁订单', '需求报价', '服务订单', '巡检预约', '活动结果', '客服会话', '服务商资料', '商家资料', '收款账户',
     ])
     expect(operator[0]!.items.every((item) => item.path.startsWith('/workbench/'))).toBe(true)
 

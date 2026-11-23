@@ -76,7 +76,7 @@ class VenueOpsServiceTest {
         ArgumentCaptor<UUID> id = ArgumentCaptor.forClass(UUID.class);
         verify(mapper).insertVenue(id.capture(), eq(OPERATOR_ORG), eq("东营低空与机器人体验馆"), isNull(), eq("370500"),
                 eq("东营区示例路 66 号"), eq("0546-8000 0000"), eq("09:30"), eq("18:00"), eq("周一闭馆"),
-                eq("09:30–18:00 · 周一闭馆"), eq(30), eq(10), eq(0), eq(KEY), any());
+                eq("09:30–18:00 · 周一闭馆"), eq(30), eq(10), eq(0), eq(KEY), eq("模拟飞行 · 机器人编程"), any());
         verify(mapper).insertInfoItem(id.getValue(), "入口", "东门入场，西门离场", 10, OffsetDateTime.ofInstant(NOW,
                 ZoneOffset.UTC));
         verify(mapper).insertChange(eq(id.getValue()), eq("VENUE"), eq(id.getValue()), eq("CREATE"),
@@ -95,7 +95,7 @@ class VenueOpsServiceTest {
         assertThat(replay.created()).isFalse();
         assertThat(replay.venue().venueId()).isEqualTo(VENUE);
         verify(mapper, never()).insertVenue(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
-                anyInt(), any(), anyInt(), any(), any());
+                anyInt(), any(), anyInt(), any(), any(), any());
     }
 
     @Test
@@ -116,7 +116,9 @@ class VenueOpsServiceTest {
                 new VenueDraft(OPERATOR_ORG, "馆", "370500", null, "地址", "电话", null, null, null, null, null, null,
                         null),
                 new VenueDraft(OPERATOR_ORG, " ", "370500", null, "地址", null, null, null, null, null, null, null,
-                        null))) {
+                        null),
+                new VenueDraft(OPERATOR_ORG, "馆", "370500", null, "地址", null, null, null, null, null, null, null,
+                        null, "模".repeat(VenueOpsService.MAX_PROJECT_SUMMARY + 1)))) {
             assertThatThrownBy(() -> service.createVenue(KEY, bad, OPERATOR)).as(bad.toString())
                     .isInstanceOf(IllegalArgumentException.class);
         }
@@ -295,14 +297,14 @@ class VenueOpsServiceTest {
     private static VenueDraft draft(String coverUrl, String opensAt, String closesAt) {
         return new VenueDraft(OPERATOR_ORG, " 东营低空与机器人体验馆 ", "370500", coverUrl, "东营区示例路 66 号",
                 "0546-8000 0000", opensAt, closesAt, "周一闭馆", null, 10, null,
-                List.of(new InfoItemDraft("入口", "东门入场，西门离场")));
+                List.of(new InfoItemDraft("入口", "东门入场，西门离场")), " 模拟飞行 · 机器人编程 ");
     }
 
     private static VenueRow venue(UUID id, String status, String coverUrl, String opensAt, int version) {
         return new VenueRow(id, "东营低空与机器人体验馆", OPERATOR_ORG, "东营低空与机器人体验馆", "370500", coverUrl,
                 "东营区示例路 66 号", "0546-8000 0000", opensAt, opensAt == null ? null : "18:00", "周一闭馆",
                 opensAt == null ? null : opensAt + "–18:00 · 周一闭馆", 30, 10, 0, status, null,
-                OffsetDateTime.ofInstant(NOW, ZoneOffset.UTC), version);
+                OffsetDateTime.ofInstant(NOW, ZoneOffset.UTC), version, null);
     }
 
     private static ProjectRow project(String status, int version) {

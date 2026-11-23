@@ -32,8 +32,19 @@ class DemandMapperContractTest {
                 .map(DemandMapperContractTest::sql)
                 .toList();
 
-        assertThat(statements).hasSize(36);
+        assertThat(statements).hasSize(42);
         assertThat(statements).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
+    }
+
+    // 1.3.0：计数按账号；服务订单只挂在已选定、还没挂过的需求上；明细按报价整组替换。
+    @Test
+    void quoteDetailsCountsAndServiceOrderLinksAreScoped() throws Exception {
+        assertThat(sql(method("countByStatus"))).contains("WHERE account_id = #{accountId}").contains("GROUP BY status");
+        assertThat(sql(method("linkServiceOrder"))).contains("status = 'CHOSEN'")
+                .contains("service_order_id IS NULL");
+        assertThat(sql(method("deleteQuoteLines"))).contains("WHERE quote_id = #{quoteId}");
+        assertThat(sql(method("updateQuoteDetails"))).contains("WHERE id = #{quoteId}");
+        assertThat(sql(method("findQuoteLines"))).contains("ORDER BY quote_id, sort_order");
     }
 
     // 客户的读写都以发布账号为条件：别人的需求读不到、改不了、删不掉。

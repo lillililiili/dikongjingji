@@ -1,15 +1,24 @@
 openapi: 3.1.0
 info:
   title: Demand API
-  version: 1.2.0
+  version: 1.3.0
   description: |-
+    1.3.0（2026-11-23，S4-3、S4-4，docs/redesign/08-后续开发计划.md §5）：
+    - 选定之后：航拍、测绘、设备维护、技术支持四类需求选定报价时，在同一个事务里生成一张通用服务订单
+      （contracts/openapi-service-order.yaml 1.0.0），Demand 加 serviceOrderId（选定后有；巡检类需求仍停在选定，为 null）。
+      选定仍不产生费用，付款在服务订单里确认方案之后。
+    - 报价明细和对比项（原型 PlanCompare）：QuoteRequest、DemandQuote、ProviderQuote 加 lines（报价明细行，最多 10 行；
+      有明细时各行金额之和必须等于总价，按次计的行“数量 × 单价 = 金额”）、team（服务团队，如“东营本地”）、
+      nightWork（夜间作业，如“机器狗夜巡”“不含”）、reportHours（报告时效，小时）、archiveDays（影像存档天数，0 表示不含）、
+      firstVisitDate（首次进场日期，北京时间）。都可以不填（旧报价没有），不填时页面不显示那一行。不合规时 400。
+    - 加 getMyDemandCounts（GET /api/v1/demand-counts）：“需求与报价”页签上的计数，按状态各有多少份（含草稿）。
     1.2.0（2026-11-23，S3-2，服务商工作台在 Web 运营端 apps/admin）：listProviderDemands 加可选查询参数 status
     （OPEN / QUOTED / CHOSEN / CLOSED），只在服务商能看到的范围里再筛；草稿不是可选状态，填了或填了别的值是 400。
     1.1.0（R6-4）：可邀请的服务商（DemandProvider）和报价里的服务商（DemandQuoteProvider）加 qualificationReviewed（平台审核过它的资质），
     页面据此显示“资质已审核”。
     1.0.0（步骤 F1，docs/redesign/03-App实现任务计划.md §22）：需求发布与报价比选。
     客户发布一份需求（巡检、航拍、测绘、设备维护、技术支持）→ 服务商报价（截止前可以改价、撤回）→ 客户比选并选定一家。
-    停在“选定报价”：不建付款单，不建服务订单，金额只做展示和比较。
+    1.0.0 停在“选定报价”；1.3.0 起四类服务选定后生成服务订单（见上）。需求本身不建付款单，金额只做展示和比较。
 
     Every route needs a login (bearer JWT). The customer routes (/api/v1/demands…) also need the CUSTOMER role;
     /api/v1/demand-providers needs only a login; the provider routes (/api/v1/provider/demands…) need the
@@ -326,7 +335,8 @@ paths:
       summary: 选定一份报价
       description: >-
         If-Match 是读需求时的 ETag；quoteVersion 是比选页上这份报价的版本。同一份同一版已经选定时原样返回。
-        不产生费用。
+        不产生费用。1.3.0 起：航拍、测绘、设备维护、技术支持需求在同一个事务里生成服务订单（待服务商出方案），
+        返回的 Demand.serviceOrderId 指向它，页面进订单详情；巡检需求不生成，serviceOrderId 为 null。
       security:
         - bearerAuth: []
       parameters:
@@ -379,6 +389,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/demand-counts:
+    get:
+      operationId: getMyDemandCounts
+      summary: 我发布的需求按状态计数（“需求与报价”页签上的数字，1.3.0）
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 各状态的份数
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemandCounts"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/demand-providers:
     get:
       operationId: listInvitableProviders
@@ -898,6 +927,7 @@ components:
         - createdAt
         - updatedAt
         - version
+        - serviceOrderId
       description: 客户看到的需求。草稿里没填的字段为 null。
       properties:
         demandId:
@@ -994,6 +1024,12 @@ components:
             - $ref: "#/components/schemas/DemandChosen"
             - type: "null"
           description: 只在 CHOSEN 时有
+        serviceOrderId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: 选定后生成的服务订单（1.3.0，四类服务）；没选定、巡检需求、以前选定的为 null
         editable:
           type: boolean
           description: 可以改（草稿）
@@ -1074,6 +1110,12 @@ components:
         - submittedAt
         - revisedAt
         - choosable
+        - lines
+        - team
+        - nightWork
+        - reportHours
+        - archiveDays
+        - firstVisitDate
       description: 客户看到的一份报价（最新一版）
       properties:
         quoteId:
@@ -1120,6 +1162,44 @@ components:
           description: 最近一次改价的时间
         choosable:
           type: boolean
+        lines:
+          type: array
+          maxItems: 10
+          description: 报价明细（1.3.0）；旧报价或没填明细时为空数组
+          items:
+            $ref: "#/components/schemas/QuoteLine"
+        team:
+          type:
+            - string
+            - "null"
+          maxLength: 20
+          description: 服务团队，比如“东营本地”（1.3.0）
+        nightWork:
+          type:
+            - string
+            - "null"
+          maxLength: 20
+          description: 夜间作业，比如“机器狗夜巡”“不含”（1.3.0）
+        reportHours:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 720
+          description: 报告时效：作业后多少小时内交付报告（1.3.0）
+        archiveDays:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          maximum: 3650
+          description: 影像存档天数；0 表示不含（1.3.0）
+        firstVisitDate:
+          type:
+            - string
+            - "null"
+          format: date
+          description: 首次进场日期（北京时间，1.3.0）
     DemandQuoteList:
       type: object
       additionalProperties: false
@@ -1160,6 +1240,12 @@ components:
         - validUntil
         - submittedAt
         - revisedAt
+        - lines
+        - team
+        - nightWork
+        - reportHours
+        - archiveDays
+        - firstVisitDate
       description: 服务商自己的报价（含已撤回）
       properties:
         quoteId:
@@ -1197,6 +1283,44 @@ components:
           type: string
           format: date-time
           description: 最近一次改价或撤回的时间
+        lines:
+          type: array
+          maxItems: 10
+          description: 报价明细（1.3.0）；旧报价或没填明细时为空数组
+          items:
+            $ref: "#/components/schemas/QuoteLine"
+        team:
+          type:
+            - string
+            - "null"
+          maxLength: 20
+          description: 服务团队，比如“东营本地”（1.3.0）
+        nightWork:
+          type:
+            - string
+            - "null"
+          maxLength: 20
+          description: 夜间作业，比如“机器狗夜巡”“不含”（1.3.0）
+        reportHours:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 720
+          description: 报告时效：作业后多少小时内交付报告（1.3.0）
+        archiveDays:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          maximum: 3650
+          description: 影像存档天数；0 表示不含（1.3.0）
+        firstVisitDate:
+          type:
+            - string
+            - "null"
+          format: date
+          description: 首次进场日期（北京时间，1.3.0）
     ProviderDemand:
       type: object
       additionalProperties: false
@@ -1555,3 +1679,144 @@ components:
           type: string
           format: date-time
           description: 晚于现在，不超过 30 天
+        lines:
+          type:
+            - array
+            - "null"
+          maxItems: 10
+          description: 报价明细（1.3.0）；不填或空数组表示没有明细；有明细时各行 amountMinor 之和等于 amountMinor
+          items:
+            $ref: "#/components/schemas/QuoteLineRequest"
+        team:
+          type:
+            - string
+            - "null"
+          maxLength: 20
+          description: 服务团队，比如“东营本地”（1.3.0）
+        nightWork:
+          type:
+            - string
+            - "null"
+          maxLength: 20
+          description: 夜间作业，比如“机器狗夜巡”“不含”（1.3.0）
+        reportHours:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 720
+          description: 报告时效：作业后多少小时内交付报告（1.3.0）
+        archiveDays:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          maximum: 3650
+          description: 影像存档天数；0 表示不含（1.3.0）
+        firstVisitDate:
+          type:
+            - string
+            - "null"
+          format: date
+          description: 首次进场日期（北京时间，1.3.0）
+    QuoteLine:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - quantity
+        - unit
+        - unitAmountMinor
+        - amountMinor
+      description: 报价明细的一行，比如“无人机巡检 · 6 次 × ¥1,800 · ¥10,800”或“报告与隐患跟踪 · ¥1,200”（不按次计时数量、单位、单价为 null）
+      properties:
+        name:
+          type: string
+          maxLength: 20
+        quantity:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 999
+        unit:
+          type:
+            - string
+            - "null"
+          maxLength: 4
+          description: 计量单位，比如“次”“天”“台”
+        unitAmountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+    QuoteLineRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - amountMinor
+      description: 数量、单位、单价要么都填（金额 = 数量 × 单价），要么都不填
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 20
+        quantity:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 999
+        unit:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 4
+        unitAmountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10000000000
+    DemandCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - total
+        - draft
+        - open
+        - quoted
+        - chosen
+        - closed
+      description: 我发布的需求按状态的份数（1.3.0）；total 含草稿
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        draft:
+          type: integer
+          minimum: 0
+        open:
+          type: integer
+          minimum: 0
+        quoted:
+          type: integer
+          minimum: 0
+        chosen:
+          type: integer
+          minimum: 0
+        closed:
+          type: integer
+          minimum: 0

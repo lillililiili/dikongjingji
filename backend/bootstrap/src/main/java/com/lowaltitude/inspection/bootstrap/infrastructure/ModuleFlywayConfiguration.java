@@ -144,6 +144,23 @@ public class ModuleFlywayConfiguration {
         return factory.notification(dataSource);
     }
 
+    // 系统通知（S5-9）的示例公告“隐私政策更新摘要”；公告不引用账号，只要站内信的表建好。
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn("notificationFlyway")
+    Flyway notificationDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/notification")
+                .table("flyway_history_notification_development")
+                // The system-notice seed writes JSON in a dollar-quoted string ($json${...}$json$); it uses
+                // no placeholders, and Flyway would read the "${" as one.
+                .placeholderReplacement(false)
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     // 需求与报价（F1）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     // 服务商资料在巡检模块，需求表不引用它。
     @Bean(initMethod = "migrate")
@@ -183,6 +200,14 @@ public class ModuleFlywayConfiguration {
         return factory.rental(dataSource);
     }
 
+    // 通用服务订单（S4-3）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 需求、报价、交易订单和退款只存 ID 和快照，不引用它们的表。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway serviceorderFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.serviceorder(dataSource);
+    }
+
     // 客服会话（G1）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     // 站内信由通知模块自己的表记，这里不引用。
     @Bean(initMethod = "migrate")
@@ -207,6 +232,14 @@ public class ModuleFlywayConfiguration {
             "experienceDevelopmentDataFlyway"})
     Flyway contentDevelopmentDataFlyway(DataSource dataSource) {
         return datedDevelopmentSeed(dataSource, "content", seedDatePlaceholder());
+    }
+
+    // 收藏（计划 08 S5-6）的表引用 identity_user，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 收藏的对象只存类型 + ID，不引用商城、服务、活动、场馆、内容的表。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway favoriteFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.favorite(dataSource);
     }
 
     // 直播（M20）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
@@ -280,11 +313,12 @@ public class ModuleFlywayConfiguration {
     }
 
     // 示例商家和收费活动主办机构的收款账户，引用商城、活动示例数据建的机构，所以排在两份开发数据之后；
-    // 巡检服务商（S4-1）的机构由身份开发数据建，也排在它之后。
+    // 巡检服务商（S4-1）的机构由身份开发数据建，也排在它之后；专业服务示例服务商的收款账户（S4-3）
+    // 引用巡检开发数据建的服务商机构，所以也排在巡检开发数据之后。
     @Bean(initMethod = "migrate")
     @Profile("dev")
     @DependsOn({"tradeFlyway", "identityDevelopmentDataFlyway", "mallDevelopmentDataFlyway",
-            "activityDevelopmentDataFlyway"})
+            "activityDevelopmentDataFlyway", "inspectionDevelopmentDataFlyway"})
     Flyway tradeDevelopmentDataFlyway(DataSource dataSource) {
         return Flyway.configure()
                 .dataSource(dataSource)

@@ -112,7 +112,8 @@ public final class CustomerReservationQueryService {
                 row.paymentDueNodeNo(),
                 row.paymentDueNodeType(),
                 row.paymentDueVisitNo(),
-                row.paymentDueAmountMinor());
+                row.paymentDueAmountMinor(),
+                row.provider());
     }
 }
 
@@ -169,8 +170,15 @@ record CustomerReservationSummary(
         Integer paymentDueNodeNo,
         String paymentDueNodeType,
         Integer paymentDueVisitNo,
-        Long paymentDueAmountMinor
+        Long paymentDueAmountMinor,
+        ReservationProvider provider
 ) { }
+
+/**
+ * S4-4：订单卡头行的服务商（原型画板 OrderList）。qualificationReviewed 只来自机构的资质审核通过时间（R6-4）。
+ * 还没分给服务商的预约为 null。
+ */
+record ReservationProvider(UUID providerId, String name, boolean qualificationReviewed) { }
 
 record StoredCustomerReservationSummary(
         UUID reservationId,
@@ -196,7 +204,8 @@ record StoredCustomerReservationSummary(
         Integer paymentDueNodeNo,
         String paymentDueNodeType,
         Integer paymentDueVisitNo,
-        Long paymentDueAmountMinor
+        Long paymentDueAmountMinor,
+        ReservationProvider provider
 ) { }
 
 record CustomerReservationStageCounts(

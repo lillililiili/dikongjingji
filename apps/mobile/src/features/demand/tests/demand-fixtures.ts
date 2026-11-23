@@ -28,6 +28,7 @@ export function demandOf(overrides: Partial<Demand> = {}): Demand {
     quotingOpen: true,
     quoteCount: 0,
     chosen: null,
+    serviceOrderId: null,
     editable: false,
     cancellable: true,
     deletable: false,
@@ -53,6 +54,12 @@ export function quoteOf(overrides: Partial<DemandQuote> = {}): DemandQuote {
     submittedAt: '2026-11-19T03:00:00Z',
     revisedAt: '2026-11-19T04:00:00Z',
     choosable: true,
+    lines: [],
+    team: null,
+    nightWork: null,
+    reportHours: null,
+    archiveDays: null,
+    firstVisitDate: null,
     ...overrides,
   }
 }

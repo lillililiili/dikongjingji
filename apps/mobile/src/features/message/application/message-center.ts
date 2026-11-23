@@ -1,4 +1,4 @@
-import type { MessageApi } from '../data/message-api'
+import type { InboxScope, MessageApi } from '../data/message-api'
 import { MESSAGE_PAGE_SIZE, type MessageItem } from '../domain/message'
 
 export type MessageCenterState =
@@ -24,6 +24,8 @@ export interface MessageCenterOptions {
   setState(state: MessageCenterState): void
   /** Told every time the unread count is known, so the tab badge can follow. */
   onUnreadCount?(count: number): void
+  /** 系统通知 (S5-9): whether this build shows them, and the App's current city. */
+  getInboxScope?(): InboxScope
 }
 
 const isRejectedLogin = (error: unknown): boolean =>
@@ -60,7 +62,7 @@ export function createMessageCenter(options: MessageCenterOptions) {
       // Coming back to the tab keeps the list on screen while it is read again.
       if (!ready()) publish({ kind: 'loading' })
       try {
-        const page = await options.api.loadPage(token, 1, MESSAGE_PAGE_SIZE)
+        const page = await options.api.loadPage(token, 1, MESSAGE_PAGE_SIZE, options.getInboxScope?.())
         if (requested !== revision) return
         nextPage = 2
         publish({
@@ -84,7 +86,7 @@ export function createMessageCenter(options: MessageCenterOptions) {
       const requested = revision
       publish({ ...current, loadingMore: true, loadMoreFailed: false })
       try {
-        const page = await options.api.loadPage(token, nextPage, MESSAGE_PAGE_SIZE)
+        const page = await options.api.loadPage(token, nextPage, MESSAGE_PAGE_SIZE, options.getInboxScope?.())
         const latest = ready()
         if (requested !== revision || !latest) return
         nextPage += 1

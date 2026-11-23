@@ -90,6 +90,16 @@ class ModuleFlywayFactoryTest {
     }
 
     @Test
+    void keepsServiceOrderVersionsInTheirOwnHistoryTable() {
+        Flyway serviceorder = new ModuleFlywayFactory().serviceorder(mock(DataSource.class));
+
+        assertThat(serviceorder.getConfiguration().getTable()).isEqualTo("flyway_history_serviceorder");
+        assertThat(locationDescriptors(serviceorder)).containsExactly("classpath:db/migration/serviceorder");
+        assertThat(serviceorder.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(serviceorder.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    @Test
     void keepsContentVersionsInTheirOwnHistoryTable() {
         Flyway content = new ModuleFlywayFactory().content(mock(DataSource.class));
 
@@ -126,6 +136,16 @@ class ModuleFlywayFactoryTest {
         assertThat(locationDescriptors(live)).containsExactly("classpath:db/migration/live");
         assertThat(live.getConfiguration().isBaselineOnMigrate()).isTrue();
         assertThat(live.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    @Test
+    void keepsFavoriteVersionsInTheirOwnHistoryTable() {
+        Flyway favorite = new ModuleFlywayFactory().favorite(mock(DataSource.class));
+
+        assertThat(favorite.getConfiguration().getTable()).isEqualTo("flyway_history_favorite");
+        assertThat(locationDescriptors(favorite)).containsExactly("classpath:db/migration/favorite");
+        assertThat(favorite.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(favorite.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
     }
 
     @Test

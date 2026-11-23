@@ -37,6 +37,15 @@ export interface InspectionOrderSummary {
   paymentDueNodeType?: 'DOWN_PAYMENT' | 'PER_VISIT'
   paymentDueVisitNo?: number
   paymentDueAmountMinor?: number
+  /** Service-flow contract 2.6.0: the provider the reservation went to; absent before it has one. */
+  provider?: InspectionOrderProvider
+}
+
+export interface InspectionOrderProvider {
+  providerId: string
+  name: string
+  /** Only from the organisation's qualification review time on the server (R6-4). */
+  qualificationReviewed: boolean
 }
 
 export interface InspectionOrderPage {

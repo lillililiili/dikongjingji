@@ -66,6 +66,9 @@ async function typeCode(page: Page, code: string): Promise<void> {
     await page.getByTestId('staff-verify-manual-toggle').click()
   }
   await page.getByTestId('staff-verify-code').locator('input').fill(code)
+  // uni H5 delivers input events at most every 100ms, so the bound code can still be the previous
+  // one right after fill; a person cannot type and tap that fast.
+  await page.waitForTimeout(150)
   await expect(page.locator('[data-testid="staff-verify-submit"]:not([disabled])')).toHaveCount(1)
   await page.getByTestId('staff-verify-submit').click()
 }

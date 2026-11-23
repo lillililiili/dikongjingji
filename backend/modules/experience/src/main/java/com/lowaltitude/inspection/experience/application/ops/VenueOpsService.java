@@ -69,6 +69,8 @@ public class VenueOpsService {
     public static final int MAX_ADDRESS = 240;
     public static final int MAX_PHONE = 32;
     public static final int MAX_CLOSED_NOTE = 40;
+    /** S4-4：首页场馆卡的项目摘要，如“模拟飞行 · 机器人编程 · 厂家展区”。 */
+    public static final int MAX_PROJECT_SUMMARY = 40;
     public static final int MAX_INFO_ITEMS = 10;
     public static final int MAX_INFO_LABEL = 40;
     public static final int MAX_INFO_CONTENT = 200;
@@ -172,7 +174,8 @@ public class VenueOpsService {
         OffsetDateTime at = now();
         mapper.insertVenue(venueId, clean.operatorId, clean.name, clean.coverUrl, clean.cityCode, clean.address,
                 clean.phone, clean.opensAt, clean.closesAt, clean.closedNote, clean.openingNote,
-                clean.checkinOpensMinutes, clean.lateEntryMinutes, clean.sortOrder, idempotencyKey, at);
+                clean.checkinOpensMinutes, clean.lateEntryMinutes, clean.sortOrder, idempotencyKey,
+                clean.projectSummary, at);
         replaceInfoItems(venueId, clean.infoItems, at);
         record(venueId, "VENUE", venueId, "CREATE", "新建场馆草稿“" + clean.name + "”", operator, at);
         return new Created(venue(venueId), true);
@@ -197,7 +200,8 @@ public class VenueOpsService {
         OffsetDateTime at = now();
         if (mapper.updateVenue(venueId, clean.operatorId, clean.name, clean.coverUrl, clean.cityCode, clean.address,
                 clean.phone, clean.opensAt, clean.closesAt, clean.closedNote, clean.openingNote,
-                clean.checkinOpensMinutes, clean.lateEntryMinutes, clean.sortOrder, version, at) != 1) {
+                clean.checkinOpensMinutes, clean.lateEntryMinutes, clean.sortOrder, clean.projectSummary,
+                version, at) != 1) {
             throw new OpsException(VenueOpsError.VERSION_CONFLICT);
         }
         replaceInfoItems(venueId, clean.infoItems, at);
@@ -580,7 +584,8 @@ public class VenueOpsService {
     private record CleanVenue(UUID operatorId, String operatorName, String name, String cityCode, String cityName,
                               String coverUrl, String address, String phone, String opensAt, String closesAt,
                               String closedNote, String openingNote, int checkinOpensMinutes,
-                              Integer lateEntryMinutes, int sortOrder, List<InfoItemDraft> infoItems) {
+                              Integer lateEntryMinutes, int sortOrder, List<InfoItemDraft> infoItems,
+                              String projectSummary) {
     }
 
     private CleanVenue cleanVenue(VenueDraft draft, VenueRow current) {
@@ -629,8 +634,11 @@ public class VenueOpsService {
                             OpsText.required(item.content(), MAX_INFO_CONTENT, "content"));
                 })
                 .toList();
+        // S4-4：首页“附近场馆”卡片的项目摘要；不填时 App 用启用的前三个项目名。
+        String projectSummary = OpsText.optional(draft.projectSummary(), MAX_PROJECT_SUMMARY, "projectSummary");
         return new CleanVenue(draft.operatorId(), operatorName, name, cityCode, cityName, coverUrl, address, phone,
-                opensAt, closesAt, closedNote, openingNote, checkinOpens, lateEntry, sortOrder, infoItems);
+                opensAt, closesAt, closedNote, openingNote, checkinOpens, lateEntry, sortOrder, infoItems,
+                projectSummary);
     }
 
     /** “09:30–18:00 · 周一闭馆”。 */
@@ -714,7 +722,7 @@ public class VenueOpsService {
                 mapper.findInfoItems(row.venueId()).stream()
                         .map(item -> new OpsVenueInfoItemView(item.label(), item.content()))
                         .toList(),
-                projects, devices, publishMissing(row, now), row.updatedAt(), row.version());
+                projects, devices, publishMissing(row, now), row.updatedAt(), row.version(), row.projectSummary());
     }
 
     /** 现在上线还差哪些：封面、营业时间、启用的项目、没开始的在售场次。 */

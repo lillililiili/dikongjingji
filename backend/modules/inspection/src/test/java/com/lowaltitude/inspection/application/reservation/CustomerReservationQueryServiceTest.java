@@ -15,6 +15,7 @@ class CustomerReservationQueryServiceTest {
 
     private static final UUID CUSTOMER_ID = UUID.randomUUID();
     private static final UUID PLAN_ID = UUID.randomUUID();
+    private static final UUID PROVIDER = UUID.randomUUID();
 
     @Test
     void returnsOnlyTheRequestedCustomersSecondPageAndDecryptsAddress() {
@@ -45,6 +46,7 @@ class CustomerReservationQueryServiceTest {
             assertThat(order.locationSummary()).isEqualTo("东营市东营区黄河路 21 号");
             assertThat(order.currentPlanId()).isEqualTo(PLAN_ID);
             assertThat(order.quoteAmountMinor()).isEqualTo(34900L);
+            assertThat(order.provider()).isEqualTo(new ReservationProvider(PROVIDER, "云翼科技", false));
         });
         assertThat(page.total()).isEqualTo(21);
         assertThat(page.hasMore()).isFalse();
@@ -133,7 +135,8 @@ class CustomerReservationQueryServiceTest {
                 null,
                 null,
                 null,
-                null);
+                null,
+                new ReservationProvider(PROVIDER, "云翼科技", false));
     }
 }
 

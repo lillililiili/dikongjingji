@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<{
   // null leaves conversations out (public builds, guests).
   conversations?: MessageConversationRow[] | null
   // The category squares to show. Public builds only have 服务进度; 交易物流 and 活动提醒 come with
-  // the trade and activity previews (R6-5).
+  // the trade and activity previews (R6-5), 系统通知 with the settings preview (S5-9).
   squares?: readonly MessageSquare[]
 }>(), { conversations: null, squares: () => ['SERVICE_PROGRESS'] })
 
@@ -43,7 +43,7 @@ const badge = (count: number): string => (count > 99 ? '99+' : String(count))
 // Read once per render pass is enough: the labels only need the day to be right.
 const now = ref(new Date())
 
-// Board order: 交易物流 / 服务进度 / 活动提醒, then 联系客服 (系统通知 is not built).
+// Board order: 交易物流 / 服务进度 / 活动提醒 / 系统通知, then 联系客服.
 const shownSquares = computed(() => MESSAGE_SQUARE_ORDER.filter((square) => props.squares.includes(square)))
 
 // A square filters the list to its category; tapping it again shows everything.
@@ -93,7 +93,13 @@ const signedOut = computed(() => props.state.kind === 'guest' || props.state.kin
           @click="pick(square)"
         >
           <view :class="['message-center__cat-tile', { 'message-center__cat-tile--on': filter === square }]">
-            <IconTile :tone="MESSAGE_SQUARES[square].tone" :d="MESSAGE_SQUARES[square].d" :size="44" />
+            <IconTile
+              :tone="MESSAGE_SQUARES[square].tone"
+              :d="MESSAGE_SQUARES[square].d"
+              :bg="MESSAGE_SQUARES[square].bg"
+              :ink="MESSAGE_SQUARES[square].ink"
+              :size="44"
+            />
             <text v-if="unreadOf(square) > 0" class="message-center__cat-badge" data-testid="message-cat-badge">{{ badge(unreadOf(square)) }}</text>
           </view>
           <text :class="['message-center__cat-label', { 'message-center__cat-label--on': filter === square }]">{{ MESSAGE_SQUARES[square].label }}</text>

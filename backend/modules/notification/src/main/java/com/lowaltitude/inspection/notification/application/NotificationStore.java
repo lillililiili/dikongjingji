@@ -35,4 +35,7 @@ interface NotificationStore {
     int markRead(UUID recipientId, UUID id, Instant at);
 
     int markAllRead(UUID recipientId, Instant at);
+
+    /** 把发给全体、发给 cityCode 的有效公告补记成收件人的站内信；返回新记了几条。 */
+    int deliverSystemNotices(UUID recipientId, String cityCode, Instant now);
 }

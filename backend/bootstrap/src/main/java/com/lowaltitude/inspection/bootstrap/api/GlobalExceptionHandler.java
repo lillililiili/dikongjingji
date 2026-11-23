@@ -23,7 +23,9 @@ import com.lowaltitude.inspection.proservice.application.ProServiceNotFoundExcep
 import com.lowaltitude.inspection.content.application.ContentException;
 import com.lowaltitude.inspection.content.application.ContentNotFoundException;
 import com.lowaltitude.inspection.rental.application.RentalException;
+import com.lowaltitude.inspection.serviceorder.application.ServiceOrderException;
 import com.lowaltitude.inspection.support.application.SupportException;
+import com.lowaltitude.inspection.favorite.application.FavoriteException;
 import com.lowaltitude.inspection.application.city.CityOperationException;
 import com.lowaltitude.inspection.identity.application.OnboardingException;
 import com.lowaltitude.inspection.live.application.LiveException;
@@ -568,6 +570,67 @@ public class GlobalExceptionHandler {
                 .body(new ApiError(code, message, traceId(request), exception.details()));
     }
 
+    @ExceptionHandler(ServiceOrderException.class)
+    public ResponseEntity<ApiError> handleServiceOrder(ServiceOrderException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case STATE_INVALID -> {
+                code = "SERVICE_ORDER_STATE_INVALID";
+                message = "订单现在的状态不能做这个操作";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.PRECONDITION_FAILED;
+                code = "SERVICE_ORDER_VERSION_CONFLICT";
+                message = "订单已有变化，请刷新后重试";
+            }
+            case PLAN_CHANGED -> {
+                code = "SERVICE_ORDER_PLAN_CHANGED";
+                message = "服务商已更新方案，请查看最新一版后再确认";
+            }
+            case DELIVERY_CHANGED -> {
+                code = "SERVICE_ORDER_DELIVERY_CHANGED";
+                message = "交付已有变化，请刷新后再验收";
+            }
+            case TERMS_NOT_AGREED -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "SERVICE_ORDER_TERMS_NOT_AGREED";
+                message = "请先核对方案的服务范围、金额与交付约定";
+            }
+            case PAYMENT_UNAVAILABLE -> {
+                code = "SERVICE_ORDER_PAYMENT_UNAVAILABLE";
+                message = "服务商暂未开通在线收款";
+            }
+            case REFUND_NOT_ALLOWED -> {
+                code = "SERVICE_ORDER_REFUND_NOT_ALLOWED";
+                message = "这张订单现在不能退这笔款";
+            }
+            case FILE_INVALID -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "SERVICE_ORDER_FILE_INVALID";
+                message = "文件不符合要求";
+            }
+            case FILE_STORE_UNAVAILABLE -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                code = "SERVICE_ORDER_FILE_STORE_UNAVAILABLE";
+                message = "文件存储暂时不可用";
+            }
+            default -> throw new IllegalStateException("unhandled service order error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
     @ExceptionHandler(VenueBookingException.class)
     public ResponseEntity<ApiError> handleVenueBooking(
             VenueBookingException exception,
@@ -786,6 +849,30 @@ public class GlobalExceptionHandler {
                 code = "ACTIVITY_PAYMENT_UNAVAILABLE";
                 message = "主办方暂未开通在线支付";
             }
+            case WAITLIST_NOT_AVAILABLE -> {
+                code = "ACT_WAITLIST_NOT_AVAILABLE";
+                message = "这一场现在不能候补";
+            }
+            case WAITLIST_ALREADY_JOINED -> {
+                code = "ACT_WAITLIST_ALREADY_JOINED";
+                message = "有参与人已经在这一场候补";
+            }
+            case WAITLIST_STATE_INVALID -> {
+                code = "ACT_WAITLIST_STATE_INVALID";
+                message = "候补状态已经变了，请刷新后再看";
+            }
+            case RESCHEDULE_NOT_ALLOWED -> {
+                code = "ACT_RESCHEDULE_NOT_ALLOWED";
+                message = "这张报名单现在不能改期";
+            }
+            case RESULT_NOT_ALLOWED -> {
+                code = "ACT_RESULT_NOT_ALLOWED";
+                message = "只能给已签到的参与人录入结果";
+            }
+            case RESULT_VERSION_CONFLICT -> {
+                code = "ACT_RESULT_VERSION_CONFLICT";
+                message = "结果刚被修改过，请刷新后重试";
+            }
             default -> throw new IllegalStateException(
                     "unhandled activity enrollment error " + exception.error());
         }
@@ -884,6 +971,33 @@ public class GlobalExceptionHandler {
                 message = "数据已被他人修改，请刷新后重试";
             }
             default -> throw new IllegalStateException("unmapped support error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
+    /** 收藏（契约 contracts/openapi-favorite.yaml 1.0.0）的业务拒绝。 */
+    @ExceptionHandler(FavoriteException.class)
+    public ResponseEntity<ApiError> handleFavorite(FavoriteException exception, HttpServletRequest request) {
+        HttpStatus status;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case TARGET_UNAVAILABLE -> {
+                status = HttpStatus.CONFLICT;
+                code = "FAVORITE_TARGET_UNAVAILABLE";
+                message = "该内容已下架或当前城市不提供，不能收藏";
+            }
+            case LIMIT_REACHED -> {
+                status = HttpStatus.CONFLICT;
+                code = "FAVORITE_LIMIT_REACHED";
+                message = "收藏已满 500 条，请先取消一些";
+            }
+            default -> throw new IllegalStateException("unmapped favorite error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
     }

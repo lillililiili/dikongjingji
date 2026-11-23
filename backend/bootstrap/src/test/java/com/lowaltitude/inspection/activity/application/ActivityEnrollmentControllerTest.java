@@ -87,7 +87,14 @@ class ActivityEnrollmentControllerTest {
             Map.entry(Error.TICKET_NOT_VALID, new Rejection(409, "ACT_TICKET_NOT_VALID")),
             // E09 收费报名：错误码用 ACTIVITY_ 前缀（docs/redesign/03-App实现任务计划.md §20.4）。
             Map.entry(Error.AMOUNT_CHANGED, new Rejection(409, "ACTIVITY_AMOUNT_CHANGED")),
-            Map.entry(Error.PAYMENT_UNAVAILABLE, new Rejection(409, "ACTIVITY_PAYMENT_UNAVAILABLE")));
+            Map.entry(Error.PAYMENT_UNAVAILABLE, new Rejection(409, "ACTIVITY_PAYMENT_UNAVAILABLE")),
+            // S5-3
+            Map.entry(Error.WAITLIST_NOT_AVAILABLE, new Rejection(409, "ACT_WAITLIST_NOT_AVAILABLE")),
+            Map.entry(Error.WAITLIST_ALREADY_JOINED, new Rejection(409, "ACT_WAITLIST_ALREADY_JOINED")),
+            Map.entry(Error.WAITLIST_STATE_INVALID, new Rejection(409, "ACT_WAITLIST_STATE_INVALID")),
+            Map.entry(Error.RESCHEDULE_NOT_ALLOWED, new Rejection(409, "ACT_RESCHEDULE_NOT_ALLOWED")),
+            Map.entry(Error.RESULT_NOT_ALLOWED, new Rejection(409, "ACT_RESULT_NOT_ALLOWED")),
+            Map.entry(Error.RESULT_VERSION_CONFLICT, new Rejection(409, "ACT_RESULT_VERSION_CONFLICT")));
 
     private final ActivityEnrollmentService service = mock(ActivityEnrollmentService.class);
     private final IdentityProfilePort profiles = mock(IdentityProfilePort.class);
@@ -480,7 +487,8 @@ class ActivityEnrollmentControllerTest {
 
         mockMvc.perform(get("/api/v1/activity-enrollments/{id}", ENROLLMENT).principal(customer))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(10))
+                // 1.4.0 加了 kind、team、reschedule、changes、reschedulable。
+                .andExpect(jsonPath("$.length()").value(15))
                 // 1.2.0：免费报名的付款只有 FREE，其余为 null。
                 .andExpect(jsonPath("$.payment.length()").value(5))
                 .andExpect(jsonPath("$.payment.status").value("FREE"))
@@ -506,7 +514,7 @@ class ActivityEnrollmentControllerTest {
                 .andExpect(jsonPath("$.session.checkInOpensAt").value(nullValue()))
                 .andExpect(jsonPath("$.location.name").value("体验馆一层大厅"))
                 .andExpect(jsonPath("$.location.latitude").value(37.43))
-                .andExpect(jsonPath("$.tickets[0].length()").value(10))
+                .andExpect(jsonPath("$.tickets[0].length()").value(11))
                 .andExpect(jsonPath("$.tickets[0].ticketId").value(TICKET.toString()))
                 .andExpect(jsonPath("$.tickets[0].participantId").value(SELF.toString()))
                 .andExpect(jsonPath("$.tickets[0].participantName").value("王女士（示例）"))
@@ -527,7 +535,7 @@ class ActivityEnrollmentControllerTest {
 
     @Test
     void cancelPassesTheTicketsNamedOrNoneAtAll() throws Exception {
-        when(service.cancel(eq(SUBJECT), eq(ENROLLMENT), any())).thenReturn(enrollment());
+        when(service.cancel(eq(SUBJECT), eq(ENROLLMENT), any(), any())).thenReturn(enrollment());
         String route = "/api/v1/activity-enrollments/{id}/cancel";
 
         // 不带请求体、空对象、写成 null：都是“取消全部还没用的凭证”。
@@ -544,14 +552,22 @@ class ActivityEnrollmentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"ticketIds\":null}"))
                 .andExpect(status().isOk());
-        verify(service, times(3)).cancel(SUBJECT, ENROLLMENT, null);
+        verify(service, times(3)).cancel(SUBJECT, ENROLLMENT, null, null);
 
         mockMvc.perform(post(route, ENROLLMENT)
                         .principal(customer)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"ticketIds\":[\"%s\"]}".formatted(TICKET)))
                 .andExpect(status().isOk());
-        verify(service).cancel(SUBJECT, ENROLLMENT, List.of(TICKET));
+        verify(service).cancel(SUBJECT, ENROLLMENT, List.of(TICKET), null);
+
+        // S5-3：申请原因原样交给服务（由服务校验）。
+        mockMvc.perform(post(route, ENROLLMENT)
+                        .principal(customer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ticketIds\":[\"%s\"],\"reason\":\"TIME_CONFLICT\"}".formatted(TICKET)))
+                .andExpect(status().isOk());
+        verify(service).cancel(SUBJECT, ENROLLMENT, List.of(TICKET), "TIME_CONFLICT");
     }
 
     // ---- 核销 ----
@@ -627,7 +643,7 @@ class ActivityEnrollmentControllerTest {
         assertThat(REJECTIONS).hasSize(Error.values().length);
         assertThat(REJECTIONS.values().stream().map(Rejection::code)).doesNotHaveDuplicates();
         assertThat(REJECTIONS.values().stream().map(Rejection::code).filter(code -> code.startsWith("ACT_")))
-                .hasSize(11);
+                .hasSize(17);
         assertThat(REJECTIONS.values().stream().map(Rejection::code).filter(code -> code.startsWith("ACTIVITY_")))
                 .hasSize(2);
     }

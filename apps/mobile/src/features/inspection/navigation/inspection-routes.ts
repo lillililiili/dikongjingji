@@ -98,7 +98,8 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // checks that every one of them survives normalizeInspectionReturnUrl.
   '/pages/activity/enroll': {
     required: 'activityId',
-    allowed: ['activityId', 'sessionId', 'cityCode'],
+    // mode=waitlist (S5-3): the same form joins a full session's waitlist.
+    allowed: ['activityId', 'sessionId', 'cityCode', 'mode'],
   },
   '/pages/activity/participants': { allowed: [] },
   '/pages/activity/ticket': {
@@ -109,6 +110,12 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // Paid enrolment order and refund pages (2026-11-20, R5 #4/#5).
   '/pages/activity/order': { required: 'enrollmentId', allowed: ['enrollmentId'] },
   '/pages/activity/refund': { required: 'enrollmentId', allowed: ['enrollmentId', 'ticketId'] },
+  // S5-3: waitlist, team sign-up and its order, result record, refund/reschedule progress.
+  '/pages/activity/waitlist': { required: 'waitlistId', allowed: ['waitlistId'] },
+  '/pages/activity/team-signup': { required: 'activityId', allowed: ['activityId', 'sessionId', 'cityCode'] },
+  '/pages/activity/team-order': { required: 'enrollmentId', allowed: ['enrollmentId'] },
+  '/pages/activity/result': { required: 'enrollmentId', allowed: ['enrollmentId'] },
+  '/pages/activity/change': { required: 'enrollmentId', allowed: ['enrollmentId', 'changeId'] },
   // Mall pages (features/mall/navigation/mall-routes.ts), repeated for the same reason;
   // mall-routes.test.ts checks them.
   '/pages/mall/product': {
@@ -137,6 +144,8 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/mine/aftersales': { allowed: ['tab'] },
   // 我的订单 merged list (features/orders, R6-1).
   '/pages/mine/orders': { allowed: ['tab', 'status'] },
+  // 订单搜索 (board OrderSearch, plan 08 S5-1).
+  '/pages/mine/order-search': { allowed: [] },
   // Venue booking pages (features/experience/navigation/experience-routes.ts, E10), repeated for
   // the same reason; venue-booking-routes.test.ts checks them.
   '/pages/venue/book': {
@@ -164,6 +173,11 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/rental/order': { required: 'rentalOrderId', allowed: ['rentalOrderId'] },
   '/pages/rental/contract': { required: 'rentalOrderId', allowed: ['rentalOrderId'] },
   '/pages/mine/rental-orders': { allowed: ['status'] },
+  // General service order pages (features/serviceorder/navigation/service-order-routes.ts, S4-3),
+  // repeated for the same reason; service-order-routes.test.ts checks them.
+  '/pages/service-order/detail': { required: 'orderId', allowed: ['orderId'] },
+  '/pages/service-order/plan': { required: 'orderId', allowed: ['orderId'] },
+  '/pages/service-order/delivery': { required: 'orderId', allowed: ['orderId'] },
   // Customer-service and settings pages (features/support/navigation/support-routes.ts and
   // features/settings/navigation/settings-routes.ts, G1), repeated for the same reason;
   // support-routes.test.ts checks them. The card fields are display hints for the chat's banner.
@@ -176,6 +190,15 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // commenting ask for a login and come back to the same video. content-routes.test.ts checks them.
   '/pages/content/video': { required: 'videoId', allowed: ['videoId', 'cityCode'] },
   '/pages/content/video-feed': { required: 'cityCode', allowed: ['cityCode', 'videoId', 'feed'] },
+  // Detail pages with 收藏 and the favorites list (features/favorite, plan 08 S5-6): a favorite asked
+  // for while signed out comes back to the same page. favorite-routes.test.ts checks them.
+  '/pages/mall/compare': { allowed: ['ids', 'cityCode'] },
+  '/pages/mine/favorites': { allowed: ['group'] },
+  [INSPECTION_DETAIL_PATH]: { required: 'serviceId', allowed: ['serviceId', 'cityCode'] },
+  '/pages/proservice/detail': { required: 'serviceId', allowed: ['serviceId', 'cityCode'] },
+  '/pages/activity/detail': { required: 'activityId', allowed: ['activityId', 'cityCode'] },
+  '/pages/venue/detail': { required: 'venueId', allowed: ['venueId', 'cityCode'] },
+  '/pages/content/article': { required: 'articleId', allowed: ['articleId', 'cityCode'] },
   // Live pages (features/live/navigation/live-routes.ts, M20), repeated for the same reason;
   // live-routes.test.ts checks them.
   '/pages/live/notice': { required: 'roomId', allowed: ['roomId', 'cityCode'] },

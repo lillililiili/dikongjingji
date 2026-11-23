@@ -21,7 +21,7 @@ class NotificationMapperContractTest {
                 .map(NotificationMapperContractTest::sql)
                 .toList();
 
-        assertThat(statements).hasSize(10);
+        assertThat(statements).hasSize(11);
         assertThat(statements).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
     }
 
@@ -163,12 +163,82 @@ class NotificationMapperContractTest {
                 .doesNotContain("UPDATE ")
                 .doesNotContain("DELETE ");
         assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationCategory.values())
-                .map(Enum::name)).containsExactly("SERVICE_PROGRESS", "DEMAND_QUOTE", "CUSTOMER_SERVICE",
+                .map(Enum::name)).startsWith("SERVICE_PROGRESS", "DEMAND_QUOTE", "CUSTOMER_SERVICE",
                         "TRADE_LOGISTICS", "ACTIVITY_REMINDER", "LIVE_REMINDER");
+        // V007（S5-3）在后面加了 ACTIVITY_WAITLIST。
+        assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationTargetType.values())
+                .map(Enum::name).toList()).startsWith("INSPECTION_PLAN", "INSPECTION_FULFILLMENT", "INSPECTION_DELIVERY",
+                        "DEMAND", "CONVERSATION", "TRADE_ORDER", "ACTIVITY_ENROLLMENT", "ACTIVITY_ORDER",
+                        "VENUE_BOOKING", "LIVE_ROOM");
+    }
+
+    // S5-3：活动候补转正的跳转目标；约束里也带着 S5-9（V006，另一个分支）加的 SYSTEM_NOTICE，两边谁先合并都成立。
+    @Test
+    void theV007MigrationAddsTheActivityWaitlistTarget() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/notification/V007__notification_activity_waitlist.sql")) {
+            assertThat(stream).isNotNull();
+            migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8).replaceAll("\\s+", " ");
+        }
+
+        assertThat(migration)
+                .contains("'VENUE_BOOKING', 'LIVE_ROOM', 'SYSTEM_NOTICE', 'ACTIVITY_WAITLIST'))")
+                .contains("'ACTIVITY_REMINDER', 'LIVE_REMINDER', 'SYSTEM_NOTICE'))")
+                .doesNotContain("UPDATE ")
+                .doesNotContain("DELETE ");
+        // 跳转目标：V006（S5-9）的 SYSTEM_NOTICE 之后是 V007 的 ACTIVITY_WAITLIST。
         assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationTargetType.values())
                 .map(Enum::name)).containsExactly("INSPECTION_PLAN", "INSPECTION_FULFILLMENT", "INSPECTION_DELIVERY",
                         "DEMAND", "CONVERSATION", "TRADE_ORDER", "ACTIVITY_ENROLLMENT", "ACTIVITY_ORDER",
-                        "VENUE_BOOKING", "LIVE_ROOM");
+                        "VENUE_BOOKING", "LIVE_ROOM", "SYSTEM_NOTICE", "ACTIVITY_WAITLIST");
+    }
+
+    // S5-9：分类和跳转目标加系统通知；公告、通知开关、设备推送标识、模拟推送四张表；约束和两个枚举一致。
+    @Test
+    void theV006MigrationAddsSystemNoticesPreferencesAndPushDevices() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/notification/V006__notification_system_notice_push.sql")) {
+            assertThat(stream).isNotNull();
+            migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8).replaceAll("\\s+", " ");
+        }
+
+        assertThat(migration)
+                .contains("CHECK (category IN ('SERVICE_PROGRESS', 'DEMAND_QUOTE', 'CUSTOMER_SERVICE', 'TRADE_LOGISTICS',"
+                        + " 'ACTIVITY_REMINDER', 'LIVE_REMINDER', 'SYSTEM_NOTICE'))")
+                .contains("CHECK (target_type IN ('INSPECTION_PLAN', 'INSPECTION_FULFILLMENT', 'INSPECTION_DELIVERY',"
+                        + " 'DEMAND', 'CONVERSATION', 'TRADE_ORDER', 'ACTIVITY_ENROLLMENT', 'ACTIVITY_ORDER',"
+                        + " 'VENUE_BOOKING', 'LIVE_ROOM', 'SYSTEM_NOTICE'))")
+                .contains("CREATE TABLE notification_system_notice")
+                .contains("audience_scope varchar(16) NOT NULL CHECK (audience_scope IN ('ALL', 'CITY'))")
+                .contains("publish_key varchar(80) UNIQUE")
+                .contains("CREATE TABLE notification_preference")
+                .contains("account_id uuid PRIMARY KEY REFERENCES identity_user(id)")
+                .contains("CREATE TABLE notification_push_device")
+                .contains("UNIQUE (platform, push_client_id)")
+                .contains("CREATE TABLE notification_push_fake_delivery")
+                .doesNotContain("INSERT INTO")
+                .doesNotContain("UPDATE ")
+                .doesNotContain("DELETE FROM");
+        assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationCategory.values())
+                .map(Enum::name)).containsExactly("SERVICE_PROGRESS", "DEMAND_QUOTE", "CUSTOMER_SERVICE",
+                        "TRADE_LOGISTICS", "ACTIVITY_REMINDER", "LIVE_REMINDER", "SYSTEM_NOTICE");
+        assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationTargetType.values())
+                .map(Enum::name)).containsExactly("INSPECTION_PLAN", "INSPECTION_FULFILLMENT", "INSPECTION_DELIVERY",
+                        "DEMAND", "CONVERSATION", "TRADE_ORDER", "ACTIVITY_ENROLLMENT", "ACTIVITY_ORDER",
+                        "VENUE_BOOKING", "LIVE_ROOM", "SYSTEM_NOTICE", "ACTIVITY_WAITLIST");
+    }
+
+    @Test
+    void systemNoticesAreDeliveredOncePerAccountAndOnlyWhileLive() throws Exception {
+        String deliver = sql(method("deliverSystemNotices")).replaceAll("\\s+", " ").trim();
+        assertThat(deliver)
+                .contains("'system-notice:' || notice.id || ':' || CAST(#{recipientId} AS text)")
+                .contains("notice.status = 'PUBLISHED'")
+                .contains("(notice.expires_at IS NULL OR notice.expires_at > #{now})")
+                .contains("notice.audience_scope = 'ALL' OR (notice.audience_scope = 'CITY' AND notice.city_code = #{cityCode})")
+                .endsWith("ON CONFLICT (source_key) DO NOTHING");
     }
 
     @Test

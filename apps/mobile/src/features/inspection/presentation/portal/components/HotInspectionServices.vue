@@ -58,7 +58,13 @@ function isQuote(label: string): boolean {
           />
           <view class="hot-service-card__body">
             <text class="hot-service-card__title">{{ service.title }}</text>
-            <text class="hot-service-card__tag">{{ service.tag }}</text>
+            <text
+              v-if="service.providerName"
+              class="hot-service-card__tag"
+              data-testid="hot-service-provider"
+            >
+              {{ service.providerName }}
+            </text>
             <view v-if="service.priceLabel" class="hot-service-card__price">
               <text
                 :class="[

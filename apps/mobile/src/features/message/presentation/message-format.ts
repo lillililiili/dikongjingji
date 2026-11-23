@@ -16,6 +16,7 @@ export const MESSAGE_CATEGORY_LABELS: Record<MessageCategory, string> = {
   TRADE_LOGISTICS: '交易物流',
   ACTIVITY_REMINDER: '活动提醒',
   LIVE_REMINDER: '直播提醒',
+  SYSTEM_NOTICE: '系统通知',
   OTHER: '通知',
 }
 
@@ -35,11 +36,13 @@ export const MESSAGE_ICONS = {
   live: 'M3 6h18v12H3zM10 9.5v5l4.5-2.5z',
 } as const
 
+// The board's grey (系统通知) is not one of the tile tones; it overrides the tone's colours.
+const GREY = { bg: '#eef2f8', ink: '#536178' } as const
+
 export interface MessageLook {
   label: string
   d: string
   tone: IconTileTone
-  // The board's grey (系统通知) is not one of the tile tones; it overrides the tone's colours.
   bg?: string
   ink?: string
 }
@@ -60,20 +63,37 @@ export function messageLook(message: Pick<MessageItem, 'category' | 'target'>): 
     case 'DEMAND_QUOTE': return { label: '需求与报价', d: MESSAGE_ICONS.demand, tone: 'violet' }
     case 'CUSTOMER_SERVICE': return { label: '客服消息', d: MESSAGE_ICONS.service, tone: 'orange' }
     case 'LIVE_REMINDER': return { label: '直播提醒', d: MESSAGE_ICONS.live, tone: 'violet' }
-    default: return { label: '通知', d: MESSAGE_ICONS.bell, tone: 'blue', bg: '#eef2f8', ink: '#536178' }
+    // 系统通知 (S5-9): the board's grey bell.
+    case 'SYSTEM_NOTICE': return { label: '系统通知', d: MESSAGE_ICONS.bell, tone: 'blue', ...GREY }
+    default: return { label: '通知', d: MESSAGE_ICONS.bell, tone: 'blue', ...GREY }
   }
 }
 
-// The category squares of the board, in its order (系统通知 is not built). Each filters the list.
-export type MessageSquare = 'TRADE_LOGISTICS' | 'SERVICE_PROGRESS' | 'ACTIVITY_REMINDER'
+// The category squares of the board, in its order. Each filters the list.
+export type MessageSquare = 'TRADE_LOGISTICS' | 'SERVICE_PROGRESS' | 'ACTIVITY_REMINDER' | 'SYSTEM_NOTICE'
 
-export const MESSAGE_SQUARES: Record<MessageSquare, { label: string; d: string; tone: IconTileTone; testId: string }> = {
+export interface MessageSquareLook {
+  label: string
+  d: string
+  tone: IconTileTone
+  testId: string
+  bg?: string
+  ink?: string
+}
+
+export const MESSAGE_SQUARES: Record<MessageSquare, MessageSquareLook> = {
   TRADE_LOGISTICS: { label: '交易物流', d: MESSAGE_ICONS.truck, tone: 'orange', testId: 'message-cat-trade' },
   SERVICE_PROGRESS: { label: '服务进度', d: MESSAGE_ICONS.progress, tone: 'blue', testId: 'message-cat-progress' },
   ACTIVITY_REMINDER: { label: '活动提醒', d: MESSAGE_ICONS.flag, tone: 'green', testId: 'message-cat-activity' },
+  SYSTEM_NOTICE: { label: '系统通知', d: MESSAGE_ICONS.bell, tone: 'blue', testId: 'message-cat-system', ...GREY },
 }
 
-export const MESSAGE_SQUARE_ORDER: readonly MessageSquare[] = ['TRADE_LOGISTICS', 'SERVICE_PROGRESS', 'ACTIVITY_REMINDER']
+export const MESSAGE_SQUARE_ORDER: readonly MessageSquare[] = [
+  'TRADE_LOGISTICS',
+  'SERVICE_PROGRESS',
+  'ACTIVITY_REMINDER',
+  'SYSTEM_NOTICE',
+]
 
 /**
  * A square's badge counts its unread notifications. The count is only known once every page is
@@ -89,6 +109,7 @@ export function emptyCopy(filter: MessageSquare | null, squares: readonly Messag
     case 'TRADE_LOGISTICS': return { title: '没有交易物流消息', copy: '商品订单发货、可以自提和退款到账会通知到这里' }
     case 'SERVICE_PROGRESS': return { title: '没有服务进度消息', copy: '巡检方案、排期、报告交付等进度会通知到这里' }
     case 'ACTIVITY_REMINDER': return { title: '没有活动提醒', copy: '报名成功、退款和到馆预约、改期会通知到这里' }
+    case 'SYSTEM_NOTICE': return { title: '没有系统通知', copy: '协议更新、平台公告会通知到这里' }
     default:
       return {
         title: '还没有消息',

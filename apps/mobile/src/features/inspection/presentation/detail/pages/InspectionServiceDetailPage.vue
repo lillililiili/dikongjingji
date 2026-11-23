@@ -3,9 +3,13 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
+import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
+import { openPhotoViewer } from '@/shared/photo/photo-viewer'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
 import {
@@ -20,7 +24,7 @@ import {
   EMPTY_INSPECTION_SERVICE_DETAIL,
 } from '../../../application/detail/resolve-inspection-service-detail'
 import { ApiRequestError, inspectionServiceDetailApi, platformCityApi } from '../../../data/service-flow/uni-booking-http-client'
-import type { InspectionServiceDetail } from '../../../domain/inspection-service-detail'
+import type { DetailReview, InspectionServiceDetail } from '../../../domain/inspection-service-detail'
 import { buildInspectionDetailUrl } from '../../../navigation/inspection-routes'
 import InspectionScope from '../components/InspectionScope.vue'
 import ServiceDeliverables from '../components/ServiceDeliverables.vue'
@@ -130,6 +134,22 @@ function returnToCatalog(): void {
   })
 }
 
+// A review picture opens the shared viewer (board PhotoViewer) on that review's pictures.
+function openReviewImage(review: DetailReview, index: number): void {
+  if (!PLACE_PREVIEW_ENABLED) return
+  openPhotoViewer({
+    title: '评价图片',
+    subtitle: `${review.maskedUserName} · ${review.date}`,
+    startIndex: index,
+    photos: review.imageUrls.map((url, at) => ({
+      url,
+      alt: `${review.maskedUserName}的现场评价图片${at + 1}`,
+      tag: '',
+      note: at === 0 ? review.content : undefined,
+    })),
+  })
+}
+
 function showUnavailable(title: string): void {
   uni.showToast({
     title,
@@ -220,6 +240,7 @@ function reserveService(): void {
         :selected-filter="selectedReviewFilter"
         @select-filter="selectedReviewFilter = $event"
         @view-all="showUnavailable('全部评价功能正在完善')"
+        @view-image="openReviewImage"
       />
       <ServiceProcess
         v-if="detail.processSteps.length"
@@ -258,7 +279,17 @@ function reserveService(): void {
       :action-kind="primaryActionKind"
       @customer-service="contactCustomerService"
       @reserve="reserveService"
-    />
+    >
+      <template v-if="FAVORITE_PREVIEW_ENABLED && hasDetail && detailCityCode" #extra>
+        <FavoriteButton
+          type="INSPECTION_SERVICE"
+          :target-id="detail.serviceId"
+          :city-code="detailCityCode"
+          :return-url="buildInspectionDetailUrl(detail.serviceId, detailCityCode)"
+          :width="44"
+        />
+      </template>
+    </ServiceDetailBottomBar>
     <ShareSheet :target="shareTarget" @close="shareTarget = null" />
   </view>
 </template>

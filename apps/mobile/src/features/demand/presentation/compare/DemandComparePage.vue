@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+import { SERVICE_ORDER_PREVIEW_ENABLED } from '@/features/serviceorder/application/serviceorder-preview'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   buildDemandCompareRows,
+  demandChoiceText,
   describeDemandPublisher,
   describeDemandQuote,
+  describeDemandQuoteItems,
+  describeDemandQuoteLines,
   formatDemandInstant,
   formatDemandAmount,
   resolveDemandFollowUp,
@@ -34,6 +38,8 @@ const emit = defineEmits<{
   login: []
   republish: [demandId: string]
   openProvider: [providerId: string, cityCode: string]
+  // The service order the choice made (S4-3).
+  serviceOrder: [orderId: string]
 }>()
 
 type PageState =
@@ -56,12 +62,19 @@ const picked = computed(() => choosable.value.find((quote) => quote.quoteId === 
 // Three columns fit a phone; more scroll sideways with the labels kept at the left.
 const tableWidth = computed(() => `${64 + Math.max(quotes.value.length, 1) * 104}px`)
 const columns = computed(() => `64px repeat(${Math.max(quotes.value.length, 1)}, minmax(0, 1fr))`)
-const followUp = resolveDemandFollowUp()
+const followUp = computed(() => resolveDemandFollowUp(demand.value, SERVICE_ORDER_PREVIEW_ENABLED))
 
 // The PlanCompare board's tabs: 对比明细, then one tab per provider showing that quote alone.
 const tab = ref<string>(props.initialQuoteId ?? 'compare')
 const tabQuote = computed(() => quotes.value.find((quote) => quote.quoteId === tab.value) ?? null)
 const tabView = computed(() => (tabQuote.value ? describeDemandQuote(tabQuote.value) : null))
+// 1.3.0 on a provider tab: 报价明细 and the comparison items the quote fills, after 交付物.
+const tabLines = computed(() => (tabQuote.value ? describeDemandQuoteLines(tabQuote.value.lines) : []))
+const tabRows = computed(() => {
+  if (!tabQuote.value || !tabView.value) return []
+  const rows = tabView.value.rows
+  return [...rows.slice(0, -1), ...describeDemandQuoteItems(tabQuote.value), ...rows.slice(-1)]
+})
 // What the main button would choose: the picked column, or the quote of the open provider tab.
 const target = computed(() => {
   if (tab.value === 'compare') return picked.value
@@ -141,6 +154,7 @@ const choice = useDemandChoice({
   onLogin: () => emit('login'),
   reload: load,
   notify: (message) => { notice.value = message },
+  openServiceOrder: SERVICE_ORDER_PREVIEW_ENABLED ? (orderId) => emit('serviceOrder', orderId) : undefined,
 })
 const { asking: choosing, busy: choosingBusy } = choice
 
@@ -224,10 +238,18 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
           </view>
           <text v-if="tabView.statusTag" class="demand-compare__plan-tag">{{ tabView.statusTag }}</text>
         </view>
+        <view v-if="tabLines.length" class="demand-compare__plan demand-compare__plan--lines" data-testid="demand-compare-lines">
+          <text class="demand-compare__plan-title">报价明细</text>
+          <view v-for="line in tabLines" :key="line.key" class="demand-compare__line" data-testid="demand-compare-line">
+            <text class="demand-compare__line-name">{{ line.name }}</text>
+            <text class="demand-compare__line-qty">{{ line.quantity }}</text>
+            <text class="demand-compare__line-amount">{{ line.amount }}</text>
+          </view>
+        </view>
         <view class="demand-compare__plan">
           <text class="demand-compare__plan-title">方案内容</text>
           <view class="demand-compare__plan-rows">
-            <template v-for="row in tabView.rows" :key="row.label">
+            <template v-for="row in tabRows" :key="row.label">
               <text class="demand-compare__plan-key">{{ row.label }}</text>
               <text class="demand-compare__plan-value">{{ row.value }}</text>
             </template>
@@ -286,6 +308,7 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
                   {
                     'demand-compare__cell--price': row.price,
                     'demand-compare__cell--on': quotes[column].quoteId === pickedId || quotes[column].status === 'CHOSEN',
+                    'demand-compare__cell--muted': row.muted?.[column],
                   },
                 ]"
               >
@@ -306,7 +329,16 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
         </view>
       </view>
 
-      <view v-if="demand.status === 'CHOSEN'" class="demand-compare__bar demand-compare__bar--gate" data-testid="demand-follow-up">
+      <view v-if="demand.status === 'CHOSEN' && followUp.kind === 'ORDER'" class="demand-compare__bar" data-testid="demand-chosen-bar">
+        <view class="demand-compare__chosen">
+          <text class="demand-compare__chosen-label">已选</text>
+          <text class="demand-compare__chosen-name">{{ demand.chosen?.providerName }} v{{ demand.chosen?.quoteVersion }}</text>
+        </view>
+        <button class="demand-compare__choose demand-compare__choose--order" data-testid="demand-open-service-order" @click="emit('serviceOrder', followUp.serviceOrderId)">
+          查看订单
+        </button>
+      </view>
+      <view v-else-if="demand.status === 'CHOSEN' && followUp.kind === 'UNAVAILABLE'" class="demand-compare__bar demand-compare__bar--gate" data-testid="demand-follow-up">
         <LineIcon name="info" :size="14" color="#ba470b" :stroke-width="2" />
         <view class="demand-compare__gate-copy">
           <text class="demand-compare__gate-title">
@@ -349,7 +381,7 @@ watch(() => [props.refreshKey, props.accessToken, props.demandId], () => { void 
     <DemandConfirmSheet
       v-if="choosing"
       :title="`选择 ${choosing.provider.name} 的报价？`"
-      :text="`总价 ${formatDemandAmount(choosing.amountMinor)}（方案 v${choosing.version}）。选定后不能再选别家，其余报价会标为未选中。选定不产生费用，方案确认和付款还没有开通。`"
+      :text="demandChoiceText(demand ?? { type: 'INSPECTION' }, choosing, SERVICE_ORDER_PREVIEW_ENABLED)"
       keep-label="再想想"
       go-label="确认选择"
       :busy="choosingBusy"
@@ -533,7 +565,7 @@ button::after {
 
 .demand-compare__plan-rows {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
+  grid-template-columns: minmax(52px, max-content) minmax(0, 1fr);
   gap: 6px 8px;
   font-size: 13px;
   line-height: 19px;
@@ -548,6 +580,72 @@ button::after {
   min-width: 0;
   color: #202c42;
   word-break: break-all;
+}
+
+.demand-compare__plan--lines {
+  gap: 0;
+  padding-bottom: 0;
+}
+
+.demand-compare__plan--lines .demand-compare__plan-title {
+  margin-bottom: 4px;
+}
+
+/* PlanCompare board 报价明细: 44px rows, the quantity in grey, the amount in a 68px column. */
+.demand-compare__line {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #f0f1f3;
+}
+
+.demand-compare__line-name {
+  min-width: 0;
+  flex: 1;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.demand-compare__line-qty {
+  flex: none;
+  color: #738096;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.demand-compare__line-amount {
+  width: 68px;
+  flex: none;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 21px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.demand-compare__chosen {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.demand-compare__chosen-label {
+  flex: none;
+  color: #627187;
+  font-size: 13px;
+}
+
+.demand-compare__chosen-name {
+  overflow: hidden;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  text-overflow: ellipsis;
 }
 
 .demand-compare__plan-foot {
@@ -661,6 +759,10 @@ button::after {
 
 .demand-compare__cell--on {
   background: #fffaf5;
+}
+
+.demand-compare__cell--muted {
+  color: #738096;
 }
 
 .demand-compare__cell--price {
@@ -806,6 +908,11 @@ button::after {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.demand-compare__choose--order {
+  flex: none;
+  padding: 0 22px;
 }
 
 .demand-compare__toast {

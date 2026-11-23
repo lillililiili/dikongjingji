@@ -16,6 +16,7 @@ const venueDto = {
   openingNote: '09:30–18:00',
   address: '东营区示例路 66 号',
   openSessionsToday: 2,
+  projectSummary: '模拟飞行 · 机器人编程 · 厂家展区',
 }
 const slot = {
   projectId: 'b4000000-0000-4000-8000-000000000101',
@@ -34,6 +35,7 @@ function contentFor(name: string): HomeRecommendContent {
       openingNote: '',
       address: '',
       openSessionsToday: 0,
+      projectSummary: null,
     }],
   }
 }
@@ -66,6 +68,7 @@ describe('home recommend api', () => {
     expect(content.today?.slots).toEqual([slot])
     expect(content.products[0].price.fromAmountMinor).toBe(129900)
     expect(content.venues).toHaveLength(1)
+    expect(content.venues[0].projectSummary).toBe('模拟飞行 · 机器人编程 · 厂家展区')
   })
 
   it('treats a today block without slots as no block', async () => {

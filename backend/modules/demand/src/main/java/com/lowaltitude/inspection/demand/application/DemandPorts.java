@@ -46,6 +46,51 @@ public final class DemandPorts {
     }
 
     /**
+     * 通用服务订单（S4-3）：航拍、测绘、设备维护、技术支持需求选定报价时，在选定的同一个事务里建单，返回订单 ID。
+     * 同一份需求再建返回同一张。巡检需求不调。
+     */
+    public interface ServiceOrders {
+
+        UUID open(ChosenQuote chosen);
+    }
+
+    /**
+     * 建服务订单用的快照：需求内容和选定那一版报价。organizationId / organizationName 是需求的发布组织（个人时都为空）。
+     */
+    public record ChosenQuote(
+            UUID demandId,
+            UUID quoteId,
+            int quoteVersion,
+            UUID accountId,
+            UUID organizationId,
+            String organizationName,
+            UUID providerId,
+            String providerName,
+            String type,
+            String title,
+            String cityCode,
+            String cityName,
+            String address,
+            String scope,
+            java.time.LocalDate dueDate,
+            long amountMinor,
+            String method,
+            String schedule,
+            int durationDays,
+            String deliverables,
+            String team,
+            String nightWork,
+            Integer reportHours,
+            Integer archiveDays,
+            java.time.LocalDate firstVisitDate,
+            List<ChosenLine> lines
+    ) {
+    }
+
+    public record ChosenLine(String name, Integer quantity, String unit, Long unitAmountMinor, long amountMinor) {
+    }
+
+    /**
      * 给发布人发站内信（“消息”页的“需求与报价”一类）。在调用方的事务里调用，和业务状态一起提交。
      * 通知里只放需求标题和稳定 ID，不放服务商的报价内容。
      */

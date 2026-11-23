@@ -5,11 +5,15 @@ import { ref } from 'vue'
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import type { EnrollmentStatus } from '@/features/activity/domain/enrollment'
 import {
+  buildActivityChangeUrl,
   buildActivityDetailUrl,
   buildActivityEnrollmentsUrl,
   buildActivityOrderUrl,
   buildActivityRefundUrl,
+  buildActivityResultUrl,
+  buildActivityTeamOrderUrl,
   buildActivityTicketUrl,
+  buildActivityWaitlistUrl,
 } from '@/features/activity/navigation/activity-routes'
 import ActivityEnrollmentsPage from '@/features/activity/presentation/enrollments/ActivityEnrollmentsPage.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
@@ -62,6 +66,23 @@ function openRefund(enrollmentId: string): void {
   uni.navigateTo({ url: buildActivityRefundUrl(enrollmentId) })
 }
 
+// S5-3: waitlist, team order, result record, refund/reschedule progress.
+function openWaitlist(waitlistId: string): void {
+  uni.navigateTo({ url: buildActivityWaitlistUrl(waitlistId) })
+}
+
+function openTeamOrder(enrollmentId: string): void {
+  uni.navigateTo({ url: buildActivityTeamOrderUrl(enrollmentId) })
+}
+
+function openResult(enrollmentId: string): void {
+  uni.navigateTo({ url: buildActivityResultUrl(enrollmentId) })
+}
+
+function openChange(enrollmentId: string, changeId: string): void {
+  uni.navigateTo({ url: buildActivityChangeUrl(enrollmentId, changeId) })
+}
+
 onLoad((query) => {
   const status = query?.status as EnrollmentStatus | undefined
   if (status && STATUSES.includes(status)) initialStatus.value = status
@@ -93,5 +114,9 @@ onReachBottom(() => {
     @pay="openCashier"
     @open-order="openOrder"
     @refund="openRefund"
+    @open-waitlist="openWaitlist"
+    @open-team-order="openTeamOrder"
+    @open-result="openResult"
+    @open-change="openChange"
   />
 </template>

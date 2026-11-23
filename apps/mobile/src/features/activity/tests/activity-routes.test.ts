@@ -6,9 +6,14 @@ import {
   buildActivityDetailUrl,
   buildActivityEnrollUrl,
   buildActivityEnrollmentsUrl,
+  buildActivityChangeUrl,
   buildActivityOrderUrl,
   buildActivityRefundUrl,
+  buildActivityResultUrl,
+  buildActivityTeamOrderUrl,
+  buildActivityTeamSignupUrl,
   buildActivityTicketUrl,
+  buildActivityWaitlistUrl,
 } from '../navigation/activity-routes'
 
 describe('activity routes', () => {
@@ -31,6 +36,12 @@ describe('activity routes', () => {
       buildActivityTicketUrl('e1'),
       buildActivityEnrollmentsUrl('FINISHED'),
       ACTIVITY_PARTICIPANTS_PATH,
+      // S5-3
+      buildActivityWaitlistUrl('w1'),
+      buildActivityTeamSignupUrl('a1', 's1', '370500'),
+      buildActivityTeamOrderUrl('e1'),
+      buildActivityResultUrl('e1'),
+      buildActivityChangeUrl('e1', 'c1'),
     ]) {
       expect(normalizeInspectionReturnUrl(url)).toBe(url)
     }
