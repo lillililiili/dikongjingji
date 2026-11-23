@@ -2,7 +2,8 @@
 'use strict';
 
 // S6 场景 1 资源与授权：运营端经 ops 接口开机构、录资质并审核、登记收款账户、建机构账号、上传素材、上架商品 / 专业服务 /
-// 活动 / 场馆；App 公开接口能看到；草稿和下架的看不到；资质审核前后服务详情里服务商的“资质已审核”跟着变；客户、平台客服不能用运营接口。
+// 活动 / 场馆；App 公开接口能看到；草稿和下架的看不到；资质审核通过后开通服务商资料（S6-01）、机构在工作台提交主页资料并由平台审核；
+// 资质审核前后服务详情里服务商的“资质已审核”跟着变；客户、平台客服不能用运营接口。
 // 无授权素材不进公开构建由 apps/mobile 的 verify:public-production-preview 检查（见测试报告，不在这个脚本里跑）。
 //
 //   set -a; . .planning/stack/dev-operator.env; set +a
@@ -10,7 +11,7 @@
 //     node infra/scripts/s6-rehearsal/01-resources.cjs
 // 跑完删掉本脚本建的全部数据并查残留（--keep 保留）。
 
-const { call, login, psql, step, known, note, track, purgeAndReport, loginOperator, upload, PNG, beijingDate, done } = require('./lib.cjs');
+const { call, login, step, known, note, track, purgeAndReport, loginOperator, upload, PNG, beijingDate, done } = require('./lib.cjs');
 const fx = require('./fixtures.cjs');
 
 const CITY = '370500';
@@ -90,25 +91,47 @@ async function main() {
   const published = fx.must(await call('POST', `/api/v1/ops/pro-services/${svc.serviceId}/publish`, { token: op, body: { version: svc.svc.version } }), '上架专业服务');
   r = await call('GET', `/api/v1/pro-services?type=AERIAL&cityCode=${CITY}&keyword=${encodeURIComponent(TAG)}&size=20`);
   step('上架后的专业服务 App 能看到', { req: '同上', expect: '含' }, has(items(r), 'serviceId', svc.serviceId), items(r).map((x) => x.title));
+  // ---- 服务商资料（S6-01）：资质审核通过后运营端开通，机构在工作台提交主页资料，平台审核 ----
+  r = await call('POST', `/api/v1/ops/organizations/${org.orgId}/provider-profile`, { token: op });
+  step('资质审核通过前不能开通服务商资料', { req: 'POST /api/v1/ops/organizations/{org}/provider-profile（资质待审核）', expect: '409 OPS_QUALIFICATION_NOT_APPROVED' },
+    r.status === 409 && r.json?.code === 'OPS_QUALIFICATION_NOT_APPROVED', [r.status, r.json?.code]);
   r = await call('GET', `/api/v1/pro-services/${svc.serviceId}?cityCode=${CITY}`);
-  const page = await call('GET', `/api/v1/providers/${org.orgId}?cityCode=${CITY}`);
-  const workbench = await call('GET', '/api/v1/provider/profile', { token: operator.token });
-  known('S6-01', '运营端新入驻的服务商在 App 上有服务商行和服务商主页、能在工作台提交服务商资料',
-    { req: 'GET /api/v1/pro-services/{id}、GET /api/v1/providers/{org}、GET /api/v1/provider/profile（机构操作员）', expect: 'provider 不为 null；主页 200；工作台 200' },
-    r.json?.provider && page.status === 200 && workbench.status === 200,
-    { provider: r.json?.provider ?? null, providerPage: page.status, workbenchProfile: workbench.status });
-  // 绕过 S6-01：照导入模板 06-inspection-provider-profiles.csv 的结果补一行服务商资料（运营端现在没有入口、导入只能预检）。
-  psql(`INSERT INTO inspection_provider_profile (provider_id, logo_asset_code, certification_label, team_description, status)
-        VALUES ('${org.orgId}', 'PROVIDER_INITIAL', '企业认证', 'S6 演练团队', 'ACTIVE')`);
-  note('S6-01 绕过：按导入模板 06 表的结果用 SQL 补了 inspection_provider_profile 一行，后面的步骤才能看“资质已审核”');
-  r = await call('GET', `/api/v1/pro-services/${svc.serviceId}?cityCode=${CITY}`);
-  step('资质未审核：服务详情的服务商不显示“资质已审核”', { req: 'GET /api/v1/pro-services/{id}', expect: 'provider.qualificationReviewed=false' }, r.status === 200 && r.json.provider?.qualificationReviewed === false, [r.status, r.json?.provider]);
+  step('没开通服务商资料：服务详情没有服务商行', { req: 'GET /api/v1/pro-services/{id}', expect: 'provider=null' }, r.status === 200 && r.json.provider === null, r.json?.provider);
 
   const approved = await fx.approveQualification(op, org.orgId);
   step('上传资质附件后审核通过', { req: 'POST …/attachments + …/qualification/review APPROVE', expect: '附件 201，审核后 APPROVED、有审核时间' },
     approved.attached.status === 201 && approved.detail.qualification.status === 'APPROVED' && approved.detail.organization.qualificationReviewedAt, approved.detail.qualification);
+  step('审核通过后机构详情显示“服务商资料未开通”', { req: 'GET /api/v1/ops/organizations/{org}', expect: 'providerProfileStatus=NOT_OPENED' },
+    approved.detail.providerProfileStatus === 'NOT_OPENED', approved.detail.providerProfileStatus);
+  const opened = await fx.openProviderProfile(op, org.orgId);
+  const openRecords = (opened.again.json?.operations ?? []).filter((o) => o.action === 'PROVIDER_PROFILE_OPEN').length;
+  step('运营端开通服务商资料，重复调用幂等', { req: 'POST /api/v1/ops/organizations/{org}/provider-profile ×2', expect: '都是 200、ACTIVE；操作记录只有一条 PROVIDER_PROFILE_OPEN' },
+    opened.first.status === 200 && opened.again.status === 200 && opened.detail.providerProfileStatus === 'ACTIVE'
+      && opened.again.json?.providerProfileStatus === 'ACTIVE' && openRecords === 1,
+    { first: opened.first.status, again: opened.again.status, status: opened.again.json?.providerProfileStatus, openRecords });
+
   r = await call('GET', `/api/v1/pro-services/${svc.serviceId}?cityCode=${CITY}`);
+  let page = await call('GET', `/api/v1/providers/${org.orgId}?cityCode=${CITY}`);
+  let workbench = await call('GET', '/api/v1/provider/profile', { token: operator.token });
+  known('S6-01', '运营端新入驻的服务商在 App 上有服务商行和服务商主页、能在工作台提交服务商资料',
+    { req: 'GET /api/v1/pro-services/{id}、GET /api/v1/providers/{org}、GET /api/v1/provider/profile（机构操作员）', expect: 'provider 不为 null；主页 200；工作台 200' },
+    r.json?.provider && page.status === 200 && workbench.status === 200,
+    { provider: r.json?.provider ?? null, providerPage: page.status, workbenchProfile: workbench.status });
   step('审核通过后服务详情的服务商显示“资质已审核”', { req: 'GET /api/v1/pro-services/{id}', expect: 'provider.qualificationReviewed=true' }, r.json?.provider?.qualificationReviewed === true, r.json?.provider);
+  r = await call('GET', `/api/v1/demand-providers?cityCode=${CITY}`, { token: customer });
+  step('需求发布能邀请这家服务商', { req: `GET /api/v1/demand-providers?cityCode=${CITY}`, expect: '含本机构' },
+    r.status === 200 && JSON.stringify(r.json ?? '').includes(org.orgId), r.status);
+
+  // 城市开通模板第 6 步：机构在工作台提交主页资料，平台运营审核通过后 App 主页显示。
+  const profileDraft = { legalEntity: 'S6 演练经营主体（示例）', serviceModes: '无人机航拍 · 巡检', authorizationUntil: null,
+    deliverables: ['航拍成片', '巡检报告'], localTeamLabel: '东营本地团队', version: workbench.json?.version ?? 0 };
+  const submitted = await call('PUT', '/api/v1/provider/profile', { token: operator.token, body: profileDraft });
+  const review = await call('POST', `/api/v1/ops/provider-profiles/${org.orgId}/review`, { token: op, body: { decision: 'APPROVE', version: submitted.json?.version } });
+  page = await call('GET', `/api/v1/providers/${org.orgId}?cityCode=${CITY}`);
+  step('机构在工作台提交服务商资料，平台审核通过后 App 主页显示', { req: 'PUT /api/v1/provider/profile → POST /api/v1/ops/provider-profiles/{org}/review APPROVE → GET /api/v1/providers/{org}', expect: 'PENDING → APPROVED，主页 profile.legalEntity 为提交的经营主体' },
+    submitted.status === 200 && submitted.json?.status === 'PENDING' && review.status === 200 && review.json?.status === 'APPROVED'
+      && page.json?.profile?.legalEntity === profileDraft.legalEntity,
+    { submitted: [submitted.status, submitted.json?.status], review: [review.status, review.json?.status], profile: page.json?.profile ?? null });
   const resubmitted = await fx.submitQualification(op, org.orgId, approved.detail.qualification.version);
   r = await call('GET', `/api/v1/pro-services/${svc.serviceId}?cityCode=${CITY}`);
   step('资料改动后回到待审核，“资质已审核”先撤下', { req: 'PUT …/qualification 再 GET /api/v1/pro-services/{id}', expect: 'SUBMITTED，qualificationReviewed=false' },
