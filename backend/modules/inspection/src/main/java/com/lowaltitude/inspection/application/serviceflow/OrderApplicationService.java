@@ -78,9 +78,7 @@ public class OrderApplicationService {
         if (order.version() != expectedVersion) {
             throw new PlanVersionConflictException();
         }
-        if (order.status() == ServiceOrderStatus.ACCEPTED) {
-            throw new OrderStateInvalidException();
-        }
+        requireActive(order);
 
         Instant now = clock.instant();
         List<AssignmentWrite> writes = command.assignments().stream()
@@ -156,6 +154,7 @@ public class OrderApplicationService {
         if (visit.version() != expectedVersion) {
             throw new PlanVersionConflictException();
         }
+        requireActive(order);
         if (visit.status() != ServiceVisitStatus.PENDING_SCHEDULE
                 && visit.status() != ServiceVisitStatus.SCHEDULED) {
             throw new VisitStateInvalidException();
@@ -211,6 +210,7 @@ public class OrderApplicationService {
         if (visit.version() != expectedVersion) {
             throw new PlanVersionConflictException();
         }
+        requireActive(order);
         validateProgressTransition(order, visit, command);
 
         boolean starting = command.eventCode() == OrderProgressCode.SERVICE_STARTED;
@@ -411,6 +411,18 @@ public class OrderApplicationService {
                         && !other.serviceCompleted());
         if (previousUnfinished) {
             throw new VisitOutOfOrderException();
+        }
+    }
+
+    /**
+     * 首付到账之前（待付款）、已取消、已全部验收的服务单，服务商不能安排、排期或推进（S4-1）。
+     * 放在幂等重放之后：同一个命令重放仍返回原结果。
+     */
+    private static void requireActive(StoredServiceOrder order) {
+        if (order.status() == ServiceOrderStatus.AWAITING_PAYMENT
+                || order.status() == ServiceOrderStatus.CANCELLED
+                || order.status() == ServiceOrderStatus.ACCEPTED) {
+            throw new OrderStateInvalidException();
         }
     }
 

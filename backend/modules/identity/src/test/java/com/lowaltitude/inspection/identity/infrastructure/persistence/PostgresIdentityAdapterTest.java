@@ -47,6 +47,27 @@ class PostgresIdentityAdapterTest {
                 .containsExactlyInAnyOrder("inspection.order.read.assigned", "inspection.audit.read");
     }
 
+    // 登录续期按主体重读账号：同样只认默认组织下当前有效的角色，组织或成员无效时读不到。
+    @Test
+    void readsTheAccountBySubjectForRenewalWithTheSameRules() {
+        PostgresIdentityAccountAdapter adapter = new PostgresIdentityAccountAdapter(
+                new StubIdentityPersistenceReader(validUser(), List.of(
+                        role("PROVIDER_OPERATOR", "ACTIVE", "ORGANIZATION", ORGANIZATION_ID,
+                                NOW.minusSeconds(60), null, "inspection.order.read.assigned"),
+                        role("OTHER_TENANT", "ACTIVE", "ORGANIZATION", OTHER_ORGANIZATION_ID,
+                                NOW.minusSeconds(60), null, "inspection.order.read.all"))),
+                Clock.fixed(NOW, ZoneOffset.UTC));
+
+        IdentityAccount account = adapter.findBySubjectId(USER_ID).orElseThrow();
+        assertThat(account.roles()).containsExactly("PROVIDER_OPERATOR");
+        assertThat(account.permissions()).containsExactly("inspection.order.read.assigned");
+
+        PostgresIdentityAccountAdapter withoutMembership = new PostgresIdentityAccountAdapter(
+                new StubIdentityPersistenceReader(user(ORGANIZATION_ID, "ACTIVE", "DISABLED"), List.of()),
+                Clock.fixed(NOW, ZoneOffset.UTC));
+        assertThat(withoutMembership.findBySubjectId(USER_ID)).isEmpty();
+    }
+
     @Test
     void failsClosedWhenDefaultOrganizationOrMembershipIsInvalid() {
         for (PersistedIdentityUser invalid : List.of(

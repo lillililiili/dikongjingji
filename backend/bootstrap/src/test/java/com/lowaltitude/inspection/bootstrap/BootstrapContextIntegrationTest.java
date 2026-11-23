@@ -65,6 +65,7 @@ import org.springframework.web.bind.annotation.RestController;
         com.lowaltitude.inspection.activity.application.ActivityWaitlistService.class,
         com.lowaltitude.inspection.activity.application.ActivityResultService.class,
         VenueBookingService.class,
+        com.lowaltitude.inspection.experience.application.ExperienceRecordService.class,
         com.lowaltitude.inspection.demand.application.DemandService.class,
         com.lowaltitude.inspection.proservice.application.ProServiceReadService.class,
         com.lowaltitude.inspection.rental.application.RentalService.class,
@@ -99,6 +100,8 @@ import org.springframework.web.bind.annotation.RestController;
         NotificationService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
+        com.lowaltitude.inspection.application.serviceflow.InspectionPaymentService.class,
+        com.lowaltitude.inspection.application.serviceflow.VisitChangeService.class,
         DeliveryApplicationService.class
 })
 @Import({

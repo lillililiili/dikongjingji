@@ -2,6 +2,8 @@ export type ServiceVisitStatus =
   | 'PENDING_SCHEDULE'
   | 'SCHEDULED'
   | 'IN_PROGRESS'
+  // (service flow 2.3.0, B2) Returned for rework; the provider delivers again.
+  | 'REWORK'
   | 'DELIVERED'
   | 'ACCEPTED'
 

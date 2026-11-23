@@ -926,7 +926,8 @@ button::after {
   align-items: center;
   gap: 10px;
   border-top: 1px solid #e5ebf3;
-  background: rgba(255, 255, 255, 0.96);
+  /* Opaque: the form scrolled under a 96% white bar showed through on iOS. */
+  background: #ffffff;
   box-shadow: var(--app-bar-shadow);
 }
 

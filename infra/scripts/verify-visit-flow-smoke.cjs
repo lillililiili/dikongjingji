@@ -8,7 +8,9 @@
 //   BASE_URL              后端地址，默认 http://127.0.0.1:8080，只允许回环地址
 //   PG_CONTAINER          可选，Postgres 容器名；设置后写入 F04 种子并核对数据库留痕
 //   PG_USER / PG_DB       PG_CONTAINER 对应的账号和库，默认 inspection
-//   EXPECT_PAYMENT_NODES  后端开启 INSPECTION_PAYMENT_NODES_ENABLED 时设为 1
+//   EXPECT_PAYMENT_NODES  后端开启 INSPECTION_PAYMENT_NODES_ENABLED 时设为 1。S4-1 起带付款节点的服务单要先付首付
+//                         才能安排，这时本脚本只核对方案和服务单上的节点就结束；付款、验收后付款、取消退款走
+//                         infra/scripts/trade-smoke/inspection.cjs。
 
 const { execFileSync } = require('node:child_process');
 const crypto = require('node:crypto');
@@ -414,7 +416,8 @@ async function createConfirmedOrder(actors, visitDates) {
     token: customer, key: confirmKey, ifMatch: 0, body: confirmBody,
   });
   check(confirmReplay.id === order.id, '方案确认重放返回同一服务单');
-  check(order.status === 'ARRANGING', '确认后服务单待安排');
+  check(order.status === (EXPECT_PAYMENT_NODES ? 'AWAITING_PAYMENT' : 'ARRANGING'),
+      EXPECT_PAYMENT_NODES ? '确认后服务单待付首付' : '确认后服务单待安排');
   check(order.visits.length === visitDates.length, '服务单复制全部巡检次');
   check(order.visits.every((visit) => visit.status === 'PENDING_SCHEDULE'), '巡检次待排期');
   check(order.visits.every((visit) => visit.id !== order.id), '新巡检次有自己的 ID');
@@ -777,6 +780,14 @@ async function main() {
     platform: await login('smoke-platform'),
   });
 
+  if (EXPECT_PAYMENT_NODES) {
+    const start = nextBookableDay();
+    const dates = [0, 14, 28].map((offset) => isoDate(daysFromNow(start + offset)));
+    const { order } = await createConfirmedOrder(actors, dates);
+    console.log(JSON.stringify({ checks: checkCount, paymentNodes: true, awaitingPayment: order.id }, null, 2));
+    console.log('付款节点打开时履约要先付首付，后面的路径见 infra/scripts/trade-smoke/inspection.cjs');
+    return;
+  }
   const six = await runSixVisitOrder(actors);
   const single = await runSingleVisitOrder(actors);
   const evidence = PG_CONTAINER

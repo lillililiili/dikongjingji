@@ -19,7 +19,7 @@ import {
   type VenueCard,
 } from '../../domain/experience'
 import { resolveExperiencePreviewCover } from '../../data/preview/experience-preview-covers'
-import { buildVenueDetailUrl } from '../../navigation/experience-routes'
+import { buildExperienceRecordsUrl, buildVenueDetailUrl } from '../../navigation/experience-routes'
 import {
   EXPERIENCE_TYPE_LABELS,
   EXPERIENCE_TYPE_TAGS,
@@ -89,9 +89,13 @@ function openExperience(item: ExperienceItem): void {
     { type: 'OPEN_EXPERIENCE', experienceId: item.experienceId, experienceType: item.type },
     EXPERIENCE_PREVIEW_ENABLED,
   )
-  if (resolution.action === 'SHOW_NOTICE') {
-    uni.showToast({ title: resolution.message, icon: 'none' })
-  }
+  if (resolution.action === 'NAVIGATE') uni.navigateTo({ url: resolution.url })
+  else if (resolution.action === 'SHOW_NOTICE') uni.showToast({ title: resolution.message, icon: 'none' })
+}
+
+// 我的体验记录 › (board ExpCenter): the page asks for a login itself; a guest sees the results kept here.
+function openRecords(): void {
+  uni.navigateTo({ url: buildExperienceRecordsUrl() })
 }
 
 function openVenue(venue: VenueCard): void {
@@ -183,7 +187,15 @@ defineExpose({
         </view>
       </scroll-view>
 
-      <text class="experience-channel__promise">体验结束不会自动下单</text>
+      <view class="experience-channel__promise-row">
+        <text class="experience-channel__promise">体验结束不会自动下单</text>
+        <text
+          v-if="EXPERIENCE_PREVIEW_ENABLED"
+          class="experience-channel__records"
+          data-testid="experience-records-link"
+          @click="openRecords"
+        >我的体验记录 ›</text>
+      </view>
 
       <view
         v-if="items.status === 'loading' || items.status === 'idle'"
@@ -457,11 +469,29 @@ button::after {
   background: #202c42;
 }
 
-.experience-channel__promise {
+/* Board ExpCenter: one 20-high row under the type pills, 我的体验记录 › on the right. */
+.experience-channel__promise-row {
+  display: flex;
+  height: 20px;
   margin-top: -6px;
+  align-items: center;
+}
+
+.experience-channel__promise {
   color: #738096;
   font-size: 12px;
   line-height: 17px;
+  white-space: nowrap;
+}
+
+/* 13px text on a 44-high tap area that does not push the row taller. */
+.experience-channel__records {
+  margin: -12px 0 -12px auto;
+  padding: 12px 0 12px 12px;
+  color: #ba470b;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 .experience-channel__list {

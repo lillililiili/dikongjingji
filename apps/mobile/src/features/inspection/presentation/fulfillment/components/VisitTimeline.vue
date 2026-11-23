@@ -45,6 +45,7 @@ const emit = defineEmits<{ openDelivery: [visitId: string] }>()
           <view class="visit-row__card-head">
             <view class="visit-row__copy">
               <text class="visit-row__card-title">{{ row.title }}</text>
+              <text v-if="row.note" class="visit-row__note">{{ row.note }}</text>
               <text class="visit-row__status">{{ row.statusText }}</text>
             </view>
             <text v-if="row.badge" class="visit-row__badge">{{ row.badge }}</text>
@@ -67,7 +68,14 @@ const emit = defineEmits<{ openDelivery: [visitId: string] }>()
         <view v-else class="visit-row__body">
           <view class="visit-row__copy">
             <text class="visit-row__title">{{ row.title }}</text>
+            <text v-if="row.note" class="visit-row__note">{{ row.note }}</text>
             <text class="visit-row__status">{{ row.statusText }}</text>
+            <text
+              v-if="row.fee"
+              class="visit-row__fee"
+              :class="{ 'visit-row__fee--due': !row.fee.paid }"
+              :data-testid="`visit-fee-${row.visitNo}`"
+            >{{ row.fee.text }}</text>
           </view>
           <button
             v-if="row.deliveryLabel"
@@ -85,6 +93,24 @@ const emit = defineEmits<{ openDelivery: [visitId: string] }>()
 </template>
 
 <style scoped>
+/* S4-1: the moved-date note and the per-visit fee line of board FulfillmentLater. */
+.visit-row__note {
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.visit-row__fee {
+  color: #11804a;
+  font-size: 12px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.visit-row__fee--due {
+  color: #ba470b;
+}
+
 .visit-timeline {
   display: flex;
   padding: 14px 14px 2px;
