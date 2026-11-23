@@ -50,6 +50,11 @@ const MESSAGES: Record<string, string> = {
   OPS_ATTACHMENT_LIMIT: '附件数量已到上限（10 份）',
   OPS_FILE_STORE_UNAVAILABLE: '附件存储暂不可用，请稍后再试',
   OPS_FEEDBACK_ALREADY_HANDLED: '这条反馈已经被处理过了',
+  // S3-1 第三部分：素材上传（openapi-ops-media.yaml）和各块共用的上线前校验
+  OPS_PUBLISH_INCOMPLETE: '上线前还有必填项没填',
+  OPS_MEDIA_TYPE_UNSUPPORTED: '只能上传 JPEG、PNG、WebP 图片或 MP4 视频',
+  OPS_MEDIA_TOO_LARGE: '图片不能超过 5 MB，视频不能超过 50 MB',
+  OPS_MEDIA_STORE_UNAVAILABLE: '素材存储暂不可用，请稍后再试',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }

@@ -596,7 +596,9 @@ class AuthenticationSecurityIntegrationTest {
                 put(orgPath + "/qualification"), post(orgPath + "/qualification/review"),
                 post(orgPath + "/attachments"), get(orgPath + "/attachments/" + attachment + "/content"),
                 delete(orgPath + "/attachments/" + attachment), post(orgPath + "/accounts"),
-                put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"));
+                put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"),
+                // S3-1 第三部分：素材上传与预览
+                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"));
     }
 
     private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {

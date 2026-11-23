@@ -55,7 +55,7 @@ public final class OpsTestSupport {
 
     public static MockMvc mockMvc(Object... controllers) {
         return MockMvcBuilders.standaloneSetup(controllers)
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new OpsExceptionHandler(), new GlobalExceptionHandler())
                 .setMessageConverters(new ByteArrayHttpMessageConverter(), new MappingJackson2HttpMessageConverter(
                         Jackson2ObjectMapperBuilder.json()
                                 .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)

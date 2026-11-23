@@ -320,6 +320,24 @@ public final class OpsContractChecker {
                 .containsExactlyInAnyOrderElementsOf(produced);
     }
 
+    /**
+     * 用 OpsError 枚举（各块的业务拒绝）核对错误码：枚举里 OPS_ 开头的码正好是 errorCodeSchema 列的、契约里提到的；
+     * 其余只能是 COMMON_ 开头的通用码。
+     */
+    public void verifyOpsErrors(String errorCodeSchema, com.lowaltitude.inspection.ops.common.OpsError... errors) {
+        Set<String> produced = new TreeSet<>();
+        for (com.lowaltitude.inspection.ops.common.OpsError error : errors) {
+            if (error.code().startsWith("OPS_")) {
+                produced.add(error.code());
+            } else {
+                assertThat(error.code()).as(error.toString()).startsWith("COMMON_");
+            }
+            assertThat(error.message()).as(error.toString()).isNotBlank();
+            assertThat(error.httpStatus()).as(error.toString()).isBetween(400, 599);
+        }
+        verifyErrorCodes(errorCodeSchema, produced);
+    }
+
     // ---- 控制器一侧 ----
 
     public record Operation(String httpMethod, String path, Method method) {
