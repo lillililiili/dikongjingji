@@ -95,6 +95,23 @@ const MESSAGES: Record<string, string> = {
   // 直播间（openapi-ops-live.yaml）
   OPS_LIVE_ROOM_ENDED: '直播间已经结束了，请刷新后再看',
   OPS_LIVE_ROOM_NOT_ENDED: '直播结束后才能设回看',
+  // 课程（openapi-ops-course.yaml）
+  OPS_COURSE_STATUS_CONFLICT: '课程现在的状态不能这样操作（已经上架、没有上架，或线下班没有目录），请刷新后再看',
+  OPS_COURSE_ORGANIZATION_UNKNOWN: '开课机构不存在、已停用，或不是服务商、平台机构',
+  OPS_COURSE_EXPERIENCE_TAKEN: '这个体验中心试听入口已经给了别的课程',
+  OPS_COURSE_LESSON_IN_USE: '要删的课时已经有人学过，不能删；可以改标题、时长和视频',
+  // 商家资料审核（openapi-ops-merchant-profile.yaml）
+  OPS_MERCHANT_PROFILE_REVIEW_CLOSED: '这一版已经审核过或被新提交的一版替换了，请刷新后再看',
+  // 商品售后（openapi-trade-aftersale.yaml，商家工作台的“售后”）
+  TRADE_AFTERSALE_NOT_ELIGIBLE: '这张订单现在不能申请这类售后',
+  TRADE_AFTERSALE_ALREADY_OPEN: '这张订单已经有一张没结束的售后单',
+  TRADE_AFTERSALE_AMOUNT_EXCEEDS: '退款金额超过了申请金额或订单还能退的钱，请刷新后重新填写',
+  TRADE_AFTERSALE_STATE_INVALID: '售后单的状态已经变了（买家撤销、系统自动处理等），请刷新后再看',
+  TRADE_AFTERSALE_VERSION_CONFLICT: '售后单刚刚有变化，请刷新后重试',
+  TRADE_AFTERSALE_RETURN_ADDRESS_REQUIRED: '请填写寄回地址（还没有设置默认寄回地址）',
+  TRADE_AFTERSALE_IMAGE_INVALID: '凭证图片无效：不是本人上传的、已经用过或超过了数量',
+  TRADE_AFTERSALE_UPLOAD_LIMITED: '一小时内上传的图片太多，请稍后再试',
+  TRADE_AFTERSALE_STORAGE_UNAVAILABLE: '凭证图片存储暂不可用，请稍后再试',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }

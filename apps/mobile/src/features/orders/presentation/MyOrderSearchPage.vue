@@ -56,6 +56,8 @@ const TAG_COLORS: Record<MyOrderTagTone, { background: string; color: string }> 
   ORANGE: { background: '#fff0e3', color: '#ba470b' },
   PURPLE: { background: '#eee7ff', color: '#6a4fe0' },
   GREEN: { background: '#e2f6ed', color: '#11804a' },
+  // Course orders (as on 我的订单's own card).
+  BLUE: { background: '#e6f0ff', color: '#1d63c4' },
 }
 
 const TONE_COLORS: Record<MyOrderTone, string> = {

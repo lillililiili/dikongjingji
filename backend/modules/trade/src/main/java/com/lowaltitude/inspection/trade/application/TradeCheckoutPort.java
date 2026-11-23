@@ -56,13 +56,24 @@ public interface TradeCheckoutPort {
             long goodsMinor,
             long shippingMinor,
             long payableMinor,
-            UUID previousOrderId
+            UUID previousOrderId,
+            /** 0.7.0：交易主体快照（发货仓、开票方、售后责任方），没有时为 null。 */
+            String fulfilledFrom,
+            String invoiceIssuer,
+            String aftersaleParty
     ) {
         public CheckoutQuote(UUID merchantId, String merchantName, String merchantKind, List<QuotedLine> lines,
                              String deliveryMode, String pickupPoint, AddressSnapshot address, long goodsMinor,
                              long shippingMinor, long payableMinor) {
             this(merchantId, merchantName, merchantKind, lines, deliveryMode, pickupPoint, address, goodsMinor,
                     shippingMinor, payableMinor, null);
+        }
+
+        public CheckoutQuote(UUID merchantId, String merchantName, String merchantKind, List<QuotedLine> lines,
+                             String deliveryMode, String pickupPoint, AddressSnapshot address, long goodsMinor,
+                             long shippingMinor, long payableMinor, UUID previousOrderId) {
+            this(merchantId, merchantName, merchantKind, lines, deliveryMode, pickupPoint, address, goodsMinor,
+                    shippingMinor, payableMinor, previousOrderId, null, null, null);
         }
     }
 
@@ -74,8 +85,14 @@ public interface TradeCheckoutPort {
             String coverUrl,
             long unitAmountMinor,
             int quantity,
-            long subtotalMinor
+            long subtotalMinor,
+            /** 0.7.0：这件商品是否支持七天无理由（商品可以标“不支持”）。 */
+            boolean noReasonReturn
     ) {
+        public QuotedLine(UUID productId, UUID offerId, String productName, String skuName, String coverUrl,
+                          long unitAmountMinor, int quantity, long subtotalMinor) {
+            this(productId, offerId, productName, skuName, coverUrl, unitAmountMinor, quantity, subtotalMinor, true);
+        }
     }
 
     record AddressSnapshot(

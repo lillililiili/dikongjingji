@@ -273,11 +273,11 @@ test.describe('我的订单', () => {
     await expect(page.getByTestId('mine-page')).toBeVisible()
   })
 
-  test('MYO-002 “我的”订单五阶段进我的订单的对应胶囊；列表里取消待付款的商品订单', async ({ page, request }) => {
+  test('MYO-002 “我的”订单前四阶段进我的订单的对应胶囊、退款/售后进售后列表；列表里取消待付款的商品订单', async ({ page, request }) => {
     const goods = await submitOrderByApi(request, buyer, { offer: KIT_FACTORY, mode: 'PICKUP', payableMinor: KIT_PRICE })
     await signIn(page, buyer)
 
-    const stages: Array<[number, string]> = [[0, 'pay'], [1, 'ship'], [2, 'attend'], [3, 'accept'], [4, 'refund']]
+    const stages: Array<[number, string]> = [[0, 'pay'], [1, 'ship'], [2, 'attend'], [3, 'accept']]
     for (const [index, name] of stages) {
       await page.goto('/#/pages/mine/index')
       await page.locator('.platform-mine__status-item').nth(index).click()
@@ -285,6 +285,11 @@ test.describe('我的订单', () => {
       await expect(chip(page, name)).toHaveAttribute('aria-pressed', 'true')
       await expect(tab(page, 'all')).toHaveAttribute('aria-selected', 'true')
     }
+    // 退款/售后 opens the after-sales list (board Mine → AftersaleList, S4-2).
+    await page.goto('/#/pages/mine/index')
+    await page.locator('.platform-mine__status-item').nth(4).click()
+    await expect(page).toHaveURL(/pages\/mine\/aftersales\?tab=DOING$/)
+    await expect(page.getByTestId('aftersales-tab-DOING')).toHaveAttribute('aria-selected', 'true')
 
     // 待付款 is the goods-orders cell of 我的 (testid kept); the order can be cancelled on the list.
     await page.goto('/#/pages/mine/index')

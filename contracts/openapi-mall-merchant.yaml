@@ -1,0 +1,396 @@
+openapi: 3.1.0
+info:
+  title: Mall Merchant API
+  version: 1.0.0
+  description: |-
+    1.0.0（2026-11-23，S5-2、S4-4，docs/redesign/08-后续开发计划.md §5 S4-4）：商家主页（画板 Merchant、商品详情
+    “查看商家主页与资质”）和商家工作台的“商家资料”。
+
+    - 商家主页公开只读：名称、商家类型（这家在售供给里最多的那种）、资质已审核（只看平台的机构资质审核，见身份模块
+      qualification_reviewed_at）、审核通过的商家资料（经营主体、简介、可售说明、授权有效期、品类，以及给供给兜底的开票方、
+      售后责任方；没通过过时为 null）、有在售供给的城市、这个城市的在售商品数，以及这家机构在这个城市主办或承办、还有场次
+      没开始的活动和它发布的图文、视频（各取前 10 条，带总数）。“在售”页签的商品用 contracts/openapi-mall-catalog.yaml 1.4.0
+      的商品列表加 merchantId 读。机构不存在、或既没有在售供给也没有审核通过的资料时 404。
+    - 商家资料由商家（机构操作员）在 Web 工作台填、提交，平台运营在运营端审核（contracts/openapi-ops-merchant-profile.yaml）。
+      对外只展示审核通过的那一版；待审核时再交一版，上一版作废（SUPERSEDED）。照机构资质的审核做法。
+    角色：工作台接口要 PROVIDER_OPERATOR，机构只从令牌里取。Bodies are returned bare, errors use the shared ApiError.
+servers:
+  - url: /
+paths:
+  /api/v1/mall/merchants/{merchantId}:
+    get:
+      operationId: getMallMerchantPage
+      summary: 商家主页（公开）
+      security: []
+      parameters:
+        - name: merchantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: cityCode
+          in: query
+          required: true
+          description: 当前城市；在售商品数、活动、内容按它算
+          schema:
+            type: string
+            pattern: "^[A-Z0-9]{4,16}$"
+      responses:
+        "200":
+          description: 商家主页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/mall/merchant-profile:
+    get:
+      operationId: readMyMerchantProfile
+      summary: 商家工作台：本机构对外的资料和最近一次提交
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 资料状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantProfileState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: submitMyMerchantProfile
+      summary: 商家工作台：提交新的一版资料（等平台审核）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantProfileRequest"
+      responses:
+        "200":
+          description: 已提交，latest 是这一版（SUBMITTED）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantProfileState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: 参数无效（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没登录或令牌无效（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: 角色不对（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 商家或机构不存在（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, traceId]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type: [object, "null"]
+          additionalProperties: true
+    MallMerchantKind:
+      type: string
+      description: FACTORY_DIRECT 厂家直营；AUTHORIZED_DEALER 授权经销；LOCAL_STORE 本地商家
+      enum: [FACTORY_DIRECT, AUTHORIZED_DEALER, LOCAL_STORE]
+    MediaAsset:
+      type: object
+      additionalProperties: false
+      required: [url, alt]
+      properties:
+        url:
+          type: string
+          format: uri
+        alt:
+          type: string
+    MallMerchantProfile:
+      type: object
+      additionalProperties: false
+      description: 审核通过、对外展示的资料
+      required: [businessEntity, intro, saleScopeNote, authorizationUntil, categoryNote, invoiceIssuer, aftersaleParty,
+                 approvedAt]
+      properties:
+        businessEntity:
+          type: string
+          maxLength: 160
+          description: 经营主体
+        intro:
+          type: [string, "null"]
+          maxLength: 300
+        saleScopeNote:
+          type: [string, "null"]
+          maxLength: 40
+          description: 可售说明，接在可售城市后面（如“全国发货”）
+        authorizationUntil:
+          type: [string, "null"]
+          format: date
+          description: 授权（合作）有效期
+        categoryNote:
+          type: [string, "null"]
+          maxLength: 40
+          description: 品类（如“教育机器人”）
+        invoiceIssuer:
+          type: [string, "null"]
+          maxLength: 60
+          description: 默认开票方（供给没填时用）
+        aftersaleParty:
+          type: [string, "null"]
+          maxLength: 60
+          description: 默认售后责任方（供给没填时用）
+        approvedAt:
+          type: string
+          format: date-time
+    MallMerchantActivity:
+      type: object
+      additionalProperties: false
+      required: [activityId, title, coverImage, venueName, startsAt, priceMode, priceAmountMinor]
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        venueName:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+          description: 最近一场还没开始的场次
+        priceMode:
+          type: string
+          enum: [PER_PERSON, FREE, INQUIRY]
+        priceAmountMinor:
+          type: [integer, "null"]
+          format: int64
+    MallMerchantContent:
+      type: object
+      additionalProperties: false
+      required: [contentId, kind, title, coverImage, sponsored, sample, publishedAt]
+      properties:
+        contentId:
+          type: string
+          format: uuid
+          description: 图文是 articleId，视频是 videoId（contracts/openapi-content.yaml）
+        kind:
+          type: string
+          enum: [CASE, KNOWLEDGE, VIDEO]
+        title:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        sponsored:
+          type: boolean
+          description: 广告（商家发布的内容一律是）
+        sample:
+          type: boolean
+          description: 示例内容，页面标“示例”
+        publishedAt:
+          type: string
+          format: date-time
+    MallMerchantPage:
+      type: object
+      additionalProperties: false
+      required: [merchantId, name, kind, qualificationReviewed, profile, saleCityCodes, nationwide, productCount,
+                 activityCount, activities, contentCount, contents]
+      properties:
+        merchantId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          anyOf:
+            - $ref: "#/components/schemas/MallMerchantKind"
+            - type: "null"
+          description: 这家在售供给里最多的商家类型；没有在售供给时为 null
+        qualificationReviewed:
+          type: boolean
+          description: 平台审核过机构资质（显示“资质已审核”）
+        profile:
+          anyOf:
+            - $ref: "#/components/schemas/MallMerchantProfile"
+            - type: "null"
+        saleCityCodes:
+          type: array
+          description: 有在售供给的城市（平台城市编码）
+          items:
+            type: string
+        nationwide:
+          type: boolean
+          description: 有不分城市的供给（全国可买）
+        productCount:
+          type: integer
+          format: int64
+          description: 这个城市的在售商品数
+        activityCount:
+          type: integer
+          format: int64
+        activities:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/MallMerchantActivity"
+        contentCount:
+          type: integer
+          format: int64
+        contents:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/MallMerchantContent"
+    MallMerchantDraft:
+      type: object
+      additionalProperties: false
+      required: [businessEntity, intro, saleScopeNote, authorizationUntil, categoryNote, invoiceIssuer, aftersaleParty]
+      properties:
+        businessEntity:
+          type: string
+        intro:
+          type: [string, "null"]
+        saleScopeNote:
+          type: [string, "null"]
+        authorizationUntil:
+          type: [string, "null"]
+          format: date
+        categoryNote:
+          type: [string, "null"]
+        invoiceIssuer:
+          type: [string, "null"]
+        aftersaleParty:
+          type: [string, "null"]
+    MallMerchantSubmission:
+      type: object
+      additionalProperties: false
+      required: [submissionId, organizationId, organizationName, draft, status, submittedByName, submittedAt,
+                 reviewedByName, reviewedAt, rejectReason, version]
+      properties:
+        submissionId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        organizationName:
+          type: string
+        draft:
+          $ref: "#/components/schemas/MallMerchantDraft"
+        status:
+          type: string
+          enum: [SUBMITTED, APPROVED, REJECTED, SUPERSEDED]
+          description: SUBMITTED 待审核；APPROVED 已通过；REJECTED 已驳回；SUPERSEDED 已被新提交的一版替换
+        submittedByName:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+        reviewedByName:
+          type: [string, "null"]
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+        rejectReason:
+          type: [string, "null"]
+        version:
+          type: integer
+    MallMerchantProfileState:
+      type: object
+      additionalProperties: false
+      required: [organizationId, organizationName, published, latest]
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        organizationName:
+          type: string
+        published:
+          anyOf:
+            - $ref: "#/components/schemas/MallMerchantProfile"
+            - type: "null"
+          description: 对外的资料；没通过过时为 null
+        latest:
+          anyOf:
+            - $ref: "#/components/schemas/MallMerchantSubmission"
+            - type: "null"
+          description: 最近一次提交；没交过时为 null
+    MerchantProfileRequest:
+      type: object
+      additionalProperties: false
+      required: [businessEntity]
+      properties:
+        businessEntity:
+          type: string
+          minLength: 2
+          maxLength: 160
+        intro:
+          type: [string, "null"]
+          maxLength: 300
+        saleScopeNote:
+          type: [string, "null"]
+          maxLength: 40
+        authorizationUntil:
+          type: [string, "null"]
+          format: date
+        categoryNote:
+          type: [string, "null"]
+          maxLength: 40
+        invoiceIssuer:
+          type: [string, "null"]
+          maxLength: 60
+        aftersaleParty:
+          type: [string, "null"]
+          maxLength: 60
