@@ -11,6 +11,8 @@ import java.util.UUID;
 
 import com.lowaltitude.inspection.application.city.CityOperationsService;
 import com.lowaltitude.inspection.bootstrap.infrastructure.LocalImportFileStore;
+import com.lowaltitude.inspection.bootstrap.infrastructure.S3ModuleFileStores;
+import com.lowaltitude.inspection.bootstrap.infrastructure.storage.PlatformStorage;
 import com.lowaltitude.inspection.identity.application.OrganizationImportService;
 import com.lowaltitude.inspection.identity.application.OrganizationOnboardingService;
 import com.lowaltitude.inspection.mall.application.MallCatalogImport;
@@ -123,7 +125,12 @@ public class OpsImportPortsConfiguration {
     }
 
     @Bean
-    OpsImportPorts.FileStore opsImportFileStore(@Value("${opsimport.files.local-dir:}") String localDirectory) {
+    OpsImportPorts.FileStore opsImportFileStore(@Value("${opsimport.files.local-dir:}") String localDirectory,
+                                                ObjectProvider<PlatformStorage> platformStorage) {
+        PlatformStorage storage = platformStorage.getIfAvailable(PlatformStorage::local);
+        if (storage.isS3()) {
+            return new S3ModuleFileStores.ImportFiles(storage);
+        }
         return localDirectory == null || localDirectory.isBlank()
                 ? new LocalImportFileStore.Unavailable()
                 : new LocalImportFileStore(Path.of(localDirectory));

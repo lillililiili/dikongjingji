@@ -10,6 +10,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.lowaltitude.inspection.bootstrap.infrastructure.LocalServiceOrderFileStore;
+import com.lowaltitude.inspection.bootstrap.infrastructure.S3ModuleFileStores;
+import com.lowaltitude.inspection.bootstrap.infrastructure.storage.PlatformStorage;
 import com.lowaltitude.inspection.identity.domain.IdentityOrganizationPort;
 import com.lowaltitude.inspection.identity.domain.IdentityProfile;
 import com.lowaltitude.inspection.identity.domain.IdentityProfilePort;
@@ -17,6 +19,7 @@ import com.lowaltitude.inspection.trade.application.TradeException;
 import com.lowaltitude.inspection.trade.application.TradeOrderStatus;
 import com.lowaltitude.inspection.trade.application.TradeSourceListener;
 import com.lowaltitude.inspection.trade.application.TradeSourceOrders;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -55,7 +58,12 @@ public class ServiceOrderPortsConfiguration {
     }
 
     @Bean
-    ServiceOrderPorts.Files serviceOrderFiles(@Value("${serviceorder.files.local-dir:}") String localDirectory) {
+    ServiceOrderPorts.Files serviceOrderFiles(@Value("${serviceorder.files.local-dir:}") String localDirectory,
+                                              ObjectProvider<PlatformStorage> platformStorage) {
+        PlatformStorage storage = platformStorage.getIfAvailable(PlatformStorage::local);
+        if (storage.isS3()) {
+            return new S3ModuleFileStores.ServiceOrderFiles(storage);
+        }
         return localDirectory == null || localDirectory.isBlank()
                 ? new LocalServiceOrderFileStore.Unavailable()
                 : new LocalServiceOrderFileStore(Path.of(localDirectory));

@@ -15,7 +15,7 @@ import com.lowaltitude.inspection.identity.application.OnboardingPorts;
  */
 public final class LocalQualificationFileStore implements OnboardingPorts.QualificationFiles {
 
-    private static final Pattern KEY = Pattern.compile(
+    static final Pattern KEY = Pattern.compile(
             "^organizations/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
                     + "/qualification/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 

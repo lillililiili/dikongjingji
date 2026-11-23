@@ -17,7 +17,7 @@ import com.lowaltitude.inspection.serviceorder.application.ServiceOrderPorts;
 public final class LocalServiceOrderFileStore implements ServiceOrderPorts.Files {
 
     private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-    private static final Pattern KEY = Pattern.compile("^orders/" + UUID_PATTERN + "/files/" + UUID_PATTERN + "$");
+    static final Pattern KEY = Pattern.compile("^orders/" + UUID_PATTERN + "/files/" + UUID_PATTERN + "$");
 
     private final Path root;
 

@@ -15,7 +15,7 @@ import com.lowaltitude.inspection.opsimport.application.OpsImportPorts;
  */
 public final class LocalImportFileStore implements OpsImportPorts.FileStore {
 
-    private static final Pattern KEY = Pattern.compile(
+    static final Pattern KEY = Pattern.compile(
             "^imports/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9]{1,2}\\.csv$");
 
     private final Path root;
