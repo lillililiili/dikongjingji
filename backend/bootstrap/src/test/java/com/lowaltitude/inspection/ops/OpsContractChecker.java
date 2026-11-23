@@ -280,6 +280,9 @@ public final class OpsContractChecker {
                     Map<String, Object> items = map(property.get("items"));
                     if (element == String.class) {
                         assertThat(items.get("type") != null || items.get("$ref") != null).as(field).isTrue();
+                    } else if (element == UUID.class) {
+                        assertThat(items.get("type")).as(field + " items").isEqualTo("string");
+                        assertThat(items.get("format")).as(field + " items").isEqualTo("uuid");
                     } else if (element instanceof Class<?> elementType && elementType.isEnum()) {
                         assertThat(items.get("$ref")).as(field + " items")
                                 .isEqualTo(SCHEMA_PREFIX + schemaOf(enums, elementType));
@@ -318,6 +321,24 @@ public final class OpsContractChecker {
         assertThat(mentioned).containsExactlyInAnyOrderElementsOf(produced);
         assertThat(strings(map(schemas().get(errorCodeSchema)).get("enum")))
                 .containsExactlyInAnyOrderElementsOf(produced);
+    }
+
+    /**
+     * 用 OpsError 枚举（各块的业务拒绝）核对错误码：枚举里 OPS_ 开头的码正好是 errorCodeSchema 列的、契约里提到的；
+     * 其余只能是 COMMON_ 开头的通用码。
+     */
+    public void verifyOpsErrors(String errorCodeSchema, com.lowaltitude.inspection.ops.common.OpsError... errors) {
+        Set<String> produced = new TreeSet<>();
+        for (com.lowaltitude.inspection.ops.common.OpsError error : errors) {
+            if (error.code().startsWith("OPS_")) {
+                produced.add(error.code());
+            } else {
+                assertThat(error.code()).as(error.toString()).startsWith("COMMON_");
+            }
+            assertThat(error.message()).as(error.toString()).isNotBlank();
+            assertThat(error.httpStatus()).as(error.toString()).isBetween(400, 599);
+        }
+        verifyErrorCodes(errorCodeSchema, produced);
     }
 
     // ---- 控制器一侧 ----

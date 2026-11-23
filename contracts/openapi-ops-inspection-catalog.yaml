@@ -1,0 +1,962 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Inspection Catalog API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“巡检服务目录”——巡检类目和巡检服务
+    （服务商、类目、价格、城市覆盖、服务项目、详情项、上下架）。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
+    COMMON_FORBIDDEN. 数据在巡检模块（迁移 V003、V004、V006、V010、V011，本批 V014 加服务版本号和改动记录表）。
+
+    规则：
+    - 类目：编码新建后不改（App 按编码画图标、筛选）；名称、副标题、排序可改，改名后服务上的类目名称跟着改；
+      下面（含子类目）还有上架服务时不能停用（409 OPS_INSPECTION_CATEGORY_IN_USE）。子类目只有一层。
+    - 服务：新建后是未上架（DISABLED）；上架（ACTIVE）后 App 的巡检目录、详情、首页推荐才看得到（公开读取还要求在这个城市
+      覆盖）。下架后 App 马上看不到，已有的预约、方案和订单照常。服务商必须是在用的服务商机构（422 OPS_PROVIDER_UNKNOWN），
+      覆盖城市必须在平台城市目录里（422 OPS_CITY_UNKNOWN），类目必须存在且启用（422 OPS_INSPECTION_CATEGORY_UNKNOWN）。
+    - 覆盖城市只到城市级，至少一个，第一个是服务的主城市；距离排序用的中心点（PostGIS）不在这里维护，去掉的城市只停用。
+    - 服务项目（预约页“巡检项目”、卡片标签，≤10）和详情项（价格因素 ≤10，能力、服务流程、交付物、保障各 ≤20）按顺序整组提交；
+      已有的项带回原编码（预约、方案按编码引用过），新项不带编码，服务端生成 OPS_ 开头的编码；去掉的项只停用。
+    - 上架前、以及已上架的服务修改时，校验 App 要用的必填项；缺了 422 OPS_PUBLISH_INCOMPLETE，details.missing 是缺的字段键
+      （见 OpsInspectionPublishField，按页面顺序）。
+    - 写操作带页面读到的 version（乐观锁），版本不对 409 OPS_VERSION_CONFLICT；上架已上架的、停用已停用的 409 OPS_STATUS_UNCHANGED。
+      内容没变的修改不写记录、不升版本。
+    - 每次改动记一条改动记录（对象、动作、一句话说明、操作人显示名、时间），只追加，详情里能看到最近 50 条。
+    - 金额一律是分（整数）。图片地址只收带主机名的 https 地址（运营端素材上传见 openapi-ops-media.yaml）。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/inspection/categories:
+    get:
+      operationId: "listOpsInspectionCategories"
+      summary: "全部类目（含停用的），一级在前、子类目跟在一级后面，按排序"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "类目"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/OpsInspectionCategory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsInspectionCategory"
+      summary: "新建类目（启用），记一条改动记录"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsInspectionCategoryCreateRequest"
+      responses:
+        "201":
+          description: "新类目"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsInspectionCategory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: "OPS_INSPECTION_CATEGORY_CODE_TAKEN：编码已被占用"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_INSPECTION_CATEGORY_UNKNOWN：上级类目不存在或本身是子类目"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/inspection/categories/{categoryCode}:
+    put:
+      operationId: "updateOpsInspectionCategory"
+      summary: "改名称、副标题、排序（带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CategoryCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsInspectionCategoryUpdateRequest"
+      responses:
+        "200":
+          description: "改好的类目"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsInspectionCategory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/ops/inspection/categories/{categoryCode}/status:
+    put:
+      operationId: "changeOpsInspectionCategoryStatus"
+      summary: "启用或停用类目（带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CategoryCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsInspectionCategoryStatusRequest"
+      responses:
+        "200":
+          description: "改好的类目"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsInspectionCategory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_STATUS_UNCHANGED：已经是这个状态；OPS_INSPECTION_CATEGORY_IN_USE：下面还有上架服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/inspection/categories/{categoryCode}/changes:
+    get:
+      operationId: "listOpsInspectionCategoryChanges"
+      summary: "这个类目最近 50 条改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CategoryCode"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/inspection/services:
+    get:
+      operationId: "listOpsInspectionServices"
+      summary: "巡检服务（上架和未上架），最近改的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "标题或服务编号，最多 40 字；% 和 _ 会被去掉"
+          schema:
+            type: "string"
+            maxLength: 40
+        - name: "categoryCode"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+        - name: "cityCode"
+          in: "query"
+          required: false
+          description: "只列覆盖这个城市的"
+          schema:
+            type: "string"
+            pattern: "^[0-9]{6}$"
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsInspectionServiceStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsInspectionServicePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsInspectionService"
+      summary: "新建服务（未上架），记一条改动记录"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsInspectionServiceRequest"
+      responses:
+        "201":
+          description: "新服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsInspectionService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/inspection/services/{serviceId}:
+    get:
+      operationId: "getOpsInspectionService"
+      summary: "一项服务的全部可编辑内容"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      responses:
+        "200":
+          description: "服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsInspectionService"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "updateOpsInspectionService"
+      summary: "修改服务（整份提交，带版本号）；已上架的改完也要齐全"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsInspectionServiceRequest"
+      responses:
+        "200":
+          description: "改好的服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsInspectionService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/VersionConflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/inspection/services/{serviceId}/publish:
+    post:
+      operationId: "publishOpsInspectionService"
+      summary: "上架（校验必填项）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "上架后的服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsInspectionService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StatusConflict"
+        "422":
+          description: "OPS_PUBLISH_INCOMPLETE：details.missing 是缺的字段键"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/inspection/services/{serviceId}/offline:
+    post:
+      operationId: "offlineOpsInspectionService"
+      summary: "下架"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "下架后的服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsInspectionService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StatusConflict"
+  /api/v1/ops/inspection/services/{serviceId}/changes:
+    get:
+      operationId: "listOpsInspectionServiceChanges"
+      summary: "这项服务最近 50 条改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    CategoryCode:
+      name: "categoryCode"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        pattern: "^[A-Z][A-Z0-9_]{1,31}$"
+    ServiceId:
+      name: "serviceId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）：长度超限、编码格式不对、没带版本号、价格和单位对不上等"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "类目或服务不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    VersionConflict:
+      description: "OPS_VERSION_CONFLICT：别人刚改过，刷新后重试"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    StatusConflict:
+      description: "OPS_VERSION_CONFLICT；OPS_STATUS_UNCHANGED：已经是这个状态"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unprocessable:
+      description: >-
+        OPS_PROVIDER_UNKNOWN：服务商不存在、已停用或不是服务商机构；OPS_CITY_UNKNOWN：城市不在平台城市目录里；
+        OPS_INSPECTION_CATEGORY_UNKNOWN：类目不存在或已停用；OPS_PUBLISH_INCOMPLETE：已上架的服务改完缺了必填项（details.missing）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsInspectionCatalogErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+          description: "OPS_PUBLISH_INCOMPLETE 时为 {\"missing\": [OpsInspectionPublishField…]}"
+    OpsInspectionCatalogErrorCode:
+      type: "string"
+      enum:
+        - OPS_VERSION_CONFLICT
+        - OPS_PUBLISH_INCOMPLETE
+        - OPS_STATUS_UNCHANGED
+        - OPS_PROVIDER_UNKNOWN
+        - OPS_CITY_UNKNOWN
+        - OPS_INSPECTION_CATEGORY_UNKNOWN
+        - OPS_INSPECTION_CATEGORY_CODE_TAKEN
+        - OPS_INSPECTION_CATEGORY_IN_USE
+    OpsInspectionPublishField:
+      type: "string"
+      description: >-
+        上架前缺了会出现在 details.missing 里的键：provider 服务商（已停用）；summary 简介；categoryCode 类目；coverUrl 封面；
+        priceMode 计价方式；startingAmountMinor 起步价；unit 计价单位（按距离、按次要有）；availability 可预约状态；
+        primaryAction 主按钮；cities 覆盖城市；bookingItems 服务项目；processSteps 服务流程；deliverables 交付物
+      enum: [provider, summary, categoryCode, coverUrl, priceMode, startingAmountMinor, unit, availability,
+             primaryAction, cities, bookingItems, processSteps, deliverables]
+    OpsInspectionServiceStatus:
+      type: "string"
+      description: "ACTIVE 已上架（App 能看到）；DISABLED 未上架或已下架"
+      enum: [ACTIVE, DISABLED]
+    OpsInspectionCategoryStatus:
+      type: "string"
+      description: "ACTIVE 启用；INACTIVE 停用（App 不列，服务不能选）"
+      enum: [ACTIVE, INACTIVE]
+    InspectionPriceMode:
+      type: "string"
+      description: "STARTING_PRICE 起步价；PER_DISTANCE 按距离（起）；PER_VISIT 按次（起）；PROJECT_QUOTE 按项目报价（没有金额和单位）"
+      enum: [STARTING_PRICE, PER_DISTANCE, PER_VISIT, PROJECT_QUOTE]
+    InspectionAvailability:
+      type: "string"
+      description: "AVAILABLE 可咨询；RESERVABLE 可预约；UNAVAILABLE 暂不可约"
+      enum: [AVAILABLE, RESERVABLE, UNAVAILABLE]
+    InspectionPrimaryAction:
+      type: "string"
+      description: "详情页主按钮：CONSULT 咨询；RESERVE 预约；REQUEST_QUOTE 获取报价；NONE 不显示"
+      enum: [CONSULT, RESERVE, REQUEST_QUOTE, NONE]
+    InspectionServiceMethod:
+      type: "string"
+      description: "UAV 无人机；ROBOT 机器人（目录筛选用）"
+      enum: [UAV, ROBOT]
+    OpsChange:
+      type: "object"
+      additionalProperties: false
+      required: [changeId, subjectType, subjectId, action, summary, operatorName, changedAt]
+      properties:
+        changeId:
+          type: "string"
+          format: "uuid"
+        subjectType:
+          type: "string"
+          enum: [CATEGORY, SERVICE]
+        subjectId:
+          type: "string"
+          format: "uuid"
+          description: "服务 ID；类目是由编码算出的固定 UUID"
+        action:
+          type: "string"
+          enum: [CREATE, UPDATE, PUBLISH, OFFLINE, ENABLE, DISABLE]
+        summary:
+          type: "string"
+          maxLength: 300
+          description: "一句话说明改了什么"
+        operatorName:
+          type: "string"
+          description: "改的时候运营账号的显示名"
+        changedAt:
+          type: "string"
+          format: "date-time"
+    OpsInspectionCategory:
+      type: "object"
+      additionalProperties: false
+      required: [code, name, subtitle, parentCode, sortOrder, status, activeServiceCount, version, updatedAt]
+      properties:
+        code:
+          type: "string"
+        name:
+          type: "string"
+          maxLength: 20
+        subtitle:
+          type: ["string", "null"]
+          maxLength: 60
+        parentCode:
+          type: ["string", "null"]
+          description: "上级类目编码；一级类目为 null"
+        sortOrder:
+          type: "integer"
+          minimum: 0
+          maximum: 9999
+        status:
+          $ref: "#/components/schemas/OpsInspectionCategoryStatus"
+        activeServiceCount:
+          type: "integer"
+          minimum: 0
+          description: "这个类目（不含子类目）下已上架的服务数"
+        version:
+          type: "integer"
+          minimum: 0
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    OpsInspectionCategoryCreateRequest:
+      type: "object"
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          type: "string"
+          pattern: "^[A-Z][A-Z0-9_]{1,31}$"
+          description: "稳定编码，新建后不改"
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 20
+        subtitle:
+          type: ["string", "null"]
+          maxLength: 60
+        parentCode:
+          type: ["string", "null"]
+          description: "上级类目（一级类目）；不填是一级类目"
+        sortOrder:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+          description: "小的在前；不填为 0"
+    OpsInspectionCategoryUpdateRequest:
+      type: "object"
+      additionalProperties: false
+      required: [name, version]
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 20
+        subtitle:
+          type: ["string", "null"]
+          maxLength: 60
+        sortOrder:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+        version:
+          type: "integer"
+          minimum: 0
+    OpsInspectionCategoryStatusRequest:
+      type: "object"
+      additionalProperties: false
+      required: [status, version]
+      properties:
+        status:
+          $ref: "#/components/schemas/OpsInspectionCategoryStatus"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsVersionRequest:
+      type: "object"
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: "integer"
+          minimum: 0
+          description: "页面读到的版本号"
+    OpsInspectionItemRequest:
+      type: "object"
+      additionalProperties: false
+      required: [title]
+      properties:
+        code:
+          type: ["string", "null"]
+          pattern: "^[A-Z0-9][A-Z0-9_]{0,63}$"
+          description: "已有的项带回原编码；新项不填，服务端生成"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 120
+          description: "服务项目最多 80 字，详情项最多 120 字"
+        description:
+          type: ["string", "null"]
+          maxLength: 240
+        iconKey:
+          type: ["string", "null"]
+          pattern: "^[a-z][a-z0-9_-]{0,63}$"
+          description: "App 内置图标的键（如 tower、checkbox）；不填用默认图标"
+    OpsInspectionServiceRequest:
+      type: "object"
+      additionalProperties: false
+      required: [providerId, title, cityCodes]
+      description: "新建和修改共用；修改时 version 必填（新建时不看）。草稿可以缺简介、类目、封面、价格等，上架前要齐。"
+      properties:
+        providerId:
+          type: "string"
+          format: "uuid"
+          description: "服务商机构（在用、类型是服务商）"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 160
+        summary:
+          type: ["string", "null"]
+          maxLength: 500
+        categoryCode:
+          type: ["string", "null"]
+        coverUrl:
+          type: ["string", "null"]
+          format: "uri"
+          maxLength: 500
+          description: "受控 https 地址"
+        priceMode:
+          anyOf:
+            - $ref: "#/components/schemas/InspectionPriceMode"
+            - type: "null"
+        startingAmountMinor:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 10000000000
+          description: "起步价（分）；按项目报价时不看"
+        unitCode:
+          type: ["string", "null"]
+          pattern: "^[A-Z][A-Z0-9_]{0,31}$"
+          description: "计价单位编码（如 KM、VISIT），和 unitLabel 一起填；按项目报价时不看"
+        unitLabel:
+          type: ["string", "null"]
+          maxLength: 40
+          description: "计价单位的名称（如 公里、次）"
+        priceNote:
+          type: ["string", "null"]
+          maxLength: 240
+        cancellationNote:
+          type: ["string", "null"]
+          maxLength: 500
+        availability:
+          anyOf:
+            - $ref: "#/components/schemas/InspectionAvailability"
+            - type: "null"
+        primaryAction:
+          anyOf:
+            - $ref: "#/components/schemas/InspectionPrimaryAction"
+            - type: "null"
+        includesReport:
+          type: ["boolean", "null"]
+          description: "含巡检报告（目录筛选用）；不填为 false"
+        serviceMethods:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/InspectionServiceMethod"
+        cityCodes:
+          type: "array"
+          minItems: 1
+          maxItems: 300
+          items:
+            type: "string"
+            pattern: "^[0-9]{6}$"
+          description: "覆盖城市，第一个是主城市"
+        bookingItems:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsInspectionItemRequest"
+          description: "服务项目（预约页“巡检项目”的选项、卡片标签）"
+        priceFactors:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsInspectionItemRequest"
+        capabilities:
+          type: ["array", "null"]
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/OpsInspectionItemRequest"
+        processSteps:
+          type: ["array", "null"]
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/OpsInspectionItemRequest"
+        deliverables:
+          type: ["array", "null"]
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/OpsInspectionItemRequest"
+        guarantees:
+          type: ["array", "null"]
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/OpsInspectionItemRequest"
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+    OpsInspectionCity:
+      type: "object"
+      additionalProperties: false
+      required: [cityCode, cityName]
+      properties:
+        cityCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+        cityName:
+          type: ["string", "null"]
+          description: "平台城市目录里的名称；目录里没有了为 null"
+    OpsInspectionItem:
+      type: "object"
+      additionalProperties: false
+      required: [code, title, description, iconKey]
+      properties:
+        code:
+          type: "string"
+        title:
+          type: "string"
+        description:
+          type: ["string", "null"]
+        iconKey:
+          type: ["string", "null"]
+    OpsInspectionServiceRow:
+      type: "object"
+      additionalProperties: false
+      required: [serviceId, serviceNo, title, categoryCode, categoryName, providerId, providerName, priceMode,
+                 startingAmountMinor, status, coverUrl, cityCount, updatedAt, version]
+      properties:
+        serviceId:
+          type: "string"
+          format: "uuid"
+        serviceNo:
+          type: ["string", "null"]
+        title:
+          type: "string"
+        categoryCode:
+          type: ["string", "null"]
+        categoryName:
+          type: ["string", "null"]
+        providerId:
+          type: "string"
+          format: "uuid"
+        providerName:
+          type: ["string", "null"]
+        priceMode:
+          anyOf:
+            - $ref: "#/components/schemas/InspectionPriceMode"
+            - type: "null"
+        startingAmountMinor:
+          type: ["integer", "null"]
+        status:
+          $ref: "#/components/schemas/OpsInspectionServiceStatus"
+        coverUrl:
+          type: ["string", "null"]
+        cityCount:
+          type: "integer"
+          minimum: 0
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsInspectionServicePage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsInspectionServiceRow"
+    OpsInspectionService:
+      type: "object"
+      additionalProperties: false
+      required: [serviceId, serviceNo, status, version, updatedAt, providerId, providerName, title, summary,
+                 categoryCode, categoryName, coverUrl, priceMode, startingAmountMinor, unitCode, unitLabel, priceNote,
+                 cancellationNote, availability, primaryAction, includesReport, serviceMethods, cities, bookingItems,
+                 priceFactors, capabilities, processSteps, deliverables, guarantees, completedCount]
+      properties:
+        serviceId:
+          type: "string"
+          format: "uuid"
+        serviceNo:
+          type: ["string", "null"]
+          description: "服务编号（新建时生成 INS-SVC-…）"
+        status:
+          $ref: "#/components/schemas/OpsInspectionServiceStatus"
+        version:
+          type: "integer"
+          minimum: 0
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        providerId:
+          type: "string"
+          format: "uuid"
+        providerName:
+          type: ["string", "null"]
+        title:
+          type: "string"
+        summary:
+          type: ["string", "null"]
+        categoryCode:
+          type: ["string", "null"]
+        categoryName:
+          type: ["string", "null"]
+        coverUrl:
+          type: ["string", "null"]
+        priceMode:
+          anyOf:
+            - $ref: "#/components/schemas/InspectionPriceMode"
+            - type: "null"
+        startingAmountMinor:
+          type: ["integer", "null"]
+        unitCode:
+          type: ["string", "null"]
+        unitLabel:
+          type: ["string", "null"]
+        priceNote:
+          type: ["string", "null"]
+        cancellationNote:
+          type: ["string", "null"]
+        availability:
+          anyOf:
+            - $ref: "#/components/schemas/InspectionAvailability"
+            - type: "null"
+        primaryAction:
+          anyOf:
+            - $ref: "#/components/schemas/InspectionPrimaryAction"
+            - type: "null"
+        includesReport:
+          type: "boolean"
+        serviceMethods:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/InspectionServiceMethod"
+        cities:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsInspectionCity"
+        bookingItems:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsInspectionItem"
+        priceFactors:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsInspectionItem"
+        capabilities:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsInspectionItem"
+        processSteps:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsInspectionItem"
+        deliverables:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsInspectionItem"
+        guarantees:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsInspectionItem"
+        completedCount:
+          type: "integer"
+          minimum: 0
+          description: "完成服务次数（只读）"

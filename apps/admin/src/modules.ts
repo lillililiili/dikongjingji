@@ -1,18 +1,24 @@
 import type { AdminModule } from '@/core/navigation/module'
+import { activityModule } from '@/features/activity/activity-module'
 import { catalogModule } from '@/features/catalog/catalog-module'
 import { cityModule } from '@/features/city/city-module'
+import { contentModule } from '@/features/content/content-module'
 import { demandQuotesModule } from '@/features/demand-quotes/demand-quotes-module'
 import { feedbackModule } from '@/features/feedback/feedback-module'
 import { importModule } from '@/features/import/import-module'
+import { inspectionCatalogModule } from '@/features/inspection-catalog/inspection-catalog-module'
 import { inspectionWorkbenchModule } from '@/features/inspection-workbench/inspection-workbench-module'
 import { liveHostModule } from '@/features/live-host/live-host-module'
+import { liveModule } from '@/features/live/live-module'
 import { mallInquiryModule } from '@/features/mall-inquiry/mall-inquiry-module'
 import { merchantAccountModule } from '@/features/merchant-account/merchant-account-module'
 import { merchantOrdersModule } from '@/features/merchant-orders/merchant-orders-module'
 import { opsMerchantAccountModule } from '@/features/ops-merchant-account/merchant-account-module'
 import { organizationModule } from '@/features/organization/organization-module'
+import { proServiceModule } from '@/features/proservice/proservice-module'
 import { rentalWorkbenchModule } from '@/features/rental-workbench/rental-workbench-module'
 import { supportDeskModule } from '@/features/support-desk/support-desk-module'
+import { venueModule } from '@/features/venue/venue-module'
 
 /**
  * 运营端全部功能块。新增一块（比如活动与场馆、发现内容、直播间开通，或机构工作台的发货核销）：
@@ -37,4 +43,10 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   supportDeskModule,
   liveHostModule,
   merchantAccountModule,
+  contentModule,
+  activityModule,
+  venueModule,
+  liveModule,
+  inspectionCatalogModule,
+  proServiceModule,
 ]

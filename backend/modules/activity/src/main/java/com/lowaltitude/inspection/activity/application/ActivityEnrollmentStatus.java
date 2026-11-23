@@ -26,11 +26,25 @@ public enum ActivityEnrollmentStatus {
             int enrolledCount,
             boolean waitlistAllowed
     ) {
+        return ofSession(now, startsAt, endsAt, enrollmentClosesAt, capacity, enrolledCount, waitlistAllowed, false);
+    }
+
+    /** saleStopped：运营把这一场停售了（S3-1，迁移 V004）——没结束就按报名截止处理，已有的报名不受影响。 */
+    static ActivityEnrollmentStatus ofSession(
+            OffsetDateTime now,
+            OffsetDateTime startsAt,
+            OffsetDateTime endsAt,
+            OffsetDateTime enrollmentClosesAt,
+            int capacity,
+            int enrolledCount,
+            boolean waitlistAllowed,
+            boolean saleStopped
+    ) {
         OffsetDateTime finishedAt = endsAt == null ? startsAt : endsAt;
         if (!finishedAt.isAfter(now)) {
             return ENDED;
         }
-        if (!enrollmentClosesAt.isAfter(now)) {
+        if (saleStopped || !enrollmentClosesAt.isAfter(now)) {
             return CLOSED;
         }
         if (enrolledCount >= capacity) {

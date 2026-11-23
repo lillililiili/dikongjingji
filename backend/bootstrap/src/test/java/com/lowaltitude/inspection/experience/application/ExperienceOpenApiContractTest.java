@@ -57,6 +57,7 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenueProject", VenueProjectView.class),
             Map.entry("VenueInfoItem", VenueInfoItemView.class),
             Map.entry("VenueDetail", VenueDetailView.class),
+            Map.entry("VenueCheckInRule", VenueCheckInRuleView.class),
             Map.entry("VenueSession", VenueSessionView.class),
             Map.entry("VenueSessionList", VenueSessionListView.class),
             Map.entry("VenueDevice", VenueDeviceView.class),

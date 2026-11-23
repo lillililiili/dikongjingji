@@ -411,6 +411,8 @@ test.describe('发现页视觉', () => {
 
       await page.goto(at(`#/pages/content/article?articleId=${CASE_DOG}&cityCode=${CITY}`))
       await expect(page.getByTestId('content-article-refs')).toBeVisible()
+      // 1.3.0 正文配图（画板“怎么巡”后面那张图）也进对照图。
+      await expect(page.getByTestId('content-article-figure')).toBeVisible()
       await assertNoHorizontalOverflow(page)
       await tallShot(page, shot('ContentArticle'))
 
@@ -422,6 +424,8 @@ test.describe('发现页视觉', () => {
       await page.goto(at(`#/pages/content/topic?topicId=${TOPIC}&cityCode=${CITY}`))
       await expect(page.getByTestId('content-topic-activities').locator('[data-testid^="content-topic-activity-"]')).toHaveCount(3)
       await expect(page.getByTestId(`content-topic-venue-${VENUE}`)).toBeVisible()
+      // 1.3.0 商家内容（画板 Topic 最后一块）也进对照图。
+      await expect(page.getByTestId('content-topic-merchants').locator('[data-testid^="content-topic-merchant-"]')).toHaveCount(1)
       await assertNoHorizontalOverflow(page)
       await tallShot(page, shot('Topic'))
     }

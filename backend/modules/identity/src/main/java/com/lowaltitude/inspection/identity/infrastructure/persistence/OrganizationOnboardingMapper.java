@@ -356,6 +356,34 @@ public interface OrganizationOnboardingMapper {
             """)
     List<OperationRow> findOperations(@Param("organizationId") UUID organizationId, @Param("limit") int limit);
 
+    /**
+     * 有某个机构角色（直播主办 LIVE_HOST）的在用经营机构，和机构里有这个角色的在用账号数（S3-1 运营端“直播间”）。
+     * 机构角色只在账号的默认机构下生效，规则和 findAccountRoles 一样。按机构名称排。
+     */
+    @Select("""
+            SELECT o.id AS organization_id,
+                   o.organization_name,
+                   o.city_code,
+                   count(DISTINCT u.id) AS account_count
+              FROM identity_organization o
+              JOIN identity_user u ON u.default_organization_id = o.id AND u.status = 'ACTIVE'
+              JOIN identity_user_role ur ON ur.user_id = u.id
+                   AND (ur.organization_id IS NULL OR ur.organization_id = o.id)
+                   AND ur.valid_from <= #{at}
+                   AND (ur.valid_until IS NULL OR ur.valid_until > #{at})
+              JOIN identity_role r ON r.id = ur.role_id AND r.status = 'ACTIVE' AND r.role_code = #{roleCode}
+             WHERE o.organization_type = 'PROVIDER'
+               AND o.status = 'ACTIVE'
+             GROUP BY o.id, o.organization_name, o.city_code
+             ORDER BY o.organization_name, o.id
+             LIMIT #{limit}
+            """)
+    List<RoleHolderRow> findRoleHolderOrganizations(@Param("roleCode") String roleCode, @Param("at") OffsetDateTime at,
+                                                    @Param("limit") int limit);
+
+    record RoleHolderRow(UUID organizationId, String organizationName, String cityCode, long accountCount) {
+    }
+
     record OrganizationRow(UUID organizationId, String organizationCode, String organizationName,
                            String organizationType, String cityCode, String status,
                            OffsetDateTime qualificationReviewedAt, OffsetDateTime createdAt, int version,

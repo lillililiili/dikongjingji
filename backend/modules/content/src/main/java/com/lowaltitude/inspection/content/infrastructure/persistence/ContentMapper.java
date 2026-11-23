@@ -108,7 +108,7 @@ public interface ContentMapper {
     );
 
     @Select("""
-            SELECT b.id, b.block_type, b.text
+            SELECT b.id, b.block_type, b.text, b.image_url, b.image_alt, b.image_caption
             FROM content_article_block b
             WHERE b.article_id = #{articleId}
             ORDER BY b.sort_order ASC
@@ -168,7 +168,7 @@ public interface ContentMapper {
     TopicRow findTopic(@Param("topicId") UUID topicId, @Param("cityCode") String cityCode);
 
     @Select("""
-            SELECT i.item_type, i.item_id
+            SELECT i.item_type, i.item_id, i.merchant_org_id, i.merchant_name
             FROM content_topic_item i
             WHERE i.topic_id = #{topicId}
             ORDER BY i.sort_order ASC
@@ -195,7 +195,8 @@ public interface ContentMapper {
     ) {
     }
 
-    record BlockRow(UUID id, String blockType, String text) {
+    /** 1.3.0：配图块的地址、替代文字、图注；别的块为空。 */
+    record BlockRow(UUID id, String blockType, String text, String imageUrl, String imageAlt, String imageCaption) {
     }
 
     record BlockItemRow(UUID blockId, String title, String text) {
@@ -219,6 +220,7 @@ public interface ContentMapper {
     ) {
     }
 
-    record TopicItemRow(String itemType, UUID itemId) {
+    /** 1.3.0：商家内容（PRODUCT）带发布商家的机构 ID 和名称快照；别的条目为空。 */
+    record TopicItemRow(String itemType, UUID itemId, UUID merchantOrgId, String merchantName) {
     }
 }

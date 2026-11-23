@@ -3,7 +3,10 @@ package com.lowaltitude.inspection.experience.application;
 import java.time.Clock;
 import java.util.List;
 
+import com.lowaltitude.inspection.experience.application.ops.VenueOpsPorts;
+import com.lowaltitude.inspection.experience.application.ops.VenueOpsService;
 import com.lowaltitude.inspection.experience.infrastructure.persistence.ExperienceCatalogMapper;
+import com.lowaltitude.inspection.experience.infrastructure.persistence.VenueOpsMapper;
 import com.lowaltitude.inspection.experience.infrastructure.persistence.VenueBookingMapper;
 import com.lowaltitude.inspection.experience.infrastructure.persistence.VenueCheckinMapper;
 import org.mybatis.spring.annotation.MapperScan;
@@ -58,5 +61,23 @@ public class ExperienceApplicationConfiguration {
     @Bean
     VenueCheckinDesk venueCheckinDesk(VenueCheckinMapper mapper) {
         return new VenueCheckinDesk(mapper, Clock.systemUTC());
+    }
+
+    /**
+     * 运营端“场馆与设备”（S3-1）。城市目录、运营机构、商品三个端口由启动模块接（VenueOpsPortsConfiguration）；
+     * 城市和机构没接时一律当作不存在（建不了场馆），商品没接时只校验 ID 格式。
+     */
+    @Bean
+    VenueOpsService venueOpsService(
+            VenueOpsMapper mapper,
+            ObjectProvider<VenueOpsPorts.Cities> cities,
+            ObjectProvider<VenueOpsPorts.Operators> operators,
+            ObjectProvider<VenueOpsPorts.Products> products
+    ) {
+        return new VenueOpsService(
+                mapper,
+                cities.getIfAvailable(() -> cityCode -> java.util.Optional.empty()),
+                operators.getIfAvailable(() -> organizationId -> java.util.Optional.empty()),
+                products.getIfAvailable(VenueOpsPorts.Products::unchecked));
     }
 }

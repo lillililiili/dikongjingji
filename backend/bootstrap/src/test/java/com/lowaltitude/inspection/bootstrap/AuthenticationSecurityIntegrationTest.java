@@ -76,6 +76,13 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class,
         com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
         com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
+        com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,
+        com.lowaltitude.inspection.experience.application.ops.VenueOpsService.class,
+        com.lowaltitude.inspection.content.application.ops.ContentOpsService.class,
+        // S3-1 第三部分：巡检和专业服务目录
+        com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
+        com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
+        com.lowaltitude.inspection.live.application.LiveOpsService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -572,7 +579,12 @@ class AuthenticationSecurityIntegrationTest {
                 com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class);
         var support = applicationContext.getBean(
                 com.lowaltitude.inspection.support.application.SupportService.class);
-        org.mockito.Mockito.clearInvocations(cities, organizations, support);
+        var activityOps = applicationContext.getBean(
+                com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class);
+        org.mockito.Mockito.clearInvocations(cities, organizations, support, activityOps);
+        var contentOps = applicationContext.getBean(
+                com.lowaltitude.inspection.content.application.ops.ContentOpsService.class);
+        org.mockito.Mockito.clearInvocations(cities, organizations, support, contentOps);
         String operatorToken = tokenWithRoles(List.of("PLATFORM_OPERATOR"));
         String supportToken = tokenWithRoles(List.of("PLATFORM_SUPPORT"));
 
@@ -585,6 +597,9 @@ class AuthenticationSecurityIntegrationTest {
         org.mockito.Mockito.verify(cities).cities(null, null, null, 1, 20);
         org.mockito.Mockito.verify(organizations).organizations(null, null, null, 1, 20);
         org.mockito.Mockito.verify(support).opsFeedback(null, null, 1, 20);
+        mockMvc.perform(get("/api/v1/ops/content/articles").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(contentOps).articles(null, null, null, null, 1, 20);
 
         for (String token : List.of(signedToken(List.of(), 7), tokenWithRoles(List.of("PROVIDER_OPERATOR")),
                 tokenWithRoles(List.of("LIVE_HOST")), tokenWithRoles(List.of("PROVIDER_OPERATOR", "LIVE_HOST")))) {
@@ -601,7 +616,10 @@ class AuthenticationSecurityIntegrationTest {
         for (var request : List.of(get("/api/v1/ops/cities"), get("/api/v1/ops/organizations"),
                 get("/api/v1/ops/organizations/" + organization), get("/api/v1/ops/catalog/products"),
                 get("/api/v1/ops/merchant-accounts"), get("/api/v1/ops/imports/kinds"),
-                get("/api/v1/ops/imports/batches"))) {
+                get("/api/v1/ops/imports/batches"),
+                get("/api/v1/ops/activities"),
+                get("/api/v1/ops/content/articles"),
+                get("/api/v1/ops/content/topics"))) {
             mockMvc.perform(request.header("Authorization", "Bearer " + supportToken))
                     .andExpect(status().isForbidden());
         }
@@ -612,6 +630,8 @@ class AuthenticationSecurityIntegrationTest {
                 applicationContext.getBean(
                         com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class),
                 applicationContext.getBean(com.lowaltitude.inspection.opsimport.application.OpsImportService.class));
+        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support, activityOps);
+        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support, contentOps);
     }
 
     /** 每次新建，请求头不会在几轮之间叠加。 */
@@ -619,6 +639,7 @@ class AuthenticationSecurityIntegrationTest {
             UUID organization) {
         UUID attachment = UUID.fromString("e7000000-0000-4000-8000-000000000002");
         String orgPath = "/api/v1/ops/organizations/" + organization;
+        String venuePath = "/api/v1/ops/venues/b2000000-0000-4000-8000-000000000001";
         return List.of(
                 get("/api/v1/ops/cities"), put("/api/v1/ops/cities/370500/service-status"),
                 get("/api/v1/ops/cities/370500/service-status-changes"),
@@ -641,7 +662,70 @@ class AuthenticationSecurityIntegrationTest {
                 get("/api/v1/ops/merchant-accounts/" + organization + "/operations"),
                 get("/api/v1/ops/imports/kinds"), post("/api/v1/ops/imports/MALL/checks"),
                 get("/api/v1/ops/imports/batches"), get("/api/v1/ops/imports/batches/" + attachment),
-                post("/api/v1/ops/imports/batches/" + attachment + "/run"));
+                post("/api/v1/ops/imports/batches/" + attachment + "/run"),
+                // S3-1 第三部分：素材上传与预览
+                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"),
+                // S3-1 第三部分：活动与场次
+                get("/api/v1/ops/activities"), post("/api/v1/ops/activities"),
+                get("/api/v1/ops/activities/" + attachment), put("/api/v1/ops/activities/" + attachment),
+                delete("/api/v1/ops/activities/" + attachment + "?version=0"),
+                post("/api/v1/ops/activities/" + attachment + "/publish"),
+                post("/api/v1/ops/activities/" + attachment + "/offline"),
+                get("/api/v1/ops/activities/" + attachment + "/changes"),
+                post("/api/v1/ops/activities/" + attachment + "/sessions"),
+                put("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment),
+                delete("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment + "?version=0"),
+                post("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment + "/stop-sale"),
+                post("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment + "/resume-sale"),
+                // S3-1 第三部分：场馆与设备
+                get("/api/v1/ops/venues"), post("/api/v1/ops/venues"), get(venuePath), put(venuePath),
+                post(venuePath + "/publish"), post(venuePath + "/offline"), get(venuePath + "/changes"),
+                post(venuePath + "/projects"), put(venuePath + "/projects/" + attachment),
+                put(venuePath + "/projects/" + attachment + "/status"),
+                get(venuePath + "/projects/" + attachment + "/sessions"),
+                post(venuePath + "/projects/" + attachment + "/sessions/generate"),
+                post(venuePath + "/sessions/" + attachment + "/stop-sale"),
+                post(venuePath + "/sessions/" + attachment + "/resume-sale"),
+                post(venuePath + "/sessions/" + attachment + "/cancel"),
+                post(venuePath + "/devices"), put(venuePath + "/devices/" + attachment),
+                put(venuePath + "/devices/" + attachment + "/status"),
+                // S3-1 第三部分：发现内容（图文、视频、专题）
+                get("/api/v1/ops/content/articles"), post("/api/v1/ops/content/articles"),
+                get("/api/v1/ops/content/articles/" + attachment), put("/api/v1/ops/content/articles/" + attachment),
+                post("/api/v1/ops/content/articles/" + attachment + "/publish"),
+                post("/api/v1/ops/content/articles/" + attachment + "/offline"),
+                get("/api/v1/ops/content/articles/" + attachment + "/changes"),
+                get("/api/v1/ops/content/videos"), post("/api/v1/ops/content/videos"),
+                get("/api/v1/ops/content/videos/" + attachment), put("/api/v1/ops/content/videos/" + attachment),
+                post("/api/v1/ops/content/videos/" + attachment + "/publish"),
+                post("/api/v1/ops/content/videos/" + attachment + "/offline"),
+                get("/api/v1/ops/content/videos/" + attachment + "/changes"),
+                get("/api/v1/ops/content/topics"), post("/api/v1/ops/content/topics"),
+                get("/api/v1/ops/content/topics/" + attachment), put("/api/v1/ops/content/topics/" + attachment),
+                post("/api/v1/ops/content/topics/" + attachment + "/publish"),
+                post("/api/v1/ops/content/topics/" + attachment + "/offline"),
+                get("/api/v1/ops/content/topics/" + attachment + "/changes"),
+                // S3-1 第三部分：巡检和专业服务目录
+                get("/api/v1/ops/inspection/categories"), post("/api/v1/ops/inspection/categories"),
+                put("/api/v1/ops/inspection/categories/POWER"), put("/api/v1/ops/inspection/categories/POWER/status"),
+                get("/api/v1/ops/inspection/categories/POWER/changes"),
+                get("/api/v1/ops/inspection/services"), post("/api/v1/ops/inspection/services"),
+                get("/api/v1/ops/inspection/services/" + attachment),
+                put("/api/v1/ops/inspection/services/" + attachment),
+                post("/api/v1/ops/inspection/services/" + attachment + "/publish"),
+                post("/api/v1/ops/inspection/services/" + attachment + "/offline"),
+                get("/api/v1/ops/inspection/services/" + attachment + "/changes"),
+                get("/api/v1/ops/pro-services"), post("/api/v1/ops/pro-services"),
+                get("/api/v1/ops/pro-services/" + attachment), put("/api/v1/ops/pro-services/" + attachment),
+                post("/api/v1/ops/pro-services/" + attachment + "/publish"),
+                post("/api/v1/ops/pro-services/" + attachment + "/offline"),
+                get("/api/v1/ops/pro-services/" + attachment + "/changes"),
+                // S3-1 第三部分：直播间
+                get("/api/v1/ops/live/hosts"), get("/api/v1/ops/live/rooms"),
+                get("/api/v1/ops/live/rooms/" + attachment),
+                post("/api/v1/ops/live/rooms/" + attachment + "/end"),
+                put("/api/v1/ops/live/rooms/" + attachment + "/replay"),
+                get("/api/v1/ops/live/rooms/" + attachment + "/changes"));
     }
 
     private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {

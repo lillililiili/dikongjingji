@@ -79,6 +79,18 @@ class OrganizationOnboardingMapperSqlTest {
         }
     }
 
+    // S3-1 第三部分“直播间”：开通了直播主办的机构只算在用的经营机构、在用账号、当前有效的机构角色。
+    @Test
+    void roleHoldersAreActiveProvidersWithCurrentlyValidRoles() {
+        assertThat(normalized(sql("findRoleHolderOrganizations")))
+                .contains("JOIN identity_user u ON u.default_organization_id = o.id AND u.status = 'ACTIVE'")
+                .contains("AND (ur.organization_id IS NULL OR ur.organization_id = o.id)")
+                .contains("AND ur.valid_from <= #{at} AND (ur.valid_until IS NULL OR ur.valid_until > #{at})")
+                .contains("r.status = 'ACTIVE' AND r.role_code = #{roleCode}")
+                .contains("WHERE o.organization_type = 'PROVIDER' AND o.status = 'ACTIVE'")
+                .endsWith("LIMIT #{limit}");
+    }
+
     @Test
     void assembledQueriesKeepTheirKeywordsApart() {
         assertThat(statements().values()).allSatisfy(sql -> assertThat(sql)

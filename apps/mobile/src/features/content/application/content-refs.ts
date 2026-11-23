@@ -19,8 +19,13 @@ import { buildActivityDetailUrl } from '../../activity/navigation/activity-route
 import { buildVenueDetailUrl } from '../../experience/navigation/experience-routes'
 import { toBeijingDate } from '../../../shared/time/beijing-time'
 
-import { resolveRefPreviewCover, resolveTopicActivityPreviewCover } from '../data/preview/content-preview-covers'
-import type { ContentRef, ContentRefType } from '../domain/content'
+import { buildMallProductUrl } from '../../mall/navigation/mall-routes'
+import {
+  resolveRefPreviewCover,
+  resolveTopicActivityPreviewCover,
+  resolveTopicMerchantPreview,
+} from '../data/preview/content-preview-covers'
+import type { ContentRef, ContentRefType, ContentTopicMerchantItem } from '../domain/content'
 import { contentRefTargetUrl } from '../navigation/content-routes'
 import type { Tone } from './content-view'
 
@@ -319,4 +324,71 @@ export async function loadTopicVenues(
     }
   }))
   return venues.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []))
+}
+
+// ---- The topic page's 商家内容 (1.3.0) ----
+
+/** One card of 商家内容 (board Topic): the merchant's product as the mall sells it in this city now. */
+export interface TopicMerchantView {
+  productId: string
+  // "示例机器人商家" — shown as "示例机器人商家发布" next to 广告.
+  merchantName: string
+  title: string
+  // "¥1,299"; "询价" when nobody quotes a price.
+  amount: string
+  // "起 · 3 家在售"
+  meta: string
+  imageUrl: string | null
+  url: string
+}
+
+export function toTopicMerchantView(
+  item: ContentTopicMerchantItem,
+  product: MallProductDetail,
+  cityCode: string,
+): TopicMerchantView | null {
+  const sellers = new Set(product.offers.map((offer) => offer.merchantId)).size
+  // Nobody sells it here any more: the card is left out.
+  if (sellers === 0) return null
+  const priced = product.offers.filter((offer) => offer.amountMinor !== null)
+  const lowest = priced.reduce<(typeof priced)[number] | null>(
+    (best, offer) => (best === null || (offer.amountMinor ?? 0) < (best.amountMinor ?? 0) ? offer : best),
+    null,
+  )
+  const several = new Set(priced.map((offer) => offer.amountMinor)).size > 1
+  const sold = `${sellers} 家在售`
+  let amount = '询价'
+  let meta = sold
+  if (product.saleMode !== 'INQUIRY' && lowest && lowest.amountMinor !== null) {
+    amount = formatProServiceYuan(lowest.amountMinor)
+    const unit = `${MALL_UNITS[lowest.unit]}${several || product.saleMode === 'RENT' ? ' 起' : ''}`.trim()
+    meta = unit ? `${unit} · ${sold}` : sold
+  }
+  return {
+    productId: product.productId,
+    merchantName: item.merchant.name,
+    title: product.name,
+    amount,
+    meta,
+    imageUrl: httpsOnly(product.coverImage?.url) ?? resolveTopicMerchantPreview(product.productId),
+    url: buildMallProductUrl(product.productId, cityCode),
+  }
+}
+
+/**
+ * 商家内容: each product read from the mall in the topic's city, in the topic's order. One that cannot
+ * be read (taken down, not sold in this city, the request failed) is left out.
+ */
+export async function loadTopicMerchantItems(
+  items: readonly ContentTopicMerchantItem[],
+  cityCode: string,
+  apis: Pick<ContentLinkedApis, 'mall'>,
+): Promise<TopicMerchantView[]> {
+  const results = await Promise.allSettled(items.map((item) => apis.mall.loadProduct(item.productId, cityCode)))
+  return results.flatMap((result, index) => {
+    const item = items[index]
+    if (result.status !== 'fulfilled' || !item) return []
+    const view = toTopicMerchantView(item, result.value, cityCode)
+    return view ? [view] : []
+  })
 }

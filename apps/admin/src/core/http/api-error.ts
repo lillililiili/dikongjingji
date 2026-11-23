@@ -61,6 +61,40 @@ const MESSAGES: Record<string, string> = {
   OPS_SUB_MCHID_PLACEHOLDER: '这是开发用的占位商户号（1900000xxx），这个环境不能登记，请填真实的二级商户号',
   OPS_IMPORT_HAS_ISSUES: '这批文件有问题，不能导入：请看问题列表，改好后重新预检',
   OPS_IMPORT_NOT_WRITABLE: '这一类这一版只能预检，还不能导入',
+  // S3-1 第三部分：素材上传（openapi-ops-media.yaml）和各块共用的上线前校验
+  OPS_PUBLISH_INCOMPLETE: '上线前还有必填项没填',
+  OPS_MEDIA_TYPE_UNSUPPORTED: '只能上传 JPEG、PNG、WebP 图片或 MP4 视频',
+  OPS_MEDIA_TOO_LARGE: '图片不能超过 5 MB，视频不能超过 50 MB',
+  OPS_MEDIA_STORE_UNAVAILABLE: '素材存储暂不可用，请稍后再试',
+  // 活动与场次（openapi-ops-activity.yaml）
+  OPS_ACTIVITY_STATUS_CONFLICT: '活动现在的状态不能这样操作，请刷新后再看',
+  OPS_ACTIVITY_ORGANIZER_UNKNOWN: '主办或承办机构不存在、已停用，或不是经营机构',
+  OPS_ACTIVITY_HAS_ENROLLMENTS: '活动已有报名，不能改收费方式、主办机构和城市',
+  OPS_ACTIVITY_SESSION_HAS_ENROLLMENTS: '这一场已有报名：不能删除，也不能改开始、结束时间，只能停售',
+  OPS_ACTIVITY_SESSION_STARTED: '场次已经开始，不能再改',
+  OPS_ACTIVITY_CAPACITY_BELOW_ENROLLED: '名额不能少于已报名人数',
+  OPS_ACTIVITY_SALE_STATUS_UNCHANGED: '场次已经是这个售卖状态了',
+  OPS_ACTIVITY_SESSION_LIMIT: '一个活动最多 50 个场次',
+  // 场馆与设备（openapi-ops-venue.yaml）
+  OPS_VENUE_STATUS_CONFLICT: '当前状态不能做这个操作，请刷新后再看',
+  OPS_VENUE_OPERATOR_INVALID: '运营机构不存在、已停用或不是服务商机构',
+  OPS_VENUE_PRODUCT_UNKNOWN: '关联的商品不存在，或在场馆所在城市没有在售',
+  OPS_VENUE_SESSION_STARTED: '场次已经开始，不能再改',
+  OPS_VENUE_SESSION_HAS_BOOKINGS: '这一场已有预约，不能取消，只能停售',
+  OPS_VENUE_TOO_MANY_SESSIONS: '一次最多生成 200 场，请缩短日期范围或减少开始时间',
+  // 发现内容（openapi-ops-content.yaml）
+  OPS_CONTENT_AUTHOR_INVALID: '作者、发布方或发布商家要是在用的服务商或商家；案例不能由平台发布',
+  OPS_CONTENT_STATUS_CONFLICT: '内容当前的状态不能做这个操作，请刷新后再看',
+  OPS_CONTENT_ARTICLE_UNKNOWN: '专题里挂的图文不存在（视频不能挂在相关内容里）',
+  OPS_CONTENT_PRODUCT_UNKNOWN: '商品不存在，或在专题的城市没有在售商家',
+  // 巡检和专业服务目录（openapi-ops-inspection-catalog.yaml、openapi-ops-proservice.yaml）
+  OPS_PROVIDER_UNKNOWN: '服务商不存在、已停用或不是服务商机构',
+  OPS_INSPECTION_CATEGORY_UNKNOWN: '类目不存在或已停用',
+  OPS_INSPECTION_CATEGORY_CODE_TAKEN: '类目编码已被占用，换一个试试',
+  OPS_INSPECTION_CATEGORY_IN_USE: '类目下还有上架的服务，先下架或给服务换类目',
+  // 直播间（openapi-ops-live.yaml）
+  OPS_LIVE_ROOM_ENDED: '直播间已经结束了，请刷新后再看',
+  OPS_LIVE_ROOM_NOT_ENDED: '直播结束后才能设回看',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }

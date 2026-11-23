@@ -654,6 +654,26 @@ public class OrganizationOnboardingService {
         return OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
     }
 
+    /** 直播主办机构最多列这么多家（运营端“直播间”的主办机构标签页，不分页）。 */
+    public static final int MAX_LIVE_HOSTS = 200;
+
+    /**
+     * 开通了直播主办的机构（S3-1 运营端“直播间”）：在用的经营机构里，有在用账号拿着直播主办（LIVE_HOST）角色的。
+     * 开通、收回都在“机构与资质”里给账号改角色（replaceRoles，带操作记录），这里只列出来。
+     */
+    @Transactional(readOnly = true)
+    public List<LiveHostOrganizationView> liveHostOrganizations() {
+        return mapper.findRoleHolderOrganizations(OpsGrantableRole.LIVE_HOST.name(), now(), MAX_LIVE_HOSTS).stream()
+                .map(row -> new LiveHostOrganizationView(row.organizationId(), row.organizationName(),
+                        row.cityCode(), row.accountCount()))
+                .toList();
+    }
+
+    /** 开通了直播主办的一家机构，和机构里有直播主办角色的在用账号数。 */
+    public record LiveHostOrganizationView(UUID organizationId, String organizationName, String cityCode,
+                                           long hostAccountCount) {
+    }
+
     /** 谁在操作（平台运营的账号和显示名），写进操作记录。 */
     public record Operator(UUID accountId, String displayName) {
     }

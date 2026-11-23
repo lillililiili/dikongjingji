@@ -61,8 +61,18 @@ record ContentFeedView(
 record ContentBlockItemView(String title, String text) {
 }
 
-/** 正文的一块：text 和 items 按 type 只有一个有内容（另一个为 null / 空）。 */
-record ContentBlockView(ContentBlockType type, String text, List<ContentBlockItemView> items) {
+/**
+ * 正文配图（1.3.0）：url 只给带主机名的 HTTPS 地址，没有授权图片时为 null（预览构建用画板图片，公开构建不显示这一块）；
+ * alt 是替代文字，caption 是图下的说明（可以没有）。
+ */
+record ContentBlockImageView(String url, String alt, String caption) {
+}
+
+/**
+ * 正文的一块：text、items、image 按 type 只有一个有内容（其余为 null / 空）。IMAGE 块只有 image。
+ */
+record ContentBlockView(ContentBlockType type, String text, List<ContentBlockItemView> items,
+                        ContentBlockImageView image) {
 }
 
 /** “内容中提到”的一项：title 是录入时的名称，页面按 type + refId 读真实的名称、价格和状态。 */
@@ -86,7 +96,7 @@ record ContentArticleView(
 
 /**
  * 专题详情：activityIds、venueIds 按专题里的顺序，页面到赛事研学、体验模块读真实的活动和场馆；
- * articles 是专题挂的、在这个城市能看到的图文卡片。
+ * articles 是专题挂的、在这个城市能看到的图文卡片；merchantItems（1.3.0）是商家内容，按专题里的顺序。
  */
 record ContentTopicView(
         UUID topicId,
@@ -100,8 +110,16 @@ record ContentTopicView(
         boolean sample,
         List<UUID> activityIds,
         List<UUID> venueIds,
-        List<ContentArticleCardView> articles
+        List<ContentArticleCardView> articles,
+        List<ContentTopicMerchantItemView> merchantItems
 ) {
+}
+
+/**
+ * 专题里的商家内容（1.3.0）：商家的一件商品，页面按 productId 到商城读真实的名称、图片、价格和在售商家，
+ * 读不到（下架、本城不卖）时不显示；merchant 是发布这条内容的商家（名称快照），页面标“广告”。
+ */
+record ContentTopicMerchantItemView(UUID productId, ContentAuthorView merchant) {
 }
 
 /**
