@@ -190,4 +190,31 @@ public interface NotificationMapper {
               AND read_at IS NULL
             """)
     int markAllRead(@Param("recipientId") UUID recipientId, @Param("at") Instant at);
+
+    /**
+     * 系统通知（S5-9）：把发给全体、发给这个城市、还在有效期内的公告补记成收件人的一条站内信。
+     * 每份公告每个账号只记一条（source_key），撤回的公告不再补记；时间用公告的发布时间。
+     * cityCode 为空时只补发给全体的。
+     */
+    @Insert("""
+            INSERT INTO notification_message (
+                id, recipient_id, category, event_code, title, body,
+                target_type, target_id, target_sub_id, source_key, occurred_at
+            )
+            SELECT gen_random_uuid(), #{recipientId}, 'SYSTEM_NOTICE', 'SYSTEM_NOTICE_PUBLISHED', notice.title,
+                   notice.summary, 'SYSTEM_NOTICE', notice.id, NULL,
+                   'system-notice:' || notice.id || ':' || CAST(#{recipientId} AS text), notice.published_at
+            FROM notification_system_notice notice
+            WHERE notice.status = 'PUBLISHED'
+              AND notice.published_at <= #{now}
+              AND (notice.expires_at IS NULL OR notice.expires_at > #{now})
+              AND (notice.audience_scope = 'ALL'
+                   OR (notice.audience_scope = 'CITY' AND notice.city_code = #{cityCode}))
+            ON CONFLICT (source_key) DO NOTHING
+            """)
+    int deliverSystemNotices(
+            @Param("recipientId") UUID recipientId,
+            @Param("cityCode") String cityCode,
+            @Param("now") Instant now
+    );
 }

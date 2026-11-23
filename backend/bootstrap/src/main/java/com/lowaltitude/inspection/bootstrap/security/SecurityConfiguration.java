@@ -134,6 +134,9 @@ public class SecurityConfiguration {
                         // 直播服务商回调：不登录，靠签名（LiveStreamProvider.verifyCallback）。
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/live/stream-callbacks").permitAll()
+                        // 系统通知（S5-9）的详情和“协议有更新”：公开只读，公告不含个人信息，协议页登录前也要显示。
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/system-notices/*").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/platform/cities/*/search-selections").permitAll()
                         // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。

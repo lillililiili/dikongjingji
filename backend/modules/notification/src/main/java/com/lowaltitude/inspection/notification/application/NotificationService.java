@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * 站内信：记录一条通知，和“收件人读自己的通知”（契约 contracts/openapi-notification.yaml）。
@@ -17,12 +18,21 @@ public class NotificationService {
     private static final int MAX_EVENT_CODE_LENGTH = 80;
     private static final int MAX_SOURCE_KEY_LENGTH = 120;
 
+    private static final String CITY_CODE_PATTERN = "^[A-Z0-9]{4,16}$";
+
     private final NotificationStore store;
     private final Clock clock;
+    // 新记了一条之后（S5-9 推送）；由配置接到 PushDispatcher，在事务提交之后按通知开关推送。
+    private final Consumer<NewNotification> onRecorded;
 
     NotificationService(NotificationStore store, Clock clock) {
+        this(store, clock, notification -> { });
+    }
+
+    NotificationService(NotificationStore store, Clock clock, Consumer<NewNotification> onRecorded) {
         this.store = store;
         this.clock = clock;
+        this.onRecorded = onRecorded;
     }
 
     /**
@@ -35,7 +45,15 @@ public class NotificationService {
             // 客服消息一个会话最多一条未读，只能走 recordUnlessUnread。
             throw new IllegalArgumentException("customer service notifications use recordUnlessUnread");
         }
-        return store.insert(notification);
+        if (notification.category() == NotificationCategory.SYSTEM_NOTICE) {
+            // 系统通知由公告补记（deliverSystemNotices），不由业务直接写。
+            throw new IllegalArgumentException("system notices are delivered from published notices");
+        }
+        boolean recorded = store.insert(notification);
+        if (recorded) {
+            onRecorded.accept(notification);
+        }
+        return recorded;
     }
 
     /**
@@ -45,6 +63,8 @@ public class NotificationService {
     public boolean recordUnlessUnread(NewNotification notification) {
         validate(notification);
         if (store.insertUnlessUnread(notification)) {
+            // 只有新记一条时推送；对方连着回复只刷新那条未读，不再推。
+            onRecorded.accept(notification);
             return true;
         }
         store.refreshUnread(notification);
@@ -77,10 +97,19 @@ public class NotificationService {
     }
 
     public NotificationPageView list(UUID recipientId, int page, int size) {
+        return list(recipientId, page, size, false, null);
+    }
+
+    /**
+     * 一页站内信。systemNotices 为 true 时（App 开通了系统通知的构建），先把发给全体、发给 cityCode（App 的当前城市，
+     * 可以不给）的系统通知补记成这个账号的（每份只记一次），再读。没开通的构建不补记，也就看不到、数不到。
+     */
+    public NotificationPageView list(UUID recipientId, int page, int size, boolean systemNotices, String cityCode) {
         requireRecipient(recipientId);
         if (page < 1 || size < 1 || size > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("page is invalid");
         }
+        deliverSystemNotices(recipientId, systemNotices, cityCode);
         long total = store.count(recipientId);
         List<NotificationView> items = store
                 .findPage(recipientId, size, Math.multiplyExact(page - 1, size))
@@ -103,7 +132,13 @@ public class NotificationService {
     }
 
     public UnreadCountView unreadCount(UUID recipientId) {
+        return unreadCount(recipientId, false, null);
+    }
+
+    /** 未读数；和列表一样，systemNotices 为 true 时先补记系统通知，底栏角标才数得到。 */
+    public UnreadCountView unreadCount(UUID recipientId, boolean systemNotices, String cityCode) {
         requireRecipient(recipientId);
+        deliverSystemNotices(recipientId, systemNotices, cityCode);
         return new UnreadCountView(store.countUnread(recipientId));
     }
 
@@ -123,6 +158,15 @@ public class NotificationService {
     public MarkedReadView markAllRead(UUID recipientId) {
         requireRecipient(recipientId);
         return new MarkedReadView(store.markAllRead(recipientId, now()));
+    }
+
+    private void deliverSystemNotices(UUID recipientId, boolean systemNotices, String cityCode) {
+        if (cityCode != null && !cityCode.matches(CITY_CODE_PATTERN)) {
+            throw new IllegalArgumentException("city code is invalid");
+        }
+        if (systemNotices) {
+            store.deliverSystemNotices(recipientId, cityCode, now());
+        }
     }
 
     private Instant now() {

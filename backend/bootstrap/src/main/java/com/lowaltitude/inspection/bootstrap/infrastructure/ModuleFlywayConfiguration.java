@@ -113,6 +113,20 @@ public class ModuleFlywayConfiguration {
         return factory.notification(dataSource);
     }
 
+    // 系统通知（S5-9）的示例公告“隐私政策更新摘要”；公告不引用账号，只要站内信的表建好。
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn("notificationFlyway")
+    Flyway notificationDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/notification")
+                .table("flyway_history_notification_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     // 需求与报价（F1）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     // 服务商资料在巡检模块，需求表不引用它。
     @Bean(initMethod = "migrate")

@@ -12,5 +12,10 @@ public enum NotificationCategory {
     /** 活动提醒（R6-5）：报名成功、报名已退款、到馆预约成功、到馆已改期。 */
     ACTIVITY_REMINDER,
     /** 直播提醒（M20）：设了提醒的直播开始了。同一直播间每个账号只记一条。 */
-    LIVE_REMINDER
+    LIVE_REMINDER,
+    /**
+     * 系统通知（S5-9）：平台运营发给全体或某个城市的公告。账号读站内信时补记成它的一条（同一公告每个账号只记一条），
+     * 跳转目标是这份公告。
+     */
+    SYSTEM_NOTICE
 }

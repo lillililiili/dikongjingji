@@ -79,6 +79,9 @@ import org.springframework.web.bind.annotation.RestController;
         TradeRefundService.class,
         TradeReconciliationService.class,
         NotificationService.class,
+        com.lowaltitude.inspection.notification.application.NotificationPreferenceService.class,
+        com.lowaltitude.inspection.notification.application.PushDeviceService.class,
+        com.lowaltitude.inspection.notification.application.SystemNoticeService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class
