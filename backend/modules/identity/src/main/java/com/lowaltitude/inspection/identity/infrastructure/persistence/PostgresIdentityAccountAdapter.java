@@ -31,6 +31,13 @@ public final class PostgresIdentityAccountAdapter implements IdentityAccountPort
                 .flatMap(this::mapAccount);
     }
 
+    @Override
+    public Optional<IdentityAccount> findBySubjectId(java.util.UUID subjectId) {
+        return reader.findUserById(subjectId)
+                .filter(PostgresIdentityAccountAdapter::hasActiveDefaultOrganization)
+                .flatMap(this::mapAccount);
+    }
+
     private Optional<IdentityAccount> mapAccount(PersistedIdentityUser user) {
         IdentityAccountStatus status;
         try {

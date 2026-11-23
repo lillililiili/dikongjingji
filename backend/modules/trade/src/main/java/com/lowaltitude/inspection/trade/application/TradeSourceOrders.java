@@ -29,8 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
  */
 public class TradeSourceOrders {
 
-    /** 各业务来源的订单编号前缀；商城订单是 MO。收费报名 AO（E09），到馆预约 VO（E10），设备租赁 RO（F3）。 */
-    static final Map<String, String> ORDER_PREFIXES = Map.of("ACTIVITY", "AO", "VENUE", "VO", "RENTAL", "RO");
+    /** 各业务来源的订单编号前缀；商城订单是 MO。收费报名 AO（E09），到馆预约 VO（E10），设备租赁 RO（F3），巡检付款节点 IO（S4-1）。 */
+    static final Map<String, String> ORDER_PREFIXES =
+            Map.of("ACTIVITY", "AO", "VENUE", "VO", "RENTAL", "RO", "INSPECTION", "IO");
     static final int MAX_LINES = 20;
     static final int MAX_ITEM_NAME = 160;
     static final int MAX_OPTION_NAME = 80;

@@ -119,8 +119,8 @@ test.describe('商品详情：卖点、多规格与库存', () => {
     await expect(page.getByTestId(`mall-buy-sku-price-${SKU_SENSOR}`)).toHaveText('本商家暂不供应')
     await expect(page.getByTestId('mall-buy-merchant')).toHaveText('示例机器人商家 · 东营现货 12 件')
 
-    // 点不供应的规格什么都不变。
-    await sensor.click()
+    // 点不供应的规格什么都不变。它带 aria-disabled，Playwright 默认不肯点，用 force 把点击真发到页面上。
+    await sensor.click({ force: true })
     await expect(page.getByTestId(`mall-buy-sku-${SKU_STANDARD}`)).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('mall-buy-price')).toHaveText('¥1,299')
 

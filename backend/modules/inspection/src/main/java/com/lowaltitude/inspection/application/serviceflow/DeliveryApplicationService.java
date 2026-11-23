@@ -103,9 +103,14 @@ public class DeliveryApplicationService {
         if (visit.version() != expectedVisitVersion) {
             throw new PlanVersionConflictException();
         }
-        if (visit.status() != ServiceVisitStatus.IN_PROGRESS
-                || !visit.serviceCompleted()
-                || store.findDeliveryByVisit(visitId).isPresent()) {
+        Optional<StoredDelivery> existing = store.findDeliveryByVisit(visitId);
+        // B2：退回整改的那一次重新交付，同一个交付改回已发布、文件整组替换。
+        boolean redelivery = visit.status() == ServiceVisitStatus.REWORK
+                && existing.filter(item -> item.status() == DeliveryStatus.RETURNED).isPresent();
+        if (!redelivery
+                && (visit.status() != ServiceVisitStatus.IN_PROGRESS
+                        || !visit.serviceCompleted()
+                        || existing.isPresent())) {
             throw new DeliveryStateInvalidException();
         }
 
@@ -144,7 +149,7 @@ public class DeliveryApplicationService {
                 files,
                 now,
                 null,
-                0);
+                redelivery ? existing.get().version() + 1 : 0);
         StoredServiceVisit deliveredVisit = visit.delivered(now);
         ServiceOrderStatus nextOrderStatus = ServiceOrderProgression.derive(
                 ServiceOrderProgression.replace(order.visits(), deliveredVisit));
@@ -154,15 +159,26 @@ public class DeliveryApplicationService {
                 idempotencyKey,
                 requestDigest,
                 delivery.id());
-        DeliveryWriteResult result = store.publishDelivery(
-                order,
-                nextOrderStatus,
-                visit,
-                deliveredVisit,
-                delivery,
-                entry,
-                subject,
-                requestId.trim());
+        DeliveryWriteResult result = redelivery
+                ? store.republishDelivery(
+                        order,
+                        nextOrderStatus,
+                        visit,
+                        deliveredVisit,
+                        existing.get(),
+                        delivery,
+                        entry,
+                        subject,
+                        requestId.trim())
+                : store.publishDelivery(
+                        order,
+                        nextOrderStatus,
+                        visit,
+                        deliveredVisit,
+                        delivery,
+                        entry,
+                        subject,
+                        requestId.trim());
         if (result == DeliveryWriteResult.IDEMPOTENCY_EXISTS) {
             return replayDelivery(
                     store.findDeliveryIdempotency(
@@ -834,6 +850,8 @@ record AcceptDeliveryCommand(boolean confirmed, String note) {
 
 enum DeliveryStatus {
     PUBLISHED,
+    /** 客户退回整改（B2），服务商重新交付后回到 PUBLISHED。 */
+    RETURNED,
     ACCEPTED
 }
 
@@ -1014,6 +1032,21 @@ interface DeliveryStore {
             DeliveryIdempotencyEntry entry,
             CurrentSubject actor,
             String requestId);
+
+    /** B2：退回整改之后重新交付（同一个交付 ID，文件整组替换）。 */
+    default DeliveryWriteResult republishDelivery(
+            StoredServiceOrder expectedOrder,
+            ServiceOrderStatus nextOrderStatus,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit deliveredVisit,
+            StoredDelivery returnedDelivery,
+            StoredDelivery delivery,
+            DeliveryIdempotencyEntry entry,
+            CurrentSubject actor,
+            String requestId
+    ) {
+        return DeliveryWriteResult.STATE_CONFLICT;
+    }
 
     boolean claimDeliveryIdempotency(
             DeliveryIdempotencyEntry entry,

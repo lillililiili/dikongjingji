@@ -65,6 +65,8 @@ function mountOrderCenterPage(): {
       onShow: () => undefined,
     },
     '../../../application/service-flow/inspection-order-navigation': orderNavigation,
+    // S4-1: 去付款 on a card.
+    '../../../application/service-flow/node-payment': { openNodePayment: async () => undefined },
     '../../../data/service-flow/uni-booking-http-client': {
       inspectionOrderApi: { list: async () => ({}) },
     },

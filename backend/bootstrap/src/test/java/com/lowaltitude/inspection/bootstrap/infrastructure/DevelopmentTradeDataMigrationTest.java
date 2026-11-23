@@ -36,7 +36,8 @@ class DevelopmentTradeDataMigrationTest {
 
         assertThat(migrationMethod.getAnnotation(Profile.class).value()).containsExactly("dev");
         assertThat(migrationMethod.getAnnotation(DependsOn.class).value())
-                .containsExactlyInAnyOrder("tradeFlyway", "mallDevelopmentDataFlyway", "activityDevelopmentDataFlyway");
+                .containsExactlyInAnyOrder("tradeFlyway", "identityDevelopmentDataFlyway", "mallDevelopmentDataFlyway",
+                        "activityDevelopmentDataFlyway");
 
         migrationMethod.setAccessible(true);
         Flyway flyway = (Flyway) migrationMethod.invoke(new ModuleFlywayConfiguration(), mock(DataSource.class));
@@ -127,6 +128,23 @@ class DevelopmentTradeDataMigrationTest {
         assertThat(venues).contains("b.status IN ('PENDING_PAYMENT', 'CONFIRMED', 'CHECKED_IN')");
         for (String other : List.of("R__dev_trade_merchant_accounts.sql", "R__dev_trade_activity_merchant_accounts.sql")) {
             assertThat(read("db/development/trade/" + other)).doesNotContain("1900000204").doesNotContain("1900000205");
+        }
+    }
+
+    // S4-1：巡检示例服务商（云翼科技，dev-provider 的机构）登记了收款账户，带付款节点的方案能确认、付款。
+    @Test
+    void theInspectionProviderCanCollectPayments() throws Exception {
+        String sql = read("db/development/trade/R__dev_trade_inspection_merchant_accounts.sql");
+        String identity = read("db/development/identity/R__dev_identity_accounts.sql");
+
+        assertThat(sql)
+                .contains("('22222222-2222-2222-2222-222222222222', '1900000301', true)")
+                .contains("ON CONFLICT (organization_id) DO UPDATE")
+                .doesNotContain("DELETE FROM");
+        assertThat(identity).contains("VALUES ('22222222-2222-2222-2222-222222222222', 'DEV-PROVIDER-YUNYI', '云翼科技', 'PROVIDER')");
+        for (String other : List.of("R__dev_trade_merchant_accounts.sql", "R__dev_trade_activity_merchant_accounts.sql",
+                "R__dev_trade_venue_merchant_accounts.sql", "R__dev_trade_inquiry_merchant.sql")) {
+            assertThat(read("db/development/trade/" + other)).doesNotContain("1900000301");
         }
     }
 

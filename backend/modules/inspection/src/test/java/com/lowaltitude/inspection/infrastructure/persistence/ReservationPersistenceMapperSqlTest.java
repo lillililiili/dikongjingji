@@ -38,10 +38,13 @@ class ReservationPersistenceMapperSqlTest {
 
         assertThat(sql)
                 .contains("r.customer_id = #{customerId}")
-                .contains("WHEN r.status = 'CANCELLED' THEN 'CANCELLED'")
-                .contains("WHEN o.status = 'ACCEPTED' THEN 'COMPLETED'")
+                .contains("WHEN r.status = 'CANCELLED' OR o.status = 'CANCELLED' THEN 'CANCELLED'")
+                // S4-1：全部验收、还有没付的按次服务费时算进行中，付清才算已完成。
+                .contains("WHEN o.status = 'ACCEPTED' AND due.node_no IS NULL THEN 'COMPLETED'")
                 .contains("WHEN pending.id IS NOT NULL THEN 'AWAITING_ACCEPTANCE'")
-                .contains("WHEN o.status IN ('ARRANGING', 'IN_PROGRESS') THEN 'IN_PROGRESS'")
+                .contains("WHEN o.id IS NOT NULL THEN 'IN_PROGRESS'")
+                .contains("AND (node.node_type = 'DOWN_PAYMENT' OR visit.status = 'ACCEPTED')")
+                .contains("AND node.paid_at IS NULL")
                 .contains("WHEN p.status = 'PUBLISHED' THEN 'AWAITING_CONFIRMATION'")
                 .contains("ELSE 'AWAITING_PLAN'")
                 .contains("ORDER BY lifecycle_updated_at DESC, r.id DESC")

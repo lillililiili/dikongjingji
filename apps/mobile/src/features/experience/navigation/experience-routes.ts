@@ -57,3 +57,55 @@ export function buildVenueBookingUrl(bookingId: string): string {
 export function buildVenueBookingsUrl(bucket: VenueBookingBucket = 'UPCOMING'): string {
   return `${VENUE_BOOKINGS_PATH}?bucket=${bucket}`
 }
+
+// ---- Online experiences (S5-4) ----
+
+export const EXPERIENCE_SIMULATION_PATH = '/pages/experience/simulation'
+export const EXPERIENCE_RESULT_PATH = '/pages/experience/result'
+export const SOFTWARE_TRIAL_PATH = '/pages/experience/software-trial'
+export const COURSE_TRIAL_PATH = '/pages/experience/course-trial'
+export const EXPERIENCE_RECORDS_PATH = '/pages/mine/experience-records'
+
+export type ExperienceRecordsTab = 'ALL' | 'ONLINE' | 'VENUE'
+export const EXPERIENCE_RECORDS_TABS: readonly ExperienceRecordsTab[] = ['ALL', 'ONLINE', 'VENUE']
+
+export function buildSimulationUrl(experienceId: string): string {
+  return `${EXPERIENCE_SIMULATION_PATH}?experienceId=${encodeURIComponent(experienceId)}`
+}
+
+// A signed-in run is a record on the server; a guest's run is only on this device (localId).
+export type SimulationResultTarget =
+  | { experienceId: string; recordId: string }
+  | { experienceId: string; localId: string }
+
+export function buildSimulationResultUrl(target: SimulationResultTarget): string {
+  const which = 'recordId' in target
+    ? `recordId=${encodeURIComponent(target.recordId)}`
+    : `localId=${encodeURIComponent(target.localId)}`
+  return `${EXPERIENCE_RESULT_PATH}?experienceId=${encodeURIComponent(target.experienceId)}&${which}`
+}
+
+export function parseSimulationResultTarget(query: Record<string, unknown> | undefined): SimulationResultTarget | null {
+  const read = (key: string) => (typeof query?.[key] === 'string' ? (query[key] as string).trim() : '')
+  const experienceId = read('experienceId')
+  if (!experienceId) return null
+  if (read('recordId')) return { experienceId, recordId: read('recordId') }
+  if (read('localId')) return { experienceId, localId: read('localId') }
+  return null
+}
+
+// Without a record the page starts a trial (or goes back to the one still running); with one it
+// shows that record, for example an expired trial opened from 我的体验.
+export function buildSoftwareTrialUrl(experienceId: string, recordId?: string | null): string {
+  return `${SOFTWARE_TRIAL_PATH}?experienceId=${encodeURIComponent(experienceId)}`
+    + (recordId ? `&recordId=${encodeURIComponent(recordId)}` : '')
+}
+
+export function buildCourseTrialUrl(experienceId: string, recordId?: string | null): string {
+  return `${COURSE_TRIAL_PATH}?experienceId=${encodeURIComponent(experienceId)}`
+    + (recordId ? `&recordId=${encodeURIComponent(recordId)}` : '')
+}
+
+export function buildExperienceRecordsUrl(tab: ExperienceRecordsTab = 'ALL'): string {
+  return `${EXPERIENCE_RECORDS_PATH}?tab=${tab}`
+}

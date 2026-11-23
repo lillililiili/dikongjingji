@@ -139,3 +139,27 @@ export function rentalTradeOrder(overrides: Partial<TradeOrder> = {}): TradeOrde
     ...overrides,
   })
 }
+
+// S4-1: an inspection down payment (contract 0.4.0): the line's productId is the service order.
+export function inspectionTradeOrder(overrides: Partial<TradeOrder> = {}): TradeOrder {
+  return tradeOrder({
+    orderNo: 'IO2026112212345678',
+    source: 'INSPECTION',
+    sourceRef: 'attempt-1',
+    merchant: { organizationId: 'org-9', name: '鹰眼智能巡检', kind: null },
+    lines: [{
+      lineId: 'l-1',
+      productId: 'service-order-1',
+      offerId: 'attempt-1',
+      productName: '物流园区季度安防巡检 · 方案 v2',
+      skuName: '首付 30%',
+      coverImage: null,
+      unitAmountMinor: 558000,
+      quantity: 1,
+      subtotalMinor: 558000,
+    }],
+    delivery: null,
+    amounts: { goodsMinor: 558000, shippingMinor: 0, payableMinor: 558000, paidMinor: 0, refundedMinor: 0 },
+    ...overrides,
+  })
+}

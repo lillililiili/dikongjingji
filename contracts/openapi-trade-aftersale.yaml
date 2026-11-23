@@ -5,7 +5,7 @@ info:
   description: |-
     1.0.0（2026-11-23，S4-2，docs/redesign/08-后续开发计划.md §5 A1）：商品售后，统一交易模块（M14）的一部分，只针对商城订单
     （source = MALL）。画板 AftersaleApply、AftersaleDetail、AftersaleFlow、AftersaleList、OrderGoods。订单本身见
-    contracts/openapi-trade.yaml 0.6.0（TradeOrder.aftersale 是订单上的售后入口）。
+    contracts/openapi-trade.yaml 0.7.0（TradeOrder.aftersale 是订单上的售后入口）。
 
     两类售后（A1）：
     - REFUND_ONLY 仅退款：已付款、未发货（未自提）的订单，原因只能是 NOT_WANTED。按 §19.7 的取消规则直接把还没退的钱全部原路退回，

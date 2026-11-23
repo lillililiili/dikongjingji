@@ -17,6 +17,7 @@ import {
   type ReservationPage,
   type ReservationSummary,
 } from './inspection-workbench-api'
+import { paymentStateText } from './inspection-rules'
 
 const router = useRouter()
 const api = createInspectionWorkbenchApi(http)
@@ -111,12 +112,9 @@ onMounted(() => {
           </div>
         </template>
       </el-table-column>
-      <!--
-        付款状态：巡检付款节点（M14 统一交易模块，另一位同事在做）接入后，从服务单的 paymentNodes 读取
-        （首付、按次款是否已付）。现在列表摘要里没有付款信息，先显示“—”，列的位置留好。
-      -->
-      <el-table-column label="付款状态" width="100">
-        <template #default>—</template>
+      <!-- 付款状态（S4-1）：服务端按服务单的付款节点给出客户现在该付的一笔（paymentDue*）。 -->
+      <el-table-column label="付款状态" width="150">
+        <template #default="{ row }">{{ paymentStateText(row as ReservationSummary) }}</template>
       </el-table-column>
       <el-table-column label="提交时间" width="150">
         <template #default="{ row }">{{ formatDateTime((row as ReservationSummary).submittedAt) }}</template>

@@ -120,7 +120,11 @@ public interface ReservationPersistenceMapper {
                    COALESCE(v.accepted_visit_count, 0) accepted_visit_count,
                    v.next_visit_date,
                    pending.id pending_acceptance_visit_id,
-                   pending.visit_no pending_acceptance_visit_no
+                   pending.visit_no pending_acceptance_visit_no,
+                   due.node_no payment_due_node_no,
+                   due.node_type payment_due_node_type,
+                   due.visit_no payment_due_visit_no,
+                   due.amount_minor payment_due_amount_minor
             FROM inspection_reservation r
             LEFT JOIN LATERAL (
                 SELECT current_plan.id,
@@ -155,12 +159,26 @@ public interface ReservationPersistenceMapper {
                 ORDER BY visit.visit_no
                 LIMIT 1
             ) pending ON true
+            LEFT JOIN LATERAL (
+                -- S4-1：现在该付的第一个节点（首付在确认后，按次服务费在这一次验收后；已取消的不再收）。
+                SELECT node.node_no, node.node_type, visit.visit_no, node.amount_minor
+                FROM inspection_order_payment_node node
+                LEFT JOIN inspection_service_visit visit ON visit.id = node.visit_id
+                WHERE node.service_order_id = o.id
+                  AND o.payment_mode = 'NODES'
+                  AND o.status <> 'CANCELLED'
+                  AND node.paid_at IS NULL
+                  AND (node.node_type = 'DOWN_PAYMENT' OR visit.status = 'ACCEPTED')
+                ORDER BY node.node_no
+                LIMIT 1
+            ) due ON true
             CROSS JOIN LATERAL (
+                -- 全部验收但还有没付的按次服务费时算进行中，付清后才算已完成（S4-1）。
                 SELECT CASE
-                           WHEN r.status = 'CANCELLED' THEN 'CANCELLED'
-                           WHEN o.status = 'ACCEPTED' THEN 'COMPLETED'
+                           WHEN r.status = 'CANCELLED' OR o.status = 'CANCELLED' THEN 'CANCELLED'
+                           WHEN o.status = 'ACCEPTED' AND due.node_no IS NULL THEN 'COMPLETED'
                            WHEN pending.id IS NOT NULL THEN 'AWAITING_ACCEPTANCE'
-                           WHEN o.status IN ('ARRANGING', 'IN_PROGRESS') THEN 'IN_PROGRESS'
+                           WHEN o.id IS NOT NULL THEN 'IN_PROGRESS'
                            WHEN p.status = 'PUBLISHED' THEN 'AWAITING_CONFIRMATION'
                            ELSE 'AWAITING_PLAN'
                        END stage,
@@ -187,15 +205,21 @@ public interface ReservationPersistenceMapper {
             WITH order_projection AS (
                 SELECT r.id,
                        CASE
-                           WHEN r.status = 'CANCELLED' THEN 'CANCELLED'
-                           WHEN o.status = 'ACCEPTED' THEN 'COMPLETED'
+                           WHEN r.status = 'CANCELLED' OR o.status = 'CANCELLED' THEN 'CANCELLED'
+                           WHEN o.status = 'ACCEPTED' AND NOT EXISTS (
+                               SELECT 1
+                               FROM inspection_order_payment_node node
+                               WHERE node.service_order_id = o.id
+                                 AND o.payment_mode = 'NODES'
+                                 AND node.paid_at IS NULL
+                           ) THEN 'COMPLETED'
                            WHEN EXISTS (
                                SELECT 1
                                FROM inspection_service_visit visit
                                WHERE visit.service_order_id = o.id
                                  AND visit.status = 'DELIVERED'
                            ) THEN 'AWAITING_ACCEPTANCE'
-                           WHEN o.status IN ('ARRANGING', 'IN_PROGRESS') THEN 'IN_PROGRESS'
+                           WHEN o.id IS NOT NULL THEN 'IN_PROGRESS'
                            WHEN p.status = 'PUBLISHED' THEN 'AWAITING_CONFIRMATION'
                            ELSE 'AWAITING_PLAN'
                        END stage
@@ -595,7 +619,11 @@ public interface ReservationPersistenceMapper {
             int acceptedVisitCount,
             LocalDate nextVisitDate,
             UUID pendingAcceptanceVisitId,
-            Integer pendingAcceptanceVisitNo
+            Integer pendingAcceptanceVisitNo,
+            Integer paymentDueNodeNo,
+            String paymentDueNodeType,
+            Integer paymentDueVisitNo,
+            Long paymentDueAmountMinor
     ) { }
     record CustomerReservationCountsRow(
             long allCount,
