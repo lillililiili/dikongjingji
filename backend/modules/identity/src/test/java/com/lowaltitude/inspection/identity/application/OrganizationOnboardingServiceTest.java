@@ -65,13 +65,30 @@ class OrganizationOnboardingServiceTest {
             throw new OnboardingPorts.FileStoreUnavailableException("down");
         }
     };
+    /** 巡检模块的服务商资料（S6-01）：机构 ID → 状态；开通的调用按顺序记下。 */
+    private final java.util.Map<UUID, OnboardingPorts.ProviderProfileStatus> profiles = new java.util.HashMap<>();
+    private final List<UUID> opened = new ArrayList<>();
+    private final OnboardingPorts.ProviderProfiles providerProfiles = new OnboardingPorts.ProviderProfiles() {
+        @Override
+        public OnboardingPorts.ProviderProfileStatus status(UUID organizationId) {
+            return profiles.getOrDefault(organizationId, OnboardingPorts.ProviderProfileStatus.NOT_OPENED);
+        }
+
+        @Override
+        public OnboardingPorts.ProviderProfileStatus open(UUID organizationId) {
+            opened.add(organizationId);
+            OnboardingPorts.ProviderProfileStatus before = status(organizationId);
+            profiles.put(organizationId, OnboardingPorts.ProviderProfileStatus.ACTIVE);
+            return before;
+        }
+    };
     private final OrganizationOnboardingService service = new OrganizationOnboardingService(mapper,
             code -> "370500".equals(code) ? Optional.of("东营市") : Optional.empty(),
             raw -> {
                 hashed.add(raw);
                 return "bcrypt:" + raw.length();
             },
-            files, Clock.fixed(NOW, ZoneOffset.UTC), new SecureRandom());
+            files, providerProfiles, Clock.fixed(NOW, ZoneOffset.UTC), new SecureRandom());
 
     private OrganizationRow organization(String type, String status) {
         return new OrganizationRow(ORG, "ORG-20261122-ABCDEF01", "黄河口教育装备（示例）", type, "370500", "ACTIVE", null, AT,
@@ -183,6 +200,88 @@ class OrganizationOnboardingServiceTest {
         assertRejected(() -> service.review(ORG, "APPROVE", null, 1, OPERATOR), Error.QUALIFICATION_NOT_PENDING);
         when(mapper.findQualification(ORG)).thenReturn(null);
         assertRejected(() -> service.review(ORG, "APPROVE", null, 0, OPERATOR), Error.QUALIFICATION_NOT_PENDING);
+    }
+
+    // ---- 服务商资料（S6-01） ----
+
+    @Test
+    void openingTheProviderProfileNeedsAReviewedQualificationAndIsIdempotent() {
+        existing("PROVIDER", "SUBMITTED");
+        assertThat(service.organization(ORG).providerProfileStatus())
+                .isEqualTo(OnboardingPorts.ProviderProfileStatus.NOT_OPENED);
+
+        // 资质还没审核通过（机构上没有审核通过时间）：不开通。
+        assertRejected(() -> service.openProviderProfile(ORG, OPERATOR), Error.QUALIFICATION_NOT_APPROVED);
+        assertThat(opened).isEmpty();
+
+        reviewed();
+        OpsOrganizationDetailView detail = service.openProviderProfile(ORG, OPERATOR);
+
+        assertThat(detail.providerProfileStatus()).isEqualTo(OnboardingPorts.ProviderProfileStatus.ACTIVE);
+        assertThat(opened).containsExactly(ORG);
+        verify(mapper).insertOperation(eq(ORG), eq("PROVIDER_PROFILE_OPEN"), org.mockito.ArgumentMatchers.startsWith(
+                "开通服务商资料"), eq(OPERATOR_ID), eq("平台运营（示例）"), eq(AT));
+
+        // 再开一次：直接返回，不再调巡检、不再记操作记录；资质之后被改回待审核也一样（已开通的不收回）。
+        existing("PROVIDER", "SUBMITTED");
+        assertThat(service.openProviderProfile(ORG, OPERATOR).providerProfileStatus())
+                .isEqualTo(OnboardingPorts.ProviderProfileStatus.ACTIVE);
+        assertThat(opened).containsExactly(ORG);
+        verify(mapper).insertOperation(eq(ORG), eq("PROVIDER_PROFILE_OPEN"), anyString(), any(), anyString(), any());
+    }
+
+    @Test
+    void aDisabledProviderProfileIsReopenedAndRecorded() {
+        reviewed();
+        profiles.put(ORG, OnboardingPorts.ProviderProfileStatus.DISABLED);
+
+        assertThat(service.openProviderProfile(ORG, OPERATOR).providerProfileStatus())
+                .isEqualTo(OnboardingPorts.ProviderProfileStatus.ACTIVE);
+        verify(mapper).insertOperation(eq(ORG), eq("PROVIDER_PROFILE_OPEN"), org.mockito.ArgumentMatchers.startsWith(
+                "恢复服务商资料"), eq(OPERATOR_ID), anyString(), eq(AT));
+    }
+
+    @Test
+    void onlyActiveProviderOrganizationsCanOpenAProviderProfile() {
+        when(mapper.lockOrganization(ORG)).thenReturn(ORG);
+        when(mapper.findOrganization(ORG)).thenReturn(new OrganizationRow(ORG, "ORG-20261122-ABCDEF01", "企业客户（示例）",
+                "CUSTOMER", "370500", "ACTIVE", AT, AT, 0, "APPROVED"));
+        assertRejected(() -> service.openProviderProfile(ORG, OPERATOR), Error.PROVIDER_PROFILE_NOT_APPLICABLE);
+        // 企业客户的详情里没有服务商资料这一项。
+        assertThat(service.organization(ORG).providerProfileStatus()).isNull();
+
+        when(mapper.findOrganization(ORG)).thenReturn(new OrganizationRow(ORG, "ORG-20261122-ABCDEF01", "停用机构（示例）",
+                "PROVIDER", "370500", "DISABLED", AT, AT, 0, "APPROVED"));
+        assertRejected(() -> service.openProviderProfile(ORG, OPERATOR), Error.PROVIDER_PROFILE_NOT_APPLICABLE);
+
+        when(mapper.lockOrganization(ORG)).thenReturn(null);
+        assertRejected(() -> service.openProviderProfile(ORG, OPERATOR), Error.NOT_FOUND);
+        assertRejected(() -> service.openProviderProfile(null, OPERATOR), Error.NOT_FOUND);
+        assertInvalid(() -> service.openProviderProfile(ORG, null));
+        assertThat(opened).isEmpty();
+        verify(mapper, never()).insertOperation(any(), eq("PROVIDER_PROFILE_OPEN"), anyString(), any(), anyString(),
+                any());
+    }
+
+    /** 代码里的每个操作记录动作都在数据库的 CHECK 约束里（迁移 V011 是最新的那一份）。 */
+    @Test
+    void everyOperationActionIsAllowedByTheLatestMigration() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/identity/V011__identity_provider_profile_open_operation.sql")) {
+            assertThat(stream).isNotNull();
+            migration = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        for (OpsOrganizationAction action : OpsOrganizationAction.values()) {
+            assertThat(migration).contains("'" + action.name() + "'");
+        }
+    }
+
+    /** 资质审核通过的在用经营机构（机构上有审核通过时间）。 */
+    private void reviewed() {
+        when(mapper.lockOrganization(ORG)).thenReturn(ORG);
+        when(mapper.findOrganization(ORG)).thenReturn(new OrganizationRow(ORG, "ORG-20261122-ABCDEF01",
+                "黄河口教育装备（示例）", "PROVIDER", "370500", "ACTIVE", AT, AT, 0, "APPROVED"));
     }
 
     // ---- 附件 ----

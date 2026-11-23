@@ -1,8 +1,19 @@
 openapi: "3.1.0"
 info:
   title: "Ops Organization API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
+    1.1.0（S6-01，docs/delivery/问题关闭记录.md）：给经营机构“开通服务商资料”。新增 POST …/{organizationId}/provider-profile
+    （幂等），机构详情加 providerProfileStatus，操作记录加 PROVIDER_PROFILE_OPEN，错误码加 OPS_QUALIFICATION_NOT_APPROVED、
+    OPS_PROVIDER_PROFILE_NOT_APPLICABLE。服务商资料（巡检迁移 V004 的 inspection_provider_profile）归巡检模块，身份模块经端口
+    在启动模块接过去建，不读它的表。开通后：专业服务、巡检服务详情带出服务商，服务商主页能打开，需求能邀请它，机构操作员在工作台
+    “服务商资料”提交主页资料、平台运营在“服务商资料审核”审（openapi-proservice.yaml 1.2.0、openapi-ops-proservice.yaml 1.1.0）。
+    - 只有在用的经营机构（type PROVIDER、status ACTIVE）能开通，否则 422 OPS_PROVIDER_PROFILE_NOT_APPLICABLE。
+    - 要先审核通过资质（机构有 qualificationReviewedAt），否则 409 OPS_QUALIFICATION_NOT_APPROVED。之后资质被改回待审核，
+      已开通的资料不收回，App 上只是撤下“资质已审核”。
+    - 已开通（ACTIVE）时重复调用直接返回机构详情，不再检查资质、不记操作记录；停用（DISABLED）的会恢复在用并记一条。
+    - 开通时资料只建一行（图标用平台的首字母图标，资质说明和团队介绍为空），主页上显示的文字由机构在工作台提交、平台审核。
+
     1.0.0（S3-1，docs/redesign/08-后续开发计划.md §2、§5 D11、S4-4）：Web 运营端“机构入驻与资质审核”。
 
     Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
@@ -322,6 +333,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/organizations/{organizationId}/provider-profile:
+    post:
+      operationId: "openOpsOrganizationProviderProfile"
+      summary: "开通服务商资料（幂等；已开通直接返回）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: "机构详情（providerProfileStatus 为 ACTIVE）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_QUALIFICATION_NOT_APPROVED：资质还没审核通过。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_PROVIDER_PROFILE_NOT_APPLICABLE：企业客户或已停用的机构不能开通。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /api/v1/ops/organizations/{organizationId}/accounts:
     post:
       operationId: "createOpsOrganizationAccount"
@@ -496,7 +542,8 @@ components:
       type: "string"
       enum: [OPS_VERSION_CONFLICT, OPS_IDEMPOTENCY_KEY_REUSED, OPS_CITY_UNKNOWN, OPS_LOGIN_NAME_TAKEN,
              OPS_ROLE_NOT_GRANTABLE, OPS_QUALIFICATION_NOT_PENDING, OPS_QUALIFICATION_INCOMPLETE,
-             OPS_ATTACHMENT_LIMIT, OPS_FILE_STORE_UNAVAILABLE]
+             OPS_ATTACHMENT_LIMIT, OPS_FILE_STORE_UNAVAILABLE, OPS_QUALIFICATION_NOT_APPROVED,
+             OPS_PROVIDER_PROFILE_NOT_APPLICABLE]
     OpsOrganizationType:
       type: "string"
       description: "PROVIDER 经营机构；CUSTOMER 企业客户"
@@ -511,7 +558,11 @@ components:
     OpsOrganizationAction:
       type: "string"
       enum: [CREATE, QUALIFICATION_SUBMIT, QUALIFICATION_APPROVE, QUALIFICATION_REJECT, ATTACHMENT_ADD,
-             ATTACHMENT_REMOVE, ACCOUNT_CREATE, ROLES_CHANGE]
+             ATTACHMENT_REMOVE, ACCOUNT_CREATE, ROLES_CHANGE, PROVIDER_PROFILE_OPEN]
+    OpsProviderProfileStatus:
+      type: "string"
+      description: "服务商资料：NOT_OPENED 未开通；ACTIVE 已开通；DISABLED 已停用"
+      enum: [NOT_OPENED, ACTIVE, DISABLED]
     OpsGrantableRole:
       type: "string"
       description: "PROVIDER_OPERATOR 服务商操作员、LIVE_HOST 直播主办（经营机构，限定在这家）；CUSTOMER 客户（企业客户）"
@@ -663,10 +714,15 @@ components:
     OpsOrganizationDetail:
       type: "object"
       additionalProperties: false
-      required: [organization, qualification, attachments, accounts, grantableRoles, operations]
+      required: [organization, qualification, attachments, accounts, grantableRoles, providerProfileStatus, operations]
       properties:
         organization:
           $ref: "#/components/schemas/OpsOrganization"
+        providerProfileStatus:
+          description: "服务商资料的状态（1.1.0）；企业客户为 null"
+          anyOf:
+            - $ref: "#/components/schemas/OpsProviderProfileStatus"
+            - type: "null"
         qualification:
           anyOf:
             - $ref: "#/components/schemas/OpsQualification"

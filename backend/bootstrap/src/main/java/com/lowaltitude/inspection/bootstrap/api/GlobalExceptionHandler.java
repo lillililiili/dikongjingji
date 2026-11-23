@@ -1398,6 +1398,16 @@ public class GlobalExceptionHandler {
                 code = "OPS_FILE_STORE_UNAVAILABLE";
                 message = "附件存储暂不可用";
             }
+            case QUALIFICATION_NOT_APPROVED -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_QUALIFICATION_NOT_APPROVED";
+                message = "资质审核通过后才能开通服务商资料";
+            }
+            case PROVIDER_PROFILE_NOT_APPLICABLE -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_PROVIDER_PROFILE_NOT_APPLICABLE";
+                message = "只有在用的经营机构能开通服务商资料";
+            }
             default -> throw new IllegalStateException("unmapped onboarding error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));

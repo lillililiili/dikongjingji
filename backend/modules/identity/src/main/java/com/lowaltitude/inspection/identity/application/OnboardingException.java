@@ -23,7 +23,11 @@ public final class OnboardingException extends RuntimeException {
         /** 附件数已到上限。 */
         ATTACHMENT_LIMIT,
         /** 附件存储没有配置（开发环境之外还没接对象存储）。 */
-        FILE_STORE_UNAVAILABLE
+        FILE_STORE_UNAVAILABLE,
+        /** 开通服务商资料前资质要先审核通过（机构有资质审核通过时间）。 */
+        QUALIFICATION_NOT_APPROVED,
+        /** 企业客户、已停用的机构不能开通服务商资料。 */
+        PROVIDER_PROFILE_NOT_APPLICABLE
     }
 
     private final Error error;

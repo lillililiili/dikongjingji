@@ -42,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       驳回要写原因，并清空审核时间。</li>
  *   <li>账号：给机构建账号（默认机构就是这家），服务端生成一次性的初始口令，只返回这一次；授机构角色（按机构类型限定），
  *       角色变了令牌版本加一，旧令牌立刻失效。</li>
+ *   <li>开通服务商资料（S6-01，契约 1.1.0）：资质审核通过的在用经营机构，经端口在巡检模块建服务商资料；幂等。</li>
  *   <li>每一步都写一条操作记录（操作人、时间、说明），详情页能看到。</li>
  * </ul>
  * 只有平台运营能调，角色由控制器检查。
@@ -76,6 +77,7 @@ public class OrganizationOnboardingService {
     private final OnboardingPorts.Cities cities;
     private final OnboardingPorts.PasswordHasher hasher;
     private final OnboardingPorts.QualificationFiles files;
+    private final OnboardingPorts.ProviderProfiles providerProfiles;
     private final Clock clock;
     private final SecureRandom random;
 
@@ -83,9 +85,10 @@ public class OrganizationOnboardingService {
             OrganizationOnboardingMapper mapper,
             OnboardingPorts.Cities cities,
             OnboardingPorts.PasswordHasher hasher,
-            OnboardingPorts.QualificationFiles files
+            OnboardingPorts.QualificationFiles files,
+            OnboardingPorts.ProviderProfiles providerProfiles
     ) {
-        this(mapper, cities, hasher, files, Clock.systemUTC(), new SecureRandom());
+        this(mapper, cities, hasher, files, providerProfiles, Clock.systemUTC(), new SecureRandom());
     }
 
     OrganizationOnboardingService(
@@ -93,6 +96,7 @@ public class OrganizationOnboardingService {
             OnboardingPorts.Cities cities,
             OnboardingPorts.PasswordHasher hasher,
             OnboardingPorts.QualificationFiles files,
+            OnboardingPorts.ProviderProfiles providerProfiles,
             Clock clock,
             SecureRandom random
     ) {
@@ -100,6 +104,7 @@ public class OrganizationOnboardingService {
         this.cities = cities;
         this.hasher = hasher;
         this.files = files;
+        this.providerProfiles = providerProfiles;
         this.clock = clock;
         this.random = random;
     }
@@ -394,6 +399,39 @@ public class OrganizationOnboardingService {
         return detail(id);
     }
 
+    // ---- 服务商资料 ----
+
+    /**
+     * 开通服务商资料（S6-01）：在用的经营机构、资质审核通过后，经端口在巡检模块建一行服务商资料。之后专业服务、巡检服务详情
+     * 带出服务商，服务商主页能打开，需求能邀请它，机构操作员能在工作台提交主页资料（平台运营在“服务商资料审核”里审）。
+     * 幂等：已开通的直接返回详情，不再检查资质、不记操作记录；停用的恢复在用。
+     */
+    @Transactional
+    public OpsOrganizationDetailView openProviderProfile(UUID organizationId, Operator operator) {
+        requireOperator(operator);
+        UUID id = lock(organizationId);
+        OrganizationRow row = mapper.findOrganization(id);
+        if (!OpsOrganizationType.PROVIDER.name().equals(row.organizationType()) || !"ACTIVE".equals(row.status())) {
+            throw new OnboardingException(Error.PROVIDER_PROFILE_NOT_APPLICABLE);
+        }
+        if (providerProfiles.status(id) == OnboardingPorts.ProviderProfileStatus.ACTIVE) {
+            return detail(id);
+        }
+        // “资质已审核”只看机构上的审核通过时间（R6-4），开通也按它判断。
+        if (row.qualificationReviewedAt() == null) {
+            throw new OnboardingException(Error.QUALIFICATION_NOT_APPROVED);
+        }
+        OnboardingPorts.ProviderProfileStatus before = providerProfiles.open(id);
+        if (before != OnboardingPorts.ProviderProfileStatus.ACTIVE) {
+            record(id, OpsOrganizationAction.PROVIDER_PROFILE_OPEN,
+                    before == OnboardingPorts.ProviderProfileStatus.DISABLED
+                            ? "恢复服务商资料：服务商主页、需求邀请和工作台“服务商资料”重新可用"
+                            : "开通服务商资料：服务商主页、需求邀请和工作台“服务商资料”可用，主页资料待机构提交、平台审核",
+                    operator, now());
+        }
+        return detail(id);
+    }
+
     // ---- 内部 ----
 
     private OpsOrganizationDetailView detail(UUID id) {
@@ -412,13 +450,15 @@ public class OrganizationOnboardingService {
                         operation.operatorName(), operation.occurredAt()))
                 .toList();
         OpsOrganizationType type = OpsOrganizationType.valueOf(row.organizationType());
+        OnboardingPorts.ProviderProfileStatus providerProfile = type == OpsOrganizationType.PROVIDER
+                ? providerProfiles.status(id) : null;
         return new OpsOrganizationDetailView(organizationView(row),
                 qualification == null ? null : new OpsQualificationView(qualification.subjectName(),
                         qualification.licenseNumber(), qualification.businessScope(),
                         qualification.qualificationNote(), OpsQualificationStatus.valueOf(qualification.status()),
                         qualification.submittedAt(), qualification.reviewedAt(), qualification.rejectReason(),
                         qualification.version()),
-                attachments, accounts(id), OpsGrantableRole.forType(type), operations);
+                attachments, accounts(id), OpsGrantableRole.forType(type), providerProfile, operations);
     }
 
     private List<OpsAccountView> accounts(UUID organizationId) {

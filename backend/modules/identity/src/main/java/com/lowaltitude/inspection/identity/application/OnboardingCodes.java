@@ -3,7 +3,7 @@ package com.lowaltitude.inspection.identity.application;
 import java.util.Arrays;
 import java.util.List;
 
-// 运营端“机构入驻与资质审核”的稳定编码（契约 contracts/openapi-ops-organization.yaml），与迁移 V007 的 CHECK 约束一致。
+// 运营端“机构入驻与资质审核”的稳定编码（契约 contracts/openapi-ops-organization.yaml），与迁移 V007、V011 的 CHECK 约束一致。
 
 /** 运营端能建、能管的机构类型：PROVIDER 经营机构（商家、服务商、活动主办、场馆运营都是这类）；CUSTOMER 企业客户。 */
 enum OpsOrganizationType {
@@ -34,7 +34,9 @@ enum OpsOrganizationAction {
     ATTACHMENT_ADD,
     ATTACHMENT_REMOVE,
     ACCOUNT_CREATE,
-    ROLES_CHANGE
+    ROLES_CHANGE,
+    /** 开通服务商资料（S6-01，契约 1.1.0，迁移 V011）。 */
+    PROVIDER_PROFILE_OPEN
 }
 
 /**
