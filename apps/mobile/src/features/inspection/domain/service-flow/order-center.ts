@@ -24,7 +24,7 @@ export interface InspectionOrderSummary {
   reservationStatus: 'SUBMITTED' | 'PLAN_PUBLISHED' | 'CANCELLED'
   currentPlanId?: string
   serviceOrderId?: string
-  serviceOrderStatus?: 'ARRANGING' | 'IN_PROGRESS' | 'DELIVERED' | 'ACCEPTED'
+  serviceOrderStatus?: 'AWAITING_PAYMENT' | 'ARRANGING' | 'IN_PROGRESS' | 'DELIVERED' | 'ACCEPTED' | 'CANCELLED'
   quoteAmountMinor?: number
   currency: 'CNY'
   visitCount?: number
@@ -32,6 +32,11 @@ export interface InspectionOrderSummary {
   nextVisitDate?: string
   pendingAcceptanceVisitId?: string
   pendingAcceptanceVisitNo?: number
+  // (service flow 2.3.0, S4-1) The first node due now; absent when nothing is to be paid.
+  paymentDueNodeNo?: number
+  paymentDueNodeType?: 'DOWN_PAYMENT' | 'PER_VISIT'
+  paymentDueVisitNo?: number
+  paymentDueAmountMinor?: number
 }
 
 export interface InspectionOrderPage {

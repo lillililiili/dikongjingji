@@ -124,7 +124,8 @@ export function describeDeliveryHeader(
       .filter(Boolean)
       .join(' · '),
     title: `第 ${visit.visitNo} 次巡检 · ${formatVisitDate(visit)}`,
-    status: { label: isAccepted ? '已验收' : '待验收', isAccepted },
+    // RETURNED (S4-1, B2): the customer sent it back; the provider delivers again.
+    status: { label: isAccepted ? '已验收' : delivery.status === 'RETURNED' ? '整改中' : '待验收', isAccepted },
     deliveredText: `报告 ${formatMonthDayTime(delivery.publishedAt)} 已交付`,
   }
 }
