@@ -119,6 +119,8 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
                         // 服务订单交付文件的短时下载链接（S4-3）：令牌本身就是授权，10 分钟内有效，浏览器直接打开。
                         .requestMatchers(HttpMethod.GET, "/api/v1/service-order-files/*").permitAll()
+                        // 全局搜索（S5-1）：公开只读。
+                        .requestMatchers(HttpMethod.GET, "/api/v1/search").permitAll()
                         // 四类专业服务的目录、详情和服务商主页（F2）：公开只读。
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/pro-services",

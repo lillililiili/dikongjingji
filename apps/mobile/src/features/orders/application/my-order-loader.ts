@@ -84,6 +84,21 @@ async function fetchComplete(apis: MyOrderApis, token: string, source: MyOrderSo
   return { items, hasMore: false }
 }
 
+/**
+ * Every order of the given lists, each read to its end (at most 1,000 records a list), for 订单搜索
+ * (board OrderSearch), which looks through all of them on this device: there is no order search on
+ * the server (plan 06 R6-1: no new aggregate API).
+ */
+export async function loadEveryMyOrder(apis: MyOrderApis, token: string, sources: MyOrderSource[]): Promise<MyOrderItem[]> {
+  const pages = await Promise.all(sources.map((source) => fetchComplete(apis, token, source)))
+  const seen = new Set<string>()
+  return pages.flatMap((page) => page.items).filter((item) => {
+    if (seen.has(item.id)) return false
+    seen.add(item.id)
+    return true
+  })
+}
+
 export function fetchMyOrderPage(apis: MyOrderApis, token: string, source: MyOrderSource, page: number): Promise<Page<MyOrderItem>> {
   return isCompleteSource(source)
     ? fetchComplete(apis, token, source)

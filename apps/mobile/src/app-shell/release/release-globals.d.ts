@@ -16,4 +16,6 @@ declare const __RELEASE_FEATURE_SUPPORT__: boolean
 declare const __RELEASE_FEATURE_SETTINGS__: boolean
 declare const __RELEASE_FEATURE_COURSE__: boolean
 declare const __RELEASE_FEATURE_SYSTEM_NOTICE__: boolean
+declare const __RELEASE_FEATURE_SEARCH__: boolean
+declare const __RELEASE_FEATURE_PLACES__: boolean
 declare const __RELEASE_FEATURE_PLAY__: boolean

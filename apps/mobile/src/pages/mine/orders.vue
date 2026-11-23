@@ -16,6 +16,7 @@ import {
 } from '@/features/orders/application/my-orders-route'
 import MyOrdersPage from '@/features/orders/presentation/MyOrdersPage.vue'
 import MyOrdersUnavailable from '@/features/orders/presentation/MyOrdersUnavailable.vue'
+import { MY_ORDER_SEARCH_PATH } from '@/features/orders/application/my-order-search-route'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
 
 const initialTab = ref<MyOrderTab>('all')
@@ -87,6 +88,7 @@ onReachBottom(() => {
     @login="openLogin"
     @open="open"
     @loaded="stopPulling"
+    @search="open(MY_ORDER_SEARCH_PATH)"
   />
   <MyOrdersUnavailable v-else-if="!TRADE_PREVIEW_ENABLED" />
 </template>

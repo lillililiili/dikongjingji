@@ -1,0 +1,210 @@
+openapi: 3.1.0
+info:
+  title: Global Search API
+  version: 1.0.0
+  description: |-
+    1.0.0（计划 08 S5-1，画板 SearchPre、MallSearch）：跨品类的全局搜索，公开只读，不需要登录。
+    只是把各模块已有的公开列表按关键词拼在一起（search 模块经端口读取，不读别的模块的表），
+    每一项的结构和它自己的列表接口相同：商品同 GET /api/v1/mall/products，巡检服务同 GET /api/v1/inspection/services，
+    四类专业服务同 GET /api/v1/pro-services，活动同 GET /api/v1/activities，场馆同 GET /api/v1/venues，
+    内容同 GET /api/v1/content/feed。
+
+    规则：
+    - 结果只含当前城市（cityCode，平台城市目录的城市编码）能看到的对象；城市没开通的模块就是空组。
+    - keyword 去掉首尾空白后 1–40 个字。商品、巡检服务、四类专业服务用各自列表的关键词搜索（标题、简介、标签，不区分大小写）；
+      活动、场馆、内容的列表没有关键词参数，按名称包含匹配（忽略空格和大小写，活动另看场地名，场馆另看地址，内容另看发布方名称），
+      每组最多看本城列表的前 200 条。
+    - scope 是搜索范围：ALL 综合（每组最多 size 条，默认 3，最多 5），PRODUCT 商品、SERVICE 服务（巡检和四类专业服务）、
+      ACTIVITY 活动、CONTENT 内容、VENUE 场馆（只给这一组，最多 size 条，默认 20，最多 20）。不在范围里的组是 null。
+      要看更多、要筛选排序，到各频道自己的列表里搜。
+    - 每组 total 是这一组找到的总数（活动、场馆、内容是看过的那部分里的命中数）。服务组先列巡检服务，再按航拍、测绘、设备维护、技术支持列。
+    - 哪个模块读取失败，那一组是空的（total 为 0），其余照常返回：搜索页不能因为一个模块整页打不开。
+    - correction 是纠错：关键词是平台词表里一个常见错字时给出建议的写法（如“巡简”→“巡检”），否则为 null；结果仍按原关键词搜。
+    - 最近搜索只存在 App 本机，不上传。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/search:
+    get:
+      operationId: search
+      summary: 按关键词同时搜索本城的商品、服务、活动、内容和场馆
+      security: []
+      parameters:
+        - name: cityCode
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z0-9]{4,16}$"
+        - name: keyword
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 40
+        - name: scope
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/SearchScope"
+        - name: size
+          in: query
+          required: false
+          description: 每组最多几条；综合默认 3（1–5），单一范围默认 20（1–20）
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+      responses:
+        "200":
+          description: 各组结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResult"
+        "400":
+          description: cityCode、keyword、scope 或 size 不合法
+          content:
+            application/json:
+              schema:
+                $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
+components:
+  schemas:
+    SearchScope:
+      type: string
+      enum: [ALL, PRODUCT, SERVICE, ACTIVITY, CONTENT, VENUE]
+      default: ALL
+    SearchResult:
+      type: object
+      additionalProperties: false
+      required: [cityCode, keyword, scope, correction, products, services, activities, contents, venues]
+      properties:
+        cityCode:
+          type: string
+        keyword:
+          type: string
+          description: 去掉首尾空白后的关键词
+        scope:
+          $ref: "#/components/schemas/SearchScope"
+        correction:
+          oneOf:
+            - $ref: "#/components/schemas/SearchCorrection"
+            - type: "null"
+        products:
+          oneOf:
+            - $ref: "#/components/schemas/SearchProductGroup"
+            - type: "null"
+        services:
+          oneOf:
+            - $ref: "#/components/schemas/SearchServiceGroup"
+            - type: "null"
+        activities:
+          oneOf:
+            - $ref: "#/components/schemas/SearchActivityGroup"
+            - type: "null"
+        contents:
+          oneOf:
+            - $ref: "#/components/schemas/SearchContentGroup"
+            - type: "null"
+        venues:
+          oneOf:
+            - $ref: "#/components/schemas/SearchVenueGroup"
+            - type: "null"
+    SearchCorrection:
+      type: object
+      additionalProperties: false
+      required: [keyword]
+      properties:
+        keyword:
+          type: string
+          description: 建议改搜的词
+    SearchProductGroup:
+      type: object
+      additionalProperties: false
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "./openapi-mall-catalog.yaml#/components/schemas/MallProductCard"
+    SearchServiceGroup:
+      type: object
+      additionalProperties: false
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/SearchServiceHit"
+    SearchServiceHit:
+      description: 一项服务；kind 为 INSPECTION 时 inspection 有值，PRO_SERVICE 时 proService 有值，另一个为 null
+      type: object
+      additionalProperties: false
+      required: [kind, inspection, proService]
+      properties:
+        kind:
+          type: string
+          enum: [INSPECTION, PRO_SERVICE]
+        inspection:
+          oneOf:
+            - $ref: "./openapi-inspection-catalog.yaml#/components/schemas/InspectionServiceCard"
+            - type: "null"
+        proService:
+          oneOf:
+            - $ref: "./openapi-proservice.yaml#/components/schemas/ProServiceCard"
+            - type: "null"
+    SearchActivityGroup:
+      type: object
+      additionalProperties: false
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "./openapi-activity.yaml#/components/schemas/ActivityCard"
+    SearchContentGroup:
+      type: object
+      additionalProperties: false
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "./openapi-content.yaml#/components/schemas/ContentArticleCard"
+    SearchVenueGroup:
+      type: object
+      additionalProperties: false
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "./openapi-experience.yaml#/components/schemas/VenueCard"

@@ -2,7 +2,10 @@
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
-import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
+import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
+import { buildMapPickUrl } from '@/features/place/navigation/place-routes'
+import { createMapPickRequestId, useMapPickResultStore } from '@/features/place/state/map-pick-result'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import { storeToRefs } from 'pinia'
@@ -149,8 +152,52 @@ function toggleItem(code: string): void {
     : [...selected, code]
 }
 
+// Preview builds pick the place on the platform's own page (board MapPick, plan 08 S5-10) through
+// the map adapter; public builds keep the system location picker.
+const mapPickResults = useMapPickResultStore()
+let mapPickRequestId: string | null = null
+
+function openMapPick(): void {
+  const cityCode = currentCity.value?.code ?? service.value?.cityCode
+  if (!cityCode) return
+  mapPickRequestId = createMapPickRequestId()
+  uni.navigateTo({
+    url: buildMapPickUrl({
+      purpose: 'INSPECTION',
+      requestId: mapPickRequestId,
+      cityCode,
+      cityName: currentCity.value?.code === cityCode ? currentCity.value.name : '',
+    }),
+  })
+}
+
+onShow(() => {
+  if (!mapPickRequestId) return
+  const place = mapPickResults.take(mapPickRequestId)
+  if (!place) return
+  mapPickRequestId = null
+  try {
+    const location = createBookingLocationSelection({
+      // A sample place's address already holds its name; a typed one is its own name.
+      name: place.address.includes(place.name) ? '' : place.name,
+      address: place.address,
+      longitude: place.point.longitude,
+      latitude: place.point.latitude,
+    })
+    draft.value.locationAddress = location.address
+    draft.value.locationLongitude = location.longitude
+    draft.value.locationLatitude = location.latitude
+  } catch {
+    showLocationPickerError()
+  }
+})
+
 function chooseInspectionLocation(): void {
   if (isChoosingLocation.value) {
+    return
+  }
+  if (PLACE_PREVIEW_ENABLED) {
+    openMapPick()
     return
   }
 
@@ -397,7 +444,7 @@ const RULER = 'M3.5 16.5l13-13 4 4-13 13zM7 13l2 2M10 10l2.5 2.5M13 7l2 2'
         <BookingServiceSnapshotCard :service="service" />
         <view class="booking-section">
           <text class="booking-section__title">预约信息</text>
-          <view class="booking-row booking-row--selectable" @tap="chooseInspectionLocation">
+          <view class="booking-row booking-row--selectable" data-testid="booking-location" @tap="chooseInspectionLocation">
             <LineIcon name="pin" :size="18" color="#ff6a00" />
             <text class="booking-row__label">巡检地点</text>
             <text :class="['booking-row__location', { 'booking-row__location--empty': !draft.locationAddress }]">{{ draft.locationAddress || (isChoosingLocation ? '正在打开地图…' : '请选择巡检地点') }}</text>

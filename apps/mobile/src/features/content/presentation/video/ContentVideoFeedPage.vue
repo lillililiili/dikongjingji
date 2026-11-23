@@ -29,12 +29,14 @@ import type { ContentVideoApi } from '../../data/content-video-api'
 import { videoPlaySource, videoPoster } from '../../data/preview/content-preview-videos'
 import type { ContentVideo, ContentVideoFeed } from '../../domain/content'
 import { buildContentVideoUrl, contentAuthorHome } from '../../navigation/content-routes'
+import { SEARCH_PRE_PATH } from '../../../search/navigation/search-routes'
 import VideoCommentSheet from './VideoCommentSheet.vue'
 
 // The vertical stream (board VideoFeed): one video at a time on black, ↑ ↓ (or a swipe) to the
 // previous and next, tap to pause, 静音; on the side the author with 关注, 点赞, 评论 and 分享;
 // at the bottom the author, the caption and the video's entry (its first mention, read from its own
-// module). 关注 / 推荐 switch the stream. The board's 收藏 and search are not in this step.
+// module). 关注 / 推荐 switch the stream; the search icon opens the search page. The board's 收藏 is not
+// in this step.
 const props = defineProps<{
   cityCode: string
   startVideoId: string | null
@@ -278,7 +280,10 @@ load(props.startVideoId, props.feed)
           <view v-if="tab.code === state.feed" class="feed__tab-bar" />
         </button>
       </view>
-      <view class="feed__icon-button" aria-hidden="true" />
+      <!-- Board VideoFeed: the search icon opens the search page (plan 08 S5-1). -->
+      <button class="feed__icon-button" aria-label="搜索" data-testid="video-feed-search" @click="emit('open', SEARCH_PRE_PATH)">
+        <LineIcon name="search" :size="22" color="#ffffff" :stroke-width="2" />
+      </button>
     </view>
 
     <template v-if="current">

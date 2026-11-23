@@ -186,9 +186,9 @@ test.describe('首页频道', () => {
     await expect(placeholder).toContainText('搜索赛事、培训、研学')
     await expectRootBar(page, 'home')
 
-    await input.fill('测试')
+    // 预览构建里除专业服务以外的搜索框是去搜索页的入口（计划 08 S5-1），没有可输入的框。
+    await expect(input).toHaveCount(0)
     await page.getByTestId('home-channel-mall').click()
-    await expect(input).toHaveValue('')
     await expect(placeholder).toContainText('搜索设备、配件或课程')
   })
 
@@ -214,18 +214,18 @@ test.describe('首页频道', () => {
     await expect(page.getByTestId('inspection-portal')).toBeVisible()
   })
 
-  test('NAV-009 未闭环入口给出明确提示且不跳转', async ({ page }) => {
+  test('NAV-009 预览构建里赛事研学的搜索进搜索页（活动范围），扫一扫进扫码页', async ({ page }) => {
     await openHome(page)
     await page.getByTestId('home-channel-activity').click()
 
-    const url = page.url()
     await page.getByTestId('home-search-submit').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')
-    expect(page.url()).toBe(url)
+    await expect(page).toHaveURL(/pages\/search\/index\?scope=ACTIVITY/)
+    await page.getByTestId('search-pre-back').click()
+    await expect(page.getByTestId('home-channel-activity')).toHaveClass(/home-header__channel--active/)
 
     await page.getByTestId('home-scan').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('下一阶段接入')
-    expect(page.url()).toBe(url)
+    await expect(page).toHaveURL(/pages\/scan\/index$/)
+    await expect(page.getByTestId('scan-page')).toBeVisible()
   })
 
   test('NAV-010 从首页切换城市后两个频道都按新城市加载', async ({ page }) => {

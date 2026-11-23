@@ -34,6 +34,8 @@ export type ReleaseFeatureKey =
   | 'SETTINGS'
   | 'COURSE'
   | 'SYSTEM_NOTICE'
+  | 'SEARCH'
+  | 'PLACES'
   | 'PLAY'
 
 export interface ReleaseFeature {

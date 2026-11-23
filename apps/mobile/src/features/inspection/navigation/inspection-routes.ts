@@ -137,6 +137,8 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/mine/aftersales': { allowed: ['tab'] },
   // 我的订单 merged list (features/orders, R6-1).
   '/pages/mine/orders': { allowed: ['tab', 'status'] },
+  // 订单搜索 (board OrderSearch, plan 08 S5-1).
+  '/pages/mine/order-search': { allowed: [] },
   // Venue booking pages (features/experience/navigation/experience-routes.ts, E10), repeated for
   // the same reason; venue-booking-routes.test.ts checks them.
   '/pages/venue/book': {

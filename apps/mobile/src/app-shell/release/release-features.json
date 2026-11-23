@@ -16,6 +16,8 @@
     { "key": "COURSE", "flag": "COURSE_PREVIEW_ENABLED", "file": "src/features/course/application/course-preview.ts", "publicRelease": false },
     { "key": "SETTINGS", "flag": "SETTINGS_PREVIEW_ENABLED", "file": "src/features/settings/application/settings-preview.ts", "publicRelease": false },
     { "key": "SYSTEM_NOTICE", "flag": "SYSTEM_NOTICE_PREVIEW_ENABLED", "file": "src/features/message/application/notice-preview.ts", "publicRelease": false },
+    { "key": "SEARCH", "flag": "SEARCH_PREVIEW_ENABLED", "file": "src/features/search/application/search-preview.ts", "publicRelease": false },
+    { "key": "PLACES", "flag": "PLACE_PREVIEW_ENABLED", "file": "src/features/place/application/place-preview.ts", "publicRelease": false },
     { "key": "PLAY", "flag": null, "file": "src/app-shell/navigation/home-channels.ts", "publicRelease": false }
   ]
 }

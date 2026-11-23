@@ -125,7 +125,7 @@ function serviceImage(service: CatalogServiceDto): string {
   return inspectionServiceImage({ coverUrl: service.coverImage?.url, categoryCode: service.category.code })
 }
 
-function toCatalogService(service: CatalogServiceDto): InspectionCatalogService {
+export function toCatalogService(service: CatalogServiceDto): InspectionCatalogService {
   const amountFen = service.price.startingAmountMinor ?? undefined
   return {
     id: service.serviceId,

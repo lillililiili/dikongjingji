@@ -33,5 +33,6 @@
         <module>modules/live</module>
         <module>modules/course</module>
         <module>modules/opsimport</module>
+        <module>modules/search</module>
     </modules>
 </project>

@@ -11,6 +11,7 @@ import {
   buildContentVideoFeedUrl,
 } from '@/features/content/navigation/content-routes'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
+import { SEARCH_PRE_PATH } from '@/features/search/navigation/search-routes'
 import ContentDiscoverPage from '@/features/content/presentation/discover/ContentDiscoverPage.vue'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
@@ -29,6 +30,11 @@ function restoreDefaultCity(): void {
   const code = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_CODE?.trim()
   const name = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_NAME?.trim()
   if (code && name) currentCityStore.setCurrentCity({ code, name })
+}
+
+// Board Discover: the search icon opens the search page on 综合 (plan 08 S5-1).
+function openSearch(): void {
+  uni.navigateTo({ url: SEARCH_PRE_PATH })
 }
 
 function openArticle(articleId: string, cityCode: string): void {
@@ -80,6 +86,7 @@ onReachBottom(() => {
       @open-activity="openActivity"
       @open-url="openUrl"
       @login="openLogin"
+      @search="openSearch"
     />
     <view v-else class="platform-page-unavailable">
       <text>发现频道尚未开通</text>
