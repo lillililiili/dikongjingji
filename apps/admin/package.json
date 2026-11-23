@@ -1,0 +1,35 @@
+{
+  "name": "@low-altitude/admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Web 运营端与机构工作台（S3-1）：Vue 3 + TypeScript + Vite + Element Plus + Pinia + vue-router",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit -p tsconfig.app.json && vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit -p tsconfig.app.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "2.3.2",
+    "element-plus": "2.14.8",
+    "pinia": "3.0.4",
+    "vue": "3.5.45",
+    "vue-router": "4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@vitejs/plugin-vue": "6.0.10",
+    "@vue/test-utils": "2.5.1",
+    "@vue/tsconfig": "0.9.1",
+    "jsdom": "27.4.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "3.2.7",
+    "vue-tsc": "3.3.14"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
