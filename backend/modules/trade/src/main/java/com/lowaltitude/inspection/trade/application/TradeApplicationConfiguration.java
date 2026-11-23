@@ -135,6 +135,20 @@ public class TradeApplicationConfiguration {
                 Clock.systemUTC());
     }
 
+    /** 支付通道自检（S2-1）。配置自检由接渠道的一方给；没接时只说“没有开启”。 */
+    @Bean
+    TradeChannelCheckService tradeChannelCheckService(
+            ObjectProvider<PaymentChannel> channels,
+            ObjectProvider<PaymentChannelDiagnostics> diagnostics
+    ) {
+        SecureRandom random = new SecureRandom();
+        return new TradeChannelCheckService(
+                channels::getIfAvailable,
+                diagnostics.getIfAvailable(PaymentChannelDiagnostics::none),
+                Clock.systemUTC(),
+                () -> System.currentTimeMillis() + twelveDigits(random).substring(5));
+    }
+
     private static String twelveDigits(SecureRandom random) {
         return String.format("%012d", Math.floorMod(random.nextLong(), 1_000_000_000_000L));
     }

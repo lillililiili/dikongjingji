@@ -26,6 +26,8 @@ import com.lowaltitude.inspection.mall.application.MallCartException;
 import com.lowaltitude.inspection.mall.application.MallMerchantKind;
 import com.lowaltitude.inspection.trade.application.TradeException.Error;
 import com.lowaltitude.inspection.trade.application.TradePaymentService.NotificationResult;
+import com.lowaltitude.inspection.trade.application.TradeViews.ChannelCheckItemView;
+import com.lowaltitude.inspection.trade.application.TradeViews.ChannelCheckView;
 import com.lowaltitude.inspection.trade.application.TradeViews.MerchantAccountView;
 import com.lowaltitude.inspection.trade.application.TradeViews.PaymentLaunchView;
 import com.lowaltitude.inspection.trade.application.TradeViews.ReconciliationDifferenceView;
@@ -74,6 +76,7 @@ class TradeOpenApiContractTest {
     private static final String REFUNDS = "POST /api/v1/provider/trade/orders/{orderId}/refunds";
     private static final String RECONCILIATION = "GET /api/v1/platform/trade/reconciliation";
     private static final String RECONCILIATION_RUNS = "POST /api/v1/platform/trade/reconciliation/runs";
+    private static final String CHANNEL_CHECKS = "POST /api/v1/platform/trade/channel-checks";
 
     /** 已实现、要登录的操作：E02 五个，E04 两个，E05 五个，E06 两个。 */
     private static final Map<String, String> IMPLEMENTED = Map.ofEntries(
@@ -90,7 +93,8 @@ class TradeOpenApiContractTest {
             Map.entry(PICKUP, "completePickup"),
             Map.entry(REFUNDS, "refundOrder"),
             Map.entry(RECONCILIATION, "exportReconciliation"),
-            Map.entry(RECONCILIATION_RUNS, "runReconciliation"));
+            Map.entry(RECONCILIATION_RUNS, "runReconciliation"),
+            Map.entry(CHANNEL_CHECKS, "checkPaymentChannel"));
 
     /** 已实现的公开操作（E04 的微信回调）。 */
     private static final String NOTIFICATION = "POST /api/v1/trade/channels/wechat/notifications";
@@ -113,7 +117,9 @@ class TradeOpenApiContractTest {
             Map.entry("WechatAppCall", WechatAppCallView.class),
             Map.entry("Reconciliation", ReconciliationView.class),
             Map.entry("ReconciliationRun", ReconciliationRunView.class),
-            Map.entry("ReconciliationDifference", ReconciliationDifferenceView.class));
+            Map.entry("ReconciliationDifference", ReconciliationDifferenceView.class),
+            Map.entry("ChannelCheck", ChannelCheckView.class),
+            Map.entry("ChannelCheckItem", ChannelCheckItemView.class));
 
     /** 请求体：字段名与控制器收的对象一致。 */
     private static final Map<String, Class<? extends Record>> REQUEST_RECORDS = Map.of(
@@ -137,7 +143,8 @@ class TradeOpenApiContractTest {
         Map<String, Object> root = root();
 
         // 0.2.0：E09 接入收费活动报名（业务来源 ACTIVITY）。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("0.3.0");
+        // 0.4.0：S2-1 加支付通道自检。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("0.4.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -219,6 +226,8 @@ class TradeOpenApiContractTest {
         assertThat(responses(RECONCILIATION_RUNS)).containsKeys("400", "503").doesNotContainKeys("404", "409");
         assertThat((String) map(responses(RECONCILIATION).get("409")).get("description"))
                 .contains("TRADE_RECONCILIATION_NOT_READY");
+        // S2-1：自检只会因子商户号格式不对 400；渠道不通写在结果里，不回 503。
+        assertThat(responses(CHANNEL_CHECKS)).containsKey("400").doesNotContainKeys("404", "409", "412", "503");
     }
 
     /**
@@ -320,6 +329,8 @@ class TradeOpenApiContractTest {
                 .contains("attachment; filename=\"reconciliation-<date>.csv\"");
         assertThat(successCodes(RECONCILIATION)).containsExactly("200");
         assertThat(successCodes(RECONCILIATION_RUNS)).containsExactly("200");
+        assertThat(successCodes(CHANNEL_CHECKS)).containsExactly("200");
+        assertThat(map(responses(CHANNEL_CHECKS).get("200"))).doesNotContainKey("headers");
         assertThat(map(responses(RECONCILIATION_RUNS).get("200"))).doesNotContainKey("headers");
         // 首次提交 201，同一个幂等键重放 200；其余都是 200。
         assertThat(successCodes("POST /api/v1/trade/orders")).containsExactlyInAnyOrder("201", "200");
@@ -474,6 +485,13 @@ class TradeOpenApiContractTest {
         assertThat(map(map(map(schemas.get("WechatAppCall")).get("properties")).get("packageValue")).get("const"))
                 .isEqualTo("Sign=WXPay");
         assertThat(enumOf("PaymentStatus")).containsExactly("CREATED", "PREPAID", "SUCCEEDED", "CLOSED", "MISMATCH");
+        // S2-1：自检的模式和每一项的状态就是服务和配置自检用的那几个常量。
+        assertThat(strings(map(map(map(schemas.get("ChannelCheck")).get("properties")).get("mode")).get("enum")))
+                .containsExactly(PaymentChannelDiagnostics.MODE_WECHAT, PaymentChannelDiagnostics.MODE_SIMULATED,
+                        PaymentChannelDiagnostics.MODE_DISABLED);
+        assertThat(strings(map(map(map(schemas.get("ChannelCheckItem")).get("properties")).get("status")).get("enum")))
+                .containsExactly(TradeChannelCheckService.PASS, TradeChannelCheckService.WARN,
+                        TradeChannelCheckService.FAIL, TradeChannelCheckService.SKIPPED);
         // 退款单的状态（V001 trade_refund.status 的取值，服务里用的就是这几个）。
         assertThat(enumOf("RefundStatus")).containsExactly("REQUESTED", "PROCESSING", "SUCCEEDED", "CLOSED", "ABNORMAL");
         // 商家列表按订单状态过滤，取值就是订单状态。
