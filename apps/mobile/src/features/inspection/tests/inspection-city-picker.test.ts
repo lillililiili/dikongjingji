@@ -17,6 +17,8 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  CITY_SERVICE_STATUS_LABELS,
+  cityServiceStatus,
   findCityByLocatedName,
   searchCities,
   type CityDirectory,
@@ -46,6 +48,8 @@ interface SheetProps {
 
 type TestCitySelectionSource =
   | 'CURRENT'
+  | 'OPEN'
+  | 'PREPARING'
   | 'RECENT'
   | 'HOT'
   | 'SEARCH'
@@ -200,7 +204,7 @@ function compileCitySelectionSheet(): Component {
       return UniIconsMock
     }
     if (request === '../domain/city-directory') {
-      return { searchCities }
+      return { searchCities, cityServiceStatus, CITY_SERVICE_STATUS_LABELS }
     }
     throw new Error(`Unexpected SFC dependency: ${request}`)
   }
@@ -310,6 +314,7 @@ function makeCity(
   pinyin: string,
   provinceCode: string,
   provinceName: string,
+  serviceStatus: PlatformCity['serviceStatus'] = 'CLOSED',
 ): PlatformCity {
   return {
     code,
@@ -318,6 +323,7 @@ function makeCity(
     initials: pinyin[0]?.toUpperCase() ?? '',
     provinceCode,
     provinceName,
+    serviceStatus,
   }
 }
 
@@ -336,9 +342,10 @@ function makeProvince(
   }
 }
 
-const jinan = makeCity('370100', '济南市', 'jinan', '370000', '山东省')
-const qingdao = makeCity('370200', '青岛市', 'qingdao', '370000', '山东省')
-const dongying = makeCity('370500', '东营市', 'dongying', '370000', '山东省')
+// 照原型 CitySheet：已开通东营；筹备中济南、青岛；其余未开通。
+const jinan = makeCity('370100', '济南市', 'jinan', '370000', '山东省', 'PREPARING')
+const qingdao = makeCity('370200', '青岛市', 'qingdao', '370000', '山东省', 'PREPARING')
+const dongying = makeCity('370500', '东营市', 'dongying', '370000', '山东省', 'OPEN')
 const yantai = makeCity('370600', '烟台市', 'yantai', '370000', '山东省')
 const nanjing = makeCity('320100', '南京市', 'nanjing', '320000', '江苏省')
 
@@ -353,6 +360,8 @@ const directory: CityDirectory = {
     ),
     makeProvince('320000', '江苏省', 'jiangsu', [nanjing]),
   ],
+  openCities: [dongying],
+  preparingCities: [jinan, qingdao],
 }
 
 function mountSheet(overrides: Partial<SheetProps> = {}) {
@@ -475,18 +484,20 @@ describe('city selection sheet runtime behavior', () => {
     await typeKeyword(root, '烟台')
 
     expect(textOf(root)).toContain('搜索结果')
-    expect(buttonsByText(root, yantai.name)).toHaveLength(1)
+    // 未开通的城市只在搜索里出现，名字后面标“未开通”。
+    expect(buttonsByText(root, `${yantai.name}未开通`)).toHaveLength(1)
     expect(buttonsByText(root, dongying.name)).toHaveLength(0)
 
-    await trigger(findButtonByText(root, yantai.name), 'onClick')
+    await trigger(findButtonByText(root, `${yantai.name}未开通`), 'onClick')
     expect(events.select).toHaveBeenCalledWith({
       city: yantai,
       source: 'SEARCH',
     })
   })
 
-  it('emits typed payloads for current, recent, hot, and tree cities', async () => {
+  it('emits typed payloads for the current city and the open and preparing groups', async () => {
     const currentMount = mountSheet()
+    expect(textOf(findByClass(currentMount.root, 'city-sheet__current-city'))).toContain('济南市 · 筹备中')
     await trigger(
       findByClass(currentMount.root, 'city-sheet__current-city'),
       'onClick',
@@ -496,29 +507,37 @@ describe('city selection sheet runtime behavior', () => {
       source: 'CURRENT',
     })
 
-    const recentMount = mountSheet()
-    const recent = findByClass(recentMount.root, 'city-sheet__recent')
-    await trigger(findButtonByText(recent, qingdao.name), 'onClick')
-    expect(recentMount.events.select).toHaveBeenCalledWith({
-      city: qingdao,
-      source: 'RECENT',
-    })
-
-    const hotMount = mountSheet()
-    const hot = findByClass(hotMount.root, 'city-sheet__hot')
-    await trigger(findButtonByText(hot, dongying.name), 'onClick')
-    expect(hotMount.events.select).toHaveBeenCalledWith({
+    const openMount = mountSheet()
+    const open = findByClass(openMount.root, 'city-sheet__open')
+    await trigger(findButtonByText(open, dongying.name), 'onClick')
+    expect(openMount.events.select).toHaveBeenCalledWith({
       city: dongying,
-      source: 'HOT',
+      source: 'OPEN',
     })
 
-    const treeMount = mountSheet()
-    await trigger(findButtonByText(treeMount.root, '江苏省'), 'onClick')
-    await trigger(findButtonByText(treeMount.root, nanjing.name), 'onClick')
-    expect(treeMount.events.select).toHaveBeenCalledWith({
-      city: nanjing,
-      source: 'TREE',
+    const preparingMount = mountSheet()
+    const preparing = findByClass(preparingMount.root, 'city-sheet__preparing')
+    // 当前城市打勾；筹备中的城市名后面有小字“筹备”。
+    expect(buttonsByText(preparing, `${jinan.name} ✓筹备`)).toHaveLength(1)
+    await trigger(findButtonByText(preparing, `${qingdao.name}筹备`), 'onClick')
+    expect(preparingMount.events.select).toHaveBeenCalledWith({
+      city: qingdao,
+      source: 'PREPARING',
     })
+  })
+
+  it('lists only open and preparing cities, in the board’s two groups', () => {
+    const { root } = mountSheet({ recentCities: [yantai] })
+
+    expect(textOf(root)).toContain('已开通城市')
+    expect(textOf(root)).toContain('筹备中（可先浏览全国商品与线上体验）')
+    // 未开通的、最近使用的、按省展开的都不再列（画板没有这些组）。
+    expect(textOf(root)).not.toContain('热门城市')
+    expect(textOf(root)).not.toContain('最近使用')
+    expect(textOf(root)).not.toContain('江苏省')
+    expect(buttonsByText(root, yantai.name)).toHaveLength(0)
+    expect(buttonsByText(root, nanjing.name)).toHaveLength(0)
+    expect(textOf(root)).toContain('账号、订单、参与人和收藏不变，跨城通用')
   })
 
   it('emits close, retry, and relocate from rendered controls', async () => {
@@ -553,49 +572,6 @@ describe('city selection sheet runtime behavior', () => {
     expect(relocateMount.events.relocate).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps only one province expanded and collapses it on repeat', async () => {
-    const provinceACity = makeCity(
-      '110100',
-      '甲城市',
-      'jia',
-      '110000',
-      '甲省',
-    )
-    const provinceBCity = makeCity(
-      '120100',
-      '乙城市',
-      'yi',
-      '120000',
-      '乙省',
-    )
-    const { root } = mountSheet({
-      currentCity: null,
-      recentCities: [],
-      directory: {
-        hotCities: [],
-        provinces: [
-          makeProvince('110000', '甲省', 'jia', [provinceACity]),
-          makeProvince('120000', '乙省', 'yi', [provinceBCity]),
-        ],
-      },
-    })
-
-    expect(buttonsByText(root, provinceACity.name)).toHaveLength(0)
-    expect(buttonsByText(root, provinceBCity.name)).toHaveLength(0)
-
-    await trigger(findButtonByText(root, '甲省'), 'onClick')
-    expect(buttonsByText(root, provinceACity.name)).toHaveLength(1)
-    expect(buttonsByText(root, provinceBCity.name)).toHaveLength(0)
-
-    await trigger(findButtonByText(root, '乙省'), 'onClick')
-    expect(buttonsByText(root, provinceACity.name)).toHaveLength(0)
-    expect(buttonsByText(root, provinceBCity.name)).toHaveLength(1)
-
-    await trigger(findButtonByText(root, '乙省'), 'onClick')
-    expect(buttonsByText(root, provinceACity.name)).toHaveLength(0)
-    expect(buttonsByText(root, provinceBCity.name)).toHaveLength(0)
-  })
-
   it('renders loading, error, and wholly empty states', () => {
     const loadingMount = mountSheet({
       directory: null,
@@ -618,9 +594,11 @@ describe('city selection sheet runtime behavior', () => {
       directory: {
         hotCities: [],
         provinces: [],
+        openCities: [],
+        preparingCities: [],
       },
     })
-    expect(textOf(emptyMount.root)).toContain('暂无可选城市')
+    expect(textOf(emptyMount.root)).toContain('暂无已开通的城市，可以输入城市名搜索')
   })
 
   it('uses the approved copy when a city search has no results', async () => {
@@ -664,7 +642,7 @@ describe('city selection sheet static visual contract', () => {
       /\.city-sheet__city \{[\s\S]*?margin: 0;/,
     )
     expect(source).toMatch(
-      /\.city-sheet__hot \.city-sheet__city,[\s\S]*?\.city-sheet__province-cities \.city-sheet__city \{[\s\S]*?width: 100%;/,
+      /\.city-sheet__grid \.city-sheet__city \{[\s\S]*?width: 100%;/,
     )
     expect(source).not.toContain('showActionSheet')
     expect(source).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
@@ -715,7 +693,7 @@ describe('inspection catalog city selection integration', () => {
       showToast: vi.fn(),
     })
 
-    for (const source of ['CURRENT', 'RECENT', 'HOT', 'TREE'] as const) {
+    for (const source of ['CURRENT', 'OPEN', 'PREPARING', 'RECENT', 'HOT', 'TREE'] as const) {
       await controller.applyCitySelection({ city: jinan, source })
     }
     expect(recordSearchSelection).not.toHaveBeenCalled()
@@ -728,10 +706,10 @@ describe('inspection catalog city selection integration', () => {
       name: yantai.name,
       provinceCode: yantai.provinceCode,
     })
-    expect(setPage).toHaveBeenCalledTimes(5)
+    expect(setPage).toHaveBeenCalledTimes(7)
     expect(setPage).toHaveBeenLastCalledWith(1)
     expect(page).toBe(1)
-    expect(reloadCatalog).toHaveBeenCalledTimes(5)
+    expect(reloadCatalog).toHaveBeenCalledTimes(7)
   })
 
   it.each(['read', 'write'] as const)(
