@@ -31,6 +31,6 @@ class ProServiceFavoriteTargetsTest {
     private static ProServiceDetailView service(ProServicePriceView price) {
         return new ProServiceDetailView(UUID.randomUUID(), ProServiceType.AERIAL, null, "飞行作业指导", null, price, null,
                 true, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                new ProServiceProviderView(UUID.randomUUID(), "示例航拍服务商", null, null, true), List.of());
+                new ProServiceProviderView(UUID.randomUUID(), "示例航拍服务商", null, null, true), List.of(), null);
     }
 }
