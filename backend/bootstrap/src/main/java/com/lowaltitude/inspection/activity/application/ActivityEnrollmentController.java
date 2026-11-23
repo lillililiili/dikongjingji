@@ -148,7 +148,8 @@ public final class ActivityEnrollmentController {
         return service.cancel(
                 customer(authentication),
                 enrollmentId,
-                request == null ? null : request.ticketIds());
+                request == null ? null : request.ticketIds(),
+                request == null ? null : request.reason());
     }
 
     @PostMapping("/api/v1/activity-checkins")
@@ -215,7 +216,8 @@ public final class ActivityEnrollmentController {
     ) {
     }
 
-    record CancelEnrollmentRequest(List<UUID> ticketIds) {
+    /** reason（S5-3，可以不带）：TIME_CONFLICT、UNWELL、PLAN_CHANGED、OTHER。 */
+    record CancelEnrollmentRequest(List<UUID> ticketIds, String reason) {
     }
 
     record CheckinRequest(String ticketCode) {

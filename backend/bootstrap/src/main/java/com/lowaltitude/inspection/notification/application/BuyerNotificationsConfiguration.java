@@ -27,7 +27,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <ul>
  *   <li>交易物流：商城订单已发货、自提订单付款后可以自提、商城订单退款到账（询价下的单也是商城订单；租赁订单不发）；</li>
- *   <li>活动提醒：报名成功（免费的提交即成功、收费的付款到账）、收费报名的退款到账、到馆预约成功、到馆改期。</li>
+ *   <li>活动提醒：报名成功（免费的提交即成功、收费的付款到账）、收费报名的退款到账、到馆预约成功、到馆改期；
+ *   S5-3 加了候补转正、报名改期、结果已发布。</li>
  * </ul>
  */
 @Configuration(proxyBeanMethods = false)
@@ -41,12 +42,17 @@ public class BuyerNotificationsConfiguration {
     static final String ACTIVITY_REFUNDED = "ACTIVITY_REFUNDED";
     static final String VENUE_BOOKED = "VENUE_BOOKED";
     static final String VENUE_RESCHEDULED = "VENUE_RESCHEDULED";
+    static final String WAITLIST_OFFERED = "ACTIVITY_WAITLIST_OFFERED";
+    static final String ACTIVITY_RESCHEDULED = "ACTIVITY_RESCHEDULED";
+    static final String RESULT_RECORDED = "ACTIVITY_RESULT_RECORDED";
 
     private static final String MALL = "MALL";
     private static final String ACTIVITY = "ACTIVITY";
     private static final int MAX_NAME = 40;
     private static final DateTimeFormatter SESSION_TIME =
             DateTimeFormatter.ofPattern("M/d HH:mm").withZone(ZoneId.of("Asia/Shanghai"));
+    private static final DateTimeFormatter CLOCK =
+            DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Asia/Shanghai"));
 
     @Bean
     AfterCommitNotifications afterCommitNotifications(
@@ -80,7 +86,27 @@ public class BuyerNotificationsConfiguration {
 
     @Bean
     ActivityEnrollmentNotifier activityEnrollmentNotifier(AfterCommitNotifications notifications) {
-        return event -> notifications.record(enrolledNotice(event));
+        return new ActivityEnrollmentNotifier() {
+            @Override
+            public void enrolled(Enrolled event) {
+                notifications.record(enrolledNotice(event));
+            }
+
+            @Override
+            public void waitlistOffered(WaitlistOffered event) {
+                notifications.record(waitlistOfferedNotice(event));
+            }
+
+            @Override
+            public void rescheduled(Rescheduled event) {
+                notifications.record(activityRescheduledNotice(event));
+            }
+
+            @Override
+            public void resultRecorded(ResultRecorded event) {
+                notifications.record(resultRecordedNotice(event));
+            }
+        };
     }
 
     @Bean
@@ -176,6 +202,56 @@ public class BuyerNotificationsConfiguration {
                 event.enrollmentId(),
                 null,
                 "activity-enrolled:" + event.enrollmentId(),
+                event.at());
+    }
+
+    /**
+     * “候补转正”（S5-3）：青少年无人机编程挑战赛 11/15 14:00 有名额释放，名额保留到 10:35，请尽快付款。
+     * 去候补详情。同一条候补只转正一次。
+     */
+    static NewNotification waitlistOfferedNotice(ActivityEnrollmentNotifier.WaitlistOffered event) {
+        return new NewNotification(
+                event.accountId(),
+                NotificationCategory.ACTIVITY_REMINDER,
+                WAITLIST_OFFERED,
+                "候补转正",
+                name(event.activityTitle(), "活动") + " " + time(event.startsAt()) + " 有名额释放，名额保留到 "
+                        + CLOCK.format(event.offerExpiresAt()) + "，请尽快" + (event.paid() ? "付款" : "确认报名"),
+                NotificationTargetType.ACTIVITY_WAITLIST,
+                event.waitlistId(),
+                null,
+                "activity-waitlist-offered:" + event.waitlistId(),
+                event.at());
+    }
+
+    /** “报名已改期”（S5-3）：青少年无人机编程挑战赛 2 人改到 11/22 09:00，请用新的凭证。每改一次记一条。 */
+    static NewNotification activityRescheduledNotice(ActivityEnrollmentNotifier.Rescheduled event) {
+        return new NewNotification(
+                event.accountId(),
+                NotificationCategory.ACTIVITY_REMINDER,
+                ACTIVITY_RESCHEDULED,
+                "报名已改期",
+                name(event.activityTitle(), "活动") + " " + event.people() + " 人改到 " + time(event.newStartsAt())
+                        + "，请用新的凭证",
+                NotificationTargetType.ACTIVITY_ENROLLMENT,
+                event.enrollmentId(),
+                null,
+                "activity-rescheduled:" + event.changeId(),
+                event.at());
+    }
+
+    /** “结果已发布”（S5-3）：主办方发布了青少年无人机编程挑战赛的结果记录。同一张报名单只记一条。 */
+    static NewNotification resultRecordedNotice(ActivityEnrollmentNotifier.ResultRecorded event) {
+        return new NewNotification(
+                event.accountId(),
+                NotificationCategory.ACTIVITY_REMINDER,
+                RESULT_RECORDED,
+                "结果已发布",
+                "主办方发布了" + name(event.activityTitle(), "活动") + "的结果记录",
+                NotificationTargetType.ACTIVITY_ENROLLMENT,
+                event.enrollmentId(),
+                null,
+                "activity-result:" + event.enrollmentId(),
                 event.at());
     }
 

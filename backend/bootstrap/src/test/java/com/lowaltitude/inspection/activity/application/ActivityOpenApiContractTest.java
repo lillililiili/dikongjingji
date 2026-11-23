@@ -70,43 +70,91 @@ class ActivityOpenApiContractTest {
             Map.entry("Ticket", TicketView.class),
             Map.entry("TicketRefund", TicketRefundView.class),
             Map.entry("EnrollmentPayment", EnrollmentPaymentView.class),
-            Map.entry("Checkin", CheckinView.class));
+            Map.entry("Checkin", CheckinView.class),
+            // 1.4.0（S5-3）
+            Map.entry("EnrollmentTeam", EnrollmentTeamView.class),
+            Map.entry("EnrollmentSessionRef", EnrollmentSessionRefView.class),
+            Map.entry("EnrollmentReschedule", EnrollmentRescheduleView.class),
+            Map.entry("ChangeSummary", ChangeSummaryView.class),
+            Map.entry("ChangeDetail", ChangeDetailView.class),
+            Map.entry("ChangeTicket", ChangeTicketView.class),
+            Map.entry("TicketResult", TicketResultView.class),
+            Map.entry("TeamCheck", TeamCheckView.class),
+            Map.entry("TeamMemberCheck", TeamMemberCheckView.class),
+            Map.entry("Waitlist", WaitlistView.class),
+            Map.entry("WaitlistSession", WaitlistSessionView.class),
+            Map.entry("WaitlistMember", WaitlistMemberView.class),
+            Map.entry("WaitlistPage", WaitlistPageView.class),
+            Map.entry("ResultSession", ResultSessionView.class),
+            Map.entry("ResultSessionPage", ResultSessionPageView.class),
+            Map.entry("ResultRoster", ResultRosterView.class),
+            Map.entry("ResultRosterEntry", ResultRosterEntryView.class));
+
+    /** 要登录的控制器：报名（1.1.0 起）和 S5-3 的三个。 */
+    private static final List<Class<?>> LOGIN_CONTROLLERS = List.of(
+            ActivityEnrollmentController.class,
+            ActivityEnrollmentChangeController.class,
+            ActivityWaitlistController.class,
+            ActivityResultWorkbenchController.class);
 
     /** 请求体：字段名与控制器的请求对象一致；哪些必填由服务的校验决定，这里逐个写明。 */
-    private static final Map<String, Class<? extends Record>> REQUEST_RECORDS = Map.of(
-            "AddChildRequest", ActivityEnrollmentController.AddChildRequest.class,
-            "RenameParticipantRequest", ActivityEnrollmentController.RenameParticipantRequest.class,
-            "PhotoUseRequest", ActivityEnrollmentController.PhotoUseRequest.class,
-            "EnrollRequest", ActivityEnrollmentController.EnrollRequest.class,
-            "CancelEnrollmentRequest", ActivityEnrollmentController.CancelEnrollmentRequest.class,
-            "CheckinRequest", ActivityEnrollmentController.CheckinRequest.class);
+    private static final Map<String, Class<? extends Record>> REQUEST_RECORDS = Map.ofEntries(
+            Map.entry("AddChildRequest", ActivityEnrollmentController.AddChildRequest.class),
+            Map.entry("RenameParticipantRequest", ActivityEnrollmentController.RenameParticipantRequest.class),
+            Map.entry("PhotoUseRequest", ActivityEnrollmentController.PhotoUseRequest.class),
+            Map.entry("EnrollRequest", ActivityEnrollmentController.EnrollRequest.class),
+            Map.entry("CancelEnrollmentRequest", ActivityEnrollmentController.CancelEnrollmentRequest.class),
+            Map.entry("CheckinRequest", ActivityEnrollmentController.CheckinRequest.class),
+            Map.entry("TeamMemberRequest", ActivityEnrollmentChangeController.TeamMemberRequest.class),
+            Map.entry("TeamCheckRequest", ActivityEnrollmentChangeController.TeamCheckRequest.class),
+            Map.entry("TeamEnrollRequest", ActivityEnrollmentChangeController.TeamEnrollRequest.class),
+            Map.entry("RescheduleRequest", ActivityEnrollmentChangeController.RescheduleRequest.class),
+            Map.entry("JoinWaitlistRequest", ActivityWaitlistController.JoinWaitlistRequest.class),
+            Map.entry("ConfirmWaitlistRequest", ActivityWaitlistController.ConfirmWaitlistRequest.class),
+            Map.entry("RecordResultRequest", ActivityResultWorkbenchController.RecordResultRequest.class));
 
-    private static final Map<String, List<String>> REQUEST_REQUIRED = Map.of(
-            "AddChildRequest", List.of("name", "birthMonth", "guardianConfirmed"),
-            "RenameParticipantRequest", List.of("name"),
-            "PhotoUseRequest", List.of("authorized"),
-            "EnrollRequest", List.of("activityId", "sessionId", "participantIds", "noticeAgreed"),
-            // 取消可以不带请求体；ticketIds 不传就是全部。
-            "CancelEnrollmentRequest", List.of(),
-            "CheckinRequest", List.of("ticketCode"));
+    private static final Map<String, List<String>> REQUEST_REQUIRED = Map.ofEntries(
+            Map.entry("AddChildRequest", List.of("name", "birthMonth", "guardianConfirmed")),
+            Map.entry("RenameParticipantRequest", List.of("name")),
+            Map.entry("PhotoUseRequest", List.of("authorized")),
+            Map.entry("EnrollRequest", List.of("activityId", "sessionId", "participantIds", "noticeAgreed")),
+            // 取消可以不带请求体；ticketIds 不传就是全部，reason 可以不选。
+            Map.entry("CancelEnrollmentRequest", List.of()),
+            Map.entry("CheckinRequest", List.of("ticketCode")),
+            // 名单的一行要么是已有的参与人，要么是现填的姓名和出生年月，由服务判断。
+            Map.entry("TeamMemberRequest", List.of()),
+            Map.entry("TeamCheckRequest", List.of("sessionId", "members")),
+            Map.entry("TeamEnrollRequest", List.of("activityId", "sessionId", "teamName", "leaderName",
+                    "leaderPhone", "members", "noticeAgreed", "guardianConsent")),
+            Map.entry("RescheduleRequest", List.of("targetSessionId")),
+            Map.entry("JoinWaitlistRequest", List.of("activityId", "sessionId", "participantIds", "noticeAgreed")),
+            Map.entry("ConfirmWaitlistRequest", List.of()),
+            Map.entry("RecordResultRequest", List.of("completion")));
 
-    private static final Map<String, Class<? extends Enum<?>>> SCHEMA_ENUMS = Map.of(
-            "ActivityType", ActivityType.class,
-            "ActivityPriceMode", ActivityPriceMode.class,
-            "ActivityEnrollmentStatus", ActivityEnrollmentStatus.class,
-            "ParticipantRelation", ParticipantRelation.class,
-            "ParticipantEligibilityReason", ParticipantEligibilityReason.class,
-            "EnrollmentStatus", EnrollmentStatus.class,
-            "TicketStatus", TicketStatus.class,
-            "EnrollmentPaymentStatus", EnrollmentPaymentStatus.class,
-            "TicketRefundStatus", TicketRefundStatus.class);
+    private static final Map<String, Class<? extends Enum<?>>> SCHEMA_ENUMS = Map.ofEntries(
+            Map.entry("ActivityType", ActivityType.class),
+            Map.entry("ActivityPriceMode", ActivityPriceMode.class),
+            Map.entry("ActivityEnrollmentStatus", ActivityEnrollmentStatus.class),
+            Map.entry("ParticipantRelation", ParticipantRelation.class),
+            Map.entry("ParticipantEligibilityReason", ParticipantEligibilityReason.class),
+            Map.entry("EnrollmentStatus", EnrollmentStatus.class),
+            Map.entry("TicketStatus", TicketStatus.class),
+            Map.entry("EnrollmentPaymentStatus", EnrollmentPaymentStatus.class),
+            Map.entry("TicketRefundStatus", TicketRefundStatus.class),
+            Map.entry("EnrollmentKind", EnrollmentKind.class),
+            Map.entry("ChangeKind", ChangeKind.class),
+            Map.entry("ChangeReason", ChangeReason.class),
+            Map.entry("TeamMemberReason", TeamMemberReason.class),
+            Map.entry("ResultCompletion", ResultCompletion.class),
+            Map.entry("WaitlistStatus", WaitlistStatus.class));
 
     @Test
     void contractIsVersionOnePointThreeAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        // 1.2.0：收费报名（E09）；1.3.0：核销工作台（S3-3）的登记放行，路由和字段不变。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.0");
+        // 1.2.0：收费报名（E09）；1.3.0：核销工作台（S3-3）的登记放行，路由和字段不变；
+        // 1.4.0：候补、团队报名、改期、退改记录、结果记录（S5-3）。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.4.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         // 没有全局的 security：每个操作自己写明公开还是要登录，漏写会被下面的用例发现。
@@ -131,7 +179,7 @@ class ActivityOpenApiContractTest {
     @Test
     void everyEnrollmentRouteIsDeclaredWithItsMethodAndNeedsALogin() throws Exception {
         String contract = Files.readString(CONTRACT);
-        List<Operation> enrollment = operations(ActivityEnrollmentController.class);
+        List<Operation> enrollment = loginOperations();
 
         assertThat(enrollment).extracting(Operation::key).containsExactlyInAnyOrder(
                 "GET /api/v1/activity-participants",
@@ -143,7 +191,19 @@ class ActivityOpenApiContractTest {
                 "GET /api/v1/activity-enrollments",
                 "GET /api/v1/activity-enrollments/{enrollmentId}",
                 "POST /api/v1/activity-enrollments/{enrollmentId}/cancel",
-                "POST /api/v1/activity-checkins");
+                "POST /api/v1/activity-checkins",
+                "POST /api/v1/activity-enrollments/{enrollmentId}/reschedule",
+                "GET /api/v1/activity-enrollments/{enrollmentId}/changes/{changeId}",
+                "POST /api/v1/activity-team-enrollments/check",
+                "POST /api/v1/activity-team-enrollments",
+                "POST /api/v1/activity-waitlists",
+                "GET /api/v1/activity-waitlists",
+                "GET /api/v1/activity-waitlists/{waitlistId}",
+                "POST /api/v1/activity-waitlists/{waitlistId}/abandon",
+                "POST /api/v1/activity-waitlists/{waitlistId}/confirm",
+                "GET /api/v1/provider/activity-sessions",
+                "GET /api/v1/provider/activity-sessions/{sessionId}/roster",
+                "PUT /api/v1/provider/activity-tickets/{ticketId}/result");
         assertThat(enrollment).allSatisfy(operation -> {
             assertThat(contract).contains("  " + operation.path() + ":\n");
             Map<String, Object> declared = declared(operation);
@@ -162,19 +222,19 @@ class ActivityOpenApiContractTest {
     void contractDeclaresNoOperationTheControllersDoNotHave() {
         Set<String> implemented = new TreeSet<>();
         operations(ActivityCatalogController.class).forEach(operation -> implemented.add(operation.key()));
-        operations(ActivityEnrollmentController.class).forEach(operation -> implemented.add(operation.key()));
+        loginOperations().forEach(operation -> implemented.add(operation.key()));
         Set<String> declared = new TreeSet<>();
         map(root().get("paths")).forEach((path, item) -> map(item).keySet()
                 .forEach(method -> declared.add(method.toUpperCase() + " " + path)));
 
-        assertThat(implemented).hasSize(13);
+        assertThat(implemented).hasSize(25);
         assertThat(declared).containsExactlyElementsOf(implemented);
     }
 
     @Test
     void everyParameterOfEveryRouteIsDeclaredInTheSamePlace() {
         List<Operation> all = new ArrayList<>(operations(ActivityCatalogController.class));
-        all.addAll(operations(ActivityEnrollmentController.class));
+        all.addAll(loginOperations());
 
         assertThat(all).allSatisfy(operation -> {
             Map<String, Map<String, Object>> declared = new LinkedHashMap<>();
@@ -218,17 +278,20 @@ class ActivityOpenApiContractTest {
         assertThat(parameter.get("in")).isEqualTo("header");
         assertThat(parameter.get("required")).isEqualTo(true);
         assertThat(map(parameter.get("schema"))).containsEntry("type", "string").containsEntry("format", "uuid");
-        assertThat(operations(ActivityEnrollmentController.class).stream()
+        assertThat(loginOperations().stream()
                 .filter(operation -> list(declared(operation).get("parameters")).stream()
                         .anyMatch(entry -> "header".equals(resolve(map(entry)).get("in"))))
                 .map(Operation::key))
-                .containsExactly("POST /api/v1/activity-enrollments");
+                .containsExactlyInAnyOrder(
+                        "POST /api/v1/activity-enrollments",
+                        "POST /api/v1/activity-team-enrollments",
+                        "POST /api/v1/activity-waitlists");
     }
 
     @Test
     void everyRequestBodyAndSuccessResponsePointsAtTheSchemaOfItsJavaType() {
         List<Operation> all = new ArrayList<>(operations(ActivityCatalogController.class));
-        all.addAll(operations(ActivityEnrollmentController.class));
+        all.addAll(loginOperations());
 
         assertThat(all).allSatisfy(operation -> {
             Map<String, Object> declared = declared(operation);
@@ -266,6 +329,8 @@ class ActivityOpenApiContractTest {
         // 新增参与人是 201；提交报名第一次是 201，同一个幂等键重放是 200。
         assertThat(successCodes("post", "/api/v1/activity-participants")).containsExactly("201");
         assertThat(successCodes("post", "/api/v1/activity-enrollments")).containsExactlyInAnyOrder("201", "200");
+        assertThat(successCodes("post", "/api/v1/activity-team-enrollments")).containsExactlyInAnyOrder("201", "200");
+        assertThat(successCodes("post", "/api/v1/activity-waitlists")).containsExactlyInAnyOrder("201", "200");
     }
 
     @Test
@@ -310,7 +375,8 @@ class ActivityOpenApiContractTest {
                     .containsExactlyInAnyOrderElementsOf(REQUEST_REQUIRED.get(schemaName));
         });
         // 控制器里的请求对象都登记在上面了。
-        assertThat(Arrays.stream(ActivityEnrollmentController.class.getDeclaredClasses())
+        assertThat(LOGIN_CONTROLLERS.stream()
+                .flatMap(controller -> Arrays.stream(controller.getDeclaredClasses()))
                 .filter(Class::isRecord)
                 .filter(type -> !Modifier.isPrivate(type.getModifiers())))
                 .containsExactlyInAnyOrderElementsOf(REQUEST_RECORDS.values());
@@ -332,7 +398,7 @@ class ActivityOpenApiContractTest {
 
                 if (type.isRecord() || type.isEnum()) {
                     String expected = SCHEMA_PREFIX + (type.isRecord()
-                            ? schemaOf(SCHEMA_RECORDS, type)
+                            ? schemaOf(records, type)
                             : schemaOf(SCHEMA_ENUMS, type));
                     assertThat(refOf(property)).as(field).isEqualTo(expected);
                     continue;
@@ -355,7 +421,7 @@ class ActivityOpenApiContractTest {
                     if (element.isRecord()) {
                         assertThat(items.get("$ref"))
                                 .as(field + " items")
-                                .isEqualTo(SCHEMA_PREFIX + schemaOf(SCHEMA_RECORDS, element));
+                                .isEqualTo(SCHEMA_PREFIX + schemaOf(records, element));
                     } else if (element == UUID.class) {
                         assertThat(items).as(field + " items").containsEntry("format", "uuid");
                     } else if (element == LocalDate.class) {
@@ -396,7 +462,7 @@ class ActivityOpenApiContractTest {
                 continue;
             }
             produced.add(code);
-            assertThat(operations(ActivityEnrollmentController.class).stream()
+            assertThat(loginOperations().stream()
                     .map(operation -> map(map(declared(operation).get("responses")).get(status)))
                     .filter(declaredResponse -> declaredResponse != null && declaredResponse.get("description") != null)
                     .map(declaredResponse -> (String) declaredResponse.get("description")))
@@ -432,6 +498,12 @@ class ActivityOpenApiContractTest {
         String key() {
             return httpMethod + " " + path;
         }
+    }
+
+    private static List<Operation> loginOperations() {
+        List<Operation> operations = new ArrayList<>();
+        LOGIN_CONTROLLERS.forEach(controller -> operations.addAll(operations(controller)));
+        return operations;
     }
 
     private static List<Operation> operations(Class<?> controller) {

@@ -165,10 +165,32 @@ class NotificationMapperContractTest {
         assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationCategory.values())
                 .map(Enum::name)).containsExactly("SERVICE_PROGRESS", "DEMAND_QUOTE", "CUSTOMER_SERVICE",
                         "TRADE_LOGISTICS", "ACTIVITY_REMINDER", "LIVE_REMINDER");
+        // V007（S5-3）在后面加了 ACTIVITY_WAITLIST。
+        assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationTargetType.values())
+                .map(Enum::name).toList()).startsWith("INSPECTION_PLAN", "INSPECTION_FULFILLMENT", "INSPECTION_DELIVERY",
+                        "DEMAND", "CONVERSATION", "TRADE_ORDER", "ACTIVITY_ENROLLMENT", "ACTIVITY_ORDER",
+                        "VENUE_BOOKING", "LIVE_ROOM");
+    }
+
+    // S5-3：活动候补转正的跳转目标；约束里也带着 S5-9（V006，另一个分支）加的 SYSTEM_NOTICE，两边谁先合并都成立。
+    @Test
+    void theV007MigrationAddsTheActivityWaitlistTarget() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/notification/V007__notification_activity_waitlist.sql")) {
+            assertThat(stream).isNotNull();
+            migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8).replaceAll("\\s+", " ");
+        }
+
+        assertThat(migration)
+                .contains("'VENUE_BOOKING', 'LIVE_ROOM', 'SYSTEM_NOTICE', 'ACTIVITY_WAITLIST'))")
+                .contains("'ACTIVITY_REMINDER', 'LIVE_REMINDER', 'SYSTEM_NOTICE'))")
+                .doesNotContain("UPDATE ")
+                .doesNotContain("DELETE ");
         assertThat(java.util.Arrays.stream(com.lowaltitude.inspection.notification.application.NotificationTargetType.values())
                 .map(Enum::name)).containsExactly("INSPECTION_PLAN", "INSPECTION_FULFILLMENT", "INSPECTION_DELIVERY",
                         "DEMAND", "CONVERSATION", "TRADE_ORDER", "ACTIVITY_ENROLLMENT", "ACTIVITY_ORDER",
-                        "VENUE_BOOKING", "LIVE_ROOM");
+                        "VENUE_BOOKING", "LIVE_ROOM", "ACTIVITY_WAITLIST");
     }
 
     @Test

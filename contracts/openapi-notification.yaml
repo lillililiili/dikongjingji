@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Notification API
-  version: 1.4.0
+  version: 1.6.0
   description: >-
     The signed-in account's in-app notifications (docs/redesign/03-App实现任务计划.md §15.4).
     Every route needs a login. The recipient is always the subject of the access token: there is
@@ -30,6 +30,13 @@ info:
     itself). It is written after the go-live transaction commits, at most once per room and account; the text carries
     only the room title and the host organisation's name. Clients should show a category or a target type they do
     not know as a plain row that opens nothing, since later versions may add more.
+    1.6.0 (2026-11-23, S5-3 activity waitlist, team sign-up, reschedule and results, contracts/openapi-activity.yaml
+    1.4.0; numbered after 1.5.0 of the system-notice branch, S5-9) adds three ACTIVITY_REMINDER events and one target
+    type. ACTIVITY_WAITLIST_OFFERED (候补转正: a waitlist got its seats and holds them for 15 minutes; target
+    ACTIVITY_WAITLIST, id is the waitlist), ACTIVITY_RESCHEDULED (报名已改期: a sign-up moved to another session of the
+    same activity, once per move; target ACTIVITY_ENROLLMENT) and ACTIVITY_RESULT_RECORDED (结果已发布: the organiser
+    recorded a result on one of the sign-up's tickets, once per sign-up; target ACTIVITY_ENROLLMENT). The text carries
+    only the activity name, the session time, the people count and the hold deadline, never a participant's name.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -144,7 +151,7 @@ components:
     NotificationTargetType:
       type: string
       enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY, DEMAND, CONVERSATION, TRADE_ORDER,
-             ACTIVITY_ENROLLMENT, ACTIVITY_ORDER, VENUE_BOOKING, LIVE_ROOM]
+             ACTIVITY_ENROLLMENT, ACTIVITY_ORDER, VENUE_BOOKING, LIVE_ROOM, ACTIVITY_WAITLIST]
       description: >-
         Where tapping the notification leads. INSPECTION_PLAN: id is the plan. INSPECTION_FULFILLMENT
         and INSPECTION_DELIVERY: id is the service order, subId the visit when the notification is
@@ -152,7 +159,8 @@ components:
         support conversation, subId is null. 1.3.0, subId always null: TRADE_ORDER, id is the goods order
         (contracts/openapi-trade.yaml); ACTIVITY_ENROLLMENT, id is the enrollment and the page shows its tickets;
         ACTIVITY_ORDER, id is the enrollment and the page shows its payment and refunds; VENUE_BOOKING, id is the
-        venue booking. 1.4.0: LIVE_ROOM, id is the live room, subId is null.
+        venue booking. 1.4.0: LIVE_ROOM, id is the live room, subId is null. 1.6.0: ACTIVITY_WAITLIST, id is the
+        activity waitlist (contracts/openapi-activity.yaml), subId is null.
     NotificationTarget:
       type: object
       additionalProperties: false

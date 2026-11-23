@@ -69,8 +69,15 @@ public interface ActivityPaymentPort {
     record OpenedPayment(UUID tradeOrderId, Instant payBefore) {
     }
 
-    /** status 是交易模块的退款状态：REQUESTED、PROCESSING、SUCCEEDED、CLOSED、ABNORMAL。 */
-    record RefundProgress(String status, long amountMinor) {
+    /**
+     * status 是交易模块的退款状态：REQUESTED、PROCESSING、SUCCEEDED、CLOSED、ABNORMAL；
+     * succeededAt 是到账时间（S5-3 退改详情用），没到账时为空。
+     */
+    record RefundProgress(String status, long amountMinor, Instant succeededAt) {
+
+        public RefundProgress(String status, long amountMinor) {
+            this(status, amountMinor, null);
+        }
     }
 
     /** 没有接交易模块时（只有活动模块的测试、或没有数据库的上下文）：收费报名一律“暂未开通在线支付”。 */

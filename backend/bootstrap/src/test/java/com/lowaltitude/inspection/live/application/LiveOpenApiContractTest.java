@@ -357,11 +357,11 @@ class LiveOpenApiContractTest {
         assertThat(SCHEMA_ENUMS).allSatisfy((schemaName, enumType) ->
                 assertThat(strings(map(schemas.get(schemaName)).get("enum"))).as(schemaName)
                         .containsExactlyElementsOf(names(enumType)));
-        // 站内信契约 1.4.0 认得直播提醒和直播间。
+        // 站内信契约 1.4.0 起认得直播提醒和直播间（之后的版本只在后面加分类和跳转目标）。
         assertThat(read(NOTIFICATION_CONTRACT))
-                .contains("version: 1.4.0")
-                .contains("ACTIVITY_REMINDER, LIVE_REMINDER]")
-                .contains("VENUE_BOOKING, LIVE_ROOM]")
+                .containsPattern("version: 1\\.([4-9]|[1-9][0-9])\\.")
+                .contains("ACTIVITY_REMINDER, LIVE_REMINDER")
+                .contains("VENUE_BOOKING, LIVE_ROOM")
                 .contains("LIVE_REMINDER it is LIVE_STARTED");
     }
 

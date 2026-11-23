@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Activity API
-  version: 1.3.0
+  version: 1.4.0
   description: |-
     1.0.0 (confirmed by the user on 2026-11-16, docs/redesign/03-App实现任务计划.md §7): the read-only
     catalog of contests, training, study tours and open days for the home "赛事研学" channel: list,
@@ -61,7 +61,7 @@ info:
     - ActivitySession.saleStopped：运营把这一场停售了。停售的场次 status 读成 CLOSED（报名截止），提交报名回
       ACT_ENROLLMENT_NOT_OPEN；已有报名不受影响（能取消、退款、核销）；列表卡片和 enrolling 筛选也不把它当作可报名或已满。
 
-    Waitlist, team enrolment, rescheduling and results are not part of this version.
+    Waitlist, team enrolment, rescheduling and results are not part of 1.3.0; 1.4.0 adds them (see below).
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 
     1.3.0 (2026-11-23, docs/redesign/08-后续开发计划.md §5 D8, step S3-3): no route or field changes here. Organizer
@@ -69,6 +69,28 @@ info:
     records every attempt. There an operator may "登记放行" a ticket whose session does not match, or has ended, into
     another session of the same activity that is open for check-in and has a seat: the ticket moves to that session and
     is checked in, the seat moves with it. The enrolment keeps the session it was made for; the ticket reads CHECKED_IN.
+
+    1.4.0（2026-11-23，S5-3，docs/redesign/08-后续开发计划.md §5“候补、团队报名、改期”，
+    设计见 docs/redesign/S5-3-活动候补团队改期与结果.md）：候补、团队报名、改期、退改记录、结果记录。
+    - 候补（/api/v1/activity-waitlists）：满员且活动允许候补的场次（status 为 FULL_WAITLIST）可以排队，1–10 人，
+      候补期间不收费，随时可以放弃。名额放回来时（取消、没付款关闭、改期离开、候补放弃或超时）按加入先后转正：
+      从排在最前的开始，人数放得下的依次转正（同单几个人一起转正；这一单放不下时它继续排在最前，后面放得下的先转正）。
+      转正时名额为它占住，保留 15 分钟且不晚于场次开始，并发一条站内信“候补转正”（
+      contracts/openapi-notification.yaml 1.6.0）。保留时间内：免费的确认报名，收费的去付款（这时才建报名单和交易订单，
+      付款截止就是保留截止）。没在保留时间内确认或付款的作废，名额给下一位；活动开始时还在排队的候补结束。
+      团队报名不支持候补。
+    - 团队报名（/api/v1/activity-team-enrollments）：领队代报 2–20 人，一张团队报名单（Enrollment.kind 为 TEAM，
+      team 给团队名称、领队姓名和打码的领队手机），一人一码；现填的队员（只收姓名和出生年月）记成领队名下的“队员”
+      （ParticipantRelation.MEMBER），不出现在参与人页。收费的领队一次付清，之后按人取消、按人原路退款（同个人报名）。
+    - 改期（POST /api/v1/activity-enrollments/{enrollmentId}/reschedule）：场次开始前，整张报名单还没用的凭证改到同一活动
+      另一个可报名、名额够的场次，立即生效：原凭证作废，新场次一人一码重新发放；收费的不补差、不退款。
+      Enrollment.reschedule 给出改之前的场次（“原时间 / 新时间”），reschedulable 说明现在能不能改。
+    - 退改记录：每次取消（已付款或免费的）和改期记一条，Enrollment.changes 列出来（最近的在前），
+      GET .../changes/{changeId} 是退改详情（退款进度来自交易模块：已申请、退款中、已到账，带到账时间）。
+      取消接口的请求体加 reason（申请原因，可以不带）。
+    - 结果记录：主办或承办机构的操作员在 Web 工作台（/api/v1/provider/activity-*）给已签到的参与人录入完成情况、
+      成绩和证书说明；客户在 Ticket.result 里看到；第一次录入时发站内信“结果已发布”（同一张报名单一条）。
+      工作台名单的姓名只给姓、凭证号只给后 4 位。
 servers:
   - url: /
 paths:
@@ -606,6 +628,498 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/activity-enrollments/{enrollmentId}/reschedule:
+    post:
+      operationId: rescheduleMyActivityEnrollment
+      summary: 改期：整张报名单改到同一活动的另一场（1.4.0）
+      description: >-
+        场次开始前，把这张报名单所有还没用的凭证改到同一活动的另一个可报名场次（status 为 OPEN，名额够这些人，
+        这些人在那一场没有另报，按新场次当天算年龄仍符合）。立即生效，不用主办方确认：原凭证作废（不再列在报名单里，
+        退改详情里能看到），新场次一人一码重新发放，名额跟着转过去；收费的不补差、不退款（同一活动同价）。
+        记一条 RESCHEDULE 退改记录（changes 的第一条），报名单的 reschedule 给出改之前的场次。
+        已经在目标场次了再提交一次没有变化，返回 200。原场次放出的名额按候补顺序转正。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RescheduleRequest"
+      responses:
+        "200":
+          description: 改期后的报名单
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+        "400":
+          description: 报名单或场次 ID 无效，申请原因不是约定的取值（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >-
+            ACT_RESCHEDULE_NOT_ALLOWED：报名单待付款、已取消或已关闭；场次已经开始；有人已签到；没有还没用的凭证；
+            目标场次不是同一活动的、已下架或已停止报名。
+            ACT_SESSION_FULL：目标场次的名额不够这些人。
+            ACT_PARTICIPANT_ALREADY_ENROLLED：有人在目标场次已有凭证。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: ACT_PARTICIPANT_NOT_ELIGIBLE：有人在新场次当天不满足活动的年龄条件。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/activity-enrollments/{enrollmentId}/changes/{changeId}:
+    get:
+      operationId: getMyActivityEnrollmentChange
+      summary: 一次取消或改期的详情（退改详情页，1.4.0）
+      description: >-
+        取消：这一次取消掉的凭证；收费的带这一笔退款的金额、进度（REQUESTED 已申请、PROCESSING 退款中、
+        SUCCEEDED 已到账，来自交易模块）和到账时间。改期：原凭证（已作废）和新发的凭证（有效的带凭证号）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/ChangeId"
+      responses:
+        "200":
+          description: 这一次退改
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activity-team-enrollments/check:
+    post:
+      operationId: checkActivityTeamRoster
+      summary: 团队报名提交前核对名单（1.4.0），不写任何数据
+      description: >-
+        每一行按场次当天算年龄、看是不是已经报过这一场、名单里有没有重复。已有的参与人带 participantId；
+        现填的带姓名和出生年月，和领队名下同名同出生年月的子女或队员算同一个人。最多 40 行。
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamCheckRequest"
+      responses:
+        "200":
+          description: 每一行的核对结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamCheck"
+        "400":
+          description: 名单为空或超过 40 行，姓名或出生年月格式不对（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activity-team-enrollments:
+    post:
+      operationId: enrollActivityTeam
+      summary: 团队报名：领队代报 2–20 人（1.4.0）
+      description: >-
+        一张团队报名单（kind 为 TEAM），一人一码。现填的队员记成领队名下的“队员”（MEMBER），不出现在参与人页，
+        下次团队报名直接用；队员只收姓名和出生年月。领队手机只给领队本人看（打码）。收费的领队一次付清
+        （和个人报名一样建交易订单，15 分钟内付款），之后可以按人取消、按人原路退款。团队报名不支持候补：
+        名额不够回 ACT_SESSION_FULL。同一个 Idempotency-Key 的重放返回第一次的报名单（200）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamEnrollRequest"
+      responses:
+        "201":
+          description: 团队报名成功（收费的待付款）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+        "200":
+          description: 同一个幂等键的重放
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+        "400":
+          description: >-
+            缺少幂等键；队员少于 2 或多于 20；团队名称、领队姓名、领队手机（11 位，1 开头）格式不对；
+            没有同意报名须知或没有勾选已取得全部队员监护人的同意；收费活动没有带 expectedAmountMinor（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >-
+            ACT_IDEMPOTENCY_KEY_REUSED、ACT_ENROLLMENT_UNSUPPORTED、ACT_ENROLLMENT_NOT_OPEN、
+            ACT_PARTICIPANT_ALREADY_ENROLLED、ACT_SESSION_FULL、ACTIVITY_PAYMENT_UNAVAILABLE、ACTIVITY_AMOUNT_CHANGED
+            同个人报名；ACT_PARTICIPANT_DUPLICATE：名单里同一个人出现了两次。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: ACT_PARTICIPANT_NOT_ELIGIBLE：有队员在场次当天不满足活动的年龄条件（提交前先核对名单、移除）。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/activity-waitlists:
+    post:
+      operationId: joinActivityWaitlist
+      summary: 加入候补（1.4.0）
+      description: >-
+        只有满员且活动允许候补的场次（status 为 FULL_WAITLIST）可以排队；人数 1–10，不超过场次总名额。
+        候补期间不收费。同一个 Idempotency-Key 的重放返回第一次的候补（200）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinWaitlistRequest"
+      responses:
+        "201":
+          description: 已加入候补
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Waitlist"
+        "200":
+          description: 同一个幂等键的重放
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Waitlist"
+        "400":
+          description: 缺少幂等键；参与人为空、超过 10 个或重复；没有同意报名须知（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >-
+            ACT_WAITLIST_NOT_AVAILABLE：这一场没满、不允许候补、已截止，或人数超过场次总名额。
+            ACT_WAITLIST_ALREADY_JOINED：有参与人已经在这一场候补。
+            ACT_PARTICIPANT_ALREADY_ENROLLED：有参与人已经报了这一场。
+            ACT_IDEMPOTENCY_KEY_REUSED、ACT_ENROLLMENT_UNSUPPORTED、ACTIVITY_PAYMENT_UNAVAILABLE 同报名。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: ACT_PARTICIPANT_NOT_ELIGIBLE：有参与人在场次当天不满足年龄条件。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: listMyActivityWaitlists
+      summary: 我的候补，最近加入的在前（1.4.0）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: active
+          in: query
+          required: false
+          description: true 只列还在排队、已转正待确认或待付款的（“我的报名”待参加页签上方的候补卡）；不传为 false（全部）
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: 这一页的候补
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitlistPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/activity-waitlists/{waitlistId}:
+    get:
+      operationId: getMyActivityWaitlist
+      summary: 一条候补（1.4.0）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/WaitlistId"
+      responses:
+        "200":
+          description: 候补
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Waitlist"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activity-waitlists/{waitlistId}/abandon:
+    post:
+      operationId: abandonMyActivityWaitlist
+      summary: 放弃候补（1.4.0）
+      description: >-
+        排队中的直接放弃；已转正的放弃后名额马上给下一位；已经去付款（有待付款的报名单）的先关掉报名单和交易订单
+        （和取消待付款的报名一样，发起过支付的先向微信查单、关单），查单发现已经付了款时不放弃，返回 ENROLLED。
+        已经结束的再放弃一次没有变化。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/WaitlistId"
+      responses:
+        "200":
+          description: 放弃后的候补
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Waitlist"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/activity-waitlists/{waitlistId}/confirm:
+    post:
+      operationId: confirmMyActivityWaitlist
+      summary: 转正后确认报名或去付款（1.4.0）
+      description: >-
+        只能在保留时间（holdUntil）内。免费的直接报名成功（status 变 ENROLLED，enrollmentId 是新的报名单）；
+        收费的建待付款的报名单和交易订单（tradeOrderId），付款截止就是 holdUntil，到收银台付款。
+        重复确认返回同一张报名单。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/WaitlistId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmWaitlistRequest"
+      responses:
+        "200":
+          description: 确认后的候补
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Waitlist"
+        "400":
+          description: 收费活动没有带 expectedAmountMinor（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >-
+            ACT_WAITLIST_STATE_INVALID：还在排队、已超时、已放弃或已结束。
+            ACT_PARTICIPANT_ALREADY_ENROLLED：有参与人已经另报了这一场。
+            ACTIVITY_AMOUNT_CHANGED、ACTIVITY_PAYMENT_UNAVAILABLE 同报名。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/activity-sessions:
+    get:
+      operationId: listOrganizerActivitySessions
+      summary: 机构工作台“活动结果”：本机构已经开始的场次（1.4.0）
+      description: >-
+        要服务商操作员角色和令牌里的机构；只列本机构主办或承办的活动在最近 180 天里已经开始的场次，最近的在前，
+        带报名、签到和已录结果的人数。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: 这一页的场次
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultSessionPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 没有服务商操作员角色，或令牌里没有机构（COMMON_FORBIDDEN）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/activity-sessions/{sessionId}/roster:
+    get:
+      operationId: getOrganizerActivityRoster
+      summary: 一场的名单和结果（1.4.0）
+      description: >-
+        这一场还有效的凭证（已签到的在前），姓名只给姓（如“王**”），凭证号只给后 4 位；团队报名的带团队名称。
+        别的机构的场次当作不存在。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: 名单
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultRoster"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 没有服务商操作员角色，或令牌里没有机构（COMMON_FORBIDDEN）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/activity-tickets/{ticketId}/result:
+    put:
+      operationId: recordActivityTicketResult
+      summary: 录入或修改一位的结果（1.4.0）
+      description: >-
+        只能给已签到的凭证录。第一次录入不带 expectedVersion；修改要带读到的 resultVersion。客户在凭证和订单页看到；
+        第一次录入时给报名的账号发一条站内信“结果已发布”（同一张报名单只发一次）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TicketId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordResultRequest"
+      responses:
+        "200":
+          description: 录入后的这一行
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultRosterEntry"
+        "400":
+          description: 完成情况不是约定的取值，成绩超过 40 字或证书说明超过 100 字（COMMON_INVALID_ARGUMENT）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 没有服务商操作员角色，或令牌里没有机构（COMMON_FORBIDDEN）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >-
+            ACT_RESULT_NOT_ALLOWED：这位还没签到。
+            ACT_RESULT_VERSION_CONFLICT：结果刚被改过，或第一次录入时已经有人录了。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   securitySchemes:
     bearerAuth:
@@ -655,6 +1169,34 @@ components:
         format: uuid
     EnrollmentId:
       name: enrollmentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ChangeId:
+      name: changeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    WaitlistId:
+      name: waitlistId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TicketId:
+      name: ticketId
       in: path
       required: true
       schema:
@@ -1076,6 +1618,12 @@ components:
         - ACT_TICKET_NOT_VALID
         - ACTIVITY_AMOUNT_CHANGED
         - ACTIVITY_PAYMENT_UNAVAILABLE
+        - ACT_WAITLIST_NOT_AVAILABLE
+        - ACT_WAITLIST_ALREADY_JOINED
+        - ACT_WAITLIST_STATE_INVALID
+        - ACT_RESCHEDULE_NOT_ALLOWED
+        - ACT_RESULT_NOT_ALLOWED
+        - ACT_RESULT_VERSION_CONFLICT
       description: >-
         报名接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外）。
         ACT_PARTICIPANT_NOT_ELIGIBLE 是 422，其余都是 409。1.2.0 新加的两个收费报名错误码用 ACTIVITY_ 前缀。
@@ -1084,7 +1632,10 @@ components:
       enum:
         - SELF
         - CHILD
-      description: 本人（账号持有人，按成年人处理） / 子女（由监护人账号维护的未成年人）
+        - MEMBER
+      description: >-
+        本人（账号持有人，按成年人处理） / 子女（由监护人账号维护的未成年人） /
+        1.4.0 团队队员（领队在团队报名时现填，只在团队报名单的凭证上出现，不出现在参与人页）
     ParticipantEligibilityReason:
       type: string
       enum:
@@ -1293,6 +1844,17 @@ components:
             type: string
             format: uuid
           description: 要取消的凭证；不传、null 或空数组表示全部还没用的凭证
+        reason:
+          type:
+            - string
+            - "null"
+          enum:
+            - TIME_CONFLICT
+            - UNWELL
+            - PLAN_CHANGED
+            - OTHER
+            - null
+          description: 1.4.0：申请原因，可以不带；记在退改记录上
     CheckinRequest:
       type: object
       additionalProperties: false
@@ -1374,6 +1936,7 @@ components:
         - checkedInAt
         - cancelledAt
         - refund
+        - result
       properties:
         ticketId:
           type: string
@@ -1417,6 +1980,11 @@ components:
             - $ref: "#/components/schemas/TicketRefund"
             - type: "null"
           description: 1.2.0：收费报名取消这一位之后的退款；免费报名、没取消、没付款就作废的为 null
+        result:
+          anyOf:
+            - $ref: "#/components/schemas/TicketResult"
+            - type: "null"
+          description: 1.4.0：主办方录的结果；还没录为 null
     TicketRefund:
       type: object
       additionalProperties: false
@@ -1484,6 +2052,11 @@ components:
         - cancellable
         - tickets
         - payment
+        - kind
+        - team
+        - reschedule
+        - changes
+        - reschedulable
       properties:
         enrollmentId:
           type: string
@@ -1508,11 +2081,31 @@ components:
           description: 现在还能不能取消：场次没开始，并且还有未使用或待付款的凭证
         tickets:
           type: array
-          description: 每个参与人一张，包含已取消的
+          description: 每个参与人一张，包含已取消的；1.4.0 起改期作废的原凭证不列（退改详情里有）
           items:
             $ref: "#/components/schemas/Ticket"
         payment:
           $ref: "#/components/schemas/EnrollmentPayment"
+        kind:
+          $ref: "#/components/schemas/EnrollmentKind"
+        team:
+          anyOf:
+            - $ref: "#/components/schemas/EnrollmentTeam"
+            - type: "null"
+          description: 1.4.0：团队报名的团队资料；个人报名为 null
+        reschedule:
+          anyOf:
+            - $ref: "#/components/schemas/EnrollmentReschedule"
+            - type: "null"
+          description: 1.4.0：最近一次改期；没改过为 null
+        changes:
+          type: array
+          description: 1.4.0：退改记录，最近的在前
+          items:
+            $ref: "#/components/schemas/ChangeSummary"
+        reschedulable:
+          type: boolean
+          description: 1.4.0：现在能不能改期（已报名不是待付款、场次没开始、还有没用的凭证、没有人签到）
     EnrollmentPage:
       type: object
       additionalProperties: false
@@ -1570,3 +2163,767 @@ components:
         repeated:
           type: boolean
           description: true 表示这张凭证之前已经核销过，这次没有改动任何数据
+    EnrollmentKind:
+      type: string
+      enum:
+        - INDIVIDUAL
+        - TEAM
+      description: 1.4.0：个人报名 / 团队报名（领队代报 2–20 人）
+    ChangeKind:
+      type: string
+      enum:
+        - CANCEL
+        - RESCHEDULE
+      description: 1.4.0：取消（收费的按人原路退款）/ 改期
+    ChangeReason:
+      type: string
+      enum:
+        - TIME_CONFLICT
+        - UNWELL
+        - PLAN_CHANGED
+        - OTHER
+      description: 1.4.0：退改的申请原因：时间冲突 / 身体不适 / 行程有变 / 其他原因
+    TeamMemberReason:
+      type: string
+      enum:
+        - ELIGIBLE
+        - UNDER_MIN_AGE
+        - OVER_MAX_AGE
+        - ALREADY_ENROLLED
+        - DUPLICATED
+      description: 1.4.0：团队名单一行的核对结果；DUPLICATED 是名单里同一个人出现了两次（第二次起）
+    ResultCompletion:
+      type: string
+      enum:
+        - COMPLETED
+        - INCOMPLETE
+      description: 1.4.0：主办方录的完成情况：完成 / 未完成
+    WaitlistStatus:
+      type: string
+      enum:
+        - WAITING
+        - OFFERED
+        - ENROLLED
+        - EXPIRED
+        - ENDED
+        - ABANDONED
+      description: >-
+        1.4.0：排队中 / 已转正（保留名额，待确认或待付款；去付款后报名单待付款时也是它）/ 已报名 /
+        已超时（转正后没在保留时间内确认或付款）/ 已结束（活动开始前没转正）/ 已放弃
+    EnrollmentTeam:
+      type: object
+      additionalProperties: false
+      required:
+        - teamName
+        - leaderName
+        - leaderPhoneMasked
+      properties:
+        teamName:
+          type: string
+        leaderName:
+          type: string
+        leaderPhoneMasked:
+          type:
+            - string
+            - "null"
+          description: 领队手机打码，如 138****2026
+    EnrollmentSessionRef:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - label
+        - startsAt
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        label:
+          type:
+            - string
+            - "null"
+        startsAt:
+          type: string
+          format: date-time
+    EnrollmentReschedule:
+      type: object
+      additionalProperties: false
+      required:
+        - previousSession
+        - rescheduledAt
+      description: 1.4.0：最近一次改期（订单页的“原时间 / 新时间”）
+      properties:
+        previousSession:
+          $ref: "#/components/schemas/EnrollmentSessionRef"
+        rescheduledAt:
+          type: string
+          format: date-time
+    ChangeSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - changeId
+        - kind
+        - reason
+        - people
+        - fromSession
+        - toSession
+        - refundAmountMinor
+        - refundStatus
+        - refundSucceededAt
+        - createdAt
+      properties:
+        changeId:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/ChangeKind"
+        reason:
+          anyOf:
+            - $ref: "#/components/schemas/ChangeReason"
+            - type: "null"
+        people:
+          type: integer
+          minimum: 1
+        fromSession:
+          $ref: "#/components/schemas/EnrollmentSessionRef"
+        toSession:
+          anyOf:
+            - $ref: "#/components/schemas/EnrollmentSessionRef"
+            - type: "null"
+          description: 改期去的场次；取消为 null
+        refundAmountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: 收费报名取消的这一笔退款（分）；免费、改期为 null
+        refundStatus:
+          anyOf:
+            - $ref: "#/components/schemas/TicketRefundStatus"
+            - type: "null"
+          description: 这一笔退款的进度（交易模块）
+        refundSucceededAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 到账时间
+        createdAt:
+          type: string
+          format: date-time
+          description: 提交时间
+    ChangeTicket:
+      type: object
+      additionalProperties: false
+      required:
+        - ticketId
+        - participantName
+        - relation
+        - age
+        - issued
+        - ticketCode
+        - status
+      properties:
+        ticketId:
+          type: string
+          format: uuid
+        participantName:
+          type: string
+        relation:
+          $ref: "#/components/schemas/ParticipantRelation"
+        age:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        issued:
+          type: boolean
+          description: true：这一次改期发出来的新凭证；false：这一次取消掉或作废的凭证
+        ticketCode:
+          type:
+            - string
+            - "null"
+          description: 只有还有效的新凭证给凭证号
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+    ChangeDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - change
+        - enrollmentId
+        - activityTitle
+        - coverImage
+        - organizerName
+        - tickets
+      properties:
+        change:
+          $ref: "#/components/schemas/ChangeSummary"
+        enrollmentId:
+          type: string
+          format: uuid
+        activityTitle:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        organizerName:
+          type: string
+        tickets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeTicket"
+    TicketResult:
+      type: object
+      additionalProperties: false
+      required:
+        - completion
+        - scoreText
+        - certificateNote
+        - recordedAt
+      description: 1.4.0：主办方录的结果
+      properties:
+        completion:
+          $ref: "#/components/schemas/ResultCompletion"
+        scoreText:
+          type:
+            - string
+            - "null"
+          maxLength: 40
+          description: 成绩，如“完成任务 5/5 · 用时 18′42″”
+        certificateNote:
+          type:
+            - string
+            - "null"
+          maxLength: 100
+          description: 证书说明，如“完赛证书由主办方现场发放”（只是文字，不生成文件）
+        recordedAt:
+          type: string
+          format: date-time
+    TeamMemberRequest:
+      type: object
+      additionalProperties: false
+      description: 已有的参与人只带 participantId；现填的带 name 和 birthMonth（YYYY-MM）
+      properties:
+        participantId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        name:
+          type:
+            - string
+            - "null"
+          maxLength: 20
+        birthMonth:
+          type:
+            - string
+            - "null"
+          pattern: "^[0-9]{4}-[0-9]{2}$"
+    TeamCheckRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - members
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        members:
+          type: array
+          minItems: 1
+          maxItems: 40
+          items:
+            $ref: "#/components/schemas/TeamMemberRequest"
+    TeamEnrollRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - activityId
+        - sessionId
+        - teamName
+        - leaderName
+        - leaderPhone
+        - members
+        - noticeAgreed
+        - guardianConsent
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        teamName:
+          type: string
+          maxLength: 20
+        leaderName:
+          type: string
+          maxLength: 20
+        leaderPhone:
+          type: string
+          pattern: "^1[0-9]{10}$"
+          description: 领队手机，只给领队本人看（打码）
+        members:
+          type: array
+          minItems: 2
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/TeamMemberRequest"
+        noticeAgreed:
+          type: boolean
+          description: 已阅读并同意报名须知，必须为 true
+        guardianConsent:
+          type: boolean
+          description: 已取得全部队员监护人的同意，必须为 true
+        expectedAmountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: 收费活动必填：单价 × 人数（分）
+    TeamCheck:
+      type: object
+      additionalProperties: false
+      required:
+        - members
+        - eligibleCount
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamMemberCheck"
+        eligibleCount:
+          type: integer
+          minimum: 0
+    TeamMemberCheck:
+      type: object
+      additionalProperties: false
+      required:
+        - participantId
+        - name
+        - birthMonth
+        - ageAtSession
+        - eligible
+        - reason
+      properties:
+        participantId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: 领队名下已有的参与人；现填且还没有的为 null（提交时新建队员）
+        name:
+          type: string
+        birthMonth:
+          type:
+            - string
+            - "null"
+        ageAtSession:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        eligible:
+          type: boolean
+        reason:
+          $ref: "#/components/schemas/TeamMemberReason"
+    RescheduleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - targetSessionId
+      properties:
+        targetSessionId:
+          type: string
+          format: uuid
+        reason:
+          type:
+            - string
+            - "null"
+          enum:
+            - TIME_CONFLICT
+            - UNWELL
+            - PLAN_CHANGED
+            - OTHER
+            - null
+          description: 申请原因，可以不带
+    JoinWaitlistRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - activityId
+        - sessionId
+        - participantIds
+        - noticeAgreed
+      properties:
+        activityId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        participantIds:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: string
+            format: uuid
+        noticeAgreed:
+          type: boolean
+    ConfirmWaitlistRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedAmountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: 收费活动必填：页面看到的应付金额（分）
+    WaitlistSession:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - label
+        - startsAt
+        - endsAt
+        - venueName
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        label:
+          type:
+            - string
+            - "null"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        venueName:
+          type:
+            - string
+            - "null"
+    WaitlistMember:
+      type: object
+      additionalProperties: false
+      required:
+        - participantId
+        - name
+        - relation
+        - age
+      properties:
+        participantId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        relation:
+          $ref: "#/components/schemas/ParticipantRelation"
+        age:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 场次当天的周岁；“本人”为 null
+    Waitlist:
+      type: object
+      additionalProperties: false
+      required:
+        - waitlistId
+        - status
+        - position
+        - ahead
+        - activity
+        - session
+        - members
+        - people
+        - unitAmountMinor
+        - amountMinor
+        - holdUntil
+        - enrollmentId
+        - tradeOrderId
+        - abandonable
+        - createdAt
+        - offeredAt
+        - endedAt
+      properties:
+        waitlistId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/WaitlistStatus"
+        position:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          description: 排队中时是这一场第几位；其余为 null
+        ahead:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 排队中时前面还有几位
+        activity:
+          $ref: "#/components/schemas/EnrollmentActivity"
+        session:
+          $ref: "#/components/schemas/WaitlistSession"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/WaitlistMember"
+        people:
+          type: integer
+          minimum: 1
+        unitAmountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: 收费活动的单价（分）；免费为 null
+        amountMinor:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: 候补成功后应付（单价 × 人数）
+        holdUntil:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 已转正时名额保留到什么时候（收费的就是付款截止）
+        enrollmentId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: 确认或去付款后建的报名单
+        tradeOrderId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: 已经去付款、还没付的交易订单（去收银台用）
+        abandonable:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        offeredAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        endedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    WaitlistPage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Waitlist"
+    ResultSession:
+      type: object
+      additionalProperties: false
+      required:
+        - sessionId
+        - activityId
+        - activityTitle
+        - label
+        - startsAt
+        - endsAt
+        - enrolledPeople
+        - checkedInPeople
+        - recordedPeople
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        activityId:
+          type: string
+          format: uuid
+        activityTitle:
+          type: string
+        label:
+          type:
+            - string
+            - "null"
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        enrolledPeople:
+          type: integer
+          minimum: 0
+          description: 有效和已签到的凭证（名单页里是 0）
+        checkedInPeople:
+          type: integer
+          minimum: 0
+        recordedPeople:
+          type: integer
+          minimum: 0
+    ResultSessionPage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResultSession"
+    ResultRoster:
+      type: object
+      additionalProperties: false
+      required:
+        - session
+        - started
+        - entries
+      properties:
+        session:
+          $ref: "#/components/schemas/ResultSession"
+        started:
+          type: boolean
+          description: 场次开始了才能录结果
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResultRosterEntry"
+    ResultRosterEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - ticketId
+        - holderName
+        - age
+        - codeTail
+        - checkedIn
+        - checkedInAt
+        - teamName
+        - result
+        - resultVersion
+      properties:
+        ticketId:
+          type: string
+          format: uuid
+        holderName:
+          type:
+            - string
+            - "null"
+          description: 只给姓，如“王**”
+        age:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        codeTail:
+          type:
+            - string
+            - "null"
+          description: 凭证号后 4 位
+        checkedIn:
+          type: boolean
+        checkedInAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        teamName:
+          type:
+            - string
+            - "null"
+        result:
+          anyOf:
+            - $ref: "#/components/schemas/TicketResult"
+            - type: "null"
+        resultVersion:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 修改结果时作为 expectedVersion 带回来；还没录时为 null
+    RecordResultRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - completion
+      properties:
+        completion:
+          type: string
+          enum:
+            - COMPLETED
+            - INCOMPLETE
+        scoreText:
+          type:
+            - string
+            - "null"
+          maxLength: 40
+        certificateNote:
+          type:
+            - string
+            - "null"
+          maxLength: 100
+        expectedVersion:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: 修改时带读到的 resultVersion；第一次录入不带

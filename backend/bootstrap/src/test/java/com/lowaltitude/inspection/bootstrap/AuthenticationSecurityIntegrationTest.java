@@ -1738,6 +1738,16 @@ class AuthenticationSecurityIntegrationTest {
         }
 
         @Bean
+        com.lowaltitude.inspection.activity.application.ActivityWaitlistService testActivityWaitlistService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.activity.application.ActivityWaitlistService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.activity.application.ActivityResultService testActivityResultService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.activity.application.ActivityResultService.class);
+        }
+
+        @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
         }

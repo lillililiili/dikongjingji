@@ -115,7 +115,7 @@ public class ActivityTradeConfiguration {
             return orders.refundStates(refundIds).stream()
                     .collect(Collectors.toMap(
                             TradeSourceOrders.RefundState::refundId,
-                            state -> new RefundProgress(state.status(), state.amountMinor())));
+                            state -> new RefundProgress(state.status(), state.amountMinor(), state.succeededAt())));
         }
 
         @Override

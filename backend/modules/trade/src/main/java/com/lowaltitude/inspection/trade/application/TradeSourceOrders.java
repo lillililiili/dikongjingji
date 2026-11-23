@@ -166,7 +166,7 @@ public class TradeSourceOrders {
         return refundId;
     }
 
-    /** 这些退款现在的进度（REQUESTED、PROCESSING、SUCCEEDED、CLOSED、ABNORMAL）和金额；不认识的 ID 不返回。 */
+    /** 这些退款现在的进度（REQUESTED、PROCESSING、SUCCEEDED、CLOSED、ABNORMAL）、金额和到账时间；不认识的 ID 不返回。 */
     @Transactional(readOnly = true)
     public List<RefundState> refundStates(Collection<UUID> refundIds) {
         if (refundIds == null || refundIds.isEmpty()) {
@@ -177,7 +177,7 @@ public class TradeSourceOrders {
             return List.of();
         }
         return sources.findRefunds(ids).stream()
-                .map(row -> new RefundState(row.id(), row.status(), row.amountMinor()))
+                .map(row -> new RefundState(row.id(), row.status(), row.amountMinor(), row.succeededAt()))
                 .toList();
     }
 
@@ -286,6 +286,11 @@ public class TradeSourceOrders {
     public record OpenedOrder(UUID orderId, String orderNo, Instant payBefore) {
     }
 
-    public record RefundState(UUID refundId, String status, long amountMinor) {
+    /** succeededAt：到账时间（S5-3 活动退改详情用），没到账时为空。 */
+    public record RefundState(UUID refundId, String status, long amountMinor, Instant succeededAt) {
+
+        public RefundState(UUID refundId, String status, long amountMinor) {
+            this(refundId, status, amountMinor, null);
+        }
     }
 }
