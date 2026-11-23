@@ -82,6 +82,9 @@ const MESSAGES: Record<string, string> = {
   OPS_INSPECTION_CATEGORY_UNKNOWN: '类目不存在或已停用',
   OPS_INSPECTION_CATEGORY_CODE_TAKEN: '类目编码已被占用，换一个试试',
   OPS_INSPECTION_CATEGORY_IN_USE: '类目下还有上架的服务，先下架或给服务换类目',
+  // 直播间（openapi-ops-live.yaml）
+  OPS_LIVE_ROOM_ENDED: '直播间已经结束了，请刷新后再看',
+  OPS_LIVE_ROOM_NOT_ENDED: '直播结束后才能设回看',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }

@@ -72,6 +72,7 @@ import org.springframework.test.web.servlet.MockMvc;
         // S3-1 第三部分：巡检和专业服务目录
         com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
         com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
+        com.lowaltitude.inspection.live.application.LiveOpsService.class,
         com.lowaltitude.inspection.live.application.LiveService.class,
         com.lowaltitude.inspection.content.application.ContentReadService.class,
         com.lowaltitude.inspection.content.application.ContentVideoService.class,

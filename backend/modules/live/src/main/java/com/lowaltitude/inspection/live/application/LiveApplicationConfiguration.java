@@ -24,4 +24,11 @@ public class LiveApplicationConfiguration {
     ) {
         return new LiveService(mapper, streams, organizations, profiles, reminders, reports, filter);
     }
+
+    /** 运营端“直播间”（S3-1 第三部分）。 */
+    @Bean
+    LiveOpsService liveOpsService(com.lowaltitude.inspection.live.infrastructure.persistence.LiveOpsMapper mapper,
+                                  LiveStreamProvider streams) {
+        return new LiveOpsService(mapper, streams);
+    }
 }

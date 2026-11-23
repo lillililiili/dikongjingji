@@ -78,6 +78,7 @@ import org.springframework.test.web.servlet.MockMvc;
         // S3-1 第三部分：巡检和专业服务目录
         com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
         com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
+        com.lowaltitude.inspection.live.application.LiveOpsService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -671,7 +672,13 @@ class AuthenticationSecurityIntegrationTest {
                 get("/api/v1/ops/pro-services/" + attachment), put("/api/v1/ops/pro-services/" + attachment),
                 post("/api/v1/ops/pro-services/" + attachment + "/publish"),
                 post("/api/v1/ops/pro-services/" + attachment + "/offline"),
-                get("/api/v1/ops/pro-services/" + attachment + "/changes"));
+                get("/api/v1/ops/pro-services/" + attachment + "/changes"),
+                // S3-1 第三部分：直播间
+                get("/api/v1/ops/live/hosts"), get("/api/v1/ops/live/rooms"),
+                get("/api/v1/ops/live/rooms/" + attachment),
+                post("/api/v1/ops/live/rooms/" + attachment + "/end"),
+                put("/api/v1/ops/live/rooms/" + attachment + "/replay"),
+                get("/api/v1/ops/live/rooms/" + attachment + "/changes"));
     }
 
     private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {
