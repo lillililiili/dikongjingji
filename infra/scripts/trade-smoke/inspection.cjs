@@ -7,7 +7,8 @@
 // 真实开发库 + 本机模拟微信（infra/dev/fake-wechat/server.mjs，后端带着它写出的 backend.env 启动）+ 对象存储，
 // 后端要开 INSPECTION_PAYMENT_NODES_ENABLED=true（否则方案没有付款节点）。环境变量见 lib.cjs。
 // 只在一次性本地环境运行：脚本会留下真实预约、方案和服务单（和 verify-visit-flow-smoke.cjs 一样），
-// 跑完删掉 dev-customer 名下的交易订单（--keep 保留）。
+// 跑完删掉 dev-customer 名下的交易订单，连同指向它们的巡检付款尝试和交易站内信（lib.cjs 的 cleanupBuyer，S6-03；
+// --keep 保留）。预约、服务单和付款节点按设计留着（S6-05），已付的节点仍读成已付。
 //   PG_CONTAINER=<容器> BASE_URL=http://127.0.0.1:<端口> node infra/scripts/trade-smoke/inspection.cjs
 
 const crypto = require('node:crypto');

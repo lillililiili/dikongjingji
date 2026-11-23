@@ -849,6 +849,7 @@ public class ActivityEnrollmentService {
     /**
      * 团队报名：领队代报 2–20 人，一张团队报名单，一人一码；收费的领队一次付清（15 分钟内），之后可以按人退。
      * 不支持候补：名额不够时回 SESSION_FULL。现填的队员记成领队名下的“队员”（MEMBER），下次团队报名直接用。
+     * 活动没打开团队报名（运营端开关）时回 ENROLLMENT_UNSUPPORTED。
      * 同一个幂等键重复提交返回第一次的结果。
      */
     @Transactional
@@ -890,6 +891,10 @@ public class ActivityEnrollmentService {
         }
         if (!isListed(session)) {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
+        }
+        // 运营端关掉了团队报名（S6-02）：不能再团队报名；已有的团队报名单照常（上面的重放也照常返回）。
+        if (!session.teamEnrollmentAllowed()) {
+            throw new ActivityEnrollmentException(Error.ENROLLMENT_UNSUPPORTED);
         }
         boolean paid = isPaid(session);
         if (!paid && !ActivityPriceMode.FREE.name().equals(session.priceMode())) {

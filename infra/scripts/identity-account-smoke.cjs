@@ -7,14 +7,30 @@
 // 只对本机开发后端（dev 配置：短信是本机模拟服务，验证码从 identity_dev_sms_outbox 读）。
 // 注销到期要后端以 IDENTITY_ACCOUNT_JOBS_CLOSURE_INTERVAL_MS=5000（或 --identity.account-jobs.closure-interval-ms=5000）启动。
 //   PG_CONTAINER=<容器> BASE_URL=http://127.0.0.1:<端口> node infra/scripts/identity-account-smoke.cjs
-// 脚本自己注册的号码都在 199 号段的随机号；跑完清掉 dev-customer 的订单（--keep 保留）。
+// 脚本自己注册的号码都在 199 号段的随机号。跑完（成功、失败都）清掉这次的数据（--keep 保留）：dev-customer 的订单，
+// 这次注册的号码账号和它们的个人客户机构、建的企业（成员、邀请）、验证码、模拟短信、号码锁定、登录会话、刷新令牌、注销申请，
+// dev-customer 这次申请的个人信息导出（库里的行和本机导出文件）和这次发给它的验证码（S6-04）。
+// 导出文件在后端的 IDENTITY_DATA_EXPORT_DIR（开发默认 java.io.tmpdir/lowaltitude-dev-data-exports）；
+// 后端和脚本不是同一个用户或临时目录时用 IDENTITY_DATA_EXPORT_DIR 或 S6_JAVA_TMPDIR 指过去。
+// dev-customer、dev-provider 自己用密码登录留下的登录会话不删（可能有别的测试正用着同一个账号）。
 
 const crypto = require('node:crypto');
-const { offerId, check, call, psql, login, cleanupBuyer, key, sleep, waitFor, finish } = require('./trade-smoke/lib.cjs');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { BUYER, offerId, check, call, psql, login, cleanupBuyer, key, sleep, waitFor, finish } = require('./trade-smoke/lib.cjs');
 
 const KIT_STORE = offerId('101', '3');
 const SEED_ENTERPRISE = 'e5000000-0000-4000-8000-000000000001';
-const randomPhone = () => `199${String(crypto.randomInt(0, 1e8)).padStart(8, '0')}`;
+const BUYER_PHONE = '13800002026';
+
+// 这次跑建的东西，结束时按它们清理（S6-04）。startedAt 是数据库时间，只用来找这次发给 dev-customer 的验证码和短信。
+const run = { startedAt: null, phones: new Set(), users: new Set(), enterprises: new Set(), exports: new Set(), buyerActing: false };
+const randomPhone = () => {
+  const phone = `199${String(crypto.randomInt(0, 1e8)).padStart(8, '0')}`;
+  run.phones.add(phone);
+  return phone;
+};
 const latestCode = (phone) => {
   const content = psql(`SELECT content FROM identity_dev_sms_outbox WHERE phone='${phone}' ORDER BY sent_at DESC LIMIT 1`);
   const match = /验证码 (\d{6})/.exec(content);
@@ -32,6 +48,7 @@ async function phoneLogin(phone, name = 'iPhone 15') {
 }
 
 async function main() {
+  run.startedAt = psql('SELECT now()');
   // ---------------------------------------------------------------- 验证码与登录
   const phoneA = randomPhone();
   let r = await call('POST', '/api/v1/auth/sms-codes', { body: { phone: '12345' } });
@@ -47,6 +64,7 @@ async function main() {
   r = await call('POST', '/api/v1/auth/phone-login', { body: { phone: phoneA, code: codeA, device: device('iPhone 15') } });
   check('code login registers a new account and hands out a refresh token', r.status === 200 && r.json.registered === true && r.json.tokenType === 'Bearer' && typeof r.json.refreshToken === 'string' && r.json.refreshToken.length > 30, r.json);
   const tokenA = r.json.accessToken;
+  if (tokenA) run.users.add(claims(tokenA).subjectId);
   check('token carries a session id and no enterprise identity', !!claims(tokenA).sid && !('identity' in claims(tokenA)));
   r = await call('POST', '/api/v1/auth/phone-login', { body: { phone: phoneA, code: codeA } });
   check('a used code does not work twice', r.status === 400 && r.json.code === 'SMS_CODE_INVALID', r.json);
@@ -116,8 +134,10 @@ async function main() {
 
   // ---------------------------------------------------------------- 企业组织
   const userB = await phoneLogin(randomPhone(), 'Android 手机');
+  run.users.add(claims(userB.accessToken).subjectId);
   const phoneB = psql(`SELECT u.mobile FROM identity_user u WHERE u.id='${claims(userB.accessToken).subjectId}'`);
   const userC = await phoneLogin(randomPhone(), 'iPhone');
+  run.users.add(claims(userC.accessToken).subjectId);
   const provider = await login('dev-provider');
   r = await call('GET', '/api/v1/account/enterprises', { token: provider });
   check('enterprises are for customers only', r.status === 403, r.status);
@@ -130,6 +150,7 @@ async function main() {
   r = await call('POST', '/api/v1/account/enterprises', { token: tokenA, headers: { 'Idempotency-Key': createKey }, body: { name: '冒烟测试物流', creditCode, cityCode: '370500' } });
   check('enterprise created, creator is admin', r.status === 201 && r.json.role === 'ADMIN' && r.json.memberCount === 1 && r.json.cityName === '东营市' && r.json.maskedCreditCode === `${creditCode.slice(0, 4)}************${creditCode.slice(16)}`, r.json);
   const ent = r.json.enterpriseId;
+  if (ent) run.enterprises.add(ent);
   r = await call('POST', '/api/v1/account/enterprises', { token: tokenA, headers: { 'Idempotency-Key': createKey }, body: { name: '冒烟测试物流', creditCode, cityCode: '370500' } });
   check('replay returns the same enterprise', r.status === 201 && r.json.enterpriseId === ent, r.json);
   r = await call('POST', '/api/v1/account/enterprises', { token: tokenA, headers: { 'Idempotency-Key': createKey }, body: { name: '改了名字', creditCode, cityCode: '370500' } });
@@ -198,6 +219,7 @@ async function main() {
   r = await call('GET', '/api/v1/auth/me', { token: customer });
   check('dev-customer shows the seeded masked phone', r.json.maskedPhone === '138****2026', r.json);
   r = await call('PUT', '/api/v1/account/identity', { token: customer, body: { enterpriseId: SEED_ENTERPRISE } });
+  run.buyerActing = true;
   check('dev-customer switches to the sample enterprise', r.status === 200, r.json);
   customer = r.json.accessToken;
   const pickupBody = { cityCode: '370500', offerId: KIT_STORE, quantity: 1, deliveryMode: 'PICKUP', expectedPayableMinor: 138000, agreementAccepted: true };
@@ -219,7 +241,7 @@ async function main() {
   r = await call('GET', '/api/v1/account/data-exports', { token: customer });
   check('export overview lists sections and counts', r.status === 200 && r.json.sections.map((s) => s.code).join() === 'ACCOUNT,PARTICIPANTS,ADDRESSES,ORDERS,ENTERPRISES' && r.json.sections.find((s) => s.code === 'ORDERS').count === 2, r.json);
   // 脚本可能一天里跑好几次：把这个号码之前发的码挪到前一天，不撞 60 秒和每天 10 条的限制。
-  psql(`UPDATE identity_sms_code SET sent_at = sent_at - interval '1 day' WHERE phone='13800002026'`);
+  psql(`UPDATE identity_sms_code SET sent_at = sent_at - interval '1 day' WHERE phone='${BUYER_PHONE}'`);
   r = await call('POST', '/api/v1/account/sms-codes', { token: customer, body: { purpose: 'EXPORT' } });
   check('export code sent', r.status === 202, r.json);
   r = await call('POST', '/api/v1/account/data-exports', { token: customer, body: { sections: ['ACCOUNT', 'ORDERS'], code: '000001' === latestCode('13800002026') ? '000002' : '000001' } });
@@ -227,6 +249,7 @@ async function main() {
   r = await call('POST', '/api/v1/account/data-exports', { token: customer, body: { sections: ['ACCOUNT', 'ORDERS', 'ENTERPRISES'], code: latestCode('13800002026') } });
   check('export accepted', r.status === 202 && r.json.status === 'PENDING', r.json);
   const exportId = r.json.exportId;
+  if (exportId) run.exports.add(exportId);
   await waitFor(() => psql(`SELECT status FROM identity_data_export WHERE id='${exportId}'`) !== 'PENDING', 60);
   r = await call('GET', '/api/v1/account/data-exports', { token: customer });
   check('export generated', r.json.exports[0].exportId === exportId && r.json.exports[0].status === 'READY' && r.json.exports[0].sizeBytes > 0, r.json.exports);
@@ -263,8 +286,83 @@ async function main() {
     check('closed account token is refused', (await call('GET', '/api/v1/auth/me', { token: tokenA })).status === 401);
     check('closed account left its enterprise (dissolved, it was alone)', psql(`SELECT status FROM identity_enterprise WHERE organization_id='${ent}'`) === 'DISSOLVED');
     const again2 = await phoneLogin(phoneA2);
+    run.users.add(claims(again2.accessToken).subjectId);
     check('the number registers a fresh account after closure', again2.registered === true && claims(again2.accessToken).subjectId !== userA);
   }
 }
 
-main().then(() => finish(() => cleanupBuyer())(), (error) => finish(() => cleanupBuyer())(error));
+const uuidArray = (ids) => `ARRAY[${[...ids].filter((id) => /^[0-9a-f-]{36}$/.test(id)).map((id) => `'${id}'`).join(',')}]::uuid[]`;
+const phoneArray = (phones) => `ARRAY[${[...phones].filter((p) => /^1\d{10}$/.test(p)).map((p) => `'${p}'`).join(',')}]::text[]`;
+
+/**
+ * 清掉这次跑建的账号数据（S6-04）。一个事务：任何一行删不掉（比如别的模块有外键指着这些账号）就整个回滚、报清理失败，
+ * 不会删一半。只删这次注册的号码账号、它们的个人客户机构（PERSONAL-）和这次建的企业，示例企业和开发账号不动。
+ */
+function cleanupIdentity() {
+  if (!run.startedAt) return;
+  const since = `'${run.startedAt}'::timestamptz`;
+  const users = `SELECT id FROM identity_user WHERE id = ANY(${uuidArray(run.users)}) OR mobile = ANY(${phoneArray(run.phones)})`;
+  const exportsOf = `SELECT id FROM identity_data_export WHERE id = ANY(${uuidArray(run.exports)}) OR user_id IN (${users})`;
+  // 先记下导出文件的位置，库里的行删了就找不到了。
+  const storageKeys = psql(`SELECT storage_key FROM identity_data_export WHERE id IN (${exportsOf}) AND storage_key IS NOT NULL`)
+    .split('\n').filter(Boolean);
+  const result = psql(`
+    BEGIN;
+    CREATE TEMP TABLE smoke_users ON COMMIT DROP AS ${users};
+    CREATE TEMP TABLE smoke_orgs ON COMMIT DROP AS
+      SELECT o.id FROM identity_organization o
+       WHERE o.id = ANY(${uuidArray(run.enterprises)})
+          OR (o.organization_code LIKE 'PERSONAL-%' AND (
+                o.id IN (SELECT default_organization_id FROM identity_user WHERE id IN (SELECT id FROM smoke_users))
+             OR o.id IN (SELECT organization_id FROM identity_organization_member WHERE user_id IN (SELECT id FROM smoke_users))));
+    CREATE TEMP TABLE smoke_exports ON COMMIT DROP AS ${exportsOf};
+    DELETE FROM identity_data_export WHERE id IN (SELECT id FROM smoke_exports);
+    DELETE FROM identity_refresh_token WHERE user_id IN (SELECT id FROM smoke_users);
+    DELETE FROM identity_login_session WHERE user_id IN (SELECT id FROM smoke_users);
+    DELETE FROM identity_closure_request WHERE user_id IN (SELECT id FROM smoke_users);
+    -- 验证码、模拟短信、号码锁定按号码记；dev-customer 的只删这次发的（冒烟把发送时间往前挪过一天，按过期时间找）。
+    DELETE FROM identity_sms_code WHERE user_id IN (SELECT id FROM smoke_users) OR phone = ANY(${phoneArray(run.phones)})
+       OR (phone = '${BUYER_PHONE}' AND expires_at >= ${since});
+    DELETE FROM identity_dev_sms_outbox WHERE phone = ANY(${phoneArray(run.phones)}) OR (phone = '${BUYER_PHONE}' AND sent_at >= ${since});
+    DELETE FROM identity_phone_guard WHERE phone = ANY(${phoneArray(run.phones)});
+    DELETE FROM identity_enterprise_invitation WHERE organization_id IN (SELECT id FROM smoke_orgs)
+       OR invited_by IN (SELECT id FROM smoke_users) OR responded_by IN (SELECT id FROM smoke_users);
+    DELETE FROM identity_enterprise_member WHERE organization_id IN (SELECT id FROM smoke_orgs)
+       OR user_id IN (SELECT id FROM smoke_users) OR ended_by IN (SELECT id FROM smoke_users);
+    DELETE FROM identity_enterprise WHERE organization_id IN (SELECT id FROM smoke_orgs);
+    DELETE FROM identity_user_role WHERE user_id IN (SELECT id FROM smoke_users) OR organization_id IN (SELECT id FROM smoke_orgs);
+    DELETE FROM identity_organization_member WHERE user_id IN (SELECT id FROM smoke_users)
+       OR organization_id IN (SELECT id FROM smoke_orgs);
+    DELETE FROM identity_auth_audit WHERE actor_user_id IN (SELECT id FROM smoke_users)
+       OR organization_id IN (SELECT id FROM smoke_orgs) OR target_id IN (SELECT id FROM smoke_users);
+    -- 中途失败时 dev-customer 可能还停在示例企业身份上，改回个人（开发种子的样子）。
+    ${run.buyerActing ? `UPDATE identity_user SET acting_organization_id = NULL WHERE id = '${BUYER}';` : ''}
+    DELETE FROM identity_user WHERE id IN (SELECT id FROM smoke_users);
+    DELETE FROM identity_organization WHERE id IN (SELECT id FROM smoke_orgs);
+    SELECT 'smoke users ' || (SELECT count(*) FROM smoke_users) || ', orgs ' || (SELECT count(*) FROM smoke_orgs)
+      || ', exports ' || (SELECT count(*) FROM smoke_exports);
+    COMMIT;
+  `);
+  const exportDir = process.env.IDENTITY_DATA_EXPORT_DIR
+    || path.join(process.env.S6_JAVA_TMPDIR || os.tmpdir(), 'lowaltitude-dev-data-exports');
+  let removed = 0;
+  for (const storageKey of storageKeys) {
+    if (!/^data-exports\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.zip$/.test(storageKey)) continue;
+    const file = path.join(exportDir, storageKey);
+    if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
+      removed += 1;
+    }
+    const folder = path.dirname(file);
+    if (fs.existsSync(folder) && fs.readdirSync(folder).length === 0) fs.rmdirSync(folder);
+  }
+  const summary = (result.split('\n').find((line) => line.startsWith('smoke users')) || '').trim();
+  console.log(`清理：${summary}；导出文件 ${storageKeys.length} 个，本机删掉 ${removed} 个${removed < storageKeys.length ? `（没找到的在 ${exportDir} 以外，后端换了目录时用 IDENTITY_DATA_EXPORT_DIR 指过去）` : ''}`);
+}
+
+// 订单先删（企业身份下的订单记着付款主体），再删账号。
+const cleanup = () => {
+  cleanupBuyer();
+  cleanupIdentity();
+};
+main().then(() => finish(cleanup)(), (error) => finish(cleanup)(error));

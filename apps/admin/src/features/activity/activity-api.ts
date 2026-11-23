@@ -3,7 +3,7 @@ import type { OpsChange } from '@/core/ops/ops-common'
 import { yuanToMinor, minorToYuanText } from '@/core/ops/ops-common'
 import type { Page } from '@/core/ui/use-paged-list'
 
-// 契约 contracts/openapi-ops-activity.yaml 1.0.0。
+// 契约 contracts/openapi-ops-activity.yaml 1.1.0（1.1.0 加候补、团队报名两个开关）。
 
 export type ActivityType = 'CONTEST' | 'TRAINING' | 'STUDY_TOUR' | 'OPEN_DAY'
 export type ActivityPriceMode = 'PER_PERSON' | 'FREE' | 'INQUIRY'
@@ -109,6 +109,10 @@ export interface OpsActivity {
   seatNote: string | null
   refundNote: string | null
   enrollmentNotice: string | null
+  waitlistAllowed: boolean
+  teamEnrollmentAllowed: boolean
+  /** 还在排队或已转正待确认的候补条数：关掉候补后它们照常按顺序转正。 */
+  activeWaitlistCount: number
   status: OpsActivityStatus
   firstPublishedAt: string | null
   hasEnrollments: boolean
@@ -165,6 +169,8 @@ export interface ActivityForm {
   seatNote: string
   refundNote: string
   enrollmentNotice: string
+  waitlistAllowed: boolean
+  teamEnrollmentAllowed: boolean
 }
 
 /** 场次表单：时间按北京时间“YYYY-MM-DD HH:mm”填。 */
@@ -197,6 +203,8 @@ export interface ActivityRequest {
   seatNote: string | null
   refundNote: string | null
   enrollmentNotice: string | null
+  waitlistAllowed: boolean
+  teamEnrollmentAllowed: boolean
   version?: number
 }
 
@@ -236,6 +244,8 @@ export function emptyActivityForm(): ActivityForm {
     seatNote: '',
     refundNote: '',
     enrollmentNotice: '',
+    waitlistAllowed: false,
+    teamEnrollmentAllowed: false,
   }
 }
 
@@ -260,7 +270,32 @@ export function activityFormOf(activity: OpsActivity): ActivityForm {
     seatNote: activity.seatNote ?? '',
     refundNote: activity.refundNote ?? '',
     enrollmentNotice: activity.enrollmentNotice ?? '',
+    waitlistAllowed: activity.waitlistAllowed,
+    teamEnrollmentAllowed: activity.teamEnrollmentAllowed,
   }
+}
+
+/** 候补、团队报名都要能在线报名（免费或按人收费）；询价活动只能关着。 */
+export function enrollmentSwitchesAvailable(priceMode: ActivityPriceMode): boolean {
+  return priceMode !== 'INQUIRY'
+}
+
+/**
+ * 保存前要运营知道的开关变化（关掉候补、团队报名时已有的照常）；没关任何开关时为空数组。
+ * 规则见 contracts/openapi-ops-activity.yaml 1.1.0“候补和团队报名开关”。
+ */
+export function switchClosingNotes(current: OpsActivity, form: ActivityForm): string[] {
+  const available = enrollmentSwitchesAvailable(form.priceMode)
+  const notes: string[] = []
+  if (current.waitlistAllowed && !(available && form.waitlistAllowed)) {
+    notes.push(current.activeWaitlistCount > 0
+      ? `关闭候补：App 上满员的场次不能再排队；已在排队的 ${current.activeWaitlistCount} 条候补照常按顺序转正、确认或付款。`
+      : '关闭候补：App 上满员的场次不能再排队。')
+  }
+  if (current.teamEnrollmentAllowed && !(available && form.teamEnrollmentAllowed)) {
+    notes.push('关闭团队报名：App 上不能再团队报名；已有的团队报名照常（能按人取消、退款、改期、核销）。')
+  }
+  return notes
 }
 
 /** 表单 → 请求体：空白变 null，单价元 → 分（只有按人收费时带）。 */
@@ -285,6 +320,9 @@ export function activityRequestOf(form: ActivityForm, version?: number): Activit
     seatNote: blankToNull(form.seatNote),
     refundNote: blankToNull(form.refundNote),
     enrollmentNotice: blankToNull(form.enrollmentNotice),
+    // 询价活动不能在线报名，两个开关跟着关（后端对询价活动打开会回 400）。
+    waitlistAllowed: enrollmentSwitchesAvailable(form.priceMode) && form.waitlistAllowed,
+    teamEnrollmentAllowed: enrollmentSwitchesAvailable(form.priceMode) && form.teamEnrollmentAllowed,
     ...(version === undefined ? {} : { version }),
   }
 }

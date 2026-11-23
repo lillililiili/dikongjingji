@@ -11,7 +11,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 /**
- * 运营端“活动与场次”（S3-1，契约 contracts/openapi-ops-activity.yaml 1.0.0）的读写。全部用绑定参数；
+ * 运营端“活动与场次”（S3-1，契约 contracts/openapi-ops-activity.yaml 1.0.0；1.1.0 起写候补、团队报名两个开关）的读写。全部用绑定参数；
  * 改活动、改场次都带版本号（WHERE version = #{version}），场次的改、删、停售先锁住场次行（和报名同一把锁），
  * 名额和报名数在锁内判断。已删除（DELETED）的活动当作不存在。不读身份模块的表：机构名称由服务经端口取。
  */
@@ -35,7 +35,10 @@ public interface ActivityOpsMapper {
                    EXISTS (
                        SELECT 1 FROM activity_enrollment e
                        WHERE e.activity_id = a.id AND e.status IN ('PENDING_PAYMENT', 'CONFIRMED')
-                   ) has_enrollments
+                   ) has_enrollments,
+                   a.waitlist_allowed, a.team_enrollment_allowed,
+                   (SELECT count(*) FROM activity_waitlist w
+                    WHERE w.activity_id = a.id AND w.status IN ('WAITING', 'OFFERED'))::integer active_waitlists
             FROM activity a
             """;
 
@@ -109,11 +112,12 @@ public interface ActivityOpsMapper {
             INSERT INTO activity (id, organizer_id, co_organizer_id, type, title, subtitle, cover_url, city_code,
                                   venue_name, venue_address, schedule_note, price_mode, price_amount_minor, currency,
                                   min_age, max_age, eligibility_note, seat_note, refund_note, enrollment_notice,
-                                  status, version, created_at, updated_at)
+                                  waitlist_allowed, team_enrollment_allowed, status, version, created_at, updated_at)
             VALUES (#{id}, #{d.organizerId}, #{d.coOrganizerId}, #{d.type}, #{d.title}, #{d.subtitle}, #{d.coverUrl},
                     #{d.cityCode}, #{d.venueName}, #{d.venueAddress}, #{d.scheduleNote}, #{d.priceMode},
                     #{d.priceAmountMinor}, 'CNY', #{d.minAge}, #{d.maxAge}, #{d.eligibilityNote}, #{d.seatNote},
-                    #{d.refundNote}, #{d.enrollmentNotice}, 'DRAFT', 0, #{at}, #{at})
+                    #{d.refundNote}, #{d.enrollmentNotice}, #{d.waitlistAllowed}, #{d.teamEnrollmentAllowed}, 'DRAFT', 0,
+                    #{at}, #{at})
             """)
     int insert(@Param("id") UUID id, @Param("d") ActivityValues values, @Param("at") OffsetDateTime at);
 
@@ -125,6 +129,7 @@ public interface ActivityOpsMapper {
                 price_mode = #{d.priceMode}, price_amount_minor = #{d.priceAmountMinor}, min_age = #{d.minAge},
                 max_age = #{d.maxAge}, eligibility_note = #{d.eligibilityNote}, seat_note = #{d.seatNote},
                 refund_note = #{d.refundNote}, enrollment_notice = #{d.enrollmentNotice},
+                waitlist_allowed = #{d.waitlistAllowed}, team_enrollment_allowed = #{d.teamEnrollmentAllowed},
                 version = version + 1, updated_at = #{at}
             WHERE id = #{id}
               AND version = #{version}
@@ -241,7 +246,11 @@ public interface ActivityOpsMapper {
             String eligibilityNote,
             String seatNote,
             String refundNote,
-            String enrollmentNotice
+            String enrollmentNotice,
+            /** 场次满员后能排候补（S5-3）。 */
+            boolean waitlistAllowed,
+            /** 能团队报名（领队代报 2–20 人，S5-3）。 */
+            boolean teamEnrollmentAllowed
     ) {
     }
 
@@ -281,7 +290,11 @@ public interface ActivityOpsMapper {
             OffsetDateTime createdAt,
             OffsetDateTime updatedAt,
             /** 有待付款或已确认的报名单。 */
-            boolean hasEnrollments
+            boolean hasEnrollments,
+            boolean waitlistAllowed,
+            boolean teamEnrollmentAllowed,
+            /** 还在排队或已转正（待确认、待付款前）的候补条数。 */
+            int activeWaitlists
     ) {
     }
 

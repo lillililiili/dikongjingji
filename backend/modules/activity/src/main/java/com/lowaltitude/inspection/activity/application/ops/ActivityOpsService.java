@@ -38,11 +38,15 @@ import com.lowaltitude.inspection.ops.common.OpsText;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 运营端“活动与场次”（S3-1，契约 contracts/openapi-ops-activity.yaml 1.0.0）。只有平台运营能调（控制器检查角色）。
+ * 运营端“活动与场次”（S3-1，契约 contracts/openapi-ops-activity.yaml 1.1.0）。只有平台运营能调（控制器检查角色）。
  * <ul>
  *   <li>活动新建为草稿；改要带版本号。上线前校验必填（{@link #publishMissing}），缺了 422 带 details.missing；
  *       已上线的活动改完也不能缺（场次除外）。下线后 App 看不到，已有报名照常。草稿且从没上线过的才能删（标 DELETED）。</li>
  *   <li>有待付款或已确认的报名后，收费方式、主办机构、城市不能改（单价能改，只影响以后的报名）。</li>
+ *   <li>候补、团队报名两个开关（1.1.0，规则见 docs/redesign/S5-3-活动候补团队改期与结果.md）：只有能在线报名的
+ *       （免费、按人收费）能打开，询价的只能关着；表单不带时新建为关、修改时保持原值。随时可以关：关掉候补后不能再排队，
+ *       已经在排队、已转正的照常按顺序转正和确认（转正不看开关）；关掉团队报名后不能再团队报名，已有的团队报名单照常
+ *       取消、改期、核销。改了开关时改动记录里写明。</li>
  *   <li>场次：新增的必须还没开始；开始了的不能再改；已有人报名的不能改开始、结束时间，名额不能少于已报名人数；
  *       有过报名单（任何状态）的不能删，只能停售。停售后 App 读成报名截止、不能再报，恢复售卖后照常。</li>
  *   <li>每个写操作在 activity_ops_change 里记一条（对象、动作、一句话说明、操作人显示名、时间），只追加。</li>
@@ -144,12 +148,13 @@ public class ActivityOpsService {
     @Transactional
     public OpsActivityView create(ActivityDraft draft, Operator operator) {
         String name = operatorName(operator);
-        Prepared prepared = prepare(draft);
+        Prepared prepared = prepare(draft, null);
         UUID id = UUID.randomUUID();
         OffsetDateTime at = now();
         mapper.insert(id, prepared.values(), at);
         writeGallery(id, prepared.gallery(), at);
-        record(id, "ACTIVITY", id, "CREATE", "新建草稿“" + prepared.values().title() + "”", operator, name, at);
+        record(id, "ACTIVITY", id, "CREATE", "新建草稿“" + prepared.values().title() + "”"
+                + switches(null, prepared.values()), operator, name, at);
         return view(require(id));
     }
 
@@ -159,7 +164,7 @@ public class ActivityOpsService {
         int expected = version(version);
         ActivityRow current = require(activityId);
         checkVersion(current.version(), expected);
-        Prepared prepared = prepare(draft);
+        Prepared prepared = prepare(draft, current);
         ActivityValues values = prepared.values();
         if (current.hasEnrollments() && (!values.priceMode().equals(current.priceMode())
                 || !values.organizerId().equals(current.organizerId())
@@ -178,7 +183,8 @@ public class ActivityOpsService {
             throw new OpsException(ActivityOpsError.VERSION_CONFLICT);
         }
         writeGallery(activityId, prepared.gallery(), at);
-        record(activityId, "ACTIVITY", activityId, "UPDATE", "修改活动信息", operator, name, at);
+        record(activityId, "ACTIVITY", activityId, "UPDATE", "修改活动信息" + switches(current, values), operator, name,
+                at);
         return view(require(activityId));
     }
 
@@ -408,7 +414,8 @@ public class ActivityOpsService {
     private record Prepared(ActivityValues values, List<String> gallery) {
     }
 
-    private Prepared prepare(ActivityDraft draft) {
+    /** @param current 修改时是现在的活动（开关不带时保持原值）；新建时为 null */
+    private Prepared prepare(ActivityDraft draft, ActivityRow current) {
         if (draft == null) {
             throw new IllegalArgumentException("activity is required");
         }
@@ -458,8 +465,44 @@ public class ActivityOpsService {
                 OpsText.optional(draft.eligibilityNote(), MAX_SHORT_NOTE, "eligibilityNote"),
                 OpsText.optional(draft.seatNote(), MAX_SHORT_NOTE, "seatNote"),
                 OpsText.multiline(draft.refundNote(), MAX_REFUND_NOTE, "refundNote"),
-                OpsText.multiline(draft.enrollmentNotice(), MAX_ENROLLMENT_NOTICE, "enrollmentNotice"));
+                OpsText.multiline(draft.enrollmentNotice(), MAX_ENROLLMENT_NOTICE, "enrollmentNotice"),
+                enrollmentSwitch(draft.waitlistAllowed(), current != null && current.waitlistAllowed(), priceMode,
+                        "waitlistAllowed"),
+                enrollmentSwitch(draft.teamEnrollmentAllowed(), current != null && current.teamEnrollmentAllowed(),
+                        priceMode, "teamEnrollmentAllowed"));
         return new Prepared(values, gallery(draft.galleryUrls()));
+    }
+
+    /**
+     * 候补、团队报名开关：都要能在线报名（免费或按人收费）。不带时保持原值（新建为关）；改成询价时原来开着的跟着关掉，
+     * 明确要在询价活动上打开的是参数错误。
+     */
+    private static boolean enrollmentSwitch(Boolean requested, boolean keep, ActivityPriceMode priceMode,
+                                            String field) {
+        boolean online = priceMode != ActivityPriceMode.INQUIRY;
+        if (requested == null) {
+            return online && keep;
+        }
+        if (requested && !online) {
+            throw new IllegalArgumentException(field + " needs an activity that takes enrollments online");
+        }
+        return requested;
+    }
+
+    /** 改动记录里写开关的变化；关候补时带上照常转正的排队条数。没变时为空。 */
+    private static String switches(ActivityRow current, ActivityValues values) {
+        List<String> parts = new ArrayList<>();
+        boolean waitlistBefore = current != null && current.waitlistAllowed();
+        if (values.waitlistAllowed() != waitlistBefore) {
+            parts.add(values.waitlistAllowed() ? "打开候补"
+                    : "关闭候补" + (current.activeWaitlists() > 0
+                            ? "（" + current.activeWaitlists() + " 条排队中的照常转正）" : ""));
+        }
+        boolean teamBefore = current != null && current.teamEnrollmentAllowed();
+        if (values.teamEnrollmentAllowed() != teamBefore) {
+            parts.add(values.teamEnrollmentAllowed() ? "打开团队报名" : "关闭团队报名（已有的团队报名照常）");
+        }
+        return parts.isEmpty() ? "" : "；" + String.join("，", parts);
     }
 
     private void requireOrganizer(UUID organizationId) {
@@ -532,6 +575,7 @@ public class ActivityOpsService {
                 cityNameOrNull(row.cityCode()), row.venueName(), row.venueAddress(), row.scheduleNote(),
                 ActivityPriceMode.valueOf(row.priceMode()), row.priceAmountMinor(), row.minAge(), row.maxAge(),
                 row.eligibilityNote(), row.seatNote(), row.refundNote(), row.enrollmentNotice(),
+                row.waitlistAllowed(), row.teamEnrollmentAllowed(), row.activeWaitlists(),
                 OpsActivityStatus.valueOf(row.status()), row.firstPublishedAt(), row.hasEnrollments(),
                 deletable(row), publishMissing(row, sessions), sessionViews, row.createdAt(), row.updatedAt(),
                 row.version());
@@ -541,7 +585,8 @@ public class ActivityOpsService {
         return new ActivityValues(row.type(), row.title(), row.subtitle(), blank(row.coverUrl()), row.organizerId(),
                 row.coOrganizerId(), row.cityCode(), row.venueName(), row.venueAddress(), row.scheduleNote(),
                 row.priceMode(), row.priceAmountMinor(), row.minAge(), row.maxAge(), row.eligibilityNote(),
-                row.seatNote(), blank(row.refundNote()), blank(row.enrollmentNotice()));
+                row.seatNote(), blank(row.refundNote()), blank(row.enrollmentNotice()), row.waitlistAllowed(),
+                row.teamEnrollmentAllowed());
     }
 
     private static boolean deletable(ActivityRow row) {

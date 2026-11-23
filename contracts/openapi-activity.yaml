@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Activity API
-  version: 1.4.0
+  version: 1.4.1
   description: |-
     1.0.0 (confirmed by the user on 2026-11-16, docs/redesign/03-App实现任务计划.md §7): the read-only
     catalog of contests, training, study tours and open days for the home "赛事研学" channel: list,
@@ -91,6 +91,12 @@ info:
     - 结果记录：主办或承办机构的操作员在 Web 工作台（/api/v1/provider/activity-*）给已签到的参与人录入完成情况、
       成绩和证书说明；客户在 Ticket.result 里看到；第一次录入时发站内信“结果已发布”（同一张报名单一条）。
       工作台名单的姓名只给姓、凭证号只给后 4 位。
+
+    1.4.1（2026-11-23，S6-02）：没有新路由、新字段。候补、团队报名两个开关（ActivityDetail.waitlistAllowed、
+    teamEnrollmentAllowed）从这一版起由平台运营在运营端设置（contracts/openapi-ops-activity.yaml 1.1.0），随时可以开关。
+    团队报名的服务端也看开关：活动没打开团队报名时 POST /api/v1/activity-team-enrollments 回 409
+    ACT_ENROLLMENT_UNSUPPORTED（同一个幂等键的重放仍返回第一次的报名单）；已有的团队报名单不受影响。关掉候补后不能再排队，
+    已经在排队或已转正的候补照常转正、确认或付款。
 servers:
   - url: /
 paths:
@@ -794,7 +800,8 @@ paths:
           description: >-
             ACT_IDEMPOTENCY_KEY_REUSED、ACT_ENROLLMENT_UNSUPPORTED、ACT_ENROLLMENT_NOT_OPEN、
             ACT_PARTICIPANT_ALREADY_ENROLLED、ACT_SESSION_FULL、ACTIVITY_PAYMENT_UNAVAILABLE、ACTIVITY_AMOUNT_CHANGED
-            同个人报名；ACT_PARTICIPANT_DUPLICATE：名单里同一个人出现了两次。
+            同个人报名；ACT_PARTICIPANT_DUPLICATE：名单里同一个人出现了两次；1.4.1 起活动没打开团队报名
+            （teamEnrollmentAllowed 为 false）也是 ACT_ENROLLMENT_UNSUPPORTED。
           content:
             application/json:
               schema:

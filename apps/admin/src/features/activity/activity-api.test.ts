@@ -5,6 +5,7 @@ import type { ApiClient } from '@/core/http/api-client'
 import { firstError } from '@/core/ui/form-rules'
 
 import {
+  activityFormOf,
   activityRequestOf,
   beijingInputOf,
   createActivityApi,
@@ -13,7 +14,9 @@ import {
   isoOfBeijingInput,
   sessionRequestOf,
   sessionState,
+  switchClosingNotes,
   type ActivityForm,
+  type OpsActivity,
   type OpsActivitySession,
   type SessionForm,
 } from './activity-api'
@@ -74,6 +77,48 @@ describe('活动表单 → 请求体', () => {
     const paid = activityRequestOf(form({ priceMode: 'PER_PERSON', priceYuan: '120.5' }), 3)
     expect(paid.priceAmountMinor).toBe(12050)
     expect(paid.version).toBe(3)
+  })
+})
+
+describe('候补和团队报名开关（契约 1.1.0）', () => {
+  const current: OpsActivity = {
+    activityId: 'a1', type: 'CONTEST', title: '挑战赛', subtitle: null, coverUrl: null, galleryUrls: [],
+    organizer: { organizationId: 'o1', name: '示例机构' }, coOrganizer: null, cityCode: '370500', cityName: '东营市',
+    venueName: '体验馆', venueAddress: '示例路 1 号', scheduleNote: null, priceMode: 'PER_PERSON', priceAmountMinor: 12000,
+    minAge: null, maxAge: null, eligibilityNote: null, seatNote: null, refundNote: '可退', enrollmentNotice: '须知',
+    waitlistAllowed: true, teamEnrollmentAllowed: true, activeWaitlistCount: 3, status: 'PUBLISHED',
+    firstPublishedAt: null, hasEnrollments: true, deletable: false, publishMissing: [], sessions: [],
+    createdAt: '2026-11-22T02:00:00Z', updatedAt: '2026-11-22T02:00:00Z', version: 4,
+  }
+
+  it('新建默认关；读回来的活动带着开关；请求体总是带上两个开关', () => {
+    expect(activityRequestOf(form())).toMatchObject({ waitlistAllowed: false, teamEnrollmentAllowed: false })
+    const loaded = activityFormOf(current)
+    expect(loaded).toMatchObject({ waitlistAllowed: true, teamEnrollmentAllowed: true })
+    expect(activityRequestOf(loaded, 4)).toMatchObject({ waitlistAllowed: true, teamEnrollmentAllowed: true, version: 4 })
+    expect(activityRequestOf(form({ priceMode: 'FREE', waitlistAllowed: true }))).toMatchObject({
+      waitlistAllowed: true, teamEnrollmentAllowed: false,
+    })
+  })
+
+  it('询价活动不能在线报名：两个开关跟着关', () => {
+    expect(activityRequestOf(form({ priceMode: 'INQUIRY', waitlistAllowed: true, teamEnrollmentAllowed: true })))
+      .toMatchObject({ waitlistAllowed: false, teamEnrollmentAllowed: false })
+  })
+
+  it('关掉开关时提示已有的照常：排队中的候补照常转正，已有团队报名照常', () => {
+    expect(switchClosingNotes(current, activityFormOf(current))).toEqual([])
+    const notes = switchClosingNotes(current, { ...activityFormOf(current), waitlistAllowed: false, teamEnrollmentAllowed: false })
+    expect(notes).toHaveLength(2)
+    expect(notes[0]).toContain('已在排队的 3 条候补照常按顺序转正')
+    expect(notes[1]).toContain('已有的团队报名照常')
+    expect(switchClosingNotes({ ...current, activeWaitlistCount: 0 }, { ...activityFormOf(current), waitlistAllowed: false }))
+      .toEqual(['关闭候补：App 上满员的场次不能再排队。'])
+    // 改成询价等于两个都关。
+    expect(switchClosingNotes(current, { ...activityFormOf(current), priceMode: 'INQUIRY' })).toHaveLength(2)
+    // 本来就关着的不提示。
+    expect(switchClosingNotes({ ...current, waitlistAllowed: false, teamEnrollmentAllowed: false },
+      { ...activityFormOf(current), waitlistAllowed: false, teamEnrollmentAllowed: false })).toEqual([])
   })
 })
 

@@ -1982,6 +1982,7 @@ class ActivityEnrollmentServiceTest {
                     session.minAge,
                     session.maxAge,
                     session.waitlistAllowed,
+                    session.teamEnrollmentAllowed,
                     session.sessionStatus,
                     session.startsAt,
                     session.endsAt,
@@ -2420,6 +2421,7 @@ class ActivityEnrollmentServiceTest {
             Integer minAge;
             Integer maxAge;
             boolean waitlistAllowed;
+            boolean teamEnrollmentAllowed = true;
             OffsetDateTime startsAt = STARTS_AT;
             OffsetDateTime endsAt = ENDS_AT;
             OffsetDateTime checkInOpensAt;
