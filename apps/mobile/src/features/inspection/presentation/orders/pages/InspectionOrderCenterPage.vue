@@ -56,6 +56,7 @@ import type {
 } from '../../../domain/service-flow/order-center'
 import { buildInspectionFulfillmentUrl } from '../../../navigation/inspection-routes'
 import InspectionOrderCard from '../components/InspectionOrderCard.vue'
+import { openNodePayment } from '../../../application/service-flow/node-payment'
 import {
   createInspectionOrderCenterController,
   createInspectionOrderCenterState,
@@ -125,6 +126,11 @@ function openFulfillment(order: InspectionOrderSummary): void {
   if (order.serviceOrderId) uni.navigateTo({ url: buildInspectionFulfillmentUrl(order.serviceOrderId) })
 }
 
+// S4-1: 去付款 opens the cashier for the node that is due.
+function payOrder(order: InspectionOrderSummary, nodeNo: number): void {
+  if (order.serviceOrderId) void openNodePayment(order.serviceOrderId, nodeNo)
+}
+
 function returnMine(): void {
   void controller.returnMine()
 }
@@ -180,6 +186,7 @@ onBackPress((event) => {
         :order="order"
         @select="openOrder"
         @fulfillment="openFulfillment"
+        @pay="payOrder"
       />
       <text v-if="state.isLoadingMore" class="inspection-orders__more">正在加载更多…</text>
       <text v-else-if="!state.hasMore" class="inspection-orders__more">没有更多订单</text>

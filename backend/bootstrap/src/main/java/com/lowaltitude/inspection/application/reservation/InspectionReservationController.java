@@ -259,7 +259,11 @@ public final class InspectionReservationController {
             int acceptedVisitCount,
             LocalDate nextVisitDate,
             UUID pendingAcceptanceVisitId,
-            Integer pendingAcceptanceVisitNo
+            Integer pendingAcceptanceVisitNo,
+            Integer paymentDueNodeNo,
+            String paymentDueNodeType,
+            Integer paymentDueVisitNo,
+            Long paymentDueAmountMinor
     ) {
 
         static CustomerReservationSummaryResponse from(CustomerReservationSummary value) {
@@ -284,7 +288,11 @@ public final class InspectionReservationController {
                     value.acceptedVisitCount(),
                     value.nextVisitDate(),
                     value.pendingAcceptanceVisitId(),
-                    value.pendingAcceptanceVisitNo());
+                    value.pendingAcceptanceVisitNo(),
+                    value.paymentDueNodeNo(),
+                    value.paymentDueNodeType(),
+                    value.paymentDueVisitNo(),
+                    value.paymentDueAmountMinor());
         }
     }
 

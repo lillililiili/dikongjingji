@@ -14,6 +14,8 @@ export const INSPECTION_FULFILLMENT_PATH =
 export const INSPECTION_DELIVERY_PATH =
   '/pages/service/inspection/delivery'
 export const INSPECTION_ORDER_CENTER_PATH = '/pages/mine/inspection-orders'
+// S4-1 (board OrderService): one service order, its payment nodes and where it stands.
+export const INSPECTION_ORDER_PATH = '/pages/mine/inspection-order'
 export const MINE_TAB_PATH = '/pages/mine/index'
 export const MESSAGE_TAB_PATH = '/pages/message/index'
 
@@ -138,6 +140,12 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   },
   '/pages/venue/booking': { required: 'bookingId', allowed: ['bookingId'] },
   '/pages/mine/venue-bookings': { allowed: ['bucket'] },
+  // Online experiences (S5-4): signing in from a result, a trial or 我的体验 comes back to it;
+  // experience-routes.test.ts checks them.
+  '/pages/experience/result': { required: 'experienceId', allowed: ['experienceId', 'recordId', 'localId'] },
+  '/pages/experience/software-trial': { required: 'experienceId', allowed: ['experienceId', 'recordId'] },
+  '/pages/experience/course-trial': { required: 'experienceId', allowed: ['experienceId', 'recordId'] },
+  '/pages/mine/experience-records': { allowed: ['tab'] },
   // Demand pages (features/demand/navigation/demand-routes.ts, F1), repeated for the same reason;
   // demand-routes.test.ts checks them.
   '/pages/demand/publish': { allowed: ['demandId', 'type', 'from', 'providerId'] },
@@ -249,6 +257,10 @@ export function buildInspectionPlanConfirmationUrl(planId: string): string {
   return `${INSPECTION_PLAN_CONFIRMATION_PATH}?planId=${encodeURIComponent(
     planId.trim(),
   )}`
+}
+
+export function buildInspectionOrderUrl(serviceOrderId: string): string {
+  return `${INSPECTION_ORDER_PATH}?serviceOrderId=${encodeURIComponent(serviceOrderId.trim())}`
 }
 
 export function buildInspectionFulfillmentUrl(

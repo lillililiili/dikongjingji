@@ -26,11 +26,14 @@ export type TradeDeliveryMode = 'EXPRESS' | 'PICKUP'
 // Where the order came from (0.2.0): a mall order, a paid activity enrolment whose page is the
 // enrolment's ticket (sourceRef is the enrolment id), a venue booking (E10) whose page is the
 // booking's code (sourceRef is the booking id), or an equipment rental (F3) whose page is the rental
-// order (sourceRef is the rental order id), or a general service order (0.6.0, S4-3) whose page is
-// the service order: sourceRef is the payment attempt, the service order is lines[0].productId.
-export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE' | 'RENTAL' | 'PRO_SERVICE'
+// order (sourceRef is the rental order id).
+// An inspection payment node (S4-1, contract 0.6.0): sourceRef is the payment attempt id; the line's
+// productId is the inspection service order, productName "服务名 · 方案 vN", skuName the node.
+// A general service order (S4-3, contract 0.8.0) whose page is the service order: sourceRef is the
+// payment attempt, the service order is lines[0].productId.
+export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE' | 'RENTAL' | 'INSPECTION' | 'PRO_SERVICE'
 
-export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'PRO_SERVICE']
+export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION', 'PRO_SERVICE']
 
 export type TradeMerchantKind = 'FACTORY_DIRECT' | 'AUTHORIZED_DEALER' | 'LOCAL_STORE'
 

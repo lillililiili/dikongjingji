@@ -6,6 +6,12 @@ import {
   SERVICE_ORDER_PLAN_PATH,
   buildServiceOrderDetailUrl,
 } from '@/features/serviceorder/navigation/service-order-routes'
+import {
+  INSPECTION_FULFILLMENT_PATH,
+  INSPECTION_ORDER_PATH,
+  buildInspectionFulfillmentUrl,
+  buildInspectionOrderUrl,
+} from '@/features/inspection/navigation/inspection-routes'
 import type { TradeOrderDestination } from '@/features/trade/application/order-source'
 import { leaveToGoodsOrders, showGoodsOrder } from '@/features/trade/navigation/trade-navigation'
 import { buildGoodsOrderUrl } from '@/features/trade/navigation/trade-routes'
@@ -20,6 +26,8 @@ export function destinationUrl(destination: TradeOrderDestination): string {
     case 'RENTAL_ORDER': return buildRentalOrderUrl(destination.rentalOrderId)
     case 'SERVICE_ORDER': return buildServiceOrderDetailUrl(destination.orderId)
     case 'GOODS_ORDER': return buildGoodsOrderUrl(destination.orderId)
+    case 'INSPECTION_ORDER': return buildInspectionOrderUrl(destination.serviceOrderId)
+    case 'INSPECTION_FULFILLMENT': return buildInspectionFulfillmentUrl(destination.serviceOrderId)
   }
 }
 
@@ -30,6 +38,8 @@ function ownPagePaths(destination: TradeOrderDestination): string[] {
   if (destination.kind === 'VENUE_BOOKING') return [VENUE_BOOKING_PATH]
   if (destination.kind === 'RENTAL_ORDER') return [RENTAL_ORDER_PATH]
   if (destination.kind === 'SERVICE_ORDER') return [SERVICE_ORDER_DETAIL_PATH, SERVICE_ORDER_PLAN_PATH]
+  if (destination.kind === 'INSPECTION_ORDER') return [INSPECTION_ORDER_PATH]
+  if (destination.kind === 'INSPECTION_FULFILLMENT') return [INSPECTION_FULFILLMENT_PATH]
   return []
 }
 

@@ -14,6 +14,8 @@ import {
   orderLinkLabel,
   paidFrame,
   resultRows,
+  type DescribeSourceOrder,
+  type SourceOrderView,
   type TradeOrderDestination,
 } from '../../application/order-source'
 import { checkPaymentUntilSettled, paymentCheckResult } from '../../application/payment-check'
@@ -32,6 +34,8 @@ const props = defineProps<{
   // Null for a guest. The page host reads it again every time the page is shown.
   accessToken: string | null
   refreshKey: number
+  // S4-1: what the business module behind the order adds (the page host asks it); optional.
+  describeSource?: DescribeSourceOrder
 }>()
 
 const emit = defineEmits<{
@@ -61,8 +65,28 @@ const order = computed(() => (state.value.kind === 'ready' ? state.value.order :
 const result = computed(() => (order.value ? paymentCheckResult(order.value) : null))
 const destination = computed(() => (order.value ? orderDestination(order.value) : null))
 const linkLabel = computed(() => (order.value ? orderLinkLabel(order.value) : '查看订单'))
-const paid = computed(() => (order.value ? paidFrame(order.value) : { title: '已支付', note: null }))
-const sourceRows = computed(() => (order.value ? resultRows(order.value) : []))
+const sourceView = ref<SourceOrderView | null>(null)
+const paid = computed(() => {
+  const fallback = order.value ? paidFrame(order.value) : { title: '已支付', note: null }
+  return {
+    title: sourceView.value?.paidTitle ?? fallback.title,
+    note: sourceView.value?.paidNote ?? fallback.note,
+  }
+})
+const failedLine = computed(() => (order.value ? sourceView.value?.failedNote ?? failedNote(order.value) : ''))
+const paidNext = computed(() => sourceView.value?.next ?? null)
+const paidBack = computed(() => sourceView.value?.back ?? null)
+let describedOrderId = ''
+
+function describe(current: TradeOrder): void {
+  // Once per order, and again once it is paid (the remaining fees change).
+  const marker = `${current.orderId}:${current.status}`
+  if (!props.describeSource || describedOrderId === marker) return
+  describedOrderId = marker
+  props.describeSource(current).then((view) => { sourceView.value = view }).catch(() => undefined)
+}
+// A service order (S4-3) has no describer; its rows come from the trade order itself.
+const sourceRows = computed(() => sourceView.value?.resultRows ?? (order.value ? resultRows(order.value) : []))
 
 // 支付遇到问题 (board PayResult): a conversation with platform support about this order.
 function askForHelp(): void {
@@ -112,7 +136,10 @@ async function runCheck(retries?: number): Promise<void> {
     await checkPaymentUntilSettled({
       check: async () => {
         const checked = await tradeApi.checkPayment(token, props.orderId)
-        if (run === runVersion) state.value = { kind: 'ready', order: checked }
+        if (run === runVersion) {
+          state.value = { kind: 'ready', order: checked }
+          describe(checked)
+        }
         return checked
       },
       wait,
@@ -208,7 +235,24 @@ onBeforeUnmount(() => {
         <text class="pay-result__title" data-testid="pay-result-paid-title">{{ paid.title }}</text>
         <text class="pay-result__amount" data-testid="pay-result-amount">{{ formatTradeAmount(order.amounts.paidMinor) }}</text>
         <text v-if="paid.note" class="pay-result__note" data-testid="pay-result-paid-note">{{ paid.note }}</text>
-        <view class="pay-result__actions">
+        <view v-if="paidNext" class="pay-result__actions">
+          <button
+            v-if="paidBack"
+            class="pay-result__secondary"
+            data-testid="pay-result-other"
+            @click="emit('viewOrder', paidBack.destination)"
+          >
+            {{ paidBack.label }}
+          </button>
+          <button
+            class="pay-result__primary"
+            data-testid="pay-result-next"
+            @click="emit('viewOrder', paidNext.destination)"
+          >
+            {{ paidNext.label }}
+          </button>
+        </view>
+        <view v-else class="pay-result__actions">
           <button class="pay-result__secondary" data-testid="pay-result-home" @click="emit('home')">返回首页</button>
           <button class="pay-result__primary" data-testid="pay-result-view-order" @click="viewOrder">{{ linkLabel }}</button>
         </view>
@@ -232,7 +276,7 @@ onBeforeUnmount(() => {
         </IconTile>
         <text class="pay-result__title">支付失败</text>
         <text class="pay-result__text">支付未成功，如已扣款将原路退回</text>
-        <text class="pay-result__note">{{ failedNote(order) }}</text>
+        <text class="pay-result__note">{{ failedLine }}</text>
         <view class="pay-result__actions">
           <button class="pay-result__secondary" data-testid="pay-result-view-order" @click="viewOrder">{{ linkLabel }}</button>
           <button class="pay-result__primary" data-testid="pay-result-repay" @click="emit('repay')">重新支付</button>
@@ -260,10 +304,9 @@ onBeforeUnmount(() => {
           v-for="row in sourceRows"
           :key="row.key"
           class="pay-result__row pay-result__row--line"
-          :data-testid="`pay-result-${row.key}`"
         >
           <text class="pay-result__row-label">{{ row.label }}</text>
-          <text class="pay-result__row-value">{{ row.value }}</text>
+          <text class="pay-result__row-value" :data-testid="`pay-result-${row.key}`">{{ row.value }}</text>
         </view>
         <view v-if="view === 'PAID' && order.paidAt" class="pay-result__row pay-result__row--line">
           <text class="pay-result__row-label">支付时间</text>
