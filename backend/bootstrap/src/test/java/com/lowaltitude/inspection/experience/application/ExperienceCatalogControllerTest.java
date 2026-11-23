@@ -79,11 +79,13 @@ class ExperienceCatalogControllerTest {
                 new VenueOperatorView(UUID.randomUUID(), "东营低空与机器人体验馆"),
                 List.of(new VenueProjectView(PROJECT_ID, "机器人避障闯关", 30, 6, 8, null, 3900, "CNY", true)),
                 List.of(new VenueInfoItemView("到馆须知", "请提前 10 分钟到馆")),
-                6));
+                6, new VenueCheckInRuleView(15, 10)));
 
         mockMvc.perform(get("/api/v1/venues/{venueId}", VENUE_ID).param("cityCode", "370500"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.phone").value("0546-8000 0000"))
+                .andExpect(jsonPath("$.checkIn.opensMinutesBeforeStart").value(15))
+                .andExpect(jsonPath("$.checkIn.lateEntryMinutes").value(10))
                 .andExpect(jsonPath("$.projects[0].priceAmountMinor").value(3900))
                 // 1.1.0：能不能在线预约付款。
                 .andExpect(jsonPath("$.projects[0].onlinePayment").value(true))

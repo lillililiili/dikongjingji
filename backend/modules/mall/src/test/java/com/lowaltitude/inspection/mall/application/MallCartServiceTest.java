@@ -89,6 +89,30 @@ class MallCartServiceTest {
         assertThat(mapper.lines).hasSize(1);
     }
 
+    // cart 1.2.0：库存为 0 不能加；加上购物车里已有的数量不能超过现货；不跟踪库存的不受限。
+    @Test
+    void stockLimitsWhatCanBeAddedAndASoldOutLineIsInvalid() {
+        Offer soldOut = mapper.offer(buy(FACTORY, 129900).stock(0));
+        Offer three = mapper.offer(buy(STORE, 738000).stock(3));
+        Offer untracked = mapper.offer(buy(STORE, 1000).stock(null));
+
+        assertRejected(() -> service.add(ACCOUNT, soldOut.id, 1, DONGYING), Error.OUT_OF_STOCK);
+        service.add(ACCOUNT, three.id, 2, DONGYING);
+        assertRejected(() -> service.add(ACCOUNT, three.id, 2, DONGYING), Error.OUT_OF_STOCK);
+        assertThat(service.add(ACCOUNT, three.id, 1, DONGYING).quantity()).isEqualTo(3);
+        assertThat(service.add(ACCOUNT, untracked.id, 99, DONGYING).quantity()).isEqualTo(99);
+
+        assertRejected(() -> service.preview(ACCOUNT, DONGYING, null, three.id, 4, "EXPRESS"),
+                Error.ITEM_UNAVAILABLE);
+        assertThat(service.preview(ACCOUNT, DONGYING, null, three.id, 3, "EXPRESS").amounts().goodsMinor())
+                .isEqualTo(3 * 738000L);
+
+        three.stockQuantity = 0;
+        assertThat(service.read(ACCOUNT, DONGYING).invalidItems())
+                .extracting(CartItemView::offerId, CartItemView::invalidReason)
+                .containsExactly(tuple(three.id, CartInvalidReason.OUT_OF_STOCK));
+    }
+
     @Test
     void rentalInquiryAndUnpricedOffersAreNotPurchasable() {
         Offer rental = mapper.offer(buy(FACTORY, 38000).saleMode("RENT").unit("DAY"));
@@ -744,6 +768,12 @@ class MallCartServiceTest {
         boolean expressAvailable = true;
         String pickupPoint;
         long shippingFeeMinor;
+        Integer stockQuantity;
+
+        Offer stock(Integer value) {
+            stockQuantity = value;
+            return this;
+        }
 
         Offer saleMode(String value) {
             saleMode = value;
@@ -821,7 +851,7 @@ class MallCartServiceTest {
                     id, offerStatus, city, unitAmountMinor, "CNY", priceUnit, shippingNote, fulfilledFrom,
                     expressAvailable, pickupPoint, shippingFeeMinor, merchantKind, merchantId,
                     "商家 " + merchantId.toString().substring(34), skuId, skuName, skuStatus,
-                    productId, productName, coverUrl, saleMode, productStatus);
+                    productId, productName, coverUrl, saleMode, productStatus, stockQuantity);
         }
     }
 
@@ -871,7 +901,7 @@ class MallCartServiceTest {
                                 o.priceUnit(), o.shippingNote(), o.fulfilledFrom(), o.expressAvailable(),
                                 o.pickupPoint(), o.shippingFeeMinor(), o.merchantKind(), o.merchantId(),
                                 o.merchantName(), o.skuId(), o.skuName(), o.skuStatus(), o.productId(),
-                                o.productName(), o.coverUrl(), o.saleMode(), o.productStatus());
+                                o.productName(), o.coverUrl(), o.saleMode(), o.productStatus(), o.stockQuantity());
                     })
                     .toList();
         }

@@ -28,10 +28,10 @@ public final class LivePorts {
         void liveStarted(UUID accountId, UUID roomId, String title, String hostName, Instant at);
     }
 
-    /** 客服反馈：记一条举报。同一个幂等键带同样的内容只记一次。 */
+    /** 客服反馈：记一条举报。同一个幂等键带同样的内容只记一次。S3-1 起带上直播间和弹幕，运营端据此隐藏弹幕。 */
     public interface Reports {
 
-        void report(UUID accountId, UUID idempotencyKey, String text);
+        void report(UUID accountId, UUID idempotencyKey, String text, UUID roomId, UUID commentId);
     }
 
     /** 弹幕的关键词过滤。true 表示不能发。 */

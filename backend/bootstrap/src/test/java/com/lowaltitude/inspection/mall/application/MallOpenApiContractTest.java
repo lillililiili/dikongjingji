@@ -29,6 +29,8 @@ class MallOpenApiContractTest {
             Map.entry("MallOffer", MallOfferView.class),
             Map.entry("MallSpec", MallSpecView.class),
             Map.entry("MallPackItem", MallPackItemView.class),
+            Map.entry("MallSku", MallSkuView.class),
+            Map.entry("MallIntroBlock", MallIntroBlockView.class),
             Map.entry("MallProductDetail", MallProductDetailView.class));
 
     private static final Map<String, Class<? extends Enum<?>>> SCHEMA_ENUMS = Map.of(
@@ -94,12 +96,31 @@ class MallOpenApiContractTest {
     void eachOfferAlwaysSaysWhetherItsMerchantTakesPaymentOnline() {
         Map<String, Object> offer = map(schemas().get("MallOffer"));
 
-        assertThat(map(root().get("info")).get("version")).isEqualTo("1.2.0");
+        assertThat(map(root().get("info")).get("version")).isEqualTo("1.3.0");
         assertThat(map(map(offer.get("properties")).get("onlinePayment")).get("type")).isEqualTo("boolean");
         assertThat(strings(offer.get("required"))).contains("onlinePayment");
         assertThat(Arrays.stream(MallOfferView.class.getRecordComponents())
                 .filter(component -> component.getName().equals("onlinePayment"))
                 .map(RecordComponent::getType)).containsExactly(boolean.class);
+    }
+
+    // 1.3.0（S3-1 / S4-4）：库存可空（不跟踪），卖点、规格、图集、图文总是给出（可以是空数组）。
+    @Test
+    void detailCarriesStockSellingPointsSkusGalleryAndIntroduction() {
+        Map<String, Object> offer = map(schemas().get("MallOffer"));
+        Map<String, Object> stock = map(map(offer.get("properties")).get("stockQuantity"));
+        assertThat(stock.get("type")).isEqualTo(List.of("integer", "null"));
+        assertThat(Arrays.stream(MallOfferView.class.getRecordComponents())
+                .filter(component -> component.getName().equals("stockQuantity"))
+                .map(RecordComponent::getType)).containsExactly(Integer.class);
+        Map<String, Object> detail = map(map(schemas().get("MallProductDetail")).get("properties"));
+        for (String field : List.of("sellingPoints", "skus", "gallery", "introBlocks")) {
+            assertThat(map(detail.get(field)).get("type")).as(field).isEqualTo("array");
+        }
+        assertThat(map(detail.get("sellingPoints")).get("maxItems"))
+                .isEqualTo(MallCatalogOpsService.MAX_SELLING_POINTS);
+        assertThat(strings(map(map(map(schemas().get("MallIntroBlock")).get("properties")).get("type")).get("enum")))
+                .containsExactly("TEXT", "IMAGE");
     }
 
     @Test

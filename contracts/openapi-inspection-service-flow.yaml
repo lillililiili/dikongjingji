@@ -1,20 +1,25 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 2.3.0
+  version: 2.4.0
   description: >-
     巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
     2.2.0（R6-4）：方案和服务单里的服务商（ProviderSummary）加 qualificationReviewed，页面据此显示“资质已审核”。
-    2.3.0（2026-11-22，S4-1，docs/redesign/08-后续开发计划.md §5 D9、C3、B2）：付款节点、确认方案后的取消与改期、退回整改。
+    2.3.0（2026-11-23，S3-2，服务商工作台在 Web 运营端 apps/admin）：加 listProviderInspectionReservations 和
+    getProviderInspectionReservationSummary——分给本机构的预约（reservation.providerId 等于令牌里的机构），
+    形状和阶段推导与客户的 listMyInspectionReservations 相同；只读，出方案、安排、排期、履约、交付仍用原来的受权接口。
+    2.4.0（2026-11-23，S4-1，docs/redesign/08-后续开发计划.md §5 D9、C3、B2）：付款节点、确认方案后的取消与改期、退回整改。
     付款节点：服务端开关 inspection.payment.nodes-enabled 打开时发布的方案带付款节点——首付 30%（四舍五入到分），
     其余按次结算（平均分到每次，最后一次补差，总额等于方案总价）。确认带付款节点的方案要服务商登记了收款账户，
     否则 409 INS_PROVIDER_PAYMENT_UNAVAILABLE。确认后服务单先是 AWAITING_PAYMENT，首付经统一交易模块（contracts/openapi-trade.yaml
-    0.4.0，来源 INSPECTION）到账后进入 ARRANGING；按次服务费在这一次验收后可付，不影响后续巡检；全部验收且付清才算完成。
+    0.6.0，来源 INSPECTION）到账后进入 ARRANGING；按次服务费在这一次验收后可付，不影响后续巡检；全部验收且付清才算完成。
     钱直接进服务商自己的子商户号，已付只认交易模块验签后的回调或查单。payNode 返回交易订单，App 用交易收银台付款。
     取消（C3）：第 1 次巡检开始前可以在线取消（ServiceOrder.cancellable）；首付没付的不收费，付了的整笔原路退回；
     开始之后 409 INS_ORDER_NOT_CANCELLABLE，走客服协商。改期（C3）：每次巡检开始前 24 小时之前可以申请（ServiceVisit.reschedulable），
     服务商确认后生效（这次巡检换新日期、回到待排期），拒绝则不变。退回整改（B2）：待验收的这一次可以退回、写明原因，
     巡检次进入 REWORK、交付进入 RETURNED，服务商重新交付后再验收；不自动退款。
+    服务商工作台的预约列表（2.3.0 的 listProviderInspectionReservations、getProviderInspectionReservationSummary）同样带
+    paymentDue* 字段和新的阶段推导，付款状态读服务单 paymentNodes。
 servers:
   - url: https://api.example.com
     description: Production placeholder
@@ -545,7 +550,7 @@ paths:
     post:
       tags: [CustomerInspectionFlow]
       operationId: payInspectionPaymentNode
-      summary: 为一个付款节点发起付款，返回要去付的交易订单（2.3.0）
+      summary: 为一个付款节点发起付款，返回要去付的交易订单（2.4.0）
       description: >-
         已有待付的交易订单就返回它；它过了付款截止时间时先关掉再建新的；节点已付时 paid 为 true，返回付过的那张。
         首付在服务单待付款时可付，按次服务费在这一次验收之后可付；还没到、服务单已取消时 409 INS_PAYMENT_NOT_DUE。
@@ -580,7 +585,7 @@ paths:
     post:
       tags: [CustomerInspectionFlow]
       operationId: cancelInspectionServiceOrder
-      summary: 第 1 次巡检开始前取消服务单（2.3.0，C3）
+      summary: 第 1 次巡检开始前取消服务单（2.4.0，C3）
       description: >-
         首付没付的不收费（进行中的付款先关掉）；付了的整笔原路退回（退款进度见 paymentNodes[].refund）。
         已取消的再取消一次原样返回；开始之后 409 INS_ORDER_NOT_CANCELLABLE。
@@ -620,7 +625,7 @@ paths:
     post:
       tags: [CustomerInspectionFlow]
       operationId: requestInspectionVisitReschedule
-      summary: 申请某次巡检改期（2.3.0，C3）
+      summary: 申请某次巡检改期（2.4.0，C3）
       description: >-
         该次巡检开始前 24 小时之前才能申请（开始时间按排期，没排期按计划日期北京时间零点）；同一次巡检同时只能有一个待处理的申请，
         同样的日期和原因重复提交返回已有的申请。新日期要晚于今天、晚于上一次、早于下一次的计划日期。If-Match 是巡检次版本。
@@ -658,7 +663,7 @@ paths:
     post:
       tags: [CustomerInspectionFlow]
       operationId: returnInspectionVisitForRework
-      summary: 退回某次巡检的交付要求整改（2.3.0，B2）
+      summary: 退回某次巡检的交付要求整改（2.4.0，B2）
       description: >-
         只有已交付、待验收的这一次可以退回；巡检次进入 REWORK、交付进入 RETURNED，服务商重新交付后再验收。不自动退款。
         已经退回（还没重新交付）时同样的原因再提交返回已有的记录。If-Match 是巡检次版本。
@@ -696,7 +701,7 @@ paths:
     post:
       tags: [ProviderInspectionFlow]
       operationId: decideInspectionVisitReschedule
-      summary: 服务商确认或拒绝改期（2.3.0，C3，没有工作台页面）
+      summary: 服务商确认或拒绝改期（2.4.0，C3，没有工作台页面）
       description: >-
         确认后这次巡检换成新日期、清掉排期回到 PENDING_SCHEDULE；新日期已过、这次巡检已开工或和前后两次顺序冲突时不能确认。
         已按同样的决定处理过的原样返回，换了决定 409 INS_RESCHEDULE_STATE_INVALID。
@@ -735,6 +740,61 @@ paths:
           $ref: "#/components/responses/Conflict"
         "412":
           $ref: "#/components/responses/PreconditionFailed"
+  /api/v1/provider/inspection/reservations:
+    get:
+      tags: [ProviderInspectionFlow]
+      operationId: listProviderInspectionReservations
+      summary: 分页查询分给本机构的巡检预约（服务商工作台，2.3.0）
+      description: >-
+        机构只从令牌里取（PROVIDER_OPERATOR）。按最近变化排在前；stage 和 stageCounts 的含义与客户订单相同。
+        列表只有摘要（地址、日期、阶段、报价合计、服务单和各次巡检的计数），联系人和附件要经 getInspectionReservation 读。
+      x-required-permission: inspection.reservation.read.assigned
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: stage
+          in: query
+          schema:
+            $ref: "#/components/schemas/CustomerReservationFilter"
+      responses:
+        "200":
+          description: 分给本机构的巡检预约分页（形状同 CustomerReservationPage）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerReservationPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/provider/inspection/reservations/{reservationId}:
+    get:
+      tags: [ProviderInspectionFlow]
+      operationId: getProviderInspectionReservationSummary
+      summary: 分给本机构的一张巡检预约的列表摘要（服务商工作台，2.3.0）
+      description: 和 listProviderInspectionReservations 里的一项相同；不是本机构的当作不存在。
+      x-required-permission: inspection.reservation.read.assigned
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "200":
+          description: 预约摘要
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerReservationSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/provider/inspection/reservations/{reservationId}/plans:
     post:
       tags: [ProviderInspectionFlow]
@@ -1441,7 +1501,7 @@ components:
           type: integer
           minimum: 1
         paymentDueNodeNo:
-          description: 现在该付的第一个付款节点（2.3.0）；没有要付的时不出现。
+          description: 现在该付的第一个付款节点（2.4.0）；没有要付的时不出现。
           type: integer
           minimum: 1
         paymentDueNodeType:
@@ -1942,11 +2002,11 @@ components:
           format: date-time
           description: 交易模块回告到账的时间；金额为 0 的节点确认时直接记为已付。
         tradeOrderId:
-          description: 这个节点待付或已付的那张交易订单（2.3.0），页面据此去收银台或支付结果；没有时为 null。
+          description: 这个节点待付或已付的那张交易订单（2.4.0），页面据此去收银台或支付结果；没有时为 null。
           type: [string, "null"]
           format: uuid
         refund:
-          description: 首付的退款（服务单取消时，2.3.0）；没有时为 null。
+          description: 首付的退款（服务单取消时，2.4.0）；没有时为 null。
           oneOf:
             - $ref: "#/components/schemas/NodeRefund"
             - type: "null"
@@ -1968,7 +2028,7 @@ components:
           type: string
           format: date-time
     PaymentRecord:
-      description: 一次付款尝试（一张交易订单，2.3.0）。
+      description: 一次付款尝试（一张交易订单，2.4.0）。
       type: object
       additionalProperties: false
       required: [attemptId, nodeNo, nodeType, tradeOrderId, amountMinor, status, payBefore, createdAt]
@@ -2305,14 +2365,14 @@ components:
           type: integer
           minimum: 0
         cancellable:
-          description: 客户现在能在线取消（第 1 次巡检开始前，2.3.0）。
+          description: 客户现在能在线取消（第 1 次巡检开始前，2.4.0）。
           type: boolean
         cancellation:
           oneOf:
             - $ref: "#/components/schemas/ServiceOrderCancellation"
             - type: "null"
         paymentRecords:
-          description: 付款记录（每次付款尝试一条，按发起时间，2.3.0）。
+          description: 付款记录（每次付款尝试一条，按发起时间，2.4.0）。
           type: array
           items:
             $ref: "#/components/schemas/PaymentRecord"
@@ -2360,13 +2420,13 @@ components:
     ServiceOrderStatus:
       type: string
       description: >-
-        由巡检次推导。AWAITING_PAYMENT 确认了带付款节点的方案、首付还没到账（2.3.0）；ARRANGING 第 1 次开工前；
+        由巡检次推导。AWAITING_PAYMENT 确认了带付款节点的方案、首付还没到账（2.4.0）；ARRANGING 第 1 次开工前；
         IN_PROGRESS 开工后、全部交付前（含退回整改中的）；DELIVERED 全部已交付、还有未验收的；ACCEPTED 全部已验收
-        （带付款节点的还要看 paymentNodes 是否全部已付）；CANCELLED 第 1 次巡检开始前取消（2.3.0）。
+        （带付款节点的还要看 paymentNodes 是否全部已付）；CANCELLED 第 1 次巡检开始前取消（2.4.0）。
       enum: [AWAITING_PAYMENT, ARRANGING, IN_PROGRESS, DELIVERED, ACCEPTED, CANCELLED]
     ServiceVisitStatus:
       type: string
-      description: REWORK 客户退回整改、服务商还没重新交付（2.3.0）。
+      description: REWORK 客户退回整改、服务商还没重新交付（2.4.0）。
       enum: [PENDING_SCHEDULE, SCHEDULED, IN_PROGRESS, REWORK, DELIVERED, ACCEPTED]
     ServiceVisit:
       type: object
@@ -2407,19 +2467,19 @@ components:
           type: integer
           minimum: 0
         originalPlannedDate:
-          description: 第一次改期生效前的计划日期（2.3.0）；没改过期时为 null。
+          description: 第一次改期生效前的计划日期（2.4.0）；没改过期时为 null。
           type: [string, "null"]
           format: date
         reschedulable:
-          description: 客户现在能为这次巡检申请改期（2.3.0）；单独返回一次巡检（排期、进度命令）时恒为 false。
+          description: 客户现在能为这次巡检申请改期（2.4.0）；单独返回一次巡检（排期、进度命令）时恒为 false。
           type: boolean
         reschedule:
-          description: 最近一次改期申请（2.3.0）。
+          description: 最近一次改期申请（2.4.0）。
           oneOf:
             - $ref: "#/components/schemas/VisitReschedule"
             - type: "null"
         rework:
-          description: 最近一次退回整改（2.3.0）。
+          description: 最近一次退回整改（2.4.0）。
           oneOf:
             - $ref: "#/components/schemas/VisitRework"
             - type: "null"
@@ -2542,7 +2602,7 @@ components:
           format: uuid
         status:
           type: string
-          description: RETURNED 客户退回整改、等服务商重新交付（2.3.0）。
+          description: RETURNED 客户退回整改、等服务商重新交付（2.4.0）。
           enum: [PUBLISHED, RETURNED, ACCEPTED]
         towerCount:
           type: [integer, "null"]

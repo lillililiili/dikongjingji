@@ -4,6 +4,7 @@ import type {
   MallCategory,
   MallExperienceBadge,
   MallImage,
+  MallIntroBlock,
   MallListPrice,
   MallMerchantKind,
   MallPackItem,
@@ -13,6 +14,7 @@ import type {
   MallProductPage,
   MallProductQuery,
   MallSaleMode,
+  MallSku,
   MallSpec,
 } from '../domain/mall'
 
@@ -60,9 +62,22 @@ interface ProductDetailDto {
     shippingNote: string | null
     fulfilledFrom: string | null
     onlinePayment?: boolean
+    // catalog 1.3.0; absent on an older server.
+    stockQuantity?: number | null
   }[]
   specs: MallSpec[]
   packItems: MallPackItem[]
+  // catalog 1.3.0; absent on an older server.
+  sellingPoints?: string[]
+  skus?: MallSku[]
+  gallery?: (MediaAssetDto | null)[]
+  introBlocks?: IntroBlockDto[]
+}
+
+interface IntroBlockDto {
+  type: 'TEXT' | 'IMAGE'
+  text: string | null
+  image: MediaAssetDto | null
 }
 
 export interface MallApi {
@@ -75,6 +90,25 @@ function toImage(asset: MediaAssetDto | null): MallImage | null {
   return asset && /^https:\/\//i.test(asset.url)
     ? { url: asset.url, alt: asset.alt }
     : null
+}
+
+// A paragraph needs its text and a picture an HTTPS image; anything else is dropped rather than shown
+// as an empty block.
+function toIntroBlock(block: IntroBlockDto): MallIntroBlock | null {
+  if (block.type === 'TEXT') {
+    const text = block.text?.trim() ?? ''
+    return text ? { type: 'TEXT', text } : null
+  }
+  if (block.type === 'IMAGE') {
+    const image = toImage(block.image)
+    return image ? { type: 'IMAGE', text: block.text?.trim() || null, image } : null
+  }
+  return null
+}
+
+// A stock count is a whole number from 0 up; anything else is treated as not tracked.
+function toStock(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
 }
 
 // Also used by the home recommend block, which receives the same card shape.
@@ -162,9 +196,15 @@ export function createMallApi(http: PublicApiHttpClient): MallApi {
           fulfilledFrom: offer.fulfilledFrom,
           // Only an explicit true counts: an older server that does not say is treated as unable.
           onlinePayment: offer.onlinePayment === true,
+          stockQuantity: toStock(offer.stockQuantity),
         })),
         specs: dto.specs.map((spec) => ({ label: spec.label, value: spec.value })),
         packItems: dto.packItems.map((item) => ({ name: item.name, quantity: item.quantity })),
+        sellingPoints: (dto.sellingPoints ?? []).map((point) => point.trim()).filter((point) => point !== ''),
+        skus: (dto.skus ?? []).map((sku) => ({ skuId: sku.skuId, name: sku.name })),
+        gallery: (dto.gallery ?? []).map(toImage).filter((image): image is MallImage => image !== null),
+        introBlocks: (dto.introBlocks ?? []).map(toIntroBlock)
+          .filter((block): block is MallIntroBlock => block !== null),
       }
     },
   }

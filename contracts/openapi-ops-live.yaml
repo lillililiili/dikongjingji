@@ -1,0 +1,471 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Live API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“直播间”。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
+    COMMON_FORBIDDEN. 直播间在直播模块（迁移 V001、V002），主办机构和直播主办角色在身份模块。
+
+    规则：
+    - 开通直播主办：运营在“机构与资质”里给经营机构的账号授直播主办（LIVE_HOST）角色（PUT
+      /api/v1/ops/organizations/{organizationId}/accounts/{accountId}/roles，openapi-ops-organization.yaml），
+      收回也在那里，记在机构的操作记录里。这里的 GET /api/v1/ops/live/hosts 只列开通了的机构（在用的经营机构里有在用账号
+      拿着这个角色的，按机构名称，最多 200 家）和各自的直播间数。
+    - 直播间列表不分主办机构、不分城市：直播中的在前，再预告，再已结束；同一状态按开播时间新的在前。不给推流、播放地址。
+    - 强制结束：写原因（1–200 字），带页面读到的 version；已结束的 409 OPS_LIVE_ROOM_ENDED。结束原因记为 PLATFORM，
+      App 上直播间立刻变成已结束；服务商那边的流尽量断掉，断不掉不影响结束。平台客服原有的强制结束接口
+      （/api/v1/platform/live/rooms/{roomId}/end，openapi-live.yaml）不变。
+    - 回看链接：只给已结束的设（没结束 409 OPS_LIVE_ROOM_NOT_ENDED），带 version；地址只收带主机名的 https，平台名称 1–20 字，
+      两项一起给，或者一起为 null（去掉回看）。App 的直播列表里已结束的只列有回看的。
+    - 版本不对 409 OPS_VERSION_CONFLICT。每次强制结束、设回看、去掉回看都记一条改动记录（动作 FORCE_END、SET_REPLAY、
+      CLEAR_REPLAY，说明、操作人显示名、时间），只追加，详情里能看到最近 50 条。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/live/hosts:
+    get:
+      operationId: "listOpsLiveHosts"
+      summary: "开通了直播主办的机构和各自的直播间数（按机构名称，最多 200 家）"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "主办机构"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 200
+                items:
+                  $ref: "#/components/schemas/OpsLiveHost"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/live/rooms:
+    get:
+      operationId: "listOpsLiveRooms"
+      summary: "全部直播间（直播中在前，再预告、已结束；同一状态按开播时间新的在前）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "标题或主办机构名称，最多 20 字；% 和 _ 会被去掉"
+          schema:
+            type: "string"
+            maxLength: 20
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsLiveRoomStatus"
+        - name: "cityCode"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            pattern: "^[0-9]{6}$"
+        - name: "hostOrganizationId"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "uuid"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsLiveRoomPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/live/rooms/{roomId}:
+    get:
+      operationId: "getOpsLiveRoom"
+      summary: "一个直播间"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: "直播间"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsLiveRoom"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/live/rooms/{roomId}/end:
+    post:
+      operationId: "endOpsLiveRoom"
+      summary: "强制结束（写原因、带版本号），记一条改动记录"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsLiveEndRequest"
+      responses:
+        "200":
+          description: "结束后的直播间（新的版本号）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsLiveRoom"
+        "400":
+          description: "原因为空或超过 200 字、没带版本号（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_LIVE_ROOM_ENDED：直播间已经结束。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/live/rooms/{roomId}/replay:
+    put:
+      operationId: "setOpsLiveRoomReplay"
+      summary: "设或去掉回看链接（只给已结束的，带版本号），记一条改动记录"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsLiveReplayRequest"
+      responses:
+        "200":
+          description: "改好的直播间（新的版本号）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsLiveRoom"
+        "400":
+          description: "地址不是 https、平台名称超过 20 字、两项只给了一项、没带版本号（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_LIVE_ROOM_NOT_ENDED：直播还没结束。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/live/rooms/{roomId}/changes:
+    get:
+      operationId: "listOpsLiveRoomChanges"
+      summary: "这个直播间最近 50 条运营改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    RoomId:
+      name: "roomId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "直播间不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsLiveErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+    OpsLiveErrorCode:
+      type: "string"
+      enum: [OPS_VERSION_CONFLICT, OPS_LIVE_ROOM_ENDED, OPS_LIVE_ROOM_NOT_ENDED]
+    OpsLiveRoomStatus:
+      type: "string"
+      description: "SCHEDULED 预告；LIVE 直播中；ENDED 已结束"
+      enum: [SCHEDULED, LIVE, ENDED]
+    OpsLiveHost:
+      type: "object"
+      additionalProperties: false
+      required: [organizationId, organizationName, cityCode, hostAccountCount, roomCount, liveRoomCount,
+                 scheduledRoomCount]
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        organizationName:
+          type: "string"
+        cityCode:
+          type: ["string", "null"]
+          description: "机构所在城市；没登记时为 null"
+        hostAccountCount:
+          type: "integer"
+          minimum: 1
+          description: "机构里拿着直播主办角色的在用账号数"
+        roomCount:
+          type: "integer"
+          minimum: 0
+          description: "这家机构建过的直播间数"
+        liveRoomCount:
+          type: "integer"
+          minimum: 0
+          description: "其中直播中的"
+        scheduledRoomCount:
+          type: "integer"
+          minimum: 0
+          description: "其中预告的"
+    OpsLiveRoom:
+      type: "object"
+      additionalProperties: false
+      required: [roomId, hostOrganizationId, hostName, title, subtitle, coverUrl, cityCode, scheduledAt, speakerName,
+                 status, startedAt, endedAt, endReason, streamInterrupted, replayUrl, replayPlatformName, viewerCount,
+                 likeCount, commentCount, version, createdAt]
+      properties:
+        roomId:
+          type: "string"
+          format: "uuid"
+        hostOrganizationId:
+          type: "string"
+          format: "uuid"
+        hostName:
+          type: "string"
+          description: "建直播间时主办机构名称的快照"
+        title:
+          type: "string"
+          maxLength: 30
+        subtitle:
+          type: ["string", "null"]
+          maxLength: 40
+        coverUrl:
+          type: ["string", "null"]
+          format: "uri"
+        cityCode:
+          type: ["string", "null"]
+          description: "为 null 表示全国可见"
+        scheduledAt:
+          type: "string"
+          format: "date-time"
+        speakerName:
+          type: ["string", "null"]
+        status:
+          type: "string"
+          enum: [SCHEDULED, LIVE, ENDED]
+          description: "同 OpsLiveRoomStatus"
+        startedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        endedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        endReason:
+          type: ["string", "null"]
+          enum: [STREAM, PLATFORM, null]
+          description: "STREAM 服务商回调结束；PLATFORM 平台结束（客服或运营强制结束）；没结束为 null"
+        streamInterrupted:
+          type: "boolean"
+          description: "直播中服务商报了断流、还没恢复"
+        replayUrl:
+          type: ["string", "null"]
+          format: "uri"
+        replayPlatformName:
+          type: ["string", "null"]
+          maxLength: 20
+        viewerCount:
+          type: "integer"
+          minimum: 0
+        likeCount:
+          type: "integer"
+          minimum: 0
+        commentCount:
+          type: "integer"
+          minimum: 0
+        version:
+          type: "integer"
+          minimum: 0
+          description: "强制结束、设回看时要带的版本号"
+        createdAt:
+          type: "string"
+          format: "date-time"
+    OpsLiveRoomPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsLiveRoom"
+    OpsLiveEndRequest:
+      type: "object"
+      additionalProperties: false
+      required: [note, version]
+      properties:
+        note:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+          description: "为什么强制结束，写进改动记录"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsLiveReplayRequest:
+      type: "object"
+      additionalProperties: false
+      required: [replayUrl, replayPlatformName, version]
+      properties:
+        replayUrl:
+          type: ["string", "null"]
+          format: "uri"
+          maxLength: 500
+          description: "受控 https 地址；和平台名称一起为 null 表示去掉回看"
+        replayPlatformName:
+          type: ["string", "null"]
+          minLength: 1
+          maxLength: 20
+        version:
+          type: "integer"
+          minimum: 0
+    OpsChange:
+      type: "object"
+      additionalProperties: false
+      required: [changeId, subjectType, subjectId, action, summary, operatorName, changedAt]
+      properties:
+        changeId:
+          type: "string"
+          format: "uuid"
+        subjectType:
+          type: "string"
+          enum: [LIVE_ROOM]
+        subjectId:
+          type: "string"
+          format: "uuid"
+        action:
+          type: "string"
+          enum: [FORCE_END, SET_REPLAY, CLEAR_REPLAY]
+        summary:
+          type: "string"
+          maxLength: 600
+        operatorName:
+          type: "string"
+          description: "改的时候运营账号的显示名"
+        changedAt:
+          type: "string"
+          format: "date-time"

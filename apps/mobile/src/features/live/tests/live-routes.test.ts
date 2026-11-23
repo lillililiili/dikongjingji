@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import discoverSource from '../../content/presentation/discover/ContentDiscoverPage.vue?raw'
 import pagesJson from '../../../pages.json?raw'
 import noticeHostSource from '../../../pages/live/notice.vue?raw'
@@ -72,9 +72,9 @@ describe('live routes', () => {
 })
 
 describe('live preview gate', () => {
-  it('uses exactly the expression of the shared preview flag, without importing it', () => {
+  it('reads its own release switch, without importing it', () => {
     expect(flagExpression(liveFlagSource, 'LIVE_PREVIEW_ENABLED'))
-      .toBe(flagExpression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+      .toBe(moduleFlagExpression('LIVE'))
     const offenders = Object.entries(liveSources)
       .filter(([path]) => !path.includes('/tests/'))
       .filter(([, source]) => /from\s+'[^']*platform-preview'/.test(source))

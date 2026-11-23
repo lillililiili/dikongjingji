@@ -1,0 +1,491 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Import API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S2-3 的导入工具，放在 S3-1 运营端，docs/redesign/08-后续开发计划.md §2；填表规则 docs/ops/首批资源导入.md）：
+    运营端上传 infra/import-templates/ 里的 CSV，先“预检”逐行报错，全部通过才能“导入”。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles get 403 COMMON_FORBIDDEN.
+    导入记录在 opsimport 模块（迁移 opsimport V001），写入经各模块自己的导入端口（身份、交易、商城），模块之间不直接写
+    对方的表。
+
+    规则：
+    - 一次预检传一类（kind）的几张表（文件名就是模板文件名，例如 03-mall-products.csv；后面可以加序号
+      03-mall-products-2.csv）。UTF-8（可以带 BOM），第一行表头必须和模板一字不差。每个文件 ≤2 MB、≤5000 行，一次 ≤12 个
+      文件、合计 ≤10 MB。
+    - 预检逐行校验：必填、长度、枚举、整数和金额（分，非负整数）、北京时间格式、https 地址、城市在平台城市目录里、
+      经营主体编码已在库里（先导入 ORGANIZATIONS）、表之间的编号能对上、同一类编号不重复，以及每类自己的规则（不能快递时
+      要有自提点、收费活动要有价格、结束晚于开始、标价的购买商品上架时商家要有有效收款账户等）。有问题时批次是 REJECTED，
+      issues 里逐条列出第几个文件第几行哪一列为什么（最多存 500 条），不能导入；全部通过是 CHECKED。
+    - 不进库的核对列（统一社会信用代码、business_roles）只在预检结果的 reviewItems 里显示，用来和线下材料核对，不存。
+    - 导入（run）把一个 CHECKED 批次在一个事务里写进去，失败不留半截数据。写之前按库里的当前数据再校验一次，不通过
+      409 OPS_IMPORT_HAS_ISSUES。
+    - 幂等：同一个批次再 run 一次，直接返回第一次的结果；同一类、内容完全相同（文件摘要一样）的文件再预检、再导入，批次标成
+      IMPORTED 并在 duplicateOfBatchId 里指向第一次导入的批次，什么都不写。organization_code 和各 *_ref 编号记在对照表里，
+      第二次导入同一编号是“更新”，不是“新建”；对照表和每个对象是新建还是更新都记在批次的 changes 里。
+    - 能写入的类：ORGANIZATIONS（经营主体和操作员账号）、MERCHANT_ACCOUNTS（收款账户）、MALL（商品、参数、包装清单、规格、
+      供给）。ACTIVITIES、VENUES、SERVICES、CONTENT 这一版只做预检，导入回 409 OPS_IMPORT_NOT_WRITABLE（kinds 里
+      writable=false）。
+    - 操作员账号：导入时不设密码，服务端给每个新账号生成一次性初始口令，只在那次 run 的返回 createdAccounts 里出现这一次；
+      之后再看批次不再给。登录名已被其他机构占用算预检问题。
+    - 导入文件存进私有存储，保留 180 天（retainedUntil）；开发环境存本机目录，其他环境没配置对象存储时预检 503
+      OPS_FILE_STORE_UNAVAILABLE。
+    - 留痕：谁、什么时候预检、谁什么时候导入、改了哪些对象（changes），都在批次里；各模块也在自己的操作记录里记一条。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/imports/kinds:
+    get:
+      operationId: "listOpsImportKinds"
+      summary: "能导入的几类、每类有哪几张表和表头"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "按导入顺序"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/OpsImportKindSpec"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/imports/{kind}/checks:
+    post:
+      operationId: "checkOpsImport"
+      summary: "预检一组 CSV，建一个批次"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "kind"
+          in: "path"
+          required: true
+          schema:
+            $ref: "#/components/schemas/OpsImportKind"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              required: [files]
+              properties:
+                files:
+                  type: "array"
+                  maxItems: 12
+                  items:
+                    type: "string"
+                    format: "binary"
+      responses:
+        "201":
+          description: "预检结果（CHECKED、REJECTED，或内容和以前导入过的一样时的 IMPORTED）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsImportBatch"
+        "400":
+          description: "没有文件、文件太大或太多（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: "kind 不认识（COMMON_NOT_FOUND）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: "OPS_FILE_STORE_UNAVAILABLE：导入文件存储没有配置。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/imports/batches:
+    get:
+      operationId: "listOpsImportBatches"
+      summary: "导入记录（新的在前）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "kind"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsImportKind"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页批次"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsImportBatchPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/imports/batches/{batchId}:
+    get:
+      operationId: "getOpsImportBatch"
+      summary: "一个批次：文件、问题、改动（不再给初始口令和核对列）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BatchId"
+      responses:
+        "200":
+          description: "批次"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsImportBatch"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/imports/batches/{batchId}/run:
+    post:
+      operationId: "runOpsImport"
+      summary: "导入一个预检通过的批次（一个事务）；重复调用返回第一次的结果"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/BatchId"
+      responses:
+        "200":
+          description: "导入结果；第一次导入时 createdAccounts 里是新账号的一次性初始口令"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsImportBatch"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >-
+            OPS_IMPORT_HAS_ISSUES：批次预检没通过，或按库里的当前数据再校验时出了问题；OPS_IMPORT_NOT_WRITABLE：这一类
+            这一版只能预检。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    BatchId:
+      name: "batchId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "批次不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsImportErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+    OpsImportErrorCode:
+      type: "string"
+      enum: [OPS_IMPORT_HAS_ISSUES, OPS_IMPORT_NOT_WRITABLE, OPS_FILE_STORE_UNAVAILABLE]
+    OpsImportKind:
+      type: "string"
+      description: >-
+        导入顺序：ORGANIZATIONS 经营主体与操作员（01、01b）；MERCHANT_ACCOUNTS 收款账户（02）；MALL 商品与供给（03–03e）；
+        ACTIVITIES 活动与场次（04、04b）；VENUES 场馆与项目（05–05f）；SERVICES 巡检和专业服务（06–06i）；
+        CONTENT 发现内容（07–07f）
+      enum: [ORGANIZATIONS, MERCHANT_ACCOUNTS, MALL, ACTIVITIES, VENUES, SERVICES, CONTENT]
+    OpsImportStatus:
+      type: "string"
+      description: "CHECKED 预检通过、待导入；REJECTED 预检有问题；IMPORTED 已导入（或和以前导入过的内容相同）"
+      enum: [CHECKED, REJECTED, IMPORTED]
+    OpsImportRefKind:
+      type: "string"
+      enum: [ORGANIZATION, OPERATOR, MERCHANT_ACCOUNT, PRODUCT, SKU, OFFER]
+    OpsImportChangeType:
+      type: "string"
+      enum: [CREATED, UPDATED]
+    OpsImportFileSpec:
+      type: "object"
+      additionalProperties: false
+      required: [fileName, title, required, columns]
+      properties:
+        fileName:
+          type: "string"
+          description: "模板文件名，例如 03-mall-products.csv"
+        title:
+          type: "string"
+        required:
+          type: "boolean"
+          description: "这一类导入时必须带这张表"
+        columns:
+          type: "array"
+          items:
+            type: "string"
+    OpsImportKindSpec:
+      type: "object"
+      additionalProperties: false
+      required: [kind, title, writable, files]
+      properties:
+        kind:
+          $ref: "#/components/schemas/OpsImportKind"
+        title:
+          type: "string"
+        writable:
+          type: "boolean"
+          description: "false 时这一版只能预检"
+        files:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsImportFileSpec"
+    OpsImportFile:
+      type: "object"
+      additionalProperties: false
+      required: [fileName, rowCount]
+      properties:
+        fileName:
+          type: "string"
+        rowCount:
+          type: "integer"
+    OpsImportIssue:
+      type: "object"
+      additionalProperties: false
+      required: [fileName, line, column, message]
+      properties:
+        fileName:
+          type: "string"
+        line:
+          type: "integer"
+          description: "文件里的行号，表头是第 1 行；整个文件的问题为 0"
+        column:
+          type: ["string", "null"]
+        message:
+          type: "string"
+    OpsImportReviewItem:
+      type: "object"
+      additionalProperties: false
+      required: [fileName, line, reference, label, value]
+      properties:
+        fileName:
+          type: "string"
+        line:
+          type: "integer"
+        reference:
+          type: "string"
+          description: "这一行的编号，例如 organization_code"
+        label:
+          type: "string"
+        value:
+          type: "string"
+    OpsImportChange:
+      type: "object"
+      additionalProperties: false
+      required: [refKind, reference, targetId, change]
+      properties:
+        refKind:
+          $ref: "#/components/schemas/OpsImportRefKind"
+        reference:
+          type: "string"
+          description: "表里的编号（organization_code、product_ref 等；操作员是登录名）"
+        targetId:
+          type: "string"
+          format: "uuid"
+        change:
+          $ref: "#/components/schemas/OpsImportChangeType"
+    OpsImportCreatedAccount:
+      type: "object"
+      additionalProperties: false
+      required: [organizationCode, loginName, initialPassword]
+      properties:
+        organizationCode:
+          type: "string"
+        loginName:
+          type: "string"
+        initialPassword:
+          type: "string"
+          description: "一次性初始口令，只在第一次 run 的返回里出现"
+    OpsImportBatch:
+      type: "object"
+      additionalProperties: false
+      required: [batchId, kind, status, fileSha256, files, rowCount, issueCount, issues, reviewItems, changes,
+                 createdAccounts, duplicateOfBatchId, checkedByName, checkedAt, importedByName, importedAt, retainedUntil]
+      properties:
+        batchId:
+          type: "string"
+          format: "uuid"
+        kind:
+          $ref: "#/components/schemas/OpsImportKind"
+        status:
+          $ref: "#/components/schemas/OpsImportStatus"
+        fileSha256:
+          type: "string"
+          description: "这组文件（按文件名排序后）的摘要，用来判断是不是导入过"
+        files:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsImportFile"
+        rowCount:
+          type: "integer"
+        issueCount:
+          type: "integer"
+          description: "问题总数（issues 最多列 500 条）"
+        issues:
+          type: "array"
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/OpsImportIssue"
+        reviewItems:
+          type: "array"
+          description: "不进库的核对列，只在预检的返回里有"
+          items:
+            $ref: "#/components/schemas/OpsImportReviewItem"
+        changes:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsImportChange"
+        createdAccounts:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsImportCreatedAccount"
+        duplicateOfBatchId:
+          type: ["string", "null"]
+          format: "uuid"
+        checkedByName:
+          type: "string"
+        checkedAt:
+          type: "string"
+          format: "date-time"
+        importedByName:
+          type: ["string", "null"]
+        importedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        retainedUntil:
+          type: "string"
+          format: "date-time"
+          description: "导入文件保留到"
+    OpsImportBatchSummary:
+      type: "object"
+      additionalProperties: false
+      required: [batchId, kind, status, fileNames, rowCount, issueCount, changeCount, checkedByName, checkedAt,
+                 importedByName, importedAt]
+      properties:
+        batchId:
+          type: "string"
+          format: "uuid"
+        kind:
+          $ref: "#/components/schemas/OpsImportKind"
+        status:
+          $ref: "#/components/schemas/OpsImportStatus"
+        fileNames:
+          type: "array"
+          items:
+            type: "string"
+        rowCount:
+          type: "integer"
+        issueCount:
+          type: "integer"
+        changeCount:
+          type: "integer"
+        checkedByName:
+          type: "string"
+        checkedAt:
+          type: "string"
+          format: "date-time"
+        importedByName:
+          type: ["string", "null"]
+        importedAt:
+          type: ["string", "null"]
+          format: "date-time"
+    OpsImportBatchPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsImportBatchSummary"

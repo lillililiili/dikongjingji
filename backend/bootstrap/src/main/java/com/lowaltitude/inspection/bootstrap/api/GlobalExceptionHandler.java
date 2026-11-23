@@ -4,11 +4,14 @@ import java.util.UUID;
 
 import com.lowaltitude.inspection.account.application.AddressLimitException;
 import com.lowaltitude.inspection.account.application.AddressNotFoundException;
+import com.lowaltitude.inspection.activity.application.ActivityCheckinException;
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentException;
 import com.lowaltitude.inspection.activity.application.ActivityNotFoundException;
 import com.lowaltitude.inspection.demand.application.DemandException;
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
 import com.lowaltitude.inspection.experience.application.VenueBookingException;
+import com.lowaltitude.inspection.experience.application.VenueCheckinException;
+import com.lowaltitude.inspection.checkin.application.CheckinRejectedException;
 import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
 import com.lowaltitude.inspection.mall.application.MallCartException;
 import com.lowaltitude.inspection.trade.application.TradeException;
@@ -20,6 +23,8 @@ import com.lowaltitude.inspection.content.application.ContentException;
 import com.lowaltitude.inspection.content.application.ContentNotFoundException;
 import com.lowaltitude.inspection.rental.application.RentalException;
 import com.lowaltitude.inspection.support.application.SupportException;
+import com.lowaltitude.inspection.application.city.CityOperationException;
+import com.lowaltitude.inspection.identity.application.OnboardingException;
 import com.lowaltitude.inspection.live.application.LiveException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
@@ -539,6 +544,77 @@ public class GlobalExceptionHandler {
                 .body(new ApiError(code, message, traceId(request)));
     }
 
+    /** 核销工作台（S3-3，契约 openapi-checkin-workbench.yaml）：被拦下的核销，那条已落库的记录放在 details.record。 */
+    @ExceptionHandler(CheckinRejectedException.class)
+    public ResponseEntity<ApiError> handleCheckinRejected(
+            CheckinRejectedException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(
+                exception.code(),
+                exception.message(),
+                traceId(request),
+                java.util.Map.of("record", exception.record())));
+    }
+
+    /** 核销工作台里活动凭证一半的业务拒绝。 */
+    @ExceptionHandler(ActivityCheckinException.class)
+    public ResponseEntity<ApiError> handleActivityCheckin(
+            ActivityCheckinException exception,
+            HttpServletRequest request
+    ) {
+        return checkinError(exception.reason().name(), request);
+    }
+
+    /** 核销工作台里到馆预约一半的业务拒绝，和活动的一半用同一套错误码。 */
+    @ExceptionHandler(VenueCheckinException.class)
+    public ResponseEntity<ApiError> handleVenueCheckin(
+            VenueCheckinException exception,
+            HttpServletRequest request
+    ) {
+        return checkinError(exception.reason().name(), request);
+    }
+
+    private ResponseEntity<ApiError> checkinError(String reason, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (reason) {
+            case "NOT_FOUND" -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case "FORBIDDEN" -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case "NOT_OPEN" -> {
+                code = "CHECKIN_NOT_OPEN";
+                message = "还没到这一场的核销时间";
+            }
+            case "ACTION_NOT_ALLOWED" -> {
+                code = "CHECKIN_ACTION_NOT_ALLOWED";
+                message = "这条记录不能这样处理";
+            }
+            case "ALREADY_RESOLVED" -> {
+                code = "CHECKIN_ALREADY_RESOLVED";
+                message = "这条异常已经登记过";
+            }
+            case "RELEASE_NOT_ALLOWED" -> {
+                code = "CHECKIN_RELEASE_NOT_ALLOWED";
+                message = "这张凭证现在不能放行";
+            }
+            case "SEATS_NOT_ENOUGH" -> {
+                code = "CHECKIN_SEATS_NOT_ENOUGH";
+                message = "当前场次余位不足";
+            }
+            default -> throw new IllegalStateException("unhandled check-in error " + reason);
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
     @ExceptionHandler(ActivityEnrollmentException.class)
     public ResponseEntity<ApiError> handleActivityEnrollment(
             ActivityEnrollmentException exception,
@@ -661,6 +737,10 @@ public class GlobalExceptionHandler {
                 code = "MALL_CHECKOUT_ITEM_UNAVAILABLE";
                 message = "有商品已失效，请回到购物车重新选择";
             }
+            case OUT_OF_STOCK -> {
+                code = "MALL_CART_OUT_OF_STOCK";
+                message = "这个规格暂时缺货或现货不足";
+            }
             default -> throw new IllegalStateException("unhandled mall cart error " + exception.error());
         }
         return ResponseEntity.status(status)
@@ -692,6 +772,17 @@ public class GlobalExceptionHandler {
                 status = HttpStatus.CONFLICT;
                 code = "SUPPORT_COUNTERPART_UNAVAILABLE";
                 message = "对方暂时不能接收消息";
+            }
+            // 运营端处理反馈（契约 contracts/openapi-ops-feedback.yaml）。
+            case ALREADY_HANDLED -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_FEEDBACK_ALREADY_HANDLED";
+                message = "这条反馈已经处理过了";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_VERSION_CONFLICT";
+                message = "数据已被他人修改，请刷新后重试";
             }
             default -> throw new IllegalStateException("unmapped support error " + exception.error());
         }
@@ -1017,6 +1108,207 @@ public class GlobalExceptionHandler {
         LOGGER.error("Unhandled API failure traceId={}", traceId, exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiError("COMMON_INTERNAL_ERROR", "系统繁忙，请稍后重试", traceId));
+    }
+
+    /** 运营端“城市开通”（契约 contracts/openapi-ops-city.yaml）的业务拒绝。 */
+    @ExceptionHandler(CityOperationException.class)
+    public ResponseEntity<ApiError> handleCityOperation(CityOperationException exception,
+                                                        HttpServletRequest request) {
+        return switch (exception.error()) {
+            case NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiError("COMMON_NOT_FOUND", "资源不存在", traceId(request)));
+            case VERSION_CONFLICT -> ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiError("OPS_VERSION_CONFLICT", "数据已被他人修改，请刷新后重试", traceId(request)));
+            case STATUS_UNCHANGED -> ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiError("OPS_CITY_STATUS_UNCHANGED", "城市已经是这个状态", traceId(request)));
+        };
+    }
+
+    /** 运营端“机构入驻与资质审核”（契约 contracts/openapi-ops-organization.yaml）的业务拒绝。 */
+    @ExceptionHandler(OnboardingException.class)
+    public ResponseEntity<ApiError> handleOnboarding(OnboardingException exception, HttpServletRequest request) {
+        HttpStatus status;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_VERSION_CONFLICT";
+                message = "数据已被他人修改，请刷新后重试";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case CITY_UNKNOWN -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_CITY_UNKNOWN";
+                message = "城市不在平台城市目录里";
+            }
+            case LOGIN_NAME_TAKEN -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_LOGIN_NAME_TAKEN";
+                message = "登录名已被占用";
+            }
+            case ROLE_NOT_GRANTABLE -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_ROLE_NOT_GRANTABLE";
+                message = "这类机构不能授这个角色";
+            }
+            case QUALIFICATION_NOT_PENDING -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_QUALIFICATION_NOT_PENDING";
+                message = "资质资料不是待审核状态";
+            }
+            case QUALIFICATION_INCOMPLETE -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_QUALIFICATION_INCOMPLETE";
+                message = "审核通过前至少要上传一份资质附件";
+            }
+            case ATTACHMENT_LIMIT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_ATTACHMENT_LIMIT";
+                message = "附件数量已到上限";
+            }
+            case FILE_STORE_UNAVAILABLE -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                code = "OPS_FILE_STORE_UNAVAILABLE";
+                message = "附件存储暂不可用";
+            }
+            default -> throw new IllegalStateException("unmapped onboarding error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
+    /** 运营端“商品与供给”（契约 contracts/openapi-ops-catalog.yaml）的业务拒绝。 */
+    @ExceptionHandler(com.lowaltitude.inspection.mall.application.MallOpsException.class)
+    public ResponseEntity<ApiError> handleMallOps(com.lowaltitude.inspection.mall.application.MallOpsException exception,
+                                                  HttpServletRequest request) {
+        java.util.Map<String, Object> details = null;
+        HttpStatus status;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_VERSION_CONFLICT";
+                message = "数据已被他人修改，请刷新后重试";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case STATUS_UNCHANGED -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_STATUS_UNCHANGED";
+                message = "已经是这个状态";
+            }
+            case OFFER_DUPLICATE -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_OFFER_DUPLICATE";
+                message = "这个规格、商家、城市已经有一条供给";
+            }
+            case SKU_LIMIT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_SKU_LIMIT";
+                message = "规格数量已到上限";
+            }
+            case PRODUCT_INCOMPLETE -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_PRODUCT_INCOMPLETE";
+                message = "上架前还有必填没有完成";
+                details = java.util.Map.of("blockers", exception.blockers());
+            }
+            case OFFER_INCOMPLETE -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_OFFER_INCOMPLETE";
+                message = "规格已停用或缺少价格，不能启用";
+            }
+            case MERCHANT_UNKNOWN -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_MERCHANT_UNKNOWN";
+                message = "商家不是在用的经营机构";
+            }
+            case MERCHANT_NOT_COLLECTING -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_MERCHANT_NOT_COLLECTING";
+                message = "商家没有有效的收款账户";
+            }
+            case CITY_UNKNOWN -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_CITY_UNKNOWN";
+                message = "城市不在平台城市目录里";
+            }
+            case MEDIA_URL_UNCONTROLLED -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_MEDIA_URL_UNCONTROLLED";
+                message = "图片地址不是受控地址";
+            }
+            case FILE_STORE_UNAVAILABLE -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                code = "OPS_FILE_STORE_UNAVAILABLE";
+                message = "图片存储暂不可用";
+            }
+            default -> throw new IllegalStateException("unmapped mall ops error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request), details));
+    }
+
+    /** 运营端“收款账户登记”（契约 contracts/openapi-ops-catalog.yaml）的业务拒绝。 */
+    @ExceptionHandler(com.lowaltitude.inspection.trade.application.OpsMerchantAccountException.class)
+    public ResponseEntity<ApiError> handleMerchantAccount(
+            com.lowaltitude.inspection.trade.application.OpsMerchantAccountException exception,
+            HttpServletRequest request) {
+        return switch (exception.error()) {
+            case NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiError("COMMON_NOT_FOUND", "资源不存在", traceId(request)));
+            case VERSION_CONFLICT -> ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiError("OPS_VERSION_CONFLICT", "数据已被他人修改，请刷新后重试", traceId(request)));
+            case MERCHANT_UNKNOWN -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .body(new ApiError("OPS_MERCHANT_UNKNOWN", "不是经营机构", traceId(request)));
+            case SUB_MCHID_PLACEHOLDER -> ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .body(new ApiError("OPS_SUB_MCHID_PLACEHOLDER", "开发占位商户号只能在开发环境使用", traceId(request)));
+        };
+    }
+
+    /** 运营端“批量导入”（契约 contracts/openapi-ops-import.yaml）的业务拒绝。 */
+    @ExceptionHandler(com.lowaltitude.inspection.opsimport.application.OpsImportException.class)
+    public ResponseEntity<ApiError> handleOpsImport(
+            com.lowaltitude.inspection.opsimport.application.OpsImportException exception,
+            HttpServletRequest request) {
+        return switch (exception.error()) {
+            case NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiError("COMMON_NOT_FOUND", "资源不存在", traceId(request)));
+            case HAS_ISSUES -> ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiError("OPS_IMPORT_HAS_ISSUES", "这个批次有问题没解决，不能导入", traceId(request)));
+            case NOT_WRITABLE -> ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiError("OPS_IMPORT_NOT_WRITABLE", "这一类这一版只能预检", traceId(request)));
+            case FILE_STORE_UNAVAILABLE -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(new ApiError("OPS_FILE_STORE_UNAVAILABLE", "导入文件存储暂不可用", traceId(request)));
+        };
+    }
+
+    /** 上传的文件超过大小上限，或少了文件部分。 */
+    @ExceptionHandler({
+            org.springframework.web.multipart.MaxUploadSizeExceededException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class,
+            org.springframework.web.multipart.MultipartException.class
+    })
+    public ResponseEntity<ApiError> handleMultipart(Exception exception, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiError("COMMON_INVALID_ARGUMENT", "请求参数无效", traceId(request)));
     }
 
     private String traceId(HttpServletRequest request) {

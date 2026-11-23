@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 import org.apache.ibatis.annotations.Insert;
@@ -54,6 +55,38 @@ class ReservationPersistenceMapperSqlTest {
                 .contains("LIMIT #{limit} OFFSET #{offset}")
                 .doesNotContain("contact_mobile_ciphertext")
                 .doesNotContain("contact_name_ciphertext");
+    }
+
+    // S3-2：服务商工作台的列表、单条摘要和计数只看本机构（provider_id），不按客户，也不读联系人。
+    @Test
+    void providerProjectionIsScopedToTheProviderAndSharesTheLifecycleMapping() throws Exception {
+        String list = String.join(" ", ReservationPersistenceMapper.class.getMethod(
+                "findProviderReservations", UUID.class, String.class, int.class, int.class)
+                .getAnnotation(Select.class).value());
+        String one = String.join(" ", ReservationPersistenceMapper.class.getMethod(
+                "findProviderReservation", UUID.class, UUID.class).getAnnotation(Select.class).value());
+        String counts = String.join(" ", ReservationPersistenceMapper.class.getMethod(
+                "countProviderReservations", UUID.class).getAnnotation(Select.class).value());
+        String customerCounts = String.join(" ", ReservationPersistenceMapper.class.getMethod(
+                "countCustomerReservations", UUID.class).getAnnotation(Select.class).value());
+
+        for (String sql : List.of(list, one, counts)) {
+            assertThat(sql)
+                    .contains("r.provider_id = #{providerId}")
+                    .doesNotContain("customer_id = #{")
+                    .doesNotContain("contact_mobile_ciphertext")
+                    .doesNotContain("contact_name_ciphertext");
+        }
+        assertThat(list)
+                .contains("WHEN pending.id IS NOT NULL THEN 'AWAITING_ACCEPTANCE'")
+                .contains("(#{stage} = 'ALL' OR lifecycle.stage = #{stage})")
+                .contains("ORDER BY lifecycle_updated_at DESC, r.id DESC")
+                .contains("LIMIT #{limit} OFFSET #{offset}");
+        assertThat(one).contains("r.id = #{reservationId}").doesNotContain("LIMIT #{limit}");
+        assertThat(counts).contains("count(*) FILTER (WHERE stage = 'AWAITING_ACCEPTANCE') awaiting_acceptance");
+        assertThat(customerCounts)
+                .contains("WHERE r.customer_id = #{customerId}")
+                .contains("FROM order_projection");
     }
 
     @Test

@@ -95,7 +95,12 @@ public interface ReservationPersistenceMapper {
     Optional<ReservationFlowStateRow> findReservationFlowState(
             @Param("reservationId") UUID reservationId);
 
-    @Select("""
+    /**
+     * 巡检订单的列表投影（客户的“我的订单”和 S3-2 起服务商工作台的“巡检预约”共用）：当前方案、服务单、
+     * 各次巡检的计数和待验收的那一次，以及按服务端状态推导的阶段。只读地址密文，不读联系人。
+     */
+    String RESERVATION_SUMMARY_SELECT = """
+
             SELECT r.id reservation_id,
                    r.reservation_no,
                    r.service_id,
@@ -180,6 +185,9 @@ public interface ReservationPersistenceMapper {
                        GREATEST(r.updated_at, p.updated_at, o.updated_at, v.last_updated_at)
                            lifecycle_updated_at
             ) lifecycle
+""";
+
+    @Select(RESERVATION_SUMMARY_SELECT + """
             WHERE r.customer_id = #{customerId}
               AND (#{stage} = 'ALL' OR lifecycle.stage = #{stage})
             ORDER BY lifecycle_updated_at DESC, r.id DESC
@@ -191,7 +199,9 @@ public interface ReservationPersistenceMapper {
             @Param("limit") int limit,
             @Param("offset") int offset);
 
-    @Select("""
+    /** 各阶段的计数用的投影（和上面的阶段推导一致），后面接 WHERE 限定客户或服务商。 */
+    String RESERVATION_STAGE_PROJECTION = """
+
             WITH order_projection AS (
                 SELECT r.id,
                        CASE
@@ -223,7 +233,9 @@ public interface ReservationPersistenceMapper {
                     LIMIT 1
                 ) p ON true
                 LEFT JOIN inspection_service_order o ON o.reservation_id = r.id
-                WHERE r.customer_id = #{customerId}
+""";
+
+    String RESERVATION_STAGE_COUNTS = """
             )
             SELECT count(*) all_count,
                    count(*) FILTER (WHERE stage = 'AWAITING_PLAN') awaiting_plan,
@@ -232,9 +244,40 @@ public interface ReservationPersistenceMapper {
                    count(*) FILTER (WHERE stage = 'AWAITING_ACCEPTANCE') awaiting_acceptance,
                    count(*) FILTER (WHERE stage = 'COMPLETED') completed
             FROM order_projection
-            """)
+""";
+
+    @Select(RESERVATION_STAGE_PROJECTION + """
+                WHERE r.customer_id = #{customerId}
+            """ + RESERVATION_STAGE_COUNTS)
     CustomerReservationCountsRow countCustomerReservations(
             @Param("customerId") UUID customerId);
+
+    /** S3-2 服务商工作台：分给本机构（provider_id）的巡检预约，阶段推导和客户订单相同。 */
+    @Select(RESERVATION_SUMMARY_SELECT + """
+            WHERE r.provider_id = #{providerId}
+              AND (#{stage} = 'ALL' OR lifecycle.stage = #{stage})
+            ORDER BY lifecycle_updated_at DESC, r.id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<CustomerReservationSummaryRow> findProviderReservations(
+            @Param("providerId") UUID providerId,
+            @Param("stage") String stage,
+            @Param("limit") int limit,
+            @Param("offset") int offset);
+
+    @Select(RESERVATION_SUMMARY_SELECT + """
+            WHERE r.provider_id = #{providerId}
+              AND r.id = #{reservationId}
+            """)
+    Optional<CustomerReservationSummaryRow> findProviderReservation(
+            @Param("providerId") UUID providerId,
+            @Param("reservationId") UUID reservationId);
+
+    @Select(RESERVATION_STAGE_PROJECTION + """
+                WHERE r.provider_id = #{providerId}
+            """ + RESERVATION_STAGE_COUNTS)
+    CustomerReservationCountsRow countProviderReservations(
+            @Param("providerId") UUID providerId);
 
     @Select("SELECT item_code code, item_name_snapshot label FROM inspection_reservation_item WHERE reservation_id=#{id} ORDER BY display_order, id")
     List<ItemRow> findItems(@Param("id") UUID id);

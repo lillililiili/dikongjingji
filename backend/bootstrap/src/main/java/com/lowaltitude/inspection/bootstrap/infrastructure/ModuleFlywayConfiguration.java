@@ -72,6 +72,37 @@ public class ModuleFlywayConfiguration {
                 .load();
     }
 
+    static final String DEV_OPERATOR_PASSWORD_PLACEHOLDER = "devOperatorPassword";
+    static final int DEV_OPERATOR_PASSWORD_MIN_LENGTH = 12;
+
+    // 运营端（S3-1）开发用的平台运营账号 dev-operator。和上面的示例账号不同，它的口令不写进仓库：
+    // 启动前设环境变量 DEV_OPERATOR_PASSWORD（至少 12 位）才建；不设、太短时种子什么都不写。口令作为占位符传给种子，
+    // 改了口令校验和就变，下次启动重写摘要。只有 dev 环境加载。
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn("identityDevelopmentDataFlyway")
+    Flyway identityOperatorDevelopmentDataFlyway(
+            DataSource dataSource,
+            @org.springframework.beans.factory.annotation.Value("${dev.operator-password:}") String operatorPassword
+    ) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/identity-operator")
+                .placeholders(devOperatorPlaceholder(operatorPassword))
+                .table("flyway_history_identity_operator_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
+    /** 口令太短或没设时给空串（种子据此跳过）；单引号按 SQL 字面量转义。 */
+    static Map<String, String> devOperatorPlaceholder(String password) {
+        String value = password == null || password.length() < DEV_OPERATOR_PASSWORD_MIN_LENGTH
+                ? ""
+                : password.replace("'", "''");
+        return Map.of(DEV_OPERATOR_PASSWORD_PLACEHOLDER, value);
+    }
+
     @Bean(initMethod = "migrate")
     @DependsOn("identityFlyway")
     Flyway inspectionFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
@@ -208,6 +239,13 @@ public class ModuleFlywayConfiguration {
     @DependsOn("inspectionFlyway")
     Flyway tradeFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
         return factory.trade(dataSource);
+    }
+
+    // 批量导入记录（S2-3，opsimport V001）引用 identity_user，排在身份迁移之后；与巡检迁移保持同一条链。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway opsimportFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.opsimport(dataSource);
     }
 
     // 商城表引用 identity_organization，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。

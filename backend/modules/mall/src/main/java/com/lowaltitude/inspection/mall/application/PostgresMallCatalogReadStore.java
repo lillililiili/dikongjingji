@@ -69,4 +69,24 @@ final class PostgresMallCatalogReadStore implements MallCatalogReadStore {
     public List<PackItemRow> findPackItems(UUID productId) {
         return mapper.findPackItems(productId);
     }
+
+    @Override
+    public List<String> findSellingPoints(UUID productId) {
+        return mapper.findSellingPoints(productId);
+    }
+
+    @Override
+    public List<MallRows.SkuRow> findSkus(UUID productId) {
+        return mapper.findSkus(productId);
+    }
+
+    @Override
+    public List<String> findGallery(UUID productId) {
+        return mapper.findGallery(productId);
+    }
+
+    @Override
+    public List<MallRows.IntroBlockRow> findIntroBlocks(UUID productId) {
+        return mapper.findIntroBlocks(productId);
+    }
 }

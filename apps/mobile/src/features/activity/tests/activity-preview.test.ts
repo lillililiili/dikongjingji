@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import activityFlagSource from '../application/activity-preview.ts?raw'
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
 
 const activitySources = import.meta.glob('../**/*.{ts,vue}', {
   eager: true,
@@ -16,9 +16,9 @@ function flagExpression(source: string, name: string): string {
 }
 
 describe('activity preview flag', () => {
-  it('uses exactly the expression of the shared preview flag', () => {
+  it('reads its own release switch', () => {
     expect(flagExpression(activityFlagSource, 'ACTIVITY_PREVIEW_ENABLED'))
-      .toBe(flagExpression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+      .toBe(moduleFlagExpression('ACTIVITY'))
   })
 
   it('keeps the activity feature from importing the shared flag module', () => {

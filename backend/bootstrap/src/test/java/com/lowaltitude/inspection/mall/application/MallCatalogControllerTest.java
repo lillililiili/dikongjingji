@@ -72,9 +72,13 @@ class MallCatalogControllerTest {
                 List.of(new MallOfferView(
                         UUID.randomUUID(), UUID.randomUUID(), "标准版",
                         new MallMerchantView(UUID.randomUUID(), "示例机器人商家", MallMerchantKind.FACTORY_DIRECT),
-                        null, "CNY", MallPriceUnit.ITEM, "按配置报价", null, null, true)),
+                        null, "CNY", MallPriceUnit.ITEM, "按配置报价", null, null, true, 12)),
                 List.of(new MallSpecView("适用年龄", "8 岁以上")),
-                List.of(new MallPackItemView("机器人主机", 1))));
+                List.of(new MallPackItemView("机器人主机", 1)),
+                List.of("图形化编程"),
+                List.of(new MallSkuView(UUID.randomUUID(), "标准版")),
+                List.of(),
+                List.of(new MallIntroBlockView("TEXT", "一段介绍", null))));
 
         mockMvc.perform(get("/api/v1/mall/products/{productId}", PRODUCT_ID).param("cityCode", "370500"))
                 .andExpect(status().isOk())
@@ -83,7 +87,12 @@ class MallCatalogControllerTest {
                 .andExpect(jsonPath("$.offers[0].amountMinor").value(nullValue()))
                 .andExpect(jsonPath("$.offers[0].currency").value("CNY"))
                 .andExpect(jsonPath("$.offers[0].onlinePayment").value(true))
-                .andExpect(jsonPath("$.offers[0].length()").value(11))
+                .andExpect(jsonPath("$.offers[0].length()").value(12))
+                .andExpect(jsonPath("$.offers[0].stockQuantity").value(12))
+                .andExpect(jsonPath("$.sellingPoints[0]").value("图形化编程"))
+                .andExpect(jsonPath("$.skus[0].name").value("标准版"))
+                .andExpect(jsonPath("$.introBlocks[0].type").value("TEXT"))
+                .andExpect(jsonPath("$.introBlocks[0].image").value(nullValue()))
                 .andExpect(jsonPath("$.specs[0].label").value("适用年龄"))
                 .andExpect(jsonPath("$.packItems[0].quantity").value(1));
     }

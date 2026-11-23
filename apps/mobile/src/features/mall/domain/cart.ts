@@ -8,6 +8,8 @@ export type CartInvalidReason =
   | 'OFFER_UNAVAILABLE'
   | 'NOT_PURCHASABLE'
   | 'NOT_SOLD_IN_CITY'
+  // (cart 1.2.0) This merchant has none of this spec left.
+  | 'OUT_OF_STOCK'
 
 export type DeliveryMode = 'EXPRESS' | 'PICKUP'
 

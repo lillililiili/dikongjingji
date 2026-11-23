@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 public final class CustomerReservationQueryService {
@@ -35,32 +36,7 @@ public final class CustomerReservationQueryService {
         long total = counts.totalFor(filter);
         List<CustomerReservationSummary> items = store.findOwn(customerId, filter, size, offset)
                 .stream()
-                .map(row -> new CustomerReservationSummary(
-                        row.reservationId(),
-                        row.reservationNo(),
-                        row.serviceId(),
-                        row.serviceTitle(),
-                        row.serviceCoverUrl(),
-                        row.cityCode(),
-                        cipher.decrypt(row.locationCiphertext()),
-                        row.preferredServiceDate(),
-                        row.submittedAt(),
-                        row.stage(),
-                        row.reservationStatus(),
-                        row.currentPlanId(),
-                        row.serviceOrderId(),
-                        row.serviceOrderStatus(),
-                        row.quoteAmountMinor(),
-                        "CNY",
-                        row.visitCount(),
-                        row.acceptedVisitCount(),
-                        row.nextVisitDate(),
-                        row.pendingAcceptanceVisitId(),
-                        row.pendingAcceptanceVisitNo(),
-                        row.paymentDueNodeNo(),
-                        row.paymentDueNodeType(),
-                        row.paymentDueVisitNo(),
-                        row.paymentDueAmountMinor()))
+                .map(this::toSummary)
                 .toList();
         return new CustomerReservationPage(
                 items,
@@ -69,6 +45,74 @@ public final class CustomerReservationQueryService {
                 total,
                 (long) page * size < total,
                 counts.visibleStageCounts());
+    }
+
+    /**
+     * S3-2 服务商工作台：分给本机构的巡检预约（reservation.provider_id 等于令牌里的机构），形状和阶段推导与客户订单相同。
+     * 只返回列表摘要；联系人、附件等仍要经 GET /inspection/reservations/{id} 按“已分配”的权限读。
+     */
+    public CustomerReservationPage listAssigned(
+            UUID providerId,
+            CustomerReservationFilter filter,
+            int page,
+            int size
+    ) {
+        if (providerId == null || filter == null || page < 1 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("provider reservation query is invalid");
+        }
+        int offset = Math.multiplyExact(page - 1, size);
+        CustomerReservationCountSnapshot counts = store.countAssigned(providerId);
+        long total = counts.totalFor(filter);
+        List<CustomerReservationSummary> items = store.findAssigned(providerId, filter, size, offset)
+                .stream()
+                .map(this::toSummary)
+                .toList();
+        return new CustomerReservationPage(
+                items,
+                page,
+                size,
+                total,
+                (long) page * size < total,
+                counts.visibleStageCounts());
+    }
+
+    /** 本机构的一张巡检预约的列表摘要；不是本机构的当作不存在。 */
+    public CustomerReservationSummary readAssigned(UUID providerId, UUID reservationId) {
+        if (providerId == null || reservationId == null) {
+            throw new ReservationNotFoundException();
+        }
+        return store.findAssigned(providerId, reservationId)
+                .map(this::toSummary)
+                .orElseThrow(ReservationNotFoundException::new);
+    }
+
+    private CustomerReservationSummary toSummary(StoredCustomerReservationSummary row) {
+        return new CustomerReservationSummary(
+                row.reservationId(),
+                row.reservationNo(),
+                row.serviceId(),
+                row.serviceTitle(),
+                row.serviceCoverUrl(),
+                row.cityCode(),
+                cipher.decrypt(row.locationCiphertext()),
+                row.preferredServiceDate(),
+                row.submittedAt(),
+                row.stage(),
+                row.reservationStatus(),
+                row.currentPlanId(),
+                row.serviceOrderId(),
+                row.serviceOrderStatus(),
+                row.quoteAmountMinor(),
+                "CNY",
+                row.visitCount(),
+                row.acceptedVisitCount(),
+                row.nextVisitDate(),
+                row.pendingAcceptanceVisitId(),
+                row.pendingAcceptanceVisitNo(),
+                row.paymentDueNodeNo(),
+                row.paymentDueNodeType(),
+                row.paymentDueVisitNo(),
+                row.paymentDueAmountMinor());
     }
 }
 
@@ -209,4 +253,14 @@ interface CustomerReservationQueryStore {
             int offset);
 
     CustomerReservationCountSnapshot countOwn(UUID customerId);
+
+    List<StoredCustomerReservationSummary> findAssigned(
+            UUID providerId,
+            CustomerReservationFilter filter,
+            int limit,
+            int offset);
+
+    Optional<StoredCustomerReservationSummary> findAssigned(UUID providerId, UUID reservationId);
+
+    CustomerReservationCountSnapshot countAssigned(UUID providerId);
 }

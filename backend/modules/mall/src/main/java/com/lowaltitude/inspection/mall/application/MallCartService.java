@@ -100,10 +100,23 @@ public class MallCartService {
         if (reason == CartInvalidReason.NOT_SOLD_IN_CITY) {
             throw new MallCartException(Error.NOT_SOLD_IN_CITY);
         }
+        if (reason == CartInvalidReason.OUT_OF_STOCK) {
+            throw new MallCartException(Error.OUT_OF_STOCK);
+        }
         if (reason != null) {
             throw new MallCartException(Error.NOT_FOUND);
         }
         mapper.lockOwner(LOCK_NAME, accountId);
+        // 有库存数时，加上购物车里已有的数量不能超过现货（这一版不在下单时扣减，只拦超出的）。
+        if (offer.stockQuantity() != null) {
+            int inCart = mapper.findCart(accountId).stream()
+                    .filter(row -> row.offer().offerId().equals(offerId))
+                    .mapToInt(CartRow::quantity)
+                    .sum();
+            if (inCart + quantity > offer.stockQuantity()) {
+                throw new MallCartException(Error.OUT_OF_STOCK);
+            }
+        }
         if (mapper.countOffer(accountId, offerId) == 0 && mapper.countLines(accountId) >= MAX_LINES) {
             throw new MallCartException(Error.CART_FULL);
         }
@@ -194,6 +207,11 @@ public class MallCartService {
             // 询价商品本来就不是“能直接买”的：按报价下单时只看上下架和城市。
             if (reason != null && !(line.quoted() && reason == CartInvalidReason.NOT_PURCHASABLE
                     && soldInCity(line.offer(), cityCode))) {
+                throw new MallCartException(Error.ITEM_UNAVAILABLE);
+            }
+            // 数量超过现货（cart 1.2.0）。按询价报价下单的数量是报价锁定的，不看库存。
+            Integer stock = line.offer().stockQuantity();
+            if (!line.quoted() && stock != null && line.quantity() > stock) {
                 throw new MallCartException(Error.ITEM_UNAVAILABLE);
             }
             views.add(toLine(line));
@@ -302,6 +320,9 @@ public class MallCartService {
         if (offerCity != null && !offerCity.equals(cityCode)) {
             return CartInvalidReason.NOT_SOLD_IN_CITY;
         }
+        if (offer.stockQuantity() != null && offer.stockQuantity() == 0) {
+            return CartInvalidReason.OUT_OF_STOCK;
+        }
         return null;
     }
 
@@ -406,7 +427,9 @@ enum CartInvalidReason {
     /** 变成了租赁、询价或没有价格 */
     NOT_PURCHASABLE,
     /** 当前城市不卖 */
-    NOT_SOLD_IN_CITY
+    NOT_SOLD_IN_CITY,
+    /** 暂时缺货（库存为 0，cart 1.2.0） */
+    OUT_OF_STOCK
 }
 
 enum DeliveryMode {

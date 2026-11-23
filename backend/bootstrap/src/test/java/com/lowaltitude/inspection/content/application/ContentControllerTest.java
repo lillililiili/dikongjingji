@@ -32,6 +32,8 @@ class ContentControllerTest {
     private static final UUID DOG = UUID.fromString("c2000000-0000-4000-8000-000000000401");
     private static final UUID ACTIVITY = UUID.fromString("a2000000-0000-4000-8000-000000000001");
     private static final UUID VENUE = UUID.fromString("b2000000-0000-4000-8000-000000000001");
+    private static final UUID KIT = UUID.fromString("c2000000-0000-4000-8000-000000000101");
+    private static final UUID MERCHANT = UUID.fromString("c1000000-0000-4000-8000-000000000001");
     private static final OffsetDateTime PUBLISHED = OffsetDateTime.parse("2026-10-28T02:00:00Z");
 
     private final ContentReadService service = mock(ContentReadService.class);
@@ -80,8 +82,10 @@ class ContentControllerTest {
         when(service.article(ARTICLE, "370500")).thenReturn(new ContentArticleView(ARTICLE, ContentArticleKind.CASE,
                 "一台机器狗如何完成园区夜间巡逻", card().author(), false, "370500", null, true, PUBLISHED,
                 List.of(new ContentBlockView(ContentBlockType.FACTS, null,
-                                List.of(new ContentBlockItemView("场景", "物流园区夜间安防"))),
-                        new ContentBlockView(ContentBlockType.PARAGRAPH, "白天人多车多。", List.of())),
+                                List.of(new ContentBlockItemView("场景", "物流园区夜间安防")), null),
+                        new ContentBlockView(ContentBlockType.PARAGRAPH, "白天人多车多。", List.of(), null),
+                        new ContentBlockView(ContentBlockType.IMAGE, null, List.of(), new ContentBlockImageView(
+                                "https://cdn.example.com/a.png", "无人机在园区上空巡查", "围墙外侧由无人机补充巡查"))),
                 List.of(new ContentRefView(ContentRefType.PRODUCT, DOG, "巡检机器狗"))));
 
         mockMvc.perform(get("/api/v1/content/articles/{id}?cityCode=370500", ARTICLE))
@@ -92,6 +96,12 @@ class ContentControllerTest {
                 .andExpect(jsonPath("$.blocks[0].items[0].title").value("场景"))
                 .andExpect(jsonPath("$.blocks[0].items[0].text").value("物流园区夜间安防"))
                 .andExpect(jsonPath("$.blocks[1].items.length()").value(0))
+                .andExpect(jsonPath("$.blocks[0].length()").value(4))
+                .andExpect(jsonPath("$.blocks[0].image").isEmpty())
+                .andExpect(jsonPath("$.blocks[2].type").value("IMAGE"))
+                .andExpect(jsonPath("$.blocks[2].image.url").value("https://cdn.example.com/a.png"))
+                .andExpect(jsonPath("$.blocks[2].image.alt").value("无人机在园区上空巡查"))
+                .andExpect(jsonPath("$.blocks[2].image.caption").value("围墙外侧由无人机补充巡查"))
                 .andExpect(jsonPath("$.refs[0].length()").value(3))
                 .andExpect(jsonPath("$.refs[0].type").value("PRODUCT"))
                 .andExpect(jsonPath("$.refs[0].refId").value(DOG.toString()));
@@ -101,11 +111,16 @@ class ContentControllerTest {
     void aTopicCarriesTheIdsToReadAndItsArticles() throws Exception {
         when(service.topic(TOPIC, "370500")).thenReturn(new ContentTopicView(TOPIC, "黄河口低空体验季", "到馆体验、赛事、研学合集",
                 topicCard().publisher(), "370500", LocalDate.parse("2026-11-01"), LocalDate.parse("2026-11-30"), null, true,
-                List.of(ACTIVITY), List.of(VENUE), List.of(card())));
+                List.of(ACTIVITY), List.of(VENUE), List.of(card()), List.of(new ContentTopicMerchantItemView(KIT,
+                        new ContentAuthorView(ContentAuthorKind.MERCHANT, MERCHANT, "示例机器人商家")))));
 
         mockMvc.perform(get("/api/v1/content/topics/{id}?cityCode=370500", TOPIC))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(12))
+                .andExpect(jsonPath("$.length()").value(13))
+                .andExpect(jsonPath("$.merchantItems[0].productId").value(KIT.toString()))
+                .andExpect(jsonPath("$.merchantItems[0].merchant.kind").value("MERCHANT"))
+                .andExpect(jsonPath("$.merchantItems[0].merchant.organizationId").value(MERCHANT.toString()))
+                .andExpect(jsonPath("$.merchantItems[0].merchant.name").value("示例机器人商家"))
                 .andExpect(jsonPath("$.activityIds[0]").value(ACTIVITY.toString()))
                 .andExpect(jsonPath("$.venueIds[0]").value(VENUE.toString()))
                 .andExpect(jsonPath("$.articles[0].articleId").value(ARTICLE.toString()))

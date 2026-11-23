@@ -667,6 +667,27 @@ final class InMemoryCustomerReservationQueryStore implements CustomerReservation
         this.customerId = customerId;
         return counts;
     }
+
+    // 服务商工作台的读取（S3-2）不在这个控制器里，这里不会被调到。
+    @Override
+    public List<StoredCustomerReservationSummary> findAssigned(
+            UUID providerId,
+            CustomerReservationFilter filter,
+            int limit,
+            int offset
+    ) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public java.util.Optional<StoredCustomerReservationSummary> findAssigned(UUID providerId, UUID reservationId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CustomerReservationCountSnapshot countAssigned(UUID providerId) {
+        throw new UnsupportedOperationException();
+    }
 }
 
 final class ReversibleTestCipher implements SensitiveDataCipher {

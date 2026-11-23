@@ -9,8 +9,10 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
   loadTopicActivities,
+  loadTopicMerchantItems,
   loadTopicVenues,
   type TopicActivityView,
+  type TopicMerchantView,
   type TopicVenueView,
 } from '../../application/content-refs'
 import {
@@ -25,8 +27,8 @@ import type { ContentArticleCard, ContentTopic } from '../../domain/content'
 import { buildContentTopicUrl } from '../../navigation/content-routes'
 import ContentThumb from '../shared/ContentThumb.vue'
 
-// A topic (board Topic): its title, publisher and days, then 本季活动, 到馆体验 and 相关内容, each read
-// from its own module. The board's 商家内容 block has no data behind it yet and is not shown.
+// A topic (board Topic): its title, publisher and days, then 本季活动, 到馆体验, 相关内容 and 商家内容
+// (1.3.0: the merchants' products, marked 广告), each read from its own module.
 const props = defineProps<{
   topicId: string
   cityCode: string
@@ -50,6 +52,7 @@ const state = ref<TopicState>({ kind: 'loading' })
 // null while being read.
 const activities = ref<TopicActivityView[] | null>(null)
 const venues = ref<TopicVenueView[] | null>(null)
+const merchantItems = ref<TopicMerchantView[] | null>(null)
 let requestVersion = 0
 
 const topic = computed(() => (state.value.kind === 'ready' ? state.value.topic : null))
@@ -68,6 +71,7 @@ async function load(): Promise<void> {
   state.value = { kind: 'loading' }
   activities.value = null
   venues.value = null
+  merchantItems.value = null
   try {
     const loaded = await contentApi.loadTopic(props.topicId, props.cityCode)
     if (requested !== requestVersion) return
@@ -77,6 +81,9 @@ async function load(): Promise<void> {
     })
     void loadTopicVenues(loaded.venueIds, props.cityCode, contentLinkedApis).then((views) => {
       if (requested === requestVersion) venues.value = views
+    })
+    void loadTopicMerchantItems(loaded.merchantItems, props.cityCode, contentLinkedApis).then((views) => {
+      if (requested === requestVersion) merchantItems.value = views
     })
   } catch (error) {
     if (requested !== requestVersion) return
@@ -213,6 +220,37 @@ void load()
                 <text>{{ article.author.name }}</text>
                 <text v-if="article.sponsored" class="topic__ad" data-testid="content-sponsored">广告</text>
                 <text v-if="article.sample" class="topic__sample" data-testid="content-sample">示例</text>
+              </view>
+            </view>
+          </button>
+        </view>
+        <!-- 1.3.0 商家内容（画板 Topic）：商家的商品，商城里读不到的不显示；整块没有就不显示。 -->
+        <view
+          v-if="(merchantItems === null && topic.merchantItems.length) || merchantItems?.length"
+          class="topic__card"
+          data-testid="content-topic-merchants"
+        >
+          <text class="topic__card-title" role="heading" aria-level="3">商家内容</text>
+          <view v-if="merchantItems === null" class="topic__row-loading" />
+          <button
+            v-for="item in merchantItems ?? []"
+            :key="item.productId"
+            class="topic__merchant"
+            :data-testid="`content-topic-merchant-${item.productId}`"
+            @click="emit('open', item.url)"
+          >
+            <view class="topic__merchant-thumb">
+              <image v-if="item.imageUrl" class="topic__merchant-image" :src="item.imageUrl" mode="aspectFill" :aria-label="item.title" />
+            </view>
+            <view class="topic__merchant-copy">
+              <view class="topic__merchant-line">
+                <text class="topic__merchant-ad" data-testid="content-sponsored">广告</text>
+                <text class="topic__merchant-by">{{ item.merchantName }}发布</text>
+              </view>
+              <text class="topic__merchant-title">{{ item.title }}</text>
+              <view class="topic__merchant-price">
+                <text class="topic__merchant-amount">{{ item.amount }}</text>
+                <text>{{ item.meta }}</text>
               </view>
             </view>
           </button>
@@ -564,6 +602,92 @@ button::after {
   color: #627187;
   font-size: 11px;
   line-height: 15px;
+}
+
+.topic__merchant {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #f0f1f3;
+}
+
+.topic__merchant-thumb {
+  flex-shrink: 0;
+  width: 76px;
+  height: 76px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #eef2f8;
+}
+
+.topic__merchant-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.topic__merchant-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topic__merchant-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.topic__merchant-ad {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 6px;
+  color: #536178;
+  background: #eef2f8;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.topic__merchant-by {
+  min-width: 0;
+  overflow: hidden;
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.topic__merchant-title {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 21px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.topic__merchant-price {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.topic__merchant-amount {
+  color: #e85400;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
 }
 
 .topic__bar {

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Experience and Venue Catalog API
-  version: 1.2.0
+  version: 1.3.0
   description: |-
     1.0.0: read-only catalog for the home "体验" channel (docs/redesign/03-App实现任务计划.md §8):
     online experience items, the venues of a city, a venue's projects, sessions and devices. These five routes stay public.
@@ -35,6 +35,19 @@ info:
     buying: its published online experience items (the same in every city) and the published venues of the city
     with an active device linked to it, one row per venue. Both lists are empty when nothing is linked (not 404);
     whether the product exists is the mall's business. At most 10 of each.
+    1.3.0 (2026-11-23, docs/redesign/08-后续开发计划.md §5 D8, step S3-3): no route or field changes here. Venue operators
+    also check in through the App's check-in workbench (contracts/openapi-checkin-workbench.yaml), which records every
+    attempt. There an operator may "登记放行" a booking whose session does not match, or has ended, into another session
+    of the same project that is open for check-in and has seats for the whole booking: the booking (and its participants)
+    move to that session and are checked in, the seats move with them, the code stays. The customer sees the booking
+    in its new session, already checked in.
+    Also in 1.3.0 (2026-11-23, S3-1 运营端“场馆与设备”, contracts/openapi-ops-venue.yaml): VenueDetail gains checkIn — the
+    venue's entry rule maintained by platform operators: check-in opens opensMinutesBeforeStart minutes before a session
+    starts (30 unless the venue says otherwise) and closes lateEntryMinutes minutes after the start (null: until the
+    session ends). The check-in route answers VENUE_CHECKIN_NOT_OPEN outside that window (it used to be a fixed
+    30 minutes before the start until the end). openingNote is now generated from the venue's structured opening hours
+    when operators fill them ("09:30–18:00 · 周一闭馆"); older venues keep their text. Sessions an operator stopped
+    selling (停售) are no longer listed, existing bookings on them stay valid.
 
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
@@ -492,7 +505,7 @@ paths:
       operationId: checkInVenueBooking
       summary: 场馆运营机构的操作员按核销码核销整单
       description: >-
-        需要 PROVIDER_OPERATOR 角色，机构取自令牌。核销码不分大小写，前后空格忽略。核销窗口从场次开始前 30 分钟到场次结束。
+        需要 PROVIDER_OPERATOR 角色，机构取自令牌。核销码不分大小写，前后空格忽略。核销窗口按场馆的检票规则（1.3.0 起，VenueDetail.checkIn；默认开场前 30 分钟到场次结束）。
         一单一码，整单一次核销。同一个码再核销一次返回第一次的时间，repeated 为 true，不改任何数据。
         别的机构运营的场馆的码、改期后作废的旧码当作不存在。
       security:
@@ -533,7 +546,7 @@ paths:
         "409":
           description: >-
             VENUE_CODE_NOT_VALID：预约已取消，码已作废。
-            VENUE_CHECKIN_NOT_OPEN：还没到开场前 30 分钟，或场次已结束。
+            VENUE_CHECKIN_NOT_OPEN：还没到检票时间、过了迟到截止，或场次已结束（按场馆的检票规则，默认开场前 30 分钟起）。
           content:
             application/json:
               schema:
@@ -875,6 +888,7 @@ components:
         - projects
         - infoItems
         - deviceCount
+        - checkIn
       properties:
         venueId:
           type: string
@@ -922,6 +936,28 @@ components:
         deviceCount:
           type: integer
           minimum: 0
+        checkIn:
+          $ref: "#/components/schemas/VenueCheckInRule"
+    VenueCheckInRule:
+      type: object
+      additionalProperties: false
+      required:
+        - opensMinutesBeforeStart
+        - lateEntryMinutes
+      properties:
+        opensMinutesBeforeStart:
+          type: integer
+          minimum: 0
+          maximum: 240
+          description: 开场前多少分钟开始检票
+        lateEntryMinutes:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          maximum: 240
+          description: 开场后多少分钟内还能入场；null 表示到场次结束都能入场
+      description: 1.3.0 入口检票与迟到规则（运营端维护），核销按同样的规则
     VenueSessionStatus:
       type: string
       enum:

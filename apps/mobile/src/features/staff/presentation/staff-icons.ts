@@ -1,0 +1,11 @@
+// Line icons copied from the boards StaffVerify, StaffRecords and StaffException.
+export const STAFF_SCAN = 'M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16'
+export const STAFF_KEYBOARD = 'M3 7h18v10H3zM7 10.5h.01M10.5 10.5h.01M14 10.5h.01M17.5 10.5h.01M8 14h8'
+export const STAFF_WARNING = 'M10.3 4.6L2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.6a2 2 0 0 0-3.4 0zM12 9.5v4.5M12 17.5h.01'
+export const STAFF_TICK = 'M5 12.5l4.5 4.5L19 7.5'
+export const STAFF_SMALL_TICK = 'M5 12l5 5 9-10'
+export const STAFF_CROSS = 'M7 7l10 10M17 7L7 17'
+export const STAFF_SEARCH = 'M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4'
+export const STAFF_CHEVRON = 'M9 5l7 7-7 7'
+export const STAFF_INFO = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7.5v5.5M12 16.5h.01'
+export const STAFF_BLOCK = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM5.7 5.7l12.6 12.6'

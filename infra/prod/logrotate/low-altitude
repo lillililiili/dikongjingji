@@ -1,0 +1,12 @@
+# 宿主机上的日志轮转（S2-4）。拷到 /etc/logrotate.d/low-altitude。
+# 容器日志由 docker 的 json-file 驱动按大小轮转（docker-compose.yml 的 x-logging），这里只管脚本写的文件。
+/var/log/low-altitude/*.log {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su root root
+}

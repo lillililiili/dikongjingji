@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.4.0
+  version: 0.6.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -49,8 +49,19 @@ info:
       已发货、退款中……）时 409 TRADE_INQUIRY_QUOTE_ORDERED；上一张没付款就关闭了、报价还在有效期内时可以再下。
       报价不是询价单选定的那一份时 409 MALL_INQUIRY_QUOTE_NOT_CHOSEN，过了有效期时 409 MALL_INQUIRY_QUOTE_EXPIRED。
 
-    0.4.0（2026-11-22，S4-1，docs/redesign/08-后续开发计划.md §5 D9、C3）：第五个业务来源——巡检付款节点（source = INSPECTION，
-      接口见 contracts/openapi-inspection-service-flow.yaml 2.3.0）。没有新接口：巡检接口在服务端建交易订单，App 用这里的收银台接口付款。
+    0.4.0（2026-11-22，S2-1，docs/redesign/08-后续开发计划.md）：加 checkPaymentChannel——平台运营的支付通道自检，
+      给真实微信联调前后用（清单见 docs/ops/微信支付联调清单.md）。先逐项检查服务器上的微信支付配置
+      （缺哪项、私钥和微信支付公钥能否解析、两者是不是放反了、商户号和公钥 ID 的格式、回调地址是不是外网 https），
+      再按一个不存在的商户订单号查一次单、按一个不存在的退款单号查一次退款：微信验过签地回答“没有这一单”就说明
+      签名、网络和验签都对。只读：不下单、不关单、不退款、不写数据库。其他操作不变。
+
+    0.5.0（2026-11-23，S3-2，docs/redesign/08-后续开发计划.md §5“工作台”）：商家工作台（Web 运营端 apps/admin）要用的读取，不改写操作：
+      listMerchantOrders 加可选查询参数 deliveryMode（EXPRESS / PICKUP），工作台的“待发货”是 status=PAID&deliveryMode=EXPRESS，
+      “待自提”是 status=PAID&deliveryMode=PICKUP；加 readMerchantOrder（本机构卖出的一张商城订单，和列表里的一项相同，带 ETag）；
+      加 readMyMerchantAccount（本机构登记的收款账户，只读，没登记过 404；登记仍由平台运营调 registerMerchantAccount）。
+
+    0.6.0（2026-11-23，S4-1，docs/redesign/08-后续开发计划.md §5 D9、C3）：第五个业务来源——巡检付款节点（source = INSPECTION，
+      接口见 contracts/openapi-inspection-service-flow.yaml 2.4.0）。没有新接口：巡检接口在服务端建交易订单，App 用这里的收银台接口付款。
       收款方是巡检服务商，钱进它自己的子商户号；不发货，订单编号以 IO 开头。每个付款节点（首付、每次巡检的服务费）的每一次付款
       尝试是一张订单：sourceRef 是付款尝试 ID；订单行只有一行，productId 是巡检服务单 ID，offerId 是付款尝试 ID，
       productName 是“服务名 · 方案 vN”，skuName 是节点名（如“首付 30%”“第 2/6 次服务费”“验收后付款 70%”），quantity 是 1。
@@ -393,6 +404,12 @@ paths:
           required: false
           schema:
             $ref: "#/components/schemas/TradeOrderStatus"
+        - name: deliveryMode
+          in: query
+          required: false
+          description: 0.5.0：只看快递（EXPRESS）或自提（PICKUP）的订单；不写是全部
+          schema:
+            $ref: "#/components/schemas/DeliveryMode"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
       responses:
@@ -408,6 +425,51 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/provider/trade/orders/{orderId}:
+    get:
+      operationId: readMerchantOrder
+      summary: 本机构卖出的一张商城订单（商家操作员，0.5.0）
+      description: 和 listMerchantOrders 里的一项相同（付款之后才有收货手机号和地址，取货码不给商家）。别的机构的订单、业务来源的订单当作不存在。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: 订单
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/trade/merchant-account:
+    get:
+      operationId: readMyMerchantAccount
+      summary: 本机构登记的微信收款账户（商家操作员，只读，0.5.0）
+      description: 机构只从令牌里取。没登记过回 404；登记和停用由平台运营调 registerMerchantAccount（二级商户进件在微信服务商后台完成）。
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 收款账户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/provider/trade/orders/{orderId}/shipment:
     post:
       operationId: shipOrder
@@ -655,6 +717,38 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "503":
           $ref: "#/components/responses/ChannelUnavailable"
+  /api/v1/platform/trade/channel-checks:
+    post:
+      operationId: checkPaymentChannel
+      summary: 支付通道自检（平台运营）
+      description: |-
+        配置逐项检查，再向渠道发两个没有副作用的请求（按自检单号查单、查退款，单号以 CHK 开头，平台的单号不会这样开头）。
+        不给 subMchid 时跳过这两个请求（QUERY_PAYMENT、QUERY_REFUND 为 SKIPPED）。
+        结果有 FAIL 也回 200：自检本身做完了，由 passed 和各项 status 说明；消息里不带密钥、文件内容和服务器路径。
+        不带 Idempotency-Key：只读，重复调用没有副作用。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: subMchid
+          in: query
+          required: false
+          description: 用来查单的二级商户号（已在微信服务商后台和服务商号绑定），8–32 位数字
+          schema:
+            type: string
+            pattern: "^[0-9]{8,32}$"
+      responses:
+        "200":
+          description: 自检结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelCheck"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   securitySchemes:
     bearerAuth:
@@ -800,7 +894,7 @@ components:
       enum: [ALL, TO_PAY, TO_SHIP, TO_RECEIVE, DONE, REFUND]
     TradeOrderSource:
       type: string
-      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）；INSPECTION 巡检付款节点（0.4.0，S4-1）。以后接入的业务在这里加
+      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）；INSPECTION 巡检付款节点（0.6.0，S4-1）。以后接入的业务在这里加
       enum: [MALL, ACTIVITY, VENUE, RENTAL, INSPECTION]
     DeliveryMode:
       type: string
@@ -1279,6 +1373,42 @@ components:
         differences:
           type: integer
           description: 这次发现的差异条数
+    ChannelCheck:
+      type: object
+      additionalProperties: false
+      required: [mode, passed, checkedAt, items]
+      properties:
+        mode:
+          type: string
+          enum: [WECHAT, SIMULATED, DISABLED]
+          description: WECHAT 指向真实微信；SIMULATED 指向本机模拟微信（接口域名是回环上的 http，只用于开发机）；DISABLED 没有开启
+        passed:
+          type: boolean
+          description: 没有 FAIL 项（WARN、SKIPPED 不算失败）
+        checkedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChannelCheckItem"
+    ChannelCheckItem:
+      type: object
+      additionalProperties: false
+      required: [code, status, message]
+      properties:
+        code:
+          type: string
+          description: |-
+            检查项代号：ENABLED、API_BASE、SP_MCHID、SP_APPID、MERCHANT_SERIAL_NO、MERCHANT_PRIVATE_KEY、MERCHANT_PRIVATE_KEY_FILE、
+            API_V3_KEY、PLATFORM_PUBLIC_KEY_ID、PLATFORM_PUBLIC_KEY、KEYS_DISTINCT、PAYMENT_NOTIFY_URL、REFUND_NOTIFY_URL、
+            CHANNEL、QUERY_PAYMENT、QUERY_REFUND（以后可能增加，客户端不要只认这几个）
+        status:
+          type: string
+          enum: [PASS, WARN, FAIL, SKIPPED]
+        message:
+          type: string
+          description: 给运维看的中文说明；不带密钥、文件内容和服务器路径
     ReconciliationDifference:
       type: object
       additionalProperties: false

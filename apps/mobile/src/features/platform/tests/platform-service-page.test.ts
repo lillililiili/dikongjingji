@@ -30,7 +30,7 @@ describe('platform service page integration', () => {
 
   it('reads the four types from the catalog API, not from development fixtures', () => {
     expect(previewSource).toContain(
-      "export const PLATFORM_PREVIEW_ENABLED = import.meta.env.DEV || import.meta.env.VITE_PLATFORM_PREVIEW_ENABLED === 'true'",
+      'export const PLATFORM_PREVIEW_ENABLED = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__',
     )
     expect(servicePageSource).toContain('PLATFORM_PREVIEW_ENABLED')
     expect(servicePageSource).not.toContain('import.meta.env.DEV')

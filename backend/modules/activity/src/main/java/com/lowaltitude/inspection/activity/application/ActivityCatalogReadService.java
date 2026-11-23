@@ -134,7 +134,14 @@ public final class ActivityCatalogReadService {
                                 session.enrollmentClosesAt(),
                                 session.capacity(),
                                 session.enrolledCount(),
-                                row.waitlistAllowed())))
+                                row.waitlistAllowed(),
+                                session.saleStopped()),
+                        session.saleStopped()))
+                .toList();
+        // 图集只给受控 HTTPS 地址，读不懂的跳过（1.3.0）。
+        List<ActivityMediaView> gallery = store.findGallery(activityId).stream()
+                .map(url -> secureMedia(url, row.title()))
+                .filter(java.util.Objects::nonNull)
                 .toList();
         // 没有任何有效场次的活动无法报名，按已结束处理。
         ActivityEnrollmentStatus status = sessions.stream()
@@ -147,6 +154,7 @@ public final class ActivityCatalogReadService {
                 row.title(),
                 blankToNull(row.subtitle()),
                 secureMedia(row.coverUrl(), row.title()),
+                gallery,
                 toPrice(row.priceMode(), row.priceAmountMinor(), row.currency(), row.organizerId(), new HashMap<>()),
                 new ActivityAgeRangeView(row.minAge(), row.maxAge()),
                 status,
@@ -163,6 +171,7 @@ public final class ActivityCatalogReadService {
                 blankToNull(row.eligibilityNote()),
                 blankToNull(row.seatNote()),
                 blankToNull(row.refundNote()),
+                blankToNull(row.enrollmentNotice()),
                 row.waitlistAllowed(),
                 row.teamEnrollmentAllowed(),
                 sessions);
@@ -305,6 +314,8 @@ record ActivityDetailView(
         String title,
         String subtitle,
         ActivityMediaView coverImage,
+        /** 1.3.0：图集，按顺序，最多 9 张；没有时为空数组。 */
+        List<ActivityMediaView> gallery,
         ActivityPriceView price,
         ActivityAgeRangeView ageRange,
         ActivityEnrollmentStatus enrollmentStatus,
@@ -315,6 +326,8 @@ record ActivityDetailView(
         String eligibilityNote,
         String seatNote,
         String refundNote,
+        /** 1.3.0：报名须知（多行文字），没有时为 null。 */
+        String enrollmentNotice,
         boolean waitlistAllowed,
         boolean teamEnrollmentAllowed,
         List<ActivitySessionView> sessions
@@ -330,7 +343,9 @@ record ActivitySessionView(
         OffsetDateTime enrollmentClosesAt,
         int capacity,
         int seatsLeft,
-        ActivityEnrollmentStatus status
+        ActivityEnrollmentStatus status,
+        /** 1.3.0：运营停售了这一场（status 读成 CLOSED）。 */
+        boolean saleStopped
 ) {
 }
 

@@ -295,7 +295,8 @@ class ContentVideoServiceTest {
     void aReportGoesToSupportFeedbackOncePerAccount() {
         when(mapper.findCommentTarget(COMMENT, NOW_UTC)).thenReturn(target("VISIBLE", true));
         UUID feedback = UUID.randomUUID();
-        when(reports.record(eq(CUSTOMER), eq(ContentVideoService.reportKey(COMMENT)), anyString())).thenReturn(feedback);
+        when(reports.record(eq(CUSTOMER), eq(ContentVideoService.reportKey(COMMENT)), anyString(), eq(COMMENT),
+                any())).thenReturn(feedback);
         when(mapper.insertReport(COMMENT, CUSTOMER, "AD_SPAM", feedback, NOW_UTC))
                 .thenReturn(new ReportRow(COMMENT, "AD_SPAM", NOW_UTC));
 
@@ -305,14 +306,15 @@ class ContentVideoServiceTest {
         assertThat(first.report()).isEqualTo(new ContentCommentReportView(COMMENT, ContentCommentReportReason.AD_SPAM,
                 NOW_UTC));
         verify(reports).record(CUSTOMER, ContentVideoService.reportKey(COMMENT),
-                "举报视频评论（广告引流）：视频《3 分钟看懂编程机器人》，评论 " + COMMENT + "。");
+                "举报视频评论（广告引流）：视频《3 分钟看懂编程机器人》，评论 " + COMMENT + "。", COMMENT,
+                target("VISIBLE", true).videoId());
 
         // 再举报：返回第一次那条，原因以第一次为准，不再记反馈。
         when(mapper.findReport(COMMENT, CUSTOMER)).thenReturn(new ReportRow(COMMENT, "AD_SPAM", NOW_UTC));
         ContentCommentReported again = service.report(COMMENT, customer, "ABUSE");
         assertThat(again.created()).isFalse();
         assertThat(again.report().reason()).isEqualTo(ContentCommentReportReason.AD_SPAM);
-        verify(reports).record(any(), any(), anyString());
+        verify(reports).record(any(), any(), anyString(), any(), any());
     }
 
     @Test

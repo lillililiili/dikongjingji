@@ -1,0 +1,701 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Pro Service API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“专业服务目录”——航拍、测绘、设备维护、
+    技术支持四类服务的新建、修改、上下架和改动记录。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
+    COMMON_FORBIDDEN. 数据在专业服务模块（迁移 V001，本批 V002 加改动记录表）。
+
+    规则：
+    - 新建后是未上架（UNPUBLISHED）；上架（PUBLISHED）后 App 的专业服务目录、详情、服务商主页才看得到（还要在这个城市上架）。
+      下架后 App 马上看不到；已经发出的需求和报价不受影响。
+    - 服务商必须是在用的服务商机构（422 OPS_PROVIDER_UNKNOWN）；上架城市必须在平台城市目录里（422 OPS_CITY_UNKNOWN），
+      去掉的城市只停用。
+    - 价格：PRICE_FROM 起步价要有金额（分，>0）、单位（如“/次起”）和一句起步价含什么；PROJECT 按项目报价，没有金额和单位，
+      说明可选。组合不对按参数无效（400）。
+    - 筛选项（facets）只能是这一类自己的（航拍、测绘按成果类型，设备维护、技术支持按服务方式）。展示内容（卡片标签、能力、
+      价格与取消、服务内容、成果格式、服务方式、说明行、服务流程、服务保障）每组最多 10 条、每条最多 40 字（说明最多 120 字），按顺序整组提交、整组替换。
+    - 上架前、以及已上架的服务修改时，要有在用的服务商、至少一个上架城市、至少一个筛选项和服务流程；缺了 422
+      OPS_PUBLISH_INCOMPLETE，details.missing 是缺的字段键（见 OpsProServicePublishField）。
+    - 写操作带页面读到的 version（乐观锁），版本不对 409 OPS_VERSION_CONFLICT；上架已上架的、下架已下架的 409 OPS_STATUS_UNCHANGED。
+      内容没变的修改不写记录、不升版本。示例数据（sample）的标记运营端不改。
+    - 每次改动记一条改动记录（动作、一句话说明、操作人显示名、时间），只追加，详情里能看到最近 50 条。
+    - 封面只收带主机名的 https 地址（素材上传见 openapi-ops-media.yaml）；没有授权照片可以不填，App 按场景分类画图标。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/pro-services:
+    get:
+      operationId: "listOpsProServices"
+      summary: "四类专业服务（上架和未上架），最近改的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "标题，最多 40 字；% 和 _ 会被去掉"
+          schema:
+            type: "string"
+            maxLength: 40
+        - name: "type"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/ProServiceType"
+        - name: "cityCode"
+          in: "query"
+          required: false
+          description: "只列在这个城市上架的"
+          schema:
+            type: "string"
+            pattern: "^[0-9]{6}$"
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsProServiceStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProServicePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsProService"
+      summary: "新建服务（未上架），记一条改动记录"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsProServiceRequest"
+      responses:
+        "201":
+          description: "新服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/pro-services/{serviceId}:
+    get:
+      operationId: "getOpsProService"
+      summary: "一项服务的全部可编辑内容"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      responses:
+        "200":
+          description: "服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProService"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "updateOpsProService"
+      summary: "修改服务（整份提交，带版本号）；已上架的改完也要齐全"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsProServiceRequest"
+      responses:
+        "200":
+          description: "改好的服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过，刷新后重试"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/pro-services/{serviceId}/publish:
+    post:
+      operationId: "publishOpsProService"
+      summary: "上架（校验必填项）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "上架后的服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StatusConflict"
+        "422":
+          description: "OPS_PUBLISH_INCOMPLETE：details.missing 是缺的字段键"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/pro-services/{serviceId}/offline:
+    post:
+      operationId: "offlineOpsProService"
+      summary: "下架"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "下架后的服务"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProService"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StatusConflict"
+  /api/v1/ops/pro-services/{serviceId}/changes:
+    get:
+      operationId: "listOpsProServiceChanges"
+      summary: "这项服务最近 50 条改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    ServiceId:
+      name: "serviceId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）：长度超限、编码不认识、价格组合不对、筛选项不属于这一类、没带版本号等"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "服务不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    StatusConflict:
+      description: "OPS_VERSION_CONFLICT；OPS_STATUS_UNCHANGED：已经是这个状态"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unprocessable:
+      description: >-
+        OPS_PROVIDER_UNKNOWN：服务商不存在、已停用或不是服务商机构；OPS_CITY_UNKNOWN：城市不在平台城市目录里；
+        OPS_PUBLISH_INCOMPLETE：已上架的服务改完缺了必填项（details.missing）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsProServiceErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+          description: "OPS_PUBLISH_INCOMPLETE 时为 {\"missing\": [OpsProServicePublishField…]}"
+    OpsProServiceErrorCode:
+      type: "string"
+      enum:
+        - OPS_VERSION_CONFLICT
+        - OPS_PUBLISH_INCOMPLETE
+        - OPS_STATUS_UNCHANGED
+        - OPS_PROVIDER_UNKNOWN
+        - OPS_CITY_UNKNOWN
+    OpsProServicePublishField:
+      type: "string"
+      description: "上架前缺了会出现在 details.missing 里的键：provider 服务商（已停用）；cities 上架城市；facets 筛选项；steps 服务流程"
+      enum: [provider, cities, facets, steps]
+    OpsProServiceStatus:
+      type: "string"
+      description: "PUBLISHED 已上架（App 能看到）；UNPUBLISHED 未上架或已下架"
+      enum: [PUBLISHED, UNPUBLISHED]
+    ProServiceType:
+      type: "string"
+      description: "AERIAL 航拍；SURVEY 测绘；MAINTENANCE 设备维护；TECH_SUPPORT 技术支持"
+      enum: [AERIAL, SURVEY, MAINTENANCE, TECH_SUPPORT]
+    ProServiceCategory:
+      type: "string"
+      description: "场景分类：没有授权照片时 App 按它画场景图标"
+      enum: [ENGINEERING, ENERGY, TOURISM, EVENT, MODELING, PARK, TERRAIN, CORRIDOR, GENERAL, DRONE, ROBOT, ROBOT_DOG,
+             FLIGHT, SOFTWARE]
+    ProServicePriceMode:
+      type: "string"
+      description: "PRICE_FROM 起步价；PROJECT 按项目报价"
+      enum: [PRICE_FROM, PROJECT]
+    ProServiceFacet:
+      type: "string"
+      description: >-
+        筛选项：航拍 VIDEO_FOOTAGE 视频素材、PHOTOS 照片；测绘 ORTHOPHOTO 正射影像、MODEL_3D 三维模型；
+        设备维护 ON_SITE 上门、MAIL_IN 送修；技术支持 REMOTE 远程、STATIONED 驻场
+      enum: [VIDEO_FOOTAGE, PHOTOS, ORTHOPHOTO, MODEL_3D, ON_SITE, MAIL_IN, REMOTE, STATIONED]
+    OpsChange:
+      type: "object"
+      additionalProperties: false
+      required: [changeId, subjectType, subjectId, action, summary, operatorName, changedAt]
+      properties:
+        changeId:
+          type: "string"
+          format: "uuid"
+        subjectType:
+          type: "string"
+          enum: [SERVICE]
+        subjectId:
+          type: "string"
+          format: "uuid"
+          description: "服务 ID"
+        action:
+          type: "string"
+          enum: [CREATE, UPDATE, PUBLISH, OFFLINE]
+        summary:
+          type: "string"
+          maxLength: 300
+        operatorName:
+          type: "string"
+          description: "改的时候运营账号的显示名"
+        changedAt:
+          type: "string"
+          format: "date-time"
+    OpsVersionRequest:
+      type: "object"
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: "integer"
+          minimum: 0
+          description: "页面读到的版本号"
+    OpsProServiceLineRequest:
+      type: "object"
+      additionalProperties: false
+      required: [label, detail]
+      properties:
+        label:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+        detail:
+          type: "string"
+          minLength: 1
+          maxLength: 120
+    OpsProServiceRequest:
+      type: "object"
+      additionalProperties: false
+      required: [providerId, type, categoryCode, title, summary, priceMode]
+      description: "新建和修改共用；修改时 version 必填（新建时不看）"
+      properties:
+        providerId:
+          type: "string"
+          format: "uuid"
+        type:
+          $ref: "#/components/schemas/ProServiceType"
+        categoryCode:
+          $ref: "#/components/schemas/ProServiceCategory"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+        summary:
+          type: "string"
+          minLength: 1
+          maxLength: 80
+        priceMode:
+          $ref: "#/components/schemas/ProServicePriceMode"
+        priceAmountMinor:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 10000000000
+          description: "起步价（分），PRICE_FROM 必填"
+        priceUnit:
+          type: ["string", "null"]
+          maxLength: 16
+          description: "如“/次起”，PRICE_FROM 必填"
+        priceNote:
+          type: ["string", "null"]
+          maxLength: 40
+          description: "起步价含什么，PRICE_FROM 必填"
+        coverUrl:
+          type: ["string", "null"]
+          format: "uri"
+          maxLength: 500
+        sortOrder:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+          description: "综合排序，小的在前；不填为 0"
+        cityCodes:
+          type: ["array", "null"]
+          maxItems: 300
+          items:
+            type: "string"
+            pattern: "^[0-9]{6}$"
+        tags:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 40
+        facets:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/ProServiceFacet"
+        capabilities:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 40
+        priceRows:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsProServiceLineRequest"
+        scopes:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 40
+        outputs:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsProServiceLineRequest"
+        serviceModes:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsProServiceLineRequest"
+        terms:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsProServiceLineRequest"
+        steps:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 40
+        guarantees:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 40
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+    OpsProServiceCity:
+      type: "object"
+      additionalProperties: false
+      required: [cityCode, cityName]
+      properties:
+        cityCode:
+          type: "string"
+        cityName:
+          type: ["string", "null"]
+    OpsProServiceLine:
+      type: "object"
+      additionalProperties: false
+      required: [label, detail]
+      properties:
+        label:
+          type: "string"
+        detail:
+          type: ["string", "null"]
+    OpsProServiceRow:
+      type: "object"
+      additionalProperties: false
+      required: [serviceId, type, categoryCode, title, providerId, providerName, priceMode, priceAmountMinor, status,
+                 sample, sortOrder, cityCount, updatedAt, version]
+      properties:
+        serviceId:
+          type: "string"
+          format: "uuid"
+        type:
+          $ref: "#/components/schemas/ProServiceType"
+        categoryCode:
+          $ref: "#/components/schemas/ProServiceCategory"
+        title:
+          type: "string"
+        providerId:
+          type: "string"
+          format: "uuid"
+        providerName:
+          type: ["string", "null"]
+          description: "机构名称；机构已停用时为 null"
+        priceMode:
+          $ref: "#/components/schemas/ProServicePriceMode"
+        priceAmountMinor:
+          type: ["integer", "null"]
+        status:
+          $ref: "#/components/schemas/OpsProServiceStatus"
+        sample:
+          type: "boolean"
+          description: "示例数据（开发种子）"
+        sortOrder:
+          type: "integer"
+        cityCount:
+          type: "integer"
+          minimum: 0
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsProServicePage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsProServiceRow"
+    OpsProService:
+      type: "object"
+      additionalProperties: false
+      required: [serviceId, status, version, updatedAt, sample, providerId, providerName, type, categoryCode, title,
+                 summary, priceMode, priceAmountMinor, priceUnit, priceNote, coverUrl, sortOrder, cities, tags, facets,
+                 capabilities, priceRows, scopes, outputs, serviceModes, terms, steps, guarantees]
+      properties:
+        serviceId:
+          type: "string"
+          format: "uuid"
+        status:
+          $ref: "#/components/schemas/OpsProServiceStatus"
+        version:
+          type: "integer"
+          minimum: 0
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        sample:
+          type: "boolean"
+        providerId:
+          type: "string"
+          format: "uuid"
+        providerName:
+          type: ["string", "null"]
+        type:
+          $ref: "#/components/schemas/ProServiceType"
+        categoryCode:
+          $ref: "#/components/schemas/ProServiceCategory"
+        title:
+          type: "string"
+        summary:
+          type: "string"
+        priceMode:
+          $ref: "#/components/schemas/ProServicePriceMode"
+        priceAmountMinor:
+          type: ["integer", "null"]
+        priceUnit:
+          type: ["string", "null"]
+        priceNote:
+          type: ["string", "null"]
+        coverUrl:
+          type: ["string", "null"]
+        sortOrder:
+          type: "integer"
+        cities:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsProServiceCity"
+        tags:
+          type: "array"
+          items:
+            type: "string"
+        facets:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/ProServiceFacet"
+        capabilities:
+          type: "array"
+          items:
+            type: "string"
+        priceRows:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsProServiceLine"
+        scopes:
+          type: "array"
+          items:
+            type: "string"
+        outputs:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsProServiceLine"
+        serviceModes:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsProServiceLine"
+        terms:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsProServiceLine"
+        steps:
+          type: "array"
+          items:
+            type: "string"
+        guarantees:
+          type: "array"
+          items:
+            type: "string"

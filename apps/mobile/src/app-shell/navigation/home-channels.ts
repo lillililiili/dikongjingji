@@ -44,21 +44,24 @@ const INSPECTION_SEARCH_PLACEHOLDER = '搜索巡检服务、场景或关键词'
 
 export const PLAY_GAMES_PATH = '/pages/play/index'
 
-// The two games work without a server, but the entry stays out of public builds until the user accepts them.
+// The two games work without a server, but the entry stays out of public builds until the user accepts them
+// (release switch PLAY, src/app-shell/release/release-features.json).
 const PLAY_GAMES_TARGET: HomeEntryTarget = {
   type: 'PAGE',
   url: PLAY_GAMES_PATH,
-  publiclyAvailable: false,
+  publiclyAvailable: __RELEASE_FEATURE_PLAY__,
 }
 
 export const DEFAULT_HOME_CHANNEL: HomeChannelCode = 'RECOMMEND'
 
+// publiclyAvailable of the three preview channels is their feature's release switch
+// (src/app-shell/release/release-features.json): false on public builds until it is turned on.
 export const HOME_CHANNELS: readonly HomeChannelDefinition[] = [
   { code: 'RECOMMEND', label: '推荐', searchPlaceholder: '搜索设备、赛事研学或服务', publiclyAvailable: true },
   { code: 'SERVICE', label: '专业服务', searchPlaceholder: INSPECTION_SEARCH_PLACEHOLDER, publiclyAvailable: true },
-  { code: 'ACTIVITY', label: '赛事研学', searchPlaceholder: '搜索赛事、培训、研学', publiclyAvailable: false },
-  { code: 'EXPERIENCE', label: '体验', searchPlaceholder: '搜索体验项目或场馆', publiclyAvailable: false },
-  { code: 'MALL', label: '商城', searchPlaceholder: '搜索设备、配件或课程', publiclyAvailable: false },
+  { code: 'ACTIVITY', label: '赛事研学', searchPlaceholder: '搜索赛事、培训、研学', publiclyAvailable: __RELEASE_FEATURE_ACTIVITY__ },
+  { code: 'EXPERIENCE', label: '体验', searchPlaceholder: '搜索体验项目或场馆', publiclyAvailable: __RELEASE_FEATURE_EXPERIENCE__ },
+  { code: 'MALL', label: '商城', searchPlaceholder: '搜索设备、配件或课程', publiclyAvailable: __RELEASE_FEATURE_MALL__ },
 ]
 
 const HOME_CHANNEL_CARDS: readonly (HomeChannelCard & { publicSubtitle?: string })[] = [

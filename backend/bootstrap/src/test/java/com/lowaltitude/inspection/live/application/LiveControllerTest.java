@@ -249,7 +249,8 @@ class LiveControllerTest {
         when(service.createRoom(HOST_ORG, KEY, draft))
                 .thenReturn(new LiveHostRoomCreated(hostRoom, true))
                 .thenReturn(new LiveHostRoomCreated(hostRoom, false));
-        when(service.hostRooms(HOST_ORG, 1, 10)).thenReturn(new LiveHostRoomPageView(1, 10, 1, false, List.of(hostRoom)));
+        when(service.hostRooms(HOST_ORG, null, 1, 10)).thenReturn(new LiveHostRoomPageView(1, 10, 1, false, List.of(hostRoom)));
+        when(service.hostRooms(HOST_ORG, "LIVE", 2, 5)).thenReturn(new LiveHostRoomPageView(2, 5, 0, false, List.of()));
         when(service.hostRoom(HOST_ORG, ROOM)).thenReturn(hostRoom);
         when(service.updateRoom(HOST_ORG, ROOM, draft)).thenReturn(hostRoom);
         when(service.setReplay(HOST_ORG, ROOM, "https://live.example.com/r", "示例直播平台")).thenReturn(hostRoom);
@@ -277,6 +278,9 @@ class LiveControllerTest {
                         .contentType(MediaType.APPLICATION_JSON).content(draftBody))
                 .andExpect(status().isOk());
         mockMvc.perform(get(rooms).principal(host)).andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1));
+        // 1.1.0：工作台按状态筛。
+        mockMvc.perform(get(rooms).principal(host).param("status", "LIVE").param("page", "2").param("size", "5"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items").isEmpty());
         mockMvc.perform(get(rooms + "/" + ROOM).principal(host)).andExpect(status().isOk());
         mockMvc.perform(put(rooms + "/" + ROOM).principal(host).contentType(MediaType.APPLICATION_JSON)
                 .content(draftBody)).andExpect(status().isOk());

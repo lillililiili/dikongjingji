@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import { normalizeInspectionReturnUrl } from '../../inspection/navigation/inspection-routes'
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
 import pagesJson from '../../../pages.json?raw'
 import mineSource from '../../../pages/mine/index.vue?raw'
 import rentalFlagSource from '../application/rental-preview.ts?raw'
@@ -83,9 +83,9 @@ describe('rental routes', () => {
 })
 
 describe('rental preview flag', () => {
-  it('uses exactly the expression of the shared preview flag', () => {
+  it('reads its own release switch', () => {
     expect(flagExpression(rentalFlagSource, 'RENTAL_PREVIEW_ENABLED'))
-      .toBe(flagExpression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+      .toBe(moduleFlagExpression('RENTAL'))
   })
 
   it('keeps the rental feature from importing the shared flag module', () => {
