@@ -153,6 +153,9 @@ public class ModuleFlywayConfiguration {
                 .dataSource(dataSource)
                 .locations("classpath:db/development/notification")
                 .table("flyway_history_notification_development")
+                // The system-notice seed writes JSON in a dollar-quoted string ($json${...}$json$); it uses
+                // no placeholders, and Flyway would read the "${" as one.
+                .placeholderReplacement(false)
                 .baselineOnMigrate(true)
                 .baselineVersion("0")
                 .load();
