@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import mallFlagSource from '../application/mall-preview.ts?raw'
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
 import { resolveMallIntent, resolveMallPrimaryAction } from '../application/mall-intent'
 import type { MallProductCard } from '../domain/mall'
 import {
@@ -123,9 +123,9 @@ describe('mall preview flag', () => {
     return match[1].trim()
   }
 
-  it('uses exactly the expression of the shared preview flag', () => {
+  it('reads its own release switch', () => {
     expect(expression(mallFlagSource, 'MALL_PREVIEW_ENABLED'))
-      .toBe(expression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+      .toBe(moduleFlagExpression('MALL'))
   })
 
   it('keeps the mall feature from importing the shared flag module', () => {

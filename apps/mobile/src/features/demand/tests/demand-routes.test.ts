@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import { normalizeInspectionReturnUrl } from '../../inspection/navigation/inspection-routes'
 import demandFlagSource from '../application/demand-preview.ts?raw'
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
 import pagesJson from '../../../pages.json?raw'
 import {
   buildDemandCompareUrl,
@@ -86,9 +86,9 @@ describe('demand routes', () => {
 })
 
 describe('demand preview flag', () => {
-  it('uses exactly the expression of the shared preview flag', () => {
+  it('reads its own release switch', () => {
     expect(flagExpression(demandFlagSource, 'DEMAND_PREVIEW_ENABLED'))
-      .toBe(flagExpression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+      .toBe(moduleFlagExpression('DEMAND'))
   })
 
   it('keeps the demand feature from importing the shared flag module', () => {
