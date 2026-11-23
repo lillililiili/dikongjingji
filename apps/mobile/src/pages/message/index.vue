@@ -14,6 +14,7 @@ import {
   createMessageCenter,
   type MessageCenterState,
 } from '@/features/message/application/message-center'
+import { SYSTEM_NOTICE_PREVIEW_ENABLED } from '@/features/message/application/notice-preview'
 import { messageApi } from '@/features/message/data/message-api-client'
 import type { MessageItem } from '@/features/message/domain/message'
 import MessageCenterPage from '@/features/message/presentation/MessageCenterPage.vue'
@@ -23,16 +24,19 @@ import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-
 import { supportApi } from '@/features/support/data/support-api-client'
 import { buildSupportChatUrl, buildSupportOpenUrl } from '@/features/support/navigation/support-routes'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
+import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
 const MESSAGE_PATH = ROOT_TABS.find((tab) => tab.code === 'MESSAGE')?.path ?? '/pages/message/index'
 
-// 交易物流 and 活动提醒 (R6-5) come with the trade and activity / venue previews; public builds keep
-// the 服务进度 square only.
+// 交易物流 and 活动提醒 (R6-5) come with the trade and activity / venue previews, 系统通知 (S5-9) with
+// the settings preview; public builds keep the 服务进度 square only.
 const squares: MessageSquare[] = [
   ...(TRADE_PREVIEW_ENABLED ? ['TRADE_LOGISTICS' as const] : []),
   'SERVICE_PROGRESS',
   ...(ACTIVITY_PREVIEW_ENABLED || EXPERIENCE_PREVIEW_ENABLED ? ['ACTIVITY_REMINDER' as const] : []),
+  ...(SYSTEM_NOTICE_PREVIEW_ENABLED ? ['SYSTEM_NOTICE' as const] : []),
 ]
+const cityStore = useCurrentCityStore()
 
 const badgeStore = useRootTabBadgeStore()
 const state = ref<MessageCenterState>(
@@ -45,6 +49,11 @@ const center = createMessageCenter({
   getState: () => state.value,
   setState: (next) => { state.value = next },
   onUnreadCount: (count) => badgeStore.setMessageUnread(count),
+  // Only a build that shows 系统通知 asks for them, with the App's current city.
+  getInboxScope: () => ({
+    systemNotices: SYSTEM_NOTICE_PREVIEW_ENABLED,
+    cityCode: cityStore.currentCity?.code ?? null,
+  }),
 })
 
 // 客服会话 (step G1, preview builds): the account's conversations, newest message first. The

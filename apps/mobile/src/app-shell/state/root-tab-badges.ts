@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { CART_PREVIEW_ENABLED } from '@/features/mall/application/cart-preview'
 import { cartApi } from '@/features/mall/data/cart-api-client'
+import { SYSTEM_NOTICE_PREVIEW_ENABLED } from '@/features/message/application/notice-preview'
 import { messageApi } from '@/features/message/data/message-api-client'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
@@ -38,7 +39,11 @@ export async function refreshMessageUnread(): Promise<void> {
     return
   }
   try {
-    const count = await messageApi.loadUnreadCount(token)
+    // A build that shows 系统通知 counts them too (S5-9), the same way the 消息 tab reads them.
+    const count = await messageApi.loadUnreadCount(token, {
+      systemNotices: SYSTEM_NOTICE_PREVIEW_ENABLED,
+      cityCode: useCurrentCityStore().currentCity?.code ?? null,
+    })
     if (requested === refreshRevision) store.setMessageUnread(count)
   } catch {
     if (requested === refreshRevision) store.setMessageUnread(0)

@@ -59,7 +59,7 @@ describe('message center', () => {
 
     await center.load()
 
-    expect(api.loadPage).toHaveBeenCalledWith('token', 1, 20)
+    expect(api.loadPage).toHaveBeenCalledWith('token', 1, 20, undefined)
     expect(state()).toMatchObject({ kind: 'ready', unreadCount: 3, hasMore: true })
     expect(unread.at(-1)).toBe(3)
   })

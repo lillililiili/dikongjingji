@@ -22,10 +22,14 @@ export interface AgreementDocument {
 const SAMPLE = { version: 'v1.0', updatedOn: '2026-10-20', effectiveOn: '2026-11-01' }
 
 export const AGREEMENT_DOCUMENTS: Record<AgreementDoc, AgreementDocument> = {
+  // The board's privacy policy is v1.1 (updated 11-01, in force 11-08), the dates the 系统通知
+  // 隐私政策更新摘要 names (board NoticeDetail).
   PRIVACY_POLICY: {
     doc: 'PRIVACY_POLICY',
     title: '隐私政策',
-    ...SAMPLE,
+    version: 'v1.1',
+    updatedOn: '2026-11-01',
+    effectiveOn: '2026-11-08',
     sections: ['一、我们收集的信息', '二、信息的使用与共享', '三、信息的存储与保护', '四、你的权利', '五、政策更新与联系方式'],
   },
   USER_AGREEMENT: {

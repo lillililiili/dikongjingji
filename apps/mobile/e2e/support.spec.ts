@@ -239,7 +239,8 @@ test.describe('客服会话、设置与公共页', () => {
     await expect(page.getByTestId('settings-page')).toBeVisible()
     await expect(page.getByTestId('settings-display-name')).toHaveText('王女士（示例）')
     await expect(page.getByTestId('settings-organization')).not.toHaveText('—')
-    await expect(page.getByTestId('settings-page')).not.toContainText(/1[3-9]\d{9}|手机号|注销|推送/)
+    // 通知开关（S5-9）有“推送”；手机号、注销还没有。
+    await expect(page.getByTestId('settings-page')).not.toContainText(/1[3-9]\d{9}|手机号|注销/)
 
     await page.getByTestId('settings-agreement-user_agreement').click()
     await expect(page.getByTestId('agreement-title')).toHaveText('用户协议')

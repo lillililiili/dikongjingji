@@ -30,9 +30,16 @@ type MessageRequest = <T>(input: {
   headers: Record<string, string>
 }) => Promise<T>
 
+// Contract 1.5.0: a build that shows 系统通知 asks for them (systemNotices), with the App's current
+// city so that city's announcements reach the inbox too. Without it the server copies none.
+export interface InboxScope {
+  systemNotices: boolean
+  cityCode: string | null
+}
+
 export interface MessageApi {
-  loadPage(accessToken: string, page: number, size: number): Promise<MessagePage>
-  loadUnreadCount(accessToken: string): Promise<number>
+  loadPage(accessToken: string, page: number, size: number, scope?: InboxScope): Promise<MessagePage>
+  loadUnreadCount(accessToken: string, scope?: InboxScope): Promise<number>
   markRead(accessToken: string, messageId: string): Promise<void>
   markAllRead(accessToken: string): Promise<void>
 }
@@ -42,10 +49,15 @@ export interface MessageApi {
 // message tab is a root page and decides for itself what to show.
 export function createMessageApi(request: MessageRequest): MessageApi {
   const headers = (accessToken: string) => ({ Authorization: `Bearer ${accessToken}` })
+  const inbox = (scope?: InboxScope): string => {
+    if (!scope?.systemNotices) return ''
+    return scope.cityCode ? `systemNotices=true&cityCode=${encodeURIComponent(scope.cityCode)}` : 'systemNotices=true'
+  }
   return {
-    async loadPage(accessToken, page, size) {
+    async loadPage(accessToken, page, size, scope) {
+      const extra = inbox(scope)
       const dto = await request<MessagePageDto>({
-        url: `/api/v1/notifications?page=${page}&size=${size}`,
+        url: `/api/v1/notifications?page=${page}&size=${size}${extra ? `&${extra}` : ''}`,
         method: 'GET',
         headers: headers(accessToken),
       })
@@ -55,9 +67,10 @@ export function createMessageApi(request: MessageRequest): MessageApi {
         items: dto.items.map(toMessageItem),
       }
     },
-    async loadUnreadCount(accessToken) {
+    async loadUnreadCount(accessToken, scope) {
+      const extra = inbox(scope)
       const dto = await request<{ count: number }>({
-        url: '/api/v1/notifications/unread-count',
+        url: `/api/v1/notifications/unread-count${extra ? `?${extra}` : ''}`,
         method: 'GET',
         headers: headers(accessToken),
       })
