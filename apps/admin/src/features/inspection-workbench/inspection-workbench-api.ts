@@ -15,7 +15,7 @@ export type ReservationStage =
   | 'CANCELLED'
 export type ReservationFilter = 'ALL' | Exclude<ReservationStage, 'CANCELLED'>
 export type ReservationStatus = 'SUBMITTED' | 'PLAN_PUBLISHED' | 'CANCELLED'
-// 2.4.0（S4-1）：AWAITING_PAYMENT 客户还没付首付，CANCELLED 第 1 次巡检开始前客户取消了；REWORK 客户退回整改。
+// 2.5.0（S4-1）：AWAITING_PAYMENT 客户还没付首付，CANCELLED 第 1 次巡检开始前客户取消了；REWORK 客户退回整改。
 export type ServiceOrderStatus = 'AWAITING_PAYMENT' | 'ARRANGING' | 'IN_PROGRESS' | 'DELIVERED' | 'ACCEPTED' | 'CANCELLED'
 export type ServiceVisitStatus = 'PENDING_SCHEDULE' | 'SCHEDULED' | 'IN_PROGRESS' | 'REWORK' | 'DELIVERED' | 'ACCEPTED'
 export type AssignmentType = 'TEAM_MEMBER' | 'DEVICE'
@@ -133,7 +133,7 @@ export interface ReservationSummary {
   nextVisitDate?: string
   pendingAcceptanceVisitId?: string
   pendingAcceptanceVisitNo?: number
-  // 2.4.0（S4-1）：现在该客户付的第一个付款节点（来自服务单的付款节点）；没有要付的时不出现。
+  // 2.5.0（S4-1）：现在该客户付的第一个付款节点（来自服务单的付款节点）；没有要付的时不出现。
   paymentDueNodeNo?: number
   paymentDueNodeType?: PaymentNodeType
   paymentDueVisitNo?: number

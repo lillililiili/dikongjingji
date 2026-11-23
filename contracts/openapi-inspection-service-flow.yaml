@@ -1,14 +1,17 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 2.4.0
+  version: 2.5.0
   description: >-
     巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
     2.2.0（R6-4）：方案和服务单里的服务商（ProviderSummary）加 qualificationReviewed，页面据此显示“资质已审核”。
     2.3.0（2026-11-23，S3-2，服务商工作台在 Web 运营端 apps/admin）：加 listProviderInspectionReservations 和
     getProviderInspectionReservationSummary——分给本机构的预约（reservation.providerId 等于令牌里的机构），
     形状和阶段推导与客户的 listMyInspectionReservations 相同；只读，出方案、安排、排期、履约、交付仍用原来的受权接口。
-    2.4.0（2026-11-23，S4-1，docs/redesign/08-后续开发计划.md §5 D9、C3、B2）：付款节点、确认方案后的取消与改期、退回整改。
+    2.4.0（2026-11-22 登录续期）：登录响应加 refreshToken、refreshExpiresInSeconds；新增 POST /api/v1/auth/refresh
+    （凭刷新令牌换新的访问令牌和新的刷新令牌，旧的作废；已换掉的令牌再用视为被盗用，这次登录全部撤销）
+    和 POST /api/v1/auth/logout（撤销这次登录）。访问令牌仍是 900 秒。
+    2.5.0（2026-11-23，S4-1，docs/redesign/08-后续开发计划.md §5 D9、C3、B2）：付款节点、确认方案后的取消与改期、退回整改。
     付款节点：服务端开关 inspection.payment.nodes-enabled 打开时发布的方案带付款节点——首付 30%（四舍五入到分），
     其余按次结算（平均分到每次，最后一次补差，总额等于方案总价）。确认带付款节点的方案要服务商登记了收款账户，
     否则 409 INS_PROVIDER_PAYMENT_UNAVAILABLE。确认后服务单先是 AWAITING_PAYMENT，首付经统一交易模块（contracts/openapi-trade.yaml
@@ -45,7 +48,7 @@ paths:
               $ref: "#/components/schemas/LoginRequest"
       responses:
         "200":
-          description: 已签发访问令牌
+          description: 已签发访问令牌和刷新令牌
           content:
             application/json:
               schema:
@@ -54,6 +57,64 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/refresh:
+    post:
+      tags: [Authentication]
+      operationId: refreshLogin
+      summary: 用刷新令牌续期登录
+      description: >-
+        凭刷新令牌换一个新的访问令牌和一个新的刷新令牌（轮换），交上来的刷新令牌随即作废。请求不带 Authorization
+        头（访问令牌此时通常已过期，带了过期令牌会被拒绝）。刷新令牌单个 30 天有效，同一次登录最长 90 天。
+        已经换掉的刷新令牌再被交上来，视为被盗用：这次登录的全部刷新令牌撤销，要重新登录。账号停用、离开默认组织
+        或令牌版本变化后不能续期。所有失败都返回同一个 401，不区分原因。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: 已续期；客户端用新的两个令牌替换旧的
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: 刷新令牌不存在、已过期、已撤销、已被使用过或账号不能再登录
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                default:
+                  value:
+                    code: COMMON_UNAUTHORIZED
+                    message: 登录已过期，请重新登录
+                    traceId: 01JEXAMPLETRACE
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logout
+      summary: 退出登录
+      description: >-
+        撤销这个刷新令牌所属的这次登录（其他设备上的登录不受影响）。不论令牌是否存在都返回 204。
+        已签发的访问令牌不会被收回，最多 900 秒后自然过期；客户端退出时同时删掉本地的两个令牌。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "204":
+          description: 已退出
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/v1/auth/me:
     get:
       tags: [Authentication]
@@ -550,7 +611,7 @@ paths:
     post:
       tags: [CustomerInspectionFlow]
       operationId: payInspectionPaymentNode
-      summary: 为一个付款节点发起付款，返回要去付的交易订单（2.4.0）
+      summary: 为一个付款节点发起付款，返回要去付的交易订单（2.5.0）
       description: >-
         已有待付的交易订单就返回它；它过了付款截止时间时先关掉再建新的；节点已付时 paid 为 true，返回付过的那张。
         首付在服务单待付款时可付，按次服务费在这一次验收之后可付；还没到、服务单已取消时 409 INS_PAYMENT_NOT_DUE。
@@ -585,7 +646,7 @@ paths:
     post:
       tags: [CustomerInspectionFlow]
       operationId: cancelInspectionServiceOrder
-      summary: 第 1 次巡检开始前取消服务单（2.4.0，C3）
+      summary: 第 1 次巡检开始前取消服务单（2.5.0，C3）
       description: >-
         首付没付的不收费（进行中的付款先关掉）；付了的整笔原路退回（退款进度见 paymentNodes[].refund）。
         已取消的再取消一次原样返回；开始之后 409 INS_ORDER_NOT_CANCELLABLE。
@@ -625,7 +686,7 @@ paths:
     post:
       tags: [CustomerInspectionFlow]
       operationId: requestInspectionVisitReschedule
-      summary: 申请某次巡检改期（2.4.0，C3）
+      summary: 申请某次巡检改期（2.5.0，C3）
       description: >-
         该次巡检开始前 24 小时之前才能申请（开始时间按排期，没排期按计划日期北京时间零点）；同一次巡检同时只能有一个待处理的申请，
         同样的日期和原因重复提交返回已有的申请。新日期要晚于今天、晚于上一次、早于下一次的计划日期。If-Match 是巡检次版本。
@@ -663,7 +724,7 @@ paths:
     post:
       tags: [CustomerInspectionFlow]
       operationId: returnInspectionVisitForRework
-      summary: 退回某次巡检的交付要求整改（2.4.0，B2）
+      summary: 退回某次巡检的交付要求整改（2.5.0，B2）
       description: >-
         只有已交付、待验收的这一次可以退回；巡检次进入 REWORK、交付进入 RETURNED，服务商重新交付后再验收。不自动退款。
         已经退回（还没重新交付）时同样的原因再提交返回已有的记录。If-Match 是巡检次版本。
@@ -701,7 +762,7 @@ paths:
     post:
       tags: [ProviderInspectionFlow]
       operationId: decideInspectionVisitReschedule
-      summary: 服务商确认或拒绝改期（2.4.0，C3，没有工作台页面）
+      summary: 服务商确认或拒绝改期（2.5.0，C3，没有工作台页面）
       description: >-
         确认后这次巡检换成新日期、清掉排期回到 PENDING_SCHEDULE；新日期已过、这次巡检已开工或和前后两次顺序冲突时不能确认。
         已按同样的决定处理过的原样返回，换了决定 409 INS_RESCHEDULE_STATE_INVALID。
@@ -1138,7 +1199,7 @@ components:
     LoginResponse:
       type: object
       additionalProperties: false
-      required: [accessToken, tokenType, expiresInSeconds]
+      required: [accessToken, tokenType, expiresInSeconds, refreshToken, refreshExpiresInSeconds]
       properties:
         accessToken:
           type: string
@@ -1148,6 +1209,26 @@ components:
         expiresInSeconds:
           type: integer
           minimum: 1
+        refreshToken:
+          description: >-
+            不透明的随机串（Base64url，43 位），服务端只存哈希。App 存在本机存储；H5 只放 sessionStorage 或内存。
+            每次续期都会换新，旧的不能再用。
+          type: string
+          minLength: 1
+          maxLength: 128
+        refreshExpiresInSeconds:
+          description: 这个刷新令牌还有多少秒过期（不超过 30 天，也不超过这次登录满 90 天的时刻）。
+          type: integer
+          minimum: 1
+    RefreshTokenRequest:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 128
     CurrentAccount:
       type: object
       additionalProperties: false
@@ -1501,7 +1582,7 @@ components:
           type: integer
           minimum: 1
         paymentDueNodeNo:
-          description: 现在该付的第一个付款节点（2.4.0）；没有要付的时不出现。
+          description: 现在该付的第一个付款节点（2.5.0）；没有要付的时不出现。
           type: integer
           minimum: 1
         paymentDueNodeType:
@@ -2002,11 +2083,11 @@ components:
           format: date-time
           description: 交易模块回告到账的时间；金额为 0 的节点确认时直接记为已付。
         tradeOrderId:
-          description: 这个节点待付或已付的那张交易订单（2.4.0），页面据此去收银台或支付结果；没有时为 null。
+          description: 这个节点待付或已付的那张交易订单（2.5.0），页面据此去收银台或支付结果；没有时为 null。
           type: [string, "null"]
           format: uuid
         refund:
-          description: 首付的退款（服务单取消时，2.4.0）；没有时为 null。
+          description: 首付的退款（服务单取消时，2.5.0）；没有时为 null。
           oneOf:
             - $ref: "#/components/schemas/NodeRefund"
             - type: "null"
@@ -2028,7 +2109,7 @@ components:
           type: string
           format: date-time
     PaymentRecord:
-      description: 一次付款尝试（一张交易订单，2.4.0）。
+      description: 一次付款尝试（一张交易订单，2.5.0）。
       type: object
       additionalProperties: false
       required: [attemptId, nodeNo, nodeType, tradeOrderId, amountMinor, status, payBefore, createdAt]
@@ -2365,14 +2446,14 @@ components:
           type: integer
           minimum: 0
         cancellable:
-          description: 客户现在能在线取消（第 1 次巡检开始前，2.4.0）。
+          description: 客户现在能在线取消（第 1 次巡检开始前，2.5.0）。
           type: boolean
         cancellation:
           oneOf:
             - $ref: "#/components/schemas/ServiceOrderCancellation"
             - type: "null"
         paymentRecords:
-          description: 付款记录（每次付款尝试一条，按发起时间，2.4.0）。
+          description: 付款记录（每次付款尝试一条，按发起时间，2.5.0）。
           type: array
           items:
             $ref: "#/components/schemas/PaymentRecord"
@@ -2420,13 +2501,13 @@ components:
     ServiceOrderStatus:
       type: string
       description: >-
-        由巡检次推导。AWAITING_PAYMENT 确认了带付款节点的方案、首付还没到账（2.4.0）；ARRANGING 第 1 次开工前；
+        由巡检次推导。AWAITING_PAYMENT 确认了带付款节点的方案、首付还没到账（2.5.0）；ARRANGING 第 1 次开工前；
         IN_PROGRESS 开工后、全部交付前（含退回整改中的）；DELIVERED 全部已交付、还有未验收的；ACCEPTED 全部已验收
-        （带付款节点的还要看 paymentNodes 是否全部已付）；CANCELLED 第 1 次巡检开始前取消（2.4.0）。
+        （带付款节点的还要看 paymentNodes 是否全部已付）；CANCELLED 第 1 次巡检开始前取消（2.5.0）。
       enum: [AWAITING_PAYMENT, ARRANGING, IN_PROGRESS, DELIVERED, ACCEPTED, CANCELLED]
     ServiceVisitStatus:
       type: string
-      description: REWORK 客户退回整改、服务商还没重新交付（2.4.0）。
+      description: REWORK 客户退回整改、服务商还没重新交付（2.5.0）。
       enum: [PENDING_SCHEDULE, SCHEDULED, IN_PROGRESS, REWORK, DELIVERED, ACCEPTED]
     ServiceVisit:
       type: object
@@ -2467,19 +2548,19 @@ components:
           type: integer
           minimum: 0
         originalPlannedDate:
-          description: 第一次改期生效前的计划日期（2.4.0）；没改过期时为 null。
+          description: 第一次改期生效前的计划日期（2.5.0）；没改过期时为 null。
           type: [string, "null"]
           format: date
         reschedulable:
-          description: 客户现在能为这次巡检申请改期（2.4.0）；单独返回一次巡检（排期、进度命令）时恒为 false。
+          description: 客户现在能为这次巡检申请改期（2.5.0）；单独返回一次巡检（排期、进度命令）时恒为 false。
           type: boolean
         reschedule:
-          description: 最近一次改期申请（2.4.0）。
+          description: 最近一次改期申请（2.5.0）。
           oneOf:
             - $ref: "#/components/schemas/VisitReschedule"
             - type: "null"
         rework:
-          description: 最近一次退回整改（2.4.0）。
+          description: 最近一次退回整改（2.5.0）。
           oneOf:
             - $ref: "#/components/schemas/VisitRework"
             - type: "null"
@@ -2602,7 +2683,7 @@ components:
           format: uuid
         status:
           type: string
-          description: RETURNED 客户退回整改、等服务商重新交付（2.4.0）。
+          description: RETURNED 客户退回整改、等服务商重新交付（2.5.0）。
           enum: [PUBLISHED, RETURNED, ACCEPTED]
         towerCount:
           type: [integer, "null"]

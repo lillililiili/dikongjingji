@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 巡检付款节点、确认方案后的取消、改期和退回整改（S4-1，契约 openapi-inspection-service-flow.yaml 2.4.0）。
+ * 巡检付款节点、确认方案后的取消、改期和退回整改（S4-1，契约 openapi-inspection-service-flow.yaml 2.5.0）。
  */
 @RestController
 public final class InspectionPaymentController {

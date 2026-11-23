@@ -89,12 +89,17 @@ describe('venue formatting', () => {
 })
 
 describe('experience intents', () => {
-  it('explains in preview builds and hides in public builds', () => {
+  it('opens the built pages, explains the recorded demo in preview builds and hides in public builds', () => {
     const open = { type: 'OPEN_EXPERIENCE', experienceId: 'e', experienceType: 'SIMULATION' } as const
 
-    expect(resolveExperienceIntent(open, true)).toEqual({ action: 'SHOW_NOTICE', message: '虚拟仿真即将开放' })
+    expect(resolveExperienceIntent(open, true))
+      .toEqual({ action: 'NAVIGATE', url: '/pages/experience/simulation?experienceId=e' })
+    expect(resolveExperienceIntent({ ...open, experienceType: 'SOFTWARE_TRIAL' }, true))
+      .toEqual({ action: 'NAVIGATE', url: '/pages/experience/software-trial?experienceId=e' })
     expect(resolveExperienceIntent({ ...open, experienceType: 'COURSE_TRIAL' }, true))
-      .toEqual({ action: 'SHOW_NOTICE', message: '课程试听即将开放' })
+      .toEqual({ action: 'NAVIGATE', url: '/pages/experience/course-trial?experienceId=e' })
+    expect(resolveExperienceIntent({ ...open, experienceType: 'RECORDED_DEMO' }, true))
+      .toEqual({ action: 'SHOW_NOTICE', message: '录播演示即将开放' })
     expect(resolveExperienceIntent(open, false)).toEqual({ action: 'HIDE' })
   })
 })

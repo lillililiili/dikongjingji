@@ -78,13 +78,21 @@ class DevelopmentExperienceCatalogMigrationTest {
         }
 
         assertThat(sql)
-                .contains("INSERT INTO experience_item (id, type, title, summary, login_required, sort_order, status, product_id)")
+                .contains("INSERT INTO experience_item (id, type, title, summary, login_required, sort_order, status, product_id, simulation_template, trial_minutes)")
                 .contains("INSERT INTO venue_device (id, venue_id, category, name, summary, trial_mode, sort_order, product_id)")
                 .contains("'机器人避障模拟', '约 3 分钟 · 免登录可试 · 手机即可', false, 10, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000101'")
                 .contains("'3 分钟看懂编程机器人', '视频 3:12 · 示例机器人商家', false, 30, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000101'")
                 .contains("'无人机起降与悬停', '约 4 分钟 · 免登录可试', false, 20, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000201'")
                 .contains("'巡检机器狗', '园区巡逻与巡检演示', 'DISPLAY_ONLY', 30, 'c2000000-0000-4000-8000-000000000401'");
         assertThat(sql.split("product_id = EXCLUDED.product_id", -1)).hasSize(3);
+        // S5-4：两个仿真配了 App 内模板，软件试用和课程试听配了试用时长，重跑时跟着更新。
+        assertThat(sql)
+                .contains("'c2000000-0000-4000-8000-000000000101', 'ROBOT_OBSTACLE', NULL)")
+                .contains("'c2000000-0000-4000-8000-000000000201', 'DRONE_HOVER', NULL)")
+                .contains("'PUBLISHED', 'c2000000-0000-4000-8000-000000000101', NULL, 25)")
+                .contains("'PUBLISHED', 'c2000000-0000-4000-8000-000000000201', NULL, 10080)")
+                .contains("simulation_template = EXCLUDED.simulation_template")
+                .contains("trial_minutes = EXCLUDED.trial_minutes");
         // 不碰商城的表。
         assertThat(sql).doesNotContain("mall_product");
     }

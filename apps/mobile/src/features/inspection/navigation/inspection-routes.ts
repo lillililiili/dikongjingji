@@ -140,6 +140,12 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   },
   '/pages/venue/booking': { required: 'bookingId', allowed: ['bookingId'] },
   '/pages/mine/venue-bookings': { allowed: ['bucket'] },
+  // Online experiences (S5-4): signing in from a result, a trial or 我的体验 comes back to it;
+  // experience-routes.test.ts checks them.
+  '/pages/experience/result': { required: 'experienceId', allowed: ['experienceId', 'recordId', 'localId'] },
+  '/pages/experience/software-trial': { required: 'experienceId', allowed: ['experienceId', 'recordId'] },
+  '/pages/experience/course-trial': { required: 'experienceId', allowed: ['experienceId', 'recordId'] },
+  '/pages/mine/experience-records': { allowed: ['tab'] },
   // Demand pages (features/demand/navigation/demand-routes.ts, F1), repeated for the same reason;
   // demand-routes.test.ts checks them.
   '/pages/demand/publish': { allowed: ['demandId', 'type', 'from', 'providerId'] },

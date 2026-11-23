@@ -61,7 +61,7 @@ info:
       加 readMyMerchantAccount（本机构登记的收款账户，只读，没登记过 404；登记仍由平台运营调 registerMerchantAccount）。
 
     0.6.0（2026-11-23，S4-1，docs/redesign/08-后续开发计划.md §5 D9、C3）：第五个业务来源——巡检付款节点（source = INSPECTION，
-      接口见 contracts/openapi-inspection-service-flow.yaml 2.4.0）。没有新接口：巡检接口在服务端建交易订单，App 用这里的收银台接口付款。
+      接口见 contracts/openapi-inspection-service-flow.yaml 2.5.0）。没有新接口：巡检接口在服务端建交易订单，App 用这里的收银台接口付款。
       收款方是巡检服务商，钱进它自己的子商户号；不发货，订单编号以 IO 开头。每个付款节点（首付、每次巡检的服务费）的每一次付款
       尝试是一张订单：sourceRef 是付款尝试 ID；订单行只有一行，productId 是巡检服务单 ID，offerId 是付款尝试 ID，
       productName 是“服务名 · 方案 vN”，skuName 是节点名（如“首付 30%”“第 2/6 次服务费”“验收后付款 70%”），quantity 是 1。
