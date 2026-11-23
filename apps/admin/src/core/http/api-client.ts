@@ -11,6 +11,8 @@ export interface RequestOptions {
   form?: FormData
   /** 写操作的幂等键（契约要求 Idempotency-Key 的接口才带）。 */
   idempotencyKey?: string
+  /** 改状态的操作带的版本号（契约要求 If-Match 的接口才带），发出去是强 ETag：`"3"`。 */
+  ifMatch?: number
   signal?: AbortSignal
 }
 
@@ -29,7 +31,7 @@ export interface ApiClient {
   get<T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal): Promise<T>
   post<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'body'>): Promise<T>
   put<T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'body'>): Promise<T>
-  delete<T>(path: string): Promise<T>
+  delete<T>(path: string, options?: Omit<RequestOptions, 'body'>): Promise<T>
   /** 下载文件（受控附件）：带登录令牌取回 Blob，由页面交给浏览器保存。 */
   download(path: string): Promise<{ blob: Blob, fileName: string | null }>
 }
@@ -104,6 +106,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     const token = options.getToken()
     if (token) headers.Authorization = `Bearer ${token}`
     if (request.idempotencyKey) headers['Idempotency-Key'] = request.idempotencyKey
+    if (request.ifMatch !== undefined) headers['If-Match'] = `"${request.ifMatch}"`
     let body: BodyInit | undefined
     if (request.form) {
       body = request.form
@@ -150,7 +153,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     get: (path, query, signal) => request('GET', path, { query, signal }),
     post: (path, body, extra) => request('POST', path, { ...extra, body }),
     put: (path, body, extra) => request('PUT', path, { ...extra, body }),
-    delete: (path) => request('DELETE', path),
+    delete: (path, extra) => request('DELETE', path, { ...extra }),
     async download(path) {
       const response = await send('GET', path, {}, '*/*')
       return { blob: await response.blob(), fileName: fileNameFrom(response.headers.get('Content-Disposition')) }

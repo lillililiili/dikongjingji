@@ -54,9 +54,22 @@ const MESSAGES: Record<string, string> = {
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }
 
+/**
+ * 各功能块自己的业务错误码说明（TRADE_、MALL_INQUIRY_、RENTAL_、DEMAND_、LIVE_、SUPPORT_、INS_ 等）：
+ * 在功能块的 *-api.ts 里调一次，和契约里的错误码一一对应。和上面的通用说明重复时以上面为准。
+ */
+const FEATURE_MESSAGES: Record<string, string> = {}
+
+export function registerErrorMessages(messages: Record<string, string>): void {
+  for (const [code, message] of Object.entries(messages)) {
+    if (!(code in MESSAGES)) FEATURE_MESSAGES[code] = message
+  }
+}
+
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiRequestError) {
-    return MESSAGES[error.code] ?? (error.serverMessage || `请求失败（${error.status}）`)
+    return MESSAGES[error.code] ?? FEATURE_MESSAGES[error.code]
+      ?? (error.serverMessage || `请求失败（${error.status}）`)
   }
   if (error instanceof Error && error.message) return error.message
   return '操作失败，请稍后再试'
