@@ -55,6 +55,11 @@ const MESSAGES: Record<string, string> = {
   OPS_MEDIA_TYPE_UNSUPPORTED: '只能上传 JPEG、PNG、WebP 图片或 MP4 视频',
   OPS_MEDIA_TOO_LARGE: '图片不能超过 5 MB，视频不能超过 50 MB',
   OPS_MEDIA_STORE_UNAVAILABLE: '素材存储暂不可用，请稍后再试',
+  // 发现内容（openapi-ops-content.yaml）
+  OPS_CONTENT_AUTHOR_INVALID: '作者、发布方或发布商家要是在用的服务商或商家；案例不能由平台发布',
+  OPS_CONTENT_STATUS_CONFLICT: '内容当前的状态不能做这个操作，请刷新后再看',
+  OPS_CONTENT_ARTICLE_UNKNOWN: '专题里挂的图文不存在（视频不能挂在相关内容里）',
+  OPS_CONTENT_PRODUCT_UNKNOWN: '商品不存在，或在专题的城市没有在售商家',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }

@@ -1,5 +1,6 @@
 import type { AdminModule } from '@/core/navigation/module'
 import { cityModule } from '@/features/city/city-module'
+import { contentModule } from '@/features/content/content-module'
 import { feedbackModule } from '@/features/feedback/feedback-module'
 import { organizationModule } from '@/features/organization/organization-module'
 
@@ -11,5 +12,6 @@ import { organizationModule } from '@/features/organization/organization-module'
 export const ADMIN_MODULES: readonly AdminModule[] = [
   cityModule,
   organizationModule,
+  contentModule,
   feedbackModule,
 ]
