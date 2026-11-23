@@ -17,6 +17,8 @@ import InspectionOrderCard from '../../inspection/presentation/orders/components
 import { rentalCoverUrl } from '../../rental/application/rental-cover'
 import { RENTAL_PREVIEW_ENABLED } from '../../rental/application/rental-preview'
 import { rentalApi } from '../../rental/data/rental-api-client'
+import { SERVICE_ORDER_PREVIEW_ENABLED } from '../../serviceorder/application/serviceorder-preview'
+import { serviceOrderApi } from '../../serviceorder/data/service-order-api-client'
 import {
   TRADE_COMMAND_CONFIRMS,
   classifyOrderCommandFailure,
@@ -80,6 +82,7 @@ const KIND_ENABLED: Record<MyOrderKind, boolean> = {
   GOODS: TRADE_PREVIEW_ENABLED,
   RENTAL: RENTAL_PREVIEW_ENABLED,
   INSPECTION: true,
+  SERVICE: SERVICE_ORDER_PREVIEW_ENABLED,
   ENROLL: ACTIVITY_PREVIEW_ENABLED,
   VENUE: EXPERIENCE_PREVIEW_ENABLED,
 }
@@ -88,6 +91,7 @@ const apis: MyOrderApis = {
   goods: (token, tab, page, size) => tradeApi.list(token, tab, page, size),
   rental: (token, status, page, size) => rentalApi.listOrders(token, status, page, size),
   inspection: (stage, page, size) => inspectionOrderApi.list({ stage, page, size }),
+  service: (token, status, page, size) => serviceOrderApi.list(token, status, page, size),
   enroll: (token, bucket, page, size) => enrollmentApi.loadEnrollments(token, bucket, page, size),
   venue: (token, bucket, page, size) => venueBookingApi.list(token, bucket, page, size),
 }

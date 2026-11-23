@@ -135,3 +135,29 @@ export function rentalTradeOrder(overrides: Partial<TradeOrder> = {}): TradeOrde
     ...overrides,
   })
 }
+
+// A general service order paid at once (0.6.0, S4-3): sourceRef is the payment attempt, the line's
+// productId is the service order.
+export function serviceTradeOrder(overrides: Partial<TradeOrder> = {}): TradeOrder {
+  return tradeOrder({
+    orderNo: 'PS2026112312345678',
+    source: 'PRO_SERVICE',
+    sourceRef: 'attempt-1',
+    merchant: { organizationId: 'org-5', name: '云翼科技', kind: null },
+    lines: [{
+      lineId: 'l-1',
+      productId: 'so-1',
+      offerId: 'attempt-1',
+      productName: '设备维护需求 · 云翼科技',
+      skuName: '方案 v2',
+      coverImage: null,
+      unitAmountMinor: 386000,
+      quantity: 1,
+      subtotalMinor: 386000,
+    }],
+    delivery: null,
+    amounts: { goodsMinor: 386000, shippingMinor: 0, payableMinor: 386000, paidMinor: 0, refundedMinor: 0 },
+    payBefore: '2026-11-18T02:14:45Z',
+    ...overrides,
+  })
+}

@@ -8,13 +8,17 @@ import { cashierGoodsLine, formatCountdown, formatTradeAmount, paymentRemainingM
 // enrolment the activity (productName) and the session (skuName); for a venue booking "venue
 // project" (productName) and the session time (skuName); quantity is the number of people. An
 // equipment rental (F3) pays the confirmed contract: its first line is the rent of the device
-// (productName), the period (skuName) and the units (quantity); its page is the rental order.
+// (productName), the period (skuName) and the units (quantity); its page is the rental order. A
+// general service order (0.6.0, S4-3) pays the confirmed plan at once: its only line is "demand
+// title · provider" (productName) and "方案 vN" (skuName); sourceRef is the payment attempt, so its
+// page is found through the line's productId, the service order id.
 
 export type TradeOrderDestination =
   | { kind: 'GOODS_ORDER'; orderId: string }
   | { kind: 'ACTIVITY_ENROLLMENT'; enrollmentId: string }
   | { kind: 'VENUE_BOOKING'; bookingId: string }
   | { kind: 'RENTAL_ORDER'; rentalOrderId: string }
+  | { kind: 'SERVICE_ORDER'; orderId: string }
 
 export function isEnrollmentOrder(order: TradeOrder): boolean {
   return order.source === 'ACTIVITY'
@@ -26,6 +30,10 @@ export function isVenueOrder(order: TradeOrder): boolean {
 
 export function isRentalOrder(order: TradeOrder): boolean {
   return order.source === 'RENTAL'
+}
+
+export function isServiceOrder(order: TradeOrder): boolean {
+  return order.source === 'PRO_SERVICE'
 }
 
 // Any order that pays for a business record rather than goods.
@@ -44,6 +52,9 @@ export function orderDestination(order: TradeOrder): TradeOrderDestination {
   if (order.source === 'RENTAL' && order.sourceRef) {
     return { kind: 'RENTAL_ORDER', rentalOrderId: order.sourceRef }
   }
+  // Not sourceRef: that is the payment attempt, one of many for the same service order.
+  const serviceOrderId = order.source === 'PRO_SERVICE' ? order.lines[0]?.productId : null
+  if (serviceOrderId) return { kind: 'SERVICE_ORDER', orderId: serviceOrderId }
   return { kind: 'GOODS_ORDER', orderId: order.orderId }
 }
 
@@ -59,6 +70,13 @@ export function cashierRows(order: TradeOrder): CashierRow[] {
   const line = order.lines[0]
   if (!isSourceOrder(order) || !line) {
     return [{ key: 'goods', label: '商品', value: cashierGoodsLine(order) }]
+  }
+  if (isServiceOrder(order)) {
+    return [
+      { key: 'service-item', label: '服务项目', value: line.productName },
+      { key: 'service-plan', label: '服务方案', value: line.skuName },
+      { key: 'service-node', label: '付款节点', value: `一次付清 ${formatTradeAmount(order.amounts.payableMinor)} · 确认方案后支付` },
+    ]
   }
   if (isRentalOrder(order)) {
     return [
@@ -89,6 +107,7 @@ export function cashierLayout(order: TradeOrder): CashierLine[] {
   const orderNo = { key: 'order-no' } as const
   const payee = { key: 'payee' } as const
   if (isRentalOrder(order) && rows.length === 2) return [rows[0], payee, rows[1], orderNo]
+  if (isServiceOrder(order) && rows.length === 3) return [rows[0], rows[1], payee, rows[2], orderNo]
   if (isVenueOrder(order)) return [...rows, payee, orderNo]
   return [orderNo, payee, ...rows]
 }
@@ -105,6 +124,7 @@ export function cashierDueNote(order: TradeOrder): string | null {
   const line = order.lines[0]
   if (!isSourceOrder(order) || !line || isVenueOrder(order)) return null
   if (isRentalOrder(order)) return '租金 · 合同确认后一次付清'
+  if (isServiceOrder(order)) return `${line.skuName} · 确认方案后一次付清`
   return `报名费 ${line.quantity} 人 × ${formatTradeAmount(line.unitAmountMinor)}`
 }
 
@@ -112,6 +132,7 @@ export function cashierCountdownLine(order: TradeOrder, now: number): string {
   const countdown = formatCountdown(paymentRemainingMs(order, now))
   if (isVenueOrder(order)) return `剩余支付时间 ${countdown} · 超时释放场次名额`
   if (isRentalOrder(order)) return `剩余支付时间 ${countdown} · 超时订单关闭，需重新询价`
+  if (isServiceOrder(order)) return `剩余支付时间 ${countdown} · 超时可在订单里重新发起`
   return isEnrollmentOrder(order)
     ? `名额保留 ${countdown} · 超时自动释放`
     : `剩余支付时间 ${countdown} · 超时订单自动取消`
@@ -120,6 +141,7 @@ export function cashierCountdownLine(order: TradeOrder, now: number): string {
 // The grey line of the closed frame.
 export function cashierClosedNote(order: TradeOrder): string {
   if (isRentalOrder(order)) return '没有扣款，报价已失效，要租需要重新询价'
+  if (isServiceOrder(order)) return '没有扣款，服务订单仍待付款，可以重新发起'
   return isSourceOrder(order) ? '没有扣款，名额已释放' : '没有扣款，可以重新下单'
 }
 
@@ -131,6 +153,14 @@ export function cancelUnpaidConfirm(order: TradeOrder): {
 } {
   if (isVenueOrder(order)) {
     return { title: '取消预约', content: '取消后预约关闭、名额释放，确定取消吗？', confirmText: '取消预约', cancelText: '再想想' }
+  }
+  if (isServiceOrder(order)) {
+    return {
+      title: '取消支付',
+      content: '只关闭这次付款，服务订单仍待付款，之后可以重新发起，确定取消吗？',
+      confirmText: '取消支付',
+      cancelText: '再想想',
+    }
   }
   if (isRentalOrder(order)) {
     return {
@@ -149,6 +179,7 @@ export function cancelUnpaidConfirm(order: TradeOrder): {
 export function cancelledToast(order: TradeOrder): string {
   if (isVenueOrder(order)) return '预约已取消'
   if (isRentalOrder(order)) return '租赁订单已关闭'
+  if (isServiceOrder(order)) return '这次付款已取消'
   return isEnrollmentOrder(order) ? '报名已取消' : '订单已取消'
 }
 
@@ -156,6 +187,7 @@ export function cancelledToast(order: TradeOrder): string {
 export function orderLinkLabel(order: TradeOrder): string {
   if (!isSourceOrder(order)) return '查看订单'
   if (isRentalOrder(order)) return '查看租赁订单'
+  if (isServiceOrder(order)) return '查看订单'
   const unpaid = order.status === 'PENDING_PAYMENT' || order.status === 'CLOSED'
   if (isVenueOrder(order)) return unpaid ? '查看预约' : '查看核销码'
   return unpaid ? '查看报名' : '查看凭证'
@@ -168,6 +200,7 @@ export function paidFrame(order: TradeOrder): { title: string; note: string | nu
   if (!isSourceOrder(order) || !line) return { title: '已支付', note: null }
   if (isVenueOrder(order)) return { title: '预约成功 · 已支付', note: '核销码已生成，到馆时出示' }
   if (isRentalOrder(order)) return { title: '租金已支付', note: '商家将按约定时间交接设备，交接后由你确认' }
+  if (isServiceOrder(order)) return { title: '已支付', note: '服务商将按方案安排开工，完成后由你验收' }
   return { title: '报名成功', note: `${line.quantity} 个名额已确认 · 一人一码` }
 }
 
@@ -175,5 +208,17 @@ export function paidFrame(order: TradeOrder): { title: string; note: string | nu
 export function failedNote(order: TradeOrder): string {
   if (isVenueOrder(order)) return '预约仍为待支付，超时释放场次名额'
   if (isRentalOrder(order)) return '租金仍为待支付，超时订单关闭、报价失效'
+  if (isServiceOrder(order)) return '服务订单仍为待付款，可以重新发起'
   return isEnrollmentOrder(order) ? '名额仍为你保留，超时自动释放' : '订单仍为待付款，超时订单自动取消'
+}
+
+// The rows a business order adds to the result page (board PayResult has none for goods): a
+// service order says what was paid for, like its cashier.
+export function resultRows(order: TradeOrder): CashierRow[] {
+  const line = order.lines[0]
+  if (!isServiceOrder(order) || !line) return []
+  return [
+    { key: 'service-item', label: '服务项目', value: line.productName },
+    { key: 'service-plan', label: '服务方案', value: line.skuName },
+  ]
 }

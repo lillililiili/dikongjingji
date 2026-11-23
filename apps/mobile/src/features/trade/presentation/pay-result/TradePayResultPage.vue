@@ -13,6 +13,7 @@ import {
   orderDestination,
   orderLinkLabel,
   paidFrame,
+  resultRows,
   type TradeOrderDestination,
 } from '../../application/order-source'
 import { checkPaymentUntilSettled, paymentCheckResult } from '../../application/payment-check'
@@ -61,6 +62,7 @@ const result = computed(() => (order.value ? paymentCheckResult(order.value) : n
 const destination = computed(() => (order.value ? orderDestination(order.value) : null))
 const linkLabel = computed(() => (order.value ? orderLinkLabel(order.value) : '查看订单'))
 const paid = computed(() => (order.value ? paidFrame(order.value) : { title: '已支付', note: null }))
+const sourceRows = computed(() => (order.value ? resultRows(order.value) : []))
 
 // 支付遇到问题 (board PayResult): a conversation with platform support about this order.
 function askForHelp(): void {
@@ -253,6 +255,15 @@ onBeforeUnmount(() => {
         <view class="pay-result__row pay-result__row--line">
           <text class="pay-result__row-label">收款方</text>
           <text class="pay-result__row-value" data-testid="pay-result-payee">{{ order.merchant.name }}</text>
+        </view>
+        <view
+          v-for="row in sourceRows"
+          :key="row.key"
+          class="pay-result__row pay-result__row--line"
+          :data-testid="`pay-result-${row.key}`"
+        >
+          <text class="pay-result__row-label">{{ row.label }}</text>
+          <text class="pay-result__row-value">{{ row.value }}</text>
         </view>
         <view v-if="view === 'PAID' && order.paidAt" class="pay-result__row pay-result__row--line">
           <text class="pay-result__row-label">支付时间</text>

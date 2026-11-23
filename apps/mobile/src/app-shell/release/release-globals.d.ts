@@ -8,6 +8,7 @@ declare const __RELEASE_FEATURE_CART__: boolean
 declare const __RELEASE_FEATURE_TRADE__: boolean
 declare const __RELEASE_FEATURE_RENTAL__: boolean
 declare const __RELEASE_FEATURE_DEMAND__: boolean
+declare const __RELEASE_FEATURE_SERVICE_ORDER__: boolean
 declare const __RELEASE_FEATURE_PROSERVICE__: boolean
 declare const __RELEASE_FEATURE_CONTENT__: boolean
 declare const __RELEASE_FEATURE_LIVE__: boolean

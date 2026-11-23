@@ -2,6 +2,7 @@
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
+import { SERVICE_ORDER_PREVIEW_ENABLED } from '@/features/serviceorder/application/serviceorder-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import {
@@ -33,6 +34,8 @@ import {
   DEMAND_LIST_KEYS,
   demandListItem,
   demandListSources,
+  demandTabCounts,
+  type DemandKindTab,
   mallInquiryListItem,
   rentalListItem,
   type DemandListItem,
@@ -78,13 +81,15 @@ const emit = defineEmits<{
   mallQuotes: [inquiryId: string]
   goodsOrder: [orderId: string]
   mallReinquire: [target: MallInquiryTarget]
+  // The service order a chosen demand made (S4-3).
+  serviceOrder: [orderId: string]
 }>()
 
 type ListState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error' }
 
 // The DemandList board's underline tabs: which kind of record. 草稿 asks the server for drafts; the
 // other three narrow what the status chip loaded (inquiries have no drafts).
-type KindTab = 'ALL' | 'DEMAND' | 'INQUIRY' | 'DRAFT'
+type KindTab = DemandKindTab
 const KIND_TABS: ReadonlyArray<{ code: KindTab; label: string }> = [
   { code: 'ALL', label: '全部' },
   { code: 'DEMAND', label: '需求单' },
@@ -104,7 +109,10 @@ const sources = ref<MergedSource<DemandListItem>[]>([])
 const loadingMore = ref(false)
 const asking = ref<Asking | null>(null)
 const acting = ref(false)
+// The numbers after the tab names; null until all three totals are read (or when one failed).
+const tabCounts = ref<Record<KindTab, number> | null>(null)
 let requestVersion = 0
+let countsVersion = 0
 
 const hasMore = computed(() => mergedHasMore(sources.value))
 function inKindTab(item: DemandListItem): boolean {
@@ -120,7 +128,7 @@ const cards = computed(() => mergedItems(sources.value, DEMAND_LIST_KEYS).filter
         kind: 'DEMAND' as const,
         id: item.id,
         demand: item.demand,
-        view: describeDemandCard(item.demand),
+        view: describeDemandCard(item.demand, SERVICE_ORDER_PREVIEW_ENABLED),
         // A draft keeps the document icon (DemandList board); a sent demand shows its scene.
         cover: item.demand.status === 'DRAFT' ? null : resolveDemandPreviewCover(item.demand.type),
       }
@@ -171,12 +179,26 @@ async function fetchPage(token: string, index: number, page: number): Promise<{ 
   return { items: loaded.items.map(mallInquiryListItem), hasMore: loaded.hasMore }
 }
 
+// 全部 / 需求单 / 询价单 / 草稿 counts: the demand counts and the two inquiry lists' totals, read
+// alongside the list; a failure only leaves the numbers out.
+async function loadCounts(token: string): Promise<void> {
+  const requested = ++countsVersion
+  const total = (read: Promise<{ total: number }>) => read.then((page) => page.total).catch(() => null)
+  const [demands, rental, mall] = await Promise.all([
+    demandApi.counts(token).catch(() => null),
+    total(rentalApi.listInquiries(token, null, 1, 1)),
+    total(mallInquiryApi.list(token, null, 1, 1)),
+  ])
+  if (requested === countsVersion) tabCounts.value = demandTabCounts(demands, rental, mall)
+}
+
 async function load(): Promise<void> {
   const token = props.accessToken
   if (!token) {
     emit('login')
     return
   }
+  void loadCounts(token)
   const requested = ++requestVersion
   if (state.value.kind !== 'ready') state.value = { kind: 'loading' }
   try {
@@ -235,6 +257,9 @@ function act(action: DemandCardAction, demand: Demand): void {
     case 'VIEW': emit('view', demand.demandId); return
     case 'QUOTES': emit('quotes', demand.demandId); return
     case 'REPUBLISH': emit('republish', demand.demandId); return
+    case 'ORDER':
+      if (demand.serviceOrderId) emit('serviceOrder', demand.serviceOrderId)
+      return
     case 'CANCEL':
     case 'DELETE':
       asking.value = { action, demand }
@@ -338,7 +363,7 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
           :aria-pressed="kindTab === item.code"
           @click="selectKindTab(item.code)"
         >
-          {{ item.label }}
+          {{ item.label }}<text v-if="tabCounts" class="demand-list__tab-count" :data-testid="`demand-tab-count-${item.code.toLowerCase()}`">{{ tabCounts[item.code] }}</text>
         </button>
       </view>
       <scroll-view v-if="kindTab !== 'DRAFT'" class="demand-list__filters" scroll-x :show-scrollbar="false">
@@ -890,5 +915,10 @@ button::after {
   font-weight: 500;
   line-height: 44px;
   white-space: nowrap;
+}
+
+/* DemandList board: "全部 6", the number after a space in the tab's own type. */
+.demand-list__tab-count {
+  margin-left: 4px;
 }
 </style>

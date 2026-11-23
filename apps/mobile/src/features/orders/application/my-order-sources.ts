@@ -7,21 +7,23 @@ import type {
   InspectionOrderSummary,
 } from '../../inspection/domain/service-flow/order-center'
 import type { RentalOrder, RentalOrderStatus } from '../../rental/domain/rental'
+import type { ServiceOrderStatus, ServiceOrderSummary } from '../../serviceorder/domain/service-order'
 import type { TradeOrder, TradeOrderTab } from '../../trade/domain/trade-order'
 import type { MyOrderChip, MyOrderTab } from './my-orders-route'
 
 /**
  * The records behind 我的订单. There is no list of every order on the server (plan 06 R6-1: no new
  * aggregate API), so the page reads the existing lists and merges them newest first:
- * 商品 = goods orders (trade, mall source only); 服务 = rental orders and inspection orders;
- * 报名 = activity sign-ups and venue bookings.
+ * 商品 = goods orders (trade, mall source only); 服务 = rental orders, inspection orders and general
+ * service orders (S4-3); 报名 = activity sign-ups and venue bookings.
  */
-export type MyOrderKind = 'GOODS' | 'RENTAL' | 'INSPECTION' | 'ENROLL' | 'VENUE'
+export type MyOrderKind = 'GOODS' | 'RENTAL' | 'INSPECTION' | 'SERVICE' | 'ENROLL' | 'VENUE'
 
 export type MyOrderItem =
   | { kind: 'GOODS'; id: string; time: string; order: TradeOrder }
   | { kind: 'RENTAL'; id: string; time: string; order: RentalOrder }
   | { kind: 'INSPECTION'; id: string; time: string; order: InspectionOrderSummary }
+  | { kind: 'SERVICE'; id: string; time: string; order: ServiceOrderSummary }
   | { kind: 'ENROLL'; id: string; time: string; enrollment: Enrollment }
   | { kind: 'VENUE'; id: string; time: string; booking: VenueBooking }
 
@@ -31,19 +33,21 @@ export type MyOrderSource =
   | { kind: 'GOODS'; tab: TradeOrderTab }
   | { kind: 'RENTAL'; status: RentalOrderStatus | null }
   | { kind: 'INSPECTION'; stage: InspectionOrderFilter }
+  | { kind: 'SERVICE'; status: ServiceOrderStatus | null }
   | { kind: 'ENROLL'; bucket: EnrollmentStatus }
   | { kind: 'VENUE'; bucket: VenueBookingBucket }
 
 export const MY_ORDER_TAB_KINDS: Record<MyOrderTab, readonly MyOrderKind[]> = {
-  all: ['GOODS', 'RENTAL', 'INSPECTION', 'ENROLL', 'VENUE'],
+  all: ['GOODS', 'RENTAL', 'INSPECTION', 'SERVICE', 'ENROLL', 'VENUE'],
   goods: ['GOODS'],
-  service: ['RENTAL', 'INSPECTION'],
+  service: ['RENTAL', 'INSPECTION', 'SERVICE'],
   enroll: ['ENROLL', 'VENUE'],
 }
 
 /**
  * Goods and rental orders come newest order first, so they are paged and merged by that time
- * (shared/list/merged-pages.ts). The other three lists are sorted otherwise on the server —
+ * (shared/list/merged-pages.ts); service orders come by their last change, so they are paged and
+ * merged by that time (serviceItem). The other three lists are sorted otherwise on the server —
  * inspection orders by their last change, sign-ups and venue bookings by the session time — so
  * they are read to the end at once and only sorted here.
  */
@@ -55,6 +59,7 @@ const ALL_SOURCES: readonly MyOrderSource[] = [
   { kind: 'GOODS', tab: 'ALL' },
   { kind: 'RENTAL', status: null },
   { kind: 'INSPECTION', stage: 'ALL' },
+  { kind: 'SERVICE', status: null },
   { kind: 'ENROLL', bucket: 'UPCOMING' },
   { kind: 'ENROLL', bucket: 'FINISHED' },
   { kind: 'ENROLL', bucket: 'CANCELLED' },
@@ -68,6 +73,7 @@ const CHIP_SOURCES: Record<MyOrderChip, readonly MyOrderSource[]> = {
   pay: [
     { kind: 'GOODS', tab: 'TO_PAY' },
     { kind: 'RENTAL', status: 'PENDING_PAYMENT' },
+    { kind: 'SERVICE', status: 'AWAITING_PAYMENT' },
     // Unpaid sign-ups and bookings are listed with the coming ones.
     { kind: 'ENROLL', bucket: 'UPCOMING' },
     { kind: 'VENUE', bucket: 'UPCOMING' },
@@ -77,14 +83,23 @@ const CHIP_SOURCES: Record<MyOrderChip, readonly MyOrderSource[]> = {
     { kind: 'RENTAL', status: 'AWAITING_HANDOVER' },
     { kind: 'RENTAL', status: 'HANDOVER_RECORDED' },
     { kind: 'INSPECTION', stage: 'IN_PROGRESS' },
+    // A service order paid and waiting for the work, being worked on or reworked.
+    { kind: 'SERVICE', status: 'AWAITING_START' },
+    { kind: 'SERVICE', status: 'IN_SERVICE' },
+    { kind: 'SERVICE', status: 'REWORK' },
   ],
   attend: [
     { kind: 'ENROLL', bucket: 'UPCOMING' },
     { kind: 'VENUE', bucket: 'UPCOMING' },
   ],
-  accept: [{ kind: 'INSPECTION', stage: 'AWAITING_ACCEPTANCE' }],
+  accept: [
+    { kind: 'INSPECTION', stage: 'AWAITING_ACCEPTANCE' },
+    { kind: 'SERVICE', status: 'DELIVERED' },
+  ],
   refund: [
     { kind: 'GOODS', tab: 'REFUND' },
+    // A paid service order cancelled before the work is refunded whole.
+    { kind: 'SERVICE', status: 'CANCELLED' },
     // A sign-up may have had some of its people refunded and still be coming or over.
     { kind: 'ENROLL', bucket: 'UPCOMING' },
     { kind: 'ENROLL', bucket: 'FINISHED' },
@@ -133,6 +148,18 @@ export function myOrderChips(item: MyOrderItem): MyOrderChip[] {
       if (item.order.stage === 'IN_PROGRESS') return ['ship']
       if (item.order.stage === 'AWAITING_ACCEPTANCE') return ['accept']
       return []
+    case 'SERVICE':
+      switch (item.order.status) {
+        case 'AWAITING_PAYMENT': return ['pay']
+        case 'AWAITING_START':
+        case 'IN_SERVICE':
+        case 'REWORK': return ['ship']
+        case 'DELIVERED': return ['accept']
+        // The summary has no refunds: a cancelled order that was paid was refunded whole (§28.2
+        // rule 7). A terminated one may have refunded nothing, so it stays out of 退款/售后.
+        case 'CANCELLED': return item.order.paidAt ? ['refund'] : []
+        default: return []
+      }
     case 'ENROLL': {
       const enrollment = item.enrollment
       const chips: MyOrderChip[] = []
@@ -170,6 +197,11 @@ export function rentalItem(order: RentalOrder): MyOrderItem {
 
 export function inspectionItem(order: InspectionOrderSummary): MyOrderItem {
   return { kind: 'INSPECTION', id: `inspection:${order.reservationId}`, time: order.submittedAt, order }
+}
+
+// The service-order list is sorted by the last change on the server, so that is the merge time.
+export function serviceItem(order: ServiceOrderSummary): MyOrderItem {
+  return { kind: 'SERVICE', id: `service:${order.orderId}`, time: order.updatedAt, order }
 }
 
 export function enrollItem(enrollment: Enrollment): MyOrderItem {

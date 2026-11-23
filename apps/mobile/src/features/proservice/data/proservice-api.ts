@@ -12,6 +12,7 @@ import type {
   ProServiceQuery,
   ProServiceType,
   ProviderPage,
+  ProviderProfile,
 } from '../domain/proservice'
 
 interface PriceDto {
@@ -63,6 +64,15 @@ interface DetailDto extends Omit<CardDto, 'tags'> {
     qualificationReviewed?: boolean | null
   } | null
   cities: ProServiceCity[]
+  warrantyText?: string | null
+}
+
+interface ProviderProfileDto {
+  legalEntity?: string | null
+  serviceModes?: string | null
+  authorizationUntil?: string | null
+  deliverables?: string[] | null
+  localTeamLabel?: string | null
 }
 
 interface ProviderPageDto {
@@ -81,6 +91,7 @@ interface ProviderPageDto {
   }>
   proServices: CardDto[]
   cities: ProServiceCity[]
+  profile?: ProviderProfileDto | null
 }
 
 export interface ProServiceApi {
@@ -197,6 +208,7 @@ export function createProServiceApi(http: PublicApiHttpClient): ProServiceApi {
             }
           : null,
         cities: copyCities(dto.cities),
+        warrantyText: dto.warrantyText?.trim() || null,
       }
     },
 
@@ -221,7 +233,20 @@ export function createProServiceApi(http: PublicApiHttpClient): ProServiceApi {
         })),
         proServices: dto.proServices.map(toProServiceCard),
         cities: copyCities(dto.cities),
+        profile: toProviderProfile(dto.profile),
       }
     },
+  }
+}
+
+// Only a profile the platform approved arrives; blank rows are left out like missing ones.
+export function toProviderProfile(dto: ProviderProfileDto | null | undefined): ProviderProfile | null {
+  if (!dto) return null
+  return {
+    legalEntity: dto.legalEntity?.trim() ?? '',
+    serviceModes: dto.serviceModes?.trim() ?? '',
+    authorizationUntil: dto.authorizationUntil?.trim() || null,
+    deliverables: (dto.deliverables ?? []).map((item) => item.trim()).filter(Boolean),
+    localTeamLabel: dto.localTeamLabel?.trim() || null,
   }
 }

@@ -12,6 +12,7 @@ import {
 import DemandComparePage from '@/features/demand/presentation/compare/DemandComparePage.vue'
 import DemandUnavailable from '@/features/demand/presentation/shared/DemandUnavailable.vue'
 import { buildProviderPageUrl } from '@/features/proservice/navigation/proservice-routes'
+import { buildServiceOrderDetailUrl } from '@/features/serviceorder/navigation/service-order-routes'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 
@@ -38,6 +39,10 @@ function openLogin(): void {
 
 function republish(id: string): void {
   uni.navigateTo({ url: buildDemandPublishUrl({ from: id }) })
+}
+
+function open(url: string): void {
+  uni.navigateTo({ url })
 }
 
 function openProvider(providerId: string, cityCode: string): void {
@@ -69,6 +74,7 @@ onShow(() => {
     @login="openLogin"
     @republish="republish"
     @open-provider="openProvider"
+    @service-order="(orderId) => open(buildServiceOrderDetailUrl(orderId))"
   />
   <DemandUnavailable v-else-if="!DEMAND_PREVIEW_ENABLED" />
 </template>

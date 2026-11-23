@@ -16,6 +16,9 @@ interface DemandChoiceOptions {
   reload(): Promise<void>
   // A line for the page to show (the server's answer in words).
   notify(message: string): void
+  // The choice made a service order (S4-3): the page goes to it. Absent where service orders are
+  // not open, and then the choice stays on this page.
+  openServiceOrder?(serviceOrderId: string): void
 }
 
 /**
@@ -49,9 +52,13 @@ export function useDemandChoice(options: DemandChoiceOptions) {
     if (!demandId || version === null) return
     busy.value = true
     try {
-      await demandApi.choose(token, demandId, version, quote.quoteId, quote.version)
+      const chosen = await demandApi.choose(token, demandId, version, quote.quoteId, quote.version)
       asking.value = null
       await options.reload()
+      if (chosen.serviceOrderId && options.openServiceOrder) {
+        options.openServiceOrder(chosen.serviceOrderId)
+        return
+      }
       options.notify(`已选定 ${quote.provider.name} 的报价`)
     } catch (error) {
       if (error instanceof ApiRequestError && (error.status === 401 || error.code === 'COMMON_UNAUTHORIZED')) {

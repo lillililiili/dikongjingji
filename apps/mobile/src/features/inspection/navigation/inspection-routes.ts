@@ -151,6 +151,11 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   '/pages/rental/order': { required: 'rentalOrderId', allowed: ['rentalOrderId'] },
   '/pages/rental/contract': { required: 'rentalOrderId', allowed: ['rentalOrderId'] },
   '/pages/mine/rental-orders': { allowed: ['status'] },
+  // General service order pages (features/serviceorder/navigation/service-order-routes.ts, S4-3),
+  // repeated for the same reason; service-order-routes.test.ts checks them.
+  '/pages/service-order/detail': { required: 'orderId', allowed: ['orderId'] },
+  '/pages/service-order/plan': { required: 'orderId', allowed: ['orderId'] },
+  '/pages/service-order/delivery': { required: 'orderId', allowed: ['orderId'] },
   // Customer-service and settings pages (features/support/navigation/support-routes.ts and
   // features/settings/navigation/settings-routes.ts, G1), repeated for the same reason;
   // support-routes.test.ts checks them. The card fields are display hints for the chat's banner.

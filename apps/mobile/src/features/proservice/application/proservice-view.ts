@@ -130,7 +130,8 @@ export type ProServiceSection =
   | { kind: 'outputs'; title: string; lines: ProServiceLine[] }
   | { kind: 'modes'; title: string; lines: ProServiceLine[] }
   | { kind: 'rows'; title: string; lines: ProServiceLine[]; note: string }
-  | { kind: 'badges'; title: string; lines: ProServiceLine[] }
+  // note: the grey line under the rows, the warranty of 1.2.0 (SvcMaint board “维修后质保期 …”).
+  | { kind: 'badges'; title: string; lines: ProServiceLine[]; note: string }
 
 export function buildProServiceSections(detail: ProServiceDetail): ProServiceSection[] {
   const scope = (title: string, note = ''): ProServiceSection =>
@@ -147,7 +148,7 @@ export function buildProServiceSections(detail: ProServiceDetail): ProServiceSec
     MAINTENANCE: [
       scope('适用设备', '其他品牌和型号在需求里说明，服务商确认后接单'),
       modes('服务方式'),
-      { kind: 'badges', title: '保修与收费边界', lines: detail.terms },
+      { kind: 'badges', title: '保修与收费边界', lines: detail.terms, note: detail.warrantyText ?? '' },
     ],
     TECH_SUPPORT: [
       scope('支持内容'),
@@ -155,8 +156,11 @@ export function buildProServiceSections(detail: ProServiceDetail): ProServiceSec
       { kind: 'rows', title: '响应说明', lines: detail.terms, note: '' },
     ],
   }
-  return sections[detail.type].filter((section) =>
-    section.kind === 'scope' ? section.items.length > 0 : section.lines.length > 0)
+  return sections[detail.type].filter((section) => {
+    if (section.kind === 'scope') return section.items.length > 0
+    if (section.kind === 'badges') return section.lines.length > 0 || section.note !== ''
+    return section.lines.length > 0
+  })
 }
 
 // Label colours of the 保修与收费边界 rows (SvcMaint board), by position.

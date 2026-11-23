@@ -7,6 +7,7 @@ import type {
   InspectionOrderSummary,
 } from '../../inspection/domain/service-flow/order-center'
 import type { RentalOrder, RentalOrderStatus } from '../../rental/domain/rental'
+import type { ServiceOrderStatus, ServiceOrderSummary } from '../../serviceorder/domain/service-order'
 import type { TradeOrder, TradeOrderTab } from '../../trade/domain/trade-order'
 import {
   MY_ORDER_KEYS,
@@ -15,6 +16,7 @@ import {
   inspectionItem,
   isCompleteSource,
   rentalItem,
+  serviceItem,
   venueItem,
   type MyOrderItem,
   type MyOrderSource,
@@ -31,6 +33,7 @@ export interface MyOrderApis {
   goods(token: string, tab: TradeOrderTab, page: number, size: number): Promise<Page<TradeOrder>>
   rental(token: string, status: RentalOrderStatus | null, page: number, size: number): Promise<Page<RentalOrder>>
   inspection(stage: InspectionOrderFilter, page: number, size: number): Promise<Page<InspectionOrderSummary>>
+  service(token: string, status: ServiceOrderStatus | null, page: number, size: number): Promise<Page<ServiceOrderSummary>>
   enroll(token: string, bucket: EnrollmentStatus, page: number, size: number): Promise<Page<Enrollment>>
   venue(token: string, bucket: VenueBookingBucket, page: number, size: number): Promise<Page<VenueBooking>>
 }
@@ -54,6 +57,10 @@ async function fetchOne(apis: MyOrderApis, token: string, source: MyOrderSource,
     case 'INSPECTION': {
       const loaded = await apis.inspection(source.stage, page, size)
       return { items: loaded.items.map(inspectionItem), hasMore: loaded.hasMore }
+    }
+    case 'SERVICE': {
+      const loaded = await apis.service(token, source.status, page, size)
+      return { items: loaded.items.map(serviceItem), hasMore: loaded.hasMore }
     }
     case 'ENROLL': {
       const loaded = await apis.enroll(token, source.bucket, page, size)

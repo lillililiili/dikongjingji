@@ -6,6 +6,7 @@ import {
   type Demand,
   type DemandPublisher,
   type DemandQuote,
+  type DemandQuoteLine,
   type DemandQuoteSort,
   type DemandStatus,
 } from '../domain/demand'
@@ -122,7 +123,7 @@ export function describeDemandLine(demand: Demand): string {
   }
 }
 
-export type DemandCardAction = 'EDIT' | 'DELETE' | 'CANCEL' | 'VIEW' | 'QUOTES' | 'REPUBLISH'
+export type DemandCardAction = 'EDIT' | 'DELETE' | 'CANCEL' | 'VIEW' | 'QUOTES' | 'REPUBLISH' | 'ORDER'
 
 export interface DemandCardButton {
   action: DemandCardAction
@@ -145,9 +146,10 @@ export interface DemandCardView {
 
 /**
  * One card of 我的 → 需求与报价. What may be done comes from the server's flags (cancellable,
- * deletable, editable); the page never decides that from the status alone.
+ * deletable, editable); the page never decides that from the status alone. A chosen demand with a
+ * service order (S4-3) also offers 查看订单 where service orders are open.
  */
-export function describeDemandCard(demand: Demand): DemandCardView {
+export function describeDemandCard(demand: Demand, serviceOrdersOpen = false): DemandCardView {
   const buttons: DemandCardButton[] = []
   let open: DemandCardAction = 'VIEW'
   if (demand.status === 'DRAFT') {
@@ -163,6 +165,7 @@ export function describeDemandCard(demand: Demand): DemandCardView {
     buttons.push({ action: 'QUOTES', label: '比选报价', primary: true })
   } else if (demand.status === 'CHOSEN') {
     open = 'QUOTES'
+    if (serviceOrdersOpen && demand.serviceOrderId) buttons.push({ action: 'ORDER', label: '查看订单', primary: false })
     buttons.push({ action: 'QUOTES', label: '查看报价', primary: false })
   } else {
     buttons.push({ action: 'VIEW', label: '查看需求', primary: false })
@@ -247,22 +250,106 @@ export interface DemandCompareRow {
   // One cell per quote, in the quotes' order.
   cells: string[]
   price?: boolean
+  // Cells that say the item is not included (影像存档 0 天 → 不含), drawn grey like the board.
+  muted?: boolean[]
+}
+
+// "48 小时内"
+export function formatReportHours(hours: number): string {
+  return `${hours} 小时内`
+}
+
+// "90 天"; 0 days means the footage is not kept.
+export function formatArchiveDays(days: number): string {
+  return days > 0 ? `${days} 天` : '不含'
+}
+
+// "11/25" from YYYY-MM-DD.
+export function formatQuoteDate(date: string): string {
+  const [, month, day] = date.split('-')
+  return month && day ? `${month}/${day}` : date
+}
+
+export interface DemandQuoteLineView {
+  key: string
+  name: string
+  // "6 次 × ¥1,800"; '' for a line not counted by the unit.
+  quantity: string
+  amount: string
+}
+
+// 报价明细 as PlanConfirm and PlanCompare draw it.
+export function describeDemandQuoteLines(lines: DemandQuoteLine[]): DemandQuoteLineView[] {
+  return lines.map((line, index) => ({
+    key: `${index}-${line.name}`,
+    name: line.name,
+    quantity: line.quantity !== null && line.unitAmountMinor !== null
+      ? `${line.quantity}${line.unit ? ` ${line.unit}` : ''} × ${formatDemandAmount(line.unitAmountMinor)}`
+      : '',
+    amount: formatDemandAmount(line.amountMinor),
+  }))
+}
+
+type QuoteItemKey = 'team' | 'firstVisit' | 'nightWork' | 'report' | 'archive'
+
+// The comparison items of 1.3.0 a quote says something about; null when the provider left it out.
+function quoteItem(quote: DemandQuote, key: QuoteItemKey): string | null {
+  switch (key) {
+    case 'team': return quote.team
+    case 'firstVisit': return quote.firstVisitDate ? formatQuoteDate(quote.firstVisitDate) : null
+    case 'nightWork': return quote.nightWork
+    case 'report': return quote.reportHours !== null ? formatReportHours(quote.reportHours) : null
+    case 'archive': return quote.archiveDays !== null ? formatArchiveDays(quote.archiveDays) : null
+  }
+}
+
+const QUOTE_ITEM_LABELS: Record<QuoteItemKey, string> = {
+  team: '服务团队',
+  firstVisit: '首次进场',
+  nightWork: '夜间作业',
+  report: '报告时效',
+  archive: '影像存档',
+}
+
+// A comparison row only when at least one quote fills it; the others show a dash, never a guess.
+function itemRow(quotes: DemandQuote[], key: QuoteItemKey): DemandCompareRow | null {
+  const values = quotes.map((quote) => quoteItem(quote, key))
+  if (values.every((value) => value === null)) return null
+  return {
+    label: QUOTE_ITEM_LABELS[key],
+    cells: values.map((value) => value ?? '—'),
+    muted: values.map((value) => value === null || value === '不含'),
+  }
+}
+
+// The 1.3.0 items of one quote, as label and value rows (Quote card, a provider tab of PlanCompare).
+export function describeDemandQuoteItems(quote: DemandQuote): Array<{ label: string; value: string }> {
+  return (['team', 'firstVisit', 'nightWork', 'report', 'archive'] as const).flatMap((key) => {
+    const value = quoteItem(quote, key)
+    return value === null ? [] : [{ label: QUOTE_ITEM_LABELS[key], value }]
+  })
 }
 
 // Only what the quotes say; nothing is filled in for a provider that did not say it.
 export function buildDemandCompareRows(quotes: DemandQuote[]): DemandCompareRow[] {
-  return [
+  const rows: Array<DemandCompareRow | null> = [
     { label: '总价', cells: quotes.map((quote) => formatDemandAmount(quote.amountMinor)), price: true },
     { label: '方案版本', cells: quotes.map((quote) => `v${quote.version}`) },
     // PlanCompare board: 已审核 when the platform reviewed the provider (R6-4), else its own label.
     { label: '资质', cells: quotes.map((quote) => (quote.provider.qualificationReviewed ? '已审核' : providerCredentialLabel(false, quote.provider.certificationLabel) ?? '—')) },
+    itemRow(quotes, 'team'),
     { label: '方式', cells: quotes.map((quote) => quote.method) },
     { label: '工期', cells: quotes.map((quote) => quote.schedule) },
     { label: '周期', cells: quotes.map((quote) => `${quote.durationDays} 天`) },
+    itemRow(quotes, 'firstVisit'),
+    itemRow(quotes, 'nightWork'),
+    itemRow(quotes, 'report'),
     { label: '交付物', cells: quotes.map((quote) => quote.deliverables) },
+    itemRow(quotes, 'archive'),
     { label: '有效期', cells: quotes.map((quote) => (quote.validUntil ? formatDemandInstant(quote.validUntil) : '—')) },
     { label: '状态', cells: quotes.map((quote) => DEMAND_QUOTE_STATUS_TAGS[quote.status] ?? (quote.choosable ? '可选择' : '—')) },
   ]
+  return rows.filter((row): row is DemandCompareRow => row !== null)
 }
 
 export interface DemandChoiceFailureInput {
@@ -298,17 +385,33 @@ export function describeDemandChoiceFailure(failure: DemandChoiceFailureInput | 
 }
 
 /**
- * What comes after a quote is chosen. Plan confirmation, the contract and payment need a general
- * service order, which F1 does not build (§22.1), so the gate is closed and the page says so
- * instead of offering a button that leads nowhere.
+ * What comes after a quote is chosen. From 1.3.0 an aerial, survey, maintenance or tech-support
+ * demand makes a service order when chosen (§28): its plan, payment and work are on the order. An
+ * inspection demand still stops at the choice (inspection has its own booking flow), and so does
+ * a build where service orders are not open: the gate stays closed and the page says so.
  */
 export type DemandFollowUp =
+  | { kind: 'ORDER'; serviceOrderId: string }
   | { kind: 'UNAVAILABLE'; title: string; text: string }
 
-export function resolveDemandFollowUp(): DemandFollowUp {
+export function resolveDemandFollowUp(demand?: Pick<Demand, 'serviceOrderId'> | null, serviceOrdersOpen = false): DemandFollowUp {
+  if (serviceOrdersOpen && demand?.serviceOrderId) return { kind: 'ORDER', serviceOrderId: demand.serviceOrderId }
   return {
     kind: 'UNAVAILABLE',
     title: '方案确认和付款还没有开通',
     text: '选定报价不产生费用。方案确认、合同和付款开通后，从这里继续。',
   }
+}
+
+// Whether choosing a quote of this demand makes a service order (§28.2 rule 1).
+export function demandMakesServiceOrder(demand: Pick<Demand, 'type'>, serviceOrdersOpen: boolean): boolean {
+  return serviceOrdersOpen && demand.type !== 'INSPECTION'
+}
+
+// The text of the 选择此报价 sheet.
+export function demandChoiceText(demand: Pick<Demand, 'type'>, quote: DemandQuote, serviceOrdersOpen: boolean): string {
+  const head = `总价 ${formatDemandAmount(quote.amountMinor)}（方案 v${quote.version}）。选定后不能再选别家，其余报价会标为未选中。`
+  return demandMakesServiceOrder(demand, serviceOrdersOpen)
+    ? `${head}选定后生成服务订单，服务商出方案后由你确认并一次付清。`
+    : `${head}选定不产生费用，方案确认和付款还没有开通。`
 }
