@@ -14,6 +14,8 @@ export const INSPECTION_FULFILLMENT_PATH =
 export const INSPECTION_DELIVERY_PATH =
   '/pages/service/inspection/delivery'
 export const INSPECTION_ORDER_CENTER_PATH = '/pages/mine/inspection-orders'
+// S4-1 (board OrderService): one service order, its payment nodes and where it stands.
+export const INSPECTION_ORDER_PATH = '/pages/mine/inspection-order'
 export const MINE_TAB_PATH = '/pages/mine/index'
 export const MESSAGE_TAB_PATH = '/pages/message/index'
 
@@ -244,6 +246,10 @@ export function buildInspectionPlanConfirmationUrl(planId: string): string {
   return `${INSPECTION_PLAN_CONFIRMATION_PATH}?planId=${encodeURIComponent(
     planId.trim(),
   )}`
+}
+
+export function buildInspectionOrderUrl(serviceOrderId: string): string {
+  return `${INSPECTION_ORDER_PATH}?serviceOrderId=${encodeURIComponent(serviceOrderId.trim())}`
 }
 
 export function buildInspectionFulfillmentUrl(

@@ -5,6 +5,7 @@ import { ref } from 'vue'
 import { HOME_ROOT_PATH } from '@/app-shell/navigation/root-tabs'
 import { leaveTradePage, showOrderDestination } from '@/app-shell/navigation/trade-destination'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
+import { describeInspectionTradeOrder } from '@/features/inspection/application/service-flow/inspection-trade-source'
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
 import { buildCashierUrl, buildPayResultUrl } from '@/features/trade/navigation/trade-routes'
@@ -54,6 +55,7 @@ onShow(() => {
     :order-id="orderId"
     :access-token="accessToken"
     :refresh-key="refreshKey"
+    :describe-source="describeInspectionTradeOrder"
     @back="(destination) => leaveTradePage(destination, false)"
     @login="openLogin"
     @home="goHome"

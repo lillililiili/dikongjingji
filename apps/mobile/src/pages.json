@@ -58,6 +58,13 @@
       }
     },
     {
+      "path": "pages/mine/inspection-order",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/service/inspection/index",
       "style": {
         "navigationBarTitleText": "我要巡检",

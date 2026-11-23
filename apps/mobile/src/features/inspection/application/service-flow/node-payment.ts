@@ -1,14 +1,11 @@
-import { buildCashierUrl, buildPayResultUrl } from '@/features/trade/navigation/trade-routes'
-
 import type { InspectionPaymentLaunch } from '../../data/service-flow/inspection-plan-api'
 import { inspectionPlanApi } from '../../data/service-flow/uni-booking-http-client'
+import { paymentDestinationUrl } from './payment-destination'
 
 // S4-1: pay one node of an inspection order. The server opens (or returns) the trade order; the App
 // pays it on the trade module's cashier, or shows its result when it is already paid.
 
-export function paymentDestinationUrl(launch: InspectionPaymentLaunch): string {
-  return launch.paid ? buildPayResultUrl(launch.tradeOrderId) : buildCashierUrl(launch.tradeOrderId)
-}
+export { paymentDestinationUrl }
 
 export async function openNodePayment(
   serviceOrderId: string,
