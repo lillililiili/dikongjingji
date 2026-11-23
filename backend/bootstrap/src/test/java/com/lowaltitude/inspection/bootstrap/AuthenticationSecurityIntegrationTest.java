@@ -72,6 +72,9 @@ import org.springframework.test.web.servlet.MockMvc;
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        // S3-1 第三部分：巡检和专业服务目录
+        com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
+        com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -598,7 +601,22 @@ class AuthenticationSecurityIntegrationTest {
                 delete(orgPath + "/attachments/" + attachment), post(orgPath + "/accounts"),
                 put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"),
                 // S3-1 第三部分：素材上传与预览
-                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"));
+                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"),
+                // S3-1 第三部分：巡检和专业服务目录
+                get("/api/v1/ops/inspection/categories"), post("/api/v1/ops/inspection/categories"),
+                put("/api/v1/ops/inspection/categories/POWER"), put("/api/v1/ops/inspection/categories/POWER/status"),
+                get("/api/v1/ops/inspection/categories/POWER/changes"),
+                get("/api/v1/ops/inspection/services"), post("/api/v1/ops/inspection/services"),
+                get("/api/v1/ops/inspection/services/" + attachment),
+                put("/api/v1/ops/inspection/services/" + attachment),
+                post("/api/v1/ops/inspection/services/" + attachment + "/publish"),
+                post("/api/v1/ops/inspection/services/" + attachment + "/offline"),
+                get("/api/v1/ops/inspection/services/" + attachment + "/changes"),
+                get("/api/v1/ops/pro-services"), post("/api/v1/ops/pro-services"),
+                get("/api/v1/ops/pro-services/" + attachment), put("/api/v1/ops/pro-services/" + attachment),
+                post("/api/v1/ops/pro-services/" + attachment + "/publish"),
+                post("/api/v1/ops/pro-services/" + attachment + "/offline"),
+                get("/api/v1/ops/pro-services/" + attachment + "/changes"));
     }
 
     private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {

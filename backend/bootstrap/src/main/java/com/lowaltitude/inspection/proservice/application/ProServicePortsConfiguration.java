@@ -18,15 +18,33 @@ public class ProServicePortsConfiguration {
 
     @Bean
     ProServicePorts.CityDirectory proServiceCityDirectory(CityDirectoryReadService cities) {
-        return cityCode -> {
-            if (cityCode == null || cityCode.isBlank()) {
-                return Optional.empty();
+        return new ProServicePorts.CityDirectory() {
+            @Override
+            public Optional<String> cityName(String cityCode) {
+                if (cityCode == null || cityCode.isBlank()) {
+                    return Optional.empty();
+                }
+                return cities.directory().provinces().stream()
+                        .flatMap(province -> province.cities().stream())
+                        .filter(city -> Objects.equals(city.code(), cityCode))
+                        .findFirst()
+                        .map(CityDirectoryReadService.CityView::name);
             }
-            return cities.directory().provinces().stream()
-                    .flatMap(province -> province.cities().stream())
-                    .filter(city -> Objects.equals(city.code(), cityCode))
-                    .findFirst()
-                    .map(CityDirectoryReadService.CityView::name);
+
+            // 运营端（S3-1）一次校验多个城市：只读一次目录。
+            @Override
+            public java.util.Map<String, String> cityNames(java.util.Collection<String> cityCodes) {
+                java.util.Map<String, String> all = new java.util.HashMap<>();
+                cities.directory().provinces().forEach(province -> province.cities()
+                        .forEach(city -> all.put(city.code(), city.name())));
+                java.util.Map<String, String> names = new java.util.LinkedHashMap<>();
+                for (String cityCode : cityCodes) {
+                    if (all.containsKey(cityCode)) {
+                        names.put(cityCode, all.get(cityCode));
+                    }
+                }
+                return names;
+            }
         };
     }
 
