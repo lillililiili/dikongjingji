@@ -166,7 +166,7 @@ export interface InspectionCashierView {
   paidTitle: string
   paidNote: string
   failedNote: string
-  /** After payment: where the primary button leads, and an optional way back to the order. */
+  /** After payment: where the primary button leads, and an optional second way on. */
   next: { label: string; target: 'FULFILLMENT' | 'ORDER' }
   back: { label: string; target: 'FULFILLMENT' | 'ORDER' } | null
 }
@@ -212,8 +212,9 @@ export function describeInspectionCashier(
       paidTitle: `第 ${node.visitNo} 次服务费已支付`,
       paidNote: unpaidAfter > 0 ? `其余 ${unpaidAfter} 次在每次验收后支付` : '全部款项已结清，服务单已完成',
       failedNote: `第 ${node.visitNo} 次服务费仍为待支付`,
-      next: { label: '查看后续巡检进度', target: 'FULFILLMENT' },
-      back: { label: '返回服务订单', target: 'ORDER' },
+      // Board CashierFinal: 返回服务订单 is the main button, the visits are the second way on.
+      next: { label: '返回服务订单', target: 'ORDER' },
+      back: { label: '查看后续巡检进度', target: 'FULFILLMENT' },
     }
   }
   return {

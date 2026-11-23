@@ -29,6 +29,8 @@ export interface SourceOrderView {
   dueChip?: string
   // Rows after 收款方, in order (付款主体, 付款节点).
   rows?: CashierRow[]
+  // Rows after 收款方 on the result page (board CashierFirst's paid frame: 服务订单, 付款主体).
+  resultRows?: CashierRow[]
   paidTitle?: string
   paidNote?: string
   failedNote?: string

@@ -212,7 +212,7 @@ async function runAction(): Promise<void> {
           </view>
           <text
             class="order-detail__node-amount"
-            :class="{ 'order-detail__node-amount--due': row.isDue, 'order-detail__node-amount--muted': row.isMuted }"
+            :class="{ 'order-detail__node-amount--due': row.isDue || Boolean(row.tag), 'order-detail__node-amount--muted': row.isMuted }"
           >{{ row.amountText }}</text>
         </view>
         <view v-if="paymentCard.records.length" class="order-detail__records" data-testid="order-detail-records">
@@ -475,8 +475,8 @@ button::after {
 }
 
 .order-detail__plan-rows {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px 12px;
 }
 
@@ -486,9 +486,6 @@ button::after {
   line-height: 18px;
 }
 
-.order-detail__plan-row:last-child {
-  grid-column: 1 / -1;
-}
 
 .order-detail__payment {
   padding: 14px 14px 4px;

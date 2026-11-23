@@ -200,11 +200,16 @@ export function describePaymentNodes(
   if (!nodes.length) return []
   // A confirmed order knows what is paid: the same rows as the order page.
   if (isConfirmed && state.order && state.order.paymentMode === 'NODES') {
+    // Before any visit fee is paid the plan keeps its own wording (board PlanConfirm, confirmed frame).
+    const noVisitFeePaid = !(state.order.paymentNodes ?? [])
+      .some((node) => node.nodeType === 'PER_VISIT' && node.paidAt)
     return describeOrderPaymentGroups(state.order).map((row) => ({
       key: row.key,
       name: row.name,
       amountText: row.amountText,
-      stateText: row.stateText,
+      stateText: row.key === 'PER_VISIT' && noVisitFeePaid && perVisit.length > 1 && state.order?.status !== 'CANCELLED'
+        ? describePerVisitAmounts(perVisit.map((node) => node.amountMinor))
+        : row.stateText,
       isDue: row.isDue,
       isMuted: row.isMuted,
     }))

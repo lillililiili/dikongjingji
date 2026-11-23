@@ -189,8 +189,8 @@ describe('cashier wording (boards CashierFirst, CashierFinal, CashierOneFirst, C
       nodeRow: '首付已付 · 第 1/6 次 ¥2,170',
       paidTitle: '第 1 次服务费已支付',
       paidNote: '其余 5 次在每次验收后支付',
-      next: { label: '查看后续巡检进度', target: 'FULFILLMENT' },
-      back: { label: '返回服务订单', target: 'ORDER' },
+      next: { label: '返回服务订单', target: 'ORDER' },
+      back: { label: '查看后续巡检进度', target: 'FULFILLMENT' },
     }))
   })
 

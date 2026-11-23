@@ -37,6 +37,10 @@ export function toSourceView(order: TradeOrder, serviceOrder: InspectionServiceO
       ...(view.payer ? [{ key: 'inspection-payer', label: '付款主体', value: view.payer }] : []),
       { key: 'inspection-node', label: '付款节点', value: view.nodeRow },
     ],
+    resultRows: [
+      { key: 'inspection-order', label: '服务订单', value: order.lines[0]?.productName ?? '' },
+      ...(view.payer ? [{ key: 'inspection-payer', label: '付款主体', value: view.payer }] : []),
+    ],
     paidTitle: view.paidTitle,
     paidNote: view.paidNote,
     failedNote: view.failedNote,
