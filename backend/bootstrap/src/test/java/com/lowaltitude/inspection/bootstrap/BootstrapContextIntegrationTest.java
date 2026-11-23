@@ -71,6 +71,7 @@ import org.springframework.web.bind.annotation.RestController;
         com.lowaltitude.inspection.proservice.application.ProviderProfileService.class,
         com.lowaltitude.inspection.mall.application.MallInquiryService.class,
         com.lowaltitude.inspection.support.application.SupportService.class,
+        com.lowaltitude.inspection.favorite.application.FavoriteService.class,
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,

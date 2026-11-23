@@ -139,6 +139,16 @@ class ModuleFlywayFactoryTest {
     }
 
     @Test
+    void keepsFavoriteVersionsInTheirOwnHistoryTable() {
+        Flyway favorite = new ModuleFlywayFactory().favorite(mock(DataSource.class));
+
+        assertThat(favorite.getConfiguration().getTable()).isEqualTo("flyway_history_favorite");
+        assertThat(locationDescriptors(favorite)).containsExactly("classpath:db/migration/favorite");
+        assertThat(favorite.getConfiguration().isBaselineOnMigrate()).isTrue();
+        assertThat(favorite.getConfiguration().getBaselineVersion().getVersion()).isEqualTo("0");
+    }
+
+    @Test
     void keepsMallVersionsInTheirOwnHistoryTable() {
         Flyway mall = new ModuleFlywayFactory().mall(mock(DataSource.class));
 

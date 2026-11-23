@@ -134,6 +134,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway favorite(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/favorite",
+                "flyway_history_favorite",
+                true);
+    }
+
     public Flyway course(DataSource dataSource) {
         return build(
                 dataSource,

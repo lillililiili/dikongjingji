@@ -9,6 +9,8 @@ import { loadRelatedContentRows, type RelatedContentRow } from '@/features/conte
 import { contentApi } from '@/features/content/data/content-api-client'
 import ContentRelatedBlock from '@/features/content/presentation/related/ContentRelatedBlock.vue'
 import { EXPERIENCE_PREVIEW_ENABLED } from '@/features/experience/application/experience-preview'
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import {
   loadProductExperienceView,
   type ProductExperienceView,
@@ -527,6 +529,18 @@ onLoad((query) => {
               :style="{ opacity: topBarProgress }"
               :aria-hidden="topBarSolid ? 'false' : 'true'"
             >{{ product.name }}</text>
+            <!-- 收藏 on the picture next to 分享: the bar keeps board PdFull's 商家 / 咨询 / 先体验 / buttons,
+                 which leave no room for it at 375 wide (plan 08 S5-6). -->
+            <FavoriteButton
+              v-if="FAVORITE_PREVIEW_ENABLED"
+              variant="float"
+              type="PRODUCT"
+              :target-id="product.productId"
+              :city-code="pageCity"
+              :return-url="buildMallProductUrl(product.productId, pageCity)"
+              :circle-style="topBarCircleStyle"
+              :icon-color="topBarIconColor"
+            />
             <button
               v-if="SUPPORT_PREVIEW_ENABLED"
               class="mall-product__float"
@@ -1779,12 +1793,14 @@ button::after {
   box-shadow: var(--app-primary-shadow);
 }
 
+/* Sized by their words like board PdFull (flex 1 1 auto); 8px sides instead of 10 so 加入购物车 still
+   fits at 375 wide next to 商家, 咨询 and 先体验. */
 .mall-product__secondary,
 .mall-product__primary {
   display: flex;
   min-width: 0;
-  padding: 0 10px;
-  flex: 1 1 0;
+  padding: 0 8px;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   border-radius: 0;

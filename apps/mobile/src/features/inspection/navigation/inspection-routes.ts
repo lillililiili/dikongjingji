@@ -183,6 +183,15 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // commenting ask for a login and come back to the same video. content-routes.test.ts checks them.
   '/pages/content/video': { required: 'videoId', allowed: ['videoId', 'cityCode'] },
   '/pages/content/video-feed': { required: 'cityCode', allowed: ['cityCode', 'videoId', 'feed'] },
+  // Detail pages with 收藏 and the favorites list (features/favorite, plan 08 S5-6): a favorite asked
+  // for while signed out comes back to the same page. favorite-routes.test.ts checks them.
+  '/pages/mall/compare': { allowed: ['ids', 'cityCode'] },
+  '/pages/mine/favorites': { allowed: ['group'] },
+  [INSPECTION_DETAIL_PATH]: { required: 'serviceId', allowed: ['serviceId', 'cityCode'] },
+  '/pages/proservice/detail': { required: 'serviceId', allowed: ['serviceId', 'cityCode'] },
+  '/pages/activity/detail': { required: 'activityId', allowed: ['activityId', 'cityCode'] },
+  '/pages/venue/detail': { required: 'venueId', allowed: ['venueId', 'cityCode'] },
+  '/pages/content/article': { required: 'articleId', allowed: ['articleId', 'cityCode'] },
   // Live pages (features/live/navigation/live-routes.ts, M20), repeated for the same reason;
   // live-routes.test.ts checks them.
   '/pages/live/notice': { required: 'roomId', allowed: ['roomId', 'cityCode'] },

@@ -5,6 +5,14 @@ import { computed, ref, watch } from 'vue'
 import { COURSE_PREVIEW_ENABLED } from '@/features/course/application/course-preview'
 import CourseChannelList from '@/features/course/presentation/channel/CourseChannelList.vue'
 import { DEMAND_PREVIEW_ENABLED } from '@/features/demand/application/demand-preview'
+import {
+  COMPARE_BLOCKED_MESSAGES,
+  useCompareSelection,
+} from '@/features/favorite/application/compare-selection'
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import { buildMallCompareUrl } from '@/features/favorite/navigation/favorite-routes'
+import CompareBar from '@/features/favorite/presentation/CompareBar.vue'
+import CompareCheck from '@/features/favorite/presentation/CompareCheck.vue'
 import { buildDemandPublishUrl } from '@/features/demand/navigation/demand-routes'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import {
@@ -191,6 +199,26 @@ function coverOf(product: MallProductCard): { url: string; cutout: boolean } | n
     : resolveMallPreviewCover(product.productId)
 }
 
+// 对比 on every card and the dark pill from two picks on (boards MallHome, Mall2, plan 08 S5-6):
+// picks are kept on this device only, at most three of one category; MallCompare reads them again.
+const compare = useCompareSelection()
+const compareBarVisible = computed(() => FAVORITE_PREVIEW_ENABLED && props.active && compare.picks.length >= 2)
+
+function compareBlocked(product: MallProductCard): boolean {
+  return compare.blockedReason({ productId: product.productId, category: product.category }) !== null
+}
+
+function toggleCompare(product: MallProductCard): void {
+  const result = compare.toggle({ productId: product.productId, category: product.category })
+  if (result === 'FULL' || result === 'OTHER_CATEGORY') {
+    uni.showToast({ title: COMPARE_BLOCKED_MESSAGES[result], icon: 'none' })
+  }
+}
+
+function startCompare(): void {
+  uni.navigateTo({ url: buildMallCompareUrl(compare.picks.map((pick) => pick.productId), props.cityCode) })
+}
+
 function openProduct(product: MallProductCard): void {
   uni.navigateTo({ url: buildMallProductUrl(product.productId, props.cityCode) })
 }
@@ -372,7 +400,7 @@ defineExpose({
         <button
           v-for="product in list.items"
           :key="product.productId"
-          class="mall-card"
+          :class="['mall-card', { 'mall-card--picked': FAVORITE_PREVIEW_ENABLED && compare.isPicked(product.productId) }]"
           :data-testid="`mall-product-${product.productId}`"
           :data-sale-mode="product.saleMode"
           @click="openProduct(product)"
@@ -424,6 +452,14 @@ defineExpose({
               >
                 {{ MALL_ACTION_LABELS[product.saleMode] }}
               </text>
+              <CompareCheck
+                v-if="FAVORITE_PREVIEW_ENABLED"
+                class="mall-card__compare"
+                :checked="compare.isPicked(product.productId)"
+                :blocked="!compare.isPicked(product.productId) && compareBlocked(product)"
+                :label="`对比：${product.name}`"
+                @toggle="toggleCompare(product)"
+              />
             </view>
           </view>
         </button>
@@ -443,6 +479,11 @@ defineExpose({
       </view>
     </template>
 
+      <!-- Room under the last row so the pill never covers it. -->
+      <view v-if="compareBarVisible" class="mall-channel__compare-space" />
+      <view v-if="compareBarVisible" class="mall-channel__compare" data-testid="mall-compare-bar">
+        <CompareBar :count="compare.picks.length" @start="startCompare" />
+      </view>
     </template>
 
     <MallFilterSheet
@@ -830,6 +871,30 @@ button::after {
   display: flex;
   height: 44px;
   align-items: center;
+  gap: 6px;
+}
+
+/* A card picked for 对比 is outlined in orange (boards MallHome, Mall2). */
+.mall-card--picked {
+  outline: 1.5px solid #ff6a00;
+  outline-offset: -1.5px;
+}
+
+.mall-card__compare {
+  margin-left: auto;
+}
+
+.mall-channel__compare-space {
+  height: 64px;
+}
+
+/* Above the root tab bar (60 high), 12px clear of it, as on the boards. */
+.mall-channel__compare {
+  position: fixed;
+  right: var(--app-page-horizontal-gutter);
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  left: var(--app-page-horizontal-gutter);
+  z-index: 30;
 }
 
 .mall-card__action {

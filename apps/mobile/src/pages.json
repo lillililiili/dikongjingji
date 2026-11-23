@@ -446,6 +446,20 @@
       }
     },
     {
+      "path": "pages/mall/compare",
+      "style": {
+        "navigationBarTitleText": "商品对比",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/favorites",
+      "style": {
+        "navigationBarTitleText": "收藏与对比",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/mall/merchant",
       "style": {
         "navigationBarTitleText": "商家主页",

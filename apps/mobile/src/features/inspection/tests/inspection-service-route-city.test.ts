@@ -109,6 +109,8 @@ function mountPage<TBindings>(
       useMapPickResultStore: () => ({ take: () => null, put: () => undefined }),
     },
     '@/shared/photo/photo-viewer': { openPhotoViewer: () => undefined },
+    // Plan 08 S5-6: 收藏 on the bar, off here (the button is a component of its own).
+    '@/features/favorite/application/favorite-preview': { FAVORITE_PREVIEW_ENABLED: false },
     pinia: { storeToRefs },
     '@dcloudio/uni-app': {
       onLoad: (handler: (query: ServiceRouteQuery) => void) => {
