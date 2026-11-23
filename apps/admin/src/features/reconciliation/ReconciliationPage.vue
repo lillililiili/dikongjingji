@@ -124,27 +124,25 @@ onMounted(() => {
     title="对账下载"
     description="按北京时间选一天：微信的 T 日账单 T+1 日 10 点后才有，平台按子商户逐个下载，和平台的支付单、退款单逐笔核对。差异只记录，不自动改订单。"
   >
-    <template #actions>
-      <el-date-picker
-        :model-value="date"
-        type="date"
-        value-format="YYYY-MM-DD"
-        placeholder="选择日期"
-        :clearable="false"
-        :disabled-date="disabledDate"
-        style="width: 160px"
-        @update:model-value="changeDate"
-      />
-      <el-button :disabled="!canQuery" @click="load">刷新</el-button>
-      <el-button type="primary" :disabled="!canQuery" :loading="downloading" @click="download">下载差异表（CSV）</el-button>
-    </template>
-
     <div class="reconciliation">
-      <div class="reconciliation__run">
+      <div class="reconciliation__toolbar">
+        <el-date-picker
+          :model-value="date"
+          type="date"
+          value-format="YYYY-MM-DD"
+          placeholder="选择日期"
+          :clearable="false"
+          :disabled-date="disabledDate"
+          style="width: 160px"
+          @update:model-value="changeDate"
+        />
+        <el-button :disabled="!canQuery" @click="load">刷新</el-button>
+        <el-button type="primary" :disabled="!canQuery" :loading="downloading" @click="download">下载差异表（CSV）</el-button>
+        <el-divider direction="vertical" />
         <el-checkbox v-model="redo">已导入的子商户也重新下载</el-checkbox>
         <el-button :disabled="!canQuery" :loading="running" @click="run">重新对账</el-button>
-        <span class="muted">今天的账单还没有，只能选今天以前的日期。</span>
       </div>
+      <span class="muted">今天的账单还没有，只能选今天以前的日期。</span>
 
       <el-alert
         v-if="lastRun"
@@ -213,10 +211,15 @@ onMounted(() => {
   gap: 12px;
 }
 
-.reconciliation__run {
+.reconciliation__toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+}
+
+.reconciliation__toolbar .el-button + .el-button {
+  margin-left: 0;
 }
 
 .reconciliation__body {

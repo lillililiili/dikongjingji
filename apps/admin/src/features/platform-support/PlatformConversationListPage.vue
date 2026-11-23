@@ -40,15 +40,17 @@ onMounted(() => {
 <template>
   <PageSection
     title="客服会话"
-    :description="`客户在 App 里找“平台客服”发来的消息（找商家、服务商的会话在机构工作台，不在这里）。现在共有 ${unread} 条未读。客户只看到“平台客服”，看不到是谁回的；平台只协助沟通，不裁决。`"
+    description="客户在 App 里找“平台客服”发来的消息（找商家、服务商的会话在机构工作台，不在这里）。客户只看到“平台客服”，看不到是谁回的；平台只协助沟通，不裁决。"
   >
     <template #actions>
-      <el-radio-group :model-value="list.filters.sort" @change="setSort">
-        <el-radio-button value="UNREAD_FIRST">未读优先</el-radio-button>
-        <el-radio-button value="LATEST">按最后消息</el-radio-button>
-      </el-radio-group>
       <el-button @click="list.load()">刷新</el-button>
     </template>
+    <div class="toolbar">
+      <el-radio-group :model-value="list.filters.sort" @change="setSort">
+        <el-radio-button value="UNREAD_FIRST">未读优先（{{ unread }} 条未读）</el-radio-button>
+        <el-radio-button value="LATEST">按最后消息时间</el-radio-button>
+      </el-radio-group>
+    </div>
     <PagedTable
       :items="list.items.value"
       :total="list.total.value"
@@ -87,6 +89,13 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .muted {
   color: var(--admin-text-secondary);
 }
