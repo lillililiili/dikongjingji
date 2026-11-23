@@ -291,8 +291,8 @@ public class ActivityEnrollmentService {
         UUID enrollmentId;
         String ticketStatus;
         if (paid) {
-            enrollmentId = enrollPaid(accountId, idempotencyKey, requestHash, session, participants.size(),
-                    command.expectedAmountMinor(), now);
+            enrollmentId = enrollPaid(accountId, idempotencyKey, requestHash, session,
+                    participants.stream().map(ParticipantRow::name).toList(), command.expectedAmountMinor(), now);
             ticketStatus = TicketStatus.PENDING_PAYMENT.name();
         } else {
             enrollmentId = mapper.insertEnrollment(
@@ -334,10 +334,11 @@ public class ActivityEnrollmentService {
             UUID idempotencyKey,
             String requestHash,
             SessionRow session,
-            int people,
+            List<String> participantNames,
             Long expectedAmountMinor,
             OffsetDateTime now
     ) {
+        int people = participantNames.size();
         if (expectedAmountMinor == null) {
             throw new IllegalArgumentException("expected amount is required for a paid activity");
         }
@@ -363,7 +364,8 @@ public class ActivityEnrollmentService {
                 session.coverUrl(),
                 unit,
                 people,
-                payBefore.toInstant()));
+                payBefore.toInstant(),
+                participantNames));
         mapper.insertPaidEnrollment(
                 enrollmentId,
                 accountId,

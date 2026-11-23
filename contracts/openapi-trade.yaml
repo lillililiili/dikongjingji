@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.5.0
+  version: 0.6.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -60,6 +60,14 @@ info:
       “待自提”是 status=PAID&deliveryMode=PICKUP；加 readMerchantOrder（本机构卖出的一张商城订单，和列表里的一项相同，带 ETag）；
       加 readMyMerchantAccount（本机构登记的收款账户，只读，没登记过 404；登记仍由平台运营调 registerMerchantAccount）。
 
+    0.6.0（2026-11-23，S4-2、S4-4，docs/redesign/08-后续开发计划.md §5 A1、S4-4）：TradeOrder 加四个只读字段，不改写操作：
+      parties（下单时的交易主体快照：发货仓 fulfilledFrom、开票方 invoiceIssuer、售后责任方 aftersaleParty，由商城按
+      供给 → 商家资料 → 商家名称给出；几行不同时用“；”连接；业务来源的订单都为 null）；channelTransactionId（付款成功的
+      支付单在微信的交易号，只在验签后的回调或查单记下之后才有，只用来显示）；participantNames（收费报名订单的参与人姓名，
+      按报名顺序用顿号连接，只用来显示，报名单仍是事实源；别的订单为 null）；aftersale（最近一张售后单和现在能不能申请售后）。
+      商品售后的接口在 contracts/openapi-trade-aftersale.yaml 1.0.0：售后退款同样经本模块原路退回，退款记录照常出现在
+      refunds 里（仅退款的 reason 以“买家申请仅退款”开头，退货退款以“售后退货退款”开头，超时自动退款以“售后超时自动退款”开头）。
+
     渠道与资金（用户 2026-11-18 确认）：
     - 唯一的支付渠道是微信支付，产品是“平台收付通”的普通支付：每笔钱直接进卖出商品的商家（二级商户）自己的商户号，
       平台不经手资金。下单不带分账标记，不冻结、不分账、不抽佣。
@@ -75,7 +83,8 @@ info:
     - 未付款的订单 30 分钟后关闭（同时关掉微信那边的预支付单）。
     - 已付款、未发货（或未自提）时，买家可以自己取消，全额原路退款。
     - 发货后 10 天未确认收货的自动确认；自提订单由商家核销取货码后完成。
-    - 发货后的退款只能由商家通过受权接口发起，可以部分退款，同一订单最多 50 次，合计不超过实付；买家的售后申请等 A1 确认。
+    - 发货后的退款由商家通过受权接口发起，可以部分退款，同一订单最多 50 次，合计不超过实付；买家的售后申请（0.6.0，A1）
+      见 contracts/openapi-trade-aftersale.yaml，商家同意并确认收货后同样经本模块原路退回。
 
     角色：买家接口要 CUSTOMER；商家接口要 PROVIDER_OPERATOR，且只能操作本机构卖出的订单；平台接口要 PLATFORM_OPERATOR。
     账号、机构都只从令牌里取。不是自己的订单一律当作不存在。
@@ -1169,6 +1178,10 @@ components:
         - refunds
         - cancellable
         - version
+        - parties
+        - channelTransactionId
+        - participantNames
+        - aftersale
       properties:
         orderId:
           type: string
@@ -1229,6 +1242,50 @@ components:
           description: 买家现在能不能取消（待付款，或已付款未发货 / 未自提的商城订单；已付款的收费报名订单为 false）
         version:
           type: integer
+        parties:
+          $ref: "#/components/schemas/TradeOrderParties"
+        channelTransactionId:
+          type: [string, "null"]
+          description: 0.6.0：付款成功的支付单在微信的交易号（transaction_id），验签后的回调或查单记下才有；没付款时为 null。只用来显示
+        participantNames:
+          type: [string, "null"]
+          description: 0.6.0：收费报名订单的参与人姓名（报名顺序，顿号连接），只用来显示；别的订单为 null
+        aftersale:
+          $ref: "#/components/schemas/TradeOrderAftersale"
+    TradeOrderParties:
+      type: object
+      additionalProperties: false
+      required: [fulfilledFrom, invoiceIssuer, aftersaleParty]
+      description: 0.6.0：下单时的交易主体快照（画板 OrderGoods）。没有时为 null，页面不显示那一行
+      properties:
+        fulfilledFrom:
+          type: [string, "null"]
+          maxLength: 250
+          description: 从哪里发货（商城供给的发货仓）
+        invoiceIssuer:
+          type: [string, "null"]
+          maxLength: 250
+          description: 开票方
+        aftersaleParty:
+          type: [string, "null"]
+          maxLength: 250
+          description: 售后责任方
+    TradeOrderAftersale:
+      type: object
+      additionalProperties: false
+      required: [latestAftersaleId, latestStatus, applicable]
+      description: 0.6.0：订单上的售后入口。售后单的状态取值见 contracts/openapi-trade-aftersale.yaml 的 AftersaleStatus
+      properties:
+        latestAftersaleId:
+          type: [string, "null"]
+          format: uuid
+          description: 最近一张售后单；没有时为 null
+        latestStatus:
+          type: [string, "null"]
+          description: 最近一张售后单的状态
+        applicable:
+          type: boolean
+          description: 现在能不能申请售后（只有商城订单可能为 true；具体能选哪类、哪个原因看 getAftersaleEligibility）
     TradeOrderPage:
       type: object
       additionalProperties: false

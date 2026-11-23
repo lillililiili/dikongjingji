@@ -107,6 +107,8 @@ class TradeOpenApiContractTest {
     /** 返回对象：字段全部必有。 */
     private static final Map<String, Class<? extends Record>> SCHEMA_RECORDS = Map.ofEntries(
             Map.entry("TradeOrder", TradeOrderView.class),
+            Map.entry("TradeOrderParties", TradeViews.TradeOrderPartiesView.class),
+            Map.entry("TradeOrderAftersale", TradeViews.TradeOrderAftersaleView.class),
             Map.entry("TradeMerchant", TradeMerchantView.class),
             Map.entry("MediaAsset", TradeMediaView.class),
             Map.entry("TradeOrderLine", TradeOrderLineView.class),
@@ -147,7 +149,8 @@ class TradeOpenApiContractTest {
         // 0.2.0：E09 接入收费活动报名（业务来源 ACTIVITY）。
         // 0.4.0：S2-1 加支付通道自检。
         // 0.5.0：S3-2 商家工作台的读取（按配送方式筛、单张订单、本机构收款账户）。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("0.5.0");
+        // 0.6.0：S4-2、S4-4 订单的交易主体快照、渠道交易号、参与人、售后入口。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("0.6.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");

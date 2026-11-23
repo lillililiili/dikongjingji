@@ -73,6 +73,8 @@ import org.springframework.web.bind.annotation.RestController;
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
         // S3-1 第二部分：商品与供给、收款账户、批量导入
         com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class,
+        com.lowaltitude.inspection.mall.application.MallMerchantService.class,
+        com.lowaltitude.inspection.trade.application.TradeAftersaleService.class,
         com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
         com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
         com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,

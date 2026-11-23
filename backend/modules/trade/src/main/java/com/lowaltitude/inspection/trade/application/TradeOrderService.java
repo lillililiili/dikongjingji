@@ -29,7 +29,9 @@ import com.lowaltitude.inspection.trade.application.TradeViews.TradeAmountsView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeDeliveryView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeMediaView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeMerchantView;
+import com.lowaltitude.inspection.trade.application.TradeViews.TradeOrderAftersaleView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeOrderLineView;
+import com.lowaltitude.inspection.trade.application.TradeViews.TradeOrderPartiesView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeOrderPageView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeOrderView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeRefundView;
@@ -40,6 +42,7 @@ import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMap
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMapper.KeyRow;
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMapper.LineRow;
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMapper.MerchantAccountRow;
+import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMapper.OrderExtrasRow;
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMapper.OrderRow;
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMapper.PickupRow;
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMapper.RefundRow;
@@ -210,6 +213,19 @@ public class TradeOrderService {
                     sort,
                     now);
             sort += 10;
+        }
+        // 0.6.0：交易主体快照，和不支持七天无理由的商品行。
+        if (quote.fulfilledFrom() != null || quote.invoiceIssuer() != null || quote.aftersaleParty() != null) {
+            mapper.saveParties(orderId, clip(quote.fulfilledFrom(), 250), clip(quote.invoiceIssuer(), 250),
+                    clip(quote.aftersaleParty(), 250));
+        }
+        List<UUID> withoutNoReasonReturn = quote.lines().stream()
+                .filter(line -> !line.noReasonReturn())
+                .map(QuotedLine::offerId)
+                .distinct()
+                .toList();
+        if (!withoutNoReasonReturn.isEmpty()) {
+            mapper.markLinesWithoutNoReasonReturn(orderId, withoutNoReasonReturn);
         }
         TradeCheckoutPort.AddressSnapshot address = quote.address();
         boolean express = "EXPRESS".equals(quote.deliveryMode());
@@ -531,15 +547,47 @@ public class TradeOrderService {
                 ? Map.of()
                 : mapper.findCloseCauses(closedIds).stream()
                         .collect(Collectors.toMap(CloseCauseRow::orderId, CloseCauseRow::cause, (first, second) -> first));
+        List<OrderExtrasRow> found = mapper.findOrderExtras(ids);
+        Map<UUID, OrderExtrasRow> extras = found == null ? Map.of() : found.stream()
+                .collect(Collectors.toMap(OrderExtrasRow::orderId, Function.identity(), (first, second) -> first));
+        Instant now = clock.instant();
         return rows.stream()
-                .map(row -> toView(
+                .map(row -> withExtras(toView(
                         row,
                         lines.getOrDefault(row.id(), List.of()),
                         deliveries.get(row.id()),
                         refunds.getOrDefault(row.id(), List.of()),
                         closeCauses.get(row.id()),
-                        forBuyer))
+                        forBuyer), row, extras.get(row.id()), now))
                 .toList();
+    }
+
+    /** 0.6.0：交易主体、渠道交易号、参与人、售后入口。没有附加信息时（测试里的替身）保持空。 */
+    private static TradeOrderView withExtras(TradeOrderView view, OrderRow row, OrderExtrasRow extra, Instant now) {
+        if (extra == null) {
+            return view;
+        }
+        long refundable = row.paidMinor() - row.refundedMinor() - extra.reservedMinor();
+        boolean applicable = TradeAftersaleService.applicable(row.source(), row.status(), row.completedAt(),
+                extra.noReasonReturn(), extra.aftersaleOpen(), extra.aftersaleCount(), refundable, now);
+        return new TradeOrderView(view.orderId(), view.orderNo(), view.source(), view.sourceRef(), view.status(),
+                view.merchant(), view.lines(), view.delivery(), view.amounts(), view.buyerNote(), view.createdAt(),
+                view.payBefore(), view.paidAt(), view.completedAt(), view.closedAt(), view.closeReason(),
+                view.refunds(), view.cancellable(), view.version(),
+                new TradeOrderPartiesView(blank(extra.fulfilledFrom()), blank(extra.invoiceIssuer()),
+                        blank(extra.aftersaleParty())),
+                blank(extra.transactionId()),
+                blank(extra.participantNames()),
+                new TradeOrderAftersaleView(extra.latestAftersaleId(), extra.latestAftersaleStatus(), applicable));
+    }
+
+    private static String blank(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static String clip(String value, int max) {
+        String trimmed = blank(value);
+        return trimmed == null || trimmed.length() <= max ? trimmed : trimmed.substring(0, max);
     }
 
     private static TradeOrderView toView(

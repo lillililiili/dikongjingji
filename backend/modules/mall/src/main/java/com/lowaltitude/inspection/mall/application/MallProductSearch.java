@@ -17,6 +17,14 @@ public record MallProductSearch(
         Long maxPriceMinor,
         String sort,
         int page,
-        int size
+        int size,
+        /** 1.4.0：只看这家商家在这个城市的供给（商家主页的“在售”）；价格和商家数也只按它算。 */
+        java.util.UUID merchantId
 ) {
+    public MallProductSearch(String cityCode, String category, String keyword, List<String> saleModes,
+                             List<String> experienceBadges, List<String> merchantKinds, Long minPriceMinor,
+                             Long maxPriceMinor, String sort, int page, int size) {
+        this(cityCode, category, keyword, saleModes, experienceBadges, merchantKinds, minPriceMinor, maxPriceMinor,
+                sort, page, size, null);
+    }
 }

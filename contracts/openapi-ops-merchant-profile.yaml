@@ -1,0 +1,496 @@
+openapi: 3.1.0
+info:
+  title: Ops Merchant Profile API
+  version: 1.0.0
+  description: |-
+    1.0.0（2026-11-23，S5-2、S4-4，docs/redesign/08-后续开发计划.md §5 S4-4）：运营端（apps/admin）的“商家资料审核”和商品的交易条款。
+    只给平台运营（PLATFORM_OPERATOR）。
+
+    - 商家资料：商家在工作台提交（contracts/openapi-mall-merchant.yaml），这里按状态看（待审核在前）、审核通过（整份写成商家主页上
+      对外的资料）或驳回（写原因）。只能审核还在待审核、版本对得上的那一版：已经处理过的 409 OPS_MERCHANT_PROFILE_REVIEW_CLOSED，
+      版本不对 409 OPS_VERSION_CONFLICT。审核记录在提交单上（谁、什么时候、通过还是驳回）。
+    - 交易条款：商品是否支持七天无理由（默认支持；标“不支持”后七天无理由的售后不能选，质量问题不受影响，见
+      contracts/openapi-trade-aftersale.yaml）；每个供给的开票方、售后责任方（留空表示按商家资料，再没有就是商家自己）。
+      改动记在“商品与供给”的操作记录里（PRODUCT_UPDATE、OFFER_UPDATE）。已经下的订单用下单时的快照，不受影响。
+    Bodies are returned bare, errors use the shared ApiError.
+servers:
+  - url: /
+paths:
+  /api/v1/ops/mall/merchant-profiles:
+    get:
+      operationId: listMerchantProfileSubmissions
+      summary: 商家资料提交（待审核在前）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SUBMITTED, APPROVED, REJECTED, SUPERSEDED]
+        - name: keyword
+          in: query
+          required: false
+          description: 机构名称或经营主体
+          schema:
+            type: string
+            maxLength: 50
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: 一页
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantSubmissionPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/mall/merchant-profiles/{submissionId}:
+    get:
+      operationId: readMerchantProfileSubmission
+      summary: 一版提交：现在对外的资料、机构资质审核过没有、这家最近 20 次提交
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      responses:
+        "200":
+          description: 详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantSubmissionDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/mall/merchant-profiles/{submissionId}/approval:
+    post:
+      operationId: approveMerchantProfile
+      summary: 审核通过（整份写成对外资料）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantProfileReviewRequest"
+      responses:
+        "200":
+          description: 已通过
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantSubmissionDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/ops/mall/merchant-profiles/{submissionId}/rejection:
+    post:
+      operationId: rejectMerchantProfile
+      summary: 驳回（写原因，≤200 字）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SubmissionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MerchantProfileReviewRequest"
+      responses:
+        "200":
+          description: 已驳回
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallMerchantSubmissionDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/ops/catalog/products/{productId}/trade-terms:
+    get:
+      operationId: readProductTradeTerms
+      summary: 商品的交易条款：七天无理由，各供给的开票方、售后责任方（含实际生效的值）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: 交易条款
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallTradeTerms"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: setProductNoReasonReturn
+      summary: 标商品支持或不支持七天无理由
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductTermsRequest"
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallTradeTerms"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/catalog/products/{productId}/offers/{offerId}/trade-terms:
+    put:
+      operationId: setOfferTradeTerms
+      summary: 供给的开票方、售后责任方（留空按商家资料）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+        - name: offerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfferTermsRequest"
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MallTradeTerms"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    SubmissionId:
+      name: submissionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: 参数无效（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没登录或令牌无效（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: 不是平台运营（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 提交、商品或供给不存在（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Conflict:
+      description: 已经处理过（OPS_MERCHANT_PROFILE_REVIEW_CLOSED）或版本不对（OPS_VERSION_CONFLICT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, traceId]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type: [object, "null"]
+          additionalProperties: true
+    OpsMerchantProfileErrorCode:
+      type: string
+      enum: [OPS_VERSION_CONFLICT, OPS_MERCHANT_PROFILE_REVIEW_CLOSED]
+    MerchantProfileReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: integer
+          minimum: 0
+          description: 详情里读到的这一版的 version
+        reason:
+          type: [string, "null"]
+          maxLength: 200
+          description: 驳回时必填
+    ProductTermsRequest:
+      type: object
+      additionalProperties: false
+      required: [noReasonReturn]
+      properties:
+        noReasonReturn:
+          type: boolean
+    OfferTermsRequest:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        invoiceIssuer:
+          type: [string, "null"]
+          maxLength: 60
+        aftersaleParty:
+          type: [string, "null"]
+          maxLength: 60
+    MallMerchantProfile:
+      type: object
+      additionalProperties: false
+      required: [businessEntity, intro, saleScopeNote, authorizationUntil, categoryNote, invoiceIssuer, aftersaleParty,
+                 approvedAt]
+      properties:
+        businessEntity:
+          type: string
+        intro:
+          type: [string, "null"]
+        saleScopeNote:
+          type: [string, "null"]
+        authorizationUntil:
+          type: [string, "null"]
+          format: date
+        categoryNote:
+          type: [string, "null"]
+        invoiceIssuer:
+          type: [string, "null"]
+        aftersaleParty:
+          type: [string, "null"]
+        approvedAt:
+          type: string
+          format: date-time
+    MallMerchantDraft:
+      type: object
+      additionalProperties: false
+      required: [businessEntity, intro, saleScopeNote, authorizationUntil, categoryNote, invoiceIssuer, aftersaleParty]
+      properties:
+        businessEntity:
+          type: string
+        intro:
+          type: [string, "null"]
+        saleScopeNote:
+          type: [string, "null"]
+        authorizationUntil:
+          type: [string, "null"]
+          format: date
+        categoryNote:
+          type: [string, "null"]
+        invoiceIssuer:
+          type: [string, "null"]
+        aftersaleParty:
+          type: [string, "null"]
+    MallMerchantSubmission:
+      type: object
+      additionalProperties: false
+      required: [submissionId, organizationId, organizationName, draft, status, submittedByName, submittedAt,
+                 reviewedByName, reviewedAt, rejectReason, version]
+      properties:
+        submissionId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        organizationName:
+          type: string
+        draft:
+          $ref: "#/components/schemas/MallMerchantDraft"
+        status:
+          type: string
+          enum: [SUBMITTED, APPROVED, REJECTED, SUPERSEDED]
+        submittedByName:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+        reviewedByName:
+          type: [string, "null"]
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+        rejectReason:
+          type: [string, "null"]
+        version:
+          type: integer
+    MallMerchantSubmissionPage:
+      type: object
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MallMerchantSubmission"
+    MallMerchantSubmissionDetail:
+      type: object
+      additionalProperties: false
+      required: [submission, published, qualificationReviewed, history]
+      properties:
+        submission:
+          $ref: "#/components/schemas/MallMerchantSubmission"
+        published:
+          anyOf:
+            - $ref: "#/components/schemas/MallMerchantProfile"
+            - type: "null"
+        qualificationReviewed:
+          type: boolean
+          description: 机构资质审核过没有（机构与资质页审核，和这里的商家资料是两件事）
+        history:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/MallMerchantSubmission"
+    MallOfferTerms:
+      type: object
+      additionalProperties: false
+      required: [offerId, skuName, merchantId, merchantName, cityCode, status, invoiceIssuer, aftersaleParty,
+                 effectiveInvoiceIssuer, effectiveAftersaleParty]
+      properties:
+        offerId:
+          type: string
+          format: uuid
+        skuName:
+          type: string
+        merchantId:
+          type: string
+          format: uuid
+        merchantName:
+          type: string
+        cityCode:
+          type: [string, "null"]
+          description: null 是全国
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED]
+        invoiceIssuer:
+          type: [string, "null"]
+          description: 供给上填的；null 表示按商家资料
+        aftersaleParty:
+          type: [string, "null"]
+        effectiveInvoiceIssuer:
+          type: [string, "null"]
+          description: 实际生效的（供给 → 商家资料 → 商家名称），商品详情和订单上显示的就是它
+        effectiveAftersaleParty:
+          type: [string, "null"]
+    MallTradeTerms:
+      type: object
+      additionalProperties: false
+      required: [productId, productName, noReasonReturn, offers]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        noReasonReturn:
+          type: boolean
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/MallOfferTerms"

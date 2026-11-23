@@ -106,6 +106,8 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/mall/products",
                                 "/api/v1/mall/products/*",
+                                // S5-2 商家主页：公开只读。
+                                "/api/v1/mall/merchants/*",
                                 // 开发环境回读运营端上传的商品图片（只在配置了本机目录时有这个接口）。
                                 "/api/v1/mall/media/products/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()

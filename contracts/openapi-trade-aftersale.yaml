@@ -1,0 +1,1250 @@
+openapi: 3.1.0
+info:
+  title: Trade Aftersale API
+  version: 1.0.0
+  description: |-
+    1.0.0（2026-11-23，S4-2，docs/redesign/08-后续开发计划.md §5 A1）：商品售后，统一交易模块（M14）的一部分，只针对商城订单
+    （source = MALL）。画板 AftersaleApply、AftersaleDetail、AftersaleFlow、AftersaleList、OrderGoods。订单本身见
+    contracts/openapi-trade.yaml 0.6.0（TradeOrder.aftersale 是订单上的售后入口）。
+
+    两类售后（A1）：
+    - REFUND_ONLY 仅退款：已付款、未发货（未自提）的订单，原因只能是 NOT_WANTED。按 §19.7 的取消规则直接把还没退的钱全部原路退回，
+      不用商家同意（申请即进入 REFUNDING）。
+    - RETURN_REFUND 退货退款：已发货、已自提或已收货的订单。原因 NO_REASON_7D 七天无理由（每件商品都没标“不支持七天无理由”，见
+      contracts/openapi-mall-catalog.yaml 1.4.0 的 noReasonReturn；确认收货后 7 天内，还没确认收货时一直可以）；
+      NOT_AS_DESCRIBED 与描述不符、DAMAGED 商品有损坏（质量问题，确认收货后 15 天内）。
+
+    处理（平台只协助沟通、不裁决，商家是售后责任方）：
+    - 商家在 Web 工作台同意（给寄回地址，不填用默认寄回地址）或拒绝（写理由）。48 小时不处理自动同意（用默认寄回地址；商家没设时
+      returnAddress 为 null，买家页面提示先联系商家）。
+    - 同意后买家填退货运单（承运商 + 运单号），7 天内不填自动关闭（CLOSED）；商家确认收货之前可以改运单。
+    - 商家确认收货后经交易模块原路退款，金额不超过申请金额、也不超过订单还能退的钱（实付减已退减在路上的），少于申请金额时要写说明；
+      或者验货不通过（写理由和寄回商品怎么处理）。运单提交后 10 天商家既不确认也不拒绝，按申请金额自动原路退款。
+    - 退款到账（或渠道关闭、异常）只由交易模块根据验签后的退款回调或主动查询推进：REFUNDING → REFUNDED（或 REFUND_FAILED，人工处理）。
+    - 买家在商家同意之前、或同意之后填运单之前可以撤销（REVOKED）。一张订单同时只有一张没结束的售后单，一共最多 3 张；
+      结束（拒绝、验货不通过、撤销、关闭）之后订单还能申请时可以重新申请。
+    时限（48 小时、7 天、15 天、10 天）是设计假设，写在 S4-2 报告里，可改。
+
+    凭证图片：先 POST /api/v1/trade/aftersale-images 上传（JPEG / PNG / WebP，≤5 MB，按文件头判断，一小时最多 30 张），拿到 imageId，
+    申请时带上（最多 9 张，每格最多 3 张）。图片存在对象存储端口里（开发环境是本机目录），不公开：买家经
+    GET /api/v1/trade/aftersale-images/{imageId}（只能读自己上传的）、商家经 GET …/aftersales/{aftersaleId}/images/{imageId} 读。
+
+    角色：买家接口要 CUSTOMER；商家接口要 PROVIDER_OPERATOR，只看、只改本机构卖出的商品的售后单；账号、机构都只从令牌里取，
+    不是自己的一律当作不存在（404）。写操作：申请带 Idempotency-Key（同一个键、同样的内容重放返回同一张售后单，200；换内容 409）；
+    改售后单状态的操作带 If-Match（售后单版本，详情返回的 ETag），版本不对 412。金额都是分。
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: /
+paths:
+  /api/v1/trade/orders/{orderId}/aftersale-eligibility:
+    get:
+      operationId: getAftersaleEligibility
+      summary: 这张商城订单现在能申请哪类售后、哪个原因，最多退多少（申请页用）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: 能申请什么；有没结束的售后单时 openAftersaleId 是它
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AftersaleEligibility"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/trade/orders/{orderId}/aftersales:
+    post:
+      operationId: applyAftersale
+      summary: 申请售后
+      description: |-
+        仅退款立即发起全额原路退款（返回时 status 是 REFUNDING）；退货退款等商家处理（PENDING_REVIEW）。
+        这一类或这个原因现在不能选时 409 TRADE_AFTERSALE_NOT_ELIGIBLE，details.reason 是 AftersaleUnavailableReason；
+        已有没结束的售后单 409 TRADE_AFTERSALE_ALREADY_OPEN；金额超过还能退的 409 TRADE_AFTERSALE_AMOUNT_EXCEEDS；
+        图片不是自己上传的、已经用过或超过数量 422 TRADE_AFTERSALE_IMAGE_INVALID；仅退款时支付渠道不可用 503 TRADE_CHANNEL_UNAVAILABLE。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyAftersaleRequest"
+      responses:
+        "201":
+          description: 新建的售后单
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "200":
+          description: 同一个 Idempotency-Key 重放，返回第一次建的售后单
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/trade/aftersales:
+    get:
+      operationId: listMyAftersales
+      summary: 我的退款 / 售后（三个页签：售后中、已完成、已关闭）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tab
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AftersaleTab"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 一页，提交时间新的在前；counts 是三个页签各有几张
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AftersalePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/trade/aftersales/{aftersaleId}:
+    get:
+      operationId: readMyAftersale
+      summary: 一张售后单（带进度）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AftersaleId"
+      responses:
+        "200":
+          description: 售后单
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/trade/aftersales/{aftersaleId}/revoke:
+    post:
+      operationId: revokeMyAftersale
+      summary: 撤销申请（等待商家处理、或待寄回时）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AftersaleId"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: 已撤销
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/trade/aftersales/{aftersaleId}/return-shipment:
+    post:
+      operationId: submitReturnShipment
+      summary: 填退货运单（待寄回 → 待商家收货），或在商家确认收货前改运单
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AftersaleId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReturnShipmentRequest"
+      responses:
+        "200":
+          description: 运单已记下
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/trade/aftersale-images:
+    post:
+      operationId: uploadAftersaleImage
+      summary: 上传一张凭证图片（申请前）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: slot
+          in: query
+          required: true
+          description: 哪一格（multipart 表单字段同名也可以）
+          schema:
+            $ref: "#/components/schemas/AftersaleImageSlot"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: JPEG / PNG / WebP，≤5 MB（5242880 字节），按文件头判断
+      responses:
+        "201":
+          description: 已存下，还没挂到售后单上
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AftersaleImageUpload"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/TooMany"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/trade/aftersale-images/{imageId}:
+    get:
+      operationId: readMyAftersaleImage
+      summary: 读自己上传的一张凭证图片
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ImageId"
+      responses:
+        "200":
+          description: 图片本身（Cache-Control no-store）
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/trade/aftersales:
+    get:
+      operationId: listMerchantAftersales
+      summary: 商家工作台：本机构卖出的商品的售后单
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: 一个状态；不传是全部
+          schema:
+            $ref: "#/components/schemas/AftersaleStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 一页，提交时间新的在前
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AftersalePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/provider/trade/aftersales/{aftersaleId}:
+    get:
+      operationId: readMerchantAftersale
+      summary: 商家工作台：一张售后单
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AftersaleId"
+      responses:
+        "200":
+          description: 售后单
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/trade/aftersales/{aftersaleId}/approval:
+    post:
+      operationId: approveAftersale
+      summary: 同意退货（给寄回地址；不填用默认寄回地址）
+      description: |-
+        只对等待商家处理的退货退款。地址都不填、又没有默认寄回地址时 422 TRADE_AFTERSALE_RETURN_ADDRESS_REQUIRED。
+        saveAsDefault 为 true 时把这次填的存成默认寄回地址。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AftersaleId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveAftersaleRequest"
+      responses:
+        "200":
+          description: 已同意，等买家寄回
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/provider/trade/aftersales/{aftersaleId}/rejection:
+    post:
+      operationId: rejectAftersale
+      summary: 不同意（审核时，写理由）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AftersaleId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectAftersaleRequest"
+      responses:
+        "200":
+          description: 已拒绝，不会发起退款
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/provider/trade/aftersales/{aftersaleId}/receipt:
+    post:
+      operationId: confirmAftersaleReceipt
+      summary: 确认收货并原路退款
+      description: |-
+        待商家收货（或买家还没填运单、商家已经收到货的待寄回）时可以。refundMinor 不传是申请金额；不超过申请金额
+        （否则 409 TRADE_AFTERSALE_AMOUNT_EXCEEDS），也不超过订单还能退的钱；少于申请金额时 note 必填（400）。
+        支付渠道不可用时 503 TRADE_CHANNEL_UNAVAILABLE。返回时售后单是 REFUNDING，退款结果以渠道回调或查询为准。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AftersaleId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AftersaleReceiptRequest"
+      responses:
+        "200":
+          description: 退款已发起
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/provider/trade/aftersales/{aftersaleId}/receipt-rejection:
+    post:
+      operationId: rejectAftersaleReceipt
+      summary: 验货不通过（写理由和寄回商品怎么处理）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AftersaleId"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectAftersaleRequest"
+      responses:
+        "200":
+          description: 已记下，不会发起退款
+          headers:
+            ETag:
+              $ref: "#/components/headers/AftersaleETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Aftersale"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "412":
+          $ref: "#/components/responses/VersionConflict"
+  /api/v1/provider/trade/aftersales/{aftersaleId}/images/{imageId}:
+    get:
+      operationId: readMerchantAftersaleImage
+      summary: 商家读本机构一张售后单上的凭证图片
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AftersaleId"
+        - $ref: "#/components/parameters/ImageId"
+      responses:
+        "200":
+          description: 图片本身（Cache-Control no-store）
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/trade/return-address:
+    get:
+      operationId: readMyReturnAddress
+      summary: 本机构的默认寄回地址（没设过 404）
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 默认寄回地址
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReturnAddress"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: saveMyReturnAddress
+      summary: 设置本机构的默认寄回地址
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReturnAddressRequest"
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReturnAddress"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AftersaleId:
+      name: aftersaleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ImageId:
+      name: imageId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: 售后单详情返回的 ETag（售后单版本）
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 10000
+        default: 1
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+  headers:
+    AftersaleETag:
+      description: 售后单版本（带引号），改售后单时放进 If-Match
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: 参数无效（COMMON_INVALID_ARGUMENT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: 没登录或令牌无效（COMMON_UNAUTHORIZED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: 角色不对（COMMON_FORBIDDEN）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: 订单、售后单或图片不存在或不是自己的（COMMON_NOT_FOUND）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Conflict:
+      description: 业务规则拒绝，code 见 AftersaleErrorCode
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    VersionConflict:
+      description: 售后单已变化，刷新后再试（TRADE_AFTERSALE_VERSION_CONFLICT）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unprocessable:
+      description: 凭证图片无效（TRADE_AFTERSALE_IMAGE_INVALID），或同意时缺寄回地址（TRADE_AFTERSALE_RETURN_ADDRESS_REQUIRED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    TooMany:
+      description: 一小时内上传太多（TRADE_AFTERSALE_UPLOAD_LIMITED）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unavailable:
+      description: 图片存储不可用（TRADE_AFTERSALE_STORAGE_UNAVAILABLE），或支付渠道不可用（TRADE_CHANNEL_UNAVAILABLE）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, traceId]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+        details:
+          type: [object, "null"]
+          additionalProperties: true
+          description: "TRADE_AFTERSALE_NOT_ELIGIBLE 时是 {\"reason\": AftersaleUnavailableReason 的一个值}"
+    AftersaleErrorCode:
+      type: string
+      description: 售后的业务错误码（状态码见各操作）
+      enum:
+        - TRADE_AFTERSALE_NOT_ELIGIBLE
+        - TRADE_AFTERSALE_ALREADY_OPEN
+        - TRADE_AFTERSALE_AMOUNT_EXCEEDS
+        - TRADE_AFTERSALE_STATE_INVALID
+        - TRADE_AFTERSALE_VERSION_CONFLICT
+        - TRADE_IDEMPOTENCY_KEY_REUSED
+        - TRADE_AFTERSALE_RETURN_ADDRESS_REQUIRED
+        - TRADE_AFTERSALE_IMAGE_INVALID
+        - TRADE_AFTERSALE_UPLOAD_LIMITED
+        - TRADE_AFTERSALE_STORAGE_UNAVAILABLE
+        - TRADE_CHANNEL_UNAVAILABLE
+    AftersaleKind:
+      type: string
+      description: RETURN_REFUND 退货退款；REFUND_ONLY 仅退款（未发货）
+      enum: [RETURN_REFUND, REFUND_ONLY]
+    AftersaleReason:
+      type: string
+      description: NO_REASON_7D 不想要了（未拆封，7 天无理由）；NOT_AS_DESCRIBED 商品与描述不符；DAMAGED 商品有损坏；NOT_WANTED 不想要了（仅退款）
+      enum: [NO_REASON_7D, NOT_AS_DESCRIBED, DAMAGED, NOT_WANTED]
+    AftersaleStatus:
+      type: string
+      description: |-
+        PENDING_REVIEW 等待商家处理；AWAITING_RETURN 待寄回；RETURN_SHIPPED 待商家收货；REFUNDING 退款中；REFUNDED 已退款；
+        REFUND_FAILED 退款异常（人工处理）；REJECTED 商家未同意；RECEIPT_REJECTED 验货未通过；REVOKED 已撤销；CLOSED 逾期未寄回，已关闭
+      enum: [PENDING_REVIEW, AWAITING_RETURN, RETURN_SHIPPED, REFUNDING, REFUNDED, REFUND_FAILED, REJECTED,
+             RECEIPT_REJECTED, REVOKED, CLOSED]
+    AftersaleTab:
+      type: string
+      description: |-
+        ALL 全部；DOING 售后中（PENDING_REVIEW、AWAITING_RETURN、RETURN_SHIPPED、REFUNDING、REFUND_FAILED）；
+        DONE 已完成（REFUNDED）；CLOSED 已关闭（REJECTED、RECEIPT_REJECTED、REVOKED、CLOSED）
+      enum: [ALL, DOING, DONE, CLOSED]
+    AftersaleImageSlot:
+      type: string
+      description: PRODUCT 商品照片；PACKAGE 包装照片；OTHER 其他凭证
+      enum: [PRODUCT, PACKAGE, OTHER]
+    AftersaleAction:
+      type: string
+      description: 进度里的一步
+      enum: [SUBMIT, AGREE, AUTO_AGREE, REJECT, REVOKE, SHIP_RETURN, EDIT_RETURN, CLOSE_OVERDUE, CONFIRM_RECEIPT,
+             AUTO_REFUND, REJECT_RECEIPT, REFUND_SUCCEEDED, REFUND_FAILED]
+    AftersaleUnavailableReason:
+      type: string
+      description: |-
+        ORDER_NOT_ELIGIBLE 不是商城订单；ORDER_NOT_PAID 订单没付款或已关闭；ORDER_REFUNDED 订单已在退款中或已退款；
+        ALREADY_SHIPPED 已发货，不能仅退款；NOT_SHIPPED 还没发货，不能退货退款（可以仅退款）；NO_REASON_NOT_SUPPORTED 订单里有商品不支持七天无理由；
+        WINDOW_PASSED 过了申请时限；OPEN_AFTERSALE 有没结束的售后单；LIMIT_REACHED 这张订单已申请过 3 次；NOTHING_TO_REFUND 没有可退的钱
+      enum: [ORDER_NOT_ELIGIBLE, ORDER_NOT_PAID, ORDER_REFUNDED, ALREADY_SHIPPED, NOT_SHIPPED, NO_REASON_NOT_SUPPORTED,
+             WINDOW_PASSED, OPEN_AFTERSALE, LIMIT_REACHED, NOTHING_TO_REFUND]
+    ApplyAftersaleRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, reason]
+      properties:
+        kind:
+          $ref: "#/components/schemas/AftersaleKind"
+        reason:
+          $ref: "#/components/schemas/AftersaleReason"
+        description:
+          type: [string, "null"]
+          maxLength: 200
+          description: 补充描述（可以换行）
+        requestedMinor:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: 申请金额；不传是还能退的全部。仅退款只能是全部
+        imageIds:
+          type: [array, "null"]
+          maxItems: 9
+          description: 先上传拿到的凭证图片，每格最多 3 张
+          items:
+            type: string
+            format: uuid
+    ReturnShipmentRequest:
+      type: object
+      additionalProperties: false
+      required: [carrierName, trackingNo]
+      properties:
+        carrierName:
+          type: string
+          maxLength: 40
+        trackingNo:
+          type: string
+          pattern: "^[0-9A-Za-z-]{4,40}$"
+    ApproveAftersaleRequest:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        contactName:
+          type: [string, "null"]
+          maxLength: 40
+          description: 寄回收件人（如“售后组”）；四项都不填时用默认寄回地址
+        phone:
+          type: [string, "null"]
+          pattern: "^[0-9+-]{5,20}$"
+        address:
+          type: [string, "null"]
+          maxLength: 200
+        note:
+          type: [string, "null"]
+          maxLength: 200
+        saveAsDefault:
+          type: [boolean, "null"]
+          description: true 时把这次填的存成默认寄回地址
+    RejectAftersaleRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          maxLength: 100
+          description: 拒绝原因（买家能看到）
+        note:
+          type: [string, "null"]
+          maxLength: 200
+          description: 商家说明；验货不通过时必填（寄回的商品怎么处理）
+    AftersaleReceiptRequest:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        refundMinor:
+          type: [integer, "null"]
+          format: int64
+          minimum: 1
+          description: 退款金额；不传是申请金额
+        note:
+          type: [string, "null"]
+          maxLength: 200
+          description: 少于申请金额时必填（比如少了配件）
+    ReturnAddressRequest:
+      type: object
+      additionalProperties: false
+      required: [contactName, phone, address]
+      properties:
+        contactName:
+          type: string
+          maxLength: 40
+        phone:
+          type: string
+          pattern: "^[0-9+-]{5,20}$"
+        address:
+          type: string
+          maxLength: 200
+        note:
+          type: [string, "null"]
+          maxLength: 200
+    ReturnAddress:
+      type: object
+      additionalProperties: false
+      required: [contactName, phone, address, note, version, updatedAt]
+      properties:
+        contactName:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        note:
+          type: [string, "null"]
+        version:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    MediaAsset:
+      type: object
+      additionalProperties: false
+      required: [url, alt]
+      properties:
+        url:
+          type: string
+          format: uri
+        alt:
+          type: string
+    TradeOrderLine:
+      type: object
+      additionalProperties: false
+      description: 订单行（和 contracts/openapi-trade.yaml 的 TradeOrderLine 相同）
+      required: [lineId, productId, offerId, productName, skuName, coverImage, unitAmountMinor, quantity, subtotalMinor]
+      properties:
+        lineId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        offerId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        skuName:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        unitAmountMinor:
+          type: integer
+          format: int64
+        quantity:
+          type: integer
+        subtotalMinor:
+          type: integer
+          format: int64
+    AftersaleMerchant:
+      type: object
+      additionalProperties: false
+      required: [organizationId, name, aftersaleParty]
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: 处理方：卖出商品的商家（下单时的名称快照）
+        aftersaleParty:
+          type: [string, "null"]
+          description: 下单时记的售后责任方；为 null 时就是商家自己
+    AftersaleReturnAddress:
+      type: object
+      additionalProperties: false
+      required: [contactName, phone, address, note]
+      properties:
+        contactName:
+          type: [string, "null"]
+        phone:
+          type: [string, "null"]
+        address:
+          type: string
+        note:
+          type: [string, "null"]
+    AftersaleWaybill:
+      type: object
+      additionalProperties: false
+      required: [carrierName, trackingNo, shippedAt]
+      properties:
+        carrierName:
+          type: string
+        trackingNo:
+          type: string
+        shippedAt:
+          type: [string, "null"]
+          format: date-time
+    AftersaleRefund:
+      type: object
+      additionalProperties: false
+      required: [status, amountMinor, succeededAt, channelTransactionId]
+      properties:
+        status:
+          type: string
+          enum: [REQUESTED, PROCESSING, SUCCEEDED, CLOSED, ABNORMAL]
+          description: 交易模块退款单的状态
+        amountMinor:
+          type: integer
+          format: int64
+        succeededAt:
+          type: [string, "null"]
+          format: date-time
+        channelTransactionId:
+          type: [string, "null"]
+          description: 原付款在微信的交易号（只显示）
+    AftersaleImage:
+      type: object
+      additionalProperties: false
+      required: [imageId, slot]
+      properties:
+        imageId:
+          type: string
+          format: uuid
+        slot:
+          type: string
+          enum: [PRODUCT, PACKAGE, OTHER]
+          description: 取值同 AftersaleImageSlot
+    AftersaleEvent:
+      type: object
+      additionalProperties: false
+      required: [action, status, occurredAt]
+      properties:
+        action:
+          type: string
+          enum: [SUBMIT, AGREE, AUTO_AGREE, REJECT, REVOKE, SHIP_RETURN, EDIT_RETURN, CLOSE_OVERDUE, CONFIRM_RECEIPT,
+                 AUTO_REFUND, REJECT_RECEIPT, REFUND_SUCCEEDED, REFUND_FAILED]
+          description: 取值同 AftersaleAction
+        status:
+          $ref: "#/components/schemas/AftersaleStatus"
+        occurredAt:
+          type: string
+          format: date-time
+    AftersaleActions:
+      type: object
+      additionalProperties: false
+      description: 这一方现在能做的事；另一方的几项总是 false
+      required: [canRevoke, canSubmitReturn, canEditReturn, canReapply, canReview, canConfirmReceipt, canRejectReceipt]
+      properties:
+        canRevoke:
+          type: boolean
+        canSubmitReturn:
+          type: boolean
+        canEditReturn:
+          type: boolean
+        canReapply:
+          type: boolean
+          description: 这张单结束了、订单还能申请（列表里只按状态给，详情里按订单的当前情况给）
+        canReview:
+          type: boolean
+        canConfirmReceipt:
+          type: boolean
+        canRejectReceipt:
+          type: boolean
+    Aftersale:
+      type: object
+      additionalProperties: false
+      required: [aftersaleId, aftersaleNo, orderId, orderNo, kind, reason, description, status, merchant, lines,
+                 paidMinor, requestedMinor, refundMinor, returnAddress, returnWaybill, rejectReason, merchantNote,
+                 refund, images, dueAt, submittedAt, reviewedAt, returnShippedAt, receivedAt, refundedAt, closedAt,
+                 timeline, actions, version]
+      properties:
+        aftersaleId:
+          type: string
+          format: uuid
+        aftersaleNo:
+          type: string
+          description: 给人看的售后编号（AS 开头）
+        orderId:
+          type: string
+          format: uuid
+        orderNo:
+          type: string
+        kind:
+          $ref: "#/components/schemas/AftersaleKind"
+        reason:
+          $ref: "#/components/schemas/AftersaleReason"
+        description:
+          type: [string, "null"]
+        status:
+          $ref: "#/components/schemas/AftersaleStatus"
+        merchant:
+          $ref: "#/components/schemas/AftersaleMerchant"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeOrderLine"
+        paidMinor:
+          type: integer
+          format: int64
+          description: 订单实付
+        requestedMinor:
+          type: integer
+          format: int64
+        refundMinor:
+          type: [integer, "null"]
+          format: int64
+          description: 实际退款金额（商家确认收货时定，仅退款等于申请金额）；还没发起退款时为 null
+        returnAddress:
+          anyOf:
+            - $ref: "#/components/schemas/AftersaleReturnAddress"
+            - type: "null"
+          description: 商家同意之后才有
+        returnWaybill:
+          anyOf:
+            - $ref: "#/components/schemas/AftersaleWaybill"
+            - type: "null"
+        rejectReason:
+          type: [string, "null"]
+        merchantNote:
+          type: [string, "null"]
+        refund:
+          anyOf:
+            - $ref: "#/components/schemas/AftersaleRefund"
+            - type: "null"
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/AftersaleImage"
+        dueAt:
+          type: [string, "null"]
+          format: date-time
+          description: 当前这一步的处理时限（等待商家处理、待寄回、待商家收货时有）
+        submittedAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+        returnShippedAt:
+          type: [string, "null"]
+          format: date-time
+        receivedAt:
+          type: [string, "null"]
+          format: date-time
+        refundedAt:
+          type: [string, "null"]
+          format: date-time
+        closedAt:
+          type: [string, "null"]
+          format: date-time
+        timeline:
+          type: array
+          description: 进度（详情里有，列表里为空）
+          items:
+            $ref: "#/components/schemas/AftersaleEvent"
+        actions:
+          $ref: "#/components/schemas/AftersaleActions"
+        version:
+          type: integer
+    AftersaleCounts:
+      type: object
+      additionalProperties: false
+      required: [doing, done, closed]
+      properties:
+        doing:
+          type: integer
+          format: int64
+        done:
+          type: integer
+          format: int64
+        closed:
+          type: integer
+          format: int64
+    AftersalePage:
+      type: object
+      additionalProperties: false
+      required: [page, size, total, hasMore, items, counts]
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Aftersale"
+        counts:
+          $ref: "#/components/schemas/AftersaleCounts"
+    AftersaleOption:
+      type: object
+      additionalProperties: false
+      required: [kind, available, unavailableReason]
+      properties:
+        kind:
+          $ref: "#/components/schemas/AftersaleKind"
+        available:
+          type: boolean
+        unavailableReason:
+          type: [string, "null"]
+          enum: [ORDER_NOT_ELIGIBLE, ORDER_NOT_PAID, ORDER_REFUNDED, ALREADY_SHIPPED, NOT_SHIPPED,
+                 NO_REASON_NOT_SUPPORTED, WINDOW_PASSED, OPEN_AFTERSALE, LIMIT_REACHED, NOTHING_TO_REFUND, null]
+          description: 取值同 AftersaleUnavailableReason；能选时为 null
+    AftersaleReasonOption:
+      type: object
+      additionalProperties: false
+      required: [reason, kind, available, unavailableReason]
+      properties:
+        reason:
+          $ref: "#/components/schemas/AftersaleReason"
+        kind:
+          $ref: "#/components/schemas/AftersaleKind"
+        available:
+          type: boolean
+        unavailableReason:
+          type: [string, "null"]
+          enum: [ORDER_NOT_ELIGIBLE, ORDER_NOT_PAID, ORDER_REFUNDED, ALREADY_SHIPPED, NOT_SHIPPED,
+                 NO_REASON_NOT_SUPPORTED, WINDOW_PASSED, OPEN_AFTERSALE, LIMIT_REACHED, NOTHING_TO_REFUND, null]
+          description: 取值同 AftersaleUnavailableReason；能选时为 null
+    AftersaleEligibility:
+      type: object
+      additionalProperties: false
+      required: [orderId, orderNo, orderStatus, lines, paidMinor, maxRefundMinor, merchant, kinds, reasons,
+                 openAftersaleId, shippedAt, completedAt]
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        orderNo:
+          type: string
+        orderStatus:
+          type: string
+          description: 订单状态（contracts/openapi-trade.yaml 的 TradeOrderStatus）
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeOrderLine"
+        paidMinor:
+          type: integer
+          format: int64
+        maxRefundMinor:
+          type: integer
+          format: int64
+          description: 现在最多能申请多少（实付减已退减在路上的）
+        merchant:
+          $ref: "#/components/schemas/AftersaleMerchant"
+        kinds:
+          type: array
+          items:
+            $ref: "#/components/schemas/AftersaleOption"
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/AftersaleReasonOption"
+        openAftersaleId:
+          type: [string, "null"]
+          format: uuid
+        shippedAt:
+          type: [string, "null"]
+          format: date-time
+        completedAt:
+          type: [string, "null"]
+          format: date-time
+    AftersaleImageUpload:
+      type: object
+      additionalProperties: false
+      required: [imageId, slot, contentType, sizeBytes]
+      properties:
+        imageId:
+          type: string
+          format: uuid
+        slot:
+          type: string
+          enum: [PRODUCT, PACKAGE, OTHER]
+          description: 取值同 AftersaleImageSlot
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+        sizeBytes:
+          type: integer
+          maximum: 5242880
