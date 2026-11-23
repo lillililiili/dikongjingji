@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -190,6 +191,45 @@ public final class MallCatalogReadService {
                         // 图片段的地址不是 https 时整段不给（没有图的图片段没有意义）。
                         .filter(block -> !"IMAGE".equals(block.type()) || block.image() != null)
                         .toList());
+    }
+
+    /**
+     * S4-4：别的模块（体验的馆内设备）要的这件商品在这个城市怎么卖——起价、计价单位、价格是否不止一种、在售商家数，
+     * 和商城列表卡同样的算法。商品不存在、已下架或这个城市没有在售时为空。
+     */
+    public Optional<MallOfferSummary> findOfferSummary(UUID productId, String cityCode) {
+        if (productId == null) {
+            throw new IllegalArgumentException("product id is required");
+        }
+        requireCityCode(cityCode);
+        Optional<ProductRow> product = store.findProduct(productId);
+        if (product.isEmpty()) {
+            return Optional.empty();
+        }
+        List<OfferRow> offers = store.findOffers(productId, cityCode);
+        if (offers.isEmpty()) {
+            return Optional.empty();
+        }
+        OfferRow cheapest = offers.stream()
+                .filter(row -> row.amountMinor() != null)
+                .min(java.util.Comparator.comparingLong(OfferRow::amountMinor))
+                .orElse(offers.get(0));
+        return Optional.of(new MallOfferSummary(
+                MallSaleMode.valueOf(product.get().saleMode()),
+                cheapest.amountMinor(),
+                MallPriceUnit.valueOf(cheapest.priceUnit()),
+                offers.stream().map(OfferRow::amountMinor).filter(java.util.Objects::nonNull).distinct().count() > 1,
+                offers.stream().map(OfferRow::merchantId).distinct().count()));
+    }
+
+    /** {@link #findOfferSummary} 的结果；fromAmountMinor 是最低价（分），询价商品为 null。 */
+    public record MallOfferSummary(
+            MallSaleMode saleMode,
+            Long fromAmountMinor,
+            MallPriceUnit priceUnit,
+            boolean multiplePrices,
+            long sellerCount
+    ) {
     }
 
     private static <E extends Enum<E>> E parse(String code, Function<String, E> parser) {

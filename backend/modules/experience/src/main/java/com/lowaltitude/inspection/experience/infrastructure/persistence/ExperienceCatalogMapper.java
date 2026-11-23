@@ -71,7 +71,18 @@ public interface ExperienceCatalogMapper {
                          AND s.starts_at > #{now}
                          AND s.starts_at < #{endOfToday}
                          AND s.booked_count < s.capacity
-                   ) open_sessions_today
+                   ) open_sessions_today,
+                   COALESCE(NULLIF(btrim(v.project_summary), ''), (
+                       SELECT string_agg(top.name, ' · ' ORDER BY top.sort_order, top.id)
+                       FROM (
+                           SELECT p.name, p.sort_order, p.id
+                           FROM venue_project p
+                           WHERE p.venue_id = v.id
+                             AND p.status = 'ACTIVE'
+                           ORDER BY p.sort_order ASC, p.id ASC
+                           LIMIT 3
+                       ) top
+                   )) project_summary
             FROM venue v
             WHERE v.status = 'PUBLISHED'
               AND v.city_code = #{cityCode}
@@ -190,7 +201,8 @@ public interface ExperienceCatalogMapper {
                    name,
                    summary,
                    image_url,
-                   trial_mode
+                   trial_mode,
+                   product_id
             FROM venue_device
             WHERE venue_id = #{venueId}
               AND status = 'ACTIVE'

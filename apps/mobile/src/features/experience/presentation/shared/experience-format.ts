@@ -3,6 +3,8 @@ import type {
   ExperienceType,
   VenueCard,
   VenueDeviceCategory,
+  VenueDevicePriceUnit,
+  VenueDeviceProduct,
   VenueDeviceTrialMode,
   VenueProject,
   VenueSession,
@@ -58,6 +60,35 @@ export function formatVenuePrice(amountMinor: number): string {
     ? yuan.toLocaleString('zh-CN')
     : yuan.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `¥${amount}`
+}
+
+const DEVICE_PRICE_UNITS: Record<VenueDevicePriceUnit, string> = {
+  ITEM: '',
+  DAY: '/天',
+  HALF_DAY: '/半天',
+}
+
+export interface VenueDeviceOfferText {
+  price: string
+  unit: string
+  sellers: string
+}
+
+// Board VenueDevices' bottom line of a device card: "¥1,299 起 · 3 家在售", "¥380 /天 起 · 租赁 · 1 家",
+// "询价 · 按项目报价". 起 only when the merchants of the city ask more than one price.
+export function formatVenueDeviceOffer(product: VenueDeviceProduct): VenueDeviceOfferText {
+  if (product.saleMode === 'INQUIRY' || product.fromAmountMinor === null) {
+    return { price: '询价', unit: '', sellers: '按项目报价' }
+  }
+  const from = product.multiplePrices ? '起' : ''
+  const per = DEVICE_PRICE_UNITS[product.priceUnit]
+  return {
+    price: formatVenuePrice(product.fromAmountMinor),
+    unit: [per, from].filter(Boolean).join(' '),
+    sellers: product.saleMode === 'RENT'
+      ? `租赁 · ${product.sellerCount} 家`
+      : `${product.sellerCount} 家在售`,
+  }
 }
 
 export function formatVenueSessionTime(session: VenueSession): string {

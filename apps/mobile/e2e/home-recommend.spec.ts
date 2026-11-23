@@ -22,6 +22,12 @@ test.describe('首页推荐区块', () => {
       '东营低空与机器人体验馆',
       '黄河口户外飞行营地',
     ])
+    // S4-4（体验 1.4.0）：名称下面是项目摘要（画板 HomeFull）——体验馆是运营填的，营地没填，用前三个项目名；
+    // 有摘要就不再写地址。
+    await expect(page.getByTestId(`home-venue-summary-${VENUE_ID}`)).toHaveText('模拟飞行 · 机器人编程 · 厂家展区')
+    await expect(page.getByTestId('home-venue-summary-b2000000-0000-4000-8000-000000000002'))
+      .toHaveText('真机试飞（教练陪同） · 航拍体验 · 营地自然课堂')
+    await expect(page.getByTestId(`home-venue-${VENUE_ID}`)).not.toContainText('东营区示例路 66 号')
     // The inspection sections of the public build are not shown next to them.
     await expect(page.getByText('精选服务')).toHaveCount(0)
     await expect(page.getByText('企业解决方案')).toHaveCount(0)

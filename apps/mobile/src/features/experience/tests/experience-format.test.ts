@@ -7,6 +7,7 @@ import { resolveExperienceIntent } from '../application/experience-intent'
 import type { VenueCard, VenueProject, VenueSession } from '../domain/experience'
 import {
   formatVenueCardNote,
+  formatVenueDeviceOffer,
   formatVenuePrice,
   formatVenueProjectMeta,
   formatVenueSessionSeats,
@@ -28,6 +29,7 @@ const venue: VenueCard = {
   openingNote: '09:30–18:00 · 周一闭馆',
   address: '东营区示例路 66 号',
   openSessionsToday: 3,
+  projectSummary: '模拟飞行 · 机器人编程 · 厂家展区',
 }
 
 const project: VenueProject = {
@@ -66,6 +68,22 @@ describe('venue formatting', () => {
     expect(formatVenuePrice(3900)).toBe('¥39')
     expect(formatVenuePrice(3950)).toBe('¥39.50')
     expect(formatVenuePrice(0)).toBe('免费')
+  })
+
+  // S4-4, board VenueDevices: price, unit and sellers of the device's mall product in the venue's city.
+  it('describes the offer of a device product like the board', () => {
+    const product = {
+      productId: 'p', saleMode: 'BUY' as const, fromAmountMinor: 129_900, priceUnit: 'ITEM' as const,
+      multiplePrices: true, sellerCount: 3,
+    }
+    expect(formatVenueDeviceOffer(product)).toEqual({ price: '¥1,299', unit: '起', sellers: '3 家在售' })
+    expect(formatVenueDeviceOffer({ ...product, fromAmountMinor: 199_900, multiplePrices: false, sellerCount: 1 }))
+      .toEqual({ price: '¥1,999', unit: '', sellers: '1 家在售' })
+    expect(formatVenueDeviceOffer({
+      ...product, saleMode: 'RENT', fromAmountMinor: 38_000, priceUnit: 'DAY', sellerCount: 1,
+    })).toEqual({ price: '¥380', unit: '/天 起', sellers: '租赁 · 1 家' })
+    expect(formatVenueDeviceOffer({ ...product, saleMode: 'INQUIRY', fromAmountMinor: null }))
+      .toEqual({ price: '询价', unit: '', sellers: '按项目报价' })
   })
 
   it('shows a session in Beijing time with seats or its status', () => {

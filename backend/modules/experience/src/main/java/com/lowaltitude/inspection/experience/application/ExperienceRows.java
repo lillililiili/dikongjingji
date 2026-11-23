@@ -25,7 +25,9 @@ public final class ExperienceRows {
             String coverUrl,
             String openingNote,
             String address,
-            long openSessionsToday
+            long openSessionsToday,
+            // S4-4：运营填写的项目摘要，没填时是启用的前三个项目名（“ · ”连接）；都没有时为 null。
+            String projectSummary
     ) {
     }
 
@@ -77,7 +79,9 @@ public final class ExperienceRows {
             String name,
             String summary,
             String imageUrl,
-            String trialMode
+            String trialMode,
+            // R6-2 起设备可以关联一件商城商品（只存 ID）。
+            UUID productId
     ) {
     }
 

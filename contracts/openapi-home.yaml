@@ -1,13 +1,15 @@
 openapi: 3.1.0
 info:
   title: Home Recommend API
-  version: 1.0.0
+  version: 1.1.0
   description: >-
     The four blocks under the entries of the home "推荐" channel
     (docs/redesign/03-App实现任务计划.md §15.3), in one read-only request. It only joins lists
     that are already public: each item has the shape of its own list endpoint. A block whose
     module cannot be read is returned empty; the other blocks are still returned.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+    1.1.0 (2026-11-23, S4-4): no change of its own; venues and today.venue use VenueCard of
+    openapi-experience.yaml 1.4.0, which gains projectSummary (the first line of the venue card on board HomeFull).
 servers:
   - url: /
 paths:

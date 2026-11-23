@@ -22,17 +22,22 @@ import org.springframework.transaction.support.TransactionTemplate;
 @MapperScan(basePackageClasses = ExperienceCatalogMapper.class)
 public class ExperienceApplicationConfiguration {
 
-    /** 项目的 onlinePayment 要问场馆运营机构能不能在线收款：经付款端口问交易模块（E10），没接时一律不能。 */
+    /**
+     * 项目的 onlinePayment 要问场馆运营机构能不能在线收款：经付款端口问交易模块（E10），没接时一律不能。
+     * 馆内设备的商品价格和在售家数经设备商品端口问商城（S4-4），没接时设备不带商品。
+     */
     @Bean
     ExperienceCatalogReadService experienceCatalogReadService(
             ExperienceCatalogMapper mapper,
-            ObjectProvider<VenuePaymentPort> payments
+            ObjectProvider<VenuePaymentPort> payments,
+            ObjectProvider<VenueDeviceOfferPort> deviceOffers
     ) {
         VenuePaymentPort port = payments.getIfAvailable(VenuePaymentPort::unavailable);
         return new ExperienceCatalogReadService(
                 new PostgresExperienceCatalogReadStore(mapper),
                 Clock.systemUTC(),
-                port::merchantCanCollect);
+                port::merchantCanCollect,
+                deviceOffers.getIfAvailable(VenueDeviceOfferPort::none));
     }
 
     /**

@@ -260,6 +260,29 @@ test.describe('场馆详情', () => {
       '只展示，不试用',
     ])
 
+    // S4-4（体验 1.4.0）：设备关联商品在东营的价格和在售家数（画板 VenueDevices），数字来自商城开发数据。
+    await expect(page.locator('.venue-devices__offer')).toHaveText([
+      /¥1,299\s*起\s*3 家在售/,
+      /¥380\s*\/天\s*租赁 · 1 家/,
+    ])
+    await page.getByTestId('venue-devices-tab-all').click()
+    await expect(page.locator('.venue-devices__card')).toHaveCount(6)
+    await expect(page.locator('.venue-devices__offer')).toHaveText([
+      /¥1,299\s*起\s*3 家在售/,
+      /¥4,999\s*起\s*2 家在售/,
+      /¥380\s*\/天\s*租赁 · 1 家/,
+      /¥386\s*1 家在售/,
+      /¥460\s*1 家在售/,
+      /询价\s*按项目报价/,
+    ])
+    await expect(page.locator('.venue-devices__notice')).toHaveText('到馆可看真机，想买或想租到商品页选商家')
+    // 点设备进商品页选商家，返回回到设备列表。
+    await page.locator('.venue-devices__card').first().click()
+    await expect(page.getByTestId('mall-product-name')).toHaveText('编程机器人探索套装')
+    await page.getByTestId('mall-product-back').click()
+    await expect(page.getByTestId('venue-devices')).toBeVisible()
+    await page.getByTestId('venue-devices-tab-robot').click()
+
     // The button at the bottom leads back to the venue, where a visit is booked.
     await page.getByTestId('venue-devices-book').click()
     await expect(page.getByTestId('venue-detail-name')).toBeVisible()

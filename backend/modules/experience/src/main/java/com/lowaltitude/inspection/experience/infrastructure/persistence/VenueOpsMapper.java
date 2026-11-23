@@ -87,7 +87,8 @@ public interface VenueOpsMapper {
                    v.status,
                    v.published_at,
                    v.updated_at,
-                   v.version
+                   v.version,
+                   v.project_summary
             FROM venue v
             JOIN identity_organization operator ON operator.id = v.operator_id
             """;
@@ -113,12 +114,13 @@ public interface VenueOpsMapper {
             INSERT INTO venue (
                 id, operator_id, name, cover_url, city_code, address, phone, opens_at, closes_at, closed_note,
                 opening_note, checkin_opens_minutes, late_entry_minutes, sort_order, status, ops_create_key,
-                created_at, updated_at
+                project_summary, created_at, updated_at
             )
             VALUES (
                 #{venueId}, #{operatorId}, #{name}, #{coverUrl}, #{cityCode}, #{address}, #{phone},
                 CAST(#{opensAt} AS time), CAST(#{closesAt} AS time), #{closedNote}, #{openingNote},
-                #{checkinOpensMinutes}, #{lateEntryMinutes}, #{sortOrder}, 'DRAFT', #{createKey}, #{at}, #{at}
+                #{checkinOpensMinutes}, #{lateEntryMinutes}, #{sortOrder}, 'DRAFT', #{createKey},
+                #{projectSummary}, #{at}, #{at}
             )
             """)
     int insertVenue(@Param("venueId") UUID venueId, @Param("operatorId") UUID operatorId, @Param("name") String name,
@@ -128,7 +130,8 @@ public interface VenueOpsMapper {
                     @Param("closedNote") String closedNote, @Param("openingNote") String openingNote,
                     @Param("checkinOpensMinutes") int checkinOpensMinutes,
                     @Param("lateEntryMinutes") Integer lateEntryMinutes, @Param("sortOrder") int sortOrder,
-                    @Param("createKey") UUID createKey, @Param("at") OffsetDateTime at);
+                    @Param("createKey") UUID createKey, @Param("projectSummary") String projectSummary,
+                    @Param("at") OffsetDateTime at);
 
     @Update("""
             UPDATE venue
@@ -145,6 +148,7 @@ public interface VenueOpsMapper {
                 checkin_opens_minutes = #{checkinOpensMinutes},
                 late_entry_minutes = #{lateEntryMinutes},
                 sort_order = #{sortOrder},
+                project_summary = #{projectSummary},
                 version = version + 1,
                 updated_at = #{at}
             WHERE id = #{venueId}
@@ -158,6 +162,7 @@ public interface VenueOpsMapper {
                     @Param("closedNote") String closedNote, @Param("openingNote") String openingNote,
                     @Param("checkinOpensMinutes") int checkinOpensMinutes,
                     @Param("lateEntryMinutes") Integer lateEntryMinutes, @Param("sortOrder") int sortOrder,
+                    @Param("projectSummary") String projectSummary,
                     @Param("version") int version, @Param("at") OffsetDateTime at);
 
     /** 上线写 published_at（第一次上线的时间不再改），下线保留。 */
@@ -503,7 +508,8 @@ public interface VenueOpsMapper {
     record VenueRow(UUID venueId, String name, UUID operatorId, String operatorName, String cityCode,
                     String coverUrl, String address, String phone, String opensAt, String closesAt,
                     String closedNote, String openingNote, int checkinOpensMinutes, Integer lateEntryMinutes,
-                    int sortOrder, String status, OffsetDateTime publishedAt, OffsetDateTime updatedAt, int version) {
+                    int sortOrder, String status, OffsetDateTime publishedAt, OffsetDateTime updatedAt, int version,
+                    String projectSummary) {
     }
 
     record InfoItemRow(String label, String content) {

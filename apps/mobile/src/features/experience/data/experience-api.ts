@@ -10,6 +10,7 @@ import type {
   VenueDetail,
   VenueDevice,
   VenueDeviceCategory,
+  VenueDeviceProduct,
   VenueDeviceTrialMode,
   VenueInfoItem,
   VenueSession,
@@ -44,6 +45,8 @@ export interface VenueCardDto {
   openingNote: string | null
   address: string
   openSessionsToday: number
+  // Left out by a server before 1.4.0.
+  projectSummary?: string | null
 }
 
 interface VenueDetailDto {
@@ -84,6 +87,8 @@ interface VenueDeviceDto {
   summary: string | null
   image: MediaAssetDto | null
   trialMode: VenueDeviceTrialMode
+  // Left out by a server before 1.4.0.
+  product?: VenueDeviceProduct | null
 }
 
 interface ProductExperiencesDto {
@@ -138,6 +143,7 @@ export function toVenueCard(venue: VenueCardDto): VenueCard {
     openingNote: venue.openingNote,
     address: venue.address,
     openSessionsToday: venue.openSessionsToday,
+    projectSummary: venue.projectSummary?.trim() || null,
   }
 }
 
@@ -242,6 +248,7 @@ export function createExperienceApi(http: PublicApiHttpClient): ExperienceApi {
         summary: device.summary,
         image: toImage(device.image),
         trialMode: device.trialMode,
+        product: device.product && device.product.sellerCount > 0 ? device.product : null,
       }))
     },
 

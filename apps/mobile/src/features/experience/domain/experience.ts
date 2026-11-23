@@ -27,6 +27,8 @@ export interface VenueCard {
   openingNote: string | null
   address: string
   openSessionsToday: number
+  // 1.4.0 (S4-4): the card's first line, e.g. 模拟飞行 · 机器人编程 · 厂家展区 (board HomeFull).
+  projectSummary: string | null
 }
 
 export interface VenueProject {
@@ -84,6 +86,21 @@ export interface VenueDevice {
   summary: string | null
   image: ExperienceImage | null
   trialMode: VenueDeviceTrialMode
+  // 1.4.0 (S4-4): the linked mall product as it sells in the venue's city (board VenueDevices); null without one.
+  product: VenueDeviceProduct | null
+}
+
+export type VenueDeviceSaleMode = 'BUY' | 'RENT' | 'INQUIRY'
+export type VenueDevicePriceUnit = 'ITEM' | 'DAY' | 'HALF_DAY'
+
+export interface VenueDeviceProduct {
+  productId: string
+  saleMode: VenueDeviceSaleMode
+  // Lowest price of the city's offers in fen; null for an inquiry product.
+  fromAmountMinor: number | null
+  priceUnit: VenueDevicePriceUnit
+  multiplePrices: boolean
+  sellerCount: number
 }
 
 // R6-2 先体验 (1.2.0): where a mall product can be tried before buying.

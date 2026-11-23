@@ -61,6 +61,7 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenueSession", VenueSessionView.class),
             Map.entry("VenueSessionList", VenueSessionListView.class),
             Map.entry("VenueDevice", VenueDeviceView.class),
+            Map.entry("VenueDeviceProduct", VenueDeviceProductView.class),
             Map.entry("VenueDevicePage", VenueDevicePageView.class),
             Map.entry("VenueParticipant", VenueParticipantView.class),
             Map.entry("VenueParticipantList", VenueParticipantListView.class),
@@ -93,6 +94,8 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenueSessionStatus", VenueSessionStatus.class),
             Map.entry("VenueDeviceCategory", VenueDeviceCategory.class),
             Map.entry("VenueDeviceTrialMode", VenueDeviceTrialMode.class),
+            Map.entry("VenueDeviceSaleMode", VenueDeviceOfferPort.SaleMode.class),
+            Map.entry("VenueDevicePriceUnit", VenueDeviceOfferPort.PriceUnit.class),
             Map.entry("VenueBookingStatus", VenueBookingStatus.class),
             Map.entry("VenueBookingBucket", VenueBookingBucket.class),
             Map.entry("VenuePaymentStatus", VenuePaymentStatus.class),
@@ -101,11 +104,11 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenueEligibilityReason", VenueEligibilityReason.class));
 
     @Test
-    void contractIsVersionOnePointThreeAndDeclaresBearerJwt() {
+    void contractIsVersionOnePointFourAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        // 1.3.0：核销工作台（S3-3）的登记放行，路由和字段不变。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.0");
+        // 1.4.0（S4-4）：场馆卡的项目摘要、馆内设备的商品价格和在售家数。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.4.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
