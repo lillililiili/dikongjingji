@@ -188,7 +188,12 @@ class TradeOrderControllerTest {
         mockMvc.perform(submit().principal(customer).content(BODY))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("ETag", "\"0\""))
-                .andExpect(jsonPath("$.length()").value(19))
+                // 0.6.0：加了交易主体、渠道交易号、参与人、售后入口四项（老调用方的构造器给空值）。
+                .andExpect(jsonPath("$.length()").value(23))
+                .andExpect(jsonPath("$.parties.invoiceIssuer").value(nullValue()))
+                .andExpect(jsonPath("$.channelTransactionId").value(nullValue()))
+                .andExpect(jsonPath("$.participantNames").value(nullValue()))
+                .andExpect(jsonPath("$.aftersale.applicable").value(false))
                 .andExpect(jsonPath("$.orderId").value(ORDER.toString()))
                 .andExpect(jsonPath("$.orderNo").value("MO2026111800000042"))
                 .andExpect(jsonPath("$.source").value("MALL"))

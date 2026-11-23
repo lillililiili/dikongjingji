@@ -23,10 +23,14 @@ import {
   classifyOrderCommandFailure,
 } from '../../trade/application/order-commands'
 import { createTradeKey } from '../../trade/application/trade-keys'
+import { aftersaleApi } from '../../trade/data/aftersale-api-client'
+import type { Aftersale } from '../../trade/domain/aftersale'
+import { buildAftersalesUrl } from '../../trade/navigation/aftersale-routes'
 import { TRADE_PREVIEW_ENABLED } from '../../trade/application/trade-preview'
 import { tradeApi } from '../../trade/data/trade-api-client'
 import type { TradeOrder } from '../../trade/domain/trade-order'
 import { confirmDialog } from '../../trade/presentation/shared/trade-presentation'
+import { describeAftersaleCard } from '../application/aftersale-cards'
 import {
   describeMyOrderCard,
   type MyOrderCardAction,
@@ -40,6 +44,8 @@ import {
   MY_ORDER_KEYS,
   matchesMyOrderFilter,
   myOrderSources,
+  showsAftersales,
+  withoutAftersaleOrders,
   type MyOrderItem,
   type MyOrderKind,
   type MyOrderSource,
@@ -103,14 +109,21 @@ const sources = ref<MyOrderSource[]>([])
 const loaded = ref<MergedSource<MyOrderItem>[]>([])
 // The device pictures come with the rental inquiries; the order alone has no product id.
 const rentalCovers = ref<Record<string, string | null>>({})
+// 退款/售后 chip: the first page of goods after-sales cases, above the other refunds.
+const aftersales = ref<Aftersale[]>([])
+const AFTERSALE_PREVIEW_SIZE = 10
 const loadingMore = ref(false)
 const busyId = ref<string | null>(null)
 const now = ref(Date.now())
 let requestVersion = 0
 let timer: ReturnType<typeof setInterval> | null = null
 
-const items = computed(() => mergedItems(loaded.value, MY_ORDER_KEYS)
-  .filter((item) => matchesMyOrderFilter(item, tab.value, chip.value)))
+const aftersaleOrderIds = computed(() => new Set(aftersales.value.map((aftersale) => aftersale.orderId)))
+const items = computed(() => withoutAftersaleOrders(
+  mergedItems(loaded.value, MY_ORDER_KEYS).filter((item) => matchesMyOrderFilter(item, tab.value, chip.value)),
+  aftersaleOrderIds.value,
+))
+const aftersaleCards = computed(() => aftersales.value.map((aftersale) => ({ aftersale, view: describeAftersaleCard(aftersale) })))
 const hasMore = computed(() => mergedHasMore(loaded.value))
 const cards = computed(() => items.value.map((item) => ({
   item,
@@ -145,11 +158,16 @@ async function reload(): Promise<void> {
   const requested = ++requestVersion
   const wanted = myOrderSources(tab.value, chip.value, (kind) => KIND_ENABLED[kind])
   if (state.value.kind !== 'ready' || items.value.length === 0) state.value = { kind: 'loading' }
+  const withAftersales = TRADE_PREVIEW_ENABLED && showsAftersales(tab.value, chip.value)
   try {
-    const pages = await loadFirstMyOrderPages(apis, token, wanted)
+    const [pages, aftersalePage] = await Promise.all([
+      loadFirstMyOrderPages(apis, token, wanted),
+      withAftersales ? aftersaleApi.list(token, 'ALL', 1, AFTERSALE_PREVIEW_SIZE) : Promise.resolve(null),
+    ])
     if (requested !== requestVersion) return
     sources.value = wanted
     loaded.value = pages
+    aftersales.value = aftersalePage?.items ?? []
     now.value = Date.now()
     state.value = { kind: 'ready' }
     if (wanted.some((source) => source.kind === 'RENTAL')) void loadRentalCovers(token)
@@ -189,6 +207,7 @@ function changeFilter(nextTab: MyOrderTab, nextChip: MyOrderChip | null): void {
   tab.value = nextTab
   chip.value = nextChip
   loaded.value = []
+  aftersales.value = []
   state.value = { kind: 'loading' }
   emit('filterChange', nextTab, nextChip)
   void reload()
@@ -241,6 +260,10 @@ function runAction(item: MyOrderItem, action: MyOrderCardAction): void {
   }
   if (item.kind !== 'GOODS') return
   void runGoodsCommand(item.order, action.target.kind === 'GOODS_RECEIPT' ? 'CONFIRM_RECEIPT' : 'CANCEL')
+}
+
+function runAftersaleAction(action: MyOrderCardAction): void {
+  if (action.target.kind === 'URL') emit('open', action.target.url)
 }
 
 function openInspection(order: InspectionOrderSummary): void {
@@ -322,7 +345,7 @@ onBeforeUnmount(() => {
       <button class="my-orders__state-button" data-testid="my-orders-retry" @click="reload">重试</button>
     </view>
 
-    <view v-else-if="cards.length === 0 && !hasMore" class="my-orders__empty" data-testid="my-orders-empty">
+    <view v-else-if="cards.length === 0 && aftersaleCards.length === 0 && !hasMore" class="my-orders__empty" data-testid="my-orders-empty">
       <view class="my-orders__empty-icon">
         <LineIcon :d="EMPTY_ICON" :size="30" color="#91a0b4" :stroke-width="1.6" />
       </view>
@@ -330,6 +353,19 @@ onBeforeUnmount(() => {
     </view>
 
     <view v-else class="my-orders__body">
+      <template v-if="aftersaleCards.length > 0">
+        <MyOrderCard
+          v-for="card in aftersaleCards"
+          :key="card.aftersale.aftersaleId"
+          :card="card.view"
+          :test-id="`my-order-aftersale-${card.aftersale.aftersaleNo}`"
+          @open="emit('open', card.view.url)"
+          @action="(action: MyOrderCardAction) => runAftersaleAction(action)"
+        />
+        <button class="my-orders__all-aftersales" data-testid="my-orders-all-aftersales" @click="emit('open', buildAftersalesUrl())">
+          全部售后单 ›
+        </button>
+      </template>
       <template v-for="card in cards" :key="card.item.id">
         <InspectionOrderCard
           v-if="card.item.kind === 'INSPECTION'"
@@ -383,6 +419,17 @@ button {
 
 button::after {
   border: 0;
+}
+
+.my-orders__all-aftersales {
+  display: flex;
+  min-height: 44px;
+  padding: 0 12px;
+  align-self: center;
+  align-items: center;
+  color: #ba470b;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .my-orders__top {

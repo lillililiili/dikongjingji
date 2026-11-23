@@ -25,9 +25,10 @@ import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { tradeApi } from '../../data/trade-api-client'
+import { isOpenAftersale } from '../../domain/aftersale'
 import type { TradeOrder } from '../../domain/trade-order'
 import TradePartiesCard from '../shared/TradePartiesCard.vue'
-import { goodsParties } from '../shared/trade-parties'
+import { aftersaleTerms, goodsParties } from '../shared/trade-parties'
 import { confirmDialog, copyText, coverOfLine } from '../shared/trade-presentation'
 
 const props = defineProps<{
@@ -43,6 +44,9 @@ const emit = defineEmits<{
   pay: []
   // The order is not a goods order (a paid sign-up): its own page shows it instead.
   elsewhere: [destination: TradeOrderDestination]
+  // 申请售后 / 查看售后 (S4-2, board OrderGoods): the application form, or the latest case.
+  applyAftersale: []
+  openAftersale: [aftersaleId: string]
 }>()
 
 type DetailState =
@@ -62,7 +66,7 @@ const ACTION_LABELS: Record<TradeOrderAction, string> = {
 const state = ref<DetailState>({ kind: 'loading' })
 const now = ref(Date.now())
 const busy = ref(false)
-const copied = ref<'ORDER' | 'WAYBILL' | null>(null)
+const copied = ref<'ORDER' | 'WAYBILL' | 'TXN' | null>(null)
 let requestVersion = 0
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -86,6 +90,37 @@ const delivery = computed(() => order.value?.delivery ?? null)
 // Only while the goods wait to be picked up; after a refund the server still sends the code.
 const pickupCode = computed(() => (order.value?.status === 'PAID' ? order.value.delivery?.pickupCode ?? null : null))
 const shipped = computed(() => Boolean(delivery.value?.shippedAt && delivery.value.mode === 'EXPRESS'))
+const parties = computed(() => {
+  const current = order.value
+  if (!current) return []
+  return goodsParties({
+    merchantName: current.merchant.name,
+    merchantKindLabel: current.merchant.kind ? TRADE_MERCHANT_KIND_LABELS[current.merchant.kind] : null,
+    fulfilledFrom: current.parties.fulfilledFrom,
+    invoiceIssuer: current.parties.invoiceIssuer,
+    aftersaleParty: current.parties.aftersaleParty,
+  })
+})
+// 售后条款 (board OrderGoods): the order does not carry the products' 七天无理由 mark, so the first
+// term says it follows the seller's rules, as the board does.
+const terms = computed(() => (order.value
+  ? aftersaleTerms({ noReasonReturn: null, aftersaleParty: order.value.parties.aftersaleParty ?? order.value.merchant.name })
+  : []))
+// The bottom bar's after-sales button: 查看售后 while a case is still open, else 申请售后 when the
+// server says one may be applied for now; nothing otherwise.
+const aftersaleButton = computed<'VIEW' | 'APPLY' | null>(() => {
+  const entry = order.value?.aftersale
+  if (!entry) return null
+  if (entry.latestAftersaleId && isOpenAftersale(entry.latestStatus)) return 'VIEW'
+  return entry.applicable ? 'APPLY' : null
+})
+
+function runAftersaleButton(): void {
+  const entry = order.value?.aftersale
+  if (!entry) return
+  if (aftersaleButton.value === 'VIEW' && entry.latestAftersaleId) emit('openAftersale', entry.latestAftersaleId)
+  else if (aftersaleButton.value === 'APPLY') emit('applyAftersale')
+}
 
 async function load(): Promise<void> {
   const token = props.accessToken
@@ -150,7 +185,7 @@ async function runAction(action: TradeOrderAction): Promise<void> {
   }
 }
 
-function copy(kind: 'ORDER' | 'WAYBILL', text: string | null): void {
+function copy(kind: 'ORDER' | 'WAYBILL' | 'TXN', text: string | null): void {
   if (text) copyText(text, () => { copied.value = kind })
 }
 
@@ -264,11 +299,7 @@ onBeforeUnmount(() => {
 
         <TradePartiesCard
           test-id="goods-order-parties"
-          :rows="goodsParties({
-            merchantName: order.merchant.name,
-            merchantKindLabel: order.merchant.kind ? TRADE_MERCHANT_KIND_LABELS[order.merchant.kind] : null,
-            fulfilledFrom: null,
-          })"
+          :rows="parties"
           footnote="发票由销售方开具，可联系销售方申请"
         />
 
@@ -308,6 +339,13 @@ onBeforeUnmount(() => {
         <view v-if="order.paidAt" class="goods-order__card goods-order__section" data-testid="goods-order-payment">
           <text class="goods-order__section-title">支付信息</text>
           <view class="goods-order__info"><text class="goods-order__info-label">支付方式</text><text>{{ TRADE_PAYMENT_METHOD_LABEL }}</text></view>
+          <view v-if="order.channelTransactionId" class="goods-order__info" data-testid="goods-order-transaction">
+            <text class="goods-order__info-label">渠道交易号</text>
+            <text class="goods-order__order-no goods-order__transaction" data-testid="goods-order-transaction-id">{{ order.channelTransactionId }}</text>
+            <button class="goods-order__copy" data-testid="goods-order-copy-transaction" @click="copy('TXN', order.channelTransactionId)">
+              {{ copied === 'TXN' ? '已复制' : '复制' }}
+            </button>
+          </view>
           <view class="goods-order__info"><text class="goods-order__info-label">支付时间</text><text>{{ formatTradeTime(order.paidAt) }}</text></view>
           <view class="goods-order__info">
             <text class="goods-order__info-label">支付状态</text>
@@ -336,9 +374,25 @@ onBeforeUnmount(() => {
             <text class="goods-order__info-label">留言</text><text class="goods-order__note">{{ order.buyerNote }}</text>
           </view>
         </view>
+
+        <view v-if="order.paidAt" class="goods-order__card goods-order__terms" data-testid="goods-order-terms">
+          <text class="goods-order__section-title goods-order__terms-title">售后条款</text>
+          <view v-for="term in terms" :key="term" class="goods-order__term">
+            <LineIcon name="check" :size="16" color="#159a70" :stroke-width="2.2" />
+            <text class="goods-order__term-text">{{ term }}</text>
+          </view>
+          <button
+            v-if="order.aftersale.latestAftersaleId"
+            class="goods-order__terms-link"
+            data-testid="goods-order-view-aftersale"
+            @click="emit('openAftersale', order.aftersale.latestAftersaleId)"
+          >
+            查看售后 ›
+          </button>
+        </view>
       </view>
 
-      <view v-if="actions.length > 0 || SUPPORT_PREVIEW_ENABLED" class="goods-order__bar">
+      <view v-if="actions.length > 0 || SUPPORT_PREVIEW_ENABLED || aftersaleButton" class="goods-order__bar">
         <button
           v-if="SUPPORT_PREVIEW_ENABLED"
           class="goods-order__contact"
@@ -347,6 +401,15 @@ onBeforeUnmount(() => {
         >
           <LineIcon name="chat" :size="22" color="#536178" />
           <text>联系商家</text>
+        </button>
+        <button
+          v-if="aftersaleButton"
+          class="goods-order__bar-button"
+          :data-testid="aftersaleButton === 'VIEW' ? 'goods-order-aftersale-view' : 'goods-order-aftersale-apply'"
+          :disabled="busy"
+          @click="runAftersaleButton"
+        >
+          {{ aftersaleButton === 'VIEW' ? '查看售后' : '申请售后' }}
         </button>
         <button
           v-for="action in actions"
@@ -803,6 +866,54 @@ button::after {
   color: #ba470b;
   font-size: 13px;
   line-height: 36px;
+  white-space: nowrap;
+}
+
+.goods-order__transaction {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.goods-order__terms {
+  display: flex;
+  padding: 14px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.goods-order__terms-title {
+  margin-bottom: 0;
+  font-size: 16px;
+}
+
+.goods-order__term {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.goods-order__term :deep(.line-icon) {
+  flex: none;
+  margin-top: 2px;
+}
+
+.goods-order__term-text {
+  min-width: 0;
+  color: #536178;
+}
+
+.goods-order__terms-link {
+  display: flex;
+  min-height: 44px;
+  margin: -4px 0 -12px;
+  align-self: flex-start;
+  align-items: center;
+  color: #ba470b;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
   white-space: nowrap;
 }
 

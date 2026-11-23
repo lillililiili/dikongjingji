@@ -7,13 +7,14 @@ import { expect, type APIRequestContext } from '@playwright/test'
 
 // Shared by trade-orders.spec.ts and mall-cart.spec.ts. Everything here talks to the local stack
 // only: the backend on 18420, the fake WeChat Pay on 17460 (.planning/stack/fake-wechat) and the
-// development database in the homerev-postgres-1 container.
-export const API = 'http://127.0.0.1:18420'
-export const FAKE_WECHAT = 'http://127.0.0.1:17460'
+// development database in the homerev-postgres-1 container. A session with its own stack can point
+// the specs at it with E2E_API_URL, E2E_FAKE_WECHAT_URL and E2E_PG_CONTAINER (defaults unchanged).
+export const API = process.env.E2E_API_URL ?? 'http://127.0.0.1:18420'
+export const FAKE_WECHAT = process.env.E2E_FAKE_WECHAT_URL ?? 'http://127.0.0.1:17460'
 export const CITY = '370500'
 export const BUYER = 'dev-customer'
 export const MERCHANT = 'dev-merchant'
-const POSTGRES_CONTAINER = 'homerev-postgres-1'
+const POSTGRES_CONTAINER = process.env.E2E_PG_CONTAINER ?? 'homerev-postgres-1'
 
 // The dev seed derives offer ids from the product and merchant numbers.
 export function offerId(product: string, merchant: string): string {
@@ -66,6 +67,12 @@ export function purgeBuyerOrders(): void {
   psql(`
     CREATE TEMP TABLE e2e_orders AS
       SELECT id FROM trade_order WHERE buyer_id = (SELECT id FROM identity_user WHERE login_name = '${BUYER}');
+    -- Goods after-sales (S4-2) hang off the orders and their refunds; the pictures the buyer uploaded go too.
+    DELETE FROM trade_aftersale_event WHERE aftersale_id IN (SELECT id FROM trade_aftersale WHERE order_id IN (SELECT id FROM e2e_orders));
+    DELETE FROM trade_aftersale_image
+      WHERE aftersale_id IN (SELECT id FROM trade_aftersale WHERE order_id IN (SELECT id FROM e2e_orders))
+         OR uploaded_by = (SELECT id FROM identity_user WHERE login_name = '${BUYER}');
+    DELETE FROM trade_aftersale WHERE order_id IN (SELECT id FROM e2e_orders);
     DELETE FROM trade_channel_notification
       WHERE out_trade_no IN (SELECT out_trade_no FROM trade_payment WHERE order_id IN (SELECT id FROM e2e_orders))
          OR out_refund_no IN (SELECT out_refund_no FROM trade_refund WHERE order_id IN (SELECT id FROM e2e_orders));

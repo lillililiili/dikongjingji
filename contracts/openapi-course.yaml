@@ -1,0 +1,1337 @@
+openapi: "3.1.0"
+info:
+  title: "Course API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S5-5，docs/redesign/08-后续开发计划.md §2 S5-5、§5 D15、D12；说明和设计假设见 docs/redesign/09-课程实现说明.md）：商城“课程”页、
+    课程详情与购买、课程试听、我的课程、课程学习。只在预览构建显示（App 发布开关 COURSE）。运营端的课程管理见 openapi-ops-course.yaml。
+
+    Public routes (GET /api/v1/courses, GET /api/v1/courses/{courseId}, GET /api/v1/course-trials) need no login. Every other route needs
+    a login (bearer JWT) with the CUSTOMER role; the account is always the subject of the token and another account's enrollment is
+    answered as not found.
+
+    规则：
+    - 一期只卖线上录播课（mode ONLINE）：章节、课时、时长、讲师、适合年龄、价格、试听课时。线上课全国可买，不分城市。
+    - 线下班（mode OFFLINE：研学营、执照培训、入门线下班）在课程列表里显示，但报名、收钱都在赛事研学（contracts/openapi-activity.yaml）：
+      卡片的 activityId 是对应的活动，App 点进活动详情；标题、封面、价格、城市取自那个活动现在的公开信息。活动不存在、没上线、
+      不在当前城市时这张卡不出现。线下班没有课程详情（getCourse 回 404）。
+    - 列表：只列上架的课程；topic 筛子类目，keyword 按标题、副标题匹配（线下班按活动标题）；sort 为 DEFAULT（运营排序）、
+      PRICE_ASC、PRICE_DESC。按价格排序时没有标价的（免费、价格面议）排在最后。
+    - 购买：一个账号一门课同时只开通一次（单人账号）。课程要上架、单独出售（price 不为 null）、开课机构登记了在线收款账户；
+      已经开通且没过期的不能再买（COURSE_ALREADY_OWNED）；已有一张待付款的，再提交直接返回那一张（200）。
+      服务端按当前价格算金额，和页面上的 expectedAmountMinor 不一致时拒绝（COURSE_AMOUNT_CHANGED）。
+      建一张交易订单（contracts/openapi-trade.yaml，source = COURSE，订单编号 CO 开头，收款方是开课机构，钱进它自己的子商户号），
+      付款时限 15 分钟；App 用交易的收银台付款。付款到账（只认验签后的回调或服务端查单）即开通（ACTIVE），
+      有效期从开通算 validityDays 天（null 为长期有效）；超时或取消付款 → CLOSED。关闭之后才到账的：这门课没有别的开通时恢复，
+      否则交易模块整笔原路退回。
+    - 商品附带的数字课程（source BUNDLE）：运营端给课程登记“附带于哪些商品”，这些商品的商城订单完成（确认收货、自动确认收货、
+      自提核销）后自动开通，来源订单见 bundle。已经开通着同一门课时不重复开通。附带的课程不能单独退款，跟着商品订单的售后走。
+    - 学习：要开通且没过期。拿播放地址（getCourseLessonPlayback）记“开始学这一节”；第一次开始一节非试听课时之后不能在线退款。
+      播完（completeCourseLesson）记“学完这一节”，要先拿过这一节的播放地址；重看不重复计。播放地址只给受控 HTTPS 地址，
+      没有时为 null（开发环境没有视频存储，预览构建播放由画板图片合成的示例视频）。
+    - 试听：trial 为 true 的课时不买、不登录也能看（getCourseTrial），看试听不记进度。体验中心的“课程试听”入口按 experienceItemId 找到课程。
+    - 退款：自己买的、开通着、付款后 7 天内、还没开始学任何非试听课时，可以申请全额退款（提交即退，原路退回，进度见 refund）；
+      退款后课程关闭（REFUNDED）。超过 7 天或已经开始学的不能在线退（refundability.blockedReason），联系客服协商。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/courses:
+    get:
+      operationId: "listCourses"
+      summary: "商城“课程”页的课程列表（线上课和线下班）"
+      description: "线上课全国都列；线下班只列对应活动在这个城市上线的。按价格排序时免费、价格面议的排在最后。"
+      parameters:
+        - name: "cityCode"
+          in: "query"
+          required: true
+          description: "当前城市（6 位编码）"
+          schema:
+            type: "string"
+            pattern: "^[0-9]{6}$"
+        - name: "topic"
+          in: "query"
+          required: false
+          description: "子类目；不带为全部"
+          schema:
+            $ref: "#/components/schemas/CourseTopic"
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "搜索词，去掉首尾空白后 1–30 字"
+          schema:
+            type: "string"
+            maxLength: 30
+        - name: "sort"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/CourseSort"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "课程卡片"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CoursePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/v1/courses/{courseId}:
+    get:
+      operationId: "getCourse"
+      summary: "线上课详情（章节、课时、讲师、价格、试听课时）"
+      description: "上架的线上课；不单独出售的（只随商品附带）也能看，price 为 null、purchasable 为 false。线下班、没上架的 404。"
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: "课程"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CourseDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/courses/{courseId}/me:
+    get:
+      operationId: "getMyCourse"
+      summary: "我和这门课的关系：开通着、待付款，或没有"
+      description: "详情页据此把“立即报名”换成“继续支付”或“去学习”。只看待付款和开通着的（过期的算没有）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: "我的状态"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CourseMine"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/course-trials:
+    get:
+      operationId: "getCourseTrial"
+      summary: "课程试听：试听课时和播放地址"
+      description: "courseId 和 experienceItemId 二选一：体验中心的“课程试听”入口带 experienceItemId（体验项目 ID）。只给 trial 为 true 的课时。"
+      parameters:
+        - name: "courseId"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "uuid"
+        - name: "experienceItemId"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "uuid"
+      responses:
+        "200":
+          description: "试听"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CourseTrial"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/course-enrollments:
+    post:
+      operationId: "enrollCourse"
+      summary: "购买一门线上课：建开通记录和交易订单，之后用收银台付款"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/CourseEnrollRequest"
+      responses:
+        "200":
+          description: "同一个幂等键的重放，或这门课已有一张待付款的"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CourseEnrollment"
+        "201":
+          description: "新建的待付款记录（payment.tradeOrderId 是要付的交易订单）"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CourseEnrollment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "COURSE_NOT_PURCHASABLE：没上架、不单独出售或是线下班；COURSE_PAYMENT_UNAVAILABLE：开课机构暂未开通在线收款；COURSE_ALREADY_OWNED：已经开通着；COURSE_AMOUNT_CHANGED：价格变了，页面重新读详情；COURSE_IDEMPOTENCY_KEY_REUSED：幂等键用在了不同的请求上。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: "listMyCourseEnrollments"
+      summary: "我的课程（开通着和已过期的；退款、关闭、待付款的不列）"
+      description: "LEARNING 是开通着、没学完的；FINISHED 是全部课时学完的；ALL 是两者加上已过期的。trials 是能试听、我还没开通的课程（体验中心“课程试听”的那些），只在 ALL 的第一页给，其余为空数组。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "bucket"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/CourseEnrollmentBucket"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "我的课程"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CourseEnrollmentPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/course-enrollments/{enrollmentId}:
+    get:
+      operationId: "getMyCourseEnrollment"
+      summary: "课程学习：章节、每节课的进度、开通信息和能不能退款"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+      responses:
+        "200":
+          description: "开通记录"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CourseEnrollment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EnrollmentNotFound"
+  /api/v1/course-enrollments/{enrollmentId}/lessons/{lessonId}/playback:
+    post:
+      operationId: "getCourseLessonPlayback"
+      summary: "拿一节课的播放地址，并记“开始学这一节”"
+      description: "开通着、没过期才给。第一次开始一节非试听课时之后不能在线退款（返回的 refundability 是之后的情况）。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/LessonId"
+      responses:
+        "200":
+          description: "播放"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CoursePlayback"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EnrollmentNotFound"
+        "409":
+          description: "COURSE_NOT_LEARNABLE：待付款、已关闭、已退款或已过期。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/course-enrollments/{enrollmentId}/lessons/{lessonId}/completion:
+    post:
+      operationId: "completeCourseLesson"
+      summary: "这一节播完了：记“学完这一节”（重复调用没有变化）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+        - $ref: "#/components/parameters/LessonId"
+      responses:
+        "200":
+          description: "之后的开通记录"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CourseEnrollment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EnrollmentNotFound"
+        "409":
+          description: "COURSE_NOT_LEARNABLE：待付款、已关闭、已退款或已过期；COURSE_LESSON_NOT_STARTED：还没拿过这一节的播放地址。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/course-enrollments/{enrollmentId}/refund:
+    post:
+      operationId: "refundCourseEnrollment"
+      summary: "申请退款：付款后 7 天内、没开始学非试听课时，全额原路退回，课程随即关闭"
+      description: "已经退过的再调一次返回原样。"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnrollmentId"
+      responses:
+        "200":
+          description: "之后的开通记录（status REFUNDED，refund 是这笔退款）"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/CourseEnrollment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EnrollmentNotFound"
+        "409":
+          description: "COURSE_REFUND_NOT_ALLOWED：不能在线退（随商品附带、没开通、已经开始学、超过 7 天），details.reason 是 CourseRefundBlock。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  responses:
+    BadRequest:
+      description: "参数缺失或格式不对（COMMON_INVALID_ARGUMENT）"
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录，或登录已过期（COMMON_UNAUTHORIZED）"
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "登录账号没有客户角色（COMMON_FORBIDDEN）"
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "课程不存在、没上架或是线下班（COMMON_NOT_FOUND）"
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    EnrollmentNotFound:
+      description: "开通记录或课时不存在，或不是当前账号的（COMMON_NOT_FOUND）"
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    CourseId:
+      name: "courseId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    EnrollmentId:
+      name: "enrollmentId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    LessonId:
+      name: "lessonId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      description: "客户端为这次提交生成的 UUID；重试时带同一个"
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true
+    CourseErrorCode:
+      type: "string"
+      description: "课程接口在 ApiError.code 里用到的业务错误码（通用的 COMMON_* 之外），都是 409。"
+      enum:
+        - "COURSE_IDEMPOTENCY_KEY_REUSED"
+        - "COURSE_NOT_PURCHASABLE"
+        - "COURSE_PAYMENT_UNAVAILABLE"
+        - "COURSE_ALREADY_OWNED"
+        - "COURSE_AMOUNT_CHANGED"
+        - "COURSE_NOT_LEARNABLE"
+        - "COURSE_LESSON_NOT_STARTED"
+        - "COURSE_REFUND_NOT_ALLOWED"
+    CourseMode:
+      type: "string"
+      description: "ONLINE 线上录播课（课程模块卖）；OFFLINE 线下班（指向一个活动，在赛事研学报名）"
+      enum:
+        - "ONLINE"
+        - "OFFLINE"
+    CourseTopic:
+      type: "string"
+      description: "DRONE 无人机；ROBOT 机器人；PROGRAMMING 编程；CERTIFICATE 考证（商城“课程”页的子类目，照画板 MallCourse）"
+      enum:
+        - "DRONE"
+        - "ROBOT"
+        - "PROGRAMMING"
+        - "CERTIFICATE"
+    CourseSort:
+      type: "string"
+      description: "DEFAULT 运营排序；PRICE_ASC 价格从低到高；PRICE_DESC 从高到低（没有标价的排最后）"
+      enum:
+        - "DEFAULT"
+        - "PRICE_ASC"
+        - "PRICE_DESC"
+    CoursePriceMode:
+      type: "string"
+      description: "FIXED 标价（amountMinor）；FREE 免费；INQUIRY 价格面议（线下班的活动按询价）"
+      enum:
+        - "FIXED"
+        - "FREE"
+        - "INQUIRY"
+    CourseEnrollmentStatus:
+      type: "string"
+      description: "PENDING_PAYMENT 待付款；ACTIVE 开通着；EXPIRED 已过有效期（按时间算）；CLOSED 没付款就关闭；REFUNDED 已退款，课程关闭"
+      enum:
+        - "PENDING_PAYMENT"
+        - "ACTIVE"
+        - "EXPIRED"
+        - "CLOSED"
+        - "REFUNDED"
+    CourseEnrollmentSource:
+      type: "string"
+      description: "PURCHASE 自己买的；BUNDLE 随商城商品附带开通"
+      enum:
+        - "PURCHASE"
+        - "BUNDLE"
+    CourseEnrollmentBucket:
+      type: "string"
+      description: "ALL 全部；LEARNING 学习中；FINISHED 已学完（画板 MyCourses 的三个胶囊）"
+      enum:
+        - "ALL"
+        - "LEARNING"
+        - "FINISHED"
+    CourseLessonState:
+      type: "string"
+      description: "NOT_STARTED 未开始；STARTED 看过但没播完；COMPLETED 已学完"
+      enum:
+        - "NOT_STARTED"
+        - "STARTED"
+        - "COMPLETED"
+    CourseRefundStatus:
+      type: "string"
+      description: "交易模块的退款状态：SUCCEEDED 已退回；ABNORMAL 退款异常，人工处理"
+      enum:
+        - "REQUESTED"
+        - "PROCESSING"
+        - "SUCCEEDED"
+        - "CLOSED"
+        - "ABNORMAL"
+    CourseRefundBlock:
+      type: "string"
+      description: "为什么不能在线退款：BUNDLED 随商品附带（跟商品订单的售后）；NOT_ACTIVE 没开通或已退款；STARTED 已经开始学非试听课时；WINDOW_PASSED 付款超过 7 天"
+      enum:
+        - "BUNDLED"
+        - "NOT_ACTIVE"
+        - "STARTED"
+        - "WINDOW_PASSED"
+    CourseImage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "url"
+        - "alt"
+      properties:
+        url:
+          type: "string"
+          description: "受控 HTTPS 地址"
+        alt:
+          type: "string"
+    CoursePrice:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "mode"
+        - "amountMinor"
+      properties:
+        mode:
+          $ref: "#/components/schemas/CoursePriceMode"
+        amountMinor:
+          type:
+            - "integer"
+            - "null"
+          format: "int64"
+          minimum: 1
+          description: "标价（分），FIXED 时有"
+    CourseCard:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "courseId"
+        - "mode"
+        - "topic"
+        - "title"
+        - "coverImage"
+        - "price"
+        - "lessonCount"
+        - "scheduleLabel"
+        - "activityId"
+        - "cityCode"
+      properties:
+        courseId:
+          type: "string"
+          format: "uuid"
+        mode:
+          $ref: "#/components/schemas/CourseMode"
+        topic:
+          $ref: "#/components/schemas/CourseTopic"
+        title:
+          type: "string"
+          description: "线上课是课程名；线下班是对应活动的名称"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/CourseImage"
+            - type: "null"
+        price:
+          $ref: "#/components/schemas/CoursePrice"
+        lessonCount:
+          type:
+            - "integer"
+            - "null"
+          minimum: 1
+          description: "线上课的课时数；线下班为 null"
+        scheduleLabel:
+          type:
+            - "string"
+            - "null"
+          maxLength: 12
+          description: "线下班的“8 次课”“3 天”“按班期”；线上课为 null"
+        activityId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "线下班对应的活动（点卡片进活动详情）；线上课为 null"
+        cityCode:
+          type:
+            - "string"
+            - "null"
+          description: "线下班的活动城市；线上课为 null（全国）"
+    CoursePage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+          minimum: 1
+        size:
+          type: "integer"
+          minimum: 1
+        total:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseCard"
+    CourseOrganization:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "organizationId"
+        - "name"
+        - "qualificationReviewed"
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        qualificationReviewed:
+          type: "boolean"
+          description: "平台审核过这家机构的资质（R6-4）"
+    CourseInstructor:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "name"
+        - "title"
+      properties:
+        name:
+          type: "string"
+          maxLength: 30
+        title:
+          type:
+            - "string"
+            - "null"
+          maxLength: 40
+          description: "如“平台认证讲师”"
+    CourseLesson:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "lessonId"
+        - "no"
+        - "title"
+        - "durationSeconds"
+        - "trial"
+      properties:
+        lessonId:
+          type: "string"
+          format: "uuid"
+        "no":
+          type: "integer"
+          minimum: 1
+          description: "全课第几课（跨章连续，从 1 起）"
+        title:
+          type: "string"
+          maxLength: 40
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+        trial:
+          type: "boolean"
+          description: "试听课时：不买也能看"
+    CourseChapter:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "chapterId"
+        - "title"
+        - "lessons"
+      properties:
+        chapterId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 40
+        lessons:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseLesson"
+    CourseInclude:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "name"
+        - "quantity"
+      properties:
+        name:
+          type: "string"
+          maxLength: 12
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 999
+    CourseSpec:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "label"
+        - "value"
+      properties:
+        label:
+          type: "string"
+          maxLength: 8
+        value:
+          type: "string"
+          maxLength: 40
+    CourseDetail:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "courseId"
+        - "topic"
+        - "title"
+        - "subtitle"
+        - "coverImage"
+        - "gallery"
+        - "price"
+        - "validityDays"
+        - "ageNote"
+        - "instructor"
+        - "organization"
+        - "lessonCount"
+        - "totalDurationSeconds"
+        - "trialLessonCount"
+        - "chapters"
+        - "includes"
+        - "extraSpecs"
+        - "intro"
+        - "purchasable"
+        - "onlinePayment"
+        - "experienceItemId"
+      properties:
+        courseId:
+          type: "string"
+          format: "uuid"
+        topic:
+          $ref: "#/components/schemas/CourseTopic"
+        title:
+          type: "string"
+          maxLength: 60
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 120
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/CourseImage"
+            - type: "null"
+        gallery:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseImage"
+          maxItems: 9
+          description: "图集（不含封面），最多 9 张；没有时为空数组"
+        price:
+          anyOf:
+            - $ref: "#/components/schemas/CoursePrice"
+            - type: "null"
+          description: "单独出售的价格；只随商品附带的为 null"
+        validityDays:
+          type:
+            - "integer"
+            - "null"
+          minimum: 1
+          description: "开通后多少天内能学；null 为长期有效"
+        ageNote:
+          type:
+            - "string"
+            - "null"
+          maxLength: 30
+          description: "适合的人，如“10 岁以上零基础”"
+        instructor:
+          anyOf:
+            - $ref: "#/components/schemas/CourseInstructor"
+            - type: "null"
+        organization:
+          $ref: "#/components/schemas/CourseOrganization"
+          description: "开课机构（收款方）"
+        lessonCount:
+          type: "integer"
+          minimum: 0
+        totalDurationSeconds:
+          type: "integer"
+          minimum: 0
+        trialLessonCount:
+          type: "integer"
+          minimum: 0
+        chapters:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseChapter"
+        includes:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseInclude"
+          maxItems: 6
+          description: "课程包含"
+        extraSpecs:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseSpec"
+          maxItems: 6
+          description: "参数里的补充行（形式、课时、适合、有效期由 App 按字段写）"
+        intro:
+          type: "array"
+          items:
+            type: "string"
+            maxLength: 500
+          maxItems: 20
+          description: "图文介绍的段落；没有时为空数组"
+        purchasable:
+          type: "boolean"
+          description: "现在能买：上架、单独出售、开课机构能在线收款"
+        onlinePayment:
+          type: "boolean"
+          description: "开课机构登记了在线收款账户"
+        experienceItemId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "体验中心里这门课的“课程试听”入口"
+    CourseMine:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "courseId"
+        - "enrollmentId"
+        - "status"
+        - "tradeOrderId"
+      properties:
+        courseId:
+          type: "string"
+          format: "uuid"
+        enrollmentId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "开通着或待付款的那一条；都没有时为 null"
+        status:
+          anyOf:
+            - $ref: "#/components/schemas/CourseEnrollmentStatus"
+            - type: "null"
+          description: "ACTIVE 或 PENDING_PAYMENT；没有时为 null"
+        tradeOrderId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "待付款时要付的交易订单"
+    CourseTrialLesson:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "lessonId"
+        - "no"
+        - "chapterTitle"
+        - "title"
+        - "durationSeconds"
+        - "playUrl"
+      properties:
+        lessonId:
+          type: "string"
+          format: "uuid"
+        "no":
+          type: "integer"
+          minimum: 1
+        chapterTitle:
+          type: "string"
+        title:
+          type: "string"
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+        playUrl:
+          type:
+            - "string"
+            - "null"
+          description: "受控 HTTPS 地址；没有视频存储时为 null"
+    CourseTrial:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "courseId"
+        - "title"
+        - "coverImage"
+        - "organization"
+        - "lessonCount"
+        - "price"
+        - "purchasable"
+        - "lessons"
+      properties:
+        courseId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/CourseImage"
+            - type: "null"
+        organization:
+          $ref: "#/components/schemas/CourseOrganization"
+        lessonCount:
+          type: "integer"
+          minimum: 0
+        price:
+          anyOf:
+            - $ref: "#/components/schemas/CoursePrice"
+            - type: "null"
+        purchasable:
+          type: "boolean"
+        lessons:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseTrialLesson"
+          description: "试听课时，按课序"
+    CoursePayment:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "tradeOrderId"
+        - "amountMinor"
+        - "payBefore"
+        - "paidAt"
+      properties:
+        tradeOrderId:
+          type: "string"
+          format: "uuid"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        payBefore:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "付款截止（下单后 15 分钟）"
+        paidAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+    CourseBundleSource:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "orderId"
+        - "orderNo"
+        - "productName"
+        - "skuName"
+      properties:
+        orderId:
+          type: "string"
+          format: "uuid"
+          description: "来源商城订单（商品订单详情用）"
+        orderNo:
+          type: "string"
+        productName:
+          type: "string"
+        skuName:
+          type: "string"
+    CourseRefund:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "refundId"
+        - "amountMinor"
+        - "status"
+        - "requestedAt"
+      properties:
+        refundId:
+          type: "string"
+          format: "uuid"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/CourseRefundStatus"
+        requestedAt:
+          type: "string"
+          format: "date-time"
+    CourseRefundability:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "refundable"
+        - "deadline"
+        - "blockedReason"
+      properties:
+        refundable:
+          type: "boolean"
+          description: "现在能在线申请全额退款"
+        deadline:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "自己买的：付款后 7 天；随商品附带、没付款的为 null"
+        blockedReason:
+          anyOf:
+            - $ref: "#/components/schemas/CourseRefundBlock"
+            - type: "null"
+          description: "refundable 为 false 时的原因"
+    CourseProgressLesson:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "lessonId"
+        - "no"
+        - "title"
+        - "durationSeconds"
+        - "trial"
+        - "state"
+      properties:
+        lessonId:
+          type: "string"
+          format: "uuid"
+        "no":
+          type: "integer"
+          minimum: 1
+        title:
+          type: "string"
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+        trial:
+          type: "boolean"
+        state:
+          $ref: "#/components/schemas/CourseLessonState"
+    CourseProgressChapter:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "chapterId"
+        - "title"
+        - "completedCount"
+        - "lessons"
+      properties:
+        chapterId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+        completedCount:
+          type: "integer"
+          minimum: 0
+        lessons:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseProgressLesson"
+    CourseResume:
+      type: "object"
+      additionalProperties: false
+      description: "接着学的那一节：从最后看的一节往后第一节没学完的，到末尾回到开头"
+      required:
+        - "lessonId"
+        - "no"
+        - "title"
+      properties:
+        lessonId:
+          type: "string"
+          format: "uuid"
+        "no":
+          type: "integer"
+          minimum: 1
+        title:
+          type: "string"
+    CourseEnrollment:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "enrollmentId"
+        - "courseId"
+        - "title"
+        - "coverImage"
+        - "organization"
+        - "source"
+        - "status"
+        - "lessonCount"
+        - "completedCount"
+        - "resume"
+        - "activatedAt"
+        - "expiresAt"
+        - "payment"
+        - "bundle"
+        - "refund"
+        - "refundability"
+        - "chapters"
+        - "version"
+      properties:
+        enrollmentId:
+          type: "string"
+          format: "uuid"
+        courseId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/CourseImage"
+            - type: "null"
+        organization:
+          $ref: "#/components/schemas/CourseOrganization"
+        source:
+          $ref: "#/components/schemas/CourseEnrollmentSource"
+        status:
+          $ref: "#/components/schemas/CourseEnrollmentStatus"
+        lessonCount:
+          type: "integer"
+          minimum: 0
+        completedCount:
+          type: "integer"
+          minimum: 0
+        resume:
+          anyOf:
+            - $ref: "#/components/schemas/CourseResume"
+            - type: "null"
+          description: "全部学完时为 null"
+        activatedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "开通时间；待付款、没付款就关闭的为 null"
+        expiresAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+          description: "有效期到；长期有效或没开通时为 null"
+        payment:
+          anyOf:
+            - $ref: "#/components/schemas/CoursePayment"
+            - type: "null"
+          description: "自己买的；随商品附带的为 null"
+        bundle:
+          anyOf:
+            - $ref: "#/components/schemas/CourseBundleSource"
+            - type: "null"
+          description: "随商品附带的来源订单；自己买的为 null"
+        refund:
+          anyOf:
+            - $ref: "#/components/schemas/CourseRefund"
+            - type: "null"
+          description: "申请过的退款；没有时为 null"
+        refundability:
+          $ref: "#/components/schemas/CourseRefundability"
+        chapters:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseProgressChapter"
+        version:
+          type: "integer"
+          minimum: 0
+    CourseEnrollmentCard:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "enrollmentId"
+        - "courseId"
+        - "title"
+        - "coverImage"
+        - "source"
+        - "status"
+        - "lessonCount"
+        - "completedCount"
+        - "resume"
+        - "bundle"
+        - "expiresAt"
+      properties:
+        enrollmentId:
+          type: "string"
+          format: "uuid"
+        courseId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/CourseImage"
+            - type: "null"
+        source:
+          $ref: "#/components/schemas/CourseEnrollmentSource"
+        status:
+          $ref: "#/components/schemas/CourseEnrollmentStatus"
+          description: "这里只有 ACTIVE、EXPIRED"
+        lessonCount:
+          type: "integer"
+          minimum: 0
+        completedCount:
+          type: "integer"
+          minimum: 0
+        resume:
+          anyOf:
+            - $ref: "#/components/schemas/CourseResume"
+            - type: "null"
+        bundle:
+          anyOf:
+            - $ref: "#/components/schemas/CourseBundleSource"
+            - type: "null"
+        expiresAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+    CourseTrialCard:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "courseId"
+        - "title"
+        - "coverImage"
+        - "trialLessonCount"
+      properties:
+        courseId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/CourseImage"
+            - type: "null"
+        trialLessonCount:
+          type: "integer"
+          minimum: 1
+    CourseEnrollmentPage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+        - "trials"
+      properties:
+        page:
+          type: "integer"
+          minimum: 1
+        size:
+          type: "integer"
+          minimum: 1
+        total:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseEnrollmentCard"
+        trials:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/CourseTrialCard"
+          description: "能试听、还没开通的课程（只在 ALL 的第一页）"
+    CoursePlayback:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "enrollmentId"
+        - "lessonId"
+        - "playUrl"
+        - "durationSeconds"
+        - "refundability"
+      properties:
+        enrollmentId:
+          type: "string"
+          format: "uuid"
+        lessonId:
+          type: "string"
+          format: "uuid"
+        playUrl:
+          type:
+            - "string"
+            - "null"
+          description: "受控 HTTPS 地址；没有视频存储时为 null（预览构建播放示例视频）"
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+        refundability:
+          $ref: "#/components/schemas/CourseRefundability"
+          description: "开始学这一节之后的退款情况"
+    CourseEnrollRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "courseId"
+        - "expectedAmountMinor"
+      properties:
+        courseId:
+          type: "string"
+          format: "uuid"
+        expectedAmountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 1
+          maximum: 10000000
+          description: "页面上看到的应付金额（分）"

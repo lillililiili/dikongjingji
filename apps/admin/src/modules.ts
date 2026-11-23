@@ -1,8 +1,10 @@
 import type { AdminModule } from '@/core/navigation/module'
+import { aftersaleWorkbenchModule } from '@/features/aftersale-workbench/aftersale-module'
 import { activityModule } from '@/features/activity/activity-module'
 import { catalogModule } from '@/features/catalog/catalog-module'
 import { cityModule } from '@/features/city/city-module'
 import { contentModule } from '@/features/content/content-module'
+import { courseModule } from '@/features/course/course-module'
 import { demandQuotesModule } from '@/features/demand-quotes/demand-quotes-module'
 import { feedbackModule } from '@/features/feedback/feedback-module'
 import { importModule } from '@/features/import/import-module'
@@ -13,6 +15,8 @@ import { liveModule } from '@/features/live/live-module'
 import { mallInquiryModule } from '@/features/mall-inquiry/mall-inquiry-module'
 import { merchantAccountModule } from '@/features/merchant-account/merchant-account-module'
 import { merchantOrdersModule } from '@/features/merchant-orders/merchant-orders-module'
+import { merchantProfileReviewModule } from '@/features/merchant-profile-review/merchant-profile-review-module'
+import { merchantProfileModule } from '@/features/merchant-profile/merchant-profile-module'
 import { opsMerchantAccountModule } from '@/features/ops-merchant-account/merchant-account-module'
 import { organizationModule } from '@/features/organization/organization-module'
 import { proServiceModule } from '@/features/proservice/proservice-module'
@@ -33,19 +37,23 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   cityModule,
   organizationModule,
   catalogModule,
+  merchantProfileReviewModule,
   opsMerchantAccountModule,
   importModule,
   feedbackModule,
   merchantOrdersModule,
+  aftersaleWorkbenchModule,
   mallInquiryModule,
   rentalWorkbenchModule,
   demandQuotesModule,
   inspectionWorkbenchModule,
   supportDeskModule,
   liveHostModule,
+  merchantProfileModule,
   merchantAccountModule,
   contentModule,
   activityModule,
+  courseModule,
   venueModule,
   liveModule,
   inspectionCatalogModule,

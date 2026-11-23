@@ -148,4 +148,30 @@ describe('trade api', () => {
     // Only a closed order has one, whatever is sent.
     expect(toTradeOrder({ ...tradeOrder(), closeReason: 'BUYER_CANCEL' } as never).closeReason).toBeNull()
   })
+
+  it('maps the 0.6.0 fields: parties, channel transaction id, participants and the after-sales entry', () => {
+    const dto = {
+      ...tradeOrder(),
+      parties: { fulfilledFrom: '示例机器人商家 东营仓', invoiceIssuer: '示例机器人商家', aftersaleParty: '示例机器人商家 · 厂家保修' },
+      channelTransactionId: '4200000000202611020001',
+      participantNames: '王小禾、王小川',
+      aftersale: { latestAftersaleId: 'as-1', latestStatus: 'AWAITING_RETURN', applicable: false },
+    }
+    const order = toTradeOrder(dto as never)
+    expect(order.parties).toEqual({ fulfilledFrom: '示例机器人商家 东营仓', invoiceIssuer: '示例机器人商家', aftersaleParty: '示例机器人商家 · 厂家保修' })
+    expect(order.channelTransactionId).toBe('4200000000202611020001')
+    expect(order.participantNames).toBe('王小禾、王小川')
+    expect(order.aftersale).toEqual({ latestAftersaleId: 'as-1', latestStatus: 'AWAITING_RETURN', applicable: false })
+  })
+
+  it('reads an older server (before 0.6.0) as having none of them, and blank texts as none', () => {
+    const older = { ...tradeOrder(), parties: undefined, channelTransactionId: undefined, participantNames: undefined, aftersale: undefined }
+    const order = toTradeOrder(older as never)
+    expect(order.parties).toEqual({ fulfilledFrom: null, invoiceIssuer: null, aftersaleParty: null })
+    expect(order.channelTransactionId).toBeNull()
+    expect(order.participantNames).toBeNull()
+    expect(order.aftersale).toEqual({ latestAftersaleId: null, latestStatus: null, applicable: false })
+    expect(toTradeOrder({ ...tradeOrder(), parties: { fulfilledFrom: '  ', invoiceIssuer: null, aftersaleParty: '' } } as never).parties)
+      .toEqual({ fulfilledFrom: null, invoiceIssuer: null, aftersaleParty: null })
+  })
 })

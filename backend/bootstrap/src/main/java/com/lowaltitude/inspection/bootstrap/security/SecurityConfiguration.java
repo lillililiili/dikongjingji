@@ -112,6 +112,8 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/mall/products",
                                 "/api/v1/mall/products/*",
+                                // S5-2 商家主页：公开只读。
+                                "/api/v1/mall/merchants/*",
                                 // 开发环境回读运营端上传的商品图片（只在配置了本机目录时有这个接口）。
                                 "/api/v1/mall/media/products/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
@@ -132,6 +134,11 @@ public class SecurityConfiguration {
                                 "/api/v1/content/videos",
                                 "/api/v1/content/videos/*",
                                 "/api/v1/content/videos/*/comments").permitAll()
+                        // 课程（S5-5）：列表、线上课详情、试听公开只读；“我和这门课”、购买、学习、退款走下面的 authenticated()。
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/courses",
+                                "/api/v1/courses/*",
+                                "/api/v1/course-trials").permitAll()
                         // 直播（M20）：列表、详情、弹幕增量公开只读；进直播间记一次观看不登录也记（按设备去重）。
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/live/rooms",

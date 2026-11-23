@@ -241,6 +241,30 @@ public class ModuleFlywayConfiguration {
         return datedDevelopmentSeed(dataSource, "live", seedDatePlaceholder());
     }
 
+    // 课程（S5-5）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
+    // 活动、商城商品、体验项目、交易订单只存 ID，不引用它们的表。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway courseFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.course(dataSource);
+    }
+
+    // 示例课程的开课机构由活动（示例培训机构）、商城（示例机器人商家）的开发数据建，线下班指向活动开发数据里的活动，
+    // 开课机构的收款账户在交易的开发数据里，所以排在它们之后。
+    @Bean(initMethod = "migrate")
+    @Profile("dev")
+    @DependsOn({"courseFlyway", "activityDevelopmentDataFlyway", "mallDevelopmentDataFlyway",
+            "experienceDevelopmentDataFlyway", "tradeDevelopmentDataFlyway"})
+    Flyway courseDevelopmentDataFlyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/course")
+                .table("flyway_history_course_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     // 收货地址表引用 identity_user，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")

@@ -31,6 +31,7 @@ export type ReleaseFeatureKey =
   | 'LIVE'
   | 'SUPPORT'
   | 'SETTINGS'
+  | 'COURSE'
   | 'SYSTEM_NOTICE'
   | 'PLAY'
 
