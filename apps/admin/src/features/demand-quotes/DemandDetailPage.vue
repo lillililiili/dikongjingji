@@ -20,6 +20,7 @@ import {
   QUOTE_STATUS,
   type ProviderDemand,
 } from './demand-quotes-api'
+import { extrasRows, lineQuantityLabel, type QuoteLine } from './quote-lines'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,6 +32,7 @@ const quoting = shallowRef<ProviderDemand | null>(null)
 const busy = ref(false)
 
 const demandId = computed(() => String(route.params.demandId ?? ''))
+const myExtras = computed(() => (demand.value?.myQuote ? extrasRows(demand.value.myQuote) : []))
 const quoteLabel = computed(() => (canWithdraw(demand.value ?? { myQuote: null }) ? '改价' : '报价'))
 
 async function load(): Promise<void> {
@@ -114,7 +116,10 @@ onMounted(() => {
           </el-descriptions-item>
           <el-descriptions-item label="补充说明" :span="2"><span class="pre">{{ demand.note || '—' }}</span></el-descriptions-item>
         </el-descriptions>
-        <p class="muted">需求里没有发布人的联系方式；发布人选定后的方案、合同和付款暂不在线上进行。</p>
+        <p class="muted">
+          需求里没有发布人的联系方式。航拍、测绘、设备维护、技术支持被选定后生成服务订单，到“服务订单”里出方案；
+          巡检需求选定后的方案和付款暂不在线上进行。
+        </p>
 
         <h3 class="title">本机构的报价</h3>
         <el-empty v-if="!demand.myQuote" description="还没有报价" :image-size="60" />
@@ -129,9 +134,24 @@ onMounted(() => {
           <el-descriptions-item label="工期">{{ demand.myQuote.durationDays }} 天</el-descriptions-item>
           <el-descriptions-item label="有效期至">{{ formatDateTime(demand.myQuote.validUntil) }}</el-descriptions-item>
           <el-descriptions-item label="交付物" :span="2">{{ demand.myQuote.deliverables }}</el-descriptions-item>
+          <el-descriptions-item v-for="row in myExtras" :key="row.label" :label="row.label">
+            {{ row.value }}
+          </el-descriptions-item>
           <el-descriptions-item label="首次报价">{{ formatDateTime(demand.myQuote.submittedAt) }}</el-descriptions-item>
           <el-descriptions-item label="最近改动">{{ formatDateTime(demand.myQuote.revisedAt) }}</el-descriptions-item>
         </el-descriptions>
+        <template v-if="demand.myQuote && demand.myQuote.lines.length > 0">
+          <h4 class="subtitle">报价明细</h4>
+          <el-table :data="demand.myQuote.lines" size="small" border>
+            <el-table-column prop="name" label="名称" min-width="160" />
+            <el-table-column label="数量 × 单价" min-width="160">
+              <template #default="{ row }">{{ lineQuantityLabel(row as QuoteLine) || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="金额" width="140">
+              <template #default="{ row }">{{ formatMoney(row.amountMinor) }}</template>
+            </el-table-column>
+          </el-table>
+        </template>
       </template>
     </div>
   </PageSection>
@@ -151,6 +171,11 @@ onMounted(() => {
 .title {
   margin: 20px 0 10px;
   font-size: 15px;
+}
+
+.subtitle {
+  margin: 14px 0 8px;
+  font-size: 13px;
 }
 
 .deliverable {

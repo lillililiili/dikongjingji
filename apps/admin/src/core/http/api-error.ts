@@ -95,6 +95,20 @@ const MESSAGES: Record<string, string> = {
   // 直播间（openapi-ops-live.yaml）
   OPS_LIVE_ROOM_ENDED: '直播间已经结束了，请刷新后再看',
   OPS_LIVE_ROOM_NOT_ENDED: '直播结束后才能设回看',
+  // 服务订单（openapi-service-order.yaml 1.0.0，工作台“服务订单”）：VERSION_CONFLICT 是 412，FILE_INVALID 422，
+  // FILE_STORE_UNAVAILABLE 503，其余 409
+  SERVICE_ORDER_STATE_INVALID: '订单现在的状态不能做这个操作，请刷新后再看',
+  SERVICE_ORDER_VERSION_CONFLICT: '订单刚有变化（比如客户刚确认方案、付款或验收），请刷新后再操作',
+  SERVICE_ORDER_PLAN_CHANGED: '方案已经改过，客户确认的不是最新一版，请刷新后再看',
+  SERVICE_ORDER_DELIVERY_CHANGED: '这次交付已经被验收或退回了，请刷新后再看',
+  SERVICE_ORDER_TERMS_NOT_AGREED: '客户还没勾选“已核对方案”',
+  SERVICE_ORDER_PAYMENT_UNAVAILABLE: '本机构还没有有效的收款账户，客户不能在线付款；请联系平台运营登记',
+  SERVICE_ORDER_REFUND_NOT_ALLOWED: '这张订单现在不能退款（比如退款金额超过实付），请刷新后再看',
+  SERVICE_ORDER_FILE_INVALID: '文件不符合要求：只能是 PDF、JPEG、PNG、ZIP、Office 文档或 MP4，每个不超过 20 MB，'
+    + '还没交付的文件最多 10 个',
+  SERVICE_ORDER_FILE_STORE_UNAVAILABLE: '文件存储暂不可用，请稍后再试',
+  // 服务商主页资料（openapi-proservice.yaml 1.2.0，工作台“服务商资料”）
+  PRO_PROVIDER_PROFILE_VERSION_CONFLICT: '资料在此期间有变化（比如刚审核过），请刷新后再提交',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }

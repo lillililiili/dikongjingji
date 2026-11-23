@@ -119,6 +119,12 @@ describe('专业服务表单', () => {
     expect(project.problems).toEqual({})
     expect(project.request.priceAmountMinor).toBeNull()
     expect(project.request.priceUnit).toBeNull()
+    expect(project.request.warrantyText).toBeNull()
+
+    Object.assign(form, { warrantyText: ' 维修后质保 90 天 ' })
+    expect(proServiceRequest(form).request.warrantyText).toBe('维修后质保 90 天')
+    Object.assign(form, { warrantyText: '质'.repeat(41) })
+    expect(proServiceRequest(form).problems.warrantyText).toContain('40')
   })
 })
 

@@ -94,4 +94,44 @@ describe('需求报价弹窗', () => {
     expect(wrapper.emitted('changed')?.[0]).toEqual([next])
     wrapper.unmount()
   })
+
+  it('加了明细：总价框换成“按明细合计”，按次计的金额自动算，提交的总价等于明细合计', async () => {
+    const quote = vi.fn().mockResolvedValue(DEMAND)
+    confirmAction.mockResolvedValue(true)
+    const wrapper = mount(DemandQuoteDialog, {
+      props: { api: { quote }, demand: DEMAND },
+      global: { plugins: [ElementPlus] },
+      attachTo: document.body,
+    })
+    await settle()
+    const [method, schedule] = [inputs()[1]!, inputs()[2]!]
+    type(method, '多旋翼航拍')
+    type(schedule, '确认后一周内')
+    button('加一行明细').click()
+    await settle()
+    button('加一行明细').click()
+    await settle()
+    const first = Array.from(document.body.querySelectorAll<HTMLElement>('.el-dialog .line:not(.line--head)'))
+    const field = (row: HTMLElement, name: string) => row.querySelector<HTMLInputElement>(`.line__${name} input`)!
+    type(field(first[0]!, 'name'), '航拍')
+    type(field(first[0]!, 'qty'), '3')
+    type(field(first[0]!, 'unit'), '架次')
+    type(field(first[0]!, 'price'), '1800')
+    type(field(first[1]!, 'name'), '剪辑')
+    type(field(first[1]!, 'amount'), '1200')
+    await settle()
+    expect(document.body.textContent).toContain('按明细合计 ¥6,600.00')
+    expect(document.body.textContent).toContain('¥5,400.00')
+
+    button('提交报价').click()
+    await settle()
+    expect(quote).toHaveBeenCalledWith('d-1', expect.objectContaining({
+      amountMinor: 660000,
+      lines: [
+        { name: '航拍', quantity: 3, unit: '架次', unitAmountMinor: 180000, amountMinor: 540000 },
+        { name: '剪辑', quantity: null, unit: null, unitAmountMinor: null, amountMinor: 120000 },
+      ],
+    }))
+    wrapper.unmount()
+  })
 })
