@@ -385,7 +385,8 @@ button::after {
 
 .video__player {
   position: relative;
-  height: calc(240px + var(--status-bar-height));
+  /* The picture is 16:9: a fixed 240px left black bands above and below it on a 390-wide screen. */
+  height: calc(100vw * 9 / 16 + var(--status-bar-height));
   padding-top: var(--status-bar-height);
   box-sizing: border-box;
   background: #202c42;
@@ -767,7 +768,7 @@ button::after {
 }
 
 .video__skeleton--player {
-  height: calc(240px + var(--status-bar-height));
+  height: calc(100vw * 9 / 16 + var(--status-bar-height));
   margin: 0;
   border-radius: 0;
 }

@@ -16,10 +16,73 @@ let authenticationRecoveryInProgress = false
 
 const ACCESS_TOKEN_KEY = 'inspection.accessToken'
 const ACCESS_TOKEN_EXPIRES_AT_KEY = 'inspection.accessTokenExpiresAt'
+const REFRESH_TOKEN_KEY = 'inspection.refreshToken'
 
 export interface BookingAuthSession {
   accessToken: string
   expiresInSeconds: number
+  /** Renews the login when the access token runs out (POST /api/v1/auth/refresh). */
+  refreshToken?: string
+}
+
+// Where the refresh token is kept. The App keeps it where it keeps the access token (uni storage, the
+// App's own sandbox). On H5 it never goes to localStorage: only to this tab's sessionStorage, or to
+// memory where that is not available, so closing the tab ends the login once the access token runs out.
+interface RefreshTokenStore {
+  read(): string | null
+  write(token: string): void
+  remove(): void
+}
+
+let memoryRefreshToken: string | null = null
+
+const sessionRefreshTokenStore: RefreshTokenStore = {
+  read() {
+    const stored = browserSessionStorage()?.getItem(REFRESH_TOKEN_KEY)
+    return stored?.trim() ? stored.trim() : memoryRefreshToken
+  },
+  write(token) {
+    memoryRefreshToken = token
+    try {
+      browserSessionStorage()?.setItem(REFRESH_TOKEN_KEY, token)
+    } catch {
+      // Private mode or storage blocked: memory only.
+    }
+  },
+  remove() {
+    memoryRefreshToken = null
+    try {
+      browserSessionStorage()?.removeItem(REFRESH_TOKEN_KEY)
+    } catch {
+      // Nothing stored.
+    }
+  },
+}
+
+const uniRefreshTokenStore: RefreshTokenStore = {
+  read: () => readStorage(REFRESH_TOKEN_KEY),
+  write: (token) => uni.setStorageSync(REFRESH_TOKEN_KEY, token),
+  remove: () => uni.removeStorageSync?.(REFRESH_TOKEN_KEY),
+}
+
+function refreshTokenStore(): RefreshTokenStore {
+  // #ifdef H5
+  return sessionRefreshTokenStore
+  // #endif
+  return uniRefreshTokenStore
+}
+
+function browserSessionStorage(): Storage | null {
+  try {
+    return typeof sessionStorage === 'undefined' ? null : sessionStorage
+  } catch {
+    return null
+  }
+}
+
+/** The refresh token of the current login, or null when there is none to renew it with. */
+export function readBookingRefreshToken(): string | null {
+  return refreshTokenStore().read()
 }
 
 export function configureBookingAuthContext(next: BookingAuthContext): void {
@@ -40,12 +103,16 @@ export function saveBookingAuthSession(session: BookingAuthSession): void {
     ACCESS_TOKEN_EXPIRES_AT_KEY,
     Date.now() + session.expiresInSeconds * 1000,
   )
+  const refreshToken = session.refreshToken?.trim()
+  if (refreshToken) refreshTokenStore().write(refreshToken)
+  else refreshTokenStore().remove()
 }
 
 export function clearBookingAuthSession(): void {
   uni.removeStorageSync?.(ACCESS_TOKEN_KEY)
   uni.removeStorageSync?.(ACCESS_TOKEN_EXPIRES_AT_KEY)
   uni.removeStorageSync?.('inspection.principalId')
+  refreshTokenStore().remove()
 }
 
 export function beginBookingAuthenticationRecovery(): void {
@@ -78,6 +145,10 @@ function readAccessToken(): string | null {
 
   const expiresAt = Number(uni.getStorageSync?.(ACCESS_TOKEN_EXPIRES_AT_KEY))
   if (Number.isFinite(expiresAt) && expiresAt > 0 && Date.now() >= expiresAt) {
+    // A login that can be renewed is still a login: the request goes out with the old token, gets a
+    // 401 and the HTTP client renews it once (uni-booking-http-client). Without a refresh token the
+    // login is over.
+    if (readBookingRefreshToken()) return token
     clearBookingAuthSession()
     return null
   }

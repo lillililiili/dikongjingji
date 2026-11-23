@@ -24,6 +24,7 @@ import com.lowaltitude.inspection.identity.domain.IdentityProfilePort;
 import com.lowaltitude.inspection.identity.domain.IdentityAccountStatus;
 import com.lowaltitude.inspection.identity.domain.PermissionCode;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.lowaltitude.inspection.bootstrap.security.InMemoryRefreshTokenPort;
 import com.lowaltitude.inspection.activity.application.ActivityCatalogReadService;
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentService;
 import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
@@ -85,6 +86,8 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.live.application.LiveOpsService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
+        com.lowaltitude.inspection.application.serviceflow.InspectionPaymentService.class,
+        com.lowaltitude.inspection.application.serviceflow.VisitChangeService.class,
         DeliveryApplicationService.class,
         CustomerReservationQueryService.class
 })
@@ -97,6 +100,8 @@ class AuthenticationSecurityIntegrationTest {
     private static final String HMAC_BASE64_SECRET = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
     private static final UUID SUBJECT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID ORGANIZATION_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+    private static final InMemoryRefreshTokenPort REFRESH_TOKENS = new InMemoryRefreshTokenPort();
 
     private static final java.util.concurrent.atomic.AtomicBoolean PROFILE_PRESENT =
             new java.util.concurrent.atomic.AtomicBoolean(true);
@@ -134,6 +139,127 @@ class AuthenticationSecurityIntegrationTest {
                 .isTrue();
         org.assertj.core.api.Assertions.assertThat(((List<?>) claims.get("permissions"))
                 .contains("inspection.reservation.create")).isTrue();
+    }
+
+    // ---- 登录续期（刷新令牌） ----
+
+    @Test
+    void loginAlsoHandsOutARefreshToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginName\":\"test-user\",\"password\":\"test-password\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresInSeconds").value(900))
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshExpiresInSeconds").value(30 * 24 * 3600))
+                .andExpect(jsonPath("$.length()").value(5));
+    }
+
+    @Test
+    void aRefreshTokenRenewsTheLoginWithoutAnAccessTokenAndOnlyOnce() throws Exception {
+        String refreshToken = refreshTokenOf(login());
+
+        String renewed = mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(refreshToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andReturn().getResponse().getContentAsString();
+        String accessToken = com.jayway.jsonpath.JsonPath.read(renewed, "$.accessToken");
+        String nextRefreshToken = refreshTokenOf(renewed);
+        org.assertj.core.api.Assertions.assertThat(nextRefreshToken).isNotEqualTo(refreshToken);
+
+        // 新访问令牌能用。
+        mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk());
+        // 旧刷新令牌重放：401，并且这次登录整串撤销，新刷新令牌也不能再用。
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(refreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(nextRefreshToken)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void signingOutWithdrawsTheRefreshToken() throws Exception {
+        String refreshToken = refreshTokenOf(login());
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(refreshToken)))
+                .andExpect(status().isNoContent());
+        // 不认识的令牌也是 204，不透露令牌是否存在。
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody("unknown-token")))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(refreshToken)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void anExpiredOrUnknownRefreshTokenIsRejected() throws Exception {
+        String refreshToken = refreshTokenOf(login());
+        // 把库里的令牌改成已过期（时钟推进的规则见 AuthenticationServiceRefreshTest）。
+        REFRESH_TOKENS.all().forEach(token -> REFRESH_TOKENS.save(new com.lowaltitude.inspection.identity.domain.RefreshTokenRecord(
+                token.tokenId(), token.familyId(), token.subjectId(), token.tokenHash(), token.tokenVersion(),
+                token.status(), token.issuedAt().minusSeconds(31L * 24 * 3600),
+                Instant.now().minusSeconds(1), token.familyExpiresAt())));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(refreshToken)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("登录已过期，请重新登录"));
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody("A".repeat(43))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshAndLogoutRejectAMissingOrOversizedToken() throws Exception {
+        for (String path : List.of("/api/v1/auth/refresh", "/api/v1/auth/logout")) {
+            for (String body : List.of("{}", "{\"refreshToken\":\"  \"}", refreshBody("a".repeat(129)))) {
+                mockMvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+            }
+        }
+    }
+
+    @Test
+    void anAccessTokenCannotBeUsedAsARefreshToken() throws Exception {
+        String accessToken = com.jayway.jsonpath.JsonPath.read(login(), "$.accessToken");
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(accessToken.substring(0, Math.min(128, accessToken.length())))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private String login() throws Exception {
+        return mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginName\":\"test-user\",\"password\":\"test-password\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+    }
+
+    private static String refreshTokenOf(String response) {
+        return com.jayway.jsonpath.JsonPath.read(response, "$.refreshToken");
+    }
+
+    private static String refreshBody(String refreshToken) {
+        return "{\"refreshToken\":\"" + refreshToken + "\"}";
     }
 
     @Test
@@ -376,6 +502,25 @@ class AuthenticationSecurityIntegrationTest {
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
         }
+    }
+
+    // 线上体验记录（S5-4）的五个接口全部要登录；只有 GET /api/v1/experiences/{experienceId} 公开。
+    @Test
+    void experienceRecordRoutesRequireALogin() throws Exception {
+        String record = "/api/v1/experience/records/b7000000-0000-4000-8000-000000000001";
+
+        for (var request : List.of(
+                post("/api/v1/experience/records"),
+                get("/api/v1/experience/records"),
+                get(record),
+                post(record + "/end"),
+                post("/api/v1/experience/trials"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        mockMvc.perform(post("/api/v1/experiences/b1000000-0000-4000-8000-000000000001"))
+                .andExpect(status().isUnauthorized());
     }
 
     // 四类专业服务（F2）的目录、详情和服务商主页公开只读：不带令牌也能读，写方法仍然要登录。
@@ -955,6 +1100,7 @@ class AuthenticationSecurityIntegrationTest {
     void anonymousExperienceAndVenueReadsArePublicButOtherMethodsRequireAuthentication() throws Exception {
         String venue = "/api/v1/venues/b2000000-0000-4000-8000-000000000001";
         mockMvc.perform(get("/api/v1/experiences")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/experiences/b1000000-0000-4000-8000-000000000001")).andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/venues").param("cityCode", "370500")).andExpect(status().isOk());
         mockMvc.perform(get(venue).param("cityCode", "370500")).andExpect(status().isOk());
         mockMvc.perform(get(venue + "/sessions")
@@ -1706,12 +1852,31 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         @Primary
         IdentityAccountPort testIdentityAccountPort(PasswordEncoder passwordEncoder) {
-            return loginName -> switch (loginName) {
-                case "test-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.ACTIVE));
-                case "locked-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.LOCKED));
-                case "disabled-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.DISABLED));
-                default -> java.util.Optional.empty();
+            return new IdentityAccountPort() {
+                @Override
+                public java.util.Optional<IdentityAccount> findByLoginName(String loginName) {
+                    return switch (loginName) {
+                        case "test-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.ACTIVE));
+                        case "locked-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.LOCKED));
+                        case "disabled-user" -> java.util.Optional.of(account(passwordEncoder, loginName, IdentityAccountStatus.DISABLED));
+                        default -> java.util.Optional.empty();
+                    };
+                }
+
+                // Renewal re-reads the account by subject: the active test user.
+                @Override
+                public java.util.Optional<IdentityAccount> findBySubjectId(UUID subjectId) {
+                    return SUBJECT_ID.equals(subjectId)
+                            ? java.util.Optional.of(account(passwordEncoder, "test-user", IdentityAccountStatus.ACTIVE))
+                            : java.util.Optional.empty();
+                }
             };
+        }
+
+        @Bean
+        @Primary
+        InMemoryRefreshTokenPort testRefreshTokenPort() {
+            return REFRESH_TOKENS;
         }
 
         // Only the signed-in subject has a profile; the name deliberately differs from the login name.
@@ -1754,6 +1919,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.experience.application.ExperienceRecordService testExperienceRecordService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.ExperienceRecordService.class);
         }
 
         @Bean

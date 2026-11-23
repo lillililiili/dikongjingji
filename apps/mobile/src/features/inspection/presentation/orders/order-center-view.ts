@@ -228,6 +228,21 @@ function hasSeveralVisits(order: InspectionOrderSummary): boolean {
   return (order.visitCount ?? 0) > 1
 }
 
+/**
+ * S4-1: a node to pay now, where online payment is open (preview builds): the card's 去付款 and its
+ * status 待付首付 / 第 2 次待付款 / 待付款.
+ */
+export function getInspectionOrderPayment(
+  order: InspectionOrderSummary,
+  paymentOpen: boolean,
+): { nodeNo: number; stageText: string } | null {
+  if (!paymentOpen || !order.serviceOrderId || !order.paymentDueNodeNo) return null
+  const stageText = order.paymentDueNodeType === 'DOWN_PAYMENT'
+    ? '待付首付'
+    : hasSeveralVisits(order) && order.paymentDueVisitNo ? `第 ${order.paymentDueVisitNo} 次待付款` : '待付款'
+  return { nodeNo: order.paymentDueNodeNo, stageText }
+}
+
 export function getInspectionOrderStageText(order: InspectionOrderSummary): string {
   return order.stage === 'AWAITING_ACCEPTANCE'
     && order.pendingAcceptanceVisitNo

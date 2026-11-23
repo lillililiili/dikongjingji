@@ -12,10 +12,12 @@ import {
   formatDateRange,
   formatMonthDayTime,
 } from '../shared/service-flow-format'
+import { visitFeeLine } from '../shared/payment-view'
 import {
   SERVICE_ORDER_STATUS_LABELS,
   formatVisitDate,
 } from '../shared/service-visit-view'
+import { formatMonthDay } from '../shared/service-flow-format'
 
 type Assignment = InspectionServiceOrder['assignments'][number]
 
@@ -45,6 +47,10 @@ export interface VisitRow {
   deliveryLabel: string
   isExpanded: boolean
   isNext: boolean
+  // (S4-1) 原定 12/01，服务商已改期 (board FulfillmentLater); '' when the visit never moved.
+  note: string
+  // (S4-1) 服务费已支付 / 服务费 ¥2,170 待支付 under an accepted visit; null without payment nodes.
+  fee: { text: string; paid: boolean } | null
 }
 
 const FIXED_EVENT_TEXT: Record<string, string> = {
@@ -143,6 +149,8 @@ function describeVisitStatus(visit: InspectionServiceVisit): { statusText: strin
       }
     case 'DELIVERED':
       return { statusText: '已完成 · 报告已交付', tone: 'delivered' }
+    case 'REWORK':
+      return { statusText: '退回整改 · 等服务商重新交付', tone: 'active' }
     case 'IN_PROGRESS':
       return {
         statusText: visit.progress.some((event) => event.eventCode === 'SERVICE_COMPLETED')
@@ -160,9 +168,20 @@ function describeVisitStatus(visit: InspectionServiceVisit): { statusText: strin
   }
 }
 
+function rescheduleNote(visit: InspectionServiceVisit): string {
+  if (visit.originalPlannedDate && visit.originalPlannedDate !== visit.plannedDate) {
+    return `原定 ${formatMonthDay(visit.originalPlannedDate)}，服务商已改期`
+  }
+  if (visit.reschedule?.status === 'REQUESTED') {
+    return `已申请改到 ${formatMonthDay(visit.reschedule.requestedDate)}，等服务商确认`
+  }
+  return ''
+}
+
 export function toVisitRows(
   visits: InspectionServiceVisit[],
   reportDueHours: number | null,
+  order?: Pick<InspectionServiceOrder, 'status' | 'paymentMode' | 'paymentNodes' | 'visits'>,
 ): VisitRow[] {
   const ordered = inVisitOrder(visits)
   const next = findNextVisit(ordered)
@@ -174,8 +193,10 @@ export function toVisitRows(
     badge: visit.status === 'DELIVERED' ? '待验收' : '',
     events: toVisitEvents(visit, reportDueHours),
     deliveryLabel: isVisitFinished(visit) ? `查看第 ${visit.visitNo} 次交付` : '',
-    isExpanded: visit.status === 'DELIVERED' || visit.status === 'IN_PROGRESS',
+    isExpanded: visit.status === 'DELIVERED' || visit.status === 'IN_PROGRESS' || visit.status === 'REWORK',
     isNext: visit === next,
+    note: rescheduleNote(visit),
+    fee: order ? visitFeeLine(order, visit.visitNo) : null,
   }))
 }
 

@@ -37,7 +37,10 @@ final class ServiceOrderProgression {
         return visit.status() == ServiceVisitStatus.DELIVERED || accepted(visit);
     }
 
+    /** 退回整改的那次巡检算已开工、未交付（B2）。 */
     private static boolean started(StoredServiceVisit visit) {
-        return visit.status() == ServiceVisitStatus.IN_PROGRESS || delivered(visit);
+        return visit.status() == ServiceVisitStatus.IN_PROGRESS
+                || visit.status() == ServiceVisitStatus.REWORK
+                || delivered(visit);
     }
 }

@@ -82,6 +82,8 @@ function cleanup() {
     psql(`DELETE FROM trade_reconciliation WHERE bill_date = '${yesterday}'`);
     psql(`DELETE FROM identity_user_role WHERE user_id='${OPERATOR}'`);
     psql(`DELETE FROM identity_organization_member WHERE user_id='${OPERATOR}'`);
+    // Refresh tokens (identity V008) reference the user.
+    psql(`DELETE FROM identity_refresh_token WHERE user_id='${OPERATOR}'`);
     psql(`DELETE FROM identity_user WHERE id='${OPERATOR}'`);
     psql(`DELETE FROM identity_organization WHERE id='${OPERATOR_ORG}'`);
   }
