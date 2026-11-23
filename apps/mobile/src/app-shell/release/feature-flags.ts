@@ -33,6 +33,7 @@ export type ReleaseFeatureKey =
   | 'SUPPORT'
   | 'SETTINGS'
   | 'COURSE'
+  | 'SYSTEM_NOTICE'
   | 'PLAY'
 
 export interface ReleaseFeature {

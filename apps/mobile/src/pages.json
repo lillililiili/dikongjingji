@@ -29,6 +29,13 @@
       }
     },
     {
+      "path": "pages/message/notice",
+      "style": {
+        "navigationBarTitleText": "通知详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/cart/index",
       "style": {
         "navigationBarTitleText": "购物车",

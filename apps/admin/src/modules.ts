@@ -25,6 +25,7 @@ import { providerProfileModule } from '@/features/provider-profile/provider-prof
 import { rentalWorkbenchModule } from '@/features/rental-workbench/rental-workbench-module'
 import { serviceOrderWorkbenchModule } from '@/features/service-order-workbench/service-order-workbench-module'
 import { supportDeskModule } from '@/features/support-desk/support-desk-module'
+import { systemNoticeModule } from '@/features/system-notice/system-notice-module'
 import { venueModule } from '@/features/venue/venue-module'
 
 /**
@@ -63,4 +64,5 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   inspectionCatalogModule,
   proServiceModule,
   providerProfileReviewModule,
+  systemNoticeModule,
 ]

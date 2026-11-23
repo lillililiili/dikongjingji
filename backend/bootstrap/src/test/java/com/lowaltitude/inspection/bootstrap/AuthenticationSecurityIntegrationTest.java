@@ -1189,12 +1189,44 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/notifications/70000000-0000-4000-8000-000000000001/read"))
                 .andExpect(status().isUnauthorized());
 
-        org.mockito.Mockito.when(applicationContext.getBean(NotificationService.class).unreadCount(SUBJECT_ID))
+        org.mockito.Mockito.when(applicationContext.getBean(NotificationService.class).unreadCount(SUBJECT_ID, false, null))
                 .thenReturn(null);
         mockMvc.perform(get("/api/v1/notifications/unread-count")
                         .header("Authorization", "Bearer " + signedToken(List.of(), 7)))
                 .andExpect(status().isOk());
-        org.mockito.Mockito.verify(applicationContext.getBean(NotificationService.class)).unreadCount(SUBJECT_ID);
+        org.mockito.Mockito.verify(applicationContext.getBean(NotificationService.class)).unreadCount(SUBJECT_ID, false, null);
+    }
+
+    // S5-9：通知开关和设备推送标识要登录；公告详情和“协议有更新”公开；发布公告要平台运营。
+    @Test
+    void systemNoticeReadsArePublicAndEverythingElseNeedsALoginAndTheRightRole() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications/preferences")).andExpect(status().isUnauthorized());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/v1/notifications/preferences").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activityPush\":false}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/v1/notifications/push-devices").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"platform\":\"ANDROID\",\"pushClientId\":\"cid\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/ops/notifications/system-notices").header("Idempotency-Key", "k")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+
+        var notices = applicationContext.getBean(
+                com.lowaltitude.inspection.notification.application.SystemNoticeService.class);
+        org.mockito.Mockito.when(notices.latestAbout("PRIVACY_POLICY")).thenReturn(java.util.Optional.empty());
+        mockMvc.perform(get("/api/v1/system-notices/agreement-updates").param("agreement", "PRIVACY_POLICY"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/system-notices/c5000000-0000-4000-8000-000000000001"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/ops/notifications/system-notices")
+                        .header("Authorization", "Bearer " + signedToken(List.of("CUSTOMER"), 7)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+        org.mockito.Mockito.verify(notices, org.mockito.Mockito.never()).list(
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -2029,6 +2061,23 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         NotificationService testNotificationService() {
             return org.mockito.Mockito.mock(NotificationService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.notification.application.NotificationPreferenceService
+                testNotificationPreferenceService() {
+            return org.mockito.Mockito.mock(
+                    com.lowaltitude.inspection.notification.application.NotificationPreferenceService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.notification.application.PushDeviceService testPushDeviceService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.notification.application.PushDeviceService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.notification.application.SystemNoticeService testSystemNoticeService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.notification.application.SystemNoticeService.class);
         }
 
         @Bean

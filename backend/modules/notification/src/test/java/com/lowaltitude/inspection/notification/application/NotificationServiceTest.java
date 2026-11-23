@@ -21,7 +21,9 @@ class NotificationServiceTest {
     private static final Instant NOW = Instant.parse("2026-11-17T04:00:00Z");
 
     private final FakeStore store = new FakeStore();
-    private final NotificationService service = new NotificationService(store, Clock.fixed(NOW, ZoneOffset.UTC));
+    private final List<NewNotification> pushed = new ArrayList<>();
+    private final NotificationService service = new NotificationService(store, Clock.fixed(NOW, ZoneOffset.UTC),
+            pushed::add);
 
     @Test
     void recordsOncePerSourceKey() {
@@ -131,6 +133,45 @@ class NotificationServiceTest {
                 NotificationTargetType.CONVERSATION, TARGET)).isInstanceOf(IllegalArgumentException.class);
     }
 
+    // S5-9：新记一条才交给推送；同一事件重放、客服消息只刷新未读都不再推。
+    @Test
+    void onlyANewlyRecordedNotificationIsHandedToThePush() {
+        service.record(notification(ME, "a"));
+        service.record(notification(ME, "a"));
+        service.recordUnlessUnread(reply(ME, "support-message:1", NOW, "商家回复了你"));
+        service.recordUnlessUnread(reply(ME, "support-message:2", NOW, "商家回复了你"));
+
+        assertThat(pushed).extracting(NewNotification::sourceKey).containsExactly("a", "support-message:1");
+    }
+
+    // 系统通知只由公告补记，业务不能直接写。
+    @Test
+    void systemNoticesCannotBeRecordedDirectly() {
+        NewNotification notice = new NewNotification(ME, NotificationCategory.SYSTEM_NOTICE, "SYSTEM_NOTICE_PUBLISHED",
+                "隐私政策更新摘要", "查看主要变化与生效日期", NotificationTargetType.SYSTEM_NOTICE, TARGET, null, "x", NOW);
+
+        assertThatThrownBy(() -> service.record(notice)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(store.messages).isEmpty();
+        assertThat(pushed).isEmpty();
+    }
+
+    // 开通了系统通知的构建读列表和未读数之前先补记，带上 App 的当前城市；没开通的不补记；城市格式不对是参数错误。
+    @Test
+    void listingAndCountingDeliverSystemNoticesOnlyWhenAsked() {
+        service.list(ME, 1, 20, true, "370500");
+        service.unreadCount(ME, true, "370500");
+        service.list(ME, 1, 20, true, null);
+        service.list(ME, 1, 20);
+        service.unreadCount(ME);
+        service.unreadCount(ME, false, "370500");
+
+        assertThat(store.deliveries).containsExactly(ME + "@370500", ME + "@370500", ME + "@null");
+        assertThatThrownBy(() -> service.list(ME, 1, 20, true, "dongying"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.unreadCount(ME, false, "37 05")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(store.deliveries).hasSize(3);
+    }
+
     @Test
     void rejectsInvalidReadArguments() {
         assertThatThrownBy(() -> service.list(null, 1, 20)).isInstanceOf(IllegalArgumentException.class);
@@ -182,6 +223,13 @@ class NotificationServiceTest {
 
     private static final class FakeStore implements NotificationStore {
         final List<Stored> messages = new ArrayList<>();
+        final List<String> deliveries = new ArrayList<>();
+
+        @Override
+        public int deliverSystemNotices(UUID recipientId, String cityCode, Instant now) {
+            deliveries.add(recipientId + "@" + cityCode);
+            return 0;
+        }
 
         @Override
         public boolean insert(NewNotification notification) {

@@ -4,6 +4,7 @@ import pages from '../../pages.json'
 import messagePageSource from '../../pages/message/index.vue?raw'
 import centerSource from '../../features/message/presentation/MessageCenterPage.vue?raw'
 import { messageTargetUrl } from './message-destination'
+import { noticeLinkDestination } from './notice-link-destination'
 
 const routes = new Set((pages as { pages: Array<{ path: string }> }).pages.map((page) => `/${page.path}`))
 const pathOf = (url: string | null) => (url ?? '').split('?')[0]
@@ -50,6 +51,30 @@ describe('where a notification opens', () => {
   })
 })
 
+describe('系统通知 (S5-9)', () => {
+  it('opens the announcement by its id on a registered page', () => {
+    const url = messageTargetUrl({ type: 'SYSTEM_NOTICE', id: 'c5000000-0000-4000-8000-000000000001', subId: null })
+    expect(url).toBe('/pages/message/notice?id=c5000000-0000-4000-8000-000000000001')
+    expect(routes.has(pathOf(url))).toBe(true)
+  })
+
+  it('turns every notice link into a registered page or a not-yet-open message', () => {
+    const pagesFor = [
+      noticeLinkDestination({ type: 'AGREEMENT', agreement: 'PRIVACY_POLICY' }),
+      noticeLinkDestination({ type: 'ACTIVITY_PARTICIPANTS' }),
+      noticeLinkDestination({ type: 'NOTIFICATION_SETTINGS' }),
+      noticeLinkDestination({ type: 'PLATFORM_SUPPORT' }),
+    ]
+    for (const destination of pagesFor) {
+      expect(destination.kind).toBe('page')
+      if (destination.kind === 'page') expect(routes.has(pathOf(destination.url))).toBe(true)
+    }
+    expect(pagesFor[0]).toEqual({ kind: 'page', url: '/pages/mine/agreement?doc=PRIVACY_POLICY' })
+    expect(noticeLinkDestination({ type: 'PRIVACY_PERMISSIONS' })).toEqual({ kind: 'unavailable', message: '权限管理即将开通' })
+    expect(noticeLinkDestination({ type: 'PERSONAL_DATA_EXPORT' }).kind).toBe('unavailable')
+  })
+})
+
 describe('the message tab', () => {
   // 交易物流 and 活动提醒 only in preview builds; public builds keep 服务进度 alone.
   it('shows the new squares behind the trade and activity previews', () => {
@@ -58,8 +83,9 @@ describe('the message tab', () => {
       .toContain("...(ACTIVITY_PREVIEW_ENABLED || EXPERIENCE_PREVIEW_ENABLED ? ['ACTIVITY_REMINDER' as const] : [])")
     expect(messagePageSource).toContain(':squares="squares"')
     expect(centerSource).toContain("squares: () => ['SERVICE_PROGRESS']")
-    // 系统通知 is not built.
-    expect(centerSource).not.toContain('系统通知</text>')
+    // 系统通知 (S5-9) only in preview builds, which also ask the server for announcements.
+    expect(messagePageSource).toContain("...(SYSTEM_NOTICE_PREVIEW_ENABLED ? ['SYSTEM_NOTICE' as const] : [])")
+    expect(messagePageSource).toContain('systemNotices: SYSTEM_NOTICE_PREVIEW_ENABLED')
   })
 
   it('marks an unknown notification read without navigating', () => {

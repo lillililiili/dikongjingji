@@ -93,4 +93,9 @@ final class PostgresNotificationStore implements NotificationStore {
     public int markAllRead(UUID recipientId, Instant at) {
         return mapper.markAllRead(recipientId, at);
     }
+
+    @Override
+    public int deliverSystemNotices(UUID recipientId, String cityCode, Instant now) {
+        return mapper.deliverSystemNotices(recipientId, cityCode, now);
+    }
 }
