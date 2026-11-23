@@ -21,6 +21,7 @@ import com.lowaltitude.inspection.mall.application.MallCartService;
 import com.lowaltitude.inspection.account.application.AccountAddressService;
 import com.lowaltitude.inspection.trade.application.TradeOrderService;
 import com.lowaltitude.inspection.trade.application.TradePaymentService;
+import com.lowaltitude.inspection.trade.application.TradeChannelCheckService;
 import com.lowaltitude.inspection.trade.application.TradeReconciliationService;
 import com.lowaltitude.inspection.trade.application.TradeRefundService;
 import com.lowaltitude.inspection.notification.application.NotificationService;
@@ -78,6 +79,7 @@ import org.springframework.web.bind.annotation.RestController;
         TradePaymentService.class,
         TradeRefundService.class,
         TradeReconciliationService.class,
+        TradeChannelCheckService.class,
         NotificationService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
