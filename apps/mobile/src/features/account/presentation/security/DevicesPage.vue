@@ -2,7 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import IconTile from '@/shared/ui/IconTile.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { iconTileToneAt } from '@/shared/ui/icon-tile-tones'
 import { formatBeijingTime, toBeijingParts } from '@/shared/time/beijing-time'
 
 import { identityAccountApi } from '../../data/identity-account-api-client'
@@ -75,7 +77,7 @@ onMounted(load)
 
 <template>
   <view class="devices" data-testid="devices-page">
-    <AppPageHeader title="登录设备管理" plain test-id="devices" @back="emit('back')" />
+    <AppPageHeader title="登录设备管理" test-id="devices" @back="emit('back')" />
     <view class="devices__body">
       <text v-if="sessions" class="devices__intro">这些设备最近登录过你的账号，共 {{ sessions.length }} 台</text>
       <text v-if="loadError" class="devices__error">{{ loadError }}</text>
@@ -85,15 +87,13 @@ onMounted(load)
       </view>
       <view v-if="sessions && sessions.length" class="devices__card">
         <view
-          v-for="session in sessions"
+          v-for="(session, index) in sessions"
           :key="session.sessionId"
           class="devices__row"
           :data-testid="session.current ? 'device-current' : 'device-other'"
         >
-          <view class="devices__icon" :style="{ background: session.current ? '#fff0e3' : '#eef2f8' }">
-            <LineIcon :d="isTabletName(session.deviceName) ? TABLET_ICON : PHONE_ICON" :size="22"
-                      :color="session.current ? '#ff6a00' : '#536178'" :stroke-width="1.8" />
-          </view>
+          <!-- The theme draws these as tilted tiles in the board palette order. -->
+          <IconTile :tone="iconTileToneAt(index)" :d="isTabletName(session.deviceName) ? TABLET_ICON : PHONE_ICON" :size="44" :icon-size="22" />
           <view class="devices__copy">
             <view class="devices__name-line">
               <text class="devices__name">{{ session.deviceName }}</text>

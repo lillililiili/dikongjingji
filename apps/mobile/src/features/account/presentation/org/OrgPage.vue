@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import { formatTradeAmount } from '@/features/trade/application/order-view'
 import { createTradeKey as createIdempotencyKey } from '@/features/trade/application/trade-keys'
+import IconTile from '@/shared/ui/IconTile.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import { toBeijingParts } from '@/shared/time/beijing-time'
 
@@ -18,7 +19,9 @@ const props = defineProps<{ accessToken: string; enterpriseId: string | null; ci
 const emit = defineEmits<{ back: []; members: [enterpriseId: string]; invitation: [invitationId: string]; changed: []; unauthorized: [] }>()
 
 const BACK = 'M15 5l-7 7 7 7'
-const PEOPLE = 'M9 11a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM3 20c.8-3 3-5 6-5s5.2 2 6 5M17 11a2.5 2.5 0 1 0 0-5M21 19c-.4-2-1.6-3.4-3.5-4'
+// Board OrgDetail: a gear in the head opens 成员与角色.
+const PEOPLE = 'M12 15a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'
+const PLUS = 'M12 5v14M5 12h14'
 const BUILDING = 'M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2'
 const CHEVRON = 'M9 5l7 7-7 7'
 const AVATAR_TONES = [
@@ -187,7 +190,7 @@ onMounted(load)
 
         <template v-if="enterprise">
           <button class="org__card" aria-haspopup="dialog" data-testid="org-card" @click="profileOpen = true">
-            <view class="org__badge"><LineIcon :d="BUILDING" :size="26" color="#2f80ed" :stroke-width="1.8" /></view>
+            <IconTile tone="blue" :d="BUILDING" :size="52" :icon-size="26" />
             <view class="org__card-copy">
               <text class="org__name" data-testid="org-name">{{ enterprise.name }}</text>
               <view class="org__tags">
@@ -228,7 +231,7 @@ onMounted(load)
             <text class="org__section-title"><text class="org__bar" />成员</text>
             <button class="org__invite" data-testid="org-invite" @click="emit('members', enterprise.enterpriseId)">
               <text>邀请成员</text>
-              <LineIcon :d="CHEVRON" :size="12" color="#ba470b" :stroke-width="2" />
+              <LineIcon :d="PLUS" :size="14" color="#ba470b" :stroke-width="2" />
             </button>
           </view>
           <view class="org__list">

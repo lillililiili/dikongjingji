@@ -2,12 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import IconTile from '@/shared/ui/IconTile.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import { formatBeijingTime, toBeijingParts } from '@/shared/time/beijing-time'
 
 import { identityAccountApi } from '../../data/identity-account-api-client'
 import type { ReceivedInvitation } from '../../domain/identity-account'
-import { ROLE_GUIDE, ROLE_LABELS } from '../../domain/identity-account'
+import { ROLE_LABELS } from '../../domain/identity-account'
 import ConfirmSheet from '../shared/ConfirmSheet.vue'
 
 // 加入组织邀请 (board OrgInvite, 390 wide): the invited person's side. A phone invitation is only for
@@ -16,7 +17,11 @@ const props = defineProps<{ accessToken: string; invitationId: string; code: str
 const emit = defineEmits<{ back: []; joined: [enterpriseId: string]; unauthorized: [] }>()
 
 const BUILDING = 'M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2'
-const DOT = 'M12 12h.01'
+const CHECK = 'M5 12l5 5 9-10'
+const CROSS = 'M6 6l12 12M18 6L6 18'
+const INFO = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01'
+// What a 成员 may do (the board's 经办人 powers, for the two roles of the default decision).
+const POWERS = ['以企业身份下单、付款', '查看企业的订单', '邀请成员加入']
 
 const invitation = ref<ReceivedInvitation | null>(null)
 const error = ref('')
@@ -90,31 +95,42 @@ onMounted(load)
 
 <template>
   <view class="invite" data-testid="org-invite-page">
-    <AppPageHeader title="加入组织邀请" plain test-id="org-invite" @back="emit('back')" />
+    <AppPageHeader title="加入组织邀请" test-id="org-invite" @back="emit('back')" />
     <view class="invite__body">
       <text v-if="error" class="invite__error" data-testid="org-invite-error">{{ error }}</text>
       <template v-if="invitation">
         <view class="invite__card invite__hero">
-          <view class="invite__badge"><LineIcon :d="BUILDING" :size="26" color="#2f80ed" :stroke-width="1.8" /></view>
-          <view class="invite__hero-copy">
-            <text class="invite__name">{{ invitation.enterpriseName }}</text>
-            <view class="invite__tags">
-              <text :class="['invite__tag', { 'invite__tag--ok': invitation.qualificationReviewed }]">{{ invitation.qualificationReviewed ? '资料已认证' : '资料待审核' }}</text>
-              <text class="invite__tag">企业</text>
+          <view class="invite__hero-top">
+            <IconTile tone="blue" :d="BUILDING" :size="52" :icon-size="26" />
+            <view class="invite__hero-copy">
+              <text class="invite__name">{{ invitation.enterpriseName }}</text>
+              <view class="invite__tags">
+                <text :class="['invite__tag', { 'invite__tag--ok': invitation.qualificationReviewed }]">{{ invitation.qualificationReviewed ? '资料已认证' : '资料待审核' }}</text>
+                <text class="invite__tag invite__tag--blue">企业</text>
+              </view>
             </view>
           </view>
-        </view>
-        <text class="invite__lead">{{ invitation.invitedByName }}邀请你加入这个企业，加入后可以用企业身份下单、付款，查看企业订单。</text>
-        <view class="invite__card invite__rows">
-          <view v-for="row in rows" :key="row.k" class="invite__row">
-            <text class="invite__k">{{ row.k }}</text>
-            <text class="invite__v">{{ row.v }}</text>
+          <text class="invite__lead">{{ invitation.invitedByName }}邀请你加入这个企业，加入后你可以用企业身份下单、付款，查看企业订单。</text>
+          <view class="invite__grid">
+            <template v-for="row in rows" :key="row.k">
+              <text class="invite__k">{{ row.k }}</text>
+              <text class="invite__v">{{ row.v }}</text>
+            </template>
           </view>
         </view>
         <view class="invite__card invite__powers">
-          <text class="invite__title">加入后的角色 · {{ ROLE_LABELS[invitation.role] }}</text>
-          <text class="invite__text">{{ ROLE_GUIDE[invitation.role] }}</text>
-          <text class="invite__fine">调整角色和移除成员由管理员操作</text>
+          <view class="invite__title-line">
+            <text class="invite__title">加入后的角色</text>
+            <text class="invite__role">{{ ROLE_LABELS[invitation.role] }}</text>
+          </view>
+          <view v-for="power in POWERS" :key="power" class="invite__power">
+            <LineIcon :d="CHECK" :size="16" color="#159a70" :stroke-width="2.4" />
+            <text class="invite__text">{{ power }}</text>
+          </view>
+          <view class="invite__power">
+            <LineIcon :d="CROSS" :size="16" color="#91a0b4" :stroke-width="2" />
+            <text class="invite__text invite__text--off">管理成员、调整角色由管理员操作</text>
+          </view>
         </view>
         <view class="invite__card invite__powers">
           <text class="invite__title">加入须知</text>
@@ -122,10 +138,10 @@ onMounted(load)
             <text class="invite__note-n">{{ index + 1 }}</text>
             <text class="invite__text">{{ text }}</text>
           </view>
-          <view class="invite__note">
-            <LineIcon :d="DOT" :size="16" color="#ff6a00" :stroke-width="4" />
-            <text class="invite__fine">不认识邀请人或没有申请过加入，请直接拒绝。拒绝后邀请人可以重新发送邀请。</text>
-          </view>
+        </view>
+        <view class="invite__fine-line">
+          <LineIcon :d="INFO" :size="14" color="#738096" :stroke-width="2" />
+          <text class="invite__fine">不认识邀请人或没有申请过加入，请直接拒绝。拒绝后邀请人可以重新发送邀请。</text>
         </view>
         <view v-if="invitation.status === 'DECLINED'" class="invite__state" data-testid="org-invite-declined">
           <text class="invite__state-title">已拒绝加入 {{ invitation.enterpriseName }}</text>
@@ -169,25 +185,29 @@ button::after { border: 0; }
 .invite__body { display: flex; padding: 12px 16px; flex: 1; flex-direction: column; gap: 10px; }
 .invite__error { color: #d64f67; font-size: 13px; line-height: 18px; }
 .invite__card { display: flex; flex-direction: column; border-radius: 14px; background: #fff; }
-.invite__hero { padding: 14px; flex-direction: row; align-items: center; gap: 12px; }
-.invite__badge { display: flex; width: 52px; height: 52px; flex: none; align-items: center; justify-content: center; border-radius: 14px; background: #e6f0ff; }
+.invite__hero { padding: 14px; gap: 12px; }
+.invite__hero-top { display: flex; align-items: center; gap: 12px; }
+.invite__tag--blue { color: #1d63c4; background: #e6f0ff; }
+.invite__grid { display: grid; padding: 12px; grid-template-columns: 64px minmax(0, 1fr); gap: 8px 10px; border-radius: 10px; background: #f5f7fc; font-size: 13px; line-height: 19px; }
+.invite__title-line { display: flex; align-items: center; gap: 8px; }
+.invite__role { padding: 1px 6px; border-radius: 6px; color: #ba470b; background: #fff0e3; font-size: 12px; line-height: 18px; }
+.invite__power { display: flex; align-items: flex-start; gap: 8px; }
+.invite__text--off { color: #738096; }
+.invite__fine-line { display: flex; padding: 0 4px; align-items: flex-start; gap: 6px; }
 .invite__hero-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 6px; }
 .invite__name { overflow: hidden; font-size: 18px; font-weight: 700; line-height: 25px; text-overflow: ellipsis; white-space: nowrap; }
 .invite__tags { display: flex; gap: 6px; }
 .invite__tag { padding: 1px 6px; border-radius: 6px; color: #536178; background: #eef2f8; font-size: 12px; line-height: 18px; }
 .invite__tag--ok { color: #11804a; background: #e2f6ed; }
-.invite__lead { padding: 0 4px; color: #536178; font-size: 14px; line-height: 21px; }
-.invite__rows { padding: 4px 14px; }
-.invite__row { display: flex; min-height: 40px; padding: 8px 0; gap: 12px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px; }
-.invite__row:first-child { border-top-color: transparent; }
-.invite__k { width: 64px; flex: none; color: #627187; }
-.invite__v { min-width: 0; flex: 1; }
+.invite__lead { color: #536178; font-size: 14px; line-height: 21px; }
+.invite__k { color: #627187; white-space: nowrap; }
+.invite__v { min-width: 0; }
 .invite__powers { padding: 14px; gap: 8px; }
 .invite__title { font-size: 16px; font-weight: 700; line-height: 22px; }
 .invite__text { min-width: 0; color: #536178; font-size: 13px; line-height: 19px; }
 .invite__fine { color: #738096; font-size: 12px; line-height: 17px; }
 .invite__note { display: flex; align-items: flex-start; gap: 8px; }
-.invite__note-n { display: flex; width: 18px; height: 18px; flex: none; align-items: center; justify-content: center; border-radius: 50%; color: #ba470b; background: #fff0e3; font-size: 12px; line-height: 18px; text-align: center; }
+.invite__note-n { width: 18px; height: 18px; flex: none; border-radius: 50%; color: #536178; background: #eef2f8; font-size: 12px; line-height: 18px; text-align: center; }
 .invite__state { display: flex; padding: 12px; flex-direction: column; gap: 4px; border-radius: 10px; background: #eef2f8; }
 .invite__state-title { font-size: 15px; font-weight: 500; line-height: 21px; }
 .invite__bar { display: flex; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); gap: 10px; background: #fff; }

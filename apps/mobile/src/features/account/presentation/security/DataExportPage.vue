@@ -146,12 +146,12 @@ onUnmounted(() => {
 
 <template>
   <view class="data" data-testid="data-page">
-    <AppPageHeader title="个人信息查看与导出" plain test-id="data" @back="emit('back')" />
+    <AppPageHeader title="个人信息查看与导出" test-id="data" @back="emit('back')" />
     <view class="data__body">
       <view class="data__card data__profile">
         <text class="data__title">账号信息</text>
         <view class="data__grid">
-          <text class="data__key">显示名</text><text>{{ profile.displayName }}</text>
+          <text class="data__key">姓名</text><text>{{ profile.displayName }}</text>
           <text class="data__key">手机号</text><text data-testid="data-phone">{{ profile.maskedPhone || '未绑定' }}</text>
           <text class="data__key">常用城市</text><text>{{ profile.cityName || '未设置' }}</text>
           <text class="data__key">企业身份</text><text>{{ profile.identityText }}</text>

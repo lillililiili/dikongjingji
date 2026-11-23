@@ -78,8 +78,10 @@ const stageCount = (code: MineOrderStage): number | undefined =>
           </view>
           <view class="platform-mine__profile" data-testid="mine-profile">
             <view v-if="content.user.enterpriseIdentity" class="platform-mine__identity" data-testid="mine-enterprise-identity">
-              <view class="platform-mine__org-avatar">
-                <LineIcon :d="BUILDING" :size="28" color="#2f80ed" :stroke-width="1.8" />
+              <!-- The board draws the enterprise in the same tilted avatar tile as the person. -->
+              <view class="platform-mine__avatar">
+                <LineIcon class="platform-mine__avatar-icon" :d="BUILDING" :size="28" color="#a94c26" />
+                <view class="platform-mine__avatar-shine" />
               </view>
               <view class="platform-mine__identity-copy">
                 <text class="platform-mine__name">{{ content.user.enterpriseIdentity.name }}</text>
@@ -103,7 +105,8 @@ const stageCount = (code: MineOrderStage): number | undefined =>
                   <text class="platform-mine__name">{{ content.user.displayName }}</text>
                   <text v-if="content.user.levelName" class="platform-mine__level">{{ content.user.levelName }}</text>
                 </view>
-                <text v-if="content.user.maskedPhone" class="platform-mine__location" data-testid="mine-phone-line">{{ formatMineSubline(content.user) }}</text>
+                <!-- Wraps between the number and the city, never inside 东营 (board Mine). -->
+                <text v-if="content.user.maskedPhone" class="platform-mine__location" data-testid="mine-phone-line" :aria-label="formatMineSubline(content.user)"><text class="platform-mine__nowrap">{{ content.user.maskedPhone }} · </text><text class="platform-mine__nowrap">{{ formatMineCity(content.user.locationText) }}</text></text>
                 <text v-else class="platform-mine__location">
                   <text v-if="content.user.certificationLabel" class="platform-mine__certification">{{ content.user.certificationLabel }} · </text>{{ formatMineCity(content.user.locationText) }}
                 </text>
@@ -377,18 +380,11 @@ button::after {
   line-height: 17px;
 }
 
-/* S5-7 enterprise identity (board Mine, org frame) and the switch button. */
-.platform-mine__org-avatar {
-  display: flex;
-  width: 56px;
-  height: 56px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #e6f0ff;
+.platform-mine__nowrap {
+  white-space: nowrap;
 }
 
+/* S5-7 the switch button (board Mine). */
 .platform-mine__switch {
   flex: none;
   min-height: 36px;

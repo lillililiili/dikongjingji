@@ -75,7 +75,7 @@ function agree(): void {
 
     <view v-else class="onboarding__location" data-testid="onboarding-location">
       <view class="onboarding__halo">
-        <view class="onboarding__halo-inner"><LineIcon :d="PIN" :size="56" color="#ff6a00" fill="#ff6a00" :stroke-width="0" /></view>
+        <view class="onboarding__halo-inner"><LineIcon :d="PIN" :size="64" color="#ff6a00" fill="#ff6a00" :stroke-width="0" /></view>
       </view>
       <text class="onboarding__location-title">开启定位，看本城可用的服务</text>
       <text class="onboarding__location-text">活动、体验和专业服务都按城市开通</text>
@@ -98,7 +98,7 @@ function agree(): void {
 /* Sizes and colours follow the 2026-11-14 prototype board Onboarding (390 wide). */
 button { margin: 0; padding: 0; border: 0; background: transparent; font-family: inherit; line-height: normal; }
 button::after { border: 0; }
-.onboarding { position: relative; display: flex; min-height: 100vh; flex-direction: column; overflow: hidden; color: #202c42; background: linear-gradient(180deg, #fff0e3 0%, #fffaf5 48%, #fff 100%); }
+.onboarding { position: relative; display: flex; min-height: 100vh; flex-direction: column; overflow: hidden; color: #202c42; background: #f5f7fc; }
 .onboarding__brand { display: flex; padding-top: 96px; flex-direction: column; align-items: center; gap: 4px; }
 .onboarding__mark { display: flex; width: 76px; height: 76px; margin-bottom: 10px; align-items: center; justify-content: center; border-radius: 20px; background: linear-gradient(145deg, #ff8f3d 0%, #ff6a00 100%); box-shadow: 0 6px 16px rgba(255, 106, 0, 0.24); }
 .onboarding__name { font-size: 22px; font-weight: 700; line-height: 30px; }
@@ -118,9 +118,9 @@ button::after { border: 0; }
 .onboarding__terms { color: #536178; font-size: 13px; line-height: 20px; }
 .onboarding__link { color: #ba470b; }
 .onboarding__buttons { display: flex; flex-direction: column; gap: 2px; }
-.onboarding__primary { height: 46px; border-radius: 999px; color: #fff; background: #ff6a00; font-size: 16px; font-weight: 500; line-height: 46px; text-align: center; white-space: nowrap; }
+.onboarding__primary { height: 46px; border-radius: 999px; color: #fff; background: #ff6a00; box-shadow: var(--app-primary-shadow); font-size: 16px; font-weight: 500; line-height: 46px; text-align: center; white-space: nowrap; }
 .onboarding__plain { min-height: 44px; color: #627187; font-size: 14px; line-height: 44px; text-align: center; white-space: nowrap; }
-.onboarding__location { display: flex; padding: 92px 24px calc(36px + env(safe-area-inset-bottom)); flex: 1; flex-direction: column; }
+.onboarding__location { display: flex; padding: calc(92px + var(--status-bar-height, 0px)) 24px calc(36px + env(safe-area-inset-bottom)); flex: 1; flex-direction: column; }
 .onboarding__halo { display: flex; width: 196px; height: 196px; align-self: center; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 106, 0, 0.08); }
 .onboarding__halo-inner { display: flex; width: 132px; height: 132px; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 106, 0, 0.14); }
 .onboarding__location-title { margin-top: 32px; font-size: 22px; font-weight: 700; line-height: 30px; text-align: center; }

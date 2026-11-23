@@ -2,7 +2,9 @@
 import { computed, ref } from 'vue'
 
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import IconTile from '@/shared/ui/IconTile.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { iconTileToneAt } from '@/shared/ui/icon-tile-tones'
 
 import type { PermissionCode, PermissionState } from '../../application/app-permissions'
 import { openSystemSettings } from '../../application/app-permissions'
@@ -53,12 +55,12 @@ function open(id: PermissionCode): void {
 
 <template>
   <view class="perm" data-testid="permissions-page">
-    <AppPageHeader title="权限管理" plain test-id="permissions" @back="emit('back')" />
+    <AppPageHeader title="权限管理" test-id="permissions" @back="emit('back')" />
     <view class="perm__body">
       <text class="perm__intro">权限由手机系统管理，改完回到 App 自动更新</text>
-      <view v-for="item in permissions" :key="item.id" class="perm__card" :data-testid="`permission-${item.id}`">
+      <view v-for="(item, index) in permissions" :key="item.id" class="perm__card" :data-testid="`permission-${item.id}`">
         <view class="perm__head">
-          <view class="perm__icon" :style="{ background: item.iconBg }"><LineIcon :d="item.d" :size="22" :color="item.iconFg" :stroke-width="1.8" /></view>
+          <IconTile :tone="iconTileToneAt(index)" :d="item.d" :size="44" :icon-size="22" />
           <view class="perm__title-block">
             <text class="perm__title">{{ item.t }}</text>
             <text class="perm__tag" :style="{ background: item.tagBg, color: item.tagFg }">{{ item.tag }}</text>

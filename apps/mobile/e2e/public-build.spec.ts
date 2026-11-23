@@ -283,3 +283,14 @@ test.describe('公开构建', () => {
     expect(calls).toEqual([])
   })
 })
+
+test.describe('公开构建：账号（S5-8）', () => {
+  test('PUB-ACC 登录页只有账号密码登录，没有验证码和切换入口', async ({ page }) => {
+    await page.goto('/#/pages/service/inspection/login')
+    await expect(page.locator('.inspection-login__form-title')).toHaveText('账号登录')
+    await expect(page.getByTestId('login-phone-form')).toHaveCount(0)
+    await expect(page.getByTestId('login-switch-mode')).toHaveCount(0)
+    await page.goto('/#/pages/mine/org')
+    await expect(page.getByText('企业组织尚未开通')).toBeVisible()
+  })
+})

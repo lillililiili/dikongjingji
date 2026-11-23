@@ -16,7 +16,6 @@ const emit = defineEmits<{ back: []; devices: []; support: [] }>()
 
 const CHECK = 'M5 12l5 5 9-10'
 const CHEVRON = 'M9 5l7 7-7 7'
-const DOT = 'M12 12h.01'
 
 const binding = computed(() => !props.maskedPhone)
 const step = ref<1 | 2 | 3>(props.maskedPhone ? 1 : 2)
@@ -112,7 +111,7 @@ async function next(): Promise<void> {
 
 <template>
   <view class="set-phone" data-testid="set-phone-page">
-    <AppPageHeader :title="binding ? '绑定手机号' : '更换手机号'" plain test-id="set-phone" @back="emit('back')" />
+    <AppPageHeader :title="binding ? '绑定手机号' : '更换手机号'" test-id="set-phone" @back="emit('back')" />
     <view class="set-phone__body">
       <view class="set-phone__steps" role="list" aria-label="更换步骤" :style="{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }">
         <view v-for="item in steps" :key="item.label" class="set-phone__step" role="listitem" :aria-current="item.current ? 'step' : 'false'">
@@ -165,7 +164,7 @@ async function next(): Promise<void> {
       <view v-if="step !== 3" class="set-phone__card set-phone__terms">
         <text class="set-phone__terms-title">{{ binding ? '绑定后' : '更换后' }}</text>
         <view v-for="term in terms" :key="term" class="set-phone__term">
-          <LineIcon :d="DOT" :size="16" color="#ff6a00" :stroke-width="4" />
+          <LineIcon :d="CHECK" :size="16" color="#159a70" :stroke-width="2.4" />
           <text class="set-phone__term-text">{{ term }}</text>
         </view>
       </view>

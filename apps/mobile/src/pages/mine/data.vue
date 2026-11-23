@@ -37,7 +37,8 @@ onLoad(async () => {
     profile.value = {
       displayName: account.displayName || '已登录',
       maskedPhone: account.maskedPhone ?? null,
-      cityName: city.currentCity?.name?.replace(/市$/, '') ?? null,
+      // The city of 我的 (or the build's default city before one is chosen).
+      cityName: (city.currentCity?.name ?? import.meta.env.VITE_INSPECTION_DEFAULT_CITY_NAME ?? '').replace(/市$/, '') || null,
       identityText: account.identity ? identityLine(account.identity) ?? '个人' : '个人',
     }
   } catch {

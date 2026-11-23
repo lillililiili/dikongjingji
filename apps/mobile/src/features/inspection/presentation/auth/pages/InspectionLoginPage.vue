@@ -334,7 +334,8 @@ function exitLogin(): void {
 .inspection-login__tick--on { border: 0; background: #ff6a00; }
 .inspection-login__agreement-text { min-width: 0; flex: 1; }
 .inspection-login__link { color: #ba470b; }
-.inspection-login--phone { background: #fff; }
+/* Board Login, 验证码登录 frame: the theme draws this title at 17px and the fields in the page colour. */
+.inspection-login--phone .inspection-login__form-title { font-size: 17px; line-height: 24px; }
 .inspection-login__input--soft { background: #f5f7fc; }
 .inspection-login__input--code { padding-right: 4px; gap: 8px; }
 .inspection-login__prefix { flex: none; color: #202c42; font-size: 15px; }

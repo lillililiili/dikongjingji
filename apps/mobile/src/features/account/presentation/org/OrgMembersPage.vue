@@ -18,6 +18,7 @@ const props = defineProps<{ accessToken: string; enterpriseId: string }>()
 const emit = defineEmits<{ back: []; unauthorized: [] }>()
 
 const CHEVRON = 'M9 5l7 7-7 7'
+const INFO = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01'
 const AVATAR_TONES = [
   { bg: '#ffe3cc', fg: '#ba470b' },
   { bg: '#dbe9fc', fg: '#1d63c4' },
@@ -149,18 +150,25 @@ onMounted(load)
 
 <template>
   <view class="members" data-testid="org-members-page">
-    <AppPageHeader title="成员与角色" :subtitle="enterprise?.name" plain test-id="org-members" @back="emit('back')" />
+    <AppPageHeader title="成员与角色" test-id="org-members" @back="emit('back')">
+      <template #actions>
+        <text class="members__head-name">{{ enterprise?.name }}</text>
+      </template>
+    </AppPageHeader>
     <view class="members__body">
       <text v-if="error" class="members__error">{{ error }}</text>
       <template v-if="data">
-        <view class="members__perm" data-testid="org-members-perm">{{ permNote }}</view>
+        <view class="members__perm" data-testid="org-members-perm">
+          <LineIcon :d="INFO" :size="16" color="#1d63c4" :stroke-width="2" />
+          <text>{{ permNote }}</text>
+        </view>
         <view v-if="note" class="members__note" role="status" data-testid="org-members-note">{{ note }}</view>
 
-        <view class="members__section-head">
-          <text class="members__section-title">成员</text>
-          <text class="members__count">{{ data.members.length }} 人</text>
-        </view>
         <view class="members__card">
+          <view class="members__section-head">
+            <text class="members__section-title">成员</text>
+            <text class="members__count">{{ data.members.length }} 人</text>
+          </view>
           <button
             v-for="(member, index) in data.members"
             :key="member.memberId"
@@ -179,11 +187,11 @@ onMounted(load)
         </view>
 
         <template v-if="data.invitations.length">
-          <view class="members__section-head">
-            <text class="members__section-title">待加入</text>
-            <text class="members__count">{{ data.invitations.length }} 人</text>
-          </view>
           <view class="members__card">
+            <view class="members__section-head">
+              <text class="members__section-title">待加入</text>
+              <text class="members__count">{{ data.invitations.length }} 人</text>
+            </view>
             <view v-for="invitation in data.invitations" :key="invitation.invitationId" class="members__row members__row--pending" data-testid="org-pending-invitation">
               <view class="members__copy">
                 <text class="members__name">{{ invitation.maskedPhone ?? '邀请链接' }}</text>
@@ -286,14 +294,15 @@ button::after { border: 0; }
 .members { display: flex; min-height: 100vh; flex-direction: column; color: #202c42; background: #f5f7fc; }
 .members__body { display: flex; padding: 12px 16px; flex: 1; flex-direction: column; gap: 10px; }
 .members__error { color: #d64f67; font-size: 13px; line-height: 18px; }
-.members__perm { padding: 10px 12px; border-radius: 10px; color: #536178; background: #eef2f8; font-size: 13px; line-height: 19px; }
+.members__head-name { padding-right: 8px; color: #627187; font-size: 13px; white-space: nowrap; }
+.members__perm { display: flex; padding: 10px 12px; align-items: flex-start; gap: 6px; border-radius: 10px; color: #1d63c4; background: #e6f0ff; font-size: 13px; line-height: 19px; }
 .members__note { padding: 10px 12px; border-radius: 10px; color: #11804a; background: #eefaf3; font-size: 13px; line-height: 19px; }
-.members__section-head { display: flex; margin-top: 4px; align-items: baseline; gap: 8px; }
+.members__section-head { display: flex; padding: 12px 0 8px; align-items: baseline; gap: 8px; border-bottom: 1px solid #f0f1f3; }
 .members__section-title { font-size: 16px; font-weight: 700; line-height: 22px; }
 .members__count { color: #738096; font-size: 13px; }
 .members__card { display: flex; padding: 0 14px; flex-direction: column; border-radius: 14px; background: #fff; }
 .members__row { display: flex; min-height: 64px; align-items: center; gap: 10px; border-top: 1px solid #f0f1f3; color: #202c42; }
-.members__row:first-child { border-top-color: transparent; }
+.members__section-head + .members__row { border-top-color: transparent; }
 .members__row--pending { gap: 8px; }
 .members__avatar { width: 36px; height: 36px; flex: none; border-radius: 50%; font-size: 15px; font-weight: 700; line-height: 36px; text-align: center; }
 .members__copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
