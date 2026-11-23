@@ -100,7 +100,8 @@ async function main() {
     enrollmentNotice: opsDetail.enrollmentNotice, waitlistAllowed: true, teamEnrollmentAllowed: false, version: opsDetail.version } });
   const switched = r;
   const lastChange = (await call('GET', `/api/v1/ops/activities/${activity.activityId}/changes`, { token: op })).json?.[0]?.summary;
-  const appDetail = (await call('GET', `/api/v1/activities/${activity.activityId}`)).json;
+  // The public detail needs the city (activity contract CityCode parameter).
+  const appDetail = (await call('GET', `/api/v1/activities/${activity.activityId}?cityCode=${opsDetail.cityCode}`)).json;
   const waitlistColumn = psql(`SELECT waitlist_allowed FROM activity WHERE id='${activity.activityId}'`);
   known('S6-02', '运营端给活动打开“允许候补”（S5-3 候补已上线）',
     { req: 'PUT /api/v1/ops/activities/{id} waitlistAllowed=true（运营端契约 1.1.0）；查改动记录、activity.waitlist_allowed、App 详情', expect: '200 waitlistAllowed=true；改动记录“打开候补”；App 详情 waitlistAllowed=true' },

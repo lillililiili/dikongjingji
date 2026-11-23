@@ -24,6 +24,11 @@ function cleanup() {
   psql(`DELETE FROM trade_refund WHERE order_id IN (${ids})`);
   psql(`DELETE FROM trade_payment WHERE order_id IN (${ids})`);
   for (const table of ['trade_state_transition', 'trade_order_line', 'trade_order_delivery']) psql(`DELETE FROM ${table} WHERE order_id IN (${ids})`);
+  // Trade notices (R6-5) and fake pushes point at the orders; delete them with the orders (S6-03).
+  for (const table of ['notification_message', 'notification_push_fake_delivery']) {
+    const owner = table === 'notification_message' ? 'recipient_id' : 'account_id';
+    psql(`DELETE FROM ${table} WHERE ${owner}='${BUYER}' AND target_type='TRADE_ORDER' AND target_id IN (SELECT id FROM trade_order WHERE buyer_id='${BUYER}')`);
+  }
   psql(`DELETE FROM trade_order WHERE buyer_id='${BUYER}'`);
   psql(`DELETE FROM account_address WHERE owner_id='${BUYER}'`);
 }
