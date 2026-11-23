@@ -29,6 +29,12 @@ public final class ExperienceCatalogController {
         return service.listExperienceItems(type, page, size);
     }
 
+    /** S5-4：仿真页、试用页读一个项目的模板和试用时长。 */
+    @GetMapping("/api/v1/experiences/{experienceId}")
+    public ExperienceItemDetailView experience(@PathVariable UUID experienceId) {
+        return service.findExperienceItem(experienceId);
+    }
+
     @GetMapping("/api/v1/venues")
     public VenuePageView venues(
             @RequestParam(required = false) String cityCode,

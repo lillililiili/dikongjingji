@@ -97,6 +97,8 @@ public class SecurityConfiguration {
                                 "/api/v1/activities/*").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/experiences",
+                                // S5-4：一个体验项目的模板和试用时长，公开只读；体验记录走下面的 authenticated()。
+                                "/api/v1/experiences/*",
                                 "/api/v1/venues",
                                 "/api/v1/venues/*",
                                 "/api/v1/venues/*/sessions",

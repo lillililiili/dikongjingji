@@ -21,13 +21,14 @@ class ExperienceCatalogMapperContractTest {
                 .map(select -> String.join("\n", select.value()))
                 .toList();
 
-        assertThat(statements).hasSize(13);
+        assertThat(statements).hasSize(14);
         assertThat(statements).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
     }
 
     @Test
     void listsOnlyShowPublishedOrActiveRows() throws Exception {
         assertThat(sql("countExperienceItems")).contains("status = 'PUBLISHED'");
+        assertThat(sql("findExperienceItem")).contains("id = #{experienceId}").contains("status = 'PUBLISHED'");
         assertThat(sql("findExperienceItems"))
                 .contains("status = 'PUBLISHED'")
                 .contains("#{type} = 'ALL' OR type = #{type}")

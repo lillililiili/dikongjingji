@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Experience and Venue Catalog API
-  version: 1.3.0
+  version: 1.4.0
   description: |-
     1.0.0: read-only catalog for the home "体验" channel (docs/redesign/03-App实现任务计划.md §8):
     online experience items, the venues of a city, a venue's projects, sessions and devices. These five routes stay public.
@@ -49,6 +49,25 @@ info:
     when operators fill them ("09:30–18:00 · 周一闭馆"); older venues keep their text. Sessions an operator stopped
     selling (停售) are no longer listed, existing bookings on them stay valid.
 
+    1.4.0 (2026-11-23, docs/redesign/08-后续开发计划.md S5-4, default decision D7; written as 1.3.0 on its branch and
+    renumbered when merged after main's 1.3.0): online experience records.
+    Simulations run in two in-App task templates (SimulationTemplate ROBOT_OBSTACLE and DRONE_HOVER, 3 levels each);
+    no external simulation platform. Software trials and course previews record a start and an end time; the trial length
+    is set on the item (trialMinutes). New public route GET /api/v1/experiences/{experienceId} (an item with its template,
+    trial length and linked product). Five new routes need a login with the CUSTOMER role: submit a simulation result,
+    start a trial, end a trial early, my records, one record. The account is always the subject of the access token;
+    a record of another account is answered as not found.
+
+    体验记录规则：
+    - 不登录也能玩仿真，但不记录；App 把成绩存在本机，登录后用同一个 Idempotency-Key 补交（30 天内的）。
+    - 成绩由 App 报关卡、失误和起止时间；服务端校验：levelsTotal 等于模板关卡数，0 ≤ levelsCompleted ≤ levelsTotal，
+      0 ≤ mistakes ≤ 999，1 ≤ durationSeconds ≤ 7200 且不超过起止时间（留 5 秒余量），结束时间不晚于服务器时间 5 分钟，
+      开始时间不早于 30 天前。分数由服务端算：round(90 × levelsCompleted / levelsTotal)，全部完成再加 10，
+      每次失误扣 5，最低 0 分。全部完成为 COMPLETED，否则 UNFINISHED。
+    - 试用、试听：开始即记，expiresAt = startedAt + trialMinutes；还在试用中的再开始返回同一条（200）。
+      可以提前结束（ENDED）；到期读成 EXPIRED（按时间算，不落库）。到期或结束后可以再次开始。
+    - 体验结束不会自动下单。
+
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -76,6 +95,32 @@ paths:
                 $ref: "#/components/schemas/ExperienceItemPage"
         "400":
           description: Invalid type, page or size
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/experiences/{experienceId}:
+    get:
+      operationId: getExperienceItem
+      summary: One published online experience item with its simulation template and trial length
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ExperienceId"
+      responses:
+        "200":
+          description: The item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceItemDetail"
+        "400":
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such item, or it is not published (COMMON_NOT_FOUND)
           content:
             application/json:
               schema:
@@ -551,6 +596,189 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /api/v1/experience/records:
+    post:
+      operationId: recordSimulationResult
+      summary: 交一次虚拟仿真的成绩
+      description: >-
+        只收配了模板（simulationTemplate）的已发布仿真项目。App 报关卡、失误和起止时间，服务端按规则校验并算分。
+        同一个账号同一个 Idempotency-Key 只记一次：内容相同的重放返回同一条（200），内容不同回 409。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulationResultRequest"
+      responses:
+        "201":
+          description: 记下了
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceRecord"
+        "200":
+          description: 同一个幂等键的重放，返回第一次记下的那条
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceRecord"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 没有这个体验项目（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: >-
+            EXPERIENCE_IDEMPOTENCY_KEY_REUSED：这个幂等键已经用于内容不同的成绩。
+            EXPERIENCE_NOT_RECORDABLE：项目没发布，或不是配了模板的仿真。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: EXPERIENCE_RESULT_INVALID：关卡数和模板不符、用时和起止时间对不上，或时间不合理。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: listMyExperienceRecords
+      summary: 我的体验记录，最近开始的在前
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: experienceId
+          in: query
+          required: false
+          description: 只看这一个项目的记录（试用页读“还在试用中的那一条”用）；不带为全部
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 一页记录
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceRecordPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/experience/records/{recordId}:
+    get:
+      operationId: getMyExperienceRecord
+      summary: 我的一条体验记录（结果页、试用页读它）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: 记录
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceRecord"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/experience/records/{recordId}/end:
+    post:
+      operationId: endExperienceTrial
+      summary: 提前结束一次软件试用或课程试听
+      description: 还在试用中的改成 ENDED；已结束、已到期的原样返回（重复点不出错）。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: 结束后的记录
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceRecord"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: EXPERIENCE_NOT_TRIAL：这是一条仿真成绩，不能“结束”。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/experience/trials:
+    post:
+      operationId: startExperienceTrial
+      summary: 开始一次软件试用或课程试听
+      description: >-
+        只收配了试用时长（trialMinutes）的已发布试用、试听项目。expiresAt = 开始 + trialMinutes。
+        这个账号在这个项目上还有试用中的记录时返回那一条（200），不另开。
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrialStartRequest"
+      responses:
+        "201":
+          description: 开始了新的一次
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceRecord"
+        "200":
+          description: 还在试用中的那一次
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperienceRecord"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: 没有这个体验项目（COMMON_NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: EXPERIENCE_NOT_RECORDABLE：项目没发布，或不是配了试用时长的试用、试听。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   securitySchemes:
     bearerAuth:
@@ -602,11 +830,25 @@ components:
       schema:
         type: string
         format: uuid
+    RecordId:
+      name: recordId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ExperienceId:
+      name: experienceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     IdempotencyKey:
       name: Idempotency-Key
       in: header
       required: true
-      description: 客户端为这一次提交生成的 UUID；按账号隔离
+      description: 客户端为这一次提交生成的 UUID；按账号隔离（到馆预约、仿真成绩）
       schema:
         type: string
         format: uuid
@@ -1568,3 +1810,238 @@ components:
         repeated:
           type: boolean
           description: 这个码之前已经核销过
+    SimulationTemplate:
+      type: string
+      enum:
+        - ROBOT_OBSTACLE
+        - DRONE_HOVER
+      description: App 内的仿真任务模板：机器人避障 / 无人机起降与悬停，都是 3 关
+    ExperienceItemDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - experienceId
+        - type
+        - title
+        - summary
+        - coverImage
+        - loginRequired
+        - productId
+        - simulationTemplate
+        - trialMinutes
+      properties:
+        experienceId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ExperienceType"
+        title:
+          type: string
+        summary:
+          type:
+            - string
+            - "null"
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        loginRequired:
+          type: boolean
+        productId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: 关联的商城商品（结果页“看商品”）；没有关联为 null
+        simulationTemplate:
+          anyOf:
+            - $ref: "#/components/schemas/SimulationTemplate"
+            - type: "null"
+          description: 只有仿真有；没配模板的仿真不能玩
+        trialMinutes:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          description: 只有软件试用和课程试听有：一次试用多少分钟
+    ExperienceRecordStatus:
+      type: string
+      enum:
+        - COMPLETED
+        - UNFINISHED
+        - ACTIVE
+        - ENDED
+        - EXPIRED
+      description: 仿真：全部完成 / 中途退出；试用、试听：试用中 / 主动结束 / 已到期（按时间算）
+    ExperienceRecordItem:
+      type: object
+      additionalProperties: false
+      required:
+        - experienceId
+        - type
+        - title
+        - coverImage
+        - productId
+        - simulationTemplate
+      properties:
+        experienceId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/ExperienceType"
+        title:
+          type: string
+        coverImage:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+        productId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        simulationTemplate:
+          anyOf:
+            - $ref: "#/components/schemas/SimulationTemplate"
+            - type: "null"
+    SimulationResult:
+      type: object
+      additionalProperties: false
+      required:
+        - score
+        - durationSeconds
+        - levelsCompleted
+        - levelsTotal
+        - mistakes
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 服务端按规则算的分
+        durationSeconds:
+          type: integer
+          minimum: 1
+          maximum: 7200
+        levelsCompleted:
+          type: integer
+          minimum: 0
+        levelsTotal:
+          type: integer
+          minimum: 1
+        mistakes:
+          type: integer
+          minimum: 0
+          description: 机器人碰撞次数，或无人机操作失误次数
+    ExperienceRecord:
+      type: object
+      additionalProperties: false
+      required:
+        - recordId
+        - experience
+        - status
+        - startedAt
+        - endedAt
+        - expiresAt
+        - result
+      properties:
+        recordId:
+          type: string
+          format: uuid
+        experience:
+          $ref: "#/components/schemas/ExperienceRecordItem"
+        status:
+          $ref: "#/components/schemas/ExperienceRecordStatus"
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 仿真的结束时间；试用、试听只有主动结束时才有
+        expiresAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 只有试用、试听有
+        result:
+          anyOf:
+            - $ref: "#/components/schemas/SimulationResult"
+            - type: "null"
+          description: 只有仿真有
+    ExperienceRecordPage:
+      type: object
+      additionalProperties: false
+      required:
+        - page
+        - size
+        - total
+        - hasMore
+        - items
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExperienceRecord"
+    SimulationResultRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - experienceId
+        - startedAt
+        - endedAt
+        - durationSeconds
+        - levelsCompleted
+        - levelsTotal
+        - mistakes
+      properties:
+        experienceId:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+        durationSeconds:
+          type: integer
+          description: 在任务页面上的用时（秒）
+        levelsCompleted:
+          type: integer
+        levelsTotal:
+          type: integer
+        mistakes:
+          type: integer
+    TrialStartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - experienceId
+      properties:
+        experienceId:
+          type: string
+          format: uuid
+    ExperienceErrorCode:
+      type: string
+      enum:
+        - EXPERIENCE_IDEMPOTENCY_KEY_REUSED
+        - EXPERIENCE_NOT_RECORDABLE
+        - EXPERIENCE_RESULT_INVALID
+        - EXPERIENCE_NOT_TRIAL
+      description: >-
+        体验记录接口在 ApiError.code 里用到的业务错误码。EXPERIENCE_RESULT_INVALID 是 422，其余都是 409。

@@ -378,6 +378,25 @@ class AuthenticationSecurityIntegrationTest {
         }
     }
 
+    // 线上体验记录（S5-4）的五个接口全部要登录；只有 GET /api/v1/experiences/{experienceId} 公开。
+    @Test
+    void experienceRecordRoutesRequireALogin() throws Exception {
+        String record = "/api/v1/experience/records/b7000000-0000-4000-8000-000000000001";
+
+        for (var request : List.of(
+                post("/api/v1/experience/records"),
+                get("/api/v1/experience/records"),
+                get(record),
+                post(record + "/end"),
+                post("/api/v1/experience/trials"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        mockMvc.perform(post("/api/v1/experiences/b1000000-0000-4000-8000-000000000001"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // 四类专业服务（F2）的目录、详情和服务商主页公开只读：不带令牌也能读，写方法仍然要登录。
     @Test
     void proServiceReadsArePublic() throws Exception {
@@ -955,6 +974,7 @@ class AuthenticationSecurityIntegrationTest {
     void anonymousExperienceAndVenueReadsArePublicButOtherMethodsRequireAuthentication() throws Exception {
         String venue = "/api/v1/venues/b2000000-0000-4000-8000-000000000001";
         mockMvc.perform(get("/api/v1/experiences")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/experiences/b1000000-0000-4000-8000-000000000001")).andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/venues").param("cityCode", "370500")).andExpect(status().isOk());
         mockMvc.perform(get(venue).param("cityCode", "370500")).andExpect(status().isOk());
         mockMvc.perform(get(venue + "/sessions")
@@ -1740,6 +1760,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.experience.application.VenueBookingService testVenueBookingService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.VenueBookingService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.experience.application.ExperienceRecordService testExperienceRecordService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.experience.application.ExperienceRecordService.class);
         }
 
         @Bean

@@ -9,6 +9,7 @@ import com.lowaltitude.inspection.activity.application.ActivityEnrollmentExcepti
 import com.lowaltitude.inspection.activity.application.ActivityNotFoundException;
 import com.lowaltitude.inspection.demand.application.DemandException;
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
+import com.lowaltitude.inspection.experience.application.ExperienceRecordException;
 import com.lowaltitude.inspection.experience.application.VenueBookingException;
 import com.lowaltitude.inspection.experience.application.VenueCheckinException;
 import com.lowaltitude.inspection.checkin.application.CheckinRejectedException;
@@ -440,6 +441,48 @@ public class GlobalExceptionHandler {
                 message = "这张订单现在不能在线退款";
             }
             default -> throw new IllegalStateException("unhandled rental error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
+    /** 线上体验记录（S5-4，契约 openapi-experience.yaml 1.4.0 的 ExperienceErrorCode）。 */
+    @ExceptionHandler(ExperienceRecordException.class)
+    public ResponseEntity<ApiError> handleExperienceRecord(
+            ExperienceRecordException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case FORBIDDEN -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                code = "EXPERIENCE_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case NOT_RECORDABLE -> {
+                code = "EXPERIENCE_NOT_RECORDABLE";
+                message = "这个体验项目暂时不能记录";
+            }
+            case RESULT_INVALID -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "EXPERIENCE_RESULT_INVALID";
+                message = "体验成绩不符合规则";
+            }
+            case NOT_TRIAL -> {
+                code = "EXPERIENCE_NOT_TRIAL";
+                message = "只有试用和试听可以结束";
+            }
+            default -> throw new IllegalStateException("unhandled experience record error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
     }

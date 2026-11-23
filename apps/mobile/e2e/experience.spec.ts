@@ -12,6 +12,7 @@ const OFFLINE_VENUE_ID = 'b2000000-0000-4000-8000-000000000003'
 const ROBOT_PROJECT_ID = 'b4000000-0000-4000-8000-000000000101'
 const CODING_PROJECT_ID = 'b4000000-0000-4000-8000-000000000103'
 const SIMULATION_ID = 'b1000000-0000-4000-8000-000000000001'
+const RECORDED_DEMO_ID = 'b1000000-0000-4000-8000-000000000003'
 
 async function openHome(page: Page): Promise<void> {
   await page.goto('/#/pages/home/index')
@@ -96,13 +97,17 @@ test.describe('体验频道', () => {
     await expect(page.getByTestId('root-tab-home')).toHaveClass(/root-tab-bar__item--active/)
   })
 
-  test('EXP-003 还没做的体验形式点开只给提示，不跳走', async ({ page }) => {
+  // S5-4 起虚拟仿真、软件试用、课程试听有自己的页面（e2e/experience-sim.spec.ts）；录播演示还没做。
+  test('EXP-003 还没做的体验形式点开只给提示，不跳走；虚拟仿真进任务页', async ({ page }) => {
     await openExperienceChannel(page)
     const url = page.url()
 
-    await page.getByTestId(`experience-item-${SIMULATION_ID}`).click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('虚拟仿真即将开放')
+    await page.getByTestId(`experience-item-${RECORDED_DEMO_ID}`).click()
+    await expect(page.locator('.uni-sample-toast')).toContainText('录播演示即将开放')
     expect(page.url()).toBe(url)
+
+    await page.getByTestId(`experience-item-${SIMULATION_ID}`).click()
+    await expect(page.getByTestId('simulation-page')).toBeVisible()
   })
 
   test('EXP-004 线下体验列出本城场馆，已下线的不出现', async ({ page }) => {
