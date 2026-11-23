@@ -51,7 +51,7 @@ describe('令牌', () => {
 })
 
 describe('登录状态', () => {
-  let api: { login: ReturnType<typeof vi.fn>, me: ReturnType<typeof vi.fn> }
+  let api: { login: ReturnType<typeof vi.fn>, me: ReturnType<typeof vi.fn>, logout: ReturnType<typeof vi.fn> }
   let tokens: TokenStore
 
   beforeEach(() => {
@@ -59,6 +59,7 @@ describe('登录状态', () => {
     api = {
       login: vi.fn(async () => ({ accessToken: 'jwt', tokenType: 'Bearer', expiresInSeconds: 900 })),
       me: vi.fn(async () => OPERATOR),
+      logout: vi.fn(async () => undefined),
     }
     tokens = new TokenStore(new MemoryStorage())
   })
@@ -99,5 +100,21 @@ describe('登录状态', () => {
     api.me.mockRejectedValue(new ApiRequestError(401, 'COMMON_UNAUTHORIZED', '', 't'))
     expect(await store().ensureAccount()).toBe(false)
     expect(tokens.get()).toBeNull()
+  })
+
+  it('登录时存刷新令牌；访问令牌过期但能续期时仍算登录着；退出时请后端撤销这次登录', async () => {
+    api.login.mockResolvedValue({
+      accessToken: 'jwt', tokenType: 'Bearer', expiresInSeconds: 900,
+      refreshToken: 'refresh-1', refreshExpiresInSeconds: 2_592_000,
+    })
+    const session = store()
+    await session.login('dev-support', 'pw')
+    expect(tokens.refreshToken()).toBe('refresh-1')
+    expect(session.hasToken()).toBe(true)
+
+    session.logout()
+    expect(api.logout).toHaveBeenCalledWith('refresh-1')
+    expect(tokens.hasLogin()).toBe(false)
+    expect(session.hasToken()).toBe(false)
   })
 })

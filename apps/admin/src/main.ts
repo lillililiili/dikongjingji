@@ -8,6 +8,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import { useSessionStore } from './core/auth/session'
 import { onUnauthorized } from './core/http'
+import { loginRedirectFor } from './core/navigation/guard'
 import { createAdminRouter } from './core/navigation/router'
 import { ADMIN_MODULES } from './modules'
 
@@ -18,13 +19,12 @@ app.use(pinia)
 const session = useSessionStore(pinia)
 const router = createAdminRouter(ADMIN_MODULES, () => session)
 
-// 任何接口回 401（令牌过期、账号被停用、角色改了令牌版本变了）：清登录状态，回登录页并记住当前页面。
+// 接口回 401 且用刷新令牌也续不了期（刷新令牌过期或被撤销、账号被停用、角色改了令牌版本变了）：
+// 清登录状态，回登录页并记住当前页面。
 onUnauthorized(() => {
   session.logout()
-  const current = router.currentRoute.value
-  if (!current.meta.public) {
-    void router.replace({ path: '/login', query: { redirect: current.fullPath } })
-  }
+  const target = loginRedirectFor(router.currentRoute.value)
+  if (target) void router.replace(target)
 })
 
 app.use(router)

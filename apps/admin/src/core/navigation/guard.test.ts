@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { RouteLocationNormalized } from 'vue-router'
 
-import { createAuthGuard, safeRedirect, type GuardSession } from './guard'
+import { createAuthGuard, loginRedirectFor, safeRedirect, type GuardSession } from './guard'
 
 function route(fullPath: string, meta: RouteLocationNormalized['meta'] = {}, query = {}): RouteLocationNormalized {
   const path = fullPath.split('?')[0] ?? fullPath
@@ -59,5 +59,15 @@ describe('路由守卫', () => {
     expect(safeRedirect('https://evil.example')).toBe('/')
     expect(safeRedirect('//evil.example')).toBe('/')
     expect(safeRedirect(['/a'])).toBe('/')
+  })
+})
+
+describe('续不了期时回登录页', () => {
+  it('保留原来的页面（含查询参数），登录后回去；已在公开页时不动', () => {
+    expect(loginRedirectFor(route('/platform/reconciliation?date=2026-11-20'))).toEqual({
+      path: '/login',
+      query: { redirect: '/platform/reconciliation?date=2026-11-20' },
+    })
+    expect(loginRedirectFor(route('/login', { public: true }))).toBeNull()
   })
 })

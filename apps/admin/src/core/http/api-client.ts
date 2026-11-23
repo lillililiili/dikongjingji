@@ -16,15 +16,39 @@ export interface RequestOptions {
   signal?: AbortSignal
 }
 
+/** POST /api/v1/auth/refresh 的回答（契约 openapi-inspection-service-flow.yaml 2.4.0 LoginResponse）。 */
+export interface RenewedLogin {
+  accessToken: string
+  tokenType: string
+  expiresInSeconds: number
+  refreshToken: string
+  refreshExpiresInSeconds: number
+}
+
+/** 访问令牌过期时怎么续期：用刷新令牌换一次新的两个令牌。不给就不续期，401 直接算登录失效。 */
+export interface LoginRenewal {
+  /** 现在的刷新令牌；没有时不续期。 */
+  getRefreshToken: () => string | null
+  /** 续期成功：存新的访问令牌和新的刷新令牌（旧的刷新令牌已作废）。 */
+  onRenewed: (renewed: RenewedLogin) => void
+}
+
 export interface ApiClientOptions {
   /** 接口前缀；开发时 Vite 把 /api 代理到后端，生产由 Nginx 同源转发。 */
   baseUrl?: string
   getToken: () => string | null
-  /** 后端回 401：登录失效，清掉登录状态、回登录页。 */
+  /** 登录失效（401 且续不了期）：清掉登录状态、回登录页。 */
   onUnauthorized: () => void
+  renewal?: LoginRenewal
   fetchImpl?: typeof fetch
   newRequestId?: () => string
 }
+
+/** 登录、续期、退出这三个接口自己回 401 时不再续期（不然会拿刷新令牌去换刷新令牌）。 */
+const AUTH_PATHS = new Set(['/api/v1/auth/login', '/api/v1/auth/refresh', '/api/v1/auth/logout'])
+const REFRESH_PATH = '/api/v1/auth/refresh'
+
+type RenewalOutcome = 'RENEWED' | 'REJECTED' | 'OFFLINE' | 'UNAVAILABLE'
 
 export interface ApiClient {
   request<T>(method: HttpMethod, path: string, options?: RequestOptions): Promise<T>
@@ -101,9 +125,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   const fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init))
   const newRequestId = options.newRequestId ?? defaultRequestId
 
-  async function send(method: HttpMethod, path: string, request: RequestOptions, accept: string): Promise<Response> {
+  async function sendOnce(method: HttpMethod, path: string, request: RequestOptions, accept: string,
+    token: string | null): Promise<Response> {
     const headers: Record<string, string> = { Accept: accept, 'X-Request-Id': newRequestId() }
-    const token = options.getToken()
     if (token) headers.Authorization = `Bearer ${token}`
     if (request.idempotencyKey) headers['Idempotency-Key'] = request.idempotencyKey
     if (request.ifMatch !== undefined) headers['If-Match'] = `"${request.ifMatch}"`
@@ -126,6 +150,65 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     } catch (failure) {
       if (failure instanceof DOMException && failure.name === 'AbortError') throw failure
       throw new ApiRequestError(0, CLIENT_ERROR_CODES.network, '', null)
+    }
+    return response
+  }
+
+  // 一起过期的几个请求共用同一次续期：刷新令牌只能用一次，同一个令牌交两次后端会当作被盗、整次登录撤销。
+  let renewalInFlight: Promise<RenewalOutcome> | null = null
+
+  function renewOnce(): Promise<RenewalOutcome> {
+    if (!renewalInFlight) {
+      renewalInFlight = renew().finally(() => {
+        renewalInFlight = null
+      })
+    }
+    return renewalInFlight
+  }
+
+  async function renew(): Promise<RenewalOutcome> {
+    const renewal = options.renewal
+    const refreshToken = renewal?.getRefreshToken()
+    if (!renewal || !refreshToken) return 'REJECTED'
+    let response: Response
+    try {
+      // 不带 Authorization：过期的访问令牌会让后端先拒绝，看不到请求体里的刷新令牌。
+      response = await sendOnce('POST', REFRESH_PATH, { body: { refreshToken } }, 'application/json', null)
+    } catch {
+      // 断网：登录也许还能续，不清；这次请求按网络错误失败。
+      return 'OFFLINE'
+    }
+    // 后端或网关出错：登录也许还能续，不清；其余（401 等）说明刷新令牌已用过、过期或被撤销，登录结束。
+    if (!response.ok) return response.status >= 500 ? 'UNAVAILABLE' : 'REJECTED'
+    try {
+      const renewed = await response.json() as RenewedLogin
+      if (!renewed || typeof renewed.accessToken !== 'string' || !renewed.accessToken) return 'REJECTED'
+      renewal.onRenewed(renewed)
+      return 'RENEWED'
+    } catch {
+      return 'REJECTED'
+    }
+  }
+
+  /**
+   * 发一个请求。回 401 时（登录、续期、退出接口除外）：别的请求已经换过令牌就直接用新的重发；否则用刷新令牌续期一次
+   * （并发的请求共用这一次）再重发。续不了期，或重发还是 401，才算登录失效（onUnauthorized 回登录页）。
+   */
+  async function send(method: HttpMethod, path: string, request: RequestOptions, accept: string): Promise<Response> {
+    const usedToken = options.getToken()
+    let response = await sendOnce(method, path, request, accept, usedToken)
+    if (response.status === 401 && !AUTH_PATHS.has(path) && options.renewal) {
+      const current = options.getToken()
+      let retryToken: string | null = null
+      if (current && current !== usedToken) {
+        retryToken = current
+      } else {
+        const outcome = await renewOnce()
+        if (outcome === 'OFFLINE') throw new ApiRequestError(0, CLIENT_ERROR_CODES.network, '', null)
+        if (outcome === 'UNAVAILABLE') throw new ApiRequestError(503, 'COMMON_SERVICE_UNAVAILABLE', '', null)
+        if (outcome === 'RENEWED') retryToken = options.getToken()
+      }
+      if (retryToken) response = await sendOnce(method, path, request, accept, retryToken)
     }
     if (!response.ok) {
       const error = await toError(response)
