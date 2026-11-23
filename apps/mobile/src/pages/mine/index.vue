@@ -39,6 +39,8 @@ import { buildMyOrdersUrl, type MyOrderChip } from '@/features/orders/applicatio
 import { SETTINGS_PATH, ABOUT_PATH } from '@/features/settings/navigation/settings-routes'
 import { loadStaffAccess } from '@/features/staff/application/staff-access'
 import { STAFF_WORK_MODE_ENABLED } from '@/features/staff/application/staff-work-mode'
+import { COURSE_PREVIEW_ENABLED } from '@/features/course/application/course-preview'
+import { buildMyCoursesUrl } from '@/features/course/navigation/course-routes'
 import { checkinApi } from '@/features/staff/data/checkin-api-client'
 import { buildStaffVerifyUrl } from '@/features/staff/navigation/staff-routes'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
@@ -60,11 +62,13 @@ import { formatBeijingTime, toBeijingParts } from '@/shared/time/beijing-time'
 
 const currentCityStore = useCurrentCityStore()
 
-// 我的参与 (board Mine `joins`): 活动报名 and 体验预约 behind their channels' switches; 体验记录
-// and 我的课程 are not built (plan 06 §3). 租赁订单 (F3, §24.3) has no other way in, so it stays.
+// 我的参与 (board Mine `joins`): 活动报名 and 体验预约 behind their channels' switches, 我的课程
+// behind the COURSE switch (S5-5); 体验记录 is not built (plan 06 §3). 租赁订单 (F3, §24.3) has no
+// other way in, so it stays.
 const joinEntries: PlatformMineLinkEntry[] = [
   ...(ACTIVITY_PREVIEW_ENABLED ? [{ code: 'ACTIVITY_ENROLLMENTS', title: '活动报名' }] : []),
   ...(EXPERIENCE_PREVIEW_ENABLED ? [{ code: 'VENUE_BOOKINGS', title: '体验预约' }] : []),
+  ...(COURSE_PREVIEW_ENABLED ? [{ code: 'MY_COURSES', title: '我的课程' }] : []),
   ...(RENTAL_PREVIEW_ENABLED ? [{ code: 'RENTAL_ORDERS', title: '租赁订单' }] : []),
 ]
 
@@ -331,6 +335,7 @@ function openLink(code: string): void {
   if (code === 'VENUE_BOOKINGS') uni.navigateTo({ url: buildVenueBookingsUrl() })
   if (code === 'DEMANDS') uni.navigateTo({ url: buildMyDemandsUrl() })
   if (code === 'RENTAL_ORDERS') uni.navigateTo({ url: buildMyRentalOrdersUrl() })
+  if (code === 'MY_COURSES') uni.navigateTo({ url: buildMyCoursesUrl() })
   if (code === 'STAFF_WORK_MODE') uni.navigateTo({ url: buildStaffVerifyUrl() })
 }
 

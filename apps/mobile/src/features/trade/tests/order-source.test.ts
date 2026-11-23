@@ -18,7 +18,7 @@ import {
 import { TRADE_COMMAND_CONFIRMS } from '../application/order-commands'
 import { describeOrderStatus, listCardGoods } from '../application/order-view'
 import { toTradeOrder } from '../data/trade-api'
-import { NOW, enrollmentOrder, paidOrder, rentalTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
+import { NOW, courseTradeOrder, enrollmentOrder, paidOrder, rentalTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
 
 describe('order source (contract 0.2.0)', () => {
   it('reads a sign-up order without delivery or merchant type, and an older order as a mall order', () => {
@@ -138,5 +138,21 @@ describe('order source (contract 0.2.0)', () => {
     expect(failedNote(order)).toBe('租金仍为待支付，超时订单关闭、报价失效')
     expect(orderLinkLabel(order)).toBe('查看租赁订单')
     expect(paidFrame(rentalTradeOrder({ status: 'PAID' }))).toEqual({ title: '租金已支付', note: '商家将按约定时间交接设备，交接后由你确认' })
+  })
+
+  it('reads a course order and leads it to the learning page (S5-5)', () => {
+    const order = courseTradeOrder()
+    expect(isSourceOrder(order)).toBe(true)
+    expect(orderDestination(order)).toEqual({ kind: 'COURSE_ENROLLMENT', enrollmentId: 'e-1' })
+    expect(cashierRows(order)).toEqual([
+      { key: 'course', label: '课程', value: '无人机飞行原理 线上课' },
+      { key: 'course-option', label: '规格', value: '单人账号 · 付款后立即开通' },
+    ])
+    expect(cashierDueNote(order)).toBe('课程费 · 线上课不发货')
+    expect(cashierClosedNote(order)).toBe('没有扣款，可以重新报名')
+    expect(cancelledToast(order)).toBe('报名已取消')
+    expect(orderLinkLabel(order)).toBe('查看课程')
+    expect(paidFrame(courseTradeOrder({ status: 'PAID' }))).toEqual({ title: '报名成功 · 课程已开通', note: '可以开始学习了，学到哪里自动记住' })
+    expect(failedNote(order)).toBe('订单仍为待付款，超时订单自动取消')
   })
 })

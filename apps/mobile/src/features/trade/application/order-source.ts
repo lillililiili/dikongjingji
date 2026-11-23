@@ -9,12 +9,15 @@ import { cashierGoodsLine, formatCountdown, formatTradeAmount, paymentRemainingM
 // project" (productName) and the session time (skuName); quantity is the number of people. An
 // equipment rental (F3) pays the confirmed contract: its first line is the rent of the device
 // (productName), the period (skuName) and the units (quantity); its page is the rental order.
+// An online course (S5-5, contract 0.6.0) is one line: the course (productName), 单人账号 (skuName)
+// and quantity 1; its page is the course's learning page.
 
 export type TradeOrderDestination =
   | { kind: 'GOODS_ORDER'; orderId: string }
   | { kind: 'ACTIVITY_ENROLLMENT'; enrollmentId: string }
   | { kind: 'VENUE_BOOKING'; bookingId: string }
   | { kind: 'RENTAL_ORDER'; rentalOrderId: string }
+  | { kind: 'COURSE_ENROLLMENT'; enrollmentId: string }
 
 export function isEnrollmentOrder(order: TradeOrder): boolean {
   return order.source === 'ACTIVITY'
@@ -26,6 +29,10 @@ export function isVenueOrder(order: TradeOrder): boolean {
 
 export function isRentalOrder(order: TradeOrder): boolean {
   return order.source === 'RENTAL'
+}
+
+export function isCourseOrder(order: TradeOrder): boolean {
+  return order.source === 'COURSE'
 }
 
 // Any order that pays for a business record rather than goods.
@@ -43,6 +50,9 @@ export function orderDestination(order: TradeOrder): TradeOrderDestination {
   }
   if (order.source === 'RENTAL' && order.sourceRef) {
     return { kind: 'RENTAL_ORDER', rentalOrderId: order.sourceRef }
+  }
+  if (order.source === 'COURSE' && order.sourceRef) {
+    return { kind: 'COURSE_ENROLLMENT', enrollmentId: order.sourceRef }
   }
   return { kind: 'GOODS_ORDER', orderId: order.orderId }
 }
@@ -64,6 +74,12 @@ export function cashierRows(order: TradeOrder): CashierRow[] {
     return [
       { key: 'rental-contract', label: '租赁合同', value: `${line.productName} ×${line.quantity} · ${line.skuName}` },
       { key: 'rental-node', label: '付款节点', value: `租金 ${formatTradeAmount(order.amounts.payableMinor)} · 合同确认后一次付清` },
+    ]
+  }
+  if (isCourseOrder(order)) {
+    return [
+      { key: 'course', label: '课程', value: line.productName },
+      { key: 'course-option', label: '规格', value: `${line.skuName} · 付款后立即开通` },
     ]
   }
   if (isVenueOrder(order)) {
@@ -105,6 +121,7 @@ export function cashierDueNote(order: TradeOrder): string | null {
   const line = order.lines[0]
   if (!isSourceOrder(order) || !line || isVenueOrder(order)) return null
   if (isRentalOrder(order)) return '租金 · 合同确认后一次付清'
+  if (isCourseOrder(order)) return '课程费 · 线上课不发货'
   return `报名费 ${line.quantity} 人 × ${formatTradeAmount(line.unitAmountMinor)}`
 }
 
@@ -112,6 +129,7 @@ export function cashierCountdownLine(order: TradeOrder, now: number): string {
   const countdown = formatCountdown(paymentRemainingMs(order, now))
   if (isVenueOrder(order)) return `剩余支付时间 ${countdown} · 超时释放场次名额`
   if (isRentalOrder(order)) return `剩余支付时间 ${countdown} · 超时订单关闭，需重新询价`
+  if (isCourseOrder(order)) return `剩余支付时间 ${countdown} · 超时订单自动取消`
   return isEnrollmentOrder(order)
     ? `名额保留 ${countdown} · 超时自动释放`
     : `剩余支付时间 ${countdown} · 超时订单自动取消`
@@ -120,6 +138,7 @@ export function cashierCountdownLine(order: TradeOrder, now: number): string {
 // The grey line of the closed frame.
 export function cashierClosedNote(order: TradeOrder): string {
   if (isRentalOrder(order)) return '没有扣款，报价已失效，要租需要重新询价'
+  if (isCourseOrder(order)) return '没有扣款，可以重新报名'
   return isSourceOrder(order) ? '没有扣款，名额已释放' : '没有扣款，可以重新下单'
 }
 
@@ -131,6 +150,9 @@ export function cancelUnpaidConfirm(order: TradeOrder): {
 } {
   if (isVenueOrder(order)) {
     return { title: '取消预约', content: '取消后预约关闭、名额释放，确定取消吗？', confirmText: '取消预约', cancelText: '再想想' }
+  }
+  if (isCourseOrder(order)) {
+    return { title: '取消支付', content: '取消后这次报名关闭，确定取消吗？', confirmText: '取消支付', cancelText: '再想想' }
   }
   if (isRentalOrder(order)) {
     return {
@@ -149,6 +171,7 @@ export function cancelUnpaidConfirm(order: TradeOrder): {
 export function cancelledToast(order: TradeOrder): string {
   if (isVenueOrder(order)) return '预约已取消'
   if (isRentalOrder(order)) return '租赁订单已关闭'
+  if (isCourseOrder(order)) return '报名已取消'
   return isEnrollmentOrder(order) ? '报名已取消' : '订单已取消'
 }
 
@@ -156,6 +179,7 @@ export function cancelledToast(order: TradeOrder): string {
 export function orderLinkLabel(order: TradeOrder): string {
   if (!isSourceOrder(order)) return '查看订单'
   if (isRentalOrder(order)) return '查看租赁订单'
+  if (isCourseOrder(order)) return '查看课程'
   const unpaid = order.status === 'PENDING_PAYMENT' || order.status === 'CLOSED'
   if (isVenueOrder(order)) return unpaid ? '查看预约' : '查看核销码'
   return unpaid ? '查看报名' : '查看凭证'
@@ -168,6 +192,7 @@ export function paidFrame(order: TradeOrder): { title: string; note: string | nu
   if (!isSourceOrder(order) || !line) return { title: '已支付', note: null }
   if (isVenueOrder(order)) return { title: '预约成功 · 已支付', note: '核销码已生成，到馆时出示' }
   if (isRentalOrder(order)) return { title: '租金已支付', note: '商家将按约定时间交接设备，交接后由你确认' }
+  if (isCourseOrder(order)) return { title: '报名成功 · 课程已开通', note: '可以开始学习了，学到哪里自动记住' }
   return { title: '报名成功', note: `${line.quantity} 个名额已确认 · 一人一码` }
 }
 
@@ -175,5 +200,6 @@ export function paidFrame(order: TradeOrder): { title: string; note: string | nu
 export function failedNote(order: TradeOrder): string {
   if (isVenueOrder(order)) return '预约仍为待支付，超时释放场次名额'
   if (isRentalOrder(order)) return '租金仍为待支付，超时订单关闭、报价失效'
+  if (isCourseOrder(order)) return '订单仍为待付款，超时订单自动取消'
   return isEnrollmentOrder(order) ? '名额仍为你保留，超时自动释放' : '订单仍为待付款，超时订单自动取消'
 }

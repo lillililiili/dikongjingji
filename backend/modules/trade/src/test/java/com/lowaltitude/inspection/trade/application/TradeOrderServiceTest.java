@@ -1235,6 +1235,33 @@ class TradeOrderServiceTest {
         assertThat(mapper.deliveries.get(orderId).trackingNo).isEqualTo("SF1234567890");
     }
 
+    // S5-5：商城订单完成（确认收货、自动确认收货、自提核销）时告诉监听者一次，带上商品行；监听者出错不影响完成。
+    @Test
+    void completingAMallOrderTellsTheCompletionListenersWithItsLines() {
+        List<TradeOrderCompletionListener.CompletedOrder> told = new ArrayList<>();
+        TradeOrderCompletionListener failing = order -> {
+            throw new IllegalStateException("course module is down");
+        };
+        TradeOrderService telling = new TradeOrderService(mapper, checkout, clock, this::nextSuffix,
+                TradeSourceEvents.none(), TradeBuyerEvents.none(),
+                new TradeCompletionEvents(mapper, () -> List.of(failing, told::add)));
+        UUID received = mapper.seed(BUYER, TradeOrderStatus.SHIPPED, NOW.minus(Duration.ofDays(2)));
+        UUID automatic = mapper.seed(BUYER, TradeOrderStatus.SHIPPED, NOW.minus(Duration.ofDays(20)));
+        mapper.find(automatic).shippedAt = NOW.minus(Duration.ofDays(11));
+        UUID pickup = pickupOrder(TradeOrderStatus.PAID, "123456");
+
+        telling.confirmReceipt(BUYER, received, 0);
+        telling.confirmReceipt(BUYER, received, 1);
+        assertThat(telling.autoConfirmReceipts()).isEqualTo(1);
+        telling.completePickup(MERCHANT, OPERATOR, pickup, 0, "123456");
+
+        assertThat(told).extracting(TradeOrderCompletionListener.CompletedOrder::orderId)
+                .containsExactly(received, automatic, pickup);
+        assertThat(told.getFirst().buyerId()).isEqualTo(BUYER);
+        assertThat(told.getFirst().orderNo()).isEqualTo(mapper.find(received).orderNo);
+        assertThat(mapper.find(pickup).status).isEqualTo("COMPLETED");
+    }
+
     // R6-5：发货时告诉买家一次（交易物流“订单已发货”）；同样的物流重试不再说。
     @Test
     void shippingTellsTheBuyerOnce() {

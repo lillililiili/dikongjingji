@@ -3,6 +3,8 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { PLAY_GAMES_PATH } from '@/app-shell/navigation/home-channels'
+import { COURSE_PREVIEW_ENABLED } from '@/features/course/application/course-preview'
+import { buildCourseTrialUrl } from '@/features/course/navigation/course-routes'
 import {
   createPagedListLoader,
   emptyPagedList,
@@ -85,6 +87,11 @@ function selectType(type: ExperienceType | null): void {
 }
 
 function openExperience(item: ExperienceItem): void {
+  // 课程试听 (S5-5): the trial lessons of the course this entry belongs to.
+  if (item.type === 'COURSE_TRIAL' && COURSE_PREVIEW_ENABLED) {
+    uni.navigateTo({ url: buildCourseTrialUrl({ experienceItemId: item.experienceId }) })
+    return
+  }
   const resolution = resolveExperienceIntent(
     { type: 'OPEN_EXPERIENCE', experienceId: item.experienceId, experienceType: item.type },
     EXPERIENCE_PREVIEW_ENABLED,
