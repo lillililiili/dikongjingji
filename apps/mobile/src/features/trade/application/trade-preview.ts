@@ -1,7 +1,7 @@
 // Whether the trade pages (cashier, payment result, goods orders) and their entries may be shown.
 // Preview builds only, like the cart and the confirm page they continue from.
 //
-// Repeats the expression of PLATFORM_PREVIEW_ENABLED instead of importing it, for the reason
-// written in features/activity/application/activity-preview.ts. trade-preview.test.ts keeps the
-// expressions identical.
-export const TRADE_PREVIEW_ENABLED = import.meta.env.DEV || import.meta.env.VITE_PLATFORM_PREVIEW_ENABLED === 'true'
+// Reads its own compile-time constant instead of importing a shared flag; activity-preview.ts tells why.
+// Release switch TRADE (src/app-shell/release/release-features.json, docs/ops/发布开关.md): open on
+// the dev server and preview builds, and on public builds once the switch is turned on.
+export const TRADE_PREVIEW_ENABLED = import.meta.env.DEV || __RELEASE_FEATURE_TRADE__

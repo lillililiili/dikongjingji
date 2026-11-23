@@ -37,6 +37,10 @@ import {
 import PlatformMinePage from '@/features/inspection/presentation/platform/mine/PlatformMinePage.vue'
 import { buildMyOrdersUrl, type MyOrderChip } from '@/features/orders/application/my-orders-route'
 import { SETTINGS_PATH, ABOUT_PATH } from '@/features/settings/navigation/settings-routes'
+import { loadStaffAccess } from '@/features/staff/application/staff-access'
+import { STAFF_WORK_MODE_ENABLED } from '@/features/staff/application/staff-work-mode'
+import { checkinApi } from '@/features/staff/data/checkin-api-client'
+import { buildStaffVerifyUrl } from '@/features/staff/navigation/staff-routes'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { buildSupportHelpUrl, buildSupportOpenUrl } from '@/features/support/navigation/support-routes'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
@@ -64,11 +68,13 @@ const joinEntries: PlatformMineLinkEntry[] = [
   ...(RENTAL_PREVIEW_ENABLED ? [{ code: 'RENTAL_ORDERS', title: '租赁订单' }] : []),
 ]
 
-// The rows of the board that exist: 企业组织, 收藏与对比, 工作模式 and 权限管理 are not built.
-// A signed-in account has 联系客服, a guest 关于 (boards Mine and MineGuest).
+// The rows of the board that exist: 企业组织, 收藏与对比 and 权限管理 are not built.
+// A signed-in account has 联系客服, a guest 关于 (boards Mine and MineGuest). 工作模式 (S3-3) is last and
+// only for an operator of an organization that hosts activities or runs venues, as the server says.
 interface RowValues {
   participants?: string
   demands?: string
+  staffWorkMode?: boolean
 }
 function resolveLinkRows(signedIn: boolean, values: RowValues): PlatformMineLinkEntry[] {
   return [
@@ -81,6 +87,9 @@ function resolveLinkRows(signedIn: boolean, values: RowValues): PlatformMineLink
     ...(SUPPORT_PREVIEW_ENABLED ? [{ code: 'HELP', title: '帮助与反馈' }] : []),
     ...(SUPPORT_PREVIEW_ENABLED && signedIn ? [{ code: 'SUPPORT', title: '联系客服' }] : []),
     ...(SUPPORT_PREVIEW_ENABLED && !signedIn ? [{ code: 'ABOUT', title: '关于' }] : []),
+    ...(STAFF_WORK_MODE_ENABLED && signedIn && values.staffWorkMode
+      ? [{ code: 'STAFF_WORK_MODE', title: '工作模式', valueText: '核销员 · 仅授权可见' }]
+      : []),
   ]
 }
 // Rows a guest may open without signing in (board MineGuest).
@@ -258,6 +267,11 @@ async function loadRowValues(token: string): Promise<void> {
       rowValues.value = { ...rowValues.value, demands: text }
     }))
   }
+  if (STAFF_WORK_MODE_ENABLED) {
+    tasks.push(loadStaffAccess(checkinApi, token).then((allowed) => {
+      if (accessToken() === token) rowValues.value = { ...rowValues.value, staffWorkMode: allowed }
+    }))
+  }
   await Promise.allSettled(tasks)
   refresh()
 }
@@ -317,6 +331,7 @@ function openLink(code: string): void {
   if (code === 'VENUE_BOOKINGS') uni.navigateTo({ url: buildVenueBookingsUrl() })
   if (code === 'DEMANDS') uni.navigateTo({ url: buildMyDemandsUrl() })
   if (code === 'RENTAL_ORDERS') uni.navigateTo({ url: buildMyRentalOrdersUrl() })
+  if (code === 'STAFF_WORK_MODE') uni.navigateTo({ url: buildStaffVerifyUrl() })
 }
 
 // 全部 ›: 我的订单, every kind of order in one list (plan 06 R6-1, preview builds). A public build

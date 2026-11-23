@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Mall Catalog API
-  version: 1.2.0
+  version: 1.3.0
   description: >-
     Read-only catalog for the home "商城" channel (docs/redesign/03-App实现任务计划.md §9):
     products of a category that have an active offer in the city, and one product with its offers.
@@ -10,6 +10,11 @@ info:
     (registered with the unified trade module), so the page does not preselect a merchant that cannot
     take an order, a rental or an inquiry it would have to pay online. Cart, orders, payment and
     after-sale rules are not part of this contract.
+    1.3.0 (2026-11-23, S3-1 商品与供给 / S4-4) adds to the product detail what the web ops console records:
+    sellingPoints (the short tags under the name), skus (every active spec of the product, so the 规格与数量
+    sheet can list the specs a merchant does not supply as unavailable), gallery and introBlocks (图文介绍),
+    and stockQuantity on each offer (that merchant's stock in the city; null means not tracked, 0 means sold
+    out: the spec cannot be chosen, and the cart refuses it, mall cart 1.2.0). Older clients ignore them.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
   - url: /
@@ -347,6 +352,7 @@ components:
         - shippingNote
         - fulfilledFrom
         - onlinePayment
+        - stockQuantity
       properties:
         offerId:
           type: string
@@ -392,6 +398,49 @@ components:
             the trade module). Buying, renting and ordering by quote all pay this merchant online, so a
             false offer cannot be ordered, rented or asked for a quote; show it but do not preselect it.
             Same meaning as price.onlinePayment for activities.
+        stockQuantity:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: >-
+            (1.3.0) Pieces this merchant has for this spec in the city (规格面板“现货 N 件”). null means stock is not
+            tracked (do not show a count); 0 means sold out: the spec cannot be chosen and the cart refuses it.
+    MallSku:
+      type: object
+      additionalProperties: false
+      required:
+        - skuId
+        - name
+      properties:
+        skuId:
+          type: string
+          format: uuid
+        name:
+          type: string
+    MallIntroBlock:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - text
+        - image
+      properties:
+        type:
+          type: string
+          enum:
+            - TEXT
+            - IMAGE
+        text:
+          type:
+            - string
+            - "null"
+          description: The paragraph for TEXT; an optional caption for IMAGE
+        image:
+          anyOf:
+            - $ref: "#/components/schemas/MediaAsset"
+            - type: "null"
+          description: The picture for IMAGE (https only); null for TEXT, or when the address is not https
     MallSpec:
       type: object
       additionalProperties: false
@@ -429,6 +478,10 @@ components:
         - offers
         - specs
         - packItems
+        - sellingPoints
+        - skus
+        - gallery
+        - introBlocks
       properties:
         productId:
           type: string
@@ -465,3 +518,29 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MallPackItem"
+        sellingPoints:
+          type: array
+          maxItems: 5
+          description: (1.3.0) Short selling-point tags shown under the name, in order
+          items:
+            type: string
+            maxLength: 12
+        skus:
+          type: array
+          description: >-
+            (1.3.0) Every active spec of the product in display order, whether or not an offer in this city sells
+            it. A spec no offer of the chosen merchant sells is shown as 本商家暂不供应.
+          items:
+            $ref: "#/components/schemas/MallSku"
+        gallery:
+          type: array
+          maxItems: 9
+          description: (1.3.0) Product pictures after the cover, https only
+          items:
+            $ref: "#/components/schemas/MediaAsset"
+        introBlocks:
+          type: array
+          maxItems: 30
+          description: (1.3.0) 图文介绍, in order; empty when the merchant has not provided one
+          items:
+            $ref: "#/components/schemas/MallIntroBlock"

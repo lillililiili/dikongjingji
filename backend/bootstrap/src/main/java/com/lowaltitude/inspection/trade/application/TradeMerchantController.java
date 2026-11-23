@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
+import com.lowaltitude.inspection.trade.application.TradeViews.MerchantAccountView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeOrderPageView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeOrderView;
 import com.lowaltitude.inspection.trade.application.TradeViews.TradeRefundView;
@@ -23,7 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 商家操作员的交易接口（契约 contracts/openapi-trade.yaml，E05）：本机构卖出的订单、发货、自提核销、退款。
- * 没有页面，给受权调用和开发脚本用。要 PROVIDER_OPERATOR 角色；机构只从令牌里取，别的机构的订单一律当作不存在。
+ * 0.5.0（S3-2）起给运营端的商家工作台用（apps/admin），并加了按配送方式筛、单张订单和本机构收款账户的读取。
+ * 要 PROVIDER_OPERATOR 角色；机构只从令牌里取，别的机构的订单一律当作不存在。
  */
 @RestController
 public final class TradeMerchantController {
@@ -42,10 +44,22 @@ public final class TradeMerchantController {
     public TradeOrderPageView list(
             Authentication authentication,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String deliveryMode,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return orders.listForMerchant(operator(authentication).organizationId(), status, page, size);
+        return orders.listForMerchant(operator(authentication).organizationId(), status, deliveryMode, page, size);
+    }
+
+    @GetMapping("/api/v1/provider/trade/orders/{orderId}")
+    public ResponseEntity<TradeOrderView> read(Authentication authentication, @PathVariable UUID orderId) {
+        TradeOrderView order = orders.readForMerchant(operator(authentication).organizationId(), orderId);
+        return ResponseEntity.ok().eTag(Integer.toString(order.version())).body(order);
+    }
+
+    @GetMapping("/api/v1/provider/trade/merchant-account")
+    public MerchantAccountView merchantAccount(Authentication authentication) {
+        return orders.readMerchantAccount(operator(authentication).organizationId());
     }
 
     @PostMapping("/api/v1/provider/trade/orders/{orderId}/shipment")

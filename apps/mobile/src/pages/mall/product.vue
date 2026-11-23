@@ -47,8 +47,12 @@ async function addToCart(offerId: string, quantity: number): Promise<void> {
       openLogin()
       return
     }
+    // cart 1.2.0: the merchant has none of this spec left, or fewer than asked for.
+    const outOfStock = error instanceof ApiRequestError && error.code === 'MALL_CART_OUT_OF_STOCK'
     uni.showToast({
-      title: error instanceof ApiRequestError ? error.message : '没有加入成功，请重试',
+      title: outOfStock
+        ? '这个规格暂时缺货或现货不足，请减少数量或换个规格'
+        : error instanceof ApiRequestError ? error.message : '没有加入成功，请重试',
       icon: 'none',
     })
   } finally {

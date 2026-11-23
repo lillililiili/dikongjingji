@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.mall.application.MallRows;
 import com.lowaltitude.inspection.mall.application.MallRows.OfferRow;
 import com.lowaltitude.inspection.mall.application.MallRows.PackItemRow;
 import com.lowaltitude.inspection.mall.application.MallRows.ProductCardRow;
@@ -147,7 +148,8 @@ public interface MallCatalogMapper {
                    offer.price_unit,
                    offer.delivery_note,
                    offer.shipping_note,
-                   offer.fulfilled_from
+                   offer.fulfilled_from,
+                   offer.stock_quantity
             FROM mall_sku sku
             JOIN mall_offer offer ON offer.sku_id = sku.id
             JOIN identity_organization merchant ON merchant.id = offer.merchant_id
@@ -181,4 +183,39 @@ public interface MallCatalogMapper {
             ORDER BY sort_order ASC, id ASC
             """)
     List<PackItemRow> findPackItems(@Param("productId") UUID productId);
+
+    // 1.3.0（S3-1）：卖点、全部启用规格、图集、图文介绍。
+
+    @Select("""
+            SELECT label
+            FROM mall_product_selling_point
+            WHERE product_id = #{productId}
+            ORDER BY sort_order ASC, id ASC
+            """)
+    List<String> findSellingPoints(@Param("productId") UUID productId);
+
+    @Select("""
+            SELECT id sku_id, name
+            FROM mall_sku
+            WHERE product_id = #{productId}
+              AND status = 'ACTIVE'
+            ORDER BY sort_order ASC, id ASC
+            """)
+    List<MallRows.SkuRow> findSkus(@Param("productId") UUID productId);
+
+    @Select("""
+            SELECT url
+            FROM mall_product_image
+            WHERE product_id = #{productId}
+            ORDER BY sort_order ASC, id ASC
+            """)
+    List<String> findGallery(@Param("productId") UUID productId);
+
+    @Select("""
+            SELECT block_type, text, image_url
+            FROM mall_product_intro_block
+            WHERE product_id = #{productId}
+            ORDER BY sort_order ASC, id ASC
+            """)
+    List<MallRows.IntroBlockRow> findIntroBlocks(@Param("productId") UUID productId);
 }

@@ -1,11 +1,14 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 2.3.0
+  version: 2.4.0
   description: >-
     巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
     2.2.0（R6-4）：方案和服务单里的服务商（ProviderSummary）加 qualificationReviewed，页面据此显示“资质已审核”。
-    2.3.0（2026-11-22 登录续期）：登录响应加 refreshToken、refreshExpiresInSeconds；新增 POST /api/v1/auth/refresh
+    2.3.0（2026-11-23，S3-2，服务商工作台在 Web 运营端 apps/admin）：加 listProviderInspectionReservations 和
+    getProviderInspectionReservationSummary——分给本机构的预约（reservation.providerId 等于令牌里的机构），
+    形状和阶段推导与客户的 listMyInspectionReservations 相同；只读，出方案、安排、排期、履约、交付仍用原来的受权接口。
+    2.4.0（2026-11-22 登录续期）：登录响应加 refreshToken、refreshExpiresInSeconds；新增 POST /api/v1/auth/refresh
     （凭刷新令牌换新的访问令牌和新的刷新令牌，旧的作废；已换掉的令牌再用视为被盗用，这次登录全部撤销）
     和 POST /api/v1/auth/logout（撤销这次登录）。访问令牌仍是 900 秒。
 servers:
@@ -592,6 +595,61 @@ paths:
           $ref: "#/components/responses/Conflict"
         "412":
           $ref: "#/components/responses/PreconditionFailed"
+  /api/v1/provider/inspection/reservations:
+    get:
+      tags: [ProviderInspectionFlow]
+      operationId: listProviderInspectionReservations
+      summary: 分页查询分给本机构的巡检预约（服务商工作台，2.3.0）
+      description: >-
+        机构只从令牌里取（PROVIDER_OPERATOR）。按最近变化排在前；stage 和 stageCounts 的含义与客户订单相同。
+        列表只有摘要（地址、日期、阶段、报价合计、服务单和各次巡检的计数），联系人和附件要经 getInspectionReservation 读。
+      x-required-permission: inspection.reservation.read.assigned
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: stage
+          in: query
+          schema:
+            $ref: "#/components/schemas/CustomerReservationFilter"
+      responses:
+        "200":
+          description: 分给本机构的巡检预约分页（形状同 CustomerReservationPage）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerReservationPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/provider/inspection/reservations/{reservationId}:
+    get:
+      tags: [ProviderInspectionFlow]
+      operationId: getProviderInspectionReservationSummary
+      summary: 分给本机构的一张巡检预约的列表摘要（服务商工作台，2.3.0）
+      description: 和 listProviderInspectionReservations 里的一项相同；不是本机构的当作不存在。
+      x-required-permission: inspection.reservation.read.assigned
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "200":
+          description: 预约摘要
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerReservationSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/provider/inspection/reservations/{reservationId}/plans:
     post:
       tags: [ProviderInspectionFlow]

@@ -1,0 +1,18 @@
+{
+  "$comment": "公开构建的功能开关（S2-5），说明见 docs/ops/发布开关.md。publicRelease 是随公开构建打开与否的默认值，上线前逐项改成 true；一次性构建可以用环境变量 VITE_FEATURE_<key>=true|false 覆盖。预览构建（VITE_PLATFORM_PREVIEW_ENABLED=true）和开发环境全部打开。巡检（M01–M08）不在这里：它总是公开。",
+  "features": [
+    { "key": "ACTIVITY", "flag": "ACTIVITY_PREVIEW_ENABLED", "file": "src/features/activity/application/activity-preview.ts", "publicRelease": false },
+    { "key": "EXPERIENCE", "flag": "EXPERIENCE_PREVIEW_ENABLED", "file": "src/features/experience/application/experience-preview.ts", "publicRelease": false },
+    { "key": "MALL", "flag": "MALL_PREVIEW_ENABLED", "file": "src/features/mall/application/mall-preview.ts", "publicRelease": false },
+    { "key": "CART", "flag": "CART_PREVIEW_ENABLED", "file": "src/features/mall/application/cart-preview.ts", "publicRelease": false },
+    { "key": "TRADE", "flag": "TRADE_PREVIEW_ENABLED", "file": "src/features/trade/application/trade-preview.ts", "publicRelease": false },
+    { "key": "RENTAL", "flag": "RENTAL_PREVIEW_ENABLED", "file": "src/features/rental/application/rental-preview.ts", "publicRelease": false },
+    { "key": "DEMAND", "flag": "DEMAND_PREVIEW_ENABLED", "file": "src/features/demand/application/demand-preview.ts", "publicRelease": false },
+    { "key": "PROSERVICE", "flag": "PROSERVICE_PREVIEW_ENABLED", "file": "src/features/proservice/application/proservice-preview.ts", "publicRelease": false },
+    { "key": "CONTENT", "flag": "CONTENT_PREVIEW_ENABLED", "file": "src/features/content/application/content-preview.ts", "publicRelease": false },
+    { "key": "LIVE", "flag": "LIVE_PREVIEW_ENABLED", "file": "src/features/live/application/live-preview.ts", "publicRelease": false },
+    { "key": "SUPPORT", "flag": "SUPPORT_PREVIEW_ENABLED", "file": "src/features/support/application/support-preview.ts", "publicRelease": false },
+    { "key": "SETTINGS", "flag": "SETTINGS_PREVIEW_ENABLED", "file": "src/features/settings/application/settings-preview.ts", "publicRelease": false },
+    { "key": "PLAY", "flag": null, "file": "src/app-shell/navigation/home-channels.ts", "publicRelease": false }
+  ]
+}

@@ -1,0 +1,33 @@
+/*
+ * 运营端主题：Element Plus 常规后台样式，主色 #ff6a00（和 App 一致）。浅色系数按 Element Plus 的做法和白色混合，
+ * 深一档和黑色按 20% 混合。版面颜色照原型 Ops 看板：底色 #f5f7fc、细边 #e5ebf3、正文 #202c42、选中项 #fff0e3 / #ba470b。
+ */
+:root {
+  --el-color-primary: #ff6a00;
+  --el-color-primary-light-3: #ff974d;
+  --el-color-primary-light-5: #ffb580;
+  --el-color-primary-light-7: #ffd2b3;
+  --el-color-primary-light-8: #ffe1cc;
+  --el-color-primary-light-9: #fff0e6;
+  --el-color-primary-dark-2: #cc5500;
+
+  --admin-background: #f5f7fc;
+  --admin-border: #e5ebf3;
+  --admin-text: #202c42;
+  --admin-text-secondary: #536178;
+  --admin-brand-surface: #fff0e3;
+  --admin-brand-text: #ba470b;
+  --admin-surface-muted: #f5f7fc;
+}
+
+html,
+body {
+  margin: 0;
+  color: var(--admin-text);
+  background: var(--admin-background);
+  font-family: -apple-system, 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+}
+
+#app {
+  min-height: 100vh;
+}

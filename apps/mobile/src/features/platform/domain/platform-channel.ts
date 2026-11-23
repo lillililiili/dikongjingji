@@ -11,10 +11,11 @@ export type PlatformChannelCode =
 
 export const DEFAULT_PLATFORM_CHANNEL: PlatformChannelCode = 'INSPECTION'
 
+// The four other service types open with the PROSERVICE release switch (src/app-shell/release/release-features.json).
 export function resolveVisiblePlatformChannels(
   previewEnabled: boolean,
 ): readonly PlatformChannelCode[] {
-  return previewEnabled
+  return previewEnabled || __RELEASE_FEATURE_PROSERVICE__
     ? PLATFORM_SERVICE_CHANNELS.map((channel) => channel.code)
     : [DEFAULT_PLATFORM_CHANNEL]
 }

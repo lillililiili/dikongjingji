@@ -25,6 +25,14 @@ export function purgeFreeEnrollments(options: { onlyCancelled?: boolean } = {}):
       FROM (SELECT session_id, count(*) AS n FROM activity_enrollment_ticket
             WHERE enrollment_id IN (SELECT id FROM e2e_free_enrollments) AND status <> 'CANCELLED' GROUP BY session_id) t
      WHERE s.id = t.session_id;
+    -- 核销工作台（S3-3）的记录指向凭证，先删（表还没建时跳过）。
+    DO $$
+    BEGIN
+      IF to_regclass('activity_checkin_record') IS NOT NULL THEN
+        DELETE FROM activity_checkin_record WHERE ticket_id IN (
+          SELECT id FROM activity_enrollment_ticket WHERE enrollment_id IN (SELECT id FROM e2e_free_enrollments));
+      END IF;
+    END $$;
     DELETE FROM activity_enrollment_event WHERE enrollment_id IN (SELECT id FROM e2e_free_enrollments);
     DELETE FROM activity_enrollment_ticket WHERE enrollment_id IN (SELECT id FROM e2e_free_enrollments);
     DELETE FROM activity_enrollment WHERE id IN (SELECT id FROM e2e_free_enrollments);

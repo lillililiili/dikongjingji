@@ -38,7 +38,8 @@ public interface MallCartMapper {
                    p.name product_name,
                    p.cover_url,
                    p.sale_mode,
-                   p.status product_status
+                   p.status product_status,
+                   offer.stock_quantity
             FROM mall_offer offer
             JOIN mall_sku sku ON sku.id = offer.sku_id
             JOIN mall_product p ON p.id = sku.product_id
@@ -157,7 +158,9 @@ public interface MallCartMapper {
             String productName,
             String coverUrl,
             String saleMode,
-            String productStatus
+            String productStatus,
+            // 现货件数（V004）；null 表示不限。
+            Integer stockQuantity
     ) {
     }
 
@@ -186,14 +189,15 @@ public interface MallCartMapper {
             String productName,
             String coverUrl,
             String saleMode,
-            String productStatus
+            String productStatus,
+            Integer stockQuantity
     ) {
         public OfferRow offer() {
             return new OfferRow(
                     offerId, offerStatus, offerCityCode, unitAmountMinor, currency, priceUnit,
                     shippingNote, fulfilledFrom, expressAvailable, pickupPoint, shippingFeeMinor,
                     merchantKind, merchantId, merchantName, skuId, skuName, skuStatus,
-                    productId, productName, coverUrl, saleMode, productStatus);
+                    productId, productName, coverUrl, saleMode, productStatus, stockQuantity);
         }
     }
 

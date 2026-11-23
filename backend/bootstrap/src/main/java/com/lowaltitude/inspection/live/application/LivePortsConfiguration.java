@@ -21,6 +21,8 @@ public class LivePortsConfiguration {
 
     /** 举报弹幕在客服反馈里的类型：内容有误。 */
     static final String REPORT_FEEDBACK_TYPE = "CONTENT";
+    /** 举报的来源（客服反馈 V002）：直播弹幕。对象是弹幕，所在的是直播间。 */
+    static final String REPORT_SOURCE = "LIVE_COMMENT_REPORT";
 
     @Bean
     LivePorts.Organizations liveOrganizations(IdentityOrganizationPort organizations) {
@@ -38,8 +40,8 @@ public class LivePortsConfiguration {
     }
 
     static LivePorts.Reports reports(SupportService support) {
-        return (accountId, idempotencyKey, text) -> support.feedback(accountId, idempotencyKey, REPORT_FEEDBACK_TYPE,
-                text);
+        return (accountId, idempotencyKey, text, roomId, commentId) -> support.report(accountId, idempotencyKey,
+                REPORT_FEEDBACK_TYPE, text, REPORT_SOURCE, commentId, roomId);
     }
 
     /** 开发用的小词表（live.comments.blocked-words，逗号分隔）；生产换内容审核服务。 */

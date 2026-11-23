@@ -1,0 +1,1305 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Catalog API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1 第二部分“商品与供给”，docs/redesign/08-后续开发计划.md §2、§5 D11、S4-4）：Web 运营端的商品、规格、在售供给、
+    商品图片和商家收款账户登记。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
+    COMMON_FORBIDDEN. 商品、规格、供给在商城模块（迁移 mall V001–V004）；收款账户在交易模块（迁移 trade V001、V009）。
+
+    规则：
+    - 商品 = 类目、名称、一句话介绍、卖点标签（≤5 个、每个 ≤12 字，App 商品详情名称下面的标签）、交易方式（BUY 购买 / RENT
+      租赁 / INQUIRY 询价，建好后不能改）、参数、包装清单、图文介绍（文字段和图片段）、封面和图集。新建的商品是 DRAFT 草稿，
+      App 看不到。
+    - 规格（SKU）：一个商品可以有多个规格（≤20），例如“标准套装”“教室套装”；停用的规格 App 不显示。
+    - 在售供给 = 商家 × 规格 × 城市（空着表示全国）× 价格（分）× 库存 × 配送方式与说明。同一个规格、商家、城市只能有一条。
+      新建的供给是 DISABLED 停用。价格单位：购买和询价商品只能 ITEM，租赁只能 DAY / HALF_DAY；询价商品不标价。
+      stockQuantity 是这家商家在这个城市的现货件数（App 规格面板“现货 N 件”），空着表示不限、不显示；0 表示暂时缺货，
+      App 上这个规格不能选，加购物车和下单都会被拒（mall cart 1.2.0）。这一版不在下单时自动扣减库存，由运营或以后的商家
+      工作台改数。
+    - 上架商品（PUBLISH）前检查必填，缺了 422 OPS_PRODUCT_INCOMPLETE，details.blockers 列出缺什么（同商品详情里的
+      publishBlockers）：要有一句话介绍、至少一个启用的规格、至少一条启用的供给。
+    - 启用供给（ACTIVATE）前检查：规格是启用的；购买和租赁要有价格（422 OPS_OFFER_INCOMPLETE）；标价的购买商品，商家要在
+      交易模块登记了有效的收款账户（422 OPS_MERCHANT_NOT_COLLECTING），否则 App 上不能下单。
+    - 改写操作都要带页面读到的 version（乐观锁），不对 409 OPS_VERSION_CONFLICT；状态没变 409 OPS_STATUS_UNCHANGED。
+      新建商品、新建供给带 Idempotency-Key：同一个键、同样内容重放返回第一次建的（200），内容不同 409
+      OPS_IDEMPOTENCY_KEY_REUSED。
+    - 留痕：每个写操作在商品的操作记录里记一条（谁、什么时候、做了什么）；改价单独记 OFFER_PRICE_CHANGE（从多少改成多少），
+      上下架记 PRODUCT_PUBLISH / PRODUCT_UNPUBLISH、OFFER_ACTIVATE / OFFER_DEACTIVATE。批量导入写的记 IMPORT。
+    - 图片：先 POST /api/v1/ops/catalog/media 上传（JPEG、PNG、WebP，≤5 MB，按文件头判断类型），拿回受控地址再填进封面、
+      图集或图文段。地址只接受这里返回的受控地址或带主机名的 https 地址（422 OPS_MEDIA_URL_UNCONTROLLED）。图片经对象存储
+      端口保存；开发环境存本机目录、由后端开发接口回读（地址是 http，App 按 https 规则不显示，预览构建仍用原型示例图），
+      其他环境没配置对象存储时上传 503 OPS_FILE_STORE_UNAVAILABLE。
+    - 商家收款账户（交易模块，二级商户号）：只登记，不做进件。商户号 8–32 位数字；开发环境可以用借微信文档示例号段的
+      占位号（1900000000–1900000999，种子里的就是），其他环境拒绝这个号段（422 OPS_SUB_MCHID_PLACEHOLDER）。每次登记或修改
+      记一条记录，最近 50 条可查。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/catalog/products:
+    get:
+      operationId: "listOpsProducts"
+      summary: "商品列表（最近改过的在前）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "商品名称，最多 40 字；% 和 _ 会被去掉"
+          schema:
+            type: "string"
+            maxLength: 40
+        - name: "category"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/MallCategory"
+        - name: "saleMode"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/MallSaleMode"
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsProductStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页商品"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsProduct"
+      summary: "新建商品（草稿）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsProductCreateRequest"
+      responses:
+        "201":
+          description: "建好的商品"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "200":
+          description: "同一个幂等键重放：第一次建的那个"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: "OPS_IDEMPOTENCY_KEY_REUSED：幂等键已用于内容不同的新建请求。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/catalog/products/{productId}:
+    get:
+      operationId: "getOpsProduct"
+      summary: "商品详情：资料、卖点、参数、包装清单、图集、图文、规格、供给、上架缺什么、最近 50 条操作记录"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: "商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "updateOpsProduct"
+      summary: "改商品资料（整份替换卖点、参数、包装清单、图集和图文）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsProductUpdateRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_MEDIA_URL_UNCONTROLLED：封面、图集或图文里的图片地址不是受控地址。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/catalog/products/{productId}/status:
+    post:
+      operationId: "changeOpsProductStatus"
+      summary: "上架（PUBLISH）或下架（UNPUBLISH）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsProductStatusRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_STATUS_UNCHANGED：已经是这个状态。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_PRODUCT_INCOMPLETE：上架前缺必填，details.blockers 是 OpsPublishBlocker 的数组。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/catalog/products/{productId}/skus:
+    post:
+      operationId: "createOpsSku"
+      summary: "加一个规格（启用）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsSkuCreateRequest"
+      responses:
+        "201":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_SKU_LIMIT：规格已到 20 个。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/catalog/products/{productId}/skus/{skuId}:
+    put:
+      operationId: "updateOpsSku"
+      summary: "改规格名称、排序或启用状态"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+        - $ref: "#/components/parameters/SkuId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsSkuUpdateRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/catalog/products/{productId}/offers:
+    post:
+      operationId: "createOpsOffer"
+      summary: "加一条在售供给（停用，核对后再启用）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsOfferCreateRequest"
+      responses:
+        "201":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: >-
+            OPS_IDEMPOTENCY_KEY_REUSED：幂等键已用于内容不同的请求；OPS_OFFER_DUPLICATE：这个规格、商家、城市已经有一条供给。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_MERCHANT_UNKNOWN：商家不是在用的经营机构；OPS_CITY_UNKNOWN：城市不在平台城市目录里。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/catalog/products/{productId}/offers/{offerId}:
+    put:
+      operationId: "updateOpsOffer"
+      summary: "改供给：价格、库存、配送方式与说明（改价单独留痕）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+        - $ref: "#/components/parameters/OfferId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsOfferUpdateRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_OFFER_DUPLICATE：改了城市后和另一条供给重复。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: >-
+            OPS_OFFER_INCOMPLETE：启用中的购买或租赁供给不能去掉价格；OPS_MERCHANT_NOT_COLLECTING：启用中的标价购买供给，
+            商家没有有效收款账户；OPS_CITY_UNKNOWN：城市不在目录里。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/catalog/products/{productId}/offers/{offerId}/status:
+    post:
+      operationId: "changeOpsOfferStatus"
+      summary: "启用（ACTIVATE）或停用（DEACTIVATE）一条供给"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+        - $ref: "#/components/parameters/OfferId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsOfferStatusRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_STATUS_UNCHANGED：已经是这个状态。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_OFFER_INCOMPLETE：规格已停用或缺价格；OPS_MERCHANT_NOT_COLLECTING：商家没有有效收款账户。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/catalog/media:
+    post:
+      operationId: "uploadOpsCatalogMedia"
+      summary: "上传一张商品图片，返回受控地址"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              required: [file]
+              properties:
+                file:
+                  type: "string"
+                  format: "binary"
+                  description: "JPEG、PNG 或 WebP，≤5 MB"
+      responses:
+        "201":
+          description: "存好的图片"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsMedia"
+        "400":
+          description: "没有文件、超过 5 MB 或不是 JPEG/PNG/WebP（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          description: "OPS_FILE_STORE_UNAVAILABLE：对象存储没有配置。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/merchant-accounts:
+    get:
+      operationId: "listOpsMerchantAccounts"
+      summary: "经营机构和它的微信收款账户（没登记的在前，再按名称）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "机构名称或机构编码，最多 40 字"
+          schema:
+            type: "string"
+            maxLength: 40
+        - name: "registered"
+          in: "query"
+          required: false
+          description: "true 只看登记过的，false 只看没登记的，不填全部"
+          schema:
+            type: "boolean"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页经营机构"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsMerchantAccountPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/merchant-accounts/{organizationId}:
+    put:
+      operationId: "saveOpsMerchantAccount"
+      summary: "登记或修改这家机构的二级商户号和是否收款（记一条记录）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsMerchantAccountRequest"
+      responses:
+        "200":
+          description: "登记好的账户"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsMerchantAccount"
+        "400":
+          description: "商户号不是 8–32 位数字，或没带 active（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过（第一次登记不带 version，修改要带）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_SUB_MCHID_PLACEHOLDER：开发环境以外不能用占位号段；OPS_MERCHANT_UNKNOWN：不是经营机构。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/merchant-accounts/{organizationId}/operations:
+    get:
+      operationId: "listOpsMerchantAccountOperations"
+      summary: "这家机构收款账户的最近 50 条登记记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: "登记记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/OpsMerchantAccountOperation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    ProductId:
+      name: "productId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    SkuId:
+      name: "skuId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    OfferId:
+      name: "offerId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    OrganizationId:
+      name: "organizationId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "商品、规格、供给或机构不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsCatalogErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+          description: "OPS_PRODUCT_INCOMPLETE 时是 { blockers: OpsPublishBlocker[] }"
+    OpsCatalogErrorCode:
+      type: "string"
+      enum: [OPS_VERSION_CONFLICT, OPS_IDEMPOTENCY_KEY_REUSED, OPS_STATUS_UNCHANGED, OPS_PRODUCT_INCOMPLETE,
+             OPS_OFFER_INCOMPLETE, OPS_OFFER_DUPLICATE, OPS_SKU_LIMIT, OPS_MERCHANT_UNKNOWN, OPS_MERCHANT_NOT_COLLECTING,
+             OPS_CITY_UNKNOWN, OPS_MEDIA_URL_UNCONTROLLED, OPS_FILE_STORE_UNAVAILABLE, OPS_SUB_MCHID_PLACEHOLDER]
+    MallCategory:
+      type: "string"
+      description: "DRONE 无人机；ROBOT 机器人；PARTS 配件；RENTAL 租赁；COURSE 课程"
+      enum: [DRONE, ROBOT, PARTS, RENTAL, COURSE]
+    MallSaleMode:
+      type: "string"
+      description: "BUY 标价购买；RENT 租赁；INQUIRY 询价"
+      enum: [BUY, RENT, INQUIRY]
+    MallExperienceBadge:
+      type: "string"
+      description: "ONLINE_EXPERIENCE 可线上体验；VENUE_DISPLAY 场馆有展示"
+      enum: [ONLINE_EXPERIENCE, VENUE_DISPLAY]
+    MallMerchantKind:
+      type: "string"
+      description: "FACTORY_DIRECT 厂家直营；AUTHORIZED_DEALER 授权经销；LOCAL_STORE 本地门店"
+      enum: [FACTORY_DIRECT, AUTHORIZED_DEALER, LOCAL_STORE]
+    MallPriceUnit:
+      type: "string"
+      description: "ITEM 每件；DAY 每天；HALF_DAY 每半天"
+      enum: [ITEM, DAY, HALF_DAY]
+    OpsProductStatus:
+      type: "string"
+      description: "DRAFT 草稿；PUBLISHED 已上架；OFFLINE 已下架"
+      enum: [DRAFT, PUBLISHED, OFFLINE]
+    OpsSkuStatus:
+      type: "string"
+      enum: [ACTIVE, DISABLED]
+    OpsOfferStatus:
+      type: "string"
+      enum: [ACTIVE, DISABLED]
+    OpsProductStatusAction:
+      type: "string"
+      enum: [PUBLISH, UNPUBLISH]
+    OpsOfferStatusAction:
+      type: "string"
+      enum: [ACTIVATE, DEACTIVATE]
+    OpsIntroBlockType:
+      type: "string"
+      description: "TEXT 一段文字；IMAGE 一张图"
+      enum: [TEXT, IMAGE]
+    OpsPublishBlocker:
+      type: "string"
+      description: "SUMMARY_MISSING 没有一句话介绍；NO_ACTIVE_SKU 没有启用的规格；NO_ACTIVE_OFFER 没有启用的供给"
+      enum: [SUMMARY_MISSING, NO_ACTIVE_SKU, NO_ACTIVE_OFFER]
+    OpsCatalogAction:
+      type: "string"
+      enum: [PRODUCT_CREATE, PRODUCT_UPDATE, PRODUCT_PUBLISH, PRODUCT_UNPUBLISH, SKU_CREATE, SKU_UPDATE, OFFER_CREATE,
+             OFFER_UPDATE, OFFER_PRICE_CHANGE, OFFER_ACTIVATE, OFFER_DEACTIVATE, IMPORT]
+    OpsMerchantAccountAction:
+      type: "string"
+      description: "REGISTER 第一次登记；CHANGE 改商户号或收款开关；IMPORT 批量导入写的"
+      enum: [REGISTER, CHANGE, IMPORT]
+    OpsProductSummary:
+      type: "object"
+      additionalProperties: false
+      required: [productId, category, name, saleMode, status, coverUrl, skuCount, activeOfferCount, updatedAt, version]
+      properties:
+        productId:
+          type: "string"
+          format: "uuid"
+        category:
+          $ref: "#/components/schemas/MallCategory"
+        name:
+          type: "string"
+        saleMode:
+          $ref: "#/components/schemas/MallSaleMode"
+        status:
+          $ref: "#/components/schemas/OpsProductStatus"
+        coverUrl:
+          type: ["string", "null"]
+        skuCount:
+          type: "integer"
+          description: "启用的规格数"
+        activeOfferCount:
+          type: "integer"
+          description: "启用的供给数"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+    OpsProductPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsProductSummary"
+    OpsProduct:
+      type: "object"
+      additionalProperties: false
+      required: [productId, category, name, summary, coverUrl, saleMode, experienceBadge, sortOrder, status, createdAt,
+                 updatedAt, version]
+      properties:
+        productId:
+          type: "string"
+          format: "uuid"
+        category:
+          $ref: "#/components/schemas/MallCategory"
+        name:
+          type: "string"
+          maxLength: 160
+        summary:
+          type: ["string", "null"]
+          maxLength: 300
+        coverUrl:
+          type: ["string", "null"]
+        saleMode:
+          $ref: "#/components/schemas/MallSaleMode"
+        experienceBadge:
+          anyOf:
+            - $ref: "#/components/schemas/MallExperienceBadge"
+            - type: "null"
+        sortOrder:
+          type: "integer"
+        status:
+          $ref: "#/components/schemas/OpsProductStatus"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          description: "改资料、上下架时要带的版本号"
+    OpsSpec:
+      type: "object"
+      additionalProperties: false
+      required: [label, value]
+      properties:
+        label:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+        value:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+    OpsPackItem:
+      type: "object"
+      additionalProperties: false
+      required: [name, quantity]
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 80
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 999
+    OpsIntroBlock:
+      type: "object"
+      additionalProperties: false
+      required: [type, text, imageUrl]
+      properties:
+        type:
+          $ref: "#/components/schemas/OpsIntroBlockType"
+        text:
+          type: ["string", "null"]
+          maxLength: 1000
+          description: "TEXT 必填，IMAGE 时是图片说明（可空）"
+        imageUrl:
+          type: ["string", "null"]
+          maxLength: 500
+          description: "IMAGE 必填，TEXT 时为 null"
+    OpsSku:
+      type: "object"
+      additionalProperties: false
+      required: [skuId, name, sortOrder, status, version]
+      properties:
+        skuId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+          maxLength: 80
+        sortOrder:
+          type: "integer"
+        status:
+          $ref: "#/components/schemas/OpsSkuStatus"
+        version:
+          type: "integer"
+    OpsOffer:
+      type: "object"
+      additionalProperties: false
+      required: [offerId, skuId, skuName, merchantId, merchantName, merchantKind, cityCode, cityName, priceAmountMinor,
+                 priceUnit, stockQuantity, expressAvailable, shippingFeeMinor, pickupPoint, deliveryNote, shippingNote,
+                 fulfilledFrom, status, merchantCollecting, updatedAt, version]
+      properties:
+        offerId:
+          type: "string"
+          format: "uuid"
+        skuId:
+          type: "string"
+          format: "uuid"
+        skuName:
+          type: "string"
+        merchantId:
+          type: "string"
+          format: "uuid"
+        merchantName:
+          type: "string"
+        merchantKind:
+          $ref: "#/components/schemas/MallMerchantKind"
+        cityCode:
+          type: ["string", "null"]
+          description: "null 表示全国可售"
+        cityName:
+          type: ["string", "null"]
+        priceAmountMinor:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "分；询价为 null"
+        priceUnit:
+          $ref: "#/components/schemas/MallPriceUnit"
+        stockQuantity:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "现货件数；null 不限"
+        expressAvailable:
+          type: "boolean"
+        shippingFeeMinor:
+          type: "integer"
+          minimum: 0
+        pickupPoint:
+          type: ["string", "null"]
+        deliveryNote:
+          type: ["string", "null"]
+        shippingNote:
+          type: ["string", "null"]
+        fulfilledFrom:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/OpsOfferStatus"
+        merchantCollecting:
+          type: "boolean"
+          description: "商家在交易模块有有效收款账户"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+    OpsCatalogOperation:
+      type: "object"
+      additionalProperties: false
+      required: [operationId, action, detail, operatorName, occurredAt]
+      properties:
+        operationId:
+          type: "string"
+          format: "uuid"
+        action:
+          $ref: "#/components/schemas/OpsCatalogAction"
+        detail:
+          type: "string"
+        operatorName:
+          type: "string"
+        occurredAt:
+          type: "string"
+          format: "date-time"
+    OpsProductDetail:
+      type: "object"
+      additionalProperties: false
+      required: [product, sellingPoints, specs, packItems, gallery, introBlocks, skus, offers, publishBlockers, operations]
+      properties:
+        product:
+          $ref: "#/components/schemas/OpsProduct"
+        sellingPoints:
+          type: "array"
+          maxItems: 5
+          items:
+            type: "string"
+            maxLength: 12
+        specs:
+          type: "array"
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/OpsSpec"
+        packItems:
+          type: "array"
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/OpsPackItem"
+        gallery:
+          type: "array"
+          maxItems: 9
+          description: "图集的图片地址，按显示顺序"
+          items:
+            type: "string"
+        introBlocks:
+          type: "array"
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/OpsIntroBlock"
+        skus:
+          type: "array"
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/OpsSku"
+        offers:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsOffer"
+        publishBlockers:
+          type: "array"
+          description: "现在上架还缺什么；空数组表示可以上架"
+          items:
+            $ref: "#/components/schemas/OpsPublishBlocker"
+        operations:
+          type: "array"
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/OpsCatalogOperation"
+    OpsMedia:
+      type: "object"
+      additionalProperties: false
+      required: [mediaId, url, contentType, sizeBytes]
+      properties:
+        mediaId:
+          type: "string"
+          format: "uuid"
+        url:
+          type: "string"
+          description: "受控地址，填进封面、图集或图文段"
+        contentType:
+          type: "string"
+          enum: [image/jpeg, image/png, image/webp]
+        sizeBytes:
+          type: "integer"
+    OpsProductCreateRequest:
+      type: "object"
+      additionalProperties: false
+      required: [category, name, saleMode]
+      properties:
+        category:
+          $ref: "#/components/schemas/MallCategory"
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 160
+        saleMode:
+          $ref: "#/components/schemas/MallSaleMode"
+    OpsProductUpdateRequest:
+      type: "object"
+      additionalProperties: false
+      required: [category, name, sellingPoints, specs, packItems, gallery, introBlocks, version]
+      properties:
+        category:
+          $ref: "#/components/schemas/MallCategory"
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 160
+        summary:
+          type: ["string", "null"]
+          maxLength: 300
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+        experienceBadge:
+          anyOf:
+            - $ref: "#/components/schemas/MallExperienceBadge"
+            - type: "null"
+        sortOrder:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+          description: "小的在前，不填为 0"
+        sellingPoints:
+          type: "array"
+          maxItems: 5
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 12
+        specs:
+          type: "array"
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/OpsSpec"
+        packItems:
+          type: "array"
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/OpsPackItem"
+        gallery:
+          type: "array"
+          maxItems: 9
+          items:
+            type: "string"
+            maxLength: 500
+        introBlocks:
+          type: "array"
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/OpsIntroBlock"
+        version:
+          type: "integer"
+    OpsProductStatusRequest:
+      type: "object"
+      additionalProperties: false
+      required: [action, version]
+      properties:
+        action:
+          $ref: "#/components/schemas/OpsProductStatusAction"
+        version:
+          type: "integer"
+    OpsSkuCreateRequest:
+      type: "object"
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 80
+        sortOrder:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+    OpsSkuUpdateRequest:
+      type: "object"
+      additionalProperties: false
+      required: [name, status, version]
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 80
+        sortOrder:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+        status:
+          $ref: "#/components/schemas/OpsSkuStatus"
+        version:
+          type: "integer"
+    OpsOfferCreateRequest:
+      type: "object"
+      additionalProperties: false
+      required: [skuId, merchantId, merchantKind, priceUnit, expressAvailable, shippingFeeMinor]
+      properties:
+        skuId:
+          type: "string"
+          format: "uuid"
+        merchantId:
+          type: "string"
+          format: "uuid"
+        merchantKind:
+          $ref: "#/components/schemas/MallMerchantKind"
+        cityCode:
+          type: ["string", "null"]
+          pattern: "^[0-9]{6}$"
+          description: "不填表示全国可售"
+        priceAmountMinor:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 10000000000
+          description: "分；询价商品必须不填，购买和租赁启用前必须填"
+        priceUnit:
+          $ref: "#/components/schemas/MallPriceUnit"
+        stockQuantity:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 999999
+        expressAvailable:
+          type: "boolean"
+        shippingFeeMinor:
+          type: "integer"
+          minimum: 0
+          maximum: 10000000
+        pickupPoint:
+          type: ["string", "null"]
+          maxLength: 120
+          description: "不能快递时必填"
+        deliveryNote:
+          type: ["string", "null"]
+          maxLength: 200
+        shippingNote:
+          type: ["string", "null"]
+          maxLength: 200
+        fulfilledFrom:
+          type: ["string", "null"]
+          maxLength: 120
+    OpsOfferUpdateRequest:
+      type: "object"
+      additionalProperties: false
+      required: [merchantKind, priceUnit, expressAvailable, shippingFeeMinor, version]
+      properties:
+        merchantKind:
+          $ref: "#/components/schemas/MallMerchantKind"
+        cityCode:
+          type: ["string", "null"]
+          pattern: "^[0-9]{6}$"
+        priceAmountMinor:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 10000000000
+        priceUnit:
+          $ref: "#/components/schemas/MallPriceUnit"
+        stockQuantity:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 999999
+        expressAvailable:
+          type: "boolean"
+        shippingFeeMinor:
+          type: "integer"
+          minimum: 0
+          maximum: 10000000
+        pickupPoint:
+          type: ["string", "null"]
+          maxLength: 120
+        deliveryNote:
+          type: ["string", "null"]
+          maxLength: 200
+        shippingNote:
+          type: ["string", "null"]
+          maxLength: 200
+        fulfilledFrom:
+          type: ["string", "null"]
+          maxLength: 120
+        version:
+          type: "integer"
+    OpsOfferStatusRequest:
+      type: "object"
+      additionalProperties: false
+      required: [action, version]
+      properties:
+        action:
+          $ref: "#/components/schemas/OpsOfferStatusAction"
+        version:
+          type: "integer"
+    OpsMerchantAccount:
+      type: "object"
+      additionalProperties: false
+      required: [organizationId, organizationCode, organizationName, organizationStatus, registered, subMchid, active,
+                 updatedAt, version]
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        organizationCode:
+          type: "string"
+        organizationName:
+          type: "string"
+        organizationStatus:
+          type: "string"
+          enum: [ACTIVE, DISABLED]
+        registered:
+          type: "boolean"
+          description: "登记过收款账户（渠道一期只有 WECHAT）"
+        subMchid:
+          type: ["string", "null"]
+          description: "二级商户号；没登记为 null"
+        active:
+          type: "boolean"
+          description: "正在收款；false 时这家的标价商品不能下单"
+        updatedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        version:
+          type: ["integer", "null"]
+          description: "修改时要带；没登记为 null"
+    OpsMerchantAccountPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsMerchantAccount"
+    OpsMerchantAccountOperation:
+      type: "object"
+      additionalProperties: false
+      required: [operationId, action, detail, operatorName, occurredAt]
+      properties:
+        operationId:
+          type: "string"
+          format: "uuid"
+        action:
+          $ref: "#/components/schemas/OpsMerchantAccountAction"
+        detail:
+          type: "string"
+        operatorName:
+          type: "string"
+        occurredAt:
+          type: "string"
+          format: "date-time"
+    OpsMerchantAccountRequest:
+      type: "object"
+      additionalProperties: false
+      required: [subMchid, active]
+      properties:
+        subMchid:
+          type: "string"
+          pattern: "^[0-9]{8,32}$"
+        active:
+          type: "boolean"
+        version:
+          type: ["integer", "null"]
+          description: "第一次登记不带，修改时带列表里读到的版本号"

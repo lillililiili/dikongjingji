@@ -26,6 +26,12 @@ class InspectionServiceFlowOpenApiContractTest {
         routes.addAll(routes(InspectionPlanController.class));
         routes.addAll(routes(InspectionOrderController.class));
         routes.addAll(routes(InspectionDeliveryController.class));
+        // 2.3.0 服务商工作台的两条读取：控制器类上是公共前缀，方法上是空路径和 /{reservationId}。
+        String providerPrefix = com.lowaltitude.inspection.application.reservation
+                .InspectionProviderReservationController.class
+                .getAnnotation(org.springframework.web.bind.annotation.RequestMapping.class).value()[0];
+        routes.add(providerPrefix);
+        routes.add(providerPrefix + "/{reservationId}");
 
         assertThat(routes).hasSizeGreaterThanOrEqualTo(12);
         assertThat(routes).allSatisfy(route ->
@@ -48,10 +54,13 @@ class InspectionServiceFlowOpenApiContractTest {
         String contract = Files.readString(CONTRACT);
 
         assertThat(contract)
-                .contains("version: 2.3.0")
+                .contains("version: 2.4.0")
+                // 2.3.0：服务商工作台读分给本机构的预约
+                .contains("operationId: listProviderInspectionReservations")
+                .contains("operationId: getProviderInspectionReservationSummary")
                 // 2.1.0：登录账号读取自己的展示资料
                 .contains("/api/v1/auth/me:")
-                // 2.3.0：刷新令牌续期和退出登录
+                // 2.4.0：刷新令牌续期和退出登录
                 .contains("/api/v1/auth/refresh:")
                 .contains("operationId: refreshLogin")
                 .contains("/api/v1/auth/logout:")

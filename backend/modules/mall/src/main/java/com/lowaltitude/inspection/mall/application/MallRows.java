@@ -45,7 +45,8 @@ public final class MallRows {
             String priceUnit,
             String deliveryNote,
             String shippingNote,
-            String fulfilledFrom
+            String fulfilledFrom,
+            Integer stockQuantity
     ) {
     }
 
@@ -53,5 +54,13 @@ public final class MallRows {
     }
 
     public record PackItemRow(String name, int quantity) {
+    }
+
+    /** 商品的一个启用规格（1.3.0）。 */
+    public record SkuRow(UUID skuId, String name) {
+    }
+
+    /** 图文介绍的一段（1.3.0）。 */
+    public record IntroBlockRow(String blockType, String text, String imageUrl) {
     }
 }

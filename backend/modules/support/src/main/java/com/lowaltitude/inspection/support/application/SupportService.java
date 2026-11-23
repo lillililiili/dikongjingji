@@ -37,6 +37,7 @@ public class SupportService {
     static final int MAX_CARD_TITLE = 60;
     static final int MAX_CARD_SUBTITLE = 60;
     static final int MAX_FEEDBACK = 200;
+    static final int MAX_HANDLE_NOTE = 200;
     static final int MAX_PAGE_SIZE = 50;
     static final int DEFAULT_MESSAGE_PAGE = 20;
     static final int PREVIEW_LENGTH = 60;
@@ -255,6 +256,102 @@ public class SupportService {
         }
         return new SupportFeedbackCreated(feedbackView(mapper.insertFeedback(accountId, type.name(), body,
                 idempotencyKey, hash, now())), true);
+    }
+
+    /**
+     * 记一条举报（S3-1）：和反馈一样（类型、正文、幂等），另外记来源和被举报的对象，运营端据此隐藏。
+     * sourceCode 是 VIDEO_COMMENT_REPORT 或 LIVE_COMMENT_REPORT；targetId 是评论 / 弹幕，parentId 是视频 / 直播间。
+     * 同一个幂等键带同样的内容（含对象）重复提交，返回第一次那条。
+     */
+    @Transactional
+    public SupportFeedbackCreated report(UUID accountId, UUID idempotencyKey, String typeCode, String text,
+                                         String sourceCode, UUID targetId, UUID parentId) {
+        requireAccount(accountId);
+        requireKey(idempotencyKey);
+        SupportFeedbackType type = parse(SupportFeedbackType.class, typeCode, "feedback type");
+        SupportFeedbackSource source = parse(SupportFeedbackSource.class, sourceCode, "feedback source");
+        if (source == SupportFeedbackSource.USER || targetId == null || parentId == null) {
+            throw new IllegalArgumentException("a report needs its target");
+        }
+        String body = text(text, MAX_FEEDBACK, true, "feedback");
+        String hash = hash(type.name() + "|" + body + "|" + source.name() + "|" + targetId + "|" + parentId);
+
+        mapper.lockSender(accountId);
+        FeedbackRow existing = mapper.findFeedbackByKey(accountId, idempotencyKey);
+        if (existing != null) {
+            if (!hash.equals(existing.requestHash().trim())) {
+                throw new SupportException(Error.IDEMPOTENCY_CONFLICT);
+            }
+            return new SupportFeedbackCreated(feedbackView(existing), false);
+        }
+        return new SupportFeedbackCreated(feedbackView(mapper.insertReportFeedback(accountId, type.name(), body,
+                idempotencyKey, hash, now(), source.name(), targetId, parentId)), true);
+    }
+
+    // ---- 运营端处理反馈（S3-1，只给平台客服，角色由控制器检查） ----
+
+    @Transactional(readOnly = true)
+    public OpsFeedbackPageView opsFeedback(String handleStatusCode, String sourceCode, int page, int size) {
+        requirePage(page, size);
+        String status = handleStatusCode == null || handleStatusCode.isBlank()
+                ? null : parse(SupportFeedbackHandleStatus.class, handleStatusCode, "handle status").name();
+        String source = sourceCode == null || sourceCode.isBlank()
+                ? null : parse(SupportFeedbackSource.class, sourceCode, "feedback source").name();
+        long total = mapper.countOpsFeedback(status, source);
+        List<OpsFeedbackView> items = mapper.findOpsFeedback(status, source, size, offset(page, size)).stream()
+                .map(this::opsFeedbackView)
+                .toList();
+        return new OpsFeedbackPageView(page, size, total, (long) page * size < total, mapper.countPendingFeedback(),
+                items);
+    }
+
+    /** 标为已处理，写处理说明（1–200 字）。只处理一次；版本号要和页面读到的一致。 */
+    @Transactional
+    public OpsFeedbackView handleFeedback(UUID feedbackId, String note, Integer version, UUID handlerId,
+                                          String handlerName) {
+        if (feedbackId == null) {
+            throw new IllegalArgumentException("feedback is required");
+        }
+        requireAccount(handlerId);
+        if (handlerName == null || handlerName.isBlank()) {
+            throw new IllegalArgumentException("handler is required");
+        }
+        if (version == null) {
+            throw new IllegalArgumentException("version is required");
+        }
+        String reason = text(note, MAX_HANDLE_NOTE, true, "note");
+        SupportMapper.OpsFeedbackRow current = mapper.findOpsFeedbackById(feedbackId);
+        if (current == null) {
+            throw new SupportException(Error.NOT_FOUND);
+        }
+        if (SupportFeedbackHandleStatus.HANDLED.name().equals(current.handleStatus())) {
+            throw new SupportException(Error.ALREADY_HANDLED);
+        }
+        if (current.version() != version
+                || mapper.handleFeedback(feedbackId, reason, handlerId, clip(handlerName.strip(), 80), version, now())
+                != 1) {
+            throw new SupportException(Error.VERSION_CONFLICT);
+        }
+        return opsFeedbackView(mapper.findOpsFeedbackById(feedbackId));
+    }
+
+    private OpsFeedbackView opsFeedbackView(SupportMapper.OpsFeedbackRow row) {
+        SupportFeedbackHandleStatus status = SupportFeedbackHandleStatus.valueOf(row.handleStatus());
+        return new OpsFeedbackView(row.id(), SupportFeedbackType.valueOf(row.feedbackType()),
+                SupportFeedbackSource.valueOf(row.source()), row.body(),
+                row.targetId() == null ? null : new SupportReportTargetView(row.targetId(), row.targetParentId()),
+                new SupportFeedbackReporterView(profiles.displayName(row.accountId()).orElse(null)),
+                status,
+                status == SupportFeedbackHandleStatus.HANDLED
+                        ? new SupportFeedbackHandlingView(row.handleNote(), row.handledByName(), row.handledAt())
+                        : null,
+                row.version(), row.createdAt());
+    }
+
+    private static String clip(String value, int max) {
+        return value.codePointCount(0, value.length()) <= max
+                ? value
+                : value.substring(0, value.offsetByCodePoints(0, max));
     }
 
     // ---- 内部 ----

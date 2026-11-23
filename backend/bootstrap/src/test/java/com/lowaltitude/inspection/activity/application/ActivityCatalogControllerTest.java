@@ -170,6 +170,7 @@ class ActivityCatalogControllerTest {
                 "青少年无人机编程挑战赛（东营站）",
                 "图形化编程 · 现场闯关 · 完赛证明",
                 null,
+                List.of(),
                 new ActivityPriceView(ActivityPriceMode.PER_PERSON, 12000L, "CNY", true),
                 new ActivityAgeRangeView(8, 15),
                 ActivityEnrollmentStatus.FULL_WAITLIST,
@@ -180,6 +181,7 @@ class ActivityCatalogControllerTest {
                 "8–15 岁，由监护人代报名并到场",
                 "陪同家长不用报名",
                 "活动开始 48 小时前可免费取消",
+                null,
                 true,
                 true,
                 List.of(new ActivitySessionView(
@@ -191,6 +193,7 @@ class ActivityCatalogControllerTest {
                         OffsetDateTime.parse("2026-11-27T10:00:00Z"),
                         60,
                         0,
-                        ActivityEnrollmentStatus.FULL_WAITLIST)));
+                        ActivityEnrollmentStatus.FULL_WAITLIST,
+                        false)));
     }
 }
