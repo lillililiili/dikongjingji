@@ -849,6 +849,30 @@ public class GlobalExceptionHandler {
                 code = "ACTIVITY_PAYMENT_UNAVAILABLE";
                 message = "主办方暂未开通在线支付";
             }
+            case WAITLIST_NOT_AVAILABLE -> {
+                code = "ACT_WAITLIST_NOT_AVAILABLE";
+                message = "这一场现在不能候补";
+            }
+            case WAITLIST_ALREADY_JOINED -> {
+                code = "ACT_WAITLIST_ALREADY_JOINED";
+                message = "有参与人已经在这一场候补";
+            }
+            case WAITLIST_STATE_INVALID -> {
+                code = "ACT_WAITLIST_STATE_INVALID";
+                message = "候补状态已经变了，请刷新后再看";
+            }
+            case RESCHEDULE_NOT_ALLOWED -> {
+                code = "ACT_RESCHEDULE_NOT_ALLOWED";
+                message = "这张报名单现在不能改期";
+            }
+            case RESULT_NOT_ALLOWED -> {
+                code = "ACT_RESULT_NOT_ALLOWED";
+                message = "只能给已签到的参与人录入结果";
+            }
+            case RESULT_VERSION_CONFLICT -> {
+                code = "ACT_RESULT_VERSION_CONFLICT";
+                message = "结果刚被修改过，请刷新后重试";
+            }
             default -> throw new IllegalStateException(
                     "unhandled activity enrollment error " + exception.error());
         }

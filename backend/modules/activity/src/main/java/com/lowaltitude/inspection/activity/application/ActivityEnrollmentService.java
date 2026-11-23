@@ -12,7 +12,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -26,6 +28,10 @@ import com.lowaltitude.inspection.activity.application.ActivityEnrollmentExcepti
 import com.lowaltitude.inspection.activity.application.ActivityPaymentPort.OpenPayment;
 import com.lowaltitude.inspection.activity.application.ActivityPaymentPort.OpenedPayment;
 import com.lowaltitude.inspection.activity.application.ActivityPaymentPort.RefundProgress;
+import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityChangeMapper;
+import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityChangeMapper.ChangeRow;
+import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityChangeMapper.EnrollmentExtrasRow;
+import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityChangeMapper.ResultRow;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper.CheckinRow;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper.EnrollmentKeyRow;
@@ -71,6 +77,12 @@ public class ActivityEnrollmentService {
     private static final String DEFAULT_SELF_NAME = "本人";
     private static final Pattern TICKET_CODE =
             Pattern.compile("^ACT-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$");
+    /** 团队报名（S5-3）：领队代报 2–20 人；核对名单时最多带 40 行（含不符合条件、要移除的）。 */
+    static final int MIN_TEAM_SIZE = 2;
+    static final int MAX_TEAM_SIZE = 20;
+    static final int MAX_TEAM_INPUT = 40;
+    static final int MAX_TEAM_NAME_LENGTH = 20;
+    private static final Pattern PHONE = Pattern.compile("^1[0-9]{10}$");
 
     private final ActivityEnrollmentMapper mapper;
     private final Clock clock;
@@ -78,6 +90,10 @@ public class ActivityEnrollmentService {
     private final ActivityPaymentPort payments;
     private final TransactionOperations tx;
     private final ActivityEnrollmentNotifier notifier;
+    /** 团队报名、改期、退改记录、结果记录（S5-3）；没接时这些都不可用，旧的报名照常。 */
+    private final ActivityChangeMapper changes;
+    /** 名额放回来时给候补转正（S5-3）。 */
+    private final ActivitySeatsReleased seatsReleased;
 
     /** 没有接交易模块：只能免费报名。 */
     ActivityEnrollmentService(
@@ -110,6 +126,25 @@ public class ActivityEnrollmentService {
             TransactionOperations tx,
             ActivityEnrollmentNotifier notifier
     ) {
+        this(mapper, clock, ticketCodes, payments, tx, notifier, null, ActivitySeatsReleased.none());
+    }
+
+    /**
+     * @param changes       团队报名、改期、退改记录和结果记录（S5-3）
+     * @param seatsReleased 名额放回来时给候补转正（S5-3）
+     */
+    ActivityEnrollmentService(
+            ActivityEnrollmentMapper mapper,
+            Clock clock,
+            Supplier<String> ticketCodes,
+            ActivityPaymentPort payments,
+            TransactionOperations tx,
+            ActivityEnrollmentNotifier notifier,
+            ActivityChangeMapper changes,
+            ActivitySeatsReleased seatsReleased
+    ) {
+        this.changes = changes;
+        this.seatsReleased = seatsReleased;
         this.mapper = mapper;
         this.clock = clock;
         this.ticketCodes = ticketCodes;
@@ -271,7 +306,6 @@ public class ActivityEnrollmentService {
 
         Set<UUID> enrolled = Set.copyOf(
                 mapper.findEnrolledParticipantIds(session.sessionId(), accountId));
-        LocalDate sessionDate = dateOf(session.startsAt());
         List<ParticipantRow> participants = new ArrayList<>();
         for (UUID participantId : participantIds) {
             ParticipantRow row = requireParticipant(accountId, participantId);
@@ -288,11 +322,35 @@ public class ActivityEnrollmentService {
             throw new ActivityEnrollmentException(Error.SESSION_FULL);
         }
 
+        UUID enrollmentId = createEnrollment(accountId, idempotencyKey, requestHash, session, participants,
+                command.expectedAmountMinor(), null, true, now);
+        return new EnrollmentResult(readEnrollment(accountId, enrollmentId), true);
+    }
+
+    /**
+     * 建报名单和凭证（个人报名、团队报名、候补转正共用）。收费的先建交易订单，凭证待付款；免费的提交即成功。
+     *
+     * @param payBefore 付款截止；为空时按 15 分钟且不晚于报名截止算（候补转正带上保留截止时间）
+     * @param takeSeats 是否占名额：候补转正时名额已经为它占住，不再加
+     */
+    private UUID createEnrollment(
+            UUID accountId,
+            UUID idempotencyKey,
+            String requestHash,
+            SessionRow session,
+            List<ParticipantRow> participants,
+            Long expectedAmountMinor,
+            OffsetDateTime payBefore,
+            boolean takeSeats,
+            OffsetDateTime now
+    ) {
+        boolean paid = isPaid(session);
+        LocalDate sessionDate = dateOf(session.startsAt());
         UUID enrollmentId;
         String ticketStatus;
         if (paid) {
             enrollmentId = enrollPaid(accountId, idempotencyKey, requestHash, session,
-                    participants.stream().map(ParticipantRow::name).toList(), command.expectedAmountMinor(), now);
+                    participants.stream().map(ParticipantRow::name).toList(), expectedAmountMinor, payBefore, now);
             ticketStatus = TicketStatus.PENDING_PAYMENT.name();
         } else {
             enrollmentId = mapper.insertEnrollment(
@@ -311,18 +369,20 @@ public class ActivityEnrollmentService {
                     row.id(),
                     row.name(),
                     row.relation(),
-                    isChild(row) ? ageOn(row.birthMonth(), sessionDate) : null,
+                    hasBirthMonth(row) ? ageOn(row.birthMonth(), sessionDate) : null,
                     ticketCodes.get(),
                     ticketStatus,
                     now);
         }
-        mapper.insertEvent(enrollmentId, null, "ENROLLED", accountId, now);
-        mapper.addEnrolled(session.sessionId(), participants.size(), now);
+        mapper.insertEvent(enrollmentId, null, takeSeats ? "ENROLLED" : "ENROLLED_FROM_WAITLIST", accountId, now);
+        if (takeSeats) {
+            mapper.addEnrolled(session.sessionId(), participants.size(), now);
+        }
         if (!paid) {
             // 免费报名提交即成功；收费报名等付款到账（onPaymentConfirmed）再说。
             notifyEnrolled(accountId, enrollmentId, session, participants.size(), false, now);
         }
-        return new EnrollmentResult(readEnrollment(accountId, enrollmentId), true);
+        return enrollmentId;
     }
 
     /**
@@ -336,6 +396,7 @@ public class ActivityEnrollmentService {
             SessionRow session,
             List<String> participantNames,
             Long expectedAmountMinor,
+            OffsetDateTime payBeforeOverride,
             OffsetDateTime now
     ) {
         int people = participantNames.size();
@@ -347,9 +408,12 @@ public class ActivityEnrollmentService {
         if (expectedAmountMinor != amount) {
             throw new ActivityEnrollmentException(Error.AMOUNT_CHANGED);
         }
-        OffsetDateTime payBefore = now.plus(PAY_WINDOW);
-        if (session.enrollmentClosesAt().isBefore(payBefore)) {
-            payBefore = session.enrollmentClosesAt();
+        OffsetDateTime payBefore = payBeforeOverride;
+        if (payBefore == null) {
+            payBefore = now.plus(PAY_WINDOW);
+            if (session.enrollmentClosesAt().isBefore(payBefore)) {
+                payBefore = session.enrollmentClosesAt();
+            }
         }
         UUID enrollmentId = UUID.randomUUID();
         OpenedPayment opened = payments.open(new OpenPayment(
@@ -399,7 +463,32 @@ public class ActivityEnrollmentService {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
         }
         List<TicketRow> tickets = mapper.findTickets(List.of(enrollmentId));
-        return toEnrollment(row, tickets, refundsOf(tickets), now());
+        return toEnrollment(row, tickets, refundsOf(tickets), now(),
+                extrasOf(accountId, List.of(enrollmentId), tickets).get(enrollmentId));
+    }
+
+    /** 团队、改期、结果、退改记录（S5-3）；没接时都是空的。 */
+    private Map<UUID, Extras> extrasOf(UUID accountId, List<UUID> enrollmentIds, List<TicketRow> tickets) {
+        Map<UUID, Extras> out = new LinkedHashMap<>();
+        if (changes == null || enrollmentIds.isEmpty()) {
+            return out;
+        }
+        Map<UUID, EnrollmentExtrasRow> rows = changes.findExtras(accountId, enrollmentIds).stream()
+                .collect(Collectors.toMap(EnrollmentExtrasRow::enrollmentId, row -> row));
+        List<UUID> ticketIds = tickets.stream().map(TicketRow::ticketId).toList();
+        Map<UUID, ResultRow> results = ticketIds.isEmpty()
+                ? Map.of()
+                : changes.findResults(ticketIds).stream().collect(Collectors.toMap(ResultRow::ticketId, row -> row));
+        Map<UUID, List<ChangeRow>> changeRows = changes.findChanges(accountId, enrollmentIds).stream()
+                .collect(Collectors.groupingBy(ChangeRow::enrollmentId));
+        for (UUID enrollmentId : enrollmentIds) {
+            out.put(enrollmentId, new Extras(
+                    rows.get(enrollmentId), results, changeRows.getOrDefault(enrollmentId, List.of())));
+        }
+        return out;
+    }
+
+    private record Extras(EnrollmentExtrasRow row, Map<UUID, ResultRow> results, List<ChangeRow> changes) {
     }
 
     @Transactional(readOnly = true)
@@ -418,10 +507,14 @@ public class ActivityEnrollmentService {
                 : mapper.findTickets(rows.stream().map(EnrollmentRow::enrollmentId).toList())
                         .stream()
                         .collect(Collectors.groupingBy(TicketRow::enrollmentId));
-        Map<UUID, RefundProgress> refunds = refundsOf(tickets.values().stream().flatMap(List::stream).toList());
+        List<TicketRow> allTickets = tickets.values().stream().flatMap(List::stream).toList();
+        Map<UUID, RefundProgress> refunds = refundsOf(allTickets);
+        Map<UUID, Extras> extras = extrasOf(
+                accountId, rows.stream().map(EnrollmentRow::enrollmentId).toList(), allTickets);
         List<EnrollmentView> items = rows.stream()
                 .map(row -> toEnrollment(
-                        row, tickets.getOrDefault(row.enrollmentId(), List.of()), refunds, now))
+                        row, tickets.getOrDefault(row.enrollmentId(), List.of()), refunds, now,
+                        extras.get(row.enrollmentId())))
                 .toList();
         return new EnrollmentPageView(page, size, total, (long) page * size < total, items);
     }
@@ -435,7 +528,16 @@ public class ActivityEnrollmentService {
      * 已付款的先锁交易订单，再按凭证取消，这次取消的几位按报名时的单价一起退一笔款，提交后交给渠道。
      */
     public EnrollmentView cancel(UUID accountId, UUID enrollmentId, List<UUID> ticketIds) {
+        return cancel(accountId, enrollmentId, ticketIds, null);
+    }
+
+    /**
+     * 同上，带页面选的申请原因（S5-3，可以不选）。已付款或免费的取消记一条退改记录（退改详情页按它显示）；
+     * 待付款的整张关单不记。
+     */
+    public EnrollmentView cancel(UUID accountId, UUID enrollmentId, List<UUID> ticketIds, String reasonCode) {
         requireAccount(accountId);
+        ChangeReason reason = ChangeReason.parse(reasonCode);
         if (enrollmentId == null
                 || (ticketIds != null && ticketIds.stream().anyMatch(Objects::isNull))) {
             throw new IllegalArgumentException("cancellation is invalid");
@@ -448,7 +550,7 @@ public class ActivityEnrollmentService {
             cancelUnpaid(accountId, row, ticketIds);
             return tx.execute(status -> readEnrollment(accountId, enrollmentId));
         }
-        return tx.execute(status -> cancelTickets(accountId, enrollmentId, ticketIds));
+        return tx.execute(status -> cancelTickets(accountId, enrollmentId, ticketIds, reason));
     }
 
     /** 待付款的报名单只能整张取消：交易订单是一整笔，没法只关其中几位。 */
@@ -468,7 +570,7 @@ public class ActivityEnrollmentService {
     }
 
     /** 在事务里取消还有效的凭证；收费报名先锁交易订单，取消后按凭证退款。 */
-    private EnrollmentView cancelTickets(UUID accountId, UUID enrollmentId, List<UUID> ticketIds) {
+    private EnrollmentView cancelTickets(UUID accountId, UUID enrollmentId, List<UUID> ticketIds, ChangeReason reason) {
         EnrollmentRow row = mapper.findEnrollment(accountId, enrollmentId);
         if (row == null) {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
@@ -511,11 +613,29 @@ public class ActivityEnrollmentService {
         if (!cancelled.isEmpty()) {
             mapper.addEnrolled(session.sessionId(), -cancelled.size(), now);
         }
+        UUID refundId = null;
         if (paid && !cancelled.isEmpty()) {
-            refundCancelled(accountId, row, cancelled, now);
+            refundId = refundCancelled(accountId, row, cancelled, now);
+        }
+        if (changes != null && !cancelled.isEmpty()) {
+            UUID changeId = changes.insertChange(
+                    enrollmentId,
+                    accountId,
+                    ChangeKind.CANCEL.name(),
+                    reason == null ? null : reason.name(),
+                    cancelled.size(),
+                    session.sessionId(),
+                    null,
+                    refundId,
+                    refundId == null ? null : Math.multiplyExact(row.unitAmountMinor(), cancelled.size()),
+                    now);
+            changes.markCancelledBy(enrollmentId, cancelled, changeId, now);
         }
         if (mapper.cancelEnrollmentIfEmpty(enrollmentId, now) > 0) {
             mapper.insertEvent(enrollmentId, null, "ENROLLMENT_CANCELLED", accountId, now);
+        }
+        if (!cancelled.isEmpty()) {
+            seatsReleased.released(session.sessionId(), now);
         }
         return readEnrollment(accountId, enrollmentId);
     }
@@ -524,7 +644,7 @@ public class ActivityEnrollmentService {
      * 这次取消的几位一起退一笔：每位按报名时的单价。幂等键由这几张凭证算出——同一张凭证只能取消一次，
      * 所以同一笔退款不会建两次。
      */
-    private void refundCancelled(UUID accountId, EnrollmentRow row, List<UUID> cancelled, OffsetDateTime now) {
+    private UUID refundCancelled(UUID accountId, EnrollmentRow row, List<UUID> cancelled, OffsetDateTime now) {
         long amount = Math.multiplyExact(row.unitAmountMinor(), cancelled.size());
         String key = "activity-refund:" + cancelled.stream().map(UUID::toString).sorted().collect(Collectors.joining(","));
         UUID refundId = payments.requestRefund(
@@ -535,6 +655,7 @@ public class ActivityEnrollmentService {
                 accountId);
         mapper.setTicketRefund(row.enrollmentId(), cancelled, refundId, now);
         mapper.insertEvent(row.enrollmentId(), null, "REFUND_REQUESTED", accountId, now);
+        return refundId;
     }
 
     // ---- 收费报名的付款结果（E09） ----
@@ -627,6 +748,389 @@ public class ActivityEnrollmentService {
         }
         mapper.closeUnpaid(enrollmentId, now);
         mapper.insertEvent(enrollmentId, null, "PAYMENT_CLOSED", null, now);
+        if (released > 0) {
+            seatsReleased.released(session.sessionId(), now);
+        }
+    }
+
+    // ---- 团队报名（S5-3） ----
+
+    /**
+     * 提交前核对团队名单：每一行按场次当天算年龄、看是不是已经报过这一场、名单里有没有重复，不写任何数据。
+     * 已有的参与人用 participantId；现填的给姓名和出生年月，和领队名下同名同出生年月的子女或队员算同一个人。
+     */
+    @Transactional(readOnly = true)
+    public TeamCheckView checkTeam(UUID accountId, UUID sessionId, List<TeamMemberInput> members) {
+        requireAccount(accountId);
+        requireChanges();
+        if (sessionId == null || members == null || members.isEmpty() || members.size() > MAX_TEAM_INPUT) {
+            throw new IllegalArgumentException("team roster is invalid");
+        }
+        SessionRow session = mapper.findSession(sessionId);
+        if (session == null || !isListed(session)) {
+            throw new ActivityEnrollmentException(Error.NOT_FOUND);
+        }
+        Set<UUID> enrolled = Set.copyOf(mapper.findEnrolledParticipantIds(sessionId, accountId));
+        LocalDate sessionDate = dateOf(session.startsAt());
+        Set<String> seen = new HashSet<>();
+        List<TeamMemberCheckView> rows = new ArrayList<>();
+        int eligible = 0;
+        for (TeamMemberInput input : members) {
+            ResolvedMember member = resolveMember(accountId, input, false, null);
+            TeamMemberReason reason;
+            if (!seen.add(member.identity())) {
+                reason = TeamMemberReason.DUPLICATED;
+            } else {
+                reason = TeamMemberReason.of(eligibility(member.row(), session,
+                        member.row().id() == null ? Set.of() : enrolled));
+            }
+            if (reason == TeamMemberReason.ELIGIBLE) {
+                eligible++;
+            }
+            rows.add(new TeamMemberCheckView(
+                    member.row().id(),
+                    member.row().name(),
+                    member.row().birthMonth() == null ? null : YearMonth.from(member.row().birthMonth()).toString(),
+                    member.row().birthMonth() == null ? null : ageOn(member.row().birthMonth(), sessionDate),
+                    reason == TeamMemberReason.ELIGIBLE,
+                    reason));
+        }
+        return new TeamCheckView(rows, eligible);
+    }
+
+    /**
+     * 团队报名：领队代报 2–20 人，一张团队报名单，一人一码；收费的领队一次付清（15 分钟内），之后可以按人退。
+     * 不支持候补：名额不够时回 SESSION_FULL。现填的队员记成领队名下的“队员”（MEMBER），下次团队报名直接用。
+     * 同一个幂等键重复提交返回第一次的结果。
+     */
+    @Transactional
+    public EnrollmentResult enrollTeam(UUID accountId, UUID idempotencyKey, TeamEnrollCommand command) {
+        requireAccount(accountId);
+        requireChanges();
+        if (idempotencyKey == null
+                || command == null
+                || command.activityId() == null
+                || command.sessionId() == null
+                || command.members() == null
+                || command.members().size() < MIN_TEAM_SIZE
+                || command.members().size() > MAX_TEAM_SIZE
+                || !command.noticeAgreed()
+                || !command.guardianConsent()) {
+            throw new IllegalArgumentException("team enrollment is invalid");
+        }
+        String teamName = requireText(command.teamName(), MAX_TEAM_NAME_LENGTH, "team name");
+        String leaderName = requireName(command.leaderName());
+        String leaderPhone = command.leaderPhone() == null ? "" : command.leaderPhone().trim();
+        if (!PHONE.matcher(leaderPhone).matches()) {
+            throw new IllegalArgumentException("leader phone is invalid");
+        }
+        String requestHash = hashText("team|" + command.activityId() + "|" + command.sessionId() + "|" + teamName
+                + "|" + leaderName + "|" + leaderPhone + "|" + command.members().stream()
+                        .map(TeamMemberInput::identityText)
+                        .collect(Collectors.joining(",")));
+
+        SessionRow session = mapper.lockSession(command.sessionId());
+        if (session == null || !session.activityId().equals(command.activityId())) {
+            throw new ActivityEnrollmentException(Error.NOT_FOUND);
+        }
+        EnrollmentKeyRow replayed = mapper.findEnrollmentByKey(accountId, idempotencyKey);
+        if (replayed != null) {
+            if (!requestHash.equals(replayed.requestHash().trim())) {
+                throw new ActivityEnrollmentException(Error.IDEMPOTENCY_CONFLICT);
+            }
+            return new EnrollmentResult(readEnrollment(accountId, replayed.id()), false);
+        }
+        if (!isListed(session)) {
+            throw new ActivityEnrollmentException(Error.NOT_FOUND);
+        }
+        boolean paid = isPaid(session);
+        if (!paid && !ActivityPriceMode.FREE.name().equals(session.priceMode())) {
+            throw new ActivityEnrollmentException(Error.ENROLLMENT_UNSUPPORTED);
+        }
+        if (paid && !payments.merchantCanCollect(session.organizerId())) {
+            throw new ActivityEnrollmentException(Error.PAYMENT_UNAVAILABLE);
+        }
+        OffsetDateTime now = now();
+        ActivityEnrollmentStatus status = sessionStatus(session, now);
+        if (status == ActivityEnrollmentStatus.CLOSED || status == ActivityEnrollmentStatus.ENDED) {
+            throw new ActivityEnrollmentException(Error.ENROLLMENT_NOT_OPEN);
+        }
+        Set<UUID> enrolled = Set.copyOf(mapper.findEnrolledParticipantIds(session.sessionId(), accountId));
+        Set<UUID> seen = new HashSet<>();
+        List<ParticipantRow> participants = new ArrayList<>();
+        for (TeamMemberInput input : command.members()) {
+            ParticipantRow row = resolveMember(accountId, input, true, now).row();
+            if (!seen.add(row.id())) {
+                throw new ActivityEnrollmentException(Error.PARTICIPANT_DUPLICATE);
+            }
+            ParticipantEligibilityReason reason = eligibility(row, session, enrolled);
+            if (reason == ParticipantEligibilityReason.ALREADY_ENROLLED) {
+                throw new ActivityEnrollmentException(Error.PARTICIPANT_ALREADY_ENROLLED);
+            }
+            if (reason != ParticipantEligibilityReason.ELIGIBLE) {
+                throw new ActivityEnrollmentException(Error.PARTICIPANT_NOT_ELIGIBLE);
+            }
+            participants.add(row);
+        }
+        if (session.enrolledCount() + participants.size() > session.capacity()) {
+            throw new ActivityEnrollmentException(Error.SESSION_FULL);
+        }
+        UUID enrollmentId = createEnrollment(accountId, idempotencyKey, requestHash, session, participants,
+                command.expectedAmountMinor(), null, true, now);
+        changes.markTeam(enrollmentId, accountId);
+        changes.insertTeam(enrollmentId, teamName, leaderName, leaderPhone, now);
+        return new EnrollmentResult(readEnrollment(accountId, enrollmentId), true);
+    }
+
+    /**
+     * 名单里的一行：给了 participantId 的读领队名下的参与人；现填的按姓名和出生年月找领队名下的子女或队员，
+     * 找不到时 create 为 true 就建一个队员（只在提交时），否则返回一个还没有 ID 的临时参与人。
+     */
+    private ResolvedMember resolveMember(UUID accountId, TeamMemberInput input, boolean create, OffsetDateTime now) {
+        if (input == null) {
+            throw new IllegalArgumentException("team member is invalid");
+        }
+        if (input.participantId() != null) {
+            ParticipantRow row = requireParticipant(accountId, input.participantId());
+            return new ResolvedMember(row, "id:" + row.id());
+        }
+        String name = requireName(input.name());
+        LocalDate birthMonth = parseBirthMonth(input.birthMonth());
+        if (birthMonth.isAfter(today())) {
+            throw new IllegalArgumentException("birth month is in the future");
+        }
+        UUID existing = changes.findParticipantByIdentity(accountId, name, birthMonth);
+        if (existing == null && create) {
+            existing = changes.insertMember(accountId, name, birthMonth, now);
+            if (existing == null) {
+                existing = changes.findParticipantByIdentity(accountId, name, birthMonth);
+            }
+        }
+        if (existing != null) {
+            ParticipantRow row = requireParticipant(accountId, existing);
+            return new ResolvedMember(row, "id:" + row.id());
+        }
+        return new ResolvedMember(
+                new ParticipantRow(null, ParticipantRelation.MEMBER.name(), name, birthMonth, false),
+                "new:" + name + "|" + birthMonth);
+    }
+
+    private record ResolvedMember(ParticipantRow row, String identity) {
+    }
+
+    // ---- 改期（S5-3） ----
+
+    /**
+     * 场次开始前把整张报名单还没用的凭证改到同一活动的另一场（要能报名、名额够、这些人在那一场没有另报、年龄仍符合）。
+     * 立即生效，不用主办方确认：原凭证作废，新场次一人一码重新发放，名额跟着转过去；收费的不补差、不退款
+     * （同一活动同价）。已经在那一场了再提交一次没有变化。待付款、已取消的不能改；有人已签到的不能改。
+     */
+    public EnrollmentView reschedule(UUID accountId, UUID enrollmentId, UUID targetSessionId, String reasonCode) {
+        requireAccount(accountId);
+        requireChanges();
+        if (enrollmentId == null || targetSessionId == null) {
+            throw new IllegalArgumentException("reschedule is invalid");
+        }
+        ChangeReason reason = ChangeReason.parse(reasonCode);
+        return tx.execute(status -> doReschedule(accountId, enrollmentId, targetSessionId, reason));
+    }
+
+    private EnrollmentView doReschedule(UUID accountId, UUID enrollmentId, UUID targetSessionId, ChangeReason reason) {
+        EnrollmentRow row = mapper.findEnrollment(accountId, enrollmentId);
+        if (row == null) {
+            throw new ActivityEnrollmentException(Error.NOT_FOUND);
+        }
+        if (row.sessionId().equals(targetSessionId)) {
+            return readEnrollment(accountId, enrollmentId);
+        }
+        if (!EnrollmentRecord.CONFIRMED.equals(row.status())) {
+            throw new ActivityEnrollmentException(Error.RESCHEDULE_NOT_ALLOWED);
+        }
+        // 先锁交易订单，再按 ID 顺序锁两个场次（两张报名单对调场次时也不会互相等）。
+        if (row.tradeOrderId() != null) {
+            payments.lockOrder(row.tradeOrderId());
+        }
+        SessionRow from;
+        SessionRow to;
+        if (row.sessionId().compareTo(targetSessionId) < 0) {
+            from = mapper.lockSession(row.sessionId());
+            to = mapper.lockSession(targetSessionId);
+        } else {
+            to = mapper.lockSession(targetSessionId);
+            from = mapper.lockSession(row.sessionId());
+        }
+        if (to == null || !to.activityId().equals(row.activityId()) || !isListed(to)) {
+            throw new ActivityEnrollmentException(Error.RESCHEDULE_NOT_ALLOWED);
+        }
+        OffsetDateTime now = now();
+        if (!now.isBefore(from.startsAt())) {
+            throw new ActivityEnrollmentException(Error.RESCHEDULE_NOT_ALLOWED);
+        }
+        ActivityEnrollmentStatus target = sessionStatus(to, now);
+        if (target == ActivityEnrollmentStatus.FULL || target == ActivityEnrollmentStatus.FULL_WAITLIST) {
+            throw new ActivityEnrollmentException(Error.SESSION_FULL);
+        }
+        if (target != ActivityEnrollmentStatus.OPEN) {
+            throw new ActivityEnrollmentException(Error.RESCHEDULE_NOT_ALLOWED);
+        }
+        List<TicketRow> tickets = mapper.findTickets(List.of(enrollmentId));
+        if (tickets.stream().anyMatch(ticket -> TicketStatus.CHECKED_IN.name().equals(ticket.status()))) {
+            throw new ActivityEnrollmentException(Error.RESCHEDULE_NOT_ALLOWED);
+        }
+        List<TicketRow> active = tickets.stream()
+                .filter(ticket -> TicketStatus.ACTIVE.name().equals(ticket.status()))
+                .toList();
+        if (active.isEmpty()) {
+            throw new ActivityEnrollmentException(Error.RESCHEDULE_NOT_ALLOWED);
+        }
+        if (to.enrolledCount() + active.size() > to.capacity()) {
+            throw new ActivityEnrollmentException(Error.SESSION_FULL);
+        }
+        Set<UUID> enrolledThere = Set.copyOf(mapper.findEnrolledParticipantIds(to.sessionId(), accountId));
+        LocalDate newDate = dateOf(to.startsAt());
+        List<Integer> ages = new ArrayList<>();
+        for (TicketRow ticket : active) {
+            if (enrolledThere.contains(ticket.participantId())) {
+                throw new ActivityEnrollmentException(Error.PARTICIPANT_ALREADY_ENROLLED);
+            }
+            // 删掉了的子女读不到出生年月，按凭证上的年龄（报名那一场当天的）判断。
+            ParticipantRow participant = mapper.findParticipant(accountId, ticket.participantId());
+            Integer age = participant != null && hasBirthMonth(participant)
+                    ? Integer.valueOf(ageOn(participant.birthMonth(), newDate))
+                    : ticket.participantAge();
+            if (participant != null) {
+                ParticipantEligibilityReason eligible = eligibility(participant, to, Set.of());
+                if (eligible != ParticipantEligibilityReason.ELIGIBLE) {
+                    throw new ActivityEnrollmentException(Error.PARTICIPANT_NOT_ELIGIBLE);
+                }
+            } else if (age != null && ((to.minAge() != null && age < to.minAge())
+                    || (to.maxAge() != null && age > to.maxAge()))) {
+                throw new ActivityEnrollmentException(Error.PARTICIPANT_NOT_ELIGIBLE);
+            }
+            ages.add(age);
+        }
+        UUID changeId = changes.insertChange(
+                enrollmentId,
+                accountId,
+                ChangeKind.RESCHEDULE.name(),
+                reason == null ? null : reason.name(),
+                active.size(),
+                from.sessionId(),
+                to.sessionId(),
+                null,
+                null,
+                now);
+        for (int index = 0; index < active.size(); index++) {
+            TicketRow ticket = active.get(index);
+            if (changes.cancelForReschedule(enrollmentId, ticket.ticketId(), changeId, now) == 0) {
+                throw new ActivityEnrollmentException(Error.RESCHEDULE_NOT_ALLOWED);
+            }
+            changes.insertRescheduledTicket(
+                    enrollmentId,
+                    to.sessionId(),
+                    ticket.participantId(),
+                    ticket.participantName(),
+                    ticket.participantRelation(),
+                    ticket.participantRelation().equals(ParticipantRelation.SELF.name()) ? null : ages.get(index),
+                    ticketCodes.get(),
+                    changeId,
+                    now);
+        }
+        if (changes.moveEnrollment(enrollmentId, accountId, from.sessionId(), to.sessionId(), now) == 0) {
+            throw new ActivityEnrollmentException(Error.RESCHEDULE_NOT_ALLOWED);
+        }
+        mapper.addEnrolled(from.sessionId(), -active.size(), now);
+        mapper.addEnrolled(to.sessionId(), active.size(), now);
+        mapper.insertEvent(enrollmentId, null, "RESCHEDULED", accountId, now);
+        seatsReleased.released(from.sessionId(), now);
+        try {
+            notifier.rescheduled(new ActivityEnrollmentNotifier.Rescheduled(
+                    accountId, enrollmentId, changeId, to.title(), to.startsAt(), active.size(), now.toInstant()));
+        } catch (RuntimeException exception) {
+            log.error("telling account {} that enrollment {} was rescheduled failed", accountId, enrollmentId, exception);
+        }
+        return readEnrollment(accountId, enrollmentId);
+    }
+
+    // ---- 退改记录（S5-3） ----
+
+    /** 一次取消或改期的详情：退款进度来自交易模块；改期的新凭证给凭证号。只读本账号的。 */
+    @Transactional(readOnly = true)
+    public ChangeDetailView readChange(UUID accountId, UUID enrollmentId, UUID changeId) {
+        requireAccount(accountId);
+        requireChanges();
+        if (enrollmentId == null || changeId == null) {
+            throw new IllegalArgumentException("change id is required");
+        }
+        EnrollmentRow enrollment = mapper.findEnrollment(accountId, enrollmentId);
+        ChangeRow change = enrollment == null ? null : changes.findChange(accountId, enrollmentId, changeId);
+        if (change == null) {
+            throw new ActivityEnrollmentException(Error.NOT_FOUND);
+        }
+        Map<UUID, RefundProgress> refunds = change.refundId() == null
+                ? Map.of()
+                : payments.refundStates(List.of(change.refundId()));
+        OffsetDateTime now = now();
+        List<ChangeTicketView> tickets = changes.findChangeTickets(changeId).stream()
+                .map(ticket -> new ChangeTicketView(
+                        ticket.ticketId(),
+                        ticket.participantName(),
+                        ParticipantRelation.valueOf(ticket.participantRelation()),
+                        ticket.participantAge(),
+                        ticket.issued(),
+                        ticket.issued() && !TicketStatus.CANCELLED.name().equals(ticket.status())
+                                ? ticket.ticketCode()
+                                : null,
+                        ticketStatus(ticket.status(), ticket.issued()
+                                && !sessionEnd(enrollment.startsAt(), enrollment.endsAt()).isAfter(now))))
+                .toList();
+        return new ChangeDetailView(
+                toChange(change, refunds),
+                enrollment.enrollmentId(),
+                enrollment.title(),
+                ActivityCatalogReadService.secureMedia(enrollment.coverUrl(), enrollment.title()),
+                enrollment.organizerName(),
+                tickets);
+    }
+
+    // ---- 候补转正（S5-3，ActivityWaitlistService 调用） ----
+
+    /**
+     * 按一条已转正的候补建报名单（在候补服务的事务里，场次已锁、名额已经为它占住）。幂等键就是候补 ID，
+     * 重复调用返回同一张报名单。收费的付款截止就是保留截止，金额要和页面看到的一致。
+     *
+     * @return 报名单 ID
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public UUID enrollFromWaitlist(
+            UUID accountId,
+            UUID waitlistId,
+            SessionRow session,
+            List<UUID> participantIds,
+            Long expectedAmountMinor,
+            OffsetDateTime holdUntil
+    ) {
+        List<UUID> ids = participantIds.stream().distinct().sorted().toList();
+        String requestHash = hash(session.activityId(), session.sessionId(), ids);
+        EnrollmentKeyRow replayed = mapper.findEnrollmentByKey(accountId, waitlistId);
+        if (replayed != null) {
+            return replayed.id();
+        }
+        boolean paid = isPaid(session);
+        if (paid && !payments.merchantCanCollect(session.organizerId())) {
+            throw new ActivityEnrollmentException(Error.PAYMENT_UNAVAILABLE);
+        }
+        Set<UUID> enrolled = Set.copyOf(mapper.findEnrolledParticipantIds(session.sessionId(), accountId));
+        List<ParticipantRow> participants = new ArrayList<>();
+        for (UUID participantId : ids) {
+            ParticipantRow row = requireParticipant(accountId, participantId);
+            if (enrolled.contains(row.id())) {
+                throw new ActivityEnrollmentException(Error.PARTICIPANT_ALREADY_ENROLLED);
+            }
+            participants.add(row);
+        }
+        return createEnrollment(accountId, waitlistId, requestHash, session, participants, expectedAmountMinor,
+                holdUntil, false, now());
     }
 
     // ---- 核销 ----
@@ -684,12 +1188,12 @@ public class ActivityEnrollmentService {
             SessionRow session,
             Set<UUID> enrolled
     ) {
-        if (enrolled.contains(row.id())) {
+        if (row.id() != null && enrolled.contains(row.id())) {
             return ParticipantEligibilityReason.ALREADY_ENROLLED;
         }
         Integer minAge = session.minAge();
         Integer maxAge = session.maxAge();
-        if (!isChild(row)) {
+        if (!hasBirthMonth(row)) {
             return maxAge != null && maxAge < ADULT_AGE
                     ? ParticipantEligibilityReason.OVER_MAX_AGE
                     : ParticipantEligibilityReason.ELIGIBLE;
@@ -720,6 +1224,11 @@ public class ActivityEnrollmentService {
         return ParticipantRelation.CHILD.name().equals(row.relation());
     }
 
+    /** 子女和团队队员有出生年月，按场次当天算周岁；“本人”没有，按成年人处理。 */
+    private static boolean hasBirthMonth(ParticipantRow row) {
+        return row.birthMonth() != null;
+    }
+
     private static OffsetDateTime sessionEnd(OffsetDateTime startsAt, OffsetDateTime endsAt) {
         return endsAt == null ? startsAt : endsAt;
     }
@@ -736,7 +1245,7 @@ public class ActivityEnrollmentService {
             SessionRow session,
             Set<UUID> enrolled
     ) {
-        boolean child = isChild(row);
+        boolean child = hasBirthMonth(row);
         ParticipantEligibilityView eligibility = null;
         if (session != null) {
             ParticipantEligibilityReason reason = eligibility(row, session, enrolled);
@@ -769,8 +1278,14 @@ public class ActivityEnrollmentService {
             EnrollmentRow row,
             List<TicketRow> ticketRows,
             Map<UUID, RefundProgress> refunds,
-            OffsetDateTime now
+            OffsetDateTime now,
+            Extras extras
     ) {
+        Map<UUID, ResultRow> results = extras == null ? Map.of() : extras.results();
+        // 改期作废的原凭证（S5-3）不在报名单上列出，退改详情里能看到。
+        ticketRows = ticketRows.stream()
+                .filter(ticket -> !TicketCancelCause.RESCHEDULED.name().equals(ticket.cancelCause()))
+                .toList();
         boolean ended = !sessionEnd(row.startsAt(), row.endsAt()).isAfter(now);
         EnrollmentStatus status;
         if (EnrollmentRecord.CANCELLED.equals(row.status()) || EnrollmentRecord.CLOSED.equals(row.status())) {
@@ -779,7 +1294,7 @@ public class ActivityEnrollmentService {
             status = ended ? EnrollmentStatus.FINISHED : EnrollmentStatus.UPCOMING;
         }
         List<TicketView> tickets = ticketRows.stream()
-                .map(ticket -> toTicket(ticket, ended, row.unitAmountMinor(), refunds))
+                .map(ticket -> toTicket(ticket, ended, row.unitAmountMinor(), refunds, results.get(ticket.ticketId())))
                 .toList();
         // 待付款的也能取消（关交易订单）；已付款的按凭证取消并退款。
         boolean cancellable = status == EnrollmentStatus.UPCOMING
@@ -810,7 +1325,77 @@ public class ActivityEnrollmentService {
                 row.startsAt(),
                 cancellable,
                 tickets,
-                toPayment(row));
+                toPayment(row),
+                extras == null || extras.row() == null
+                        ? EnrollmentKind.INDIVIDUAL
+                        : EnrollmentKind.valueOf(extras.row().kind()),
+                toTeam(extras),
+                toReschedule(extras),
+                extras == null
+                        ? List.of()
+                        : extras.changes().stream().map(change -> toChange(change, refunds)).toList(),
+                // 改期（S5-3）：已报名（不是待付款）、开始前、还有没用的凭证、没有人签到。
+                extras != null
+                        && !EnrollmentRecord.PENDING_PAYMENT.equals(row.status())
+                        && status == EnrollmentStatus.UPCOMING
+                        && now.isBefore(row.startsAt())
+                        && tickets.stream().anyMatch(ticket -> ticket.status() == TicketStatus.ACTIVE)
+                        && tickets.stream().noneMatch(ticket -> ticket.status() == TicketStatus.CHECKED_IN));
+    }
+
+    private static EnrollmentTeamView toTeam(Extras extras) {
+        if (extras == null || extras.row() == null || extras.row().teamName() == null) {
+            return null;
+        }
+        return new EnrollmentTeamView(
+                extras.row().teamName(), extras.row().leaderName(), maskPhone(extras.row().leaderPhone()));
+    }
+
+    private static EnrollmentRescheduleView toReschedule(Extras extras) {
+        if (extras == null || extras.row() == null || extras.row().previousSessionId() == null) {
+            return null;
+        }
+        EnrollmentExtrasRow row = extras.row();
+        return new EnrollmentRescheduleView(
+                new EnrollmentSessionRefView(
+                        row.previousSessionId(), blankToNull(row.previousSessionLabel()), row.previousStartsAt()),
+                row.rescheduledAt());
+    }
+
+    private static ChangeSummaryView toChange(ChangeRow change, Map<UUID, RefundProgress> refunds) {
+        RefundProgress progress = change.refundId() == null ? null : refunds.get(change.refundId());
+        TicketRefundStatus refundStatus = change.refundId() == null
+                ? null
+                : progress == null ? TicketRefundStatus.REQUESTED : TicketRefundStatus.valueOf(progress.status());
+        return new ChangeSummaryView(
+                change.changeId(),
+                ChangeKind.valueOf(change.kind()),
+                change.reason() == null ? null : ChangeReason.valueOf(change.reason()),
+                change.people(),
+                new EnrollmentSessionRefView(
+                        change.fromSessionId(), blankToNull(change.fromSessionLabel()), change.fromStartsAt()),
+                change.toSessionId() == null
+                        ? null
+                        : new EnrollmentSessionRefView(
+                                change.toSessionId(), blankToNull(change.toSessionLabel()), change.toStartsAt()),
+                change.refundAmountMinor(),
+                refundStatus,
+                progress == null || progress.succeededAt() == null
+                        ? null
+                        : OffsetDateTime.ofInstant(progress.succeededAt(), ActivityCatalogReadService.ACTIVITY_ZONE),
+                change.createdAt());
+    }
+
+    /** 138****2026 */
+    static String maskPhone(String phone) {
+        if (phone == null || phone.length() != 11) {
+            return null;
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(7);
+    }
+
+    private static String blankToNull(String text) {
+        return text == null || text.isBlank() ? null : text.trim();
     }
 
     private static EnrollmentPaymentView toPayment(EnrollmentRow row) {
@@ -835,7 +1420,8 @@ public class ActivityEnrollmentService {
             TicketRow ticket,
             boolean sessionEnded,
             Long unitAmountMinor,
-            Map<UUID, RefundProgress> refunds
+            Map<UUID, RefundProgress> refunds,
+            ResultRow result
     ) {
         boolean neverPaid = TicketStatus.PENDING_PAYMENT.name().equals(ticket.status())
                 || TicketCancelCause.PAYMENT_CLOSED.name().equals(ticket.cancelCause());
@@ -856,7 +1442,14 @@ public class ActivityEnrollmentService {
                 ticketStatus(ticket.status(), sessionEnded),
                 ticket.checkedInAt(),
                 ticket.cancelledAt(),
-                refund);
+                refund,
+                result == null
+                        ? null
+                        : new TicketResultView(
+                                ResultCompletion.valueOf(result.completion()),
+                                result.scoreText(),
+                                result.certificateNote(),
+                                result.recordedAt()));
     }
 
     /** 没签到、场次也结束了的凭证算过期；这个状态按时间算，不落库。 */
@@ -905,6 +1498,34 @@ public class ActivityEnrollmentService {
         return name;
     }
 
+    private static String requireText(String text, int maxLength, String what) {
+        String value = text == null ? "" : text.trim();
+        if (value.isEmpty()
+                || value.codePointCount(0, value.length()) > maxLength
+                || value.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException(what + " is invalid");
+        }
+        return value;
+    }
+
+    private void requireChanges() {
+        if (changes == null) {
+            throw new ActivityEnrollmentException(Error.ENROLLMENT_UNSUPPORTED);
+        }
+    }
+
+    private static ActivityEnrollmentStatus sessionStatus(SessionRow session, OffsetDateTime now) {
+        return ActivityEnrollmentStatus.ofSession(
+                now,
+                session.startsAt(),
+                session.endsAt(),
+                session.enrollmentClosesAt(),
+                session.capacity(),
+                session.enrolledCount(),
+                session.waitlistAllowed(),
+                session.saleStopped());
+    }
+
     private static String selfName(String accountName) {
         String name = accountName == null ? "" : accountName.trim();
         if (name.isEmpty() || name.chars().anyMatch(Character::isISOControl)) {
@@ -925,8 +1546,11 @@ public class ActivityEnrollmentService {
     }
 
     private static String hash(UUID activityId, UUID sessionId, List<UUID> participantIds) {
-        String text = activityId + "|" + sessionId + "|"
-                + participantIds.stream().map(UUID::toString).collect(Collectors.joining(","));
+        return hashText(activityId + "|" + sessionId + "|"
+                + participantIds.stream().map(UUID::toString).collect(Collectors.joining(",")));
+    }
+
+    private static String hashText(String text) {
         try {
             return HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
@@ -944,9 +1568,11 @@ public class ActivityEnrollmentService {
     }
 }
 
+/** MEMBER（S5-3）：领队在团队报名时现填的队员，不出现在“参与人”页。 */
 enum ParticipantRelation {
     SELF,
-    CHILD
+    CHILD,
+    MEMBER
 }
 
 enum ParticipantEligibilityReason {
@@ -983,15 +1609,67 @@ enum TicketStatus {
     CANCELLED
 }
 
-/** 凭证的取消原因（activity_enrollment_ticket.cancel_cause）。 */
+/** 凭证的取消原因（activity_enrollment_ticket.cancel_cause）。RESCHEDULED（S5-3）：改期后原凭证作废。 */
 enum TicketCancelCause {
     BUYER,
-    PAYMENT_CLOSED
+    PAYMENT_CLOSED,
+    RESCHEDULED
+}
+
+/** 报名单类型（S5-3）：个人报名 / 团队报名。 */
+enum EnrollmentKind {
+    INDIVIDUAL,
+    TEAM
+}
+
+/** 退改记录的类型（S5-3）：取消（收费的按人原路退款）/ 改期。 */
+enum ChangeKind {
+    CANCEL,
+    RESCHEDULE
+}
+
+/** 退改的申请原因（S5-3，页面可以不选）：时间冲突 / 身体不适 / 行程有变 / 其他原因。 */
+enum ChangeReason {
+    TIME_CONFLICT,
+    UNWELL,
+    PLAN_CHANGED,
+    OTHER;
+
+    static ChangeReason parse(String code) {
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+        try {
+            return valueOf(code.trim());
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("change reason is invalid");
+        }
+    }
+}
+
+/** 团队名单一行的核对结果（S5-3）：参与人的四种，加上名单里重复了。 */
+enum TeamMemberReason {
+    ELIGIBLE,
+    UNDER_MIN_AGE,
+    OVER_MAX_AGE,
+    ALREADY_ENROLLED,
+    DUPLICATED;
+
+    static TeamMemberReason of(ParticipantEligibilityReason reason) {
+        return valueOf(reason.name());
+    }
+}
+
+/** 结果记录的完成情况（S5-3）。 */
+enum ResultCompletion {
+    COMPLETED,
+    INCOMPLETE
 }
 
 /** 报名单落库的状态（activity_enrollment.status）。 */
 final class EnrollmentRecord {
     static final String PENDING_PAYMENT = "PENDING_PAYMENT";
+    static final String CONFIRMED = "CONFIRMED";
     static final String CANCELLED = "CANCELLED";
     static final String CLOSED = "CLOSED";
 
@@ -1066,6 +1744,10 @@ record EnrollmentPageView(
 ) {
 }
 
+/**
+ * S5-3 加了 kind、team（团队报名）、reschedule（最近一次改期前的场次）、changes（退改记录，最近的在前）、
+ * reschedulable（现在能不能改期）。
+ */
 record EnrollmentView(
         UUID enrollmentId,
         EnrollmentStatus status,
@@ -1076,7 +1758,125 @@ record EnrollmentView(
         OffsetDateTime cancellableUntil,
         boolean cancellable,
         List<TicketView> tickets,
-        EnrollmentPaymentView payment
+        EnrollmentPaymentView payment,
+        EnrollmentKind kind,
+        EnrollmentTeamView team,
+        EnrollmentRescheduleView reschedule,
+        List<ChangeSummaryView> changes,
+        boolean reschedulable
+) {
+
+    /** S5-3 之前的形状：个人报名，没有改期和退改记录。 */
+    EnrollmentView(
+            UUID enrollmentId,
+            EnrollmentStatus status,
+            EnrollmentActivityView activity,
+            EnrollmentSessionView session,
+            ActivityLocationView location,
+            OffsetDateTime createdAt,
+            OffsetDateTime cancellableUntil,
+            boolean cancellable,
+            List<TicketView> tickets,
+            EnrollmentPaymentView payment
+    ) {
+        this(enrollmentId, status, activity, session, location, createdAt, cancellableUntil, cancellable, tickets,
+                payment, EnrollmentKind.INDIVIDUAL, null, null, List.of(), false);
+    }
+}
+
+/** 团队报名的团队资料（S5-3）；领队手机打码。 */
+record EnrollmentTeamView(String teamName, String leaderName, String leaderPhoneMasked) {
+}
+
+record EnrollmentSessionRefView(UUID sessionId, String label, OffsetDateTime startsAt) {
+}
+
+/** 最近一次改期（S5-3）：改之前的场次和改期时间。 */
+record EnrollmentRescheduleView(EnrollmentSessionRefView previousSession, OffsetDateTime rescheduledAt) {
+}
+
+/**
+ * 一次取消或改期（S5-3）。取消收费报名的带这一笔退款的金额、进度和到账时间（来自交易模块）；改期带新场次。
+ */
+record ChangeSummaryView(
+        UUID changeId,
+        ChangeKind kind,
+        ChangeReason reason,
+        int people,
+        EnrollmentSessionRefView fromSession,
+        EnrollmentSessionRefView toSession,
+        Long refundAmountMinor,
+        TicketRefundStatus refundStatus,
+        OffsetDateTime refundSucceededAt,
+        OffsetDateTime createdAt
+) {
+}
+
+record ChangeDetailView(
+        ChangeSummaryView change,
+        UUID enrollmentId,
+        String activityTitle,
+        ActivityMediaView coverImage,
+        String organizerName,
+        List<ChangeTicketView> tickets
+) {
+}
+
+/** issued 为 true 是这一次发出来的新凭证（改期），否则是这一次取消掉的凭证；只有还有效的新凭证给凭证号。 */
+record ChangeTicketView(
+        UUID ticketId,
+        String participantName,
+        ParticipantRelation relation,
+        Integer age,
+        boolean issued,
+        String ticketCode,
+        TicketStatus status
+) {
+}
+
+/** 已有的参与人用 participantId；现填的给姓名和出生年月（YYYY-MM）。 */
+record TeamMemberInput(UUID participantId, String name, String birthMonth) {
+
+    String identityText() {
+        if (participantId != null) {
+            return "id:" + participantId;
+        }
+        return "new:" + (name == null ? "" : name.trim()) + "|" + (birthMonth == null ? "" : birthMonth.trim());
+    }
+}
+
+record TeamEnrollCommand(
+        UUID activityId,
+        UUID sessionId,
+        String teamName,
+        String leaderName,
+        String leaderPhone,
+        List<TeamMemberInput> members,
+        boolean noticeAgreed,
+        boolean guardianConsent,
+        Long expectedAmountMinor
+) {
+}
+
+record TeamCheckView(List<TeamMemberCheckView> members, int eligibleCount) {
+}
+
+record TeamMemberCheckView(
+        UUID participantId,
+        String name,
+        String birthMonth,
+        Integer ageAtSession,
+        boolean eligible,
+        TeamMemberReason reason
+) {
+}
+
+/** 主办方录的结果（S5-3）。 */
+record TicketResultView(
+        ResultCompletion completion,
+        String scoreText,
+        String certificateNote,
+        OffsetDateTime recordedAt
 ) {
 }
 
@@ -1122,8 +1922,26 @@ record TicketView(
         TicketStatus status,
         OffsetDateTime checkedInAt,
         OffsetDateTime cancelledAt,
-        TicketRefundView refund
+        TicketRefundView refund,
+        TicketResultView result
 ) {
+
+    /** S5-3 之前的形状：没有结果记录。 */
+    TicketView(
+            UUID ticketId,
+            UUID participantId,
+            String participantName,
+            ParticipantRelation relation,
+            Integer age,
+            String ticketCode,
+            TicketStatus status,
+            OffsetDateTime checkedInAt,
+            OffsetDateTime cancelledAt,
+            TicketRefundView refund
+    ) {
+        this(ticketId, participantId, participantName, relation, age, ticketCode, status, checkedInAt, cancelledAt,
+                refund, null);
+    }
 }
 
 /** 收费报名取消后这一位的退款（E09）：金额是报名时的单价。 */

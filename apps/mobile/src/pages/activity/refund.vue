@@ -3,7 +3,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
-import { buildActivityTicketUrl } from '@/features/activity/navigation/activity-routes'
+import { buildActivityChangeUrl, buildActivityTicketUrl } from '@/features/activity/navigation/activity-routes'
 import ActivityRefundPage from '@/features/activity/presentation/refund/ActivityRefundPage.vue'
 import ActivityUnavailable from '@/features/activity/presentation/shared/ActivityUnavailable.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
@@ -11,6 +11,7 @@ import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspec
 
 const enrollmentId = ref('')
 const ticketId = ref<string | null>(null)
+const initialMode = ref<'MOVE' | 'REFUND' | null>(null)
 const accessToken = ref<string | null>(null)
 const refreshKey = ref(0)
 const shown = ref(false)
@@ -29,9 +30,15 @@ function openLogin(): void {
   uni.redirectTo({ url: buildInspectionLoginUrl(buildActivityTicketUrl(enrollmentId.value)) })
 }
 
+// After a cancel or reschedule: its 退改详情 takes this page's place, so back returns where the customer came from.
+function openChange(id: string, changeId: string): void {
+  uni.redirectTo({ url: buildActivityChangeUrl(id, changeId) })
+}
+
 onLoad((query) => {
   enrollmentId.value = typeof query?.enrollmentId === 'string' ? query.enrollmentId : ''
   ticketId.value = typeof query?.ticketId === 'string' && query.ticketId ? query.ticketId : null
+  initialMode.value = query?.mode === 'move' ? 'MOVE' : null
 })
 
 onShow(() => {
@@ -46,11 +53,13 @@ onShow(() => {
     v-if="ACTIVITY_PREVIEW_ENABLED && shown"
     :enrollment-id="enrollmentId"
     :ticket-id="ticketId"
+    :initial-mode="initialMode"
     :access-token="accessToken"
     :refresh-key="refreshKey"
     @back="goBack"
     @login="openLogin"
     @done="goBack"
+    @changed="openChange"
   />
   <ActivityUnavailable v-else-if="!ACTIVITY_PREVIEW_ENABLED" />
 </template>

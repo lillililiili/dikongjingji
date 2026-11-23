@@ -7,6 +7,7 @@ import type {
   ParticipantEligibilityReason,
   TicketRefund,
   TicketRefundStatus,
+  Waitlist,
 } from '../domain/enrollment'
 import {
   formatActivityAmount,
@@ -272,11 +273,11 @@ export function enrollmentPriceText(enrollment: Enrollment): string {
 
 export interface EnrollmentCardView {
   statusText: string
-  statusTone: 'ACTION' | 'UPCOMING' | 'DONE' | 'MUTED'
+  statusTone: 'ACTION' | 'UPCOMING' | 'DONE' | 'MUTED' | 'MOVED'
   who: string
   when: string
   note: string
-  noteTone: 'PLAIN' | 'PENDING' | 'DONE' | 'ALERT'
+  noteTone: 'PLAIN' | 'PENDING' | 'DONE' | 'ALERT' | 'MOVED'
 }
 
 // "¥240 已原路退回", "退款中 ¥120", "退款异常": the refunds of a paid card, or nothing.
@@ -299,7 +300,9 @@ export function describeEnrollmentCard(enrollment: Enrollment): EnrollmentCardVi
   const when = [formatActivityShortDateTime(enrollment.session.startsAt), enrollment.session.label]
     .filter((part): part is string => Boolean(part))
     .join(' · ')
-  const who = `参与人：${names}`
+  // A team card (board EnrollList) names the leader and the head count instead of everybody.
+  const teamWho = (count: number) => `领队：${enrollment.team?.leaderName ?? ''} · ${count} 人`
+  const who = enrollment.team ? teamWho(enrollment.tickets.length) : `参与人：${names}`
   const refunds = describeCardRefunds(enrollment)
   if (enrollment.payment.status === 'CLOSED') {
     return { statusText: '已关闭', statusTone: 'MUTED', who, when, note: '未付款，名额已释放', noteTone: 'PLAIN' }
@@ -320,15 +323,41 @@ export function describeEnrollmentCard(enrollment: Enrollment): EnrollmentCardVi
     }
   }
   const active = enrollment.tickets.filter((ticket) => ticket.status !== 'CANCELLED')
-  const activeWho = `参与人：${active.map((ticket) => ticket.participantName).join('、')}`
+  const activeWho = enrollment.team
+    ? teamWho(active.length)
+    : `参与人：${active.map((ticket) => ticket.participantName).join('、')}`
   const checkedIn = active.filter((ticket) => ticket.status === 'CHECKED_IN').length
   if (enrollment.status === 'FINISHED') {
+    // S5-3: once the organiser recorded results the card says so (board EnrollList “2 人完赛 · 结果记录已发布”).
+    const completed = active.filter((ticket) => ticket.result?.completion === 'COMPLETED').length
+    const recorded = active.some((ticket) => ticket.result)
+    if (checkedIn > 0 && recorded) {
+      return {
+        statusText: '已完成',
+        statusTone: 'DONE',
+        who: activeWho,
+        when,
+        note: completed > 0 ? `${completed} 人完成 · 结果记录已发布` : '结果记录已发布',
+        noteTone: 'DONE',
+      }
+    }
     return checkedIn > 0
       ? { statusText: '已完成', statusTone: 'DONE', who: activeWho, when, note: `${checkedIn} 人已签到`, noteTone: 'PLAIN' }
       : { statusText: '未到场', statusTone: 'MUTED', who: activeWho, when, note: '没有签到记录', noteTone: 'PLAIN' }
   }
   // Someone taken off a paid sign-up: the refund matters more than the deadline.
   if (refunds) return { statusText: '待参加', statusTone: 'UPCOMING', who: activeWho, when, ...refunds }
+  // S5-3: moved to another session (board EnrollList “已改到 09/27 09:30，新凭证已发放”).
+  if (enrollment.reschedule) {
+    return {
+      statusText: '已改期',
+      statusTone: 'MOVED',
+      who: activeWho,
+      when,
+      note: `已改到 ${formatActivityShortDateTime(enrollment.session.startsAt)}，新凭证已发放`,
+      noteTone: 'MOVED',
+    }
+  }
   return {
     statusText: '待参加',
     statusTone: 'UPCOMING',
@@ -377,4 +406,55 @@ export function createEnrollmentKeyHolder(createKey: () => string) {
       return key
     },
   }
+}
+
+// ---- S5-3 waitlist card on 我的报名 (board EnrollList “候补中 · 排第 3 位”) ----
+
+export interface WaitlistCardView {
+  statusText: string
+  statusTone: EnrollmentCardView['statusTone']
+  who: string
+  when: string
+  note: string
+  noteTone: EnrollmentCardView['noteTone']
+  price: string
+}
+
+export function describeWaitlistCard(waitlist: Waitlist): WaitlistCardView {
+  const when = [formatActivityShortDateTime(waitlist.session.startsAt), waitlist.session.label]
+    .filter((part): part is string => Boolean(part))
+    .join(' · ')
+  const who = `参与人：${waitlist.members.map((member) => member.name).join('、')}`
+  const price = waitlist.amountMinor ? formatActivityAmount(waitlist.amountMinor) : '免费'
+  const paid = waitlist.unitAmountMinor !== null
+  if (waitlist.status === 'OFFERED') {
+    const until = waitlist.holdUntil ? formatActivityTime(waitlist.holdUntil) : ''
+    return {
+      statusText: '候补成功',
+      statusTone: 'ACTION',
+      who,
+      when,
+      note: `名额保留到 ${until}，请尽快${paid ? '付款' : '确认报名'}`,
+      noteTone: 'PENDING',
+      price,
+    }
+  }
+  if (waitlist.status === 'WAITING') {
+    return {
+      statusText: '候补中',
+      statusTone: 'ACTION',
+      who,
+      when,
+      note: `排第 ${waitlist.position ?? 1} 位 · 候补成功后再${paid ? '付款' : '确认'}`,
+      noteTone: 'PENDING',
+      price,
+    }
+  }
+  const ended: Record<Exclude<Waitlist['status'], 'OFFERED' | 'WAITING'>, string> = {
+    ENROLLED: '候补成功，已报名',
+    EXPIRED: '候补已失效',
+    ENDED: '候补未成功',
+    ABANDONED: '已放弃候补',
+  }
+  return { statusText: ended[waitlist.status], statusTone: 'MUTED', who, when, note: '', noteTone: 'PLAIN', price }
 }

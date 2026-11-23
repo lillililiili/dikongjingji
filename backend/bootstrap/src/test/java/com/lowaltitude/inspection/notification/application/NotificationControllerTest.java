@@ -193,8 +193,9 @@ class NotificationControllerTest {
                 .isEqualTo(java.util.Arrays.stream(NotificationCategory.values()).map(Enum::name).toList());
         org.assertj.core.api.Assertions.assertThat(schemas.get("NotificationTargetType").get("enum"))
                 .isEqualTo(java.util.Arrays.stream(NotificationTargetType.values()).map(Enum::name).toList());
+        // 1.6.0：活动候补、改期、结果的站内信（S5-3）。
         org.assertj.core.api.Assertions.assertThat(((java.util.Map<String, Object>) root.get("info")).get("version"))
-                .isEqualTo("1.5.0");
+                .isEqualTo("1.6.0");
     }
 
     @Test

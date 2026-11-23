@@ -227,8 +227,9 @@ function splitTitle(title: string): { main: string; tail: string } {
   return at > 0 && title.endsWith('）') ? { main: title.slice(0, at), tail: title.slice(at) } : { main: title, tail: '' }
 }
 
-const ENROLL_STATUS_TONES = { UPCOMING: 'PURPLE', ACTION: 'ORANGE', DONE: 'GREEN', MUTED: 'SLATE' } as const
-const NOTE_TONES = { PLAIN: 'PLAIN', PENDING: 'ORANGE', DONE: 'GREEN', ALERT: 'RED' } as const
+const ENROLL_STATUS_TONES = { UPCOMING: 'PURPLE', ACTION: 'ORANGE', DONE: 'GREEN', MUTED: 'SLATE', MOVED: 'BLUE' } as const
+// MOVED (S5-3, a rescheduled sign-up) has no blue line tone; it reads as a plain line.
+const NOTE_TONES = { PLAIN: 'PLAIN', PENDING: 'ORANGE', DONE: 'GREEN', ALERT: 'RED', MOVED: 'PLAIN' } as const
 
 function enrollCard(enrollment: Enrollment, now: number): MyOrderCardView {
   const view = describeEnrollmentCard(enrollment)

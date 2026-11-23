@@ -10,6 +10,7 @@ import {
   ENROLLMENT_TABS,
   describeCancelConfirm,
   describeEnrollmentCard,
+  describeWaitlistCard,
   enrollmentPriceText,
   paymentRemainingMs,
 } from '../../application/enrollment-view'
@@ -19,6 +20,7 @@ import {
   ENROLLMENT_PAGE_SIZE,
   type Enrollment,
   type EnrollmentStatus,
+  type Waitlist,
 } from '../../domain/enrollment'
 import { ACTIVITY_TYPE_LABELS } from '../shared/activity-format'
 
@@ -42,6 +44,11 @@ const emit = defineEmits<{
   // A paid sign-up opens on its order (board EnrollList → OrderEnroll); 申请退款 has its own page.
   openOrder: [enrollmentId: string]
   refund: [enrollmentId: string]
+  // S5-3: a waitlist, a team sign-up's order, the result record and the progress of a refund or reschedule.
+  openWaitlist: [waitlistId: string]
+  openTeamOrder: [enrollmentId: string]
+  openResult: [enrollmentId: string]
+  openChange: [enrollmentId: string, changeId: string]
 }>()
 
 type ListState =
@@ -52,6 +59,8 @@ type ListState =
 const tab = ref<EnrollmentStatus>(props.initialStatus)
 const state = ref<ListState>({ kind: 'loading' })
 const items = ref<Enrollment[]>([])
+// S5-3: waitlists still queuing or holding seats sit on top of 待参加 (board EnrollList).
+const waitlists = ref<Waitlist[]>([])
 const page = ref(1)
 const hasMore = ref(false)
 const loadingMore = ref(false)
@@ -64,8 +73,19 @@ function splitTitle(title: string): { main: string; tail: string } {
   return at > 0 && title.endsWith('）') ? { main: title.slice(0, at), tail: title.slice(at) } : { main: title, tail: '' }
 }
 
+const waitlistCards = computed(() => (tab.value === 'UPCOMING' ? waitlists.value : []).map((waitlist) => ({
+  waitlist,
+  view: describeWaitlistCard(waitlist),
+  title: splitTitle(waitlist.activity.title),
+  cover: waitlist.activity.coverImage?.url ?? resolveActivityPreviewCover(waitlist.activity.activityId),
+  typeLabel: ACTIVITY_TYPE_LABELS[waitlist.activity.type],
+})))
+
 const cards = computed(() => items.value.map((enrollment) => {
   const view = describeEnrollmentCard(enrollment)
+  // The newest change with something to follow: a refund on its way, or a reschedule.
+  const progress = enrollment.changes.find((change) => change.refundStatus !== null || change.kind === 'RESCHEDULE')
+    ?? null
   return {
     enrollment,
     view,
@@ -79,6 +99,12 @@ const cards = computed(() => items.value.map((enrollment) => {
     typeLabel: ACTIVITY_TYPE_LABELS[enrollment.activity.type],
     price: enrollmentPriceText(enrollment),
     unpaid: enrollment.payment.status === 'PENDING_PAYMENT',
+    team: ACTIVITY_PREVIEW_ENABLED && enrollment.kind === 'TEAM',
+    // 申请退改 (board EnrollList): a paid refund, or a reschedule of a free sign-up.
+    changeable: ACTIVITY_PREVIEW_ENABLED && (canRequestRefund(enrollment) || enrollment.reschedulable),
+    finished: ACTIVITY_PREVIEW_ENABLED && enrollment.status === 'FINISHED',
+    hasResult: enrollment.tickets.some((ticket) => ticket.result !== null),
+    progress: ACTIVITY_PREVIEW_ENABLED && enrollment.status === 'CANCELLED' ? progress : null,
   }
 }))
 const emptyText = computed(() => ({
@@ -101,9 +127,13 @@ async function load(): Promise<void> {
   const requested = ++requestVersion
   state.value = { kind: 'loading' }
   try {
-    const loaded = await enrollmentApi.loadEnrollments(token, tab.value, 1, ENROLLMENT_PAGE_SIZE)
+    const [loaded, queued] = await Promise.all([
+      enrollmentApi.loadEnrollments(token, tab.value, 1, ENROLLMENT_PAGE_SIZE),
+      loadWaitlists(token),
+    ])
     if (requested !== requestVersion) return
     items.value = loaded.items
+    waitlists.value = queued
     page.value = 1
     hasMore.value = loaded.hasMore
     state.value = { kind: 'ready' }
@@ -142,6 +172,16 @@ async function loadMore(): Promise<void> {
   }
 }
 
+// Only the 待参加 tab shows waitlists; a server without them (before 1.4.0) or a failure leaves them out.
+async function loadWaitlists(token: string): Promise<Waitlist[]> {
+  if (!ACTIVITY_PREVIEW_ENABLED || tab.value !== 'UPCOMING') return []
+  try {
+    return (await enrollmentApi.loadWaitlists(token, true, 1, 20)).items
+  } catch {
+    return []
+  }
+}
+
 function selectTab(status: EnrollmentStatus): void {
   if (status === tab.value) return
   tab.value = status
@@ -160,6 +200,14 @@ function pay(enrollment: Enrollment): void {
 }
 
 function openCard(enrollment: Enrollment, paid: boolean): void {
+  if (ACTIVITY_PREVIEW_ENABLED && enrollment.kind === 'TEAM') {
+    emit('openTeamOrder', enrollment.enrollmentId)
+    return
+  }
+  if (ACTIVITY_PREVIEW_ENABLED && enrollment.status === 'FINISHED') {
+    emit('openResult', enrollment.enrollmentId)
+    return
+  }
   if (paid) {
     emit('openOrder', enrollment.enrollmentId)
     return
@@ -247,7 +295,7 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
       <button class="enrollments__state-button" data-testid="enrollments-retry" @click="load">重试</button>
     </view>
 
-    <view v-else-if="cards.length === 0" class="enrollments__state" data-testid="enrollments-empty">
+    <view v-else-if="cards.length === 0 && waitlistCards.length === 0" class="enrollments__state" data-testid="enrollments-empty">
       <text class="enrollments__state-title">{{ emptyText }}</text>
       <button
         v-if="tab === 'UPCOMING'"
@@ -260,6 +308,64 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
     </view>
 
     <view v-else class="enrollments__list">
+      <view
+        v-for="card in waitlistCards"
+        :key="card.waitlist.waitlistId"
+        class="enrollments__card"
+        :data-testid="`waitlist-${card.waitlist.waitlistId}`"
+        :data-status="card.waitlist.status"
+      >
+        <button
+          class="enrollments__main"
+          :data-testid="`waitlist-open-${card.waitlist.waitlistId}`"
+          @click="emit('openWaitlist', card.waitlist.waitlistId)"
+        >
+          <view class="enrollments__line">
+            <text class="enrollments__type">{{ card.typeLabel }}</text>
+            <text class="enrollments__org">{{ card.waitlist.session.venueName || card.waitlist.activity.organizerName }}</text>
+            <text :class="['enrollments__status', `enrollments__status--${card.view.statusTone.toLowerCase()}`]">
+              {{ card.view.statusText }}
+            </text>
+          </view>
+          <view class="enrollments__content">
+            <image
+              v-if="card.cover"
+              class="enrollments__cover"
+              :src="card.cover"
+              mode="aspectFill"
+              :alt="card.waitlist.activity.title"
+            />
+            <view v-else class="enrollments__cover enrollments__cover--blank">
+              <text>{{ card.typeLabel }}</text>
+            </view>
+            <view class="enrollments__text">
+              <view class="enrollments__title-line">
+                <text class="enrollments__activity">{{ card.title.main }}<text v-if="card.title.tail" class="enrollments__activity-tail">{{ card.title.tail }}</text></text>
+                <text class="enrollments__price">{{ card.view.price }}</text>
+              </view>
+              <text class="enrollments__who">{{ card.view.who }}</text>
+              <text class="enrollments__when">{{ card.view.when }}</text>
+              <text
+                v-if="card.view.note"
+                :class="['enrollments__note', `enrollments__note--${card.view.noteTone.toLowerCase()}`]"
+                data-testid="waitlist-note"
+              >
+                {{ card.view.note }}
+              </text>
+            </view>
+          </view>
+        </button>
+        <view class="enrollments__actions">
+          <button
+            class="enrollments__action enrollments__action--outline"
+            :data-testid="`waitlist-view-${card.waitlist.waitlistId}`"
+            @click="emit('openWaitlist', card.waitlist.waitlistId)"
+          >
+            查看候补
+          </button>
+        </view>
+      </view>
+
       <view
         v-for="card in cards"
         :key="card.enrollment.enrollmentId"
@@ -274,8 +380,8 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
           @click="openCard(card.enrollment, card.paid)"
         >
           <view class="enrollments__line">
-            <text class="enrollments__type">{{ card.typeLabel }}</text>
-            <text class="enrollments__org">{{ card.enrollment.location.name }}</text>
+            <text :class="['enrollments__type', { 'enrollments__type--team': card.team }]">{{ card.team ? '团队' : card.typeLabel }}</text>
+            <text class="enrollments__org">{{ card.team ? card.enrollment.team?.teamName : card.enrollment.location.name }}</text>
             <text :class="['enrollments__status', `enrollments__status--${card.view.statusTone.toLowerCase()}`]">
               {{ card.view.statusText }}
             </text>
@@ -309,22 +415,56 @@ watch(() => props.reachBottomKey, () => { void loadMore() })
           </view>
         </button>
         <view class="enrollments__actions">
-          <button
-            v-if="card.enrollment.status === 'CANCELLED'"
-            class="enrollments__action"
-            :data-testid="`enrollment-again-${card.enrollment.enrollmentId}`"
-            @click="emit('openActivity', card.enrollment.activity.activityId, card.enrollment.activity.cityCode)"
-          >
-            再次报名
-          </button>
+          <template v-if="card.enrollment.status === 'CANCELLED'">
+            <button
+              v-if="card.progress"
+              class="enrollments__action"
+              :data-testid="`enrollment-progress-${card.enrollment.enrollmentId}`"
+              @click="emit('openChange', card.enrollment.enrollmentId, card.progress.changeId)"
+            >
+              查看进度
+            </button>
+            <button
+              class="enrollments__action"
+              :data-testid="`enrollment-again-${card.enrollment.enrollmentId}`"
+              @click="emit('openActivity', card.enrollment.activity.activityId, card.enrollment.activity.cityCode)"
+            >
+              再次报名
+            </button>
+          </template>
+          <template v-else-if="card.finished">
+            <button
+              class="enrollments__action"
+              :data-testid="`enrollment-again-${card.enrollment.enrollmentId}`"
+              @click="emit('openActivity', card.enrollment.activity.activityId, card.enrollment.activity.cityCode)"
+            >
+              再次报名
+            </button>
+            <button
+              :class="['enrollments__action', { 'enrollments__action--primary': card.hasResult }]"
+              :data-testid="`enrollment-result-${card.enrollment.enrollmentId}`"
+              @click="emit('openResult', card.enrollment.enrollmentId)"
+            >
+              {{ card.hasResult ? '查看结果' : '查看记录' }}
+            </button>
+          </template>
+          <template v-else-if="card.team && !card.unpaid">
+            <button
+              class="enrollments__action enrollments__action--outline"
+              :data-testid="`enrollment-team-${card.enrollment.enrollmentId}`"
+              @click="emit('openTeamOrder', card.enrollment.enrollmentId)"
+            >
+              团队名单
+            </button>
+          </template>
           <template v-else>
             <button
-              v-if="card.refundable"
+              v-if="card.changeable"
               class="enrollments__action"
               :data-testid="`enrollment-refund-${card.enrollment.enrollmentId}`"
               @click="emit('refund', card.enrollment.enrollmentId)"
             >
-              申请退款
+              申请退改
             </button>
             <button
               v-else-if="card.enrollment.cancellable"
@@ -512,6 +652,11 @@ button::after {
   line-height: 20px;
 }
 
+.enrollments__type--team {
+  color: #1d63c4;
+  background: #e6f0ff;
+}
+
 .enrollments__org {
   min-width: 0;
   overflow: hidden;
@@ -544,6 +689,10 @@ button::after {
 
 .enrollments__status--muted {
   color: #536178;
+}
+
+.enrollments__status--moved {
+  color: #1d63c4;
 }
 
 .enrollments__content {
@@ -634,6 +783,10 @@ button::after {
   color: #d64f67;
 }
 
+.enrollments__note--moved {
+  color: #1d63c4;
+}
+
 .enrollments__actions {
   display: flex;
   justify-content: flex-end;
@@ -658,6 +811,12 @@ button::after {
   color: #ffffff;
   background: #ff6a00;
   box-shadow: var(--app-primary-shadow);
+  font-weight: 500;
+}
+
+.enrollments__action--outline {
+  border: 1.5px solid #ff6a00;
+  color: #ba470b;
   font-weight: 500;
 }
 

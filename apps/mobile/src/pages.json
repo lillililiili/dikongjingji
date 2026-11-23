@@ -245,7 +245,49 @@
     {
       "path": "pages/activity/refund",
       "style": {
-        "navigationBarTitleText": "申请退款",
+        "navigationBarTitleText": "申请退改",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/waitlist",
+      "style": {
+        "navigationBarTitleText": "候补详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/team-signup",
+      "style": {
+        "navigationBarTitleText": "团队报名",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/team-order",
+      "style": {
+        "navigationBarTitleText": "团队报名订单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/result",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/change",
+      "style": {
+        "navigationBarTitleText": "退改详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/activity/calendar",
+      "style": {
+        "navigationBarTitleText": "选择日期",
         "navigationStyle": "custom"
       }
     },

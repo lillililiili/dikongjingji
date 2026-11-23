@@ -298,14 +298,16 @@ test.describe('活动详情', () => {
     await expect(page.getByTestId('activity-detail-team')).toHaveCount(0)
   })
 
-  test('ACT-103 团队报名、咨询入口给出提示，不跳走', async ({ page }) => {
+  // S5-3：开发和预览构建里“团队报名”进团队报名页（详细用例在 activity-waitlist-team.spec.ts）。
+  test('ACT-103 团队报名入口进团队报名页，带着活动和城市', async ({ page }) => {
     await page.goto(`/#/pages/activity/detail?activityId=${CONTEST_ID}&cityCode=370500`)
     await expect(page.getByTestId('activity-detail-title')).toBeVisible()
-    const url = page.url()
 
     await page.getByTestId('activity-detail-team').click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('团队报名即将开放')
-    expect(page.url()).toBe(url)
+    // 没登录时团队报名页先去登录，登录后回到同一个地址；两种情况地址里都带着团队报名页和活动。
+    await expect.poll(() => decodeURIComponent(page.url()))
+      .toContain(`/pages/activity/team-signup?activityId=${CONTEST_ID}`)
+    expect(decodeURIComponent(page.url())).toContain('cityCode=370500')
   })
 
   test('ACT-104 已下线、别的城市、缺参数的链接都落到“活动不存在”，并能回频道', async ({

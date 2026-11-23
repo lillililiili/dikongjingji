@@ -17,6 +17,9 @@ describe('where a notification opens', () => {
     expect(messageTargetUrl({ type: 'ACTIVITY_ORDER', id: 'e1', subId: null }))
       .toBe('/pages/activity/order?enrollmentId=e1')
     expect(messageTargetUrl({ type: 'VENUE_BOOKING', id: 'b1', subId: null })).toBe('/pages/venue/booking?bookingId=b1')
+    // S5-3: 候补转正 opens the waitlist.
+    expect(messageTargetUrl({ type: 'ACTIVITY_WAITLIST', id: 'w1', subId: null }))
+      .toBe('/pages/activity/waitlist?waitlistId=w1')
   })
 
   it('keeps the inspection, demand and conversation targets', () => {
@@ -45,7 +48,7 @@ describe('where a notification opens', () => {
 
   it('only leads to registered pages', () => {
     for (const type of ['TRADE_ORDER', 'ACTIVITY_ENROLLMENT', 'ACTIVITY_ORDER', 'VENUE_BOOKING', 'INSPECTION_PLAN',
-      'INSPECTION_FULFILLMENT', 'DEMAND', 'CONVERSATION', 'LIVE_ROOM'] as const) {
+      'INSPECTION_FULFILLMENT', 'DEMAND', 'CONVERSATION', 'LIVE_ROOM', 'ACTIVITY_WAITLIST'] as const) {
       expect(routes.has(pathOf(messageTargetUrl({ type, id: 'x', subId: null })))).toBe(true)
     }
   })

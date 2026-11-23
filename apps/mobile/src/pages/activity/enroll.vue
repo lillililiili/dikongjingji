@@ -7,6 +7,7 @@ import {
   buildActivityDetailUrl,
   buildActivityEnrollUrl,
   buildActivityTicketUrl,
+  buildActivityWaitlistUrl,
 } from '@/features/activity/navigation/activity-routes'
 import ActivityEnrollPage from '@/features/activity/presentation/enroll/ActivityEnrollPage.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
@@ -16,6 +17,8 @@ import { buildCashierUrl } from '@/features/trade/navigation/trade-routes'
 const activityId = ref('')
 const sessionId = ref('')
 const cityCode = ref('')
+// 'waitlist' (S5-3): join the waitlist of a full session instead of signing up.
+const mode = ref<'enroll' | 'waitlist'>('enroll')
 const accessToken = ref<string | null>(null)
 const refreshKey = ref(0)
 // The form is created on the first show, when the query and the login state are both known.
@@ -33,7 +36,12 @@ function goBack(): void {
 function openLogin(): void {
   uni.redirectTo({
     url: buildInspectionLoginUrl(
-      buildActivityEnrollUrl(activityId.value, sessionId.value, cityCode.value),
+      buildActivityEnrollUrl(
+        activityId.value,
+        sessionId.value,
+        cityCode.value,
+        mode.value === 'waitlist' ? 'waitlist' : undefined,
+      ),
     ),
   })
 }
@@ -53,7 +61,13 @@ function openCashier(tradeOrderId: string): void {
   uni.redirectTo({ url: buildCashierUrl(tradeOrderId) })
 }
 
+// The waitlist page takes the form's place; back from it lands on the activity.
+function openWaitlist(waitlistId: string): void {
+  uni.redirectTo({ url: buildActivityWaitlistUrl(waitlistId) })
+}
+
 onLoad((query) => {
+  mode.value = query?.mode === 'waitlist' ? 'waitlist' : 'enroll'
   activityId.value = typeof query?.activityId === 'string' ? query.activityId : ''
   sessionId.value = typeof query?.sessionId === 'string' ? query.sessionId : ''
   cityCode.value = typeof query?.cityCode === 'string' ? query.cityCode : ''
@@ -74,10 +88,12 @@ onShow(() => {
     :city-code="cityCode"
     :access-token="accessToken"
     :refresh-key="refreshKey"
+    :mode="mode"
     @back="goBack"
     @login="openLogin"
     @manage-people="openPeople"
     @done="openTicket"
     @pay="openCashier"
+    @waitlisted="openWaitlist"
   />
 </template>

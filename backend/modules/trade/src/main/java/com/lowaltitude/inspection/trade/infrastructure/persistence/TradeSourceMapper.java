@@ -82,7 +82,7 @@ public interface TradeSourceMapper {
     /** 退款进度：业务模块按自己记下的退款单 ID 读。 */
     @Select("""
             <script>
-            SELECT id, order_id, amount_minor, status
+            SELECT id, order_id, amount_minor, status, succeeded_at
             FROM trade_refund
             WHERE id IN
             <foreach collection="refundIds" item="id" open="(" separator="," close=")">#{id}</foreach>
@@ -102,6 +102,7 @@ public interface TradeSourceMapper {
     ) {
     }
 
-    record SourceRefundRow(UUID id, UUID orderId, long amountMinor, String status) {
+    /** succeededAt：到账时间（S5-3 活动退改详情用），没到账时为空。 */
+    record SourceRefundRow(UUID id, UUID orderId, long amountMinor, String status, Instant succeededAt) {
     }
 }

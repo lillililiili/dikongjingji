@@ -37,7 +37,9 @@ public interface ActivityEnrollmentMapper {
               AND p.status = 'ACTIVE'
             """;
 
+    /** “参与人”页的名单：本人和子女。团队队员（MEMBER，S5-3）只在团队报名时用，不列在这里。 */
     @Select(PARTICIPANT_COLUMNS + """
+              AND p.relation IN ('SELF', 'CHILD')
             ORDER BY (p.relation = 'SELF') DESC, p.created_at ASC, p.id ASC
             """)
     List<ParticipantRow> findParticipants(@Param("ownerId") UUID ownerId);

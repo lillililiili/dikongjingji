@@ -1,6 +1,7 @@
 import type { AdminModule } from '@/core/navigation/module'
 import { aftersaleWorkbenchModule } from '@/features/aftersale-workbench/aftersale-module'
 import { activityModule } from '@/features/activity/activity-module'
+import { activityResultsModule } from '@/features/activity-results/activity-results-module'
 import { catalogModule } from '@/features/catalog/catalog-module'
 import { cityModule } from '@/features/city/city-module'
 import { contentModule } from '@/features/content/content-module'
@@ -51,6 +52,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   demandQuotesModule,
   serviceOrderWorkbenchModule,
   inspectionWorkbenchModule,
+  activityResultsModule,
   supportDeskModule,
   liveHostModule,
   providerProfileModule,

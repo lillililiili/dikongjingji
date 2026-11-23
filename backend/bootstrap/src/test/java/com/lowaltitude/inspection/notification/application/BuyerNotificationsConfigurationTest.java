@@ -119,6 +119,35 @@ class BuyerNotificationsConfigurationTest {
                         "activity-enrolled:" + ENROLLMENT, AT));
     }
 
+    // S5-3：候补转正去候补详情；改期、结果去报名凭证。都不写参与人姓名。
+    @Test
+    void waitlistOffersReschedulesAndResultsSayOnlyTheActivityTimesAndPeople() {
+        UUID waitlist = UUID.fromString("a8000000-0000-4000-8000-000000000001");
+        UUID change = UUID.fromString("a9000000-0000-4000-8000-000000000001");
+        assertThat(BuyerNotificationsConfiguration.waitlistOfferedNotice(new ActivityEnrollmentNotifier.WaitlistOffered(
+                BUYER, waitlist, "青少年无人机编程挑战赛", STARTS_AT, 2, true,
+                OffsetDateTime.parse("2026-11-20T02:39:00Z"), AT))).isEqualTo(
+                new NewNotification(BUYER, NotificationCategory.ACTIVITY_REMINDER, "ACTIVITY_WAITLIST_OFFERED", "候补转正",
+                        "青少年无人机编程挑战赛 11/15 08:30 有名额释放，名额保留到 10:39，请尽快付款",
+                        NotificationTargetType.ACTIVITY_WAITLIST, waitlist, null,
+                        "activity-waitlist-offered:" + waitlist, AT));
+        assertThat(BuyerNotificationsConfiguration.waitlistOfferedNotice(new ActivityEnrollmentNotifier.WaitlistOffered(
+                BUYER, waitlist, "无人机开放体验日", STARTS_AT, 1, false,
+                OffsetDateTime.parse("2026-11-20T02:39:00Z"), AT)).body()).endsWith("请尽快确认报名");
+        assertThat(BuyerNotificationsConfiguration.activityRescheduledNotice(new ActivityEnrollmentNotifier.Rescheduled(
+                BUYER, ENROLLMENT, change, "青少年无人机编程挑战赛", STARTS_AT, 2, AT))).isEqualTo(
+                new NewNotification(BUYER, NotificationCategory.ACTIVITY_REMINDER, "ACTIVITY_RESCHEDULED", "报名已改期",
+                        "青少年无人机编程挑战赛 2 人改到 11/15 08:30，请用新的凭证",
+                        NotificationTargetType.ACTIVITY_ENROLLMENT, ENROLLMENT, null,
+                        "activity-rescheduled:" + change, AT));
+        assertThat(BuyerNotificationsConfiguration.resultRecordedNotice(new ActivityEnrollmentNotifier.ResultRecorded(
+                BUYER, ENROLLMENT, "无人机开放体验日", AT))).isEqualTo(
+                new NewNotification(BUYER, NotificationCategory.ACTIVITY_REMINDER, "ACTIVITY_RESULT_RECORDED", "结果已发布",
+                        "主办方发布了无人机开放体验日的结果记录",
+                        NotificationTargetType.ACTIVITY_ENROLLMENT, ENROLLMENT, null,
+                        "activity-result:" + ENROLLMENT, AT));
+    }
+
     @Test
     void venueBookingsAndReschedulesOpenTheBooking() {
         VenueBookingNotifier.Booking booking = new VenueBookingNotifier.Booking(BUYER, BOOKING, "东营低空与机器人体验馆",

@@ -1,4 +1,8 @@
-import { buildActivityOrderUrl, buildActivityTicketUrl } from '../../features/activity/navigation/activity-routes'
+import {
+  buildActivityOrderUrl,
+  buildActivityTicketUrl,
+  buildActivityWaitlistUrl,
+} from '../../features/activity/navigation/activity-routes'
 import { buildDemandQuotesUrl } from '../../features/demand/navigation/demand-routes'
 import { buildVenueBookingUrl } from '../../features/experience/navigation/experience-routes'
 import {
@@ -36,5 +40,7 @@ export function messageTargetUrl(target: MessageTarget | null): string | null {
     case 'LIVE_ROOM': return buildLiveRoomUrl(id)
     // S5-9 系统通知: the announcement's detail reads it itself.
     case 'SYSTEM_NOTICE': return buildNoticeDetailUrl(id)
+    // S5-3 候补转正: the waitlist, with the offer's hold and payment.
+    case 'ACTIVITY_WAITLIST': return buildActivityWaitlistUrl(id)
   }
 }

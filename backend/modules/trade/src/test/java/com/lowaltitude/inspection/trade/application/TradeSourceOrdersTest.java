@@ -1375,7 +1375,7 @@ class TradeSourceOrdersTest {
                 }
                 return refunds.stream()
                         .filter(refund -> refundIds.contains(refund.id))
-                        .map(refund -> new SourceRefundRow(refund.id, refund.orderId, refund.amountMinor, refund.status))
+                        .map(refund -> new SourceRefundRow(refund.id, refund.orderId, refund.amountMinor, refund.status, null))
                         .toList();
             }
 

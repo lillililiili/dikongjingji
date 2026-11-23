@@ -62,6 +62,8 @@ import org.springframework.web.bind.annotation.RestController;
         InspectionServiceCatalogReadService.class,
         ActivityCatalogReadService.class,
         ActivityEnrollmentService.class,
+        com.lowaltitude.inspection.activity.application.ActivityWaitlistService.class,
+        com.lowaltitude.inspection.activity.application.ActivityResultService.class,
         VenueBookingService.class,
         com.lowaltitude.inspection.experience.application.ExperienceRecordService.class,
         com.lowaltitude.inspection.demand.application.DemandService.class,
