@@ -65,7 +65,7 @@ public final class VenueOpsViews {
                                      int sortOrder, VenueOpsStatus status, OffsetDateTime publishedAt,
                                      List<OpsVenueInfoItemView> infoItems, List<OpsVenueProjectView> projects,
                                      List<OpsVenueDeviceView> devices, List<String> publishMissing,
-                                     OffsetDateTime updatedAt, int version) {
+                                     OffsetDateTime updatedAt, int version, String projectSummary) {
     }
 
     public record OpsVenueSessionView(UUID sessionId, UUID projectId, OffsetDateTime startsAt,
@@ -89,7 +89,16 @@ public final class VenueOpsViews {
     public record VenueDraft(UUID operatorId, String name, String cityCode, String coverUrl, String address,
                              String phone, String opensAt, String closesAt, String closedNote,
                              Integer checkinOpensMinutes, Integer lateEntryMinutes, Integer sortOrder,
-                             List<InfoItemDraft> infoItems) {
+                             List<InfoItemDraft> infoItems, String projectSummary) {
+
+        /** 1.1.0 以前的请求没有项目摘要。 */
+        public VenueDraft(UUID operatorId, String name, String cityCode, String coverUrl, String address,
+                          String phone, String opensAt, String closesAt, String closedNote,
+                          Integer checkinOpensMinutes, Integer lateEntryMinutes, Integer sortOrder,
+                          List<InfoItemDraft> infoItems) {
+            this(operatorId, name, cityCode, coverUrl, address, phone, opensAt, closesAt, closedNote,
+                    checkinOpensMinutes, lateEntryMinutes, sortOrder, infoItems, null);
+        }
     }
 
     public record ProjectDraft(String name, Integer durationMinutes, Long priceAmountMinor, Integer minAge,

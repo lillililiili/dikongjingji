@@ -152,6 +152,6 @@ class OpsVenueControllerTest {
                 UUID.fromString("a1000000-0000-4000-8000-000000000004"), "东营低空与机器人体验馆", "370500", "东营市",
                 null, "东营区示例路 66 号", null, "09:30", "18:00", "周一闭馆", "09:30–18:00 · 周一闭馆", 30, 10, 0,
                 VenueOpsStatus.DRAFT, null, List.of(), List.of(), List.of(), List.of("coverUrl", "projects", "sessions"),
-                OffsetDateTime.parse("2026-11-23T02:00:00Z"), 0);
+                OffsetDateTime.parse("2026-11-23T02:00:00Z"), 0, "模拟飞行 · 机器人编程 · 厂家展区");
     }
 }

@@ -63,12 +63,14 @@ class ExperienceCatalogControllerTest {
         when(service.listVenues("370500", 1, 20)).thenReturn(new VenuePageView(
                 1, 20, 1, false,
                 List.of(new VenueCardView(
-                        VENUE_ID, "东营低空与机器人体验馆", null, "09:30–18:00 · 周一闭馆", "东营区示例路 66 号", 3))));
+                        VENUE_ID, "东营低空与机器人体验馆", null, "09:30–18:00 · 周一闭馆", "东营区示例路 66 号", 3,
+                        "模拟飞行 · 机器人编程 · 厂家展区"))));
 
         mockMvc.perform(get("/api/v1/venues").param("cityCode", " 370500 "))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].venueId").value(VENUE_ID.toString()))
-                .andExpect(jsonPath("$.items[0].openSessionsToday").value(3));
+                .andExpect(jsonPath("$.items[0].openSessionsToday").value(3))
+                .andExpect(jsonPath("$.items[0].projectSummary").value("模拟飞行 · 机器人编程 · 厂家展区"));
     }
 
     @Test
@@ -118,14 +120,21 @@ class ExperienceCatalogControllerTest {
                 1, 20, 1, false,
                 List.of(new VenueDeviceView(
                         UUID.randomUUID(), VenueDeviceCategory.ROBOT, "巡检机器狗", null, null,
-                        VenueDeviceTrialMode.DISPLAY_ONLY))));
+                        VenueDeviceTrialMode.DISPLAY_ONLY,
+                        new VenueDeviceProductView(UUID.fromString("c2000000-0000-4000-8000-000000000201"),
+                                VenueDeviceOfferPort.SaleMode.RENT, 38_000L, VenueDeviceOfferPort.PriceUnit.DAY,
+                                false, 1)))));
 
         mockMvc.perform(get("/api/v1/venues/{venueId}/devices", VENUE_ID)
                         .param("cityCode", "370500")
                         .param("category", "ROBOT"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].trialMode").value("DISPLAY_ONLY"))
-                .andExpect(jsonPath("$.items[0].image").value(nullValue()));
+                .andExpect(jsonPath("$.items[0].image").value(nullValue()))
+                .andExpect(jsonPath("$.items[0].product.saleMode").value("RENT"))
+                .andExpect(jsonPath("$.items[0].product.fromAmountMinor").value(38000))
+                .andExpect(jsonPath("$.items[0].product.priceUnit").value("DAY"))
+                .andExpect(jsonPath("$.items[0].product.sellerCount").value(1));
 
         verify(service).listDevices(VENUE_ID, "370500", "ROBOT", 1, 20);
     }

@@ -46,6 +46,7 @@ describe('experience api', () => {
       openingNote: '09:30–18:00 · 周一闭馆',
       address: '东营区示例路 66 号',
       openSessionsToday: 3,
+      projectSummary: ' 模拟飞行 · 机器人编程 · 厂家展区 ',
     }]))
 
     const venues = await api.loadVenues('370500', 1, 20)
@@ -53,6 +54,7 @@ describe('experience api', () => {
     expect(request.mock.calls[0][0].url).toBe('/api/v1/venues?cityCode=370500&page=1&size=20')
     expect(venues.items[0].coverImage).toEqual({ url: 'https://media.example.com/v.jpg', alt: '场馆' })
     expect(venues.items[0].openSessionsToday).toBe(3)
+    expect(venues.items[0].projectSummary).toBe('模拟飞行 · 机器人编程 · 厂家展区')
   })
 
   it('loads a venue by stable ids and flattens the operator', async () => {
@@ -130,6 +132,21 @@ describe('experience api', () => {
       summary: null,
       image: null,
       trialMode: 'DISPLAY_ONLY',
+      product: {
+        productId: 'c2000000-0000-4000-8000-000000000401',
+        saleMode: 'RENT',
+        fromAmountMinor: 38000,
+        priceUnit: 'DAY',
+        multiplePrices: true,
+        sellerCount: 1,
+      },
+    }, {
+      deviceId: 'd2',
+      category: 'PARTS',
+      name: '无人机配件套装',
+      summary: null,
+      image: null,
+      trialMode: 'DISPLAY_ONLY',
     }]))
 
     await api.loadDevices({ venueId: VENUE_ID, cityCode: '370500', category: null }, 1, 20)
@@ -139,5 +156,8 @@ describe('experience api', () => {
     expect(request.mock.calls[1][0].url)
       .toBe(`/api/v1/venues/${VENUE_ID}/devices?cityCode=370500&category=ROBOT&page=1&size=20`)
     expect(robots.items[0].trialMode).toBe('DISPLAY_ONLY')
+    // 1.5.0: the device's product as it sells in the city; a server before 1.5.0 sends none.
+    expect(robots.items[0].product).toMatchObject({ saleMode: 'RENT', fromAmountMinor: 38000, sellerCount: 1 })
+    expect(robots.items[1].product).toBeNull()
   })
 })

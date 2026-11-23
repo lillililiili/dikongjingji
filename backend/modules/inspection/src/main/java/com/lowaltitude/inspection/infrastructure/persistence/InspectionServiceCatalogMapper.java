@@ -28,6 +28,13 @@ public interface InspectionServiceCatalogMapper {
                    service.availability,
                    service.primary_action,
                    service.completed_count,
+                   (
+                       SELECT provider.organization_name
+                       FROM identity_organization provider
+                       WHERE provider.id = service.provider_id
+                         AND provider.organization_type = 'PROVIDER'
+                         AND provider.status = 'ACTIVE'
+                   ) provider_name,
             """;
 
     String FROM_SERVICE = """
@@ -465,6 +472,7 @@ public interface InspectionServiceCatalogMapper {
             String availability,
             String primaryAction,
             long completedCount,
+            String providerName,
             Double distanceMeters
     ) {
     }

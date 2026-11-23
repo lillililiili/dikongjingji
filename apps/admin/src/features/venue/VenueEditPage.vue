@@ -40,6 +40,7 @@ import {
   entryRuleText,
   openingHoursProblem,
   openingNotePreview,
+  projectSummaryPreview,
   VENUE_LIMITS,
   venueDraftOf,
   venueRules,
@@ -73,6 +74,7 @@ const deviceDialog = reactive({ open: false, device: null as OpsVenueDevice | nu
 
 const hoursProblem = computed(() => openingHoursProblem(form.opensAt, form.closesAt))
 const notePreview = computed(() => openingNotePreview(form.opensAt, form.closesAt, form.closedNote))
+const summaryPreview = computed(() => projectSummaryPreview(form.projectSummary, detail.value?.projects ?? []))
 const missingText = computed(() => (detail.value?.publishMissing ?? [])
   .map((key) => PUBLISH_FIELD_LABELS[key] ?? key).join('、'))
 
@@ -332,6 +334,15 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="服务电话" prop="phone">
           <el-input v-model="form.phone" :maxlength="VENUE_LIMITS.phone" style="width: 220px" />
+        </el-form-item>
+        <el-form-item label="项目摘要" prop="projectSummary">
+          <el-input v-model="form.projectSummary" :maxlength="VENUE_LIMITS.projectSummary" show-word-limit
+                    placeholder="如：模拟飞行 · 机器人编程 · 厂家展区（选填）" style="width: 420px"
+                    data-testid="venue-project-summary" />
+          <div class="hint block">
+            <template v-if="summaryPreview">App 首页场馆卡显示：{{ summaryPreview }}</template>
+            <template v-else>App 首页场馆卡第一行；不填时用启用的前三个项目名</template>
+          </div>
         </el-form-item>
         <el-form-item label="营业时间">
           <el-time-select v-model="form.opensAt" start="06:00" end="23:30" step="00:30" placeholder="开门"

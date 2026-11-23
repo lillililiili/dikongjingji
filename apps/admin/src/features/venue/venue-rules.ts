@@ -11,6 +11,8 @@ export const VENUE_LIMITS = {
   address: 240,
   phone: 32,
   closedNote: 40,
+  /** S4-4（运营场馆契约 1.1.0）：首页场馆卡的项目摘要。 */
+  projectSummary: 40,
   infoItems: 10,
   infoLabel: 40,
   infoContent: 200,
@@ -51,6 +53,7 @@ export const venueRules: Record<string, FormItemRule[]> = {
   opensAt: [matches(HHMM, '开门时间写成 09:30 这样')],
   closesAt: [matches(HHMM, '关门时间写成 18:00 这样')],
   closedNote: [maxChars('休息日说明', VENUE_LIMITS.closedNote)],
+  projectSummary: [maxChars('项目摘要', VENUE_LIMITS.projectSummary)],
 }
 
 export const projectRules: Record<string, FormItemRule[]> = {
@@ -142,6 +145,7 @@ export function emptyVenueDraft(): VenueDraft {
     opensAt: '',
     closesAt: '',
     closedNote: '',
+    projectSummary: '',
     checkinOpensMinutes: 30,
     lateEntryMinutes: null,
     sortOrder: 0,
@@ -160,6 +164,7 @@ export function venueDraftOf(detail: OpsVenueDetail): VenueDraft {
     opensAt: detail.opensAt ?? '',
     closesAt: detail.closesAt ?? '',
     closedNote: detail.closedNote ?? '',
+    projectSummary: detail.projectSummary ?? '',
     checkinOpensMinutes: detail.checkinOpensMinutes,
     lateEntryMinutes: detail.lateEntryMinutes,
     sortOrder: detail.sortOrder,
@@ -203,4 +208,17 @@ export function beijingToday(now: Date = new Date()): string {
 export function addDays(date: string, days: number): string {
   const parsed = parseDate(date)
   return parsed ? new Date(parsed.getTime() + days * 86_400_000).toISOString().slice(0, 10) : date
+}
+
+/** App 首页场馆卡第一行会显示什么：填了用填的，没填用启用的前三个项目名（和后端一样拼）。 */
+export function projectSummaryPreview(projectSummary: string, projects: readonly Pick<OpsVenueProject, 'name' | 'status' | 'sortOrder'>[]): string | null {
+  const written = projectSummary.trim()
+  if (written) return written
+  const names = projects
+    .filter((project) => project.status === 'ACTIVE')
+    .slice()
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .slice(0, 3)
+    .map((project) => project.name)
+  return names.length ? names.join(' · ') : null
 }

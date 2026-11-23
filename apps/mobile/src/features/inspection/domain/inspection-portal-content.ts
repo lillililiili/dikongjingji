@@ -47,6 +47,8 @@ export interface InspectionPortalHotService {
   categoryCode: string
   title: string
   tag: string
+  /** Board HomeSvc's second line; left out when the server has no active provider for the service. */
+  providerName?: string
   imageUrl?: string
   priceLabel?: string
   rating?: number

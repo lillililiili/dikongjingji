@@ -91,7 +91,12 @@
         "reservationStatus": "SUBMITTED",
         "currency": "CNY",
         "visitCount": 0,
-        "acceptedVisitCount": 0
+        "acceptedVisitCount": 0,
+        "provider": {
+          "providerId": "30000000-0000-4000-8000-000000000001",
+          "name": "云翼科技",
+          "qualificationReviewed": true
+        }
       }
     ],
     "page": 1,
@@ -261,14 +266,16 @@
         "resourceId": "70000000-0000-4000-8000-000000000001",
         "displayName": "验收测试飞手",
         "roleLabel": "项目负责人",
-        "contactMobileMasked": "138****0000"
+        "contactMobileMasked": "138****0000",
+        "certifiedPilot": true
       },
       {
         "type": "DEVICE",
         "resourceId": "80000000-0000-4000-8000-000000000001",
         "displayName": "验收测试无人机",
         "roleLabel": null,
-        "contactMobileMasked": null
+        "contactMobileMasked": null,
+        "certifiedPilot": false
       }
     ],
     "progress": [

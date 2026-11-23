@@ -351,6 +351,21 @@ async function arrange(provider, order) {
           roleLabel: '项目负责人',
           contactMobile: '13812346621',
         },
+        // S4-4：两名持证飞手，履约页显示“持证飞手 2 名”（画板 Fulfillment）。
+        {
+          type: 'TEAM_MEMBER',
+          resourceId: '77777777-7777-4777-8777-777777777703',
+          displayName: '示例飞手甲',
+          roleLabel: '飞手',
+          certifiedPilot: true,
+        },
+        {
+          type: 'TEAM_MEMBER',
+          resourceId: '77777777-7777-4777-8777-777777777704',
+          displayName: '示例飞手乙',
+          roleLabel: '飞手',
+          certifiedPilot: true,
+        },
         {
           type: 'DEVICE',
           resourceId: '77777777-7777-4777-8777-777777777702',

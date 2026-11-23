@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Experience and Venue Catalog API
-  version: 1.4.0
+  version: 1.5.0
   description: |-
     1.0.0: read-only catalog for the home "体验" channel (docs/redesign/03-App实现任务计划.md §8):
     online experience items, the venues of a city, a venue's projects, sessions and devices. These five routes stay public.
@@ -67,6 +67,15 @@ info:
     - 试用、试听：开始即记，expiresAt = startedAt + trialMinutes；还在试用中的再开始返回同一条（200）。
       可以提前结束（ENDED）；到期读成 EXPIRED（按时间算，不落库）。到期或结束后可以再次开始。
     - 体验结束不会自动下单。
+
+    1.5.0 (2026-11-23, docs/redesign/08-后续开发计划.md §5 S4-4, migration V007; written as 1.4.0 on its branch and
+    renumbered when merged after main's 1.4.0): VenueCard gains projectSummary — the
+    first line of the venue card on the home page (board HomeFull, e.g. "模拟飞行 · 机器人编程 · 厂家展区"): what
+    platform operators wrote for the venue (contracts/openapi-ops-venue.yaml 1.1.0), otherwise the names of the first
+    three active projects joined by " · ", otherwise null. VenueDevice gains product — the mall product linked to the
+    device as it sells in the venue's city (board VenueDevices: price and "N 家在售"), read from the mall module through
+    a port; null when the device has no linked product or the product has no offer in that city. The page opens the
+    product page with productId and the venue's cityCode.
 
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:
@@ -997,6 +1006,7 @@ components:
         - openingNote
         - address
         - openSessionsToday
+        - projectSummary
       properties:
         venueId:
           type: string
@@ -1018,6 +1028,13 @@ components:
           type: integer
           minimum: 0
           description: Sessions that start later today (Asia/Shanghai) and still have seats
+        projectSummary:
+          type:
+            - string
+            - "null"
+          description: >-
+            1.5.0. What platform operators wrote for the venue, otherwise the names of its first three
+            active projects joined by " · "; null when there is neither
     VenuePage:
       type: object
       additionalProperties: false
@@ -1272,6 +1289,7 @@ components:
         - summary
         - image
         - trialMode
+        - product
       properties:
         deviceId:
           type: string
@@ -1290,6 +1308,52 @@ components:
             - type: "null"
         trialMode:
           $ref: "#/components/schemas/VenueDeviceTrialMode"
+        product:
+          description: >-
+            1.5.0. The linked mall product as it sells in the venue's city; null when the device has no
+            linked product or the product has no offer there
+          anyOf:
+            - $ref: "#/components/schemas/VenueDeviceProduct"
+            - type: "null"
+    VenueDeviceProduct:
+      type: object
+      additionalProperties: false
+      required:
+        - productId
+        - saleMode
+        - fromAmountMinor
+        - priceUnit
+        - multiplePrices
+        - sellerCount
+      properties:
+        productId:
+          type: string
+          format: uuid
+        saleMode:
+          $ref: "#/components/schemas/VenueDeviceSaleMode"
+        fromAmountMinor:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+          description: Lowest price among the offers of the city, in fen; null for an inquiry product
+        priceUnit:
+          $ref: "#/components/schemas/VenueDevicePriceUnit"
+        multiplePrices:
+          type: boolean
+          description: The offers of the city have more than one price (the page writes 起 after the price)
+        sellerCount:
+          type: integer
+          minimum: 1
+          description: Merchants with an offer in the city
+    VenueDeviceSaleMode:
+      type: string
+      enum: [BUY, RENT, INQUIRY]
+      description: 1.5.0. Same codes as the mall (contracts/openapi-mall-catalog.yaml) — 购买、租赁、询价
+    VenueDevicePriceUnit:
+      type: string
+      enum: [ITEM, DAY, HALF_DAY]
+      description: 1.5.0. Same codes as the mall — 按件、按天、按半天
     VenueDevicePage:
       type: object
       additionalProperties: false

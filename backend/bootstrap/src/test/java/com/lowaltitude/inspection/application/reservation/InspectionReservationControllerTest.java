@@ -320,7 +320,9 @@ class InspectionReservationControllerTest {
                 .andExpect(jsonPath("$.items[0].acceptedVisitCount").value(2))
                 .andExpect(jsonPath("$.items[0].pendingAcceptanceVisitId")
                         .value(PENDING_VISIT.toString()))
-                .andExpect(jsonPath("$.items[0].pendingAcceptanceVisitNo").value(3));
+                .andExpect(jsonPath("$.items[0].pendingAcceptanceVisitNo").value(3))
+                .andExpect(jsonPath("$.items[0].provider.name").value("云翼科技"))
+                .andExpect(jsonPath("$.items[0].provider.qualificationReviewed").value(true));
     }
 
     @Test
@@ -379,7 +381,8 @@ class InspectionReservationControllerTest {
                 null,
                 null,
                 null,
-                null);
+                null,
+                new ReservationProvider(PROVIDER, "云翼科技", true));
     }
 
     @Test

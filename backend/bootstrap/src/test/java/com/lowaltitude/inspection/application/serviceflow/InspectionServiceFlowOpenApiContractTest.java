@@ -55,7 +55,9 @@ class InspectionServiceFlowOpenApiContractTest {
         String contract = Files.readString(CONTRACT);
 
         assertThat(contract)
-                .contains("version: 2.5.0")
+                .contains("version: 2.6.0")
+                // 2.6.0（S4-4）：订单列表带服务商，服务团队成员可标记持证飞手
+                .contains("certifiedPilot:")
                 // 2.3.0：服务商工作台读分给本机构的预约
                 .contains("operationId: listProviderInspectionReservations")
                 .contains("operationId: getProviderInspectionReservationSummary")

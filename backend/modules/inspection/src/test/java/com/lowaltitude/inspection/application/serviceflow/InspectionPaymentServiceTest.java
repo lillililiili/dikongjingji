@@ -261,8 +261,8 @@ class InspectionPaymentServiceTest {
         CurrentSubject provider = new CurrentSubject(UUID.randomUUID(), Set.of("PROVIDER_OPERATOR"), PROVIDER,
                 Set.of("inspection.order.arrange.assigned", "inspection.order.progress.assigned"), 0);
         PutArrangementCommand arrangement = new PutArrangementCommand(List.of(
-                new AssignmentInput(AssignmentType.TEAM_MEMBER, UUID.randomUUID(), "王工", "项目负责人", null),
-                new AssignmentInput(AssignmentType.DEVICE, UUID.randomUUID(), "行业无人机", null, null)));
+                new AssignmentInput(AssignmentType.TEAM_MEMBER, UUID.randomUUID(), "王工", "项目负责人", null, null),
+                new AssignmentInput(AssignmentType.DEVICE, UUID.randomUUID(), "行业无人机", null, null, null)));
         StoredServiceVisit visit = flow.visit(orderId, 1);
 
         assertThatThrownBy(() -> orders.arrange(provider, orderId, UUID.randomUUID(), 0, arrangement, "a"))

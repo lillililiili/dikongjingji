@@ -189,6 +189,8 @@ export interface OrderAssignment {
   displayName: string
   roleLabel: string | null
   contactMobileMasked: string | null
+  /** 契约 2.6.0：服务团队成员是否持证飞手（App 履约页“持证飞手 N 名”）；老服务端不返回，按否。 */
+  certifiedPilot?: boolean
 }
 
 export interface ServiceVisit {
@@ -285,6 +287,8 @@ export interface AssignmentInput {
   displayName: string
   roleLabel: string | null
   contactMobile: string | null
+  /** 契约 2.6.0：只有人员能勾，设备一律 false（后端设备为 true 回 400）。 */
+  certifiedPilot: boolean
 }
 
 export interface DeliveryMetricInput {

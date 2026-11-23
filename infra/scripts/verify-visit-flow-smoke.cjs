@@ -443,6 +443,13 @@ async function arrange(actors, order) {
         contactMobile: CONTACT_MOBILE,
       },
       {
+        type: 'TEAM_MEMBER',
+        resourceId: '77777777-7777-4777-8777-777777777703',
+        displayName: '持证飞手',
+        roleLabel: '飞手',
+        certifiedPilot: true,
+      },
+      {
         type: 'DEVICE',
         resourceId: '77777777-7777-4777-8777-777777777702',
         displayName: 'M350 RTK + H30T',
@@ -463,9 +470,11 @@ async function arrange(actors, order) {
   const replay = await ok('PUT', route, { token: provider, key, ifMatch: 0, body });
   check(arranged.version === 1 && replay.version === 1, '安排重放不再次递增版本');
   const customerView = await ok('GET', actors.orderRoute(order.id), { token: customer });
-  const contact = customerView.assignments.find((item) => item.type === 'TEAM_MEMBER');
+  const contact = customerView.assignments.find((item) => item.roleLabel === '项目负责人');
   check(contact.contactMobileMasked === '138****6621', '客户只看到脱敏手机号');
   check(!JSON.stringify(customerView).includes(CONTACT_MOBILE), '响应里没有明文手机号');
+  check(customerView.assignments.filter((item) => item.certifiedPilot === true).length === 1,
+    '持证飞手标记原样返回（契约 2.6.0）');
   return customerView;
 }
 

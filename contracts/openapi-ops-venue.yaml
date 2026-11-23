@@ -1,10 +1,13 @@
 openapi: "3.1.0"
 info:
   title: "Ops Venue API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
     1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“场馆与设备”——场馆、项目、
     按周模板批量生成场次、停售与取消场次、馆内设备及关联商品、上线与下线、改动记录。
+    1.1.0（2026-11-23，S4-4 后端补字段）：场馆加 projectSummary（≤40 字，可空，体验迁移 V007）——App 首页“附近场馆”卡片
+    第一行的项目摘要，如“模拟飞行 · 机器人编程 · 厂家展区”；不填时 App 显示启用的前三个项目名（公开契约
+    openapi-experience.yaml 1.5.0 的 VenueCard.projectSummary）。
 
     Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT, PROVIDER_OPERATOR,
     LIVE_HOST, customers) get 403 COMMON_FORBIDDEN. 场馆、项目、场次、设备在体验模块（迁移 V001、V003、V005）；App 读的是
@@ -970,8 +973,11 @@ components:
       additionalProperties: false
       required: [venueId, name, operatorId, operatorName, cityCode, cityName, coverUrl, address, phone, opensAt, closesAt,
                  closedNote, openingNote, checkinOpensMinutes, lateEntryMinutes, sortOrder, status, publishedAt, infoItems,
-                 projects, devices, publishMissing, updatedAt, version]
+                 projects, devices, publishMissing, updatedAt, version, projectSummary]
       properties:
+        projectSummary:
+          type: ["string", "null"]
+          description: "1.1.0：首页场馆卡的项目摘要（运营填写）；为 null 时 App 用启用的前三个项目名"
         venueId:
           type: "string"
           format: "uuid"
@@ -1147,6 +1153,10 @@ components:
           type: ["string", "null"]
           maxLength: 40
           description: "休息日说明，如“周一闭馆”"
+        projectSummary:
+          type: ["string", "null"]
+          maxLength: 40
+          description: "1.1.0：首页场馆卡的项目摘要，如“模拟飞行 · 机器人编程 · 厂家展区”；不填由启用的前三个项目名生成"
         checkinOpensMinutes:
           type: ["integer", "null"]
           minimum: 0

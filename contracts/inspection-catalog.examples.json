@@ -252,6 +252,7 @@
           },
           "completedCount": 856,
           "distanceMeters": null,
+          "providerName": "示例电力巡检服务商",
           "availability": "AVAILABLE",
           "primaryAction": "CONSULT"
         }
@@ -294,6 +295,7 @@
           "rating": null,
           "completedCount": null,
           "distanceMeters": null,
+          "providerName": null,
           "availability": "RESERVABLE",
           "primaryAction": "REQUEST_QUOTE"
         }

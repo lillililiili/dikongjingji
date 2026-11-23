@@ -118,7 +118,8 @@ class InspectionProviderReservationControllerTest {
                 CustomerReservationStage.AWAITING_PLAN, "SUBMITTED", null, null, null, 120000L, "CNY",
                 0, 0, null, null, null,
                 // S4-1：工作台的“付款状态”读这几项（客户现在该付的一笔）。
-                1, "DOWN_PAYMENT", null, 36000L);
+                1, "DOWN_PAYMENT", null, 36000L,
+                null);
     }
 
     private static UsernamePasswordAuthenticationToken signedIn(Set<String> roles, UUID organizationId,
