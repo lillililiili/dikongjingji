@@ -15,6 +15,7 @@ import {
   qualificationStatus,
   type OpsOrganizationDetail,
 } from './organization-api'
+import ProviderProfilePanel from './ProviderProfilePanel.vue'
 import QualificationPanel from './QualificationPanel.vue'
 
 const route = useRoute()
@@ -76,6 +77,9 @@ onMounted(() => {
         <el-tabs v-model="tab">
           <el-tab-pane label="资质资料与审核" name="qualification">
             <QualificationPanel :api="api" :detail="detail" @changed="changed" />
+          </el-tab-pane>
+          <el-tab-pane v-if="detail.organization.type === 'PROVIDER'" label="服务商资料" name="provider-profile">
+            <ProviderProfilePanel :api="api" :detail="detail" @changed="changed" />
           </el-tab-pane>
           <el-tab-pane :label="`账号与角色（${detail.accounts.length}）`" name="accounts">
             <AccountsPanel :api="api" :detail="detail" @changed="changed" @reload="load" />

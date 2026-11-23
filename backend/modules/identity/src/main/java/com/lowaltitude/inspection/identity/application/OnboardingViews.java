@@ -52,13 +52,16 @@ record OpsOperationView(UUID operationId, OpsOrganizationAction action, String d
                         OffsetDateTime occurredAt) {
 }
 
-/** 机构详情：资料、附件、账号、能授的角色和最近 50 条操作记录。 */
+/**
+ * 机构详情：资料、附件、账号、能授的角色、服务商资料的状态（1.1.0，企业客户为 null）和最近 50 条操作记录。
+ */
 record OpsOrganizationDetailView(
         OpsOrganizationView organization,
         OpsQualificationView qualification,
         List<OpsAttachmentView> attachments,
         List<OpsAccountView> accounts,
         List<OpsGrantableRole> grantableRoles,
+        OnboardingPorts.ProviderProfileStatus providerProfileStatus,
         List<OpsOperationView> operations
 ) {
 }

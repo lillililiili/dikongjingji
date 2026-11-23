@@ -43,7 +43,7 @@ class OpsOrganizationControllerTest {
         return new OpsOrganizationDetailView(new OpsOrganizationView(ORG, "ORG-20261122-ABCDEF01", "黄河口教育装备（示例）",
                 OpsOrganizationType.PROVIDER, "370500", "东营市", "ACTIVE", OpsQualificationStatus.SUBMITTED, null, AT),
                 null, List.of(), List.of(), List.of(OpsGrantableRole.PROVIDER_OPERATOR, OpsGrantableRole.LIVE_HOST),
-                List.of());
+                OnboardingPorts.ProviderProfileStatus.NOT_OPENED, List.of());
     }
 
     @Test
@@ -126,6 +126,35 @@ class OpsOrganizationControllerTest {
                         "attachment; filename*=UTF-8''%E8%90%A5%E4%B8%9A%E6%89%A7%E7%85%A7%20%E5%89%AF%E6%9C%AC.pdf"));
     }
 
+    /** S6-01（契约 1.1.0）：开通服务商资料，没有请求体，操作人来自令牌。 */
+    @Test
+    void opensTheProviderProfileAndAnswersTheDetail() throws Exception {
+        OpsOrganizationDetailView before = detail();
+        OpsOrganizationDetailView opened = new OpsOrganizationDetailView(before.organization(), null, List.of(),
+                List.of(), before.grantableRoles(), OnboardingPorts.ProviderProfileStatus.ACTIVE, List.of());
+        when(service.openProviderProfile(ORG, OPERATOR)).thenReturn(opened);
+
+        mockMvc.perform(post("/api/v1/ops/organizations/" + ORG + "/provider-profile")
+                        .principal(OpsTestSupport.operator()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providerProfileStatus").value("ACTIVE"));
+
+        UUID unreviewed = UUID.randomUUID();
+        UUID customer = UUID.randomUUID();
+        when(service.openProviderProfile(unreviewed, OPERATOR))
+                .thenThrow(new OnboardingException(OnboardingException.Error.QUALIFICATION_NOT_APPROVED));
+        when(service.openProviderProfile(customer, OPERATOR))
+                .thenThrow(new OnboardingException(OnboardingException.Error.PROVIDER_PROFILE_NOT_APPLICABLE));
+        mockMvc.perform(post("/api/v1/ops/organizations/" + unreviewed + "/provider-profile")
+                        .principal(OpsTestSupport.operator()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OPS_QUALIFICATION_NOT_APPROVED"));
+        mockMvc.perform(post("/api/v1/ops/organizations/" + customer + "/provider-profile")
+                        .principal(OpsTestSupport.operator()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("OPS_PROVIDER_PROFILE_NOT_APPLICABLE"));
+    }
+
     @Test
     void rejectionsFollowTheContract() throws Exception {
         when(service.organization(ORG)).thenThrow(new OnboardingException(OnboardingException.Error.NOT_FOUND));
@@ -158,6 +187,8 @@ class OpsOrganizationControllerTest {
             mockMvc.perform(post("/api/v1/ops/organizations/" + ORG + "/accounts").principal(who)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"loginName\":\"x-ops\",\"displayName\":\"x\",\"roles\":[\"PROVIDER_OPERATOR\"]}"))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(post("/api/v1/ops/organizations/" + ORG + "/provider-profile").principal(who))
                     .andExpect(status().isForbidden());
         }
         verifyNoInteractions(service);

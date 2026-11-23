@@ -98,10 +98,11 @@ async function main() {
   const approved = await fx.approveQualification(op, orgB);
   const accountB = await fx.registerMerchantAccount(op, orgB);
   const operatorB = await fx.createOperator(op, orgB, 's6b');
-  psql(`INSERT INTO inspection_provider_profile (provider_id, logo_asset_code, certification_label, team_description, status)
-        VALUES ('${orgB}', 'PROVIDER_INITIAL', '企业认证', 'S6 演练淄博团队', 'ACTIVE')`); // 问题 S6-01 的绕过，见 01-resources.cjs
-  step('淄博商家入驻：资质审核通过、收款账户、操作员账号', { req: 'ops organizations / qualification / merchant-accounts / accounts', expect: '都成功' },
-    approved.detail.qualification.status === 'APPROVED' && accountB.response.status === 200 && operatorB.token, { org: orgB, subMchid: accountB.subMchid });
+  const profileB = await fx.openProviderProfile(op, orgB); // S6-01：运营端开通服务商资料，不再用 SQL 补
+  step('淄博商家入驻：资质审核通过、收款账户、操作员账号、开通服务商资料', { req: 'ops organizations / qualification / merchant-accounts / accounts / provider-profile', expect: '都成功，服务商资料 ACTIVE' },
+    approved.detail.qualification.status === 'APPROVED' && accountB.response.status === 200 && operatorB.token
+      && profileB.detail.providerProfileStatus === 'ACTIVE',
+    { org: orgB, subMchid: accountB.subMchid, providerProfile: profileB.detail.providerProfileStatus });
   const cover = await fx.mediaUrl(op);
   const opsCover = await fx.mediaUrl(op, '/api/v1/ops/media'); // 活动封面只收 https 的运营素材地址
   const productB = await fx.createProduct(op, { orgId: orgB, cityCode: CITY_B, name: `${TAG}淄博无人机`, priceMinor: 158000, coverUrl: cover.url });

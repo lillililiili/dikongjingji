@@ -121,6 +121,25 @@ class OrganizationOnboardingMapperSqlTest {
                 .doesNotContain("INSERT INTO");
     }
 
+    /** S6-01：操作记录多一个“开通服务商资料”；原有动作都保留，已有记录不动。 */
+    @Test
+    void v011OnlyWidensTheOperationActions() throws Exception {
+        String migration;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/identity/V011__identity_provider_profile_open_operation.sql")) {
+            assertThat(stream).isNotNull();
+            migration = normalized(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+        }
+        assertThat(migration)
+                .contains("DROP CONSTRAINT identity_organization_operation_action_check;")
+                .contains("ADD CONSTRAINT identity_organization_operation_action_check")
+                .contains("'CREATE', 'QUALIFICATION_SUBMIT', 'QUALIFICATION_APPROVE', 'QUALIFICATION_REJECT', "
+                        + "'ATTACHMENT_ADD', 'ATTACHMENT_REMOVE', 'ACCOUNT_CREATE', 'ROLES_CHANGE', "
+                        + "'PROVIDER_PROFILE_OPEN'")
+                .doesNotContain("UPDATE ").doesNotContain("DELETE FROM").doesNotContain("INSERT INTO")
+                .doesNotContain("DROP TABLE").doesNotContain("DROP COLUMN");
+    }
+
     private static Method method(String name) {
         return Arrays.stream(OrganizationOnboardingMapper.class.getDeclaredMethods())
                 .filter(method -> method.getName().equals(name)).findFirst().orElseThrow();

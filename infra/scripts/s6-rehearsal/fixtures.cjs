@@ -39,6 +39,16 @@ async function approveQualification(op, orgId) {
   return { attached, review: r, detail: must(r, '审核资质') };
 }
 
+/**
+ * 运营端“机构与资质”开通服务商资料（S6-01，openapi-ops-organization.yaml 1.1.0；资质要先审核通过）。幂等：返回第一次和重复调用的结果。
+ * 服务商资料行挂在机构上，清理时跟着机构的 ID 一起删。
+ */
+async function openProviderProfile(op, orgId) {
+  const first = await call('POST', `/api/v1/ops/organizations/${orgId}/provider-profile`, { token: op });
+  const again = await call('POST', `/api/v1/ops/organizations/${orgId}/provider-profile`, { token: op });
+  return { first, again, detail: must(first, '开通服务商资料') };
+}
+
 /** 登记收款账户（开发环境的占位号段 1900000900–1900000999，演练专用）。 */
 async function registerMerchantAccount(op, orgId) {
   const subMchid = `19000009${randomDigits(2)}`;
@@ -148,5 +158,5 @@ async function createVenue(op, { orgId, cityCode, name, coverUrl, priceMinor, ca
   return { venueId, projectId, venue, generated: gen.json };
 }
 
-module.exports = { must, createOrg, submitQualification, approveQualification, registerMerchantAccount, createOperator, mediaUrl,
+module.exports = { must, createOrg, submitQualification, approveQualification, openProviderProfile, registerMerchantAccount, createOperator, mediaUrl,
   createProduct, createProService, createActivity, createVenue };

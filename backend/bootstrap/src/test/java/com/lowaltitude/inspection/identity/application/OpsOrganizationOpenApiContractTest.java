@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 
-/** 契约 contracts/openapi-ops-organization.yaml 和 OpsOrganizationController 逐项对照（S3-1）。 */
+/** 契约 contracts/openapi-ops-organization.yaml 和 OpsOrganizationController 逐项对照（S3-1；1.1.0 加了开通服务商资料）。 */
 class OpsOrganizationOpenApiContractTest {
 
     private final OpsContractChecker checker = new OpsContractChecker("openapi-ops-organization.yaml",
@@ -41,11 +41,12 @@ class OpsOrganizationOpenApiContractTest {
             .enumeration("OpsReviewDecision", OpsReviewDecision.class)
             .enumeration("OpsOrganizationAction", OpsOrganizationAction.class)
             .enumeration("OpsGrantableRole", OpsGrantableRole.class)
+            .enumeration("OpsProviderProfileStatus", OnboardingPorts.ProviderProfileStatus.class)
             .other("ApiError", "OpsOrganizationErrorCode");
 
     @Test
     void contractMatchesTheController() {
-        checker.verifyAll("1.0.0");
+        checker.verifyAll("1.1.0");
     }
 
     @Test
