@@ -69,7 +69,21 @@ export interface MallOffer {
   // (catalog 1.2.0) The merchant can take payment online. Buying, renting and ordering by quote all
   // pay the merchant online, so an offer without it is shown but not preselected or chosen.
   onlinePayment: boolean
+  // (catalog 1.3.0) Pieces this merchant has for this spec in the city. null: not tracked (no count is
+  // shown); 0: sold out, the spec cannot be chosen and the cart refuses it.
+  stockQuantity: number | null
 }
+
+// (catalog 1.3.0) One active spec of the product, whether or not a merchant here sells it.
+export interface MallSku {
+  skuId: string
+  name: string
+}
+
+// (catalog 1.3.0) One block of 图文介绍: a paragraph, or a picture with an optional caption.
+export type MallIntroBlock =
+  | { type: 'TEXT'; text: string }
+  | { type: 'IMAGE'; text: string | null; image: MallImage }
 
 export interface MallSpec {
   label: string
@@ -92,6 +106,12 @@ export interface MallProductDetail {
   offers: MallOffer[]
   specs: MallSpec[]
   packItems: MallPackItem[]
+  // (catalog 1.3.0) Empty when an older server does not send them: the page then keeps one row per
+  // offer and a single-spec 规格与数量 sheet, as before.
+  sellingPoints: string[]
+  skus: MallSku[]
+  gallery: MallImage[]
+  introBlocks: MallIntroBlock[]
 }
 
 export interface MallProductPage {

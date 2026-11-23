@@ -96,4 +96,5 @@ export const CART_INVALID_REASON_TEXT: Record<CartInvalidReason, string> = {
   OFFER_UNAVAILABLE: '商家已下架',
   NOT_PURCHASABLE: '已改为询价或租赁，不能直接购买',
   NOT_SOLD_IN_CITY: '当前城市不可售',
+  OUT_OF_STOCK: '暂时缺货',
 }
