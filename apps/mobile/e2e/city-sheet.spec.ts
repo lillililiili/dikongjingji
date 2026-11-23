@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test'
 // 运营端维护）。依赖开发种子 R__dev_platform_city_service_status.sql：已开通东营；筹备中济南、青岛、潍坊；其余未开通。
 // 后端要换成带 S3-1 的 jar 并重启（种子随启动执行），否则目录里没有这两组。
 
-const visualOutput = resolve(__dirname, '../../../.planning/style-compare')
+const visualOutput = resolve(__dirname, '../../../../../.planning/style-compare')
 
 test.describe('城市面板（CitySheet）', () => {
   test('CITY-301 分已开通、筹备中两组，未开通的只能搜索到', async ({ page }) => {
@@ -34,7 +34,7 @@ test.describe('城市面板（CitySheet）', () => {
 
     // 未开通的城市（烟台）只在搜索结果里，名字后面标“未开通”。
     await expect(sheet.locator('.city-sheet__city', { hasText: '烟台市' })).toHaveCount(0)
-    await sheet.getByLabel('搜索城市').fill('烟台')
+    await sheet.getByLabel('搜索城市').locator('input').fill('烟台')
     await expect(sheet.locator('.city-sheet__search-results .city-sheet__city')).toHaveText(['烟台市未开通'])
   })
 
