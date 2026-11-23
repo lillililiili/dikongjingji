@@ -83,6 +83,10 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/login", "/actuator/health").permitAll()
+                        // 续期和退出登录凭刷新令牌，不要访问令牌（续期时它通常已过期）。
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/inspection/portal",
                                 "/api/v1/inspection/filters",
