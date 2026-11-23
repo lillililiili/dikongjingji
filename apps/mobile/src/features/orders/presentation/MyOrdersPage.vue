@@ -14,6 +14,7 @@ import { inspectionOrderApi } from '../../inspection/data/service-flow/uni-booki
 import type { InspectionOrderSummary } from '../../inspection/domain/service-flow/order-center'
 import { buildInspectionFulfillmentUrl } from '../../inspection/navigation/inspection-routes'
 import InspectionOrderCard from '../../inspection/presentation/orders/components/InspectionOrderCard.vue'
+import { openNodePayment } from '../../inspection/application/service-flow/node-payment'
 import { rentalCoverUrl } from '../../rental/application/rental-cover'
 import { RENTAL_PREVIEW_ENABLED } from '../../rental/application/rental-preview'
 import { rentalApi } from '../../rental/data/rental-api-client'
@@ -252,6 +253,11 @@ function openInspection(order: InspectionOrderSummary): void {
   void reload()
 }
 
+// S4-1: 去付款 on an inspection card opens the cashier for the node that is due.
+function payInspection(order: InspectionOrderSummary, nodeNo: number): void {
+  if (order.serviceOrderId) void openNodePayment(order.serviceOrderId, nodeNo)
+}
+
 // The grey 查看履约 next to 去验收: the visits of the service order.
 function openFulfillment(order: InspectionOrderSummary): void {
   if (order.serviceOrderId) emit('open', buildInspectionFulfillmentUrl(order.serviceOrderId))
@@ -330,6 +336,7 @@ onBeforeUnmount(() => {
           :order="card.item.order"
           @select="openInspection"
           @fulfillment="openFulfillment"
+          @pay="payInspection"
         />
         <MyOrderCard
           v-else-if="card.view"

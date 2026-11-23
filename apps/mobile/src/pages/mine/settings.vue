@@ -4,11 +4,11 @@ import { ref } from 'vue'
 
 import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
 import { addressApi } from '@/features/account/data/address-api-client'
+import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
-  clearBookingAuthSession,
-  getBookingAuthContext,
-} from '@/features/inspection/application/service-flow/booking-auth-context'
-import { inspectionAccountApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
+  inspectionAccountApi,
+  signOutBookingSession,
+} from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import { MINE_TAB_PATH, buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { buildAddressBookUrl } from '@/features/mall/navigation/mall-routes'
 import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settings-preview'
@@ -58,7 +58,8 @@ function logout(): void {
     confirmColor: '#ff6a00',
     success: (result) => {
       if (!result.confirm) return
-      clearBookingAuthSession()
+      // Withdraws the login on the server too (its refresh token), not only on this device.
+      signOutBookingSession()
       badges.setMessageUnread(0)
       badges.setCartCount(0)
       uni.reLaunch({ url: MINE_TAB_PATH })

@@ -16,6 +16,9 @@ import {
   isSourceOrder,
   orderDestination,
   orderLinkLabel,
+  type CashierLine,
+  type DescribeSourceOrder,
+  type SourceOrderView,
   type TradeOrderDestination,
 } from '../../application/order-source'
 import {
@@ -38,6 +41,8 @@ const props = defineProps<{
   // Null for a guest. The page host reads it again every time the page is shown.
   accessToken: string | null
   refreshKey: number
+  // S4-1: what the business module behind the order adds (the page host asks it); optional.
+  describeSource?: DescribeSourceOrder
 }>()
 
 const emit = defineEmits<{
@@ -80,8 +85,22 @@ const closedFrame = computed(() =>
 const closedTitle = computed(() => closedFrame.value.title)
 const closedText = computed(() => closedFrame.value.text)
 const countdownLine = computed(() => (order.value ? cashierCountdownLine(order.value, now.value) : ''))
-const dueNote = computed(() => (order.value ? cashierDueNote(order.value) : null))
-const layout = computed(() => (order.value ? cashierLayout(order.value) : []))
+const sourceView = ref<SourceOrderView | null>(null)
+// A pill from the business module (board CashierFirst) moves the countdown to the grey line under it.
+const duePill = computed(() => sourceView.value?.dueChip ?? countdownLine.value)
+const dueNote = computed(() => {
+  if (!order.value) return null
+  return sourceView.value?.dueChip ? countdownLine.value : cashierDueNote(order.value)
+})
+const layout = computed<CashierLine[]>(() => {
+  if (!order.value) return []
+  const base = cashierLayout(order.value)
+  const extra = sourceView.value?.rows
+  if (!extra?.length) return base
+  // The business rows replace the trade order's own ones after 收款方.
+  const payeeAt = base.findIndex((line) => line.key === 'payee')
+  return [...base.slice(0, payeeAt + 1), ...extra]
+})
 const payeeSuffix = computed(() => (order.value ? cashierPayeeSuffix(order.value) : null))
 // A sign-up or a venue booking: one way on, to its own page, instead of 查看订单 / 重新选购.
 const sourceOrder = computed(() => Boolean(order.value && isSourceOrder(order.value)))
@@ -110,6 +129,11 @@ async function load(): Promise<void> {
       return
     }
     state.value = { kind: 'ready', order: loaded }
+    if (props.describeSource) {
+      props.describeSource(loaded).then((view) => {
+        if (requested === requestVersion) sourceView.value = view
+      }).catch(() => undefined)
+    }
   } catch (error) {
     if (requested !== requestVersion) return
     const failure = readTradeFailure(error)
@@ -218,7 +242,7 @@ onBeforeUnmount(() => {
           <text class="cashier__due-label">应付金额</text>
           <text class="cashier__due-amount" data-testid="cashier-amount">{{ amountText }}</text>
           <text v-if="dueNote" class="cashier__due-note" data-testid="cashier-due-note">{{ dueNote }}</text>
-          <text class="cashier__due-time" data-testid="cashier-countdown">{{ countdownLine }}</text>
+          <text class="cashier__due-time" data-testid="cashier-countdown">{{ duePill }}</text>
         </view>
 
         <view v-else class="cashier__card cashier__closed" data-testid="cashier-closed">

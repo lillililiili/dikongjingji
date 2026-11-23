@@ -63,6 +63,10 @@ function mountPage(source: string, filename: string): BackPressHandler {
     '../../../navigation/inspection-routes': inspectionRoutes,
     '../../shared/inspection-cancellation-ui': {},
     '../fulfillment-view': fulfillmentView,
+    // S4-1: paying a node of the order.
+    '@/features/trade/application/trade-preview': { TRADE_PREVIEW_ENABLED: false },
+    '../../../application/service-flow/node-payment': { openNodePayment: async () => undefined },
+    '../../shared/payment-view': { describeDuePayment: () => null, findDueNode: () => null, isDownPayment: () => false },
   }
   const testRequire = (request: string): unknown => {
     if (request.endsWith('.vue')) return { default: {} }

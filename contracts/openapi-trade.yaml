@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.6.0
+  version: 0.9.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -60,7 +60,15 @@ info:
       “待自提”是 status=PAID&deliveryMode=PICKUP；加 readMerchantOrder（本机构卖出的一张商城订单，和列表里的一项相同，带 ETag）；
       加 readMyMerchantAccount（本机构登记的收款账户，只读，没登记过 404；登记仍由平台运营调 registerMerchantAccount）。
 
-    0.6.0（2026-11-23，S5-5，docs/redesign/09-课程实现说明.md）：第五个业务来源——线上录播课（source = COURSE，课程接口见
+    0.6.0（2026-11-23，S4-1，docs/redesign/08-后续开发计划.md §5 D9、C3）：第五个业务来源——巡检付款节点（source = INSPECTION，
+      接口见 contracts/openapi-inspection-service-flow.yaml 2.5.0）。没有新接口：巡检接口在服务端建交易订单，App 用这里的收银台接口付款。
+      收款方是巡检服务商，钱进它自己的子商户号；不发货，订单编号以 IO 开头。每个付款节点（首付、每次巡检的服务费）的每一次付款
+      尝试是一张订单：sourceRef 是付款尝试 ID；订单行只有一行，productId 是巡检服务单 ID，offerId 是付款尝试 ID，
+      productName 是“服务名 · 方案 vN”，skuName 是节点名（如“首付 30%”“第 2/6 次服务费”“验收后付款 70%”），quantity 是 1。
+      付款截止 15 分钟；超时或取消只关这一张订单，节点仍待付，可以再发起。不在“商品订单”里，商家接口当作不存在。
+      已付款的不能由买家取消：首付只在服务单取消（第 1 次巡检开始前）时由巡检模块整笔原路退款；按次服务费不在线退。
+      关闭之后才到账的付款：节点还没付、服务单没取消时照常记为已付；否则整笔自动原路退款。
+    0.9.0（2026-11-23，S5-5，docs/redesign/09-课程实现说明.md）：第六个业务来源——线上录播课（source = COURSE，课程接口见
       contracts/openapi-course.yaml 1.0.0）。收款方是开课机构，钱同样直接进它自己的子商户号；不发货，订单编号以 CO 开头；
       订单行的 productId 是课程 ID，offerId 也是课程 ID（一门课只有“单人账号”一种），productName 是课程名，skuName 是“单人账号”，
       quantity 是 1；付款时限 15 分钟。不在“商品订单”里，商家接口当作不存在。已付款的不能由买家取消，退款只能由课程的退款发起
@@ -893,8 +901,8 @@ components:
       enum: [ALL, TO_PAY, TO_SHIP, TO_RECEIVE, DONE, REFUND]
     TradeOrderSource:
       type: string
-      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）；COURSE 线上录播课（0.6.0，S5-5）。以后接入的业务在这里加
-      enum: [MALL, ACTIVITY, VENUE, RENTAL, COURSE]
+      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）；INSPECTION 巡检付款节点（0.6.0，S4-1）；COURSE 线上录播课（0.9.0，S5-5）。以后接入的业务在这里加
+      enum: [MALL, ACTIVITY, VENUE, RENTAL, INSPECTION, COURSE]
     DeliveryMode:
       type: string
       enum: [EXPRESS, PICKUP]

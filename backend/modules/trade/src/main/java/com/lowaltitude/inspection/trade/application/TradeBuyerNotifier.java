@@ -24,7 +24,7 @@ public interface TradeBuyerNotifier {
     /**
      * 订单里能放进通知的事实：买家、来源、业务单、商家名和第一件商品的名字、总件数。不带地址、电话、取货码。
      *
-     * @param source    订单来源：MALL、ACTIVITY、VENUE、RENTAL、COURSE
+     * @param source    订单来源：MALL、ACTIVITY、VENUE、RENTAL、INSPECTION、COURSE
      * @param sourceRef 业务单 ID（报名单、到馆预约、租赁单）；商城订单为空
      */
     record OrderFacts(

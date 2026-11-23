@@ -49,6 +49,8 @@ function mountPlanPage(): { bindings: PlanBindings; pressBack: BackPressHandler 
         backPressHandler = handler
       },
       onLoad: () => undefined,
+      // S4-1: back from the cashier re-reads the order.
+      onShow: () => undefined,
     },
     '../../../application/service-flow/booking-crypto': {},
     '../../../application/service-flow/inspection-order-cancellation': {},
@@ -64,6 +66,10 @@ function mountPlanPage(): { bindings: PlanBindings; pressBack: BackPressHandler 
     '../../shared/inspection-cancellation-ui': {},
     '../../shared/service-flow-format': serviceFlowFormat,
     '../plan-confirmation-view': planView,
+    // S4-1: paying a node of the order.
+    '@/features/trade/application/trade-preview': { TRADE_PREVIEW_ENABLED: false },
+    '../../../application/service-flow/node-payment': { openNodePayment: async () => undefined },
+    '../../shared/payment-view': { describeDuePayment: () => null, findDueNode: () => null, isDownPayment: () => false },
   }
   const testRequire = (request: string): unknown => {
     if (request.endsWith('.vue')) return { default: {} }

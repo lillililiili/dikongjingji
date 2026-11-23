@@ -21,6 +21,7 @@ export const MINE_ORDER_STAGES: ReadonlyArray<{ code: MineOrderStage; label: str
 export const MINE_ENTRY_ICONS: Record<string, string> = {
   ACTIVITY_ENROLLMENTS: 'M6 21V4M6 4h11l-2 4 2 4H6',
   VENUE_BOOKINGS: 'M5 5h14v15H5zM5 9h14M9 3v4M15 3v4M9 14l2 2 4-4',
+  EXPERIENCE_RECORDS: 'M6 8h12v10H6zM9 12h.01M15 12h.01M12 4v4M10 15h4M4 12h2M18 12h2',
   // 我的课程 (S5-5): the board's mortarboard.
   MY_COURSES: 'M12 5L2 10l10 5 10-5zM6 12.2V17c1.6 1.4 3.7 2 6 2s4.4-.6 6-2v-4.8M22 10v5',
   RENTAL_ORDERS: 'M4 8h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM9 8V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V8M3 13h18M10.5 13v2h3v-2',

@@ -144,7 +144,8 @@ public class FileObjectApplicationService {
         DeliveryFileOwner owner = store.findDeliveryFileOwner(command.ownerId())
                 .filter(value -> value.providerId().equals(subject.organizationId()))
                 .orElseThrow(ReservationNotFoundException::new);
-        if (!"IN_PROGRESS".equals(owner.visitStatus())) {
+        // 现场作业中可以上传；退回整改（REWORK，B2）后重新交付也要上传新文件。
+        if (!"IN_PROGRESS".equals(owner.visitStatus()) && !"REWORK".equals(owner.visitStatus())) {
             throw new FileUploadConflictException();
         }
         if (store.countDeliveryFiles(owner.visitId()) >= MAX_DELIVERY_FILES) {

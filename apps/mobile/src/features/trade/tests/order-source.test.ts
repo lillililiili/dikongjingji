@@ -18,7 +18,7 @@ import {
 import { TRADE_COMMAND_CONFIRMS } from '../application/order-commands'
 import { describeOrderStatus, listCardGoods } from '../application/order-view'
 import { toTradeOrder } from '../data/trade-api'
-import { NOW, courseTradeOrder, enrollmentOrder, paidOrder, rentalTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
+import { NOW, courseTradeOrder, enrollmentOrder, inspectionTradeOrder, paidOrder, rentalTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
 
 describe('order source (contract 0.2.0)', () => {
   it('reads a sign-up order without delivery or merchant type, and an older order as a mall order', () => {
@@ -154,5 +154,35 @@ describe('order source (contract 0.2.0)', () => {
     expect(orderLinkLabel(order)).toBe('查看课程')
     expect(paidFrame(courseTradeOrder({ status: 'PAID' }))).toEqual({ title: '报名成功 · 课程已开通', note: '可以开始学习了，学到哪里自动记住' })
     expect(failedNote(order)).toBe('订单仍为待付款，超时订单自动取消')
+  })
+})
+
+describe('inspection payment nodes (contract 0.4.0, S4-1)', () => {
+  const order = inspectionTradeOrder()
+
+  it('is read as a business order that leads to its service order', () => {
+    expect(toTradeOrder({ ...order } as never).source).toBe('INSPECTION')
+    expect(isSourceOrder(order)).toBe(true)
+    expect(orderDestination(order)).toEqual({ kind: 'INSPECTION_ORDER', serviceOrderId: 'service-order-1' })
+    expect(orderLinkLabel(order)).toBe('查看服务订单')
+  })
+
+  it('draws the cashier rows of board CashierFirst without the business view', () => {
+    expect(cashierRows(order)).toEqual([
+      { key: 'inspection-order', label: '服务订单', value: '物流园区季度安防巡检 · 方案 v2' },
+      { key: 'inspection-node', label: '付款节点', value: '首付 30% ¥5,580' },
+    ])
+    expect(cashierLayout(order).map((line) => line.key)).toEqual(['inspection-order', 'payee', 'inspection-node'])
+    expect(cashierPayeeSuffix(order)).toBe(' · 经平台支付渠道')
+    expect(cashierDueNote(order)).toBeNull()
+  })
+
+  it('keeps the node unpaid when the payment is cancelled or runs out', () => {
+    expect(cashierCountdownLine(order, NOW)).toContain('超时可重新发起')
+    expect(cashierClosedNote(order)).toBe('没有扣款，这一笔仍待支付，可以重新发起')
+    expect(cancelUnpaidConfirm(order).content).toBe('取消后这一笔仍为待支付，可以稍后再付，确定取消吗？')
+    expect(cancelledToast(order)).toBe('已取消支付')
+    expect(failedNote(order)).toBe('首付 30%仍为待支付')
+    expect(paidFrame(order)).toEqual({ title: '首付 30%已支付', note: null })
   })
 })

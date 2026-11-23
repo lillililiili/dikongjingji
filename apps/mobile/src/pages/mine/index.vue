@@ -17,7 +17,7 @@ import { buildMyDemandsUrl } from '@/features/demand/navigation/demand-routes'
 import { RENTAL_PREVIEW_ENABLED } from '@/features/rental/application/rental-preview'
 import { buildMyRentalOrdersUrl } from '@/features/rental/navigation/rental-routes'
 import { EXPERIENCE_PREVIEW_ENABLED } from '@/features/experience/application/experience-preview'
-import { buildVenueBookingsUrl } from '@/features/experience/navigation/experience-routes'
+import { buildExperienceRecordsUrl, buildVenueBookingsUrl } from '@/features/experience/navigation/experience-routes'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
   createLatestRequestCoordinator,
@@ -62,12 +62,13 @@ import { formatBeijingTime, toBeijingParts } from '@/shared/time/beijing-time'
 
 const currentCityStore = useCurrentCityStore()
 
-// 我的参与 (board Mine `joins`): 活动报名 and 体验预约 behind their channels' switches, 我的课程
-// behind the COURSE switch (S5-5); 体验记录 is not built (plan 06 §3). 租赁订单 (F3, §24.3) has no
-// other way in, so it stays.
+// 我的参与 (board Mine `joins`): 活动报名, 体验预约 and 体验记录 (S5-4) behind their channels'
+// switches, 我的课程 behind the COURSE switch (S5-5). 租赁订单 (F3, §24.3) has no other way in, so it
+// stays.
 const joinEntries: PlatformMineLinkEntry[] = [
   ...(ACTIVITY_PREVIEW_ENABLED ? [{ code: 'ACTIVITY_ENROLLMENTS', title: '活动报名' }] : []),
   ...(EXPERIENCE_PREVIEW_ENABLED ? [{ code: 'VENUE_BOOKINGS', title: '体验预约' }] : []),
+  ...(EXPERIENCE_PREVIEW_ENABLED ? [{ code: 'EXPERIENCE_RECORDS', title: '体验记录' }] : []),
   ...(COURSE_PREVIEW_ENABLED ? [{ code: 'MY_COURSES', title: '我的课程' }] : []),
   ...(RENTAL_PREVIEW_ENABLED ? [{ code: 'RENTAL_ORDERS', title: '租赁订单' }] : []),
 ]
@@ -194,7 +195,16 @@ async function loadAccount(): Promise<void> {
   if (token === accountToken) return
   try {
     const loaded = await inspectionAccountApi.loadCurrent(token)
-    if (accessToken() !== token) return
+    if (accessToken() !== token) {
+      // The request layer renewed the expired token while the page was loading. Everything read
+      // with the old token is dropped by the checks above and below, so read it all again with the
+      // renewed one; otherwise the card stays at "已登录" and the counts stay empty.
+      if (accessToken()) {
+        void loadAccount()
+        loadSignedIn()
+      }
+      return
+    }
     account.value = loaded
     accountToken = token
     refresh()
@@ -333,6 +343,7 @@ function openLink(code: string): void {
   if (code === 'ACTIVITY_ENROLLMENTS') uni.navigateTo({ url: buildActivityEnrollmentsUrl() })
   if (code === 'ACTIVITY_PARTICIPANTS') uni.navigateTo({ url: ACTIVITY_PARTICIPANTS_PATH })
   if (code === 'VENUE_BOOKINGS') uni.navigateTo({ url: buildVenueBookingsUrl() })
+  if (code === 'EXPERIENCE_RECORDS') uni.navigateTo({ url: buildExperienceRecordsUrl() })
   if (code === 'DEMANDS') uni.navigateTo({ url: buildMyDemandsUrl() })
   if (code === 'RENTAL_ORDERS') uni.navigateTo({ url: buildMyRentalOrdersUrl() })
   if (code === 'MY_COURSES') uni.navigateTo({ url: buildMyCoursesUrl() })
