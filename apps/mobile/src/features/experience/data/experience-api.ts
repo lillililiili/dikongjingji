@@ -1,5 +1,6 @@
 import type { PublicApiHttpClient } from '@/shared/http/public-api-request'
 
+import type { ExperienceItemDetail } from '../domain/experience-record'
 import type {
   ExperienceImage,
   ExperienceItem,
@@ -26,6 +27,18 @@ interface PageDto<Item> {
   total: number
   hasMore: boolean
   items: Item[]
+}
+
+interface ExperienceItemDetailDto {
+  experienceId: string
+  type: ExperienceItemDetail['type']
+  title: string
+  summary: string | null
+  coverImage: MediaAssetDto | null
+  loginRequired: boolean
+  productId?: string | null
+  simulationTemplate?: ExperienceItemDetail['simulationTemplate']
+  trialMinutes?: number | null
 }
 
 interface ExperienceItemDto {
@@ -120,6 +133,8 @@ export interface ExperienceApi {
   }, page: number, size: number): Promise<Paged<VenueDevice>>
   // 1.2.0 (R6-2): the product's online experience items and the city's venues that have it on show.
   loadProductExperiences(productId: string, cityCode: string): Promise<ProductExperiences>
+  // 1.3.0 (S5-4): one item with its simulation template and trial length (the task and trial pages).
+  loadExperienceItem(experienceId: string): Promise<ExperienceItemDetail>
 }
 
 // The server already filters images to HTTPS; this keeps a bad row from reaching an <image> tag anyway.
@@ -243,6 +258,24 @@ export function createExperienceApi(http: PublicApiHttpClient): ExperienceApi {
         image: toImage(device.image),
         trialMode: device.trialMode,
       }))
+    },
+
+    async loadExperienceItem(experienceId) {
+      const dto = await http.request<ExperienceItemDetailDto>({
+        method: 'GET',
+        url: `/api/v1/experiences/${encodeURIComponent(experienceId)}`,
+      })
+      return {
+        experienceId: dto.experienceId,
+        type: dto.type,
+        title: dto.title,
+        summary: dto.summary,
+        coverImage: toImage(dto.coverImage),
+        loginRequired: dto.loginRequired,
+        productId: dto.productId ?? null,
+        simulationTemplate: dto.simulationTemplate ?? null,
+        trialMinutes: dto.trialMinutes ?? null,
+      }
     },
 
     async loadProductExperiences(productId, cityCode) {

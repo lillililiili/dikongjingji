@@ -108,6 +108,7 @@ const cityName = ref<string | null>(null)
 // 先体验，再决定 (R6-2) and 相关内容 (R6-3): read from the experience and content modules by this
 // product's id; null / empty hides the block (and the bar's 先体验).
 const tryFirst = ref<ProductExperienceView | null>(null)
+const tryFirstBlock = ref<InstanceType<typeof ProductTryFirst> | null>(null)
 const relatedRows = ref<RelatedContentRow[]>([])
 const pageCity = ref('')
 let productId = ''
@@ -247,8 +248,12 @@ function loadExtras(requested: number, loadedProductId: string): void {
   }
 }
 
-// 先体验 in the bar brings the block into view (boards PdFull, PdRental).
+// 先体验 in the bar opens 选择体验方式 (board ExpPick, S5-4); without the block it cannot.
 function showTryFirst(): void {
+  if (tryFirstBlock.value) {
+    tryFirstBlock.value.openPicker()
+    return
+  }
   uni.pageScrollTo({ selector: '#mall-product-try-first', duration: 300 })
 }
 
@@ -536,7 +541,7 @@ onLoad((query) => {
 
         <!-- 先体验，再决定: right under the price card, before the merchants (PdFull) or the rental terms (PdRental). -->
         <view v-if="tryFirst" id="mall-product-try-first" class="mall-product__try-first">
-          <ProductTryFirst :view="tryFirst" :city-code="pageCity" />
+          <ProductTryFirst ref="tryFirstBlock" :view="tryFirst" :city-code="pageCity" :product-name="product.name" />
         </view>
 
         <view
