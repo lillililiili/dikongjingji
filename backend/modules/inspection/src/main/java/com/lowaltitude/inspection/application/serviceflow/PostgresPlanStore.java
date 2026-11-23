@@ -15,13 +15,29 @@ final class PostgresPlanStore implements PlanStore {
 
     private final ServiceFlowPersistenceMapper mapper;
     private final AesGcmSensitiveDataCipher cipher;
+    // 付款、取消、改期、整改记录（S4-1）；为 null 时服务单不带这些记录。
+    private final ServiceOrderChangeStore changes;
 
     PostgresPlanStore(
             ServiceFlowPersistenceMapper mapper,
             AesGcmSensitiveDataCipher cipher
     ) {
+        this(mapper, cipher, null);
+    }
+
+    PostgresPlanStore(
+            ServiceFlowPersistenceMapper mapper,
+            AesGcmSensitiveDataCipher cipher,
+            ServiceOrderChangeStore changes
+    ) {
         this.mapper = mapper;
         this.cipher = cipher;
+        this.changes = changes;
+    }
+
+    @Override
+    public ServiceOrderExtras findOrderExtras(UUID orderId) {
+        return changes == null ? ServiceOrderExtras.EMPTY : changes.extras(orderId);
     }
 
     @Override
@@ -293,6 +309,7 @@ final class PostgresPlanStore implements PlanStore {
                 order.serviceOrderNo(),
                 expectedPlan.id(),
                 order.paymentMode().name(),
+                order.status().name(),
                 actor.subjectId(),
                 confirmedAt) != 1) {
             return PlanWriteResult.STATE_CONFLICT;
@@ -323,6 +340,7 @@ final class PostgresPlanStore implements PlanStore {
                     node.nodeType().name(),
                     node.visitId(),
                     node.amountMinor(),
+                    node.paidAt(),
                     confirmedAt);
         }
         mapper.insertTransition(
@@ -338,7 +356,7 @@ final class PostgresPlanStore implements PlanStore {
                 "SERVICE_ORDER",
                 order.id(),
                 null,
-                ServiceOrderStatus.ARRANGING.name(),
+                order.status().name(),
                 "CUSTOMER",
                 actor.subjectId(),
                 requestId,

@@ -310,7 +310,9 @@ public final class InspectionPlanController {
             Integer visitNo,
             long amountMinor,
             boolean payable,
-            Instant paidAt
+            Instant paidAt,
+            UUID tradeOrderId,
+            NodeRefundResponse refund
     ) {
         static OrderPaymentNodeResponse from(OrderPaymentNodeView node) {
             return new OrderPaymentNodeResponse(
@@ -319,7 +321,104 @@ public final class InspectionPlanController {
                     node.visitNo(),
                     node.amountMinor(),
                     node.payable(),
-                    node.paidAt());
+                    node.paidAt(),
+                    node.tradeOrderId(),
+                    NodeRefundResponse.from(node.refund()));
+        }
+    }
+
+    /** status 是交易模块的退款状态；读不到时为 null（已申请，进度未知）。 */
+    public record NodeRefundResponse(UUID refundId, long amountMinor, String status, Instant requestedAt) {
+        static NodeRefundResponse from(NodeRefundRecord refund) {
+            return refund == null
+                    ? null
+                    : new NodeRefundResponse(refund.refundId(), refund.amountMinor(), refund.status(),
+                            refund.requestedAt());
+        }
+    }
+
+    public record PaymentRecordResponse(
+            UUID attemptId,
+            int nodeNo,
+            String nodeType,
+            Integer visitNo,
+            UUID tradeOrderId,
+            long amountMinor,
+            String status,
+            Instant payBefore,
+            Instant createdAt,
+            Instant paidAt,
+            Instant closedAt
+    ) {
+        static PaymentRecordResponse from(PaymentAttemptRecord record) {
+            return new PaymentRecordResponse(
+                    record.id(),
+                    record.nodeNo(),
+                    record.nodeType().name(),
+                    record.visitNo(),
+                    record.tradeOrderId(),
+                    record.amountMinor(),
+                    record.status().name(),
+                    record.payBefore(),
+                    record.createdAt(),
+                    record.paidAt(),
+                    record.closedAt());
+        }
+    }
+
+    public record CancellationResponse(Instant cancelledAt, String reason) {
+        static CancellationResponse from(OrderCancellation cancellation) {
+            return cancellation == null
+                    ? null
+                    : new CancellationResponse(cancellation.cancelledAt(), cancellation.reason());
+        }
+    }
+
+    public record VisitRescheduleResponse(
+            UUID id,
+            UUID visitId,
+            LocalDate fromDate,
+            LocalDate requestedDate,
+            String reason,
+            String status,
+            String decisionNote,
+            Instant requestedAt,
+            Instant decidedAt
+    ) {
+        static VisitRescheduleResponse from(VisitRescheduleRecord record) {
+            return record == null
+                    ? null
+                    : new VisitRescheduleResponse(
+                            record.id(),
+                            record.visitId(),
+                            record.fromDate(),
+                            record.requestedDate(),
+                            record.reason(),
+                            record.status().name(),
+                            record.decisionNote(),
+                            record.requestedAt(),
+                            record.decidedAt());
+        }
+    }
+
+    public record VisitReworkResponse(
+            UUID id,
+            UUID visitId,
+            int deliveryRevision,
+            String reason,
+            Instant requestedAt,
+            Instant resolvedAt
+    ) {
+        static VisitReworkResponse from(VisitReworkRecord record) {
+            return record == null
+                    ? null
+                    : new VisitReworkResponse(
+                            record.id(),
+                            record.visitId(),
+                            record.deliveryRevision(),
+                            record.reason(),
+                            record.requestedAt(),
+                            record.resolvedAt());
         }
     }
 
@@ -492,7 +591,10 @@ public final class InspectionPlanController {
             Instant createdAt,
             Instant deliveredAt,
             Instant acceptedAt,
-            int version
+            int version,
+            boolean cancellable,
+            CancellationResponse cancellation,
+            List<PaymentRecordResponse> paymentRecords
     ) {
         static ServiceOrderResponse from(ServiceOrderView order) {
             return new ServiceOrderResponse(
@@ -516,11 +618,16 @@ public final class InspectionPlanController {
                     order.progress().stream()
                             .map(OrderProgressResponse::from)
                             .toList(),
-                    order.visits().stream().map(ServiceVisitResponse::from).toList(),
+                    order.visits().stream()
+                            .map(visit -> ServiceVisitResponse.from(visit, order))
+                            .toList(),
                     order.createdAt(),
                     order.deliveredAt(),
                     order.acceptedAt(),
-                    order.version());
+                    order.version(),
+                    order.cancellable(),
+                    CancellationResponse.from(order.extras().cancellation()),
+                    order.extras().attempts().stream().map(PaymentRecordResponse::from).toList());
         }
     }
 
@@ -535,9 +642,21 @@ public final class InspectionPlanController {
             Instant startedAt,
             Instant deliveredAt,
             Instant acceptedAt,
-            int version
+            int version,
+            LocalDate originalPlannedDate,
+            boolean reschedulable,
+            VisitRescheduleResponse reschedule,
+            VisitReworkResponse rework
     ) {
+        /** 改期和整改信息只在读整张服务单时带出；单独返回一次巡检（排期、进度）时为空。 */
         static ServiceVisitResponse from(StoredServiceVisit visit) {
+            return from(visit, null);
+        }
+
+        static ServiceVisitResponse from(StoredServiceVisit visit, ServiceOrderView order) {
+            ServiceOrderExtras extras = order == null ? ServiceOrderExtras.EMPTY : order.extras();
+            VisitRescheduleRecord reschedule = extras.latestReschedule(visit.id()).orElse(null);
+            boolean reschedulable = order != null && order.reschedulableVisitIds().contains(visit.id());
             return new ServiceVisitResponse(
                     visit.id(),
                     visit.serviceOrderId(),
@@ -549,7 +668,11 @@ public final class InspectionPlanController {
                     visit.startedAt(),
                     visit.deliveredAt(),
                     visit.acceptedAt(),
-                    visit.version());
+                    visit.version(),
+                    extras.originalPlannedDates().get(visit.id()),
+                    reschedulable,
+                    VisitRescheduleResponse.from(reschedule),
+                    VisitReworkResponse.from(extras.latestRework(visit.id()).orElse(null)));
         }
     }
 

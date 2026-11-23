@@ -9,7 +9,7 @@ info:
     module cannot be read is returned empty; the other blocks are still returned.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
     1.1.0 (2026-11-23, S4-4): no change of its own; venues and today.venue use VenueCard of
-    openapi-experience.yaml 1.4.0, which gains projectSummary (the first line of the venue card on board HomeFull).
+    openapi-experience.yaml 1.5.0, which gains projectSummary (the first line of the venue card on board HomeFull).
 servers:
   - url: /
 paths:

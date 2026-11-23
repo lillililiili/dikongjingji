@@ -6,6 +6,7 @@ import java.util.List;
 import com.lowaltitude.inspection.experience.application.ops.VenueOpsPorts;
 import com.lowaltitude.inspection.experience.application.ops.VenueOpsService;
 import com.lowaltitude.inspection.experience.infrastructure.persistence.ExperienceCatalogMapper;
+import com.lowaltitude.inspection.experience.infrastructure.persistence.ExperienceRecordMapper;
 import com.lowaltitude.inspection.experience.infrastructure.persistence.VenueOpsMapper;
 import com.lowaltitude.inspection.experience.infrastructure.persistence.VenueBookingMapper;
 import com.lowaltitude.inspection.experience.infrastructure.persistence.VenueCheckinMapper;
@@ -60,6 +61,15 @@ public class ExperienceApplicationConfiguration {
                 Clock.systemUTC(),
                 new VenueBookingCodes(),
                 notifier.getIfAvailable(VenueBookingNotifier::none));
+    }
+
+    /** S5-4 线上体验记录：仿真成绩、软件试用和课程试听。只记登录账号自己的。 */
+    @Bean
+    ExperienceRecordService experienceRecordService(
+            ExperienceRecordMapper mapper,
+            PlatformTransactionManager transactionManager
+    ) {
+        return new ExperienceRecordService(mapper, new TransactionTemplate(transactionManager), Clock.systemUTC());
     }
 
     /** 核销工作台（S3-3）里到馆预约的一半；和活动的一半由启动模块的工作台接口合在一起。 */

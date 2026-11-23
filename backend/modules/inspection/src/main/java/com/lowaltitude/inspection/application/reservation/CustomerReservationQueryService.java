@@ -109,6 +109,10 @@ public final class CustomerReservationQueryService {
                 row.nextVisitDate(),
                 row.pendingAcceptanceVisitId(),
                 row.pendingAcceptanceVisitNo(),
+                row.paymentDueNodeNo(),
+                row.paymentDueNodeType(),
+                row.paymentDueVisitNo(),
+                row.paymentDueAmountMinor(),
                 row.provider());
     }
 }
@@ -163,6 +167,10 @@ record CustomerReservationSummary(
         LocalDate nextVisitDate,
         UUID pendingAcceptanceVisitId,
         Integer pendingAcceptanceVisitNo,
+        Integer paymentDueNodeNo,
+        String paymentDueNodeType,
+        Integer paymentDueVisitNo,
+        Long paymentDueAmountMinor,
         ReservationProvider provider
 ) { }
 
@@ -193,6 +201,10 @@ record StoredCustomerReservationSummary(
         LocalDate nextVisitDate,
         UUID pendingAcceptanceVisitId,
         Integer pendingAcceptanceVisitNo,
+        Integer paymentDueNodeNo,
+        String paymentDueNodeType,
+        Integer paymentDueVisitNo,
+        Long paymentDueAmountMinor,
         ReservationProvider provider
 ) { }
 

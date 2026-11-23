@@ -150,7 +150,10 @@ export function createPlanCancellationController<Reservation extends PlanCancell
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
-import { onBackPress, onLoad } from '@dcloudio/uni-app'
+import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
+import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
+import { openNodePayment } from '../../../application/service-flow/node-payment'
+import { findDueNode, isDownPayment } from '../../shared/payment-view'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import { providerCredentialLabel } from '@/shared/ui/qualification'
@@ -165,6 +168,7 @@ import type { BookingReservation } from '../../../data/service-flow/inspection-b
 import type {
   InspectionPlan,
   InspectionPlanVersionSummary,
+  InspectionServiceOrder,
 } from '../../../data/service-flow/inspection-plan-api'
 import {
   inspectionBookingApi,
@@ -216,6 +220,9 @@ const loadError = ref('')
 const actionError = ref('')
 const agreementAccepted = ref(false)
 const confirmationKey = ref('')
+// S4-1: the confirmed order, read for its payment nodes (what is paid, whether the down payment is due).
+const serviceOrder = ref<InspectionServiceOrder | null>(null)
+const paying = ref(false)
 
 const actionsReady = computed(() => !isLoading.value && !loadError.value)
 const isExpired = computed(() =>
@@ -251,8 +258,18 @@ const statusChip = computed(() => describePlanStatus({
   isCancelled: isCancelled.value,
 }))
 const paymentRows = computed(() => plan.value
-  ? describePaymentNodes(plan.value, isConfirmed.value)
+  ? describePaymentNodes(plan.value, isConfirmed.value, {
+      isExpired: isExpired.value,
+      isCancelled: isCancelled.value || serviceOrder.value?.status === 'CANCELLED',
+      order: serviceOrder.value,
+    })
   : [])
+// 支付首付 ¥5,580 (board PlanConfirm) once the plan is confirmed and the down payment is still due.
+const downPaymentDue = computed(() => {
+  if (!TRADE_PREVIEW_ENABLED || !isConfirmed.value || !serviceOrder.value) return null
+  const due = findDueNode(serviceOrder.value)
+  return due && isDownPayment(due) ? due : null
+})
 const confirmation = computed(() => plan.value ? describeConfirmation(plan.value) : null)
 
 const planLoader = createPlanPageLoader<
@@ -294,7 +311,42 @@ onBackPress((event) => {
   return true
 })
 
+async function loadServiceOrder(): Promise<void> {
+  const orderId = plan.value?.status === 'CONFIRMED' ? plan.value.serviceOrderId : null
+  if (!orderId || !plan.value?.paymentNodes?.length) {
+    serviceOrder.value = null
+    return
+  }
+  try {
+    serviceOrder.value = await inspectionPlanApi.getServiceOrder(orderId)
+  } catch {
+    // The page still works from the plan alone; the button waits for the next visit.
+    serviceOrder.value = null
+  }
+}
+
+// Back from the cashier: the down payment may have been paid meanwhile.
+onShow(() => {
+  if (plan.value && isConfirmed.value) void loadServiceOrder()
+})
+
+async function payDownPayment(): Promise<void> {
+  if (!serviceOrder.value || !downPaymentDue.value || paying.value) return
+  paying.value = true
+  try {
+    await openNodePayment(serviceOrder.value.id, downPaymentDue.value.nodeNo)
+  } finally {
+    paying.value = false
+  }
+}
+
 async function loadPlan(planId: string): Promise<boolean> {
+  const loaded = await loadPlanOnly(planId)
+  if (loaded) await loadServiceOrder()
+  return loaded
+}
+
+async function loadPlanOnly(planId: string): Promise<boolean> {
   const loaded = await planLoader.loadPlan(planId)
   const currentPlanId = reservation.value?.currentPlanId
   // A replaced version has nothing left to act on, so the page moves to the one in force.
@@ -323,6 +375,11 @@ async function confirmPlan(): Promise<void> {
       plan.value.version,
       confirmationKey.value,
     )
+    // S4-1: with a down payment due the page stays, confirmed, and offers 支付首付 (board PlanConfirm).
+    if (order.status === 'AWAITING_PAYMENT' && TRADE_PREVIEW_ENABLED) {
+      await loadPlan(plan.value.id)
+      return
+    }
     openFulfillment(order.id)
   } catch (error) {
     const apiError = error as Error & { code?: string }
@@ -516,7 +573,16 @@ function showCustomerService(title: string): void {
           <text>联系服务商</text>
         </button>
         <button
-          v-if="isConfirmed"
+          v-if="isConfirmed && downPaymentDue"
+          class="plan-confirmation__primary"
+          data-testid="plan-pay-down"
+          :disabled="paying"
+          @click="payDownPayment"
+        >
+          支付首付 {{ formatPlanPrice(downPaymentDue.amountMinor) }}
+        </button>
+        <button
+          v-else-if="isConfirmed"
           class="plan-confirmation__primary"
           @click="openConfirmedFulfillment"
         >

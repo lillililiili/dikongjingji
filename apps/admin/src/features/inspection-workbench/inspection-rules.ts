@@ -1,9 +1,10 @@
-import { charCount, yuanToMinor } from '@/core/ui/format'
+import { charCount, formatMoney, yuanToMinor } from '@/core/ui/format'
 
 import type {
   DeliveryFileType,
   ReservationStage,
   ReservationStatus,
+  ReservationSummary,
   ServiceOrder,
   ServiceVisit,
 } from './inspection-workbench-api'
@@ -45,10 +46,15 @@ export interface VisitActionState {
  * - 巡检中、现场没完成：记进度、现场完成；现场完成后：上传交付并发布；
  * - 已交付、已验收：没有动作（等客户验收 / 已结束）。
  */
-export function visitActions(order: Pick<ServiceOrder, 'assignments' | 'visits'>, visit: ServiceVisit):
-VisitActionState[] {
+export function visitActions(
+  order: Pick<ServiceOrder, 'assignments' | 'visits'> & Partial<Pick<ServiceOrder, 'status'>>,
+  visit: ServiceVisit,
+): VisitActionState[] {
   const ok = (action: VisitAction): VisitActionState => ({ action, enabled: true, reason: null })
   const blocked = (action: VisitAction, reason: string): VisitActionState => ({ action, enabled: false, reason })
+  // S4-1：首付到账之前、客户取消之后，服务端不让排期和推进。
+  if (order.status === 'AWAITING_PAYMENT') return [blocked('SCHEDULE', '客户付首付后才能排期')]
+  if (order.status === 'CANCELLED') return []
   switch (visit.status) {
     case 'PENDING_SCHEDULE':
       return [ok('SCHEDULE'), blocked('SERVICE_STARTED', '先排期')]
@@ -61,6 +67,9 @@ VisitActionState[] {
           : ok('SERVICE_STARTED')
       return [ok('SCHEDULE'), start]
     }
+    // 客户退回整改（B2）：重新上传交付并发布，客户再验收。
+    case 'REWORK':
+      return [ok('DELIVER')]
     case 'IN_PROGRESS':
       return visitServiceCompleted(visit)
         ? [ok('DELIVER')]
@@ -80,7 +89,7 @@ export interface AssignmentDraft {
 
 /**
  * 团队和设备安排的检查（后端 validAssignments）：1–30 项，至少一名人员和一台设备，手机号选填；
- * 持证飞手只能勾在人员上（2.5.0）。
+ * 持证飞手只能勾在人员上（2.6.0）。
  */
 export function arrangementProblem(list: readonly AssignmentDraft[]): string | null {
   if (list.length === 0 || list.length > 30) return '要有 1–30 项'
@@ -104,7 +113,19 @@ export function certifiedPilotCount(list: readonly Pick<AssignmentDraft, 'type' 
 
 /** 服务单还没全部验收时都能改团队和设备安排。 */
 export function canArrange(order: Pick<ServiceOrder, 'status'>): boolean {
-  return order.status !== 'ACCEPTED'
+  // S4-1：首付没到账、客户已取消时服务端也不让安排。
+  return order.status === 'ARRANGING' || order.status === 'IN_PROGRESS' || order.status === 'DELIVERED'
+}
+
+/** 列表的“付款状态”（S4-1）：客户现在该付哪一笔；没有要付的显示“—”。来源是服务单的付款节点（列表摘要的 paymentDue*）。 */
+export function paymentStateText(
+  summary: Pick<ReservationSummary, 'paymentDueNodeNo' | 'paymentDueNodeType' | 'paymentDueVisitNo' | 'paymentDueAmountMinor'>,
+): string {
+  if (!summary.paymentDueNodeNo) return '—'
+  const amount = formatMoney(summary.paymentDueAmountMinor ?? null)
+  return summary.paymentDueNodeType === 'DOWN_PAYMENT'
+    ? `待付首付 ${amount}`
+    : `第 ${summary.paymentDueVisitNo ?? ''} 次服务费待付 ${amount}`
 }
 
 /** 能不能出方案：预约没取消，客户还没确认（待出方案，或已出方案、客户没确认时再发一版）。 */

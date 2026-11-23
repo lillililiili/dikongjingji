@@ -27,7 +27,7 @@ export interface VenueCard {
   openingNote: string | null
   address: string
   openSessionsToday: number
-  // 1.4.0 (S4-4): the card's first line, e.g. 模拟飞行 · 机器人编程 · 厂家展区 (board HomeFull).
+  // 1.5.0 (S4-4): the card's first line, e.g. 模拟飞行 · 机器人编程 · 厂家展区 (board HomeFull).
   projectSummary: string | null
 }
 
@@ -86,7 +86,7 @@ export interface VenueDevice {
   summary: string | null
   image: ExperienceImage | null
   trialMode: VenueDeviceTrialMode
-  // 1.4.0 (S4-4): the linked mall product as it sells in the venue's city (board VenueDevices); null without one.
+  // 1.5.0 (S4-4): the linked mall product as it sells in the venue's city (board VenueDevices); null without one.
   product: VenueDeviceProduct | null
 }
 

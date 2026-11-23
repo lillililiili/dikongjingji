@@ -156,7 +156,7 @@ describe('experience api', () => {
     expect(request.mock.calls[1][0].url)
       .toBe(`/api/v1/venues/${VENUE_ID}/devices?cityCode=370500&category=ROBOT&page=1&size=20`)
     expect(robots.items[0].trialMode).toBe('DISPLAY_ONLY')
-    // 1.4.0: the device's product as it sells in the city; a server before 1.4.0 sends none.
+    // 1.5.0: the device's product as it sells in the city; a server before 1.5.0 sends none.
     expect(robots.items[0].product).toMatchObject({ saleMode: 'RENT', fromAmountMinor: 38000, sellerCount: 1 })
     expect(robots.items[1].product).toBeNull()
   })

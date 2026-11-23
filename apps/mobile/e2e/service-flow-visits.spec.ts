@@ -196,7 +196,7 @@ test.describe('M06 fulfillment', () => {
     await expect(page.locator('.fulfillment__footer')).toHaveCount(0)
   })
 
-  // S4-4 (service flow 2.5.0, boards Fulfillment and FulfillOne): 持证飞手 N 名 counts the members the
+  // S4-4 (service flow 2.6.0, boards Fulfillment and FulfillOne): 持证飞手 N 名 counts the members the
   // provider marked certified; a role that merely reads 持证飞手 does not count.
   test('counts the certified pilots the provider marked', async ({ page }) => {
     const member = (name: string, roleLabel: string, certifiedPilot: boolean, contactMobileMasked: string | null = null) =>

@@ -114,7 +114,7 @@ describe('arrangement', () => {
     })
   })
 
-  // S4-4：持证只认服务商安排时的标记（契约 2.5.0），角色写着“持证飞手”也不算；负责人标了持证也计入。
+  // S4-4：持证只认服务商安排时的标记（契约 2.6.0），角色写着“持证飞手”也不算；负责人标了持证也计入。
   it('counts certified pilots from the provider mark, not from the role text', () => {
     expect(describeArrangement([
       member('王工', '项目负责人', '138****6621', true),

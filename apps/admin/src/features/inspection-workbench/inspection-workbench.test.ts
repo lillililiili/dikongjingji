@@ -13,6 +13,7 @@ import {
   beijingToday,
   certifiedPilotCount,
   canArrange,
+  paymentStateText,
   canPublishPlan,
   deliveryMeasuresError,
   fileMatchesType,
@@ -199,7 +200,7 @@ describe('履约动作', () => {
     expect(arrangementProblem([team])).toBe('至少安排一台设备')
     expect(arrangementProblem([team, device])).toBeNull()
     expect(arrangementProblem([{ ...team, contactMobile: '12345' }, device])).toBe('第 1 项的手机号格式不对')
-    // 2.5.0：持证飞手只能勾在人员上；履约页的人数只数勾了的人员。
+    // 2.6.0：持证飞手只能勾在人员上；履约页的人数只数勾了的人员。
     expect(arrangementProblem([team, { ...device, certifiedPilot: true }])).toBe('第 2 项是设备，不能标持证飞手')
     expect(certifiedPilotCount([{ ...team, certifiedPilot: true }, team, { ...device, certifiedPilot: true }])).toBe(1)
   })
@@ -211,3 +212,29 @@ describe('履约动作', () => {
     expect(deliveryMeasuresError({ towerCount: 0, inspectedLengthMeters: null, metricCount: 0 })).toBeNull()
   })
 })
+
+// S4-1：付款节点在工作台的样子。
+describe('inspection payment nodes in the workbench', () => {
+  const order = (visits: ServiceVisit[]): Pick<ServiceOrder, 'assignments' | 'visits'> =>
+    ({ assignments: [TEAM, DEVICE], visits })
+
+  it('says which payment the customer owes in the list', () => {
+    expect(paymentStateText({})).toBe('—')
+    expect(paymentStateText({ paymentDueNodeNo: 1, paymentDueNodeType: 'DOWN_PAYMENT', paymentDueAmountMinor: 558000 }))
+      .toContain('待付首付')
+    expect(paymentStateText({ paymentDueNodeNo: 3, paymentDueNodeType: 'PER_VISIT', paymentDueVisitNo: 2, paymentDueAmountMinor: 217000 }))
+      .toContain('第 2 次服务费待付')
+  })
+
+  it('waits for the down payment, stops when cancelled and redelivers a returned visit', () => {
+    expect(canArrange({ status: 'AWAITING_PAYMENT' })).toBe(false)
+    expect(canArrange({ status: 'CANCELLED' })).toBe(false)
+    const pending = visit({ status: 'PENDING_SCHEDULE' })
+    expect(visitActions({ ...order([pending]), status: 'AWAITING_PAYMENT' }, pending))
+      .toEqual([{ action: 'SCHEDULE', enabled: false, reason: '客户付首付后才能排期' }])
+    expect(visitActions({ ...order([pending]), status: 'CANCELLED' }, pending)).toEqual([])
+    const returned = visit({ status: 'REWORK' })
+    expect(visitActions(order([returned]), returned).map((s) => [s.action, s.enabled])).toEqual([['DELIVER', true]])
+  })
+})
+

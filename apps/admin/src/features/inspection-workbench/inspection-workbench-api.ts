@@ -15,8 +15,9 @@ export type ReservationStage =
   | 'CANCELLED'
 export type ReservationFilter = 'ALL' | Exclude<ReservationStage, 'CANCELLED'>
 export type ReservationStatus = 'SUBMITTED' | 'PLAN_PUBLISHED' | 'CANCELLED'
-export type ServiceOrderStatus = 'ARRANGING' | 'IN_PROGRESS' | 'DELIVERED' | 'ACCEPTED'
-export type ServiceVisitStatus = 'PENDING_SCHEDULE' | 'SCHEDULED' | 'IN_PROGRESS' | 'DELIVERED' | 'ACCEPTED'
+// 2.5.0（S4-1）：AWAITING_PAYMENT 客户还没付首付，CANCELLED 第 1 次巡检开始前客户取消了；REWORK 客户退回整改。
+export type ServiceOrderStatus = 'AWAITING_PAYMENT' | 'ARRANGING' | 'IN_PROGRESS' | 'DELIVERED' | 'ACCEPTED' | 'CANCELLED'
+export type ServiceVisitStatus = 'PENDING_SCHEDULE' | 'SCHEDULED' | 'IN_PROGRESS' | 'REWORK' | 'DELIVERED' | 'ACCEPTED'
 export type AssignmentType = 'TEAM_MEMBER' | 'DEVICE'
 export type ProgressEventCode = 'SERVICE_STARTED' | 'SERVICE_PROGRESS' | 'SERVICE_COMPLETED'
 export type DeliveryFileType = 'IMAGE_ARCHIVE' | 'DEFECT_LIST' | 'POINT_KML' | 'INSPECTION_REPORT'
@@ -43,6 +44,8 @@ export const STAGE_LABELS: Record<ReservationStage, string> = {
 }
 
 export const ORDER_STATUS_LABELS: Record<ServiceOrderStatus, string> = {
+  AWAITING_PAYMENT: '待客户付首付',
+  CANCELLED: '客户已取消',
   ARRANGING: '安排中',
   IN_PROGRESS: '巡检中',
   DELIVERED: '已全部交付，待验收',
@@ -53,6 +56,7 @@ export const VISIT_STATUS_LABELS: Record<ServiceVisitStatus, string> = {
   PENDING_SCHEDULE: '待排期',
   SCHEDULED: '已排期',
   IN_PROGRESS: '巡检中',
+  REWORK: '客户退回整改，待重新交付',
   DELIVERED: '已交付，待客户验收',
   ACCEPTED: '客户已验收',
 }
@@ -129,6 +133,11 @@ export interface ReservationSummary {
   nextVisitDate?: string
   pendingAcceptanceVisitId?: string
   pendingAcceptanceVisitNo?: number
+  // 2.5.0（S4-1）：现在该客户付的第一个付款节点（来自服务单的付款节点）；没有要付的时不出现。
+  paymentDueNodeNo?: number
+  paymentDueNodeType?: PaymentNodeType
+  paymentDueVisitNo?: number
+  paymentDueAmountMinor?: number
 }
 
 export interface ReservationPage extends Page<ReservationSummary> {
@@ -180,7 +189,7 @@ export interface OrderAssignment {
   displayName: string
   roleLabel: string | null
   contactMobileMasked: string | null
-  /** 契约 2.5.0：服务团队成员是否持证飞手（App 履约页“持证飞手 N 名”）；老服务端不返回，按否。 */
+  /** 契约 2.6.0：服务团队成员是否持证飞手（App 履约页“持证飞手 N 名”）；老服务端不返回，按否。 */
   certifiedPilot?: boolean
 }
 
@@ -278,7 +287,7 @@ export interface AssignmentInput {
   displayName: string
   roleLabel: string | null
   contactMobile: string | null
-  /** 契约 2.5.0：只有人员能勾，设备一律 false（后端设备为 true 回 400）。 */
+  /** 契约 2.6.0：只有人员能勾，设备一律 false（后端设备为 true 回 400）。 */
   certifiedPilot: boolean
 }
 

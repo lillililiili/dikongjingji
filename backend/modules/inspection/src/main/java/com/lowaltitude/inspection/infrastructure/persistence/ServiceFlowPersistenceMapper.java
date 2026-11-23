@@ -489,7 +489,7 @@ public interface ServiceFlowPersistenceMapper {
             )
             SELECT
                 #{id}, #{serviceOrderNo}, r.id, p.id, r.customer_id,
-                p.provider_id, #{paymentMode}, 'ARRANGING',
+                p.provider_id, #{paymentMode}, #{status},
                 jsonb_build_object(
                     'serviceId', r.service_id,
                     'serviceTitle', r.service_title_snapshot,
@@ -524,6 +524,7 @@ public interface ServiceFlowPersistenceMapper {
             @Param("serviceOrderNo") String serviceOrderNo,
             @Param("planId") UUID planId,
             @Param("paymentMode") String paymentMode,
+            @Param("status") String status,
             @Param("actorId") UUID actorId,
             @Param("createdAt") Instant createdAt);
 
@@ -549,11 +550,11 @@ public interface ServiceFlowPersistenceMapper {
     @Insert("""
             INSERT INTO inspection_order_payment_node (
                 id, service_order_id, node_no, node_type, visit_id, amount_minor,
-                created_at, updated_at
+                paid_at, created_at, updated_at
             )
             VALUES (
                 gen_random_uuid(), #{orderId}, #{nodeNo}, #{nodeType}, #{visitId},
-                #{amountMinor}, #{createdAt}, #{createdAt}
+                #{amountMinor}, #{paidAt}, #{createdAt}, #{createdAt}
             )
             """)
     void insertOrderPaymentNode(
@@ -562,6 +563,7 @@ public interface ServiceFlowPersistenceMapper {
             @Param("nodeType") String nodeType,
             @Param("visitId") UUID visitId,
             @Param("amountMinor") long amountMinor,
+            @Param("paidAt") Instant paidAt,
             @Param("createdAt") Instant createdAt);
 
     @Update("""
@@ -570,7 +572,7 @@ public interface ServiceFlowPersistenceMapper {
                 updated_by = #{actorId},
                 updated_at = #{updatedAt}
             WHERE id = #{orderId}
-              AND status <> 'ACCEPTED'
+              AND status IN ('ARRANGING', 'IN_PROGRESS', 'DELIVERED')
               AND version = #{expectedVersion}
             """)
     int updateOrderArrangement(

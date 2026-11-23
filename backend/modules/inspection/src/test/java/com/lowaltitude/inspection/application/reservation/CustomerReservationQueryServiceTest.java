@@ -132,6 +132,10 @@ class CustomerReservationQueryServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
                 new ReservationProvider(PROVIDER, "云翼科技", false));
     }
 }

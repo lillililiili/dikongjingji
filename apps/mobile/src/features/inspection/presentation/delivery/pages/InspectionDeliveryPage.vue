@@ -2,7 +2,11 @@
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { computed, ref } from 'vue'
-import { onBackPress, onLoad } from '@dcloudio/uni-app'
+import { onBackPress, onLoad, onShow } from '@dcloudio/uni-app'
+import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
+import { openNodePayment } from '../../../application/service-flow/node-payment'
+import { formatPlanPrice } from '../../../domain/service-flow/plan'
+import { paymentNodeTitle, visitFeeNode } from '../../shared/payment-view'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import {
@@ -91,6 +95,42 @@ const visit = computed(() => order.value
   ? resolveDeliveryVisit(order.value.visits, routeVisitId.value)
   : null)
 const isAccepted = computed(() => delivery.value?.status === 'ACCEPTED')
+const isReturned = computed(() => delivery.value?.status === 'RETURNED')
+// S4-1: this visit's fee once it is accepted (board FulfillmentLater, m07): pay it here, or say it is paid.
+const visitFee = computed(() => {
+  if (!TRADE_PREVIEW_ENABLED || !order.value || !visit.value || !isAccepted.value) return null
+  const node = visitFeeNode(order.value, visit.value.visitNo)
+  if (!node) return null
+  const visits = order.value.visits.length
+  const title = paymentNodeTitle(node, visits)
+  const fees = (order.value.paymentNodes ?? []).filter((item) => item.nodeType === 'PER_VISIT')
+  return {
+    nodeNo: node.nodeNo,
+    payable: node.payable,
+    paid: Boolean(node.paidAt),
+    note: visits > 1 ? `按次结算：每次验收后支付 ${formatPlanPrice(fees[0]?.amountMinor ?? node.amountMinor)}，共 ${fees.length} 次` : '验收后付款：方案总价的 70%',
+    payLabel: `支付${title} ${formatPlanPrice(node.amountMinor)}`,
+    paidLine: `${title} ${formatPlanPrice(node.amountMinor)} 已支付`,
+  }
+})
+const paying = ref(false)
+
+async function payVisitFee(): Promise<void> {
+  if (!order.value || !visitFee.value || paying.value) return
+  paying.value = true
+  try {
+    await openNodePayment(order.value.id, visitFee.value.nodeNo)
+  } finally {
+    paying.value = false
+  }
+}
+
+// Back from the cashier: the fee may be paid now.
+onShow(() => {
+  if (order.value && visitFee.value) {
+    inspectionPlanApi.getServiceOrder(order.value.id).then((latest) => { order.value = latest }).catch(() => undefined)
+  }
+})
 const header = computed(() => order.value && visit.value && delivery.value
   ? describeDeliveryHeader(order.value, visit.value, delivery.value)
   : null)
@@ -411,11 +451,32 @@ function messageOf(error: unknown, fallback: string): string {
     </main>
 
     <view
-      v-if="delivery && !isAccepted && !loadError"
+      v-if="delivery && !isAccepted && !isReturned && !loadError"
       class="delivery__footer"
     >
       <button class="delivery__question" @click="showCustomerService">对报告有疑问</button>
       <button class="delivery__accept" @click="isSheetOpen = true">确认验收</button>
+    </view>
+    <view
+      v-else-if="delivery && isReturned && !loadError"
+      class="delivery__footer delivery__footer--stacked"
+      data-testid="delivery-returned"
+    >
+      <text class="delivery__fee-note">已退回整改{{ visit?.rework?.reason ? `：${visit.rework.reason}` : '' }} · 服务商重新交付后再验收</text>
+      <button class="delivery__question" @click="showCustomerService">对报告有疑问</button>
+    </view>
+    <view
+      v-else-if="visitFee && (visitFee.payable || visitFee.paid) && !loadError"
+      class="delivery__footer delivery__footer--stacked"
+      data-testid="delivery-fee"
+    >
+      <template v-if="visitFee.paid">
+        <text class="delivery__fee-paid" data-testid="delivery-fee-paid">{{ visitFee.paidLine }}</text>
+      </template>
+      <template v-else>
+        <text class="delivery__fee-note">{{ visitFee.note }}</text>
+        <button class="delivery__pay" data-testid="delivery-pay" :disabled="paying" @click="payVisitFee">{{ visitFee.payLabel }}</button>
+      </template>
     </view>
 
     <AcceptanceConfirmSheet
@@ -435,6 +496,47 @@ function messageOf(error: unknown, fallback: string): string {
   flex-direction: column;
   color: #191919;
   background: #f5f7fc;
+}
+
+/* S4-1: the fee of this visit after acceptance (board FulfillmentLater, m07). */
+.delivery__footer--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.delivery__footer--stacked .delivery__question {
+  flex: none;
+}
+
+.delivery__fee-note {
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
+  text-align: center;
+}
+
+.delivery__fee-paid {
+  color: #627187;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.delivery__pay {
+  height: 46px;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #ff6a00;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 46px;
+}
+
+.delivery__pay::after {
+  border: 0;
 }
 
 .delivery__header {

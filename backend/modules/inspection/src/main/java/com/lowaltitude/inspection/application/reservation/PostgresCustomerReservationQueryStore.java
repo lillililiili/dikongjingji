@@ -82,6 +82,10 @@ final class PostgresCustomerReservationQueryStore
                 row.nextVisitDate(),
                 row.pendingAcceptanceVisitId(),
                 row.pendingAcceptanceVisitNo(),
+                row.paymentDueNodeNo(),
+                row.paymentDueNodeType(),
+                row.paymentDueVisitNo(),
+                row.paymentDueAmountMinor(),
                 row.providerName() == null
                         ? null
                         : new ReservationProvider(

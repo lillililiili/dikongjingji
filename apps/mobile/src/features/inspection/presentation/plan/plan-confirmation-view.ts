@@ -3,8 +3,10 @@ import type {
   InspectionPlan,
   InspectionPlanItem,
   InspectionPlanVersionSummary,
+  InspectionServiceOrder,
 } from '../../data/service-flow/inspection-plan-api'
 import { formatPlanPrice } from '../../domain/service-flow/plan'
+import { describeOrderPaymentGroups } from '../shared/payment-view'
 import {
   formatDateRange,
   formatDistance,
@@ -50,6 +52,16 @@ export interface PlanPaymentRow {
   amountText: string
   stateText: string
   isDue: boolean
+  // (S4-1) Grey amount: the order was cancelled (boards PlanConfirm, PlanExpired).
+  isMuted?: boolean
+}
+
+/** Where the plan stands for its payment nodes (S4-1, boards PlanConfirm and PlanExpired). */
+export interface PlanPaymentState {
+  isExpired?: boolean
+  isCancelled?: boolean
+  // The confirmed order: its nodes say what is paid and what is due.
+  order?: Pick<InspectionServiceOrder, 'status' | 'paymentMode' | 'paymentNodes' | 'visits'> | null
 }
 
 export function describePlanStatus(state: {
@@ -179,31 +191,54 @@ function describePerVisitAmounts(amounts: number[]): string {
 export function describePaymentNodes(
   plan: InspectionPlan,
   isConfirmed: boolean,
+  state: PlanPaymentState = {},
 ): PlanPaymentRow[] {
   const nodes = plan.paymentNodes ?? []
   const downPayment = nodes.find((node) => node.nodeType === 'DOWN_PAYMENT')
   const perVisit = nodes.filter((node) => node.nodeType === 'PER_VISIT')
   const perVisitTotal = perVisit.reduce((sum, node) => sum + node.amountMinor, 0)
-  return [
+  if (!nodes.length) return []
+  // A confirmed order knows what is paid: the same rows as the order page.
+  if (isConfirmed && state.order && state.order.paymentMode === 'NODES') {
+    // Before any visit fee is paid the plan keeps its own wording (board PlanConfirm, confirmed frame).
+    const noVisitFeePaid = !(state.order.paymentNodes ?? [])
+      .some((node) => node.nodeType === 'PER_VISIT' && node.paidAt)
+    return describeOrderPaymentGroups(state.order).map((row) => ({
+      key: row.key,
+      name: row.name,
+      amountText: row.amountText,
+      stateText: row.key === 'PER_VISIT' && noVisitFeePaid && perVisit.length > 1 && state.order?.status !== 'CANCELLED'
+        ? describePerVisitAmounts(perVisit.map((node) => node.amountMinor))
+        : row.stateText,
+      isDue: row.isDue,
+      isMuted: row.isMuted,
+    }))
+  }
+  const single = perVisit.length === 1
+  const fixedState = state.isCancelled
+    ? '订单已取消，无需支付'
+    : state.isExpired && !isConfirmed ? '方案过期后不可支付' : ''
+  const rows: PlanPaymentRow[] = [
     ...(downPayment
       ? [{
           key: 'DOWN_PAYMENT',
           name: `首付${percentOf(downPayment.amountMinor, plan.totalAmountMinor)}`,
           amountText: formatPlanPrice(downPayment.amountMinor),
-          stateText: isConfirmed ? '待支付' : '确认方案后支付',
-          isDue: isConfirmed,
+          stateText: fixedState || (isConfirmed ? '待支付' : '确认方案后支付'),
+          isDue: !fixedState && isConfirmed,
         }]
       : []),
     ...(perVisit.length
       ? [{
           key: 'PER_VISIT',
-          name: `按次结算${percentOf(perVisitTotal, plan.totalAmountMinor)}`,
+          name: `${single ? '验收后付款' : '按次结算'}${percentOf(perVisitTotal, plan.totalAmountMinor)}`,
           amountText: formatPlanPrice(perVisitTotal),
-          stateText: describePerVisitAmounts(perVisit.map((node) => node.amountMinor)),
+          stateText: fixedState || (single ? '验收后支付' : describePerVisitAmounts(perVisit.map((node) => node.amountMinor))),
           isDue: false,
         }]
       : []),
   ]
+  return state.isCancelled ? rows.map((row) => ({ ...row, isMuted: true })) : rows
 }
 
 export function describeCustomerParty(

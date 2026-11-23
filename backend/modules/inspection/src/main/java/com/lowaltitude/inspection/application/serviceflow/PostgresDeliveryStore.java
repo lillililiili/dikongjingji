@@ -9,14 +9,122 @@ import java.util.UUID;
 import com.lowaltitude.inspection.domain.files.DeliveryFileType;
 import com.lowaltitude.inspection.domain.files.FileObjectStatus;
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
+import com.lowaltitude.inspection.infrastructure.persistence.InspectionPaymentMapper;
 import com.lowaltitude.inspection.infrastructure.persistence.ServiceFlowPersistenceMapper;
 
 final class PostgresDeliveryStore implements DeliveryStore {
 
     private final ServiceFlowPersistenceMapper mapper;
+    // 重新交付（B2）用；为 null 时不支持重新交付。
+    private final InspectionPaymentMapper changes;
 
     PostgresDeliveryStore(ServiceFlowPersistenceMapper mapper) {
+        this(mapper, null);
+    }
+
+    PostgresDeliveryStore(ServiceFlowPersistenceMapper mapper, InspectionPaymentMapper changes) {
         this.mapper = mapper;
+        this.changes = changes;
+    }
+
+    @Override
+    public DeliveryWriteResult republishDelivery(
+            StoredServiceOrder expectedOrder,
+            ServiceOrderStatus nextOrderStatus,
+            StoredServiceVisit expectedVisit,
+            StoredServiceVisit deliveredVisit,
+            StoredDelivery returnedDelivery,
+            StoredDelivery delivery,
+            DeliveryIdempotencyEntry entry,
+            CurrentSubject actor,
+            String requestId
+    ) {
+        if (changes == null) {
+            return DeliveryWriteResult.STATE_CONFLICT;
+        }
+        if (mapper.insertIdempotency(
+                entry.actorId(),
+                entry.operation(),
+                entry.key(),
+                entry.requestDigest(),
+                "DELIVERY",
+                entry.resourceId(),
+                201) == 0) {
+            return DeliveryWriteResult.IDEMPOTENCY_EXISTS;
+        }
+        Instant at = delivery.publishedAt();
+        if (changes.redeliverVisit(expectedVisit.id(), expectedVisit.version(), actor.subjectId(), at) == 0) {
+            return resolveVisitConflict(expectedVisit.id(), expectedVisit.version());
+        }
+        if (expectedOrder.status() != nextOrderStatus) {
+            if (mapper.updateOrderDelivered(
+                    expectedOrder.id(),
+                    expectedOrder.version(),
+                    at,
+                    actor.subjectId()) == 0) {
+                return resolveOrderConflict(expectedOrder.id(), expectedOrder.version());
+            }
+            mapper.insertTransition(
+                    "SERVICE_ORDER",
+                    expectedOrder.id(),
+                    expectedOrder.status().name(),
+                    nextOrderStatus.name(),
+                    "PROVIDER_OPERATOR",
+                    actor.subjectId(),
+                    requestId,
+                    at);
+        }
+        if (changes.republishDelivery(
+                returnedDelivery.id(),
+                returnedDelivery.version(),
+                delivery.towerCount(),
+                delivery.inspectedLengthMeters(),
+                ServiceFlowJson.metrics(delivery.metrics()),
+                delivery.issueCount(),
+                delivery.issueGroupBy().name(),
+                ServiceFlowJson.issues(delivery.issueSummary()),
+                actor.subjectId(),
+                at) == 0) {
+            return DeliveryWriteResult.STATE_CONFLICT;
+        }
+        changes.deleteDeliveryFiles(delivery.id());
+        for (int index = 0; index < delivery.files().size(); index++) {
+            StoredDeliveryFile file = delivery.files().get(index);
+            mapper.insertDeliveryFile(
+                    delivery.id(),
+                    file.fileId(),
+                    file.type().name(),
+                    file.displayName(),
+                    file.pointCount(),
+                    file.itemCount(),
+                    index,
+                    at);
+        }
+        changes.resolveReworks(expectedVisit.id(), at);
+        mapper.insertTransition(
+                "SERVICE_VISIT",
+                expectedVisit.id(),
+                expectedVisit.status().name(),
+                deliveredVisit.status().name(),
+                "PROVIDER_OPERATOR",
+                actor.subjectId(),
+                requestId,
+                at);
+        mapper.insertTransition(
+                "DELIVERY",
+                delivery.id(),
+                DeliveryStatus.RETURNED.name(),
+                DeliveryStatus.PUBLISHED.name(),
+                "PROVIDER_OPERATOR",
+                actor.subjectId(),
+                requestId,
+                at);
+        mapper.insertOutbox(
+                "DELIVERY",
+                delivery.id(),
+                "INSPECTION_DELIVERY_PUBLISHED",
+                at);
+        return DeliveryWriteResult.SAVED;
     }
 
     @Override

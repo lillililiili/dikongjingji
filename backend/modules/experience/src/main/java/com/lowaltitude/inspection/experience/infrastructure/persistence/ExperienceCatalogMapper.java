@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemDetailRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ExperienceItemRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductExperienceRow;
 import com.lowaltitude.inspection.experience.application.ExperienceRows.ProductVenueRow;
@@ -46,6 +47,23 @@ public interface ExperienceCatalogMapper {
             @Param("limit") int limit,
             @Param("offset") int offset
     );
+
+    /** S5-4：一个已发布的线上体验项目。 */
+    @Select("""
+            SELECT id experience_id,
+                   type,
+                   title,
+                   summary,
+                   cover_url,
+                   login_required,
+                   product_id,
+                   simulation_template,
+                   trial_minutes
+            FROM experience_item
+            WHERE id = #{experienceId}
+              AND status = 'PUBLISHED'
+            """)
+    Optional<ExperienceItemDetailRow> findExperienceItem(@Param("experienceId") UUID experienceId);
 
     @Select("""
             SELECT count(*)

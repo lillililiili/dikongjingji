@@ -273,7 +273,7 @@ function openVenue(venueId: string): void {
         </view>
         <view class="home-recommend__venue-body">
           <text class="home-recommend__venue-name">{{ venue.name }}</text>
-          <!-- Board HomeFull: the project summary under the name (experience 1.4.0), then hours and seats.
+          <!-- Board HomeFull: the project summary under the name (experience 1.5.0), then hours and seats.
                The board's distance needs a position the home page does not ask for; the address stands in
                for the summary only when the venue has none. -->
           <text

@@ -7,12 +7,14 @@ import { inspectionServiceImage } from '../../../data/inspection-service-images'
 import {
   formatInspectionOrderAmount,
   getInspectionOrderActionLabel,
+  getInspectionOrderPayment,
   getInspectionOrderScheduleText,
   getInspectionOrderStageColour,
   getInspectionOrderStageText,
   hasInspectionOrderFulfillmentAction,
   isInspectionOrderActionUrgent,
 } from '../order-center-view'
+import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
 
 const props = defineProps<{
   order: InspectionOrderSummary
@@ -21,6 +23,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [order: InspectionOrderSummary]
   fulfillment: [order: InspectionOrderSummary]
+  // S4-1: pay the node that is due (only where online payment is open).
+  pay: [order: InspectionOrderSummary, nodeNo: number]
 }>()
 
 const picture = computed(() => inspectionServiceImage({
@@ -30,6 +34,8 @@ const picture = computed(() => inspectionServiceImage({
 const stageColour = computed(() => getInspectionOrderStageColour(props.order.stage))
 const showFulfillment = computed(() => hasInspectionOrderFulfillmentAction(props.order))
 const urgent = computed(() => isInspectionOrderActionUrgent(props.order.stage))
+const payment = computed(() => getInspectionOrderPayment(props.order, TRADE_PREVIEW_ENABLED))
+const stageText = computed(() => payment.value?.stageText ?? getInspectionOrderStageText(props.order))
 </script>
 
 <template>
@@ -48,7 +54,10 @@ const urgent = computed(() => isInspectionOrderActionUrgent(props.order.stage))
         <QualificationBadge v-if="props.order.provider.qualificationReviewed" />
       </template>
       <text v-else class="inspection-order-card__number">{{ props.order.reservationNo }}</text>
-      <text class="inspection-order-card__stage" :style="{ color: stageColour }">{{ getInspectionOrderStageText(props.order) }}</text>
+      <text
+        class="inspection-order-card__stage"
+        :style="{ color: payment ? '#ba470b' : stageColour }"
+      >{{ stageText }}</text>
     </view>
     <view class="inspection-order-card__main">
       <image class="inspection-order-card__image" :src="picture" mode="aspectFill" />
@@ -71,7 +80,15 @@ const urgent = computed(() => isInspectionOrderActionUrgent(props.order.stage))
         查看履约
       </button>
       <button
-        :class="urgent ? 'inspection-order-card__primary' : 'inspection-order-card__secondary'"
+        v-if="payment"
+        class="inspection-order-card__primary"
+        data-testid="inspection-order-pay"
+        @click.stop="emit('pay', props.order, payment.nodeNo)"
+      >
+        去付款
+      </button>
+      <button
+        :class="urgent && !payment ? 'inspection-order-card__primary' : 'inspection-order-card__secondary'"
         data-testid="inspection-order-action"
         @click.stop="emit('select', props.order)"
       >

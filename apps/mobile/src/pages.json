@@ -58,6 +58,13 @@
       }
     },
     {
+      "path": "pages/mine/inspection-order",
+      "style": {
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/service/inspection/index",
       "style": {
         "navigationBarTitleText": "我要巡检",
@@ -319,6 +326,41 @@
       }
     },
     {
+      "path": "pages/experience/simulation",
+      "style": {
+        "navigationBarTitleText": "虚拟仿真",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/experience/result",
+      "style": {
+        "navigationBarTitleText": "体验结果",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/experience/software-trial",
+      "style": {
+        "navigationBarTitleText": "软件试用",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/experience/course-trial",
+      "style": {
+        "navigationBarTitleText": "课程试听",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/experience-records",
+      "style": {
+        "navigationBarTitleText": "我的体验",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/mall/product",
       "style": {
         "navigationBarTitleText": "商品详情",
@@ -445,7 +487,8 @@
       "path": "pages/content/video",
       "style": {
         "navigationBarTitleText": "视频",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white"
       }
     },
     {
@@ -453,6 +496,7 @@
       "style": {
         "navigationBarTitleText": "视频",
         "navigationStyle": "custom",
+        "navigationBarTextStyle": "white",
         "disableScroll": true
       }
     },

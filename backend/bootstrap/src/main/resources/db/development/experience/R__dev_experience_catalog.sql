@@ -16,15 +16,17 @@ SET organization_code = EXCLUDED.organization_code,
 
 -- R6-2：product_id 是体验项目关联的商城商品（只存 ID，商城的开发数据 R__dev_mall_catalog.sql），
 -- 照画板 ExpCenter 的“关联：”：编程机器人探索套装 101、教育编程无人机套装（编程教学无人机 入门套装）201。
-INSERT INTO experience_item (id, type, title, summary, login_required, sort_order, status, product_id)
+-- S5-4：simulation_template 是仿真用的 App 内模板，trial_minutes 是试用时长（软件试用单次 25 分钟，
+-- 课程试听 7 天，都是示例时长）。课程试听不要求登录也能看，开始试听时才要登录。
+INSERT INTO experience_item (id, type, title, summary, login_required, sort_order, status, product_id, simulation_template, trial_minutes)
 VALUES
-    ('b1000000-0000-4000-8000-000000000001', 'SIMULATION', '机器人避障模拟', '约 3 分钟 · 免登录可试 · 手机即可', false, 10, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000101'),
-    ('b1000000-0000-4000-8000-000000000002', 'SIMULATION', '无人机起降与悬停', '约 4 分钟 · 免登录可试', false, 20, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000201'),
-    ('b1000000-0000-4000-8000-000000000003', 'RECORDED_DEMO', '3 分钟看懂编程机器人', '视频 3:12 · 示例机器人商家', false, 30, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000101'),
-    ('b1000000-0000-4000-8000-000000000004', 'SOFTWARE_TRIAL', '图形化编程软件试用', '单次 25 分钟 · 登录后可试 · 手机即可', true, 40, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000101'),
-    ('b1000000-0000-4000-8000-000000000005', 'COURSE_TRIAL', '无人机飞行原理（试听）', '试听 2 课 · 图文预览', false, 50, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000201'),
+    ('b1000000-0000-4000-8000-000000000001', 'SIMULATION', '机器人避障模拟', '约 3 分钟 · 免登录可试 · 手机即可', false, 10, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000101', 'ROBOT_OBSTACLE', NULL),
+    ('b1000000-0000-4000-8000-000000000002', 'SIMULATION', '无人机起降与悬停', '约 4 分钟 · 免登录可试', false, 20, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000201', 'DRONE_HOVER', NULL),
+    ('b1000000-0000-4000-8000-000000000003', 'RECORDED_DEMO', '3 分钟看懂编程机器人', '视频 3:12 · 示例机器人商家', false, 30, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000101', NULL, NULL),
+    ('b1000000-0000-4000-8000-000000000004', 'SOFTWARE_TRIAL', '图形化编程软件试用', '单次 25 分钟 · 登录后可试 · 手机即可', true, 40, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000101', NULL, 25),
+    ('b1000000-0000-4000-8000-000000000005', 'COURSE_TRIAL', '无人机飞行原理（试听）', '试听 2 课 · 图文预览', false, 50, 'PUBLISHED', 'c2000000-0000-4000-8000-000000000201', NULL, 10080),
     -- 草稿不应出现在列表里。
-    ('b1000000-0000-4000-8000-000000000006', 'SIMULATION', '未发布的示例仿真', NULL, false, 60, 'DRAFT', NULL)
+    ('b1000000-0000-4000-8000-000000000006', 'SIMULATION', '未发布的示例仿真', NULL, false, 60, 'DRAFT', NULL, NULL, NULL)
 ON CONFLICT (id) DO UPDATE
 SET type = EXCLUDED.type,
     title = EXCLUDED.title,
@@ -33,6 +35,8 @@ SET type = EXCLUDED.type,
     sort_order = EXCLUDED.sort_order,
     status = EXCLUDED.status,
     product_id = EXCLUDED.product_id,
+    simulation_template = EXCLUDED.simulation_template,
+    trial_minutes = EXCLUDED.trial_minutes,
     updated_at = now();
 
 -- S4-4（体验迁移 V007）：project_summary 是首页“附近场馆”卡片第一行，照画板 HomeFull；营地不填，

@@ -78,9 +78,7 @@ public class OrderApplicationService {
         if (order.version() != expectedVersion) {
             throw new PlanVersionConflictException();
         }
-        if (order.status() == ServiceOrderStatus.ACCEPTED) {
-            throw new OrderStateInvalidException();
-        }
+        requireActive(order);
 
         Instant now = clock.instant();
         List<AssignmentWrite> writes = command.assignments().stream()
@@ -157,6 +155,7 @@ public class OrderApplicationService {
         if (visit.version() != expectedVersion) {
             throw new PlanVersionConflictException();
         }
+        requireActive(order);
         if (visit.status() != ServiceVisitStatus.PENDING_SCHEDULE
                 && visit.status() != ServiceVisitStatus.SCHEDULED) {
             throw new VisitStateInvalidException();
@@ -212,6 +211,7 @@ public class OrderApplicationService {
         if (visit.version() != expectedVersion) {
             throw new PlanVersionConflictException();
         }
+        requireActive(order);
         validateProgressTransition(order, visit, command);
 
         boolean starting = command.eventCode() == OrderProgressCode.SERVICE_STARTED;
@@ -313,7 +313,7 @@ public class OrderApplicationService {
                     || !validText(input.displayName(), 1, 120)
                     || input.roleLabel() != null && input.roleLabel().length() > 80
                     || !validMobile(input.contactMobile())
-                    // 只有服务团队成员能标记持证飞手（2.5.0）。
+                    // 只有服务团队成员能标记持证飞手（2.6.0）。
                     || input.type() == AssignmentType.DEVICE && Boolean.TRUE.equals(input.certifiedPilot())
                     || !identities.add(input.type() + ":" + input.resourceId())) {
                 return false;
@@ -417,6 +417,18 @@ public class OrderApplicationService {
         }
     }
 
+    /**
+     * 首付到账之前（待付款）、已取消、已全部验收的服务单，服务商不能安排、排期或推进（S4-1）。
+     * 放在幂等重放之后：同一个命令重放仍返回原结果。
+     */
+    private static void requireActive(StoredServiceOrder order) {
+        if (order.status() == ServiceOrderStatus.AWAITING_PAYMENT
+                || order.status() == ServiceOrderStatus.CANCELLED
+                || order.status() == ServiceOrderStatus.ACCEPTED) {
+            throw new OrderStateInvalidException();
+        }
+    }
+
     private static void requireAssignedProvider(CurrentSubject subject, String permission) {
         if (subject == null
                 || !subject.roles().contains("PROVIDER_OPERATOR")
@@ -470,7 +482,7 @@ public class OrderApplicationService {
                 .append(item.displayName().trim()).append(':')
                 .append(normalize(item.roleLabel())).append(':')
                 .append(normalize(item.contactMobile()))
-                // 2.5.0 起的持证标记；不标记时摘要和以前一样，旧幂等键重放不受影响。
+                // 2.6.0 起的持证标记；不标记时摘要和以前一样，旧幂等键重放不受影响。
                 .append(Boolean.TRUE.equals(item.certifiedPilot()) ? ":CERTIFIED_PILOT" : ""));
         return sha256(value.toString());
     }
@@ -515,7 +527,7 @@ record AssignmentInput(
         String displayName,
         String roleLabel,
         String contactMobile,
-        // 2.5.0：服务团队成员是否持证飞手；不传按否。
+        // 2.6.0：服务团队成员是否持证飞手；不传按否。
         Boolean certifiedPilot
 ) {
 }

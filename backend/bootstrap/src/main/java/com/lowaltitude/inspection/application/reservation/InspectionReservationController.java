@@ -260,6 +260,10 @@ public final class InspectionReservationController {
             LocalDate nextVisitDate,
             UUID pendingAcceptanceVisitId,
             Integer pendingAcceptanceVisitNo,
+            Integer paymentDueNodeNo,
+            String paymentDueNodeType,
+            Integer paymentDueVisitNo,
+            Long paymentDueAmountMinor,
             ReservationProviderResponse provider
     ) {
 
@@ -286,6 +290,10 @@ public final class InspectionReservationController {
                     value.nextVisitDate(),
                     value.pendingAcceptanceVisitId(),
                     value.pendingAcceptanceVisitNo(),
+                    value.paymentDueNodeNo(),
+                    value.paymentDueNodeType(),
+                    value.paymentDueVisitNo(),
+                    value.paymentDueAmountMinor(),
                     value.provider() == null ? null : new ReservationProviderResponse(
                             value.provider().providerId(),
                             value.provider().name(),
@@ -293,7 +301,7 @@ public final class InspectionReservationController {
         }
     }
 
-    /** 契约 2.5.0：订单卡头行的服务商（ProviderSummary 的形状，不带 certificationLabel）。 */
+    /** 契约 2.6.0：订单卡头行的服务商（ProviderSummary 的形状，不带 certificationLabel）。 */
     public record ReservationProviderResponse(UUID providerId, String name, boolean qualificationReviewed) {
     }
 

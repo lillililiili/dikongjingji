@@ -378,6 +378,10 @@ class InspectionReservationControllerTest {
                 null,
                 stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? PENDING_VISIT : null,
                 stage == CustomerReservationStage.AWAITING_ACCEPTANCE ? 3 : null,
+                null,
+                null,
+                null,
+                null,
                 new ReservationProvider(PROVIDER, "云翼科技", true));
     }
 
