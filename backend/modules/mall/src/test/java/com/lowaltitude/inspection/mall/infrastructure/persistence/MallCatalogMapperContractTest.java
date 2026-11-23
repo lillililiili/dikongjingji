@@ -21,7 +21,7 @@ class MallCatalogMapperContractTest {
                 .map(select -> String.join("\n", select.value()))
                 .toList();
 
-        assertThat(statements).hasSize(6);
+        assertThat(statements).hasSize(10);
         assertThat(statements).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
     }
 

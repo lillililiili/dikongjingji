@@ -39,6 +39,7 @@ function offer(amountMinor: number | null, unit: 'ITEM' | 'DAY' | 'HALF_DAY' = '
     shippingNote: null,
     fulfilledFrom: null,
     onlinePayment: true,
+    stockQuantity: null,
   }
 }
 

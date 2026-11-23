@@ -105,7 +105,9 @@ public class SecurityConfiguration {
                                 "/api/v1/experience/product-experiences").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/mall/products",
-                                "/api/v1/mall/products/*").permitAll()
+                                "/api/v1/mall/products/*",
+                                // 开发环境回读运营端上传的商品图片（只在配置了本机目录时有这个接口）。
+                                "/api/v1/mall/media/products/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
                         // 四类专业服务的目录、详情和服务商主页（F2）：公开只读。
                         .requestMatchers(HttpMethod.GET,

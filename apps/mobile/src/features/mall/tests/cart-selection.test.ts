@@ -96,8 +96,9 @@ describe('cart selection', () => {
 
   it('words every reason a good became invalid', () => {
     expect(Object.keys(CART_INVALID_REASON_TEXT).sort())
-      .toEqual(['NOT_PURCHASABLE', 'NOT_SOLD_IN_CITY', 'OFFER_UNAVAILABLE', 'PRODUCT_OFFLINE'])
+      .toEqual(['NOT_PURCHASABLE', 'NOT_SOLD_IN_CITY', 'OFFER_UNAVAILABLE', 'OUT_OF_STOCK', 'PRODUCT_OFFLINE'])
     expect(CART_INVALID_REASON_TEXT.NOT_SOLD_IN_CITY).toBe('当前城市不可售')
+    expect(CART_INVALID_REASON_TEXT.OUT_OF_STOCK).toBe('暂时缺货')
   })
 })
 

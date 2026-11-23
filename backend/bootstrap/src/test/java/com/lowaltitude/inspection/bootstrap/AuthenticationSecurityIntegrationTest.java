@@ -72,6 +72,10 @@ import org.springframework.test.web.servlet.MockMvc;
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        // S3-1 第二部分：商品与供给、收款账户、批量导入
+        com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class,
+        com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
+        com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -595,13 +599,19 @@ class AuthenticationSecurityIntegrationTest {
         }
         // 平台客服不是平台运营，平台运营也不处理反馈。
         for (var request : List.of(get("/api/v1/ops/cities"), get("/api/v1/ops/organizations"),
-                get("/api/v1/ops/organizations/" + organization))) {
+                get("/api/v1/ops/organizations/" + organization), get("/api/v1/ops/catalog/products"),
+                get("/api/v1/ops/merchant-accounts"), get("/api/v1/ops/imports/kinds"),
+                get("/api/v1/ops/imports/batches"))) {
             mockMvc.perform(request.header("Authorization", "Bearer " + supportToken))
                     .andExpect(status().isForbidden());
         }
         mockMvc.perform(get("/api/v1/ops/feedback").header("Authorization", "Bearer " + operatorToken))
                 .andExpect(status().isForbidden());
-        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support);
+        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support,
+                applicationContext.getBean(com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class),
+                applicationContext.getBean(
+                        com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class),
+                applicationContext.getBean(com.lowaltitude.inspection.opsimport.application.OpsImportService.class));
     }
 
     /** 每次新建，请求头不会在几轮之间叠加。 */
@@ -616,7 +626,22 @@ class AuthenticationSecurityIntegrationTest {
                 put(orgPath + "/qualification"), post(orgPath + "/qualification/review"),
                 post(orgPath + "/attachments"), get(orgPath + "/attachments/" + attachment + "/content"),
                 delete(orgPath + "/attachments/" + attachment), post(orgPath + "/accounts"),
-                put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"));
+                put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"),
+                // S3-1 第二部分：商品与供给、收款账户、批量导入
+                get("/api/v1/ops/catalog/products"), post("/api/v1/ops/catalog/products"),
+                get("/api/v1/ops/catalog/products/" + attachment), put("/api/v1/ops/catalog/products/" + attachment),
+                post("/api/v1/ops/catalog/products/" + attachment + "/status"),
+                post("/api/v1/ops/catalog/products/" + attachment + "/skus"),
+                put("/api/v1/ops/catalog/products/" + attachment + "/skus/" + attachment),
+                post("/api/v1/ops/catalog/products/" + attachment + "/offers"),
+                put("/api/v1/ops/catalog/products/" + attachment + "/offers/" + attachment),
+                post("/api/v1/ops/catalog/products/" + attachment + "/offers/" + attachment + "/status"),
+                post("/api/v1/ops/catalog/media"),
+                get("/api/v1/ops/merchant-accounts"), put("/api/v1/ops/merchant-accounts/" + organization),
+                get("/api/v1/ops/merchant-accounts/" + organization + "/operations"),
+                get("/api/v1/ops/imports/kinds"), post("/api/v1/ops/imports/MALL/checks"),
+                get("/api/v1/ops/imports/batches"), get("/api/v1/ops/imports/batches/" + attachment),
+                post("/api/v1/ops/imports/batches/" + attachment + "/run"));
     }
 
     private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {

@@ -12,6 +12,20 @@ identity:
   qualification-files:
     local-dir: ${IDENTITY_QUALIFICATION_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-qualification-files}
 
+# 运营端“商品与供给”（S3-1）：商品图片存本机目录、由后端开发接口回读（LocalMallMediaStore，地址是 http，App 按 https 规则
+# 不显示）；批量导入的文件也存本机目录（LocalImportFileStore）。其他环境没配置对象存储时上传、预检返回 503。
+# 收款账户登记接受借微信文档示例号段的占位商户号（1900000xxx，开发种子在用），其他环境拒绝。
+mall:
+  media:
+    local-dir: ${MALL_MEDIA_DIR:${java.io.tmpdir}/lowaltitude-dev-mall-media}
+    public-base-url: ${MALL_MEDIA_PUBLIC_BASE_URL:http://127.0.0.1:18420/api/v1/mall/media}
+opsimport:
+  files:
+    local-dir: ${OPS_IMPORT_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-import-files}
+trade:
+  merchant-accounts:
+    allow-placeholder-sub-mchid: true
+
 # 开发用的平台运营账号 dev-operator（运营端登录用）：口令不写进仓库，启动后端前设环境变量 DEV_OPERATOR_PASSWORD
 # （至少 12 位）才会建这个账号；不设就不建。见 db/development/identity-operator 和 apps/admin/README.md。
 dev:

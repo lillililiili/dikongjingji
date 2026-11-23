@@ -23,4 +23,22 @@ interface MallCatalogReadStore {
     List<SpecRow> findSpecs(UUID productId);
 
     List<PackItemRow> findPackItems(UUID productId);
+
+    // 1.3.0：运营端录入的卖点、全部启用规格、图集和图文介绍（S3-1）。
+
+    default List<String> findSellingPoints(UUID productId) {
+        return List.of();
+    }
+
+    default List<MallRows.SkuRow> findSkus(UUID productId) {
+        return List.of();
+    }
+
+    default List<String> findGallery(UUID productId) {
+        return List.of();
+    }
+
+    default List<MallRows.IntroBlockRow> findIntroBlocks(UUID productId) {
+        return List.of();
+    }
 }
