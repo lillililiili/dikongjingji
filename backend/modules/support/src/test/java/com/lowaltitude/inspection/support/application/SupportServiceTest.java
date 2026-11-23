@@ -257,6 +257,39 @@ class SupportServiceTest {
     }
 
     @Test
+    void thePlatformDeskCanListUnreadConversationsFirst() {
+        UUID third = UUID.fromString("11111111-1111-1111-1111-333333333333");
+        names.put(third, "赵女士");
+        UUID first = service.open(CUSTOMER, "PLATFORM", null).conversation().conversationId();
+        service.send(CUSTOMER, first, UUID.randomUUID(), new SupportMessageDraft("第一个", null));
+        now = NOW.plusSeconds(60);
+        UUID second = service.open(OTHER_CUSTOMER, "PLATFORM", null).conversation().conversationId();
+        service.send(OTHER_CUSTOMER, second, UUID.randomUUID(), new SupportMessageDraft("第二个", null));
+        now = NOW.plusSeconds(120);
+        UUID latest = service.open(third, "PLATFORM", null).conversation().conversationId();
+        service.send(third, latest, UUID.randomUUID(), new SupportMessageDraft("第三个", null));
+        now = NOW.plusSeconds(180);
+        // 平台客服回了最新的那个：这一边算读过，它的最后一条也最新。
+        service.deskSend(SupportDesk.platformSupport(), SUPPORT_AGENT, latest, UUID.randomUUID(),
+                new SupportMessageDraft("收到，马上处理", null));
+
+        assertThat(service.deskConversations(SupportDesk.platformSupport(), 1, 20, SupportDeskSort.LATEST).items())
+                .extracting(SupportDeskConversationView::conversationId).containsExactly(latest, second, first);
+        SupportDeskConversationPageView unreadFirst = service.deskConversations(SupportDesk.platformSupport(), 1, 20,
+                SupportDeskSort.UNREAD_FIRST);
+        assertThat(unreadFirst.items())
+                .extracting(SupportDeskConversationView::conversationId, SupportDeskConversationView::unreadCount)
+                .containsExactly(tuple(second, 1), tuple(first, 1), tuple(latest, 0));
+        assertThat(unreadFirst.unreadCount()).isEqualTo(2);
+        assertThat(service.deskConversations(SupportDesk.platformSupport(), 2, 2, SupportDeskSort.UNREAD_FIRST).items())
+                .extracting(SupportDeskConversationView::conversationId).containsExactly(latest);
+        // 不给排序和原来一样。
+        assertThat(service.deskConversations(SupportDesk.platformSupport(), 1, 20).items())
+                .extracting(SupportDeskConversationView::conversationId).containsExactly(latest, second, first);
+        assertInvalid(() -> service.deskConversations(SupportDesk.platformSupport(), 1, 20, null));
+    }
+
+    @Test
     void aReplyRaisesTheCustomersUnreadAndNotifiesThenReadingClearsIt() {
         UUID id = service.open(CUSTOMER, "PROVIDER", EAGLE).conversation().conversationId();
         service.send(CUSTOMER, id, UUID.randomUUID(), new SupportMessageDraft("第 2 次巡检什么时候？", null));
@@ -573,6 +606,16 @@ class SupportServiceTest {
         @Override
         public List<ConversationRow> findDeskPage(boolean platform, UUID organizationId, int limit, int offset) {
             return page(desk(platform, organizationId), limit, offset);
+        }
+
+        @Override
+        public List<ConversationRow> findDeskPageUnreadFirst(boolean platform, UUID organizationId, int limit,
+                                                             int offset) {
+            return conversations.stream().filter(desk(platform, organizationId)).filter(c -> c.messageCount > 0)
+                    .sorted(Comparator.comparing((Conversation c) -> c.counterpartUnread > 0).reversed()
+                            .thenComparing(Comparator.comparing((Conversation c) -> c.lastMessageAt).reversed())
+                            .thenComparing(c -> c.id, Comparator.reverseOrder()))
+                    .skip(offset).limit(limit).map(this::row).toList();
         }
 
         private int record(UUID conversationId, int seq, OffsetDateTime at, boolean customer, String customerName) {

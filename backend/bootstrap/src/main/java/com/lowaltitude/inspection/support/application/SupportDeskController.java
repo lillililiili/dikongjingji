@@ -13,9 +13,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 回复方的客服会话（G1，受权接口，没有页面；开发脚本 infra/scripts/dev-support-reply.cjs）。
+ * 回复方的客服会话（G1 受权接口；页面在运营端：机构工作台“客服会话”、平台“客服会话”）。
  * /api/v1/provider/conversations…：服务商操作员（令牌里要有机构），看对方是本机构的商家、服务商会话。
- * /api/v1/platform/support/conversations…：平台客服角色，看对方是平台客服的会话。
+ * /api/v1/platform/support/conversations…：平台客服或平台运营（契约 1.1.0），看对方是平台客服的会话；
+ * 列表可按 sort=UNREAD_FIRST 把有未读的排前面。
  * 两边都只看到客户的显示名，看不到手机号和地址。
  */
 @RestController
@@ -70,13 +71,25 @@ public final class SupportDeskController {
 
     // ---- 平台客服 ----
 
+    /** sort（契约 1.1.0）：LATEST（默认）或 UNREAD_FIRST，只认大写；别的值 400。 */
     @GetMapping(PLATFORM)
     public SupportDeskConversationPageView platformConversations(
             Authentication authentication,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "LATEST") String sort
     ) {
-        return service.deskConversations(platform(authentication).desk(), page, size);
+        SupportDesk desk = platform(authentication).desk();
+        return service.deskConversations(desk, page, size, sort(sort));
+    }
+
+    private static SupportDeskSort sort(String value) {
+        for (SupportDeskSort sort : SupportDeskSort.values()) {
+            if (sort.name().equals(value)) {
+                return sort;
+            }
+        }
+        throw new IllegalArgumentException("sort is invalid");
     }
 
     @GetMapping(PLATFORM + "/{conversationId}/messages")

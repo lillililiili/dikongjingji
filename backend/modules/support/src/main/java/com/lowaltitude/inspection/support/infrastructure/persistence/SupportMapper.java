@@ -148,6 +148,18 @@ public interface SupportMapper {
             @Param("offset") int offset
     );
 
+    /** 同上，有未读（这一边还没读的客户消息）的在前；运营端“客服会话”用（契约 1.1.0 sort=UNREAD_FIRST）。 */
+    @Select(CONVERSATION_COLUMNS + "WHERE c.message_count > 0 AND " + DESK + """
+            ORDER BY (c.counterpart_unread > 0) DESC, c.last_message_at DESC, c.id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<ConversationRow> findDeskPageUnreadFirst(
+            @Param("platform") boolean platform,
+            @Param("organizationId") UUID organizationId,
+            @Param("limit") int limit,
+            @Param("offset") int offset
+    );
+
     /** 客户发了一条：序号接上，对方未读加一，客户这边算读过，刷新客户的显示名。 */
     @Update("""
             UPDATE support_conversation

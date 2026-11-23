@@ -690,20 +690,23 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/platform/support/conversations").header("Authorization", "Bearer " + supportToken))
                 .andExpect(status().isOk());
+        // 契约 1.1.0：平台运营也能读平台客服的会话（运营端“客服会话”菜单给这两个角色）。
+        mockMvc.perform(get("/api/v1/platform/support/conversations")
+                        .header("Authorization", "Bearer " + platformOperatorToken))
+                .andExpect(status().isOk());
         org.mockito.Mockito.verify(support).conversations(SUBJECT_ID, 1, 20);
         org.mockito.Mockito.verify(support).deskConversations(
                 com.lowaltitude.inspection.support.application.SupportDesk.organization(ORGANIZATION_ID), 1, 20);
-        org.mockito.Mockito.verify(support).deskConversations(
-                com.lowaltitude.inspection.support.application.SupportDesk.platformSupport(), 1, 20);
+        org.mockito.Mockito.verify(support, org.mockito.Mockito.times(2)).deskConversations(
+                com.lowaltitude.inspection.support.application.SupportDesk.platformSupport(), 1, 20,
+                com.lowaltitude.inspection.support.application.SupportDeskSort.LATEST);
         for (var refused : List.of(
                 get("/api/v1/conversations").header("Authorization", "Bearer " + operatorToken),
                 get("/api/v1/conversations").header("Authorization", "Bearer " + supportToken),
                 get("/api/v1/provider/conversations").header("Authorization", "Bearer " + customerToken),
                 get("/api/v1/provider/conversations").header("Authorization", "Bearer " + supportToken),
                 get("/api/v1/platform/support/conversations").header("Authorization", "Bearer " + customerToken),
-                get("/api/v1/platform/support/conversations").header("Authorization", "Bearer " + operatorToken),
-                // 平台运营不是平台客服。
-                get("/api/v1/platform/support/conversations").header("Authorization", "Bearer " + platformOperatorToken))) {
+                get("/api/v1/platform/support/conversations").header("Authorization", "Bearer " + operatorToken))) {
             mockMvc.perform(refused).andExpect(status().isForbidden());
         }
         org.mockito.Mockito.verifyNoMoreInteractions(support);
