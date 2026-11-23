@@ -67,6 +67,31 @@ platform:
     api-key: ${PLATFORM_WEATHER_API_KEY:}
     cache-key-prefix: ${PLATFORM_WEATHER_CACHE_KEY_PREFIX:low-altitude:platform:weather}
     last-success-ttl: ${PLATFORM_WEATHER_LAST_SUCCESS_TTL:24h}
+  # 平台文件存储（S6）：运营端素材、商品图片、批量导入文件、机构资质附件、服务订单交付文件、售后凭证六类共用。
+  # local（默认）= 只有 application-dev.yml 配的本机目录可用，其他环境上传下载返回 503；s3 = S3 兼容对象存储（MinIO 可用），
+  # 启动前自检配置（PlatformStoragePreflight），缺项不启动。地址、账号默认沿用巡检的 MinIO 配置；密钥只走环境变量。
+  # 巡检预约附件和交付文件仍走上面的 inspection.infrastructure.storage。
+  storage:
+    provider: ${PLATFORM_STORAGE_PROVIDER:local}
+    s3:
+      endpoint: ${PLATFORM_STORAGE_S3_ENDPOINT:${INSPECTION_MINIO_ENDPOINT:}}
+      region: ${PLATFORM_STORAGE_S3_REGION:${INSPECTION_MINIO_REGION:us-east-1}}
+      access-key: ${PLATFORM_STORAGE_S3_ACCESS_KEY:${INSPECTION_MINIO_ACCESS_KEY:}}
+      secret-key: ${PLATFORM_STORAGE_S3_SECRET_KEY:${INSPECTION_MINIO_SECRET_KEY:}}
+      private-bucket: ${PLATFORM_STORAGE_S3_PRIVATE_BUCKET:}
+      public-bucket: ${PLATFORM_STORAGE_S3_PUBLIC_BUCKET:}
+      public-base-url: ${PLATFORM_STORAGE_S3_PUBLIC_BASE_URL:}
+      path-style: ${PLATFORM_STORAGE_S3_PATH_STYLE:true}
+      connect-timeout: ${PLATFORM_STORAGE_S3_CONNECT_TIMEOUT:3s}
+      request-timeout: ${PLATFORM_STORAGE_S3_REQUEST_TIMEOUT:30s}
+  # 首个平台运营账号的一次性引导（S6，docs/ops/部署与回滚.md §3.1）：login 为空时什么都不做；账号已存在时不改任何东西。
+  # 口令用 password-file（推荐）或 password，二选一；建好后把这几个环境变量和口令文件删掉。
+  bootstrap:
+    operator:
+      login: ${PLATFORM_BOOTSTRAP_OPERATOR_LOGIN:}
+      password: ${PLATFORM_BOOTSTRAP_OPERATOR_PASSWORD:}
+      password-file: ${PLATFORM_BOOTSTRAP_OPERATOR_PASSWORD_FILE:}
+      display-name: ${PLATFORM_BOOTSTRAP_OPERATOR_DISPLAY_NAME:}
 
 # 微信支付（平台收付通）。默认关闭；关闭时没有支付渠道，发起支付回“渠道不可用”。
 # 两个 PEM 文件只给服务器上的路径；APIv3 密钥只走环境变量。都不要写进仓库。
