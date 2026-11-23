@@ -7,11 +7,12 @@ import { buildMenu } from './module'
 import { adminRoutes } from './router'
 
 describe('菜单', () => {
-  it('平台运营看到城市开通和机构与资质，看不到举报与反馈', () => {
+  it('平台运营看到城市开通、机构与资质、商品与供给、收款账户、批量导入，看不到举报与反馈', () => {
     const groups = buildMenu(ADMIN_MODULES, ['PLATFORM_OPERATOR'])
 
     expect(groups.map((group) => group.title)).toEqual(['平台运营'])
-    expect(groups[0]!.items.map((item) => item.title)).toEqual(['城市开通', '机构与资质'])
+    expect(groups[0]!.items.map((item) => item.title))
+      .toEqual(['城市开通', '机构与资质', '商品与供给', '收款账户', '批量导入'])
   })
 
   it('平台客服只看到举报与反馈；机构角色和客户现在没有菜单', () => {
