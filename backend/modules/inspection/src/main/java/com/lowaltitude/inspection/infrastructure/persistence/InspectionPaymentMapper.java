@@ -155,11 +155,12 @@ public interface InspectionPaymentMapper {
             """)
     Optional<OrderStateRow> findOrderState(@Param("orderId") UUID orderId);
 
+    /** 交易回调推进时没有操作人（actorId 为 null），保留上一个操作人。 */
     @Update("""
             UPDATE inspection_service_order
             SET status = #{nextStatus},
                 version = version + 1,
-                updated_by = #{actorId},
+                updated_by = COALESCE(#{actorId}, updated_by),
                 updated_at = #{at}
             WHERE id = #{orderId}
               AND status = #{expectedStatus}
