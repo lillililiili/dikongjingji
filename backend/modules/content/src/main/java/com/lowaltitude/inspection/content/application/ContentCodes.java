@@ -29,7 +29,8 @@ enum ContentFeedChannel {
 
 /**
  * 正文块：PARAGRAPH 段落、HEADING 小标题、TIP 提示、NOTICE 文末说明（带 text）；
- * FACTS 要点表（条目 title = 名称，text = 值）、STEPS 编号步骤、LIST 条目列表（带 items）。
+ * FACTS 要点表（条目 title = 名称，text = 值）、STEPS 编号步骤、LIST 条目列表（带 items）；
+ * IMAGE 正文配图（1.3.0，带 image：地址、替代文字、图注）。
  */
 enum ContentBlockType {
     PARAGRAPH,
@@ -38,7 +39,8 @@ enum ContentBlockType {
     STEPS,
     LIST,
     TIP,
-    NOTICE
+    NOTICE,
+    IMAGE
 }
 
 /** “内容中提到”的对象，refId 是它的稳定 ID：巡检服务、专业服务、商品、活动、场馆。 */

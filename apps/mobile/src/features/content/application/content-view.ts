@@ -1,7 +1,9 @@
 import type { ActivityType } from '../../activity/domain/activity'
 import { padTwo, toBeijingParts } from '../../../shared/time/beijing-time'
 
+import { resolveArticleFigurePreview } from '../data/preview/content-preview-covers'
 import type {
+  ContentArticle,
   ContentArticleCard,
   ContentArticleKind,
   ContentAuthorKind,
@@ -136,4 +138,28 @@ export function isWaterfallChannel(channel: DiscoverChannel): boolean {
 
 export function articleEntries(entries: readonly DiscoverEntry[]): ContentArticleCard[] {
   return entries.flatMap((entry) => (entry.kind === 'ARTICLE' ? [entry.article] : []))
+}
+
+/** (1.3.0) A picture block as the article page draws it. */
+export interface ArticleFigureView {
+  url: string
+  alt: string
+  caption: string | null
+}
+
+/**
+ * The pictures of an article's IMAGE blocks, one entry per block (null for other blocks). A block
+ * without a licensed picture takes the board's on preview builds and is left out (null) on public ones.
+ */
+export function articleFigures(
+  article: Pick<ContentArticle, 'articleId' | 'blocks'>,
+  resolvePreview: (articleId: string, ordinal: number) => string | null = resolveArticleFigurePreview,
+): Array<ArticleFigureView | null> {
+  let ordinal = 0
+  return article.blocks.map((block) => {
+    if (block.type !== 'IMAGE' || !block.image) return null
+    const url = block.image.url ?? resolvePreview(article.articleId, ordinal)
+    ordinal += 1
+    return url ? { url, alt: block.image.alt, caption: block.image.caption } : null
+  })
 }
