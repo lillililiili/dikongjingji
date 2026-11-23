@@ -108,6 +108,13 @@ const flags = resolvePublicFlags()
 buildPublicProductionH5()
 
 const output = readOutputText(h5OutputPath)
+// The prototype's sample pictures and clips are not licensed; vite.config.ts drops them from
+// public builds (docs/ops/授权图片替换.md).
+for (const dir of ['static/images/preview', 'static/videos/preview']) {
+  if (existsSync(join(h5OutputPath, dir))) {
+    throw new Error(`Public build ships unlicensed preview assets: ${dir}`)
+  }
+}
 const leakedMarkers = forbiddenMarkers.filter((marker) => output.includes(marker))
 if (leakedMarkers.length > 0) {
   throw new Error(`Public production H5 output contains development markers: ${leakedMarkers.join(', ')}`)
