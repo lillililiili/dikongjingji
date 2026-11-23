@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.4.0
+  version: 0.5.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -54,6 +54,11 @@ info:
       （缺哪项、私钥和微信支付公钥能否解析、两者是不是放反了、商户号和公钥 ID 的格式、回调地址是不是外网 https），
       再按一个不存在的商户订单号查一次单、按一个不存在的退款单号查一次退款：微信验过签地回答“没有这一单”就说明
       签名、网络和验签都对。只读：不下单、不关单、不退款、不写数据库。其他操作不变。
+
+    0.5.0（2026-11-23，S3-2，docs/redesign/08-后续开发计划.md §5“工作台”）：商家工作台（Web 运营端 apps/admin）要用的读取，不改写操作：
+      listMerchantOrders 加可选查询参数 deliveryMode（EXPRESS / PICKUP），工作台的“待发货”是 status=PAID&deliveryMode=EXPRESS，
+      “待自提”是 status=PAID&deliveryMode=PICKUP；加 readMerchantOrder（本机构卖出的一张商城订单，和列表里的一项相同，带 ETag）；
+      加 readMyMerchantAccount（本机构登记的收款账户，只读，没登记过 404；登记仍由平台运营调 registerMerchantAccount）。
 
     渠道与资金（用户 2026-11-18 确认）：
     - 唯一的支付渠道是微信支付，产品是“平台收付通”的普通支付：每笔钱直接进卖出商品的商家（二级商户）自己的商户号，
@@ -390,6 +395,12 @@ paths:
           required: false
           schema:
             $ref: "#/components/schemas/TradeOrderStatus"
+        - name: deliveryMode
+          in: query
+          required: false
+          description: 0.5.0：只看快递（EXPRESS）或自提（PICKUP）的订单；不写是全部
+          schema:
+            $ref: "#/components/schemas/DeliveryMode"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
       responses:
@@ -405,6 +416,51 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/provider/trade/orders/{orderId}:
+    get:
+      operationId: readMerchantOrder
+      summary: 本机构卖出的一张商城订单（商家操作员，0.5.0）
+      description: 和 listMerchantOrders 里的一项相同（付款之后才有收货手机号和地址，取货码不给商家）。别的机构的订单、业务来源的订单当作不存在。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: 订单
+          headers:
+            ETag:
+              $ref: "#/components/headers/OrderETag"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeOrder"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/trade/merchant-account:
+    get:
+      operationId: readMyMerchantAccount
+      summary: 本机构登记的微信收款账户（商家操作员，只读，0.5.0）
+      description: 机构只从令牌里取。没登记过回 404；登记和停用由平台运营调 registerMerchantAccount（二级商户进件在微信服务商后台完成）。
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 收款账户
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MerchantAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/provider/trade/orders/{orderId}/shipment:
     post:
       operationId: shipOrder

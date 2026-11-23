@@ -301,10 +301,19 @@ public class LiveService {
 
     @Transactional(readOnly = true)
     public LiveHostRoomPageView hostRooms(UUID hostOrgId, int page, int size) {
+        return hostRooms(hostOrgId, null, page, size);
+    }
+
+    /** 本机构的直播间，新建的在前；1.1.0 起工作台可按状态（预告 / 直播中 / 已结束）筛。 */
+    @Transactional(readOnly = true)
+    public LiveHostRoomPageView hostRooms(UUID hostOrgId, String statusCode, int page, int size) {
         requireOrganization(hostOrgId);
+        String status = statusCode == null || statusCode.isBlank()
+                ? null
+                : parse(LiveRoomStatus.class, statusCode, "status").name();
         requirePage(page, size);
-        long total = mapper.countHostRooms(hostOrgId);
-        List<LiveHostRoomView> items = mapper.findHostRooms(hostOrgId, size, offset(page, size)).stream()
+        long total = mapper.countHostRooms(hostOrgId, status);
+        List<LiveHostRoomView> items = mapper.findHostRooms(hostOrgId, status, size, offset(page, size)).stream()
                 .map(this::hostView)
                 .toList();
         return new LiveHostRoomPageView(page, size, total, (long) page * size < total, items);

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { buildUrl, createApiClient } from './api-client'
-import { ApiRequestError, errorMessage, errorMessageWithTrace } from './api-error'
+import { ApiRequestError, errorMessage, errorMessageWithTrace, registerErrorMessages } from './api-error'
 
 function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -47,6 +47,27 @@ describe('接口客户端', () => {
     const init = fetchImpl.mock.calls[0]![1]!
     expect(init.body).toBe('{"name":"x"}')
     expect(init.headers).toMatchObject({ 'Content-Type': 'application/json', 'Idempotency-Key': 'key-1' })
+  })
+
+  it('改状态的操作带 If-Match 强 ETag；DELETE 也能带幂等键', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => jsonResponse(200, { version: 4 }))
+    const { api } = client(fetchImpl)
+
+    await api.post('/api/v1/provider/trade/orders/o-1/shipment', { trackingNo: 'SF1' },
+      { idempotencyKey: 'key-2', ifMatch: 3 })
+    expect(fetchImpl.mock.calls[0]![1]!.headers).toMatchObject({ 'If-Match': '"3"', 'Idempotency-Key': 'key-2' })
+
+    await api.delete('/api/v1/provider/demands/d-1/quote', { idempotencyKey: 'key-3' })
+    const init = fetchImpl.mock.calls[1]![1]!
+    expect(init.method).toBe('DELETE')
+    expect(init.headers).not.toHaveProperty('If-Match')
+    expect(init.headers).toMatchObject({ 'Idempotency-Key': 'key-3' })
+  })
+
+  it('功能块登记的业务错误码有中文说明，通用说明不被覆盖', () => {
+    registerErrorMessages({ TRADE_TEST_ONLY_CODE: '测试用的说明', COMMON_FORBIDDEN: '不该覆盖' })
+    expect(errorMessage(new ApiRequestError(409, 'TRADE_TEST_ONLY_CODE', 'server', 't'))).toBe('测试用的说明')
+    expect(errorMessage(new ApiRequestError(403, 'COMMON_FORBIDDEN', '', 't'))).toBe('你的账号没有这项操作的权限')
   })
 
   it('上传文件时不设 Content-Type（由浏览器带 multipart 边界）', async () => {

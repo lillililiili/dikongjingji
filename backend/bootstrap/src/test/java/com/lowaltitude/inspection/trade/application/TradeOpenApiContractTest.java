@@ -78,7 +78,7 @@ class TradeOpenApiContractTest {
     private static final String RECONCILIATION_RUNS = "POST /api/v1/platform/trade/reconciliation/runs";
     private static final String CHANNEL_CHECKS = "POST /api/v1/platform/trade/channel-checks";
 
-    /** 已实现、要登录的操作：E02 五个，E04 两个，E05 五个，E06 两个。 */
+    /** 已实现、要登录的操作：E02 五个，E04 两个，E05 五个，E06 两个，S2-1 一个，S3-2 两个（商家工作台的单张订单、收款账户）。 */
     private static final Map<String, String> IMPLEMENTED = Map.ofEntries(
             Map.entry("POST /api/v1/trade/orders", "submitOrder"),
             Map.entry("GET /api/v1/trade/orders", "listMyOrders"),
@@ -89,6 +89,8 @@ class TradeOpenApiContractTest {
             Map.entry("PUT /api/v1/platform/trade/merchant-accounts/{organizationId}", "registerMerchantAccount"),
             Map.entry(RECEIPT, "confirmReceipt"),
             Map.entry(MERCHANT_ORDERS, "listMerchantOrders"),
+            Map.entry("GET /api/v1/provider/trade/orders/{orderId}", "readMerchantOrder"),
+            Map.entry("GET /api/v1/provider/trade/merchant-account", "readMyMerchantAccount"),
             Map.entry(SHIPMENT, "shipOrder"),
             Map.entry(PICKUP, "completePickup"),
             Map.entry(REFUNDS, "refundOrder"),
@@ -144,7 +146,8 @@ class TradeOpenApiContractTest {
 
         // 0.2.0：E09 接入收费活动报名（业务来源 ACTIVITY）。
         // 0.4.0：S2-1 加支付通道自检。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("0.4.0");
+        // 0.5.0：S3-2 商家工作台的读取（按配送方式筛、单张订单、本机构收款账户）。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("0.5.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");

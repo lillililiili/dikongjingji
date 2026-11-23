@@ -688,7 +688,7 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/platform/live/rooms/" + roomId + "/end")
                 .header("Authorization", "Bearer " + supportToken)).andExpect(status().isOk());
         org.mockito.Mockito.verify(live).viewerState(SUBJECT_ID, roomId);
-        org.mockito.Mockito.verify(live).hostRooms(ORGANIZATION_ID, 1, 10);
+        org.mockito.Mockito.verify(live).hostRooms(ORGANIZATION_ID, null, 1, 10);
         org.mockito.Mockito.verify(live).platformEnd(roomId);
         for (var refused : List.of(
                 get(room + "/me").header("Authorization", "Bearer " + hostToken),
@@ -793,7 +793,7 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isOk());
 
         org.mockito.Mockito.verify(demands).list(SUBJECT_ID, null, 1, 20);
-        org.mockito.Mockito.verify(demands).listForProvider(ORGANIZATION_ID, 1, 20);
+        org.mockito.Mockito.verify(demands).listForProvider(ORGANIZATION_ID, null, 1, 20);
         org.mockito.Mockito.verify(demands).invitableProviders("370500", null);
 
         mockMvc.perform(get("/api/v1/provider/demands").header("Authorization", "Bearer " + customerToken))
@@ -1093,6 +1093,8 @@ class AuthenticationSecurityIntegrationTest {
             String code = token.equals(customerToken) ? "COMMON_FORBIDDEN" : "COMMON_UNAUTHORIZED";
             for (var request : List.of(
                     get("/api/v1/provider/trade/orders"),
+                    get(order),
+                    get("/api/v1/provider/trade/merchant-account"),
                     post(order + "/shipment")
                             .header("Idempotency-Key", key.toString())
                             .header("If-Match", "\"0\"")
@@ -1138,7 +1140,7 @@ class AuthenticationSecurityIntegrationTest {
                         .content("{\"amountMinor\":1000,\"reason\":\"少发一件\"}"))
                 .andExpect(status().isCreated());
 
-        org.mockito.Mockito.verify(orders).listForMerchant(ORGANIZATION_ID, null, 1, 20);
+        org.mockito.Mockito.verify(orders).listForMerchant(ORGANIZATION_ID, null, null, 1, 20);
         org.mockito.Mockito.verify(orders).completePickup(ORGANIZATION_ID, SUBJECT_ID, orderId, 0, "123456");
         org.mockito.Mockito.verify(refunds).merchantRefund(ORGANIZATION_ID, SUBJECT_ID, orderId, key, 1000L, "少发一件");
         org.mockito.Mockito.verifyNoMoreInteractions(orders, refunds);

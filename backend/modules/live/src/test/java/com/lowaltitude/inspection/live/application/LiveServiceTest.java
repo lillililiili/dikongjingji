@@ -487,6 +487,24 @@ class LiveServiceTest {
         assertThat(service.streamTarget(second)).isEqualTo(new LiveStreamTarget(second, "s-" + second, EAGLE));
     }
 
+    // 1.1.0：工作台按状态筛本机构的直播间；状态写错是 400。
+    @Test
+    void theHostListCanBeFilteredByStatus() {
+        UUID scheduled = room(EAGLE, "预告");
+        now = NOW.plusSeconds(1);
+        UUID live = room(EAGLE, "直播中");
+        mapper.rooms.get(live).status = "LIVE";
+        room(ROBOT, "别人的");
+
+        assertThat(service.hostRooms(EAGLE, "LIVE", 1, 10).items()).extracting(item -> item.room().roomId())
+                .containsExactly(live);
+        assertThat(service.hostRooms(EAGLE, "SCHEDULED", 1, 10).items()).extracting(item -> item.room().roomId())
+                .containsExactly(scheduled);
+        assertThat(service.hostRooms(EAGLE, "ENDED", 1, 10).total()).isZero();
+        assertThat(service.hostRooms(EAGLE, " ", 1, 10).total()).isEqualTo(2);
+        assertThatThrownBy(() -> service.hostRooms(EAGLE, "OPEN", 1, 10)).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void theAuthorNameKeepsOnlyTheFirstCharacter() {
         assertThat(LiveService.maskedName("王女士（示例）")).isEqualTo("王**");

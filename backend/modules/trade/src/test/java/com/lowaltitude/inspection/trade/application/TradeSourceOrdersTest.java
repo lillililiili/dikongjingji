@@ -942,12 +942,13 @@ class TradeSourceOrdersTest {
             }
 
             @Override
-            public long countMerchantOrders(UUID merchantId, String status) {
+            public long countMerchantOrders(UUID merchantId, String status, String deliveryMode) {
                 throw unused();
             }
 
             @Override
-            public List<OrderRow> findMerchantOrders(UUID merchantId, String status, int limit, int offset) {
+            public List<OrderRow> findMerchantOrders(UUID merchantId, String status, String deliveryMode, int limit,
+                                                   int offset) {
                 throw unused();
             }
 

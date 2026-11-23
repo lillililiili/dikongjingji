@@ -20,7 +20,7 @@ const groups = computed(() => buildMenu(ADMIN_MODULES, session.roles))
     </p>
     <el-empty
       v-if="groups.length === 0"
-      description="你的账号暂时没有可用的运营端功能。商家、服务商工作台会陆续开放，开放后会出现在左侧菜单里。"
+      description="你的账号暂时没有可用的功能。需要的话请联系平台运营给本机构开通角色。"
     />
     <div v-for="group in groups" :key="group.key" class="group">
       <h2 class="group__title">{{ group.title }}</h2>
