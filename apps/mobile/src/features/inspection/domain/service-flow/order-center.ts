@@ -32,6 +32,15 @@ export interface InspectionOrderSummary {
   nextVisitDate?: string
   pendingAcceptanceVisitId?: string
   pendingAcceptanceVisitNo?: number
+  /** Service-flow contract 2.5.0: the provider the reservation went to; absent before it has one. */
+  provider?: InspectionOrderProvider
+}
+
+export interface InspectionOrderProvider {
+  providerId: string
+  name: string
+  /** Only from the organisation's qualification review time on the server (R6-4). */
+  qualificationReviewed: boolean
 }
 
 export interface InspectionOrderPage {

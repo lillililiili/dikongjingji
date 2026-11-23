@@ -191,6 +191,9 @@ onMounted(() => {
             <el-table-column label="手机号">
               <template #default="{ row }">{{ (row as ServiceOrder['assignments'][number]).contactMobileMasked ?? '—' }}</template>
             </el-table-column>
+            <el-table-column label="持证飞手" width="100">
+              <template #default="{ row }">{{ (row as ServiceOrder['assignments'][number]).certifiedPilot ? '是' : '—' }}</template>
+            </el-table-column>
           </el-table>
 
           <h3 class="sub-title">每次巡检</h3>

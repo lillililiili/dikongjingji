@@ -81,7 +81,13 @@ final class PostgresCustomerReservationQueryStore
                 row.acceptedVisitCount(),
                 row.nextVisitDate(),
                 row.pendingAcceptanceVisitId(),
-                row.pendingAcceptanceVisitNo());
+                row.pendingAcceptanceVisitNo(),
+                row.providerName() == null
+                        ? null
+                        : new ReservationProvider(
+                                row.providerId(),
+                                row.providerName(),
+                                row.providerQualificationReviewed()));
     }
 
     private static CustomerReservationCountSnapshot toCounts(

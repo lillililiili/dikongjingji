@@ -160,6 +160,8 @@ export interface InspectionServiceOrder {
     displayName: string
     roleLabel: string | null
     contactMobileMasked?: string | null
+    /** Service-flow contract 2.5.0: the provider marked this team member a certified pilot. */
+    certifiedPilot?: boolean
   }>
   progress: InspectionProgressEvent[]
   visits: InspectionServiceVisit[]

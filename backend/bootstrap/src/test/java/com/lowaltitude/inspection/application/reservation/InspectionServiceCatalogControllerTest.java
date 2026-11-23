@@ -123,7 +123,8 @@ class InspectionServiceCatalogControllerTest {
                                 "RESERVABLE",
                                 "RESERVE",
                                 8_560L,
-                                null))));
+                                null,
+                                "示例电力巡检服务商"))));
 
         mockMvc.perform(get("/api/v1/inspection/services")
                         .param("cityCode", "370500")
@@ -131,7 +132,8 @@ class InspectionServiceCatalogControllerTest {
                         .param("sort", "SALES_DESC"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].completedCount").value(8560))
-                .andExpect(jsonPath("$.items[0].priceNote").value("含现场巡检和报告"));
+                .andExpect(jsonPath("$.items[0].priceNote").value("含现场巡检和报告"))
+                .andExpect(jsonPath("$.items[0].providerName").value("示例电力巡检服务商"));
 
         verify(service).search(search);
     }

@@ -75,9 +75,13 @@ export interface AssignmentDraft {
   displayName: string
   roleLabel: string
   contactMobile: string
+  certifiedPilot: boolean
 }
 
-/** 团队和设备安排的检查（后端 validAssignments）：1–30 项，至少一名人员和一台设备，手机号选填。 */
+/**
+ * 团队和设备安排的检查（后端 validAssignments）：1–30 项，至少一名人员和一台设备，手机号选填；
+ * 持证飞手只能勾在人员上（2.5.0）。
+ */
 export function arrangementProblem(list: readonly AssignmentDraft[]): string | null {
   if (list.length === 0 || list.length > 30) return '要有 1–30 项'
   if (!list.some((row) => row.type === 'TEAM_MEMBER')) return '至少安排一名人员或一个班组'
@@ -88,8 +92,14 @@ export function arrangementProblem(list: readonly AssignmentDraft[]): string | n
     if (row.contactMobile.trim() && !/^1[3-9]\d{9}$/.test(row.contactMobile.trim())) {
       return `第 ${index + 1} 项的手机号格式不对`
     }
+    if (row.type === 'DEVICE' && row.certifiedPilot) return `第 ${index + 1} 项是设备，不能标持证飞手`
   }
   return null
+}
+
+/** 履约页会显示的“持证飞手 N 名”：勾了持证的人员数（负责人勾了也算）。 */
+export function certifiedPilotCount(list: readonly Pick<AssignmentDraft, 'type' | 'certifiedPilot'>[]): number {
+  return list.filter((row) => row.type === 'TEAM_MEMBER' && row.certifiedPilot).length
 }
 
 /** 服务单还没全部验收时都能改团队和设备安排。 */

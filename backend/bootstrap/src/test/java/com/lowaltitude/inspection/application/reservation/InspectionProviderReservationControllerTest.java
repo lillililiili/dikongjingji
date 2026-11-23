@@ -113,7 +113,7 @@ class InspectionProviderReservationControllerTest {
                 RESERVATION, "IR202611230001", UUID.randomUUID(), "园区综合巡检", null, "370500",
                 "东营市东营区黄河路 1 号", LocalDate.parse("2026-11-28"), Instant.parse("2026-11-23T01:00:00Z"),
                 CustomerReservationStage.AWAITING_PLAN, "SUBMITTED", null, null, null, 120000L, "CNY",
-                0, 0, null, null, null);
+                0, 0, null, null, null, null);
     }
 
     private static UsernamePasswordAuthenticationToken signedIn(Set<String> roles, UUID organizationId,

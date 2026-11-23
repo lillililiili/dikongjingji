@@ -388,7 +388,12 @@ describe('real inspection catalog adapter', () => {
           guarantees: [],
           hotServices: [
             response.items[0],
-            { ...response.items[0], serviceId: 'sub', category: { code: 'SUBSTATION', name: '变电站' } },
+            {
+              ...response.items[0],
+              serviceId: 'sub',
+              category: { code: 'SUBSTATION', name: '变电站' },
+              providerName: '示例电力巡检服务商',
+            },
           ],
           processSteps: [{ code: 'REQUEST', title: '提交需求', subtitle: null }],
         } as T
@@ -429,6 +434,9 @@ describe('real inspection catalog adapter', () => {
     })
     expect(content.hotServices[0]).not.toHaveProperty('rating')
     expect(content.hotServices[0]).not.toHaveProperty('servedCountLabel')
+    // Catalog 1.4.0: the provider is the card's second line (board HomeSvc); no provider, no line.
+    expect(content.hotServices[0]).not.toHaveProperty('providerName')
+    expect(content.hotServices[1]?.providerName).toBe('示例电力巡检服务商')
     expect(content.guarantees).toEqual([])
     expect(content.processSteps).toEqual([{ code: 'REQUEST', title: '提交需求', icon: '' }])
   })

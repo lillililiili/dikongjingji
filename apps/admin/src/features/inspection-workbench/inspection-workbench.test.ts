@@ -11,6 +11,7 @@ import {
 import {
   arrangementProblem,
   beijingToday,
+  certifiedPilotCount,
   canArrange,
   canPublishPlan,
   deliveryMeasuresError,
@@ -193,11 +194,14 @@ describe('履约动作', () => {
   it('全部验收后不能改安排；安排至少一名人员和一台设备、手机号选填', () => {
     expect(canArrange({ status: 'IN_PROGRESS' })).toBe(true)
     expect(canArrange({ status: 'ACCEPTED' })).toBe(false)
-    const team = { type: 'TEAM_MEMBER' as const, displayName: '班组', roleLabel: '', contactMobile: '' }
-    const device = { type: 'DEVICE' as const, displayName: 'M350', roleLabel: '', contactMobile: '' }
+    const team = { type: 'TEAM_MEMBER' as const, displayName: '班组', roleLabel: '', contactMobile: '', certifiedPilot: false }
+    const device = { type: 'DEVICE' as const, displayName: 'M350', roleLabel: '', contactMobile: '', certifiedPilot: false }
     expect(arrangementProblem([team])).toBe('至少安排一台设备')
     expect(arrangementProblem([team, device])).toBeNull()
     expect(arrangementProblem([{ ...team, contactMobile: '12345' }, device])).toBe('第 1 项的手机号格式不对')
+    // 2.5.0：持证飞手只能勾在人员上；履约页的人数只数勾了的人员。
+    expect(arrangementProblem([team, { ...device, certifiedPilot: true }])).toBe('第 2 项是设备，不能标持证飞手')
+    expect(certifiedPilotCount([{ ...team, certifiedPilot: true }, team, { ...device, certifiedPilot: true }])).toBe(1)
   })
 
   it('交付：文件扩展名对应类型；指标、塔数、长度至少一项', () => {

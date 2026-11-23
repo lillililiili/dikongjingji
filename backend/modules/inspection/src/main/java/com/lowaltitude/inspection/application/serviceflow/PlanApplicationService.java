@@ -1135,7 +1135,9 @@ record OrderAssignment(
         UUID resourceId,
         String displayName,
         String roleLabel,
-        String contactMobileMasked
+        String contactMobileMasked,
+        // S4-4：服务团队成员是否持证飞手（履约页“持证飞手 N 名”）；设备一律为 false。
+        boolean certifiedPilot
 ) {
 }
 

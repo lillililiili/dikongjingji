@@ -141,6 +141,7 @@ final class PostgresInspectionServiceCatalogReadStore
                 row.availability(),
                 row.primaryAction(),
                 row.completedCount(),
+                row.providerName(),
                 row.distanceMeters());
     }
 

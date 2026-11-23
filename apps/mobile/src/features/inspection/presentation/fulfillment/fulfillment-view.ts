@@ -79,21 +79,33 @@ function countBy(values: string[]): Map<string, number> {
   return counts
 }
 
+const CERTIFIED_PILOT_LABEL = '持证飞手'
+
+// An unmarked member whose role reads 持证… is counted as crew, so the certified row stays the provider's mark.
+function crewLabel(roleLabel: string | null): string {
+  if (!roleLabel || roleLabel.includes('持证')) return '作业人员'
+  return roleLabel
+}
+
 export function describeArrangement(assignments: Assignment[]): FulfillmentArrangementView {
   const team = assignments.filter((item) => item.type === 'TEAM_MEMBER')
   const devices = assignments.filter((item) => item.type === 'DEVICE')
   const lead = team.find((item) => item.roleLabel?.includes('负责人'))
     ?? team.find((item) => item.contactMobileMasked)
     ?? null
+  // Board Fulfillment's 持证飞手 N 名 counts the members the provider marked certified (the lead too, when
+  // marked); a role label alone never makes someone certified.
+  const certifiedPilots = team.filter((item) => item.certifiedPilot === true).length
   const crew = countBy(team
-    .filter((item) => item !== lead)
-    .map((item) => item.roleLabel || '作业人员'))
+    .filter((item) => item !== lead && item.certifiedPilot !== true)
+    .map((item) => crewLabel(item.roleLabel)))
   const deviceCounts = countBy(devices.map((item) => item.displayName))
   return {
     lead: lead
       ? { name: lead.displayName, mobileText: lead.contactMobileMasked ?? '' }
       : null,
     rows: [
+      ...(certifiedPilots ? [{ label: CERTIFIED_PILOT_LABEL, value: `${certifiedPilots} 名` }] : []),
       ...[...crew].map(([label, count]) => ({ label, value: `${count} 名` })),
       ...(deviceCounts.size
         ? [{

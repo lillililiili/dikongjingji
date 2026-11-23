@@ -718,13 +718,15 @@ class DeliveryApplicationServiceTest {
                                 UUID.randomUUID(),
                                 "巡检一组",
                                 "负责人",
-                                null),
+                                null,
+                                false),
                         new OrderAssignment(
                                 AssignmentType.DEVICE,
                                 UUID.randomUUID(),
                                 "M350 RTK",
                                 null,
-                                null)),
+                                null,
+                                false)),
                 List.of(new OrderProgressEvent(
                         UUID.randomUUID(),
                         OrderProgressCode.ARRANGEMENT_READY,

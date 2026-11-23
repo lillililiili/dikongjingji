@@ -118,7 +118,8 @@ class InspectionCatalogOpenApiContractTest {
                 "RESERVABLE",
                 "RESERVE",
                 8_560L,
-                3_812L);
+                3_812L,
+                "示例电力巡检服务商");
         List<InspectionCategoryView> categories = List.of(new InspectionCategoryView(
                 "POWER", "电力", null, null, 10, PortalActionView.openCatalog("POWER")));
 

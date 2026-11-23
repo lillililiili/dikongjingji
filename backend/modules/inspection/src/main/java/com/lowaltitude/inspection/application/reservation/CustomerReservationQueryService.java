@@ -108,7 +108,8 @@ public final class CustomerReservationQueryService {
                 row.acceptedVisitCount(),
                 row.nextVisitDate(),
                 row.pendingAcceptanceVisitId(),
-                row.pendingAcceptanceVisitNo());
+                row.pendingAcceptanceVisitNo(),
+                row.provider());
     }
 }
 
@@ -161,8 +162,15 @@ record CustomerReservationSummary(
         int acceptedVisitCount,
         LocalDate nextVisitDate,
         UUID pendingAcceptanceVisitId,
-        Integer pendingAcceptanceVisitNo
+        Integer pendingAcceptanceVisitNo,
+        ReservationProvider provider
 ) { }
+
+/**
+ * S4-4：订单卡头行的服务商（原型画板 OrderList）。qualificationReviewed 只来自机构的资质审核通过时间（R6-4）。
+ * 还没分给服务商的预约为 null。
+ */
+record ReservationProvider(UUID providerId, String name, boolean qualificationReviewed) { }
 
 record StoredCustomerReservationSummary(
         UUID reservationId,
@@ -184,7 +192,8 @@ record StoredCustomerReservationSummary(
         int acceptedVisitCount,
         LocalDate nextVisitDate,
         UUID pendingAcceptanceVisitId,
-        Integer pendingAcceptanceVisitNo
+        Integer pendingAcceptanceVisitNo,
+        ReservationProvider provider
 ) { }
 
 record CustomerReservationStageCounts(

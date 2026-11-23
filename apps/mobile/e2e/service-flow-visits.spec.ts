@@ -196,6 +196,38 @@ test.describe('M06 fulfillment', () => {
     await expect(page.locator('.fulfillment__footer')).toHaveCount(0)
   })
 
+  // S4-4 (service flow 2.5.0, boards Fulfillment and FulfillOne): 持证飞手 N 名 counts the members the
+  // provider marked certified; a role that merely reads 持证飞手 does not count.
+  test('counts the certified pilots the provider marked', async ({ page }) => {
+    const member = (name: string, roleLabel: string, certifiedPilot: boolean, contactMobileMasked: string | null = null) =>
+      ({ type: 'TEAM_MEMBER', resourceId: name, displayName: name, roleLabel, contactMobileMasked, certifiedPilot })
+    await answerApi(page, (path) => {
+      if (path.includes('/plans/')) return { body: plan() }
+      if (path.includes('/service-orders/')) {
+        return {
+          body: order([visit(1, FIRST_VISIT, 'SCHEDULED')], {
+            assignments: [
+              member('王工', '项目负责人', false, '138****6621'),
+              member('飞手甲', '飞手', true),
+              member('飞手乙', '飞手', true),
+              member('见习飞手', '持证飞手', false),
+              { type: 'DEVICE', resourceId: 'd1', displayName: '行业无人机', roleLabel: null,
+                contactMobileMasked: null, certifiedPilot: false },
+            ],
+          }),
+        }
+      }
+      return null
+    })
+    await page.goto(`/#/pages/service/inspection/fulfillment?serviceOrderId=${ORDER_ID}`)
+
+    const rows = page.locator('.fulfillment-arrangement__row')
+    await expect(page.locator('.fulfillment-arrangement__name')).toHaveText('王工')
+    await expect(rows.filter({ hasText: '持证飞手' })).toContainText('2 名')
+    await expect(rows.filter({ hasText: '作业人员' })).toContainText('1 名')
+    await expect(rows.filter({ hasText: '设备' })).toContainText('行业无人机 ×1')
+  })
+
   test('offers a retry when the order cannot be read', async ({ page }) => {
     let attempts = 0
     await answerApi(page, (path) => {

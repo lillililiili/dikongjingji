@@ -120,8 +120,15 @@ public interface ReservationPersistenceMapper {
                    COALESCE(v.accepted_visit_count, 0) accepted_visit_count,
                    v.next_visit_date,
                    pending.id pending_acceptance_visit_id,
-                   pending.visit_no pending_acceptance_visit_no
+                   pending.visit_no pending_acceptance_visit_no,
+                   provider.id provider_id,
+                   provider.organization_name provider_name,
+                   provider.qualification_reviewed_at IS NOT NULL provider_qualification_reviewed
             FROM inspection_reservation r
+            -- S4-4：订单卡头行的服务商名和“资质已审核”；历史订单不按机构现在的状态隐藏。
+            LEFT JOIN identity_organization provider
+              ON provider.id = r.provider_id
+             AND provider.organization_type = 'PROVIDER'
             LEFT JOIN LATERAL (
                 SELECT current_plan.id,
                        current_plan.status,
@@ -595,7 +602,10 @@ public interface ReservationPersistenceMapper {
             int acceptedVisitCount,
             LocalDate nextVisitDate,
             UUID pendingAcceptanceVisitId,
-            Integer pendingAcceptanceVisitNo
+            Integer pendingAcceptanceVisitNo,
+            UUID providerId,
+            String providerName,
+            boolean providerQualificationReviewed
     ) { }
     record CustomerReservationCountsRow(
             long allCount,

@@ -124,11 +124,13 @@ class OrderApplicationServiceTest {
                         UUID.randomUUID(),
                         "王工",
                         "项目负责人",
-                        "12345"),
+                        "12345",
+                        null),
                 new AssignmentInput(
                         AssignmentType.DEVICE,
                         UUID.randomUUID(),
                         "M350 RTK",
+                        null,
                         null,
                         null)));
 
@@ -139,6 +141,36 @@ class OrderApplicationServiceTest {
                 0,
                 invalid,
                 "arrange-bad-mobile"))
+                .isInstanceOf(PlanValidationException.class);
+    }
+
+    // S4-4：服务团队成员可以标记持证飞手，履约页据此数“持证飞手 N 名”；设备不能标记。
+    @Test
+    void certifiedPilotIsKeptForTeamMembersAndRejectedForDevices() {
+        ServiceOrderView arranged = service.arrange(
+                arranger(),
+                ORDER,
+                UUID.randomUUID(),
+                0,
+                arrangement(),
+                "arrange-pilot");
+
+        assertThat(arranged.assignments()).extracting(OrderAssignment::certifiedPilot)
+                .containsExactly(true, false);
+        assertThat(store.lastAssignments.get(0).assignment().certifiedPilot()).isTrue();
+
+        PutArrangementCommand certifiedDevice = new PutArrangementCommand(List.of(
+                new AssignmentInput(
+                        AssignmentType.TEAM_MEMBER, UUID.randomUUID(), "王工", "项目负责人", null, null),
+                new AssignmentInput(
+                        AssignmentType.DEVICE, UUID.randomUUID(), "M350 RTK", null, null, true)));
+        assertThatThrownBy(() -> service.arrange(
+                arranger(),
+                ORDER,
+                UUID.randomUUID(),
+                arranged.version(),
+                certifiedDevice,
+                "arrange-certified-device"))
                 .isInstanceOf(PlanValidationException.class);
     }
 
@@ -539,11 +571,13 @@ class OrderApplicationServiceTest {
                         UUID.fromString("70000000-0000-4000-8000-000000000001"),
                         "东营电力巡检一组",
                         "项目负责人",
-                        "13812346621"),
+                        "13812346621",
+                        true),
                 new AssignmentInput(
                         AssignmentType.DEVICE,
                         UUID.fromString("70000000-0000-4000-8000-000000000002"),
                         "M350 RTK + H30T",
+                        null,
                         null,
                         null)));
     }

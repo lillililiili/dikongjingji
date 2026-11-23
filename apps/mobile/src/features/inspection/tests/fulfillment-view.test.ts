@@ -90,8 +90,8 @@ describe('arrangement', () => {
   it('groups people by role and devices by name, keeping the lead apart', () => {
     expect(describeArrangement([
       member('王工', '项目负责人', '138****6621'),
-      member('飞手甲', '持证飞手'),
-      member('飞手乙', '持证飞手'),
+      member('飞手甲', '飞手', null, true),
+      member('飞手乙', '飞手', null, true),
       device('行业无人机'),
       device('巡检机器狗'),
       device('行业无人机'),
@@ -106,11 +106,28 @@ describe('arrangement', () => {
 
   it('trusts the role over a mobile entered on someone else', () => {
     expect(describeArrangement([
-      member('飞手甲', '持证飞手', '138****0001'),
+      member('飞手甲', '飞手', '138****0001', true),
       member('王工', '项目负责人'),
     ])).toEqual({
       lead: { name: '王工', mobileText: '' },
       rows: [{ label: '持证飞手', value: '1 名' }],
+    })
+  })
+
+  // S4-4：持证只认服务商安排时的标记（契约 2.5.0），角色写着“持证飞手”也不算；负责人标了持证也计入。
+  it('counts certified pilots from the provider mark, not from the role text', () => {
+    expect(describeArrangement([
+      member('王工', '项目负责人', '138****6621', true),
+      member('飞手甲', '飞手', null, true),
+      member('飞手乙', '持证飞手'),
+      member('安全员', '安全员'),
+    ])).toEqual({
+      lead: { name: '王工', mobileText: '138****6621' },
+      rows: [
+        { label: '持证飞手', value: '2 名' },
+        { label: '作业人员', value: '1 名' },
+        { label: '安全员', value: '1 名' },
+      ],
     })
   })
 
@@ -250,13 +267,19 @@ describe('pending acceptance', () => {
   })
 })
 
-function member(displayName: string, roleLabel: string | null, contactMobileMasked: string | null = null) {
+function member(
+  displayName: string,
+  roleLabel: string | null,
+  contactMobileMasked: string | null = null,
+  certifiedPilot = false,
+) {
   return {
     type: 'TEAM_MEMBER' as const,
     resourceId: displayName,
     displayName,
     roleLabel,
     contactMobileMasked,
+    certifiedPilot,
   }
 }
 

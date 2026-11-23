@@ -558,7 +558,8 @@ public final class InspectionPlanController {
             UUID resourceId,
             String displayName,
             String roleLabel,
-            String contactMobileMasked
+            String contactMobileMasked,
+            boolean certifiedPilot
     ) {
         static OrderAssignmentResponse from(OrderAssignment assignment) {
             return new OrderAssignmentResponse(
@@ -566,7 +567,8 @@ public final class InspectionPlanController {
                     assignment.resourceId(),
                     assignment.displayName(),
                     assignment.roleLabel(),
-                    assignment.contactMobileMasked());
+                    assignment.contactMobileMasked(),
+                    assignment.certifiedPilot());
         }
     }
 

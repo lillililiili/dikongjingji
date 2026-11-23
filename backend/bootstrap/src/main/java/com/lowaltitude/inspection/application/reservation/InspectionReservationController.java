@@ -259,7 +259,8 @@ public final class InspectionReservationController {
             int acceptedVisitCount,
             LocalDate nextVisitDate,
             UUID pendingAcceptanceVisitId,
-            Integer pendingAcceptanceVisitNo
+            Integer pendingAcceptanceVisitNo,
+            ReservationProviderResponse provider
     ) {
 
         static CustomerReservationSummaryResponse from(CustomerReservationSummary value) {
@@ -284,8 +285,16 @@ public final class InspectionReservationController {
                     value.acceptedVisitCount(),
                     value.nextVisitDate(),
                     value.pendingAcceptanceVisitId(),
-                    value.pendingAcceptanceVisitNo());
+                    value.pendingAcceptanceVisitNo(),
+                    value.provider() == null ? null : new ReservationProviderResponse(
+                            value.provider().providerId(),
+                            value.provider().name(),
+                            value.provider().qualificationReviewed()));
         }
+    }
+
+    /** 契约 2.5.0：订单卡头行的服务商（ProviderSummary 的形状，不带 certificationLabel）。 */
+    public record ReservationProviderResponse(UUID providerId, String name, boolean qualificationReviewed) {
     }
 
     public record CustomerReservationPageResponse(
