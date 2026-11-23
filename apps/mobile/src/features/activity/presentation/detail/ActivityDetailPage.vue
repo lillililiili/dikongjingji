@@ -3,6 +3,8 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
@@ -419,6 +421,15 @@ onLoad((query) => {
           <LineIcon name="chat" :size="22" color="#536178" />
           <text>咨询</text>
         </button>
+        <!-- 收藏 between 咨询 and the main button, as on board ActDetail. -->
+        <FavoriteButton
+          v-if="FAVORITE_PREVIEW_ENABLED"
+          class="activity-detail__favorite"
+          type="ACTIVITY"
+          :target-id="activity.activityId"
+          :city-code="cityCode"
+          :return-url="buildActivityDetailUrl(activity.activityId, cityCode)"
+        />
         <button
           :class="[
             'activity-detail__primary',
@@ -833,6 +844,11 @@ button::after {
   color: #627187;
   font-size: 12px;
   line-height: 17px;
+}
+
+/* Board ActDetail: 6px more after 收藏 before the main button. */
+.activity-detail__favorite {
+  margin-right: 6px;
 }
 
 .activity-detail__actions {

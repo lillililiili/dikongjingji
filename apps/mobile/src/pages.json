@@ -326,6 +326,20 @@
       }
     },
     {
+      "path": "pages/mall/compare",
+      "style": {
+        "navigationBarTitleText": "商品对比",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/favorites",
+      "style": {
+        "navigationBarTitleText": "收藏与对比",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/mall/inquiry",
       "style": {
         "navigationBarTitleText": "填写询价单",

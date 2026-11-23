@@ -67,6 +67,8 @@ function mountDetailPage(
     // Step G1: customer service and its preview flag (off: the pages keep their notices).
     '@/features/support/application/support-entry': { openSupportChat: () => undefined },
     '@/features/support/application/support-preview': { SUPPORT_PREVIEW_ENABLED: false },
+    // Plan 08 S5-6: 收藏 on the bar, off here (the button is a component of its own).
+    '@/features/favorite/application/favorite-preview': { FAVORITE_PREVIEW_ENABLED: false },
     '@dcloudio/uni-app': {
       onLoad: (handler: (query: DetailRouteQuery) => void) => {
         onLoadHandler = handler

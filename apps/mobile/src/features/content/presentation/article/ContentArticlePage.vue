@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import type { SupportTarget } from '@/features/support/navigation/support-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import { ApiRequestError } from '@/shared/http/public-api-request'
@@ -22,7 +24,7 @@ import { buildContentArticleUrl, contentAuthorHome } from '../../navigation/cont
 
 // One article (boards ContentArticle, ContentCase2–3, ContentKnow1–3 share this template): the
 // author with 主页, the body blocks, 内容中提到 read from each module, 咨询 and the first mention's
-// page at the bottom. 收藏 is not in this step (D10).
+// page at the bottom, with 收藏 first (board ContentArticle, plan 08 S5-6).
 const props = defineProps<{
   articleId: string
   cityCode: string
@@ -62,7 +64,7 @@ const consultLabel = computed(() => {
   return author.kind === 'PROVIDER' ? '咨询服务商' : author.kind === 'MERCHANT' ? '咨询商家' : ''
 })
 const primaryRef = computed(() => refs.value?.[0] ?? null)
-const hasBar = computed(() => Boolean(consultLabel.value || primaryRef.value))
+const hasBar = computed(() => Boolean(FAVORITE_PREVIEW_ENABLED || consultLabel.value || primaryRef.value))
 
 // The head picture: the server's, otherwise (preview builds) the board's.
 const cover = computed(() => {
@@ -290,6 +292,13 @@ void load()
       </view>
 
       <view v-if="hasBar" class="article__bar">
+        <FavoriteButton
+          v-if="FAVORITE_PREVIEW_ENABLED"
+          type="CONTENT"
+          :target-id="article.articleId"
+          :city-code="cityCode"
+          :return-url="buildContentArticleUrl(article.articleId, cityCode)"
+        />
         <button
           v-if="consultLabel"
           class="article__consult"

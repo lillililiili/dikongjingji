@@ -2,6 +2,8 @@
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref } from 'vue'
 
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
@@ -344,6 +346,15 @@ void load()
           <LineIcon name="headset" :size="22" color="#536178" />
           <text>客服</text>
         </button>
+        <!-- 收藏 next to 客服, drawn like the activity page's (plan 08 S5-6; the Svc boards have none). -->
+        <FavoriteButton
+          v-if="FAVORITE_PREVIEW_ENABLED"
+          type="PRO_SERVICE"
+          :target-id="detail.serviceId"
+          :city-code="cityCode"
+          :return-url="buildProServiceDetailUrl(detail.serviceId, cityCode)"
+          :width="44"
+        />
         <button class="pro-detail__publish" data-testid="pro-detail-publish" @click="publish">发布需求</button>
       </view>
       <ShareSheet :target="shareTarget" @close="shareTarget = null" />

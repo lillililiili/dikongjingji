@@ -3,6 +3,8 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
@@ -258,7 +260,17 @@ function reserveService(): void {
       :action-kind="primaryActionKind"
       @customer-service="contactCustomerService"
       @reserve="reserveService"
-    />
+    >
+      <template v-if="FAVORITE_PREVIEW_ENABLED && hasDetail && detailCityCode" #extra>
+        <FavoriteButton
+          type="INSPECTION_SERVICE"
+          :target-id="detail.serviceId"
+          :city-code="detailCityCode"
+          :return-url="buildInspectionDetailUrl(detail.serviceId, detailCityCode)"
+          :width="44"
+        />
+      </template>
+    </ServiceDetailBottomBar>
     <ShareSheet :target="shareTarget" @close="shareTarget = null" />
   </view>
 </template>

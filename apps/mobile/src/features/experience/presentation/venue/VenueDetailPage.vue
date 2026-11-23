@@ -3,6 +3,8 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
@@ -486,6 +488,14 @@ onLoad((query) => {
       </view>
 
       <view v-if="EXPERIENCE_PREVIEW_ENABLED && selectedProject" class="venue-detail__actions">
+        <!-- 收藏 on the left of the bar, drawn like the activity page's (plan 08 S5-6; board VenueDetail has none). -->
+        <FavoriteButton
+          v-if="FAVORITE_PREVIEW_ENABLED"
+          type="VENUE"
+          :target-id="venue.venueId"
+          :city-code="cityCode"
+          :return-url="buildVenueDetailUrl(venue.venueId, cityCode)"
+        />
         <view class="venue-detail__bar-copy">
           <text class="venue-detail__bar-line" data-testid="venue-detail-bar-line">{{ barLine }}</text>
           <text class="venue-detail__bar-price">

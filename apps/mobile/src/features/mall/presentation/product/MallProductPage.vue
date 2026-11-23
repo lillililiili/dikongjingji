@@ -9,6 +9,8 @@ import { loadRelatedContentRows, type RelatedContentRow } from '@/features/conte
 import { contentApi } from '@/features/content/data/content-api-client'
 import ContentRelatedBlock from '@/features/content/presentation/related/ContentRelatedBlock.vue'
 import { EXPERIENCE_PREVIEW_ENABLED } from '@/features/experience/application/experience-preview'
+import { FAVORITE_PREVIEW_ENABLED } from '@/features/favorite/application/favorite-preview'
+import FavoriteButton from '@/features/favorite/presentation/FavoriteButton.vue'
 import {
   loadProductExperienceView,
   type ProductExperienceView,
@@ -802,6 +804,15 @@ onLoad((query) => {
           <LineIcon name="chat" :size="22" color="#536178" />
           <text>咨询</text>
         </button>
+        <!-- 收藏 next to 咨询, where board Product draws it (PdFull's 商家 slot; the merchant page is not built). -->
+        <FavoriteButton
+          v-if="FAVORITE_PREVIEW_ENABLED"
+          type="PRODUCT"
+          :target-id="product.productId"
+          :city-code="pageCity"
+          :return-url="buildMallProductUrl(product.productId, pageCity)"
+          :width="44"
+        />
         <button
           v-if="tryFirst"
           :class="['mall-product__try', { 'mall-product__try--wide': !(primaryAction?.cartAvailable && !noPayableOffer) }]"
@@ -1650,12 +1661,14 @@ button::after {
   box-shadow: var(--app-primary-shadow);
 }
 
+/* Sized by their words like board PdFull (flex 1 1 auto); 8px sides instead of 10 so 加入购物车 still
+   fits at 375 wide next to 咨询, 收藏 and 先体验. */
 .mall-product__secondary,
 .mall-product__primary {
   display: flex;
   min-width: 0;
-  padding: 0 10px;
-  flex: 1 1 0;
+  padding: 0 8px;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   border-radius: 0;
