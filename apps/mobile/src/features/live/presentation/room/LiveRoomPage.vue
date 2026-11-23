@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { contentLinkedApis } from '@/features/content/data/content-linked-apis'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
@@ -7,6 +7,11 @@ import { ApiRequestError } from '@/shared/http/public-api-request'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import {
+  appKeyboardViewport,
+  watchH5KeyboardViewport,
+  type KeyboardViewport,
+} from '@/shared/ui/keyboard-viewport'
 
 import { currentLiveItem, liveItemPrice, resolveLiveItems, type LiveItemView } from '../../application/live-items'
 import {
@@ -60,6 +65,13 @@ let roomTimer: ReturnType<typeof setInterval> | null = null
 let clockTimer: ReturnType<typeof setInterval> | null = null
 let polling = false
 let viewCounted = false
+// While the keyboard is open the room fills only what is visible above it, so the input bar sits on
+// the keyboard instead of iOS pushing the whole page up (H5) or the webview moving (App).
+const keyboard = ref<KeyboardViewport | null>(null)
+let stopKeyboardWatch: () => void = () => {}
+const roomStyle = computed((): Record<string, string> => (keyboard.value
+  ? { position: 'fixed', top: `${keyboard.value.top}px`, left: '0', right: '0', height: `${keyboard.value.height}px` }
+  : {}))
 
 const pageUrl = computed(() => buildLiveRoomUrl(props.roomId, props.cityCode))
 const live = computed(() => room.value?.status === 'LIVE')
@@ -196,6 +208,18 @@ function stop(): void {
   void likes.flush()
 }
 
+// App: the input does not move the page (adjust-position off); its keyboardheightchange says how
+// much of the window the keyboard takes.
+function onKeyboardHeight(event: Event): void {
+  const height = Number((event as Event & { detail?: { height?: number } }).detail?.height ?? 0)
+  keyboard.value = appKeyboardViewport(uni.getSystemInfoSync().windowHeight, height)
+}
+
+onMounted(() => {
+  stopKeyboardWatch = watchH5KeyboardViewport((viewport) => { keyboard.value = viewport })
+})
+onBeforeUnmount(() => stopKeyboardWatch())
+
 function needLogin(): boolean {
   if (token()) return false
   emit('login', pageUrl.value)
@@ -315,7 +339,14 @@ defineExpose({ start, stop })
 </script>
 
 <template>
-  <view class="room" data-testid="live-room" :data-state="status" :data-status="room?.status">
+  <view
+    :class="['room', { 'room--keyboard': keyboard }]"
+    :style="roomStyle"
+    data-testid="live-room"
+    :data-state="status"
+    :data-status="room?.status"
+    :data-keyboard="keyboard ? 'open' : 'closed'"
+  >
     <view v-if="status === 'loading'" class="room__state" aria-label="正在加载" />
 
     <view v-else-if="status === 'missing' || status === 'error'" class="room__state" :data-testid="`live-room-${status}`">
@@ -445,9 +476,11 @@ defineExpose({ start, stop })
           :maxlength="LIVE_COMMENT_LIMIT"
           confirm-type="send"
           :disabled="!live"
+          :adjust-position="false"
           data-testid="live-room-input"
           @input="onInput"
           @confirm="onConfirm"
+          @keyboardheightchange="onKeyboardHeight"
         >
         <button
           class="room__send"
@@ -874,7 +907,12 @@ button::after {
 
 .room__line {
   align-self: flex-start;
+  /* A long comment wraps onto more lines instead of being squeezed into one; the column is
+     bottom-aligned with overflow hidden, so the oldest comments are the ones cut off at the top. */
+  flex-shrink: 0;
   max-width: 100%;
+  white-space: normal;
+  word-break: break-all;
   padding: 5px 10px;
   border-radius: 12px;
   color: #ffffff;
@@ -932,6 +970,22 @@ button::after {
   font-size: 13px;
   line-height: 44px;
   white-space: nowrap;
+}
+
+/* Keyboard open: the bottom safe area belongs to the keyboard now, and the side buttons, likes and
+   the pinned item step aside so a short visible area is left to the picture, comments and input. */
+.room--keyboard .room__input {
+  padding-bottom: 8px;
+}
+
+.room--keyboard .room__chat {
+  bottom: 68px;
+}
+
+.room--keyboard .room__side,
+.room--keyboard .room__hearts,
+.room--keyboard .room__pin {
+  display: none;
 }
 
 .room__mask {

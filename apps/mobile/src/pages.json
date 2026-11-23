@@ -445,7 +445,8 @@
       "path": "pages/content/video",
       "style": {
         "navigationBarTitleText": "视频",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "navigationBarTextStyle": "white"
       }
     },
     {
@@ -453,6 +454,7 @@
       "style": {
         "navigationBarTitleText": "视频",
         "navigationStyle": "custom",
+        "navigationBarTextStyle": "white",
         "disableScroll": true
       }
     }

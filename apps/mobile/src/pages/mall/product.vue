@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onPageScroll } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
@@ -19,6 +19,9 @@ import { ApiRequestError } from '@/shared/http/public-api-request'
 
 const badgeStore = useRootTabBadgeStore()
 const busy = ref(false)
+// The product page's top bar fades to white as the page scrolls.
+const scrollTop = ref(0)
+onPageScroll(({ scrollTop: top }) => { scrollTop.value = top })
 let productId = ''
 let cityCode = ''
 
@@ -98,6 +101,7 @@ onLoad((query) => {
 <template>
   <MallProductPage
     :busy="busy"
+    :scroll-top="scrollTop"
     :load-delivery="loadDelivery"
     @add-to-cart="addToCart"
     @buy-now="buyNow"

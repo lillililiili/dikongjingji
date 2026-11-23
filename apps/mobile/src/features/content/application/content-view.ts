@@ -30,7 +30,7 @@ export const DISCOVER_CHANNEL_LABELS: Record<DiscoverChannel, string> = {
 export const DISCOVER_CHANNEL_NOTES: Record<DiscoverChannel, string> = {
   RECOMMEND: '内容由城市运营、服务商和商家发布，按发布时间排序。',
   VIDEO: '点任意视频进入竖屏播放，上下切换下一条。',
-  LIVE: '平台内直播可互动、看讲解清单；交易在平台内完成，直播间不收款。',
+  LIVE: '平台内直播可互动、看讲解清单，直播间不收款。',
   EVENTS: '赛事由主办方发布，报名、退改和成绩以活动详情为准。',
   STUDY: '研学活动面向未成年人，由监护人代报名；行程和退改以活动详情为准。',
   CASE: '案例由服务商提供，实际范围、周期和费用以报价方案为准。',
