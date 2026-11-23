@@ -78,6 +78,8 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
         com.lowaltitude.inspection.live.application.LiveOpsService.class,
         com.lowaltitude.inspection.live.application.LiveService.class,
+        com.lowaltitude.inspection.course.application.CourseService.class,
+        com.lowaltitude.inspection.course.application.ops.CourseOpsService.class,
         com.lowaltitude.inspection.content.application.ContentReadService.class,
         com.lowaltitude.inspection.content.application.ContentVideoService.class,
         ExperienceCatalogReadService.class,

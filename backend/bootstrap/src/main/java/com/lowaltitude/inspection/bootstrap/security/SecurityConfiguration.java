@@ -126,6 +126,11 @@ public class SecurityConfiguration {
                                 "/api/v1/content/videos",
                                 "/api/v1/content/videos/*",
                                 "/api/v1/content/videos/*/comments").permitAll()
+                        // 课程（S5-5）：列表、线上课详情、试听公开只读；“我和这门课”、购买、学习、退款走下面的 authenticated()。
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/courses",
+                                "/api/v1/courses/*",
+                                "/api/v1/course-trials").permitAll()
                         // 直播（M20）：列表、详情、弹幕增量公开只读；进直播间记一次观看不登录也记（按设备去重）。
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/live/rooms",

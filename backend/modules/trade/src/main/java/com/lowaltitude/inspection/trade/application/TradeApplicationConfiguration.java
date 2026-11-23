@@ -57,12 +57,22 @@ public class TradeApplicationConfiguration {
         return new OpsMerchantAccountService(mapper, allowPlaceholder, Clock.systemUTC());
     }
 
+    /** 商城订单完成时告诉业务模块（S5-5：商品附带的数字课程开通）。监听者第一次用到时才取。 */
+    @Bean
+    TradeCompletionEvents tradeCompletionEvents(
+            TradeOrderMapper orders,
+            ObjectProvider<TradeOrderCompletionListener> listeners
+    ) {
+        return new TradeCompletionEvents(orders, () -> listeners.orderedStream().toList());
+    }
+
     @Bean
     TradeOrderService tradeOrderService(
             TradeOrderMapper mapper,
             TradeCheckoutPort checkout,
             TradeSourceEvents events,
-            TradeBuyerEvents buyerEvents
+            TradeBuyerEvents buyerEvents,
+            TradeCompletionEvents completions
     ) {
         SecureRandom random = new SecureRandom();
         return new TradeOrderService(
@@ -71,7 +81,8 @@ public class TradeApplicationConfiguration {
                 Clock.systemUTC(),
                 () -> String.format("%08d", random.nextInt(100_000_000)),
                 events,
-                buyerEvents);
+                buyerEvents,
+                completions);
     }
 
     @Bean
