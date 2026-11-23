@@ -41,4 +41,14 @@ interface MallCatalogReadStore {
     default List<MallRows.IntroBlockRow> findIntroBlocks(UUID productId) {
         return List.of();
     }
+
+    // 1.4.0（S4-4）：开票方、售后责任方，商品是否支持七天无理由。
+
+    default List<MallRows.TradeTermsRow> findTradeTerms(List<UUID> offerIds) {
+        return List.of();
+    }
+
+    default boolean findNoReasonReturn(UUID productId) {
+        return true;
+    }
 }

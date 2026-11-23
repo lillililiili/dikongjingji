@@ -1,4 +1,5 @@
 import { ACTIVITY_TICKET_PATH, buildActivityTicketUrl } from '@/features/activity/navigation/activity-routes'
+import { COURSE_LEARN_PATH, buildCourseLearnUrl } from '@/features/course/navigation/course-routes'
 import { VENUE_BOOKING_PATH, buildVenueBookingUrl } from '@/features/experience/navigation/experience-routes'
 import { RENTAL_ORDER_PATH, buildRentalOrderUrl } from '@/features/rental/navigation/rental-routes'
 import {
@@ -19,6 +20,7 @@ export function destinationUrl(destination: TradeOrderDestination): string {
     case 'ACTIVITY_ENROLLMENT': return buildActivityTicketUrl(destination.enrollmentId)
     case 'VENUE_BOOKING': return buildVenueBookingUrl(destination.bookingId)
     case 'RENTAL_ORDER': return buildRentalOrderUrl(destination.rentalOrderId)
+    case 'COURSE_ENROLLMENT': return buildCourseLearnUrl(destination.enrollmentId)
     case 'GOODS_ORDER': return buildGoodsOrderUrl(destination.orderId)
     case 'INSPECTION_ORDER': return buildInspectionOrderUrl(destination.serviceOrderId)
     case 'INSPECTION_FULFILLMENT': return buildInspectionFulfillmentUrl(destination.serviceOrderId)
@@ -32,6 +34,7 @@ function ownPagePath(destination: TradeOrderDestination): string | null {
   if (destination.kind === 'RENTAL_ORDER') return RENTAL_ORDER_PATH
   if (destination.kind === 'INSPECTION_ORDER') return INSPECTION_ORDER_PATH
   if (destination.kind === 'INSPECTION_FULFILLMENT') return INSPECTION_FULFILLMENT_PATH
+  if (destination.kind === 'COURSE_ENROLLMENT') return COURSE_LEARN_PATH
   return null
 }
 

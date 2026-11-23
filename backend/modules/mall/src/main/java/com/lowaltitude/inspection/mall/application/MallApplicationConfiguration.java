@@ -42,6 +42,23 @@ public class MallApplicationConfiguration {
         return new MallCatalogOpsService(mapper, cities, merchants, payments, media, Clock.systemUTC());
     }
 
+    /** 商家主页与商家资料（S5-2）。活动、内容由启动模块经端口接上；没接时两个页签是空的。 */
+    @Bean
+    MallMerchantService mallMerchantService(
+            com.lowaltitude.inspection.mall.infrastructure.persistence.MallMerchantMapper mapper,
+            MallCatalogMapper catalog,
+            MallInquiryPorts.MerchantQualifications qualifications,
+            org.springframework.beans.factory.ObjectProvider<MallMerchantPorts.Activities> activities,
+            org.springframework.beans.factory.ObjectProvider<MallMerchantPorts.Contents> contents,
+            org.springframework.transaction.PlatformTransactionManager transactionManager
+    ) {
+        return new MallMerchantService(mapper, catalog, qualifications,
+                activities.getIfAvailable(() -> MallMerchantPorts.Activities.NONE),
+                contents.getIfAvailable(() -> MallMerchantPorts.Contents.NONE),
+                new org.springframework.transaction.support.TransactionTemplate(transactionManager),
+                Clock.systemUTC());
+    }
+
     @Bean
     MallRentalOffers mallRentalOffers(MallCartMapper mapper) {
         return new MallRentalOffers(mapper);

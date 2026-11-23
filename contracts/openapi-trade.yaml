@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.6.0
+  version: 0.9.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -68,6 +68,21 @@ info:
       付款截止 15 分钟；超时或取消只关这一张订单，节点仍待付，可以再发起。不在“商品订单”里，商家接口当作不存在。
       已付款的不能由买家取消：首付只在服务单取消（第 1 次巡检开始前）时由巡检模块整笔原路退款；按次服务费不在线退。
       关闭之后才到账的付款：节点还没付、服务单没取消时照常记为已付；否则整笔自动原路退款。
+    0.9.0（2026-11-23，S5-5，docs/redesign/09-课程实现说明.md）：第六个业务来源——线上录播课（source = COURSE，课程接口见
+      contracts/openapi-course.yaml 1.0.0）。收款方是开课机构，钱同样直接进它自己的子商户号；不发货，订单编号以 CO 开头；
+      订单行的 productId 是课程 ID，offerId 也是课程 ID（一门课只有“单人账号”一种），productName 是课程名，skuName 是“单人账号”，
+      quantity 是 1；付款时限 15 分钟。不在“商品订单”里，商家接口当作不存在。已付款的不能由买家取消，退款只能由课程的退款发起
+      （付款后 7 天内、没开始学非试听课时，整单原路退款）。关闭之后才到账的：这门课没有别的开通时恢复，否则整笔自动原路退回。
+      另外，商城订单完成（确认收货、自动确认收货、自提核销）时，交易模块在同一个事务里把订单的商品行告诉课程模块，
+      附带数字课程的商品随即给买家开通课程（没有新接口，只是服务端之间的端口）。其他操作不变。
+
+    0.7.0（2026-11-23，S4-2、S4-4，docs/redesign/08-后续开发计划.md §5 A1、S4-4）：TradeOrder 加四个只读字段，不改写操作：
+      parties（下单时的交易主体快照：发货仓 fulfilledFrom、开票方 invoiceIssuer、售后责任方 aftersaleParty，由商城按
+      供给 → 商家资料 → 商家名称给出；几行不同时用“；”连接；业务来源的订单都为 null）；channelTransactionId（付款成功的
+      支付单在微信的交易号，只在验签后的回调或查单记下之后才有，只用来显示）；participantNames（收费报名订单的参与人姓名，
+      按报名顺序用顿号连接，只用来显示，报名单仍是事实源；别的订单为 null）；aftersale（最近一张售后单和现在能不能申请售后）。
+      商品售后的接口在 contracts/openapi-trade-aftersale.yaml 1.0.0：售后退款同样经本模块原路退回，退款记录照常出现在
+      refunds 里（仅退款的 reason 以“买家申请仅退款”开头，退货退款以“售后退货退款”开头，超时自动退款以“售后超时自动退款”开头）。
 
     渠道与资金（用户 2026-11-18 确认）：
     - 唯一的支付渠道是微信支付，产品是“平台收付通”的普通支付：每笔钱直接进卖出商品的商家（二级商户）自己的商户号，
@@ -84,7 +99,8 @@ info:
     - 未付款的订单 30 分钟后关闭（同时关掉微信那边的预支付单）。
     - 已付款、未发货（或未自提）时，买家可以自己取消，全额原路退款。
     - 发货后 10 天未确认收货的自动确认；自提订单由商家核销取货码后完成。
-    - 发货后的退款只能由商家通过受权接口发起，可以部分退款，同一订单最多 50 次，合计不超过实付；买家的售后申请等 A1 确认。
+    - 发货后的退款由商家通过受权接口发起，可以部分退款，同一订单最多 50 次，合计不超过实付；买家的售后申请（0.7.0，A1）
+      见 contracts/openapi-trade-aftersale.yaml，商家同意并确认收货后同样经本模块原路退回。
 
     角色：买家接口要 CUSTOMER；商家接口要 PROVIDER_OPERATOR，且只能操作本机构卖出的订单；平台接口要 PLATFORM_OPERATOR。
     账号、机构都只从令牌里取。不是自己的订单一律当作不存在。
@@ -894,8 +910,8 @@ components:
       enum: [ALL, TO_PAY, TO_SHIP, TO_RECEIVE, DONE, REFUND]
     TradeOrderSource:
       type: string
-      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）；INSPECTION 巡检付款节点（0.6.0，S4-1）。以后接入的业务在这里加
-      enum: [MALL, ACTIVITY, VENUE, RENTAL, INSPECTION]
+      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）；INSPECTION 巡检付款节点（0.6.0，S4-1）；COURSE 线上录播课（0.9.0，S5-5）。以后接入的业务在这里加
+      enum: [MALL, ACTIVITY, VENUE, RENTAL, INSPECTION, COURSE]
     DeliveryMode:
       type: string
       enum: [EXPRESS, PICKUP]
@@ -1178,6 +1194,10 @@ components:
         - refunds
         - cancellable
         - version
+        - parties
+        - channelTransactionId
+        - participantNames
+        - aftersale
       properties:
         orderId:
           type: string
@@ -1238,6 +1258,50 @@ components:
           description: 买家现在能不能取消（待付款，或已付款未发货 / 未自提的商城订单；已付款的收费报名订单为 false）
         version:
           type: integer
+        parties:
+          $ref: "#/components/schemas/TradeOrderParties"
+        channelTransactionId:
+          type: [string, "null"]
+          description: 0.7.0：付款成功的支付单在微信的交易号（transaction_id），验签后的回调或查单记下才有；没付款时为 null。只用来显示
+        participantNames:
+          type: [string, "null"]
+          description: 0.7.0：收费报名订单的参与人姓名（报名顺序，顿号连接），只用来显示；别的订单为 null
+        aftersale:
+          $ref: "#/components/schemas/TradeOrderAftersale"
+    TradeOrderParties:
+      type: object
+      additionalProperties: false
+      required: [fulfilledFrom, invoiceIssuer, aftersaleParty]
+      description: 0.7.0：下单时的交易主体快照（画板 OrderGoods）。没有时为 null，页面不显示那一行
+      properties:
+        fulfilledFrom:
+          type: [string, "null"]
+          maxLength: 250
+          description: 从哪里发货（商城供给的发货仓）
+        invoiceIssuer:
+          type: [string, "null"]
+          maxLength: 250
+          description: 开票方
+        aftersaleParty:
+          type: [string, "null"]
+          maxLength: 250
+          description: 售后责任方
+    TradeOrderAftersale:
+      type: object
+      additionalProperties: false
+      required: [latestAftersaleId, latestStatus, applicable]
+      description: 0.7.0：订单上的售后入口。售后单的状态取值见 contracts/openapi-trade-aftersale.yaml 的 AftersaleStatus
+      properties:
+        latestAftersaleId:
+          type: [string, "null"]
+          format: uuid
+          description: 最近一张售后单；没有时为 null
+        latestStatus:
+          type: [string, "null"]
+          description: 最近一张售后单的状态
+        applicable:
+          type: boolean
+          description: 现在能不能申请售后（只有商城订单可能为 true；具体能选哪类、哪个原因看 getAftersaleEligibility）
     TradeOrderPage:
       type: object
       additionalProperties: false

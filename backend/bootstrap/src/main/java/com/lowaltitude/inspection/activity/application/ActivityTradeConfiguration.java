@@ -80,7 +80,8 @@ public class ActivityTradeConfiguration {
                                 request.coverUrl(),
                                 request.unitAmountMinor(),
                                 request.people())),
-                        request.payBefore()));
+                        request.payBefore(),
+                        request.participantNames() == null ? List.of() : request.participantNames()));
                 return new OpenedPayment(opened.orderId(), opened.payBefore());
             } catch (TradeException exception) {
                 if (exception.error() == TradeException.Error.MERCHANT_PAYMENT_UNAVAILABLE) {

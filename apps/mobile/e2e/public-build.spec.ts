@@ -282,4 +282,18 @@ test.describe('公开构建', () => {
     }
     expect(calls).toEqual([])
   })
+
+  test('PUB-017 课程未开通：课程详情、学习、试听、我的课程只有说明，“我的”里没有我的课程', async ({ page }) => {
+    await page.goto('/#/pages/mine/index')
+    await expect(page.getByTestId('mine-link-my_courses')).toHaveCount(0)
+    for (const route of [
+      '/pages/course/detail?courseId=d7c00000-0000-4000-8000-000000000001',
+      '/pages/course/learn?enrollmentId=d7c90000-0000-4000-8000-000000000001',
+      '/pages/course/trial?courseId=d7c00000-0000-4000-8000-000000000001',
+      '/pages/mine/courses',
+    ]) {
+      await page.goto(`/?r=${encodeURIComponent(route)}#${route}`)
+      await expect(page.getByTestId('course-unavailable')).toContainText('线上课程尚未开通')
+    }
+  })
 })

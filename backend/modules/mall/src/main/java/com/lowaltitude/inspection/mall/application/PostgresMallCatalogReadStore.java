@@ -29,7 +29,8 @@ final class PostgresMallCatalogReadStore implements MallCatalogReadStore {
                 criteria.experienceBadges(),
                 criteria.merchantKinds(),
                 criteria.minPriceMinor(),
-                criteria.maxPriceMinor());
+                criteria.maxPriceMinor(),
+                criteria.merchantId());
     }
 
     @Override
@@ -45,6 +46,7 @@ final class PostgresMallCatalogReadStore implements MallCatalogReadStore {
                 criteria.merchantKinds(),
                 criteria.minPriceMinor(),
                 criteria.maxPriceMinor(),
+                criteria.merchantId(),
                 sort,
                 limit,
                 offset);
@@ -88,5 +90,16 @@ final class PostgresMallCatalogReadStore implements MallCatalogReadStore {
     @Override
     public List<MallRows.IntroBlockRow> findIntroBlocks(UUID productId) {
         return mapper.findIntroBlocks(productId);
+    }
+
+    @Override
+    public List<MallRows.TradeTermsRow> findTradeTerms(List<UUID> offerIds) {
+        return offerIds.isEmpty() ? List.of() : mapper.findTradeTerms(offerIds);
+    }
+
+    @Override
+    public boolean findNoReasonReturn(UUID productId) {
+        Boolean value = mapper.findNoReasonReturn(productId);
+        return value == null || value;
     }
 }

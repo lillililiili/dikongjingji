@@ -1,4 +1,4 @@
-// Mirrors contracts/openapi-trade.yaml (0.2.0). Amounts are in fen.
+// Mirrors contracts/openapi-trade.yaml (0.7.0). Amounts are in fen.
 
 export type TradeOrderStatus =
   | 'PENDING_PAYMENT'
@@ -29,9 +29,10 @@ export type TradeDeliveryMode = 'EXPRESS' | 'PICKUP'
 // order (sourceRef is the rental order id).
 // An inspection payment node (S4-1, contract 0.4.0): sourceRef is the payment attempt id; the line's
 // productId is the inspection service order, productName "服务名 · 方案 vN", skuName the node.
-export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE' | 'RENTAL' | 'INSPECTION'
+// An online course (S5-5): sourceRef is the course enrollment.
+export type TradeOrderSource = 'MALL' | 'ACTIVITY' | 'VENUE' | 'RENTAL' | 'INSPECTION' | 'COURSE'
 
-export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION']
+export const TRADE_ORDER_SOURCES: readonly TradeOrderSource[] = ['MALL', 'ACTIVITY', 'VENUE', 'RENTAL', 'INSPECTION', 'COURSE']
 
 export type TradeMerchantKind = 'FACTORY_DIRECT' | 'AUTHORIZED_DEALER' | 'LOCAL_STORE'
 
@@ -96,6 +97,22 @@ export interface TradeRefund {
   succeededAt: string | null
 }
 
+// (0.6.0) 交易主体 as recorded when the order was placed (board OrderGoods): where it ships from, who
+// invoices and who answers for after-sales. Business orders carry none of them; a null row is not shown.
+export interface TradeOrderParties {
+  fulfilledFrom: string | null
+  invoiceIssuer: string | null
+  aftersaleParty: string | null
+}
+
+// (0.6.0) The after-sales entry of an order (contracts/openapi-trade-aftersale.yaml): the latest
+// after-sales case, and whether one can be applied for now (only ever true on a mall order).
+export interface TradeOrderAftersale {
+  latestAftersaleId: string | null
+  latestStatus: string | null
+  applicable: boolean
+}
+
 export interface TradeOrder {
   orderId: string
   orderNo: string
@@ -126,6 +143,13 @@ export interface TradeOrder {
   cancellable: boolean
   // The order's version; commands that change the order send it back as If-Match.
   version: number
+  parties: TradeOrderParties
+  // (0.6.0) WeChat's transaction id of the successful payment, only once a verified notification or
+  // the server's own query recorded it. For display only.
+  channelTransactionId: string | null
+  // (0.6.0) A paid sign-up's people, in sign-up order, joined with 、. For display only.
+  participantNames: string | null
+  aftersale: TradeOrderAftersale
 }
 
 export interface TradeOrderPage {

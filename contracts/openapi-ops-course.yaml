@@ -1,0 +1,1051 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Course API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S5-5，docs/redesign/09-课程实现说明.md）：Web 运营端“课程”。课程与章节的增改、上下架，只给平台运营。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
+    COMMON_FORBIDDEN. 课程在课程模块（迁移 course V001）；App 读课程走公开接口 openapi-course.yaml。
+
+    规则：
+    - 新建为草稿（DRAFT）：先选上课方式 mode（ONLINE 线上录播课 / OFFLINE 线下班），建好后不能改。改资料、改目录、上架、下架都带
+      页面读到的 version（乐观锁），版本不对 409 OPS_VERSION_CONFLICT。
+    - 开课机构只能是在用的服务商或平台机构（身份模块的机构），否则 422 OPS_COURSE_ORGANIZATION_UNKNOWN。
+    - 封面、图集只收带主机名的 https 地址（运营端素材上传 openapi-ops-media.yaml 给的地址，或受控 CDN 地址）；图集最多 9 张、不能重复。
+    - 线上课：价格按分（1 分到 10 万元），为空表示不单独出售、只随商品附带（bundledProductIds，商城商品 ID，最多 10 个，只存 ID）；
+      有效期 1–3650 天或长期有效；体验中心的“课程试听”入口 experienceItemId 一门课一个，已被别的课程用了 409 OPS_COURSE_EXPERIENCE_TAKEN。
+    - 线下班：只填挂靠的活动 activityId（赛事研学的活动，只存 ID）、卡片上的 scheduleLabel（如“8 次课”）和子类目、排序；
+      价格、有效期、讲师、目录、附带商品、试听入口都不填（填了 400）。App 上标题、封面、价格、城市取自活动。
+    - 目录（只有线上课）：整份保存，最多 20 章、每章最多 30 节、全课最多 200 节；带 chapterId / lessonId 的是改原来的，不带的是新建，
+      没出现的删除。已经有人学过的课时不能删（409 OPS_COURSE_LESSON_IN_USE），可以改标题、时长和视频。课时的视频地址只收 https。
+      课序按提交的顺序跨章连续编号。
+    - 上架（DRAFT 或 UNLISTED → LISTED）前校验必填，缺了 422 OPS_PUBLISH_INCOMPLETE，details.missing 是缺的字段键
+      （OpsCourseListField）：封面 coverUrl；线上课还要至少一节课时 lessons、每节课时都有视频 videos、单独出售或附带于商品
+      sale（价格和附带商品至少一样）、单独出售时开课机构登记了在线收款账户 merchantAccount；线下班还要卡片文字 scheduleLabel、
+      挂靠的活动存在 activity。详情里的 listMissing 是现在还差的。已经上架再上架、没上架就下架 409 OPS_COURSE_STATUS_CONFLICT。
+      已上架的课程改完也不能缺必填项。
+    - 下架（LISTED → UNLISTED）后 App 列表和详情都看不到、不能再买；已经开通的照常能学、能按规则退款。
+    - 留痕：每个写操作在课程的改动记录里记一条（动作、一句话说明、操作人显示名、时间），只追加；GET …/changes 给最近 100 条。
+      动作：CREATE、UPDATE、OUTLINE、LIST、UNLIST。
+
+    不在这一版：删除课程、讲师资料页、课程证书、家庭账号等多人规格、课程评价。
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/courses:
+    get:
+      operationId: "listOpsCourses"
+      summary: "课程列表（关键词、上课方式、子类目、状态），按更新时间新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            maxLength: 30
+        - name: "mode"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsCourseMode"
+        - name: "topic"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsCourseTopic"
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsCourseStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "课程"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OpsCoursePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsCourse"
+      summary: "新建课程草稿（先选线上课或线下班）"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/OpsCourseCreateRequest"
+      responses:
+        "201":
+          description: "草稿"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OpsCourse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: "OPS_COURSE_ORGANIZATION_UNKNOWN：开课机构不存在、停用，或不是服务商、平台机构。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/courses/{courseId}:
+    get:
+      operationId: "getOpsCourse"
+      summary: "课程详情（含目录、上架还差的必填项）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: "课程"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OpsCourse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "updateOpsCourse"
+      summary: "修改课程资料（带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/OpsCourseRequest"
+      responses:
+        "200":
+          description: "改好的课程（新的版本号）"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OpsCourse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_COURSE_EXPERIENCE_TAKEN：这个试听入口已经给了别的课程。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_COURSE_ORGANIZATION_UNKNOWN；已上架的课程改完缺必填项时 OPS_PUBLISH_INCOMPLETE（details.missing）。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/courses/{courseId}/outline:
+    put:
+      operationId: "updateOpsCourseOutline"
+      summary: "整份保存线上课的章节和课时（带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/OpsCourseOutlineRequest"
+      responses:
+        "200":
+          description: "改好的课程"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OpsCourse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_COURSE_LESSON_IN_USE：要删的课时已经有人学过；OPS_COURSE_STATUS_CONFLICT：线下班没有目录。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "已上架的课程改完缺必填项时 OPS_PUBLISH_INCOMPLETE（details.missing）。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/courses/{courseId}/list:
+    post:
+      operationId: "listOpsCourse"
+      summary: "上架（草稿或已下架 → 已上架），先校验必填"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/OpsCourseVersionRequest"
+      responses:
+        "200":
+          description: "已上架的课程"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OpsCourse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_COURSE_STATUS_CONFLICT：已经上架。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_PUBLISH_INCOMPLETE：还差必填项（details.missing 是 OpsCourseListField）。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/courses/{courseId}/unlist:
+    post:
+      operationId: "unlistOpsCourse"
+      summary: "下架（已上架 → 已下架）；已开通的照常能学"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/OpsCourseVersionRequest"
+      responses:
+        "200":
+          description: "已下架的课程"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/OpsCourse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_COURSE_STATUS_CONFLICT：没有上架。"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/courses/{courseId}/changes:
+    get:
+      operationId: "listOpsCourseChanges"
+      summary: "课程最近 100 条改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            "application/json":
+              schema:
+                type: "array"
+                maxItems: 100
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  responses:
+    BadRequest:
+      description: "参数缺失或格式不对（COMMON_INVALID_ARGUMENT）"
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没有登录，或登录已过期（COMMON_UNAUTHORIZED）"
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "课程不存在（COMMON_NOT_FOUND）"
+      content:
+        "application/json":
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  parameters:
+    CourseId:
+      name: "courseId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "code"
+        - "message"
+        - "traceId"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type:
+            - "object"
+            - "null"
+          additionalProperties: true
+    OpsCourseErrorCode:
+      type: "string"
+      description: "运营端课程接口在 ApiError.code 里用到的错误码（COMMON_* 之外）。OPS_PUBLISH_INCOMPLETE、OPS_COURSE_ORGANIZATION_UNKNOWN 是 422，其余是 409。"
+      enum:
+        - "OPS_VERSION_CONFLICT"
+        - "OPS_PUBLISH_INCOMPLETE"
+        - "OPS_COURSE_STATUS_CONFLICT"
+        - "OPS_COURSE_ORGANIZATION_UNKNOWN"
+        - "OPS_COURSE_EXPERIENCE_TAKEN"
+        - "OPS_COURSE_LESSON_IN_USE"
+    OpsCourseMode:
+      type: "string"
+      description: "ONLINE 线上录播课；OFFLINE 线下班（挂靠一个活动）"
+      enum:
+        - "ONLINE"
+        - "OFFLINE"
+    OpsCourseTopic:
+      type: "string"
+      description: "DRONE 无人机；ROBOT 机器人；PROGRAMMING 编程；CERTIFICATE 考证"
+      enum:
+        - "DRONE"
+        - "ROBOT"
+        - "PROGRAMMING"
+        - "CERTIFICATE"
+    OpsCourseStatus:
+      type: "string"
+      description: "DRAFT 草稿；LISTED 已上架；UNLISTED 已下架"
+      enum:
+        - "DRAFT"
+        - "LISTED"
+        - "UNLISTED"
+    OpsCourseListField:
+      type: "string"
+      description: "上架前要有的：coverUrl 封面；lessons 至少一节课时；videos 每节课时都有视频；sale 单独出售或附带于商品；merchantAccount 单独出售时开课机构登记了在线收款账户；scheduleLabel 线下班的卡片文字；activity 线下班挂靠的活动存在"
+      enum:
+        - "coverUrl"
+        - "lessons"
+        - "videos"
+        - "sale"
+        - "merchantAccount"
+        - "scheduleLabel"
+        - "activity"
+    OpsCourseOrganization:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "organizationId"
+        - "name"
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+    OpsCourseInclude:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "name"
+        - "quantity"
+      properties:
+        name:
+          type: "string"
+          maxLength: 12
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 999
+    OpsCourseSpec:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "label"
+        - "value"
+      properties:
+        label:
+          type: "string"
+          maxLength: 8
+        value:
+          type: "string"
+          maxLength: 40
+    OpsCourseLesson:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "lessonId"
+        - "no"
+        - "title"
+        - "durationSeconds"
+        - "trial"
+        - "videoUrl"
+        - "learnerCount"
+      properties:
+        lessonId:
+          type: "string"
+          format: "uuid"
+        "no":
+          type: "integer"
+          minimum: 1
+          description: "全课第几课"
+        title:
+          type: "string"
+          maxLength: 40
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+          maximum: 14400
+        trial:
+          type: "boolean"
+        videoUrl:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+        learnerCount:
+          type: "integer"
+          minimum: 0
+          description: "学过这一节的人数（大于 0 时不能删）"
+    OpsCourseChapter:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "chapterId"
+        - "title"
+        - "lessons"
+      properties:
+        chapterId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 40
+        lessons:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseLesson"
+    OpsCourse:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "courseId"
+        - "mode"
+        - "topic"
+        - "status"
+        - "title"
+        - "subtitle"
+        - "organization"
+        - "coverUrl"
+        - "galleryUrls"
+        - "priceAmountMinor"
+        - "validityDays"
+        - "ageNote"
+        - "instructorName"
+        - "instructorTitle"
+        - "includes"
+        - "extraSpecs"
+        - "intro"
+        - "experienceItemId"
+        - "bundledProductIds"
+        - "activityId"
+        - "scheduleLabel"
+        - "sortOrder"
+        - "chapters"
+        - "lessonCount"
+        - "enrollmentCount"
+        - "listMissing"
+        - "firstListedAt"
+        - "createdAt"
+        - "updatedAt"
+        - "version"
+      properties:
+        courseId:
+          type: "string"
+          format: "uuid"
+        mode:
+          $ref: "#/components/schemas/OpsCourseMode"
+        topic:
+          $ref: "#/components/schemas/OpsCourseTopic"
+        status:
+          $ref: "#/components/schemas/OpsCourseStatus"
+        title:
+          type: "string"
+          maxLength: 60
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 120
+        organization:
+          $ref: "#/components/schemas/OpsCourseOrganization"
+        coverUrl:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+        galleryUrls:
+          type: "array"
+          items:
+            type: "string"
+            maxLength: 500
+          maxItems: 9
+        priceAmountMinor:
+          type:
+            - "integer"
+            - "null"
+          format: "int64"
+          minimum: 1
+          maximum: 10000000
+          description: "单独出售的价格（分）；null 为不单独出售"
+        validityDays:
+          type:
+            - "integer"
+            - "null"
+          minimum: 1
+          maximum: 3650
+        ageNote:
+          type:
+            - "string"
+            - "null"
+          maxLength: 30
+        instructorName:
+          type:
+            - "string"
+            - "null"
+          maxLength: 30
+        instructorTitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 40
+        includes:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseInclude"
+          maxItems: 6
+        extraSpecs:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseSpec"
+          maxItems: 6
+        intro:
+          type: "array"
+          items:
+            type: "string"
+            maxLength: 500
+          maxItems: 20
+        experienceItemId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+        bundledProductIds:
+          type: "array"
+          items:
+            type: "string"
+            format: "uuid"
+          maxItems: 10
+          description: "附带这门课的商城商品 ID"
+        activityId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "线下班挂靠的活动"
+        scheduleLabel:
+          type:
+            - "string"
+            - "null"
+          maxLength: 12
+        sortOrder:
+          type: "integer"
+          minimum: 0
+          maximum: 9999
+          description: "大的在前"
+        chapters:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseChapter"
+        lessonCount:
+          type: "integer"
+          minimum: 0
+        enrollmentCount:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+          description: "开通过的人数（含已退款、已过期）"
+        listMissing:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseListField"
+          description: "现在上架还差的"
+        firstListedAt:
+          type:
+            - "string"
+            - "null"
+          format: "date-time"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsCourseSummary:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "courseId"
+        - "mode"
+        - "topic"
+        - "status"
+        - "title"
+        - "organizationName"
+        - "priceAmountMinor"
+        - "lessonCount"
+        - "activityId"
+        - "sortOrder"
+        - "updatedAt"
+      properties:
+        courseId:
+          type: "string"
+          format: "uuid"
+        mode:
+          $ref: "#/components/schemas/OpsCourseMode"
+        topic:
+          $ref: "#/components/schemas/OpsCourseTopic"
+        status:
+          $ref: "#/components/schemas/OpsCourseStatus"
+        title:
+          type: "string"
+        organizationName:
+          type: "string"
+        priceAmountMinor:
+          type:
+            - "integer"
+            - "null"
+          format: "int64"
+          minimum: 1
+        lessonCount:
+          type: "integer"
+          minimum: 0
+        activityId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+        sortOrder:
+          type: "integer"
+          minimum: 0
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    OpsCoursePage:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "page"
+        - "size"
+        - "total"
+        - "hasMore"
+        - "items"
+      properties:
+        page:
+          type: "integer"
+          minimum: 1
+        size:
+          type: "integer"
+          minimum: 1
+        total:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseSummary"
+    OpsChange:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "changeId"
+        - "subjectType"
+        - "subjectId"
+        - "action"
+        - "summary"
+        - "operatorName"
+        - "changedAt"
+      properties:
+        changeId:
+          type: "string"
+          format: "uuid"
+        subjectType:
+          type: "string"
+          enum:
+            - "COURSE"
+        subjectId:
+          type: "string"
+          format: "uuid"
+        action:
+          type: "string"
+          enum:
+            - "CREATE"
+            - "UPDATE"
+            - "OUTLINE"
+            - "LIST"
+            - "UNLIST"
+        summary:
+          type: "string"
+          maxLength: 200
+        operatorName:
+          type: "string"
+          description: "操作时运营账号的显示名"
+        changedAt:
+          type: "string"
+          format: "date-time"
+    OpsCourseCreateRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "mode"
+        - "topic"
+        - "title"
+        - "organizationId"
+      properties:
+        mode:
+          $ref: "#/components/schemas/OpsCourseMode"
+        topic:
+          $ref: "#/components/schemas/OpsCourseTopic"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+        organizationId:
+          type: "string"
+          format: "uuid"
+        activityId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "线下班必填，线上课不填"
+    OpsCourseRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "version"
+        - "topic"
+        - "title"
+        - "organizationId"
+        - "sortOrder"
+      properties:
+        version:
+          type: "integer"
+          minimum: 0
+        topic:
+          $ref: "#/components/schemas/OpsCourseTopic"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+        subtitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 120
+        organizationId:
+          type: "string"
+          format: "uuid"
+        coverUrl:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+        galleryUrls:
+          type: "array"
+          items:
+            type: "string"
+            maxLength: 500
+          maxItems: 9
+          uniqueItems: true
+        priceAmountMinor:
+          type:
+            - "integer"
+            - "null"
+          format: "int64"
+          minimum: 1
+          maximum: 10000000
+        validityDays:
+          type:
+            - "integer"
+            - "null"
+          minimum: 1
+          maximum: 3650
+        ageNote:
+          type:
+            - "string"
+            - "null"
+          maxLength: 30
+        instructorName:
+          type:
+            - "string"
+            - "null"
+          maxLength: 30
+        instructorTitle:
+          type:
+            - "string"
+            - "null"
+          maxLength: 40
+        includes:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseIncludeRequest"
+          maxItems: 6
+        extraSpecs:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseSpecRequest"
+          maxItems: 6
+        intro:
+          type: "array"
+          items:
+            type: "string"
+            minLength: 1
+            maxLength: 500
+          maxItems: 20
+        experienceItemId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+        bundledProductIds:
+          type: "array"
+          items:
+            type: "string"
+            format: "uuid"
+          maxItems: 10
+          uniqueItems: true
+        activityId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+        scheduleLabel:
+          type:
+            - "string"
+            - "null"
+          maxLength: 12
+        sortOrder:
+          type: "integer"
+          minimum: 0
+          maximum: 9999
+    OpsCourseIncludeRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "name"
+        - "quantity"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 12
+        quantity:
+          type: "integer"
+          minimum: 1
+          maximum: 999
+    OpsCourseSpecRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "label"
+        - "value"
+      properties:
+        label:
+          type: "string"
+          minLength: 1
+          maxLength: 8
+        value:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+    OpsCourseOutlineRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "version"
+        - "chapters"
+      properties:
+        version:
+          type: "integer"
+          minimum: 0
+        chapters:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseChapterRequest"
+          maxItems: 20
+    OpsCourseChapterRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "title"
+        - "lessons"
+      properties:
+        chapterId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "改原来的章时带上；新建的不带"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+        lessons:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCourseLessonRequest"
+          maxItems: 30
+    OpsCourseLessonRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "title"
+        - "durationSeconds"
+        - "trial"
+      properties:
+        lessonId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "改原来的课时带上；新建的不带"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+          maximum: 14400
+        trial:
+          type: "boolean"
+        videoUrl:
+          type:
+            - "string"
+            - "null"
+          maxLength: 500
+          description: "https 地址"
+    OpsCourseVersionRequest:
+      type: "object"
+      additionalProperties: false
+      required:
+        - "version"
+      properties:
+        version:
+          type: "integer"
+          minimum: 0

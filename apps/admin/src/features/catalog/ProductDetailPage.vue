@@ -18,10 +18,13 @@ import OfferPanel from './OfferPanel.vue'
 import ProductInfoPanel from './ProductInfoPanel.vue'
 import ProductPublishBar from './ProductPublishBar.vue'
 import SkuPanel from './SkuPanel.vue'
+import { createTradeTermsApi } from './trade-terms-api'
+import TradeTermsPanel from './TradeTermsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
 const api = createCatalogApi(http)
+const termsApi = createTradeTermsApi(http)
 const detail = shallowRef<OpsProductDetail | null>(null)
 const loading = ref(false)
 const error = ref('')
@@ -77,6 +80,11 @@ onMounted(() => {
         </el-tab-pane>
         <el-tab-pane :label="`在售供给（${detail.offers.length}）`" name="offers">
           <OfferPanel :api="api" :detail="detail" @changed="changed" />
+        </el-tab-pane>
+        <el-tab-pane label="交易条款" name="terms" lazy>
+          <!-- 交易条款的改动记在操作记录里，保存后重新读一次详情，操作记录页签跟着更新。 -->
+          <TradeTermsPanel :api="termsApi" :product-id="detail.product.productId" :offers="detail.offers"
+                           @changed="load" />
         </el-tab-pane>
         <el-tab-pane label="操作记录" name="operations">
           <el-empty v-if="detail.operations.length === 0" description="还没有操作记录" />

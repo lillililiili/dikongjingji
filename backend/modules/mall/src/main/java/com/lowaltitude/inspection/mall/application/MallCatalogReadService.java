@@ -73,7 +73,8 @@ public final class MallCatalogReadService {
                 codes(search.experienceBadges(), MallExperienceBadge::valueOf),
                 codes(search.merchantKinds(), MallMerchantKind::valueOf),
                 minPrice,
-                maxPrice);
+                maxPrice,
+                search.merchantId());
 
         long total = store.countProducts(criteria);
         List<MallProductCardView> items = store
@@ -143,6 +144,9 @@ public final class MallCatalogReadService {
         }
         // 每家商家在这次请求里只问一次交易模块。
         Map<UUID, Boolean> collecting = new HashMap<>();
+        Map<UUID, MallRows.TradeTermsRow> terms = new HashMap<>();
+        store.findTradeTerms(offers.stream().map(OfferRow::offerId).toList())
+                .forEach(row -> terms.put(row.offerId(), row));
         return new MallProductDetailView(
                 product.productId(),
                 MallCategory.valueOf(product.category()),
@@ -167,7 +171,9 @@ public final class MallCatalogReadService {
                                 blankToNull(row.shippingNote()),
                                 blankToNull(row.fulfilledFrom()),
                                 collecting.computeIfAbsent(row.merchantId(), payments::canCollect),
-                                row.stockQuantity()))
+                                row.stockQuantity(),
+                                invoiceIssuer(terms.get(row.offerId()), row.merchantName()),
+                                aftersaleParty(terms.get(row.offerId()), row.merchantName())))
                         .toList(),
                 store.findSpecs(productId).stream()
                         .map(row -> new MallSpecView(row.label(), row.value()))
@@ -190,7 +196,37 @@ public final class MallCatalogReadService {
                                 secureMedia(row.imageUrl(), product.name())))
                         // 图片段的地址不是 https 时整段不给（没有图的图片段没有意义）。
                         .filter(block -> !"IMAGE".equals(block.type()) || block.image() != null)
-                        .toList());
+                        .toList(),
+                store.findNoReasonReturn(productId));
+    }
+
+    /**
+     * 1.4.0（S4-4）：下单时要记的交易条款——开票方、售后责任方（供给 → 商家资料 → 商家名称）和商品是否支持七天无理由。
+     * 给交易模块的结算端口用；没查到的供给不在结果里。
+     */
+    public Map<UUID, MallTradeTermsView> tradeTerms(java.util.Collection<UUID> offerIds) {
+        if (offerIds == null || offerIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, MallTradeTermsView> found = new HashMap<>();
+        for (MallRows.TradeTermsRow row : store.findTradeTerms(List.copyOf(new java.util.LinkedHashSet<>(offerIds)))) {
+            found.put(row.offerId(), new MallTradeTermsView(blankToNull(row.invoiceIssuer()),
+                    blankToNull(row.aftersaleParty()), row.noReasonReturn()));
+        }
+        return found;
+    }
+
+    public record MallTradeTermsView(String invoiceIssuer, String aftersaleParty, boolean noReasonReturn) {
+    }
+
+    private static String invoiceIssuer(MallRows.TradeTermsRow terms, String merchantName) {
+        String value = terms == null ? null : blankToNull(terms.invoiceIssuer());
+        return value != null ? value : blankToNull(merchantName);
+    }
+
+    private static String aftersaleParty(MallRows.TradeTermsRow terms, String merchantName) {
+        String value = terms == null ? null : blankToNull(terms.aftersaleParty());
+        return value != null ? value : blankToNull(merchantName);
     }
 
     /**
@@ -314,7 +350,10 @@ record MallOfferView(
         String fulfilledFrom,
         boolean onlinePayment,
         // 1.3.0：这家商家在这个城市这个规格的现货件数；null 表示不限。
-        Integer stockQuantity
+        Integer stockQuantity,
+        // 1.4.0：开票方、售后责任方（供给 → 商家资料 → 商家名称）。
+        String invoiceIssuer,
+        String aftersaleParty
 ) {
 }
 
@@ -346,6 +385,8 @@ record MallProductDetailView(
         List<String> sellingPoints,
         List<MallSkuView> skus,
         List<MallMediaView> gallery,
-        List<MallIntroBlockView> introBlocks
+        List<MallIntroBlockView> introBlocks,
+        // 1.4.0：是否支持七天无理由（未拆封）；商品可以标“不支持”。
+        boolean noReasonReturn
 ) {
 }
