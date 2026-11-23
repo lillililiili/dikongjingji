@@ -59,7 +59,10 @@ class SupportControllerTest {
             Error.NOT_FOUND, new Rejection(404, "COMMON_NOT_FOUND"),
             Error.FORBIDDEN, new Rejection(403, "COMMON_FORBIDDEN"),
             Error.IDEMPOTENCY_CONFLICT, new Rejection(409, "SUPPORT_IDEMPOTENCY_KEY_REUSED"),
-            Error.COUNTERPART_UNAVAILABLE, new Rejection(409, "SUPPORT_COUNTERPART_UNAVAILABLE"));
+            Error.COUNTERPART_UNAVAILABLE, new Rejection(409, "SUPPORT_COUNTERPART_UNAVAILABLE"),
+            // 运营端处理反馈（openapi-ops-feedback.yaml）。
+            Error.ALREADY_HANDLED, new Rejection(409, "OPS_FEEDBACK_ALREADY_HANDLED"),
+            Error.VERSION_CONFLICT, new Rejection(409, "OPS_VERSION_CONFLICT"));
 
     private final SupportService service = mock(SupportService.class);
     private final TestingAuthenticationToken customer = signedIn(SUBJECT, CUSTOMER_ORG, "CUSTOMER");

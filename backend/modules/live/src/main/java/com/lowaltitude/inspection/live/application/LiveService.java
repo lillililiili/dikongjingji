@@ -293,7 +293,7 @@ public class LiveService {
         String text = clip("举报直播弹幕：《" + room.title() + "》第 " + comment.seq() + " 条「" + comment.body()
                 + "」", MAX_REPORT);
         UUID key = UUID.nameUUIDFromBytes(("live-report:" + comment.id()).getBytes(StandardCharsets.UTF_8));
-        reports.report(accountId, key, text);
+        reports.report(accountId, key, text, room.id(), comment.id());
         return new LiveReportView(comment.id(), true);
     }
 

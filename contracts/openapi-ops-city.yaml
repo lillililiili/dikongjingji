@@ -1,0 +1,284 @@
+openapi: "3.1.0"
+info:
+  title: "Ops City API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“城市开通”。
+
+    运营端的接口统一放在 /api/v1/ops/… 下，每块一个契约文件（openapi-ops-*.yaml），实现是各模块自己的 ops 控制器。
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
+    COMMON_FORBIDDEN. 平台城市目录在巡检模块（迁移 V007、V012）。
+
+    规则：
+    - 开通状态三种：OPEN 已开通、PREPARING 筹备中（App 上可以先浏览全国商品与线上体验）、CLOSED 未开通（App 城市面板不列，
+      只能搜索到）。和城市是否可选（行政区划 status）是两回事；这里只列可选城市。
+    - 改状态要带页面读到的 version（乐观锁），版本不对 409 OPS_VERSION_CONFLICT；状态没变 409 OPS_CITY_STATUS_UNCHANGED。
+    - 每次改动都记一条改动记录（从什么改成什么、说明、操作人显示名、时间），只追加，详情里能看到最近 50 条。
+    - App 读开通状态走公开接口 GET /api/v1/platform/cities（openapi-platform-city.yaml 1.1.0）。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/cities:
+    get:
+      operationId: "listOpsCities"
+      summary: "可选城市和开通状态（已开通在前，再筹备中、未开通；同一状态按省、城市拼音）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "城市名、拼音、首字母或 6 位编码，最多 20 字；% 和 _ 会被去掉"
+          schema:
+            type: "string"
+            maxLength: 20
+        - name: "serviceStatus"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/CityServiceStatus"
+        - name: "provinceCode"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            pattern: "^[0-9]{6}$"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页城市"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsCityPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/cities/{cityCode}/service-status:
+    put:
+      operationId: "changeOpsCityServiceStatus"
+      summary: "改开通状态（带版本号和说明），记一条改动记录"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsCityStatusRequest"
+      responses:
+        "200":
+          description: "改好的城市（新的版本号）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsCity"
+        "400":
+          description: "状态不认识、说明为空或超过 200 字、没带版本号（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过，刷新后重试；OPS_CITY_STATUS_UNCHANGED：城市已经是这个状态。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/cities/{cityCode}/service-status-changes:
+    get:
+      operationId: "listOpsCityServiceStatusChanges"
+      summary: "这个城市最近 50 条开通状态改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CityCode"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/OpsCityStatusChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    CityCode:
+      name: "cityCode"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        pattern: "^[0-9]{6}$"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "城市不存在或不可选（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsCityErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+    OpsCityErrorCode:
+      type: "string"
+      enum: [OPS_VERSION_CONFLICT, OPS_CITY_STATUS_UNCHANGED]
+    CityServiceStatus:
+      type: "string"
+      description: "OPEN 已开通；PREPARING 筹备中；CLOSED 未开通"
+      enum: [OPEN, PREPARING, CLOSED]
+    OpsCity:
+      type: "object"
+      additionalProperties: false
+      required: [cityCode, cityName, provinceCode, provinceName, serviceStatus, serviceStatusChangedAt, version]
+      properties:
+        cityCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+        cityName:
+          type: "string"
+        provinceCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+        provinceName:
+          type: "string"
+        serviceStatus:
+          $ref: "#/components/schemas/CityServiceStatus"
+        serviceStatusChangedAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "最后一次改开通状态的时间；从没改过为 null"
+        version:
+          type: "integer"
+          minimum: 0
+          description: "改状态时要带的版本号"
+    OpsCityPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsCity"
+    OpsCityStatusRequest:
+      type: "object"
+      additionalProperties: false
+      required: [serviceStatus, note, version]
+      properties:
+        serviceStatus:
+          $ref: "#/components/schemas/CityServiceStatus"
+        note:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+          description: "为什么改，1–200 字，写进改动记录"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsCityStatusChange:
+      type: "object"
+      additionalProperties: false
+      required: [changeId, fromStatus, toStatus, note, operatorName, changedAt]
+      properties:
+        changeId:
+          type: "string"
+          format: "uuid"
+        fromStatus:
+          $ref: "#/components/schemas/CityServiceStatus"
+        toStatus:
+          $ref: "#/components/schemas/CityServiceStatus"
+        note:
+          type: "string"
+          maxLength: 200
+        operatorName:
+          type: "string"
+          description: "改的时候运营账号的显示名"
+        changedAt:
+          type: "string"
+          format: "date-time"

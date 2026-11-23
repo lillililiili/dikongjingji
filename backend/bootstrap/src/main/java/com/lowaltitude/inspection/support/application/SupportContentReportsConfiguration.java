@@ -21,7 +21,8 @@ public class SupportContentReportsConfiguration {
     }
 
     static ContentPorts.Reports reports(SupportService support) {
-        return (accountId, idempotencyKey, text) ->
-                support.feedback(accountId, idempotencyKey, REPORT_FEEDBACK_TYPE, text).feedback().feedbackId();
+        return (accountId, idempotencyKey, text, commentId, videoId) -> support.report(accountId, idempotencyKey,
+                REPORT_FEEDBACK_TYPE, text, SupportFeedbackSource.VIDEO_COMMENT_REPORT.name(), commentId, videoId)
+                .feedback().feedbackId();
     }
 }

@@ -68,6 +68,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @MockBean({
+        // S3-1 运营端
+        com.lowaltitude.inspection.application.city.CityOperationsService.class,
+        com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -523,6 +526,87 @@ class AuthenticationSecurityIntegrationTest {
             mockMvc.perform(refused).andExpect(status().isForbidden());
         }
         org.mockito.Mockito.verifyNoMoreInteractions(support);
+    }
+
+    // 运营端（S3-1）：/api/v1/ops/** 全部要登录；城市开通、机构入驻只给平台运营，举报与反馈只给平台客服；
+    // 客户、服务商操作员、直播主办一律 403，服务不被调用。
+    @Test
+    void opsRoutesNeedThePlatformRoleOfEachDesk() throws Exception {
+        UUID organization = UUID.fromString("c1000000-0000-4000-8000-000000000001");
+        for (var request : opsOperatorRoutes(organization)) {
+            mockMvc.perform(request).andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        for (var request : opsSupportRoutes()) {
+            mockMvc.perform(request).andExpect(status().isUnauthorized());
+        }
+
+        var cities = applicationContext.getBean(
+                com.lowaltitude.inspection.application.city.CityOperationsService.class);
+        var organizations = applicationContext.getBean(
+                com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class);
+        var support = applicationContext.getBean(
+                com.lowaltitude.inspection.support.application.SupportService.class);
+        org.mockito.Mockito.clearInvocations(cities, organizations, support);
+        String operatorToken = tokenWithRoles(List.of("PLATFORM_OPERATOR"));
+        String supportToken = tokenWithRoles(List.of("PLATFORM_SUPPORT"));
+
+        mockMvc.perform(get("/api/v1/ops/cities").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/ops/organizations").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/ops/feedback").header("Authorization", "Bearer " + supportToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(cities).cities(null, null, null, 1, 20);
+        org.mockito.Mockito.verify(organizations).organizations(null, null, null, 1, 20);
+        org.mockito.Mockito.verify(support).opsFeedback(null, null, 1, 20);
+
+        for (String token : List.of(signedToken(List.of(), 7), tokenWithRoles(List.of("PROVIDER_OPERATOR")),
+                tokenWithRoles(List.of("LIVE_HOST")), tokenWithRoles(List.of("PROVIDER_OPERATOR", "LIVE_HOST")))) {
+            for (var request : opsOperatorRoutes(organization)) {
+                mockMvc.perform(request.header("Authorization", "Bearer " + token))
+                        .andExpect(status().isForbidden())
+                        .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+            }
+            for (var request : opsSupportRoutes()) {
+                mockMvc.perform(request.header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
+            }
+        }
+        // 平台客服不是平台运营，平台运营也不处理反馈。
+        for (var request : List.of(get("/api/v1/ops/cities"), get("/api/v1/ops/organizations"),
+                get("/api/v1/ops/organizations/" + organization))) {
+            mockMvc.perform(request.header("Authorization", "Bearer " + supportToken))
+                    .andExpect(status().isForbidden());
+        }
+        mockMvc.perform(get("/api/v1/ops/feedback").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support);
+    }
+
+    /** 每次新建，请求头不会在几轮之间叠加。 */
+    private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsOperatorRoutes(
+            UUID organization) {
+        UUID attachment = UUID.fromString("e7000000-0000-4000-8000-000000000002");
+        String orgPath = "/api/v1/ops/organizations/" + organization;
+        return List.of(
+                get("/api/v1/ops/cities"), put("/api/v1/ops/cities/370500/service-status"),
+                get("/api/v1/ops/cities/370500/service-status-changes"),
+                get("/api/v1/ops/organizations"), post("/api/v1/ops/organizations"), get(orgPath),
+                put(orgPath + "/qualification"), post(orgPath + "/qualification/review"),
+                post(orgPath + "/attachments"), get(orgPath + "/attachments/" + attachment + "/content"),
+                delete(orgPath + "/attachments/" + attachment), post(orgPath + "/accounts"),
+                put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"));
+    }
+
+    private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {
+        return List.of(get("/api/v1/ops/feedback"),
+                post("/api/v1/ops/feedback/e7000000-0000-4000-8000-000000000001/handle"));
+    }
+
+    private String tokenWithRoles(List<String> roles) throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.put("roles", roles);
+        return signedToken(claims);
     }
 
     // 直播（M20）：列表、详情、弹幕增量、记一次观看和服务商回调不登录也能调（回调靠签名）；其余都要登录，

@@ -19,13 +19,16 @@ class SupportContentReportsConfigurationTest {
         UUID account = UUID.randomUUID();
         UUID key = UUID.randomUUID();
         UUID feedback = UUID.randomUUID();
-        when(support.feedback(account, key, "CONTENT", "举报视频评论（其他）：……")).thenReturn(new SupportFeedbackCreated(
+        UUID comment = UUID.randomUUID();
+        UUID video = UUID.randomUUID();
+        when(support.report(account, key, "CONTENT", "举报视频评论（其他）：……", "VIDEO_COMMENT_REPORT", comment, video))
+                .thenReturn(new SupportFeedbackCreated(
                 new SupportFeedbackView(feedback, SupportFeedbackType.CONTENT, "举报视频评论（其他）：……",
                         OffsetDateTime.parse("2026-11-19T10:00:00Z")), true));
 
         ContentPorts.Reports reports = SupportContentReportsConfiguration.reports(support);
 
-        assertThat(reports.record(account, key, "举报视频评论（其他）：……")).isEqualTo(feedback);
+        assertThat(reports.record(account, key, "举报视频评论（其他）：……", comment, video)).isEqualTo(feedback);
         assertThat(SupportContentReportsConfiguration.REPORT_FEEDBACK_TYPE).isEqualTo(SupportFeedbackType.CONTENT.name());
     }
 }

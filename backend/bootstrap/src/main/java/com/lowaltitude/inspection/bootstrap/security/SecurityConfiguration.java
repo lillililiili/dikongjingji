@@ -139,6 +139,8 @@ public class SecurityConfiguration {
                         // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/trade/channels/wechat/notifications").permitAll()
+                        // 运营端（S3-1）：只给平台运营和平台客服；具体接口再由各 ops 控制器经 OpsActors 收紧到其中一个角色。
+                        .requestMatchers("/api/v1/ops/**").hasAnyRole("PLATFORM_OPERATOR", "PLATFORM_SUPPORT")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(errors -> errors
