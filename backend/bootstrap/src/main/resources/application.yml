@@ -84,6 +84,14 @@ platform:
       path-style: ${PLATFORM_STORAGE_S3_PATH_STYLE:true}
       connect-timeout: ${PLATFORM_STORAGE_S3_CONNECT_TIMEOUT:3s}
       request-timeout: ${PLATFORM_STORAGE_S3_REQUEST_TIMEOUT:30s}
+  # 首个平台运营账号的一次性引导（S6，docs/ops/部署与回滚.md §3.1）：login 为空时什么都不做；账号已存在时不改任何东西。
+  # 口令用 password-file（推荐）或 password，二选一；建好后把这几个环境变量和口令文件删掉。
+  bootstrap:
+    operator:
+      login: ${PLATFORM_BOOTSTRAP_OPERATOR_LOGIN:}
+      password: ${PLATFORM_BOOTSTRAP_OPERATOR_PASSWORD:}
+      password-file: ${PLATFORM_BOOTSTRAP_OPERATOR_PASSWORD_FILE:}
+      display-name: ${PLATFORM_BOOTSTRAP_OPERATOR_DISPLAY_NAME:}
 
 # 微信支付（平台收付通）。默认关闭；关闭时没有支付渠道，发起支付回“渠道不可用”。
 # 两个 PEM 文件只给服务器上的路径；APIv3 密钥只走环境变量。都不要写进仓库。

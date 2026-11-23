@@ -2,6 +2,7 @@ package com.lowaltitude.inspection.identity.application;
 
 import com.lowaltitude.inspection.identity.infrastructure.persistence.OrganizationImportMapper;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.OrganizationOnboardingMapper;
+import com.lowaltitude.inspection.identity.infrastructure.persistence.PlatformOperatorBootstrapMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,5 +31,15 @@ public class OnboardingApplicationConfiguration {
             OnboardingPorts.PasswordHasher hasher
     ) {
         return new OrganizationImportService(imports, mapper, onboarding, hasher, java.time.Clock.systemUTC());
+    }
+
+    /** 首个平台运营账号的一次性引导（S6）：由启动模块在设了登录名时调用；建号和授角色沿用机构入驻的写法。 */
+    @Bean
+    PlatformOperatorBootstrapService platformOperatorBootstrapService(
+            OrganizationOnboardingMapper mapper,
+            PlatformOperatorBootstrapMapper bootstrap,
+            OnboardingPorts.PasswordHasher hasher
+    ) {
+        return new PlatformOperatorBootstrapService(mapper, bootstrap, hasher, java.time.Clock.systemUTC());
     }
 }

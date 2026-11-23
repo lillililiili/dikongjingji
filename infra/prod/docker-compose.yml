@@ -83,7 +83,8 @@ services:
     networks: [internal]
     restart: "no"
     entrypoint: ["/bin/sh", "-ec"]
-    # 预约附件的隔离桶和私有桶（巡检）匿名不可读；public-assets 桶只放已授权的展示图（docs/ops/授权图片替换.md），匿名只读。
+    # 预约附件的隔离桶和私有桶（巡检）、平台私有桶（资质附件、服务订单交付文件、导入文件、售后凭证）匿名不可读；
+    # public-assets 桶放已授权的展示图（docs/ops/授权图片替换.md）、运营素材（ops/）和商品图片（mall/），匿名只读。
     command:
       - >-
         mc alias set local http://minio:9000 "$${LA_MINIO_ACCESS_KEY}" "$${LA_MINIO_SECRET_KEY}";
@@ -91,6 +92,8 @@ services:
         mc anonymous set none "local/$${LA_ENVIRONMENT}-inspection-quarantine";
         mc mb --ignore-existing "local/$${LA_ENVIRONMENT}-inspection-private";
         mc anonymous set none "local/$${LA_ENVIRONMENT}-inspection-private";
+        mc mb --ignore-existing "local/$${LA_ENVIRONMENT}-platform-private";
+        mc anonymous set none "local/$${LA_ENVIRONMENT}-platform-private";
         mc mb --ignore-existing "local/$${LA_ENVIRONMENT}-public-assets";
         mc anonymous set download "local/$${LA_ENVIRONMENT}-public-assets";
     logging: *logging
@@ -123,11 +126,22 @@ services:
       INSPECTION_MINIO_PUBLIC_ENDPOINT: https://${LA_FILES_DOMAIN:?set LA_FILES_DOMAIN}
       INSPECTION_MINIO_ACCESS_KEY: ${LA_MINIO_ACCESS_KEY}
       INSPECTION_MINIO_SECRET_KEY: ${LA_MINIO_SECRET_KEY}
+      # 平台文件存储（六类文件，docs/ops/部署与回滚.md §3.2）：默认接同一个 MinIO 的平台私有桶和公开桶；prod.env 里写了
+      # 同名变量时用它的（换云对象存储）。启动时自检，缺项不启动。
+      PLATFORM_STORAGE_PROVIDER: ${PLATFORM_STORAGE_PROVIDER:-s3}
+      PLATFORM_STORAGE_S3_ENDPOINT: ${PLATFORM_STORAGE_S3_ENDPOINT:-http://minio:9000}
+      PLATFORM_STORAGE_S3_ACCESS_KEY: ${PLATFORM_STORAGE_S3_ACCESS_KEY:-${LA_MINIO_ACCESS_KEY}}
+      PLATFORM_STORAGE_S3_SECRET_KEY: ${PLATFORM_STORAGE_S3_SECRET_KEY:-${LA_MINIO_SECRET_KEY}}
+      PLATFORM_STORAGE_S3_PRIVATE_BUCKET: ${PLATFORM_STORAGE_S3_PRIVATE_BUCKET:-${LA_ENVIRONMENT}-platform-private}
+      PLATFORM_STORAGE_S3_PUBLIC_BUCKET: ${PLATFORM_STORAGE_S3_PUBLIC_BUCKET:-${LA_ENVIRONMENT}-public-assets}
+      PLATFORM_STORAGE_S3_PUBLIC_BASE_URL: ${PLATFORM_STORAGE_S3_PUBLIC_BASE_URL:-https://${LA_FILES_DOMAIN}/${LA_ENVIRONMENT}-public-assets}
       INSPECTION_CORS_ALLOWED_ORIGINS: https://${LA_H5_DOMAIN:?set LA_H5_DOMAIN}
       LIVE_STREAM_PROVIDER: ${LIVE_STREAM_PROVIDER:-none}
     volumes:
       # 微信支付的两个 PEM，按宿主机上的同一路径只读挂进来（docs/ops/微信支付联调清单.md §2）。
       - ${LA_SECRETS_DIR:-/etc/low-altitude/secrets}/wechat:/etc/low-altitude/secrets/wechat:ro
+      # 首个平台运营账号的一次性口令文件（docs/ops/部署与回滚.md §3.1），用完删掉。
+      - ${LA_SECRETS_DIR:-/etc/low-altitude/secrets}/bootstrap:/etc/low-altitude/secrets/bootstrap:ro
     depends_on:
       postgres:
         condition: service_healthy
