@@ -56,7 +56,9 @@ class DevelopmentContentSeedTest {
         }
         assertThat(count(sql, ", NULL, true, 'PUBLISHED',")).isEqualTo(6);
         assertThat(sql).contains("'黄河口低空体验季', '到馆体验、赛事、研学合集', 'PLATFORM', NULL, '东营城市运营中心', '370500',")
-                .contains("current_date - 18, current_date + 11, NULL, true, 'PUBLISHED'")
+                .contains("DATE '${devSeedDate}' - 18, DATE '${devSeedDate}' + 11, NULL, true, 'PUBLISHED'")
+                // 按占位符的北京日期推算，不用数据库时区的 current_date。
+                .doesNotContain("current_date")
                 .doesNotContain("https://")
                 .doesNotContain("_blob")
                 .doesNotContain("INSERT INTO identity_");
@@ -115,6 +117,8 @@ class DevelopmentContentSeedTest {
         assertThat(count(sql, "'370500', NULL,\n     true, 'PUBLISHED'")).isEqualTo(6);
         assertThat(sql).contains("${" + ModuleFlywayConfiguration.SEED_DATE_PLACEHOLDER + "}")
                 .contains("ON CONFLICT (id) DO UPDATE")
+                .contains("((DATE '${devSeedDate}' - 16) + time '10:00') AT TIME ZONE 'Asia/Shanghai'")
+                .doesNotContain("current_date")
                 .doesNotContain("DELETE FROM content_article ")
                 .doesNotContain("https://")
                 .doesNotContain("_blob")

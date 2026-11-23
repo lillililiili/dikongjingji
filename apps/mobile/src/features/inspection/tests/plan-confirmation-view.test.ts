@@ -234,7 +234,7 @@ describe('customer and confirmation lines', () => {
   })
 
   it('records who confirmed which version and when', () => {
-    const confirmedAt = new Date(2026, 10, 1, 9, 30).toISOString()
+    const confirmedAt = '2026-11-01T09:30:00+08:00'
     expect(describeConfirmation(plan({
       planVersion: 2,
       confirmedAt,
@@ -248,7 +248,7 @@ describe('customer and confirmation lines', () => {
   })
 
   it('omits an unknown confirmer rather than leaving a dangling separator', () => {
-    const confirmedAt = new Date(2026, 10, 1, 9, 30).toISOString()
+    const confirmedAt = '2026-11-01T09:30:00+08:00'
     expect(describeConfirmation(plan({ confirmedAt, confirmedBy: null })).byText).toBe('11/01 09:30')
   })
 })

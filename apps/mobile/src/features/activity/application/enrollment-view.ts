@@ -13,6 +13,7 @@ import {
   formatActivityShortDateTime,
   formatActivityTime,
 } from '../presentation/shared/activity-format'
+import { toBeijingParts } from '../../../shared/time/beijing-time'
 
 // What the enrolment pages say about server facts. Nothing here decides a status: the server
 // sends eligibility, ticket status and enrolment status, and this only words them.
@@ -29,10 +30,9 @@ export function formatBirthMonth(birthMonth: string): string {
   return `${year} 年 ${Number(month)} 月`
 }
 
-// The birth months a child can have today: under 18, not in the future.
+// The birth months a child can have today (in Beijing): under 18, not in the future.
 export function childBirthMonthRange(now: Date): { start: string; end: string } {
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
+  const { year, month } = toBeijingParts(now)
   const pad = (value: number) => String(value).padStart(2, '0')
   // Someone born 18 years ago this month has already turned 18 by the server's month rule.
   const startMonth = month === 12 ? 1 : month + 1

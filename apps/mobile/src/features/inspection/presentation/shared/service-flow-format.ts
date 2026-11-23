@@ -1,4 +1,4 @@
-const pad = (value: number): string => String(value).padStart(2, '0')
+import { padTwo as pad, toBeijingParts } from '../../../../shared/time/beijing-time'
 
 function parseInstant(value: string): Date | null {
   const date = new Date(value)
@@ -6,17 +6,22 @@ function parseInstant(value: string): Date | null {
 }
 
 // A plain date has no time zone, so it is read as written rather than through
-// Date, which would shift it a day west of UTC.
+// Date, which would shift it a day west of UTC. Instants are shown in Beijing
+// time whatever the phone's zone is: the services are in mainland China.
 export function formatMonthDay(value: string): string {
   const plainDate = /^\d{4}-(\d{2})-(\d{2})$/.exec(value)
   if (plainDate) return `${plainDate[1]}/${plainDate[2]}`
   const date = parseInstant(value)
-  return date ? `${pad(date.getMonth() + 1)}/${pad(date.getDate())}` : value
+  if (!date) return value
+  const parts = toBeijingParts(date)
+  return `${pad(parts.month)}/${pad(parts.day)}`
 }
 
 export function formatClock(value: string): string {
   const date = parseInstant(value)
-  return date ? `${pad(date.getHours())}:${pad(date.getMinutes())}` : value
+  if (!date) return value
+  const parts = toBeijingParts(date)
+  return `${pad(parts.hour)}:${pad(parts.minute)}`
 }
 
 export function formatMonthDayTime(value: string): string {

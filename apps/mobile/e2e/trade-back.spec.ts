@@ -33,8 +33,16 @@ const plan = (page: Page) => header(page, 'plan-confirmation')
 const fulfillment = (page: Page) => header(page, 'fulfillment')
 const orderCenter = (page: Page) => header(page, 'inspection-orders')
 
+// Waits until the page is on top of the stack. A navigateTo issued while the previous one is
+// still loading its page module cancels that one, and the page never enters the stack: on a
+// cold dev server TB-101 then went back to the order center instead of the submitted page.
 async function open(page: Page, route: string): Promise<void> {
   await page.evaluate((url) => uni.navigateTo({ url }), route)
+  const target = route.slice(1).split('?')[0]
+  await page.waitForFunction((path) => {
+    const pages = getCurrentPages()
+    return pages[pages.length - 1]?.route === path
+  }, target)
 }
 
 async function openHome(page: Page): Promise<void> {

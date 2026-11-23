@@ -17,19 +17,19 @@ import {
   formatMonthDayTime,
 } from '../presentation/shared/service-flow-format'
 
-const local = (month: number, day: number, hour: number, minute: number): string =>
-  new Date(2026, month - 1, day, hour, minute).toISOString()
-
 describe('service flow formatting', () => {
   it('reads a plain date as written, whatever the device time zone', () => {
     expect(formatMonthDay('2026-11-02')).toBe('11/02')
     expect(formatMonthDay('2027-01-18')).toBe('01/18')
   })
 
-  it('shows instants in device time', () => {
-    expect(formatMonthDay(local(11, 3, 10, 0))).toBe('11/03')
-    expect(formatClock(local(11, 3, 16, 5))).toBe('16:05')
-    expect(formatMonthDayTime(local(11, 3, 9, 30))).toBe('11/03 09:30')
+  it('shows instants in Beijing time, not in the device zone the tests run in', () => {
+    // 2026-11-03 16:05 UTC is 11/04 00:05 in Beijing and 11/03 11:05 in New York.
+    expect(new Date('2026-11-03T16:05:00Z').getHours()).toBe(11)
+    expect(formatMonthDay('2026-11-03T16:05:00Z')).toBe('11/04')
+    expect(formatClock('2026-11-03T16:05:00Z')).toBe('00:05')
+    expect(formatMonthDayTime('2026-11-03T09:30:00+08:00')).toBe('11/03 09:30')
+    expect(formatMonthDayTime('2026-11-03T01:30:00Z')).toBe('11/03 09:30')
   })
 
   it('keeps an unreadable value rather than showing Invalid Date', () => {

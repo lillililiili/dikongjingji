@@ -8,6 +8,7 @@
 -- 这样“主页”“咨询服务商”能走通。
 -- 发布时间和专题起止日期相对执行当天（与原型的 11/19 那天对齐：案例 10/28、11/01、10/30，知识 11/02、10/26、10/20，
 -- 专题 11/01–11/30）。可重复迁移只在校验和变化时重跑；下一行的日期由后端启动时填入，所以每天第一次启动会重排。
+-- 日期从占位符的北京日期推算，不用数据库自己的当前日期：数据库按 UTC 时，北京时间零点到八点它还是前一天。
 -- 对齐日期：${devSeedDate}
 -- 可重复执行：先删掉这些内容和专题（段落、条目、关联对象、专题条目随之删掉）再插入。
 
@@ -18,17 +19,17 @@ INSERT INTO content_article (id, kind, title, author_kind, author_org_id, author
                              sample, status, published_at)
 VALUES
     ('f3000000-0000-4000-8000-000000000001', 'CASE', '一台机器狗如何完成园区夜间巡逻', 'PROVIDER', 'f2000000-0000-4000-8000-000000000001', '鹰眼智能巡检', false, '370500', NULL, true, 'PUBLISHED',
-     ((current_date - 22) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
+     ((DATE '${devSeedDate}' - 22) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
     ('f3000000-0000-4000-8000-000000000002', 'CASE', '无人机航测如何三天出图', 'PROVIDER', 'f2000000-0000-4000-8000-000000000002', '示例测绘服务商', false, '370500', NULL, true, 'PUBLISHED',
-     ((current_date - 18) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
+     ((DATE '${devSeedDate}' - 18) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
     ('f3000000-0000-4000-8000-000000000003', 'CASE', '光伏电站巡检：热斑是怎么被找出来的', 'PROVIDER', '22222222-2222-2222-2222-222222222222', '云翼科技', false, '370500', NULL, true, 'PUBLISHED',
-     ((current_date - 20) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
+     ((DATE '${devSeedDate}' - 20) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
     ('f3000000-0000-4000-8000-000000000004', 'KNOWLEDGE', '新手买无人机前，先弄清这 4 件事', 'PLATFORM', NULL, '东营城市运营中心', false, NULL, NULL, true, 'PUBLISHED',
-     ((current_date - 17) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
+     ((DATE '${devSeedDate}' - 17) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
     ('f3000000-0000-4000-8000-000000000005', 'KNOWLEDGE', '给孩子选编程机器人，看这 5 点', 'MERCHANT', 'c1000000-0000-4000-8000-000000000001', '示例机器人商家', true, NULL, NULL, true, 'PUBLISHED',
-     ((current_date - 24) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
+     ((DATE '${devSeedDate}' - 24) + time '10:00') AT TIME ZONE 'Asia/Shanghai'),
     ('f3000000-0000-4000-8000-000000000006', 'KNOWLEDGE', '航拍前的检查清单：场地、天气和电量', 'MERCHANT', 'c1000000-0000-4000-8000-000000000004', '示例无人机厂家', true, NULL, NULL, true, 'PUBLISHED',
-     ((current_date - 30) + time '10:00') AT TIME ZONE 'Asia/Shanghai');
+     ((DATE '${devSeedDate}' - 30) + time '10:00') AT TIME ZONE 'Asia/Shanghai');
 
 -- 正文块：要点表、导语、小标题、段落、小标题、步骤、提示、小标题、条目、文末说明。块 ID 由内容 ID 和序号算出，条目按它挂。
 INSERT INTO content_article_block (id, article_id, sort_order, block_type, text)
@@ -177,7 +178,7 @@ VALUES
 INSERT INTO content_topic (id, title, subtitle, publisher_kind, publisher_org_id, publisher_name, city_code, starts_on, ends_on,
                            cover_url, sample, status)
 VALUES ('f3100000-0000-4000-8000-000000000001', '黄河口低空体验季', '到馆体验、赛事、研学合集', 'PLATFORM', NULL, '东营城市运营中心', '370500',
-        current_date - 18, current_date + 11, NULL, true, 'PUBLISHED');
+        DATE '${devSeedDate}' - 18, DATE '${devSeedDate}' + 11, NULL, true, 'PUBLISHED');
 
 INSERT INTO content_topic_item (topic_id, sort_order, item_type, item_id)
 VALUES

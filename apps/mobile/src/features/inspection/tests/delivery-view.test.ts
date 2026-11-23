@@ -14,8 +14,9 @@ import {
   toResultTiles,
 } from '../presentation/delivery/delivery-view'
 
+// A Beijing wall-clock time as an instant: the pages show times in Beijing time.
 const at = (month: number, day: number, hour: number, minute = 0): string =>
-  new Date(2026, month - 1, day, hour, minute).toISOString()
+  new Date(Date.UTC(2026, month - 1, day, hour - 8, minute)).toISOString()
 
 describe('delivery header', () => {
   it('names the service, the visit and when the report arrived', () => {

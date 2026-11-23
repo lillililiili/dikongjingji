@@ -162,6 +162,8 @@ describe('participant wording', () => {
   it('offers only the months of someone under 18', () => {
     expect(childBirthMonthRange(new Date(2026, 10, 17))).toEqual({ start: '2008-12', end: '2026-11' })
     expect(childBirthMonthRange(new Date(2026, 11, 5))).toEqual({ start: '2009-01', end: '2026-12' })
+    // 11/30 20:00 UTC is still November on the device (New York) but already December in Beijing.
+    expect(childBirthMonthRange(new Date('2026-11-30T20:00:00Z'))).toEqual({ start: '2009-01', end: '2026-12' })
   })
 })
 

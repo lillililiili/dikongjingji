@@ -1,7 +1,9 @@
 package com.lowaltitude.inspection.bootstrap.infrastructure;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 
 import javax.sql.DataSource;
@@ -19,10 +21,31 @@ public class ModuleFlywayConfiguration {
 
     static final String SEED_DATE_PLACEHOLDER = "devSeedDate";
 
-    // 活动和体验的开发种子把场次排在“执行当天”前后。可重复迁移只在校验和变化时重跑，
-    // 所以把北京日期作为占位符写进种子：日期一变校验和就变，当天第一次启动时自动重排场次。
+    static final ZoneId SEED_ZONE = ZoneId.of("Asia/Shanghai");
+
+    // 活动、体验、内容、直播的开发种子把场次、发布时间、预告排在“执行当天”前后。可重复迁移只在校验和变化时重跑，
+    // 所以把北京日期作为占位符写进种子：日期一变校验和就变，当天第一次启动时自动重排；后端一直开着时，
+    // DevelopmentSeedDateRefreshJob 在北京时间零点用新日期再跑一遍。依赖顺序：内容提到活动和场馆，排在它们之后。
+    static final List<String> DATED_DEVELOPMENT_SEEDS = List.of("activity", "experience", "content", "live");
+
     static Map<String, String> seedDatePlaceholder() {
-        return Map.of(SEED_DATE_PLACEHOLDER, LocalDate.now(ZoneId.of("Asia/Shanghai")).toString());
+        return seedDatePlaceholder(Clock.system(SEED_ZONE));
+    }
+
+    static Map<String, String> seedDatePlaceholder(Clock clock) {
+        return Map.of(SEED_DATE_PLACEHOLDER, LocalDate.now(clock.withZone(SEED_ZONE)).toString());
+    }
+
+    // db/development/<module> 下按执行当天排日期的种子，历史表 flyway_history_<module>_development。
+    static Flyway datedDevelopmentSeed(DataSource dataSource, String module, Map<String, String> placeholders) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/development/" + module)
+                .placeholders(placeholders)
+                .table("flyway_history_" + module + "_development")
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
     }
 
     @Bean
@@ -66,14 +89,7 @@ public class ModuleFlywayConfiguration {
     @Profile("dev")
     @DependsOn("activityFlyway")
     Flyway activityDevelopmentDataFlyway(DataSource dataSource) {
-        return Flyway.configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/development/activity")
-                .placeholders(seedDatePlaceholder())
-                .table("flyway_history_activity_development")
-                .baselineOnMigrate(true)
-                .baselineVersion("0")
-                .load();
+        return datedDevelopmentSeed(dataSource, "activity", seedDatePlaceholder());
     }
 
     // 场馆表引用 identity_organization，并使用巡检迁移里创建的 postgis 扩展，所以排在两者之后。
@@ -87,14 +103,7 @@ public class ModuleFlywayConfiguration {
     @Profile("dev")
     @DependsOn("experienceFlyway")
     Flyway experienceDevelopmentDataFlyway(DataSource dataSource) {
-        return Flyway.configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/development/experience")
-                .placeholders(seedDatePlaceholder())
-                .table("flyway_history_experience_development")
-                .baselineOnMigrate(true)
-                .baselineVersion("0")
-                .load();
+        return datedDevelopmentSeed(dataSource, "experience", seedDatePlaceholder());
     }
 
     // 站内信只引用 identity_user；排在巡检之后只是为了让迁移顺序固定。
@@ -166,14 +175,7 @@ public class ModuleFlywayConfiguration {
     @DependsOn({"contentFlyway", "proserviceDevelopmentDataFlyway", "activityDevelopmentDataFlyway",
             "experienceDevelopmentDataFlyway"})
     Flyway contentDevelopmentDataFlyway(DataSource dataSource) {
-        return Flyway.configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/development/content")
-                .placeholders(seedDatePlaceholder())
-                .table("flyway_history_content_development")
-                .baselineOnMigrate(true)
-                .baselineVersion("0")
-                .load();
+        return datedDevelopmentSeed(dataSource, "content", seedDatePlaceholder());
     }
 
     // 直播（M20）的表引用 identity_user、identity_organization，排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
@@ -191,14 +193,7 @@ public class ModuleFlywayConfiguration {
     @DependsOn({"liveFlyway", "identityDevelopmentDataFlyway", "inspectionDevelopmentDataFlyway",
             "mallDevelopmentDataFlyway", "tradeDevelopmentDataFlyway"})
     Flyway liveDevelopmentDataFlyway(DataSource dataSource) {
-        return Flyway.configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/development/live")
-                .placeholders(seedDatePlaceholder())
-                .table("flyway_history_live_development")
-                .baselineOnMigrate(true)
-                .baselineVersion("0")
-                .load();
+        return datedDevelopmentSeed(dataSource, "live", seedDatePlaceholder());
     }
 
     // 收货地址表引用 identity_user，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
