@@ -32,6 +32,7 @@ import com.lowaltitude.inspection.mall.application.MallCartService;
 import com.lowaltitude.inspection.account.application.AccountAddressService;
 import com.lowaltitude.inspection.trade.application.TradeOrderService;
 import com.lowaltitude.inspection.trade.application.TradePaymentService;
+import com.lowaltitude.inspection.trade.application.TradeChannelCheckService;
 import com.lowaltitude.inspection.trade.application.TradeReconciliationService;
 import com.lowaltitude.inspection.trade.application.TradeRefundService;
 import com.lowaltitude.inspection.notification.application.NotificationService;
@@ -856,7 +857,8 @@ class AuthenticationSecurityIntegrationTest {
         TradePaymentService payments = applicationContext.getBean(TradePaymentService.class);
         TradeRefundService refunds = applicationContext.getBean(TradeRefundService.class);
         TradeReconciliationService reconciliation = applicationContext.getBean(TradeReconciliationService.class);
-        org.mockito.Mockito.clearInvocations(orders, payments, refunds, reconciliation);
+        TradeChannelCheckService channelCheck = applicationContext.getBean(TradeChannelCheckService.class);
+        org.mockito.Mockito.clearInvocations(orders, payments, refunds, reconciliation, channelCheck);
         String order = "/api/v1/trade/orders/e1000000-0000-4000-8000-000000000001";
         String merchantOrder = "/api/v1/provider/trade/orders/e1000000-0000-4000-8000-000000000001";
 
@@ -881,7 +883,9 @@ class AuthenticationSecurityIntegrationTest {
                 // E06 的对账：读结果（JSON、CSV）和立刻跑一次。
                 get("/api/v1/platform/trade/reconciliation").param("date", "2026-11-17"),
                 get("/api/v1/platform/trade/reconciliation").param("date", "2026-11-17").param("format", "CSV"),
-                post("/api/v1/platform/trade/reconciliation/runs").param("date", "2026-11-17"))) {
+                post("/api/v1/platform/trade/reconciliation/runs").param("date", "2026-11-17"),
+                // S2-1 支付通道自检。
+                post("/api/v1/platform/trade/channel-checks").param("subMchid", "1900000109"))) {
             mockMvc.perform(request)
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
@@ -891,7 +895,7 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
 
-        org.mockito.Mockito.verifyNoInteractions(orders, payments, refunds, reconciliation);
+        org.mockito.Mockito.verifyNoInteractions(orders, payments, refunds, reconciliation, channelCheck);
     }
 
     // 对账（E06）只给平台运营：客户、商家操作员都是 403，服务一次都不调；平台运营的令牌读得到 JSON 和 CSV、能跑对账。
@@ -1606,6 +1610,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         TradeReconciliationService testTradeReconciliationService() {
             return org.mockito.Mockito.mock(TradeReconciliationService.class);
+        }
+
+        @Bean
+        TradeChannelCheckService testTradeChannelCheckService() {
+            return org.mockito.Mockito.mock(TradeChannelCheckService.class);
         }
 
         @Bean
