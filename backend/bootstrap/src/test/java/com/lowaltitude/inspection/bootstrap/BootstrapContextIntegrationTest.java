@@ -71,6 +71,7 @@ import org.springframework.web.bind.annotation.RestController;
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        com.lowaltitude.inspection.experience.application.ops.VenueOpsService.class,
         com.lowaltitude.inspection.live.application.LiveService.class,
         com.lowaltitude.inspection.content.application.ContentReadService.class,
         com.lowaltitude.inspection.content.application.ContentVideoService.class,

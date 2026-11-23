@@ -72,6 +72,7 @@ import org.springframework.test.web.servlet.MockMvc;
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        com.lowaltitude.inspection.experience.application.ops.VenueOpsService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -589,6 +590,7 @@ class AuthenticationSecurityIntegrationTest {
             UUID organization) {
         UUID attachment = UUID.fromString("e7000000-0000-4000-8000-000000000002");
         String orgPath = "/api/v1/ops/organizations/" + organization;
+        String venuePath = "/api/v1/ops/venues/b2000000-0000-4000-8000-000000000001";
         return List.of(
                 get("/api/v1/ops/cities"), put("/api/v1/ops/cities/370500/service-status"),
                 get("/api/v1/ops/cities/370500/service-status-changes"),
@@ -598,7 +600,19 @@ class AuthenticationSecurityIntegrationTest {
                 delete(orgPath + "/attachments/" + attachment), post(orgPath + "/accounts"),
                 put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"),
                 // S3-1 第三部分：素材上传与预览
-                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"));
+                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"),
+                // S3-1 第三部分：场馆与设备
+                get("/api/v1/ops/venues"), post("/api/v1/ops/venues"), get(venuePath), put(venuePath),
+                post(venuePath + "/publish"), post(venuePath + "/offline"), get(venuePath + "/changes"),
+                post(venuePath + "/projects"), put(venuePath + "/projects/" + attachment),
+                put(venuePath + "/projects/" + attachment + "/status"),
+                get(venuePath + "/projects/" + attachment + "/sessions"),
+                post(venuePath + "/projects/" + attachment + "/sessions/generate"),
+                post(venuePath + "/sessions/" + attachment + "/stop-sale"),
+                post(venuePath + "/sessions/" + attachment + "/resume-sale"),
+                post(venuePath + "/sessions/" + attachment + "/cancel"),
+                post(venuePath + "/devices"), put(venuePath + "/devices/" + attachment),
+                put(venuePath + "/devices/" + attachment + "/status"));
     }
 
     private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {

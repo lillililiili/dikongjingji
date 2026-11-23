@@ -11,7 +11,10 @@ describe('菜单', () => {
     const groups = buildMenu(ADMIN_MODULES, ['PLATFORM_OPERATOR'])
 
     expect(groups.map((group) => group.title)).toEqual(['平台运营'])
-    expect(groups[0]!.items.map((item) => item.title)).toEqual(['城市开通', '机构与资质'])
+    // 前两项固定；S3-1 第三部分各块（场馆与设备等）按 order 排在后面。
+    expect(groups[0]!.items.map((item) => item.title).slice(0, 2)).toEqual(['城市开通', '机构与资质'])
+    expect(groups[0]!.items.map((item) => item.title)).toContain('场馆与设备')
+    expect(groups[0]!.items.map((item) => item.title)).not.toContain('举报与反馈')
   })
 
   it('平台客服只看到举报与反馈；机构角色和客户现在没有菜单', () => {
