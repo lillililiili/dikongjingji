@@ -45,7 +45,7 @@ async function main() {
   check('wrong code is 400', r.status === 400 && r.json.code === 'SMS_CODE_INVALID', r.json);
   const codeA = latestCode(phoneA);
   r = await call('POST', '/api/v1/auth/phone-login', { body: { phone: phoneA, code: codeA, device: device('iPhone 15') } });
-  check('code login registers a new account', r.status === 200 && r.json.registered === true && r.json.tokenType === 'Bearer', r.json);
+  check('code login registers a new account and hands out a refresh token', r.status === 200 && r.json.registered === true && r.json.tokenType === 'Bearer' && typeof r.json.refreshToken === 'string' && r.json.refreshToken.length > 30, r.json);
   const tokenA = r.json.accessToken;
   check('token carries a session id and no enterprise identity', !!claims(tokenA).sid && !('identity' in claims(tokenA)));
   r = await call('POST', '/api/v1/auth/phone-login', { body: { phone: phoneA, code: codeA } });
@@ -74,6 +74,10 @@ async function main() {
   const second = await phoneLogin(phoneA, 'Android 手机');
   check('logging in again on another device keeps the same account', second.registered === false);
   const tokenA2 = second.accessToken;
+  const refreshA2 = second.refreshToken;
+  r = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: refreshA2 } });
+  check('a renewal keeps the same device session', r.status === 200 && claims(r.json.accessToken).sid === claims(tokenA2).sid, r.json);
+  const renewedA2 = r.json;
   r = await call('GET', '/api/v1/account/sessions', { token: tokenA });
   check('two devices listed, this one first', r.status === 200 && r.json.items.length === 2 && r.json.items[0].current === true && r.json.items[0].deviceName === 'iPhone 15' && r.json.items[1].deviceName === 'Android 手机' && r.json.items[1].cityName === '东营市', r.json);
   const otherSession = r.json.items[1].sessionId;
@@ -83,6 +87,8 @@ async function main() {
   check('another device is signed out', r.status === 204);
   r = await call('GET', '/api/v1/auth/me', { token: tokenA2 });
   check('the signed-out device token is refused at once', r.status === 401, r.status);
+  r = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: renewedA2.refreshToken } });
+  check('the signed-out device cannot renew either', r.status === 401, r.json);
   r = await call('DELETE', `/api/v1/account/sessions/${crypto.randomUUID()}`, { token: tokenA });
   check('unknown session is 404', r.status === 404);
 

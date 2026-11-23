@@ -2,7 +2,10 @@ import { createBookingUuid } from '../../application/service-flow/booking-crypto
 import { createCityDirectoryApi } from '../../../../shared/city/data/city-directory-api'
 import {
   beginBookingAuthenticationRecovery,
+  clearBookingAuthSession,
   getBookingAuthContext,
+  readBookingRefreshToken,
+  saveBookingAuthSession,
 } from '../../application/service-flow/booking-auth-context'
 import { createInspectionCatalogApi } from '../catalog/inspection-catalog-api'
 import { createInspectionServiceDetailApi } from '../detail/inspection-service-detail-api'
@@ -80,19 +83,96 @@ function errorFromResponse(data: unknown, status: number): ApiRequestError {
   )
 }
 
-// Exported for shared/http/public-api-request.ts, the entry other features use for anonymous calls.
-export async function publicRequest<T>(input: {
+type PublicRequestInput = {
   url: string
   method: 'GET' | 'POST' | 'PUT' | 'DELETE'
   data?: unknown
   headers?: Record<string, string>
-}): Promise<T> {
+}
+
+// Exported for shared/http/public-api-request.ts, the entry every feature uses: anonymous calls, and
+// calls that carry the signed-in account's token in an Authorization header.
+//
+// Login renewal lives here so every feature gets it: a call with a Bearer token always goes out with
+// the session's current access token (a page may still hold one that was renewed since), and a 401
+// is answered by renewing the login once with the refresh token and sending the call again. Only when
+// that fails does the 401 reach the page, which then sends the user to the login page as before.
+export async function publicRequest<T>(input: PublicRequestInput): Promise<T> {
+  const usedToken = bearerToken(input.headers)
+  const sent = usedToken ? withAccessToken(input, currentAccessTokenOr(usedToken)) : input
+  try {
+    return await sendWithEndpointRetry<T>(sent)
+  } catch (error) {
+    if (!usedToken || !isUnauthorized(error)) throw error
+    const renewed = await accessTokenAfterUnauthorized(bearerToken(sent.headers) ?? usedToken)
+    if (!renewed) throw error
+    return sendWithEndpointRetry<T>(withAccessToken(input, renewed))
+  }
+}
+
+async function sendWithEndpointRetry<T>(input: PublicRequestInput): Promise<T> {
   try {
     return await sendPublicRequest<T>(input)
   } catch (error) {
     if (!(error instanceof ApiRequestError) || error.code !== 'NETWORK_ERROR') throw error
     invalidateInspectionApiBaseUrl()
     return sendPublicRequest<T>(input)
+  }
+}
+
+function bearerToken(headers: Record<string, string> | undefined): string | null {
+  const value = headers?.Authorization ?? headers?.authorization
+  const match = typeof value === 'string' ? /^Bearer (\S+)$/.exec(value.trim()) : null
+  return match ? match[1] : null
+}
+
+function withAccessToken(input: PublicRequestInput, token: string): PublicRequestInput {
+  const headers = Object.fromEntries(Object.entries(input.headers ?? {})
+    .filter(([name]) => name.toLowerCase() !== 'authorization'))
+  return { ...input, headers: { ...headers, Authorization: `Bearer ${token}` } }
+}
+
+function currentAccessTokenOr(fallback: string): string {
+  return getBookingAuthContext().getAccessToken() ?? fallback
+}
+
+function isUnauthorized(error: unknown): boolean {
+  return error instanceof ApiRequestError && (error.status === 401 || error.code === 'COMMON_UNAUTHORIZED')
+}
+
+let renewalInFlight: Promise<string | null> | null = null
+
+/**
+ * The access token to retry with after a call made with {@code rejectedToken} got a 401: the
+ * session's newer token when another call renewed it meanwhile, otherwise a freshly renewed one.
+ * Calls that fail together share one renewal: a refresh token works once, and using it twice would
+ * look like theft to the server and end the login. Null when the login cannot be renewed.
+ */
+export async function accessTokenAfterUnauthorized(rejectedToken: string): Promise<string | null> {
+  if (renewalInFlight) return renewalInFlight
+  const current = getBookingAuthContext().getAccessToken()
+  if (current && current !== rejectedToken) return current
+  renewalInFlight = renewLogin().finally(() => { renewalInFlight = null })
+  return renewalInFlight
+}
+
+async function renewLogin(): Promise<string | null> {
+  const refreshToken = readBookingRefreshToken()
+  if (!refreshToken) return null
+  try {
+    // No Authorization header: the server would reject the expired access token before looking at the body.
+    const renewed = await sendWithEndpointRetry<InspectionLoginResponse>({
+      url: '/api/v1/auth/refresh',
+      method: 'POST',
+      data: { refreshToken },
+    })
+    saveBookingAuthSession(renewed)
+    return renewed.accessToken
+  } catch (error) {
+    // Offline: the login may still be renewable later, keep it. Any answer from the server means the
+    // refresh token is spent, expired or withdrawn: the login is over.
+    if (!(error instanceof ApiRequestError) || error.code !== 'NETWORK_ERROR') clearBookingAuthSession()
+    return null
   }
 }
 
@@ -123,21 +203,48 @@ async function request<T>(input: { url: string; method: 'GET' | 'POST'; data?: u
     beginBookingAuthenticationRecovery()
     throw new ApiRequestError('请先登录后再进行预约操作', 401, 'COMMON_UNAUTHORIZED')
   }
-  const url = await resolveInspectionApiRequestUrl(input.url)
+  try {
+    return await sendAuthorized<T>(input, token)
+  } catch (error) {
+    if (!isUnauthorized(error)) throw error
+    // A 401 is answered before the request is handled, so sending it again once is safe.
+    const renewed = await accessTokenAfterUnauthorized(token)
+    if (renewed) {
+      try {
+        return await sendAuthorized<T>(input, renewed)
+      } catch (retryError) {
+        if (!isUnauthorized(retryError)) throw retryError
+      }
+    }
+    beginBookingAuthenticationRecovery()
+    throw error
+  }
+}
+
+function sendAuthorized<T>(
+  input: { url: string; method: 'GET' | 'POST'; data?: unknown; headers?: Record<string, string> },
+  token: string,
+): Promise<T> {
+  return resolveInspectionApiRequestUrl(input.url).then((url) => sendAuthorizedTo<T>(url, input, token))
+}
+
+function sendAuthorizedTo<T>(
+  url: string,
+  input: { method: 'GET' | 'POST'; data?: unknown; headers?: Record<string, string> },
+  token: string,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     uni.request({
       url, method: input.method, data: input.data as object,
-      header: { Authorization: `Bearer ${token}`, 'X-Request-Id': createBookingUuid(), ...input.headers },
+      // The session's token goes last: callers also put their copy of it in the headers, and after a
+      // renewal that copy is the old one.
+      header: { 'X-Request-Id': createBookingUuid(), ...input.headers, Authorization: `Bearer ${token}` },
       success: (response) => {
         if (response.statusCode >= 200 && response.statusCode < 300) {
           resolve(response.data as T)
           return
         }
-        const error = errorFromResponse(response.data, response.statusCode)
-        if (response.statusCode === 401 || error.code === 'COMMON_UNAUTHORIZED') {
-          beginBookingAuthenticationRecovery()
-        }
-        reject(error)
+        reject(errorFromResponse(response.data, response.statusCode))
       },
       fail: () => reject(new ApiRequestError('网络连接失败，请稍后重试', 0, 'NETWORK_ERROR')),
     })
@@ -148,6 +255,8 @@ export interface InspectionLoginResponse {
   accessToken: string
   tokenType: 'Bearer'
   expiresInSeconds: number
+  refreshToken?: string
+  refreshExpiresInSeconds?: number
 }
 
 export const inspectionAuthApi = {
@@ -159,6 +268,22 @@ export const inspectionAuthApi = {
       data: device ? { loginName, password, device } : { loginName, password },
     })
   },
+}
+
+/**
+ * Signs out on this device: the local tokens go at once, then the server is told to withdraw the
+ * login (its refresh token). A failed call does not keep the user signed in; the server's copy then
+ * runs out by itself.
+ */
+export function signOutBookingSession(): void {
+  const refreshToken = readBookingRefreshToken()
+  clearBookingAuthSession()
+  if (!refreshToken) return
+  void sendWithEndpointRetry<void>({
+    url: '/api/v1/auth/logout',
+    method: 'POST',
+    data: { refreshToken },
+  }).catch(() => undefined)
 }
 
 async function putFile(input: { url: string; filePath: string; headers: Record<string, string> }): Promise<{ etag: string }> {

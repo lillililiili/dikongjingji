@@ -6,6 +6,7 @@ import java.util.UUID;
 import com.lowaltitude.inspection.identity.domain.AccountStatePort;
 import com.lowaltitude.inspection.identity.domain.CurrentIdentity;
 import com.lowaltitude.inspection.identity.domain.LoginDevice;
+import com.lowaltitude.inspection.identity.domain.LoginSessionStatus;
 
 /** 没有数据库时的账号状态：不开会话，带会话 ID 的令牌一律不认，身份总是个人，没有手机号。 */
 public final class FailClosedAccountStatePort implements AccountStatePort {
@@ -22,6 +23,15 @@ public final class FailClosedAccountStatePort implements AccountStatePort {
 
     @Override
     public void signOut(UUID sessionId, UUID subjectId) {
+    }
+
+    @Override
+    public LoginSessionStatus sessionStatus(UUID sessionId, UUID subjectId) {
+        return LoginSessionStatus.UNKNOWN;
+    }
+
+    @Override
+    public void touchSession(UUID sessionId, UUID subjectId) {
     }
 
     @Override

@@ -26,6 +26,7 @@ class InspectionServiceFlowOpenApiContractTest {
         routes.addAll(routes(InspectionPlanController.class));
         routes.addAll(routes(InspectionOrderController.class));
         routes.addAll(routes(InspectionDeliveryController.class));
+        routes.addAll(routes(InspectionPaymentController.class));
         // 2.3.0 服务商工作台的两条读取：控制器类上是公共前缀，方法上是空路径和 /{reservationId}。
         String providerPrefix = com.lowaltitude.inspection.application.reservation
                 .InspectionProviderReservationController.class
@@ -33,7 +34,7 @@ class InspectionServiceFlowOpenApiContractTest {
         routes.add(providerPrefix);
         routes.add(providerPrefix + "/{reservationId}");
 
-        assertThat(routes).hasSizeGreaterThanOrEqualTo(12);
+        assertThat(routes).hasSizeGreaterThanOrEqualTo(17);
         assertThat(routes).allSatisfy(route ->
                 assertThat(contract).contains("  " + route + ":\n"));
     }
@@ -54,17 +55,30 @@ class InspectionServiceFlowOpenApiContractTest {
         String contract = Files.readString(CONTRACT);
 
         assertThat(contract)
-                .contains("version: 2.4.0")
+                .contains("version: 2.7.0")
                 // 2.3.0：服务商工作台读分给本机构的预约
                 .contains("operationId: listProviderInspectionReservations")
                 .contains("operationId: getProviderInspectionReservationSummary")
                 // 2.1.0：登录账号读取自己的展示资料
                 .contains("/api/v1/auth/me:")
+                // 2.4.0：刷新令牌续期和退出登录
+                .contains("/api/v1/auth/refresh:")
+                .contains("operationId: refreshLogin")
+                .contains("/api/v1/auth/logout:")
+                .contains("required: [accessToken, tokenType, expiresInSeconds, refreshToken, refreshExpiresInSeconds]")
                 .contains("operationId: getCurrentAccount")
                 .contains("INS_VISIT_STATE_INVALID")
                 .contains("INS_VISIT_OUT_OF_ORDER")
                 .contains("ServiceVisitStatus:")
-                .contains("enum: [PENDING_SCHEDULE, SCHEDULED, IN_PROGRESS, DELIVERED, ACCEPTED]");
+                .contains("enum: [PENDING_SCHEDULE, SCHEDULED, IN_PROGRESS, REWORK, DELIVERED, ACCEPTED]")
+                // 2.5.0（S4-1）：付款节点、取消、改期、退回整改。
+                .contains("enum: [AWAITING_PAYMENT, ARRANGING, IN_PROGRESS, DELIVERED, ACCEPTED, CANCELLED]")
+                .contains("enum: [PUBLISHED, RETURNED, ACCEPTED]")
+                .contains("INS_PROVIDER_PAYMENT_UNAVAILABLE")
+                .contains("INS_PAYMENT_NOT_DUE")
+                .contains("INS_ORDER_NOT_CANCELLABLE")
+                .contains("INS_RESCHEDULE_NOT_ALLOWED")
+                .contains("INS_RESCHEDULE_STATE_INVALID");
     }
 
     private static List<String> routes(Class<?> controller) {

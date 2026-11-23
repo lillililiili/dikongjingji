@@ -14,32 +14,36 @@ import com.lowaltitude.inspection.identity.application.account.AccountViews.Revo
 import com.lowaltitude.inspection.identity.application.account.AccountViews.SessionListView;
 import com.lowaltitude.inspection.identity.application.account.AccountViews.SessionView;
 import com.lowaltitude.inspection.identity.domain.LoginDevice;
+import com.lowaltitude.inspection.identity.domain.LoginSessionStatus;
+import com.lowaltitude.inspection.identity.domain.RefreshTokenPort;
+import com.lowaltitude.inspection.identity.domain.RefreshTokenRevokeReason;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.AccountMapper;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.AccountMapper.SessionRow;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 登录会话（登录设备，S5-8）。每次登录记一行，令牌带它的 ID（sid）；同一台设备再登录时上一行作废。
- * 退出某台设备即撤销那一行，令牌校验时发现会话已撤销就当作未登录。本机的退出走“退出登录”，不在设备列表里退。
+ * 登录会话（登录设备，S5-8）。每次登录记一行，它的 ID 就是这次登录的刷新令牌 family ID（身份 V008），访问令牌带它（sid）；
+ * 续期沿用同一行并更新最近活动时间。同一台设备再登录时上一行作废。退出某台设备、换号、注销都撤销会话并撤销它的
+ * 刷新令牌 family：访问令牌立刻失效（令牌校验看会话），也不能再续期。本机的退出走“退出登录”（/api/v1/auth/logout）。
  */
 public class LoginSessionService {
 
     public static final int MAX_LISTED = 20;
-    /**
-     * 登录设备只列这段时间里活动过的会话。现在的访问令牌 15 分钟过期、没有续期，会话只在登录时记活动时间；
-     * 刷新令牌合并后续期时更新 last_active_at，过期的会话自然从列表里消失。
-     */
+    /** 登录设备只列这段时间里活动过（登录或续期）的会话；刷新令牌 30 天有效，过了就不算还登录着。 */
     public static final java.time.Duration LISTED_WINDOW = java.time.Duration.ofDays(30);
     public static final String PASSWORD = "PASSWORD";
     public static final String SMS_CODE = "SMS_CODE";
 
     private final AccountMapper mapper;
     private final AccountPorts.CityNames cities;
+    private final RefreshTokenPort refreshTokens;
     private final Clock clock;
 
-    public LoginSessionService(AccountMapper mapper, AccountPorts.CityNames cities, Clock clock) {
+    public LoginSessionService(AccountMapper mapper, AccountPorts.CityNames cities, RefreshTokenPort refreshTokens,
+                               Clock clock) {
         this.mapper = mapper;
         this.cities = cities;
+        this.refreshTokens = refreshTokens;
         this.clock = clock;
     }
 
@@ -48,7 +52,9 @@ public class LoginSessionService {
         LoginDevice normalized = (device == null ? LoginDevice.unknown() : device).normalized();
         OffsetDateTime now = now();
         if (normalized.deviceKey() != null) {
+            List<UUID> replaced = mapper.findDeviceSessionIds(userId, normalized.deviceKey());
             mapper.replaceDeviceSessions(userId, normalized.deviceKey(), now);
+            replaced.forEach(id -> refreshTokens.revokeFamily(id, RefreshTokenRevokeReason.LOGOUT, now.toInstant()));
         }
         return mapper.insertSession(userId, normalized.deviceKey(), normalized.deviceName(), normalized.platform(),
                 normalized.cityCode(), SMS_CODE.equals(loginMethod) ? SMS_CODE : PASSWORD, now);
@@ -57,6 +63,21 @@ public class LoginSessionService {
     @Transactional(readOnly = true)
     public boolean isActive(UUID sessionId, UUID userId) {
         return sessionId != null && userId != null && mapper.isSessionActive(sessionId, userId);
+    }
+
+    /** 续期时：这次登录的会话还在（ACTIVE）、已退出（ENDED），或没有会话记录（UNKNOWN，会话记录之前的登录）。 */
+    @Transactional(readOnly = true)
+    public LoginSessionStatus status(UUID sessionId, UUID userId) {
+        Boolean revoked = sessionId == null || userId == null ? null : mapper.findSessionRevoked(sessionId, userId);
+        if (revoked == null) {
+            return LoginSessionStatus.UNKNOWN;
+        }
+        return revoked ? LoginSessionStatus.ENDED : LoginSessionStatus.ACTIVE;
+    }
+
+    @Transactional
+    public void touch(UUID sessionId, UUID userId) {
+        mapper.touchSession(sessionId, userId, now());
     }
 
     @Transactional(readOnly = true)
@@ -85,14 +106,18 @@ public class LoginSessionService {
         if (mapper.findSession(sessionId, userId) == null) {
             throw new AccountException(Error.NOT_FOUND);
         }
-        mapper.revokeSession(sessionId, userId, "REMOTE", now());
+        OffsetDateTime now = now();
+        if (mapper.revokeSession(sessionId, userId, "REMOTE", now) > 0) {
+            refreshTokens.revokeFamily(sessionId, RefreshTokenRevokeReason.LOGOUT, now.toInstant());
+        }
     }
 
     @Transactional
     public RevokedCountView revokeOthers(UUID userId, UUID currentSessionId) {
-        return new RevokedCountView(mapper.revokeOtherSessions(userId, currentSessionId, "REMOTE", now()));
+        return new RevokedCountView(revokeAllExcept(userId, currentSessionId, "REMOTE"));
     }
 
+    /** 本机退出登录，或这次登录的刷新令牌已被撤销（退出、盗用、账号变了）：会话跟着结束。 */
     @Transactional
     public void signOut(UUID sessionId, UUID userId) {
         if (sessionId != null && userId != null) {
@@ -100,9 +125,18 @@ public class LoginSessionService {
         }
     }
 
-    /** 换号（PHONE_CHANGED，保留本机）或注销（CLOSED，全部）时调用；在调用方的事务里。 */
+    /**
+     * 退出这个账号除 keepSessionId 外的全部会话（为空时全部），并撤销它们的刷新令牌 family。
+     * 远程退出（REMOTE）、换号（PHONE_CHANGED，保留本机）、注销（CLOSED，全部）；在调用方的事务里。
+     */
     public int revokeAllExcept(UUID userId, UUID keepSessionId, String reason) {
-        return mapper.revokeOtherSessions(userId, keepSessionId, reason, now());
+        OffsetDateTime now = now();
+        List<UUID> ending = mapper.findActiveSessionIds(userId, keepSessionId);
+        int revoked = mapper.revokeOtherSessions(userId, keepSessionId, reason, now);
+        RefreshTokenRevokeReason why = "CLOSED".equals(reason)
+                ? RefreshTokenRevokeReason.ACCOUNT_CHANGED : RefreshTokenRevokeReason.LOGOUT;
+        ending.forEach(id -> refreshTokens.revokeFamily(id, why, now.toInstant()));
+        return revoked;
     }
 
     private OffsetDateTime now() {

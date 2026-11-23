@@ -6,6 +6,7 @@ import java.util.UUID;
 import com.lowaltitude.inspection.identity.domain.AccountStatePort;
 import com.lowaltitude.inspection.identity.domain.CurrentIdentity;
 import com.lowaltitude.inspection.identity.domain.LoginDevice;
+import com.lowaltitude.inspection.identity.domain.LoginSessionStatus;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.AccountMapper;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.AccountMapper.UserRow;
 
@@ -35,6 +36,16 @@ public class IdentityAccountState implements AccountStatePort {
     @Override
     public void signOut(UUID sessionId, UUID subjectId) {
         sessions.signOut(sessionId, subjectId);
+    }
+
+    @Override
+    public LoginSessionStatus sessionStatus(UUID sessionId, UUID subjectId) {
+        return sessions.status(sessionId, subjectId);
+    }
+
+    @Override
+    public void touchSession(UUID sessionId, UUID subjectId) {
+        sessions.touch(sessionId, subjectId);
     }
 
     @Override

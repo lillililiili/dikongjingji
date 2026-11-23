@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
-import { onBackPress, onLoad } from '@dcloudio/uni-app'
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
+import { onBackPress, onLoad, onReady } from '@dcloudio/uni-app'
 
 import { ACCOUNT_PREVIEW_ENABLED } from '@/features/account/application/account-preview'
 import { currentLoginDevice } from '@/features/account/application/login-device'
@@ -13,6 +13,7 @@ import type { AgreementDoc } from '@/features/settings/domain/agreement'
 import { buildAgreementUrl } from '@/features/settings/navigation/settings-routes'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { undoNeedlessKeyboardPan, watchH5KeyboardViewport } from '@/shared/ui/keyboard-viewport'
 import {
   completeBookingAuthenticationRecovery,
   saveBookingAuthSession,
@@ -115,14 +116,64 @@ function useCarrierLogin(): void {
   uni.showToast({ title: '本机号码一键登录需要运营商认证服务，暂未开通，请用验证码登录', icon: 'none' })
 }
 
+// The account form is drawn only after switching to it (S5-8), so its fields get the plain-typing
+// attributes then, the same way the page sets them when it is first drawn.
 function switchMode(next: 'phone' | 'password'): void {
   mode.value = next
   errorMessage.value = ''
+  if (next !== 'password') return
+  void nextTick(() => {
+    // #ifdef H5
+    document.querySelectorAll('[data-plain-input] input').forEach((field) => {
+      field.setAttribute('autocapitalize', 'off')
+      field.setAttribute('autocorrect', 'off')
+      field.setAttribute('spellcheck', 'false')
+    })
+    // #endif
+    // #ifdef APP-PLUS
+    const pages = getCurrentPages() as Array<{ $getAppWebview?: () => { evalJS(script: string): void } }>
+    pages[pages.length - 1]?.$getAppWebview?.().evalJS(PLAIN_FIELD_SCRIPT)
+    // #endif
+  })
 }
 
 onLoad((query: LoginRouteQuery | undefined) => {
   returnUrl.value = normalizeInspectionReturnUrl(query?.returnUrl ?? '')
 })
+
+// A login name is typed as it is: no capital first letter, no autocorrect, no spell check. uni-app's
+// <input> does not pass these attributes on to the real field, so they are set on it once the page is
+// drawn: on H5 in this document, on the App in the page's webview (its view layer has the DOM).
+const PLAIN_FIELD_SCRIPT = `document.querySelectorAll('[data-plain-input] input').forEach(function(f){`
+  + `f.setAttribute('autocapitalize','off');f.setAttribute('autocorrect','off');f.setAttribute('spellcheck','false')})`
+let stopKeyboardWatch: () => void = () => {}
+
+// H5: onMounted, not onReady. A page hook registered in this component (the page file only wraps it)
+// is never called on H5, so the fields kept their defaults; by the time this component is mounted
+// its <input> children are in the document.
+onMounted(() => {
+  // #ifdef H5
+  document.querySelectorAll('[data-plain-input] input').forEach((field) => {
+    field.setAttribute('autocapitalize', 'off')
+    field.setAttribute('autocorrect', 'off')
+    field.setAttribute('spellcheck', 'false')
+  })
+  // The fields sit high on the page: iOS still pans it when the keyboard opens and the head goes under
+  // the status bar. Undo that pan whenever the focused field would be in sight without it.
+  stopKeyboardWatch = watchH5KeyboardViewport((viewport) => {
+    setTimeout(() => undoNeedlessKeyboardPan(viewport), 50)
+  })
+  // #endif
+})
+
+onReady(() => {
+  // #ifdef APP-PLUS
+  const pages = getCurrentPages() as Array<{ $getAppWebview?: () => { evalJS(script: string): void } }>
+  pages[pages.length - 1]?.$getAppWebview?.().evalJS(PLAIN_FIELD_SCRIPT)
+  // #endif
+})
+
+onBeforeUnmount(() => stopKeyboardWatch())
 
 onBackPress(() => {
   exitLogin()
@@ -249,7 +300,7 @@ function exitLogin(): void {
 
       <view v-else class="inspection-login__form">
         <text class="inspection-login__form-title">账号登录</text>
-        <view class="inspection-login__input">
+        <view class="inspection-login__input" data-plain-input>
           <LineIcon name="person" :size="18" color="#738096" />
           <input
             v-model="loginName"

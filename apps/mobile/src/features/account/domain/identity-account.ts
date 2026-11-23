@@ -27,6 +27,9 @@ export interface LoginToken {
 }
 
 export interface PhoneLoginResult extends LoginToken {
+  // Renews the login (POST /api/v1/auth/refresh), like the password login's.
+  refreshToken: string
+  refreshExpiresInSeconds: number
   registered: boolean
 }
 

@@ -91,6 +91,13 @@ class IdentityClaimsJwtValidatorSessionTest {
         public void signOut(UUID sessionId, UUID subjectId) {
         }
 
+        public com.lowaltitude.inspection.identity.domain.LoginSessionStatus sessionStatus(UUID sessionId, UUID subjectId) {
+            return delegate.sessionStatus(sessionId, subjectId);
+        }
+
+        public void touchSession(UUID sessionId, UUID subjectId) {
+        }
+
         public com.lowaltitude.inspection.identity.domain.CurrentIdentity currentIdentity(UUID subjectId) {
             return delegate.currentIdentity(subjectId);
         }

@@ -1637,7 +1637,7 @@ class TradeOrderServiceTest {
 
     /** 按 TradeOrderMapper 的 SQL 写的内存实现；插入时检查 V001 的唯一约束和金额约束。 */
     private static final class InMemoryMapper implements TradeOrderMapper {
-        // ---- S5-7、S5-8（交易迁移 V010）：付款主体、企业订单、注销 ----
+        // ---- S5-7、S5-8（交易迁移 V013）：付款主体、企业订单、注销 ----
         final java.util.Map<java.util.UUID, String[]> payers = new java.util.HashMap<>();
 
         @Override

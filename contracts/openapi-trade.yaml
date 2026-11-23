@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.6.0
+  version: 0.10.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -60,7 +60,16 @@ info:
       “待自提”是 status=PAID&deliveryMode=PICKUP；加 readMerchantOrder（本机构卖出的一张商城订单，和列表里的一项相同，带 ETag）；
       加 readMyMerchantAccount（本机构登记的收款账户，只读，没登记过 404；登记仍由平台运营调 registerMerchantAccount）。
 
-    0.6.0（2026-11-23，S5-7、S5-8，docs/redesign/08-后续开发计划.md §5“企业组织”“账号”）：
+    0.6.0（2026-11-23，S4-1，docs/redesign/08-后续开发计划.md §5 D9、C3）：第五个业务来源——巡检付款节点（source = INSPECTION，
+      接口见 contracts/openapi-inspection-service-flow.yaml 2.5.0）。没有新接口：巡检接口在服务端建交易订单，App 用这里的收银台接口付款。
+      收款方是巡检服务商，钱进它自己的子商户号；不发货，订单编号以 IO 开头。每个付款节点（首付、每次巡检的服务费）的每一次付款
+      尝试是一张订单：sourceRef 是付款尝试 ID；订单行只有一行，productId 是巡检服务单 ID，offerId 是付款尝试 ID，
+      productName 是“服务名 · 方案 vN”，skuName 是节点名（如“首付 30%”“第 2/6 次服务费”“验收后付款 70%”），quantity 是 1。
+      付款截止 15 分钟；超时或取消只关这一张订单，节点仍待付，可以再发起。不在“商品订单”里，商家接口当作不存在。
+      已付款的不能由买家取消：首付只在服务单取消（第 1 次巡检开始前）时由巡检模块整笔原路退款；按次服务费不在线退。
+      关闭之后才到账的付款：节点还没付、服务单没取消时照常记为已付；否则整笔自动原路退款。
+
+    0.10.0（2026-11-23，S5-7、S5-8，docs/redesign/08-后续开发计划.md §5“企业组织”“账号”）：
       - TradeOrder 加必有字段 payer（付款主体）：下单时买家的当前身份（contracts/openapi-identity-account.yaml 的 switchIdentity），
         PERSONAL 个人（name 为 null）或 ENTERPRISE 企业（企业名称快照）。各来源（商城、报名、到馆、租赁）都记，之前的订单是 PERSONAL。
         只记主体，不做企业结算：付款人仍是买家账号本人，钱仍进商家自己的子商户号。
@@ -392,7 +401,7 @@ paths:
   /api/v1/trade/enterprise-orders:
     get:
       operationId: listEnterpriseOrders
-      summary: 本人所在企业以企业身份付款的订单（0.6.0，企业成员）
+      summary: 本人所在企业以企业身份付款的订单（0.10.0，企业成员）
       description: >-
         新的在前。只给这家企业当前的成员（管理员和成员都可以）；不是成员按 404 回答。每项是订单概要和经办人（下单账号的显示名），
         不含收货人和地址。counts 是这家企业全部企业订单按状态的数目。
@@ -926,8 +935,8 @@ components:
       enum: [ALL, TO_PAY, TO_SHIP, TO_RECEIVE, DONE, REFUND]
     TradeOrderSource:
       type: string
-      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）。以后接入的业务在这里加
-      enum: [MALL, ACTIVITY, VENUE, RENTAL]
+      description: MALL 商城；ACTIVITY 收费活动报名（0.2.0）；VENUE 到馆预约（0.2.0，E10）；RENTAL 设备租赁（0.2.0，F3）；INSPECTION 巡检付款节点（0.6.0，S4-1）。以后接入的业务在这里加
+      enum: [MALL, ACTIVITY, VENUE, RENTAL, INSPECTION]
     DeliveryMode:
       type: string
       enum: [EXPRESS, PICKUP]
@@ -1277,7 +1286,7 @@ components:
       type: object
       additionalProperties: false
       required: [type, name]
-      description: 0.6.0 付款主体（下单时的身份快照）
+      description: 0.10.0 付款主体（下单时的身份快照）
       properties:
         type:
           type: string

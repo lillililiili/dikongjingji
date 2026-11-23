@@ -76,7 +76,10 @@ class InspectionProviderReservationControllerTest {
         mvc.perform(get("/api/v1/provider/inspection/reservations/{id}", RESERVATION).principal(operator))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reservationId").value(RESERVATION.toString()))
-                .andExpect(jsonPath("$.quoteAmountMinor").value(120000));
+                .andExpect(jsonPath("$.quoteAmountMinor").value(120000))
+                .andExpect(jsonPath("$.paymentDueNodeNo").value(1))
+                .andExpect(jsonPath("$.paymentDueNodeType").value("DOWN_PAYMENT"))
+                .andExpect(jsonPath("$.paymentDueAmountMinor").value(36000));
         mvc.perform(get("/api/v1/provider/inspection/reservations/{id}", other).principal(operator))
                 .andExpect(status().isNotFound());
     }
@@ -113,7 +116,9 @@ class InspectionProviderReservationControllerTest {
                 RESERVATION, "IR202611230001", UUID.randomUUID(), "园区综合巡检", null, "370500",
                 "东营市东营区黄河路 1 号", LocalDate.parse("2026-11-28"), Instant.parse("2026-11-23T01:00:00Z"),
                 CustomerReservationStage.AWAITING_PLAN, "SUBMITTED", null, null, null, 120000L, "CNY",
-                0, 0, null, null, null);
+                0, 0, null, null, null,
+                // S4-1：工作台的“付款状态”读这几项（客户现在该付的一笔）。
+                1, "DOWN_PAYMENT", null, 36000L);
     }
 
     private static UsernamePasswordAuthenticationToken signedIn(Set<String> roles, UUID organizationId,

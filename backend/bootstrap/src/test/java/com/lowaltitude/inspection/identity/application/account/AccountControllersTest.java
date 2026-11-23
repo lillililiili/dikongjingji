@@ -54,7 +54,7 @@ class AccountControllersTest {
         mvc = MockMvcBuilders.standaloneSetup(
                         new AccountController(phones, sessions, closures, exports),
                         new EnterpriseController(enterprises, tokens),
-                        new PhoneAuthenticationController(phones, tokens, state))
+                        new PhoneAuthenticationController(phones, tokens))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -116,7 +116,7 @@ class AccountControllersTest {
     void switchingReissuesOnTheSameSession() throws Exception {
         when(enterprises.switchIdentity(ME, ENT)).thenReturn(
                 new CurrentIdentity(CurrentIdentity.ENTERPRISE, ENT, "东营港务物流", "MEMBER"));
-        when(tokens.reissue(ME, SID)).thenReturn(Optional.of(new AuthenticationService.LoginToken("new-token", 900)));
+        when(tokens.reissue(ME, SID)).thenReturn(Optional.of(new AuthenticationService.LoginToken("new-token", 900, null, 0)));
 
         mvc.perform(put("/api/v1/account/identity").principal(jwt("CUSTOMER"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"enterpriseId\":\"" + ENT + "\"}"))
@@ -134,11 +134,12 @@ class AccountControllersTest {
     void phoneLoginIssuesATokenOnlyForAnActiveAccount() throws Exception {
         when(phones.login("13900001111", "123456")).thenReturn(new PhoneAccountService.PhoneLogin(ME, true));
         when(tokens.issueForVerifiedAccount(any(), any())).thenReturn(
-                Optional.of(new AuthenticationService.LoginToken("token", 900)));
+                Optional.of(new AuthenticationService.LoginToken("token", 900, "refresh", 2_592_000)));
         mvc.perform(post("/api/v1/auth/phone-login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"phone\":\"13900001111\",\"code\":\"123456\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.registered").value(true))
+                .andExpect(jsonPath("$.refreshToken").value("refresh"))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"));
 
         when(tokens.issueForVerifiedAccount(any(), any())).thenReturn(Optional.empty());
@@ -146,12 +147,6 @@ class AccountControllersTest {
                         .content("{\"phone\":\"13900001111\",\"code\":\"123456\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
-    }
-
-    @Test
-    void logoutSignsOutOnlyThisSession() throws Exception {
-        mvc.perform(post("/api/v1/auth/logout").principal(jwt("CUSTOMER"))).andExpect(status().isNoContent());
-        verify(state).signOut(SID, ME);
     }
 
     @Test

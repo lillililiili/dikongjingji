@@ -95,7 +95,7 @@ describe('先体验，再决定', () => {
     }))).toBeNull()
   })
 
-  it('opens a venue page, and the online ways through the experience gate', () => {
+  it('opens a venue page or the simulation, and the recorded demo through the experience gate', () => {
     const view = toProductExperienceView(data())!
 
     expect(resolveProductExperiencePill(view.pills[2], '370500', true)).toEqual({
@@ -103,7 +103,7 @@ describe('先体验，再决定', () => {
       url: `/pages/venue/detail?venueId=${VENUE}&cityCode=370500`,
     })
     expect(resolveProductExperiencePill(view.pills[0], '370500', true))
-      .toEqual({ kind: 'NOTICE', message: '虚拟仿真即将开放' })
+      .toEqual({ kind: 'NAVIGATE', url: `/pages/experience/simulation?experienceId=${view.pills[0].targetId}` })
     expect(resolveProductExperiencePill(view.pills[1], '370500', true))
       .toEqual({ kind: 'NOTICE', message: '录播演示即将开放' })
     expect(resolveProductExperiencePill(view.pills[0], '370500', false)).toEqual({ kind: 'NONE' })

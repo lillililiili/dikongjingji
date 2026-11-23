@@ -31,14 +31,20 @@ class LoginSessionServiceTest {
     private static final UUID ME = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     private final AccountMapper mapper = mock(AccountMapper.class);
+    private final com.lowaltitude.inspection.identity.domain.RefreshTokenPort refreshTokens =
+            mock(com.lowaltitude.inspection.identity.domain.RefreshTokenPort.class);
     private final LoginSessionService service = new LoginSessionService(mapper,
-            codes -> Map.of("370500", "东营市"), Clock.fixed(NOW, ZoneOffset.UTC));
+            codes -> Map.of("370500", "东营市"), refreshTokens, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void theSameDeviceReplacesItsOldSessionAndBadValuesAreDropped() {
+        UUID previous = UUID.randomUUID();
+        when(mapper.findDeviceSessionIds(ME, "device-key-0001")).thenReturn(List.of(previous));
         service.open(ME, new LoginDevice("device-key-0001", "  iPhone\u0007 15 ", "IOS", "370500"), "SMS_CODE");
         verify(mapper).replaceDeviceSessions(ME, "device-key-0001", AT);
         verify(mapper).insertSession(ME, "device-key-0001", "iPhone 15", "IOS", "370500", "SMS_CODE", AT);
+        verify(refreshTokens).revokeFamily(previous, com.lowaltitude.inspection.identity.domain.RefreshTokenRevokeReason.LOGOUT,
+                NOW);
 
         service.open(ME, new LoginDevice("bad key!", "", "WINDOWS", "dongying"), "PASSWORD");
         verify(mapper).insertSession(ME, null, "未知设备", "OTHER", null, "PASSWORD", AT);
@@ -66,6 +72,50 @@ class LoginSessionServiceTest {
         assertThatThrownBy(() -> service.revoke(ME, current, UUID.randomUUID()))
                 .extracting(e -> ((AccountException) e).error()).isEqualTo(Error.NOT_FOUND);
         verify(mapper, never()).revokeSession(any(), any(), anyString(), any());
+    }
+
+    // The session is the refresh-token family of its login: ending it ends the family too.
+    @Test
+    void signingADeviceOutWithdrawsItsRefreshTokens() {
+        UUID current = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        when(mapper.findSession(other, ME)).thenReturn(new SessionRow(other, "iPad", "IOS", null, AT, AT));
+        when(mapper.revokeSession(other, ME, "REMOTE", AT)).thenReturn(1);
+
+        service.revoke(ME, current, other);
+
+        verify(refreshTokens).revokeFamily(other, com.lowaltitude.inspection.identity.domain.RefreshTokenRevokeReason.LOGOUT,
+                NOW);
+    }
+
+    @Test
+    void aPhoneChangeOrClosureEndsEveryOtherLogin() {
+        UUID keep = UUID.randomUUID();
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+        when(mapper.findActiveSessionIds(ME, keep)).thenReturn(List.of(a, b));
+        when(mapper.revokeOtherSessions(ME, keep, "PHONE_CHANGED", AT)).thenReturn(2);
+
+        assertThat(service.revokeAllExcept(ME, keep, "PHONE_CHANGED")).isEqualTo(2);
+        verify(refreshTokens).revokeFamily(a, com.lowaltitude.inspection.identity.domain.RefreshTokenRevokeReason.LOGOUT, NOW);
+        verify(refreshTokens).revokeFamily(b, com.lowaltitude.inspection.identity.domain.RefreshTokenRevokeReason.LOGOUT, NOW);
+
+        when(mapper.findActiveSessionIds(ME, null)).thenReturn(List.of(a));
+        service.revokeAllExcept(ME, null, "CLOSED");
+        verify(refreshTokens).revokeFamily(a,
+                com.lowaltitude.inspection.identity.domain.RefreshTokenRevokeReason.ACCOUNT_CHANGED, NOW);
+    }
+
+    @Test
+    void renewalsAskWhetherTheDeviceIsStillSignedIn() {
+        UUID session = UUID.randomUUID();
+        // No row: a login from before devices were recorded.
+        when(mapper.findSessionRevoked(session, ME)).thenReturn(null);
+        assertThat(service.status(session, ME)).isEqualTo(com.lowaltitude.inspection.identity.domain.LoginSessionStatus.UNKNOWN);
+        when(mapper.findSessionRevoked(session, ME)).thenReturn(false);
+        assertThat(service.status(session, ME)).isEqualTo(com.lowaltitude.inspection.identity.domain.LoginSessionStatus.ACTIVE);
+        when(mapper.findSessionRevoked(session, ME)).thenReturn(true);
+        assertThat(service.status(session, ME)).isEqualTo(com.lowaltitude.inspection.identity.domain.LoginSessionStatus.ENDED);
     }
 
     @Test

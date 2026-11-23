@@ -75,18 +75,28 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenueCheckin", VenueCheckinView.class),
             Map.entry("ProductExperienceItem", ProductExperienceItemView.class),
             Map.entry("ProductExperienceVenue", ProductExperienceVenueView.class),
-            Map.entry("ProductExperiences", ProductExperiencesView.class));
+            Map.entry("ProductExperiences", ProductExperiencesView.class),
+            Map.entry("ExperienceItemDetail", ExperienceItemDetailView.class),
+            Map.entry("ExperienceRecordItem", ExperienceRecordItemView.class),
+            Map.entry("SimulationResult", SimulationResultView.class),
+            Map.entry("ExperienceRecord", ExperienceRecordView.class),
+            Map.entry("ExperienceRecordPage", ExperienceRecordPageView.class));
 
     /** 请求体：字段名与控制器的请求对象一致；哪些必填由服务的校验决定，这里逐个写明。 */
     private static final Map<String, Class<? extends Record>> REQUEST_RECORDS = Map.of(
             "VenueBookRequest", VenueBookingController.BookRequest.class,
             "VenueRescheduleRequest", VenueBookingController.RescheduleRequest.class,
-            "VenueCheckinRequest", VenueBookingController.CheckinRequest.class);
+            "VenueCheckinRequest", VenueBookingController.CheckinRequest.class,
+            "SimulationResultRequest", ExperienceRecordController.SimulationResultRequest.class,
+            "TrialStartRequest", ExperienceRecordController.TrialStartRequest.class);
 
     private static final Map<String, List<String>> REQUEST_REQUIRED = Map.of(
             "VenueBookRequest", List.of("sessionId", "participantIds", "expectedAmountMinor", "noticeAgreed"),
             "VenueRescheduleRequest", List.of("sessionId"),
-            "VenueCheckinRequest", List.of("code"));
+            "VenueCheckinRequest", List.of("code"),
+            "SimulationResultRequest", List.of("experienceId", "startedAt", "endedAt", "durationSeconds",
+                    "levelsCompleted", "levelsTotal", "mistakes"),
+            "TrialStartRequest", List.of("experienceId"));
 
     private static final Map<String, Class<? extends Enum<?>>> SCHEMA_ENUMS = Map.ofEntries(
             Map.entry("ExperienceType", ExperienceType.class),
@@ -98,25 +108,28 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenuePaymentStatus", VenuePaymentStatus.class),
             Map.entry("VenueRefundStatus", VenueRefundStatus.class),
             Map.entry("VenueParticipantRelation", VenueParticipantRelation.class),
-            Map.entry("VenueEligibilityReason", VenueEligibilityReason.class));
+            Map.entry("VenueEligibilityReason", VenueEligibilityReason.class),
+            Map.entry("SimulationTemplate", SimulationTemplate.class),
+            Map.entry("ExperienceRecordStatus", ExperienceRecordStatus.class));
 
     @Test
-    void contractIsVersionOnePointThreeAndDeclaresBearerJwt() {
+    void contractIsVersionOnePointFourAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        // 1.3.0：核销工作台（S3-3）的登记放行，路由和字段不变。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.0");
+        // 1.3.0：核销工作台（S3-3）的登记放行，路由和字段不变；1.4.0：线上体验记录（S5-4）。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.4.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
     }
 
     @Test
-    void theSixCatalogRoutesStayPublic() {
+    void theSevenCatalogRoutesStayPublic() {
         List<Operation> catalog = operations(ExperienceCatalogController.class);
 
         assertThat(catalog).extracting(Operation::key).containsExactlyInAnyOrder(
                 "GET /api/v1/experiences",
+                "GET /api/v1/experiences/{experienceId}",
                 "GET /api/v1/venues",
                 "GET /api/v1/venues/{venueId}",
                 "GET /api/v1/venues/{venueId}/sessions",
@@ -150,6 +163,31 @@ class ExperienceOpenApiContractTest {
         });
     }
 
+    // S5-4：体验记录的五个路由都要登录，并且都写了 400、401、403。
+    @Test
+    void everyRecordRouteIsDeclaredWithItsMethodAndNeedsALogin() {
+        List<Operation> records = operations(ExperienceRecordController.class);
+
+        assertThat(records).extracting(Operation::key).containsExactlyInAnyOrder(
+                "POST /api/v1/experience/records",
+                "GET /api/v1/experience/records",
+                "GET /api/v1/experience/records/{recordId}",
+                "POST /api/v1/experience/records/{recordId}/end",
+                "POST /api/v1/experience/trials");
+        assertThat(records).allSatisfy(operation -> {
+            Map<String, Object> declared = declared(operation);
+            assertThat(declared).as(operation.key()).isNotNull();
+            assertThat(declared.get("security"))
+                    .as(operation.key() + " security")
+                    .isEqualTo(List.of(Map.of("bearerAuth", List.of())));
+            assertThat(map(declared.get("responses")).keySet())
+                    .as(operation.key() + " responses")
+                    .contains("400", "401", "403");
+        });
+        assertThat(successCodes("post", "/api/v1/experience/records")).containsExactlyInAnyOrder("201", "200");
+        assertThat(successCodes("post", "/api/v1/experience/trials")).containsExactlyInAnyOrder("201", "200");
+    }
+
     // R6-2：商品能在哪体验。商品 ID 和城市都必填；两个列表都有上限，和读服务的一致。
     @Test
     void productExperiencesNeedTheProductAndTheCityAndAreCapped() {
@@ -179,17 +217,20 @@ class ExperienceOpenApiContractTest {
         Set<String> implemented = new TreeSet<>();
         operations(ExperienceCatalogController.class).forEach(operation -> implemented.add(operation.key()));
         operations(VenueBookingController.class).forEach(operation -> implemented.add(operation.key()));
+        operations(ExperienceRecordController.class).forEach(operation -> implemented.add(operation.key()));
         Set<String> declared = new TreeSet<>();
         map(root().get("paths")).forEach((path, item) -> map(item).keySet()
                 .forEach(method -> declared.add(method.toUpperCase() + " " + path)));
 
-        assertThat(implemented).hasSize(13);
+        assertThat(implemented).hasSize(19);
         assertThat(declared).containsExactlyElementsOf(implemented);
     }
 
     @Test
-    void everyParameterOfEveryBookingRouteIsDeclaredInTheSamePlace() {
-        assertThat(operations(VenueBookingController.class)).allSatisfy(operation -> {
+    void everyParameterOfEveryLoginRouteIsDeclaredInTheSamePlace() {
+        List<Operation> checked = new ArrayList<>(operations(VenueBookingController.class));
+        checked.addAll(operations(ExperienceRecordController.class));
+        assertThat(checked).allSatisfy(operation -> {
             Map<String, Map<String, Object>> declared = new LinkedHashMap<>();
             for (Object entry : list(declared(operation).get("parameters"))) {
                 Map<String, Object> parameter = resolve(map(entry));
@@ -222,7 +263,7 @@ class ExperienceOpenApiContractTest {
         });
     }
 
-    // 幂等键只在提交预约时要；If-Match 只在改期时要。返回预约的接口都带 ETag。
+    // 幂等键只在提交预约和交仿真成绩时要；If-Match 只在改期时要。返回预约的接口都带 ETag。
     @Test
     void onlyBookingTakesTheIdempotencyKeyAndOnlyReschedulingTakesIfMatch() {
         Map<String, Object> parameters = map(map(root().get("components")).get("parameters"));
@@ -231,7 +272,9 @@ class ExperienceOpenApiContractTest {
         assertThat(map(parameters.get("IfMatch"))).containsEntry("name", "If-Match")
                 .containsEntry("in", "header").containsEntry("required", true);
         Map<String, List<String>> headers = new LinkedHashMap<>();
-        for (Operation operation : operations(VenueBookingController.class)) {
+        List<Operation> withHeaders = new ArrayList<>(operations(VenueBookingController.class));
+        withHeaders.addAll(operations(ExperienceRecordController.class));
+        for (Operation operation : withHeaders) {
             headers.put(operation.key(), list(declared(operation).get("parameters")).stream()
                     .map(entry -> resolve(map(entry)))
                     .filter(parameter -> "header".equals(parameter.get("in")))
@@ -239,8 +282,9 @@ class ExperienceOpenApiContractTest {
                     .toList());
         }
         assertThat(headers).containsEntry("POST /api/v1/venue-bookings", List.of("Idempotency-Key"))
-                .containsEntry("POST /api/v1/venue-bookings/{bookingId}/reschedule", List.of("If-Match"));
-        assertThat(headers.values().stream().filter(names -> !names.isEmpty())).hasSize(2);
+                .containsEntry("POST /api/v1/venue-bookings/{bookingId}/reschedule", List.of("If-Match"))
+                .containsEntry("POST /api/v1/experience/records", List.of("Idempotency-Key"));
+        assertThat(headers.values().stream().filter(names -> !names.isEmpty())).hasSize(3);
         for (String[] response : new String[][] {
                 {"/api/v1/venue-bookings", "post", "201"},
                 {"/api/v1/venue-bookings", "post", "200"},
@@ -257,6 +301,7 @@ class ExperienceOpenApiContractTest {
     void everyRequestBodyAndSuccessResponsePointsAtTheSchemaOfItsJavaType() {
         List<Operation> all = new ArrayList<>(operations(ExperienceCatalogController.class));
         all.addAll(operations(VenueBookingController.class));
+        all.addAll(operations(ExperienceRecordController.class));
 
         assertThat(all).allSatisfy(operation -> {
             Map<String, Object> declared = declared(operation);
@@ -324,10 +369,14 @@ class ExperienceOpenApiContractTest {
                     .as(schemaName + " required")
                     .containsExactlyInAnyOrderElementsOf(REQUEST_REQUIRED.get(schemaName));
         });
-        assertThat(Arrays.stream(VenueBookingController.class.getDeclaredClasses())
-                .filter(Class::isRecord)
-                .filter(type -> !java.lang.reflect.Modifier.isPrivate(type.getModifiers())))
-                .containsExactlyInAnyOrderElementsOf(REQUEST_RECORDS.values());
+        List<Class<?>> requestTypes = new ArrayList<>();
+        for (Class<?> controller : List.of(VenueBookingController.class, ExperienceRecordController.class)) {
+            Arrays.stream(controller.getDeclaredClasses())
+                    .filter(Class::isRecord)
+                    .filter(type -> !java.lang.reflect.Modifier.isPrivate(type.getModifiers()))
+                    .forEach(requestTypes::add);
+        }
+        assertThat(requestTypes).containsExactlyInAnyOrderElementsOf(REQUEST_RECORDS.values());
     }
 
     // 字段名对了还不够：每个字段的类型、格式和指向的 schema 也要和 Java 类型对得上，基本类型不能声明成可空。
@@ -424,12 +473,46 @@ class ExperienceOpenApiContractTest {
         assertThat(mentioned).containsExactlyElementsOf(produced);
     }
 
+    // 体验记录的每一种业务拒绝，和预约的一样逐个对照。
+    @Test
+    void everyRecordErrorCodeIsDeclaredUnderTheStatusTheHandlerAnswers() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        Set<String> produced = new TreeSet<>();
+        for (ExperienceRecordException.Error error : ExperienceRecordException.Error.values()) {
+            ResponseEntity<ApiError> response = handler.handleExperienceRecord(
+                    new ExperienceRecordException(error), new MockHttpServletRequest());
+            String code = response.getBody().code();
+            String status = String.valueOf(response.getStatusCode().value());
+            if (!code.startsWith("EXPERIENCE_")) {
+                assertThat(code).as(error.name()).isIn("COMMON_NOT_FOUND", "COMMON_FORBIDDEN");
+                continue;
+            }
+            produced.add(code);
+            assertThat(operations(ExperienceRecordController.class).stream()
+                    .map(operation -> map(map(declared(operation).get("responses")).get(status)))
+                    .filter(declaredResponse -> declaredResponse != null && declaredResponse.get("description") != null)
+                    .map(declaredResponse -> (String) declaredResponse.get("description")))
+                    .as(code + " under " + status)
+                    .anyMatch(description -> description.contains(code));
+        }
+
+        assertThat(strings(map(schemas().get("ExperienceErrorCode")).get("enum")))
+                .containsExactlyInAnyOrderElementsOf(produced);
+        Set<String> mentioned = new TreeSet<>();
+        Matcher matcher = Pattern.compile("EXPERIENCE_[A-Z_]+").matcher(contractText());
+        while (matcher.find()) {
+            mentioned.add(matcher.group());
+        }
+        assertThat(mentioned).containsExactlyElementsOf(produced);
+    }
+
     @Test
     void everySchemaInTheContractIsCoveredByThisTest() {
         List<String> covered = new ArrayList<>(SCHEMA_RECORDS.keySet());
         covered.addAll(REQUEST_RECORDS.keySet());
         covered.addAll(SCHEMA_ENUMS.keySet());
         covered.add("VenueErrorCode");
+        covered.add("ExperienceErrorCode");
         covered.add("ApiError");
 
         assertThat(schemas().keySet()).containsExactlyInAnyOrderElementsOf(covered);

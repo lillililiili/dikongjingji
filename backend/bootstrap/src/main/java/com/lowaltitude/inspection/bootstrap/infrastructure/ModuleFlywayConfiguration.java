@@ -255,10 +255,12 @@ public class ModuleFlywayConfiguration {
         return factory.mall(dataSource);
     }
 
-    // 示例商家和收费活动主办机构的收款账户，引用商城、活动示例数据建的机构，所以排在两份开发数据之后。
+    // 示例商家和收费活动主办机构的收款账户，引用商城、活动示例数据建的机构，所以排在两份开发数据之后；
+    // 巡检服务商（S4-1）的机构由身份开发数据建，也排在它之后。
     @Bean(initMethod = "migrate")
     @Profile("dev")
-    @DependsOn({"tradeFlyway", "mallDevelopmentDataFlyway", "activityDevelopmentDataFlyway"})
+    @DependsOn({"tradeFlyway", "identityDevelopmentDataFlyway", "mallDevelopmentDataFlyway",
+            "activityDevelopmentDataFlyway"})
     Flyway tradeDevelopmentDataFlyway(DataSource dataSource) {
         return Flyway.configure()
                 .dataSource(dataSource)

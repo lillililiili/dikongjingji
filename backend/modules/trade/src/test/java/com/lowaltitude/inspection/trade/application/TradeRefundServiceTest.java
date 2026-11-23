@@ -1757,7 +1757,7 @@ class TradeRefundServiceTest {
 
         /** 退款服务只用它记状态迁移；返回的订单由 TradeOrderService 经它读。其余的方法退款用不到。 */
         private final class OrderMapper implements TradeOrderMapper {
-        // ---- S5-7、S5-8（交易迁移 V010）：付款主体、企业订单、注销 ----
+        // ---- S5-7、S5-8（交易迁移 V013）：付款主体、企业订单、注销 ----
         final java.util.Map<java.util.UUID, String[]> payers = new java.util.HashMap<>();
 
         @Override

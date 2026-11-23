@@ -15,8 +15,12 @@ info:
       没有配置短信服务的环境发送验证码返回 503 SMS_UNAVAILABLE，不假装发出。
     - 验证码 6 位数字，5 分钟有效；同一手机号同一用途 60 秒内只发一次、每天最多 10 次（超过 429 SMS_TOO_FREQUENT）；一条验证码错 5 次作废；
       同一手机号 1 小时内错 10 次锁 30 分钟（429 PHONE_LOCKED，期间不发也不认）。发登录验证码不论号码是否注册都同样回答，不暴露号码是否存在。
-    - 每次登录（账号密码或验证码）都记一个登录会话，访问令牌带会话 ID（claim sid）；退出某台设备后带这个 sid 的令牌立刻失效（401）。
-      令牌还带当前身份（claim identity：企业机构 ID，个人身份时没有这个 claim）。令牌有效期、签发方式与账号密码登录相同。
+    - 每次登录（账号密码或验证码）都记一个登录会话，会话 ID 就是这次登录的刷新令牌 family（contracts/openapi-inspection-service-flow.yaml
+      2.4.0 起的 /api/v1/auth/refresh、/api/v1/auth/logout）；访问令牌带会话 ID（claim sid），续期沿用同一个会话并更新它的最近活动时间。
+      退出某台设备、换号、注销都结束会话并撤销它的刷新令牌：带这个 sid 的访问令牌立刻失效（401），刷新令牌也不能再续期。
+      本机退出登录仍用 /api/v1/auth/logout（带刷新令牌），它同时结束这次登录的会话。登录设备只列 30 天内登录或续期过的会话。
+      令牌还带当前身份（claim identity：企业机构 ID，个人身份时没有这个 claim），每次签发和续期都按当前身份重读。
+      令牌有效期、签发方式与账号密码登录相同。
     - 企业相关接口只给客户角色（CUSTOMER），设备、手机号、注销、导出给任何登录账号（机构账号没有企业）。
     - 注销冷静期内仍能登录（为了撤回），但不能下单和付款（交易接口返回 TRADE_ACCOUNT_CLOSING）。
 
@@ -28,7 +32,7 @@ info:
     - 邀请：手机号邀请（对方用这个手机号登录后在“企业组织”里确认）或邀请链接（邀请码只在创建时返回一次，拿到的人登录后确认，用一次失效）。
       7 天有效；“再发一次”把有效期从现在起再延 7 天。拒绝、撤销、过期后可以重新邀请。
     - 切换身份：个人或本人所在的企业；切换后签发新令牌（同一个会话）。被移除或退出企业时当前身份回到个人。
-    - 企业身份下单只记付款主体（交易订单的 payer，contracts/openapi-trade.yaml 0.6.0），不做企业结算，钱仍进商家自己的子商户号。
+    - 企业身份下单只记付款主体（交易订单的 payer，contracts/openapi-trade.yaml 0.10.0），不做企业结算，钱仍进商家自己的子商户号。
 
     注销规则：没有进行中的订单、没有待参加的报名、不是任何企业的管理员（是成员时注销时自动退出）才能申请；申请后 15 天冷静期，期间可撤回；
     到期服务端匿名化：显示名改为“已注销用户”，手机号、登录名、口令清空不可用，会话全部撤销，收货地址删除，订单等业务数据保留但配送快照里的姓名和电话打码；
@@ -94,18 +98,6 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "429":
           $ref: "#/components/responses/TooMany"
-  /api/v1/auth/logout:
-    post:
-      tags: [Account]
-      operationId: logout
-      summary: 退出本机登录（撤销当前会话）
-      security:
-        - bearerAuth: []
-      responses:
-        "204":
-          description: 已退出；令牌没有会话 ID 时也是 204（让它自然过期）
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /api/v1/account/sms-codes:
     post:
       tags: [Account]
@@ -386,7 +378,7 @@ paths:
     put:
       tags: [Enterprise]
       operationId: switchIdentity
-      summary: 切换当前身份（个人或本人所在的企业），重新签发令牌
+      summary: 切换当前身份（个人或本人所在的企业），重新签发访问令牌（同一个会话，刷新令牌不变）
       security:
         - bearerAuth: []
       requestBody:
@@ -916,11 +908,16 @@ components:
     PhoneLoginResponse:
       type: object
       additionalProperties: false
-      required: [accessToken, tokenType, expiresInSeconds, registered]
+      required: [accessToken, tokenType, expiresInSeconds, refreshToken, refreshExpiresInSeconds, registered]
       properties:
         accessToken: { type: string, minLength: 1 }
         tokenType: { const: Bearer }
         expiresInSeconds: { type: integer, minimum: 1 }
+        refreshToken:
+          type: string
+          minLength: 1
+          description: 续期用（/api/v1/auth/refresh），与账号密码登录的相同
+        refreshExpiresInSeconds: { type: integer, minimum: 1 }
         registered:
           type: boolean
           description: 这次是新注册的账号

@@ -15,11 +15,11 @@ import {
   buildOnboardingUrl,
 } from '@/features/account/navigation/account-routes'
 import AccountClosureSheet from '@/features/account/presentation/security/AccountClosureSheet.vue'
+import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
-  clearBookingAuthSession,
-  getBookingAuthContext,
-} from '@/features/inspection/application/service-flow/booking-auth-context'
-import { inspectionAccountApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
+  inspectionAccountApi,
+  signOutBookingSession,
+} from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import { MINE_TAB_PATH, buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { buildAddressBookUrl } from '@/features/mall/navigation/mall-routes'
 import { SETTINGS_PREVIEW_ENABLED } from '@/features/settings/application/settings-preview'
@@ -79,10 +79,8 @@ function logout(): void {
     confirmColor: '#ff6a00',
     success: (result) => {
       if (!result.confirm) return
-      // This device's session is signed out on the server too (S5-8), so the token stops working at once.
-      const token = getBookingAuthContext().getAccessToken()
-      if (ACCOUNT_PREVIEW_ENABLED && token) void identityAccountApi.logout(token).catch(() => undefined)
-      clearBookingAuthSession()
+      // Withdraws the login on the server too (its refresh token), not only on this device.
+      signOutBookingSession()
       badges.setMessageUnread(0)
       badges.setCartCount(0)
       uni.reLaunch({ url: MINE_TAB_PATH })

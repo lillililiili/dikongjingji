@@ -25,8 +25,10 @@ public class IdentityAccountApplicationConfiguration {
     }
 
     @Bean
-    LoginSessionService loginSessionService(AccountMapper mapper, AccountPorts.CityNames cities, Clock identityClock) {
-        return new LoginSessionService(mapper, cities, identityClock);
+    LoginSessionService loginSessionService(AccountMapper mapper, AccountPorts.CityNames cities,
+                                            com.lowaltitude.inspection.identity.domain.RefreshTokenPort refreshTokens,
+                                            Clock identityClock) {
+        return new LoginSessionService(mapper, cities, refreshTokens, identityClock);
     }
 
     @Bean

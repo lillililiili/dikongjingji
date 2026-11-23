@@ -45,9 +45,6 @@ export function createIdentityAccountApi(request: AccountRequest) {
     loginWithCode(phone: string, code: string, device: LoginDevice): Promise<PhoneLoginResult> {
       return request({ url: '/api/v1/auth/phone-login', method: 'POST', data: { phone, code, device } })
     },
-    logout(token: string): Promise<void> {
-      return request({ url: '/api/v1/auth/logout', method: 'POST', headers: auth(token) })
-    },
 
     // ---- phone number ----
     sendAccountCode(token: string, purpose: AccountCodePurpose, phone?: string): Promise<SmsCodeSent> {

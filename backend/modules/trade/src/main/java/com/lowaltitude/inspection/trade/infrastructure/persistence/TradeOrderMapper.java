@@ -205,7 +205,7 @@ public interface TradeOrderMapper {
             """)
     int countOpenPayments(@Param("orderId") UUID orderId);
 
-    // ---- 付款主体、企业订单、注销（S5-7、S5-8，迁移 V010） ----
+    // ---- 付款主体、企业订单、注销（S5-7、S5-8，迁移 V013） ----
 
     /** 刚建的订单记下付款主体快照（同一事务里，建单之后）。 */
     @Update("""

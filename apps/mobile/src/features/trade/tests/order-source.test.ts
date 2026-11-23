@@ -19,7 +19,7 @@ import {
 import { TRADE_COMMAND_CONFIRMS } from '../application/order-commands'
 import { describeOrderStatus, listCardGoods } from '../application/order-view'
 import { toTradeOrder } from '../data/trade-api'
-import { NOW, enrollmentOrder, paidOrder, rentalTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
+import { NOW, enrollmentOrder, inspectionTradeOrder, paidOrder, rentalTradeOrder, tradeOrder, venueOrder } from './trade-fixtures'
 
 describe('order source (contract 0.2.0)', () => {
   it('reads a sign-up order without delivery or merchant type, and an older order as a mall order', () => {
@@ -142,7 +142,37 @@ describe('order source (contract 0.2.0)', () => {
   })
 })
 
-describe('payer (contract 0.6.0, S5-7)', () => {
+describe('inspection payment nodes (contract 0.4.0, S4-1)', () => {
+  const order = inspectionTradeOrder()
+
+  it('is read as a business order that leads to its service order', () => {
+    expect(toTradeOrder({ ...order } as never).source).toBe('INSPECTION')
+    expect(isSourceOrder(order)).toBe(true)
+    expect(orderDestination(order)).toEqual({ kind: 'INSPECTION_ORDER', serviceOrderId: 'service-order-1' })
+    expect(orderLinkLabel(order)).toBe('查看服务订单')
+  })
+
+  it('draws the cashier rows of board CashierFirst without the business view', () => {
+    expect(cashierRows(order)).toEqual([
+      { key: 'inspection-order', label: '服务订单', value: '物流园区季度安防巡检 · 方案 v2' },
+      { key: 'inspection-node', label: '付款节点', value: '首付 30% ¥5,580' },
+    ])
+    expect(cashierLayout(order).map((line) => line.key)).toEqual(['inspection-order', 'payee', 'inspection-node'])
+    expect(cashierPayeeSuffix(order)).toBe(' · 经平台支付渠道')
+    expect(cashierDueNote(order)).toBeNull()
+  })
+
+  it('keeps the node unpaid when the payment is cancelled or runs out', () => {
+    expect(cashierCountdownLine(order, NOW)).toContain('超时可重新发起')
+    expect(cashierClosedNote(order)).toBe('没有扣款，这一笔仍待支付，可以重新发起')
+    expect(cancelUnpaidConfirm(order).content).toBe('取消后这一笔仍为待支付，可以稍后再付，确定取消吗？')
+    expect(cancelledToast(order)).toBe('已取消支付')
+    expect(failedNote(order)).toBe('首付 30%仍为待支付')
+    expect(paidFrame(order)).toEqual({ title: '首付 30%已支付', note: null })
+  })
+})
+
+describe('payer (contract 0.10.0, S5-7)', () => {
   it('reads the payer, and an older order without one as a person', () => {
     const enterpriseDto = { ...tradeOrder(), payer: { type: 'ENTERPRISE', name: '东营港务物流' } }
     expect(toTradeOrder(enterpriseDto as never).payer).toEqual({ type: 'ENTERPRISE', name: '东营港务物流' })
@@ -159,5 +189,7 @@ describe('payer (contract 0.6.0, S5-7)', () => {
     expect(cashierLayout(tradeOrder({ payer: { type: 'PERSONAL', name: null } })).map((line) => line.key))
       .toEqual(['order-no', 'payee', 'goods'])
     expect(payerRow(tradeOrder({ payer: enterprise }))).toEqual({ key: 'payer', label: '付款主体', value: '东营港务物流（企业身份）' })
+    expect(cashierLayout(inspectionTradeOrder({ payer: enterprise })).map((line) => line.key))
+      .toEqual(['inspection-order', 'payee', 'payer', 'inspection-node'])
   })
 })

@@ -84,6 +84,10 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/login", "/actuator/health").permitAll()
+                        // 续期和退出登录凭刷新令牌，不要访问令牌（续期时它通常已过期）。
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout").permitAll()
                         // S5-8 手机号验证码登录（发码、登录）：不登录；频率和错误次数由身份模块限制。
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/sms-codes",
@@ -105,6 +109,8 @@ public class SecurityConfiguration {
                                 "/api/v1/activities/*").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/experiences",
+                                // S5-4：一个体验项目的模板和试用时长，公开只读；体验记录走下面的 authenticated()。
+                                "/api/v1/experiences/*",
                                 "/api/v1/venues",
                                 "/api/v1/venues/*",
                                 "/api/v1/venues/*/sessions",

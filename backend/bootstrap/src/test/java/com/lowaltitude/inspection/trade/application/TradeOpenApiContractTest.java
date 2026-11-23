@@ -155,8 +155,9 @@ class TradeOpenApiContractTest {
         // 0.2.0：E09 接入收费活动报名（业务来源 ACTIVITY）。
         // 0.4.0：S2-1 加支付通道自检。
         // 0.5.0：S3-2 商家工作台的读取（按配送方式筛、单张订单、本机构收款账户）。
-        // 0.6.0：S5-7、S5-8 付款主体、企业订单和注销冷静期。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("0.6.0");
+        // 0.6.0：S4-1 巡检付款节点（来源 INSPECTION）。
+        // 0.10.0：S5-7、S5-8 付款主体、企业订单和注销冷静期。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("0.10.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -477,8 +478,8 @@ class TradeOpenApiContractTest {
                 Arrays.stream(MallMerchantKind.values()).map(Enum::name).toList());
         assertThat(enumOf("DeliveryMode")).containsExactly("EXPRESS", "PICKUP");
         // 0.2.0：收费活动报名、到馆预约、设备租赁（TradeSourceOrders 的订单来源和 V005–V007 trade_order.source 的取值）。
-        assertThat(enumOf("TradeOrderSource")).containsExactly("MALL", "ACTIVITY", "VENUE", "RENTAL");
-        assertThat(enumOf("TradeOrderSource").subList(1, 4))
+        assertThat(enumOf("TradeOrderSource")).containsExactly("MALL", "ACTIVITY", "VENUE", "RENTAL", "INSPECTION");
+        assertThat(enumOf("TradeOrderSource").subList(1, 5))
                 .containsExactlyInAnyOrderElementsOf(TradeSourceOrders.ORDER_PREFIXES.keySet());
         // 商家类型只在商城订单上有，业务来源的订单为 null；取值仍是 MerchantKind 的那几个。
         assertThat(strings(map(map(map(schemas.get("TradeMerchant")).get("properties")).get("kind")).get("enum")))

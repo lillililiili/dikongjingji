@@ -266,6 +266,45 @@ public interface AccountMapper {
                        @Param("cityCode") String cityCode, @Param("loginMethod") String loginMethod,
                        @Param("at") OffsetDateTime at);
 
+    /** 会话是否存在、是否已退出：没有这一行为 null（会话记录之前的登录），退出了为 true。 */
+    @Select("""
+            SELECT revoked_at IS NOT NULL
+              FROM identity_login_session
+             WHERE id = #{sessionId}
+               AND user_id = #{userId}
+            """)
+    Boolean findSessionRevoked(@Param("sessionId") UUID sessionId, @Param("userId") UUID userId);
+
+    /** 续期成功时更新最近活动时间（登录设备按它排序、30 天没活动的不列出）。 */
+    @Update("""
+            UPDATE identity_login_session
+               SET last_active_at = #{at}
+             WHERE id = #{sessionId}
+               AND user_id = #{userId}
+               AND revoked_at IS NULL
+            """)
+    int touchSession(@Param("sessionId") UUID sessionId, @Param("userId") UUID userId, @Param("at") OffsetDateTime at);
+
+    /** 将被一起退出的会话（除 keepSessionId 外；它为空时全部），撤销它们的刷新令牌 family 用。 */
+    @Select("""
+            SELECT id
+              FROM identity_login_session
+             WHERE user_id = #{userId}
+               AND revoked_at IS NULL
+               AND (CAST(#{keepSessionId} AS uuid) IS NULL OR id <> #{keepSessionId})
+            """)
+    List<UUID> findActiveSessionIds(@Param("userId") UUID userId, @Param("keepSessionId") UUID keepSessionId);
+
+    /** 同一台设备上还没退出的会话（再登录时替换掉，连同它们的刷新令牌 family）。 */
+    @Select("""
+            SELECT id
+              FROM identity_login_session
+             WHERE user_id = #{userId}
+               AND device_key = #{deviceKey}
+               AND revoked_at IS NULL
+            """)
+    List<UUID> findDeviceSessionIds(@Param("userId") UUID userId, @Param("deviceKey") String deviceKey);
+
     @Select("""
             SELECT count(*) > 0
               FROM identity_login_session
