@@ -157,6 +157,7 @@ public interface ActivityEnrollmentMapper {
                    a.min_age,
                    a.max_age,
                    a.waitlist_allowed,
+                   a.team_enrollment_allowed,
                    s.status session_status,
                    s.starts_at,
                    s.ends_at,
@@ -681,6 +682,8 @@ public interface ActivityEnrollmentMapper {
             Integer minAge,
             Integer maxAge,
             boolean waitlistAllowed,
+            /** 活动允许团队报名（运营端开关，S6-02）：关着时不能团队报名，已有的团队报名单照常。 */
+            boolean teamEnrollmentAllowed,
             String sessionStatus,
             OffsetDateTime startsAt,
             OffsetDateTime endsAt,

@@ -45,6 +45,18 @@ class ActivityOpsMapperContractTest {
     }
 
     @Test
+    void waitlistAndTeamSwitchesAreWrittenAndTheActiveQueueIsCounted() throws Exception {
+        assertThat(sql("insert")).contains("waitlist_allowed, team_enrollment_allowed")
+                .contains("#{d.waitlistAllowed}, #{d.teamEnrollmentAllowed}");
+        assertThat(sql("update")).contains("waitlist_allowed = #{d.waitlistAllowed}")
+                .contains("team_enrollment_allowed = #{d.teamEnrollmentAllowed}");
+        // 列的顺序和 ActivityRow 的字段一致（按位置映射到记录）：has_enrollments 之后是两个开关和排队条数。
+        assertThat(ActivityOpsMapper.ACTIVITY_COLUMNS)
+                .contains("has_enrollments,\n       a.waitlist_allowed, a.team_enrollment_allowed,")
+                .contains("w.status IN ('WAITING', 'OFFERED'))::integer active_waitlists");
+    }
+
+    @Test
     void sessionWritesLockCheckVersionsAndKeepEnrollments() throws Exception {
         assertThat(sql("lockSession")).contains("FOR UPDATE OF s").contains("s.activity_id = #{activityId}");
         assertThat(sql("updateSession")).contains("AND version = #{version}")

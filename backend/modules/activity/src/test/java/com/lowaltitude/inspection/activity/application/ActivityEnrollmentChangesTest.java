@@ -71,7 +71,7 @@ class ActivityEnrollmentChangesTest {
             released);
 
     private static SessionRow session(UUID id, UUID activityId, int capacity, int enrolled, OffsetDateTime startsAt) {
-        return new SessionRow(id, activityId, "PUBLISHED", "PER_PERSON", 6, 12, true, "ACTIVE", startsAt,
+        return new SessionRow(id, activityId, "PUBLISHED", "PER_PERSON", 6, 12, true, true, "ACTIVE", startsAt,
                 startsAt.plusHours(3), startsAt.minusDays(1), capacity, enrolled, UNIT, ORGANIZER, "370500",
                 "机器人研学体验", null, "上午", false);
     }
@@ -274,6 +274,24 @@ class ActivityEnrollmentChangesTest {
             assertThatThrownBy(() -> service.enrollTeam(ACCOUNT, UUID.randomUUID(), command(many, "13800002026")))
                     .isInstanceOf(IllegalArgumentException.class);
             verify(mapper, never()).lockSession(any());
+        }
+
+        @Test
+        void aTeamSignUpIsRefusedOnceOpsTurnedTeamsOff() {
+            SessionRow open = session(FROM, ACTIVITY, 30, 10, startsAt);
+            SessionRow teamsOff = new SessionRow(open.sessionId(), open.activityId(), open.activityStatus(),
+                    open.priceMode(), open.minAge(), open.maxAge(), open.waitlistAllowed(), false,
+                    open.sessionStatus(), open.startsAt(), open.endsAt(), open.enrollmentClosesAt(), open.capacity(),
+                    open.enrolledCount(), open.priceAmountMinor(), open.organizerId(), open.cityCode(), open.title(),
+                    open.coverUrl(), open.label(), open.saleStopped());
+            when(mapper.lockSession(FROM)).thenReturn(teamsOff);
+
+            assertThatThrownBy(() -> service.enrollTeam(ACCOUNT, UUID.randomUUID(), command(two(), "13800002026")))
+                    .isInstanceOfSatisfying(ActivityEnrollmentException.class,
+                            e -> assertThat(e.error()).isEqualTo(Error.ENROLLMENT_UNSUPPORTED));
+            verify(changes, never()).insertMember(any(), any(), any(), any());
+            verify(payments, never()).open(any());
+            verify(mapper, never()).addEnrolled(any(), anyInt(), any());
         }
 
         @Test

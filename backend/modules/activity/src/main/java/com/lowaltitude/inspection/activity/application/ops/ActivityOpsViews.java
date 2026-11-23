@@ -7,7 +7,7 @@ import java.util.UUID;
 import com.lowaltitude.inspection.activity.application.ActivityPriceMode;
 import com.lowaltitude.inspection.activity.application.ActivityType;
 
-/** 运营端“活动与场次”对外的形状（契约 contracts/openapi-ops-activity.yaml 1.0.0）。 */
+/** 运营端“活动与场次”对外的形状（契约 contracts/openapi-ops-activity.yaml 1.1.0）。 */
 public final class ActivityOpsViews {
 
     private ActivityOpsViews() {
@@ -72,6 +72,12 @@ public final class ActivityOpsViews {
             String seatNote,
             String refundNote,
             String enrollmentNotice,
+            /** 场次满员后 App 上能排候补（1.1.0）。 */
+            boolean waitlistAllowed,
+            /** App 上能团队报名（1.1.0）。 */
+            boolean teamEnrollmentAllowed,
+            /** 还在排队或已转正待确认的候补条数：关掉候补后它们照常按顺序转正（1.1.0）。 */
+            int activeWaitlistCount,
             OpsActivityStatus status,
             OffsetDateTime firstPublishedAt,
             /** 有待付款或已确认的报名：收费方式、主办机构、城市不能再改。 */
@@ -133,7 +139,11 @@ public final class ActivityOpsViews {
             String eligibilityNote,
             String seatNote,
             String refundNote,
-            String enrollmentNotice
+            String enrollmentNotice,
+            /** 1.1.0：null 时新建为 false、修改时保持原值。 */
+            Boolean waitlistAllowed,
+            /** 1.1.0：null 时新建为 false、修改时保持原值。 */
+            Boolean teamEnrollmentAllowed
     ) {
     }
 

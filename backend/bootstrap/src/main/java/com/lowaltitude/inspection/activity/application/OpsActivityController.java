@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 运营端“活动与场次”（S3-1，契约 contracts/openapi-ops-activity.yaml 1.0.0）。只给平台运营；写操作带版本号，
+ * 运营端“活动与场次”（S3-1，契约 contracts/openapi-ops-activity.yaml 1.1.0）。只给平台运营；写操作带版本号，
  * 每次改动记一条改动记录（操作人显示名取自身份资料）。
  */
 @RestController
@@ -167,13 +167,15 @@ public final class OpsActivityController {
             String seatNote,
             String refundNote,
             String enrollmentNotice,
+            Boolean waitlistAllowed,
+            Boolean teamEnrollmentAllowed,
             Integer version
     ) {
 
         ActivityDraft draft() {
             return new ActivityDraft(type, title, subtitle, coverUrl, galleryUrls, organizerId, coOrganizerId,
                     cityCode, venueName, venueAddress, scheduleNote, priceMode, priceAmountMinor, minAge, maxAge,
-                    eligibilityNote, seatNote, refundNote, enrollmentNotice);
+                    eligibilityNote, seatNote, refundNote, enrollmentNotice, waitlistAllowed, teamEnrollmentAllowed);
         }
     }
 

@@ -3,6 +3,7 @@
  * 活动编辑页：新建（/activities/new）和已有活动（/activities/:activityId）共用。
  * 已有活动另外有状态操作（上线、下线、删除）、场次表格（新增、修改、停售 / 恢复售卖、删除）和改动记录。
  * 上线前必填项后端会再校验一次（422 带缺的字段），这里先按详情的 publishMissing 提示。
+ * 候补、团队报名两个开关（契约 1.1.0）：询价活动不能打开；关掉时已有的候补、团队报名照常，保存前提示。
  */
 import type { FormInstance } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -26,12 +27,14 @@ import {
   CHANGE_SUBJECT_LABELS,
   createActivityApi,
   emptyActivityForm,
+  enrollmentSwitchesAvailable,
   labelOf,
   LIMITS,
   PRICE_MODE_OPTIONS,
   PUBLISH_FIELD_LABELS,
   sessionState,
   statusTag,
+  switchClosingNotes,
   type ActivityForm,
   type OpsActivity,
   type OpsActivitySession,
@@ -60,6 +63,7 @@ const sessionDialog = reactive<{ open: boolean, session: OpsActivitySession | nu
 
 const creating = computed(() => activityId.value === '')
 const locked = computed(() => activity.value?.hasEnrollments ?? false)
+const switchesAvailable = computed(() => enrollmentSwitchesAvailable(form.priceMode))
 const missingText = computed(() => (activity.value?.publishMissing ?? [])
   .map((key) => PUBLISH_FIELD_LABELS[key] ?? key).join('、'))
 
@@ -153,9 +157,13 @@ async function save(): Promise<void> {
     }
     return
   }
+  const closing = switchClosingNotes(current, form)
   const confirmed = await confirmAction({
     title: '确认保存活动信息',
-    message: current.status === 'PUBLISHED' ? '活动已上线，保存后 App 上立刻显示新的内容。' : '保存后在草稿 / 已下线状态，App 上看不到。',
+    message: [
+      current.status === 'PUBLISHED' ? '活动已上线，保存后 App 上立刻显示新的内容。' : '保存后在草稿 / 已下线状态，App 上看不到。',
+      ...closing,
+    ].join(' '),
     confirmText: '保存',
   })
   if (!confirmed) return
@@ -332,6 +340,25 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item v-if="form.priceMode === 'PER_PERSON'" label="单价（元/人）" prop="priceYuan">
           <el-input v-model="form.priceYuan" style="width: 160px" placeholder="比如 120" />
+        </el-form-item>
+        <el-form-item label="候补">
+          <el-switch v-model="form.waitlistAllowed" :disabled="!switchesAvailable" active-text="允许候补" />
+          <div class="activity-edit__hint">
+            {{ switchesAvailable
+              ? '场次满员后 App 上能排候补（一条 1–10 人）；有名额放回来时按排队顺序转正，转正后 15 分钟内确认或付款。'
+              : '询价活动不能在线报名，不能候补。' }}
+            <template v-if="activity && activity.activeWaitlistCount > 0">
+              现在有 {{ activity.activeWaitlistCount }} 条候补在排队或待确认，关掉候补后它们照常转正。
+            </template>
+          </div>
+        </el-form-item>
+        <el-form-item label="团队报名">
+          <el-switch v-model="form.teamEnrollmentAllowed" :disabled="!switchesAvailable" active-text="允许团队报名" />
+          <div class="activity-edit__hint">
+            {{ switchesAvailable
+              ? '领队代报 2–20 人，一张团队报名单、一人一码；名额不够不能候补。关掉后已有的团队报名照常。'
+              : '询价活动不能在线报名，不能团队报名。' }}
+          </div>
         </el-form-item>
         <el-form-item label="年龄" prop="maxAge">
           <el-input-number v-model="form.minAge" :min="0" :max="LIMITS.age" :value-on-clear="null" placeholder="不限" />

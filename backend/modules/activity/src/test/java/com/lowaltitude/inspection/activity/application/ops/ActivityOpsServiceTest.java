@@ -120,7 +120,7 @@ class ActivityOpsServiceTest {
         // 已上线的活动不能把必填项改没了。
         ActivityDraft noCover = new ActivityDraft("CONTEST", "挑战赛", null, null, List.of(), ORGANIZER, null,
                 "370500", "体验馆", "示例路 1 号", null, "PER_PERSON", 12000L, null, null, null, null, "开始前 48 小时可退",
-                "到场出示凭证");
+                "到场出示凭证", null, null);
         OpsException stillIncomplete = assertRejected(ActivityOpsError.PUBLISH_INCOMPLETE,
                 () -> service.update(id, noCover, published.version(), OPERATOR));
         assertThat(stillIncomplete.details()).isEqualTo(Map.of("missing", List.of("coverUrl")));
@@ -153,15 +153,77 @@ class ActivityOpsServiceTest {
 
         assertRejected(ActivityOpsError.LOCKED_BY_ENROLLMENTS, () -> service.update(id,
                 new ActivityDraft("CONTEST", "挑战赛", null, COVER, List.of(), ORGANIZER, null, "370500", "体验馆",
-                        "示例路 1 号", null, "FREE", null, null, null, null, null, null, "到场出示凭证"), 0, OPERATOR));
+                        "示例路 1 号", null, "FREE", null, null, null, null, null, null, "到场出示凭证", null, null), 0, OPERATOR));
         assertRejected(ActivityOpsError.LOCKED_BY_ENROLLMENTS, () -> service.update(id,
                 new ActivityDraft("CONTEST", "挑战赛", null, COVER, List.of(), CO_ORGANIZER, null, "370500", "体验馆",
-                        "示例路 1 号", null, "PER_PERSON", 12000L, null, null, null, null, "可退", "到场出示凭证"),
+                        "示例路 1 号", null, "PER_PERSON", 12000L, null, null, null, null, "可退", "到场出示凭证", null, null),
                 0, OPERATOR));
         // 单价能改。
         assertThat(service.update(id, new ActivityDraft("CONTEST", "挑战赛", null, COVER, List.of(), ORGANIZER, null,
                 "370500", "体验馆", "示例路 1 号", null, "PER_PERSON", 15000L, null, null, null, null, "可退",
-                "到场出示凭证"), 0, OPERATOR).priceAmountMinor()).isEqualTo(15000L);
+                "到场出示凭证", null, null), 0, OPERATOR).priceAmountMinor()).isEqualTo(15000L);
+    }
+
+    @Test
+    void waitlistAndTeamSwitchesNeedOnlineEnrollmentAndStayWhenNotSent() {
+        OpsActivityView created = service.create(withSwitches("PER_PERSON", 12000L, true, true), OPERATOR);
+        assertThat(created.waitlistAllowed()).isTrue();
+        assertThat(created.teamEnrollmentAllowed()).isTrue();
+        assertThat(created.activeWaitlistCount()).isZero();
+        assertThat(mapper.changes).last().satisfies(change ->
+                assertThat(change.summary()).endsWith("；打开候补，打开团队报名"));
+        // 不带开关：新建为关。
+        OpsActivityView plain = service.create(complete(), OPERATOR);
+        assertThat(plain.waitlistAllowed()).isFalse();
+        assertThat(plain.teamEnrollmentAllowed()).isFalse();
+        assertThat(mapper.changes).last().satisfies(change -> assertThat(change.summary()).isEqualTo("新建草稿“挑战赛”"));
+
+        // 修改时不带开关保持原值，改动记录不提开关。
+        UUID id = created.activityId();
+        OpsActivityView kept = service.update(id, complete(), 0, OPERATOR);
+        assertThat(kept.waitlistAllowed()).isTrue();
+        assertThat(kept.teamEnrollmentAllowed()).isTrue();
+        assertThat(mapper.changes).last().satisfies(change -> assertThat(change.summary()).isEqualTo("修改活动信息"));
+        OpsActivityView onlyTeam = service.update(id, withSwitches("FREE", null, false, null), kept.version(),
+                OPERATOR);
+        assertThat(onlyTeam.waitlistAllowed()).isFalse();
+        assertThat(onlyTeam.teamEnrollmentAllowed()).isTrue();
+        assertThat(mapper.changes).last().satisfies(change ->
+                assertThat(change.summary()).isEqualTo("修改活动信息；关闭候补"));
+
+        // 询价活动不能在线报名：明确打开是参数错误，什么都不写；不带时跟着关掉。
+        int before = mapper.changes.size();
+        assertThatThrownBy(() -> service.create(withSwitches("INQUIRY", null, true, null), OPERATOR))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.update(id, withSwitches("INQUIRY", null, null, true), onlyTeam.version(),
+                OPERATOR)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(mapper.changes).hasSize(before);
+        OpsActivityView inquiry = service.update(id, withSwitches("INQUIRY", null, null, null), onlyTeam.version(),
+                OPERATOR);
+        assertThat(inquiry.teamEnrollmentAllowed()).isFalse();
+        assertThat(mapper.changes).last().satisfies(change ->
+                assertThat(change.summary()).isEqualTo("修改活动信息；关闭团队报名（已有的团队报名照常）"));
+    }
+
+    @Test
+    void switchesCanBeTurnedOffWithEnrollmentsAndAQueueThatKeepsGoing() {
+        UUID id = service.create(withSwitches("PER_PERSON", 12000L, true, true), OPERATOR).activityId();
+        FakeActivity stored = mapper.activities.get(id);
+        stored.hasEnrollments = true;
+        stored.activeWaitlists = 3;
+        assertThat(service.activity(id).activeWaitlistCount()).isEqualTo(3);
+
+        OpsActivityView closed = service.update(id, withSwitches("PER_PERSON", 12000L, false, false), 0, OPERATOR);
+
+        assertThat(closed.waitlistAllowed()).isFalse();
+        assertThat(closed.teamEnrollmentAllowed()).isFalse();
+        // 排队中的候补不动（转正不看开关），页面照样看到条数。
+        assertThat(closed.activeWaitlistCount()).isEqualTo(3);
+        assertThat(service.changes(id)).first().satisfies(change -> assertThat(change.summary())
+                .isEqualTo("修改活动信息；关闭候补（3 条排队中的照常转正），关闭团队报名（已有的团队报名照常）"));
+        // 有报名后也能再打开。
+        assertThat(service.update(id, withSwitches("PER_PERSON", 12000L, true, null), closed.version(), OPERATOR)
+                .waitlistAllowed()).isTrue();
     }
 
     @Test
@@ -253,28 +315,34 @@ class ActivityOpsServiceTest {
 
     private static ActivityDraft draft(String cover, List<String> gallery, String priceMode, Long amount) {
         return new ActivityDraft("CONTEST", "挑战赛", null, cover, gallery, ORGANIZER, CO_ORGANIZER, "370500", "体验馆",
-                "示例路 1 号", null, priceMode, amount, 8, 15, null, null, null, null);
+                "示例路 1 号", null, priceMode, amount, 8, 15, null, null, null, null, null, null);
     }
 
     private static ActivityDraft complete() {
         return new ActivityDraft("CONTEST", "挑战赛", "图形化编程", COVER, List.of(), ORGANIZER, null, "370500",
                 "体验馆", "示例路 1 号", null, "PER_PERSON", 12000L, 8, 15, null, null, "开始前 48 小时可退",
-                "到场出示凭证\n提前 15 分钟签到");
+                "到场出示凭证\n提前 15 分钟签到", null, null);
+    }
+
+    private static ActivityDraft withSwitches(String priceMode, Long amount, Boolean waitlist, Boolean team) {
+        return new ActivityDraft("CONTEST", "挑战赛", "图形化编程", COVER, List.of(), ORGANIZER, null, "370500",
+                "体验馆", "示例路 1 号", null, priceMode, amount, 8, 15, null, null, "开始前 48 小时可退",
+                "到场出示凭证\n提前 15 分钟签到", waitlist, team);
     }
 
     private static ActivityDraft withAges(int min, int max) {
         return new ActivityDraft("CONTEST", "挑战赛", null, null, List.of(), ORGANIZER, null, "370500", "体验馆",
-                "示例路 1 号", null, "FREE", null, min, max, null, null, null, null);
+                "示例路 1 号", null, "FREE", null, min, max, null, null, null, null, null, null);
     }
 
     private static ActivityDraft withCity(String city) {
         return new ActivityDraft("CONTEST", "挑战赛", null, null, List.of(), ORGANIZER, null, city, "体验馆",
-                "示例路 1 号", null, "FREE", null, null, null, null, null, null, null);
+                "示例路 1 号", null, "FREE", null, null, null, null, null, null, null, null, null);
     }
 
     private static ActivityDraft withOrganizer(UUID organizer) {
         return new ActivityDraft("CONTEST", "挑战赛", null, null, List.of(), organizer, null, "370500", "体验馆",
-                "示例路 1 号", null, "FREE", null, null, null, null, null, null, null);
+                "示例路 1 号", null, "FREE", null, null, null, null, null, null, null, null, null);
     }
 
     private static SessionDraft session(OffsetDateTime startsAt, OffsetDateTime closesAt, int capacity) {
@@ -290,6 +358,7 @@ class ActivityOpsServiceTest {
         OffsetDateTime firstPublishedAt;
         int version;
         boolean hasEnrollments;
+        int activeWaitlists;
         OffsetDateTime updatedAt;
         List<String> gallery = new ArrayList<>();
     }
@@ -342,7 +411,7 @@ class ActivityOpsServiceTest {
                     v.coOrganizerId(), v.cityCode(), v.venueName(), v.venueAddress(), v.scheduleNote(), v.priceMode(),
                     v.priceAmountMinor(), v.minAge(), v.maxAge(), v.eligibilityNote(), v.seatNote(), v.refundNote(),
                     v.enrollmentNotice(), a.status, a.firstPublishedAt, a.version, a.updatedAt, a.updatedAt,
-                    a.hasEnrollments);
+                    a.hasEnrollments, v.waitlistAllowed(), v.teamEnrollmentAllowed(), a.activeWaitlists);
         }
 
         @Override

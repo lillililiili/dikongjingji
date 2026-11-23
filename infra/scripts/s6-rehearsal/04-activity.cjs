@@ -88,12 +88,25 @@ async function main() {
     refunded && psql(`SELECT refunded_minor FROM trade_order WHERE id='${paidEnrollment.payment.tradeOrderId}'`) === String(UNIT), psql(`SELECT status || ':' || refunded_minor FROM trade_order WHERE id='${paidEnrollment.payment.tradeOrderId}'`));
 
   // ---- 2. 候补转正付款 ----
+  // S6-02：运营端契约 1.1.0 起活动有“允许候补”开关，按页面的做法读详情、带全部字段和版本号改一次（不再用 SQL 绕过）。
   const opsDetail = (await call('GET', `/api/v1/ops/activities/${activity.activityId}`, { token: op })).json;
-  known('S6-02', '运营端能给活动打开“允许候补”（S5-3 候补已上线）',
-    { req: 'GET /api/v1/ops/activities/{id}，看有没有候补开关；查 activity.waitlist_allowed', expect: '运营端有开关；新建活动可以开候补' },
-    opsDetail && ('waitlistAllowed' in opsDetail), { opsFields: Object.keys(opsDetail || {}).filter((k) => /wait|team/i.test(k)), waitlistAllowed: psql(`SELECT waitlist_allowed FROM activity WHERE id='${activity.activityId}'`) });
-  psql(`UPDATE activity SET waitlist_allowed = true WHERE id='${activity.activityId}'`);
-  note('S6-02 绕过：用 SQL 把演练活动的 waitlist_allowed 设为 true（等同于以后运营端的开关），后面才能演练候补');
+  r = await call('PUT', `/api/v1/ops/activities/${activity.activityId}`, { token: op, body: {
+    type: opsDetail.type, title: opsDetail.title, subtitle: opsDetail.subtitle, coverUrl: opsDetail.coverUrl,
+    galleryUrls: opsDetail.galleryUrls, organizerId: opsDetail.organizer.organizationId,
+    coOrganizerId: opsDetail.coOrganizer?.organizationId ?? null, cityCode: opsDetail.cityCode, venueName: opsDetail.venueName,
+    venueAddress: opsDetail.venueAddress, scheduleNote: opsDetail.scheduleNote, priceMode: opsDetail.priceMode,
+    priceAmountMinor: opsDetail.priceAmountMinor, minAge: opsDetail.minAge, maxAge: opsDetail.maxAge,
+    eligibilityNote: opsDetail.eligibilityNote, seatNote: opsDetail.seatNote, refundNote: opsDetail.refundNote,
+    enrollmentNotice: opsDetail.enrollmentNotice, waitlistAllowed: true, teamEnrollmentAllowed: false, version: opsDetail.version } });
+  const switched = r;
+  const lastChange = (await call('GET', `/api/v1/ops/activities/${activity.activityId}/changes`, { token: op })).json?.[0]?.summary;
+  const appDetail = (await call('GET', `/api/v1/activities/${activity.activityId}`)).json;
+  const waitlistColumn = psql(`SELECT waitlist_allowed FROM activity WHERE id='${activity.activityId}'`);
+  known('S6-02', '运营端给活动打开“允许候补”（S5-3 候补已上线）',
+    { req: 'PUT /api/v1/ops/activities/{id} waitlistAllowed=true（运营端契约 1.1.0）；查改动记录、activity.waitlist_allowed、App 详情', expect: '200 waitlistAllowed=true；改动记录“打开候补”；App 详情 waitlistAllowed=true' },
+    switched.status === 200 && switched.json?.waitlistAllowed === true && waitlistColumn === 't'
+      && String(lastChange || '').includes('打开候补') && appDetail?.waitlistAllowed === true,
+    { status: switched.status, code: switched.json?.code, waitlistAllowed: waitlistColumn, lastChange, app: appDetail?.waitlistAllowed });
   r = await call('POST', '/api/v1/activity-enrollments', { token: customer, headers: { 'Idempotency-Key': key() }, body: { activityId: activity.activityId, sessionId: today, participantIds: [kids[1]], expectedAmountMinor: UNIT, noticeAgreed: true } });
   const holder = r.json;
   track(holder?.enrollmentId, holder?.payment?.tradeOrderId);

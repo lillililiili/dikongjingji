@@ -59,10 +59,26 @@ class OpsActivityControllerTest {
         verify(service).create(eq(new ActivityOpsViews.ActivityDraft("CONTEST", "挑战赛", null, null,
                 List.of("https://cdn.example.com/a.jpg"), UUID.fromString("a1000000-0000-4000-8000-000000000001"),
                 null, "370500", "体验馆", "示例路 1 号", null, "PER_PERSON", 12000L, null, null, null, null, null,
-                null)), eq(OPERATOR));
+                null, null, null)), eq(OPERATOR));
         mockMvc.perform(post("/api/v1/ops/activities/" + ACTIVITY + "/publish").principal(OpsTestSupport.operator())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
                 .andExpect(status().isOk());
+        // 1.1.0：候补、团队报名开关原样带给服务（不带的是 null，由服务保持原值）。
+        when(service.update(eq(ACTIVITY), any(), eq(4), eq(OPERATOR))).thenReturn(view());
+        mockMvc.perform(put("/api/v1/ops/activities/" + ACTIVITY).principal(OpsTestSupport.operator())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":"CONTEST","title":"挑战赛","organizerId":"a1000000-0000-4000-8000-000000000001",
+                                 "cityCode":"370500","venueName":"体验馆","venueAddress":"示例路 1 号",
+                                 "priceMode":"FREE","waitlistAllowed":true,"version":4}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.waitlistAllowed").value(false))
+                .andExpect(jsonPath("$.teamEnrollmentAllowed").value(false))
+                .andExpect(jsonPath("$.activeWaitlistCount").value(0));
+        verify(service).update(eq(ACTIVITY), eq(new ActivityOpsViews.ActivityDraft("CONTEST", "挑战赛", null, null,
+                null, UUID.fromString("a1000000-0000-4000-8000-000000000001"), null, "370500", "体验馆", "示例路 1 号",
+                null, "FREE", null, null, null, null, null, null, null, true, null)), eq(4), eq(OPERATOR));
         mockMvc.perform(post("/api/v1/ops/activities/" + ACTIVITY + "/sessions/" + SESSION + "/stop-sale")
                         .principal(OpsTestSupport.operator())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"version\":5}"))
@@ -126,7 +142,7 @@ class OpsActivityControllerTest {
         return new ActivityOpsViews.OpsActivityView(ACTIVITY, ActivityType.CONTEST, "挑战赛", null, null, List.of(),
                 new ActivityOpsViews.OpsOrganizationRefView(UUID.fromString("a1000000-0000-4000-8000-000000000001"),
                         "示例青少年科技机构"), null, "370500", "东营市", "体验馆", "示例路 1 号", null,
-                ActivityPriceMode.PER_PERSON, 12000L, null, null, null, null, null, null,
+                ActivityPriceMode.PER_PERSON, 12000L, null, null, null, null, null, null, false, false, 0,
                 ActivityOpsViews.OpsActivityStatus.DRAFT, null, false, true,
                 List.of("coverUrl", "enrollmentNotice", "refundNote", "sessions"), List.of(), at, at, 0);
     }
