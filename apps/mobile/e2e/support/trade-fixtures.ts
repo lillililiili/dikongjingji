@@ -66,6 +66,12 @@ export function purgeBuyerOrders(): void {
   psql(`
     CREATE TEMP TABLE e2e_orders AS
       SELECT id FROM trade_order WHERE buyer_id = (SELECT id FROM identity_user WHERE login_name = '${BUYER}');
+    -- Goods after-sales (S4-2) hang off the orders and their refunds; the pictures the buyer uploaded go too.
+    DELETE FROM trade_aftersale_event WHERE aftersale_id IN (SELECT id FROM trade_aftersale WHERE order_id IN (SELECT id FROM e2e_orders));
+    DELETE FROM trade_aftersale_image
+      WHERE aftersale_id IN (SELECT id FROM trade_aftersale WHERE order_id IN (SELECT id FROM e2e_orders))
+         OR uploaded_by = (SELECT id FROM identity_user WHERE login_name = '${BUYER}');
+    DELETE FROM trade_aftersale WHERE order_id IN (SELECT id FROM e2e_orders);
     DELETE FROM trade_channel_notification
       WHERE out_trade_no IN (SELECT out_trade_no FROM trade_payment WHERE order_id IN (SELECT id FROM e2e_orders))
          OR out_refund_no IN (SELECT out_refund_no FROM trade_refund WHERE order_id IN (SELECT id FROM e2e_orders));

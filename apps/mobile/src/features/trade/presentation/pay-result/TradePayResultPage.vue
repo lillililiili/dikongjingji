@@ -13,6 +13,7 @@ import {
   orderDestination,
   orderLinkLabel,
   paidFrame,
+  payResultExtraRows,
   type TradeOrderDestination,
 } from '../../application/order-source'
 import { checkPaymentUntilSettled, paymentCheckResult } from '../../application/payment-check'
@@ -253,6 +254,14 @@ onBeforeUnmount(() => {
         <view class="pay-result__row pay-result__row--line">
           <text class="pay-result__row-label">收款方</text>
           <text class="pay-result__row-value" data-testid="pay-result-payee">{{ order.merchant.name }}</text>
+        </view>
+        <view
+          v-for="row in payResultExtraRows(order, view === 'PAID')"
+          :key="row.key"
+          class="pay-result__row pay-result__row--line"
+        >
+          <text class="pay-result__row-label">{{ row.label }}</text>
+          <text class="pay-result__row-value" :data-testid="`pay-result-${row.key}`">{{ row.value }}</text>
         </view>
         <view v-if="view === 'PAID' && order.paidAt" class="pay-result__row pay-result__row--line">
           <text class="pay-result__row-label">支付时间</text>

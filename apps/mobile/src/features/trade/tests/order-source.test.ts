@@ -9,6 +9,7 @@ import {
   cashierLayout,
   cashierPayeeSuffix,
   cashierRows,
+  payResultExtraRows,
   failedNote,
   isSourceOrder,
   orderDestination,
@@ -51,6 +52,19 @@ describe('order source (contract 0.2.0)', () => {
     expect(cashierCountdownLine(order, NOW)).toBe('名额保留 14:45 · 超时自动释放')
     expect(cashierClosedNote(order)).toBe('没有扣款，名额已释放')
     expect(cancelUnpaidConfirm(order).title).toBe('取消报名')
+  })
+
+  it('names the people of a sign-up (trade 0.6.0) and, once paid, the channel transaction', () => {
+    const named = enrollmentOrder({ participantNames: '王小禾、王小川' })
+    expect(cashierRows(named)[2]).toEqual({ key: 'participants', label: '参与人', value: '王小禾、王小川' })
+    expect(payResultExtraRows(named, false)).toEqual([{ key: 'participants', label: '参与人', value: '王小禾、王小川' }])
+    const paid = enrollmentOrder({ participantNames: '王小禾、王小川', channelTransactionId: '4200000001' })
+    expect(payResultExtraRows(paid, true)).toEqual([
+      { key: 'participants', label: '参与人', value: '王小禾、王小川' },
+      { key: 'transaction', label: '渠道交易号', value: '4200000001' },
+    ])
+    // A goods order has no people; an unpaid one no transaction.
+    expect(payResultExtraRows(tradeOrder({ channelTransactionId: '4200000002' }), false)).toEqual([])
   })
 
   it('keeps the goods wording of E07 on mall orders', () => {
