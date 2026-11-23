@@ -107,6 +107,8 @@ public class SecurityConfiguration {
                                 "/api/v1/mall/products",
                                 "/api/v1/mall/products/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
+                        // 全局搜索（S5-1）：公开只读。
+                        .requestMatchers(HttpMethod.GET, "/api/v1/search").permitAll()
                         // 四类专业服务的目录、详情和服务商主页（F2）：公开只读。
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/pro-services",
