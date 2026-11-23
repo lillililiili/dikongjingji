@@ -247,7 +247,8 @@ test.describe('订单搜索', () => {
     await expect(page.getByTestId('order-search-count')).toContainText('“编程机器人” · 找到')
     const hit = page.getByTestId(`order-search-hit-goods-${order.orderId}`)
     await expect(hit).toContainText('编程机器人探索套装')
-    await expect(hit.locator('.search-highlight__hit').first()).toHaveText('编程机器人')
+    // The card's first line (the seller) is a highlight too, with nothing matched; look at the title.
+    await expect(hit.locator('.order-search__title .search-highlight__hit')).toHaveText('编程机器人')
     await page.getByTestId('order-search-submit').click()
 
     // 订单号不分大小写，可只输后几位。

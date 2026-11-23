@@ -19,7 +19,7 @@ import {
   psql,
   type Session,
 } from './support/trade-fixtures'
-import { purgeFreeEnrollments } from './support/activity-fixtures'
+import { enrollmentDependentsSql, purgeFreeEnrollments } from './support/activity-fixtures'
 
 // 收费活动报名（E09，计划 §20）：填写报名 → 收银台 → 支付结果 → 报名凭证 → 退一位；待付款取消；
 // 金额变了、主办方没开通在线支付两种拒绝。真实后端 + 本机模拟微信（FAKE_WECHAT=1），H5 调不起微信，
@@ -66,6 +66,7 @@ function cleanup(): void {
       FROM (SELECT session_id, count(*) AS n FROM activity_enrollment_ticket
             WHERE enrollment_id IN (SELECT id FROM e2e_enrollments) AND status <> 'CANCELLED' GROUP BY session_id) t
      WHERE s.id = t.session_id;
+    ${enrollmentDependentsSql('e2e_enrollments')}
     DELETE FROM activity_enrollment_event WHERE enrollment_id IN (SELECT id FROM e2e_enrollments);
     DELETE FROM activity_enrollment_ticket WHERE enrollment_id IN (SELECT id FROM e2e_enrollments);
     DELETE FROM activity_enrollment WHERE id IN (SELECT id FROM e2e_enrollments);

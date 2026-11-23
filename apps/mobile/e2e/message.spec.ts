@@ -31,7 +31,7 @@ async function signIn(page: Page): Promise<void> {
 async function stubInbox(page: Page, items: unknown[], unreadCount: number, hasMore = false): Promise<void> {
   await page.route('**/api/v1/notifications?**', (route: Route) =>
     route.fulfill({ json: { page: 1, size: 20, total: items.length, hasMore, unreadCount, items } }))
-  await page.route('**/api/v1/notifications/unread-count', (route: Route) =>
+  await page.route('**/api/v1/notifications/unread-count*', (route: Route) =>
     route.fulfill({ json: { count: unreadCount } }))
 }
 
@@ -101,7 +101,7 @@ test.describe('消息', () => {
   test('MSG-004 登录失效和加载失败分开提示；失败可重试', async ({ page }) => {
     await signIn(page)
     let mode: 'expired' | 'broken' | 'fine' = 'expired'
-    await page.route('**/api/v1/notifications/unread-count', (route: Route) => route.fulfill({ json: { count: 0 } }))
+    await page.route('**/api/v1/notifications/unread-count*', (route: Route) => route.fulfill({ json: { count: 0 } }))
     await page.route('**/api/v1/notifications?**', (route: Route) => {
       if (mode === 'expired') {
         return route.fulfill({ status: 401, json: { code: 'COMMON_UNAUTHORIZED', message: '登录状态已失效', traceId: 't' } })
@@ -128,7 +128,7 @@ test.describe('消息', () => {
 
   test('MSG-005 还有下一页时可以继续加载，同一条不重复', async ({ page }) => {
     await signIn(page)
-    await page.route('**/api/v1/notifications/unread-count', (route: Route) => route.fulfill({ json: { count: 0 } }))
+    await page.route('**/api/v1/notifications/unread-count*', (route: Route) => route.fulfill({ json: { count: 0 } }))
     await page.route('**/api/v1/notifications?**', (route: Route) => {
       const pageNumber = new URL(route.request().url()).searchParams.get('page')
       return route.fulfill({
@@ -151,7 +151,7 @@ test.describe('消息', () => {
 
   test('MSG-006 其他根页面的底栏也显示未读数，超过 99 显示 99+', async ({ page }) => {
     await signIn(page)
-    await page.route('**/api/v1/notifications/unread-count', (route: Route) => route.fulfill({ json: { count: 120 } }))
+    await page.route('**/api/v1/notifications/unread-count*', (route: Route) => route.fulfill({ json: { count: 120 } }))
     await page.goto('/#/pages/home/index')
     await expect(page.getByTestId('home-page')).toBeVisible()
 

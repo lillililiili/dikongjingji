@@ -46,6 +46,24 @@ async function tallShot(page: Page, path: string): Promise<void> {
   await page.setViewportSize(viewport)
 }
 
+/**
+ * The seed notice is dated at its publication (11/1) and the inbox is newest first, so after other
+ * specs have left their 交易物流 / 活动提醒 / 服务进度 rows in dev-customer's inbox it can sit a few
+ * pages down. Load pages the way a person would (“上拉或点此加载更多”) until its row is there.
+ */
+async function revealSystemNotice(page: Page) {
+  const row = page.locator('[data-category="SYSTEM_NOTICE"]').first()
+  await expect(page.locator('.message-center__item').first()).toBeVisible()
+  await expect(async () => {
+    if (await row.count() > 0) return
+    const more = page.getByTestId('message-more-action')
+    if (await more.isVisible()) await more.click({ timeout: 2000 })
+    await expect(row).toHaveCount(1, { timeout: 2000 })
+  }).toPass({ timeout: 90_000 })
+  await row.scrollIntoViewIfNeeded()
+  return row
+}
+
 async function setSwitches(request: APIRequestContext, change: Record<string, boolean>): Promise<void> {
   const saved = await request.put(`${API}/api/v1/notifications/preferences`, { headers: buyer.headers, data: change })
   expect(saved.ok()).toBe(true)
@@ -119,6 +137,7 @@ test.describe('系统通知与通知设置', () => {
   })
 
   test('SN-001 消息页按画板排五个格；系统通知行进通知详情，并标为已读', async ({ page }) => {
+    test.setTimeout(150_000)
     await signIn(page, buyer)
     const inboxCalls: string[] = []
     page.on('request', (request) => {
@@ -128,7 +147,7 @@ test.describe('系统通知与通知设置', () => {
 
     await expect(page.locator('.message-center__cat-label'))
       .toHaveText(['交易物流', '服务进度', '活动提醒', '系统通知', '联系客服'])
-    const row = page.locator('[data-category="SYSTEM_NOTICE"]').first()
+    const row = await revealSystemNotice(page)
     await expect(row).toContainText('系统通知 · 隐私政策更新摘要')
     await expect(row).toContainText('查看主要变化与生效日期')
     await expect(row).toContainText('11/1 09:00')
@@ -186,7 +205,8 @@ test.describe('系统通知与通知设置', () => {
 
     await page.goto(`/#/pages/message/notice?id=${NOTICE_ID}`)
     await expect(page.getByTestId('notice-title')).toHaveText('隐私政策更新摘要')
-    await page.goto('/#/pages/message/notice?id=c5000000-0000-4000-8000-0000000000ff')
+    // Same page with another id: a hash-only change keeps the open notice (H5 reads the query on load).
+    await page.goto('/?n=missing#/pages/message/notice?id=c5000000-0000-4000-8000-0000000000ff')
     await expect(page.getByTestId('notice-missing')).toBeVisible()
   })
 
@@ -249,6 +269,7 @@ test.describe('系统通知与通知设置', () => {
   })
 
   test('SN-006 320/375/430 不溢出；390 宽和画板 Messages、NoticeDetail、Settings、Agreement 并排', async ({ page }) => {
+    test.setTimeout(300_000)
     await signIn(page, buyer)
     mkdirSync(visualOutput, { recursive: true })
     mkdirSync(compareOutput, { recursive: true })
@@ -262,8 +283,10 @@ test.describe('系统通知与通知设置', () => {
 
       await page.goto(at('#/pages/message/index'))
       await expect(page.getByTestId('message-cat-system')).toBeVisible()
-      await expect(page.locator('[data-category="SYSTEM_NOTICE"]').first()).toBeVisible()
+      await expect(await revealSystemNotice(page)).toBeVisible()
       await assertNoHorizontalOverflow(page)
+      // Back to the top for the picture: the squares and the newest rows, as on the board.
+      await page.evaluate(() => window.scrollTo(0, 0))
       await page.screenshot({ path: shot('Messages') })
 
       await page.goto(at(`#/pages/message/notice?id=${NOTICE_ID}`))

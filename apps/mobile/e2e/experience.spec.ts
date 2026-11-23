@@ -266,16 +266,18 @@ test.describe('场馆详情', () => {
     ])
 
     // S4-4（体验 1.5.0）：设备关联商品在东营的价格和在售家数（画板 VenueDevices），数字来自商城开发数据。
+    // 巡检机器狗在东营有两家出租：示例设备租赁商（R__dev_mall_catalog）和示例机器人商家（R__dev_mall_rental_offers），
+    // 和商城卡片的“租赁 · 2 家”一致。
     await expect(page.locator('.venue-devices__offer')).toHaveText([
       /¥1,299\s*起\s*3 家在售/,
-      /¥380\s*\/天\s*租赁 · 1 家/,
+      /¥380\s*\/天\s*租赁 · 2 家/,
     ])
     await page.getByTestId('venue-devices-tab-all').click()
     await expect(page.locator('.venue-devices__card')).toHaveCount(6)
     await expect(page.locator('.venue-devices__offer')).toHaveText([
       /¥1,299\s*起\s*3 家在售/,
       /¥4,999\s*起\s*2 家在售/,
-      /¥380\s*\/天\s*租赁 · 1 家/,
+      /¥380\s*\/天\s*租赁 · 2 家/,
       /¥386\s*1 家在售/,
       /¥460\s*1 家在售/,
       /询价\s*按项目报价/,

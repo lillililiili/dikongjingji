@@ -28,8 +28,10 @@ test.describe('M01 热门巡检服务', () => {
     const firstCard = page.locator('.hot-service-card').first()
     await expect(firstCard).toBeVisible()
     await expect(firstCard.getByTestId('hot-service-provider')).toHaveText('云翼科技')
-    // 分类名不再占这一行。
-    await expect(firstCard).not.toContainText('电力 ')
+    // 分类名不再占这一行（只看这一行：标题“电力输电线路无人机巡检”本身就带“电力”，
+    // 而 toContainText 会把 '电力 ' 末尾的空格去掉）。
+    await expect(firstCard.locator('.hot-service-card__tag')).toHaveCount(1)
+    await expect(firstCard.locator('.hot-service-card__tag')).not.toContainText('电力')
   })
 
   test('HOT-102 从详情返回，回到专业服务频道', async ({ page }) => {

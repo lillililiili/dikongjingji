@@ -59,6 +59,10 @@ function closeLocally(enrollmentId, orderId, session, people) {
 }
 
 function cleanup() {
+  const names = CHILD_NAMES.map((n) => `'${n}'`).join(',');
+  // 这次建的报名，加上以前（比如上次清理失败）用同样两个参与人建的，和 aftersale.cjs 一样。
+  psql(`SELECT DISTINCT t.enrollment_id FROM activity_enrollment_ticket t JOIN activity_participant p ON p.id = t.participant_id
+        WHERE p.owner_id = '${BUYER}' AND p.name IN (${names})`).split('\n').filter(Boolean).forEach((id) => created.add(id));
   const ids = [...created].map((id) => `'${id}'`).join(',');
   if (ids) {
     // 先把还占着名额的凭证还回去，再删。
@@ -70,11 +74,12 @@ function cleanup() {
        WHERE s.id = t.session_id;
       DELETE FROM activity_enrollment_event WHERE enrollment_id IN (${ids});
       DELETE FROM activity_enrollment_ticket WHERE enrollment_id IN (${ids});
+      -- 活动 V006（S5-3）起每次取消记一条退改记录，指向报名单；凭证指向它，所以在凭证之后、报名单之前删。
+      DELETE FROM activity_enrollment_change WHERE enrollment_id IN (${ids});
       DELETE FROM activity_enrollment WHERE id IN (${ids});
       COMMIT;
     `);
   }
-  const names = CHILD_NAMES.map((n) => `'${n}'`).join(',');
   psql(`DELETE FROM activity_participant p WHERE owner_id = '${BUYER}' AND name IN (${names})
         AND NOT EXISTS (SELECT 1 FROM activity_enrollment_ticket t WHERE t.participant_id = p.id)`);
   cleanupBuyer();

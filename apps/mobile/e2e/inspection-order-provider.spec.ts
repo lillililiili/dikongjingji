@@ -36,6 +36,15 @@ const ORDERS = [
   order('3', null),
 ]
 
+const EMPTY_LISTS = [
+  '/trade/orders',
+  '/trade/aftersales',
+  '/rental-orders',
+  '/service-orders',
+  '/activity-enrollments',
+  '/venue-bookings',
+]
+
 async function stubApi(page: Page): Promise<void> {
   await page.addInitScript(() => localStorage.setItem('inspection.accessToken', 'e2e-token'))
   await page.route('**/api/v1/**', async (route) => {
@@ -44,7 +53,14 @@ async function stubApi(page: Page): Promise<void> {
       await route.fulfill({ status: 204, headers: CORS })
       return
     }
-    if (new URL(request.url()).pathname.endsWith('/inspection/reservations')) {
+    const pathname = new URL(request.url()).pathname
+    // “我的订单” reads every order list together and shows 加载失败 when one of them fails, so the
+    // others are there and empty (goods, after-sales, rentals, service orders, sign-ups, venue visits).
+    if (EMPTY_LISTS.some((path) => pathname.endsWith(path))) {
+      await route.fulfill({ headers: CORS, json: { items: [], page: 1, size: 20, total: 0, hasMore: false } })
+      return
+    }
+    if (pathname.endsWith('/inspection/reservations')) {
       await route.fulfill({
         headers: CORS,
         json: {

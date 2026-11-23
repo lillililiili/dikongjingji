@@ -3,6 +3,36 @@ import { BUYER, psql } from './trade-fixtures'
 const buyerId = `(SELECT id FROM identity_user WHERE login_name = '${BUYER}')`
 
 /**
+ * SQL that deletes what hangs on the enrolments listed in `table` (a temp table with an `id` column):
+ * check-in records (S3-3) and, from activity V006 (S5-3), recorded results, team details, waitlist
+ * entries that became these enrolments, the tickets and the refund / reschedule records they point at.
+ * It runs after seats are given back and before the enrolments are deleted; tables a backend does
+ * not have yet are skipped.
+ */
+export function enrollmentDependentsSql(table: string): string {
+  return `
+    DO $$
+    BEGIN
+      IF to_regclass('activity_checkin_record') IS NOT NULL THEN
+        DELETE FROM activity_checkin_record WHERE ticket_id IN (
+          SELECT id FROM activity_enrollment_ticket WHERE enrollment_id IN (SELECT id FROM ${table}));
+      END IF;
+      IF to_regclass('activity_enrollment_change') IS NOT NULL THEN
+        DELETE FROM activity_ticket_result WHERE ticket_id IN (
+          SELECT id FROM activity_enrollment_ticket WHERE enrollment_id IN (SELECT id FROM ${table}));
+        DELETE FROM activity_enrollment_team WHERE enrollment_id IN (SELECT id FROM ${table});
+        DELETE FROM activity_waitlist_member WHERE waitlist_id IN (
+          SELECT id FROM activity_waitlist WHERE enrollment_id IN (SELECT id FROM ${table}));
+        DELETE FROM activity_waitlist WHERE enrollment_id IN (SELECT id FROM ${table});
+        -- Events point at tickets, tickets at the change that cancelled or issued them.
+        DELETE FROM activity_enrollment_event WHERE enrollment_id IN (SELECT id FROM ${table});
+        DELETE FROM activity_enrollment_ticket WHERE enrollment_id IN (SELECT id FROM ${table});
+        DELETE FROM activity_enrollment_change WHERE enrollment_id IN (SELECT id FROM ${table});
+      END IF;
+    END $$;`
+}
+
+/**
  * Deletes dev-customer's free enrolments (those without a trade order) with their tickets and
  * events, and the children the tests removed through the API (status DELETED, kept by the server
  * because tickets pointed at them). Tickets still holding a place give it back to their session first.
@@ -25,14 +55,8 @@ export function purgeFreeEnrollments(options: { onlyCancelled?: boolean } = {}):
       FROM (SELECT session_id, count(*) AS n FROM activity_enrollment_ticket
             WHERE enrollment_id IN (SELECT id FROM e2e_free_enrollments) AND status <> 'CANCELLED' GROUP BY session_id) t
      WHERE s.id = t.session_id;
-    -- 核销工作台（S3-3）的记录指向凭证，先删（表还没建时跳过）。
-    DO $$
-    BEGIN
-      IF to_regclass('activity_checkin_record') IS NOT NULL THEN
-        DELETE FROM activity_checkin_record WHERE ticket_id IN (
-          SELECT id FROM activity_enrollment_ticket WHERE enrollment_id IN (SELECT id FROM e2e_free_enrollments));
-      END IF;
-    END $$;
+    -- 核销记录（S3-3）、退改记录和候补（S5-3）指向凭证或报名单，先删（表还没建时跳过）。
+    ${enrollmentDependentsSql('e2e_free_enrollments')}
     DELETE FROM activity_enrollment_event WHERE enrollment_id IN (SELECT id FROM e2e_free_enrollments);
     DELETE FROM activity_enrollment_ticket WHERE enrollment_id IN (SELECT id FROM e2e_free_enrollments);
     DELETE FROM activity_enrollment WHERE id IN (SELECT id FROM e2e_free_enrollments);

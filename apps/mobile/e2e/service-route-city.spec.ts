@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { markCityOpen } from './support/city-fixtures'
+
 const SERVICE_ID = '33333333-3333-3333-3333-333333333333'
 const SERVICES_PATH = '/api/v1/inspection/services'
 const DETAIL_PATH = `${SERVICES_PATH}/${SERVICE_ID}`
@@ -98,6 +100,8 @@ test.describe('M03、M04 从路由恢复城市', () => {
   test('SRV-103 用户切城后前进回 M03，沿用切换后的城市', async ({ page }) => {
     const details = collectRequests(page, DETAIL_PATH)
     const services = collectRequests(page, SERVICES_PATH)
+    // 最后回到首页“专业服务”：开发种子里济南“筹备中”时首页没有这个频道（PICK-007），这里当作已开通。
+    await markCityOpen(page, '370100')
 
     await openCatalogFromHome(page)
     await page.locator('[data-testid^="catalog-service-"]').first().click()

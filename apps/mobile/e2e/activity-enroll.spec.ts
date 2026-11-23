@@ -327,9 +327,14 @@ test.describe('免费活动报名', () => {
     await expect(card).toContainText('待参加')
     await expect(card.locator('.enrollments__who')).toHaveText('参与人：王女士（示例）')
 
-    // 列表里取消整张报名单。
+    // 列表里取消整张报名单。S5-3 起列表的按钮是“申请退改”：进申请退改页（默认取消报名、勾着剩下的人），
+    // 确认后到退改详情，返回回到列表。
     await card.locator('.enrollments__action').first().click()
+    await expect(page.getByTestId('activity-refund')).toBeVisible()
+    await page.getByTestId('activity-refund-submit').click()
     await page.locator('.uni-modal__btn_primary').click()
+    await expect(page.getByTestId('activity-change-status')).toBeVisible()
+    await page.getByTestId('activity-change-back').click()
     await expect(page.getByTestId('enrollments-empty')).toBeVisible()
   })
 
@@ -414,7 +419,9 @@ test.describe('免费活动报名', () => {
     await expect(page.getByTestId('ticket-stamp')).toHaveText('已核销')
     await expect(page.locator('.ticket__hint')).toHaveText('已于 11/29 13:42 核销，不能重复使用')
     await expect(page.getByTestId('ticket-cancel')).toHaveCount(0)
-    await expect(page.getByTestId('ticket-open-activity')).toBeVisible()
+    // S5-3：签到以后下面是“查看结果记录”（活动结果页），不再是“查看活动”。
+    await expect(page.getByTestId('ticket-open-result')).toBeVisible()
+    await expect(page.getByTestId('ticket-open-activity')).toHaveCount(0)
 
     await serve((body) => {
       body.status = 'FINISHED'

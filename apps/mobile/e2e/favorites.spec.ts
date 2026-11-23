@@ -145,8 +145,10 @@ test.describe('收藏与对比', () => {
     await page.goto(`/#/pages/mall/product?productId=${KIT}&cityCode=${CITY}`)
     await expect(page.getByTestId('mall-product-name')).toHaveText('编程机器人探索套装')
     await favoriteHere(page)
-    await page.goto(`/#/pages/mall/product?productId=${ARM}&cityCode=${CITY}`)
-    await expect(page.getByTestId('mall-product-name')).toBeVisible()
+    // Same page, other query: a hash-only change keeps the open product page (H5 reads the query on
+    // load), so this one loads the document again.
+    await page.goto(`/?n=arm#/pages/mall/product?productId=${ARM}&cityCode=${CITY}`)
+    await expect(page.getByTestId('mall-product-name')).toContainText('桌面六轴机械臂')
     await favoriteHere(page)
     await page.goto(`/#/pages/service/inspection/detail?serviceId=${POWER_INSPECTION}&cityCode=${CITY}`)
     await expect(page.getByTestId('inspection-detail')).toBeVisible()
@@ -177,10 +179,10 @@ test.describe('收藏与对比', () => {
     await page.goto('/#/pages/mine/index')
     await page.getByTestId('mine-link-favorites').click()
     await expect(page).toHaveURL(/pages\/mine\/favorites/)
-    await expect(page.getByTestId('favorites-tab-goods')).toContainText('商品 2')
-    await expect(page.getByTestId('favorites-tab-service')).toContainText('服务 2')
-    await expect(page.getByTestId('favorites-tab-event')).toContainText('活动 2')
-    await expect(page.getByTestId('favorites-tab-content')).toContainText('内容 2')
+    await expect(page.getByTestId('favorites-tab-goods')).toContainText(/商品\s*2/)
+    await expect(page.getByTestId('favorites-tab-service')).toContainText(/服务\s*2/)
+    await expect(page.getByTestId('favorites-tab-event')).toContainText(/活动\s*2/)
+    await expect(page.getByTestId('favorites-tab-content')).toContainText(/内容\s*2/)
     // Newest first.
     const goods = page.locator('[data-testid^="favorite-c2000000"]')
     await expect(goods).toHaveCount(2)
@@ -199,11 +201,11 @@ test.describe('收藏与对比', () => {
     await expect(page.getByTestId(`favorite-${VIDEO_ROBOT}`)).toContainText('视频')
     await page.getByTestId(`favorite-${CASE_DOG}`).getByTestId('favorite-remove').click()
     await expect(page.getByTestId(`favorite-${CASE_DOG}`)).toHaveCount(0)
-    await expect(page.getByTestId('favorites-tab-content')).toContainText('内容 1')
+    await expect(page.getByTestId('favorites-tab-content')).toContainText(/内容\s*1/)
     await expect(page.getByTestId('favorites-undo')).toContainText('已取消收藏')
     await page.getByTestId('favorites-undo-action').click()
     await expect(page.getByTestId(`favorite-${CASE_DOG}`)).toBeVisible()
-    await expect(page.getByTestId('favorites-tab-content')).toContainText('内容 2')
+    await expect(page.getByTestId('favorites-tab-content')).toContainText(/内容\s*2/)
     await expect(page.getByTestId('favorites-undo')).toHaveCount(0)
     expect(favoriteRows()).toBe('ACTIVITY:on,CONTENT:on,CONTENT:on,INSPECTION_SERVICE:on,PRODUCT:on,PRODUCT:on,PRO_SERVICE:on,VENUE:on')
   })
@@ -247,7 +249,9 @@ test.describe('收藏与对比', () => {
     await page.getByTestId('mall-category-drone').click()
     await expect(page.getByTestId(`mall-product-${DRONE}`)).toBeVisible()
     await expect(compareCheckOf(page, DRONE)).toHaveAttribute('aria-disabled', 'true')
-    await compareCheckOf(page, DRONE).click()
+    // A blocked box still explains itself when tapped; Playwright reads aria-disabled as "not
+    // enabled" and would wait for ever, so the tap is forced.
+    await compareCheckOf(page, DRONE).click({ force: true })
     await expect(page.getByText('只能对比同一类目的商品，请先取消已选的')).toBeVisible()
     await expect(compareCheckOf(page, DRONE)).toHaveAttribute('data-checked', 'false')
 

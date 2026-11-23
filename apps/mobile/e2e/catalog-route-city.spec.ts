@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { markCityOpen } from './support/city-fixtures'
+
 const SERVICES_PATH = '/api/v1/inspection/services'
 const CITIES_PATH = '/api/v1/platform/cities'
 const CATALOG_ROUTE = '/#/pages/service/inspection/catalog'
@@ -104,6 +106,9 @@ test.describe('M02 从路由恢复城市', () => {
   })
 
   test('CAT-107 深链恢复的城市带回首页', async ({ page }) => {
+    // 开发种子按画板 CitySheet 把济南标成“筹备中”，首页就只留推荐、体验、商城（PICK-007）。
+    // 这里只看城市有没有带回首页，所以把济南当作已开通。
+    await markCityOpen(page, '370100')
     await page.goto(`${CATALOG_ROUTE}?cityCode=370100&categoryCode=POWER`)
     await expectCatalogLoaded(page, '济南市')
 
