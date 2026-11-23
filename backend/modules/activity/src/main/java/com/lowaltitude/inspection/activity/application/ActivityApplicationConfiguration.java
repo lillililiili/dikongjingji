@@ -2,7 +2,10 @@ package com.lowaltitude.inspection.activity.application;
 
 import java.time.Clock;
 
+import com.lowaltitude.inspection.activity.application.ops.ActivityOpsPorts;
+import com.lowaltitude.inspection.activity.application.ops.ActivityOpsService;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityCatalogMapper;
+import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityOpsMapper;
 import com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityEnrollmentMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.ObjectProvider;
@@ -48,5 +51,15 @@ public class ActivityApplicationConfiguration {
                 payments.getIfAvailable(ActivityPaymentPort::unavailable),
                 new TransactionTemplate(transactionManager),
                 notifier.getIfAvailable(ActivityEnrollmentNotifier::none));
+    }
+
+    /** 运营端“活动与场次”（S3-1）：机构和城市两个端口由启动模块接（ActivityOpsPortsConfiguration）。 */
+    @Bean
+    ActivityOpsService activityOpsService(
+            ActivityOpsMapper mapper,
+            ActivityOpsPorts.Organizations organizations,
+            ActivityOpsPorts.Cities cities
+    ) {
+        return new ActivityOpsService(mapper, organizations, cities);
     }
 }
