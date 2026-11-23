@@ -18,6 +18,8 @@ defineProps<{
 defineEmits<{
   selectFilter: [code: string]
   viewAll: []
+  // A review picture was tapped (preview builds open the picture viewer, plan 08 S5-10).
+  viewImage: [review: DetailReview, index: number]
 }>()
 const STAR = 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z'
 </script>
@@ -105,6 +107,8 @@ const STAR = 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1
               mode="aspectFill"
               lazy-load
               :aria-label="`${review.maskedUserName}的现场评价图片${index + 1}`"
+              :data-testid="`review-image-${review.id}-${index}`"
+              @click="$emit('viewImage', review, index)"
             />
           </view>
         </article>

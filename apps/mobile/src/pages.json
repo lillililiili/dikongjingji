@@ -428,6 +428,48 @@
       }
     },
     {
+      "path": "pages/search/index",
+      "style": {
+        "navigationBarTitleText": "搜索",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/search/results",
+      "style": {
+        "navigationBarTitleText": "搜索结果",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/order-search",
+      "style": {
+        "navigationBarTitleText": "搜索订单",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/place/map-pick",
+      "style": {
+        "navigationBarTitleText": "地图选点",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/scan/index",
+      "style": {
+        "navigationBarTitleText": "扫一扫",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/common/photo-viewer",
+      "style": {
+        "navigationBarTitleText": "查看图片",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/content/article",
       "style": {
         "navigationBarTitleText": "内容",

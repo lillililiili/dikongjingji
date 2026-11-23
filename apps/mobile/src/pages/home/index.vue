@@ -38,6 +38,16 @@ import HomeRecommendBlocks from '@/features/recommend/presentation/HomeRecommend
 import { PLATFORM_PREVIEW_ENABLED } from '@/features/platform/application/platform-preview'
 import type { PlatformFeatureIntent } from '@/features/platform/domain/platform-feature-intent'
 import PlatformServiceChannel from '@/features/platform/presentation/service/PlatformServiceChannel.vue'
+import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
+import { CLOSED_CITY_CHANNELS, type CityOpening } from '@/features/platform/application/city-opening'
+import { cityOpeningLoader } from '@/features/platform/data/city-opening-client'
+import CityClosedPanel from '@/features/platform/presentation/closed/CityClosedPanel.vue'
+import { SCAN_PATH } from '@/features/scan/navigation/scan-routes'
+import { SEARCH_PREVIEW_ENABLED } from '@/features/search/application/search-preview'
+import {
+  buildSearchPreUrl,
+  searchScopeOfHomeChannel,
+} from '@/features/search/navigation/search-routes'
 import { resolveCurrentCity } from '@/shared/city/application/resolve-current-city'
 import CitySelectionSheet from '@/shared/city/presentation/CitySelectionSheet.vue'
 import { useCitySheet } from '@/shared/city/presentation/use-city-sheet'
@@ -102,11 +112,78 @@ const CHANNELS_WITH_CONTENT: readonly HomeChannelCode[] = [
 const isPlaceholderChannel = computed(() =>
   !CHANNELS_WITH_CONTENT.includes(activeChannel.value),
 )
+// Board CityClosed (preview builds, plan 08 S5-10): a city with nothing local keeps only the
+// nationwide channels and shows the 筹备中 card on 推荐. See features/platform/application/city-opening.ts.
+const cityOpening = ref<CityOpening>('UNKNOWN')
+let openingCityCode: string | null = null
+const cityClosed = computed(() => PLACE_PREVIEW_ENABLED && cityOpening.value === 'PREPARING')
+const headerChannels = computed(() => (cityClosed.value
+  ? visibleChannels.filter((channel) => (CLOSED_CITY_CHANNELS as readonly string[]).includes(channel.code))
+  : visibleChannels))
+// The open city a closed one offers to switch to: the App's default city.
+const openCity = computed<CurrentCity | null>(() => {
+  const fallback = defaultCity()
+  return fallback.code === currentCityStore.currentCity?.code ? null : fallback
+})
+
+watch(cityClosed, (closed) => {
+  if (closed && !(CLOSED_CITY_CHANNELS as readonly string[]).includes(activeChannel.value)) selectChannel('RECOMMEND')
+})
+
+function switchToOpenCity(): void {
+  if (!openCity.value) return
+  currentCityStore.setCurrentCity(openCity.value)
+  void loadHomeContent()
+}
+
+function notifyWhenOpen(): void {
+  uni.showToast({ title: '城市开通提醒尚未上线，开通后首页会直接显示本地内容', icon: 'none' })
+}
+
+function openNationwide(target: 'EXPERIENCE' | 'MALL' | 'COURSE'): void {
+  if (target === 'COURSE') {
+    openEntry({ type: 'CHANNEL', channel: 'MALL', mallCategory: 'COURSE' })
+    return
+  }
+  selectChannel(target)
+}
+
 const searchPlaceholder = computed(() =>
-  (activeChannel.value === 'MALL' ? mallSearchPlaceholder.value : null)
+  (cityClosed.value && activeChannel.value === 'RECOMMEND' ? '搜索全国发货商品与线上体验' : null)
+    ?? (activeChannel.value === 'MALL' ? mallSearchPlaceholder.value : null)
     ?? serviceSearchPlaceholder.value
     ?? resolveHomeSearchPlaceholder(activeChannel.value, PLATFORM_PREVIEW_ENABLED),
 )
+// Preview builds (S5-1): every channel's box opens the search page except 专业服务, whose box
+// keeps going straight to the inspection catalog (AGENTS §9).
+const searchEntry = computed(() => SEARCH_PREVIEW_ENABLED && activeChannel.value !== 'SERVICE')
+
+function openSearchPage(): void {
+  uni.navigateTo({ url: buildSearchPreUrl({ scope: searchScopeOfHomeChannel(activeChannel.value) }) })
+}
+
+// Preview builds open the scan landing page (board Scan); public builds hide the button.
+function openScan(): void {
+  if (PLACE_PREVIEW_ENABLED) {
+    uni.navigateTo({ url: SCAN_PATH })
+    return
+  }
+  handleIntent({ type: 'SCAN' })
+}
+
+// A mall tab or keyword asked for by the search pages (按类目找, 在商城里筛选).
+function takePendingMall(): void {
+  const request = channelStore.takePendingMall()
+  if (!request) return
+  if (request.category) {
+    requestedMallCategory.value = {
+      category: request.category,
+      token: (requestedMallCategory.value?.token ?? 0) + 1,
+    }
+  }
+  searchMall(request.keyword)
+}
+
 const cityName = computed(
   () => currentCityStore.currentCity?.name ?? '选择城市',
 )
@@ -125,11 +202,15 @@ const {
   isRelocating,
 } = citySheet
 
-function restoreDefaultCity(): CurrentCity {
-  if (currentCityStore.currentCity) return currentCityStore.currentCity
+function defaultCity(): CurrentCity {
   const code = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_CODE?.trim()
   const name = import.meta.env.VITE_INSPECTION_DEFAULT_CITY_NAME?.trim()
-  const city = code && name ? { code, name } : DEFAULT_CITY
+  return code && name ? { code, name } : DEFAULT_CITY
+}
+
+function restoreDefaultCity(): CurrentCity {
+  if (currentCityStore.currentCity) return currentCityStore.currentCity
+  const city = defaultCity()
   currentCityStore.setCurrentCity(city)
   return city
 }
@@ -170,6 +251,14 @@ async function loadHomeContent(): Promise<void> {
       loadDirectory: () => platformCityApi.load(),
       restoreDefaultCity,
     })
+    if (PLACE_PREVIEW_ENABLED) {
+      // Another city's answer is not kept while this one's is read.
+      if (openingCityCode !== city.code) cityOpening.value = 'UNKNOWN'
+      openingCityCode = city.code
+      void cityOpeningLoader.load(city.code).then((opening) => {
+        if (requestVersion === contentRequestVersion) cityOpening.value = opening
+      })
+    }
     const portal = await inspectionCatalogApi.loadPortal(city.code)
     if (requestVersion !== contentRequestVersion) return
     state.value = resolvePlatformHomeState({
@@ -283,6 +372,7 @@ onReachBottom(() => {
 
 onShow(() => {
   pageVisible.value = true
+  takePendingMall()
   void loadHomeContent()
   void nextTick(() => restoreChannelScroll(activeChannel.value))
 })
@@ -301,17 +391,28 @@ onHide(() => {
     <HomeHeader
       v-model:keyword="keyword"
       :city-name="cityName"
-      :channels="visibleChannels"
+      :channels="headerChannels"
       :active-channel="activeChannel"
       :search-placeholder="searchPlaceholder"
       :show-scan="PLATFORM_PREVIEW_ENABLED"
+      :search-entry="searchEntry"
       @select-city="citySheet.open"
       @select-channel="selectChannel"
       @search="submitSearch"
-      @scan="handleIntent({ type: 'SCAN' })"
+      @scan="openScan"
+      @open-search="openSearchPage"
     />
 
-    <view v-show="activeChannel === 'RECOMMEND'">
+    <view v-if="cityClosed" v-show="activeChannel === 'RECOMMEND'">
+      <CityClosedPanel
+        :city-name="currentCityStore.currentCity?.name ?? ''"
+        :open-city-name="openCity?.name ?? null"
+        @switch-city="switchToOpenCity"
+        @notify="notifyWhenOpen"
+        @open="openNationwide"
+      />
+    </view>
+    <view v-else v-show="activeChannel === 'RECOMMEND'">
       <PlatformHomePage
         :state="state"
         :cards="channelCards"

@@ -71,6 +71,8 @@ const emit = defineEmits<{
   filterChange: [tab: MyOrderTab, chip: MyOrderChip | null]
   // A reload finished (the host stops the pull-down spinner).
   loaded: []
+  // The search icon of the head (board OrderList → OrderSearch).
+  search: []
 }>()
 
 type ListState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error' }
@@ -271,9 +273,14 @@ onBeforeUnmount(() => {
 <template>
   <view class="my-orders" data-testid="my-orders">
     <view class="my-orders__top">
-      <!-- Board OrderList: the theme's gradient head with a centred title (the board's search is
-           not built), four business tabs and five status chips. -->
+      <!-- Board OrderList: the theme's gradient head with a centred title and the search icon
+           (OrderSearch), four business tabs and five status chips. -->
       <AppPageHeader title="我的订单" centered test-id="my-orders" @back="emit('back')">
+        <template #actions>
+          <button class="my-orders__search" data-testid="my-orders-search" aria-label="搜索订单" @click="emit('search')">
+            <LineIcon name="search" :size="22" color="#202c42" :stroke-width="2" />
+          </button>
+        </template>
         <template #bottom>
           <view class="my-orders__tabs" role="tablist" aria-label="业务类型">
             <button
@@ -355,6 +362,22 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.my-orders__search {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+}
+
+.my-orders__search::after {
+  border: 0;
+}
+
 /* Sizes and colours copied from the 2026-11-14 board OrderList (390 wide). */
 .my-orders {
   display: flex;

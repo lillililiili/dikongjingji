@@ -2,6 +2,11 @@
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import { providerCredentialLabel } from '@/shared/ui/qualification'
 import { computed, ref, watch } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+
+import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
+import { buildMapPickUrl } from '@/features/place/navigation/place-routes'
+import { createMapPickRequestId, useMapPickResultStore } from '@/features/place/state/map-pick-result'
 
 import { platformCityApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import CitySelectionSheet from '@/shared/city/presentation/CitySelectionSheet.vue'
@@ -281,6 +286,30 @@ function budgetPicked(minMinor: number | null, maxMinor: number | null): boolean
 function readValue(event: Event): string {
   return (event as Event & { detail?: { value?: string } }).detail?.value?.toString() ?? ''
 }
+
+// 地图选点 next to the address (board Demand → MapPick, preview builds): the picked place's address
+// fills the box; the city stays the one chosen on the left.
+const mapPickResults = useMapPickResultStore()
+let mapPickRequestId: string | null = null
+
+function openMapPick(): void {
+  const city = form.value.city
+  if (!city) {
+    citySheet.open()
+    return
+  }
+  mapPickRequestId = createMapPickRequestId()
+  uni.navigateTo({ url: buildMapPickUrl({ purpose: 'DEMAND', requestId: mapPickRequestId, cityCode: city.code, cityName: city.name }) })
+}
+
+onShow(() => {
+  if (!mapPickRequestId) return
+  const place = mapPickResults.take(mapPickRequestId)
+  if (!place) return
+  mapPickRequestId = null
+  form.value = { ...form.value, address: place.address.slice(0, DEMAND_ADDRESS_MAX) }
+  if (fieldError.value?.field === 'address') clearError()
+})
 
 function setAddress(event: Event): void {
   form.value = { ...form.value, address: readValue(event) }
@@ -609,6 +638,15 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
               @input="setAddress"
               @blur="setAddress"
             >
+            <button
+              v-if="PLACE_PREVIEW_ENABLED"
+              class="demand-publish__map"
+              data-testid="demand-map-pick"
+              aria-label="地图选点"
+              @click="openMapPick"
+            >
+              <LineIcon name="pin" :size="18" color="#738096" :stroke-width="1.8" />
+            </button>
           </view>
           <view class="demand-publish__row demand-publish__row--line">
             <text :class="['demand-publish__label', { 'demand-publish__label--invalid': invalid('scope') }]">
@@ -875,6 +913,23 @@ watch(() => [props.accessToken, props.target.demandId, props.target.from, props.
 </template>
 
 <style scoped>
+.demand-publish__map {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  justify-content: flex-end;
+  border: 0;
+  background: transparent;
+}
+
+.demand-publish__map::after {
+  border: 0;
+}
+
 /* Sizes and colours follow the 2026-11-14 prototype board Demand (390 wide). */
 .demand-publish {
   display: flex;

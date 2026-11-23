@@ -4,6 +4,8 @@ import { computed, ref } from 'vue'
 import type { SupportTarget } from '@/features/support/navigation/support-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import { ApiRequestError } from '@/shared/http/public-api-request'
+import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
+import { openPhotoViewer } from '@/shared/photo/photo-viewer'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
 import LineIcon from '@/shared/ui/LineIcon.vue'
@@ -71,6 +73,19 @@ const cover = computed(() => {
   if (current.coverImage) return { ...current.coverImage, cutout: false }
   return resolveArticlePreviewCover(current.articleId)
 })
+
+// Tapping the head picture opens it in the shared viewer (board PhotoViewer, preview builds).
+function openCover(): void {
+  const current = article.value
+  const picture = cover.value
+  if (!PLACE_PREVIEW_ENABLED || !current || !picture) return
+  openPhotoViewer({
+    title: current.title,
+    subtitle: current.author.name,
+    startIndex: 0,
+    photos: [{ url: picture.url, alt: picture.alt, tag: '' }],
+  })
+}
 
 // Icons copied from the board ContentArticle.
 const ICONS = {
@@ -176,7 +191,7 @@ void load()
     <template v-else-if="article && tone">
       <!-- The head picture is always cropped to fill, a product shot too (board ContentKnow2). -->
       <view v-if="cover" class="article__hero" data-testid="content-article-hero">
-        <image class="article__hero-image" :src="cover.url" mode="aspectFill" :aria-label="cover.alt" />
+        <image class="article__hero-image" :src="cover.url" mode="aspectFill" :aria-label="cover.alt" data-testid="content-article-hero-image" @click="openCover" />
         <view class="article__hero-tags">
           <text class="article__hero-tag">{{ CONTENT_KIND_LABELS[article.kind] }}</text>
         </view>
