@@ -134,6 +134,14 @@ public final class ModuleFlywayFactory {
                 true);
     }
 
+    public Flyway course(DataSource dataSource) {
+        return build(
+                dataSource,
+                "classpath:db/migration/course",
+                "flyway_history_course",
+                true);
+    }
+
     private static Flyway build(DataSource dataSource, String location, String historyTable, boolean baselineOnMigrate) {
         return Flyway.configure()
                 .dataSource(dataSource)

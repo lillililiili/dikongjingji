@@ -20,7 +20,7 @@ public class MallTradeCheckoutConfiguration {
 
     @Bean
     TradeCheckoutPort mallTradeCheckout(MallCartService carts, AccountAddressService addresses,
-                                        MallInquiryService inquiries) {
+                                        MallInquiryService inquiries, MallCatalogReadService catalog) {
         return new TradeCheckoutPort() {
             @Override
             public CheckoutQuote quote(UUID accountId, CheckoutRequest request) {
@@ -48,6 +48,9 @@ public class MallTradeCheckoutConfiguration {
                         .map(DeliveryOptionView::note)
                         .findFirst()
                         .orElse(null);
+                // S4-4：开票方、售后责任方和七天无理由，按下单这一刻的供给和商家资料记成快照。
+                java.util.Map<UUID, MallCatalogReadService.MallTradeTermsView> terms = catalog.tradeTerms(
+                        preview.lines().stream().map(CheckoutLineView::offerId).toList());
                 return new CheckoutQuote(
                         preview.merchant().organizationId(),
                         preview.merchant().name(),
@@ -61,7 +64,8 @@ public class MallTradeCheckoutConfiguration {
                                         line.coverImage() == null ? null : line.coverImage().url(),
                                         line.unitAmountMinor(),
                                         line.quantity(),
-                                        line.subtotalMinor()))
+                                        line.subtotalMinor(),
+                                        terms.get(line.offerId()) == null || terms.get(line.offerId()).noReasonReturn()))
                                 .toList(),
                         mode,
                         pickupPoint,
@@ -69,7 +73,16 @@ public class MallTradeCheckoutConfiguration {
                         preview.amounts().goodsMinor(),
                         preview.amounts().shippingMinor(),
                         preview.amounts().payableMinor(),
-                        previousOrderId);
+                        previousOrderId,
+                        preview.fulfilledFrom(),
+                        joinDistinct(preview.lines().stream()
+                                .map(line -> terms.get(line.offerId()))
+                                .map(term -> term == null ? null : term.invoiceIssuer())
+                                .toList()),
+                        joinDistinct(preview.lines().stream()
+                                .map(line -> terms.get(line.offerId()))
+                                .map(term -> term == null ? null : term.aftersaleParty())
+                                .toList()));
             }
 
             @Override
@@ -84,6 +97,16 @@ public class MallTradeCheckoutConfiguration {
                 }
             }
         };
+    }
+
+    /** 几行不同时用“；”连起来（和发货仓的写法一样）；都没有时为 null。 */
+    static String joinDistinct(List<String> values) {
+        String joined = values.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(String::trim)
+                .distinct()
+                .collect(java.util.stream.Collectors.joining("；"));
+        return joined.isEmpty() ? null : joined;
     }
 
     private static TradeCheckoutPort.AddressSnapshot snapshot(AddressView address) {

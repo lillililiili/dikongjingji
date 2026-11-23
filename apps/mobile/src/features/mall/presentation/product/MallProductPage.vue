@@ -38,8 +38,9 @@ import {
   resolveMallPrimaryAction,
 } from '../../application/mall-intent'
 import { MALL_PREVIEW_ENABLED } from '../../application/mall-preview'
+import { productAfterSales } from '../../application/product-aftersales'
 import { mallApi } from '../../data/mall-api-client'
-import { CART_TAB_PATH, buildMallProductUrl } from '../../navigation/mall-routes'
+import { CART_TAB_PATH, buildMallMerchantUrl, buildMallProductUrl } from '../../navigation/mall-routes'
 import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import type { DeliveryMode } from '../../domain/cart'
 import type { MallOffer, MallProductDetail } from '../../domain/mall'
@@ -191,7 +192,10 @@ const parties = computed(() => {
     fulfilledFrom: offer.fulfilledFrom,
     sellerTestId: 'mall-product-seller',
   }
-  const rows = saleMode.value === 'RENT' ? rentalParties(input) : goodsParties(input)
+  // 开票方 and 售后责任 of the chosen offer (catalog 1.4.0), board PdFull's five rows.
+  const rows = saleMode.value === 'RENT'
+    ? rentalParties(input)
+    : goodsParties({ ...input, invoiceIssuer: offer.invoiceIssuer, aftersaleParty: offer.aftersaleParty })
   // Public builds take no payment, so they do not name a payee.
   return MALL_PREVIEW_ENABLED ? rows : rows.filter((row) => row.label !== '收款方')
 })
@@ -201,11 +205,24 @@ const partiesNote = computed(() => {
   if (saleMode.value === 'RENT' && count === 1) return '本商品 1 家出租'
   return '随所选商家变化'
 })
-// 售后与保障: only the two lines that promise nothing the platform has not settled (R5 #8).
-const afterSales = computed(() => [
-  { title: '平台协助', text: '与商家协商不成时，可联系平台客服协助沟通' },
-  { title: '发票', text: `由${saleMode.value === 'RENT' ? '出租方' : '销售方'}开具，平台不代开` },
-])
+// 售后与保障 (board PdFull): 7 天无理由 only when the product takes it, 保修 by the chosen offer's
+// after-sales party, then 平台协助 and 发票 (application/product-aftersales.ts).
+const afterSales = computed(() => productAfterSales({
+  saleMode: saleMode.value,
+  noReasonReturn: product.value?.noReasonReturn ?? false,
+  aftersaleParty: shownOffer.value?.aftersaleParty ?? null,
+}))
+// 查看商家主页与资质 › and the bar's 商家 (S5-2): the merchant of the offer on screen. An inquiry
+// product has no seller until a quote is chosen, so it has neither.
+const merchantPageUrl = computed(() => {
+  const offer = shownOffer.value
+  if (!MALL_PREVIEW_ENABLED || !offer || saleMode.value === 'INQUIRY' || !cityCode) return null
+  return buildMallMerchantUrl(offer.merchantId, cityCode)
+})
+
+function openMerchant(): void {
+  if (merchantPageUrl.value) uni.navigateTo({ url: merchantPageUrl.value })
+}
 const specNote = computed(() =>
   saleMode.value === 'INQUIRY' ? '参数由厂家填报，平台审核后展示；实际配置以报价单为准' : '参数由厂家填报，平台审核后展示')
 // The inquiry 配置 and 交付 rows: the spec the merchants quote for and how it is delivered here.
@@ -512,6 +529,18 @@ onLoad((query) => {
               :style="{ opacity: topBarProgress }"
               :aria-hidden="topBarSolid ? 'false' : 'true'"
             >{{ product.name }}</text>
+            <!-- 收藏 on the picture next to 分享: the bar keeps board PdFull's 商家 / 咨询 / 先体验 / buttons,
+                 which leave no room for it at 375 wide (plan 08 S5-6). -->
+            <FavoriteButton
+              v-if="FAVORITE_PREVIEW_ENABLED"
+              variant="float"
+              type="PRODUCT"
+              :target-id="product.productId"
+              :city-code="pageCity"
+              :return-url="buildMallProductUrl(product.productId, pageCity)"
+              :circle-style="topBarCircleStyle"
+              :icon-color="topBarIconColor"
+            />
             <button
               v-if="SUPPORT_PREVIEW_ENABLED"
               class="mall-product__float"
@@ -778,11 +807,20 @@ onLoad((query) => {
           :rows="parties"
           :note="partiesNote"
           test-id="mall-product-parties"
-        />
+        >
+          <button
+            v-if="merchantPageUrl"
+            class="mall-product__merchant-link"
+            data-testid="mall-product-merchant-link"
+            @click="openMerchant"
+          >
+            查看商家主页与资质 ›
+          </button>
+        </TradePartiesCard>
 
         <view v-if="MALL_PREVIEW_ENABLED" class="mall-product__card" data-testid="mall-product-after-sales">
           <text class="mall-product__section-title">售后与保障</text>
-          <view v-for="item in afterSales" :key="item.title" class="mall-product__after">
+          <view v-for="item in afterSales" :key="item.title" class="mall-product__after" :data-testid="`mall-product-after-${item.title}`">
             <LineIcon name="check" :size="16" color="#159a70" :stroke-width="2.2" />
             <text class="mall-product__after-text">
               <text class="mall-product__after-title">{{ item.title }}</text>
@@ -858,6 +896,15 @@ onLoad((query) => {
 
       <view v-if="MALL_PREVIEW_ENABLED && (primaryAction || noPayableOffer)" class="mall-product__actions">
         <button
+          v-if="merchantPageUrl"
+          class="mall-product__consult"
+          data-testid="mall-product-merchant"
+          @click="openMerchant"
+        >
+          <LineIcon name="store" :size="22" color="#536178" />
+          <text>商家</text>
+        </button>
+        <button
           v-if="SUPPORT_PREVIEW_ENABLED"
           class="mall-product__consult"
           data-testid="mall-product-consult"
@@ -866,15 +913,6 @@ onLoad((query) => {
           <LineIcon name="chat" :size="22" color="#536178" />
           <text>咨询</text>
         </button>
-        <!-- 收藏 next to 咨询, where board Product draws it (PdFull's 商家 slot; the merchant page is not built). -->
-        <FavoriteButton
-          v-if="FAVORITE_PREVIEW_ENABLED"
-          type="PRODUCT"
-          :target-id="product.productId"
-          :city-code="pageCity"
-          :return-url="buildMallProductUrl(product.productId, pageCity)"
-          :width="44"
-        />
         <button
           v-if="tryFirst"
           :class="['mall-product__try', { 'mall-product__try--wide': !(primaryAction?.cartAvailable && !noPayableOffer) }]"
@@ -1151,6 +1189,15 @@ button::after {
 
 .mall-product__parties {
   margin: 0 16px;
+}
+
+/* Board PdFull: a plain 13px link under the rows. */
+.mall-product__merchant-link {
+  align-self: flex-start;
+  color: #ba470b;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: left;
 }
 
 /* The first card overlaps the picture. */
@@ -1747,7 +1794,7 @@ button::after {
 }
 
 /* Sized by their words like board PdFull (flex 1 1 auto); 8px sides instead of 10 so 加入购物车 still
-   fits at 375 wide next to 咨询, 收藏 and 先体验. */
+   fits at 375 wide next to 商家, 咨询 and 先体验. */
 .mall-product__secondary,
 .mall-product__primary {
   display: flex;

@@ -75,6 +75,8 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
         // S3-1 第二部分：商品与供给、收款账户、批量导入
         com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class,
+        com.lowaltitude.inspection.mall.application.MallMerchantService.class,
+        com.lowaltitude.inspection.trade.application.TradeAftersaleService.class,
         com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
         com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
         com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,
@@ -84,6 +86,8 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
         com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
         com.lowaltitude.inspection.live.application.LiveOpsService.class,
+        // S5-5 运营端课程
+        com.lowaltitude.inspection.course.application.ops.CourseOpsService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         com.lowaltitude.inspection.application.serviceflow.InspectionPaymentService.class,
@@ -903,6 +907,51 @@ class AuthenticationSecurityIntegrationTest {
     private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {
         return List.of(get("/api/v1/ops/feedback"),
                 post("/api/v1/ops/feedback/e7000000-0000-4000-8000-000000000001/handle"));
+    }
+
+    // 课程（S5-5）：列表、线上课详情、试听不登录也能看；“我和这门课”、购买、我的课程、学习、退款都要登录和客户角色；
+    // 运营端课程只给平台运营。
+    @Test
+    void courseReadsArePublicAndEverythingElseNeedsACustomer() throws Exception {
+        com.lowaltitude.inspection.course.application.CourseService courses = applicationContext.getBean(
+                com.lowaltitude.inspection.course.application.CourseService.class);
+        UUID courseId = UUID.fromString("d7c00000-0000-4000-8000-000000000001");
+        UUID enrollmentId = UUID.fromString("d7c90000-0000-4000-8000-000000000001");
+        UUID lessonId = UUID.fromString("d7c20000-0000-4000-8000-000000000101");
+        String enrollment = "/api/v1/course-enrollments/" + enrollmentId;
+
+        mockMvc.perform(get("/api/v1/courses?cityCode=370500")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/courses/" + courseId)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/course-trials?courseId=" + courseId)).andExpect(status().isOk());
+        org.mockito.Mockito.verify(courses).list("370500", null, null, null, 1, 20);
+        org.mockito.Mockito.verify(courses).detail(courseId);
+        org.mockito.Mockito.verify(courses).trial(courseId, null);
+
+        for (var request : List.of(
+                get("/api/v1/courses/" + courseId + "/me"), post("/api/v1/course-enrollments"),
+                get("/api/v1/course-enrollments"), get(enrollment),
+                post(enrollment + "/lessons/" + lessonId + "/playback"),
+                post(enrollment + "/lessons/" + lessonId + "/completion"), post(enrollment + "/refund"),
+                post("/api/v1/courses"), get("/api/v1/ops/courses"), get("/api/v1/ops/courses/" + courseId))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+
+        String customerToken = signedToken(List.of(), 7);
+        mockMvc.perform(get("/api/v1/courses/" + courseId + "/me").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(courses).mine(SUBJECT_ID, courseId);
+        mockMvc.perform(get(enrollment).header("Authorization", "Bearer " + customerToken)).andExpect(status().isOk());
+        org.mockito.Mockito.verify(courses).enrollment(SUBJECT_ID, enrollmentId);
+        mockMvc.perform(get("/api/v1/ops/courses").header("Authorization", "Bearer " + customerToken))
+                .andExpect(status().isForbidden());
+
+        Map<String, Object> merchantClaims = validClaims(List.of(), 7);
+        merchantClaims.put("roles", List.of("PROVIDER_OPERATOR"));
+        mockMvc.perform(get(enrollment).header("Authorization", "Bearer " + signedToken(merchantClaims)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
     }
 
     private String tokenWithRoles(List<String> roles) throws Exception {
@@ -1962,6 +2011,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         com.lowaltitude.inspection.live.application.LiveService testLiveService() {
             return org.mockito.Mockito.mock(com.lowaltitude.inspection.live.application.LiveService.class);
+        }
+
+        @Bean
+        com.lowaltitude.inspection.course.application.CourseService testCourseService() {
+            return org.mockito.Mockito.mock(com.lowaltitude.inspection.course.application.CourseService.class);
         }
 
         @Bean

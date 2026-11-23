@@ -84,7 +84,8 @@ async function favoriteHere(page: Page): Promise<void> {
   await expect(button).toHaveAttribute('data-favorited', 'false')
   await button.click()
   await expect(button).toHaveAttribute('data-favorited', 'true')
-  await expect(button).toContainText('已收藏')
+  // The product page's is a round button on the picture without words; every one says it in its label.
+  await expect(button).toHaveAttribute('aria-label', '取消收藏')
 }
 
 async function openMallChannel(page: Page): Promise<void> {

@@ -64,6 +64,9 @@ interface ProductDetailDto {
     onlinePayment?: boolean
     // catalog 1.3.0; absent on an older server.
     stockQuantity?: number | null
+    // catalog 1.4.0; absent on an older server.
+    invoiceIssuer?: string | null
+    aftersaleParty?: string | null
   }[]
   specs: MallSpec[]
   packItems: MallPackItem[]
@@ -72,6 +75,8 @@ interface ProductDetailDto {
   skus?: MallSku[]
   gallery?: (MediaAssetDto | null)[]
   introBlocks?: IntroBlockDto[]
+  // catalog 1.4.0; absent on an older server.
+  noReasonReturn?: boolean
 }
 
 interface IntroBlockDto {
@@ -150,6 +155,7 @@ export function createMallApi(http: PublicApiHttpClient): MallApi {
         url: `/api/v1/mall/products?${toQueryString({
           cityCode: query.cityCode,
           category: query.category,
+          merchantId: query.merchantId?.trim() || null,
           keyword: query.keyword?.trim() || null,
           saleModes: query.filters?.saleModes ?? [],
           experienceBadges: query.filters?.experienceBadges ?? [],
@@ -197,6 +203,8 @@ export function createMallApi(http: PublicApiHttpClient): MallApi {
           // Only an explicit true counts: an older server that does not say is treated as unable.
           onlinePayment: offer.onlinePayment === true,
           stockQuantity: toStock(offer.stockQuantity),
+          invoiceIssuer: offer.invoiceIssuer?.trim() || null,
+          aftersaleParty: offer.aftersaleParty?.trim() || null,
         })),
         specs: dto.specs.map((spec) => ({ label: spec.label, value: spec.value })),
         packItems: dto.packItems.map((item) => ({ name: item.name, quantity: item.quantity })),
@@ -205,6 +213,7 @@ export function createMallApi(http: PublicApiHttpClient): MallApi {
         gallery: (dto.gallery ?? []).map(toImage).filter((image): image is MallImage => image !== null),
         introBlocks: (dto.introBlocks ?? []).map(toIntroBlock)
           .filter((block): block is MallIntroBlock => block !== null),
+        noReasonReturn: dto.noReasonReturn === true,
       }
     },
   }

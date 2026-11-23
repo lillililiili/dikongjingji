@@ -98,7 +98,11 @@ describe('mall api', () => {
       fulfilledFrom: '示例机器人商家 东营仓',
       onlinePayment: true,
       stockQuantity: null,
+      // An older server (before catalog 1.4.0) says nothing of them: the rows are left out.
+      invoiceIssuer: null,
+      aftersaleParty: null,
     })
+    expect(product.noReasonReturn).toBe(false)
     expect(product.specs).toEqual([{ label: '适用年龄', value: '8 岁以上' }])
     expect(product.packItems).toEqual([{ name: '机器人主机', quantity: 1 }])
     // An older server (catalog 1.2.0) sends none of the 1.3.0 fields: the page keeps its old shape.
@@ -183,5 +187,51 @@ describe('mall api', () => {
       '/api/v1/mall/products?cityCode=370500&keyword=%E7%BC%96%E7%A8%8B%20100%25'
       + '&saleModes=BUY&saleModes=RENT&merchantKinds=LOCAL_STORE&minPriceMinor=10000&page=1&size=10',
     )
+  })
+
+  it('maps the 1.4.0 trade terms: 开票方, 售后责任方 and 七天无理由', async () => {
+    const { api } = apiReturning({
+      productId: PRODUCT_ID,
+      category: 'ROBOT',
+      name: '编程机器人探索套装',
+      summary: null,
+      coverImage: null,
+      saleMode: 'BUY',
+      experienceBadge: null,
+      offers: [{
+        offerId: 'o1',
+        skuId: 's1',
+        skuName: '标准套装',
+        merchant: { organizationId: 'm1', name: '示例机器人商家', kind: 'FACTORY_DIRECT' },
+        amountMinor: 129900,
+        currency: 'CNY',
+        unit: 'ITEM',
+        deliveryNote: null,
+        shippingNote: null,
+        fulfilledFrom: null,
+        onlinePayment: true,
+        stockQuantity: null,
+        invoiceIssuer: '示例机器人商家',
+        aftersaleParty: ' 示例机器人商家 · 厂家保修 ',
+      }],
+      specs: [],
+      packItems: [],
+      noReasonReturn: true,
+    })
+
+    const product = await api.loadProduct(PRODUCT_ID, '370500')
+
+    expect(product.offers[0].invoiceIssuer).toBe('示例机器人商家')
+    expect(product.offers[0].aftersaleParty).toBe('示例机器人商家 · 厂家保修')
+    expect(product.noReasonReturn).toBe(true)
+  })
+
+  it('lists one merchant’s products with merchantId (1.4.0, the merchant page’s 在售 tab)', async () => {
+    const { api, request } = apiReturning({ page: 1, size: 10, total: 0, hasMore: false, items: [] })
+
+    await api.loadProducts({ cityCode: '370500', category: null, sort: 'DEFAULT', merchantId: 'c1000000-0000-4000-8000-000000000001' }, 1, 10)
+
+    expect(request.mock.calls[0][0].url)
+      .toBe('/api/v1/mall/products?cityCode=370500&merchantId=c1000000-0000-4000-8000-000000000001&page=1&size=10')
   })
 })

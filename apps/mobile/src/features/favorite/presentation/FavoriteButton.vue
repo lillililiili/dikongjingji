@@ -20,7 +20,12 @@ const props = withDefaults(defineProps<{
   width?: number
   // A star where the page already has a heart for 点赞 (the video page, as board VideoFeed draws them).
   icon?: 'heart' | 'star'
-}>(), { width: 46, icon: 'heart' })
+  // 'bar': icon over the word, in a bottom bar. 'float': a round button on a picture, like the
+  // product page's 分享 and 更多; the page passes the circle's background and the icon colour.
+  variant?: 'bar' | 'float'
+  circleStyle?: Record<string, string>
+  iconColor?: string
+}>(), { width: 46, icon: 'heart', variant: 'bar', circleStyle: () => ({}), iconColor: '#ffffff' })
 
 const STAR = 'M12 3l2.8 5.8 6.4.9-4.6 4.5 1.1 6.3L12 17.5 6.3 20.5l1.1-6.3L2.8 9.7l6.4-.9z'
 
@@ -44,6 +49,27 @@ watch(() => [props.type, props.targetId], () => { void toggle.refresh(target()) 
 
 <template>
   <button
+    v-if="variant === 'float'"
+    class="favorite-float"
+    data-testid="favorite-button"
+    :data-favorited="favorited ? 'true' : 'false'"
+    :aria-pressed="favorited"
+    :aria-label="favorited ? '取消收藏' : '收藏'"
+    :aria-busy="busy"
+    @click="toggle.toggle(target())"
+  >
+    <view class="favorite-float__circle" :style="circleStyle">
+      <LineIcon
+        name="heart"
+        :size="20"
+        :stroke-width="2"
+        :color="favorited ? '#ff6a00' : iconColor"
+        :fill="favorited ? '#ff6a00' : undefined"
+      />
+    </view>
+  </button>
+  <button
+    v-else
     class="favorite-button"
     :style="{ width: `${width}px`, height: `${width}px`, color: favorited ? '#ff6a00' : '#536178' }"
     data-testid="favorite-button"
@@ -82,8 +108,32 @@ watch(() => [props.type, props.targetId], () => { void toggle.refresh(target()) 
   white-space: nowrap;
 }
 
-.favorite-button::after {
+.favorite-button::after,
+.favorite-float::after {
   border: 0;
+}
+
+/* The float variant: 44px to tap, a 36px circle (the product page's 分享 / 更多). */
+.favorite-float {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+}
+
+.favorite-float__circle {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
 }
 
 </style>

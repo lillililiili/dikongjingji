@@ -35,6 +35,9 @@ public interface MallCatalogMapper {
                        count(DISTINCT offer.price_amount_minor) distinct_price_count,
                        count(DISTINCT offer.merchant_id) seller_count
             """ + CITY_OFFERS + """
+            <if test="merchantId != null">
+                  AND offer.merchant_id = #{merchantId}
+            </if>
             ) city ON city.seller_count > 0
             WHERE p.status = 'PUBLISHED'
               AND (#{category} = 'ALL' OR p.category = #{category})
@@ -85,7 +88,8 @@ public interface MallCatalogMapper {
             @Param("experienceBadges") List<String> experienceBadges,
             @Param("merchantKinds") List<String> merchantKinds,
             @Param("minPriceMinor") Long minPriceMinor,
-            @Param("maxPriceMinor") Long maxPriceMinor
+            @Param("maxPriceMinor") Long maxPriceMinor,
+            @Param("merchantId") UUID merchantId
     );
 
     @Select("<script>" + """
@@ -117,6 +121,7 @@ public interface MallCatalogMapper {
             @Param("merchantKinds") List<String> merchantKinds,
             @Param("minPriceMinor") Long minPriceMinor,
             @Param("maxPriceMinor") Long maxPriceMinor,
+            @Param("merchantId") UUID merchantId,
             @Param("sort") String sort,
             @Param("limit") int limit,
             @Param("offset") int offset
@@ -183,6 +188,30 @@ public interface MallCatalogMapper {
             ORDER BY sort_order ASC, id ASC
             """)
     List<PackItemRow> findPackItems(@Param("productId") UUID productId);
+
+    // 1.4.0（S4-4）：开票方、售后责任方（供给 → 商家资料 → 商家名称），商品是否支持七天无理由。
+
+    @Select("""
+            <script>
+            SELECT offer.id offer_id,
+                   COALESCE(NULLIF(btrim(offer.invoice_issuer), ''), NULLIF(btrim(profile.invoice_issuer), ''),
+                            merchant.organization_name) invoice_issuer,
+                   COALESCE(NULLIF(btrim(offer.aftersale_party), ''), NULLIF(btrim(profile.aftersale_party), ''),
+                            merchant.organization_name) aftersale_party,
+                   product.no_reason_return
+            FROM mall_offer offer
+            JOIN mall_sku sku ON sku.id = offer.sku_id
+            JOIN mall_product product ON product.id = sku.product_id
+            JOIN identity_organization merchant ON merchant.id = offer.merchant_id
+            LEFT JOIN mall_merchant_profile profile ON profile.organization_id = offer.merchant_id
+            WHERE offer.id IN
+            <foreach collection="offerIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+            </script>
+            """)
+    List<MallRows.TradeTermsRow> findTradeTerms(@Param("offerIds") List<UUID> offerIds);
+
+    @Select("SELECT no_reason_return FROM mall_product WHERE id = #{productId}")
+    Boolean findNoReasonReturn(@Param("productId") UUID productId);
 
     // 1.3.0（S3-1）：卖点、全部启用规格、图集、图文介绍。
 

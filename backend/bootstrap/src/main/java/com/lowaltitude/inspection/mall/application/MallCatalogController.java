@@ -31,6 +31,8 @@ public final class MallCatalogController {
             @RequestParam(required = false) List<String> merchantKinds,
             @RequestParam(required = false) Long minPriceMinor,
             @RequestParam(required = false) Long maxPriceMinor,
+            // 1.4.0：商家主页的“在售”，只看这家商家的供给。
+            @RequestParam(required = false) UUID merchantId,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size
@@ -46,7 +48,8 @@ public final class MallCatalogController {
                 maxPriceMinor,
                 sort,
                 page,
-                size));
+                size,
+                merchantId));
     }
 
     @GetMapping("/api/v1/mall/products/{productId}")

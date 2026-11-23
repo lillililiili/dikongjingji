@@ -26,7 +26,7 @@ class TradeOrderMapperContractTest {
         Map<String, String> statements = statements();
 
         assertThat(statements).hasSize(TradeOrderMapper.class.getDeclaredMethods().length);
-        assertThat(statements).hasSize(33);
+        assertThat(statements).hasSize(37);
         assertThat(statements.values()).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
         // 动态 SQL 只有四处 IN 列表（行、配送、退款、关闭原因）、买家订单的状态过滤（foreach 绑定）和商家订单的状态过滤（#{} 绑定）。
         assertThat(statements).allSatisfy((method, sql) -> {

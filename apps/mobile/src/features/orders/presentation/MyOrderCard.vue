@@ -25,6 +25,8 @@ const TAG_COLORS: Record<MyOrderTagTone, { background: string; color: string }> 
   ORANGE: { background: '#fff0e3', color: '#ba470b' },
   PURPLE: { background: '#eee7ff', color: '#6a4fe0' },
   GREEN: { background: '#e2f6ed', color: '#11804a' },
+  // 仅退款 on the board AftersaleList.
+  BLUE: { background: '#e6f0ff', color: '#1d63c4' },
 }
 
 const TONE_COLORS: Record<MyOrderTone, string> = {
@@ -62,7 +64,7 @@ const TRUCK = 'M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a1.5 1.5 0 1 0 0-.1M17 19a1.5 1
         >
           {{ props.card.tag.label }}
         </text>
-        <text class="my-order-card__head-name">{{ props.card.head }}</text>
+        <text :class="['my-order-card__head-name', { 'my-order-card__head-name--muted': props.card.headMuted }]">{{ props.card.head }}</text>
         <text
           class="my-order-card__status"
           data-testid="my-order-status"
@@ -165,6 +167,12 @@ const TRUCK = 'M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a1.5 1.5 0 1 0 0-.1M17 19a1.5 1
   line-height: 21px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.my-order-card__head-name--muted {
+  color: #536178;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .my-order-card__status {

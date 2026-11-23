@@ -2,6 +2,8 @@
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
+import { COURSE_PREVIEW_ENABLED } from '@/features/course/application/course-preview'
+import CourseChannelList from '@/features/course/presentation/channel/CourseChannelList.vue'
 import { DEMAND_PREVIEW_ENABLED } from '@/features/demand/application/demand-preview'
 import {
   COMPARE_BLOCKED_MESSAGES,
@@ -107,6 +109,12 @@ const filters = ref<MallFilters>(cloneMallFilters(EMPTY_MALL_FILTERS))
 const filterSheetOpen = ref(false)
 const list = ref<PagedListState<MallProductCard>>(emptyPagedList())
 
+// The 课程 tab lists courses (S5-5, board MallCourse) instead of goods: online courses sold by the
+// course module and offline classes that lead to their activity. Public builds without the COURSE
+// switch keep the goods list (which has no course goods) and its empty state.
+const showsCourses = computed(() => COURSE_PREVIEW_ENABLED && selectedCategory.value === 'COURSE')
+const courseList = ref<InstanceType<typeof CourseChannelList> | null>(null)
+
 const filterCount = computed(() => countMallFilters(filters.value))
 // The search word first, then one chip per chosen filter; each can be removed on its own.
 const chips = computed(() => [
@@ -133,6 +141,7 @@ function currentQuery(): MallProductQuery {
 }
 
 function reload(): void {
+  if (showsCourses.value) return
   void loader.reload(currentQuery())
 }
 
@@ -243,7 +252,7 @@ watch(selectedCategory, (category) => {
 
 // The home page owns the scroll and forwards its reach-bottom event (see ActivityChannel).
 defineExpose({
-  loadMore: (): Promise<void> => loader.loadMore(),
+  loadMore: (): Promise<void> => (showsCourses.value ? courseList.value?.loadMore() ?? Promise.resolve() : loader.loadMore()),
 })
 </script>
 
@@ -267,6 +276,16 @@ defineExpose({
       </view>
     </scroll-view>
 
+    <CourseChannelList
+      v-if="showsCourses"
+      ref="courseList"
+      :active="active"
+      :city-code="cityCode"
+      :keyword="keyword"
+      @end-search="endSearch"
+    />
+
+    <template v-else>
     <view class="mall-channel__sorts">
       <button
         :class="['mall-channel__sort', { 'mall-channel__sort--active': sort === 'DEFAULT' }]"
@@ -460,11 +479,12 @@ defineExpose({
       </view>
     </template>
 
-    <!-- Room under the last row so the pill never covers it. -->
-    <view v-if="compareBarVisible" class="mall-channel__compare-space" />
-    <view v-if="compareBarVisible" class="mall-channel__compare" data-testid="mall-compare-bar">
-      <CompareBar :count="compare.picks.length" @start="startCompare" />
-    </view>
+      <!-- Room under the last row so the pill never covers it. -->
+      <view v-if="compareBarVisible" class="mall-channel__compare-space" />
+      <view v-if="compareBarVisible" class="mall-channel__compare" data-testid="mall-compare-bar">
+        <CompareBar :count="compare.picks.length" @start="startCompare" />
+      </view>
+    </template>
 
     <MallFilterSheet
       v-if="filterSheetOpen"

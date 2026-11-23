@@ -1757,6 +1757,29 @@ class TradeRefundServiceTest {
 
         /** 退款服务只用它记状态迁移；返回的订单由 TradeOrderService 经它读。其余的方法退款用不到。 */
         private final class OrderMapper implements TradeOrderMapper {
+        // ---- 0.6.0 新加的读写：这些测试不关心，什么都不做 ----
+
+        @Override
+        public int saveParties(UUID orderId, String fulfilledFrom, String invoiceIssuer, String aftersaleParty) {
+            return 1;
+        }
+
+        @Override
+        public int saveParticipantNames(UUID orderId, String participantNames) {
+            return 1;
+        }
+
+        @Override
+        public int markLinesWithoutNoReasonReturn(UUID orderId, java.util.List<UUID> offerIds) {
+            return offerIds.size();
+        }
+
+        @Override
+        public java.util.List<com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMapper.OrderExtrasRow>
+                findOrderExtras(java.util.List<UUID> orderIds) {
+            return java.util.List.of();
+        }
+
 
             /** V002 放宽后的 trade_state_transition.cause。 */
             private static final Set<String> CAUSES = Set.of("SUBMIT", "PAYMENT_NOTIFIED", "PAYMENT_QUERIED",

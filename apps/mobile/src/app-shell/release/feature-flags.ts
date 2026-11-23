@@ -32,6 +32,7 @@ export type ReleaseFeatureKey =
   | 'SUPPORT'
   | 'SETTINGS'
   | 'FAVORITE'
+  | 'COURSE'
   | 'PLAY'
 
 export interface ReleaseFeature {
