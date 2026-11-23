@@ -20,6 +20,8 @@ import { merchantProfileReviewModule } from '@/features/merchant-profile-review/
 import { merchantProfileModule } from '@/features/merchant-profile/merchant-profile-module'
 import { opsMerchantAccountModule } from '@/features/ops-merchant-account/merchant-account-module'
 import { organizationModule } from '@/features/organization/organization-module'
+import { platformSupportModule } from '@/features/platform-support/platform-support-module'
+import { reconciliationModule } from '@/features/reconciliation/reconciliation-module'
 import { proServiceModule } from '@/features/proservice/proservice-module'
 import { providerProfileReviewModule } from '@/features/provider-profile-review/provider-profile-review-module'
 import { providerProfileModule } from '@/features/provider-profile/provider-profile-module'
@@ -43,7 +45,9 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   catalogModule,
   merchantProfileReviewModule,
   opsMerchantAccountModule,
+  reconciliationModule,
   importModule,
+  platformSupportModule,
   feedbackModule,
   merchantOrdersModule,
   aftersaleWorkbenchModule,

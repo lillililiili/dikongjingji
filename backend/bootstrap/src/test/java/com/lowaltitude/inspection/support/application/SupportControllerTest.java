@@ -108,10 +108,10 @@ class SupportControllerTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("platformRoutes")
-    void platformRoutesNeedThePlatformSupportRole(String route, MockHttpServletRequestBuilder request)
+    void platformRoutesNeedThePlatformSupportOrOperatorRole(String route, MockHttpServletRequestBuilder request)
             throws Exception {
-        for (TestingAuthenticationToken who : List.of(customer, operator,
-                signedIn(AGENT, PLATFORM_ORG, "PLATFORM_OPERATOR"))) {
+        // 机构操作员（商家、服务商）和客户都不行；平台运营在 1.1.0 起可以（见下面的用例）。
+        for (TestingAuthenticationToken who : List.of(customer, operator)) {
             mockMvc.perform(request.principal(who))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
@@ -309,8 +309,8 @@ class SupportControllerTest {
     @Test
     void thePlatformSupportWorksOnPlatformConversations() throws Exception {
         SupportDesk desk = SupportDesk.platformSupport();
-        when(service.deskConversations(desk, 1, 20)).thenReturn(new SupportDeskConversationPageView(1, 20, 0, false, 0,
-                List.of()));
+        when(service.deskConversations(desk, 1, 20, SupportDeskSort.LATEST))
+                .thenReturn(new SupportDeskConversationPageView(1, 20, 0, false, 0, List.of()));
         when(service.deskMessages(desk, CONVERSATION, 5, null)).thenThrow(new SupportException(Error.NOT_FOUND));
         when(service.deskSend(desk, AGENT, CONVERSATION, KEY, new SupportMessageDraft("收到", null)))
                 .thenReturn(new SupportMessageSent(text(SupportSenderSide.COUNTERPART, true), false));
@@ -329,6 +329,34 @@ class SupportControllerTest {
                 .andExpect(status().isOk());
         mockMvc.perform(post("/api/v1/platform/support/conversations/" + CONVERSATION + "/read").principal(agent))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void thePlatformOperatorAlsoWorksOnPlatformConversationsAndCanSortUnreadFirst() throws Exception {
+        UUID platformOperator = UUID.fromString("90000000-0000-4000-8000-0000000000b1");
+        TestingAuthenticationToken ops = signedIn(platformOperator, PLATFORM_ORG, "PLATFORM_OPERATOR");
+        SupportDesk desk = SupportDesk.platformSupport();
+        when(service.deskConversations(desk, 2, 10, SupportDeskSort.UNREAD_FIRST))
+                .thenReturn(new SupportDeskConversationPageView(2, 10, 11, false, 3, List.of(deskConversation(3))));
+        when(service.deskSend(desk, platformOperator, CONVERSATION, KEY, new SupportMessageDraft("已转给商家", null)))
+                .thenReturn(new SupportMessageSent(text(SupportSenderSide.COUNTERPART, true), true));
+
+        mockMvc.perform(get("/api/v1/platform/support/conversations?page=2&size=10&sort=UNREAD_FIRST").principal(ops))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.unreadCount").value(3))
+                .andExpect(jsonPath("$.items[0].unreadCount").value(3));
+        mockMvc.perform(post("/api/v1/platform/support/conversations/" + CONVERSATION + "/messages").principal(ops)
+                        .header("Idempotency-Key", KEY.toString())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"text\":\"已转给商家\"}"))
+                .andExpect(status().isCreated());
+        // 回复记在这个平台运营账号名下（幂等键按发送人）。
+        verify(service).deskSend(desk, platformOperator, CONVERSATION, KEY, new SupportMessageDraft("已转给商家", null));
+
+        for (String bad : List.of("unread_first", "OLDEST")) {
+            mockMvc.perform(get("/api/v1/platform/support/conversations?sort=" + bad).principal(ops))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("COMMON_INVALID_ARGUMENT"));
+        }
     }
 
     // ---- 数据 ----

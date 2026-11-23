@@ -3,8 +3,11 @@ import { registerErrorMessages } from '@/core/http/api-error'
 import { charCount } from '@/core/ui/format'
 import type { Page } from '@/core/ui/use-paged-list'
 
-// 契约 contracts/openapi-support.yaml 1.0.0 的 /api/v1/provider/conversations…（SupportDeskController 的商家、服务商一侧）：
-// 本机构作为商家或服务商的客服会话。客户只给显示名，不交换手机号；客户也看不到是哪个操作员回的。
+// 契约 contracts/openapi-support.yaml 的回复方接口（SupportDeskController）：
+// - provider：/api/v1/provider/conversations…，本机构作为商家或服务商的会话（机构工作台“客服会话”）；
+// - platform：/api/v1/platform/support/conversations…，对方是“平台客服”的会话（1.1.0 起平台客服和平台运营都能用，
+//   运营端“客服”分组的“客服会话”），列表能按 sort=UNREAD_FIRST 把有未读的排前面。
+// 客户只给显示名，不交换手机号；客户也看不到是哪个操作员回的。
 
 registerErrorMessages({
   SUPPORT_IDEMPOTENCY_KEY_REUSED: '这条回复和刚才提交的内容不一致，请重新发送',
@@ -66,6 +69,22 @@ export interface DeskMessagePage {
   nextBefore: number | null
 }
 
+/** 回复方：机构（商家、服务商）还是平台客服。 */
+export type DeskSide = 'provider' | 'platform'
+
+/** 平台客服会话列表的排序（契约 1.1.0 SupportDeskSort）。 */
+export type DeskSort = 'LATEST' | 'UNREAD_FIRST'
+
+export interface DeskConversationFilters {
+  /** 只有 platform 一侧认；不给按后端默认（LATEST）。 */
+  sort?: DeskSort
+}
+
+export const DESK_BASE: Record<DeskSide, string> = {
+  provider: '/api/v1/provider/conversations',
+  platform: '/api/v1/platform/support/conversations',
+}
+
 export const REPLY_MAX = 500
 export const MESSAGE_PAGE_SIZE = 30
 
@@ -115,12 +134,15 @@ export function replyError(text: string): string | null {
   return null
 }
 
-export function createSupportDeskApi(http: ApiClient) {
-  const base = '/api/v1/provider/conversations'
+export function createSupportDeskApi(http: ApiClient, side: DeskSide = 'provider') {
+  const base = DESK_BASE[side]
   const one = (id: string) => `${base}/${encodeURIComponent(id)}`
   return {
-    conversations(_filters: object, page: number, size: number): Promise<DeskConversationPage> {
-      return http.get<DeskConversationPage>(base, { page, size })
+    side,
+    conversations(filters: DeskConversationFilters, page: number, size: number): Promise<DeskConversationPage> {
+      // 机构一侧的列表没有 sort 参数（契约只给平台一侧加了），不发。
+      const sort = side === 'platform' ? filters.sort : undefined
+      return http.get<DeskConversationPage>(base, { page, size, sort })
     },
     /** 不带 before 是最新一页；往前翻带上一页的 nextBefore。不改未读，读过要调 read。 */
     messages(id: string, before: number | null = null, size = MESSAGE_PAGE_SIZE): Promise<DeskMessagePage> {

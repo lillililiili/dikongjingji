@@ -7,17 +7,19 @@ import { buildMenu } from './module'
 import { adminRoutes } from './router'
 
 describe('菜单', () => {
-  it('平台运营按 order 看到全部运营菜单，看不到举报与反馈', () => {
+  it('平台运营按 order 看到全部运营菜单和客服会话，看不到举报与反馈', () => {
     const groups = buildMenu(ADMIN_MODULES, ['PLATFORM_OPERATOR'])
 
-    expect(groups.map((group) => group.title)).toEqual(['平台运营'])
-    expect(groups[0]!.items.map((item) => item.title)).toEqual(['城市开通', '机构与资质', '商品与供给', '商家资料审核', '收款账户', '批量导入',
-      '活动与场次', '课程', '场馆与设备', '发现内容', '直播间', '巡检服务目录', '专业服务目录', '服务商资料审核', '系统通知'])
+    expect(groups.map((group) => group.title)).toEqual(['平台运营', '客服'])
+    expect(groups[0]!.items.map((item) => item.title)).toEqual(['城市开通', '机构与资质', '商品与供给', '商家资料审核', '收款账户',
+      '对账下载', '批量导入', '活动与场次', '课程', '场馆与设备', '发现内容', '直播间', '巡检服务目录', '专业服务目录', '服务商资料审核',
+      '系统通知'])
+    expect(groups[1]!.items.map((item) => item.path)).toEqual(['/support/conversations'])
   })
 
-  it('平台客服只看到举报与反馈；客户没有菜单', () => {
+  it('平台客服看到客服会话（在前）和举报与反馈，没有对账下载；客户没有菜单', () => {
     expect(buildMenu(ADMIN_MODULES, ['PLATFORM_SUPPORT']).flatMap((group) => group.items.map((item) => item.title)))
-      .toEqual(['举报与反馈'])
+      .toEqual(['客服会话', '举报与反馈'])
     expect(buildMenu(ADMIN_MODULES, ['CUSTOMER'])).toEqual([])
   })
 

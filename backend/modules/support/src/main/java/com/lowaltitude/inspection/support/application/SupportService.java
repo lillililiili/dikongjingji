@@ -173,11 +173,24 @@ public class SupportService {
 
     @Transactional(readOnly = true)
     public SupportDeskConversationPageView deskConversations(SupportDesk desk, int page, int size) {
+        return deskConversations(desk, page, size, SupportDeskSort.LATEST);
+    }
+
+    /** 回复方的会话列表；sort 为 UNREAD_FIRST 时有未读的在前（运营端“客服会话”，契约 1.1.0）。 */
+    @Transactional(readOnly = true)
+    public SupportDeskConversationPageView deskConversations(SupportDesk desk, int page, int size,
+                                                             SupportDeskSort sort) {
         requireDesk(desk);
         requirePage(page, size);
+        if (sort == null) {
+            throw new IllegalArgumentException("sort is required");
+        }
         long total = mapper.countDeskConversations(desk.platform(), desk.organizationId());
-        List<SupportDeskConversationView> items = mapper.findDeskPage(desk.platform(), desk.organizationId(), size,
-                        offset(page, size)).stream()
+        int offset = offset(page, size);
+        List<ConversationRow> rows = sort == SupportDeskSort.UNREAD_FIRST
+                ? mapper.findDeskPageUnreadFirst(desk.platform(), desk.organizationId(), size, offset)
+                : mapper.findDeskPage(desk.platform(), desk.organizationId(), size, offset);
+        List<SupportDeskConversationView> items = rows.stream()
                 .map(SupportService::deskView)
                 .toList();
         return new SupportDeskConversationPageView(page, size, total, (long) page * size < total,

@@ -49,6 +49,29 @@ describe('客服会话接口', () => {
     expect(fetchImpl.mock.calls[4]![1]!.method).toBe('POST')
   })
 
+  it('平台客服一侧（1.1.0）：同样四个接口换成 /platform/support，列表能带 sort；机构一侧不带 sort', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () =>
+      new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    const http = createApiClient({ getToken: () => 't', onUnauthorized: vi.fn(), fetchImpl, newRequestId: () => 'r' })
+    const platform = createSupportDeskApi(http, 'platform')
+    await platform.conversations({ sort: 'UNREAD_FIRST' }, 1, 20)
+    await platform.conversations({}, 1, 20)
+    await platform.messages('c-9')
+    await platform.reply('c-9', '已转给商家处理', 'key-9')
+    await platform.read('c-9')
+    await createSupportDeskApi(http).conversations({ sort: 'UNREAD_FIRST' }, 1, 20)
+
+    expect(fetchImpl.mock.calls.map(([url]) => String(url))).toEqual([
+      '/api/v1/platform/support/conversations?page=1&size=20&sort=UNREAD_FIRST',
+      '/api/v1/platform/support/conversations?page=1&size=20',
+      '/api/v1/platform/support/conversations/c-9/messages?size=30',
+      '/api/v1/platform/support/conversations/c-9/messages',
+      '/api/v1/platform/support/conversations/c-9/read',
+      '/api/v1/provider/conversations?page=1&size=20',
+    ])
+    expect(fetchImpl.mock.calls[3]![1]!.headers).toMatchObject({ 'Idempotency-Key': 'key-9' })
+  })
+
   it('业务错误码有中文说明', () => {
     expect(errorMessage(new ApiRequestError(409, 'SUPPORT_IDEMPOTENCY_KEY_REUSED', 'x', 't'))).toContain('重新发送')
   })

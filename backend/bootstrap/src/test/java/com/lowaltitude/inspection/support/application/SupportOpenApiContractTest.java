@@ -85,7 +85,8 @@ class SupportOpenApiContractTest {
             "SupportSenderSide", SupportSenderSide.class,
             "SupportMessageKind", SupportMessageKind.class,
             "SupportCardType", SupportCardType.class,
-            "SupportFeedbackType", SupportFeedbackType.class);
+            "SupportFeedbackType", SupportFeedbackType.class,
+            "SupportDeskSort", SupportDeskSort.class);
 
     private static final List<Class<?>> CONTROLLERS = List.of(SupportController.class, SupportDeskController.class);
 
@@ -93,7 +94,7 @@ class SupportOpenApiContractTest {
     void contractIsVersionOneAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.0.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.1.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -326,6 +327,20 @@ class SupportOpenApiContractTest {
                 .contains("enum: [INSPECTION_PLAN, INSPECTION_FULFILLMENT, INSPECTION_DELIVERY, DEMAND, CONVERSATION,")
                 .contains("for CUSTOMER_SERVICE it is SUPPORT_REPLIED");
         assertThat(SupportPortsConfiguration.EVENT_CODE).isEqualTo("SUPPORT_REPLIED");
+    }
+
+    @Test
+    void onlyThePlatformListTakesASortThatDefaultsToLatest() {
+        Map<String, Object> paths = map(root().get("paths"));
+        Map<String, Object> sort = list(map(map(paths.get("/api/v1/platform/support/conversations")).get("get"))
+                .get("parameters")).stream().map(entry -> resolve(map(entry)))
+                .filter(parameter -> "sort".equals(parameter.get("name"))).findFirst().orElseThrow();
+        assertThat(sort.get("in")).isEqualTo("query");
+        assertThat(sort.get("required")).isEqualTo(false);
+        assertThat(map(sort.get("schema")).get("$ref")).isEqualTo(SCHEMA_PREFIX + "SupportDeskSort");
+        assertThat(map(schemas().get("SupportDeskSort")).get("default")).isEqualTo(SupportDeskSort.LATEST.name());
+        // 1.1.0：平台运营也能用平台客服的接口；机构操作员和客户不行。
+        assertThat(contractText()).contains("PLATFORM_SUPPORT or PLATFORM_OPERATOR role");
     }
 
     @Test

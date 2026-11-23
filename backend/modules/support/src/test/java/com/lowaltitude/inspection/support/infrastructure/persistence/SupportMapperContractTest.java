@@ -29,7 +29,7 @@ class SupportMapperContractTest {
         Map<String, String> statements = statements();
 
         assertThat(statements).hasSize(SupportMapper.class.getDeclaredMethods().length);
-        assertThat(statements).hasSize(29);
+        assertThat(statements).hasSize(30);
         assertThat(statements.values()).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
         // 没有删除和改消息内容的语句：消息只追加。
         assertThat(statements.values()).noneMatch(sql -> sql.contains("DELETE"))
@@ -52,6 +52,11 @@ class SupportMapperContractTest {
                     .contains("c.message_count > 0")
                     .endsWith("ORDER BY c.last_message_at DESC, c.id DESC LIMIT #{limit} OFFSET #{offset}");
         }
+        // 运营端“客服会话”（1.1.0 sort=UNREAD_FIRST）：同样只列发过消息的，有未读的在前，再按最后一条消息。
+        assertThat(normalized(sql("findDeskPageUnreadFirst")))
+                .contains("c.message_count > 0")
+                .endsWith("ORDER BY (c.counterpart_unread > 0) DESC, c.last_message_at DESC, c.id DESC"
+                        + " LIMIT #{limit} OFFSET #{offset}");
     }
 
     @Test
@@ -60,7 +65,7 @@ class SupportMapperContractTest {
                 + " AND c.counterpart_kind IN ('MERCHANT', 'PROVIDER') AND c.counterpart_org_id = CAST(#{organizationId} AS uuid)))";
         assertThat(normalized(SupportMapper.DESK)).isEqualTo(desk);
         for (String method : List.of("findDeskConversation", "lockDeskConversation", "countDeskConversations",
-                "sumDeskUnread", "findDeskPage", "markDeskRead")) {
+                "sumDeskUnread", "findDeskPage", "findDeskPageUnreadFirst", "markDeskRead")) {
             assertThat(normalized(sql(method))).as(method).contains(desk);
         }
         assertThat(normalized(sql("lockDeskConversation"))).endsWith("FOR UPDATE OF c");

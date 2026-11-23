@@ -17,6 +17,8 @@ final class SupportSubjects {
     static final String PROVIDER_OPERATOR = "PROVIDER_OPERATOR";
     /** 平台客服（身份迁移 V004）：只用来读和回复对方是平台客服的会话。 */
     static final String PLATFORM_SUPPORT = "PLATFORM_SUPPORT";
+    /** 平台运营（身份迁移 V001）：契约 1.1.0 起也能读和回复平台客服的会话。 */
+    static final String PLATFORM_OPERATOR = "PLATFORM_OPERATOR";
 
     private SupportSubjects() {
     }
@@ -62,10 +64,13 @@ final class SupportSubjects {
         return subject;
     }
 
-    /** 平台客服角色（PLATFORM_SUPPORT）。不看机构。 */
+    /**
+     * 代表平台客服回复的人：平台客服角色（PLATFORM_SUPPORT），或平台运营（PLATFORM_OPERATOR，契约 1.1.0 起，
+     * 运营端“客服会话”菜单给这两个角色）。不看机构。
+     */
     static Subject platformSupport(Authentication authentication) {
         Subject subject = of(authentication);
-        if (!subject.roles().contains(PLATFORM_SUPPORT)) {
+        if (!subject.roles().contains(PLATFORM_SUPPORT) && !subject.roles().contains(PLATFORM_OPERATOR)) {
             throw new SupportException(Error.FORBIDDEN);
         }
         return subject;

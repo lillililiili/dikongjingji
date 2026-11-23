@@ -1,4 +1,4 @@
-import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router'
+import type { RouteLocationNormalized, RouteLocationNormalizedLoaded, RouteLocationRaw } from 'vue-router'
 
 import { hasAnyRole } from '@/core/auth/roles'
 
@@ -39,4 +39,13 @@ export function createAuthGuard(session: GuardSession) {
     }
     return true
   }
+}
+
+/**
+ * 登录失效（401 且刷新令牌续不了期）时去哪：在登录页等公开页就不动；否则去登录页，redirect 记住原来的页面，
+ * 重新登录后回到这里。
+ */
+export function loginRedirectFor(current: RouteLocationNormalizedLoaded): RouteLocationRaw | null {
+  if (current.meta.public) return null
+  return { path: LOGIN_PATH, query: { redirect: current.fullPath } }
 }

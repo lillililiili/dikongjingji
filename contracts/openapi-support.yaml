@@ -1,15 +1,21 @@
 openapi: "3.1.0"
 info:
   title: "Support API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
     1.0.0（步骤 G1，docs/redesign/03-App实现任务计划.md §26.1、§26.2、§26.3）：客服会话和意见反馈。
+    1.1.0（2026-11-23，S6，docs/redesign/08-后续开发计划.md §5“工作台”与 D11、docs/delivery/交付清单.md §4 第 3 条）：
+    运营端加“客服会话”菜单，给平台客服和平台运营：/api/v1/platform/support/conversations… 从只认 PLATFORM_SUPPORT
+    改为 PLATFORM_SUPPORT 或 PLATFORM_OPERATOR（客户和机构操作员仍然 403；客户看到的仍只是“平台客服”，看不到是哪个人回的）；
+    listPlatformSupportConversations 加可选查询参数 sort（SupportDeskSort：LATEST 默认、和 1.0.0 一样按最后一条消息；
+    UNREAD_FIRST 这一边有未读的在前，各自再按最后一条消息）。其余接口、字段和规则不变。
 
     Every route needs a login (bearer JWT). The customer routes (/api/v1/conversations…, /api/v1/feedback) need the CUSTOMER
     role; the account is always the subject of the token and another account's conversation is answered as not found.
     /api/v1/provider/conversations… need the PROVIDER_OPERATOR role and an organization in the token; they only reach
     conversations whose counterpart (merchant or provider) is that organization. /api/v1/platform/support/conversations… need
-    the PLATFORM_SUPPORT role (not PLATFORM_OPERATOR) and only reach conversations whose counterpart is the platform support.
+    the PLATFORM_SUPPORT or PLATFORM_OPERATOR role (1.1.0; 1.0.0 took PLATFORM_SUPPORT only) and only reach conversations whose
+    counterpart is the platform support.
 
     规则：
     - 会话的另一方三种：平台客服、商家、服务商。客户和同一方只有一个会话（平台客服一个；同一家机构按商家、服务商各一个），
@@ -19,7 +25,8 @@ info:
     - 不交换手机号：客户看到的对方只有类型和名称，对方看到的客户只有显示名；谁也看不到对方是哪个操作员。
     - 未读：一边发了，另一边加一，自己这边清零；进会话（read）清零。对方回复时给客户记一条“客服消息”站内信，
       同一个会话最多一条未读（再回复只刷新它的时间），正文不抄消息内容；客户读会话时它一并标为已读。
-    - 商家、服务商的操作员和平台客服用受权接口回复（没有工作台页面，开发脚本 infra/scripts/dev-support-reply.cjs）。
+    - 商家、服务商的操作员和平台客服用受权接口回复：页面在运营端（apps/admin），机构工作台“客服会话”给商家、服务商，
+      平台“客服会话”给平台客服和平台运营（1.1.0）；开发脚本 infra/scripts/dev-support-reply.cjs 仍可用。
       平台只协助沟通，不裁决。
     - 意见反馈：类型 + 1–200 字，服务端记下来，不承诺处理时限，没有截图。
 
@@ -358,12 +365,19 @@ paths:
   /api/v1/platform/support/conversations:
     get:
       operationId: "listPlatformSupportConversations"
-      summary: "平台客服的会话（只列发过消息的），最后一条消息新的在前"
+      summary: "平台客服的会话（只列发过消息的），默认最后一条消息新的在前"
+      description: "sort=UNREAD_FIRST（1.1.0）时这一边有未读的在前，各自再按最后一条消息新的在前；运营端“客服会话”用它。"
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
+        - name: "sort"
+          in: "query"
+          required: false
+          description: "只认大写；别的值 400（COMMON_INVALID_ARGUMENT）"
+          schema:
+            $ref: "#/components/schemas/SupportDeskSort"
       responses:
         "200":
           description: "一页会话"
@@ -508,7 +522,7 @@ components:
           schema:
             $ref: "#/components/schemas/ApiError"
     PlatformForbidden:
-      description: "登录账号没有平台客服角色（COMMON_FORBIDDEN）"
+      description: "登录账号既没有平台客服角色、也没有平台运营角色（COMMON_FORBIDDEN）"
       content:
         application/json:
           schema:
@@ -643,6 +657,13 @@ components:
         - "RENTAL_ORDER"
         - "DEMAND"
       description: "卡片关于什么，refId 是它的稳定 ID：PRODUCT 商品；MALL_ORDER 商城订单（交易订单）；MALL_INQUIRY 商品询价单；INSPECTION_SERVICE 巡检服务；INSPECTION_ORDER 巡检服务单；PRO_SERVICE 专业服务；ACTIVITY 活动；ACTIVITY_ENROLLMENT 活动报名；VENUE 场馆；VENUE_BOOKING 到馆预约；RENTAL_INQUIRY 租赁询价单；RENTAL_ORDER 租赁订单；DEMAND 需求。"
+    SupportDeskSort:
+      type: "string"
+      enum:
+        - "LATEST"
+        - "UNREAD_FIRST"
+      default: "LATEST"
+      description: "回复方会话列表的排序（1.1.0）：LATEST 最后一条消息新的在前；UNREAD_FIRST 这一边有未读的在前，各自再按最后一条消息新的在前。"
     SupportFeedbackType:
       type: "string"
       enum:
