@@ -62,8 +62,16 @@ public interface ActivityPaymentPort {
             String coverUrl,
             long unitAmountMinor,
             int people,
-            Instant payBefore
+            Instant payBefore,
+            /** 交易订单上显示的参与人姓名（报名顺序），只用来显示（交易契约 0.6.0）。 */
+            java.util.List<String> participantNames
     ) {
+        public OpenPayment(UUID enrollmentId, UUID accountId, UUID organizerId, String cityCode, UUID activityId,
+                           UUID sessionId, String activityTitle, String sessionName, String coverUrl,
+                           long unitAmountMinor, int people, Instant payBefore) {
+            this(enrollmentId, accountId, organizerId, cityCode, activityId, sessionId, activityTitle, sessionName,
+                    coverUrl, unitAmountMinor, people, payBefore, java.util.List.of());
+        }
     }
 
     record OpenedPayment(UUID tradeOrderId, Instant payBefore) {

@@ -35,8 +35,43 @@ public final class TradeViews {
             String closeReason,
             List<TradeRefundView> refunds,
             boolean cancellable,
-            int version
+            int version,
+            /** 0.7.0：下单时的交易主体快照（发货仓、开票方、售后责任方）；业务来源的订单三项都为 null。 */
+            TradeOrderPartiesView parties,
+            /** 0.7.0：付款成功的支付单在微信的交易号（transaction_id），验签后的回调或查单才有；没付款时为 null。只用来显示。 */
+            String channelTransactionId,
+            /** 0.7.0：收费报名订单的参与人姓名（按报名顺序，顿号连接），只用来显示；别的订单为 null。 */
+            String participantNames,
+            /** 0.7.0：这张单的售后（只有商城订单有意义）。 */
+            TradeOrderAftersaleView aftersale
     ) {
+        /** 0.5.0 及以前的字段（测试和老调用方用）：新字段都取空。 */
+        public TradeOrderView(UUID orderId, String orderNo, String source, UUID sourceRef, TradeOrderStatus status,
+                              TradeMerchantView merchant, List<TradeOrderLineView> lines, TradeDeliveryView delivery,
+                              TradeAmountsView amounts, String buyerNote, Instant createdAt, Instant payBefore,
+                              Instant paidAt, Instant completedAt, Instant closedAt, String closeReason,
+                              List<TradeRefundView> refunds, boolean cancellable, int version) {
+            this(orderId, orderNo, source, sourceRef, status, merchant, lines, delivery, amounts, buyerNote, createdAt,
+                    payBefore, paidAt, completedAt, closedAt, closeReason, refunds, cancellable, version,
+                    TradeOrderPartiesView.NONE, null, null, TradeOrderAftersaleView.NONE);
+        }
+    }
+
+    /**
+     * 交易主体（0.7.0，画板 OrderGoods）：fulfilledFrom 从哪里发货（商城供给的发货仓，几行不同时用“；”连接）；
+     * invoiceIssuer 开票方；aftersaleParty 售后责任方。都是下单时的快照，没有时为 null（页面不显示这一行）。
+     */
+    public record TradeOrderPartiesView(String fulfilledFrom, String invoiceIssuer, String aftersaleParty) {
+        public static final TradeOrderPartiesView NONE = new TradeOrderPartiesView(null, null, null);
+    }
+
+    /**
+     * 订单上的售后入口（0.7.0）：latestAftersaleId、latestStatus 是最近一张售后单（没有时为 null）；
+     * applicable 是现在能不能申请（服务端按订单状态、收货时间、有没有没结束的售后单、还能退的钱算；
+     * 具体能选哪类、哪个原因看售后申请页的 eligibility）。
+     */
+    public record TradeOrderAftersaleView(UUID latestAftersaleId, String latestStatus, boolean applicable) {
+        public static final TradeOrderAftersaleView NONE = new TradeOrderAftersaleView(null, null, false);
     }
 
     /** kind 是商城的商家类型；业务来源的订单（收费报名的主办机构）为 null。 */

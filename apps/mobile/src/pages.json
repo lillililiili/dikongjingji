@@ -178,6 +178,28 @@
       }
     },
     {
+      "path": "pages/trade/aftersale-apply",
+      "style": {
+        "navigationBarTitleText": "申请售后",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/trade/aftersale",
+      "style": {
+        "navigationBarTitleText": "售后详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/aftersales",
+      "style": {
+        "navigationBarTitleText": "退款/售后",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/mine/orders",
       "style": {
         "navigationBarTitleText": "我的订单",
@@ -280,6 +302,34 @@
       "path": "pages/venue/booking",
       "style": {
         "navigationBarTitleText": "到馆核销码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/course/detail",
+      "style": {
+        "navigationBarTitleText": "课程详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/course/learn",
+      "style": {
+        "navigationBarTitleText": "课程学习",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/course/trial",
+      "style": {
+        "navigationBarTitleText": "课程试听",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mine/courses",
+      "style": {
+        "navigationBarTitleText": "我的课程",
         "navigationStyle": "custom"
       }
     },
@@ -406,6 +456,13 @@
       "path": "pages/mall/product",
       "style": {
         "navigationBarTitleText": "商品详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mall/merchant",
+      "style": {
+        "navigationBarTitleText": "商家主页",
         "navigationStyle": "custom"
       }
     },

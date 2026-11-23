@@ -107,6 +107,8 @@ class TradeOpenApiContractTest {
     /** 返回对象：字段全部必有。 */
     private static final Map<String, Class<? extends Record>> SCHEMA_RECORDS = Map.ofEntries(
             Map.entry("TradeOrder", TradeOrderView.class),
+            Map.entry("TradeOrderParties", TradeViews.TradeOrderPartiesView.class),
+            Map.entry("TradeOrderAftersale", TradeViews.TradeOrderAftersaleView.class),
             Map.entry("TradeMerchant", TradeMerchantView.class),
             Map.entry("MediaAsset", TradeMediaView.class),
             Map.entry("TradeOrderLine", TradeOrderLineView.class),
@@ -148,7 +150,9 @@ class TradeOpenApiContractTest {
         // 0.4.0：S2-1 加支付通道自检。
         // 0.5.0：S3-2 商家工作台的读取（按配送方式筛、单张订单、本机构收款账户）。
         // 0.6.0：S4-1 巡检付款节点（来源 INSPECTION）。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("0.6.0");
+        // 0.7.0：S4-2、S4-4 订单的交易主体快照、渠道交易号、参与人、售后入口。
+        // 0.9.0：S5-5 线上录播课（来源 COURSE）。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("0.9.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -468,9 +472,10 @@ class TradeOpenApiContractTest {
         assertThat(enumOf("MerchantKind")).containsExactlyElementsOf(
                 Arrays.stream(MallMerchantKind.values()).map(Enum::name).toList());
         assertThat(enumOf("DeliveryMode")).containsExactly("EXPRESS", "PICKUP");
-        // 0.2.0：收费活动报名、到馆预约、设备租赁（TradeSourceOrders 的订单来源和 V005–V007 trade_order.source 的取值）。
-        assertThat(enumOf("TradeOrderSource")).containsExactly("MALL", "ACTIVITY", "VENUE", "RENTAL", "INSPECTION");
-        assertThat(enumOf("TradeOrderSource").subList(1, 5))
+        // 0.2.0：收费活动报名、到馆预约、设备租赁；0.6.0：巡检付款节点；0.9.0：线上录播课（TradeSourceOrders 的订单来源和
+        // V005–V008、V012 trade_order.source 的取值）。
+        assertThat(enumOf("TradeOrderSource")).containsExactly("MALL", "ACTIVITY", "VENUE", "RENTAL", "INSPECTION", "COURSE");
+        assertThat(enumOf("TradeOrderSource").subList(1, 6))
                 .containsExactlyInAnyOrderElementsOf(TradeSourceOrders.ORDER_PREFIXES.keySet());
         // 商家类型只在商城订单上有，业务来源的订单为 null；取值仍是 MerchantKind 的那几个。
         assertThat(strings(map(map(map(schemas.get("TradeMerchant")).get("properties")).get("kind")).get("enum")))

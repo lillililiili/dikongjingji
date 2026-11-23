@@ -63,4 +63,8 @@ public final class MallRows {
     /** 图文介绍的一段（1.3.0）。 */
     public record IntroBlockRow(String blockType, String text, String imageUrl) {
     }
+
+    /** 1.4.0：一个供给的开票方、售后责任方（已按供给 → 商家资料 → 商家名称取好）和商品是否支持七天无理由。 */
+    public record TradeTermsRow(UUID offerId, String invoiceIssuer, String aftersaleParty, boolean noReasonReturn) {
+    }
 }

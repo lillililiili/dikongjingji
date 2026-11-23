@@ -67,6 +67,19 @@ public class TradeRefundService {
     private final Clock clock;
     private final Supplier<String> outRefundNoSuffix;
     private final TradeBuyerEvents buyerEvents;
+    /** S4-2：退款到账或结束时告诉售后单（售后服务在第一次用到时才取，免得构造时成环）。 */
+    private Supplier<RefundSettlement> settlements = () -> RefundSettlement.NONE;
+
+    /** 退款到账（succeeded）或关闭、异常时，在同一个事务里调用。 */
+    interface RefundSettlement {
+        RefundSettlement NONE = (refundId, succeeded, at) -> { };
+
+        void settled(UUID refundId, boolean succeeded, Instant at);
+    }
+
+    void useSettlements(Supplier<RefundSettlement> settlements) {
+        this.settlements = settlements;
+    }
 
     TradeRefundService(
             TradeRefundMapper refunds,
@@ -270,6 +283,67 @@ public class TradeRefundService {
         return created;
     }
 
+    // ---- 售后退款（S4-2） ----
+
+    /**
+     * 售后单发起的退款，在调用方（售后服务）的事务里执行，不调渠道：调用方在事务提交后再 {@link #submit}，定时任务也会兜底重提。
+     * 规则和商家退款一样（付款后一年内、最多 50 次、合计不超过实付）；退的是剩下的全部时订单进入退款中。
+     * initiator：仅退款是 BUYER_CANCEL（未发货取消即退的规则），商家确认收货是 MERCHANT，超时自动退款是 SOURCE（没有操作人）。
+     */
+    UUID createAftersaleRefund(UUID orderId, long amountMinor, String reason, String initiator, UUID actorId,
+                               UUID idempotencyKey) {
+        String cause = switch (initiator) {
+            case "BUYER_CANCEL" -> "BUYER_CANCEL";
+            case "MERCHANT" -> "MERCHANT_REFUND";
+            case "SOURCE" -> "SOURCE_REFUND";
+            default -> throw new IllegalArgumentException("refund initiator is invalid");
+        };
+        if (amountMinor < 1 || idempotencyKey == null || ("SOURCE".equals(initiator) != (actorId == null))) {
+            throw new IllegalArgumentException("aftersale refund is invalid");
+        }
+        String why = reason == null ? "" : reason.trim();
+        if (why.isEmpty() || why.length() > MAX_REASON) {
+            throw new IllegalArgumentException("refund reason is invalid");
+        }
+        Instant now = clock.instant();
+        RefundOrderRow order = refunds.lockOrder(orderId);
+        if (order == null) {
+            throw new TradeException(Error.NOT_FOUND);
+        }
+        RefundRow replayed = refunds.findRefundByKey(orderId, idempotencyKey);
+        if (replayed != null) {
+            return replayed.id();
+        }
+        TradeOrderStatus current = TradeOrderStatus.valueOf(order.status());
+        if (current != TradeOrderStatus.PAID && current != TradeOrderStatus.SHIPPED
+                && current != TradeOrderStatus.COMPLETED && current != TradeOrderStatus.REFUND_FAILED) {
+            throw new TradeException(Error.ORDER_STATE_INVALID);
+        }
+        PaidPaymentRow payment = requirePayment(order);
+        requireWithinLimits(order, now);
+        long refundable = refundable(order);
+        if (refundable <= 0 || amountMinor > refundable) {
+            throw new TradeException(Error.REFUND_EXCEEDS_PAID);
+        }
+        UUID created = refunds.insertRefund(orderId, payment.id(), newOutRefundNo(now), amountMinor, why,
+                initiator, actorId, idempotencyKey, now);
+        if (amountMinor == refundable) {
+            refunds.markOrderRefunding(orderId, now);
+            orders.insertTransition(orderId, order.status(), TradeOrderStatus.REFUNDING.name(), cause, actorId, now);
+        }
+        return created;
+    }
+
+    /** 这张单现在还能退多少（实付减已退减在路上的），在调用方的事务里、锁住订单之后调用。 */
+    long refundableNow(UUID orderId) {
+        RefundOrderRow order = refunds.lockOrder(orderId);
+        return order == null ? 0 : refundable(order);
+    }
+
+    boolean channelReady() {
+        return channels.get() != null;
+    }
+
     // ---- 提交给渠道 ----
 
     /**
@@ -401,6 +475,7 @@ public class TradeRefundService {
                         orders.insertTransition(order.id(), order.status(), next, cause, null, now);
                     }
                     buyerEvents.refunded(order.id(), refund.id(), refund.amountMinor(), now);
+                    settlements.get().settled(refund.id(), true, now);
                     return Applied.APPLIED;
                 }
                 case CLOSED, ABNORMAL -> {
@@ -440,6 +515,7 @@ public class TradeRefundService {
         if (refunds.markFinished(refundId, target, now) == 0) {
             return;
         }
+        settlements.get().settled(refundId, false, now);
         if (TradeOrderStatus.REFUNDING.name().equals(order.status()) && refunds.sumOpenRefunds(order.id()) == 0) {
             refunds.changeOrderStatus(order.id(), order.status(), TradeOrderStatus.REFUND_FAILED.name(), now);
             orders.insertTransition(order.id(), order.status(), TradeOrderStatus.REFUND_FAILED.name(), cause, null, now);

@@ -192,7 +192,9 @@ test.describe('收费活动报名', () => {
     await expect(page.getByTestId('cashier-countdown')).toHaveText(/^名额保留 1[45]:\d\d · 超时自动释放$/)
     await expect(page.getByTestId('cashier-payee')).toHaveText('示例研学机构')
     await expect(page.getByTestId('cashier-activity')).toHaveText('机器人研学体验')
-    await expect(page.getByTestId('cashier-people')).toHaveText('2 人')
+    // 画板 CashierEnroll：交易 0.6.0 起写参与人的名字（报名顺序，顿号连接），不再写“2 人”。
+    await expect(page.getByTestId('cashier-participants')).toHaveText(`${CHILD_NAMES[0]}、${CHILD_NAMES[1]}`)
+    await expect(page.getByTestId('cashier-people')).toHaveCount(0)
     await expect(page.getByTestId('cashier-goods')).toHaveCount(0)
     await expect(page.getByTestId('cashier-order-no')).toHaveText(/^AO\d{16}$/)
     const orderId = orderIdFromUrl(page)
@@ -213,6 +215,9 @@ test.describe('收费活动报名', () => {
     await expect(page.getByTestId('pay-result-amount')).toHaveText('¥336')
     await expect(page.getByTestId('pay-result-paid-note')).toHaveText('2 个名额已确认 · 一人一码')
     await expect(page.getByTestId('pay-result-payee')).toHaveText('示例研学机构')
+    await expect(page.getByTestId('pay-result-participants')).toHaveText(`${CHILD_NAMES[0]}、${CHILD_NAMES[1]}`)
+    // 渠道交易号只在验签后的回调或查单记下之后才有（模拟微信给的交易号）。
+    await expect(page.getByTestId('pay-result-transaction')).not.toBeEmpty()
     await expect(page.getByTestId('pay-result-view-order')).toHaveText('查看凭证')
     await page.getByTestId('pay-result-view-order').click()
 

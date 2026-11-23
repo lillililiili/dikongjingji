@@ -8,6 +8,7 @@ import { getBookingAuthContext } from '@/features/inspection/application/service
 import { buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { TRADE_PREVIEW_ENABLED } from '@/features/trade/application/trade-preview'
 import { goBackOr } from '@/features/trade/navigation/trade-navigation'
+import { buildAftersaleApplyUrl, buildAftersaleDetailUrl } from '@/features/trade/navigation/aftersale-routes'
 import { buildCashierUrl, buildGoodsOrderUrl, buildGoodsOrdersUrl } from '@/features/trade/navigation/trade-routes'
 import TradeOrderDetailPage from '@/features/trade/presentation/order/TradeOrderDetailPage.vue'
 import TradeUnavailable from '@/features/trade/presentation/shared/TradeUnavailable.vue'
@@ -43,6 +44,14 @@ function pay(): void {
   uni.navigateTo({ url: buildCashierUrl(orderId.value) })
 }
 
+function applyAftersale(): void {
+  uni.navigateTo({ url: buildAftersaleApplyUrl(orderId.value) })
+}
+
+function openAftersale(aftersaleId: string): void {
+  uni.navigateTo({ url: buildAftersaleDetailUrl(aftersaleId) })
+}
+
 onLoad((query) => {
   orderId.value = decode(query?.orderId)
 })
@@ -64,6 +73,8 @@ onShow(() => {
     @login="openLogin"
     @pay="pay"
     @elsewhere="openElsewhere"
+    @apply-aftersale="applyAftersale"
+    @open-aftersale="openAftersale"
   />
   <TradeUnavailable v-else-if="!TRADE_PREVIEW_ENABLED" />
 </template>
