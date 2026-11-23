@@ -64,6 +64,24 @@ public final class ExperienceCatalogReadService {
         return new ExperienceItemPageView(page, size, total, hasMore(page, size, total), items);
     }
 
+    /** S5-4：一个已发布的线上体验项目，带仿真模板和试用时长；没有或没发布时 404。 */
+    public ExperienceItemDetailView findExperienceItem(UUID experienceId) {
+        if (experienceId == null) {
+            throw new IllegalArgumentException("experience id is required");
+        }
+        var row = store.findExperienceItem(experienceId).orElseThrow(VenueNotFoundException::new);
+        return new ExperienceItemDetailView(
+                row.experienceId(),
+                ExperienceType.valueOf(row.type()),
+                row.title(),
+                blankToNull(row.summary()),
+                secureMedia(row.coverUrl(), row.title()),
+                row.loginRequired(),
+                row.productId(),
+                row.simulationTemplate() == null ? null : SimulationTemplate.valueOf(row.simulationTemplate()),
+                row.trialMinutes());
+    }
+
     public VenuePageView listVenues(String cityCode, int page, int size) {
         requireCityCode(cityCode);
         requirePage(page, size);
@@ -284,6 +302,20 @@ record ExperienceItemView(
         String summary,
         ExperienceMediaView coverImage,
         boolean loginRequired
+) {
+}
+
+/** S5-4：仿真页、试用页用的项目详情。simulationTemplate 只有仿真有，trialMinutes 只有试用和试听有。 */
+record ExperienceItemDetailView(
+        UUID experienceId,
+        ExperienceType type,
+        String title,
+        String summary,
+        ExperienceMediaView coverImage,
+        boolean loginRequired,
+        UUID productId,
+        SimulationTemplate simulationTemplate,
+        Integer trialMinutes
 ) {
 }
 

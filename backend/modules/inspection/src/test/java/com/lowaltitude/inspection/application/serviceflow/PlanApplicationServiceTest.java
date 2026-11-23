@@ -463,9 +463,93 @@ class PlanApplicationServiceTest {
         assertThat(order.visits().get(1).plannedDate()).isEqualTo(LocalDate.of(2026, 8, 16));
     }
 
+    /** 只回答服务商能不能收款的付款端口。 */
+    private static InspectionPaymentPort collecting(boolean canCollect) {
+        InspectionPaymentPort unavailable = InspectionPaymentPort.unavailable();
+        return new InspectionPaymentPort() {
+            @Override
+            public boolean merchantCanCollect(UUID organizationId) {
+                return canCollect && PROVIDER.equals(organizationId);
+            }
+
+            @Override
+            public OpenedPayment open(OpenPayment request) {
+                return unavailable.open(request);
+            }
+
+            @Override
+            public void lockOrder(UUID tradeOrderId) {
+                unavailable.lockOrder(tradeOrderId);
+            }
+
+            @Override
+            public UUID requestRefund(UUID tradeOrderId, long amountMinor, String reason, UUID key, UUID actorId) {
+                return unavailable.requestRefund(tradeOrderId, amountMinor, reason, key, actorId);
+            }
+
+            @Override
+            public java.util.Map<UUID, RefundProgress> refundStates(java.util.Collection<UUID> refundIds) {
+                return java.util.Map.of();
+            }
+
+            @Override
+            public boolean cancelUnpaid(UUID accountId, UUID tradeOrderId) {
+                return unavailable.cancelUnpaid(accountId, tradeOrderId);
+            }
+        };
+    }
+
+    // D9：服务商没有登记收款账户时，带付款节点的方案不能确认，什么都不写。
+    @Test
+    void aPlanWithPaymentNodesCannotBeConfirmedWhenTheProviderCannotCollect() {
+        service = new PlanApplicationService(store, Clock.fixed(NOW, ZoneOffset.UTC), true, collecting(false));
+        ServicePlanView plan = service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command("按次付款", 100, List.of(LocalDate.of(2026, 8, 2))),
+                "publish-nodes");
+
+        assertThatThrownBy(() -> service.confirm(
+                customer(CUSTOMER),
+                plan.id(),
+                CONFIRM_KEY,
+                0,
+                new ConfirmPlanCommand("inspection-plan-v2", true),
+                "confirm-nodes"))
+                .isInstanceOf(ProviderPaymentUnavailableException.class);
+        assertThat(store.orders).isEmpty();
+    }
+
+    // 方案总价很小、按次分不出钱时，金额为 0 的节点确认时直接记为已付；首付为 0 时直接待安排。
+    @Test
+    void zeroAmountNodesArePaidOnConfirmation() {
+        service = new PlanApplicationService(store, Clock.fixed(NOW, ZoneOffset.UTC), true, collecting(true));
+        ServicePlanView plan = service.publish(
+                provider(PROVIDER),
+                RESERVATION,
+                PUBLISH_KEY,
+                0,
+                command("按次付款", 0, List.of(LocalDate.of(2026, 8, 2), LocalDate.of(2026, 8, 16))),
+                "publish-nodes");
+
+        ServiceOrderView order = service.confirm(
+                customer(CUSTOMER),
+                plan.id(),
+                CONFIRM_KEY,
+                0,
+                new ConfirmPlanCommand("inspection-plan-v2", true),
+                "confirm-nodes");
+
+        assertThat(order.status()).isEqualTo(ServiceOrderStatus.ARRANGING);
+        assertThat(order.paymentNodes()).extracting(OrderPaymentNodeView::paidAt).containsOnly(NOW);
+        assertThat(order.paymentNodes()).extracting(OrderPaymentNodeView::payable).containsOnly(false);
+    }
+
     @Test
     void paymentNodesAreCopiedToTheOrderWhenEnabled() {
-        service = new PlanApplicationService(store, Clock.fixed(NOW, ZoneOffset.UTC), true);
+        service = new PlanApplicationService(store, Clock.fixed(NOW, ZoneOffset.UTC), true, collecting(true));
         ServicePlanView plan = service.publish(
                 provider(PROVIDER),
                 RESERVATION,
@@ -488,6 +572,9 @@ class PlanApplicationServiceTest {
         assertThat(plan.terms().paymentNodes()).extracting(PlanPaymentNode::amountMinor)
                 .containsExactly(720L, 840L, 840L);
         assertThat(order.paymentMode()).isEqualTo(PaymentMode.NODES);
+        // 首付没到账之前服务单待付款，服务商不能安排。
+        assertThat(order.status()).isEqualTo(ServiceOrderStatus.AWAITING_PAYMENT);
+        assertThat(order.cancellable()).isTrue();
         assertThat(order.paymentNodes()).extracting(OrderPaymentNodeView::payable)
                 .containsExactly(true, false, false);
         assertThat(order.paymentNodes()).extracting(OrderPaymentNodeView::paidAt)

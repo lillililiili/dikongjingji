@@ -4,11 +4,11 @@ import { ref } from 'vue'
 
 import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
 import { addressApi } from '@/features/account/data/address-api-client'
+import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
-  clearBookingAuthSession,
-  getBookingAuthContext,
-} from '@/features/inspection/application/service-flow/booking-auth-context'
-import { inspectionAccountApi } from '@/features/inspection/data/service-flow/uni-booking-http-client'
+  inspectionAccountApi,
+  signOutBookingSession,
+} from '@/features/inspection/data/service-flow/uni-booking-http-client'
 import { MINE_TAB_PATH, buildInspectionLoginUrl } from '@/features/inspection/navigation/inspection-routes'
 import { buildAddressBookUrl } from '@/features/mall/navigation/mall-routes'
 import { SYSTEM_NOTICE_PREVIEW_ENABLED } from '@/features/message/application/notice-preview'
@@ -79,8 +79,10 @@ function logout(): void {
     success: async (result) => {
       if (!result.confirm) return
       // Pushes for this account stop coming to this device (S5-9); a failure does not keep anyone signed in.
+      // The push id is revoked first, while the access token still works.
       await revokePushDevice()
-      clearBookingAuthSession()
+      // Withdraws the login on the server too (its refresh token), not only on this device.
+      signOutBookingSession()
       badges.setMessageUnread(0)
       badges.setCartCount(0)
       uni.reLaunch({ url: MINE_TAB_PATH })

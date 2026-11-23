@@ -25,6 +25,10 @@ export interface ProductExperiencePill {
   targetId: string
   // The first pill is drawn green and bold, as on the board.
   highlighted: boolean
+  // What the 选择体验方式 sheet (board ExpPick) says: the item's title or the venue and its device,
+  // and the item's short line.
+  title: string
+  meta: string | null
 }
 
 export interface ProductExperienceView {
@@ -41,14 +45,16 @@ export function toProductExperienceView(data: ProductExperiences): ProductExperi
   const simulation = firstOf('SIMULATION')
   const demo = firstOf('RECORDED_DEMO')
   const venue = data.venues[0] ?? null
-  const targets: Array<[ProductExperienceWay, string | null]> = [
-    ['SIMULATION', simulation?.experienceId ?? null],
-    ['RECORDED_DEMO', demo?.experienceId ?? null],
-    ['VENUE', venue?.venueId ?? null],
+  const targets: Array<[ProductExperienceWay, string | null, string, string | null]> = [
+    ['SIMULATION', simulation?.experienceId ?? null, simulation?.title ?? '', simulation?.summary ?? null],
+    ['RECORDED_DEMO', demo?.experienceId ?? null, demo?.title ?? '', demo?.summary ?? null],
+    ['VENUE', venue?.venueId ?? null, venue ? `${venue.name} · ${venue.deviceName}` : '', null],
   ]
   const pills = targets
-    .filter((entry): entry is [ProductExperienceWay, string] => entry[1] !== null)
-    .map(([way, targetId], index) => ({ way, label: WAY_LABELS[way], targetId, highlighted: index === 0 }))
+    .filter((entry): entry is [ProductExperienceWay, string, string, string | null] => entry[1] !== null)
+    .map(([way, targetId, title, meta], index) => ({
+      way, label: WAY_LABELS[way], targetId, highlighted: index === 0, title, meta,
+    }))
   if (pills.length === 0) return null
   return {
     pills,
@@ -67,8 +73,8 @@ export type ProductExperienceAction =
   | { kind: 'NONE' }
 
 /**
- * What a pill does: a venue opens its page (到馆预约 is built); an online experience is not built
- * yet and goes through the experience gate, which explains it on preview builds.
+ * What a way does: a venue opens its page (到馆预约 is built); an online experience goes through the
+ * experience gate, which opens the simulation (S5-4) and explains the recorded demo on preview builds.
  */
 export function resolveProductExperiencePill(
   pill: Pick<ProductExperiencePill, 'way' | 'targetId'>,
@@ -80,7 +86,16 @@ export function resolveProductExperiencePill(
     { type: 'OPEN_EXPERIENCE', experienceId: pill.targetId, experienceType: pill.way },
     previewEnabled,
   )
+  if (resolution.action === 'NAVIGATE') return { kind: 'NAVIGATE', url: resolution.url }
   return resolution.action === 'SHOW_NOTICE' ? { kind: 'NOTICE', message: resolution.message } : { kind: 'NONE' }
+}
+
+/**
+ * Board PdFull: 虚拟仿真 opens the task straight away; 录播演示 and 到馆体验 open the 选择体验方式 sheet
+ * (board ExpPick), which says what each way is before the user goes.
+ */
+export function pillOpensPicker(pill: Pick<ProductExperiencePill, 'way'>): boolean {
+  return pill.way !== 'SIMULATION'
 }
 
 /** 馆内展示设备 of the venue in the note. */
