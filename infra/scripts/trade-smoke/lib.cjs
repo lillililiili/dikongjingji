@@ -105,6 +105,11 @@ async function login(name, pw = password) {
 }
 
 /** 删掉 dev-customer 名下的订单、地址，以及这些订单的支付、退款、回调和状态记录。 */
+/**
+ * 删 dev-customer 名下的交易订单，连同指向这些订单的数据（S6-03）：交易站内信（交易物流，跳转目标是这张订单）和
+ * 推送模拟记录、巡检付款尝试（inspection_payment_attempt.trade_order_id，没有外键）。巡检的预约、服务单和付款节点按设计保留
+ * （S6-05），节点上记的首付退款单 ID 会指向已删的退款单（没有外键，只读页面上不显示退款进度）。
+ */
 function cleanupBuyer() {
   const ids = `SELECT id FROM trade_order WHERE buyer_id = '${BUYER}'`;
   // 先锁住这些订单：定时任务（超时关单、自动确认）用 SKIP LOCKED 会跳过它们，不会在删到一半时插进新的状态记录。
@@ -117,6 +122,9 @@ function cleanupBuyer() {
     DELETE FROM trade_state_transition WHERE order_id IN (${ids});
     DELETE FROM trade_order_line WHERE order_id IN (${ids});
     DELETE FROM trade_order_delivery WHERE order_id IN (${ids});
+    DELETE FROM notification_message WHERE recipient_id = '${BUYER}' AND target_type = 'TRADE_ORDER' AND target_id IN (${ids});
+    DELETE FROM notification_push_fake_delivery WHERE account_id = '${BUYER}' AND target_type = 'TRADE_ORDER' AND target_id IN (${ids});
+    DELETE FROM inspection_payment_attempt WHERE trade_order_id IN (${ids});
     DELETE FROM trade_order WHERE buyer_id = '${BUYER}';
     DELETE FROM mall_cart_item WHERE account_id = '${BUYER}';
     DELETE FROM account_address WHERE owner_id = '${BUYER}';
