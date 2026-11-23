@@ -13,7 +13,10 @@ defineProps<{ rows: PlanPaymentRow[] }>()
         <text class="plan-payment__name">{{ row.name }}</text>
         <text class="plan-payment__state" :class="{ 'plan-payment__state--due': row.isDue }">{{ row.stateText }}</text>
       </view>
-      <text class="plan-payment__amount" :class="{ 'plan-payment__amount--due': row.isDue }">{{ row.amountText }}</text>
+      <text
+        class="plan-payment__amount"
+        :class="{ 'plan-payment__amount--due': row.isDue, 'plan-payment__amount--muted': row.isMuted }"
+      >{{ row.amountText }}</text>
     </view>
     <view class="plan-payment__note">
       <LineIcon name="info" :size="14" color="#738096" />
@@ -80,6 +83,10 @@ defineProps<{ rows: PlanPaymentRow[] }>()
 
 .plan-payment__amount--due {
   color: #e85400;
+}
+
+.plan-payment__amount--muted {
+  color: #738096;
 }
 
 .plan-payment__note {
