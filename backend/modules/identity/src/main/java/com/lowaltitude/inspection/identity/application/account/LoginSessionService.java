@@ -25,6 +25,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class LoginSessionService {
 
     public static final int MAX_LISTED = 20;
+    /**
+     * 登录设备只列这段时间里活动过的会话。现在的访问令牌 15 分钟过期、没有续期，会话只在登录时记活动时间；
+     * 刷新令牌合并后续期时更新 last_active_at，过期的会话自然从列表里消失。
+     */
+    public static final java.time.Duration LISTED_WINDOW = java.time.Duration.ofDays(30);
     public static final String PASSWORD = "PASSWORD";
     public static final String SMS_CODE = "SMS_CODE";
 
@@ -56,7 +61,7 @@ public class LoginSessionService {
 
     @Transactional(readOnly = true)
     public SessionListView list(UUID userId, UUID currentSessionId) {
-        List<SessionRow> rows = mapper.findActiveSessions(userId, MAX_LISTED);
+        List<SessionRow> rows = mapper.findActiveSessions(userId, now().minus(LISTED_WINDOW), MAX_LISTED);
         List<String> codes = rows.stream().map(SessionRow::cityCode).filter(java.util.Objects::nonNull)
                 .distinct().toList();
         Map<String, String> names = codes.isEmpty() ? Map.of() : cities.names(codes);

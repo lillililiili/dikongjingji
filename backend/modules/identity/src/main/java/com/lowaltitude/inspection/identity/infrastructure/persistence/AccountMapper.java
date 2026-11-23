@@ -280,10 +280,12 @@ public interface AccountMapper {
               FROM identity_login_session
              WHERE user_id = #{userId}
                AND revoked_at IS NULL
+               AND last_active_at > #{since}
              ORDER BY last_active_at DESC, id DESC
              LIMIT #{limit}
             """)
-    List<SessionRow> findActiveSessions(@Param("userId") UUID userId, @Param("limit") int limit);
+    List<SessionRow> findActiveSessions(@Param("userId") UUID userId, @Param("since") OffsetDateTime since,
+                                        @Param("limit") int limit);
 
     @Select("""
             SELECT id, device_name, platform, city_code, signed_in_at, last_active_at

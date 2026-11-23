@@ -48,7 +48,7 @@ class LoginSessionServiceTest {
     void thisDeviceComesFirstWithTheCityName() {
         UUID current = UUID.randomUUID();
         UUID other = UUID.randomUUID();
-        when(mapper.findActiveSessions(ME, 20)).thenReturn(List.of(
+        when(mapper.findActiveSessions(ME, AT.minusDays(30), 20)).thenReturn(List.of(
                 new SessionRow(other, "Android 手机", "ANDROID", "370500", AT, AT),
                 new SessionRow(current, "iPhone 15", "IOS", null, AT.minusDays(1), AT.minusDays(1))));
 
