@@ -1,0 +1,1314 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Venue API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“场馆与设备”——场馆、项目、
+    按周模板批量生成场次、停售与取消场次、馆内设备及关联商品、上线与下线、改动记录。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT, PROVIDER_OPERATOR,
+    LIVE_HOST, customers) get 403 COMMON_FORBIDDEN. 场馆、项目、场次、设备在体验模块（迁移 V001、V003、V005）；App 读的是
+    公开契约 openapi-experience.yaml（1.3.0 起场馆详情带检票规则 checkIn）。
+
+    规则：
+    - 场馆状态：DRAFT 草稿（新建都是草稿）→ PUBLISHED 已上线（App 可见）→ OFFLINE 已下线（App 不显示，已有预约照常到馆、
+      核销、取消退款），下线后可以再上线。状态不对 409 OPS_VENUE_STATUS_CONFLICT。
+    - 上线前必填（422 OPS_PUBLISH_INCOMPLETE，details.missing 是缺的字段键，见 OpsVenuePublishField）：封面 coverUrl、
+      营业时间 openingHours、至少一个启用的项目 projects、至少一场没开始的在售场次 sessions。详情的 publishMissing 随时给出
+      现在还差什么。已上线的场馆改资料时封面和营业时间不能清掉、最后一个启用的项目不能停用（同样 422）。
+    - 运营机构必须是身份模块里在用的服务商机构（422 OPS_VENUE_OPERATOR_INVALID）；城市必须在平台城市目录里
+      （422 OPS_CITY_UNKNOWN）。核销码只认运营机构的操作员。
+    - 营业时间：每天开门 opensAt、关门 closesAt（北京时间 HH:mm，开门早于关门，两项一起填或一起空）和休息日说明 closedNote；
+      保存时生成 App 上显示的一行 openingNote（“09:30–18:00 · 周一闭馆”），没填结构化时间的老场馆保留原来的文字。
+    - 检票：开场前 checkinOpensMinutes 分钟（0–240，默认 30）开始；开场后 lateEntryMinutes 分钟（0–240）内还能入场，
+      为 null 表示到场次结束。到馆核销按这条规则判断。
+    - 项目：时长 5–480 分钟，价格（分）0–10,000,000，最低年龄 0–99（null 不限），每场人数 1–999。停用后 App 不显示、
+      不接新预约，已有预约照常。改价格只影响之后的新预约。
+    - 场次按周模板批量生成：fromDate–toDate（北京时间日期，含两端，跨度不超过 62 天）里 weekdays 那几天，每天 startTimes
+      这几个开始时间（HH:mm，最多 12 个），结束时间 = 开始 + 项目时长，名额默认取项目每场人数。同一项目同一开始时间已有没取消的
+      场次跳过，开始时间已过的跳过；一次最多新生成 200 场（422 OPS_VENUE_TOO_MANY_SESSIONS，什么都不生成）。
+    - 场次：ACTIVE 在售 → STOPPED 停售（App 不再列出、不接新预约，已有预约照常）→ 可恢复售卖；CANCELLED 已取消只在没有
+      有效预约（待付款、待到馆、已核销）时可以（否则 409 OPS_VENUE_SESSION_HAS_BOOKINGS，只能停售）。场次开始后都不能再改
+      （409 OPS_VENUE_SESSION_STARTED）。场次不能删除。
+    - 馆内设备：类别、名称、说明、图片、体验方式，可关联一件商城商品（只存商品 ID）；商品要在场馆所在城市在售
+      （422 OPS_VENUE_PRODUCT_UNKNOWN），App 商品详情的“先体验，再决定”据此列出场馆。
+    - 并发：改场馆带场馆的 version，改项目、设备、场次带各自的 version；不一致 409 OPS_VERSION_CONFLICT。
+    - 新建场馆、项目、设备带 Idempotency-Key：第一次 201，同一个键再提交 200 返回第一次建的（不比较请求内容）。
+    - 图片地址只收带主机名的 https 地址（运营端素材上传 openapi-ops-media.yaml 给出，或受控 CDN 地址），其余输入不合格 400。
+    - 留痕：每个写操作在场馆的改动记录里记一条（对象、动作、说明、操作人显示名、时间），只追加，GET …/changes 给最近 100 条。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+
+  /api/v1/ops/venues:
+    get:
+      operationId: "listOpsVenues"
+      summary: "场馆列表（草稿在前，再已上线、已下线；同一状态按运营排序）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "场馆名称或地址，最多 20 字；% 和 _ 会被去掉"
+          schema:
+            type: "string"
+            maxLength: 20
+        - name: "cityCode"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            pattern: "^[0-9]{6}$"
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsVenueStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenuePage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsVenue"
+      summary: "新建场馆草稿（带幂等键）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "201":
+          description: "第一次新建"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: "OPS_VENUE_OPERATOR_INVALID：运营机构不存在、停用或不是服务商；OPS_CITY_UNKNOWN：城市不在平台城市目录里；OPS_PUBLISH_INCOMPLETE：已上线的场馆不能清掉封面或营业时间（details.missing）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}:
+    get:
+      operationId: "getOpsVenue"
+      summary: "场馆详情：资料、信息条目、项目（含未来场次概况）、设备、上线还差什么"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "updateOpsVenue"
+      summary: "改场馆资料（整份替换，含信息条目；带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过，刷新后重试"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_VENUE_OPERATOR_INVALID：运营机构不存在、停用或不是服务商；OPS_CITY_UNKNOWN：城市不在平台城市目录里；OPS_PUBLISH_INCOMPLETE：已上线的场馆不能清掉封面或营业时间（details.missing）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/publish:
+    post:
+      operationId: "publishOpsVenue"
+      summary: "上线（校验必填）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueTransitionRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_VENUE_STATUS_CONFLICT：当前状态不能做这个操作"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_PUBLISH_INCOMPLETE：上线前（或已上线的场馆）还差必填项，details.missing 列出字段键"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/offline:
+    post:
+      operationId: "offlineOpsVenue"
+      summary: "下线（App 不再显示，已有预约照常）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueTransitionRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_VENUE_STATUS_CONFLICT：当前状态不能做这个操作"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/changes:
+    get:
+      operationId: "listOpsVenueChanges"
+      summary: "这个场馆（含项目、场次、设备）最近 100 条改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 100
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/venues/{venueId}/projects:
+    post:
+      operationId: "createOpsVenueProject"
+      summary: "新建项目（启用；带幂等键）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueProjectRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "201":
+          description: "第一次新建"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/venues/{venueId}/projects/{projectId}:
+    put:
+      operationId: "updateOpsVenueProject"
+      summary: "改项目（带项目的版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueProjectRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过，刷新后重试"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/projects/{projectId}/status:
+    put:
+      operationId: "changeOpsVenueProjectStatus"
+      summary: "启用或停用项目（带项目的版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueStatusRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_VENUE_STATUS_CONFLICT：当前状态不能做这个操作"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_PUBLISH_INCOMPLETE：已上线的场馆不能停用最后一个启用的项目（details.missing = [projects]）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/projects/{projectId}/sessions:
+    get:
+      operationId: "listOpsVenueSessions"
+      summary: "一个项目在 from–to 的场次（含停售和已取消），按开始时间；最多 500 场"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/ProjectId"
+        - name: "from"
+          in: "query"
+          required: false
+          description: "北京时间日期 yyyy-MM-dd，不传为今天"
+          schema:
+            type: "string"
+            format: "date"
+        - name: "to"
+          in: "query"
+          required: false
+          description: "北京时间日期，含当天，不传为 from 起第 14 天；跨度不超过 62 天"
+          schema:
+            type: "string"
+            format: "date"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 500
+                items:
+                  $ref: "#/components/schemas/OpsVenueSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/venues/{venueId}/projects/{projectId}/sessions/generate:
+    post:
+      operationId: "generateOpsVenueSessions"
+      summary: "按周模板批量生成场次"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueGenerateSessionsRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueSessionsGenerated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: "OPS_VENUE_TOO_MANY_SESSIONS：一次最多新生成 200 场"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/sessions/{sessionId}/stop-sale:
+    post:
+      operationId: "stopOpsVenueSessionSale"
+      summary: "停售（不再接新预约，已有预约照常）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueTransitionRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_VENUE_STATUS_CONFLICT：不是在售；OPS_VENUE_SESSION_STARTED：场次已开始"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/sessions/{sessionId}/resume-sale:
+    post:
+      operationId: "resumeOpsVenueSessionSale"
+      summary: "恢复售卖"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueTransitionRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_VENUE_STATUS_CONFLICT：不是停售；OPS_VENUE_SESSION_STARTED：场次已开始"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/sessions/{sessionId}/cancel:
+    post:
+      operationId: "cancelOpsVenueSession"
+      summary: "取消场次（只有没有有效预约时可以）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueTransitionRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueSession"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_VENUE_STATUS_CONFLICT：已取消；OPS_VENUE_SESSION_STARTED：场次已开始；OPS_VENUE_SESSION_HAS_BOOKINGS：已有预约，只能停售"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/devices:
+    post:
+      operationId: "createOpsVenueDevice"
+      summary: "新增馆内设备（启用；带幂等键）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueDeviceRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "201":
+          description: "第一次新建"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: "OPS_VENUE_PRODUCT_UNKNOWN：关联的商品不存在，或在场馆所在城市没有在售"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/devices/{deviceId}:
+    put:
+      operationId: "updateOpsVenueDevice"
+      summary: "改设备（带设备的版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/DeviceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueDeviceRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过，刷新后重试"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_VENUE_PRODUCT_UNKNOWN：关联的商品不存在，或在场馆所在城市没有在售"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/venues/{venueId}/devices/{deviceId}/status:
+    put:
+      operationId: "changeOpsVenueDeviceStatus"
+      summary: "启用或停用设备（带设备的版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VenueId"
+        - $ref: "#/components/parameters/DeviceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVenueStatusRequest"
+      responses:
+        "200":
+          description: "成功"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVenueDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_VENUE_STATUS_CONFLICT：当前状态不能做这个操作"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    VenueId:
+      name: "venueId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    ProjectId:
+      name: "projectId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    SessionId:
+      name: "sessionId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    DeviceId:
+      name: "deviceId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      description: "一次“填写-提交”用同一个；重试不会重复建"
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "场馆、项目、场次或设备不存在，或不属于这个场馆（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsVenueErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+          description: "OPS_PUBLISH_INCOMPLETE 时为 {missing: [OpsVenuePublishField…]}"
+    OpsVenueErrorCode:
+      type: "string"
+      enum: [OPS_VERSION_CONFLICT, OPS_PUBLISH_INCOMPLETE, OPS_VENUE_STATUS_CONFLICT, OPS_VENUE_OPERATOR_INVALID,
+             OPS_CITY_UNKNOWN, OPS_VENUE_PRODUCT_UNKNOWN, OPS_VENUE_SESSION_STARTED, OPS_VENUE_SESSION_HAS_BOOKINGS,
+             OPS_VENUE_TOO_MANY_SESSIONS]
+    OpsVenuePublishField:
+      type: "string"
+      description: "上线前必填项的字段键：coverUrl 封面；openingHours 营业时间；projects 至少一个启用的项目；sessions 至少一场没开始的在售场次"
+      enum: [coverUrl, openingHours, projects, sessions]
+    OpsVenueStatus:
+      type: "string"
+      description: "DRAFT 草稿；PUBLISHED 已上线；OFFLINE 已下线"
+      enum: [DRAFT, PUBLISHED, OFFLINE]
+    OpsVenueItemStatus:
+      type: "string"
+      description: "项目、设备：ACTIVE 启用；DISABLED 停用"
+      enum: [ACTIVE, DISABLED]
+    OpsVenueSessionStatus:
+      type: "string"
+      description: "ACTIVE 在售；STOPPED 停售（不接新预约，已有的照常）；CANCELLED 已取消"
+      enum: [ACTIVE, STOPPED, CANCELLED]
+    OpsVenueDeviceCategory:
+      type: "string"
+      description: "ROBOT 机器人；DRONE 无人机；PARTS 配件"
+      enum: [ROBOT, DRONE, PARTS]
+    OpsVenueTrialMode:
+      type: "string"
+      description: "ACCOMPANIED_TRIAL 工作人员陪同试用；DISPLAY_ONLY 只展示"
+      enum: [ACCOMPANIED_TRIAL, DISPLAY_ONLY]
+    OpsWeekday:
+      type: "string"
+      enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+    OpsVenueSummary:
+      type: "object"
+      additionalProperties: false
+      required: [venueId, name, cityCode, operatorId, operatorName, status, sortOrder, projectCount,
+                 upcomingSessionCount, updatedAt, version]
+      properties:
+        venueId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        cityCode:
+          type: "string"
+        operatorId:
+          type: "string"
+          format: "uuid"
+        operatorName:
+          type: "string"
+          description: "运营机构名称"
+        status:
+          $ref: "#/components/schemas/OpsVenueStatus"
+        sortOrder:
+          type: "integer"
+        projectCount:
+          type: "integer"
+          description: "启用的项目数"
+        upcomingSessionCount:
+          type: "integer"
+          description: "启用的项目里没开始的在售场次数"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+    OpsVenuePage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsVenueSummary"
+    OpsVenueInfoItem:
+      type: "object"
+      additionalProperties: false
+      required: [label, content]
+      properties:
+        label:
+          type: "string"
+          maxLength: 40
+        content:
+          type: "string"
+          maxLength: 200
+    OpsVenueProject:
+      type: "object"
+      additionalProperties: false
+      required: [projectId, name, durationMinutes, priceAmountMinor, minAge, capacity, limitNote, sortOrder, status,
+                 upcomingSessionCount, nextSessionAt, version]
+      properties:
+        projectId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        durationMinutes:
+          type: "integer"
+        priceAmountMinor:
+          type: "integer"
+          format: "int64"
+          description: "每人价格，分"
+        minAge:
+          type: ["integer", "null"]
+        capacity:
+          type: "integer"
+          description: "每场人数（新生成场次的默认名额）"
+        limitNote:
+          type: ["string", "null"]
+        sortOrder:
+          type: "integer"
+        status:
+          $ref: "#/components/schemas/OpsVenueItemStatus"
+        upcomingSessionCount:
+          type: "integer"
+          description: "没开始的在售场次数"
+        nextSessionAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "最近一场没开始的在售场次"
+        version:
+          type: "integer"
+    OpsVenueDevice:
+      type: "object"
+      additionalProperties: false
+      required: [deviceId, category, name, summary, imageUrl, trialMode, productId, sortOrder, status, version]
+      properties:
+        deviceId:
+          type: "string"
+          format: "uuid"
+        category:
+          $ref: "#/components/schemas/OpsVenueDeviceCategory"
+        name:
+          type: "string"
+        summary:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        trialMode:
+          $ref: "#/components/schemas/OpsVenueTrialMode"
+        productId:
+          type: ["string", "null"]
+          format: "uuid"
+          description: "关联的商城商品"
+        sortOrder:
+          type: "integer"
+        status:
+          $ref: "#/components/schemas/OpsVenueItemStatus"
+        version:
+          type: "integer"
+    OpsVenueDetail:
+      type: "object"
+      additionalProperties: false
+      required: [venueId, name, operatorId, operatorName, cityCode, cityName, coverUrl, address, phone, opensAt, closesAt,
+                 closedNote, openingNote, checkinOpensMinutes, lateEntryMinutes, sortOrder, status, publishedAt, infoItems,
+                 projects, devices, publishMissing, updatedAt, version]
+      properties:
+        venueId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        operatorId:
+          type: "string"
+          format: "uuid"
+        operatorName:
+          type: "string"
+        cityCode:
+          type: "string"
+        cityName:
+          type: ["string", "null"]
+          description: "平台城市目录里的名称；城市已不可选时为 null"
+        coverUrl:
+          type: ["string", "null"]
+        address:
+          type: "string"
+        phone:
+          type: ["string", "null"]
+        opensAt:
+          type: ["string", "null"]
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        closesAt:
+          type: ["string", "null"]
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        closedNote:
+          type: ["string", "null"]
+        openingNote:
+          type: ["string", "null"]
+          description: "App 上显示的营业时间（保存时由开门、关门时间和休息日说明生成）"
+        checkinOpensMinutes:
+          type: "integer"
+        lateEntryMinutes:
+          type: ["integer", "null"]
+        sortOrder:
+          type: "integer"
+        status:
+          $ref: "#/components/schemas/OpsVenueStatus"
+        publishedAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "第一次上线的时间"
+        infoItems:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsVenueInfoItem"
+        projects:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsVenueProject"
+        devices:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsVenueDevice"
+        publishMissing:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsVenuePublishField"
+          description: "现在上线还差哪些；空表示可以上线"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          description: "改场馆资料、上线、下线时要带的版本号"
+    OpsVenueSession:
+      type: "object"
+      additionalProperties: false
+      required: [sessionId, projectId, startsAt, endsAt, capacity, bookedCount, activeBookingCount, status, version]
+      properties:
+        sessionId:
+          type: "string"
+          format: "uuid"
+        projectId:
+          type: "string"
+          format: "uuid"
+        startsAt:
+          type: "string"
+          format: "date-time"
+        endsAt:
+          type: "string"
+          format: "date-time"
+        capacity:
+          type: "integer"
+        bookedCount:
+          type: "integer"
+          description: "已占名额（含待付款）"
+        activeBookingCount:
+          type: "integer"
+          description: "有效预约单数（待付款、待到馆、已核销）；大于 0 时只能停售，不能取消"
+        status:
+          $ref: "#/components/schemas/OpsVenueSessionStatus"
+        version:
+          type: "integer"
+    OpsVenueSessionsGenerated:
+      type: "object"
+      additionalProperties: false
+      required: [createdCount, skippedExistingCount, skippedPastCount]
+      properties:
+        createdCount:
+          type: "integer"
+          maximum: 200
+        skippedExistingCount:
+          type: "integer"
+          description: "同一开始时间已有没取消的场次"
+        skippedPastCount:
+          type: "integer"
+          description: "开始时间已过"
+    OpsChange:
+      type: "object"
+      additionalProperties: false
+      required: [changeId, subjectType, subjectId, action, summary, operatorName, changedAt]
+      properties:
+        changeId:
+          type: "string"
+          format: "uuid"
+        subjectType:
+          type: "string"
+          enum: [VENUE, PROJECT, SESSION, DEVICE]
+        subjectId:
+          type: "string"
+          format: "uuid"
+        action:
+          type: "string"
+          enum: [CREATE, UPDATE, PUBLISH, OFFLINE, ENABLE, DISABLE, GENERATE, STOP_SALE, RESUME_SALE, CANCEL]
+        summary:
+          type: "string"
+          maxLength: 300
+        operatorName:
+          type: "string"
+          description: "操作时运营账号的显示名"
+        changedAt:
+          type: "string"
+          format: "date-time"
+    OpsVenueRequest:
+      type: "object"
+      additionalProperties: false
+      required: [operatorId, name, cityCode, address]
+      properties:
+        operatorId:
+          type: "string"
+          format: "uuid"
+          description: "运营机构（在用的服务商机构）"
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 120
+        cityCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+          description: "https 地址；上线前必填"
+        address:
+          type: "string"
+          minLength: 1
+          maxLength: 240
+        phone:
+          type: ["string", "null"]
+          maxLength: 32
+          pattern: "^[0-9+\\- ]{5,32}$"
+        opensAt:
+          type: ["string", "null"]
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          description: "开门时间（北京时间），和 closesAt 一起填；上线前必填"
+        closesAt:
+          type: ["string", "null"]
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        closedNote:
+          type: ["string", "null"]
+          maxLength: 40
+          description: "休息日说明，如“周一闭馆”"
+        checkinOpensMinutes:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 240
+          description: "开场前多少分钟开始检票；不传为 30"
+        lateEntryMinutes:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 240
+          description: "开场后多少分钟内还能入场；null 表示到场次结束"
+        sortOrder:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+          description: "小的在前；不传为 0"
+        infoItems:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsVenueInfoItemRequest"
+          description: "场馆信息条目（整组替换），按顺序"
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "修改时必填（页面读到的版本号）；新建不用"
+    OpsVenueInfoItemRequest:
+      type: "object"
+      additionalProperties: false
+      required: [label, content]
+      properties:
+        label:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+        content:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+    OpsVenueProjectRequest:
+      type: "object"
+      additionalProperties: false
+      required: [name, durationMinutes, priceAmountMinor, capacity]
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 120
+        durationMinutes:
+          type: "integer"
+          minimum: 5
+          maximum: 480
+        priceAmountMinor:
+          type: "integer"
+          format: "int64"
+          minimum: 0
+          maximum: 10000000
+          description: "每人价格，分；0 为免费"
+        minAge:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 99
+        capacity:
+          type: "integer"
+          minimum: 1
+          maximum: 999
+        limitNote:
+          type: ["string", "null"]
+          maxLength: 200
+        sortOrder:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "修改时必填；新建不用"
+    OpsVenueDeviceRequest:
+      type: "object"
+      additionalProperties: false
+      required: [category, name, trialMode]
+      properties:
+        category:
+          $ref: "#/components/schemas/OpsVenueDeviceCategory"
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 120
+        summary:
+          type: ["string", "null"]
+          maxLength: 200
+        imageUrl:
+          type: ["string", "null"]
+          maxLength: 500
+          description: "https 地址"
+        trialMode:
+          $ref: "#/components/schemas/OpsVenueTrialMode"
+        productId:
+          type: ["string", "null"]
+          format: "uuid"
+          description: "关联的商城商品，要在场馆所在城市在售"
+        sortOrder:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "修改时必填；新建不用"
+    OpsVenueStatusRequest:
+      type: "object"
+      additionalProperties: false
+      required: [status, version]
+      properties:
+        status:
+          $ref: "#/components/schemas/OpsVenueItemStatus"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsVenueTransitionRequest:
+      type: "object"
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: "integer"
+          minimum: 0
+          description: "上线、下线带场馆的版本号；停售、恢复、取消带场次的版本号"
+        note:
+          type: ["string", "null"]
+          maxLength: 200
+          description: "说明（选填，写进改动记录；场次操作不用）"
+    OpsVenueGenerateSessionsRequest:
+      type: "object"
+      additionalProperties: false
+      required: [fromDate, toDate, weekdays, startTimes]
+      properties:
+        fromDate:
+          type: "string"
+          format: "date"
+          description: "北京时间日期，含当天"
+        toDate:
+          type: "string"
+          format: "date"
+          description: "含当天；和 fromDate 跨度不超过 62 天"
+        weekdays:
+          type: "array"
+          minItems: 1
+          maxItems: 7
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/OpsWeekday"
+        startTimes:
+          type: "array"
+          minItems: 1
+          maxItems: 12
+          uniqueItems: true
+          items:
+            type: "string"
+            pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          description: "每天的开始时间（北京时间 HH:mm）"
+        capacity:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 999
+          description: "每场名额；不传取项目每场人数"

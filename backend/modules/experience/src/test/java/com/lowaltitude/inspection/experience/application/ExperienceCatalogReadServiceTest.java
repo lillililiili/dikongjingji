@@ -96,6 +96,7 @@ class ExperienceCatalogReadServiceTest {
         assertThat(view.latitude()).isEqualTo(37.4487);
         assertThat(view.phone()).isEqualTo("0546-8000 0000");
         assertThat(view.deviceCount()).isEqualTo(6);
+        assertThat(view.checkIn()).isEqualTo(new VenueCheckInRuleView(15, 10));
         assertThat(view.projects()).singleElement().satisfies(project -> {
             assertThat(project.priceAmountMinor()).isEqualTo(3900);
             assertThat(project.minAge()).isEqualTo(6);
@@ -247,7 +248,7 @@ class ExperienceCatalogReadServiceTest {
         return new VenueRow(
                 VENUE_ID, "东营低空与机器人体验馆", null, "09:30–18:00 · 周一闭馆", "东营区示例路 66 号",
                 37.4487, 118.5823, "0546-8000 0000",
-                UUID.fromString("a1000000-0000-4000-8000-000000000004"), "东营低空与机器人体验馆", 6);
+                UUID.fromString("a1000000-0000-4000-8000-000000000004"), "东营低空与机器人体验馆", 6, 15, 10);
     }
 
     private static VenueSessionRow session(OffsetDateTime startsAt, int capacity, int booked) {

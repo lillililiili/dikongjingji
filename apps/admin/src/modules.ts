@@ -3,6 +3,7 @@ import { activityModule } from '@/features/activity/activity-module'
 import { cityModule } from '@/features/city/city-module'
 import { feedbackModule } from '@/features/feedback/feedback-module'
 import { organizationModule } from '@/features/organization/organization-module'
+import { venueModule } from '@/features/venue/venue-module'
 
 /**
  * 运营端全部功能块。新增一块（比如商品与供给、活动与场馆、发现内容、直播间开通，或机构工作台的发货核销）：
@@ -14,4 +15,5 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   organizationModule,
   feedbackModule,
   activityModule,
+  venueModule,
 ]

@@ -63,7 +63,7 @@ public class VenueBookingService {
     static final int MAX_PEOPLE = 10;
     /** 付款时限（设计假设 3）。 */
     static final Duration PAY_WINDOW = Duration.ofMinutes(15);
-    /** 开场前多久开始可以核销。 */
+    /** 开场前多久开始可以核销：场馆没另定时的检票提前量（迁移 V005 的默认值，运营端可改）。 */
     static final Duration CHECKIN_OPENS_BEFORE = Duration.ofMinutes(30);
     /** “本人”按成年人处理。 */
     static final int ADULT_AGE = 18;
@@ -539,7 +539,7 @@ public class VenueBookingService {
             throw new VenueBookingException(Error.CODE_NOT_VALID);
         }
         OffsetDateTime now = now();
-        if (now.isBefore(row.startsAt().minus(CHECKIN_OPENS_BEFORE)) || !now.isBefore(row.endsAt())) {
+        if (!checkinOpen(row, now)) {
             throw new VenueBookingException(Error.CHECKIN_NOT_OPEN);
         }
         mapper.checkIn(row.bookingId(), operatorId, now);
@@ -548,6 +548,17 @@ public class VenueBookingService {
     }
 
     // ---- 规则 ----
+
+    /**
+     * 检票时间（S3-1 起按场馆的规则，运营端维护）：开场前 checkinOpensMinutes 分钟开始；开场后 lateEntryMinutes 分钟内
+     * 还能入场，为空表示到场次结束都能入场（迟到截止不会晚于场次结束）。
+     */
+    static boolean checkinOpen(CheckinRow row, OffsetDateTime now) {
+        if (now.isBefore(row.startsAt().minusMinutes(row.checkinOpensMinutes())) || !now.isBefore(row.endsAt())) {
+            return false;
+        }
+        return row.lateEntryMinutes() == null || !now.isAfter(row.startsAt().plusMinutes(row.lateEntryMinutes()));
+    }
 
     /** 只知道出生年月，按月份算周岁（和活动报名一样）。 */
     static int ageOn(LocalDate birthMonth, LocalDate date) {

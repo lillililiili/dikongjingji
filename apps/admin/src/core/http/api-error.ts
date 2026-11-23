@@ -64,6 +64,13 @@ const MESSAGES: Record<string, string> = {
   OPS_ACTIVITY_CAPACITY_BELOW_ENROLLED: '名额不能少于已报名人数',
   OPS_ACTIVITY_SALE_STATUS_UNCHANGED: '场次已经是这个售卖状态了',
   OPS_ACTIVITY_SESSION_LIMIT: '一个活动最多 50 个场次',
+  // 场馆与设备（openapi-ops-venue.yaml）
+  OPS_VENUE_STATUS_CONFLICT: '当前状态不能做这个操作，请刷新后再看',
+  OPS_VENUE_OPERATOR_INVALID: '运营机构不存在、已停用或不是服务商机构',
+  OPS_VENUE_PRODUCT_UNKNOWN: '关联的商品不存在，或在场馆所在城市没有在售',
+  OPS_VENUE_SESSION_STARTED: '场次已经开始，不能再改',
+  OPS_VENUE_SESSION_HAS_BOOKINGS: '这一场已有预约，不能取消，只能停售',
+  OPS_VENUE_TOO_MANY_SESSIONS: '一次最多生成 200 场，请缩短日期范围或减少开始时间',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }
