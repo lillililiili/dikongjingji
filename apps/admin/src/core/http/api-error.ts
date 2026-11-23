@@ -49,6 +49,8 @@ const MESSAGES: Record<string, string> = {
   OPS_QUALIFICATION_INCOMPLETE: '审核通过前至少要上传一份资质附件（营业执照等）',
   OPS_ATTACHMENT_LIMIT: '附件数量已到上限（10 份）',
   OPS_FILE_STORE_UNAVAILABLE: '附件存储暂不可用，请稍后再试',
+  OPS_QUALIFICATION_NOT_APPROVED: '资质审核通过后才能开通服务商资料',
+  OPS_PROVIDER_PROFILE_NOT_APPLICABLE: '只有在用的经营机构能开通服务商资料',
   OPS_FEEDBACK_ALREADY_HANDLED: '这条反馈已经被处理过了',
   OPS_STATUS_UNCHANGED: '已经是这个状态了，请刷新后再看',
   OPS_PRODUCT_INCOMPLETE: '上架前还有必填项没补齐',

@@ -1,7 +1,7 @@
 import type { ApiClient } from '@/core/http/api-client'
 import type { Page } from '@/core/ui/use-paged-list'
 
-// 契约 contracts/openapi-ops-organization.yaml 1.0.0。
+// 契约 contracts/openapi-ops-organization.yaml 1.1.0（S6-01 加了开通服务商资料）。
 
 export type OrganizationType = 'PROVIDER' | 'CUSTOMER'
 export type QualificationStatus = 'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
@@ -9,7 +9,9 @@ export type ReviewDecision = 'APPROVE' | 'REJECT'
 export type GrantableRole = 'PROVIDER_OPERATOR' | 'LIVE_HOST' | 'CUSTOMER'
 export type OrganizationAction =
   | 'CREATE' | 'QUALIFICATION_SUBMIT' | 'QUALIFICATION_APPROVE' | 'QUALIFICATION_REJECT'
-  | 'ATTACHMENT_ADD' | 'ATTACHMENT_REMOVE' | 'ACCOUNT_CREATE' | 'ROLES_CHANGE'
+  | 'ATTACHMENT_ADD' | 'ATTACHMENT_REMOVE' | 'ACCOUNT_CREATE' | 'ROLES_CHANGE' | 'PROVIDER_PROFILE_OPEN'
+/** 服务商资料（巡检模块的 inspection_provider_profile）：未开通 / 已开通 / 已停用。企业客户没有这一项。 */
+export type ProviderProfileStatus = 'NOT_OPENED' | 'ACTIVE' | 'DISABLED'
 
 export const ORGANIZATION_TYPE_OPTIONS: ReadonlyArray<{ value: OrganizationType, label: string, hint: string }> = [
   { value: 'PROVIDER', label: '经营机构', hint: '商家、服务商、活动主办、场馆运营' },
@@ -36,6 +38,35 @@ export const ACTION_LABELS: Record<OrganizationAction, string> = {
   ATTACHMENT_REMOVE: '移除附件',
   ACCOUNT_CREATE: '新建账号',
   ROLES_CHANGE: '修改角色',
+  PROVIDER_PROFILE_OPEN: '开通服务商资料',
+}
+
+export const PROVIDER_PROFILE_STATUS_LABELS: Record<ProviderProfileStatus, { label: string, tag: 'info' | 'success' | 'warning' }> = {
+  NOT_OPENED: { label: '未开通', tag: 'info' },
+  ACTIVE: { label: '已开通', tag: 'success' },
+  DISABLED: { label: '已停用', tag: 'warning' },
+}
+
+/**
+ * “开通服务商资料”按钮能不能点、为什么不能点（和后端 OrganizationOnboardingService.openProviderProfile 的规则一致）：
+ * 只有在用的经营机构，资质审核通过（有审核通过时间）后才能开通；已开通的不用再开。
+ */
+export function providerProfileOpening(detail: OpsOrganizationDetail):
+{ visible: boolean, canOpen: boolean, reason: string | null } {
+  const organization = detail.organization
+  if (organization.type !== 'PROVIDER' || !detail.providerProfileStatus) {
+    return { visible: false, canOpen: false, reason: null }
+  }
+  if (detail.providerProfileStatus === 'ACTIVE') {
+    return { visible: true, canOpen: false, reason: '已开通' }
+  }
+  if (organization.status !== 'ACTIVE') {
+    return { visible: true, canOpen: false, reason: '机构已停用，不能开通' }
+  }
+  if (!organization.qualificationReviewedAt) {
+    return { visible: true, canOpen: false, reason: '资质审核通过后才能开通' }
+  }
+  return { visible: true, canOpen: true, reason: null }
 }
 
 export const GRANTABLE_ROLE_LABELS: Record<GrantableRole, { label: string, hint: string }> = {
@@ -108,6 +139,8 @@ export interface OpsOrganizationDetail {
   attachments: OpsAttachment[]
   accounts: OpsAccount[]
   grantableRoles: GrantableRole[]
+  /** 服务商资料的状态；企业客户为 null（1.1.0）。 */
+  providerProfileStatus: ProviderProfileStatus | null
   operations: OpsOperation[]
 }
 
@@ -194,6 +227,10 @@ export function createOrganizationApi(http: ApiClient) {
     Promise<OpsAccountCreated> {
       return http.post<OpsAccountCreated>(`${one(id)}/accounts`,
         { loginName: loginName.trim(), displayName: displayName.trim(), roles })
+    },
+    /** 开通服务商资料（幂等，没有请求体）。 */
+    openProviderProfile(id: string): Promise<OpsOrganizationDetail> {
+      return http.post<OpsOrganizationDetail>(`${one(id)}/provider-profile`)
     },
     replaceRoles(id: string, accountId: string, roles: GrantableRole[]): Promise<OpsOrganizationDetail> {
       return http.put<OpsOrganizationDetail>(`${one(id)}/accounts/${encodeURIComponent(accountId)}/roles`, { roles })
