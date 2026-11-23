@@ -510,6 +510,39 @@ class VenueBookingServiceTest {
         assertThat(mapper.events).filteredOn(event -> event.type().equals("CHECKED_IN")).hasSize(1);
     }
 
+    // S3-1：检票时间按场馆的规则：开场前 15 分钟开始，开场后 10 分钟停止入场（含第 10 分钟）。
+    @Test
+    void checkInFollowsTheVenueEntryRule() {
+        mapper.checkinOpensMinutes = 15;
+        mapper.lateEntryMinutes = 10;
+        VenueBookingView paid = paidBooking(KEY, SELF);
+        String code = codeOf(paid.bookingId());
+
+        assertRejected(Error.CHECKIN_NOT_OPEN,
+                () -> at(STARTS_AT.minusMinutes(16).toInstant()).checkIn(OPERATOR, OPERATOR_ORG, code));
+        assertRejected(Error.CHECKIN_NOT_OPEN,
+                () -> at(STARTS_AT.plusMinutes(10).plusSeconds(1).toInstant()).checkIn(OPERATOR, OPERATOR_ORG, code));
+        assertThat(at(STARTS_AT.plusMinutes(10).toInstant()).checkIn(OPERATOR, OPERATOR_ORG, code).repeated())
+                .isFalse();
+    }
+
+    @Test
+    void entryRuleWindowEdges() {
+        OffsetDateTime start = STARTS_AT;
+        OffsetDateTime end = ENDS_AT;
+        var row = new com.lowaltitude.inspection.experience.infrastructure.persistence.VenueBookingMapper.CheckinRow(
+                UUID.randomUUID(), "VEN-AAAA-BBBB-CCCC", "CONFIRMED", 1, null, "馆", "项目", start, end, 0, null);
+        assertThat(VenueBookingService.checkinOpen(row, start.minusSeconds(1))).isFalse();
+        assertThat(VenueBookingService.checkinOpen(row, start)).isTrue();
+        assertThat(VenueBookingService.checkinOpen(row, end.minusSeconds(1))).isTrue();
+        assertThat(VenueBookingService.checkinOpen(row, end)).isFalse();
+        // 迟到截止晚于场次结束时，以场次结束为准。
+        var late = new com.lowaltitude.inspection.experience.infrastructure.persistence.VenueBookingMapper.CheckinRow(
+                UUID.randomUUID(), "VEN-AAAA-BBBB-CCCC", "CONFIRMED", 1, null, "馆", "项目", start, end, 30, 240);
+        assertThat(VenueBookingService.checkinOpen(late, start.minusMinutes(30))).isTrue();
+        assertThat(VenueBookingService.checkinOpen(late, end)).isFalse();
+    }
+
     @Test
     void cancelledCodesAndBadInputAreRefused() {
         VenueBookingView paid = paidBooking(KEY, SELF);
@@ -1174,6 +1207,10 @@ class VenueBookingServiceTest {
 
         // ---- 核销 ----
 
+        /** 场馆的检票规则（S3-1）：默认和迁移一样开场前 30 分钟、到场次结束。 */
+        int checkinOpensMinutes = 30;
+        Integer lateEntryMinutes;
+
         @Override
         public CheckinRow lockBookingByCode(String code, UUID organizationId) {
             if (!OPERATOR_ORG.equals(organizationId)) {
@@ -1185,7 +1222,8 @@ class VenueBookingServiceTest {
                         locks.add("booking:" + row.id);
                         Session session = sessions.get(row.sessionId);
                         return new CheckinRow(row.id, row.code, row.status, row.people, row.checkedInAt,
-                                "东营低空与机器人体验馆", session.projectName, session.startsAt, session.endsAt);
+                                "东营低空与机器人体验馆", session.projectName, session.startsAt, session.endsAt,
+                                checkinOpensMinutes, lateEntryMinutes);
                     })
                     .findFirst()
                     .orElse(null);

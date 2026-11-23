@@ -165,13 +165,30 @@ public final class MallCatalogReadService {
                                 blankToNull(row.deliveryNote()),
                                 blankToNull(row.shippingNote()),
                                 blankToNull(row.fulfilledFrom()),
-                                collecting.computeIfAbsent(row.merchantId(), payments::canCollect)))
+                                collecting.computeIfAbsent(row.merchantId(), payments::canCollect),
+                                row.stockQuantity()))
                         .toList(),
                 store.findSpecs(productId).stream()
                         .map(row -> new MallSpecView(row.label(), row.value()))
                         .toList(),
                 store.findPackItems(productId).stream()
                         .map(row -> new MallPackItemView(row.name(), row.quantity()))
+                        .toList(),
+                store.findSellingPoints(productId),
+                store.findSkus(productId).stream()
+                        .map(row -> new MallSkuView(row.skuId(), row.name()))
+                        .toList(),
+                store.findGallery(productId).stream()
+                        .map(url -> secureMedia(url, product.name()))
+                        .filter(java.util.Objects::nonNull)
+                        .toList(),
+                store.findIntroBlocks(productId).stream()
+                        .map(row -> new MallIntroBlockView(
+                                row.blockType(),
+                                blankToNull(row.text()),
+                                secureMedia(row.imageUrl(), product.name())))
+                        // 图片段的地址不是 https 时整段不给（没有图的图片段没有意义）。
+                        .filter(block -> !"IMAGE".equals(block.type()) || block.image() != null)
                         .toList());
     }
 
@@ -255,8 +272,18 @@ record MallOfferView(
         String deliveryNote,
         String shippingNote,
         String fulfilledFrom,
-        boolean onlinePayment
+        boolean onlinePayment,
+        // 1.3.0：这家商家在这个城市这个规格的现货件数；null 表示不限。
+        Integer stockQuantity
 ) {
+}
+
+/** 1.3.0：商品的一个启用规格。 */
+record MallSkuView(UUID skuId, String name) {
+}
+
+/** 1.3.0：图文介绍的一段；type 是 TEXT 或 IMAGE。 */
+record MallIntroBlockView(String type, String text, MallMediaView image) {
 }
 
 record MallSpecView(String label, String value) {
@@ -275,6 +302,10 @@ record MallProductDetailView(
         MallExperienceBadge experienceBadge,
         List<MallOfferView> offers,
         List<MallSpecView> specs,
-        List<MallPackItemView> packItems
+        List<MallPackItemView> packItems,
+        List<String> sellingPoints,
+        List<MallSkuView> skus,
+        List<MallMediaView> gallery,
+        List<MallIntroBlockView> introBlocks
 ) {
 }

@@ -120,7 +120,9 @@ public interface ExperienceCatalogMapper {
                        FROM venue_device d
                        WHERE d.venue_id = v.id
                          AND d.status = 'ACTIVE'
-                   ) device_count
+                   ) device_count,
+                   v.checkin_opens_minutes,
+                   v.late_entry_minutes
             FROM venue v
             JOIN identity_organization operator ON operator.id = v.operator_id
             WHERE v.id = #{venueId}

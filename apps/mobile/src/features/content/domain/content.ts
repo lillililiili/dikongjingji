@@ -1,4 +1,5 @@
-// Mirrors contracts/openapi-content.yaml (1.0.0 step H1, 1.2.0 videos): the discover page's articles
+// Mirrors contracts/openapi-content.yaml (1.0.0 step H1, 1.2.0 videos, 1.3.0 picture blocks and a topic's
+// merchant items): the discover page's articles
 // (cases and knowledge), videos and topics. What an article, a video or a topic points at is read
 // again from its own module by type and stable id.
 
@@ -27,7 +28,7 @@ export function discoverChannels(liveEnabled: boolean = DISCOVER_LIVE_CHANNEL_EN
 
 export const DISCOVER_CHANNELS: readonly DiscoverChannel[] = discoverChannels()
 
-export type ContentBlockType = 'PARAGRAPH' | 'HEADING' | 'FACTS' | 'STEPS' | 'LIST' | 'TIP' | 'NOTICE'
+export type ContentBlockType = 'PARAGRAPH' | 'HEADING' | 'FACTS' | 'STEPS' | 'LIST' | 'TIP' | 'NOTICE' | 'IMAGE'
 
 export type ContentRefType = 'INSPECTION_SERVICE' | 'PRO_SERVICE' | 'PRODUCT' | 'ACTIVITY' | 'VENUE'
 
@@ -93,10 +94,21 @@ export interface ContentBlockItem {
   text: string | null
 }
 
+// (1.3.0) The picture of an IMAGE block. url is the server's controlled HTTPS address, null while the
+// content has no licensed picture: preview builds then draw the board's picture, public builds leave
+// the block out.
+export interface ContentBlockImage {
+  url: string | null
+  alt: string
+  caption: string | null
+}
+
 export interface ContentBlock {
   type: ContentBlockType
   text: string | null
   items: ContentBlockItem[]
+  // Only on an IMAGE block.
+  image: ContentBlockImage | null
 }
 
 export interface ContentRef {
@@ -111,11 +123,19 @@ export interface ContentArticle extends ContentArticleCard {
   refs: ContentRef[]
 }
 
+// (1.3.0) 商家内容 of a topic: a merchant's product, read again from the mall by id; the merchant is the
+// one who published it (广告).
+export interface ContentTopicMerchantItem {
+  productId: string
+  merchant: ContentAuthor
+}
+
 export interface ContentTopic extends ContentTopicCard {
   cityCode: string
   activityIds: string[]
   venueIds: string[]
   articles: ContentArticleCard[]
+  merchantItems: ContentTopicMerchantItem[]
 }
 
 // One entry of a discover channel: an article of the content module, or an activity of the

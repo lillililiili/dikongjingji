@@ -269,7 +269,8 @@ public class ContentVideoService {
             throw new ContentNotFoundException();
         }
         UUID feedbackId = reports.record(accountId, reportKey(commentId),
-                "举报视频评论（" + reason.label() + "）：视频《" + target.videoTitle() + "》，评论 " + commentId + "。");
+                "举报视频评论（" + reason.label() + "）：视频《" + target.videoTitle() + "》，评论 " + commentId + "。",
+                commentId, target.videoId());
         ReportRow inserted = mapper.insertReport(commentId, accountId, reason.name(), feedbackId, now);
         if (inserted == null) {
             // 同一账号同时点了两次，另一次先写了。

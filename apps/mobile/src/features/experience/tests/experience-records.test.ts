@@ -162,7 +162,7 @@ describe('online experience routes', () => {
   })
 })
 
-describe('experience record API (1.3.0)', () => {
+describe('experience record API (1.4.0)', () => {
   it('sends the result with its key and reads the record back', async () => {
     const request = vi.fn().mockResolvedValue({ ...record(), experience: { ...record().experience, coverImage: { url: 'http://x/a.jpg', alt: 'a' } } })
     const api = createExperienceRecordApi(request)

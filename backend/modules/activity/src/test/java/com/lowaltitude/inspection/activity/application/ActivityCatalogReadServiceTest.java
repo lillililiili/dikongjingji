@@ -221,6 +221,34 @@ class ActivityCatalogReadServiceTest {
                 .isEqualTo(ActivityEnrollmentStatus.ENDED);
     }
 
+    // S3-1：运营停售的场次读成报名截止，活动取剩下能报的；图集只给 https，报名须知原样给出。
+    @Test
+    void stoppedSessionsReadAsClosedAndTheDetailCarriesGalleryAndNotice() {
+        store.detail = Optional.of(detail(false));
+        StoredActivitySession open = session(NOW.plusDays(2), null, NOW.plusDays(1), 10, 3);
+        StoredActivitySession stopped = new StoredActivitySession(UUID.randomUUID(), "下午", NOW.plusDays(3), null,
+                null, NOW.plusDays(2), 10, 3, true);
+        store.sessions = List.of(stopped);
+        store.gallery = List.of("https://cdn.example.com/a.jpg", "http://cdn.example.com/b.jpg",
+                "https://cdn.example.com/c.jpg");
+
+        ActivityDetailView view = service.findDetail(ACTIVITY_ID, "370500");
+        assertThat(view.sessions()).extracting(ActivitySessionView::status)
+                .containsExactly(ActivityEnrollmentStatus.CLOSED);
+        assertThat(view.sessions().get(0).saleStopped()).isTrue();
+        assertThat(view.enrollmentStatus()).isEqualTo(ActivityEnrollmentStatus.CLOSED);
+        assertThat(view.gallery()).extracting(ActivityMediaView::url)
+                .containsExactly("https://cdn.example.com/a.jpg", "https://cdn.example.com/c.jpg");
+        assertThat(view.enrollmentNotice()).isEqualTo("到场请出示报名凭证\n请提前 15 分钟签到");
+
+        store.sessions = List.of(open, stopped);
+        assertThat(service.findDetail(ACTIVITY_ID, "370500").enrollmentStatus())
+                .isEqualTo(ActivityEnrollmentStatus.OPEN);
+        // 停售但已经结束的仍是已结束。
+        assertThat(ActivityEnrollmentStatus.ofSession(NOW, NOW.minusDays(1), null, NOW.minusDays(2), 10, 0, false,
+                true)).isEqualTo(ActivityEnrollmentStatus.ENDED);
+    }
+
     @Test
     void aSessionThatHasStartedButNotFinishedIsClosedNotEnded() {
         assertThat(ActivityEnrollmentStatus.ofSession(
@@ -266,14 +294,15 @@ class ActivityCatalogReadServiceTest {
                 null, null,
                 "东营低空与机器人体验馆", "东营区示例路 66 号", 37.4487, 118.5823,
                 null, "8–15 岁，由监护人代报名并到场", "陪同家长不用报名", " ",
-                waitlistAllowed, true);
+                waitlistAllowed, true, "到场请出示报名凭证\n请提前 15 分钟签到");
     }
 
     private static StoredActivitySession session(
             OffsetDateTime startsAt, OffsetDateTime endsAt, OffsetDateTime closesAt, int capacity, int enrolled
     ) {
         return new StoredActivitySession(
-                UUID.randomUUID(), "上午", startsAt, endsAt, startsAt.minusMinutes(30), closesAt, capacity, enrolled);
+                UUID.randomUUID(), "上午", startsAt, endsAt, startsAt.minusMinutes(30), closesAt, capacity, enrolled,
+                false);
     }
 
     private static final class FakeStore implements ActivityCatalogReadStore {
@@ -282,6 +311,7 @@ class ActivityCatalogReadServiceTest {
         List<LocalDate> dates = List.of();
         Optional<StoredActivityDetail> detail = Optional.empty();
         List<StoredActivitySession> sessions = List.of();
+        List<String> gallery = List.of();
         final List<ActivityListQuery> queries = new ArrayList<>();
         int limit;
         int offset;
@@ -322,6 +352,11 @@ class ActivityCatalogReadServiceTest {
         @Override
         public List<StoredActivitySession> findActiveSessions(UUID activityId) {
             return sessions;
+        }
+
+        @Override
+        public List<String> findGallery(UUID activityId) {
+            return gallery;
         }
     }
 }

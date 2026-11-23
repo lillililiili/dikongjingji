@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import activityFlagSource from '../../activity/application/activity-preview.ts?raw'
 import experienceFlagSource from '../application/experience-preview.ts?raw'
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
 import { resolveExperienceIntent } from '../application/experience-intent'
 import type { VenueCard, VenueProject, VenueSession } from '../domain/experience'
 import {
@@ -111,10 +111,9 @@ describe('experience preview flag', () => {
     return match[1].trim()
   }
 
-  it('uses exactly the expression of the shared preview flag', () => {
-    const shared = expression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED')
-    expect(expression(experienceFlagSource, 'EXPERIENCE_PREVIEW_ENABLED')).toBe(shared)
-    expect(expression(activityFlagSource, 'ACTIVITY_PREVIEW_ENABLED')).toBe(shared)
+  it('reads its own release switch', () => {
+    expect(expression(experienceFlagSource, 'EXPERIENCE_PREVIEW_ENABLED')).toBe(moduleFlagExpression('EXPERIENCE'))
+    expect(expression(activityFlagSource, 'ACTIVITY_PREVIEW_ENABLED')).toBe(moduleFlagExpression('ACTIVITY'))
   })
 
   it('keeps the experience feature from importing the shared flag module', () => {

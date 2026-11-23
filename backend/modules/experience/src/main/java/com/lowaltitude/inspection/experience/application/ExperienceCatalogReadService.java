@@ -134,7 +134,8 @@ public final class ExperienceCatalogReadService {
                 store.findInfoItems(venueId).stream()
                         .map(row -> new VenueInfoItemView(row.label(), row.content()))
                         .toList(),
-                venue.deviceCount());
+                venue.deviceCount(),
+                new VenueCheckInRuleView(venue.checkinOpensMinutes(), venue.lateEntryMinutes()));
     }
 
     public VenueSessionListView listSessions(
@@ -372,8 +373,17 @@ record VenueDetailView(
         VenueOperatorView operator,
         List<VenueProjectView> projects,
         List<VenueInfoItemView> infoItems,
-        long deviceCount
+        long deviceCount,
+        /** 1.3.0（S3-1）：入口检票与迟到规则，运营端维护。 */
+        VenueCheckInRuleView checkIn
 ) {
+}
+
+/**
+ * 1.3.0（S3-1）：检票从开场前 opensMinutesBeforeStart 分钟开始；开场后 lateEntryMinutes 分钟内还能入场，
+ * 为 null 表示到场次结束都能入场。核销接口按同样的规则判断。
+ */
+record VenueCheckInRuleView(int opensMinutesBeforeStart, Integer lateEntryMinutes) {
 }
 
 record VenueSessionView(

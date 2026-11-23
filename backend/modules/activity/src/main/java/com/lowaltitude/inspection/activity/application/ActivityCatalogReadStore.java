@@ -23,6 +23,9 @@ interface ActivityCatalogReadStore {
     Optional<StoredActivityDetail> findPublishedDetail(UUID activityId, String cityCode);
 
     List<StoredActivitySession> findActiveSessions(UUID activityId);
+
+    /** 图集地址，按顺序（S3-1）。 */
+    List<String> findGallery(UUID activityId);
 }
 
 /** dateStart、dateEnd 只在 filterByDate 为 true 时有意义；为 false 时仍传非空值，避免向 SQL 绑定空参数。 */
@@ -85,7 +88,8 @@ record StoredActivityDetail(
         String seatNote,
         String refundNote,
         boolean waitlistAllowed,
-        boolean teamEnrollmentAllowed
+        boolean teamEnrollmentAllowed,
+        String enrollmentNotice
 ) {
 }
 
@@ -97,6 +101,7 @@ record StoredActivitySession(
         OffsetDateTime checkInOpensAt,
         OffsetDateTime enrollmentClosesAt,
         int capacity,
-        int enrolledCount
+        int enrolledCount,
+        boolean saleStopped
 ) {
 }

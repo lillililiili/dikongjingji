@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
+import com.lowaltitude.inspection.trade.application.TradeViews.ChannelCheckView;
 import com.lowaltitude.inspection.trade.application.TradeViews.MerchantAccountView;
 import com.lowaltitude.inspection.trade.application.TradeViews.ReconciliationRunView;
 import com.lowaltitude.inspection.trade.application.TradeViews.ReconciliationView;
@@ -26,7 +27,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 平台运营的交易接口（契约 contracts/openapi-trade.yaml）：商家收款账户登记、对账（E06）。要 PLATFORM_OPERATOR 角色。 */
+/**
+ * 平台运营的交易接口（契约 contracts/openapi-trade.yaml）：商家收款账户登记、对账（E06）、支付通道自检（S2-1）。
+ * 要 PLATFORM_OPERATOR 角色。
+ */
 @RestController
 public final class TradePlatformController {
 
@@ -34,10 +38,16 @@ public final class TradePlatformController {
 
     private final TradeOrderService service;
     private final TradeReconciliationService reconciliation;
+    private final TradeChannelCheckService channelCheck;
 
-    public TradePlatformController(TradeOrderService service, TradeReconciliationService reconciliation) {
+    public TradePlatformController(
+            TradeOrderService service,
+            TradeReconciliationService reconciliation,
+            TradeChannelCheckService channelCheck
+    ) {
         this.service = service;
         this.reconciliation = reconciliation;
+        this.channelCheck = channelCheck;
     }
 
     /** 某一天的对账结果；format=CSV 时下载差异表（E06）。 */
@@ -71,6 +81,19 @@ public final class TradePlatformController {
     ) {
         requirePlatformOperator(authentication);
         return reconciliation.reconcile(date, redo);
+    }
+
+    /**
+     * 支付通道自检（S2-1）：配置逐项检查，再按不存在的单号向渠道查一次单、查一次退款。只读，不改任何数据；
+     * 结果有 FAIL 也回 200（自检本身成功了），由 passed 和各项的 status 说明。
+     */
+    @PostMapping("/api/v1/platform/trade/channel-checks")
+    public ChannelCheckView checkChannel(
+            Authentication authentication,
+            @RequestParam(required = false) String subMchid
+    ) {
+        requirePlatformOperator(authentication);
+        return channelCheck.run(subMchid);
     }
 
     @PutMapping("/api/v1/platform/trade/merchant-accounts/{organizationId}")

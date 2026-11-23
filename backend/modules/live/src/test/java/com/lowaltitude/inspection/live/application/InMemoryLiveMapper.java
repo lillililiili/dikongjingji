@@ -127,13 +127,15 @@ final class InMemoryLiveMapper implements LiveMapper {
     }
 
     @Override
-    public long countHostRooms(UUID hostOrgId) {
-        return rooms.values().stream().filter(room -> room.hostOrgId.equals(hostOrgId)).count();
+    public long countHostRooms(UUID hostOrgId, String status) {
+        return rooms.values().stream().filter(room -> room.hostOrgId.equals(hostOrgId))
+                .filter(room -> status == null || room.status.equals(status)).count();
     }
 
     @Override
-    public List<RoomRow> findHostRooms(UUID hostOrgId, int limit, int offset) {
+    public List<RoomRow> findHostRooms(UUID hostOrgId, String status, int limit, int offset) {
         return rooms.values().stream().filter(room -> room.hostOrgId.equals(hostOrgId))
+                .filter(room -> status == null || room.status.equals(status))
                 .sorted(Comparator.comparing((Room room) -> room.createdAt).reversed())
                 .skip(offset).limit(limit).map(this::row).toList();
     }

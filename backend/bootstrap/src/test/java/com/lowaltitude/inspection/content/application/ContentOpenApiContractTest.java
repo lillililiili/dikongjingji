@@ -47,6 +47,8 @@ class ContentOpenApiContractTest {
             Map.entry("ContentFeed", ContentFeedView.class),
             Map.entry("ContentBlockItem", ContentBlockItemView.class),
             Map.entry("ContentBlock", ContentBlockView.class),
+            Map.entry("ContentBlockImage", ContentBlockImageView.class),
+            Map.entry("ContentTopicMerchantItem", ContentTopicMerchantItemView.class),
             Map.entry("ContentRef", ContentRefView.class),
             Map.entry("ContentArticle", ContentArticleView.class),
             Map.entry("ContentTopic", ContentTopicView.class),
@@ -86,7 +88,7 @@ class ContentOpenApiContractTest {
     void contractIsVersionOneTwoAndEveryRouteSaysWhoMayCallIt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.2.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.0");
         assertThat(root).doesNotContainKey("security");
         assertThat(map(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth")))
                 .containsEntry("type", "http").containsEntry("scheme", "bearer");

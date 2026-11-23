@@ -19,7 +19,7 @@ import com.lowaltitude.inspection.experience.infrastructure.persistence.Experien
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
- * 线上体验记录（S5-4，契约 contracts/openapi-experience.yaml 1.3.0）。只记登录账号自己的。
+ * 线上体验记录（S5-4，契约 contracts/openapi-experience.yaml 1.4.0）。只记登录账号自己的。
  *
  * <ul>
  *   <li>仿真成绩：仿真在 App 里跑，App 报关卡、失误和起止时间；服务端校验范围（关卡数要和模板一致、

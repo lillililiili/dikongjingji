@@ -1,4 +1,4 @@
--- S5-4 线上体验记录（docs/redesign/08-后续开发计划.md §5 D7；契约 contracts/openapi-experience.yaml 1.3.0）。
+-- S5-4 线上体验记录（docs/redesign/08-后续开发计划.md §5 D7；契约 contracts/openapi-experience.yaml 1.4.0）。
 -- 虚拟仿真用 App 内的两个任务模板（无人机起降与悬停、机器人避障），不接外部仿真平台；
 -- 软件试用和课程试听记开始时间和到期时间，试用时长写在体验项目上。记录只记登录账号自己的。
 -- identity_user 由身份模块创建，本模块排在其后（ModuleFlywayConfiguration）。

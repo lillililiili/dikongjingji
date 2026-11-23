@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 线上体验记录（S5-4，契约 contracts/openapi-experience.yaml 1.3.0）。都要登录并且有客户角色。
+ * 线上体验记录（S5-4，契约 contracts/openapi-experience.yaml 1.4.0）。都要登录并且有客户角色。
  * 账号只从令牌里取，没有任何指定别人的参数；不是自己的记录一律当作不存在。
  * 没登录的人照样能玩仿真，只是不记录：App 把成绩存在本机，登录后再用同一个幂等键补交。
  */

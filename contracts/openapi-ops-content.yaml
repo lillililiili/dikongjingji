@@ -1,0 +1,1441 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Content API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“发现内容”——图文（案例、知识）、
+    视频、专题的录入、上线和下线。App 读取走公开接口（openapi-content.yaml 1.3.0）。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
+    COMMON_FORBIDDEN. 实现在内容模块（迁移 V001、V003、V004）。
+
+    规则：
+    - 新建一律是草稿（DRAFT）。改内容、上线、下线都带页面读到的 version（乐观锁），不一致 409 OPS_VERSION_CONFLICT。
+    - 上线前校验必填，缺了 422 OPS_PUBLISH_INCOMPLETE，details.missing 是缺的字段键（OpsContentMissingField）：
+      图文要封面、至少一块正文、配图块都有图片地址；视频要封面和播放地址；专题要封面、至少挂一样东西；
+      作者、发布方是机构时要仍在用。已上线的内容改完也要满足这些（否则 422，不改）。详情里的 publishMissing 随时给出还差什么。
+    - 上线时定发布时间 publishAt（不填为现在；可以定在以后，最远一年，到了时间 App 才看得到；早于现在 5 分钟以上 400）。
+      已上线的不能再上线（409 OPS_CONTENT_STATUS_CONFLICT，要改时间先下线）；下线保留原发布时间；下线的可以再上线。
+      专题没有发布时间，上线后按起止日期在推荐频道出现，过期的链接仍能打开。
+    - 作者 / 发布方：PROVIDER 服务商、MERCHANT 商家带 authorOrganizationId（必须是身份模块里在用的服务商类机构，名称取机构
+      名称的快照），PLATFORM 平台写署名 authorName、不带机构。商家发布的一律是广告（sponsored）。案例不能由平台发布，
+      机构不合格都是 422 OPS_CONTENT_AUTHOR_INVALID。城市取平台城市目录（6 位编码），不在目录里 422 OPS_CITY_UNKNOWN；
+      案例、视频、专题必须有城市，知识可以不分城市。
+    - 正文块（按顺序，最多 40 块）：PARAGRAPH 段落、TIP 提示、NOTICE 文末说明带 text（≤500 字，可换行）；HEADING 小标题带
+      text（≤60 字）；FACTS 要点表、STEPS 步骤、LIST 条目带 1–20 条 items（标题 ≤60、说明 ≤200）；IMAGE 正文配图带
+      imageAlt（替代文字，≤60 字，必填）、imageUrl（受控 https 地址，可以先空着，上线前必须有）、imageCaption（图注，≤60 字）。
+      块的类型和内容对不上 400。
+    - 图片、视频地址只收带主机名的 https 地址（≤500 字）：用 /api/v1/ops/media（openapi-ops-media.yaml）上传后拿回的地址，
+      或已有的受控 CDN 地址。开发环境的上传是本机文件模拟。
+    - “内容中提到”（最多 10 项，同一对象只能一次）和专题挂的活动、场馆只校验 ID 格式：App 按类型和 ID 到各自的模块读真实
+      数据，读不到的不显示。专题挂的图文必须是本模块里的图文（不是视频），否则 422 OPS_CONTENT_ARTICLE_UNKNOWN。
+    - 专题的商家内容（merchantItems，最多 6 条）：商品 ID + 发布商家机构 ID。商品要在专题的城市有在售商家，否则 422
+      OPS_CONTENT_PRODUCT_UNKNOWN；App 上标“广告”，显示“<商家名>发布”。
+    - 视频：时长 1–3600 秒、横竖屏、一句话说明 ≤200 字、话题最多 5 个（每个 ≤20 字，不带空白，# 会去掉）、运营排序 rank
+      0–9999（大的在前，再按发布时间）。图文没有运营排序：发现页按发布时间排，运营用发布时间控制先后。
+    - 每次新建、修改、上线、下线都记一条改动记录（OpsChange：对象类型 ARTICLE / VIDEO / TOPIC、动作 CREATE / UPDATE /
+      PUBLISH / OFFLINE、说明、操作人显示名、时间），只追加，详情里能看到最近 50 条。
+    - 列表按最近修改排，关键词搜标题和作者（最多 20 字，% 和 _ 会被去掉）。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/content/articles:
+    get:
+      operationId: "listOpsContentArticles"
+      summary: "图文列表（案例、知识），最近修改的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Keyword"
+        - name: "kind"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsArticleKind"
+        - $ref: "#/components/parameters/CityFilter"
+        - $ref: "#/components/parameters/StatusFilter"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页图文"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsContentPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsContentArticle"
+      summary: "新建图文草稿"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsArticleRequest"
+      responses:
+        "201":
+          description: "新建的草稿"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsArticle"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/content/articles/{articleId}:
+    get:
+      operationId: "getOpsContentArticle"
+      summary: "图文详情（含正文块、提到的对象、上线还差什么）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ArticleId"
+      responses:
+        "200":
+          description: "图文"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsArticle"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "updateOpsContentArticle"
+      summary: "修改图文（整篇替换正文块和提到的对象，带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ArticleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsArticleRequest"
+      responses:
+        "200":
+          description: "改好的图文（新的版本号）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsArticle"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/content/articles/{articleId}/publish:
+    post:
+      operationId: "publishOpsContentArticle"
+      summary: "上线（定发布时间）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ArticleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsPublishRequest"
+      responses:
+        "200":
+          description: "上线后的图文"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsArticle"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/content/articles/{articleId}/offline:
+    post:
+      operationId: "offlineOpsContentArticle"
+      summary: "下线（保留发布时间）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ArticleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "下线后的图文"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsArticle"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/ops/content/articles/{articleId}/changes:
+    get:
+      operationId: "listOpsContentArticleChanges"
+      summary: "这篇图文最近 50 条改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ArticleId"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/content/videos:
+    get:
+      operationId: "listOpsContentVideos"
+      summary: "视频列表，最近修改的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Keyword"
+        - $ref: "#/components/parameters/CityFilter"
+        - $ref: "#/components/parameters/StatusFilter"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页视频"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsContentPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsContentVideo"
+      summary: "新建视频草稿"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVideoRequest"
+      responses:
+        "201":
+          description: "新建的草稿"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVideo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/content/videos/{videoId}:
+    get:
+      operationId: "getOpsContentVideo"
+      summary: "视频详情"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+      responses:
+        "200":
+          description: "视频"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVideo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "updateOpsContentVideo"
+      summary: "修改视频（带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVideoRequest"
+      responses:
+        "200":
+          description: "改好的视频"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVideo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/content/videos/{videoId}/publish:
+    post:
+      operationId: "publishOpsContentVideo"
+      summary: "上线（定发布时间）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsPublishRequest"
+      responses:
+        "200":
+          description: "上线后的视频"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVideo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/content/videos/{videoId}/offline:
+    post:
+      operationId: "offlineOpsContentVideo"
+      summary: "下线"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "下线后的视频"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsVideo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/ops/content/videos/{videoId}/changes:
+    get:
+      operationId: "listOpsContentVideoChanges"
+      summary: "这条视频最近 50 条改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/content/topics:
+    get:
+      operationId: "listOpsContentTopics"
+      summary: "专题列表，最近修改的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Keyword"
+        - $ref: "#/components/parameters/CityFilter"
+        - $ref: "#/components/parameters/StatusFilter"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页专题"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsTopicPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsContentTopic"
+      summary: "新建专题草稿"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsTopicRequest"
+      responses:
+        "201":
+          description: "新建的草稿"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsTopic"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/content/topics/{topicId}:
+    get:
+      operationId: "getOpsContentTopic"
+      summary: "专题详情（含挂的活动、场馆、图文和商家内容）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TopicId"
+      responses:
+        "200":
+          description: "专题"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsTopic"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "updateOpsContentTopic"
+      summary: "修改专题（整组替换挂的东西，带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TopicId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsTopicRequest"
+      responses:
+        "200":
+          description: "改好的专题"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsTopic"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/content/topics/{topicId}/publish:
+    post:
+      operationId: "publishOpsContentTopic"
+      summary: "上线"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TopicId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "上线后的专题"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsTopic"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /api/v1/ops/content/topics/{topicId}/offline:
+    post:
+      operationId: "offlineOpsContentTopic"
+      summary: "下线"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TopicId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "下线后的专题"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsTopic"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/ops/content/topics/{topicId}/changes:
+    get:
+      operationId: "listOpsContentTopicChanges"
+      summary: "这个专题最近 50 条改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TopicId"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 50
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    ArticleId:
+      name: "articleId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    VideoId:
+      name: "videoId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    TopicId:
+      name: "topicId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Keyword:
+      name: "keyword"
+      in: "query"
+      required: false
+      description: "标题或作者 / 发布方名称，最多 20 字；% 和 _ 会被去掉"
+      schema:
+        type: "string"
+        maxLength: 20
+    CityFilter:
+      name: "cityCode"
+      in: "query"
+      required: false
+      schema:
+        type: "string"
+        pattern: "^[0-9]{6}$"
+    StatusFilter:
+      name: "status"
+      in: "query"
+      required: false
+      schema:
+        $ref: "#/components/schemas/OpsContentStatus"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）：字段超长、块的类型和内容对不上、地址不是 https、发布时间不对等"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "内容或专题不存在（COMMON_NOT_FOUND）；图文的 ID 拿去视频接口也是 404，反过来一样"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Conflict:
+      description: "OPS_VERSION_CONFLICT：别人刚改过，刷新后重试；OPS_CONTENT_STATUS_CONFLICT：已上线的不能再上线，没上线的不能下线。"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unprocessable:
+      description: >-
+        OPS_PUBLISH_INCOMPLETE：上线前还有必填项没填（details.missing）；OPS_CITY_UNKNOWN：城市不在平台城市目录里；
+        OPS_CONTENT_AUTHOR_INVALID：作者、发布方或发布商家不是在用的服务商类机构，或者案例写了平台署名；
+        OPS_CONTENT_ARTICLE_UNKNOWN：专题挂的图文不存在；OPS_CONTENT_PRODUCT_UNKNOWN：商品在专题的城市没有在售。
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsContentErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+          description: "OPS_PUBLISH_INCOMPLETE 时是 {missing: [OpsContentMissingField…]}"
+    OpsContentErrorCode:
+      type: "string"
+      enum: [OPS_VERSION_CONFLICT, OPS_PUBLISH_INCOMPLETE, OPS_CITY_UNKNOWN, OPS_CONTENT_AUTHOR_INVALID,
+             OPS_CONTENT_STATUS_CONFLICT, OPS_CONTENT_ARTICLE_UNKNOWN, OPS_CONTENT_PRODUCT_UNKNOWN]
+    OpsContentMissingField:
+      type: "string"
+      description: >-
+        上线还差的字段键：author 作者机构已停用（换作者）；publisher 专题发布方机构已停用；coverUrl 封面；blocks 至少一块正文；
+        imageUrl 有配图块没有图片地址；playUrl 视频播放地址；items 专题至少挂一样东西
+      enum: [author, publisher, coverUrl, blocks, imageUrl, playUrl, items]
+    OpsArticleKind:
+      type: "string"
+      description: "CASE 案例（服务商、商家发布，要有城市）；KNOWLEDGE 知识（可以不分城市）"
+      enum: [CASE, KNOWLEDGE]
+    OpsAuthorKind:
+      type: "string"
+      description: "PROVIDER 服务商、MERCHANT 商家（带机构）；PLATFORM 平台（写署名）"
+      enum: [PROVIDER, MERCHANT, PLATFORM]
+    OpsContentStatus:
+      type: "string"
+      description: "DRAFT 草稿；PUBLISHED 已上线（到了发布时间 App 才看得到）；OFFLINE 已下线"
+      enum: [DRAFT, PUBLISHED, OFFLINE]
+    OpsBlockType:
+      type: "string"
+      description: "PARAGRAPH 段落、HEADING 小标题、FACTS 要点表、STEPS 步骤、LIST 条目、TIP 提示、NOTICE 文末说明、IMAGE 正文配图"
+      enum: [PARAGRAPH, HEADING, FACTS, STEPS, LIST, TIP, NOTICE, IMAGE]
+    OpsRefType:
+      type: "string"
+      description: "“内容中提到”的对象：INSPECTION_SERVICE 巡检服务、PRO_SERVICE 专业服务、PRODUCT 商品、ACTIVITY 活动、VENUE 场馆"
+      enum: [INSPECTION_SERVICE, PRO_SERVICE, PRODUCT, ACTIVITY, VENUE]
+    OpsVideoOrientation:
+      type: "string"
+      description: "PORTRAIT 竖屏；LANDSCAPE 横屏"
+      enum: [PORTRAIT, LANDSCAPE]
+    OpsContentAuthor:
+      type: "object"
+      additionalProperties: false
+      required: [kind, organizationId, name]
+      properties:
+        kind:
+          $ref: "#/components/schemas/OpsAuthorKind"
+        organizationId:
+          type: ["string", "null"]
+          format: "uuid"
+          description: "服务商、商家的机构 ID；平台为 null"
+        name:
+          type: "string"
+          maxLength: 160
+          description: "机构名称快照或平台署名"
+    OpsBlockItem:
+      type: "object"
+      additionalProperties: false
+      required: [title, text]
+      properties:
+        title:
+          type: "string"
+          maxLength: 60
+        text:
+          type: ["string", "null"]
+          maxLength: 200
+    OpsBlockImage:
+      type: "object"
+      additionalProperties: false
+      required: [url, alt, caption]
+      properties:
+        url:
+          type: ["string", "null"]
+          maxLength: 500
+          description: "受控 https 地址；为空表示还没有图片（上线前要补）"
+        alt:
+          type: "string"
+          maxLength: 60
+        caption:
+          type: ["string", "null"]
+          maxLength: 60
+    OpsBlock:
+      type: "object"
+      additionalProperties: false
+      required: [type, text, items, image]
+      properties:
+        type:
+          $ref: "#/components/schemas/OpsBlockType"
+        text:
+          type: ["string", "null"]
+          maxLength: 500
+        items:
+          type: "array"
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/OpsBlockItem"
+        image:
+          anyOf:
+            - $ref: "#/components/schemas/OpsBlockImage"
+            - type: "null"
+          description: "只有 IMAGE 块有"
+    OpsRef:
+      type: "object"
+      additionalProperties: false
+      required: [type, refId, title]
+      properties:
+        type:
+          $ref: "#/components/schemas/OpsRefType"
+        refId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 60
+          description: "录入时的名称快照"
+    OpsArticle:
+      type: "object"
+      additionalProperties: false
+      required: [articleId, kind, title, author, sponsored, cityCode, coverUrl, sample, status, publishedAt, blocks,
+                 refs, publishMissing, version, updatedAt]
+      properties:
+        articleId:
+          type: "string"
+          format: "uuid"
+        kind:
+          $ref: "#/components/schemas/OpsArticleKind"
+        title:
+          type: "string"
+          maxLength: 60
+        author:
+          $ref: "#/components/schemas/OpsContentAuthor"
+        sponsored:
+          type: "boolean"
+          description: "广告：商家发布的一律是"
+        cityCode:
+          type: ["string", "null"]
+          description: "知识可以不分城市（null）"
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+        sample:
+          type: "boolean"
+          description: "示例数据，App 标“示例”"
+        status:
+          $ref: "#/components/schemas/OpsContentStatus"
+        publishedAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "上线时定的发布时间；草稿为 null，下线保留"
+        blocks:
+          type: "array"
+          maxItems: 40
+          items:
+            $ref: "#/components/schemas/OpsBlock"
+        refs:
+          type: "array"
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsRef"
+        publishMissing:
+          type: "array"
+          description: "现在上线还差什么（OpsContentMissingField），齐了为空"
+          items:
+            $ref: "#/components/schemas/OpsContentMissingField"
+        version:
+          type: "integer"
+          minimum: 0
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    OpsVideo:
+      type: "object"
+      additionalProperties: false
+      required: [videoId, title, author, sponsored, cityCode, coverUrl, sample, status, publishedAt, durationSeconds,
+                 orientation, playUrl, caption, tags, rank, refs, publishMissing, version, updatedAt]
+      properties:
+        videoId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 60
+        author:
+          $ref: "#/components/schemas/OpsContentAuthor"
+        sponsored:
+          type: "boolean"
+        cityCode:
+          type: "string"
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+        sample:
+          type: "boolean"
+        status:
+          $ref: "#/components/schemas/OpsContentStatus"
+        publishedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+          maximum: 3600
+        orientation:
+          $ref: "#/components/schemas/OpsVideoOrientation"
+        playUrl:
+          type: ["string", "null"]
+          maxLength: 500
+          description: "受控 https 播放地址；上线前必须有"
+        caption:
+          type: ["string", "null"]
+          maxLength: 200
+        tags:
+          type: "array"
+          maxItems: 5
+          items:
+            type: "string"
+            maxLength: 20
+        rank:
+          type: "integer"
+          minimum: 0
+          maximum: 9999
+          description: "运营排序，大的在前"
+        refs:
+          type: "array"
+          maxItems: 10
+          description: "第一项是视频挂的入口"
+          items:
+            $ref: "#/components/schemas/OpsRef"
+        publishMissing:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsContentMissingField"
+        version:
+          type: "integer"
+          minimum: 0
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    OpsTopicMerchantItem:
+      type: "object"
+      additionalProperties: false
+      required: [productId, merchant]
+      properties:
+        productId:
+          type: "string"
+          format: "uuid"
+        merchant:
+          $ref: "#/components/schemas/OpsContentAuthor"
+    OpsTopic:
+      type: "object"
+      additionalProperties: false
+      required: [topicId, title, subtitle, publisher, cityCode, startsOn, endsOn, coverUrl, sample, status, activityIds,
+                 venueIds, articleIds, merchantItems, publishMissing, version, updatedAt]
+      properties:
+        topicId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          maxLength: 40
+        subtitle:
+          type: ["string", "null"]
+          maxLength: 60
+        publisher:
+          $ref: "#/components/schemas/OpsContentAuthor"
+        cityCode:
+          type: "string"
+        startsOn:
+          type: "string"
+          format: "date"
+          description: "北京时间，含当天"
+        endsOn:
+          type: "string"
+          format: "date"
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+        sample:
+          type: "boolean"
+        status:
+          $ref: "#/components/schemas/OpsContentStatus"
+        activityIds:
+          type: "array"
+          maxItems: 20
+          items:
+            type: "string"
+            format: "uuid"
+        venueIds:
+          type: "array"
+          maxItems: 10
+          items:
+            type: "string"
+            format: "uuid"
+        articleIds:
+          type: "array"
+          maxItems: 20
+          items:
+            type: "string"
+            format: "uuid"
+        merchantItems:
+          type: "array"
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/OpsTopicMerchantItem"
+        publishMissing:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsContentMissingField"
+        version:
+          type: "integer"
+          minimum: 0
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    OpsContentSummary:
+      type: "object"
+      additionalProperties: false
+      required: [contentId, kind, title, authorName, sponsored, cityCode, coverUrl, sample, status, publishedAt, version,
+                 updatedAt]
+      properties:
+        contentId:
+          type: "string"
+          format: "uuid"
+        kind:
+          type: "string"
+          enum: [CASE, KNOWLEDGE, VIDEO]
+        title:
+          type: "string"
+        authorName:
+          type: "string"
+        sponsored:
+          type: "boolean"
+        cityCode:
+          type: ["string", "null"]
+        coverUrl:
+          type: ["string", "null"]
+        sample:
+          type: "boolean"
+        status:
+          $ref: "#/components/schemas/OpsContentStatus"
+        publishedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        version:
+          type: "integer"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    OpsContentPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsContentSummary"
+    OpsTopicSummary:
+      type: "object"
+      additionalProperties: false
+      required: [topicId, title, publisherName, cityCode, startsOn, endsOn, sample, status, version, updatedAt]
+      properties:
+        topicId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+        publisherName:
+          type: "string"
+        cityCode:
+          type: "string"
+        startsOn:
+          type: "string"
+          format: "date"
+        endsOn:
+          type: "string"
+          format: "date"
+        sample:
+          type: "boolean"
+        status:
+          $ref: "#/components/schemas/OpsContentStatus"
+        version:
+          type: "integer"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+    OpsTopicPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsTopicSummary"
+    OpsChange:
+      type: "object"
+      additionalProperties: false
+      required: [changeId, subjectType, subjectId, action, summary, operatorName, changedAt]
+      properties:
+        changeId:
+          type: "string"
+          format: "uuid"
+        subjectType:
+          type: "string"
+          enum: [ARTICLE, VIDEO, TOPIC]
+        subjectId:
+          type: "string"
+          format: "uuid"
+        action:
+          type: "string"
+          enum: [CREATE, UPDATE, PUBLISH, OFFLINE]
+        summary:
+          type: "string"
+          maxLength: 200
+        operatorName:
+          type: "string"
+          description: "操作时运营账号的显示名"
+        changedAt:
+          type: "string"
+          format: "date-time"
+    OpsArticleRequest:
+      type: "object"
+      additionalProperties: false
+      required: [kind, title, authorKind]
+      properties:
+        kind:
+          $ref: "#/components/schemas/OpsArticleKind"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+        authorKind:
+          $ref: "#/components/schemas/OpsAuthorKind"
+        authorOrganizationId:
+          type: ["string", "null"]
+          format: "uuid"
+          description: "服务商、商家必填；平台不填"
+        authorName:
+          type: ["string", "null"]
+          maxLength: 160
+          description: "平台署名（只有平台填；机构的名称取机构名称）"
+        cityCode:
+          type: ["string", "null"]
+          pattern: "^[0-9]{6}$"
+          description: "案例必填，知识可以不填"
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+        sample:
+          type: ["boolean", "null"]
+          description: "示例数据；不填为 false"
+        blocks:
+          type: ["array", "null"]
+          maxItems: 40
+          items:
+            $ref: "#/components/schemas/OpsBlockRequest"
+        refs:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsRefRequest"
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "修改时必填（页面读到的版本号）；新建不填"
+    OpsBlockRequest:
+      type: "object"
+      additionalProperties: false
+      required: [type]
+      properties:
+        type:
+          $ref: "#/components/schemas/OpsBlockType"
+        text:
+          type: ["string", "null"]
+          maxLength: 500
+          description: "段落、提示、文末说明（≤500 字）和小标题（≤60 字）必填；别的块不填"
+        items:
+          type: ["array", "null"]
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/OpsBlockItemRequest"
+          description: "要点表、步骤、条目 1–20 条；别的块不填"
+        imageUrl:
+          type: ["string", "null"]
+          maxLength: 500
+          description: "配图地址（受控 https），上线前必须有"
+        imageAlt:
+          type: ["string", "null"]
+          maxLength: 60
+          description: "配图的替代文字，配图块必填"
+        imageCaption:
+          type: ["string", "null"]
+          maxLength: 60
+          description: "配图下的图注"
+    OpsBlockItemRequest:
+      type: "object"
+      additionalProperties: false
+      required: [title]
+      properties:
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+        text:
+          type: ["string", "null"]
+          maxLength: 200
+    OpsRefRequest:
+      type: "object"
+      additionalProperties: false
+      required: [type, refId, title]
+      properties:
+        type:
+          $ref: "#/components/schemas/OpsRefType"
+        refId:
+          type: "string"
+          format: "uuid"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+    OpsVideoRequest:
+      type: "object"
+      additionalProperties: false
+      required: [title, authorKind, cityCode, durationSeconds, orientation]
+      properties:
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+        authorKind:
+          $ref: "#/components/schemas/OpsAuthorKind"
+        authorOrganizationId:
+          type: ["string", "null"]
+          format: "uuid"
+        authorName:
+          type: ["string", "null"]
+          maxLength: 160
+        cityCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+        sample:
+          type: ["boolean", "null"]
+        durationSeconds:
+          type: "integer"
+          minimum: 1
+          maximum: 3600
+        orientation:
+          $ref: "#/components/schemas/OpsVideoOrientation"
+        playUrl:
+          type: ["string", "null"]
+          maxLength: 500
+        caption:
+          type: ["string", "null"]
+          maxLength: 200
+        tags:
+          type: ["array", "null"]
+          maxItems: 5
+          items:
+            type: "string"
+            maxLength: 20
+        rank:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 9999
+          description: "不填为 0"
+        refs:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsRefRequest"
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+    OpsTopicRequest:
+      type: "object"
+      additionalProperties: false
+      required: [title, publisherKind, cityCode, startsOn, endsOn]
+      properties:
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+        subtitle:
+          type: ["string", "null"]
+          maxLength: 60
+        publisherKind:
+          $ref: "#/components/schemas/OpsAuthorKind"
+        publisherOrganizationId:
+          type: ["string", "null"]
+          format: "uuid"
+        publisherName:
+          type: ["string", "null"]
+          maxLength: 160
+          description: "平台署名，比如“东营城市运营中心”"
+        cityCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+        startsOn:
+          type: "string"
+          format: "date"
+        endsOn:
+          type: "string"
+          format: "date"
+          description: "不早于 startsOn"
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+        sample:
+          type: ["boolean", "null"]
+        activityIds:
+          type: ["array", "null"]
+          maxItems: 20
+          items:
+            type: "string"
+            format: "uuid"
+        venueIds:
+          type: ["array", "null"]
+          maxItems: 10
+          items:
+            type: "string"
+            format: "uuid"
+        articleIds:
+          type: ["array", "null"]
+          maxItems: 20
+          items:
+            type: "string"
+            format: "uuid"
+        merchantItems:
+          type: ["array", "null"]
+          maxItems: 6
+          items:
+            $ref: "#/components/schemas/OpsMerchantItemRequest"
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+    OpsMerchantItemRequest:
+      type: "object"
+      additionalProperties: false
+      required: [productId, merchantOrganizationId]
+      properties:
+        productId:
+          type: "string"
+          format: "uuid"
+          description: "专题城市里有在售商家的商品"
+        merchantOrganizationId:
+          type: "string"
+          format: "uuid"
+          description: "发布这条商家内容的商家（在用的服务商类机构）"
+    OpsPublishRequest:
+      type: "object"
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: "integer"
+          minimum: 0
+        publishAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "发布时间；不填为现在，最远一年以后"
+    OpsVersionRequest:
+      type: "object"
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: "integer"
+          minimum: 0

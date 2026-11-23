@@ -54,7 +54,10 @@ public final class ExperienceRows {
             String phone,
             UUID operatorId,
             String operatorName,
-            long deviceCount
+            long deviceCount,
+            // S3-1：入口检票与迟到规则（迁移 V005）。
+            int checkinOpensMinutes,
+            Integer lateEntryMinutes
     ) {
     }
 

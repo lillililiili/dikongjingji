@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import pagesJson from '../../../pages.json?raw'
 import articleHostSource from '../../../pages/content/article.vue?raw'
 import topicHostSource from '../../../pages/content/topic.vue?raw'
@@ -116,9 +116,9 @@ describe('content view', () => {
 })
 
 describe('content preview gate', () => {
-  it('uses exactly the expression of the shared preview flag, without importing it', () => {
+  it('reads its own release switch, without importing it', () => {
     expect(flagExpression(contentFlagSource, 'CONTENT_PREVIEW_ENABLED'))
-      .toBe(flagExpression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+      .toBe(moduleFlagExpression('CONTENT'))
     const offenders = Object.entries(contentSources)
       .filter(([path]) => !path.includes('/tests/'))
       .filter(([, source]) => /from\s+'[^']*platform-preview'/.test(source))

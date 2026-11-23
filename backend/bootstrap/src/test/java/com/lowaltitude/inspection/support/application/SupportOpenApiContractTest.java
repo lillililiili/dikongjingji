@@ -354,6 +354,10 @@ class SupportOpenApiContractTest {
                     new MockHttpServletRequest());
             String code = response.getBody().code();
             String status = String.valueOf(response.getStatusCode().value());
+            if (code.startsWith("OPS_")) {
+                // 运营端处理反馈的拒绝，在 contracts/openapi-ops-feedback.yaml 里（OpsFeedbackOpenApiContractTest）。
+                continue;
+            }
             if (!code.startsWith("SUPPORT_")) {
                 assertThat(code).as(error.name()).isIn("COMMON_NOT_FOUND", "COMMON_FORBIDDEN");
                 continue;

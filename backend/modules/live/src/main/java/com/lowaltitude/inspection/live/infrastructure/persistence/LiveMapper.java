@@ -109,16 +109,21 @@ public interface LiveMapper {
             @Param("offset") int offset
     );
 
-    @Select("SELECT count(*) FROM live_room r WHERE r.host_org_id = #{hostOrgId}")
-    long countHostRooms(@Param("hostOrgId") UUID hostOrgId);
-
-    @Select(ROOM_COLUMNS + """
+    /** 主办方自己的直播间（1.1.0 起工作台可按状态筛；status 为空时全部）。 */
+    String HOSTED = """
             WHERE r.host_org_id = #{hostOrgId}
+              AND (CAST(#{status} AS varchar) IS NULL OR r.status = CAST(#{status} AS varchar))
+            """;
+
+    @Select("SELECT count(*) FROM live_room r " + HOSTED)
+    long countHostRooms(@Param("hostOrgId") UUID hostOrgId, @Param("status") String status);
+
+    @Select(ROOM_COLUMNS + HOSTED + """
             ORDER BY r.created_at DESC, r.id DESC
             LIMIT #{limit} OFFSET #{offset}
             """)
-    List<RoomRow> findHostRooms(@Param("hostOrgId") UUID hostOrgId, @Param("limit") int limit,
-                                @Param("offset") int offset);
+    List<RoomRow> findHostRooms(@Param("hostOrgId") UUID hostOrgId, @Param("status") String status,
+                                @Param("limit") int limit, @Param("offset") int offset);
 
     @Select("SELECT EXISTS (SELECT 1 FROM live_room WHERE host_org_id = #{hostOrgId})")
     boolean hostExists(@Param("hostOrgId") UUID hostOrgId);

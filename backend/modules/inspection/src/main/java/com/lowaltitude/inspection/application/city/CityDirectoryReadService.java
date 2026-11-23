@@ -41,7 +41,10 @@ public final class CityDirectoryReadService {
                 .map(CityDirectoryReadService::toProvince)
                 .sorted(PROVINCE_ORDER)
                 .toList();
-        return new DirectoryView(hot, provinces);
+        // S3-1：App 城市面板按开通状态分两组（画板 CitySheet），同一组按城市拼音排；未开通的城市只在搜索里出现。
+        List<CityView> open = byServiceStatus(rows, CityServiceStatus.OPEN);
+        List<CityView> preparing = byServiceStatus(rows, CityServiceStatus.PREPARING);
+        return new DirectoryView(hot, provinces, open, preparing);
     }
 
     public boolean recordSearchSelection(String cityCode) {
@@ -49,6 +52,14 @@ public final class CityDirectoryReadService {
             throw new IllegalArgumentException("city code is invalid");
         }
         return store.incrementSearchCount(cityCode) == 1;
+    }
+
+    private static List<CityView> byServiceStatus(List<StoredCity> rows, CityServiceStatus status) {
+        return rows.stream()
+                .filter(city -> city.serviceStatus() == status)
+                .sorted(CITY_ORDER)
+                .map(CityDirectoryReadService::toCity)
+                .toList();
     }
 
     private static ProvinceView toProvince(List<StoredCity> cities) {
@@ -68,7 +79,8 @@ public final class CityDirectoryReadService {
                 city.cityPinyin(),
                 city.cityInitials(),
                 city.provinceCode(),
-                city.provinceName());
+                city.provinceName(),
+                city.serviceStatus());
     }
 
     public interface CityDirectoryStore {
@@ -86,12 +98,36 @@ public final class CityDirectoryReadService {
             String provinceName,
             String provincePinyin,
             String provinceInitials,
-            long searchCount) {
+            long searchCount,
+            CityServiceStatus serviceStatus) {
+
+        public StoredCity {
+            serviceStatus = serviceStatus == null ? CityServiceStatus.CLOSED : serviceStatus;
+        }
+
+        /** 没有开通状态的旧写法（测试用）：当作未开通。 */
+        public StoredCity(String cityCode, String cityName, String cityPinyin, String cityInitials,
+                          String provinceCode, String provinceName, String provincePinyin, String provinceInitials,
+                          long searchCount) {
+            this(cityCode, cityName, cityPinyin, cityInitials, provinceCode, provinceName, provincePinyin,
+                    provinceInitials, searchCount, CityServiceStatus.CLOSED);
+        }
     }
 
+    /**
+     * hotCities、provinces 是 1.0.0 就有的（全部可选城市）；openCities、preparingCities 是 1.1.0 加的，
+     * App 城市面板只显示这两组。
+     */
     public record DirectoryView(
             List<CityView> hotCities,
-            List<ProvinceView> provinces) {
+            List<ProvinceView> provinces,
+            List<CityView> openCities,
+            List<CityView> preparingCities) {
+
+        /** 只有全部城市、不分开通状态的旧写法（别的模块的测试用）。 */
+        public DirectoryView(List<CityView> hotCities, List<ProvinceView> provinces) {
+            this(hotCities, provinces, List.of(), List.of());
+        }
     }
 
     public record ProvinceView(
@@ -108,6 +144,13 @@ public final class CityDirectoryReadService {
             String pinyin,
             String initials,
             String provinceCode,
-            String provinceName) {
+            String provinceName,
+            CityServiceStatus serviceStatus) {
+
+        /** 没有开通状态的旧写法（别的模块的测试用）：当作未开通。 */
+        public CityView(String code, String name, String pinyin, String initials, String provinceCode,
+                        String provinceName) {
+            this(code, name, pinyin, initials, provinceCode, provinceName, CityServiceStatus.CLOSED);
+        }
     }
 }

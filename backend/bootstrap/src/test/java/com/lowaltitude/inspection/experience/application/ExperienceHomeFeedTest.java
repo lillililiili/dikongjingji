@@ -95,7 +95,7 @@ class ExperienceHomeFeedTest {
 
     private static VenueDetailView detail(UUID id, List<VenueProjectView> projects) {
         return new VenueDetailView(id, "有场次的馆", null, "09:30–18:00", "示例路 66 号", null, null, null,
-                null, projects, List.of(), 0);
+                null, projects, List.of(), 0, new VenueCheckInRuleView(30, null));
     }
 
     private static VenueSessionView session(String time, int capacity, int seatsLeft, VenueSessionStatus status) {

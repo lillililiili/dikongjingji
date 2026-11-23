@@ -133,7 +133,7 @@ export interface ExperienceApi {
   }, page: number, size: number): Promise<Paged<VenueDevice>>
   // 1.2.0 (R6-2): the product's online experience items and the city's venues that have it on show.
   loadProductExperiences(productId: string, cityCode: string): Promise<ProductExperiences>
-  // 1.3.0 (S5-4): one item with its simulation template and trial length (the task and trial pages).
+  // 1.4.0 (S5-4): one item with its simulation template and trial length (the task and trial pages).
   loadExperienceItem(experienceId: string): Promise<ExperienceItemDetail>
 }
 

@@ -1,7 +1,7 @@
 import type { ExperienceImage, ExperienceType } from './experience'
 import type { SimulationTemplate } from './simulation'
 
-// Mirrors contracts/openapi-experience.yaml 1.3.0 (S5-4). Statuses are worked out by the server:
+// Mirrors contracts/openapi-experience.yaml 1.4.0 (S5-4). Statuses are worked out by the server:
 // a trial past its minutes reads EXPIRED without anything being written.
 
 export interface ExperienceItemDetail {

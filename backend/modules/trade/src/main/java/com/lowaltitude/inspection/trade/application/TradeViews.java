@@ -128,4 +128,15 @@ public final class TradeViews {
     public record WechatAppCallView(String appId, String partnerId, String prepayId, String packageValue,
                                     String nonceStr, String timeStamp, String sign) {
     }
+
+    /**
+     * 支付通道自检（S2-1）的结果。mode：WECHAT 真实微信，SIMULATED 指向本机模拟微信，DISABLED 没有开启。
+     * passed 为 true 表示没有 FAIL 项（WARN、SKIPPED 不算失败）。
+     */
+    public record ChannelCheckView(String mode, boolean passed, Instant checkedAt, List<ChannelCheckItemView> items) {
+    }
+
+    /** 自检的一项。status：PASS、WARN、FAIL、SKIPPED；message 只说哪里不对，不带密钥、文件内容和服务器路径。 */
+    public record ChannelCheckItemView(String code, String status, String message) {
+    }
 }

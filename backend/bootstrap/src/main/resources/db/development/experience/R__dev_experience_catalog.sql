@@ -64,6 +64,17 @@ SET operator_id = EXCLUDED.operator_id,
     status = EXCLUDED.status,
     updated_at = now();
 
+-- S3-1（迁移 V005）：两个示例场馆的结构化营业时间，和上面 opening_note 的文字一致（运营端保存时会按这几项重新生成）。
+-- 检票规则保持迁移的默认值（开场前 30 分钟到场次结束），免得改变开发环境里已有的核销联调；信息条目里的“检票”“迟到规则”
+-- 仍是示例文字。
+UPDATE venue
+SET opens_at = '09:30', closes_at = '18:00', closed_note = '周一闭馆'
+WHERE id = 'b2000000-0000-4000-8000-000000000001';
+
+UPDATE venue
+SET opens_at = '09:00', closes_at = '17:00', closed_note = '仅周六、周日开放'
+WHERE id = 'b2000000-0000-4000-8000-000000000002';
+
 INSERT INTO venue_info_item (id, venue_id, label, content, sort_order)
 VALUES
     ('b3000000-0000-4000-8000-000000000101', 'b2000000-0000-4000-8000-000000000001', '场馆展区', '模拟飞行 · 机器人编程 · 厂家展区', 10),

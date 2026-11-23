@@ -6,7 +6,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { API, BUYER, CITY, apiLogin, databaseAvailable, psql, type Session } from './support/trade-fixtures'
 
 // 线上体验（S5-4，计划 08 §5 D7）：两个 App 内仿真模板（机器人避障、无人机起降与悬停）、体验结果、我的体验、
-// 软件试用和课程试听、商品详情的“选择体验方式”。真实后端（契约 openapi-experience 1.3.0，迁移 experience V004）。
+// 软件试用和课程试听、商品详情的“选择体验方式”。真实后端（契约 openapi-experience 1.4.0，迁移 experience V004）。
 // 用 dev 种子里的四个线上体验项目；每条用例前后把 dev-customer 的体验记录从数据库删掉。
 // 游客玩的成绩先存在本机，登录后用同一个幂等键补交，只记一次。
 const ROBOT = 'b1000000-0000-4000-8000-000000000001'

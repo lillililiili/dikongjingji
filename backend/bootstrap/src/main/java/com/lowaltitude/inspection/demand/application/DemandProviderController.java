@@ -28,10 +28,12 @@ public final class DemandProviderController {
     @GetMapping("/api/v1/provider/demands")
     public ProviderDemandPageView demands(
             Authentication authentication,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return service.listForProvider(DemandSubjects.providerOperator(authentication).organizationId(), page, size);
+        return service.listForProvider(DemandSubjects.providerOperator(authentication).organizationId(), status,
+                page, size);
     }
 
     @GetMapping("/api/v1/provider/demands/{demandId}")

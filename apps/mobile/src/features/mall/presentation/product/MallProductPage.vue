@@ -42,6 +42,7 @@ import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import type { DeliveryMode } from '../../domain/cart'
 import type { MallOffer, MallProductDetail } from '../../domain/mall'
 import type { MallBuyDeliveryLoader } from './buy-delivery'
+import { hasSkuChoice, initialBuyOffer, merchantCount, merchantRowOffers } from './buy-skus'
 import MallBuySheet from './MallBuySheet.vue'
 import MallProductMoreSheet from './MallProductMoreSheet.vue'
 import {
@@ -123,6 +124,16 @@ const selectedOffer = computed<MallOffer | null>(() =>
 // What the delivery row and parties show: the chosen offer, or the first one while none of them
 // can be chosen (no merchant takes payment online).
 const shownOffer = computed<MallOffer | null>(() => selectedOffer.value ?? product.value?.offers[0] ?? null)
+// 选择在售商家: one row per offer, or, when the product has several specs (catalog 1.3.0), one row
+// per merchant on the chosen spec where it sells it (board PdFull).
+const offerRows = computed<MallOffer[]>(() => {
+  if (!product.value) return []
+  return hasSkuChoice(product.value.skus)
+    ? merchantRowOffers(product.value.offers, selectedOffer.value)
+    : product.value.offers
+})
+// The quantity last set in 规格与数量, shown on 已选 and given back when the sheet opens again.
+const chosenQuantity = ref(1)
 // An inquiry product is asked about on its own form, which picks the merchants; buying and renting
 // need a chosen merchant that takes payment online.
 const primaryAction = computed(() => {
@@ -149,7 +160,8 @@ const price = computed(() => {
 // "3 家在售 · 东营可售" on the right of the price.
 const sellersText = computed(() => {
   if (!product.value) return ''
-  const count = product.value.offers.length
+  // An offer is one merchant × one spec: count the merchants.
+  const count = merchantCount(product.value.offers)
   const city = cityName.value?.replace(/市$/, '') ?? null
   if (saleMode.value === 'RENT') return `租赁 · ${count} 家${city ? ` · ${city}可租` : ''}`
   if (saleMode.value === 'INQUIRY') return `${count} 家可报价${city ? ` · ${city}可售` : ''}`
@@ -181,7 +193,7 @@ const parties = computed(() => {
 })
 const partiesNote = computed(() => {
   if (saleMode.value === 'INQUIRY') return '选定报价后确定'
-  const count = product.value?.offers.length ?? 0
+  const count = product.value ? merchantCount(product.value.offers) : 0
   if (saleMode.value === 'RENT' && count === 1) return '本商品 1 家出租'
   return '随所选商家变化'
 })
@@ -219,9 +231,13 @@ async function loadProduct(): Promise<void> {
     if (requested !== requestVersion) return
     state.value = { kind: 'ready', product: loaded }
     // Offers arrive with the lowest listed price first; the first one whose merchant takes payment
-    // online starts selected (catalog 1.2.0). A merchant without it is shown, greyed, never chosen.
+    // online, and is not sold out (catalog 1.3.0), starts selected (catalog 1.2.0). A merchant without
+    // online payment is shown, greyed, never chosen.
     const stillThere = loaded.offers.some((offer) => offer.offerId === selectedOfferId.value && offer.onlinePayment)
-    if (!stillThere) selectedOfferId.value = loaded.offers.find((offer) => offer.onlinePayment)?.offerId ?? null
+    if (!stillThere) {
+      selectedOfferId.value = initialBuyOffer(loaded.offers)?.offerId ?? null
+      chosenQuantity.value = 1
+    }
     loadExtras(requested, loaded.productId)
   } catch (error) {
     if (requested !== requestVersion) return
@@ -344,16 +360,23 @@ function moreReport(): void {
 // Goods with a listed price open 规格与数量; everything else still goes through the gate.
 const buySheetOpen = ref(false)
 
-function addToCart(quantity: number): void {
+// The sheet says which offer: the spec chosen in it is that merchant's offer of the spec.
+function addToCart(offerId: string, quantity: number): void {
   if (!selectedOffer.value) return
-  emit('addToCart', selectedOffer.value.offerId, quantity)
+  emit('addToCart', offerId, quantity)
   buySheetOpen.value = false
 }
 
-function buyNow(quantity: number, delivery: DeliveryMode | null): void {
+function buyNow(offerId: string, quantity: number, delivery: DeliveryMode | null): void {
   if (!selectedOffer.value) return
-  emit('buyNow', selectedOffer.value.offerId, quantity, delivery)
+  emit('buyNow', offerId, quantity, delivery)
   buySheetOpen.value = false
+}
+
+// Another spec picked in 规格与数量: the same merchant's offer of it (the sheet only offers those).
+function pickOffer(offerId: string): void {
+  const offer = product.value?.offers.find((item) => item.offerId === offerId)
+  if (offer?.onlinePayment) selectedOfferId.value = offer.offerId
 }
 
 // 10 件以上: a bulk purchase of a listed product is asked about in a conversation with its merchant
@@ -513,8 +536,19 @@ onLoad((query) => {
           </view>
           <text class="mall-product__name" data-testid="mall-product-name">{{ product.name }}</text>
           <text v-if="product.summary" class="mall-product__summary">{{ product.summary }}</text>
-          <view v-if="product.experienceBadge || product.saleMode === 'RENT'" class="mall-product__tags">
+          <view
+            v-if="product.experienceBadge || product.saleMode === 'RENT' || product.sellingPoints.length"
+            class="mall-product__tags"
+            data-testid="mall-product-tags"
+          >
             <text v-if="product.saleMode === 'RENT'" class="mall-product__tag">租赁</text>
+            <!-- 卖点 (catalog 1.3.0) first, the experience badge after them, as on PdFull. -->
+            <text
+              v-for="point in product.sellingPoints"
+              :key="point"
+              class="mall-product__tag"
+              data-testid="mall-product-selling-point"
+            >{{ point }}</text>
             <text v-if="product.experienceBadge" class="mall-product__tag mall-product__tag--experience">
               {{ MALL_BADGE_LABELS[product.experienceBadge] }}
             </text>
@@ -620,7 +654,7 @@ onLoad((query) => {
           </view>
           <template v-if="product.saleMode === 'INQUIRY'">
             <button
-              v-for="offer in product.offers"
+              v-for="offer in offerRows"
               :key="offer.offerId"
               :class="['mall-product__offer', { 'mall-product__offer--unpaid': !offer.onlinePayment }]"
               :data-testid="`mall-offer-${offer.offerId}`"
@@ -646,7 +680,7 @@ onLoad((query) => {
           </template>
           <template v-else>
             <button
-              v-for="offer in product.offers"
+              v-for="offer in offerRows"
               :key="offer.offerId"
               :class="[
                 'mall-product__offer',
@@ -680,7 +714,7 @@ onLoad((query) => {
             </button>
           </template>
           <text v-if="product.saleMode === 'INQUIRY'" class="mall-product__offers-hint">在询价单里选发给哪几家，报价后再比选。</text>
-          <text v-else-if="product.offers.length > 1" class="mall-product__offers-hint">排序：按价格从低到高。价格为商家当前报价。</text>
+          <text v-else-if="offerRows.length > 1" class="mall-product__offers-hint">排序：按价格从低到高。价格为商家当前报价。</text>
         </view>
 
         <button
@@ -691,7 +725,7 @@ onLoad((query) => {
         >
           <view class="mall-product__chosen-row">
             <text class="mall-product__chosen-label">已选</text>
-            <text class="mall-product__chosen-value">{{ selectedOffer.skuName }} · 1 件</text>
+            <text class="mall-product__chosen-value">{{ selectedOffer.skuName }} · {{ chosenQuantity }} 件</text>
             <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
           </view>
         </button>
@@ -867,10 +901,16 @@ onLoad((query) => {
       <MallBuySheet
         v-if="buySheetOpen && selectedOffer"
         :offer="selectedOffer"
+        :offers="product.offers"
+        :skus="product.skus"
+        :city-name="cityName"
+        :initial-quantity="chosenQuantity"
         :cover-url="cover?.url ?? null"
         :busy="props.busy"
         :load-delivery="props.loadDelivery"
         @close="buySheetOpen = false"
+        @pick="pickOffer"
+        @quantity="(value: number) => (chosenQuantity = value)"
         @add-to-cart="addToCart"
         @buy-now="buyNow"
         @bulk-inquiry="bulkInquiry"
@@ -1236,6 +1276,7 @@ button::after {
 
 .mall-product__tags {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 

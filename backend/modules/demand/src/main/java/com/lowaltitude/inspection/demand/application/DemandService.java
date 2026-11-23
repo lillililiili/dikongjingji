@@ -70,6 +70,8 @@ public class DemandService {
     static final long MAX_AMOUNT_MINOR = 10_000_000_000L;
     static final int EXPIRE_BATCH = 100;
     private static final int MAX_PAGE_SIZE = 50;
+    /** 服务商列表能筛的状态（契约 DemandStatus 去掉草稿）。 */
+    private static final Set<String> PROVIDER_VISIBLE_STATUSES = Set.of("OPEN", "QUOTED", "CHOSEN", "CLOSED");
     private static final String CITY_CODE_PATTERN = "^[A-Z0-9]{4,16}$";
     static final ZoneId BEIJING = ZoneId.of("Asia/Shanghai");
 
@@ -357,11 +359,28 @@ public class DemandService {
     /** 服务商能看到的需求：还在收报价、平台匹配到它或邀请了它的，以及它报过价的。新的在前。 */
     @Transactional(readOnly = true)
     public ProviderDemandPageView listForProvider(UUID providerId, int page, int size) {
+        return listForProvider(providerId, null, page, size);
+    }
+
+    /**
+     * 服务商能看到的需求，1.2.0 起可按状态筛（工作台的“待报价 / 报价中 / 已选定 / 已关闭”）：
+     * 只能在能看到的范围里再筛，草稿不是可选的状态。
+     */
+    @Transactional(readOnly = true)
+    public ProviderDemandPageView listForProvider(UUID providerId, String status, int page, int size) {
         requireProvider(providerId);
         requirePage(page, size);
+        String filter = null;
+        if (status != null && !status.isBlank()) {
+            filter = status.trim();
+            if (!PROVIDER_VISIBLE_STATUSES.contains(filter)) {
+                throw new IllegalArgumentException("status is invalid");
+            }
+        }
         List<String> served = List.copyOf(providers.citiesServed(providerId));
-        long total = mapper.countProviderDemands(providerId, served);
-        List<DemandRow> rows = mapper.findProviderDemands(providerId, served, size, Math.multiplyExact(page - 1, size));
+        long total = mapper.countProviderDemands(providerId, served, filter);
+        List<DemandRow> rows = mapper.findProviderDemands(providerId, served, filter, size,
+                Math.multiplyExact(page - 1, size));
         return new ProviderDemandPageView(page, size, total, (long) page * size < total,
                 toProviderViews(providerId, rows, now()));
     }

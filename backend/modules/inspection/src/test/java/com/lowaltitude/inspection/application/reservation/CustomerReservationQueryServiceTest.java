@@ -52,6 +52,40 @@ class CustomerReservationQueryServiceTest {
                 new CustomerReservationStageCounts(3, 21, 4, 5, 6));
     }
 
+    // S3-2：服务商工作台按令牌里的机构读分给它的预约，形状、阶段和客户订单一样，地址同样解密。
+    @Test
+    void listsTheReservationsAssignedToTheProviderWithTheSameShape() {
+        UUID providerId = UUID.randomUUID();
+        var store = new InMemoryCustomerReservationQueryStore();
+        store.rows = List.of(
+                stored(CustomerReservationStage.AWAITING_PLAN, "x:东营市垦利区 1 号", null, null, null),
+                stored(CustomerReservationStage.IN_PROGRESS, "x:东营市河口区 2 号", PLAN_ID, UUID.randomUUID(), 120000L));
+        store.counts = new CustomerReservationCountSnapshot(2, 1, 0, 1, 0, 0);
+        var service = new CustomerReservationQueryService(store, new ReversibleCipher());
+
+        CustomerReservationPage page = service.listAssigned(providerId, CustomerReservationFilter.IN_PROGRESS, 1, 20);
+
+        assertThat(store.providerId).isEqualTo(providerId);
+        assertThat(store.customerId).isNull();
+        assertThat(page.total()).isEqualTo(1);
+        assertThat(page.items()).singleElement().satisfies(order -> {
+            assertThat(order.locationSummary()).isEqualTo("东营市河口区 2 号");
+            assertThat(order.quoteAmountMinor()).isEqualTo(120000L);
+            assertThat(order.currency()).isEqualTo("CNY");
+        });
+        assertThat(page.stageCounts()).isEqualTo(new CustomerReservationStageCounts(1, 0, 1, 0, 0));
+
+        UUID first = store.rows.getFirst().reservationId();
+        assertThat(service.readAssigned(providerId, first).locationSummary()).isEqualTo("东营市垦利区 1 号");
+        assertThatThrownBy(() -> service.readAssigned(providerId, UUID.randomUUID()))
+                .isInstanceOf(ReservationNotFoundException.class);
+        assertThatThrownBy(() -> service.readAssigned(null, first)).isInstanceOf(ReservationNotFoundException.class);
+        assertThatThrownBy(() -> service.listAssigned(null, CustomerReservationFilter.ALL, 1, 20))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.listAssigned(providerId, CustomerReservationFilter.ALL, 1, 51))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void validatesFiltersAndPagingBeforeCallingPersistence() {
         var store = new InMemoryCustomerReservationQueryStore();
@@ -131,6 +165,39 @@ final class InMemoryCustomerReservationQueryStore implements CustomerReservation
     @Override
     public CustomerReservationCountSnapshot countOwn(UUID customerId) {
         this.customerId = customerId;
+        return counts;
+    }
+
+    UUID providerId;
+
+    @Override
+    public List<StoredCustomerReservationSummary> findAssigned(
+            UUID providerId,
+            CustomerReservationFilter filter,
+            int limit,
+            int offset
+    ) {
+        this.providerId = providerId;
+        this.filter = filter;
+        this.limit = limit;
+        this.offset = offset;
+        return rows.stream()
+                .filter(row -> filter == CustomerReservationFilter.ALL
+                        || row.stage().name().equals(filter.name()))
+                .skip(offset)
+                .limit(limit)
+                .toList();
+    }
+
+    @Override
+    public java.util.Optional<StoredCustomerReservationSummary> findAssigned(UUID providerId, UUID reservationId) {
+        this.providerId = providerId;
+        return rows.stream().filter(row -> row.reservationId().equals(reservationId)).findFirst();
+    }
+
+    @Override
+    public CustomerReservationCountSnapshot countAssigned(UUID providerId) {
+        this.providerId = providerId;
         return counts;
     }
 }
