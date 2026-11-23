@@ -20,6 +20,8 @@ import com.lowaltitude.inspection.content.application.ContentException;
 import com.lowaltitude.inspection.content.application.ContentNotFoundException;
 import com.lowaltitude.inspection.rental.application.RentalException;
 import com.lowaltitude.inspection.support.application.SupportException;
+import com.lowaltitude.inspection.application.city.CityOperationException;
+import com.lowaltitude.inspection.identity.application.OnboardingException;
 import com.lowaltitude.inspection.live.application.LiveException;
 import com.lowaltitude.inspection.application.reservation.FileCountExceededException;
 import com.lowaltitude.inspection.application.reservation.FileTooLargeException;
@@ -668,6 +670,17 @@ public class GlobalExceptionHandler {
                 code = "SUPPORT_COUNTERPART_UNAVAILABLE";
                 message = "对方暂时不能接收消息";
             }
+            // 运营端处理反馈（契约 contracts/openapi-ops-feedback.yaml）。
+            case ALREADY_HANDLED -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_FEEDBACK_ALREADY_HANDLED";
+                message = "这条反馈已经处理过了";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_VERSION_CONFLICT";
+                message = "数据已被他人修改，请刷新后重试";
+            }
             default -> throw new IllegalStateException("unmapped support error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
@@ -992,6 +1005,93 @@ public class GlobalExceptionHandler {
         LOGGER.error("Unhandled API failure traceId={}", traceId, exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiError("COMMON_INTERNAL_ERROR", "系统繁忙，请稍后重试", traceId));
+    }
+
+    /** 运营端“城市开通”（契约 contracts/openapi-ops-city.yaml）的业务拒绝。 */
+    @ExceptionHandler(CityOperationException.class)
+    public ResponseEntity<ApiError> handleCityOperation(CityOperationException exception,
+                                                        HttpServletRequest request) {
+        return switch (exception.error()) {
+            case NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiError("COMMON_NOT_FOUND", "资源不存在", traceId(request)));
+            case VERSION_CONFLICT -> ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiError("OPS_VERSION_CONFLICT", "数据已被他人修改，请刷新后重试", traceId(request)));
+            case STATUS_UNCHANGED -> ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiError("OPS_CITY_STATUS_UNCHANGED", "城市已经是这个状态", traceId(request)));
+        };
+    }
+
+    /** 运营端“机构入驻与资质审核”（契约 contracts/openapi-ops-organization.yaml）的业务拒绝。 */
+    @ExceptionHandler(OnboardingException.class)
+    public ResponseEntity<ApiError> handleOnboarding(OnboardingException exception, HttpServletRequest request) {
+        HttpStatus status;
+        String code;
+        String message;
+        switch (exception.error()) {
+            case NOT_FOUND -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case VERSION_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_VERSION_CONFLICT";
+                message = "数据已被他人修改，请刷新后重试";
+            }
+            case IDEMPOTENCY_CONFLICT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_IDEMPOTENCY_KEY_REUSED";
+                message = "幂等键已用于不同请求";
+            }
+            case CITY_UNKNOWN -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_CITY_UNKNOWN";
+                message = "城市不在平台城市目录里";
+            }
+            case LOGIN_NAME_TAKEN -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_LOGIN_NAME_TAKEN";
+                message = "登录名已被占用";
+            }
+            case ROLE_NOT_GRANTABLE -> {
+                status = HttpStatus.UNPROCESSABLE_ENTITY;
+                code = "OPS_ROLE_NOT_GRANTABLE";
+                message = "这类机构不能授这个角色";
+            }
+            case QUALIFICATION_NOT_PENDING -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_QUALIFICATION_NOT_PENDING";
+                message = "资质资料不是待审核状态";
+            }
+            case QUALIFICATION_INCOMPLETE -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_QUALIFICATION_INCOMPLETE";
+                message = "审核通过前至少要上传一份资质附件";
+            }
+            case ATTACHMENT_LIMIT -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_ATTACHMENT_LIMIT";
+                message = "附件数量已到上限";
+            }
+            case FILE_STORE_UNAVAILABLE -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                code = "OPS_FILE_STORE_UNAVAILABLE";
+                message = "附件存储暂不可用";
+            }
+            default -> throw new IllegalStateException("unmapped onboarding error " + exception.error());
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
+    }
+
+    /** 上传的文件超过大小上限，或少了文件部分。 */
+    @ExceptionHandler({
+            org.springframework.web.multipart.MaxUploadSizeExceededException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class,
+            org.springframework.web.multipart.MultipartException.class
+    })
+    public ResponseEntity<ApiError> handleMultipart(Exception exception, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiError("COMMON_INVALID_ARGUMENT", "请求参数无效", traceId(request)));
     }
 
     private String traceId(HttpServletRequest request) {

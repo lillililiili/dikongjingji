@@ -92,3 +92,39 @@ record SupportMessageDraft(String text, SupportCardDraft card) {
 
 record SupportCardDraft(String type, UUID refId, String title, String subtitle) {
 }
+
+// ---- 运营端处理反馈（S3-1，契约 contracts/openapi-ops-feedback.yaml） ----
+
+/**
+ * 举报的对象：VIDEO_COMMENT_REPORT 时 id 是评论、parentId 是视频；LIVE_COMMENT_REPORT 时 id 是弹幕、parentId 是直播间。
+ * 运营端拿它调内容、直播模块已有的受权隐藏接口。
+ */
+record SupportReportTargetView(UUID id, UUID parentId) {
+}
+
+/** 提交人：只给显示名（账号停用了为 null），不给登录名、手机号。 */
+record SupportFeedbackReporterView(String displayName) {
+}
+
+/** 处理结果：说明、处理人显示名和时间。 */
+record SupportFeedbackHandlingView(String note, String handlerName, OffsetDateTime handledAt) {
+}
+
+record OpsFeedbackView(
+        UUID feedbackId,
+        SupportFeedbackType type,
+        SupportFeedbackSource source,
+        String text,
+        SupportReportTargetView target,
+        SupportFeedbackReporterView reporter,
+        SupportFeedbackHandleStatus handleStatus,
+        SupportFeedbackHandlingView handling,
+        int version,
+        OffsetDateTime createdAt
+) {
+}
+
+/** pendingCount 是全部待处理的条数（不受筛选影响），给菜单角标用。 */
+record OpsFeedbackPageView(int page, int size, long total, boolean hasMore, long pendingCount,
+                           List<OpsFeedbackView> items) {
+}

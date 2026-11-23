@@ -25,7 +25,8 @@ public final class PostgresCityDirectoryStore
                         row.provinceName(),
                         row.provincePinyin(),
                         row.provinceInitials(),
-                        row.searchCount()))
+                        row.searchCount(),
+                        row.serviceStatus() == null ? null : CityServiceStatus.valueOf(row.serviceStatus())))
                 .toList();
     }
 

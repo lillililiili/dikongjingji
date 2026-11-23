@@ -79,7 +79,7 @@ class LiveServiceTest {
             id -> id.equals(VIEWER) ? Optional.of("王女士（示例）") : id.equals(OTHER_VIEWER) ? Optional.of("张工")
                     : Optional.empty(),
             (account, room, title, host, at) -> notices.add(account + " " + room + " " + title + " " + host + " " + at),
-            (account, key, text) -> reports.add(account + " " + key + " " + text),
+            (account, key, text, room, comment) -> reports.add(account + " " + key + " " + text),
             new KeywordCommentFilter(List.of("加微信")),
             new Clock() {
                 @Override

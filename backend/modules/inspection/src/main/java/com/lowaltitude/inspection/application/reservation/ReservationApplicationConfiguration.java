@@ -2,6 +2,8 @@ package com.lowaltitude.inspection.application.reservation;
 
 import java.time.Clock;
 import com.lowaltitude.inspection.application.city.CityDirectoryReadService;
+import com.lowaltitude.inspection.application.city.CityOperationsService;
+import com.lowaltitude.inspection.application.city.PostgresCityOperationsStore;
 import com.lowaltitude.inspection.application.city.PostgresCityDirectoryStore;
 import com.lowaltitude.inspection.domain.files.ObjectStoragePort;
 import com.lowaltitude.inspection.infrastructure.persistence.InspectionServiceCatalogMapper;
@@ -43,6 +45,12 @@ public class ReservationApplicationConfiguration {
     @Bean
     CityDirectoryReadService cityDirectoryReadService(PlatformCityMapper mapper) {
         return new CityDirectoryReadService(new PostgresCityDirectoryStore(mapper));
+    }
+
+    // S3-1 运营端“城市开通”。
+    @Bean
+    CityOperationsService cityOperationsService(PlatformCityMapper mapper) {
+        return new CityOperationsService(new PostgresCityOperationsStore(mapper));
     }
 
     @Bean

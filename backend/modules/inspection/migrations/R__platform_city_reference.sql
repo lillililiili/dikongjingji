@@ -708,3 +708,14 @@ WHERE city_code IN (
     '419000', '429000', '469000', '659000'
 )
   AND status <> 'INACTIVE';
+
+-- S3-1（V012）：一期试运营城市东营（概要设计 P6、后续开发计划 S6）初始为“已开通”。只在开通状态从没被改过
+-- （service_status_changed_at 为空）时写一次；之后由运营端维护，这份迁移重跑也不会把运营改过的状态改回来。
+UPDATE platform_city
+SET service_status = 'OPEN',
+    service_status_changed_at = now(),
+    version = version + 1,
+    updated_at = now()
+WHERE city_code = '370500'
+  AND service_status = 'CLOSED'
+  AND service_status_changed_at IS NULL;

@@ -383,6 +383,68 @@ class SupportServiceTest {
         return values;
     }
 
+    // ---- S3-1 举报与运营端处理 ----
+
+    @Test
+    void aReportRemembersItsTargetAndIsIdempotent() {
+        UUID key = UUID.randomUUID();
+        UUID comment = UUID.randomUUID();
+        UUID room = UUID.randomUUID();
+
+        SupportFeedbackCreated first = service.report(CUSTOMER, key, "CONTENT", "举报直播弹幕：第 3 条", "LIVE_COMMENT_REPORT",
+                comment, room);
+        SupportFeedbackCreated again = service.report(CUSTOMER, key, "CONTENT", "举报直播弹幕：第 3 条",
+                "LIVE_COMMENT_REPORT", comment, room);
+
+        assertThat(first.created()).isTrue();
+        assertThat(again.created()).isFalse();
+        assertThat(again.feedback().feedbackId()).isEqualTo(first.feedback().feedbackId());
+        OpsFeedbackView view = service.opsFeedback(null, null, 1, 20).items().getFirst();
+        assertThat(view.source()).isEqualTo(SupportFeedbackSource.LIVE_COMMENT_REPORT);
+        assertThat(view.target()).isEqualTo(new SupportReportTargetView(comment, room));
+        assertThat(view.reporter().displayName()).isEqualTo("王女士");
+        // 同一个键换了对象：幂等冲突。用户反馈来源和缺对象的举报一律拒绝。
+        assertRejected(Error.IDEMPOTENCY_CONFLICT, () -> service.report(CUSTOMER, key, "CONTENT", "举报直播弹幕：第 3 条",
+                "LIVE_COMMENT_REPORT", UUID.randomUUID(), room));
+        assertInvalid(() -> service.report(CUSTOMER, UUID.randomUUID(), "CONTENT", "x", "USER", comment, room));
+        assertInvalid(() -> service.report(CUSTOMER, UUID.randomUUID(), "CONTENT", "x", "VIDEO_COMMENT_REPORT", comment,
+                null));
+    }
+
+    @Test
+    void supportHandlesFeedbackOnceWithANoteAndTheCurrentVersion() {
+        UUID feedbackId = service.feedback(CUSTOMER, UUID.randomUUID(), "FUNCTION", "下单页卡住了").feedback().feedbackId();
+        now = NOW.plusSeconds(60);
+        service.report(OTHER_CUSTOMER, UUID.randomUUID(), "CONTENT", "举报视频评论", "VIDEO_COMMENT_REPORT",
+                UUID.randomUUID(), UUID.randomUUID());
+
+        OpsFeedbackPageView pending = service.opsFeedback("PENDING", null, 1, 20);
+        assertThat(pending.total()).isEqualTo(2);
+        assertThat(pending.pendingCount()).isEqualTo(2);
+        // 待处理的先来的在前。
+        assertThat(pending.items().getFirst().feedbackId()).isEqualTo(feedbackId);
+        assertThat(service.opsFeedback(null, "VIDEO_COMMENT_REPORT", 1, 20).total()).isEqualTo(1);
+
+        assertRejected(Error.VERSION_CONFLICT,
+                () -> service.handleFeedback(feedbackId, "已转交研发", 7, SUPPORT_AGENT, "平台客服（示例）"));
+        assertInvalid(() -> service.handleFeedback(feedbackId, " ", 0, SUPPORT_AGENT, "平台客服（示例）"));
+        assertInvalid(() -> service.handleFeedback(feedbackId, "长".repeat(201), 0, SUPPORT_AGENT, "平台客服（示例）"));
+
+        now = NOW.plusSeconds(120);
+        OpsFeedbackView handled = service.handleFeedback(feedbackId, "已转交研发", 0, SUPPORT_AGENT, "平台客服（示例）");
+        assertThat(handled.handleStatus()).isEqualTo(SupportFeedbackHandleStatus.HANDLED);
+        assertThat(handled.handling()).isEqualTo(new SupportFeedbackHandlingView("已转交研发", "平台客服（示例）",
+                OffsetDateTime.ofInstant(NOW.plusSeconds(120), ZoneOffset.UTC)));
+        assertThat(handled.version()).isEqualTo(1);
+        assertThat(service.opsFeedback(null, null, 1, 20).pendingCount()).isEqualTo(1);
+        assertRejected(Error.ALREADY_HANDLED,
+                () -> service.handleFeedback(feedbackId, "再处理一次", 1, SUPPORT_AGENT, "平台客服（示例）"));
+        assertRejected(Error.NOT_FOUND,
+                () -> service.handleFeedback(UUID.randomUUID(), "不存在", 0, SUPPORT_AGENT, "平台客服（示例）"));
+        assertInvalid(() -> service.opsFeedback("DONE", null, 1, 20));
+        assertInvalid(() -> service.opsFeedback(null, null, 1, 51));
+    }
+
     private static void assertRejected(Error error, ThrowingCallable call) {
         assertThatThrownBy(call).isInstanceOfSatisfying(SupportException.class,
                 exception -> assertThat(exception.error()).isEqualTo(error));
@@ -637,6 +699,96 @@ class SupportServiceTest {
             feedback.add(row);
             feedbackKeys.put(row.id(), idempotencyKey.toString());
             return row;
+        }
+
+        // ---- S3-1 运营端处理反馈 ----
+
+        final Map<UUID, Handling> handling = new HashMap<>();
+
+        static final class Handling {
+            String source = "USER";
+            UUID targetId;
+            UUID parentId;
+            String status = "PENDING";
+            String note;
+            OffsetDateTime handledAt;
+            String handlerName;
+            int version;
+        }
+
+        @Override
+        public FeedbackRow insertReportFeedback(UUID accountId, String feedbackType, String body, UUID idempotencyKey,
+                                                String requestHash, OffsetDateTime at, String source, UUID targetId,
+                                                UUID targetParentId) {
+            if ("USER".equals(source) != (targetId == null) || (targetId == null) != (targetParentId == null)) {
+                throw new IllegalStateException("ck_support_feedback_target");
+            }
+            FeedbackRow row = insertFeedback(accountId, feedbackType, body, idempotencyKey, requestHash, at);
+            Handling h = new Handling();
+            h.source = source;
+            h.targetId = targetId;
+            h.parentId = targetParentId;
+            handling.put(row.id(), h);
+            return row;
+        }
+
+        private Handling handlingOf(UUID id) {
+            return handling.computeIfAbsent(id, ignored -> new Handling());
+        }
+
+        private OpsFeedbackRow opsRow(FeedbackRow row) {
+            Handling h = handlingOf(row.id());
+            return new OpsFeedbackRow(row.id(), row.accountId(), row.feedbackType(), row.body(), h.source, h.targetId,
+                    h.parentId, h.status, h.note, h.handledAt, h.handlerName, h.version, row.createdAt());
+        }
+
+        private List<OpsFeedbackRow> opsRows(String handleStatus, String source) {
+            return feedback.stream().map(this::opsRow)
+                    .filter(row -> handleStatus == null || row.handleStatus().equals(handleStatus))
+                    .filter(row -> source == null || row.source().equals(source))
+                    .sorted(Comparator.comparing((OpsFeedbackRow row) -> row.handleStatus().equals("PENDING") ? 0 : 1)
+                            .thenComparing(row -> row.handleStatus().equals("PENDING")
+                                    ? row.createdAt().toEpochSecond() : -row.createdAt().toEpochSecond()))
+                    .toList();
+        }
+
+        @Override
+        public long countOpsFeedback(String handleStatus, String source) {
+            return opsRows(handleStatus, source).size();
+        }
+
+        @Override
+        public List<OpsFeedbackRow> findOpsFeedback(String handleStatus, String source, int limit, int offset) {
+            return opsRows(handleStatus, source).stream().skip(offset).limit(limit).toList();
+        }
+
+        @Override
+        public OpsFeedbackRow findOpsFeedbackById(UUID feedbackId) {
+            return feedback.stream().filter(row -> row.id().equals(feedbackId)).findFirst().map(this::opsRow)
+                    .orElse(null);
+        }
+
+        @Override
+        public long countPendingFeedback() {
+            return opsRows("PENDING", null).size();
+        }
+
+        @Override
+        public int handleFeedback(UUID feedbackId, String note, UUID handlerId, String handlerName, int version,
+                                  OffsetDateTime at) {
+            if (findOpsFeedbackById(feedbackId) == null) {
+                return 0;
+            }
+            Handling h = handlingOf(feedbackId);
+            if (!h.status.equals("PENDING") || h.version != version) {
+                return 0;
+            }
+            h.status = "HANDLED";
+            h.note = note;
+            h.handledAt = at;
+            h.handlerName = handlerName;
+            h.version++;
+            return 1;
         }
 
         static final class Conversation {

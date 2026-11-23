@@ -1,0 +1,779 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Organization API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1，docs/redesign/08-后续开发计划.md §2、§5 D11、S4-4）：Web 运营端“机构入驻与资质审核”。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
+    COMMON_FORBIDDEN. 机构、账号和角色都在身份模块（迁移 V007），不另建账号体系。平台机构不在运营端管理范围内，当作不存在。
+
+    规则：
+    - 机构类型：PROVIDER 经营机构（商家、服务商、活动主办、场馆运营都是这类）；CUSTOMER 企业客户。新建要带名称（1–60 字）和
+      所在城市（平台城市目录里的可选城市，不认识的 422 OPS_CITY_UNKNOWN）。新建要带 Idempotency-Key：同一个键同样内容重放
+      返回第一次那家（200），内容不同 409 OPS_IDEMPOTENCY_KEY_REUSED。
+    - 资质资料只存文字：营业执照上的主体名称（1–160 字）、统一社会信用代码（18 位数字或大写字母，不含 I、O、Z、S、V；
+      只校验格式）、经营范围和行业资质说明（各 ≤500 字，可空）。附件只存元数据，文件在对象存储（开发环境是本机目录）。
+    - 资料或附件有任何改动，资质回到 SUBMITTED（待审核），上一次的审核结果作废，identity_organization.qualification_reviewed_at
+      清空——App 上的“资质已审核”只看这个时间，所以会先撤下，审核通过后再出现。
+    - 审核只能审待审核的那一版（带 version）：APPROVE 要至少一份附件（否则 409 OPS_QUALIFICATION_INCOMPLETE），写审核时间；
+      REJECT 要写原因（1–200 字），审核时间保持为空。不是待审核 409 OPS_QUALIFICATION_NOT_PENDING。
+    - 附件：PDF、JPEG、PNG（按文件头判断，不信客户端类型），≤10 MB，每家最多 10 份（409 OPS_ATTACHMENT_LIMIT）。只经
+      …/content 下载（不缓存、按附件下载），不给存储地址。存储没配置时 503 OPS_FILE_STORE_UNAVAILABLE。移除只做标记。
+    - 账号：给机构建账号（默认机构就是这家），登录名 4–32 位（小写字母开头，小写字母、数字、_、-），被占用 409
+      OPS_LOGIN_NAME_TAKEN。初始口令由服务端生成（12 位），只在建账号的返回里出现这一次，服务端只存摘要；运营转告机构。
+    - 角色：经营机构能授 PROVIDER_OPERATOR（服务商操作员）和 LIVE_HOST（直播主办），限定在这家机构；企业客户能授 CUSTOMER。
+      平台角色不能在这里授；授了别的 422 OPS_ROLE_NOT_GRANTABLE。角色有改动时账号的令牌版本加一，旧令牌立刻失效，要重新登录。
+    - 每一步（新建、录入或修改资料、审核通过、驳回、上传或移除附件、建账号、改角色）都记一条操作记录，详情里有最近 50 条。
+    - 改资料、审核带 version（乐观锁），版本不对 409 OPS_VERSION_CONFLICT。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/organizations:
+    get:
+      operationId: "listOpsOrganizations"
+      summary: "机构列表（待审核的在前，再按新建时间倒序）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "名称包含，或机构编码等于；最多 60 字"
+          schema:
+            type: "string"
+            maxLength: 60
+        - name: "type"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsOrganizationType"
+        - name: "qualificationStatus"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsQualificationStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页机构"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsOrganization"
+      summary: "新建机构"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsOrganizationCreateRequest"
+      responses:
+        "201":
+          description: "新建的机构"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationDetail"
+        "200":
+          description: "同一个幂等键已经建过的那家"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: "OPS_IDEMPOTENCY_KEY_REUSED：同一个幂等键用在了内容不同的新建上。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_CITY_UNKNOWN：城市不在平台城市目录里。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/organizations/{organizationId}:
+    get:
+      operationId: "getOpsOrganization"
+      summary: "机构详情：资料、附件、账号、能授的角色和最近 50 条操作记录"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      responses:
+        "200":
+          description: "机构详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/organizations/{organizationId}/qualification:
+    put:
+      operationId: "submitOpsOrganizationQualification"
+      summary: "录入或修改资质资料（保存后待审核）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsQualificationRequest"
+      responses:
+        "200":
+          description: "机构详情（资质是待审核）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：第一次录入带了版本号、修改没带或版本不对。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/organizations/{organizationId}/qualification/review:
+    post:
+      operationId: "reviewOpsOrganizationQualification"
+      summary: "审核待审核的资质资料：通过或驳回"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsReviewRequest"
+      responses:
+        "200":
+          description: "机构详情（已通过或已驳回）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_QUALIFICATION_NOT_PENDING：没有资料或不是待审核；OPS_QUALIFICATION_INCOMPLETE：通过前至少要一份附件；OPS_VERSION_CONFLICT：版本不对。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/organizations/{organizationId}/attachments:
+    post:
+      operationId: "addOpsOrganizationAttachment"
+      summary: "上传一份资质附件"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              additionalProperties: false
+              required: ["file"]
+              properties:
+                file:
+                  type: "string"
+                  format: "binary"
+                  description: "PDF、JPEG 或 PNG，≤10 MB"
+      responses:
+        "201":
+          description: "机构详情（含新附件）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationDetail"
+        "400":
+          description: "没有文件、空文件、超过 10 MB、不是 PDF/JPEG/PNG（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_ATTACHMENT_LIMIT：每家最多 10 份。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: "OPS_FILE_STORE_UNAVAILABLE：附件存储没有配置或暂不可用。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/organizations/{organizationId}/attachments/{attachmentId}:
+    delete:
+      operationId: "removeOpsOrganizationAttachment"
+      summary: "移除一份资质附件（只做标记）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/AttachmentId"
+      responses:
+        "200":
+          description: "机构详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/organizations/{organizationId}/attachments/{attachmentId}/content:
+    get:
+      operationId: "downloadOpsOrganizationAttachment"
+      summary: "下载资质附件（不缓存，Content-Disposition: attachment）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/AttachmentId"
+      responses:
+        "200":
+          description: "文件内容"
+          content:
+            application/pdf:
+              schema:
+                type: "string"
+                format: "binary"
+            image/jpeg:
+              schema:
+                type: "string"
+                format: "binary"
+            image/png:
+              schema:
+                type: "string"
+                format: "binary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: "OPS_FILE_STORE_UNAVAILABLE：附件存储没有配置或暂不可用。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/organizations/{organizationId}/accounts:
+    post:
+      operationId: "createOpsOrganizationAccount"
+      summary: "给机构建账号并授角色（初始口令只返回这一次）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsAccountRequest"
+      responses:
+        "201":
+          description: "新账号和它的初始口令（Cache-Control: no-store）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsAccountCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_LOGIN_NAME_TAKEN：登录名已被占用。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_ROLE_NOT_GRANTABLE：这类机构不能授这个角色。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/organizations/{organizationId}/accounts/{accountId}/roles:
+    put:
+      operationId: "replaceOpsOrganizationAccountRoles"
+      summary: "把账号在这家机构能授的角色改成给定的这些（空数组表示全部收回）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationId"
+        - $ref: "#/components/parameters/AccountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsRolesRequest"
+      responses:
+        "200":
+          description: "机构详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrganizationDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: "OPS_ROLE_NOT_GRANTABLE：这类机构不能授这个角色。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    OrganizationId:
+      name: "organizationId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    AttachmentId:
+      name: "attachmentId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    AccountId:
+      name: "accountId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "机构、附件或账号不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsOrganizationErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+    OpsOrganizationErrorCode:
+      type: "string"
+      enum: [OPS_VERSION_CONFLICT, OPS_IDEMPOTENCY_KEY_REUSED, OPS_CITY_UNKNOWN, OPS_LOGIN_NAME_TAKEN,
+             OPS_ROLE_NOT_GRANTABLE, OPS_QUALIFICATION_NOT_PENDING, OPS_QUALIFICATION_INCOMPLETE,
+             OPS_ATTACHMENT_LIMIT, OPS_FILE_STORE_UNAVAILABLE]
+    OpsOrganizationType:
+      type: "string"
+      description: "PROVIDER 经营机构；CUSTOMER 企业客户"
+      enum: [PROVIDER, CUSTOMER]
+    OpsQualificationStatus:
+      type: "string"
+      description: "NOT_SUBMITTED 未提交；SUBMITTED 待审核；APPROVED 已通过；REJECTED 已驳回"
+      enum: [NOT_SUBMITTED, SUBMITTED, APPROVED, REJECTED]
+    OpsReviewDecision:
+      type: "string"
+      enum: [APPROVE, REJECT]
+    OpsOrganizationAction:
+      type: "string"
+      enum: [CREATE, QUALIFICATION_SUBMIT, QUALIFICATION_APPROVE, QUALIFICATION_REJECT, ATTACHMENT_ADD,
+             ATTACHMENT_REMOVE, ACCOUNT_CREATE, ROLES_CHANGE]
+    OpsGrantableRole:
+      type: "string"
+      description: "PROVIDER_OPERATOR 服务商操作员、LIVE_HOST 直播主办（经营机构，限定在这家）；CUSTOMER 客户（企业客户）"
+      enum: [PROVIDER_OPERATOR, LIVE_HOST, CUSTOMER]
+    OpsOrganization:
+      type: "object"
+      additionalProperties: false
+      required: [organizationId, organizationCode, name, type, cityCode, cityName, status, qualificationStatus,
+                 qualificationReviewedAt, createdAt]
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        organizationCode:
+          type: "string"
+          description: "机构编码（运营端新建的是 ORG-北京日期-8 位十六进制），只给人看"
+        name:
+          type: "string"
+        type:
+          $ref: "#/components/schemas/OpsOrganizationType"
+        cityCode:
+          type: ["string", "null"]
+          description: "所在城市；运营端之前建的机构可能为空"
+        cityName:
+          type: ["string", "null"]
+        status:
+          type: "string"
+          description: "ACTIVE 在用；DISABLED 停用"
+        qualificationStatus:
+          $ref: "#/components/schemas/OpsQualificationStatus"
+        qualificationReviewedAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "资质审核通过时间（App 上的“资质已审核”只看它）；没通过为 null"
+        createdAt:
+          type: "string"
+          format: "date-time"
+    OpsOrganizationPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsOrganization"
+    OpsQualification:
+      type: "object"
+      additionalProperties: false
+      required: [subjectName, licenseNumber, businessScope, qualificationNote, status, submittedAt, reviewedAt,
+                 rejectReason, version]
+      properties:
+        subjectName:
+          type: "string"
+          maxLength: 160
+        licenseNumber:
+          type: "string"
+          pattern: "^[0-9A-HJ-NPQRTUWXY]{18}$"
+        businessScope:
+          type: ["string", "null"]
+          maxLength: 500
+        qualificationNote:
+          type: ["string", "null"]
+          maxLength: 500
+        status:
+          $ref: "#/components/schemas/OpsQualificationStatus"
+        submittedAt:
+          type: "string"
+          format: "date-time"
+        reviewedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        rejectReason:
+          type: ["string", "null"]
+          maxLength: 200
+        version:
+          type: "integer"
+          minimum: 0
+    OpsAttachment:
+      type: "object"
+      additionalProperties: false
+      required: [attachmentId, fileName, contentType, sizeBytes, uploadedAt]
+      properties:
+        attachmentId:
+          type: "string"
+          format: "uuid"
+        fileName:
+          type: "string"
+          maxLength: 120
+        contentType:
+          type: "string"
+          enum: ["application/pdf", "image/jpeg", "image/png"]
+        sizeBytes:
+          type: "integer"
+          minimum: 1
+          maximum: 10485760
+        uploadedAt:
+          type: "string"
+          format: "date-time"
+    OpsAccount:
+      type: "object"
+      additionalProperties: false
+      required: [accountId, loginName, displayName, status, roles, createdAt]
+      properties:
+        accountId:
+          type: "string"
+          format: "uuid"
+        loginName:
+          type: "string"
+        displayName:
+          type: "string"
+        status:
+          type: "string"
+          description: "ACTIVE / LOCKED / DISABLED"
+        roles:
+          type: "array"
+          description: "现在有效的角色编码（全局的和限定在这家机构的）"
+          items:
+            type: "string"
+        createdAt:
+          type: "string"
+          format: "date-time"
+    OpsOperation:
+      type: "object"
+      additionalProperties: false
+      required: [operationId, action, detail, operatorName, occurredAt]
+      properties:
+        operationId:
+          type: "string"
+          format: "uuid"
+        action:
+          $ref: "#/components/schemas/OpsOrganizationAction"
+        detail:
+          type: "string"
+          maxLength: 500
+        operatorName:
+          type: "string"
+        occurredAt:
+          type: "string"
+          format: "date-time"
+    OpsOrganizationDetail:
+      type: "object"
+      additionalProperties: false
+      required: [organization, qualification, attachments, accounts, grantableRoles, operations]
+      properties:
+        organization:
+          $ref: "#/components/schemas/OpsOrganization"
+        qualification:
+          anyOf:
+            - $ref: "#/components/schemas/OpsQualification"
+            - type: "null"
+        attachments:
+          type: "array"
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/OpsAttachment"
+        accounts:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsAccount"
+        grantableRoles:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsGrantableRole"
+        operations:
+          type: "array"
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/OpsOperation"
+    OpsAccountCreated:
+      type: "object"
+      additionalProperties: false
+      required: [account, initialPassword]
+      properties:
+        account:
+          $ref: "#/components/schemas/OpsAccount"
+        initialPassword:
+          type: "string"
+          minLength: 12
+          maxLength: 12
+          description: "初始口令，只在这一次返回"
+    OpsOrganizationCreateRequest:
+      type: "object"
+      additionalProperties: false
+      required: [type, name, cityCode]
+      properties:
+        type:
+          $ref: "#/components/schemas/OpsOrganizationType"
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+        cityCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+    OpsQualificationRequest:
+      type: "object"
+      additionalProperties: false
+      required: [subjectName, licenseNumber]
+      properties:
+        subjectName:
+          type: "string"
+          minLength: 1
+          maxLength: 160
+        licenseNumber:
+          type: "string"
+          pattern: "^[0-9A-HJ-NPQRTUWXY]{18}$"
+        businessScope:
+          type: ["string", "null"]
+          maxLength: 500
+        qualificationNote:
+          type: ["string", "null"]
+          maxLength: 500
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "第一次录入不带；修改时带详情里读到的版本号"
+    OpsReviewRequest:
+      type: "object"
+      additionalProperties: false
+      required: [decision, version]
+      properties:
+        decision:
+          $ref: "#/components/schemas/OpsReviewDecision"
+        reason:
+          type: ["string", "null"]
+          maxLength: 200
+          description: "驳回时必填（1–200 字）；通过时可写备注"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsAccountRequest:
+      type: "object"
+      additionalProperties: false
+      required: [loginName, displayName, roles]
+      properties:
+        loginName:
+          type: "string"
+          pattern: "^[a-z][a-z0-9_-]{3,31}$"
+        displayName:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+        roles:
+          type: "array"
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/OpsGrantableRole"
+    OpsRolesRequest:
+      type: "object"
+      additionalProperties: false
+      required: [roles]
+      properties:
+        roles:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsGrantableRole"
