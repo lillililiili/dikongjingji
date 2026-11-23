@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Activity API
-  version: 1.2.0
+  version: 1.3.0
   description: |-
     1.0.0 (confirmed by the user on 2026-11-16, docs/redesign/03-App实现任务计划.md §7): the read-only
     catalog of contests, training, study tours and open days for the home "赛事研学" channel: list,
@@ -56,6 +56,12 @@ info:
 
     Waitlist, team enrolment, rescheduling and results are not part of this version.
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+
+    1.3.0 (2026-11-23, docs/redesign/08-后续开发计划.md §5 D8, step S3-3): no route or field changes here. Organizer
+    operators also check in through the App's check-in workbench (contracts/openapi-checkin-workbench.yaml), which
+    records every attempt. There an operator may "登记放行" a ticket whose session does not match, or has ended, into
+    another session of the same activity that is open for check-in and has a seat: the ticket moves to that session and
+    is checked in, the seat moves with it. The enrolment keeps the session it was made for; the ticket reads CHECKED_IN.
 servers:
   - url: /
 paths:

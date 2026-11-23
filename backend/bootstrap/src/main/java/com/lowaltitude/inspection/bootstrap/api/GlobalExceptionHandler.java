@@ -4,11 +4,14 @@ import java.util.UUID;
 
 import com.lowaltitude.inspection.account.application.AddressLimitException;
 import com.lowaltitude.inspection.account.application.AddressNotFoundException;
+import com.lowaltitude.inspection.activity.application.ActivityCheckinException;
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentException;
 import com.lowaltitude.inspection.activity.application.ActivityNotFoundException;
 import com.lowaltitude.inspection.demand.application.DemandException;
 import com.lowaltitude.inspection.application.reservation.FileAccessDeniedException;
 import com.lowaltitude.inspection.experience.application.VenueBookingException;
+import com.lowaltitude.inspection.experience.application.VenueCheckinException;
+import com.lowaltitude.inspection.checkin.application.CheckinRejectedException;
 import com.lowaltitude.inspection.experience.application.VenueNotFoundException;
 import com.lowaltitude.inspection.mall.application.MallCartException;
 import com.lowaltitude.inspection.trade.application.TradeException;
@@ -514,6 +517,77 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(status)
                 .body(new ApiError(code, message, traceId(request)));
+    }
+
+    /** 核销工作台（S3-3，契约 openapi-checkin-workbench.yaml）：被拦下的核销，那条已落库的记录放在 details.record。 */
+    @ExceptionHandler(CheckinRejectedException.class)
+    public ResponseEntity<ApiError> handleCheckinRejected(
+            CheckinRejectedException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(
+                exception.code(),
+                exception.message(),
+                traceId(request),
+                java.util.Map.of("record", exception.record())));
+    }
+
+    /** 核销工作台里活动凭证一半的业务拒绝。 */
+    @ExceptionHandler(ActivityCheckinException.class)
+    public ResponseEntity<ApiError> handleActivityCheckin(
+            ActivityCheckinException exception,
+            HttpServletRequest request
+    ) {
+        return checkinError(exception.reason().name(), request);
+    }
+
+    /** 核销工作台里到馆预约一半的业务拒绝，和活动的一半用同一套错误码。 */
+    @ExceptionHandler(VenueCheckinException.class)
+    public ResponseEntity<ApiError> handleVenueCheckin(
+            VenueCheckinException exception,
+            HttpServletRequest request
+    ) {
+        return checkinError(exception.reason().name(), request);
+    }
+
+    private ResponseEntity<ApiError> checkinError(String reason, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        String code;
+        String message;
+        switch (reason) {
+            case "NOT_FOUND" -> {
+                status = HttpStatus.NOT_FOUND;
+                code = "COMMON_NOT_FOUND";
+                message = "资源不存在";
+            }
+            case "FORBIDDEN" -> {
+                status = HttpStatus.FORBIDDEN;
+                code = "COMMON_FORBIDDEN";
+                message = "无权限访问";
+            }
+            case "NOT_OPEN" -> {
+                code = "CHECKIN_NOT_OPEN";
+                message = "还没到这一场的核销时间";
+            }
+            case "ACTION_NOT_ALLOWED" -> {
+                code = "CHECKIN_ACTION_NOT_ALLOWED";
+                message = "这条记录不能这样处理";
+            }
+            case "ALREADY_RESOLVED" -> {
+                code = "CHECKIN_ALREADY_RESOLVED";
+                message = "这条异常已经登记过";
+            }
+            case "RELEASE_NOT_ALLOWED" -> {
+                code = "CHECKIN_RELEASE_NOT_ALLOWED";
+                message = "这张凭证现在不能放行";
+            }
+            case "SEATS_NOT_ENOUGH" -> {
+                code = "CHECKIN_SEATS_NOT_ENOUGH";
+                message = "当前场次余位不足";
+            }
+            default -> throw new IllegalStateException("unhandled check-in error " + reason);
+        }
+        return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request)));
     }
 
     @ExceptionHandler(ActivityEnrollmentException.class)
