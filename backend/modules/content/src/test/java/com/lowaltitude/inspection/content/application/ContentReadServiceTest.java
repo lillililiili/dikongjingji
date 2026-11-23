@@ -195,6 +195,28 @@ class ContentReadServiceTest {
         assertThat(facts).isNotNull();
     }
 
+    // 1.3.0 正文配图：只有 IMAGE 块带 image；地址只给受控 HTTPS 的，开发种子没有地址时 url 为 null、替代文字和图注照给。
+    @Test
+    void imageBlocksCarryTheirPictureAltAndCaption() {
+        mapper.block(dogCase, "STEPS", null, List.of(new ContentBlockItemView("白天踏勘，定路线", null)));
+        mapper.imageBlock(dogCase, "https://media.example.com/patrol.png", "无人机在园区上空巡查",
+                "围墙外侧由无人机补充巡查，机器狗负责地面路线");
+        mapper.imageBlock(dogCase, null, "无人机在园区上空巡查", " ");
+        mapper.imageBlock(dogCase, "http://media.example.com/plain.png", "明文地址", null);
+
+        ContentArticleView view = service.article(dogCase.id(), DONGYING);
+
+        assertThat(view.blocks()).extracting(ContentBlockView::type).containsExactly(ContentBlockType.STEPS,
+                ContentBlockType.IMAGE, ContentBlockType.IMAGE, ContentBlockType.IMAGE);
+        assertThat(view.blocks().get(0).image()).isNull();
+        assertThat(view.blocks().get(1).image()).isEqualTo(new ContentBlockImageView(
+                "https://media.example.com/patrol.png", "无人机在园区上空巡查", "围墙外侧由无人机补充巡查，机器狗负责地面路线"));
+        assertThat(view.blocks().get(1).text()).isNull();
+        assertThat(view.blocks().get(1).items()).isEmpty();
+        assertThat(view.blocks().get(2).image()).isEqualTo(new ContentBlockImageView(null, "无人机在园区上空巡查", null));
+        assertThat(view.blocks().get(3).image().url()).isNull();
+    }
+
     @Test
     void anArticleNotVisibleInTheCityIsNotFound() {
         assertRejected(() -> service.article(jinanCase.id(), DONGYING));
@@ -292,6 +314,25 @@ class ContentReadServiceTest {
         assertThat(view.sample()).isTrue();
     }
 
+    // 1.3.0 商家内容：按专题里的顺序给商品 ID 和发布商家（名称快照），页面到商城读真实数据。
+    @Test
+    void aTopicListsItsMerchantItemsInOrder() {
+        LocalDate today = LocalDate.parse("2026-11-20");
+        MutableTopic topic = mapper.topic("黄河口低空体验季", DONGYING, today.minusDays(1), today.plusDays(1));
+        UUID kit = UUID.fromString("c2000000-0000-4000-8000-000000000101");
+        mapper.item(topic, "ACTIVITY", ACTIVITY);
+        mapper.merchantItem(topic, kit, ROBOT, "示例机器人商家");
+        mapper.merchantItem(topic, DOG, EAGLE, "鹰眼智能巡检");
+
+        ContentTopicView view = service.topic(topic.id, DONGYING);
+
+        assertThat(view.activityIds()).containsExactly(ACTIVITY);
+        assertThat(view.merchantItems()).containsExactly(
+                new ContentTopicMerchantItemView(kit, new ContentAuthorView(ContentAuthorKind.MERCHANT, ROBOT, "示例机器人商家")),
+                new ContentTopicMerchantItemView(DOG, new ContentAuthorView(ContentAuthorKind.MERCHANT, EAGLE, "鹰眼智能巡检")));
+        assertThat(service.topic(mapper.topic("空专题", DONGYING, today, today).id, DONGYING).merchantItems()).isEmpty();
+    }
+
     @Test
     void aTopicOfAnotherCityOrUnpublishedIsNotFound() {
         LocalDate today = LocalDate.parse("2026-11-20");
@@ -371,13 +412,22 @@ class ContentReadServiceTest {
         }
 
         UUID block(ArticleRow article, String type, String text, List<ContentBlockItemView> blockItems) {
-            BlockRow row = new BlockRow(UUID.randomUUID(), type, text);
+            BlockRow row = new BlockRow(UUID.randomUUID(), type, text, null, null, null);
             blocks.add(row);
             blockArticles.add(article.id());
             for (ContentBlockItemView item : blockItems) {
                 items.add(new BlockItemRow(row.id(), item.title(), item.text()));
             }
             return row.id();
+        }
+
+        void imageBlock(ArticleRow article, String url, String alt, String caption) {
+            blocks.add(new BlockRow(UUID.randomUUID(), "IMAGE", null, url, alt, caption));
+            blockArticles.add(article.id());
+        }
+
+        void merchantItem(MutableTopic topic, UUID productId, UUID merchant, String name) {
+            topic.items.add(new TopicItemRow("PRODUCT", productId, merchant, name));
         }
 
         void ref(ArticleRow article, String type, UUID id, String title) {
@@ -396,7 +446,7 @@ class ContentReadServiceTest {
         }
 
         void item(MutableTopic topic, String type, UUID id) {
-            topic.items.add(new TopicItemRow(type, id));
+            topic.items.add(new TopicItemRow(type, id, null, null));
         }
 
         private Predicate<Integer> visible(String cityCode, OffsetDateTime now) {

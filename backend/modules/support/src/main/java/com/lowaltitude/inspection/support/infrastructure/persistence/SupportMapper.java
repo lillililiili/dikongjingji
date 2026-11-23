@@ -309,7 +309,99 @@ public interface SupportMapper {
             @Param("at") OffsetDateTime at
     );
 
+    /** 一条举报（S3-1，V002）：和反馈一样记，另外记来源和被举报的评论 / 弹幕及其所在的视频 / 直播间。 */
+    @Select("""
+            INSERT INTO support_feedback (account_id, feedback_type, body, idempotency_key, request_hash, created_at,
+                                          source, target_id, target_parent_id)
+            VALUES (#{accountId}, #{feedbackType}, #{body}, #{idempotencyKey}, #{requestHash}, #{at},
+                    #{source}, #{targetId}, #{targetParentId})
+            RETURNING id, account_id, feedback_type, body, request_hash, created_at
+            """)
+    @Options(flushCache = Options.FlushCachePolicy.TRUE)
+    FeedbackRow insertReportFeedback(
+            @Param("accountId") UUID accountId,
+            @Param("feedbackType") String feedbackType,
+            @Param("body") String body,
+            @Param("idempotencyKey") UUID idempotencyKey,
+            @Param("requestHash") String requestHash,
+            @Param("at") OffsetDateTime at,
+            @Param("source") String source,
+            @Param("targetId") UUID targetId,
+            @Param("targetParentId") UUID targetParentId
+    );
+
+    // ---- 运营端处理反馈（S3-1，V002）：只给平台客服，条件只有处理状态和来源 ----
+
+    String OPS_FEEDBACK_FILTER = """
+            WHERE (CAST(#{handleStatus} AS varchar) IS NULL OR f.handle_status = #{handleStatus})
+              AND (CAST(#{source} AS varchar) IS NULL OR f.source = #{source})
+            """;
+
+    String OPS_FEEDBACK_COLUMNS = """
+            SELECT f.id, f.account_id, f.feedback_type, f.body, f.source, f.target_id, f.target_parent_id,
+                   f.handle_status, f.handle_note, f.handled_at, f.handled_by_name, f.version, f.created_at
+            FROM support_feedback f
+            """;
+
+    @Select("SELECT count(*) FROM support_feedback f " + OPS_FEEDBACK_FILTER)
+    long countOpsFeedback(@Param("handleStatus") String handleStatus, @Param("source") String source);
+
+    /** 待处理的在前，同一状态先来的在前（先处理等得久的）。 */
+    @Select(OPS_FEEDBACK_COLUMNS + OPS_FEEDBACK_FILTER + """
+            ORDER BY CASE f.handle_status WHEN 'PENDING' THEN 0 ELSE 1 END,
+                     CASE f.handle_status WHEN 'PENDING' THEN f.created_at END ASC,
+                     f.created_at DESC, f.id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<OpsFeedbackRow> findOpsFeedback(@Param("handleStatus") String handleStatus, @Param("source") String source,
+                                         @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select(OPS_FEEDBACK_COLUMNS + "WHERE f.id = #{feedbackId}")
+    OpsFeedbackRow findOpsFeedbackById(@Param("feedbackId") UUID feedbackId);
+
+    @Select("SELECT count(*) FROM support_feedback WHERE handle_status = 'PENDING'")
+    long countPendingFeedback();
+
+    /** 标为已处理：只处理一次，版本号要对得上。 */
+    @Update("""
+            UPDATE support_feedback
+            SET handle_status = 'HANDLED',
+                handle_note = #{note},
+                handled_at = #{at},
+                handled_by = #{handlerId},
+                handled_by_name = #{handlerName},
+                version = version + 1
+            WHERE id = #{feedbackId}
+              AND handle_status = 'PENDING'
+              AND version = #{version}
+            """)
+    int handleFeedback(
+            @Param("feedbackId") UUID feedbackId,
+            @Param("note") String note,
+            @Param("handlerId") UUID handlerId,
+            @Param("handlerName") String handlerName,
+            @Param("version") int version,
+            @Param("at") OffsetDateTime at
+    );
+
     // ---- 行 ----
+
+    record OpsFeedbackRow(
+            UUID id,
+            UUID accountId,
+            String feedbackType,
+            String body,
+            String source,
+            UUID targetId,
+            UUID targetParentId,
+            String handleStatus,
+            String handleNote,
+            OffsetDateTime handledAt,
+            String handledByName,
+            int version,
+            OffsetDateTime createdAt
+    ) {
+    }
 
     record ConversationRow(
             UUID id,

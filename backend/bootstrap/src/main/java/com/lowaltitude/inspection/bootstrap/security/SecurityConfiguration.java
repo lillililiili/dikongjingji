@@ -105,7 +105,9 @@ public class SecurityConfiguration {
                                 "/api/v1/experience/product-experiences").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/mall/products",
-                                "/api/v1/mall/products/*").permitAll()
+                                "/api/v1/mall/products/*",
+                                // 开发环境回读运营端上传的商品图片（只在配置了本机目录时有这个接口）。
+                                "/api/v1/mall/media/products/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
                         // 全局搜索（S5-1）：公开只读。
                         .requestMatchers(HttpMethod.GET, "/api/v1/search").permitAll()
@@ -141,6 +143,8 @@ public class SecurityConfiguration {
                         // 微信支付回调：不登录，靠微信支付公钥验签（TradeWechatNotificationController）。
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/trade/channels/wechat/notifications").permitAll()
+                        // 运营端（S3-1）：只给平台运营和平台客服；具体接口再由各 ops 控制器经 OpsActors 收紧到其中一个角色。
+                        .requestMatchers("/api/v1/ops/**").hasAnyRole("PLATFORM_OPERATOR", "PLATFORM_SUPPORT")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(errors -> errors

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import cartFlagSource from '../application/cart-preview.ts?raw'
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
 import {
   CART_INVALID_REASON_TEXT,
   EMPTY_CART_SELECTION,
@@ -96,16 +96,17 @@ describe('cart selection', () => {
 
   it('words every reason a good became invalid', () => {
     expect(Object.keys(CART_INVALID_REASON_TEXT).sort())
-      .toEqual(['NOT_PURCHASABLE', 'NOT_SOLD_IN_CITY', 'OFFER_UNAVAILABLE', 'PRODUCT_OFFLINE'])
+      .toEqual(['NOT_PURCHASABLE', 'NOT_SOLD_IN_CITY', 'OFFER_UNAVAILABLE', 'OUT_OF_STOCK', 'PRODUCT_OFFLINE'])
     expect(CART_INVALID_REASON_TEXT.NOT_SOLD_IN_CITY).toBe('当前城市不可售')
+    expect(CART_INVALID_REASON_TEXT.OUT_OF_STOCK).toBe('暂时缺货')
   })
 })
 
 describe('cart preview flag', () => {
-  it('uses exactly the expression of the shared preview flag', () => {
+  it('reads its own release switch', () => {
     const expression = (source: string, name: string) =>
       new RegExp(`export const ${name} = (.+)`).exec(source)?.[1].trim()
     expect(expression(cartFlagSource, 'CART_PREVIEW_ENABLED'))
-      .toBe(expression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+      .toBe(moduleFlagExpression('CART'))
   })
 })

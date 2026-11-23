@@ -7,7 +7,7 @@ import { BUYER, apiLogin, clearAddresses, type Session } from './support/trade-f
 
 // 公共页面（计划 08 S5-10，画板 MapPick、RegionPick、PhotoViewer、Scan、CityClosed），开发版（预览构建）。
 // uni-button 的禁用在 H5 上只看 disabled 属性（toBeDisabled 读不出来）。
-// 地图选点走本机模拟地图（浏览器里没有定位，落在“定位被拒”帧、从城市中心开始）；城市未开通用接口桩让东营“没有本地资源”。
+// 地图选点走本机模拟地图（浏览器里没有定位，落在“定位被拒”帧、从城市中心开始）；城市未开通用接口桩把东营在城市目录里标成“筹备中”。
 const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/s5-pickers')
 const SERVICE_ID = '33333333-3333-3333-3333-333333333333'
 const BOOKING_URL = `/#/pages/service/inspection/booking?serviceId=${SERVICE_ID}&cityCode=370500`
@@ -181,13 +181,19 @@ test.describe('扫一扫（Scan）', () => {
 })
 
 test.describe('城市未开通（CityClosed）', () => {
-  test('PICK-007 本城没有本地资源时首页只留推荐、体验、商城，显示筹备中和全国可用', async ({ page }) => {
-    await page.route('**/api/v1/home/recommend?**', (route) => route.fulfill({
-      json: { today: null, activities: [], products: [], venues: [] },
-    }))
-    await page.route('**/api/v1/inspection/services?**', (route) => route.fulfill({
-      json: { page: 1, size: 1, total: 0, hasMore: false, items: [] },
-    }))
+  test('PICK-007 城市目录标“筹备中”时首页只留推荐、体验、商城，显示筹备中和全国可用', async ({ page }) => {
+    // The operators' status (openapi-platform-city 1.1.0): 东营 marked 筹备中 for this test only.
+    await page.route('**/api/v1/platform/cities', async (route) => {
+      const response = await route.fetch()
+      const body = await response.json()
+      const mark = (city: { code: string; serviceStatus?: string }) => {
+        if (city.code === '370500') city.serviceStatus = 'PREPARING'
+      }
+      body.hotCities.forEach(mark)
+      body.provinces.forEach((province: { cities: { code: string }[] }) => province.cities.forEach(mark))
+      body.openCities = (body.openCities ?? []).filter((city: { code: string }) => city.code !== '370500')
+      await route.fulfill({ response, json: body })
+    })
     await page.goto('/#/pages/home/index')
     const closed = page.getByTestId('city-closed')
     await expect(closed).toBeVisible()
@@ -203,5 +209,14 @@ test.describe('城市未开通（CityClosed）', () => {
     await page.getByTestId('city-closed-course').click()
     await expect(page.getByTestId('mall-channel')).toBeVisible()
     await expect(page.getByTestId('mall-category-course')).toHaveAttribute('aria-pressed', 'true')
+
+    // 切换到另一个已开通的城市（开发种子里有已开通城市时）：首页回到完整的频道。
+    await page.getByTestId('home-channel-recommend').click()
+    const switchButton = page.getByTestId('city-closed-switch')
+    if (await switchButton.count()) {
+      await switchButton.click()
+      await expect(page.getByTestId('city-closed')).toHaveCount(0)
+      await expect(page.getByTestId('home-channel-service')).toBeVisible()
+    }
   })
 })

@@ -1,0 +1,276 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Feedback API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“举报与反馈”。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_SUPPORT role; other roles (PLATFORM_OPERATOR included) get 403
+    COMMON_FORBIDDEN. 反馈在客服模块（迁移 V002）。
+
+    规则：
+    - 反馈来源三种：USER 用户在“帮助与反馈”提交的；VIDEO_COMMENT_REPORT 举报发现页视频评论；LIVE_COMMENT_REPORT 举报直播弹幕。
+      举报带被举报的对象 target：视频评论时 id 是评论、parentId 是视频；直播弹幕时 id 是弹幕、parentId 是直播间。
+      S3-1 之前记的举报没有对象，来源算 USER。
+    - 隐藏被举报的内容不在这个契约里：页面直接调已有的受权接口（平台客服本来就有权调）——视频评论
+      POST /api/v1/content/comments/{target.id}/hide（openapi-content.yaml），直播弹幕
+      POST /api/v1/platform/live/rooms/{target.parentId}/comments/{target.id}/hide（openapi-live.yaml）。两者都幂等。
+    - 处理状态：PENDING 待处理、HANDLED 已处理。标为已处理要写处理说明（1–200 字）并带 version；只处理一次，
+      已处理 409 OPS_FEEDBACK_ALREADY_HANDLED，版本不对 409 OPS_VERSION_CONFLICT。处理人显示名和时间随记录保存（留痕）。
+    - 列表：待处理的在前（先来的在前），已处理的按时间倒序；pendingCount 是全部待处理的条数，不受筛选影响。
+    - 提交人只给显示名（账号停用了为 null），不给登录名、手机号。平台只协助沟通，不裁决，不承诺处理时限。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/feedback:
+    get:
+      operationId: "listOpsFeedback"
+      summary: "反馈与举报列表"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "handleStatus"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/SupportFeedbackHandleStatus"
+        - name: "source"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/SupportFeedbackSource"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页反馈"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsFeedbackPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/feedback/{feedbackId}/handle:
+    post:
+      operationId: "handleOpsFeedback"
+      summary: "标为已处理（写处理说明）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/FeedbackId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsFeedbackHandleRequest"
+      responses:
+        "200":
+          description: "处理好的反馈"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsFeedback"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_FEEDBACK_ALREADY_HANDLED：已经处理过了；OPS_VERSION_CONFLICT：版本不对。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    FeedbackId:
+      name: "feedbackId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台客服（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "反馈不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsFeedbackErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+    OpsFeedbackErrorCode:
+      type: "string"
+      enum: [OPS_FEEDBACK_ALREADY_HANDLED, OPS_VERSION_CONFLICT]
+    SupportFeedbackType:
+      type: "string"
+      description: "FUNCTION 功能问题；DISPLAY 页面显示；CONTENT 内容有误（举报都是这类）；SUGGESTION 其他建议"
+      enum: [FUNCTION, DISPLAY, CONTENT, SUGGESTION]
+    SupportFeedbackSource:
+      type: "string"
+      enum: [USER, VIDEO_COMMENT_REPORT, LIVE_COMMENT_REPORT]
+    SupportFeedbackHandleStatus:
+      type: "string"
+      enum: [PENDING, HANDLED]
+    SupportReportTarget:
+      type: "object"
+      additionalProperties: false
+      required: [id, parentId]
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+          description: "被举报的评论或弹幕"
+        parentId:
+          type: "string"
+          format: "uuid"
+          description: "它所在的视频或直播间"
+    SupportFeedbackReporter:
+      type: "object"
+      additionalProperties: false
+      required: [displayName]
+      properties:
+        displayName:
+          type: ["string", "null"]
+    SupportFeedbackHandling:
+      type: "object"
+      additionalProperties: false
+      required: [note, handlerName, handledAt]
+      properties:
+        note:
+          type: "string"
+          maxLength: 200
+        handlerName:
+          type: "string"
+          description: "处理时平台客服账号的显示名"
+        handledAt:
+          type: "string"
+          format: "date-time"
+    OpsFeedback:
+      type: "object"
+      additionalProperties: false
+      required: [feedbackId, type, source, text, target, reporter, handleStatus, handling, version, createdAt]
+      properties:
+        feedbackId:
+          type: "string"
+          format: "uuid"
+        type:
+          $ref: "#/components/schemas/SupportFeedbackType"
+        source:
+          $ref: "#/components/schemas/SupportFeedbackSource"
+        text:
+          type: "string"
+          maxLength: 200
+        target:
+          anyOf:
+            - $ref: "#/components/schemas/SupportReportTarget"
+            - type: "null"
+        reporter:
+          $ref: "#/components/schemas/SupportFeedbackReporter"
+        handleStatus:
+          $ref: "#/components/schemas/SupportFeedbackHandleStatus"
+        handling:
+          anyOf:
+            - $ref: "#/components/schemas/SupportFeedbackHandling"
+            - type: "null"
+        version:
+          type: "integer"
+          minimum: 0
+        createdAt:
+          type: "string"
+          format: "date-time"
+    OpsFeedbackPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, pendingCount, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        pendingCount:
+          type: "integer"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsFeedback"
+    OpsFeedbackHandleRequest:
+      type: "object"
+      additionalProperties: false
+      required: [note, version]
+      properties:
+        note:
+          type: "string"
+          minLength: 1
+          maxLength: 200
+        version:
+          type: "integer"
+          minimum: 0

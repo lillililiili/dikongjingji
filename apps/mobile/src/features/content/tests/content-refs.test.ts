@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  resolveArticleFigurePreview,
   resolveArticlePreviewCover,
   resolveRefPreviewCover,
+  resolveTopicMerchantPreview,
   resolveTopicPreviewCover,
 } from '../data/preview/content-preview-covers'
 
@@ -11,12 +13,14 @@ import type { MallProductDetail } from '../../mall/domain/mall'
 import type { ProServiceDetail } from '../../proservice/domain/proservice'
 import {
   loadTopicActivities,
+  loadTopicMerchantItems,
   loadTopicVenues,
   resolveContentRefs,
   toTopicActivityView,
+  toTopicMerchantView,
   type ContentLinkedApis,
 } from '../application/content-refs'
-import type { ContentRef } from '../domain/content'
+import type { ContentRef, ContentTopicMerchantItem } from '../domain/content'
 import { CITY, activityDetail } from './content-fixtures'
 
 const INSPECTION = '77777777-7777-7777-7777-777777777777'
@@ -39,6 +43,7 @@ function offer(amountMinor: number | null, unit: 'ITEM' | 'DAY' | 'HALF_DAY' = '
     shippingNote: null,
     fulfilledFrom: null,
     onlinePayment: true,
+    stockQuantity: null,
   }
 }
 
@@ -228,7 +233,84 @@ describe('专题的本季活动和到馆体验', () => {
   })
 })
 
+describe('专题的商家内容（1.3.0）', () => {
+  const KIT = 'c2000000-0000-4000-8000-000000000101'
+  const robotMaker: ContentTopicMerchantItem = {
+    productId: KIT,
+    merchant: { kind: 'MERCHANT', organizationId: 'c1000000-0000-4000-8000-000000000001', name: '示例机器人商家' },
+  }
+  const kit = (overrides: Partial<MallProductDetail> = {}) => product({
+    productId: KIT,
+    name: '编程机器人探索套装',
+    saleMode: 'BUY',
+    coverImage: { url: 'https://cdn.example/kit.jpg', alt: '编程机器人探索套装' },
+    offers: [
+      { ...offer(129900), merchantId: 'm1' },
+      { ...offer(135000), merchantId: 'm2' },
+      { ...offer(138000), merchantId: 'm3' },
+    ],
+    ...overrides,
+  })
+
+  it('shows the lowest price, 起 when prices differ and how many merchants sell it (board Topic)', () => {
+    expect(toTopicMerchantView(robotMaker, kit(), CITY)).toEqual({
+      productId: KIT,
+      merchantName: '示例机器人商家',
+      title: '编程机器人探索套装',
+      amount: '¥1,299',
+      meta: '起 · 3 家在售',
+      imageUrl: 'https://cdn.example/kit.jpg',
+      url: `/pages/mall/product?productId=${KIT}&cityCode=${CITY}`,
+    })
+    expect(toTopicMerchantView(robotMaker, kit({ offers: [{ ...offer(129900), merchantId: 'm1' }] }), CITY))
+      .toMatchObject({ amount: '¥1,299', meta: '1 家在售' })
+    expect(toTopicMerchantView(robotMaker, kit({ saleMode: 'INQUIRY', offers: [{ ...offer(null), merchantId: 'm1' }] }), CITY))
+      .toMatchObject({ amount: '询价', meta: '1 家在售' })
+    expect(toTopicMerchantView(robotMaker, kit({ saleMode: 'RENT', offers: [{ ...offer(38000, 'DAY'), merchantId: 'm1' }] }), CITY))
+      .toMatchObject({ amount: '¥380', meta: '/天 起 · 1 家在售' })
+    // Nobody sells it any more: no card.
+    expect(toTopicMerchantView(robotMaker, kit({ offers: [] }), CITY)).toBeNull()
+  })
+
+  it('keeps the topic order and leaves out a product the mall cannot give', async () => {
+    const asked: string[] = []
+    const views = await loadTopicMerchantItems([
+      robotMaker,
+      { ...robotMaker, productId: 'gone' },
+      { productId: PRODUCT, merchant: { kind: 'MERCHANT', organizationId: 'o', name: '示例设备租赁商' } },
+    ], CITY, {
+      mall: {
+        loadProduct: async (id, city) => {
+          asked.push(`${id}@${city}`)
+          if (id === 'gone') throw new Error('404')
+          return id === KIT ? kit() : product({ coverImage: { url: 'https://cdn.example/dog.jpg', alt: '狗' } })
+        },
+      },
+    })
+    expect(asked).toEqual([`${KIT}@${CITY}`, `gone@${CITY}`, `${PRODUCT}@${CITY}`])
+    expect(views.map((view) => [view.title, view.merchantName])).toEqual([
+      ['编程机器人探索套装', '示例机器人商家'],
+      ['巡检机器狗', '示例设备租赁商'],
+    ])
+    expect(await loadTopicMerchantItems([], CITY, { mall: { loadProduct: async () => kit() } })).toEqual([])
+  })
+})
+
 describe('preview pictures', () => {
+  it('draw the board picture of a picture block and of a merchant product on preview builds only', () => {
+    expect(resolveArticleFigurePreview('f3000000-0000-4000-8000-000000000001', 0, true))
+      .toBe('/static/images/preview/content-patrol-drone.jpg')
+    expect(resolveArticleFigurePreview('f3000000-0000-4000-8000-000000000001', 1, true)).toBeNull()
+    expect(resolveArticleFigurePreview('f3000000-0000-4000-8000-000000000001', 0, false)).toBeNull()
+    expect(resolveTopicMerchantPreview('c2000000-0000-4000-8000-000000000101', true))
+      .toBe('/static/images/preview/content-topic-robot-kit.jpg')
+    // Other products fall back to the mall's own preview picture.
+    expect(resolveTopicMerchantPreview('c2000000-0000-4000-8000-000000000401', true))
+      .toBe('/static/images/preview/robot-dog.jpg')
+    expect(resolveTopicMerchantPreview('c2000000-0000-4000-8000-000000000101', false)).toBeNull()
+  })
+
+
   it('only stand in on preview builds', () => {
     expect(resolveArticlePreviewCover('f3000000-0000-4000-8000-000000000001', true)?.url).toBe('/static/images/preview/content-park-patrol.webp')
     expect(resolveArticlePreviewCover('f3000000-0000-4000-8000-000000000005', true)?.cutout).toBe(true)

@@ -57,6 +57,7 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenueProject", VenueProjectView.class),
             Map.entry("VenueInfoItem", VenueInfoItemView.class),
             Map.entry("VenueDetail", VenueDetailView.class),
+            Map.entry("VenueCheckInRule", VenueCheckInRuleView.class),
             Map.entry("VenueSession", VenueSessionView.class),
             Map.entry("VenueSessionList", VenueSessionListView.class),
             Map.entry("VenueDevice", VenueDeviceView.class),
@@ -100,10 +101,11 @@ class ExperienceOpenApiContractTest {
             Map.entry("VenueEligibilityReason", VenueEligibilityReason.class));
 
     @Test
-    void contractIsVersionOnePointTwoAndDeclaresBearerJwt() {
+    void contractIsVersionOnePointThreeAndDeclaresBearerJwt() {
         Map<String, Object> root = root();
 
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.2.0");
+        // 1.3.0：核销工作台（S3-3）的登记放行，路由和字段不变。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.3.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");

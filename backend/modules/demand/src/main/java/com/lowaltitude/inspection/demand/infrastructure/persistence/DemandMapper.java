@@ -350,10 +350,14 @@ public interface DemandMapper {
                               WHERE i.demand_id = d.id AND i.provider_id = #{providerId})))
                   OR EXISTS (SELECT 1 FROM demand_quote q WHERE q.demand_id = d.id AND q.provider_id = #{providerId})
               )
+            <if test="status != null">
+              AND d.status = #{status}
+            </if>
             """;
 
     @Select("<script>SELECT count(*) FROM demand d " + PROVIDER_FILTER + "</script>")
-    long countProviderDemands(@Param("providerId") UUID providerId, @Param("cities") List<String> cities);
+    long countProviderDemands(@Param("providerId") UUID providerId, @Param("cities") List<String> cities,
+                              @Param("status") String status);
 
     @Select("<script>" + DEMAND_COLUMNS + PROVIDER_FILTER + """
             ORDER BY d.submitted_at DESC, d.id DESC
@@ -363,6 +367,7 @@ public interface DemandMapper {
     List<DemandRow> findProviderDemands(
             @Param("providerId") UUID providerId,
             @Param("cities") List<String> cities,
+            @Param("status") String status,
             @Param("limit") int limit,
             @Param("offset") int offset
     );

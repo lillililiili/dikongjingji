@@ -37,10 +37,11 @@ public final class LiveHostController {
     @GetMapping(HOST)
     public LiveHostRoomPageView rooms(
             Authentication authentication,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        return service.hostRooms(LiveSubjects.host(authentication).organizationId(), page, size);
+        return service.hostRooms(LiveSubjects.host(authentication).organizationId(), status, page, size);
     }
 
     /** 建直播间。第一次 201，同一个幂等键重放 200。 */

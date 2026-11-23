@@ -39,8 +39,13 @@ import { PLATFORM_PREVIEW_ENABLED } from '@/features/platform/application/platfo
 import type { PlatformFeatureIntent } from '@/features/platform/domain/platform-feature-intent'
 import PlatformServiceChannel from '@/features/platform/presentation/service/PlatformServiceChannel.vue'
 import { PLACE_PREVIEW_ENABLED } from '@/features/place/application/place-preview'
-import { CLOSED_CITY_CHANNELS, type CityOpening } from '@/features/platform/application/city-opening'
-import { cityOpeningLoader } from '@/features/platform/data/city-opening-client'
+import {
+  CLOSED_CITY_CHANNELS,
+  isCityClosed,
+  openCityToSwitchTo,
+  resolveCityOpening,
+} from '@/features/platform/application/city-opening'
+import type { CityDirectory } from '@/shared/city/domain/city-directory'
 import CityClosedPanel from '@/features/platform/presentation/closed/CityClosedPanel.vue'
 import { SCAN_PATH } from '@/features/scan/navigation/scan-routes'
 import { SEARCH_PREVIEW_ENABLED } from '@/features/search/application/search-preview'
@@ -112,19 +117,23 @@ const CHANNELS_WITH_CONTENT: readonly HomeChannelCode[] = [
 const isPlaceholderChannel = computed(() =>
   !CHANNELS_WITH_CONTENT.includes(activeChannel.value),
 )
-// Board CityClosed (preview builds, plan 08 S5-10): a city with nothing local keeps only the
-// nationwide channels and shows the 筹备中 card on 推荐. See features/platform/application/city-opening.ts.
-const cityOpening = ref<CityOpening>('UNKNOWN')
-let openingCityCode: string | null = null
-const cityClosed = computed(() => PLACE_PREVIEW_ENABLED && cityOpening.value === 'PREPARING')
+// Board CityClosed (preview builds, plan 08 S5-10): a city the directory marks 筹备中 or 未开通
+// keeps only the nationwide channels and shows the closed card on 推荐 (features/platform/application/city-opening.ts).
+const cityDirectoryForOpening = ref<CityDirectory | null>(null)
+const cityOpening = computed(() => resolveCityOpening(
+  cityDirectoryForOpening.value,
+  currentCityStore.currentCity?.code ?? '',
+))
+const cityClosed = computed(() => PLACE_PREVIEW_ENABLED && isCityClosed(cityOpening.value))
 const headerChannels = computed(() => (cityClosed.value
   ? visibleChannels.filter((channel) => (CLOSED_CITY_CHANNELS as readonly string[]).includes(channel.code))
   : visibleChannels))
-// The open city a closed one offers to switch to: the App's default city.
-const openCity = computed<CurrentCity | null>(() => {
-  const fallback = defaultCity()
-  return fallback.code === currentCityStore.currentCity?.code ? null : fallback
-})
+// The open city a closed one offers to switch to.
+const openCity = computed<CurrentCity | null>(() => openCityToSwitchTo(
+  cityDirectoryForOpening.value,
+  currentCityStore.currentCity?.code ?? null,
+  defaultCity(),
+))
 
 watch(cityClosed, (closed) => {
   if (closed && !(CLOSED_CITY_CHANNELS as readonly string[]).includes(activeChannel.value)) selectChannel('RECOMMEND')
@@ -252,12 +261,13 @@ async function loadHomeContent(): Promise<void> {
       restoreDefaultCity,
     })
     if (PLACE_PREVIEW_ENABLED) {
-      // Another city's answer is not kept while this one's is read.
-      if (openingCityCode !== city.code) cityOpening.value = 'UNKNOWN'
-      openingCityCode = city.code
-      void cityOpeningLoader.load(city.code).then((opening) => {
-        if (requestVersion === contentRequestVersion) cityOpening.value = opening
-      })
+      // The status is read with the directory every time the page is shown, so an operator's
+      // change shows up without restarting the App. A failed read leaves the page as it is.
+      void platformCityApi.load()
+        .then((directory) => {
+          if (requestVersion === contentRequestVersion) cityDirectoryForOpening.value = directory
+        })
+        .catch(() => undefined)
     }
     const portal = await inspectionCatalogApi.loadPortal(city.code)
     if (requestVersion !== contentRequestVersion) return
@@ -406,6 +416,7 @@ onHide(() => {
     <view v-if="cityClosed" v-show="activeChannel === 'RECOMMEND'">
       <CityClosedPanel
         :city-name="currentCityStore.currentCity?.name ?? ''"
+        :opening="cityOpening"
         :open-city-name="openCity?.name ?? null"
         @switch-city="switchToOpenCity"
         @notify="notifyWhenOpen"

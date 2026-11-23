@@ -7,6 +7,7 @@ import type {
   ContentAuthor,
   ContentAuthorKind,
   ContentBlock,
+  ContentBlockImage,
   ContentBlockType,
   ContentFeedChannel,
   ContentFeedPage,
@@ -15,6 +16,7 @@ import type {
   ContentRefType,
   ContentTopic,
   ContentTopicCard,
+  ContentTopicMerchantItem,
   ContentVideoOrientation,
   ContentVideoSummary,
 } from '../domain/content'
@@ -71,8 +73,22 @@ interface FeedDto {
   items: ArticleCardDto[]
 }
 
+interface BlockImageDto {
+  url: string | null
+  alt: string
+  caption: string | null
+}
+
+interface BlockDto {
+  type: ContentBlockType
+  text: string | null
+  items: Array<{ title: string; text: string | null }>
+  // 1.3.0; older answers (and test stubs) leave it out.
+  image?: BlockImageDto | null
+}
+
 interface ArticleDto extends ArticleCardDto {
-  blocks: Array<{ type: ContentBlockType; text: string | null; items: Array<{ title: string; text: string | null }> }>
+  blocks: BlockDto[]
   refs: Array<{ type: ContentRefType; refId: string; title: string }>
 }
 
@@ -81,6 +97,8 @@ interface TopicDto extends TopicCardDto {
   activityIds: string[]
   venueIds: string[]
   articles: ArticleCardDto[]
+  // 1.3.0; older answers (and test stubs) leave it out.
+  merchantItems?: Array<{ productId: string; merchant: AuthorDto }>
 }
 
 interface RelatedDto {
@@ -97,7 +115,7 @@ export interface ContentApi {
   loadRelated(refType: ContentRefType, refId: string, cityCode: string, limit: number): Promise<ContentArticleCard[]>
 }
 
-const BLOCK_TYPES: readonly ContentBlockType[] = ['PARAGRAPH', 'HEADING', 'FACTS', 'STEPS', 'LIST', 'TIP', 'NOTICE']
+const BLOCK_TYPES: readonly ContentBlockType[] = ['PARAGRAPH', 'HEADING', 'FACTS', 'STEPS', 'LIST', 'TIP', 'NOTICE', 'IMAGE']
 const REF_TYPES: readonly ContentRefType[] = ['INSPECTION_SERVICE', 'PRO_SERVICE', 'PRODUCT', 'ACTIVITY', 'VENUE']
 
 // The server only hands out HTTPS pictures; this keeps a bad row away from an <image> anyway.
@@ -151,19 +169,43 @@ function toTopicCard(dto: TopicCardDto): ContentTopicCard {
   }
 }
 
+// (1.3.0) A picture block keeps only an HTTPS address; without one (no licensed picture yet) it stays
+// with url null so a preview build can draw the board's picture in its place.
+function toBlockImage(dto: BlockImageDto | null | undefined): ContentBlockImage | null {
+  if (!dto) return null
+  const url = dto.url && /^https:\/\//i.test(dto.url) ? dto.url : null
+  return { url, alt: dto.alt?.trim() || '', caption: dto.caption?.trim() || null }
+}
+
 // A block of a type this App does not know yet is left out rather than shown wrongly; so is an
-// empty one.
-function toBlocks(dto: ArticleDto['blocks']): ContentBlock[] {
+// empty one. A picture block counts when it has its picture fields.
+export function toBlocks(dto: readonly BlockDto[]): ContentBlock[] {
   return dto
     .filter((block) => BLOCK_TYPES.includes(block.type))
     .map((block) => ({
       type: block.type,
-      text: block.text?.trim() || null,
-      items: block.items
+      text: block.type === 'IMAGE' ? null : block.text?.trim() || null,
+      items: (block.items ?? [])
         .filter((item) => item.title.trim())
         .map((item) => ({ title: item.title.trim(), text: item.text?.trim() || null })),
+      image: block.type === 'IMAGE' ? toBlockImage(block.image) : null,
     }))
-    .filter((block) => block.text !== null || block.items.length > 0)
+    .filter((block) => block.text !== null || block.items.length > 0 || block.image !== null)
+}
+
+// (1.3.0) 商家内容: once per product, in the topic's order; the merchant is always shown as a merchant.
+function toMerchantItems(dto: TopicDto['merchantItems']): ContentTopicMerchantItem[] {
+  const seen = new Set<string>()
+  return (dto ?? [])
+    .filter((item) => {
+      if (!item.productId || seen.has(item.productId)) return false
+      seen.add(item.productId)
+      return true
+    })
+    .map((item): ContentTopicMerchantItem => ({
+      productId: item.productId,
+      merchant: { ...toAuthor(item.merchant), kind: 'MERCHANT' },
+    }))
 }
 
 export function toRefs(dto: ArticleDto['refs']): ContentRef[] {
@@ -217,6 +259,7 @@ export function createContentApi(http: PublicApiHttpClient): ContentApi {
         activityIds: [...new Set(dto.activityIds)],
         venueIds: [...new Set(dto.venueIds)],
         articles: dto.articles.map(toContentArticleCard),
+        merchantItems: toMerchantItems(dto.merchantItems),
       }
     },
 

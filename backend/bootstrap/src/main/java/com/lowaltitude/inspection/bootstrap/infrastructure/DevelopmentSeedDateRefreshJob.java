@@ -9,6 +9,7 @@ import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,6 +31,8 @@ public class DevelopmentSeedDateRefreshJob {
     private final DataSource dataSource;
     private final Clock clock;
 
+    // Two constructors (the other takes a test clock): Spring must be told which one to use.
+    @Autowired
     public DevelopmentSeedDateRefreshJob(DataSource dataSource) {
         this(dataSource, Clock.system(ModuleFlywayConfiguration.SEED_ZONE));
     }

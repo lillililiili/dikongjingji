@@ -30,6 +30,7 @@
         <module>modules/support</module>
         <module>modules/content</module>
         <module>modules/live</module>
+        <module>modules/opsimport</module>
         <module>modules/search</module>
     </modules>
 </project>

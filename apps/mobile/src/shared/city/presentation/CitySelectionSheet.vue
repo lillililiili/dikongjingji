@@ -1,9 +1,15 @@
 <script lang="ts">
+/**
+ * 选城市的来源。OPEN、PREPARING 是面板上“已开通城市”“筹备中”两组（S3-1 起照原型 CitySheet）；
+ * RECENT、HOT、TREE 是旧面板的分组，面板不再发出，留给还在用这个类型的页面。
+ */
 export type CitySelectionSource =
   | 'CURRENT'
+  | 'OPEN'
+  | 'PREPARING'
+  | 'SEARCH'
   | 'RECENT'
   | 'HOT'
-  | 'SEARCH'
   | 'TREE'
 </script>
 
@@ -13,16 +19,25 @@ import { computed, ref } from 'vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import {
+  CITY_SERVICE_STATUS_LABELS,
+  cityServiceStatus,
   searchCities,
   type CityDirectory,
   type PlatformCity,
 } from '../domain/city-directory'
 import type { CurrentCity } from '../state/current-city'
 
+/*
+ * 照 2026-11-14 修订版原型画板 CitySheet：搜索框、当前定位（带开通状态）、“已开通城市”、
+ * “筹备中（可先浏览全国商品与线上体验）”两组和底部说明。开通状态来自平台城市目录（运营端维护，
+ * openapi-platform-city.yaml 1.1.0）；未开通的城市不列，只能搜索到。筹备中的城市也能选（画板上点它进
+ * “城市站筹备中”页，那一页还没做，选了就切过去）。
+ * recentCities 是旧面板“最近使用”的数据，画板上没有这一组，不再显示；各页面照旧传，最近城市照旧记。
+ */
 const props = defineProps<{
   directory: CityDirectory | null
   currentCity: CurrentCity | null
-  recentCities: PlatformCity[]
+  recentCities?: PlatformCity[]
   loading: boolean
   error: string
   relocating: boolean
@@ -39,16 +54,27 @@ const emit = defineEmits<{
 }>()
 
 const keyword = ref('')
-const expandedProvinceCode = ref<string | null>(null)
 const searchResults = computed(() =>
   props.directory ? searchCities(props.directory, keyword.value) : [])
 const isSearching = computed(() => keyword.value.trim().length > 0)
 const currentPlatformCity = computed(() => props.directory?.provinces
   .flatMap((province) => province.cities)
   .find((city) => city.code === props.currentCity?.code) ?? null)
+const openCities = computed(() => props.directory?.openCities ?? [])
+const preparingCities = computed(() => props.directory?.preparingCities ?? [])
 
 function isCurrent(city: PlatformCity): boolean {
   return props.currentCity?.code === city.code
+}
+
+/** 搜索结果里不是已开通的城市，名字后面标出状态。 */
+function statusMark(city: PlatformCity): string {
+  const status = cityServiceStatus(city)
+  return status === 'OPEN' ? '' : CITY_SERVICE_STATUS_LABELS[status]
+}
+
+function currentStatus(city: PlatformCity): string {
+  return ` · ${CITY_SERVICE_STATUS_LABELS[cityServiceStatus(city)]}`
 }
 </script>
 
@@ -102,7 +128,7 @@ function isCurrent(city: PlatformCity): boolean {
                 <LineIcon name="pin" :size="20" :stroke-width="2" color="#ff6a00" />
                 <view class="city-sheet__current-copy">
                   <text class="city-sheet__current-label">当前定位</text>
-                  <text class="city-sheet__current-name">{{ currentCity.name }}</text>
+                  <text class="city-sheet__current-name">{{ currentCity.name }}{{ currentPlatformCity ? currentStatus(currentPlatformCity) : '' }}</text>
                 </view>
               </button>
               <button
@@ -160,7 +186,7 @@ function isCurrent(city: PlatformCity): boolean {
             <text class="city-sheet__section-title">搜索结果</text>
             <view
               v-if="searchResults.length > 0"
-              class="city-sheet__province-cities"
+              class="city-sheet__grid city-sheet__search-results"
             >
               <button
                 v-for="city in searchResults"
@@ -169,7 +195,10 @@ function isCurrent(city: PlatformCity): boolean {
                 :class="{ 'city-sheet__city--selected': isCurrent(city) }"
                 @click="emit('select', { city, source: 'SEARCH' })"
               >
-                {{ city.name }}{{ isCurrent(city) ? ' ✓' : '' }}
+                {{ city.name }}{{ isCurrent(city) ? ' ✓' : '' }}<text
+                  v-if="statusMark(city)"
+                  class="city-sheet__city-mark"
+                >{{ statusMark(city) }}</text>
               </button>
             </view>
             <text v-else class="city-sheet__empty">
@@ -177,37 +206,19 @@ function isCurrent(city: PlatformCity): boolean {
             </text>
           </section>
 
-          <template v-else>
+          <template v-else-if="directory">
             <section
-              v-if="recentCities.length > 0"
+              v-if="openCities.length > 0"
               class="city-sheet__section"
             >
-              <text class="city-sheet__section-title">最近使用</text>
-              <view class="city-sheet__recent">
+              <text class="city-sheet__section-title">已开通城市</text>
+              <view class="city-sheet__grid city-sheet__open">
                 <button
-                  v-for="city in recentCities"
-                  :key="city.code"
-                  class="city-sheet__city city-sheet__recent-city"
-                  :class="{ 'city-sheet__city--selected': isCurrent(city) }"
-                  @click="emit('select', { city, source: 'RECENT' })"
-                >
-                  {{ city.name }}{{ isCurrent(city) ? ' ✓' : '' }}
-                </button>
-              </view>
-            </section>
-
-            <section
-              v-if="directory?.hotCities.length"
-              class="city-sheet__section"
-            >
-              <text class="city-sheet__section-title">热门城市</text>
-              <view class="city-sheet__hot">
-                <button
-                  v-for="city in directory.hotCities"
+                  v-for="city in openCities"
                   :key="city.code"
                   class="city-sheet__city"
                   :class="{ 'city-sheet__city--selected': isCurrent(city) }"
-                  @click="emit('select', { city, source: 'HOT' })"
+                  @click="emit('select', { city, source: 'OPEN' })"
                 >
                   {{ city.name }}{{ isCurrent(city) ? ' ✓' : '' }}
                 </button>
@@ -215,70 +226,33 @@ function isCurrent(city: PlatformCity): boolean {
             </section>
 
             <section
-              v-if="directory?.provinces.length"
-              class="city-sheet__section city-sheet__section--more"
+              v-if="preparingCities.length > 0"
+              class="city-sheet__section"
             >
-              <text class="city-sheet__section-title">更多城市</text>
-              <view
-                v-for="province in directory.provinces"
-                :key="province.code"
-                class="city-sheet__province-group"
-              >
+              <text class="city-sheet__section-title">筹备中（可先浏览全国商品与线上体验）</text>
+              <view class="city-sheet__grid city-sheet__preparing">
                 <button
-                  class="city-sheet__province"
-                  :aria-expanded="
-                    expandedProvinceCode === province.code
-                  "
-                  @click="expandedProvinceCode =
-                    expandedProvinceCode === province.code ? null : province.code"
+                  v-for="city in preparingCities"
+                  :key="city.code"
+                  class="city-sheet__city"
+                  :class="{ 'city-sheet__city--selected': isCurrent(city) }"
+                  @click="emit('select', { city, source: 'PREPARING' })"
                 >
-                  <text>{{ province.name }}</text>
-                  <LineIcon
-                    :name="expandedProvinceCode === province.code ? 'chevronUp' : 'chevronRight'"
-                    :size="16"
-                    :stroke-width="2"
-                    color="#91a0b4"
-                  />
+                  {{ city.name }}{{ isCurrent(city) ? ' ✓' : '' }}<text class="city-sheet__city-mark">筹备</text>
                 </button>
-                <view
-                  v-if="expandedProvinceCode === province.code"
-                  class="city-sheet__province-cities"
-                >
-                  <button
-                    v-for="city in province.cities"
-                    :key="city.code"
-                    class="city-sheet__city"
-                    :class="{ 'city-sheet__city--selected': isCurrent(city) }"
-                    @click="
-                      emit('select', {
-                        city,
-                        source: 'TREE',
-                      })
-                    "
-                  >
-                    {{ city.name }}{{ isCurrent(city) ? ' ✓' : '' }}
-                  </button>
-                </view>
               </view>
             </section>
 
             <text
-              v-if="
-                directory &&
-                  !loading &&
-                  !error &&
-                  recentCities.length === 0 &&
-                  directory.hotCities.length === 0 &&
-                  directory.provinces.length === 0
-              "
+              v-if="openCities.length === 0 && preparingCities.length === 0"
               class="city-sheet__empty"
             >
-              暂无可选城市
+              暂无已开通的城市，可以输入城市名搜索
             </text>
           </template>
 
           <text class="city-sheet__hint">
-            切换城市后，活动、场馆、本地现货和城市资讯随之变化；账号、订单和参与人不变，跨城通用。
+            切换城市后，活动、场馆、本地现货和城市资讯随之变化；账号、订单、参与人和收藏不变，跨城通用。
           </text>
         </view>
       </scroll-view>
@@ -458,17 +432,13 @@ button {
   line-height: 18px;
 }
 
-.city-sheet__recent,
-.city-sheet__hot,
-.city-sheet__province-cities {
+.city-sheet__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
-.city-sheet__recent .city-sheet__city,
-.city-sheet__hot .city-sheet__city,
-.city-sheet__province-cities .city-sheet__city {
+.city-sheet__grid .city-sheet__city {
   width: 100%;
 }
 
@@ -481,6 +451,7 @@ button {
   padding: 0 6px;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   overflow: hidden;
   border: 1.5px solid transparent;
   border-radius: 10px;
@@ -492,31 +463,18 @@ button {
   box-sizing: border-box;
 }
 
+/* 画板：城市名后面的小字“筹备”。 */
+.city-sheet__city-mark {
+  flex: 0 0 auto;
+  color: #738096;
+  font-size: 11px;
+}
+
 .city-sheet__city--selected {
   border-color: #ff6a00;
   color: #ba470b;
   background: #fffaf5;
   font-weight: 500;
-}
-
-.city-sheet__province-group {
-  border-bottom: 1px solid #eef2f8;
-}
-
-.city-sheet__province {
-  display: flex;
-  width: 100%;
-  min-height: 44px;
-  padding: 0 2px 0 0;
-  align-items: center;
-  justify-content: space-between;
-  color: #202c42;
-  font-size: 14px;
-  text-align: left;
-}
-
-.city-sheet__province-cities {
-  padding: 0 0 12px;
 }
 
 .city-sheet__notice {
@@ -592,7 +550,6 @@ button {
 .city-sheet__current-city::after,
 .city-sheet__relocate::after,
 .city-sheet__city::after,
-.city-sheet__province::after,
 .city-sheet__notice button::after,
 .city-sheet__state button::after {
   border: 0;

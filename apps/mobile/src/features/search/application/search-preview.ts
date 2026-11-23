@@ -1,7 +1,7 @@
-// Whether the global search (plan 08 S5-1: boards SearchPre and MallSearch) may be shown:
-// preview builds only. Public builds keep the home search box on the inspection catalog.
+// Whether the global search (plan 08 S5-1: boards SearchPre, MallSearch and OrderSearch) may be
+// shown. Public builds keep the home search box on the inspection catalog.
 //
-// Repeats the expression of PLATFORM_PREVIEW_ENABLED instead of importing it, for the reason
-// written in features/activity/application/activity-preview.ts; search-routes.test.ts keeps the
-// expressions identical.
-export const SEARCH_PREVIEW_ENABLED = import.meta.env.DEV || import.meta.env.VITE_PLATFORM_PREVIEW_ENABLED === 'true'
+// Reads its own compile-time constant instead of importing a shared flag; activity-preview.ts tells why.
+// Release switch SEARCH (src/app-shell/release/release-features.json, docs/ops/发布开关.md): open on
+// the dev server and preview builds, and on public builds once the switch is turned on.
+export const SEARCH_PREVIEW_ENABLED = import.meta.env.DEV || __RELEASE_FEATURE_SEARCH__

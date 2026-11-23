@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
 import pagesJson from '../../../pages.json?raw'
 import homeSource from '../../../pages/home/index.vue?raw'
 import discoverSource from '../../../pages/discover/index.vue?raw'
@@ -218,8 +217,9 @@ describe('search routes', () => {
     for (const path of ['pages/search/index', 'pages/search/results', 'pages/mine/order-search']) {
       expect(pagesJson).toContain(`"path": "${path}"`)
     }
+    // Release switch SEARCH (app-shell/release/release-features.json).
     expect(flagExpression(searchFlagSource, 'SEARCH_PREVIEW_ENABLED'))
-      .toBe(flagExpression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+      .toBe('import.meta.env.DEV || __RELEASE_FEATURE_SEARCH__')
     // The 专业服务 box keeps going to the inspection catalog (AGENTS §9).
     expect(homeSource).toContain("SEARCH_PREVIEW_ENABLED && activeChannel.value !== 'SERVICE'")
     expect(discoverSource).toContain('@search="openSearch"')

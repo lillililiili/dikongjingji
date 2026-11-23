@@ -1,0 +1,990 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Activity API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“活动与场次”。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
+    COMMON_FORBIDDEN. 活动在赛事研学模块（迁移 V001–V004）；App 读活动走公开接口 openapi-activity.yaml（1.3.0 起带图集、
+    报名须知和场次的停售标记）。
+
+    活动规则：
+    - 新建为草稿（DRAFT）。改、上线、下线、删除都要带页面读到的 version（乐观锁），版本不对 409 OPS_VERSION_CONFLICT。
+    - 主办 / 承办机构只能是在用的服务商或平台机构（身份模块的机构，运营端“机构与资质”里建），否则 422
+      OPS_ACTIVITY_ORGANIZER_UNKNOWN；城市只能是平台城市目录里可选的城市（6 位编码），否则 422 OPS_CITY_UNKNOWN。
+    - 封面、图集只收带主机名的 https 地址（运营端素材上传 openapi-ops-media.yaml 给的地址，或受控 CDN 地址）；图集最多 9 张、
+      不能重复。收费方式 PER_PERSON 时单价必填（1 分到 10 万元，单位分）；FREE、INQUIRY 时单价不存。
+    - 上线（DRAFT 或 OFFLINE → PUBLISHED）前校验必填，缺了 422 OPS_PUBLISH_INCOMPLETE，details.missing 是缺的字段键
+      （OpsActivityPublishField）：封面 coverUrl、报名须知 enrollmentNotice、按人收费时的退改说明 refundNote、主办机构仍在用
+      organizer、至少一个没取消、在售、报名还没截止的场次 sessions。详情里的 publishMissing 是现在还差的，页面可以先提示。
+      已上线的活动改完也不能缺前四项（场次另外管）。已经上线再上线、没上线就下线等 409 OPS_ACTIVITY_STATUS_CONFLICT。
+    - 下线（PUBLISHED → OFFLINE）后 App 列表和详情都看不到，已有报名照常（能取消、退款、核销）。
+    - 只能删从没上线过的草稿（deletable 为 true；标为删除，之后 404），否则 409 OPS_ACTIVITY_STATUS_CONFLICT。
+    - 有待付款或已确认的报名后（hasEnrollments），收费方式、主办机构、城市不能改：409 OPS_ACTIVITY_HAS_ENROLLMENTS；
+      单价能改，只影响以后的报名。
+
+    场次规则：
+    - 新增、修改的场次开始时间必须在现在之后；报名截止、签到开放不能晚于开始；结束时间（可不填）要晚于开始；名额 1–10000。
+      一个活动最多 50 个场次：409 OPS_ACTIVITY_SESSION_LIMIT。
+    - 已经开始的场次不能改、不能恢复售卖：409 OPS_ACTIVITY_SESSION_STARTED。已经有人报名（enrolledCount > 0）的不能改开始、
+      结束时间：409 OPS_ACTIVITY_SESSION_HAS_ENROLLMENTS；名额不能少于已报名人数：409 OPS_ACTIVITY_CAPACITY_BELOW_ENROLLED。
+    - 有过报名单（hasEnrollments，任何状态）的场次不能删：409 OPS_ACTIVITY_SESSION_HAS_ENROLLMENTS，只能停售。
+    - 停售（STOPPED）后 App 上这一场读成“报名截止”、不能再报（含付款晚到后的恢复），已有报名照常；恢复售卖后照常报名。
+      已经是这个售卖状态 409 OPS_ACTIVITY_SALE_STATUS_UNCHANGED。早先取消的场次（cancelled）只读。
+    - 场次的版本号在每次有人报名、取消时也会变：报名进行中的场次改的时候可能要刷新一次再改。
+
+    留痕：每个写操作在活动的改动记录里记一条（对象 ACTIVITY / SESSION、动作、一句话说明、操作人显示名、时间），只追加；
+    GET …/changes 给最近 100 条。动作：CREATE、UPDATE、PUBLISH、OFFLINE、DELETE、STOP_SALE、RESUME_SALE。
+
+    不在这一版：活动的经纬度（App 详情的地图点位保持种子里的值）、候补和团队报名开关（候补、团队报名做好后再开放）、
+    新建时的幂等键（页面在提交中禁用按钮）。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/activities:
+    get:
+      operationId: "listOpsActivities"
+      summary: "活动列表（不含已删除），最近改过的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "活动名称或地点名称，最多 20 字；% 和 _ 会被去掉"
+          schema:
+            type: "string"
+            maxLength: 20
+        - name: "cityCode"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            pattern: "^[0-9]{6}$"
+        - name: "type"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/ActivityType"
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsActivityStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页活动"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivityPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: "createOpsActivity"
+      summary: "新建活动（草稿）"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsActivityRequest"
+      responses:
+        "201":
+          description: "新建的草稿"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnknownReference"
+  /api/v1/ops/activities/{activityId}:
+    get:
+      operationId: "getOpsActivity"
+      summary: "活动详情（含全部场次、上线还差的必填项）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      responses:
+        "200":
+          description: "活动"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: "updateOpsActivity"
+      summary: "修改活动信息（带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsActivityRequest"
+      responses:
+        "200":
+          description: "改好的活动（新的版本号）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_ACTIVITY_HAS_ENROLLMENTS：已有报名，不能改收费方式、主办机构、城市。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_ACTIVITY_ORGANIZER_UNKNOWN、OPS_CITY_UNKNOWN；已上线的活动改完缺必填项时 OPS_PUBLISH_INCOMPLETE（details.missing）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: "deleteOpsActivity"
+      summary: "删除从没上线过的草稿"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: "已删除"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivityDeleted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_ACTIVITY_STATUS_CONFLICT：不是草稿，或上线过（只能下线）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/activities/{activityId}/publish:
+    post:
+      operationId: "publishOpsActivity"
+      summary: "上线（草稿或已下线 → 已上线），先校验必填"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "已上线的活动"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_ACTIVITY_STATUS_CONFLICT：已经上线。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_PUBLISH_INCOMPLETE：details.missing 是缺的字段键（OpsActivityPublishField）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/activities/{activityId}/offline:
+    post:
+      operationId: "offlineOpsActivity"
+      summary: "下线（已上线 → 已下线），已有报名照常"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "已下线的活动"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_ACTIVITY_STATUS_CONFLICT：没在上线。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/activities/{activityId}/changes:
+    get:
+      operationId: "listOpsActivityChanges"
+      summary: "活动和它的场次最近 100 条改动记录，新的在前"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      responses:
+        "200":
+          description: "改动记录"
+          content:
+            application/json:
+              schema:
+                type: "array"
+                maxItems: 100
+                items:
+                  $ref: "#/components/schemas/OpsChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/activities/{activityId}/sessions:
+    post:
+      operationId: "addOpsActivitySession"
+      summary: "新增场次（在售）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsActivitySessionRequest"
+      responses:
+        "201":
+          description: "活动（含新场次）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_ACTIVITY_SESSION_LIMIT：已经有 50 个场次。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/activities/{activityId}/sessions/{sessionId}:
+    put:
+      operationId: "updateOpsActivitySession"
+      summary: "修改场次（带版本号）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsActivitySessionRequest"
+      responses:
+        "200":
+          description: "活动（含改好的场次）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_ACTIVITY_SESSION_STARTED；OPS_ACTIVITY_SESSION_HAS_ENROLLMENTS（已有人报名时改了开始、结束时间）；OPS_ACTIVITY_CAPACITY_BELOW_ENROLLED；OPS_ACTIVITY_STATUS_CONFLICT（早先取消的场次）。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: "deleteOpsActivitySession"
+      summary: "删除没有任何报名单的场次"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: "活动（不再含这个场次）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_ACTIVITY_SESSION_HAS_ENROLLMENTS：有过报名单，只能停售。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/activities/{activityId}/sessions/{sessionId}/stop-sale:
+    post:
+      operationId: "stopOpsActivitySessionSale"
+      summary: "停售：App 不能再报名，已有报名照常"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "活动（场次已停售）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_ACTIVITY_SALE_STATUS_UNCHANGED：已经停售；OPS_ACTIVITY_STATUS_CONFLICT：早先取消的场次。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/ops/activities/{activityId}/sessions/{sessionId}/resume-sale:
+    post:
+      operationId: "resumeOpsActivitySessionSale"
+      summary: "恢复售卖（场次还没开始）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ActivityId"
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpsVersionRequest"
+      responses:
+        "200":
+          description: "活动（场次在售）"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsActivity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT；OPS_ACTIVITY_SALE_STATUS_UNCHANGED：已经在售；OPS_ACTIVITY_SESSION_STARTED；OPS_ACTIVITY_STATUS_CONFLICT。"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    ActivityId:
+      name: "activityId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    SessionId:
+      name: "sessionId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    Version:
+      name: "version"
+      in: "query"
+      required: true
+      description: "页面读到的版本号"
+      schema:
+        type: "integer"
+        minimum: 0
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）：必填没填、超长、地址不是 https、时间先后不对、名额或单价超出范围等"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "活动或场次不存在、已删除（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    UnknownReference:
+      description: "OPS_ACTIVITY_ORGANIZER_UNKNOWN：主办或承办机构不存在、已停用或不是服务商、平台机构；OPS_CITY_UNKNOWN：城市不在平台城市目录里。"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+          description: "COMMON_* 或下面 OpsActivityErrorCode 里的"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+          description: "OPS_PUBLISH_INCOMPLETE 时为 {\"missing\": [OpsActivityPublishField…]}，其余为空"
+    OpsActivityErrorCode:
+      type: "string"
+      enum:
+        - OPS_VERSION_CONFLICT
+        - OPS_PUBLISH_INCOMPLETE
+        - OPS_ACTIVITY_STATUS_CONFLICT
+        - OPS_ACTIVITY_ORGANIZER_UNKNOWN
+        - OPS_CITY_UNKNOWN
+        - OPS_ACTIVITY_HAS_ENROLLMENTS
+        - OPS_ACTIVITY_SESSION_HAS_ENROLLMENTS
+        - OPS_ACTIVITY_SESSION_STARTED
+        - OPS_ACTIVITY_CAPACITY_BELOW_ENROLLED
+        - OPS_ACTIVITY_SALE_STATUS_UNCHANGED
+        - OPS_ACTIVITY_SESSION_LIMIT
+    OpsActivityPublishField:
+      type: "string"
+      description: "上线必填项的字段键：coverUrl 封面；enrollmentNotice 报名须知；refundNote 退改说明（按人收费时）；organizer 主办机构仍在用；sessions 至少一个没取消、在售、报名没截止的场次"
+      enum: [coverUrl, enrollmentNotice, refundNote, organizer, sessions]
+    ActivityType:
+      type: "string"
+      description: "CONTEST 赛事；TRAINING 培训；STUDY_TOUR 研学；OPEN_DAY 体验日"
+      enum: [CONTEST, TRAINING, STUDY_TOUR, OPEN_DAY]
+    ActivityPriceMode:
+      type: "string"
+      description: "PER_PERSON 按人收费；FREE 免费；INQUIRY 询价（不能在线报名）"
+      enum: [PER_PERSON, FREE, INQUIRY]
+    OpsActivityStatus:
+      type: "string"
+      description: "DRAFT 草稿；PUBLISHED 已上线；OFFLINE 已下线"
+      enum: [DRAFT, PUBLISHED, OFFLINE]
+    OpsSessionSaleStatus:
+      type: "string"
+      description: "ON_SALE 在售；STOPPED 停售（App 不能再报名，已有报名照常）"
+      enum: [ON_SALE, STOPPED]
+    OpsOrganizationRef:
+      type: "object"
+      additionalProperties: false
+      required: [organizationId, name]
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        name:
+          type: ["string", "null"]
+          description: "机构名称；机构已停用时为 null"
+    OpsActivitySummary:
+      type: "object"
+      additionalProperties: false
+      required: [activityId, type, title, cityCode, cityName, organizer, status, priceMode, priceAmountMinor,
+                 sessionCount, nextStartsAt, enrolledCount, updatedAt, version]
+      properties:
+        activityId:
+          type: "string"
+          format: "uuid"
+        type:
+          $ref: "#/components/schemas/ActivityType"
+        title:
+          type: "string"
+        cityCode:
+          type: "string"
+        cityName:
+          type: ["string", "null"]
+          description: "城市目录里的名称；城市已不可选时为 null"
+        organizer:
+          $ref: "#/components/schemas/OpsOrganizationRef"
+        status:
+          $ref: "#/components/schemas/OpsActivityStatus"
+        priceMode:
+          $ref: "#/components/schemas/ActivityPriceMode"
+        priceAmountMinor:
+          type: ["integer", "null"]
+          format: "int64"
+          description: "按人收费的单价（分）；其余为 null"
+        sessionCount:
+          type: "integer"
+          minimum: 0
+          description: "没取消的场次数"
+        nextStartsAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "最近一场还没开始的开始时间"
+        enrolledCount:
+          type: "integer"
+          minimum: 0
+          description: "各场已报名人数合计（含待付款）"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsActivityPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsActivitySummary"
+    OpsActivitySession:
+      type: "object"
+      additionalProperties: false
+      required: [sessionId, label, startsAt, endsAt, checkInOpensAt, enrollmentClosesAt, capacity, enrolledCount,
+                 saleStatus, cancelled, hasEnrollments, started, version]
+      properties:
+        sessionId:
+          type: "string"
+          format: "uuid"
+        label:
+          type: ["string", "null"]
+          maxLength: 60
+        startsAt:
+          type: "string"
+          format: "date-time"
+        endsAt:
+          type: ["string", "null"]
+          format: "date-time"
+        checkInOpensAt:
+          type: ["string", "null"]
+          format: "date-time"
+        enrollmentClosesAt:
+          type: "string"
+          format: "date-time"
+        capacity:
+          type: "integer"
+          minimum: 1
+          maximum: 10000
+        enrolledCount:
+          type: "integer"
+          minimum: 0
+          description: "已占名额（含待付款）"
+        saleStatus:
+          $ref: "#/components/schemas/OpsSessionSaleStatus"
+        cancelled:
+          type: "boolean"
+          description: "早先取消的场次（只读，App 不显示）"
+        hasEnrollments:
+          type: "boolean"
+          description: "有过报名单（任何状态）：不能删，只能停售"
+        started:
+          type: "boolean"
+          description: "已经开始：不能再改"
+        version:
+          type: "integer"
+          minimum: 0
+          description: "改、删、停售、恢复售卖要带的版本号（有人报名、取消时也会变）"
+    OpsActivity:
+      type: "object"
+      additionalProperties: false
+      required: [activityId, type, title, subtitle, coverUrl, galleryUrls, organizer, coOrganizer, cityCode, cityName,
+                 venueName, venueAddress, scheduleNote, priceMode, priceAmountMinor, minAge, maxAge, eligibilityNote,
+                 seatNote, refundNote, enrollmentNotice, status, firstPublishedAt, hasEnrollments, deletable,
+                 publishMissing, sessions, createdAt, updatedAt, version]
+      properties:
+        activityId:
+          type: "string"
+          format: "uuid"
+        type:
+          $ref: "#/components/schemas/ActivityType"
+        title:
+          type: "string"
+          maxLength: 60
+        subtitle:
+          type: ["string", "null"]
+          maxLength: 200
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+        galleryUrls:
+          type: "array"
+          maxItems: 9
+          items:
+            type: "string"
+            format: "uri"
+        organizer:
+          $ref: "#/components/schemas/OpsOrganizationRef"
+        coOrganizer:
+          anyOf:
+            - $ref: "#/components/schemas/OpsOrganizationRef"
+            - type: "null"
+        cityCode:
+          type: "string"
+        cityName:
+          type: ["string", "null"]
+        venueName:
+          type: "string"
+          maxLength: 120
+        venueAddress:
+          type: "string"
+          maxLength: 240
+        scheduleNote:
+          type: ["string", "null"]
+          maxLength: 120
+        priceMode:
+          $ref: "#/components/schemas/ActivityPriceMode"
+        priceAmountMinor:
+          type: ["integer", "null"]
+          format: "int64"
+        minAge:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 120
+        maxAge:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 120
+        eligibilityNote:
+          type: ["string", "null"]
+          maxLength: 300
+        seatNote:
+          type: ["string", "null"]
+          maxLength: 300
+        refundNote:
+          type: ["string", "null"]
+          maxLength: 500
+        enrollmentNotice:
+          type: ["string", "null"]
+          maxLength: 2000
+        status:
+          $ref: "#/components/schemas/OpsActivityStatus"
+        firstPublishedAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "第一次上线的时间；上线过的活动不能删"
+        hasEnrollments:
+          type: "boolean"
+          description: "有待付款或已确认的报名：收费方式、主办机构、城市不能改"
+        deletable:
+          type: "boolean"
+          description: "草稿且从没上线过"
+        publishMissing:
+          type: "array"
+          description: "现在上线还差的必填项；齐了为空数组"
+          items:
+            $ref: "#/components/schemas/OpsActivityPublishField"
+        sessions:
+          type: "array"
+          description: "全部场次（含早先取消的），开始早的在前"
+          items:
+            $ref: "#/components/schemas/OpsActivitySession"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        updatedAt:
+          type: "string"
+          format: "date-time"
+        version:
+          type: "integer"
+          minimum: 0
+    OpsActivityDeleted:
+      type: "object"
+      additionalProperties: false
+      required: [activityId, deleted]
+      properties:
+        activityId:
+          type: "string"
+          format: "uuid"
+        deleted:
+          type: "boolean"
+    OpsActivityRequest:
+      type: "object"
+      additionalProperties: false
+      required: [type, title, organizerId, cityCode, venueName, venueAddress, priceMode]
+      properties:
+        type:
+          $ref: "#/components/schemas/ActivityType"
+        title:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+        subtitle:
+          type: ["string", "null"]
+          maxLength: 200
+        coverUrl:
+          type: ["string", "null"]
+          maxLength: 500
+          description: "受控 https 地址"
+        galleryUrls:
+          type: ["array", "null"]
+          maxItems: 9
+          items:
+            type: "string"
+            maxLength: 500
+          description: "受控 https 地址，按顺序，不能重复；不传等于清空"
+        organizerId:
+          type: "string"
+          format: "uuid"
+        coOrganizerId:
+          type: ["string", "null"]
+          format: "uuid"
+          description: "承办机构，不能和主办相同"
+        cityCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+        venueName:
+          type: "string"
+          minLength: 1
+          maxLength: 120
+        venueAddress:
+          type: "string"
+          minLength: 1
+          maxLength: 240
+        scheduleNote:
+          type: ["string", "null"]
+          maxLength: 120
+        priceMode:
+          $ref: "#/components/schemas/ActivityPriceMode"
+        priceAmountMinor:
+          type: ["integer", "null"]
+          format: "int64"
+          minimum: 1
+          maximum: 10000000
+          description: "按人收费时必填（分）；其余不存"
+        minAge:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 120
+        maxAge:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 120
+        eligibilityNote:
+          type: ["string", "null"]
+          maxLength: 300
+        seatNote:
+          type: ["string", "null"]
+          maxLength: 300
+        refundNote:
+          type: ["string", "null"]
+          maxLength: 500
+          description: "可以多行"
+        enrollmentNotice:
+          type: ["string", "null"]
+          maxLength: 2000
+          description: "报名须知，可以多行"
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "新建时不带；修改时必填（页面读到的版本号）"
+    OpsActivitySessionRequest:
+      type: "object"
+      additionalProperties: false
+      required: [startsAt, enrollmentClosesAt, capacity]
+      properties:
+        label:
+          type: ["string", "null"]
+          maxLength: 60
+          description: "场次的短名，比如“上午场”"
+        startsAt:
+          type: "string"
+          format: "date-time"
+        endsAt:
+          type: ["string", "null"]
+          format: "date-time"
+        checkInOpensAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "签到开放时间；不填时核销从开始前 1 小时起"
+        enrollmentClosesAt:
+          type: "string"
+          format: "date-time"
+        capacity:
+          type: "integer"
+          minimum: 1
+          maximum: 10000
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "新增时不带；修改时必填"
+    OpsVersionRequest:
+      type: "object"
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: "integer"
+          minimum: 0
+    OpsChange:
+      type: "object"
+      additionalProperties: false
+      required: [changeId, subjectType, subjectId, action, summary, operatorName, changedAt]
+      properties:
+        changeId:
+          type: "string"
+          format: "uuid"
+        subjectType:
+          type: "string"
+          enum: [ACTIVITY, SESSION]
+        subjectId:
+          type: "string"
+          format: "uuid"
+        action:
+          type: "string"
+          enum: [CREATE, UPDATE, PUBLISH, OFFLINE, DELETE, STOP_SALE, RESUME_SALE]
+        summary:
+          type: "string"
+          maxLength: 200
+        operatorName:
+          type: "string"
+          description: "操作时运营账号的显示名"
+        changedAt:
+          type: "string"
+          format: "date-time"

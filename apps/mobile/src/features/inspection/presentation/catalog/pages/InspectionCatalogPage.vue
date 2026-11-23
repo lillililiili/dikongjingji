@@ -567,7 +567,7 @@ async function openCitySheet(): Promise<void> {
 
 async function applyCitySelection(payload: {
   city: PlatformCity
-  source: 'CURRENT' | 'RECENT' | 'HOT' | 'SEARCH' | 'TREE'
+  source: CitySelectionSource
 }): Promise<void> {
   await catalogCityController.applyCitySelection(payload)
 }

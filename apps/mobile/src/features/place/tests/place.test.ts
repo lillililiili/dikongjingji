@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
 import pagesJson from '../../../pages.json?raw'
 import bookingPageSource from '../../inspection/presentation/booking/pages/InspectionBookingPage.vue?raw'
 import demandPageSource from '../../demand/presentation/publish/DemandPublishPage.vue?raw'
@@ -71,7 +70,7 @@ describe('map pick route and wiring', () => {
 
   it('opens from the booking and the demand form in preview builds only', () => {
     expect(pagesJson).toContain('"path": "pages/place/map-pick"')
-    expect(flagExpression(placeFlagSource, 'PLACE_PREVIEW_ENABLED')).toBe(flagExpression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+    expect(flagExpression(placeFlagSource, 'PLACE_PREVIEW_ENABLED')).toBe('import.meta.env.DEV || __RELEASE_FEATURE_PLACES__')
     expect(bookingPageSource).toContain("purpose: 'INSPECTION'")
     expect(bookingPageSource).toContain('if (PLACE_PREVIEW_ENABLED) {')
     // Public builds keep the system picker.

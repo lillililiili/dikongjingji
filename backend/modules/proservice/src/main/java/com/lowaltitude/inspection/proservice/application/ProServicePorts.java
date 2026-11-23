@@ -18,6 +18,15 @@ public final class ProServicePorts {
 
         /** 平台城市目录里这个城市的名称；不在目录里时为空。 */
         Optional<String> cityName(String cityCode);
+
+        /** 一组城市里在平台城市目录里的那些（编码 → 名称）；运营端一次校验多个城市用，实现可以只读一次目录。 */
+        default java.util.Map<String, String> cityNames(java.util.Collection<String> cityCodes) {
+            java.util.Map<String, String> names = new java.util.LinkedHashMap<>();
+            for (String cityCode : cityCodes) {
+                cityName(cityCode).ifPresent(name -> names.put(cityCode, name));
+            }
+            return names;
+        }
     }
 
     public interface ProviderProfiles {

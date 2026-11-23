@@ -66,7 +66,8 @@ class MallCartControllerTest {
             Error.NOT_SOLD_IN_CITY, new Rejection(409, "MALL_CART_NOT_SOLD_IN_CITY"),
             Error.CART_FULL, new Rejection(409, "MALL_CART_FULL"),
             Error.MULTIPLE_MERCHANTS, new Rejection(409, "MALL_CHECKOUT_MULTIPLE_MERCHANTS"),
-            Error.ITEM_UNAVAILABLE, new Rejection(409, "MALL_CHECKOUT_ITEM_UNAVAILABLE"));
+            Error.ITEM_UNAVAILABLE, new Rejection(409, "MALL_CHECKOUT_ITEM_UNAVAILABLE"),
+            Error.OUT_OF_STOCK, new Rejection(409, "MALL_CART_OUT_OF_STOCK"));
 
     private final MallCartService carts = mock(MallCartService.class);
     private final AccountAddressService addresses = mock(AccountAddressService.class);
@@ -381,7 +382,7 @@ class MallCartControllerTest {
         assertThat(REJECTIONS).hasSize(Error.values().length);
         assertThat(REJECTIONS.values().stream().map(Rejection::code)).doesNotHaveDuplicates();
         assertThat(REJECTIONS.values().stream().map(Rejection::code).filter(code -> code.startsWith("MALL_")))
-                .hasSize(5);
+                .hasSize(6);
     }
 
     @Test

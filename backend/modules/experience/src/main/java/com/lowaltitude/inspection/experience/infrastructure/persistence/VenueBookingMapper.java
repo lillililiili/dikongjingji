@@ -437,7 +437,9 @@ public interface VenueBookingMapper {
                    v.name venue_name,
                    p.name project_name,
                    s.starts_at,
-                   s.ends_at
+                   s.ends_at,
+                   v.checkin_opens_minutes,
+                   v.late_entry_minutes
             FROM venue_booking b
             JOIN venue v ON v.id = b.venue_id
             JOIN venue_project p ON p.id = b.project_id
@@ -545,7 +547,10 @@ public interface VenueBookingMapper {
             String venueName,
             String projectName,
             OffsetDateTime startsAt,
-            OffsetDateTime endsAt
+            OffsetDateTime endsAt,
+            // S3-1：场馆的检票规则。开场前多少分钟开始检票；开场后多少分钟内还能入场，为空表示到场次结束。
+            int checkinOpensMinutes,
+            Integer lateEntryMinutes
     ) {
     }
 }

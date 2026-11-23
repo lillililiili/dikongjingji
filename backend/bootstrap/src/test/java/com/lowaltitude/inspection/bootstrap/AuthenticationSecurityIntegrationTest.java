@@ -32,6 +32,7 @@ import com.lowaltitude.inspection.mall.application.MallCartService;
 import com.lowaltitude.inspection.account.application.AccountAddressService;
 import com.lowaltitude.inspection.trade.application.TradeOrderService;
 import com.lowaltitude.inspection.trade.application.TradePaymentService;
+import com.lowaltitude.inspection.trade.application.TradeChannelCheckService;
 import com.lowaltitude.inspection.trade.application.TradeReconciliationService;
 import com.lowaltitude.inspection.trade.application.TradeRefundService;
 import com.lowaltitude.inspection.notification.application.NotificationService;
@@ -68,6 +69,20 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @MockBean({
+        // S3-1 运营端
+        com.lowaltitude.inspection.application.city.CityOperationsService.class,
+        com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        // S3-1 第二部分：商品与供给、收款账户、批量导入
+        com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class,
+        com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
+        com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
+        com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,
+        com.lowaltitude.inspection.experience.application.ops.VenueOpsService.class,
+        com.lowaltitude.inspection.content.application.ops.ContentOpsService.class,
+        // S3-1 第三部分：巡检和专业服务目录
+        com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
+        com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
+        com.lowaltitude.inspection.live.application.LiveOpsService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -257,6 +272,26 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(get("/api/v1/activities/a2000000-0000-4000-8000-000000000001/enrollments"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+    }
+
+    // 核销工作台（S3-3）的五个接口全部要登录；登录了但不是服务商操作员是 403（没接数据库时工作台为空也一样）。
+    @Test
+    void checkinWorkbenchRoutesRequireALoginAndAnOperator() throws Exception {
+        String record = "/api/v1/checkin-workbench/records/ACTIVITY/a7000000-0000-4000-8000-000000000001";
+        for (var request : List.of(
+                get("/api/v1/checkin-workbench"),
+                get("/api/v1/checkin-workbench/records"),
+                get(record),
+                post("/api/v1/checkin-workbench/verifications"),
+                post(record + "/resolution"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        mockMvc.perform(get("/api/v1/checkin-workbench")
+                        .header("Authorization", "Bearer " + signedToken(List.of(), 7)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
     }
 
     // 参与人、报名、核销全部要登录：公开的只有 /api/v1/activities 下的三个读取接口。
@@ -525,6 +560,185 @@ class AuthenticationSecurityIntegrationTest {
         org.mockito.Mockito.verifyNoMoreInteractions(support);
     }
 
+    // 运营端（S3-1）：/api/v1/ops/** 全部要登录；城市开通、机构入驻只给平台运营，举报与反馈只给平台客服；
+    // 客户、服务商操作员、直播主办一律 403，服务不被调用。
+    @Test
+    void opsRoutesNeedThePlatformRoleOfEachDesk() throws Exception {
+        UUID organization = UUID.fromString("c1000000-0000-4000-8000-000000000001");
+        for (var request : opsOperatorRoutes(organization)) {
+            mockMvc.perform(request).andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
+        }
+        for (var request : opsSupportRoutes()) {
+            mockMvc.perform(request).andExpect(status().isUnauthorized());
+        }
+
+        var cities = applicationContext.getBean(
+                com.lowaltitude.inspection.application.city.CityOperationsService.class);
+        var organizations = applicationContext.getBean(
+                com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class);
+        var support = applicationContext.getBean(
+                com.lowaltitude.inspection.support.application.SupportService.class);
+        var activityOps = applicationContext.getBean(
+                com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class);
+        org.mockito.Mockito.clearInvocations(cities, organizations, support, activityOps);
+        var contentOps = applicationContext.getBean(
+                com.lowaltitude.inspection.content.application.ops.ContentOpsService.class);
+        org.mockito.Mockito.clearInvocations(cities, organizations, support, contentOps);
+        String operatorToken = tokenWithRoles(List.of("PLATFORM_OPERATOR"));
+        String supportToken = tokenWithRoles(List.of("PLATFORM_SUPPORT"));
+
+        mockMvc.perform(get("/api/v1/ops/cities").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/ops/organizations").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/ops/feedback").header("Authorization", "Bearer " + supportToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(cities).cities(null, null, null, 1, 20);
+        org.mockito.Mockito.verify(organizations).organizations(null, null, null, 1, 20);
+        org.mockito.Mockito.verify(support).opsFeedback(null, null, 1, 20);
+        mockMvc.perform(get("/api/v1/ops/content/articles").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(contentOps).articles(null, null, null, null, 1, 20);
+
+        for (String token : List.of(signedToken(List.of(), 7), tokenWithRoles(List.of("PROVIDER_OPERATOR")),
+                tokenWithRoles(List.of("LIVE_HOST")), tokenWithRoles(List.of("PROVIDER_OPERATOR", "LIVE_HOST")))) {
+            for (var request : opsOperatorRoutes(organization)) {
+                mockMvc.perform(request.header("Authorization", "Bearer " + token))
+                        .andExpect(status().isForbidden())
+                        .andExpect(jsonPath("$.code").value("COMMON_FORBIDDEN"));
+            }
+            for (var request : opsSupportRoutes()) {
+                mockMvc.perform(request.header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
+            }
+        }
+        // 平台客服不是平台运营，平台运营也不处理反馈。
+        for (var request : List.of(get("/api/v1/ops/cities"), get("/api/v1/ops/organizations"),
+                get("/api/v1/ops/organizations/" + organization), get("/api/v1/ops/catalog/products"),
+                get("/api/v1/ops/merchant-accounts"), get("/api/v1/ops/imports/kinds"),
+                get("/api/v1/ops/imports/batches"),
+                get("/api/v1/ops/activities"),
+                get("/api/v1/ops/content/articles"),
+                get("/api/v1/ops/content/topics"))) {
+            mockMvc.perform(request.header("Authorization", "Bearer " + supportToken))
+                    .andExpect(status().isForbidden());
+        }
+        mockMvc.perform(get("/api/v1/ops/feedback").header("Authorization", "Bearer " + operatorToken))
+                .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support,
+                applicationContext.getBean(com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class),
+                applicationContext.getBean(
+                        com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class),
+                applicationContext.getBean(com.lowaltitude.inspection.opsimport.application.OpsImportService.class));
+        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support, activityOps);
+        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support, contentOps);
+    }
+
+    /** 每次新建，请求头不会在几轮之间叠加。 */
+    private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsOperatorRoutes(
+            UUID organization) {
+        UUID attachment = UUID.fromString("e7000000-0000-4000-8000-000000000002");
+        String orgPath = "/api/v1/ops/organizations/" + organization;
+        String venuePath = "/api/v1/ops/venues/b2000000-0000-4000-8000-000000000001";
+        return List.of(
+                get("/api/v1/ops/cities"), put("/api/v1/ops/cities/370500/service-status"),
+                get("/api/v1/ops/cities/370500/service-status-changes"),
+                get("/api/v1/ops/organizations"), post("/api/v1/ops/organizations"), get(orgPath),
+                put(orgPath + "/qualification"), post(orgPath + "/qualification/review"),
+                post(orgPath + "/attachments"), get(orgPath + "/attachments/" + attachment + "/content"),
+                delete(orgPath + "/attachments/" + attachment), post(orgPath + "/accounts"),
+                put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"),
+                // S3-1 第二部分：商品与供给、收款账户、批量导入
+                get("/api/v1/ops/catalog/products"), post("/api/v1/ops/catalog/products"),
+                get("/api/v1/ops/catalog/products/" + attachment), put("/api/v1/ops/catalog/products/" + attachment),
+                post("/api/v1/ops/catalog/products/" + attachment + "/status"),
+                post("/api/v1/ops/catalog/products/" + attachment + "/skus"),
+                put("/api/v1/ops/catalog/products/" + attachment + "/skus/" + attachment),
+                post("/api/v1/ops/catalog/products/" + attachment + "/offers"),
+                put("/api/v1/ops/catalog/products/" + attachment + "/offers/" + attachment),
+                post("/api/v1/ops/catalog/products/" + attachment + "/offers/" + attachment + "/status"),
+                post("/api/v1/ops/catalog/media"),
+                get("/api/v1/ops/merchant-accounts"), put("/api/v1/ops/merchant-accounts/" + organization),
+                get("/api/v1/ops/merchant-accounts/" + organization + "/operations"),
+                get("/api/v1/ops/imports/kinds"), post("/api/v1/ops/imports/MALL/checks"),
+                get("/api/v1/ops/imports/batches"), get("/api/v1/ops/imports/batches/" + attachment),
+                post("/api/v1/ops/imports/batches/" + attachment + "/run"),
+                // S3-1 第三部分：素材上传与预览
+                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"),
+                // S3-1 第三部分：活动与场次
+                get("/api/v1/ops/activities"), post("/api/v1/ops/activities"),
+                get("/api/v1/ops/activities/" + attachment), put("/api/v1/ops/activities/" + attachment),
+                delete("/api/v1/ops/activities/" + attachment + "?version=0"),
+                post("/api/v1/ops/activities/" + attachment + "/publish"),
+                post("/api/v1/ops/activities/" + attachment + "/offline"),
+                get("/api/v1/ops/activities/" + attachment + "/changes"),
+                post("/api/v1/ops/activities/" + attachment + "/sessions"),
+                put("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment),
+                delete("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment + "?version=0"),
+                post("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment + "/stop-sale"),
+                post("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment + "/resume-sale"),
+                // S3-1 第三部分：场馆与设备
+                get("/api/v1/ops/venues"), post("/api/v1/ops/venues"), get(venuePath), put(venuePath),
+                post(venuePath + "/publish"), post(venuePath + "/offline"), get(venuePath + "/changes"),
+                post(venuePath + "/projects"), put(venuePath + "/projects/" + attachment),
+                put(venuePath + "/projects/" + attachment + "/status"),
+                get(venuePath + "/projects/" + attachment + "/sessions"),
+                post(venuePath + "/projects/" + attachment + "/sessions/generate"),
+                post(venuePath + "/sessions/" + attachment + "/stop-sale"),
+                post(venuePath + "/sessions/" + attachment + "/resume-sale"),
+                post(venuePath + "/sessions/" + attachment + "/cancel"),
+                post(venuePath + "/devices"), put(venuePath + "/devices/" + attachment),
+                put(venuePath + "/devices/" + attachment + "/status"),
+                // S3-1 第三部分：发现内容（图文、视频、专题）
+                get("/api/v1/ops/content/articles"), post("/api/v1/ops/content/articles"),
+                get("/api/v1/ops/content/articles/" + attachment), put("/api/v1/ops/content/articles/" + attachment),
+                post("/api/v1/ops/content/articles/" + attachment + "/publish"),
+                post("/api/v1/ops/content/articles/" + attachment + "/offline"),
+                get("/api/v1/ops/content/articles/" + attachment + "/changes"),
+                get("/api/v1/ops/content/videos"), post("/api/v1/ops/content/videos"),
+                get("/api/v1/ops/content/videos/" + attachment), put("/api/v1/ops/content/videos/" + attachment),
+                post("/api/v1/ops/content/videos/" + attachment + "/publish"),
+                post("/api/v1/ops/content/videos/" + attachment + "/offline"),
+                get("/api/v1/ops/content/videos/" + attachment + "/changes"),
+                get("/api/v1/ops/content/topics"), post("/api/v1/ops/content/topics"),
+                get("/api/v1/ops/content/topics/" + attachment), put("/api/v1/ops/content/topics/" + attachment),
+                post("/api/v1/ops/content/topics/" + attachment + "/publish"),
+                post("/api/v1/ops/content/topics/" + attachment + "/offline"),
+                get("/api/v1/ops/content/topics/" + attachment + "/changes"),
+                // S3-1 第三部分：巡检和专业服务目录
+                get("/api/v1/ops/inspection/categories"), post("/api/v1/ops/inspection/categories"),
+                put("/api/v1/ops/inspection/categories/POWER"), put("/api/v1/ops/inspection/categories/POWER/status"),
+                get("/api/v1/ops/inspection/categories/POWER/changes"),
+                get("/api/v1/ops/inspection/services"), post("/api/v1/ops/inspection/services"),
+                get("/api/v1/ops/inspection/services/" + attachment),
+                put("/api/v1/ops/inspection/services/" + attachment),
+                post("/api/v1/ops/inspection/services/" + attachment + "/publish"),
+                post("/api/v1/ops/inspection/services/" + attachment + "/offline"),
+                get("/api/v1/ops/inspection/services/" + attachment + "/changes"),
+                get("/api/v1/ops/pro-services"), post("/api/v1/ops/pro-services"),
+                get("/api/v1/ops/pro-services/" + attachment), put("/api/v1/ops/pro-services/" + attachment),
+                post("/api/v1/ops/pro-services/" + attachment + "/publish"),
+                post("/api/v1/ops/pro-services/" + attachment + "/offline"),
+                get("/api/v1/ops/pro-services/" + attachment + "/changes"),
+                // S3-1 第三部分：直播间
+                get("/api/v1/ops/live/hosts"), get("/api/v1/ops/live/rooms"),
+                get("/api/v1/ops/live/rooms/" + attachment),
+                post("/api/v1/ops/live/rooms/" + attachment + "/end"),
+                put("/api/v1/ops/live/rooms/" + attachment + "/replay"),
+                get("/api/v1/ops/live/rooms/" + attachment + "/changes"));
+    }
+
+    private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {
+        return List.of(get("/api/v1/ops/feedback"),
+                post("/api/v1/ops/feedback/e7000000-0000-4000-8000-000000000001/handle"));
+    }
+
+    private String tokenWithRoles(List<String> roles) throws Exception {
+        Map<String, Object> claims = validClaims(List.of(), 7);
+        claims.put("roles", roles);
+        return signedToken(claims);
+    }
+
     // 直播（M20）：列表、详情、弹幕增量、记一次观看和服务商回调不登录也能调（回调靠签名）；其余都要登录，
     // 观众接口要客户角色，/live-host 要直播主办角色和机构，/platform/live 要平台客服角色。旁边的路径仍然要登录。
     @Test
@@ -583,7 +797,7 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/platform/live/rooms/" + roomId + "/end")
                 .header("Authorization", "Bearer " + supportToken)).andExpect(status().isOk());
         org.mockito.Mockito.verify(live).viewerState(SUBJECT_ID, roomId);
-        org.mockito.Mockito.verify(live).hostRooms(ORGANIZATION_ID, 1, 10);
+        org.mockito.Mockito.verify(live).hostRooms(ORGANIZATION_ID, null, 1, 10);
         org.mockito.Mockito.verify(live).platformEnd(roomId);
         for (var refused : List.of(
                 get(room + "/me").header("Authorization", "Bearer " + hostToken),
@@ -688,7 +902,7 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isOk());
 
         org.mockito.Mockito.verify(demands).list(SUBJECT_ID, null, 1, 20);
-        org.mockito.Mockito.verify(demands).listForProvider(ORGANIZATION_ID, 1, 20);
+        org.mockito.Mockito.verify(demands).listForProvider(ORGANIZATION_ID, null, 1, 20);
         org.mockito.Mockito.verify(demands).invitableProviders("370500", null);
 
         mockMvc.perform(get("/api/v1/provider/demands").header("Authorization", "Bearer " + customerToken))
@@ -870,7 +1084,8 @@ class AuthenticationSecurityIntegrationTest {
         TradePaymentService payments = applicationContext.getBean(TradePaymentService.class);
         TradeRefundService refunds = applicationContext.getBean(TradeRefundService.class);
         TradeReconciliationService reconciliation = applicationContext.getBean(TradeReconciliationService.class);
-        org.mockito.Mockito.clearInvocations(orders, payments, refunds, reconciliation);
+        TradeChannelCheckService channelCheck = applicationContext.getBean(TradeChannelCheckService.class);
+        org.mockito.Mockito.clearInvocations(orders, payments, refunds, reconciliation, channelCheck);
         String order = "/api/v1/trade/orders/e1000000-0000-4000-8000-000000000001";
         String merchantOrder = "/api/v1/provider/trade/orders/e1000000-0000-4000-8000-000000000001";
 
@@ -895,7 +1110,9 @@ class AuthenticationSecurityIntegrationTest {
                 // E06 的对账：读结果（JSON、CSV）和立刻跑一次。
                 get("/api/v1/platform/trade/reconciliation").param("date", "2026-11-17"),
                 get("/api/v1/platform/trade/reconciliation").param("date", "2026-11-17").param("format", "CSV"),
-                post("/api/v1/platform/trade/reconciliation/runs").param("date", "2026-11-17"))) {
+                post("/api/v1/platform/trade/reconciliation/runs").param("date", "2026-11-17"),
+                // S2-1 支付通道自检。
+                post("/api/v1/platform/trade/channel-checks").param("subMchid", "1900000109"))) {
             mockMvc.perform(request)
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
@@ -905,7 +1122,7 @@ class AuthenticationSecurityIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_UNAUTHORIZED"));
 
-        org.mockito.Mockito.verifyNoInteractions(orders, payments, refunds, reconciliation);
+        org.mockito.Mockito.verifyNoInteractions(orders, payments, refunds, reconciliation, channelCheck);
     }
 
     // 对账（E06）只给平台运营：客户、商家操作员都是 403，服务一次都不调；平台运营的令牌读得到 JSON 和 CSV、能跑对账。
@@ -999,6 +1216,8 @@ class AuthenticationSecurityIntegrationTest {
             String code = token.equals(customerToken) ? "COMMON_FORBIDDEN" : "COMMON_UNAUTHORIZED";
             for (var request : List.of(
                     get("/api/v1/provider/trade/orders"),
+                    get(order),
+                    get("/api/v1/provider/trade/merchant-account"),
                     post(order + "/shipment")
                             .header("Idempotency-Key", key.toString())
                             .header("If-Match", "\"0\"")
@@ -1044,7 +1263,7 @@ class AuthenticationSecurityIntegrationTest {
                         .content("{\"amountMinor\":1000,\"reason\":\"少发一件\"}"))
                 .andExpect(status().isCreated());
 
-        org.mockito.Mockito.verify(orders).listForMerchant(ORGANIZATION_ID, null, 1, 20);
+        org.mockito.Mockito.verify(orders).listForMerchant(ORGANIZATION_ID, null, null, 1, 20);
         org.mockito.Mockito.verify(orders).completePickup(ORGANIZATION_ID, SUBJECT_ID, orderId, 0, "123456");
         org.mockito.Mockito.verify(refunds).merchantRefund(ORGANIZATION_ID, SUBJECT_ID, orderId, key, 1000L, "少发一件");
         org.mockito.Mockito.verifyNoMoreInteractions(orders, refunds);
@@ -1620,6 +1839,11 @@ class AuthenticationSecurityIntegrationTest {
         @Bean
         TradeReconciliationService testTradeReconciliationService() {
             return org.mockito.Mockito.mock(TradeReconciliationService.class);
+        }
+
+        @Bean
+        TradeChannelCheckService testTradeChannelCheckService() {
+            return org.mockito.Mockito.mock(TradeChannelCheckService.class);
         }
 
         @Bean

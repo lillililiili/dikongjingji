@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
   title: Demand API
-  version: 1.1.0
+  version: 1.2.0
   description: |-
+    1.2.0（2026-11-23，S3-2，服务商工作台在 Web 运营端 apps/admin）：listProviderDemands 加可选查询参数 status
+    （OPEN / QUOTED / CHOSEN / CLOSED），只在服务商能看到的范围里再筛；草稿不是可选状态，填了或填了别的值是 400。
     1.1.0（R6-4）：可邀请的服务商（DemandProvider）和报价里的服务商（DemandQuoteProvider）加 qualificationReviewed（平台审核过它的资质），
     页面据此显示“资质已审核”。
     1.0.0（步骤 F1，docs/redesign/03-App实现任务计划.md §22）：需求发布与报价比选。
@@ -427,6 +429,17 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - name: status
+          in: query
+          required: false
+          description: 1.2.0：只看这个状态的需求（OPEN、QUOTED、CHOSEN、CLOSED 之一）；不写是全部
+          schema:
+            type: string
+            enum:
+              - OPEN
+              - QUOTED
+              - CHOSEN
+              - CLOSED
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
       responses:

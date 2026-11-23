@@ -32,6 +32,7 @@ public interface ActivityCatalogMapper {
                   FROM activity_session open_session
                   WHERE open_session.activity_id = a.id
                     AND open_session.status = 'ACTIVE'
+                    AND open_session.sale_status = 'ON_SALE'
                     AND open_session.enrollment_closes_at > #{now}
                     AND open_session.enrolled_count < open_session.capacity
               ))
@@ -83,6 +84,7 @@ public interface ActivityCatalogMapper {
                        FROM activity_session open_session
                        WHERE open_session.activity_id = a.id
                          AND open_session.status = 'ACTIVE'
+                         AND open_session.sale_status = 'ON_SALE'
                          AND open_session.enrollment_closes_at > #{now}
                          AND open_session.enrolled_count < open_session.capacity
                    ) has_open_session,
@@ -91,6 +93,7 @@ public interface ActivityCatalogMapper {
                        FROM activity_session full_session
                        WHERE full_session.activity_id = a.id
                          AND full_session.status = 'ACTIVE'
+                         AND full_session.sale_status = 'ON_SALE'
                          AND full_session.enrollment_closes_at > #{now}
                          AND full_session.enrolled_count >= full_session.capacity
                    ) has_full_session,
@@ -103,7 +106,8 @@ public interface ActivityCatalogMapper {
                   AND s.status = 'ACTIVE'
                   AND s.starts_at > #{now}
                 -- 卡片展示的那一场：优先取还能报名的最近一场，都报不了时才取最近一场
-                ORDER BY (s.enrollment_closes_at > #{now} AND s.enrolled_count < s.capacity) DESC,
+                ORDER BY (s.sale_status = 'ON_SALE' AND s.enrollment_closes_at > #{now}
+                          AND s.enrolled_count < s.capacity) DESC,
                          s.starts_at ASC,
                          s.id ASC
                 LIMIT 1
@@ -171,7 +175,8 @@ public interface ActivityCatalogMapper {
                    a.seat_note,
                    a.refund_note,
                    a.waitlist_allowed,
-                   a.team_enrollment_allowed
+                   a.team_enrollment_allowed,
+                   a.enrollment_notice
             FROM activity a
             JOIN identity_organization organizer ON organizer.id = a.organizer_id
             LEFT JOIN identity_organization co_organizer ON co_organizer.id = a.co_organizer_id
@@ -192,13 +197,23 @@ public interface ActivityCatalogMapper {
                    s.check_in_opens_at,
                    s.enrollment_closes_at,
                    s.capacity,
-                   s.enrolled_count
+                   s.enrolled_count,
+                   s.sale_status = 'STOPPED' sale_stopped
             FROM activity_session s
             WHERE s.activity_id = #{activityId}
               AND s.status = 'ACTIVE'
             ORDER BY s.starts_at ASC, s.id ASC
             """)
     List<ActivitySessionRow> findActiveSessions(@Param("activityId") UUID activityId);
+
+    /** 图集（S3-1，迁移 V004）：按顺序。 */
+    @Select("""
+            SELECT g.url
+            FROM activity_gallery_image g
+            WHERE g.activity_id = #{activityId}
+            ORDER BY g.sort_order ASC
+            """)
+    List<String> findGallery(@Param("activityId") UUID activityId);
 
     record ActivityCardRow(
             UUID activityId,
@@ -248,7 +263,8 @@ public interface ActivityCatalogMapper {
             String seatNote,
             String refundNote,
             boolean waitlistAllowed,
-            boolean teamEnrollmentAllowed
+            boolean teamEnrollmentAllowed,
+            String enrollmentNotice
     ) {
     }
 
@@ -260,7 +276,8 @@ public interface ActivityCatalogMapper {
             OffsetDateTime checkInOpensAt,
             OffsetDateTime enrollmentClosesAt,
             int capacity,
-            int enrolledCount
+            int enrolledCount,
+            boolean saleStopped
     ) {
     }
 }

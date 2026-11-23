@@ -325,10 +325,14 @@ public interface TradeOrderMapper {
             <if test="status != null">
               AND o.status = #{status}
             </if>
+            <if test="deliveryMode != null">
+              AND o.delivery_mode = #{deliveryMode}
+            </if>
             """;
 
     @Select("<script>SELECT count(*) FROM trade_order o " + MERCHANT_FILTER + "</script>")
-    long countMerchantOrders(@Param("merchantId") UUID merchantId, @Param("status") String status);
+    long countMerchantOrders(@Param("merchantId") UUID merchantId, @Param("status") String status,
+                             @Param("deliveryMode") String deliveryMode);
 
     @Select("<script>" + ORDER_COLUMNS + MERCHANT_FILTER + """
             ORDER BY o.created_at DESC, o.id DESC
@@ -338,6 +342,7 @@ public interface TradeOrderMapper {
     List<OrderRow> findMerchantOrders(
             @Param("merchantId") UUID merchantId,
             @Param("status") String status,
+            @Param("deliveryMode") String deliveryMode,
             @Param("limit") int limit,
             @Param("offset") int offset
     );

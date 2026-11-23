@@ -3,10 +3,14 @@ import { computed } from 'vue'
 
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
+import { cityClosedTitle, type CityOpening } from '../../application/city-opening'
+
 // Board CityClosed, under the home head: the city's 筹备中 card with 切换到 a city that is open and
 // 开通后通知我, then 全国可用 — 线上体验, 全国发货商品, 线上课程 — which work in every city.
 const props = defineProps<{
   cityName: string
+  // PREPARING (筹备中) or CLOSED (未开通), from the city directory.
+  opening: CityOpening
   // An open city to switch to; null hides the button.
   openCityName: string | null
 }>()
@@ -26,7 +30,7 @@ const NATIONWIDE = [
 ] as const
 
 const shortName = (name: string): string => (name.length > 2 && name.endsWith('市') ? name.slice(0, -1) : name)
-const title = computed(() => `${shortName(props.cityName)}城市站筹备中`)
+const title = computed(() => cityClosedTitle(props.cityName, props.opening))
 const switchLabel = computed(() => (props.openCityName ? `切换到${shortName(props.openCityName)}` : ''))
 </script>
 

@@ -497,6 +497,27 @@
         "navigationStyle": "custom",
         "disableScroll": true
       }
+    },
+    {
+      "path": "pages/staff/verify",
+      "style": {
+        "navigationBarTitleText": "核销工作台",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/staff/records",
+      "style": {
+        "navigationBarTitleText": "核销记录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/staff/exception",
+      "style": {
+        "navigationBarTitleText": "核销异常处理",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

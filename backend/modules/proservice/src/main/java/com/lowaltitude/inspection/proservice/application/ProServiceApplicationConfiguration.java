@@ -1,6 +1,8 @@
 package com.lowaltitude.inspection.proservice.application;
 
+import com.lowaltitude.inspection.identity.domain.IdentityOrganizationPort;
 import com.lowaltitude.inspection.proservice.infrastructure.persistence.ProServiceMapper;
+import com.lowaltitude.inspection.proservice.infrastructure.persistence.ProServiceOpsMapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -20,5 +22,15 @@ public class ProServiceApplicationConfiguration {
             ProServicePorts.InspectionOffers inspection
     ) {
         return new ProServiceReadService(mapper, cities, profiles, inspection);
+    }
+
+    /** 运营端“专业服务目录”（S3-1）：服务商经身份模块的机构端口校验，城市经平台城市目录端口校验。 */
+    @Bean
+    ProServiceOpsService proServiceOpsService(
+            ProServiceOpsMapper mapper,
+            IdentityOrganizationPort organizations,
+            ProServicePorts.CityDirectory cities
+    ) {
+        return new ProServiceOpsService(mapper, organizations, cities);
     }
 }

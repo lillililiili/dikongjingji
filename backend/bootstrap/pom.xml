@@ -86,6 +86,11 @@
         </dependency>
         <dependency>
             <groupId>com.lowaltitude</groupId>
+            <artifactId>opsimport</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.lowaltitude</groupId>
             <artifactId>search</artifactId>
             <version>${project.version}</version>
         </dependency>

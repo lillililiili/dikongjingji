@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import platformFlagSource from '../../platform/application/platform-preview.ts?raw'
+import { moduleFlagExpression } from '../../../app-shell/release/feature-flags'
 import { classifyOrderCommandFailure } from '../application/order-commands'
 import { classifySubmitFailure } from '../application/submit-order'
 import { createSubmitKeyHolder, createTradeKey } from '../application/trade-keys'
@@ -92,10 +92,10 @@ describe('order command failures', () => {
 })
 
 describe('trade preview flag', () => {
-  it('uses exactly the expression of the shared preview flag', () => {
+  it('reads its own release switch', () => {
     const expression = (source: string, name: string) =>
       new RegExp(`export const ${name} = (.+)`).exec(source)?.[1].trim()
     expect(expression(tradeFlagSource, 'TRADE_PREVIEW_ENABLED'))
-      .toBe(expression(platformFlagSource, 'PLATFORM_PREVIEW_ENABLED'))
+      .toBe(moduleFlagExpression('TRADE'))
   })
 })

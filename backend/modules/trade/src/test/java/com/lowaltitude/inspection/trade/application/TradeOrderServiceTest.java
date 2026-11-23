@@ -1004,6 +1004,36 @@ class TradeOrderServiceTest {
         assertThat(service.listForMerchant(MERCHANT, null, 2, 2).hasMore()).isFalse();
     }
 
+    // 0.5.0：工作台的“待发货”“待自提”都是 PAID，靠配送方式分开。
+    @Test
+    void aMerchantCanSplitPaidOrdersByDeliveryMode() {
+        UUID express = mapper.seed(BUYER, TradeOrderStatus.PAID, NOW);
+        UUID pickup = mapper.seed(BUYER, TradeOrderStatus.PAID, NOW.plusSeconds(60));
+        mapper.find(pickup).deliveryMode = "PICKUP";
+        UUID shippedExpress = mapper.seed(BUYER, TradeOrderStatus.SHIPPED, NOW.plusSeconds(120));
+
+        assertThat(ids(service.listForMerchant(MERCHANT, "PAID", "EXPRESS", 1, 50))).containsExactly(express);
+        assertThat(ids(service.listForMerchant(MERCHANT, "PAID", " PICKUP ", 1, 50))).containsExactly(pickup);
+        assertThat(ids(service.listForMerchant(MERCHANT, null, "EXPRESS", 1, 50)))
+                .containsExactly(shippedExpress, express);
+        assertThat(ids(service.listForMerchant(MERCHANT, "PAID", "", 1, 50))).containsExactly(pickup, express);
+        for (String invalid : List.of("express", "SELF", "EXPRESS,PICKUP")) {
+            assertThatThrownBy(() -> service.listForMerchant(MERCHANT, null, invalid, 1, 20))
+                    .as(invalid)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void aMerchantReadsOnlyItsOwnPaymentAccount() {
+        assertThat(service.readMerchantAccount(MERCHANT)).isEqualTo(new MerchantAccountView(MERCHANT, SUB_MCHID, true));
+        mapper.accounts.put(MERCHANT, new TradeOrderMapper.MerchantAccountRow(MERCHANT, SUB_MCHID, false));
+        assertThat(service.readMerchantAccount(MERCHANT).active()).isFalse();
+
+        assertRefused(() -> service.readMerchantAccount(OTHER_MERCHANT), Error.NOT_FOUND);
+        assertThatThrownBy(() -> service.readMerchantAccount(null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void anInvalidStatusOrPageOrAMissingMerchantIsRefused() {
         for (Runnable call : List.<Runnable>of(
@@ -1911,14 +1941,16 @@ class TradeOrderServiceTest {
         }
 
         @Override
-        public long countMerchantOrders(UUID merchantId, String status) {
+        public long countMerchantOrders(UUID merchantId, String status, String deliveryMode) {
             merchantQueries.add(Arrays.asList(merchantId, status));
-            return merchantOrders(merchantId, status).size();
+            return merchantOrders(merchantId, status, deliveryMode).size();
         }
 
         @Override
-        public List<OrderRow> findMerchantOrders(UUID merchantId, String status, int limit, int offset) {
-            return merchantOrders(merchantId, status).stream().skip(offset).limit(limit).map(Order::toRow).toList();
+        public List<OrderRow> findMerchantOrders(UUID merchantId, String status, String deliveryMode, int limit,
+                                                   int offset) {
+            return merchantOrders(merchantId, status, deliveryMode).stream().skip(offset).limit(limit).map(Order::toRow)
+                    .toList();
         }
 
         @Override
@@ -2004,10 +2036,11 @@ class TradeOrderServiceTest {
                     .orElse(null);
         }
 
-        private List<Order> merchantOrders(UUID merchantId, String status) {
+        private List<Order> merchantOrders(UUID merchantId, String status, String deliveryMode) {
             return orders.stream()
                     .filter(order -> order.merchantId.equals(merchantId))
                     .filter(order -> status == null || status.equals(order.status))
+                    .filter(order -> deliveryMode == null || deliveryMode.equals(order.deliveryMode))
                     .sorted(Comparator.comparing((Order order) -> order.createdAt)
                             .thenComparing(order -> order.id)
                             .reversed())
