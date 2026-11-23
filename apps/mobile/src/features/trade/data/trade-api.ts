@@ -9,6 +9,8 @@ import {
   type TradeOrderLine,
   type TradeOrderPage,
   type TradeOrderSource,
+  type TradeOrderAftersale,
+  type TradeOrderParties,
   type TradeOrderTab,
   type TradeRefund,
 } from '../domain/trade-order'
@@ -37,7 +39,11 @@ export interface TradeApi {
 }
 
 // The DTO as it arrives: the server sends null for empty fields, older fixtures may omit them.
-type TradeOrderDto = Omit<TradeOrder, 'lines' | 'delivery' | 'refunds' | 'closeReason' | 'source' | 'sourceRef' | 'merchant' | 'payer'> & {
+type TradeOrderDto = Omit<
+  TradeOrder,
+  'lines' | 'delivery' | 'refunds' | 'closeReason' | 'source' | 'sourceRef' | 'merchant'
+  | 'parties' | 'channelTransactionId' | 'participantNames' | 'aftersale' | 'payer'
+> & {
   payer?: { type?: string | null; name?: string | null } | null
   source?: string | null
   sourceRef?: string | null
@@ -46,6 +52,11 @@ type TradeOrderDto = Omit<TradeOrder, 'lines' | 'delivery' | 'refunds' | 'closeR
   lines: Array<Partial<TradeOrderLine> & Omit<TradeOrderLine, 'coverImage'>>
   delivery?: (Partial<TradeDelivery> & Pick<TradeDelivery, 'mode'>) | null
   refunds?: Array<Partial<TradeRefund> & Omit<TradeRefund, 'succeededAt'>>
+  // 0.6.0; absent on an older server.
+  parties?: Partial<TradeOrderParties> | null
+  channelTransactionId?: string | null
+  participantNames?: string | null
+  aftersale?: Partial<TradeOrderAftersale> | null
 }
 
 export function createTradeApi(request: TradeRequest): TradeApi {
@@ -189,10 +200,29 @@ export function toTradeOrder(dto: TradeOrderDto): TradeOrder {
     })),
     cancellable: Boolean(dto.cancellable),
     version: dto.version,
+    parties: {
+      fulfilledFrom: textOrNull(dto.parties?.fulfilledFrom),
+      invoiceIssuer: textOrNull(dto.parties?.invoiceIssuer),
+      aftersaleParty: textOrNull(dto.parties?.aftersaleParty),
+    },
+    channelTransactionId: textOrNull(dto.channelTransactionId),
+    participantNames: textOrNull(dto.participantNames),
+    aftersale: {
+      latestAftersaleId: dto.aftersale?.latestAftersaleId ?? null,
+      latestStatus: dto.aftersale?.latestStatus ?? null,
+      // Only an explicit true opens 申请售后; an older server that does not say keeps it closed.
+      applicable: dto.aftersale?.applicable === true,
+    },
     payer: dto.payer?.type === 'ENTERPRISE' && dto.payer.name
       ? { type: 'ENTERPRISE', name: dto.payer.name }
       : { type: 'PERSONAL', name: null },
   }
+}
+
+// An empty string reads as "not known", so the page leaves the row out rather than showing a blank.
+function textOrNull(value: string | null | undefined): string | null {
+  const text = value?.trim() ?? ''
+  return text === '' ? null : text
 }
 
 function toDelivery(delivery: Partial<TradeDelivery> & Pick<TradeDelivery, 'mode'>): TradeDelivery {

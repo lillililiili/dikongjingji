@@ -768,6 +768,13 @@ class TradeSourceOrdersTest {
             return 1;
         }
 
+        // ---- 0.6.0 新加的读写：这些测试不关心，什么都不做 ----
+
+        @Override
+        public int saveParties(UUID orderId, String fulfilledFrom, String invoiceIssuer, String aftersaleParty) {
+            return 1;
+        }
+
         @Override
         public java.util.List<EnterpriseOrderRow> findEnterpriseOrders(java.util.UUID organizationId, int limit, int offset) {
             return java.util.List.of();
@@ -786,6 +793,22 @@ class TradeSourceOrdersTest {
         @Override
         public int anonymizeBuyerDeliveries(java.util.UUID buyerId) {
             return 0;
+        }
+
+        @Override
+        public int saveParticipantNames(UUID orderId, String participantNames) {
+            return 1;
+        }
+
+        @Override
+        public int markLinesWithoutNoReasonReturn(UUID orderId, java.util.List<UUID> offerIds) {
+            return offerIds.size();
+        }
+
+        @Override
+        public java.util.List<com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOrderMapper.OrderExtrasRow>
+                findOrderExtras(java.util.List<UUID> orderIds) {
+            return java.util.List.of();
         }
 
             @Override

@@ -34,7 +34,8 @@ class MallCatalogControllerTest {
     void listPassesEveryParameterAndReturnsTheBarePage() throws Exception {
         when(service.listProducts(new MallProductSearch(
                 "370500", "ROBOT", "编程", List.of("BUY", "RENT"), List.of("ONLINE_EXPERIENCE"),
-                List.of("LOCAL_STORE"), 10000L, 500000L, "PRICE_ASC", 2, 10))).thenReturn(new MallProductPageView(
+                List.of("LOCAL_STORE"), 10000L, 500000L, "PRICE_ASC", 2, 10,
+                UUID.fromString("c1000000-0000-4000-8000-000000000001")))).thenReturn(new MallProductPageView(
                 2, 10, 11, false,
                 List.of(new MallProductCardView(
                         PRODUCT_ID, MallCategory.ROBOT, "编程机器人探索套装", null, MallSaleMode.BUY,
@@ -50,6 +51,7 @@ class MallCatalogControllerTest {
                         .param("merchantKinds", "LOCAL_STORE")
                         .param("minPriceMinor", "10000")
                         .param("maxPriceMinor", "500000")
+                        .param("merchantId", "c1000000-0000-4000-8000-000000000001")
                         .param("sort", "PRICE_ASC")
                         .param("page", "2")
                         .param("size", "10"))
@@ -72,13 +74,15 @@ class MallCatalogControllerTest {
                 List.of(new MallOfferView(
                         UUID.randomUUID(), UUID.randomUUID(), "标准版",
                         new MallMerchantView(UUID.randomUUID(), "示例机器人商家", MallMerchantKind.FACTORY_DIRECT),
-                        null, "CNY", MallPriceUnit.ITEM, "按配置报价", null, null, true, 12)),
+                        null, "CNY", MallPriceUnit.ITEM, "按配置报价", null, null, true, 12, "示例机器人商家",
+                        "示例机器人商家 · 厂家保修")),
                 List.of(new MallSpecView("适用年龄", "8 岁以上")),
                 List.of(new MallPackItemView("机器人主机", 1)),
                 List.of("图形化编程"),
                 List.of(new MallSkuView(UUID.randomUUID(), "标准版")),
                 List.of(),
-                List.of(new MallIntroBlockView("TEXT", "一段介绍", null))));
+                List.of(new MallIntroBlockView("TEXT", "一段介绍", null)),
+                false));
 
         mockMvc.perform(get("/api/v1/mall/products/{productId}", PRODUCT_ID).param("cityCode", "370500"))
                 .andExpect(status().isOk())
@@ -87,7 +91,10 @@ class MallCatalogControllerTest {
                 .andExpect(jsonPath("$.offers[0].amountMinor").value(nullValue()))
                 .andExpect(jsonPath("$.offers[0].currency").value("CNY"))
                 .andExpect(jsonPath("$.offers[0].onlinePayment").value(true))
-                .andExpect(jsonPath("$.offers[0].length()").value(12))
+                .andExpect(jsonPath("$.offers[0].length()").value(14))
+                .andExpect(jsonPath("$.offers[0].invoiceIssuer").value("示例机器人商家"))
+                .andExpect(jsonPath("$.offers[0].aftersaleParty").value("示例机器人商家 · 厂家保修"))
+                .andExpect(jsonPath("$.noReasonReturn").value(false))
                 .andExpect(jsonPath("$.offers[0].stockQuantity").value(12))
                 .andExpect(jsonPath("$.sellingPoints[0]").value("图形化编程"))
                 .andExpect(jsonPath("$.skus[0].name").value("标准版"))

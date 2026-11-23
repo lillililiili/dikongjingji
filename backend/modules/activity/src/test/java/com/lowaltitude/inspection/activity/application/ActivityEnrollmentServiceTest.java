@@ -1247,10 +1247,10 @@ class ActivityEnrollmentServiceTest {
             assertThat(mapper.tickets).extracting(row -> row.ticketCode).doesNotContainNull();
             // 名额现在就占上。
             assertThat(mapper.session.enrolledCount).isEqualTo(50);
-            // 交易订单：收款方是主办机构，金额是单价 × 人数，订单上的场次是北京时间。
+            // 交易订单：收款方是主办机构，金额是单价 × 人数，订单上的场次是北京时间；参与人姓名按报名顺序给交易订单显示（0.6.0）。
             assertThat(payments.opened).containsExactly(new ActivityPaymentPort.OpenPayment(
                     view.enrollmentId(), ACCOUNT, ORGANIZER, "370500", ACTIVITY_ID, SESSION_ID, TITLE,
-                    "11月28日 09:00 上午场", COVER, UNIT, 2, payBefore.toInstant()));
+                    "11月28日 09:00 上午场", COVER, UNIT, 2, payBefore.toInstant(), List.of("王女士", "小明")));
             InMemoryMapper.Enrollment stored = mapper.enrollments.get(0);
             assertThat(stored.status).isEqualTo("PENDING_PAYMENT");
             assertThat(stored.tradeOrderId).isEqualTo(order);

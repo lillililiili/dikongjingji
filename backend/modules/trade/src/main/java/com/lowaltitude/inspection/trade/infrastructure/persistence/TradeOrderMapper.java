@@ -514,6 +514,96 @@ public interface TradeOrderMapper {
             """)
     List<CloseCauseRow> findCloseCauses(@Param("orderIds") List<UUID> orderIds);
 
+    // ---- 0.6.0：交易主体快照、报名参与人、渠道交易号、售后入口 ----
+
+    /** 下单后写上交易主体快照（发货仓、开票方、售后责任方）。 */
+    @Update("""
+            UPDATE trade_order
+            SET fulfilled_from = #{fulfilledFrom},
+                invoice_issuer = #{invoiceIssuer},
+                aftersale_party = #{aftersaleParty}
+            WHERE id = #{orderId}
+            """)
+    int saveParties(
+            @Param("orderId") UUID orderId,
+            @Param("fulfilledFrom") String fulfilledFrom,
+            @Param("invoiceIssuer") String invoiceIssuer,
+            @Param("aftersaleParty") String aftersaleParty
+    );
+
+    /** 收费报名订单的参与人姓名（显示用）。 */
+    @Update("""
+            UPDATE trade_order
+            SET participant_names = #{participantNames}
+            WHERE id = #{orderId}
+            """)
+    int saveParticipantNames(@Param("orderId") UUID orderId, @Param("participantNames") String participantNames);
+
+    /** 这张单上不支持七天无理由的商品行（按供给）。 */
+    @Update("""
+            <script>
+            UPDATE trade_order_line
+            SET no_reason_return = false
+            WHERE order_id = #{orderId}
+              AND offer_id IN
+            <foreach collection="offerIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+            </script>
+            """)
+    int markLinesWithoutNoReasonReturn(@Param("orderId") UUID orderId, @Param("offerIds") List<UUID> offerIds);
+
+    /**
+     * 订单的附加信息：交易主体快照、参与人、付款成功的微信交易号、这张单是否全部支持七天无理由，
+     * 以及售后（最近一张、有没有没结束的、一共几张）。
+     */
+    @Select("""
+            <script>
+            SELECT o.id order_id,
+                   o.fulfilled_from,
+                   o.invoice_issuer,
+                   o.aftersale_party,
+                   o.participant_names,
+                   (SELECT p.transaction_id FROM trade_payment p
+                    WHERE p.order_id = o.id AND p.status = 'SUCCEEDED' LIMIT 1) transaction_id,
+                   NOT EXISTS (SELECT 1 FROM trade_order_line l
+                               WHERE l.order_id = o.id AND NOT l.no_reason_return) no_reason_return,
+                   latest.id latest_aftersale_id,
+                   latest.status latest_aftersale_status,
+                   (SELECT count(*) FROM trade_aftersale a WHERE a.order_id = o.id) aftersale_count,
+                   EXISTS (SELECT 1 FROM trade_aftersale a
+                           WHERE a.order_id = o.id
+                             AND a.status IN ('PENDING_REVIEW', 'AWAITING_RETURN', 'RETURN_SHIPPED', 'REFUNDING'))
+                       aftersale_open,
+                   (SELECT COALESCE(sum(r.amount_minor), 0) FROM trade_refund r
+                    WHERE r.order_id = o.id AND r.status IN ('REQUESTED', 'PROCESSING', 'ABNORMAL')) reserved_minor
+            FROM trade_order o
+            LEFT JOIN LATERAL (
+                SELECT a.id, a.status FROM trade_aftersale a
+                WHERE a.order_id = o.id
+                ORDER BY a.submitted_at DESC, a.id DESC
+                LIMIT 1
+            ) latest ON true
+            WHERE o.id IN
+            <foreach collection="orderIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+            </script>
+            """)
+    List<OrderExtrasRow> findOrderExtras(@Param("orderIds") List<UUID> orderIds);
+
+    record OrderExtrasRow(
+            UUID orderId,
+            String fulfilledFrom,
+            String invoiceIssuer,
+            String aftersaleParty,
+            String participantNames,
+            String transactionId,
+            boolean noReasonReturn,
+            UUID latestAftersaleId,
+            String latestAftersaleStatus,
+            long aftersaleCount,
+            boolean aftersaleOpen,
+            long reservedMinor
+    ) {
+    }
+
     record KeyRow(UUID id, String requestHash) {
     }
 

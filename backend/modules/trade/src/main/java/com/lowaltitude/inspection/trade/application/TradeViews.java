@@ -36,29 +36,66 @@ public final class TradeViews {
             List<TradeRefundView> refunds,
             boolean cancellable,
             int version,
-            /** 0.6.0 付款主体（下单时的身份快照，S5-7）。 */
+            /** 0.7.0：下单时的交易主体快照（发货仓、开票方、售后责任方）；业务来源的订单三项都为 null。 */
+            TradeOrderPartiesView parties,
+            /** 0.7.0：付款成功的支付单在微信的交易号（transaction_id），验签后的回调或查单才有；没付款时为 null。只用来显示。 */
+            String channelTransactionId,
+            /** 0.7.0：收费报名订单的参与人姓名（按报名顺序，顿号连接），只用来显示；别的订单为 null。 */
+            String participantNames,
+            /** 0.7.0：这张单的售后（只有商城订单有意义）。 */
+            TradeOrderAftersaleView aftersale,
+            /** 0.10.0 付款主体（下单时的身份快照，S5-7）。 */
             TradePayerView payer
     ) {
+        /** 0.7.0 到 0.9.0 的字段（售后、课程分支的调用方用）：付款主体是个人。 */
+        public TradeOrderView(UUID orderId, String orderNo, String source, UUID sourceRef, TradeOrderStatus status,
+                              TradeMerchantView merchant, List<TradeOrderLineView> lines, TradeDeliveryView delivery,
+                              TradeAmountsView amounts, String buyerNote, Instant createdAt, Instant payBefore,
+                              Instant paidAt, Instant completedAt, Instant closedAt, String closeReason,
+                              List<TradeRefundView> refunds, boolean cancellable, int version,
+                              TradeOrderPartiesView parties, String channelTransactionId, String participantNames,
+                              TradeOrderAftersaleView aftersale) {
+            this(orderId, orderNo, source, sourceRef, status, merchant, lines, delivery, amounts, buyerNote, createdAt,
+                    payBefore, paidAt, completedAt, closedAt, closeReason, refunds, cancellable, version,
+                    parties, channelTransactionId, participantNames, aftersale, TradePayerView.PERSONAL);
+        }
 
-        /** 0.6.0 之前的写法（测试里还在用）：付款主体是个人。 */
+        /** 0.5.0 及以前的字段（测试和老调用方用）：新字段都取空，付款主体是个人。 */
         public TradeOrderView(UUID orderId, String orderNo, String source, UUID sourceRef, TradeOrderStatus status,
                               TradeMerchantView merchant, List<TradeOrderLineView> lines, TradeDeliveryView delivery,
                               TradeAmountsView amounts, String buyerNote, Instant createdAt, Instant payBefore,
                               Instant paidAt, Instant completedAt, Instant closedAt, String closeReason,
                               List<TradeRefundView> refunds, boolean cancellable, int version) {
-            this(orderId, orderNo, source, sourceRef, status, merchant, lines, delivery, amounts, buyerNote,
-                    createdAt, payBefore, paidAt, completedAt, closedAt, closeReason, refunds, cancellable, version,
-                    TradePayerView.PERSONAL);
+            this(orderId, orderNo, source, sourceRef, status, merchant, lines, delivery, amounts, buyerNote, createdAt,
+                    payBefore, paidAt, completedAt, closedAt, closeReason, refunds, cancellable, version,
+                    TradeOrderPartiesView.NONE, null, null, TradeOrderAftersaleView.NONE, TradePayerView.PERSONAL);
         }
     }
 
-    /** 付款主体：PERSONAL 个人（name 为 null），ENTERPRISE 企业（企业名称快照）。 */
+    /**
+     * 交易主体（0.7.0，画板 OrderGoods）：fulfilledFrom 从哪里发货（商城供给的发货仓，几行不同时用“；”连接）；
+     * invoiceIssuer 开票方；aftersaleParty 售后责任方。都是下单时的快照，没有时为 null（页面不显示这一行）。
+     */
+    public record TradeOrderPartiesView(String fulfilledFrom, String invoiceIssuer, String aftersaleParty) {
+        public static final TradeOrderPartiesView NONE = new TradeOrderPartiesView(null, null, null);
+    }
+
+    /**
+     * 订单上的售后入口（0.7.0）：latestAftersaleId、latestStatus 是最近一张售后单（没有时为 null）；
+     * applicable 是现在能不能申请（服务端按订单状态、收货时间、有没有没结束的售后单、还能退的钱算；
+     * 具体能选哪类、哪个原因看售后申请页的 eligibility）。
+     */
+    public record TradeOrderAftersaleView(UUID latestAftersaleId, String latestStatus, boolean applicable) {
+        public static final TradeOrderAftersaleView NONE = new TradeOrderAftersaleView(null, null, false);
+    }
+
+    /** 付款主体（0.10.0）：PERSONAL 个人（name 为 null），ENTERPRISE 企业（企业名称快照）。 */
     public record TradePayerView(String type, String name) {
 
         public static final TradePayerView PERSONAL = new TradePayerView("PERSONAL", null);
     }
 
-    /** 企业订单列表的一项（0.6.0）。operatorName 是经办人（下单账号的显示名）。 */
+    /** 企业订单列表的一项（0.10.0）。operatorName 是经办人（下单账号的显示名）。 */
     public record EnterpriseOrderSummaryView(UUID orderId, String orderNo, String source, String title,
                                              TradeOrderStatus status, long payableMinor, String operatorName,
                                              Instant createdAt) {

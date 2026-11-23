@@ -29,9 +29,12 @@ import org.springframework.transaction.annotation.Transactional;
  */
 public class TradeSourceOrders {
 
-    /** 各业务来源的订单编号前缀；商城订单是 MO。收费报名 AO（E09），到馆预约 VO（E10），设备租赁 RO（F3），巡检付款节点 IO（S4-1）。 */
-    static final Map<String, String> ORDER_PREFIXES =
-            Map.of("ACTIVITY", "AO", "VENUE", "VO", "RENTAL", "RO", "INSPECTION", "IO");
+    /**
+     * 各业务来源的订单编号前缀；商城订单是 MO。收费报名 AO（E09），到馆预约 VO（E10），设备租赁 RO（F3），
+     * 巡检付款节点 IO（S4-1），线上录播课 CO（S5-5）。
+     */
+    static final Map<String, String> ORDER_PREFIXES = Map.of(
+            "ACTIVITY", "AO", "VENUE", "VO", "RENTAL", "RO", "INSPECTION", "IO", "COURSE", "CO");
     static final int MAX_LINES = 20;
     static final int MAX_ITEM_NAME = 160;
     static final int MAX_OPTION_NAME = 80;
@@ -135,6 +138,10 @@ public class TradeSourceOrders {
                     sort,
                     now);
             sort += 10;
+        }
+        String names = participantNames(command.participantNames());
+        if (names != null) {
+            orders.saveParticipantNames(orderId, names);
         }
         orders.insertTransition(orderId, null, TradeOrderStatus.PENDING_PAYMENT.name(), "SUBMIT", command.buyerId(), now);
         SourceOrderRow created = sources.findSourceOrder(orderId);
@@ -264,6 +271,21 @@ public class TradeSourceOrders {
      * @param merchantId 收款机构（它要登记过有效的微信子商户号）
      * @param payBefore  付款截止时间，由业务决定（收费报名是 15 分钟且不晚于报名截止）
      */
+    /** 姓名用顿号连接，最多 400 个字符（超出的截掉，只是显示用）。 */
+    static String participantNames(List<String> names) {
+        if (names == null || names.isEmpty()) {
+            return null;
+        }
+        String joined = names.stream()
+                .filter(name -> name != null && !name.isBlank())
+                .map(String::trim)
+                .collect(java.util.stream.Collectors.joining("、"));
+        if (joined.isEmpty()) {
+            return null;
+        }
+        return joined.length() <= 400 ? joined : joined.substring(0, 400);
+    }
+
     public record OpenCommand(
             String source,
             UUID sourceRef,
@@ -271,8 +293,14 @@ public class TradeSourceOrders {
             UUID merchantId,
             String cityCode,
             List<Line> lines,
-            Instant payBefore
+            Instant payBefore,
+            /** 0.6.0：订单上显示的参与人姓名（收费报名的报名顺序）；别的来源为空。只用来显示。 */
+            List<String> participantNames
     ) {
+        public OpenCommand(String source, UUID sourceRef, UUID buyerId, UUID merchantId, String cityCode,
+                           List<Line> lines, Instant payBefore) {
+            this(source, sourceRef, buyerId, merchantId, cityCode, lines, payBefore, List.of());
+        }
     }
 
     /** 一行：业务项目（如活动）和选项（如场次），单价和数量。 */

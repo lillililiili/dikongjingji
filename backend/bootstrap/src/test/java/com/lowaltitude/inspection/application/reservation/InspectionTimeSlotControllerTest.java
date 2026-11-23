@@ -69,6 +69,8 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
         // S3-1 第二部分：商品与供给、收款账户、批量导入
         com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class,
+        com.lowaltitude.inspection.mall.application.MallMerchantService.class,
+        com.lowaltitude.inspection.trade.application.TradeAftersaleService.class,
         com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
         com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
         com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,
@@ -86,6 +88,8 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.identity.application.account.EnterpriseService.class,
         com.lowaltitude.inspection.trade.application.TradeEnterpriseAccess.class,
         com.lowaltitude.inspection.live.application.LiveService.class,
+        com.lowaltitude.inspection.course.application.CourseService.class,
+        com.lowaltitude.inspection.course.application.ops.CourseOpsService.class,
         com.lowaltitude.inspection.content.application.ContentReadService.class,
         com.lowaltitude.inspection.content.application.ContentVideoService.class,
         ExperienceCatalogReadService.class,

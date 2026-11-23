@@ -190,8 +190,12 @@ class TradeOrderControllerTest {
         mockMvc.perform(submit().principal(customer).content(BODY))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("ETag", "\"0\""))
-                // 0.6.0：多了付款主体 payer。
-                .andExpect(jsonPath("$.length()").value(20))
+                // 0.6.0：加了交易主体、渠道交易号、参与人、售后入口四项（老调用方的构造器给空值）；0.10.0 多了付款主体 payer。
+                .andExpect(jsonPath("$.length()").value(24))
+                .andExpect(jsonPath("$.parties.invoiceIssuer").value(nullValue()))
+                .andExpect(jsonPath("$.channelTransactionId").value(nullValue()))
+                .andExpect(jsonPath("$.participantNames").value(nullValue()))
+                .andExpect(jsonPath("$.aftersale.applicable").value(false))
                 .andExpect(jsonPath("$.payer.type").value("PERSONAL"))
                 .andExpect(jsonPath("$.orderId").value(ORDER.toString()))
                 .andExpect(jsonPath("$.orderNo").value("MO2026111800000042"))

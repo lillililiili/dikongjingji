@@ -45,9 +45,12 @@ import {
 } from '@/features/inspection/navigation/inspection-routes'
 import PlatformMinePage from '@/features/inspection/presentation/platform/mine/PlatformMinePage.vue'
 import { buildMyOrdersUrl, type MyOrderChip } from '@/features/orders/application/my-orders-route'
+import { buildAftersalesUrl } from '@/features/trade/navigation/aftersale-routes'
 import { SETTINGS_PATH, ABOUT_PATH } from '@/features/settings/navigation/settings-routes'
 import { loadStaffAccess } from '@/features/staff/application/staff-access'
 import { STAFF_WORK_MODE_ENABLED } from '@/features/staff/application/staff-work-mode'
+import { COURSE_PREVIEW_ENABLED } from '@/features/course/application/course-preview'
+import { buildMyCoursesUrl } from '@/features/course/navigation/course-routes'
 import { checkinApi } from '@/features/staff/data/checkin-api-client'
 import { buildStaffVerifyUrl } from '@/features/staff/navigation/staff-routes'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
@@ -70,11 +73,13 @@ import { formatBeijingTime, toBeijingParts } from '@/shared/time/beijing-time'
 const currentCityStore = useCurrentCityStore()
 
 // 我的参与 (board Mine `joins`): 活动报名, 体验预约 and 体验记录 (S5-4) behind their channels'
-// switches; 我的课程 is not built (plan 08 S5-5). 租赁订单 (F3, §24.3) has no other way in, so it stays.
+// switches, 我的课程 behind the COURSE switch (S5-5). 租赁订单 (F3, §24.3) has no other way in, so it
+// stays.
 const joinEntries: PlatformMineLinkEntry[] = [
   ...(ACTIVITY_PREVIEW_ENABLED ? [{ code: 'ACTIVITY_ENROLLMENTS', title: '活动报名' }] : []),
   ...(EXPERIENCE_PREVIEW_ENABLED ? [{ code: 'VENUE_BOOKINGS', title: '体验预约' }] : []),
   ...(EXPERIENCE_PREVIEW_ENABLED ? [{ code: 'EXPERIENCE_RECORDS', title: '体验记录' }] : []),
+  ...(COURSE_PREVIEW_ENABLED ? [{ code: 'MY_COURSES', title: '我的课程' }] : []),
   ...(RENTAL_PREVIEW_ENABLED ? [{ code: 'RENTAL_ORDERS', title: '租赁订单' }] : []),
 ]
 
@@ -379,6 +384,7 @@ function openLink(code: string): void {
   if (code === 'DEMANDS') uni.navigateTo({ url: buildMyDemandsUrl() })
   if (code === 'ENTERPRISE') uni.navigateTo({ url: buildOrgUrl(account.value?.identity?.enterpriseId ?? null) })
   if (code === 'RENTAL_ORDERS') uni.navigateTo({ url: buildMyRentalOrdersUrl() })
+  if (code === 'MY_COURSES') uni.navigateTo({ url: buildMyCoursesUrl() })
   if (code === 'STAFF_WORK_MODE') uni.navigateTo({ url: buildStaffVerifyUrl() })
 }
 
@@ -408,7 +414,9 @@ function openStage(stage: MineOrderStage): void {
     return
   }
   if (TRADE_PREVIEW_ENABLED) {
-    uni.navigateTo({ url: buildMyOrdersUrl({ chip: STAGE_CHIPS[stage] }) })
+    // 退款/售后 opens the after-sales list (board Mine → AftersaleList, S4-2); the other stages open
+    // 我的订单 on their chip, where 退款/售后 also lists the cases with “全部售后单 ›”.
+    uni.navigateTo({ url: stage === 'REFUND' ? buildAftersalesUrl() : buildMyOrdersUrl({ chip: STAGE_CHIPS[stage] }) })
     return
   }
   if (stage === 'TO_ACCEPT') {
