@@ -157,6 +157,8 @@ test.describe('登录续期', () => {
     test.skip(typeof (await probe.json()).refreshToken !== 'string', '本地后端还没有登录续期（V008 之前的版本）')
 
     await page.goto('/#/pages/service/inspection/login?returnUrl=%2Fpages%2Fmine%2Findex')
+    // S5-8: preview builds open on the code login; the account form is one tap away.
+    await page.getByTestId('login-switch-mode').click()
     // 用户名输入框不自动大写、不自动更正（iOS 走查问题）。
     const nameField = page.locator('.inspection-login__input input').nth(0)
     await expect(nameField).toHaveAttribute('autocapitalize', 'off')

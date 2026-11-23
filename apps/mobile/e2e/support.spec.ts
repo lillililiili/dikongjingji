@@ -237,10 +237,10 @@ test.describe('客服会话、设置与公共页', () => {
     await page.goto('/#/pages/mine/index')
     await page.getByTestId('mine-settings').click()
     await expect(page.getByTestId('settings-page')).toBeVisible()
-    await expect(page.getByTestId('settings-display-name')).toHaveText('王女士（示例）')
-    await expect(page.getByTestId('settings-organization')).not.toHaveText('—')
-    // 通知开关（S5-9）有“推送”；手机号、注销还没有。
-    await expect(page.getByTestId('settings-page')).not.toContainText(/1[3-9]\d{9}|手机号|注销/)
+    // S5-8 (board Settings): 账号与安全 is the phone row and 登录设备管理; the number is masked.
+    await expect(page.getByTestId('settings-phone')).toBeVisible()
+    await expect(page.getByTestId('settings-devices')).toBeVisible()
+    await expect(page.getByTestId('settings-page')).not.toContainText(/1[3-9]\d{9}/)
 
     await page.getByTestId('settings-agreement-user_agreement').click()
     await expect(page.getByTestId('agreement-title')).toHaveText('用户协议')
@@ -361,7 +361,7 @@ test.describe('客服会话、设置与公共页', () => {
       await page.screenshot({ path: shot('Chat') })
 
       await page.goto(at('#/pages/mine/settings'))
-      await expect(page.getByTestId('settings-display-name')).toHaveText('王女士（示例）')
+      await expect(page.getByTestId('settings-devices')).toBeVisible()
       await assertNoHorizontalOverflow(page)
       await tallShot(page, shot('Settings'))
 

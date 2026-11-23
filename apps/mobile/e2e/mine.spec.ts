@@ -77,7 +77,9 @@ test.describe('我的', () => {
     await expect(page.getByTestId('mine-login')).toHaveCount(0)
     // The name and organization come from the account; no level is shown because there is none.
     await expect(page.locator('.platform-mine__name')).toHaveText('王女士')
-    await expect(page.locator('.platform-mine__certification')).toContainText('东营港务物流')
+    // S5-7 (board Mine): preview builds show the phone line and the identity switch, not the organization.
+    await expect(page.locator('.platform-mine__certification')).toHaveCount(0)
+    await expect(page.getByTestId('mine-switch-identity')).toHaveText('切换企业身份')
     await expect(page.locator('.platform-mine__level')).toHaveCount(0)
     // Only 待验收 has a number here: the other stages' APIs reject the stub token, so they show none.
     await expect(page.locator('.platform-mine__status-count')).toHaveText(['99+'])

@@ -128,6 +128,8 @@ test.describe('收藏与对比', () => {
 
     await expect(page).toHaveURL(/pages\/service\/inspection\/login\?returnUrl=/)
     expect(favoriteRows()).toBe('')
+    // S5-8: preview builds open on the code login; the account form is one tap away.
+    await page.getByTestId('login-switch-mode').click()
     await page.locator('.inspection-login__input input').nth(0).fill(BUYER)
     await page.locator('.inspection-login__input input').nth(1).fill(devPassword())
     await page.getByTestId('login-agreement').click()
