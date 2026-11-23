@@ -116,9 +116,10 @@ test.describe('商城频道', () => {
     await expect(page.locator('.mall-card')).toHaveCount(4)
     await expect(page.locator('.mall-card__rent')).toHaveCount(4)
 
+    // S5-5: the 课程 tab now lists the recorded courses (course-channel.spec covers it); go back with 全部.
     await page.getByTestId('mall-category-course').click()
-    await expect(page.getByTestId('mall-list-empty')).toContainText('暂无课程商品')
-    await page.getByTestId('mall-show-all').click()
+    await expect(page.getByTestId('course-list')).toBeVisible()
+    await page.getByTestId('mall-category-all').click()
     await expect(page.getByTestId('mall-category-all')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('.mall-card')).toHaveCount(10)
   })
@@ -155,7 +156,7 @@ test.describe('商城频道', () => {
     await page.getByTestId('home-channel-recommend').click()
     await page.getByTestId('home-king-course').click()
     await expect(page.getByTestId('mall-category-course')).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByTestId('mall-list-empty')).toContainText('暂无课程商品')
+    await expect(page.getByTestId('course-list')).toBeVisible()
 
     // Asking for the same category again still selects it after the user moved to another tab.
     await page.getByTestId('mall-category-all').click()
