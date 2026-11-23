@@ -55,6 +55,15 @@ const MESSAGES: Record<string, string> = {
   OPS_MEDIA_TYPE_UNSUPPORTED: '只能上传 JPEG、PNG、WebP 图片或 MP4 视频',
   OPS_MEDIA_TOO_LARGE: '图片不能超过 5 MB，视频不能超过 50 MB',
   OPS_MEDIA_STORE_UNAVAILABLE: '素材存储暂不可用，请稍后再试',
+  // 活动与场次（openapi-ops-activity.yaml）
+  OPS_ACTIVITY_STATUS_CONFLICT: '活动现在的状态不能这样操作，请刷新后再看',
+  OPS_ACTIVITY_ORGANIZER_UNKNOWN: '主办或承办机构不存在、已停用，或不是经营机构',
+  OPS_ACTIVITY_HAS_ENROLLMENTS: '活动已有报名，不能改收费方式、主办机构和城市',
+  OPS_ACTIVITY_SESSION_HAS_ENROLLMENTS: '这一场已有报名：不能删除，也不能改开始、结束时间，只能停售',
+  OPS_ACTIVITY_SESSION_STARTED: '场次已经开始，不能再改',
+  OPS_ACTIVITY_CAPACITY_BELOW_ENROLLED: '名额不能少于已报名人数',
+  OPS_ACTIVITY_SALE_STATUS_UNCHANGED: '场次已经是这个售卖状态了',
+  OPS_ACTIVITY_SESSION_LIMIT: '一个活动最多 50 个场次',
   [CLIENT_ERROR_CODES.network]: '网络异常，请检查网络后重试',
   [CLIENT_ERROR_CODES.invalidResponse]: '服务返回的数据无法识别，请稍后再试',
 }

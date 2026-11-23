@@ -166,7 +166,8 @@ public interface ActivityEnrollmentMapper {
                    a.city_code,
                    a.title,
                    a.cover_url,
-                   s.label
+                   s.label,
+                   s.sale_status = 'STOPPED' sale_stopped
             FROM activity_session s
             JOIN activity a ON a.id = s.activity_id
             WHERE s.id = #{sessionId}
@@ -669,7 +670,9 @@ public interface ActivityEnrollmentMapper {
             String cityCode,
             String title,
             String coverUrl,
-            String label
+            String label,
+            /** 运营停售了这一场（S3-1）：不能再报名，已有报名照常。 */
+            boolean saleStopped
     ) {
     }
 

@@ -551,6 +551,19 @@ class ActivityEnrollmentServiceTest {
                 .isTrue();
     }
 
+    // S3-1：运营停售的场次不能再报名，恢复售卖后又能报。
+    @Test
+    void aStoppedSessionTakesNoNewEnrollments() {
+        UUID self = self();
+
+        mapper.session.saleStopped = true;
+        assertRejected(Error.ENROLLMENT_NOT_OPEN, () -> service.enroll(ACCOUNT, KEY, command(self)));
+        assertNothingEnrolled();
+
+        mapper.session.saleStopped = false;
+        assertThat(service.enroll(ACCOUNT, KEY, command(self)).created()).isTrue();
+    }
+
     @Test
     void notEnoughSeatsIsSessionFullAndTheLastSeatsCanStillBeTaken() {
         UUID self = self();
@@ -1953,7 +1966,8 @@ class ActivityEnrollmentServiceTest {
                     "370500",
                     TITLE,
                     session.coverUrl,
-                    session.label);
+                    session.label,
+                    session.saleStopped);
         }
 
         @Override
@@ -2385,6 +2399,7 @@ class ActivityEnrollmentServiceTest {
             int capacity = 60;
             int enrolledCount = 48;
             String label = "上午场";
+            boolean saleStopped;
             String coverUrl = COVER;
             Double latitude = 37.43;
             Double longitude = 118.67;

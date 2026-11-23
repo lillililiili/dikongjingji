@@ -72,6 +72,7 @@ import org.springframework.test.web.servlet.MockMvc;
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,
         PlanApplicationService.class,
         OrderApplicationService.class,
         DeliveryApplicationService.class,
@@ -548,7 +549,9 @@ class AuthenticationSecurityIntegrationTest {
                 com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class);
         var support = applicationContext.getBean(
                 com.lowaltitude.inspection.support.application.SupportService.class);
-        org.mockito.Mockito.clearInvocations(cities, organizations, support);
+        var activityOps = applicationContext.getBean(
+                com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class);
+        org.mockito.Mockito.clearInvocations(cities, organizations, support, activityOps);
         String operatorToken = tokenWithRoles(List.of("PLATFORM_OPERATOR"));
         String supportToken = tokenWithRoles(List.of("PLATFORM_SUPPORT"));
 
@@ -575,13 +578,13 @@ class AuthenticationSecurityIntegrationTest {
         }
         // 平台客服不是平台运营，平台运营也不处理反馈。
         for (var request : List.of(get("/api/v1/ops/cities"), get("/api/v1/ops/organizations"),
-                get("/api/v1/ops/organizations/" + organization))) {
+                get("/api/v1/ops/organizations/" + organization), get("/api/v1/ops/activities"))) {
             mockMvc.perform(request.header("Authorization", "Bearer " + supportToken))
                     .andExpect(status().isForbidden());
         }
         mockMvc.perform(get("/api/v1/ops/feedback").header("Authorization", "Bearer " + operatorToken))
                 .andExpect(status().isForbidden());
-        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support);
+        org.mockito.Mockito.verifyNoMoreInteractions(cities, organizations, support, activityOps);
     }
 
     /** 每次新建，请求头不会在几轮之间叠加。 */
@@ -598,7 +601,19 @@ class AuthenticationSecurityIntegrationTest {
                 delete(orgPath + "/attachments/" + attachment), post(orgPath + "/accounts"),
                 put(orgPath + "/accounts/" + SUBJECT_ID + "/roles"),
                 // S3-1 第三部分：素材上传与预览
-                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"));
+                post("/api/v1/ops/media"), get("/api/v1/ops/media/" + attachment + ".png"),
+                // S3-1 第三部分：活动与场次
+                get("/api/v1/ops/activities"), post("/api/v1/ops/activities"),
+                get("/api/v1/ops/activities/" + attachment), put("/api/v1/ops/activities/" + attachment),
+                delete("/api/v1/ops/activities/" + attachment + "?version=0"),
+                post("/api/v1/ops/activities/" + attachment + "/publish"),
+                post("/api/v1/ops/activities/" + attachment + "/offline"),
+                get("/api/v1/ops/activities/" + attachment + "/changes"),
+                post("/api/v1/ops/activities/" + attachment + "/sessions"),
+                put("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment),
+                delete("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment + "?version=0"),
+                post("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment + "/stop-sale"),
+                post("/api/v1/ops/activities/" + attachment + "/sessions/" + attachment + "/resume-sale"));
     }
 
     private static List<org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder> opsSupportRoutes() {
