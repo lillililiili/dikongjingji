@@ -25,7 +25,7 @@ describe('菜单', () => {
     const operator = buildMenu(ADMIN_MODULES, ['PROVIDER_OPERATOR'])
     expect(operator.map((group) => group.key)).toEqual(['WORKBENCH'])
     expect(operator[0]!.items.map((item) => item.title)).toEqual([
-      '商城订单', '商城询价', '租赁询价', '租赁订单', '需求报价', '巡检预约', '客服会话', '收款账户',
+      '商城订单', '商城询价', '租赁询价', '租赁订单', '需求报价', '巡检预约', '活动结果', '客服会话', '收款账户',
     ])
     expect(operator[0]!.items.every((item) => item.path.startsWith('/workbench/'))).toBe(true)
 
