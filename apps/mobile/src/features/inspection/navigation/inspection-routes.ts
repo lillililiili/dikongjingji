@@ -96,7 +96,8 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // checks that every one of them survives normalizeInspectionReturnUrl.
   '/pages/activity/enroll': {
     required: 'activityId',
-    allowed: ['activityId', 'sessionId', 'cityCode'],
+    // mode=waitlist (S5-3): the same form joins a full session's waitlist.
+    allowed: ['activityId', 'sessionId', 'cityCode', 'mode'],
   },
   '/pages/activity/participants': { allowed: [] },
   '/pages/activity/ticket': {
@@ -107,6 +108,12 @@ const INSPECTION_PROTECTED_RETURN_KEYS: Record<
   // Paid enrolment order and refund pages (2026-11-20, R5 #4/#5).
   '/pages/activity/order': { required: 'enrollmentId', allowed: ['enrollmentId'] },
   '/pages/activity/refund': { required: 'enrollmentId', allowed: ['enrollmentId', 'ticketId'] },
+  // S5-3: waitlist, team sign-up and its order, result record, refund/reschedule progress.
+  '/pages/activity/waitlist': { required: 'waitlistId', allowed: ['waitlistId'] },
+  '/pages/activity/team-signup': { required: 'activityId', allowed: ['activityId', 'sessionId', 'cityCode'] },
+  '/pages/activity/team-order': { required: 'enrollmentId', allowed: ['enrollmentId'] },
+  '/pages/activity/result': { required: 'enrollmentId', allowed: ['enrollmentId'] },
+  '/pages/activity/change': { required: 'enrollmentId', allowed: ['enrollmentId', 'changeId'] },
   // Mall pages (features/mall/navigation/mall-routes.ts), repeated for the same reason;
   // mall-routes.test.ts checks them.
   '/pages/mall/product': {

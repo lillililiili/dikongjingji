@@ -4,8 +4,10 @@ import { ref } from 'vue'
 
 import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
 import {
+  buildActivityChangeUrl,
   buildActivityEnrollmentsUrl,
   buildActivityRefundUrl,
+  buildActivityResultUrl,
   buildActivityTicketUrl,
 } from '@/features/activity/navigation/activity-routes'
 import ActivityOrderPage from '@/features/activity/presentation/order/ActivityOrderPage.vue'
@@ -41,6 +43,14 @@ function openRefund(id: string): void {
   uni.navigateTo({ url: buildActivityRefundUrl(id) })
 }
 
+function openChange(id: string, changeId: string): void {
+  uni.navigateTo({ url: buildActivityChangeUrl(id, changeId) })
+}
+
+function openResult(id: string): void {
+  uni.navigateTo({ url: buildActivityResultUrl(id) })
+}
+
 // Back from the cashier returns here.
 function openCashier(tradeOrderId: string): void {
   uni.navigateTo({ url: buildCashierUrl(tradeOrderId) })
@@ -68,6 +78,8 @@ onShow(() => {
     @open-ticket="openTicket"
     @refund="openRefund"
     @pay="openCashier"
+    @open-change="openChange"
+    @open-result="openResult"
   />
   <ActivityUnavailable v-else-if="!ACTIVITY_PREVIEW_ENABLED" />
 </template>

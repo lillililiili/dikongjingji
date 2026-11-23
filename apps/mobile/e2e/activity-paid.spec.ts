@@ -239,6 +239,9 @@ test.describe('收费活动报名', () => {
     await page.getByTestId('activity-refund-submit').click()
     await expect(page.locator('.uni-modal')).toContainText('原路退回 ¥168')
     await page.locator('.uni-modal__btn_primary').click()
+    // S5-3：提交后先到退改详情（退款中），返回凭证。
+    await expect(page.getByTestId('activity-change-status')).toHaveText('退款中')
+    await page.getByTestId('activity-change-back').click()
     await expect(page.getByTestId('ticket-status-title')).toHaveText('报名已取消')
     await expect(page.getByTestId('ticket-refund')).toHaveText('退款中 ¥168 · 原路退回')
     await expect(page.getByTestId('ticket-stamp')).toHaveText('已取消')

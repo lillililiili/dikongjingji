@@ -1,4 +1,8 @@
-import { buildActivityOrderUrl, buildActivityTicketUrl } from '../../features/activity/navigation/activity-routes'
+import {
+  buildActivityOrderUrl,
+  buildActivityTicketUrl,
+  buildActivityWaitlistUrl,
+} from '../../features/activity/navigation/activity-routes'
 import { buildDemandQuotesUrl } from '../../features/demand/navigation/demand-routes'
 import { buildVenueBookingUrl } from '../../features/experience/navigation/experience-routes'
 import {
@@ -33,5 +37,6 @@ export function messageTargetUrl(target: MessageTarget | null): string | null {
     case 'VENUE_BOOKING': return buildVenueBookingUrl(id)
     // M20 直播提醒: the room went live; the room reads it in the App's current city.
     case 'LIVE_ROOM': return buildLiveRoomUrl(id)
+    case 'ACTIVITY_WAITLIST': return buildActivityWaitlistUrl(id)
   }
 }

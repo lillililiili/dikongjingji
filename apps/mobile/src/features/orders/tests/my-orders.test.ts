@@ -49,6 +49,7 @@ function ticket(overrides: Partial<EnrollmentTicket> = {}): EnrollmentTicket {
     checkedInAt: null,
     cancelledAt: null,
     refund: null,
+    result: null,
     ...overrides,
   }
 }
@@ -78,6 +79,11 @@ function enrollment(overrides: Partial<Enrollment> = {}): Enrollment {
     cancellable: true,
     tickets: [ticket()],
     payment: { status: 'PAID', tradeOrderId: 'o-9', amountMinor: 24000, unitAmountMinor: 24000, payBefore: null },
+    kind: 'INDIVIDUAL',
+    team: null,
+    reschedule: null,
+    changes: [],
+    reschedulable: false,
     ...overrides,
   }
 }

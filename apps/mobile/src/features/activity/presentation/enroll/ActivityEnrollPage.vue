@@ -46,6 +46,8 @@ const props = defineProps<{
   accessToken: string | null
   // Changes whenever the page is shown again, so people added on the way back appear.
   refreshKey: number
+  // 'waitlist' (S5-3): the same form joins the waitlist of a full session (board EnrollWaitlist's entry).
+  mode?: 'enroll' | 'waitlist'
 }>()
 
 const emit = defineEmits<{
@@ -56,6 +58,8 @@ const emit = defineEmits<{
   done: [enrollmentId: string]
   // A paid sign-up waiting for payment: the trade cashier of its order.
   pay: [tradeOrderId: string]
+  // Waitlist mode: the waitlist just joined.
+  waitlisted: [waitlistId: string]
 }>()
 
 type FormState =
@@ -77,6 +81,7 @@ let requestVersion = 0
 let peopleVersion = 0
 
 const activity = computed(() => state.value.kind === 'ready' ? state.value.activity : null)
+const waitlistMode = computed(() => props.mode === 'waitlist')
 const payMode = computed<EnrollmentPayMode>(() =>
   activity.value ? resolveEnrollmentPayMode(activity.value) : 'UNSUPPORTED')
 const paid = computed(() => payMode.value === 'ONLINE_PAYMENT' || payMode.value === 'PAYMENT_UNAVAILABLE')
@@ -124,8 +129,9 @@ const forChildren = computed(() => {
   return maxAge !== null && maxAge < 18
 })
 const noticeLead = computed(() => enrollmentNoticeLead(picked.value))
+// A waitlist joins a full session on purpose, so free seats do not limit it.
 const tooMany = computed(() =>
-  selectedSession.value !== null && picked.value.length > selectedSession.value.seatsLeft)
+  !waitlistMode.value && selectedSession.value !== null && picked.value.length > selectedSession.value.seatsLeft)
 // What the page shows and sends as expectedAmountMinor; null for a free activity.
 const totalAmount = computed(() =>
   payMode.value === 'ONLINE_PAYMENT' ? enrollmentTotalMinor(unitAmount.value, picked.value.length) : null)
@@ -138,6 +144,7 @@ const priceText = computed(() => {
 const submitLabel = computed(() => {
   if (submitting.value) return '提交中…'
   if (payMode.value === 'PAYMENT_UNAVAILABLE') return '暂不能报名'
+  if (waitlistMode.value) return '加入候补'
   return payMode.value === 'ONLINE_PAYMENT' ? '提交并支付' : '提交报名'
 })
 // The button stays orange like the board (user 2026-11-20, R5 #1); tapping it with something
@@ -145,6 +152,14 @@ const submitLabel = computed(() => {
 const submitLocked = computed(() =>
   (payMode.value !== 'FREE' && payMode.value !== 'ONLINE_PAYMENT') || submitting.value)
 const missingStep = computed<string | null>(() => {
+  if (waitlistMode.value) {
+    if (selectedSession.value?.status !== 'FULL_WAITLIST') return '请先选择一个可候补的场次'
+    if (picked.value.length === 0) return '请选择参与人'
+    if (picked.value.length > MAX_ENROLLMENT_PARTICIPANTS) return `一次最多候补 ${MAX_ENROLLMENT_PARTICIPANTS} 人`
+    if (picked.value.length > (selectedSession.value?.capacity ?? 0)) return `本场一共只有 ${selectedSession.value?.capacity} 个名额`
+    if (!agreed.value) return '请先阅读并同意报名须知'
+    return null
+  }
   if (selectedSession.value?.status !== 'OPEN') return '请先选择一个场次'
   if (picked.value.length === 0) return '请选择参与人'
   if (picked.value.length > MAX_ENROLLMENT_PARTICIPANTS) return `一次最多报名 ${MAX_ENROLLMENT_PARTICIPANTS} 人`
@@ -155,6 +170,12 @@ const missingStep = computed<string | null>(() => {
 const canSubmit = computed(() => !submitLocked.value && missingStep.value === null)
 const countLine = computed(() => {
   if (payMode.value === 'PAYMENT_UNAVAILABLE') return PAYMENT_UNAVAILABLE_TEXT
+  if (waitlistMode.value) {
+    if (picked.value.length === 0) return '请选择参与人'
+    return paid.value
+      ? `候补成功后应付 · ${picked.value.length} 人 × ${formatActivityAmount(unitAmount.value)}`
+      : `${picked.value.length} 人一起候补`
+  }
   if (tooMany.value) return `本场只剩 ${selectedSession.value?.seatsLeft} 个名额`
   if (picked.value.length === 0) return '请选择参与人'
   return paid.value
@@ -162,8 +183,9 @@ const countLine = computed(() => {
     : `已选 ${picked.value.length} 人`
 })
 
+// The sessions this form can take: open ones, or (waitlist mode) full ones that take a waitlist.
 function isSessionOpen(session: ActivitySession): boolean {
-  return session.status === 'OPEN'
+  return session.status === (props.mode === 'waitlist' ? 'FULL_WAITLIST' : 'OPEN')
 }
 
 // "11/15 上午 09:30" like the board.
@@ -175,6 +197,17 @@ function sessionLabel(session: ActivitySession): string {
 
 function sessionSeats(session: ActivitySession): string {
   return session.status === 'OPEN' ? `余 ${session.seatsLeft} 位` : ACTIVITY_STATUS_LABELS[session.status]
+}
+
+// A waitlist stays on the page that explains its place in the queue (board EnrollWaitlist).
+async function submitWaitlist(token: string, session: ActivitySession, current: ActivityDetail): Promise<void> {
+  const participantIds = picked.value.map((person) => person.participantId)
+  const waitlist = await enrollmentApi.joinWaitlist(
+    token,
+    keys.keyFor(`waitlist:${session.sessionId}`, participantIds),
+    { activityId: current.activityId, sessionId: session.sessionId, participantIds, noticeAgreed: true },
+  )
+  emit('waitlisted', waitlist.waitlistId)
 }
 
 function isUnauthorized(error: unknown): boolean {
@@ -273,6 +306,8 @@ function describeSubmitFailure(error: unknown): string {
   if (error.code === 'ACTIVITY_AMOUNT_CHANGED') return '报名费有调整，已更新为最新金额，请确认后再提交'
   if (error.code === 'ACTIVITY_PAYMENT_UNAVAILABLE') return PAYMENT_UNAVAILABLE_TEXT
   if (error.status === 503 || error.code === 'TRADE_CHANNEL_UNAVAILABLE') return '微信支付暂不可用，请稍后再试'
+  if (error.code === 'ACT_WAITLIST_NOT_AVAILABLE') return '这一场现在不能候补，可能已经有空位了'
+  if (error.code === 'ACT_WAITLIST_ALREADY_JOINED') return '有参与人已经在这一场候补'
   return error.message
 }
 
@@ -293,6 +328,10 @@ async function submit(): Promise<void> {
   const expectedAmountMinor = totalAmount.value
   submitting.value = true
   try {
+    if (waitlistMode.value) {
+      await submitWaitlist(token, session, activity.value)
+      return
+    }
     const enrollment = await enrollmentApi.enroll(
       token,
       keys.keyFor(session.sessionId, participantIds, expectedAmountMinor),
@@ -330,7 +369,12 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
 
 <template>
   <view class="activity-enroll" data-testid="activity-enroll">
-    <AppPageHeader title="填写报名预约" plain test-id="activity-enroll" @back="emit('back')" />
+    <AppPageHeader
+      :title="waitlistMode ? '加入候补' : '填写报名预约'"
+      plain
+      test-id="activity-enroll"
+      @back="emit('back')"
+    />
 
     <view
       v-if="state.kind === 'loading'"
@@ -391,7 +435,7 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
           class="activity-enroll__hint"
           data-testid="activity-enroll-no-session"
         >
-          现在没有可以报名的场次
+          {{ waitlistMode ? '现在没有可以候补的场次' : '现在没有可以报名的场次' }}
         </text>
       </view>
 
@@ -486,7 +530,10 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
       <!-- Board EventSignup has no rules card; the rules go in its note line under the consent. -->
       <view class="activity-enroll__rules" data-testid="activity-enroll-rules">
         <text v-if="activity.refundNote" class="activity-enroll__note">{{ activity.refundNote }}</text>
-        <text v-if="paid" class="activity-enroll__note" data-testid="activity-enroll-paid-rule">
+        <text v-if="waitlistMode" class="activity-enroll__note" data-testid="activity-enroll-waitlist-rule">
+          候补期间不收费，可随时放弃。名额释放后按加入先后转正并通过“消息”通知你，转正后保留 15 分钟，{{ paid ? '超时未付款' : '超时未确认' }}释放给下一位；活动开始前仍未转正，候补自动结束。
+        </text>
+        <text v-else-if="paid" class="activity-enroll__note" data-testid="activity-enroll-paid-rule">
           场次开始前可以取消其中几位，每位按报名时的单价原路退回；已签到的不能退。提交后 15 分钟内未付款，名额自动释放。
         </text>
         <text v-else class="activity-enroll__note">免费报名在场次开始前都可以取消，名额会让给别人。</text>

@@ -28,6 +28,7 @@ function ticket(status: EnrollmentTicket['status'], name: string): EnrollmentTic
     checkedInAt: null,
     cancelledAt: null,
     refund: null,
+    result: null,
   }
 }
 
@@ -57,6 +58,11 @@ function paid(tickets: EnrollmentTicket[], cancellable = true): Enrollment {
     cancellable,
     tickets,
     payment: { status: 'PAID', tradeOrderId: 'o1', amountMinor: 24000, unitAmountMinor: 12000, payBefore: null },
+    kind: 'INDIVIDUAL',
+    team: null,
+    reschedule: null,
+    changes: [],
+    reschedulable: false,
   }
 }
 

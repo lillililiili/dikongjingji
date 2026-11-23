@@ -2,7 +2,9 @@ import type { ActivityDetail, ActivityEnrollmentStatus } from '../domain/activit
 
 // Entries that are not built yet. They go through this typed gate instead of ad-hoc toasts.
 // ENROLL here means signing up for an activity that quotes a price; free and paid-per-person ones
-// have their own pages (see resolveEnrollmentPayMode).
+// have their own pages (see resolveEnrollmentPayMode). Since S5-3 the waitlist and team sign-up of a
+// free or paid-per-person activity open real pages in preview builds; the gate only answers for an
+// activity that quotes a price, which cannot be joined online either way.
 export type ActivityIntent =
   | { type: 'ENROLL'; activityId: string; sessionId: string }
   | { type: 'JOIN_WAITLIST'; activityId: string; sessionId: string }
@@ -16,8 +18,8 @@ export type ActivityIntentResolution =
 
 const NOTICES: Record<ActivityIntent['type'], string> = {
   ENROLL: '询价活动暂不支持在线报名',
-  JOIN_WAITLIST: '候补功能即将开放',
-  TEAM_ENROLL: '团队报名即将开放',
+  JOIN_WAITLIST: '询价活动暂不支持在线候补',
+  TEAM_ENROLL: '询价活动暂不支持在线团队报名',
   CONSULT: '咨询功能即将开放',
   READ_AGREEMENT: '协议正文待提供',
 }

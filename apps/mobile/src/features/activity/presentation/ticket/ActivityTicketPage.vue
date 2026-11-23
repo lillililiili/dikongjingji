@@ -6,7 +6,9 @@ import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
+import { formatSessionRef } from '../../application/change-view'
 import { canRequestRefund } from '../../application/enrollment-order-view'
+import { hasResultPage } from '../../application/result-view'
 import {
   cancelRefundMinor,
   describeCancelConfirm,
@@ -41,8 +43,13 @@ const emit = defineEmits<{
   pay: [tradeOrderId: string]
   // The order of a paid sign-up (board OrderEnroll).
   openOrder: [enrollmentId: string]
-  // 申请退款 of a paid sign-up (board EnrollRefund), starting on the person shown.
-  refund: [enrollmentId: string, ticketId: string]
+  // 申请退改 (board EnrollRefund), starting on the person shown; `move` opens it on 改到其他场次.
+  refund: [enrollmentId: string, ticketId: string, move: boolean]
+  // S5-3: a team sign-up has its own page (board TeamOrder); the host swaps this page for it.
+  team: [enrollmentId: string]
+  // S5-3: 查看结果记录 (board EnrollResult) and 查看退款进度 (board EnrollRefundDetail).
+  openResult: [enrollmentId: string]
+  openChange: [enrollmentId: string, changeId: string]
 }>()
 
 // Board EnrollTicket's 申请退改 mark: an arrow turning back.
@@ -90,6 +97,19 @@ const hasOrder = computed(() =>
 // A paid ticket in use is refunded on its own page; free and unpaid ones use the sheet.
 const refundsOnPage = computed(() =>
   ACTIVITY_PREVIEW_ENABLED && Boolean(enrollment.value && live.value && canRequestRefund(enrollment.value)))
+// S5-3: a free sign-up keeps the cancel sheet; moving it to another session has its own link.
+const canMove = computed(() =>
+  ACTIVITY_PREVIEW_ENABLED && Boolean(enrollment.value?.reschedulable && live.value && !refundsOnPage.value))
+const resultReady = computed(() =>
+  ACTIVITY_PREVIEW_ENABLED && Boolean(enrollment.value && hasResultPage(enrollment.value, now.value)))
+// The cancellation behind a cancelled ticket: the newest one (a sign-up rarely has more than one).
+const latestCancel = computed(() =>
+  enrollment.value?.changes.find((change) => change.kind === 'CANCEL') ?? null)
+const showChangeLink = computed(() =>
+  ACTIVITY_PREVIEW_ENABLED && view.value?.tone === 'CANCELLED' && Boolean(latestCancel.value)
+  && enrollment.value?.payment.status !== 'CLOSED')
+const previousTime = computed(() =>
+  enrollment.value?.reschedule ? formatSessionRef(enrollment.value.reschedule.previousSession) : null)
 const statusIcon = computed(() => {
   switch (view.value?.tone) {
     case 'CANCELLED': return 'close' as const
@@ -153,6 +173,10 @@ function isUnauthorized(error: unknown): boolean {
 }
 
 function show(loaded: Enrollment): void {
+  if (loaded.kind === 'TEAM' && ACTIVITY_PREVIEW_ENABLED) {
+    emit('team', loaded.enrollmentId)
+    return
+  }
   if (loaded.payment.status !== 'PENDING_PAYMENT') overdueReloads = 0
   state.value = { kind: 'ready', enrollment: loaded }
   const stillThere = loaded.tickets.some((item) => item.ticketId === selectedTicketId.value)
@@ -245,10 +269,16 @@ function openNavigation(): void {
 function askCancel(): void {
   if (!canCancel.value) return
   if (refundsOnPage.value && enrollment.value && ticket.value) {
-    emit('refund', enrollment.value.enrollmentId, ticket.value.ticketId)
+    emit('refund', enrollment.value.enrollmentId, ticket.value.ticketId, false)
     return
   }
   cancelSheetOpen.value = true
+}
+
+function openMove(): void {
+  if (canMove.value && enrollment.value && ticket.value) {
+    emit('refund', enrollment.value.enrollmentId, ticket.value.ticketId, true)
+  }
 }
 
 function pay(): void {
@@ -355,6 +385,10 @@ onBeforeUnmount(() => {
               </text>
             </view>
           </view>
+          <view v-if="previousTime" class="ticket__place" data-testid="ticket-previous-time">
+            <text class="ticket__place-label">原时间</text>
+            <text class="ticket__place-text ticket__place-text--old">{{ previousTime }}（已改期）</text>
+          </view>
           <view class="ticket__place">
             <text class="ticket__place-label">地点</text>
             <text class="ticket__place-text">{{ enrollment.location.name }} · {{ enrollment.location.address }}</text>
@@ -435,9 +469,29 @@ onBeforeUnmount(() => {
           @click="askCancel"
         >
           <LineIcon :d="UNDO_ICON" :size="22" :color="canCancel ? '#ff6a00' : '#91a0b4'" />
-          <text>{{ refundsOnPage ? '申请退款' : '取消报名' }}</text>
+          <text>{{ refundsOnPage ? '申请退改' : '取消报名' }}</text>
         </button>
       </view>
+      <button
+        v-else-if="showChangeLink && latestCancel"
+        class="ticket__next"
+        data-testid="ticket-open-change"
+        @click="emit('openChange', enrollment.enrollmentId, latestCancel.changeId)"
+      >
+        <LineIcon :d="UNDO_ICON" :size="22" color="#ff6a00" />
+        <text class="ticket__next-label">查看退款进度</text>
+        <LineIcon name="forward" :size="16" color="#91a0b4" :stroke-width="2" />
+      </button>
+      <button
+        v-else-if="resultReady"
+        class="ticket__next"
+        data-testid="ticket-open-result"
+        @click="emit('openResult', enrollment.enrollmentId)"
+      >
+        <LineIcon name="doc" :size="22" color="#ff6a00" />
+        <text class="ticket__next-label">查看结果记录</text>
+        <LineIcon name="forward" :size="16" color="#91a0b4" :stroke-width="2" />
+      </button>
       <button
         v-else
         class="ticket__next"
@@ -447,6 +501,14 @@ onBeforeUnmount(() => {
         <LineIcon name="flag" :size="22" color="#ff6a00" />
         <text class="ticket__next-label">查看活动详情</text>
         <LineIcon name="forward" :size="16" color="#91a0b4" :stroke-width="2" />
+      </button>
+      <button v-if="canMove" class="ticket__move" data-testid="ticket-move" @click="openMove">
+        <LineIcon name="calendar" :size="16" color="#ba470b" :stroke-width="2" />
+        <text>改到其他场次</text>
+      </button>
+      <button v-if="live && resultReady" class="ticket__move" data-testid="ticket-open-result" @click="emit('openResult', enrollment.enrollmentId)">
+        <LineIcon name="doc" :size="16" color="#ba470b" :stroke-width="2" />
+        <text>查看签到与结果记录</text>
       </button>
 
       <view
@@ -1153,5 +1215,25 @@ button::after {
   color: #d64f67;
   font-size: 14px;
   line-height: 44px;
+}
+.ticket__place-text--old {
+  color: #738096;
+  text-decoration: line-through;
+}
+
+/* S5-3: 改到其他场次 / 查看签到与结果记录 under the two actions. */
+.ticket__move {
+  display: flex;
+  flex: none;
+  margin: 10px 16px 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 12px;
+  color: #ba470b;
+  background: #ffffff;
+  font-size: 14px;
+  line-height: 20px;
 }
 </style>

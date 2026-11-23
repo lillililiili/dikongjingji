@@ -16,6 +16,8 @@ import {
   formatEnrollmentSession,
 } from '../../application/enrollment-order-view'
 import { describeTicket, pickInitialTicket } from '../../application/enrollment-view'
+import { describeChangeLine, formatSessionRef } from '../../application/change-view'
+import { hasResultPage } from '../../application/result-view'
 import { activityApi } from '../../data/activity-api-client'
 import { enrollmentApi } from '../../data/enrollment-api-client'
 import type { ActivityDetail } from '../../domain/activity'
@@ -37,6 +39,9 @@ const emit = defineEmits<{
   openTicket: [enrollmentId: string]
   refund: [enrollmentId: string]
   pay: [tradeOrderId: string]
+  // S5-3: 退改详情 of one change, and the result page after the day.
+  openChange: [enrollmentId: string, changeId: string]
+  openResult: [enrollmentId: string]
 }>()
 
 type OrderState =
@@ -75,7 +80,14 @@ const paidText = computed(() => {
 const payState = computed(() => (enrollment.value ? describeEnrollmentPayState(enrollment.value) : null))
 const refunds = computed(() => (enrollment.value ? describeEnrollmentRefunds(enrollment.value) : null))
 const deadline = computed(() => (enrollment.value ? describeCancelDeadline(enrollment.value) : ''))
-const refundable = computed(() => (enrollment.value ? canRequestRefund(enrollment.value) : false))
+// S5-3: a sign-up that can move to another session also opens 申请退改.
+const refundable = computed(() =>
+  enrollment.value ? canRequestRefund(enrollment.value) || enrollment.value.reschedulable : false)
+const previousTime = computed(() =>
+  enrollment.value?.reschedule ? formatSessionRef(enrollment.value.reschedule.previousSession) : null)
+const changeLines = computed(() =>
+  enrollment.value?.changes.map((change) => ({ change, line: describeChangeLine(change) })) ?? [])
+const resultReady = computed(() => (enrollment.value ? hasResultPage(enrollment.value, Date.now()) : false))
 const unpaid = computed(() =>
   enrollment.value?.payment.status === 'PENDING_PAYMENT' && Boolean(enrollment.value.payment.tradeOrderId))
 const parties = computed(() => {
@@ -192,6 +204,17 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
     <view v-else-if="enrollment" class="enroll-order__body enroll-order__body--lifted">
       <view class="enroll-order__card enroll-order__card--activity">
         <text class="enroll-order__activity" data-testid="activity-order-activity">{{ enrollment.activity.title }}</text>
+        <view v-if="previousTime" class="enroll-order__move" data-testid="activity-order-move">
+          <view class="enroll-order__move-side">
+            <text class="enroll-order__move-label">原时间</text>
+            <text class="enroll-order__move-old">{{ previousTime }}</text>
+          </view>
+          <LineIcon d="M4 12h15M13 6l6 6-6 6" :size="20" color="#ff6a00" :stroke-width="2" />
+          <view class="enroll-order__move-side">
+            <text class="enroll-order__move-label enroll-order__move-label--new">新时间</text>
+            <text class="enroll-order__move-new">{{ session }}</text>
+          </view>
+        </view>
         <view class="enroll-order__grid">
           <text class="enroll-order__label">场次</text>
           <text class="enroll-order__value enroll-order__value--strong" data-testid="activity-order-session">{{ session }}</text>
@@ -211,6 +234,37 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
             <text class="enroll-order__ticket-title">查看凭证</text>
             <text class="enroll-order__ticket-sub">到场出示凭证签到 · 一人一码</text>
           </view>
+          <LineIcon name="forward" :size="16" color="#91a0b4" :stroke-width="2" />
+        </button>
+        <template v-if="resultReady">
+          <view class="enroll-order__dash enroll-order__dash--tight" />
+          <button class="enroll-order__ticket" data-testid="activity-order-result" @click="emit('openResult', enrollment.enrollmentId)">
+            <view class="enroll-order__ticket-icon">
+              <LineIcon name="doc" :size="22" color="#ff6a00" />
+            </view>
+            <view class="enroll-order__ticket-text">
+              <text class="enroll-order__ticket-title">签到与结果记录</text>
+              <text class="enroll-order__ticket-sub">主办方发布的完成情况、成绩和证书说明</text>
+            </view>
+            <LineIcon name="forward" :size="16" color="#91a0b4" :stroke-width="2" />
+          </button>
+        </template>
+      </view>
+
+      <view v-if="changeLines.length > 0" class="enroll-order__card" data-testid="activity-order-changes">
+        <text class="enroll-order__heading-title">退改记录</text>
+        <button
+          v-for="item in changeLines"
+          :key="item.change.changeId"
+          class="enroll-order__change"
+          :data-testid="`activity-order-change-${item.change.changeId}`"
+          @click="emit('openChange', enrollment.enrollmentId, item.change.changeId)"
+        >
+          <view class="enroll-order__change-text">
+            <text class="enroll-order__change-title">{{ item.line.title }}</text>
+            <text class="enroll-order__change-sub">{{ item.line.sub }}</text>
+          </view>
+          <text class="enroll-order__change-more">查看进度</text>
           <LineIcon name="forward" :size="16" color="#91a0b4" :stroke-width="2" />
         </button>
       </view>
@@ -309,7 +363,7 @@ watch(() => [props.refreshKey, props.accessToken, props.enrollmentId], () => { v
         data-testid="activity-order-refund"
         @click="emit('refund', enrollment.enrollmentId)"
       >
-        申请退款
+        申请退改
       </button>
     </view>
   </view>
@@ -765,6 +819,95 @@ button::after {
   box-shadow: var(--app-primary-shadow);
   font-size: 16px;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+/* S5-3: 原时间 / 新时间 (board EnrollResult), 结果入口 and 退改记录. */
+.enroll-order__move {
+  display: grid;
+  margin-top: 12px;
+  padding: 10px 12px;
+  align-items: center;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  border-radius: 10px;
+  background: #fff0e3;
+}
+
+.enroll-order__move-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.enroll-order__move-label {
+  color: #738096;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.enroll-order__move-label--new {
+  color: #ba470b;
+}
+
+.enroll-order__move-old {
+  color: #738096;
+  font-size: 14px;
+  line-height: 20px;
+  text-decoration: line-through;
+  white-space: nowrap;
+}
+
+.enroll-order__move-new {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.enroll-order__dash--tight {
+  margin-top: 0;
+}
+
+.enroll-order__change {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  color: #202c42;
+  text-align: left;
+}
+
+.enroll-order__change + .enroll-order__change {
+  border-top: 1px solid #f0f1f3;
+}
+
+.enroll-order__change-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.enroll-order__change-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.enroll-order__change-sub {
+  color: #627187;
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.enroll-order__change-more {
+  flex: none;
+  color: #627187;
+  font-size: 13px;
+  line-height: 18px;
   white-space: nowrap;
 }
 </style>

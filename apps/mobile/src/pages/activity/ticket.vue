@@ -3,10 +3,13 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import {
+  buildActivityChangeUrl,
   buildActivityDetailUrl,
   buildActivityEnrollmentsUrl,
   buildActivityOrderUrl,
   buildActivityRefundUrl,
+  buildActivityResultUrl,
+  buildActivityTeamOrderUrl,
   buildActivityTicketUrl,
 } from '@/features/activity/navigation/activity-routes'
 import ActivityTicketPage from '@/features/activity/presentation/ticket/ActivityTicketPage.vue'
@@ -45,8 +48,22 @@ function openOrder(id: string): void {
   uni.navigateTo({ url: buildActivityOrderUrl(id) })
 }
 
-function openRefund(id: string, ticketId: string): void {
-  uni.navigateTo({ url: buildActivityRefundUrl(id, ticketId) })
+// `move` opens 申请退改 on 改到其他场次 (a free sign-up cancels on this page's sheet).
+function openRefund(id: string, ticketId: string, move: boolean): void {
+  uni.navigateTo({ url: buildActivityRefundUrl(id, ticketId) + (move ? '&mode=move' : '') })
+}
+
+// A team sign-up's tickets are shown on its team order (board TeamOrder).
+function openTeam(id: string): void {
+  uni.redirectTo({ url: buildActivityTeamOrderUrl(id) })
+}
+
+function openResult(id: string): void {
+  uni.navigateTo({ url: buildActivityResultUrl(id) })
+}
+
+function openChange(id: string, changeId: string): void {
+  uni.navigateTo({ url: buildActivityChangeUrl(id, changeId) })
 }
 
 onLoad((query) => {
@@ -72,5 +89,8 @@ onShow(() => {
     @pay="openCashier"
     @open-order="openOrder"
     @refund="openRefund"
+    @team="openTeam"
+    @open-result="openResult"
+    @open-change="openChange"
   />
 </template>

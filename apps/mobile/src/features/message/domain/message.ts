@@ -9,6 +9,7 @@
 // order) and VENUE_BOOKING; all four ids are the business object, subId is null.
 // 1.4.0 (M20) adds LIVE_REMINDER (直播提醒: a live room the account set a reminder on has started)
 // with the target LIVE_ROOM: id is the live room, subId is null.
+// 1.6.0 (S5-3) adds the target ACTIVITY_WAITLIST (候补转正: id is the waitlist, subId is null).
 export type KnownMessageCategory =
   | 'SERVICE_PROGRESS'
   | 'DEMAND_QUOTE'
@@ -31,6 +32,7 @@ export type MessageTargetType =
   | 'ACTIVITY_ORDER'
   | 'VENUE_BOOKING'
   | 'LIVE_ROOM'
+  | 'ACTIVITY_WAITLIST'
 
 export interface MessageTarget {
   type: MessageTargetType
@@ -77,6 +79,7 @@ const KNOWN_TARGET_TYPES: readonly MessageTargetType[] = [
   'ACTIVITY_ORDER',
   'VENUE_BOOKING',
   'LIVE_ROOM',
+  'ACTIVITY_WAITLIST',
 ]
 
 export function toMessageCategory(value: string): MessageCategory {

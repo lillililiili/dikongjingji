@@ -54,6 +54,7 @@ function ticket(status: EnrollmentTicket['status'], name = '王小禾'): Enrollm
     checkedInAt: status === 'CHECKED_IN' ? '2026-11-29T05:42:00Z' : null,
     cancelledAt: status === 'CANCELLED' ? '2026-11-20T02:00:00Z' : null,
     refund: null,
+    result: null,
   }
 }
 
@@ -110,6 +111,11 @@ function enrollment(
     cancellable,
     tickets,
     payment: FREE,
+    kind: 'INDIVIDUAL',
+    team: null,
+    reschedule: null,
+    changes: [],
+    reschedulable: false,
   }
 }
 
