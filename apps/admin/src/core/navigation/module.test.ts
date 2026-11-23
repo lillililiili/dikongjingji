@@ -14,11 +14,30 @@ describe('菜单', () => {
     expect(groups[0]!.items.map((item) => item.title)).toEqual(['城市开通', '机构与资质'])
   })
 
-  it('平台客服只看到举报与反馈；机构角色和客户现在没有菜单', () => {
+  it('平台客服只看到举报与反馈；客户没有菜单', () => {
     expect(buildMenu(ADMIN_MODULES, ['PLATFORM_SUPPORT']).flatMap((group) => group.items.map((item) => item.title)))
       .toEqual(['举报与反馈'])
-    expect(buildMenu(ADMIN_MODULES, ['PROVIDER_OPERATOR', 'LIVE_HOST'])).toEqual([])
     expect(buildMenu(ADMIN_MODULES, ['CUSTOMER'])).toEqual([])
+  })
+
+  it('机构操作员（商家 / 服务商）只看到机构工作台，按 order 排；直播主办多一项“直播间”', () => {
+    const operator = buildMenu(ADMIN_MODULES, ['PROVIDER_OPERATOR'])
+    expect(operator.map((group) => group.key)).toEqual(['WORKBENCH'])
+    expect(operator[0]!.items.map((item) => item.title)).toEqual([
+      '商城订单', '商城询价', '租赁询价', '租赁订单', '需求报价', '巡检预约', '客服会话', '收款账户',
+    ])
+    expect(operator[0]!.items.every((item) => item.path.startsWith('/workbench/'))).toBe(true)
+
+    const merchantHost = buildMenu(ADMIN_MODULES, ['PROVIDER_OPERATOR', 'LIVE_HOST'])
+    expect(merchantHost[0]!.items.map((item) => item.title)).toContain('直播间')
+    expect(buildMenu(ADMIN_MODULES, ['LIVE_HOST']).flatMap((group) => group.items.map((item) => item.title)))
+      .toEqual(['直播间'])
+  })
+
+  it('平台角色看不到机构工作台', () => {
+    for (const role of ['PLATFORM_OPERATOR', 'PLATFORM_SUPPORT']) {
+      expect(buildMenu(ADMIN_MODULES, [role]).map((group) => group.key)).not.toContain('WORKBENCH')
+    }
   })
 
   it('两个平台角色都有时按分组顺序排', () => {
