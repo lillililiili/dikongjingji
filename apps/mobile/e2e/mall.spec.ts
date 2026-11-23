@@ -179,17 +179,22 @@ test.describe('商城频道', () => {
   })
 })
 
-// 搜索和筛选（计划 §15.2）。首页搜索框在商城频道里搜商城；筛选在页内面板里选。
+// 搜索和筛选（计划 §15.2）。预览构建里商城频道的搜索框先进搜索前置页（计划 08 S5-1，落在“商品”范围），
+// 结果页的“到商城里筛选、排序”回到商城频道按关键词搜；筛选在页内面板里选。
 test.describe('商城搜索与筛选', () => {
   const names = (page: Page) => page.locator('.mall-card__name')
 
   async function searchFromHome(page: Page, keyword: string): Promise<void> {
-    const input = page.getByTestId('home-search-input').locator('input')
+    await page.getByTestId('home-search-input').click()
+    await expect(page.getByTestId('search-scope-product')).toHaveAttribute('aria-selected', 'true')
+    const input = page.getByTestId('search-pre-input').locator('input')
     await input.fill(keyword)
     await input.press('Enter')
+    await page.getByTestId('search-group-product-channel').click()
+    await expect(page.getByTestId('mall-channel')).toBeVisible()
   }
 
-  test('MALL-201 首页搜索框在商城频道里按名称和简介搜，标签可单独移除', async ({ page }) => {
+  test('MALL-201 商城频道的搜索经搜索页回到频道按名称和简介搜，标签可单独移除', async ({ page }) => {
     await openMallChannel(page)
     const requests: URL[] = []
     page.on('request', (request) => {
@@ -206,22 +211,21 @@ test.describe('商城搜索与筛选', () => {
     await page.getByTestId('mall-category-rental').click()
     await expect(names(page)).toHaveText(['4K 航拍无人机 含飞手', '行业测绘无人机 RTK 版'])
 
-    // 移除标签：搜索结束，搜索框跟着清空，类目保留。
+    // 移除标签：搜索结束，搜索框回到占位词，类目保留。
     await page.getByTestId('mall-chip-keyword').click()
     await expect(page.getByTestId('mall-chips')).toHaveCount(0)
-    await expect(page.getByTestId('home-search-input').locator('input')).toHaveValue('')
+    await expect(page.getByTestId('home-search-input')).toContainText('搜索')
     await expect(names(page)).toHaveCount(4)
   })
 
-  test('MALL-202 % 按字面搜；搜不到时说明并能一键清除', async ({ page }) => {
+  test('MALL-202 % 按字面搜：搜索页的商品页签说没有相关商品', async ({ page }) => {
     await openMallChannel(page)
 
-    await searchFromHome(page, '%')
-    await expect(page.getByTestId('mall-search-empty')).toContainText('没有找到“%”')
-
-    await page.getByTestId('mall-clear-all').click()
-    await expect(names(page)).toHaveCount(10)
-    await expect(page.getByTestId('home-search-input').locator('input')).toHaveValue('')
+    await page.getByTestId('home-search-input').click()
+    const input = page.getByTestId('search-pre-input').locator('input')
+    await input.fill('%')
+    await input.press('Enter')
+    await expect(page.getByTestId('search-results-scope-empty')).toHaveText('没有找到相关商品')
   })
 
   test('MALL-203 筛选面板：多选、按钮上的件数、应用后出标签和计数', async ({ page }) => {
