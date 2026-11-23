@@ -66,6 +66,10 @@ import org.springframework.test.web.servlet.MockMvc;
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        // S3-1 第二部分：商品与供给、收款账户、批量导入
+        com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class,
+        com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
+        com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
         com.lowaltitude.inspection.live.application.LiveService.class,
         com.lowaltitude.inspection.content.application.ContentReadService.class,
         com.lowaltitude.inspection.content.application.ContentVideoService.class,

@@ -44,6 +44,19 @@ public class TradeApplicationConfiguration {
         return new TradeBuyerEvents(orders, notifier.getIfAvailable(TradeBuyerNotifier::none));
     }
 
+    /**
+     * 运营端收款账户登记（S3-1）。trade.merchant-accounts.allow-placeholder-sub-mchid 只在 application-dev.yml 打开：
+     * 开发种子借微信文档示例号段当占位，其他环境不接受这个号段。
+     */
+    @Bean
+    OpsMerchantAccountService opsMerchantAccountService(
+            com.lowaltitude.inspection.trade.infrastructure.persistence.TradeMerchantAccountMapper mapper,
+            @org.springframework.beans.factory.annotation.Value(
+                    "${trade.merchant-accounts.allow-placeholder-sub-mchid:false}") boolean allowPlaceholder
+    ) {
+        return new OpsMerchantAccountService(mapper, allowPlaceholder, Clock.systemUTC());
+    }
+
     @Bean
     TradeOrderService tradeOrderService(
             TradeOrderMapper mapper,

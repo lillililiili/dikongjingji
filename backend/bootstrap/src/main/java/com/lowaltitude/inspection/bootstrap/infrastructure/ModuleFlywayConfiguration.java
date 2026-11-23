@@ -241,6 +241,13 @@ public class ModuleFlywayConfiguration {
         return factory.trade(dataSource);
     }
 
+    // 批量导入记录（S2-3，opsimport V001）引用 identity_user，排在身份迁移之后；与巡检迁移保持同一条链。
+    @Bean(initMethod = "migrate")
+    @DependsOn("inspectionFlyway")
+    Flyway opsimportFlyway(ModuleFlywayFactory factory, DataSource dataSource) {
+        return factory.opsimport(dataSource);
+    }
+
     // 商城表引用 identity_organization，所以排在身份迁移之后；与巡检迁移保持同一条链，顺序固定。
     @Bean(initMethod = "migrate")
     @DependsOn("inspectionFlyway")
