@@ -3,6 +3,15 @@ import { onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import RootAppTabBar from '@/app-shell/components/RootAppTabBar.vue'
+import { ACCOUNT_PREVIEW_ENABLED } from '@/features/account/application/account-preview'
+import { identityAccountApi } from '@/features/account/data/identity-account-api-client'
+import type { EnterpriseList } from '@/features/account/domain/identity-account'
+import { ROLE_LABELS } from '@/features/account/domain/identity-account'
+import { buildOrgUrl } from '@/features/account/navigation/account-routes'
+import {
+  getBookingAuthContext as authContext,
+  replaceBookingAccessToken,
+} from '@/features/inspection/application/service-flow/booking-auth-context'
 import { ACTIVITY_PREVIEW_ENABLED } from '@/features/activity/application/activity-preview'
 import { enrollmentApi } from '@/features/activity/data/enrollment-api-client'
 import type { Enrollment } from '@/features/activity/domain/enrollment'
@@ -83,11 +92,16 @@ interface RowValues {
   participants?: string
   demands?: string
   staffWorkMode?: boolean
+  enterprise?: string
 }
 function resolveLinkRows(signedIn: boolean, values: RowValues): PlatformMineLinkEntry[] {
   return [
     ...(ACTIVITY_PREVIEW_ENABLED
       ? [{ code: 'ACTIVITY_PARTICIPANTS', title: '参与人管理', ...(signedIn && values.participants ? { valueText: values.participants } : {}) }]
+      : []),
+    // S5-7 企业组织 (board Mine rows, between 参与人管理 and 需求与报价).
+    ...(ACCOUNT_PREVIEW_ENABLED
+      ? [{ code: 'ENTERPRISE', title: '企业组织', ...(signedIn && values.enterprise ? { valueText: values.enterprise } : {}) }]
       : []),
     ...(DEMAND_PREVIEW_ENABLED
       ? [{ code: 'DEMANDS', title: '需求与报价', ...(signedIn && values.demands ? { valueText: values.demands } : {}) }]
@@ -119,13 +133,26 @@ const acceptanceOrder = ref<InspectionOrderSummary | null>(null)
 const rowValues = ref<RowValues>({})
 let loadedFor: string | null = null
 
+// S5-7: the enterprises the account is in, read with the account (preview builds).
+const enterprises = ref<EnterpriseList | null>(null)
+
 function resolveMineUser() {
   const token = accessToken()
-  return resolveAuthenticatedMineUser(
-    Boolean(token),
-    currentCityStore.currentCity?.name,
-    token && token === accountToken ? account.value : null,
-  )
+  const own = token && token === accountToken ? account.value : null
+  const user = resolveAuthenticatedMineUser(Boolean(token), currentCityStore.currentCity?.name, own)
+  if (!user || !ACCOUNT_PREVIEW_ENABLED || !own) return user
+  const identity = own.identity
+  const acting = identity?.type === 'ENTERPRISE' && identity.enterpriseName
+    ? { name: identity.enterpriseName, roleLabel: identity.role ? ROLE_LABELS[identity.role] : '企业身份' }
+    : undefined
+  // Board Mine: the phone line replaces the organization line, and the switch sits on the right.
+  const { certificationLabel: _organization, ...personal } = user
+  return {
+    ...personal,
+    ...(own.maskedPhone ? { maskedPhone: own.maskedPhone } : {}),
+    ...(acting ? { enterpriseIdentity: acting } : {}),
+    switchLabel: acting ? '切换个人身份' : '切换企业身份',
+  }
 }
 
 function toEnrollmentCard(item: Enrollment): MineEnrollmentCard {
@@ -286,6 +313,15 @@ async function loadRowValues(token: string): Promise<void> {
       rowValues.value = { ...rowValues.value, demands: text }
     }))
   }
+  if (ACCOUNT_PREVIEW_ENABLED) {
+    tasks.push(identityAccountApi.listEnterprises(token).then((list) => {
+      if (accessToken() !== token) return
+      enterprises.value = list
+      const current = list.items.find((item) => item.enterpriseId === list.identity.enterpriseId) ?? list.items[0]
+      const text = current?.name ?? (list.invitations.length ? `${list.invitations.length} 个邀请待确认` : undefined)
+      rowValues.value = { ...rowValues.value, enterprise: text }
+    }))
+  }
   if (STAFF_WORK_MODE_ENABLED) {
     tasks.push(loadStaffAccess(checkinApi, token).then((allowed) => {
       if (accessToken() === token) rowValues.value = { ...rowValues.value, staffWorkMode: allowed }
@@ -350,6 +386,7 @@ function openLink(code: string): void {
   if (code === 'VENUE_BOOKINGS') uni.navigateTo({ url: buildVenueBookingsUrl() })
   if (code === 'EXPERIENCE_RECORDS') uni.navigateTo({ url: buildExperienceRecordsUrl() })
   if (code === 'DEMANDS') uni.navigateTo({ url: buildMyDemandsUrl() })
+  if (code === 'ENTERPRISE') uni.navigateTo({ url: buildOrgUrl(account.value?.identity?.enterpriseId ?? null) })
   if (code === 'FAVORITES') uni.navigateTo({ url: buildFavoritesUrl() })
   if (code === 'RENTAL_ORDERS') uni.navigateTo({ url: buildMyRentalOrdersUrl() })
   if (code === 'MY_COURSES') uni.navigateTo({ url: buildMyCoursesUrl() })
@@ -400,6 +437,45 @@ function openStage(stage: MineOrderStage): void {
   showUnavailable()
 }
 
+// 切换企业身份 / 切换个人身份 (board Mine, S5-7): the server reissues the token with the new identity;
+// orders placed afterwards record the enterprise as the payer. Without an enterprise the button opens
+// 企业组织 (create or confirm an invitation); with several the user picks one.
+async function switchTo(enterpriseId: string | null): Promise<void> {
+  const token = authContext().getAccessToken()
+  if (!token) return
+  try {
+    const result = await identityAccountApi.switchIdentity(token, enterpriseId)
+    // Only the access token changes; the login's refresh token stays.
+    replaceBookingAccessToken(result)
+    accountToken = null
+    uni.showToast({ title: enterpriseId ? `已切换为 ${result.identity.enterpriseName}` : '已切换为个人身份', icon: 'none' })
+    await loadAccount()
+    loadSignedIn()
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '切换失败，请重试', icon: 'none' })
+  }
+}
+
+function switchIdentity(): void {
+  if (account.value?.identity?.type === 'ENTERPRISE') {
+    void switchTo(null)
+    return
+  }
+  const items = enterprises.value?.items ?? []
+  if (items.length === 0) {
+    uni.navigateTo({ url: buildOrgUrl() })
+    return
+  }
+  if (items.length === 1) {
+    void switchTo(items[0].enterpriseId)
+    return
+  }
+  uni.showActionSheet({
+    itemList: items.map((item) => `${item.name}（${ROLE_LABELS[item.role]}）`),
+    success: (result) => void switchTo(items[result.tapIndex]?.enterpriseId ?? null),
+  })
+}
+
 function openEnrollment(): void {
   if (enrollment.value) uni.navigateTo({ url: buildActivityTicketUrl(enrollment.value.enrollmentId) })
 }
@@ -431,6 +507,7 @@ onShow(() => {
       @open-enrollment="openEnrollment"
       @open-acceptance="openAcceptance"
       @select-link="openLink"
+      @switch-identity="switchIdentity"
     />
     <RootAppTabBar active="MINE" />
   </view>

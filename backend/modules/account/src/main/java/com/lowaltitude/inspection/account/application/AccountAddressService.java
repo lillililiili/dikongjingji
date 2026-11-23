@@ -118,6 +118,12 @@ public class AccountAddressService {
         mapper.promoteOldestToDefault(ownerId, now);
     }
 
+    /** 注销到期去标识（S5-8，在调用方的事务里）：地址全部删除并清掉收货人和手机号。 */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void eraseForClosure(UUID ownerId) {
+        mapper.eraseAll(ownerId, clock.instant());
+    }
+
     private AddressValues validate(AddressForm form, boolean isDefault) {
         if (form == null) {
             throw new IllegalArgumentException("address is required");

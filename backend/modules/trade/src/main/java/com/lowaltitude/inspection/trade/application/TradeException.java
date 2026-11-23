@@ -30,7 +30,9 @@ public final class TradeException extends RuntimeException {
         /** 这一天的账单还没全部导入（微信 10 点后才出账单，或导入失败）。 */
         RECONCILIATION_NOT_READY,
         /** 这份询价报价已经下过一张还没关闭的订单（F4：一份报价同时只能有一张订单）。 */
-        QUOTE_ALREADY_ORDERED
+        QUOTE_ALREADY_ORDERED,
+        /** 账号在注销冷静期（S5-8），不能下单和付款；撤回注销后恢复。 */
+        ACCOUNT_CLOSING
     }
 
     private final Error error;

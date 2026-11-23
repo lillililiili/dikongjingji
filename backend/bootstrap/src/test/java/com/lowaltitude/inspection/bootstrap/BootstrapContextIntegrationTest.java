@@ -90,6 +90,13 @@ import org.springframework.web.bind.annotation.RestController;
         com.lowaltitude.inspection.application.catalog.InspectionCatalogOpsService.class,
         com.lowaltitude.inspection.proservice.application.ProServiceOpsService.class,
         com.lowaltitude.inspection.live.application.LiveOpsService.class,
+        // S5-7、S5-8 账号与企业组织（要数据库，测试里不装配）
+        com.lowaltitude.inspection.identity.application.account.PhoneAccountService.class,
+        com.lowaltitude.inspection.identity.application.account.LoginSessionService.class,
+        com.lowaltitude.inspection.identity.application.account.AccountClosureService.class,
+        com.lowaltitude.inspection.identity.application.account.PersonalDataExportService.class,
+        com.lowaltitude.inspection.identity.application.account.EnterpriseService.class,
+        com.lowaltitude.inspection.trade.application.TradeEnterpriseAccess.class,
         com.lowaltitude.inspection.live.application.LiveService.class,
         com.lowaltitude.inspection.course.application.CourseService.class,
         com.lowaltitude.inspection.course.application.ops.CourseOpsService.class,

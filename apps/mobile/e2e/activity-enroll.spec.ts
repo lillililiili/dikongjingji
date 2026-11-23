@@ -143,6 +143,8 @@ test.describe('免费活动报名', () => {
 
     // 没登录：先到登录页，登录后回到同一张报名表。
     await expect(page.locator('.inspection-login__form')).toBeVisible()
+    // S5-8: preview builds open on the code login; the account form is one tap away.
+    await page.getByTestId('login-switch-mode').click()
     await page.locator('.inspection-login__input input').nth(0).fill('dev-customer')
     await page.locator('.inspection-login__input input').nth(1).fill(devPassword())
     await page.getByTestId('login-agreement').click()

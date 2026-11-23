@@ -371,6 +371,12 @@ class AccountAddressServiceTest {
 
     /** 按 AccountAddressMapper 的 SQL 写的内存实现；插入或改动后检查“每个账号最多一条默认”。 */
     private static final class InMemoryMapper implements AccountAddressMapper {
+        // S5-8 注销去标识：这个账号的地址全部标记删除。
+        @Override
+        public int eraseAll(UUID ownerId, java.time.Instant at) {
+            return 0;
+        }
+
         final List<String> locks = new java.util.ArrayList<>();
 
         final List<Row> rows = new ArrayList<>();

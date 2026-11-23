@@ -205,6 +205,68 @@ public interface TradeOrderMapper {
             """)
     int countOpenPayments(@Param("orderId") UUID orderId);
 
+    // ---- 付款主体、企业订单、注销（S5-7、S5-8，迁移 V013） ----
+
+    /** 刚建的订单记下付款主体快照（同一事务里，建单之后）。 */
+    @Update("""
+            UPDATE trade_order
+               SET payer_type = #{payerType}, payer_organization_id = #{organizationId}, payer_name = #{payerName}
+             WHERE id = #{orderId}
+            """)
+    int updatePayer(@Param("orderId") UUID orderId, @Param("payerType") String payerType,
+                    @Param("organizationId") UUID organizationId, @Param("payerName") String payerName);
+
+    @Select("""
+            SELECT o.id, o.order_no, o.source, o.status, o.payable_minor, o.buyer_id, o.created_at,
+                   (SELECT l.product_name FROM trade_order_line l WHERE l.order_id = o.id
+                     ORDER BY l.sort_order, l.id LIMIT 1) AS first_line,
+                   (SELECT count(*) FROM trade_order_line l WHERE l.order_id = o.id) AS line_count
+              FROM trade_order o
+             WHERE o.payer_organization_id = #{organizationId}
+             ORDER BY o.created_at DESC, o.id DESC
+             LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<EnterpriseOrderRow> findEnterpriseOrders(@Param("organizationId") UUID organizationId,
+                                                  @Param("limit") int limit, @Param("offset") int offset);
+
+    @Select("""
+            SELECT count(*) AS total,
+                   count(*) FILTER (WHERE status = 'PENDING_PAYMENT') AS pending_payment,
+                   count(*) FILTER (WHERE status IN ('PAID', 'SHIPPED', 'REFUNDING', 'REFUND_FAILED')) AS in_progress,
+                   count(*) FILTER (WHERE status IN ('COMPLETED', 'REFUNDED')) AS completed
+              FROM trade_order
+             WHERE payer_organization_id = #{organizationId}
+            """)
+    EnterpriseCountRow countEnterpriseOrders(@Param("organizationId") UUID organizationId);
+
+    /** 注销条件“没有进行中的订单”：待付款、已付款待发货、已发货、退款中（含退款异常）。 */
+    @Select("""
+            SELECT count(*)
+              FROM trade_order
+             WHERE buyer_id = #{buyerId}
+               AND status IN ('PENDING_PAYMENT', 'PAID', 'SHIPPED', 'REFUNDING', 'REFUND_FAILED')
+            """)
+    long countOpenOrders(@Param("buyerId") UUID buyerId);
+
+    /** 注销到期去标识：这个买家订单的配送快照里收货人和电话改成占位，地址清掉；订单和金额保留。 */
+    @Update("""
+            UPDATE trade_order_delivery d
+               SET recipient_name = CASE WHEN d.recipient_name IS NULL THEN NULL ELSE '已注销用户' END,
+                   phone = CASE WHEN d.phone IS NULL THEN NULL ELSE '13000000000' END,
+                   address_detail = CASE WHEN d.address_detail IS NULL THEN NULL ELSE '已删除' END
+              FROM trade_order o
+             WHERE o.id = d.order_id
+               AND o.buyer_id = #{buyerId}
+            """)
+    int anonymizeBuyerDeliveries(@Param("buyerId") UUID buyerId);
+
+    record EnterpriseOrderRow(UUID id, String orderNo, String source, String status, long payableMinor,
+                              UUID buyerId, Instant createdAt, String firstLine, long lineCount) {
+    }
+
+    record EnterpriseCountRow(long total, long pendingPayment, long inProgress, long completed) {
+    }
+
     // ---- 读订单 ----
 
     String ORDER_COLUMNS = """
@@ -231,7 +293,9 @@ public interface TradeOrderMapper {
                    o.completed_at,
                    o.closed_at,
                    o.created_at,
-                   o.version
+                   o.version,
+                   o.payer_type,
+                   o.payer_name
             FROM trade_order o
             """;
 
@@ -574,8 +638,22 @@ public interface TradeOrderMapper {
             Instant completedAt,
             Instant closedAt,
             Instant createdAt,
-            int version
+            int version,
+            /** 0.6.0 付款主体快照：PERSONAL / ENTERPRISE；0.6.0 之前的订单为空，当作个人。 */
+            String payerType,
+            String payerName
     ) {
+
+        /** 0.6.0 之前的写法（测试里还在用）：没有付款主体快照。 */
+        public OrderRow(UUID id, String orderNo, UUID buyerId, UUID merchantId, String merchantKind, String merchantName,
+                 String source, UUID sourceRef, String status, String deliveryMode, long goodsMinor,
+                 long shippingMinor, long payableMinor, long paidMinor, long refundedMinor, String currency,
+                 String buyerNote, Instant payBefore, Instant paidAt, Instant shippedAt, Instant completedAt,
+                 Instant closedAt, Instant createdAt, int version) {
+            this(id, orderNo, buyerId, merchantId, merchantKind, merchantName, source, sourceRef, status,
+                    deliveryMode, goodsMinor, shippingMinor, payableMinor, paidMinor, refundedMinor, currency,
+                    buyerNote, payBefore, paidAt, shippedAt, completedAt, closedAt, createdAt, version, null, null);
+        }
     }
 
     record LineRow(

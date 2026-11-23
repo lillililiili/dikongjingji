@@ -17,7 +17,7 @@ import {
   formatTradeTime,
   type TradeOrderAction,
 } from '../../application/order-view'
-import { isSourceOrder, orderDestination, type TradeOrderDestination } from '../../application/order-source'
+import { isSourceOrder, orderDestination, payerRow, type TradeOrderDestination } from '../../application/order-source'
 import { isUnauthorizedFailure, readTradeFailure } from '../../application/start-payment'
 import { createTradeKey } from '../../application/trade-keys'
 import { openSupportChat } from '@/features/support/application/support-entry'
@@ -93,13 +93,16 @@ const shipped = computed(() => Boolean(delivery.value?.shippedAt && delivery.val
 const parties = computed(() => {
   const current = order.value
   if (!current) return []
-  return goodsParties({
+  const rows = goodsParties({
     merchantName: current.merchant.name,
     merchantKindLabel: current.merchant.kind ? TRADE_MERCHANT_KIND_LABELS[current.merchant.kind] : null,
     fulfilledFrom: current.parties.fulfilledFrom,
     invoiceIssuer: current.parties.invoiceIssuer,
     aftersaleParty: current.parties.aftersaleParty,
   })
+  // S5-7: an order placed as an enterprise names it as the payer.
+  const payer = payerRow(current)
+  return payer ? [...rows, { label: '付款主体', value: payer.value, testId: 'goods-order-payer' }] : rows
 })
 // 售后条款 (board OrderGoods): the order does not carry the products' 七天无理由 mark, so the first
 // term says it follows the seller's rules, as the board does.

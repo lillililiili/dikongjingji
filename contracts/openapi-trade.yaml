@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Trade API
-  version: 0.9.0
+  version: 0.10.0
   description: |-
     0.1.0（草案，2026-11-18，E01，待用户确认）：统一交易模块。一期只接商城订单；收费报名、到馆预约、巡检付款节点以后按
     source 扩展。方案见 docs/redesign/03-App实现任务计划.md §19。
@@ -92,6 +92,12 @@ info:
       付款截止 15 分钟；超时或取消只关这一张订单，服务订单仍待付款，可以再发起。不在“商品订单”里，商家接口当作不存在。
       已付款的不能由买家取消：开工之前取消时由服务订单整笔原路退款，开工之后协商终止时由服务商退款（可部分）。
       关闭之后才到账的付款：服务订单还在待付款时照常记为已付；已经取消或已经付过时整笔自动原路退款。
+    0.10.0（2026-11-23，S5-7、S5-8，docs/redesign/08-后续开发计划.md §5“企业组织”“账号”）：
+      - TradeOrder 加必有字段 payer（付款主体）：下单时买家的当前身份（contracts/openapi-identity-account.yaml 的 switchIdentity），
+        PERSONAL 个人（name 为 null）或 ENTERPRISE 企业（企业名称快照）。各来源（商城、报名、到馆、租赁、巡检、通用服务订单、课程）都记，之前的订单是 PERSONAL。
+        只记主体，不做企业结算：付款人仍是买家账号本人，钱仍进商家自己的子商户号。
+      - 加 listEnterpriseOrders：本人所在企业以企业身份付款的订单（企业成员可看，带经办人显示名），企业组织页用。
+      - 注销冷静期内的账号不能提交订单、不能被业务模块建订单、不能发起支付：TRADE_ACCOUNT_CLOSING（409）。
 
     渠道与资金（用户 2026-11-18 确认）：
     - 唯一的支付渠道是微信支付，产品是“平台收付通”的普通支付：每笔钱直接进卖出商品的商家（二级商户）自己的商户号，
@@ -416,6 +422,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WechatFailure"
+  /api/v1/trade/enterprise-orders:
+    get:
+      operationId: listEnterpriseOrders
+      summary: 本人所在企业以企业身份付款的订单（0.10.0，企业成员）
+      description: >-
+        新的在前。只给这家企业当前的成员（管理员和成员都可以）；不是成员按 404 回答。每项是订单概要和经办人（下单账号的显示名），
+        不含收货人和地址。counts 是这家企业全部企业订单按状态的数目。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: enterpriseId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 企业订单
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnterpriseOrderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/provider/trade/orders:
     get:
       operationId: listMerchantOrders
@@ -901,6 +940,7 @@ components:
         - TRADE_CHANNEL_UNAVAILABLE
         - TRADE_RECONCILIATION_NOT_READY
         - TRADE_INQUIRY_QUOTE_ORDERED
+        - TRADE_ACCOUNT_CLOSING
         - MALL_CHECKOUT_MULTIPLE_MERCHANTS
         - MALL_CHECKOUT_ITEM_UNAVAILABLE
         - MALL_CART_NOT_PURCHASABLE
@@ -1207,6 +1247,7 @@ components:
         - channelTransactionId
         - participantNames
         - aftersale
+        - payer
       properties:
         orderId:
           type: string
@@ -1277,6 +1318,8 @@ components:
           description: 0.7.0：收费报名订单的参与人姓名（报名顺序，顿号连接），只用来显示；别的订单为 null
         aftersale:
           $ref: "#/components/schemas/TradeOrderAftersale"
+        payer:
+          $ref: "#/components/schemas/TradePayer"
     TradeOrderParties:
       type: object
       additionalProperties: false
@@ -1311,6 +1354,79 @@ components:
         applicable:
           type: boolean
           description: 现在能不能申请售后（只有商城订单可能为 true；具体能选哪类、哪个原因看 getAftersaleEligibility）
+    TradePayer:
+      type: object
+      additionalProperties: false
+      required: [type, name]
+      description: 0.10.0 付款主体（下单时的身份快照）
+      properties:
+        type:
+          type: string
+          enum: [PERSONAL, ENTERPRISE]
+        name:
+          type: [string, "null"]
+          description: 企业名称；个人时为 null
+    EnterpriseOrderSummary:
+      type: object
+      additionalProperties: false
+      required: [orderId, orderNo, source, title, status, payableMinor, operatorName, createdAt]
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        orderNo:
+          type: string
+        source:
+          $ref: "#/components/schemas/TradeOrderSource"
+        title:
+          type: string
+          description: 第一行的商品或业务项目名；多行时加“等 N 件”
+        status:
+          $ref: "#/components/schemas/TradeOrderStatus"
+        payableMinor:
+          type: integer
+          format: int64
+        operatorName:
+          type: string
+          description: 经办人（下单账号的显示名）
+        createdAt:
+          type: string
+          format: date-time
+    EnterpriseOrderCounts:
+      type: object
+      additionalProperties: false
+      required: [pendingPayment, inProgress, completed]
+      properties:
+        pendingPayment:
+          type: integer
+          format: int64
+        inProgress:
+          type: integer
+          format: int64
+          description: 已付款还没完成（待发货、已发货、退款中）
+        completed:
+          type: integer
+          format: int64
+    EnterpriseOrderPage:
+      type: object
+      additionalProperties: false
+      required: [page, size, total, hasMore, counts, items]
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        counts:
+          $ref: "#/components/schemas/EnterpriseOrderCounts"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnterpriseOrderSummary"
     TradeOrderPage:
       type: object
       additionalProperties: false

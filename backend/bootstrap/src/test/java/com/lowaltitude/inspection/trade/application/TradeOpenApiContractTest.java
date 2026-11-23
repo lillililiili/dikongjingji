@@ -78,6 +78,8 @@ class TradeOpenApiContractTest {
     private static final String RECONCILIATION_RUNS = "POST /api/v1/platform/trade/reconciliation/runs";
     private static final String CHANNEL_CHECKS = "POST /api/v1/platform/trade/channel-checks";
 
+    private static final String ENTERPRISE_ORDERS = "GET /api/v1/trade/enterprise-orders";
+
     /** 已实现、要登录的操作：E02 五个，E04 两个，E05 五个，E06 两个，S2-1 一个，S3-2 两个（商家工作台的单张订单、收款账户）。 */
     private static final Map<String, String> IMPLEMENTED = Map.ofEntries(
             Map.entry("POST /api/v1/trade/orders", "submitOrder"),
@@ -96,7 +98,9 @@ class TradeOpenApiContractTest {
             Map.entry(REFUNDS, "refundOrder"),
             Map.entry(RECONCILIATION, "exportReconciliation"),
             Map.entry(RECONCILIATION_RUNS, "runReconciliation"),
-            Map.entry(CHANNEL_CHECKS, "checkPaymentChannel"));
+            Map.entry(CHANNEL_CHECKS, "checkPaymentChannel"),
+            // 0.6.0（S5-7）：企业成员看本企业以企业身份付款的订单。
+            Map.entry("GET /api/v1/trade/enterprise-orders", "listEnterpriseOrders"));
 
     /** 已实现的公开操作（E04 的微信回调）。 */
     private static final String NOTIFICATION = "POST /api/v1/trade/channels/wechat/notifications";
@@ -123,7 +127,11 @@ class TradeOpenApiContractTest {
             Map.entry("ReconciliationRun", ReconciliationRunView.class),
             Map.entry("ReconciliationDifference", ReconciliationDifferenceView.class),
             Map.entry("ChannelCheck", ChannelCheckView.class),
-            Map.entry("ChannelCheckItem", ChannelCheckItemView.class));
+            Map.entry("ChannelCheckItem", ChannelCheckItemView.class),
+            Map.entry("TradePayer", TradeViews.TradePayerView.class),
+            Map.entry("EnterpriseOrderSummary", TradeViews.EnterpriseOrderSummaryView.class),
+            Map.entry("EnterpriseOrderCounts", TradeViews.EnterpriseOrderCountsView.class),
+            Map.entry("EnterpriseOrderPage", TradeViews.EnterpriseOrderPageView.class));
 
     /** 请求体：字段名与控制器收的对象一致。 */
     private static final Map<String, Class<? extends Record>> REQUEST_RECORDS = Map.of(
@@ -153,7 +161,8 @@ class TradeOpenApiContractTest {
         // 0.7.0：S4-2、S4-4 订单的交易主体快照、渠道交易号、参与人、售后入口。
         // 0.8.0：S4-3 通用服务订单（来源 PRO_SERVICE）。
         // 0.9.0：S5-5 线上录播课（来源 COURSE）。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("0.9.0");
+        // 0.10.0：S5-7、S5-8 付款主体、企业订单和注销冷静期。
+        assertThat(map(root.get("info")).get("version")).isEqualTo("0.10.0");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");
@@ -591,8 +600,10 @@ class TradeOpenApiContractTest {
                         launch,
                         check,
                         "PUT /api/v1/platform/trade/merchant-accounts/{organizationId}",
-                        RECEIPT, SHIPMENT, PICKUP, REFUNDS)),
+                        RECEIPT, SHIPMENT, PICKUP, REFUNDS, ENTERPRISE_ORDERS)),
                 Map.entry(Error.FORBIDDEN, List.copyOf(IMPLEMENTED.keySet())),
+                // 0.6.0：注销冷静期内提交订单和发起支付。
+                Map.entry(Error.ACCOUNT_CLOSING, List.of("POST /api/v1/trade/orders", launch)),
                 // E06：读对账结果时那天还没全部导入。
                 Map.entry(Error.RECONCILIATION_NOT_READY, List.of(RECONCILIATION)),
                 // F4：按询价报价下单，这份报价已经有一张没关闭的订单。
@@ -731,7 +742,8 @@ class TradeOpenApiContractTest {
     private static List<Operation> operations() {
         List<Operation> operations = new ArrayList<>();
         for (Class<?> controller : List.of(
-                TradeOrderController.class, TradePlatformController.class, TradeMerchantController.class)) {
+                TradeOrderController.class, TradePlatformController.class, TradeMerchantController.class,
+                TradeEnterpriseOrderController.class)) {
             for (Method method : controller.getDeclaredMethods()) {
                 RequestMapping mapping = AnnotatedElementUtils.findMergedAnnotation(method, RequestMapping.class);
                 if (mapping != null) {

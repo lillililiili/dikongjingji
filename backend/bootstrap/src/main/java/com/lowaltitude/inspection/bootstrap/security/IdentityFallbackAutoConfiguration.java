@@ -1,10 +1,12 @@
 package com.lowaltitude.inspection.bootstrap.security;
 
+import com.lowaltitude.inspection.identity.domain.AccountStatePort;
 import com.lowaltitude.inspection.identity.domain.IdentityAccountPort;
 import com.lowaltitude.inspection.identity.domain.IdentityOrganizationPort;
 import com.lowaltitude.inspection.identity.domain.IdentityProfilePort;
 import com.lowaltitude.inspection.identity.domain.RefreshTokenPort;
 import com.lowaltitude.inspection.identity.domain.TokenVersionPort;
+import com.lowaltitude.inspection.identity.infrastructure.FailClosedAccountStatePort;
 import com.lowaltitude.inspection.identity.infrastructure.FailClosedIdentityAccountPort;
 import com.lowaltitude.inspection.identity.infrastructure.FailClosedIdentityOrganizationPort;
 import com.lowaltitude.inspection.identity.infrastructure.FailClosedIdentityProfilePort;
@@ -49,5 +51,11 @@ public class IdentityFallbackAutoConfiguration {
     @ConditionalOnMissingBean(RefreshTokenPort.class)
     RefreshTokenPort failClosedRefreshTokenPort() {
         return new FailClosedRefreshTokenPort();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AccountStatePort.class)
+    AccountStatePort failClosedAccountStatePort() {
+        return new FailClosedAccountStatePort();
     }
 }

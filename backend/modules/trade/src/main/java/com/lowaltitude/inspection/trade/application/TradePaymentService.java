@@ -149,6 +149,8 @@ public class TradePaymentService {
         if (!WECHAT_APP.equals(channelName)) {
             throw new IllegalArgumentException("channel is not supported");
         }
+        // S5-8：注销冷静期内不能付款（撤回注销后恢复）。
+        orderService.payerFor(buyerId);
         PaymentChannel channel = requireChannel();
         Instant now = clock.instant();
 

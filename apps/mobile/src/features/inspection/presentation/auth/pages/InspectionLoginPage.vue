@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
 import { onBackPress, onLoad, onReady } from '@dcloudio/uni-app'
+
+import { ACCOUNT_PREVIEW_ENABLED } from '@/features/account/application/account-preview'
+import { currentLoginDevice } from '@/features/account/application/login-device'
+import { identityAccountApi } from '@/features/account/data/identity-account-api-client'
+import { codeButtonText, digitsOnly, inputValue, isPhoneNumber, isSmsCode } from '@/features/account/domain/identity-account'
+import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
 import type { AgreementDoc } from '@/features/settings/domain/agreement'
@@ -28,6 +34,108 @@ const errorMessage = ref('')
 // Board Login: the agreement is not ticked in advance; 登录 stays orange and says what is missing.
 const agreementAccepted = ref(false)
 const resumeAction = computed(() => describeLoginResume(returnUrl.value))
+
+// Board Login (S5-8): preview builds sign in with the phone number and a code (another number than
+// the one on this phone; 本机号码一键登录 needs the carriers' service, which is not connected). A number
+// that has no account yet gets one. The account-and-password form stays for accounts made by the
+// platform; public builds only have it.
+const mode = ref<'phone' | 'password'>(ACCOUNT_PREVIEW_ENABLED ? 'phone' : 'password')
+const phone = ref('')
+const code = ref('')
+const secondsLeft = ref(0)
+const sendingCode = ref(false)
+let countdown: ReturnType<typeof setInterval> | null = null
+const cityStore = useCurrentCityStore()
+
+function onPhoneInput(event: Event): void {
+  phone.value = digitsOnly(inputValue(event), 11)
+}
+
+function onCodeInput(event: Event): void {
+  code.value = digitsOnly(inputValue(event), 6)
+}
+
+function startCountdown(seconds: number): void {
+  secondsLeft.value = seconds
+  if (countdown) clearInterval(countdown)
+  countdown = setInterval(() => {
+    secondsLeft.value = Math.max(0, secondsLeft.value - 1)
+    if (secondsLeft.value === 0 && countdown) {
+      clearInterval(countdown)
+      countdown = null
+    }
+  }, 1000)
+}
+
+onUnmounted(() => {
+  if (countdown) clearInterval(countdown)
+})
+
+async function sendCode(): Promise<void> {
+  if (sendingCode.value || secondsLeft.value > 0) return
+  if (!isPhoneNumber(phone.value)) {
+    errorMessage.value = '请输入 11 位手机号'
+    return
+  }
+  sendingCode.value = true
+  errorMessage.value = ''
+  try {
+    const sent = await identityAccountApi.sendLoginCode(phone.value)
+    startCountdown(sent.resendAfterSeconds)
+    uni.showToast({ title: `验证码已发送至 ${sent.maskedPhone}`, icon: 'none' })
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '验证码发送失败，请重试'
+  } finally {
+    sendingCode.value = false
+  }
+}
+
+async function submitPhoneLogin(): Promise<void> {
+  if (isSubmitting.value || !agreementAccepted.value) return
+  if (!isPhoneNumber(phone.value) || !isSmsCode(code.value)) {
+    errorMessage.value = '请输入手机号和 6 位验证码'
+    return
+  }
+  isSubmitting.value = true
+  errorMessage.value = ''
+  try {
+    const result = await identityAccountApi.loginWithCode(phone.value, code.value,
+      currentLoginDevice(cityStore.currentCity?.code ?? null))
+    saveBookingAuthSession(result)
+    completeBookingAuthenticationRecovery()
+    if (result.registered) uni.showToast({ title: '已为这个手机号开通账号', icon: 'none' })
+    continueToProtectedPage()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '登录失败，请重试'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+function useCarrierLogin(): void {
+  uni.showToast({ title: '本机号码一键登录需要运营商认证服务，暂未开通，请用验证码登录', icon: 'none' })
+}
+
+// The account form is drawn only after switching to it (S5-8), so its fields get the plain-typing
+// attributes then, the same way the page sets them when it is first drawn.
+function switchMode(next: 'phone' | 'password'): void {
+  mode.value = next
+  errorMessage.value = ''
+  if (next !== 'password') return
+  void nextTick(() => {
+    // #ifdef H5
+    document.querySelectorAll('[data-plain-input] input').forEach((field) => {
+      field.setAttribute('autocapitalize', 'off')
+      field.setAttribute('autocorrect', 'off')
+      field.setAttribute('spellcheck', 'false')
+    })
+    // #endif
+    // #ifdef APP-PLUS
+    const pages = getCurrentPages() as Array<{ $getAppWebview?: () => { evalJS(script: string): void } }>
+    pages[pages.length - 1]?.$getAppWebview?.().evalJS(PLAIN_FIELD_SCRIPT)
+    // #endif
+  })
+}
 
 onLoad((query: LoginRouteQuery | undefined) => {
   returnUrl.value = normalizeInspectionReturnUrl(query?.returnUrl ?? '')
@@ -90,6 +198,9 @@ async function submitLogin(): Promise<void> {
     const response = await inspectionAuthApi.login(
       normalizedLoginName,
       password.value,
+      ACCOUNT_PREVIEW_ENABLED
+        ? { ...currentLoginDevice(cityStore.currentCity?.code ?? null) }
+        : undefined,
     )
     saveBookingAuthSession(response)
     completeBookingAuthenticationRecovery()
@@ -129,7 +240,7 @@ function exitLogin(): void {
 </script>
 
 <template>
-  <view class="inspection-login">
+  <view :class="['inspection-login', { 'inspection-login--phone': mode === 'phone' }]">
     <AppPageHeader class="inspection-login__header" title="登录" test-id="login" @back="exitLogin" />
 
     <main class="inspection-login__content">
@@ -138,7 +249,56 @@ function exitLogin(): void {
         <text class="inspection-login__resume-text">登录成功后自动回到原操作</text>
       </view>
 
-      <view class="inspection-login__form">
+      <view v-if="mode === 'phone'" class="inspection-login__form" data-testid="login-phone-form">
+        <text class="inspection-login__form-title">验证码登录</text>
+        <view class="inspection-login__input inspection-login__input--soft">
+          <text class="inspection-login__prefix">+86</text>
+          <view class="inspection-login__divider" />
+          <input
+            :value="phone"
+            type="number"
+            maxlength="11"
+            placeholder="请输入手机号"
+            placeholder-class="inspection-login__placeholder"
+            aria-label="手机号"
+            data-testid="login-phone"
+            @input="onPhoneInput"
+          />
+        </view>
+        <view class="inspection-login__input inspection-login__input--soft inspection-login__input--code">
+          <input
+            :value="code"
+            type="number"
+            maxlength="6"
+            placeholder="请输入验证码"
+            placeholder-class="inspection-login__placeholder"
+            aria-label="验证码"
+            data-testid="login-code"
+            @input="onCodeInput"
+            @confirm="submitPhoneLogin"
+          />
+          <button
+            :class="['inspection-login__code', { 'inspection-login__code--wait': secondsLeft > 0 }]"
+            :disabled="secondsLeft > 0 || sendingCode"
+            data-testid="login-send-code"
+            @click="sendCode"
+          >
+            {{ codeButtonText(secondsLeft) }}
+          </button>
+        </view>
+        <text v-if="errorMessage" class="inspection-login__error">{{ errorMessage }}</text>
+        <button
+          :class="['inspection-login__submit', { 'inspection-login__submit--off': !agreementAccepted }]"
+          :disabled="isSubmitting || !agreementAccepted"
+          data-testid="login-phone-submit"
+          @click="submitPhoneLogin"
+        >
+          {{ isSubmitting ? '正在登录…' : '登录' }}
+        </button>
+        <button class="inspection-login__switch" data-testid="login-carrier" @click="useCarrierLogin">使用本机号码一键登录</button>
+      </view>
+
+      <view v-else class="inspection-login__form">
         <text class="inspection-login__form-title">账号登录</text>
         <view class="inspection-login__input" data-plain-input>
           <LineIcon name="person" :size="18" color="#738096" />
@@ -189,6 +349,14 @@ function exitLogin(): void {
         <text class="inspection-login__agreement-text">我已阅读并同意<text class="inspection-login__link" @click.stop="openAgreement('USER_AGREEMENT')">《用户协议》</text><text class="inspection-login__link" @click.stop="openAgreement('PRIVACY_POLICY')">《隐私政策》</text><text class="inspection-login__link" @click.stop="openAgreement('CHILD_PRIVACY_RULES')">《儿童个人信息保护规则》</text></text>
       </view>
 
+      <button
+        v-if="ACCOUNT_PREVIEW_ENABLED"
+        class="inspection-login__other"
+        data-testid="login-switch-mode"
+        @click="switchMode(mode === 'phone' ? 'password' : 'phone')"
+      >
+        {{ mode === 'phone' ? '账号密码登录' : '验证码登录' }}
+      </button>
       <button class="inspection-login__browse" data-testid="login-browse" @click="exitLogin">先随便看看</button>
     </main>
   </view>
@@ -217,5 +385,17 @@ function exitLogin(): void {
 .inspection-login__tick--on { border: 0; background: #ff6a00; }
 .inspection-login__agreement-text { min-width: 0; flex: 1; }
 .inspection-login__link { color: #ba470b; }
+/* Board Login, 验证码登录 frame: the theme draws this title at 17px and the fields in the page colour. */
+.inspection-login--phone .inspection-login__form-title { font-size: 17px; line-height: 24px; }
+.inspection-login__input--soft { background: #f5f7fc; }
+.inspection-login__input--code { padding-right: 4px; gap: 8px; }
+.inspection-login__prefix { flex: none; color: #202c42; font-size: 15px; }
+.inspection-login__divider { width: 1px; height: 16px; flex: none; background: #dcdfe3; }
+.inspection-login__code { flex: none; min-height: 44px; margin: 0; padding: 0 10px; border: 0; color: #ba470b; background: transparent; font-size: 14px; line-height: 44px; white-space: nowrap; }
+.inspection-login__code::after, .inspection-login__switch::after, .inspection-login__other::after { border: 0; }
+.inspection-login__code--wait, .inspection-login__code[disabled] { color: #91a0b4; background: transparent; }
+.inspection-login__submit--off, .inspection-login__submit--off[disabled] { color: #fff; background: #c9d3e1; box-shadow: none; opacity: 1; }
+.inspection-login__switch { align-self: center; min-height: 44px; margin: 8px auto 0; padding: 0 16px; border: 0; color: #202c42; background: transparent; font-size: 15px; line-height: 44px; }
+.inspection-login__other { min-height: 40px; margin: 8px auto 0; padding: 0 16px; border: 0; color: #627187; background: transparent; font-size: 13px; line-height: 40px; }
 .inspection-login__browse { min-height: 44px; margin: auto auto 0; padding: 0 16px; border: 0; color: #627187; background: transparent; font-size: 14px; line-height: 44px; }
 </style>

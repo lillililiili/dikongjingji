@@ -63,6 +63,111 @@ class AuthenticationServiceRefreshTest {
                 clock);
     }
 
+    // ---- S5-8 登录设备：会话 ID 就是刷新令牌 family ----
+
+    /** 记录会话的账号状态：开会话返回 family 要用的 ID，记下退出、续期时的触碰。 */
+    private static final class RecordingSessions implements com.lowaltitude.inspection.identity.domain.AccountStatePort {
+        final java.util.Map<UUID, Boolean> sessions = new java.util.HashMap<>();
+        final java.util.List<UUID> touched = new java.util.ArrayList<>();
+
+        @Override
+        public Optional<UUID> openSession(UUID subjectId, com.lowaltitude.inspection.identity.domain.LoginDevice device, String method) {
+            UUID id = UUID.randomUUID();
+            sessions.put(id, true);
+            return Optional.of(id);
+        }
+
+        @Override
+        public boolean isSessionActive(UUID sessionId, UUID subjectId) {
+            return Boolean.TRUE.equals(sessions.get(sessionId));
+        }
+
+        @Override
+        public void signOut(UUID sessionId, UUID subjectId) {
+            sessions.computeIfPresent(sessionId, (id, active) -> false);
+        }
+
+        @Override
+        public com.lowaltitude.inspection.identity.domain.LoginSessionStatus sessionStatus(UUID sessionId, UUID subjectId) {
+            Boolean active = sessions.get(sessionId);
+            return active == null ? com.lowaltitude.inspection.identity.domain.LoginSessionStatus.UNKNOWN
+                    : active ? com.lowaltitude.inspection.identity.domain.LoginSessionStatus.ACTIVE
+                    : com.lowaltitude.inspection.identity.domain.LoginSessionStatus.ENDED;
+        }
+
+        @Override
+        public void touchSession(UUID sessionId, UUID subjectId) {
+            touched.add(sessionId);
+        }
+
+        @Override
+        public com.lowaltitude.inspection.identity.domain.CurrentIdentity currentIdentity(UUID subjectId) {
+            return com.lowaltitude.inspection.identity.domain.CurrentIdentity.personal();
+        }
+
+        @Override
+        public Optional<String> maskedPhone(UUID subjectId) {
+            return Optional.empty();
+        }
+    }
+
+    private AuthenticationService withSessions(RecordingSessions sessions) {
+        IdentityAccountPort accounts = new IdentityAccountPort() {
+            @Override
+            public Optional<IdentityAccount> findByLoginName(String loginName) {
+                return "test-user".equals(loginName) ? Optional.of(account()) : Optional.empty();
+            }
+
+            @Override
+            public Optional<IdentityAccount> findBySubjectId(UUID subjectId) {
+                return SUBJECT_ID.equals(subjectId) ? Optional.of(account()) : Optional.empty();
+            }
+        };
+        return new AuthenticationService(accounts, store, passwordEncoder,
+                new NimbusJwtEncoder(new ImmutableSecret<SecurityContext>(new SecretKeySpec(SECRET, "HmacSHA256"))),
+                sessions, clock);
+    }
+
+    @Test
+    void theLoginSessionIsTheRefreshFamilyAndRenewalsKeepAndTouchIt() throws Exception {
+        RecordingSessions sessions = new RecordingSessions();
+        AuthenticationService sessionService = withSessions(sessions);
+        AuthenticationService.LoginToken login = sessionService.authenticate("test-user", "test-password").orElseThrow();
+        UUID sid = UUID.fromString((String) SignedJWT.parse(login.accessToken()).getJWTClaimsSet().getClaim("sid"));
+
+        assertThat(stored(login.refreshToken()).familyId()).isEqualTo(sid);
+        AuthenticationService.LoginToken renewed = sessionService.refresh(login.refreshToken()).orElseThrow();
+        assertThat(SignedJWT.parse(renewed.accessToken()).getJWTClaimsSet().getClaim("sid")).isEqualTo(sid.toString());
+        assertThat(sessions.touched).containsExactly(sid);
+    }
+
+    @Test
+    void aDeviceSignedOutCannotRenewAndSigningOutEndsTheSession() {
+        RecordingSessions sessions = new RecordingSessions();
+        AuthenticationService sessionService = withSessions(sessions);
+        AuthenticationService.LoginToken kicked = sessionService.authenticate("test-user", "test-password").orElseThrow();
+        UUID kickedFamily = stored(kicked.refreshToken()).familyId();
+        sessions.signOut(kickedFamily, SUBJECT_ID);
+
+        assertThat(sessionService.refresh(kicked.refreshToken())).isEmpty();
+        assertThat(store.all()).filteredOn(token -> token.familyId().equals(kickedFamily))
+                .allSatisfy(token -> assertThat(token.status()).isEqualTo(RefreshTokenStatus.REVOKED));
+
+        AuthenticationService.LoginToken other = sessionService.authenticate("test-user", "test-password").orElseThrow();
+        UUID otherFamily = stored(other.refreshToken()).familyId();
+        sessionService.logout(other.refreshToken());
+        assertThat(sessions.isSessionActive(otherFamily, SUBJECT_ID)).isFalse();
+    }
+
+    @Test
+    void loginsFromBeforeDevicesWereRecordedRenewAsBefore() throws Exception {
+        AuthenticationService.LoginToken legacy = login();
+        AuthenticationService sessionService = withSessions(new RecordingSessions());
+
+        AuthenticationService.LoginToken renewed = sessionService.refresh(legacy.refreshToken()).orElseThrow();
+        assertThat(SignedJWT.parse(renewed.accessToken()).getJWTClaimsSet().getClaim("sid")).isNull();
+    }
+
     @Test
     void loginHandsOutARefreshTokenThatIsStoredOnlyAsItsHash() {
         AuthenticationService.LoginToken login = login();

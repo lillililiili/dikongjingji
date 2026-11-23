@@ -1,11 +1,22 @@
 export interface CurrentAccount {
   displayName: string
   organizationName: string | null
+  /** Contract 2.4.0: 138****2026, or null when no number is bound (or an older server). */
+  maskedPhone?: string | null
+  /** Contract 2.4.0: the current identity; null from an older server. */
+  identity?: {
+    type: 'PERSONAL' | 'ENTERPRISE'
+    enterpriseId: string | null
+    enterpriseName: string | null
+    role: 'ADMIN' | 'MEMBER' | null
+  } | null
 }
 
 interface CurrentAccountDto {
   displayName?: string | null
   organizationName?: string | null
+  maskedPhone?: string | null
+  identity?: CurrentAccount['identity']
 }
 
 type AccountRequest = <T>(input: {
@@ -28,6 +39,15 @@ export function createInspectionAccountApi(request: AccountRequest) {
       return {
         displayName: dto.displayName?.trim() ?? '',
         organizationName: dto.organizationName?.trim() || null,
+        maskedPhone: dto.maskedPhone?.trim() || null,
+        identity: dto.identity && (dto.identity.type === 'PERSONAL' || dto.identity.type === 'ENTERPRISE')
+          ? {
+              type: dto.identity.type,
+              enterpriseId: dto.identity.enterpriseId ?? null,
+              enterpriseName: dto.identity.enterpriseName ?? null,
+              role: dto.identity.role ?? null,
+            }
+          : null,
       }
     },
   }

@@ -145,6 +145,23 @@ public interface AccountAddressMapper {
             @Param("at") Instant at
     );
 
+    /**
+     * 注销到期（S5-8）：这个账号的地址全部删除，并把收货人、手机号、详细地址清成占位（已删除的地址也一样），
+     * 不再能对应到人。手机号要满足表上的格式约束，用 13000000000 占位。
+     */
+    @Update("""
+            UPDATE account_address
+            SET status = 'DELETED',
+                is_default = false,
+                recipient_name = '已注销用户',
+                phone = '13000000000',
+                detail = '已删除',
+                version = version + 1,
+                updated_at = #{at}
+            WHERE owner_id = #{ownerId}
+            """)
+    int eraseAll(@Param("ownerId") UUID ownerId, @Param("at") Instant at);
+
     /** 删除默认地址后，把最早添加的一条设为默认，地址簿里只要还有地址就总有一条默认。 */
     @Update("""
             UPDATE account_address

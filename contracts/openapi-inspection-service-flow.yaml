@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Inspection Service Flow API
-  version: 2.6.0
+  version: 2.7.0
   description: >-
     巡检预约、方案确认、多次巡检履约、按次交付和验收的正式契约。
     2.2.0（R6-4）：方案和服务单里的服务商（ProviderSummary）加 qualificationReviewed，页面据此显示“资质已审核”。
@@ -27,6 +27,10 @@ info:
     （服务商名和 qualificationReviewed，订单卡头行显示，原型画板 OrderList）；安排服务团队的 AssignmentInput 加可选的
     certifiedPilot（只有 TEAM_MEMBER 能为 true，设备为 true 回 400），服务单的 OrderAssignment 加 certifiedPilot，
     履约页据此显示“持证飞手 N 名”（画板 Fulfillment、FulfillOne）。
+    2.7.0（2026-11-23，S5-7、S5-8，账号部分见 contracts/openapi-identity-account.yaml 1.0.0）：CurrentAccount 加 maskedPhone
+    （打码手机号，没有绑定时 null）和 identity（当前身份：个人或企业）；LoginRequest 加可选的 device（登录设备说明）。
+    每次登录记一个登录会话，会话 ID 就是这次登录的刷新令牌 family：访问令牌带 sid（会话 ID）和 identity（当前企业，个人时没有）；
+    续期沿用同一个会话，会话被退出（登录设备里退出、换号、注销）后访问令牌立刻失效、刷新令牌也不能再续期；logout 同时结束会话。
 servers:
   - url: https://api.example.com
     description: Production placeholder
@@ -106,7 +110,8 @@ paths:
       summary: 退出登录
       description: >-
         撤销这个刷新令牌所属的这次登录（其他设备上的登录不受影响）。不论令牌是否存在都返回 204。
-        已签发的访问令牌不会被收回，最多 900 秒后自然过期；客户端退出时同时删掉本地的两个令牌。
+        2.7.0 起同时结束这次登录的登录会话，带它 sid 的访问令牌立刻失效；会话记录之前签发的访问令牌最多 900 秒后自然过期。
+        客户端退出时同时删掉本地的两个令牌。
       security: []
       requestBody:
         required: true
@@ -124,7 +129,8 @@ paths:
       tags: [Authentication]
       operationId: getCurrentAccount
       summary: 读取当前登录账号可以展示的资料
-      description: 账号由访问令牌确定，不接受任何指定账号的参数。不返回登录名、手机号和口令。
+      description: >-
+        账号由访问令牌确定，不接受任何指定账号的参数。不返回登录名、完整手机号和口令；手机号只给打码的（2.7.0）。
       responses:
         "200":
           description: 当前账号的展示资料
@@ -1200,6 +1206,23 @@ components:
           type: string
           minLength: 1
           maxLength: 256
+        device:
+          description: 2.7.0：登录设备说明（contracts/openapi-identity-account.yaml 的 Device），都可以不传
+          type: [object, "null"]
+          additionalProperties: false
+          properties:
+            deviceKey:
+              type: [string, "null"]
+              pattern: "^[A-Za-z0-9-]{8,64}$"
+            deviceName:
+              type: [string, "null"]
+              maxLength: 40
+            platform:
+              type: [string, "null"]
+              enum: [ANDROID, IOS, H5, MP_WEIXIN, OTHER, null]
+            cityCode:
+              type: [string, "null"]
+              pattern: "^[0-9]{6}$"
     LoginResponse:
       type: object
       additionalProperties: false
@@ -1236,7 +1259,7 @@ components:
     CurrentAccount:
       type: object
       additionalProperties: false
-      required: [displayName, organizationName, organizationType, roles]
+      required: [displayName, organizationName, organizationType, roles, maskedPhone, identity]
       properties:
         displayName:
           type: string
@@ -1253,6 +1276,27 @@ components:
           type: array
           items:
             type: string
+        maskedPhone:
+          description: 2.7.0：打码手机号（前 3 位和后 4 位，如 138****2026）；没有绑定手机号时为 null。
+          type: [string, "null"]
+          pattern: "^1[0-9]{2}\\*{4}[0-9]{4}$"
+        identity:
+          description: 2.7.0：当前身份。个人时 type = PERSONAL，其余为 null；企业时带企业 ID、名称和本人在企业里的角色。
+          type: object
+          additionalProperties: false
+          required: [type, enterpriseId, enterpriseName, role]
+          properties:
+            type:
+              type: string
+              enum: [PERSONAL, ENTERPRISE]
+            enterpriseId:
+              type: [string, "null"]
+              format: uuid
+            enterpriseName:
+              type: [string, "null"]
+            role:
+              type: [string, "null"]
+              enum: [ADMIN, MEMBER, null]
     ApiError:
       type: object
       additionalProperties: false

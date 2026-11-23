@@ -32,6 +32,7 @@ export const MINE_ENTRY_ICONS: Record<string, string> = {
   SUPPORT: 'M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2',
   ABOUT: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01',
   STAFF_WORK_MODE: 'M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M4 12h16',
+  ENTERPRISE: 'M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2',
 }
 
 export const MINE_GEAR_ICON = 'M12 15a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'
@@ -44,11 +45,26 @@ export interface PlatformMineUser {
   locationText: string
   /** The account's organization, when it belongs to one. */
   certificationLabel?: string
+  /** S5-8 (preview builds): 138****2026, shown before the city instead of the organization. */
+  maskedPhone?: string
+  /** S5-7 (preview builds): the enterprise the account acts as; the card then shows it (board Mine, org). */
+  enterpriseIdentity?: { name: string; roleLabel: string }
+  /** S5-7: the label of the switch button (切换企业身份 / 切换个人身份); none hides it. */
+  switchLabel?: string
 }
 
 export interface PlatformMineAccount {
   displayName: string
   organizationName: string | null
+  /** /auth/me 2.4.0 (S5-8). */
+  maskedPhone?: string | null
+  /** /auth/me 2.4.0 (S5-7). */
+  identity?: {
+    type: 'PERSONAL' | 'ENTERPRISE'
+    enterpriseId: string | null
+    enterpriseName: string | null
+    role: 'ADMIN' | 'MEMBER' | null
+  } | null
 }
 
 // Until the profile has been read (or when it cannot be read) the card only says the account is
@@ -68,6 +84,13 @@ export function resolveAuthenticatedMineUser(
 }
 
 /** “常用城市 东营”: the board writes the city without 市. */
+/** The grey line under the name: 138****2026 · 常用城市 东营 (board Mine), or the older organization line. */
+export function formatMineSubline(user: PlatformMineUser): string {
+  const city = formatMineCity(user.locationText)
+  if (user.maskedPhone) return `${user.maskedPhone} · ${city}`
+  return user.certificationLabel ? `${user.certificationLabel} · ${city}` : city
+}
+
 export function formatMineCity(locationText: string): string {
   const name = locationText.trim()
   if (!name || name === '未设置所在地区') return '未设置常用城市'

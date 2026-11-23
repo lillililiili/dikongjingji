@@ -1,0 +1,1285 @@
+openapi: 3.1.0
+info:
+  title: Identity Account API
+  version: 1.0.0
+  description: |-
+    1.0.0（2026-11-23，S5-7 企业组织与成员、S5-8 手机号登录与账号，docs/redesign/08-后续开发计划.md §2、§5 默认决定）：
+    公共身份能力的账号部分。账号密码登录和 /api/v1/auth/me 仍在 contracts/openapi-inspection-service-flow.yaml（2.4.0 起 me 带打码手机号和当前身份），
+    这里是新增的：手机号验证码登录与注册、绑定和更换手机号、登录设备（会话）、注销（15 天冷静期后匿名化）、个人信息导出、企业组织与成员、切换身份。
+    为什么单独成一份契约：这些都属于身份模块（identity），不是巡检流程；巡检契约只保留它原来就有的登录和 me。
+
+    通用规则：
+    - 错误用共用的 ApiError；业务错误码见 IdentityAccountErrorCode。
+    - 手机号是中国大陆 11 位手机号（^1[3-9][0-9]{9}$）；除了“我自己的手机号”在导出文件里，接口一律只给打码号码（138****2026）。
+    - 短信经 SmsGateway 端口发送；开发环境用本机模拟服务（identity.sms.provider = fake）：验证码写进日志和开发表 identity_dev_sms_outbox，不发真实短信。
+      没有配置短信服务的环境发送验证码返回 503 SMS_UNAVAILABLE，不假装发出。
+    - 验证码 6 位数字，5 分钟有效；同一手机号同一用途 60 秒内只发一次、每天最多 10 次（超过 429 SMS_TOO_FREQUENT）；一条验证码错 5 次作废；
+      同一手机号 1 小时内错 10 次锁 30 分钟（429 PHONE_LOCKED，期间不发也不认）。发登录验证码不论号码是否注册都同样回答，不暴露号码是否存在。
+    - 每次登录（账号密码或验证码）都记一个登录会话，会话 ID 就是这次登录的刷新令牌 family（contracts/openapi-inspection-service-flow.yaml
+      2.4.0 起的 /api/v1/auth/refresh、/api/v1/auth/logout）；访问令牌带会话 ID（claim sid），续期沿用同一个会话并更新它的最近活动时间。
+      退出某台设备、换号、注销都结束会话并撤销它的刷新令牌：带这个 sid 的访问令牌立刻失效（401），刷新令牌也不能再续期。
+      本机退出登录仍用 /api/v1/auth/logout（带刷新令牌），它同时结束这次登录的会话。登录设备只列 30 天内登录或续期过的会话。
+      令牌还带当前身份（claim identity：企业机构 ID，个人身份时没有这个 claim），每次签发和续期都按当前身份重读。
+      令牌有效期、签发方式与账号密码登录相同。
+    - 企业相关接口只给客户角色（CUSTOMER），设备、手机号、注销、导出给任何登录账号（机构账号没有企业）。
+    - 注销冷静期内仍能登录（为了撤回），但不能下单和付款（交易接口返回 TRADE_ACCOUNT_CLOSING）。
+
+    企业组织规则（设计假设，可改）：
+    - 客户创建企业：名称 2–40 字，统一社会信用代码 18 位数字或大写字母（不含 I、O、Z、S、V），只校验格式；同一个代码只能有一家有效企业。
+      一个账号最多在 5 家企业里；一家企业最多 50 名成员。创建者是管理员。企业也是一家 CUSTOMER 类型的机构，资质审核走运营端，不在这里。
+    - 角色两种：ADMIN 管理员（调整角色、移除成员），MEMBER 成员（以企业身份下单、看企业订单）。管理员和成员都能邀请，邀请加入后的角色一律是成员。
+      企业至少要有一名管理员：最后一名管理员不能改成成员、不能退出（企业只剩本人时退出即解散企业）。
+    - 邀请：手机号邀请（对方用这个手机号登录后在“企业组织”里确认）或邀请链接（邀请码只在创建时返回一次，拿到的人登录后确认，用一次失效）。
+      7 天有效；“再发一次”把有效期从现在起再延 7 天。拒绝、撤销、过期后可以重新邀请。
+    - 切换身份：个人或本人所在的企业；切换后签发新令牌（同一个会话）。被移除或退出企业时当前身份回到个人。
+    - 企业身份下单只记付款主体（交易订单的 payer，contracts/openapi-trade.yaml 0.10.0），不做企业结算，钱仍进商家自己的子商户号。
+
+    注销规则：没有进行中的订单、没有待参加的报名、不是任何企业的管理员（是成员时注销时自动退出）才能申请；申请后 15 天冷静期，期间可撤回；
+    到期服务端匿名化：显示名改为“已注销用户”，手机号、登录名、口令清空不可用，会话全部撤销，收货地址删除，订单等业务数据保留但配送快照里的姓名和电话打码；
+    之后这个账号不能再登录，手机号可以重新注册成新账号。
+
+    个人信息导出：选要导出的项（sections 给出可选项和平台保存的条数），验证当前手机号后申请；服务端异步生成 ZIP（每项一个 JSON），
+    通常 1 分钟内完成；副本保留 7 天。下载只经一次性的短时效链接（5 分钟），不给存储地址；每次下载记次数。
+    同一时间只能有一份生成中的申请。没有手机号的账号先绑定手机号。
+servers:
+  - url: /
+tags:
+  - name: PhoneLogin
+  - name: Account
+  - name: Enterprise
+paths:
+  /api/v1/auth/sms-codes:
+    post:
+      tags: [PhoneLogin]
+      operationId: sendLoginCode
+      summary: 给手机号发登录（或注册）验证码
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginCodeRequest"
+      responses:
+        "202":
+          description: 已交给短信服务；号码是否注册都同样回答
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsCodeSent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooMany"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/auth/phone-login:
+    post:
+      tags: [PhoneLogin]
+      operationId: loginWithPhoneCode
+      summary: 手机号验证码登录；号码没有注册时同时注册一个个人客户账号
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneLoginRequest"
+      responses:
+        "200":
+          description: 已签发访问令牌
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneLoginResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooMany"
+  /api/v1/account/sms-codes:
+    post:
+      tags: [Account]
+      operationId: sendAccountCode
+      summary: 已登录账号发验证码：验证当前手机号、绑定新手机号、申请导出
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountCodeRequest"
+      responses:
+        "202":
+          description: 已交给短信服务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmsCodeSent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooMany"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /api/v1/account/phone/verifications:
+    post:
+      tags: [Account]
+      operationId: verifyCurrentPhone
+      summary: 换号第一步：验证当前手机号，换一张 10 分钟有效的一次性换号凭据
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeOnly"
+      responses:
+        "200":
+          description: 换号凭据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneChangeTicket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooMany"
+  /api/v1/account/phone:
+    put:
+      tags: [Account]
+      operationId: changePhone
+      summary: 绑定或更换手机号；已有手机号时要带换号凭据，成功后其他设备退出登录
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneChangeRequest"
+      responses:
+        "200":
+          description: 已绑定
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhoneBinding"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooMany"
+  /api/v1/account/sessions:
+    get:
+      tags: [Account]
+      operationId: listMySessions
+      summary: 登录设备：本账号未退出的会话，本机在最前
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 会话列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/account/sessions/{sessionId}:
+    delete:
+      tags: [Account]
+      operationId: revokeSession
+      summary: 让另一台设备退出登录
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "204":
+          description: 已退出（已经退出的也是 204）
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/sessions/revocations:
+    post:
+      tags: [Account]
+      operationId: revokeOtherSessions
+      summary: 除本机外的设备全部退出登录
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 退出了几台
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevokedCount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/account/closure:
+    get:
+      tags: [Account]
+      operationId: readMyClosure
+      summary: 注销条件和处理中的申请
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 注销状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Closure"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Account]
+      operationId: requestClosure
+      summary: 申请注销（条件都满足时），进入 15 天冷静期
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: 已提交
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Closure"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Account]
+      operationId: withdrawClosure
+      summary: 撤回处理中的注销申请
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 已撤回
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Closure"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/data-exports:
+    get:
+      tags: [Account]
+      operationId: listMyDataExports
+      summary: 可导出的项（含平台保存的条数）和导出记录
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 导出概况
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataExportOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Account]
+      operationId: requestDataExport
+      summary: 申请导出个人信息（要验证当前手机号）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DataExportRequest"
+      responses:
+        "202":
+          description: 已受理，生成中
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataExport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooMany"
+  /api/v1/account/data-exports/{exportId}/download-intents:
+    post:
+      tags: [Account]
+      operationId: createDataExportDownload
+      summary: 换一个 5 分钟有效、只能用一次的下载链接
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ExportId"
+      responses:
+        "201":
+          description: 下载链接
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadIntent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/data-exports/{exportId}/file:
+    get:
+      tags: [Account]
+      operationId: downloadDataExport
+      summary: 用下载凭据取文件（不要登录头，凭据就是授权；用过即失效）
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ExportId"
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 32
+            maxLength: 64
+      responses:
+        "200":
+          description: ZIP 文件
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/account/identity:
+    put:
+      tags: [Enterprise]
+      operationId: switchIdentity
+      summary: 切换当前身份（个人或本人所在的企业），重新签发访问令牌（同一个会话，刷新令牌不变）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdentitySwitchRequest"
+      responses:
+        "200":
+          description: 新令牌和当前身份
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentitySwitchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/account/enterprises:
+    get:
+      tags: [Enterprise]
+      operationId: listMyEnterprises
+      summary: 我所在的企业、当前身份和待我确认的手机号邀请
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 企业列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnterpriseList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Enterprise]
+      operationId: createEnterprise
+      summary: 创建企业，创建者是管理员
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnterpriseForm"
+      responses:
+        "201":
+          description: 新建的企业（同一个幂等键重放也是 201 和同一家）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enterprise"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/enterprises/{enterpriseId}:
+    get:
+      tags: [Enterprise]
+      operationId: readEnterprise
+      summary: 我所在的一家企业
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnterpriseId"
+      responses:
+        "200":
+          description: 企业
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enterprise"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/account/enterprises/{enterpriseId}/members:
+    get:
+      tags: [Enterprise]
+      operationId: listEnterpriseMembers
+      summary: 成员和待确认的邀请（只给本企业成员）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnterpriseId"
+      responses:
+        "200":
+          description: 成员与邀请
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnterpriseMembers"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/account/enterprises/{enterpriseId}/members/{memberId}:
+    put:
+      tags: [Enterprise]
+      operationId: changeMemberRole
+      summary: 调整成员角色（管理员）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnterpriseId"
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberRoleForm"
+      responses:
+        "200":
+          description: 调整后的成员
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnterpriseMember"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Enterprise]
+      operationId: removeMember
+      summary: 移除成员（管理员；移除自己请用退出企业）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnterpriseId"
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "204":
+          description: 已移除
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/enterprises/{enterpriseId}/membership:
+    delete:
+      tags: [Enterprise]
+      operationId: leaveEnterprise
+      summary: 退出企业（企业只剩本人时退出即解散）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnterpriseId"
+      responses:
+        "204":
+          description: 已退出
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/enterprises/{enterpriseId}/invitations:
+    post:
+      tags: [Enterprise]
+      operationId: inviteMember
+      summary: 邀请成员（手机号或邀请链接）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnterpriseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationForm"
+      responses:
+        "201":
+          description: 邀请；链接邀请带一次性的邀请码
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedInvitation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/enterprises/{enterpriseId}/invitations/{invitationId}:
+    delete:
+      tags: [Enterprise]
+      operationId: revokeInvitation
+      summary: 撤销待确认的邀请
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnterpriseId"
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "204":
+          description: 已撤销
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/enterprises/{enterpriseId}/invitations/{invitationId}/renewals:
+    post:
+      tags: [Enterprise]
+      operationId: renewInvitation
+      summary: 再发一次手机号邀请（有效期从现在起再算 7 天）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EnterpriseId"
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "200":
+          description: 延期后的邀请
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingInvitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/enterprise-invitations/{invitationId}:
+    get:
+      tags: [Enterprise]
+      operationId: readInvitation
+      summary: 被邀请人读一条邀请（手机号邀请要是本人号码；链接邀请要带邀请码）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+        - $ref: "#/components/parameters/InviteCode"
+      responses:
+        "200":
+          description: 邀请
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceivedInvitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/account/enterprise-invitations/{invitationId}/acceptance:
+    post:
+      tags: [Enterprise]
+      operationId: acceptInvitation
+      summary: 同意加入
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationResponseForm"
+      responses:
+        "200":
+          description: 加入后的企业
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enterprise"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/account/enterprise-invitations/{invitationId}/decline:
+    post:
+      tags: [Enterprise]
+      operationId: declineInvitation
+      summary: 拒绝加入
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationResponseForm"
+      responses:
+        "200":
+          description: 拒绝后的邀请
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceivedInvitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ExportId:
+      name: exportId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    EnterpriseId:
+      name: enterpriseId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    MemberId:
+      name: memberId
+      in: path
+      required: true
+      description: 成员的账号 ID
+      schema: { type: string, format: uuid }
+    InvitationId:
+      name: invitationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    InviteCode:
+      name: code
+      in: query
+      required: false
+      description: 链接邀请的邀请码；手机号邀请不用
+      schema: { type: string, minLength: 16, maxLength: 64 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: 参数缺失或格式不对（COMMON_INVALID_ARGUMENT），或验证码不对（SMS_CODE_INVALID）、换号凭据无效（PHONE_TICKET_INVALID）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    Unauthorized:
+      description: 没有登录、登录已过期或这台设备已退出（COMMON_UNAUTHORIZED）；验证码登录时账号不可用也是这个
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    Forbidden:
+      description: 不是客户角色（COMMON_FORBIDDEN），或不是本企业管理员（ENTERPRISE_ADMIN_REQUIRED）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    NotFound:
+      description: 对象不存在或不属于当前账号（COMMON_NOT_FOUND）；不在其中的企业、不是发给我的邀请都按不存在回答
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    Conflict:
+      description: 状态或条件不允许（见 IdentityAccountErrorCode）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    TooMany:
+      description: 发送太频繁（SMS_TOO_FREQUENT）或手机号已锁定（PHONE_LOCKED）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    Unavailable:
+      description: 短信服务或导出存储没有配置（SMS_UNAVAILABLE、EXPORT_UNAVAILABLE）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+  schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, message, traceId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        traceId: { type: string }
+    IdentityAccountErrorCode:
+      type: string
+      enum:
+        - SMS_CODE_INVALID
+        - SMS_TOO_FREQUENT
+        - PHONE_LOCKED
+        - SMS_UNAVAILABLE
+        - PHONE_REQUIRED
+        - PHONE_TAKEN
+        - PHONE_UNCHANGED
+        - PHONE_TICKET_INVALID
+        - SESSION_IS_CURRENT
+        - CLOSURE_CONDITIONS_UNMET
+        - CLOSURE_ALREADY_PENDING
+        - CLOSURE_NOT_PENDING
+        - EXPORT_IN_PROGRESS
+        - EXPORT_NOT_READY
+        - EXPORT_UNAVAILABLE
+        - ENTERPRISE_ADMIN_REQUIRED
+        - ENTERPRISE_CREDIT_CODE_TAKEN
+        - ENTERPRISE_LIMIT
+        - ENTERPRISE_MEMBER_LIMIT
+        - ENTERPRISE_LAST_ADMIN
+        - ENTERPRISE_ALREADY_MEMBER
+        - INVITATION_EXPIRED
+        - INVITATION_NOT_PENDING
+        - IDEMPOTENCY_CONFLICT
+      description: >-
+        400：SMS_CODE_INVALID、PHONE_TICKET_INVALID。429：SMS_TOO_FREQUENT、PHONE_LOCKED。503：SMS_UNAVAILABLE、EXPORT_UNAVAILABLE。
+        403：ENTERPRISE_ADMIN_REQUIRED。其余 409。
+    PhoneNumber:
+      type: string
+      pattern: "^1[3-9][0-9]{9}$"
+    MaskedPhone:
+      type: string
+      description: 打码手机号，前 3 位和后 4 位，如 138****2026
+      pattern: "^1[0-9]{2}\\*{4}[0-9]{4}$"
+    SmsCode:
+      type: string
+      pattern: "^[0-9]{6}$"
+    Device:
+      type: object
+      additionalProperties: false
+      description: 登录时的设备说明，只用来在“登录设备”里认出它；都可以不传
+      properties:
+        deviceKey:
+          type: [string, "null"]
+          description: App 首次启动生成并保存的随机 ID（8–64 位字母数字和短横线）；同一台设备再登录时替换上一次的会话
+          pattern: "^[A-Za-z0-9-]{8,64}$"
+        deviceName:
+          type: [string, "null"]
+          maxLength: 40
+          description: 如“iPhone 15”“Android 手机”；不传时按平台给默认名
+        platform:
+          oneOf:
+            - $ref: "#/components/schemas/Platform"
+            - type: "null"
+        cityCode:
+          type: [string, "null"]
+          pattern: "^[0-9]{6}$"
+          description: 当前城市（平台城市目录编码，只到地级市）
+    Platform:
+      type: string
+      enum: [ANDROID, IOS, H5, MP_WEIXIN, OTHER]
+    LoginCodeRequest:
+      type: object
+      additionalProperties: false
+      required: [phone]
+      properties:
+        phone: { $ref: "#/components/schemas/PhoneNumber" }
+    SmsCodeSent:
+      type: object
+      additionalProperties: false
+      required: [maskedPhone, resendAfterSeconds, expiresInSeconds]
+      properties:
+        maskedPhone: { $ref: "#/components/schemas/MaskedPhone" }
+        resendAfterSeconds: { type: integer, const: 60 }
+        expiresInSeconds: { type: integer, const: 300 }
+    PhoneLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [phone, code]
+      properties:
+        phone: { $ref: "#/components/schemas/PhoneNumber" }
+        code: { $ref: "#/components/schemas/SmsCode" }
+        device:
+          oneOf:
+            - $ref: "#/components/schemas/Device"
+            - type: "null"
+    PhoneLoginResponse:
+      type: object
+      additionalProperties: false
+      required: [accessToken, tokenType, expiresInSeconds, refreshToken, refreshExpiresInSeconds, registered]
+      properties:
+        accessToken: { type: string, minLength: 1 }
+        tokenType: { const: Bearer }
+        expiresInSeconds: { type: integer, minimum: 1 }
+        refreshToken:
+          type: string
+          minLength: 1
+          description: 续期用（/api/v1/auth/refresh），与账号密码登录的相同
+        refreshExpiresInSeconds: { type: integer, minimum: 1 }
+        registered:
+          type: boolean
+          description: 这次是新注册的账号
+    AccountCodeRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose]
+      properties:
+        purpose:
+          type: string
+          enum: [VERIFY_CURRENT, BIND_NEW, EXPORT]
+          description: VERIFY_CURRENT、EXPORT 发到当前手机号（没有手机号时 409 PHONE_REQUIRED）；BIND_NEW 发到 phone
+        phone:
+          oneOf:
+            - $ref: "#/components/schemas/PhoneNumber"
+            - type: "null"
+    CodeOnly:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { $ref: "#/components/schemas/SmsCode" }
+    PhoneChangeTicket:
+      type: object
+      additionalProperties: false
+      required: [changeTicket, expiresInSeconds]
+      properties:
+        changeTicket: { type: string, minLength: 32, maxLength: 64 }
+        expiresInSeconds: { type: integer, const: 600 }
+    PhoneChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [newPhone, code]
+      properties:
+        newPhone: { $ref: "#/components/schemas/PhoneNumber" }
+        code:
+          $ref: "#/components/schemas/SmsCode"
+        changeTicket:
+          type: [string, "null"]
+          description: 账号已有手机号时必须带（换号第一步得到）；没有手机号时首次绑定不用
+    PhoneBinding:
+      type: object
+      additionalProperties: false
+      required: [maskedPhone, signedOutSessions]
+      properties:
+        maskedPhone: { $ref: "#/components/schemas/MaskedPhone" }
+        signedOutSessions:
+          type: integer
+          minimum: 0
+          description: 因换号退出登录的其他设备数
+    Session:
+      type: object
+      additionalProperties: false
+      required: [sessionId, deviceName, platform, cityName, signedInAt, lastActiveAt, current]
+      properties:
+        sessionId: { type: string, format: uuid }
+        deviceName: { type: string }
+        platform: { $ref: "#/components/schemas/Platform" }
+        cityName:
+          type: [string, "null"]
+          description: 登录时的城市名，只到地级市；没有时为 null
+        signedInAt: { type: string, format: date-time }
+        lastActiveAt: { type: string, format: date-time }
+        current:
+          type: boolean
+          description: 是不是发请求的这台设备
+    SessionList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/Session" }
+    RevokedCount:
+      type: object
+      additionalProperties: false
+      required: [revoked]
+      properties:
+        revoked: { type: integer, minimum: 0 }
+    ClosureCondition:
+      type: object
+      additionalProperties: false
+      required: [code, title, met, detail]
+      properties:
+        code:
+          type: string
+          enum: [NO_OPEN_ORDERS, NO_PENDING_ENROLLMENTS, NO_ENTERPRISE_ADMIN]
+        title: { type: string }
+        met: { type: boolean }
+        detail:
+          type: string
+          description: 没满足时说明还差什么（如“2 笔订单未完成”），满足时是“已满足”
+    Closure:
+      type: object
+      additionalProperties: false
+      required: [status, requestedAt, dueAt, conditions]
+      properties:
+        status:
+          type: string
+          enum: [NONE, PENDING]
+          description: NONE 没有处理中的申请；PENDING 冷静期中
+        requestedAt: { type: [string, "null"], format: date-time }
+        dueAt:
+          type: [string, "null"]
+          format: date-time
+          description: 冷静期结束、开始匿名化的时间（申请后 15 天）
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/ClosureCondition" }
+    DataSectionCode:
+      type: string
+      enum: [ACCOUNT, PARTICIPANTS, ADDRESSES, ORDERS, ENTERPRISES]
+    DataSection:
+      type: object
+      additionalProperties: false
+      required: [code, title, description, count]
+      properties:
+        code: { $ref: "#/components/schemas/DataSectionCode" }
+        title: { type: string }
+        description: { type: string }
+        count:
+          type: [integer, "null"]
+          minimum: 0
+          description: 平台保存的条数；账号信息这类单条的为 null
+    DataExport:
+      type: object
+      additionalProperties: false
+      required: [exportId, status, sections, requestedAt, readyAt, expiresAt, sizeBytes]
+      properties:
+        exportId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [PENDING, READY, FAILED, EXPIRED]
+        sections:
+          type: array
+          items: { $ref: "#/components/schemas/DataSectionCode" }
+        requestedAt: { type: string, format: date-time }
+        readyAt: { type: [string, "null"], format: date-time }
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: 副本过期时间（生成后 7 天）
+        sizeBytes: { type: [integer, "null"], minimum: 1 }
+    DataExportOverview:
+      type: object
+      additionalProperties: false
+      required: [maskedPhone, sections, exports]
+      properties:
+        maskedPhone:
+          oneOf:
+            - $ref: "#/components/schemas/MaskedPhone"
+            - type: "null"
+        sections:
+          type: array
+          items: { $ref: "#/components/schemas/DataSection" }
+        exports:
+          type: array
+          maxItems: 10
+          description: 最近的导出记录，新的在前
+          items: { $ref: "#/components/schemas/DataExport" }
+    DataExportRequest:
+      type: object
+      additionalProperties: false
+      required: [sections, code]
+      properties:
+        sections:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/DataSectionCode" }
+        code: { $ref: "#/components/schemas/SmsCode" }
+    DownloadIntent:
+      type: object
+      additionalProperties: false
+      required: [downloadUrl, fileName, expiresAt]
+      properties:
+        downloadUrl:
+          type: string
+          description: 相对地址 /api/v1/account/data-exports/{exportId}/file?token=…，5 分钟内用一次
+        fileName: { type: string }
+        expiresAt: { type: string, format: date-time }
+    CurrentIdentity:
+      type: object
+      additionalProperties: false
+      required: [type, enterpriseId, enterpriseName, role]
+      properties:
+        type:
+          type: string
+          enum: [PERSONAL, ENTERPRISE]
+        enterpriseId: { type: [string, "null"], format: uuid }
+        enterpriseName: { type: [string, "null"] }
+        role:
+          oneOf:
+            - $ref: "#/components/schemas/MemberRole"
+            - type: "null"
+    IdentitySwitchRequest:
+      type: object
+      additionalProperties: false
+      required: [enterpriseId]
+      properties:
+        enterpriseId:
+          type: [string, "null"]
+          format: uuid
+          description: null 切回个人身份
+    IdentitySwitchResponse:
+      type: object
+      additionalProperties: false
+      required: [accessToken, tokenType, expiresInSeconds, identity]
+      properties:
+        accessToken: { type: string, minLength: 1 }
+        tokenType: { const: Bearer }
+        expiresInSeconds: { type: integer, minimum: 1 }
+        identity: { $ref: "#/components/schemas/CurrentIdentity" }
+    MemberRole:
+      type: string
+      enum: [ADMIN, MEMBER]
+    EnterpriseForm:
+      type: object
+      additionalProperties: false
+      required: [name, creditCode]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 40 }
+        creditCode:
+          type: string
+          pattern: "^[0-9A-HJ-NPQRTUWXY]{18}$"
+        cityCode:
+          type: [string, "null"]
+          pattern: "^[0-9]{6}$"
+    Enterprise:
+      type: object
+      additionalProperties: false
+      required: [enterpriseId, name, maskedCreditCode, cityName, qualificationReviewed, role, memberCount, createdAt]
+      properties:
+        enterpriseId: { type: string, format: uuid }
+        name: { type: string }
+        maskedCreditCode:
+          type: string
+          description: 前 4 位和后 2 位，中间打码，如 9137************6X
+        cityName: { type: [string, "null"] }
+        qualificationReviewed:
+          type: boolean
+          description: 平台审核过资质（运营端写，App 显示“资料已认证”）
+        role: { $ref: "#/components/schemas/MemberRole" }
+        memberCount: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+    EnterpriseList:
+      type: object
+      additionalProperties: false
+      required: [identity, items, invitations]
+      properties:
+        identity: { $ref: "#/components/schemas/CurrentIdentity" }
+        items:
+          type: array
+          maxItems: 5
+          items: { $ref: "#/components/schemas/Enterprise" }
+        invitations:
+          type: array
+          description: 发给我手机号的待确认邀请
+          items: { $ref: "#/components/schemas/ReceivedInvitation" }
+    EnterpriseMember:
+      type: object
+      additionalProperties: false
+      required: [memberId, displayName, maskedPhone, role, self, joinedAt]
+      properties:
+        memberId: { type: string, format: uuid }
+        displayName: { type: string }
+        maskedPhone:
+          oneOf:
+            - $ref: "#/components/schemas/MaskedPhone"
+            - type: "null"
+        role: { $ref: "#/components/schemas/MemberRole" }
+        self: { type: boolean }
+        joinedAt: { type: string, format: date-time }
+    PendingInvitation:
+      type: object
+      additionalProperties: false
+      required: [invitationId, kind, maskedPhone, role, invitedByName, sentAt, expiresAt]
+      properties:
+        invitationId: { type: string, format: uuid }
+        kind:
+          type: string
+          enum: [PHONE, LINK]
+        maskedPhone:
+          oneOf:
+            - $ref: "#/components/schemas/MaskedPhone"
+            - type: "null"
+        role: { $ref: "#/components/schemas/MemberRole" }
+        invitedByName: { type: string }
+        sentAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+    EnterpriseMembers:
+      type: object
+      additionalProperties: false
+      required: [enterpriseId, myRole, members, invitations]
+      properties:
+        enterpriseId: { type: string, format: uuid }
+        myRole: { $ref: "#/components/schemas/MemberRole" }
+        members:
+          type: array
+          description: 管理员在前，再按加入先后
+          items: { $ref: "#/components/schemas/EnterpriseMember" }
+        invitations:
+          type: array
+          description: 待确认且未过期的邀请
+          items: { $ref: "#/components/schemas/PendingInvitation" }
+    MemberRoleForm:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role: { $ref: "#/components/schemas/MemberRole" }
+    InvitationForm:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [PHONE, LINK]
+        phone:
+          oneOf:
+            - $ref: "#/components/schemas/PhoneNumber"
+            - type: "null"
+          description: PHONE 时必填
+    CreatedInvitation:
+      type: object
+      additionalProperties: false
+      required: [invitation, inviteCode]
+      properties:
+        invitation: { $ref: "#/components/schemas/PendingInvitation" }
+        inviteCode:
+          type: [string, "null"]
+          description: 只有链接邀请有，只在这里返回一次；App 用它拼邀请链接
+    InvitationResponseForm:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: [string, "null"]
+          description: 链接邀请的邀请码
+    ReceivedInvitation:
+      type: object
+      additionalProperties: false
+      required: [invitationId, kind, enterpriseName, qualificationReviewed, invitedByName, role, sentAt, expiresAt, status, maskedPhone]
+      properties:
+        invitationId: { type: string, format: uuid }
+        kind:
+          type: string
+          enum: [PHONE, LINK]
+        enterpriseName: { type: string }
+        qualificationReviewed: { type: boolean }
+        invitedByName: { type: string }
+        role: { $ref: "#/components/schemas/MemberRole" }
+        sentAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [PENDING, EXPIRED, ACCEPTED, DECLINED, REVOKED]
+        maskedPhone:
+          oneOf:
+            - $ref: "#/components/schemas/MaskedPhone"
+            - type: "null"
+          description: 当前登录账号的打码手机号（页面写“加入账号”）

@@ -108,6 +108,19 @@ export function saveBookingAuthSession(session: BookingAuthSession): void {
   else refreshTokenStore().remove()
 }
 
+/**
+ * A new access token for the same login (S5-7 switching identity): the refresh token of the login
+ * stays, so the next renewal keeps working.
+ */
+export function replaceBookingAccessToken(session: Pick<BookingAuthSession, 'accessToken' | 'expiresInSeconds'>): void {
+  const token = session.accessToken.trim()
+  if (!token || !Number.isFinite(session.expiresInSeconds) || session.expiresInSeconds <= 0) {
+    throw new Error('登录响应无效')
+  }
+  uni.setStorageSync(ACCESS_TOKEN_KEY, token)
+  uni.setStorageSync(ACCESS_TOKEN_EXPIRES_AT_KEY, Date.now() + session.expiresInSeconds * 1000)
+}
+
 export function clearBookingAuthSession(): void {
   uni.removeStorageSync?.(ACCESS_TOKEN_KEY)
   uni.removeStorageSync?.(ACCESS_TOKEN_EXPIRES_AT_KEY)

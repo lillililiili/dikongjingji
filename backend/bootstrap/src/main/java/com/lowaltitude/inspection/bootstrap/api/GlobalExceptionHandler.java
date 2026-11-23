@@ -1235,6 +1235,10 @@ public class GlobalExceptionHandler {
                 code = "TRADE_INQUIRY_QUOTE_ORDERED";
                 message = "这份报价已经下过单，请到商品订单里查看";
             }
+            case ACCOUNT_CLOSING -> {
+                code = "TRADE_ACCOUNT_CLOSING";
+                message = "账号注销处理中，不能下单和付款；撤回注销申请后恢复";
+            }
             // 支付、退款服务会接住这两个；万一漏出来，对买家来说就是“订单状态变了”。
             case PAYMENT_IN_PROGRESS, REFUND_REQUIRED -> {
                 code = "TRADE_ORDER_STATE_INVALID";
@@ -1522,6 +1526,51 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleMultipart(Exception exception, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ApiError("COMMON_INVALID_ARGUMENT", "请求参数无效", traceId(request)));
+    }
+
+    /** 账号与企业组织（S5-7、S5-8，契约 openapi-identity-account.yaml 的 IdentityAccountErrorCode）。 */
+    @ExceptionHandler(com.lowaltitude.inspection.identity.application.account.AccountException.class)
+    public ResponseEntity<ApiError> handleAccount(
+            com.lowaltitude.inspection.identity.application.account.AccountException exception,
+            HttpServletRequest request
+    ) {
+        var error = exception.error();
+        String code = switch (error) {
+            case INVALID -> "COMMON_INVALID_ARGUMENT";
+            case NOT_FOUND -> "COMMON_NOT_FOUND";
+            case UNAUTHORIZED -> "COMMON_UNAUTHORIZED";
+            default -> error.name();
+        };
+        String message = switch (error) {
+            case INVALID -> "请求参数无效";
+            case NOT_FOUND -> "资源不存在";
+            case UNAUTHORIZED -> "账号不可用，请联系平台客服";
+            case SMS_CODE_INVALID -> "验证码不正确或已失效";
+            case PHONE_TICKET_INVALID -> "验证已失效，请重新验证当前手机号";
+            case SMS_TOO_FREQUENT -> "发送太频繁，请稍后再试";
+            case PHONE_LOCKED -> "验证码错误次数太多，请 30 分钟后再试";
+            case SMS_UNAVAILABLE -> "短信服务暂不可用";
+            case PHONE_REQUIRED -> "请先绑定手机号";
+            case PHONE_TAKEN -> "这个手机号已绑定其他账号";
+            case PHONE_UNCHANGED -> "新手机号和当前手机号相同";
+            case SESSION_IS_CURRENT -> "本机请在设置里退出登录";
+            case CLOSURE_CONDITIONS_UNMET -> "还有未满足的注销条件";
+            case CLOSURE_ALREADY_PENDING -> "注销申请已在处理中";
+            case CLOSURE_NOT_PENDING -> "没有处理中的注销申请";
+            case EXPORT_IN_PROGRESS -> "已有一份导出正在生成";
+            case EXPORT_NOT_READY -> "副本还没生成或已过期";
+            case EXPORT_UNAVAILABLE -> "导出文件存储暂不可用";
+            case ENTERPRISE_ADMIN_REQUIRED -> "只有企业管理员可以操作";
+            case ENTERPRISE_CREDIT_CODE_TAKEN -> "这个统一社会信用代码已创建过企业";
+            case ENTERPRISE_LIMIT -> "最多加入 5 家企业";
+            case ENTERPRISE_MEMBER_LIMIT -> "企业成员已满 50 人";
+            case ENTERPRISE_LAST_ADMIN -> "企业至少要保留一名管理员";
+            case ENTERPRISE_ALREADY_MEMBER -> "已经是这家企业的成员";
+            case INVITATION_EXPIRED -> "邀请已过期，请让邀请人重新发送";
+            case INVITATION_NOT_PENDING -> "这条邀请已处理";
+            case IDEMPOTENCY_CONFLICT -> "幂等键已用于不同请求";
+        };
+        return ResponseEntity.status(error.status()).body(new ApiError(code, message, traceId(request)));
     }
 
     private String traceId(HttpServletRequest request) {

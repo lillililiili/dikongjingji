@@ -42,8 +42,9 @@ export interface TradeApi {
 type TradeOrderDto = Omit<
   TradeOrder,
   'lines' | 'delivery' | 'refunds' | 'closeReason' | 'source' | 'sourceRef' | 'merchant'
-  | 'parties' | 'channelTransactionId' | 'participantNames' | 'aftersale'
+  | 'parties' | 'channelTransactionId' | 'participantNames' | 'aftersale' | 'payer'
 > & {
+  payer?: { type?: string | null; name?: string | null } | null
   source?: string | null
   sourceRef?: string | null
   merchant: { organizationId: string; name: string; kind?: TradeOrder['merchant']['kind'] }
@@ -212,6 +213,9 @@ export function toTradeOrder(dto: TradeOrderDto): TradeOrder {
       // Only an explicit true opens 申请售后; an older server that does not say keeps it closed.
       applicable: dto.aftersale?.applicable === true,
     },
+    payer: dto.payer?.type === 'ENTERPRISE' && dto.payer.name
+      ? { type: 'ENTERPRISE', name: dto.payer.name }
+      : { type: 'PERSONAL', name: null },
   }
 }
 

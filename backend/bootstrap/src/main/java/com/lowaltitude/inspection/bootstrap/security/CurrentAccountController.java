@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.bootstrap.api.ApiError;
+import com.lowaltitude.inspection.identity.domain.AccountStatePort;
+import com.lowaltitude.inspection.identity.domain.CurrentIdentity;
 import com.lowaltitude.inspection.identity.domain.CurrentSubject;
 import com.lowaltitude.inspection.identity.domain.IdentityProfilePort;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class CurrentAccountController {
 
     private final IdentityProfilePort profiles;
+    private final AccountStatePort accountState;
 
-    public CurrentAccountController(IdentityProfilePort profiles) {
+    public CurrentAccountController(IdentityProfilePort profiles, AccountStatePort accountState) {
         this.profiles = profiles;
+        this.accountState = accountState;
     }
 
     @GetMapping("/api/v1/auth/me")
@@ -33,11 +37,18 @@ public class CurrentAccountController {
             return unauthorized(request);
         }
         return profiles.findProfile(subject.id())
-                .<ResponseEntity<?>>map(profile -> ResponseEntity.ok(new CurrentAccountResponse(
-                        profile.displayName(),
-                        profile.organizationName(),
-                        profile.organizationType(),
-                        subject.roles())))
+                .<ResponseEntity<?>>map(profile -> {
+                    CurrentIdentity identity = accountState.currentIdentity(subject.id());
+                    return ResponseEntity.ok(new CurrentAccountResponse(
+                            profile.displayName(),
+                            profile.organizationName(),
+                            profile.organizationType(),
+                            subject.roles(),
+                            // 2.4.0：只给打码手机号；当前身份以数据库为准（令牌里的 identity 只是签发时的）。
+                            accountState.maskedPhone(subject.id()).orElse(null),
+                            new CurrentAccountResponse.Identity(identity.type(), identity.enterpriseId(),
+                                    identity.enterpriseName(), identity.role())));
+                })
                 // The token is still valid but the account is gone or disabled.
                 .orElseGet(() -> unauthorized(request));
     }

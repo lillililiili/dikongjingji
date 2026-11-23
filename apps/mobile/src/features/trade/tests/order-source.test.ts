@@ -15,6 +15,7 @@ import {
   orderDestination,
   orderLinkLabel,
   paidFrame,
+  payerRow,
   resultRows,
 } from '../application/order-source'
 import { TRADE_COMMAND_CONFIRMS } from '../application/order-commands'
@@ -232,5 +233,27 @@ describe('inspection payment nodes (contract 0.4.0, S4-1)', () => {
     expect(cancelledToast(order)).toBe('已取消支付')
     expect(failedNote(order)).toBe('首付 30%仍为待支付')
     expect(paidFrame(order)).toEqual({ title: '首付 30%已支付', note: null })
+  })
+})
+
+describe('payer (contract 0.10.0, S5-7)', () => {
+  it('reads the payer, and an older order without one as a person', () => {
+    const enterpriseDto = { ...tradeOrder(), payer: { type: 'ENTERPRISE', name: '东营港务物流' } }
+    expect(toTradeOrder(enterpriseDto as never).payer).toEqual({ type: 'ENTERPRISE', name: '东营港务物流' })
+    const olderDto = { ...tradeOrder() } as Record<string, unknown>
+    delete olderDto.payer
+    expect(toTradeOrder(olderDto as never).payer).toEqual({ type: 'PERSONAL', name: null })
+  })
+
+  it('shows 付款主体 after the payee only for an enterprise order', () => {
+    const enterprise = { type: 'ENTERPRISE' as const, name: '东营港务物流' }
+    expect(cashierLayout(tradeOrder({ payer: enterprise })).map((line) => line.key)).toEqual(['order-no', 'payee', 'payer', 'goods'])
+    expect(cashierLayout(rentalTradeOrder({ payer: enterprise })).map((line) => line.key))
+      .toEqual(['rental-contract', 'payee', 'payer', 'rental-node', 'order-no'])
+    expect(cashierLayout(tradeOrder({ payer: { type: 'PERSONAL', name: null } })).map((line) => line.key))
+      .toEqual(['order-no', 'payee', 'goods'])
+    expect(payerRow(tradeOrder({ payer: enterprise }))).toEqual({ key: 'payer', label: '付款主体', value: '东营港务物流（企业身份）' })
+    expect(cashierLayout(inspectionTradeOrder({ payer: enterprise })).map((line) => line.key))
+      .toEqual(['inspection-order', 'payee', 'payer', 'inspection-node'])
   })
 })

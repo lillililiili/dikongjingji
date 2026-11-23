@@ -124,6 +124,8 @@ test.describe('购物车与确认订单', () => {
     await openCartTab(page)
     await expect(page.getByTestId('cart-guest')).toBeVisible()
     await page.getByTestId('cart-login').click()
+    // S5-8: preview builds open on the code login; the account form is one tap away.
+    await page.getByTestId('login-switch-mode').click()
     await page.locator('.inspection-login__input input').nth(0).fill('dev-customer')
     await page.locator('.inspection-login__input input').nth(1).fill(devPassword())
     await page.getByTestId('login-agreement').click()

@@ -32,7 +32,9 @@ public class AuthenticationController {
                     "COMMON_INVALID_ARGUMENT", "请求参数无效", traceId(servletRequest)
             ));
         }
-        return authenticationService.authenticate(request.loginName().trim(), request.password())
+        // 2.7.0 (S5-8): the optional device names this login in 登录设备.
+        return authenticationService.authenticate(request.loginName().trim(), request.password(),
+                        LoginDeviceRequest.toDevice(request.device()))
                 .<ResponseEntity<?>>map(token -> ResponseEntity.ok(response(token)))
                 .orElseGet(() -> ResponseEntity.status(401).body(new ApiError(
                         "COMMON_UNAUTHORIZED", "用户名或密码错误", traceId(servletRequest)

@@ -11,6 +11,7 @@ import {
   MINE_ORDER_STAGES,
   formatMineBadge,
   formatMineCity,
+  formatMineSubline,
   type MineOrderStage,
   type PlatformMineViewState,
 } from './platform-mine'
@@ -31,6 +32,7 @@ const emit = defineEmits<{
   openEnrollment: []
   openAcceptance: []
   selectLink: [code: string]
+  switchIdentity: []
 }>()
 
 const content = computed(() => (props.state.kind === 'ready' ? props.state.content : undefined))
@@ -47,6 +49,7 @@ const CHEVRON = 'M9 5l7 7-7 7'
 const INFO = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01'
 const PERSON = 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6'
 const QR = 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2M14 18h2v2M18 18h2v2'
+const BUILDING = 'M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2'
 
 const stageCount = (code: MineOrderStage): number | undefined =>
   signedIn.value ? content.value?.orderCounts[code] : undefined
@@ -74,7 +77,19 @@ const stageCount = (code: MineOrderStage): number | undefined =>
             </button>
           </view>
           <view class="platform-mine__profile" data-testid="mine-profile">
-            <view class="platform-mine__identity">
+            <view v-if="content.user.enterpriseIdentity" class="platform-mine__identity" data-testid="mine-enterprise-identity">
+              <!-- The board draws the enterprise in the same tilted avatar tile as the person. -->
+              <view class="platform-mine__avatar">
+                <LineIcon class="platform-mine__avatar-icon" :d="BUILDING" :size="28" color="#a94c26" />
+                <view class="platform-mine__avatar-shine" />
+              </view>
+              <view class="platform-mine__identity-copy">
+                <text class="platform-mine__name">{{ content.user.enterpriseIdentity.name }}</text>
+                <text class="platform-mine__location">{{ content.user.enterpriseIdentity.roleLabel }}</text>
+              </view>
+              <button v-if="content.user.switchLabel" class="platform-mine__switch" data-testid="mine-switch-identity" @click.stop="emit('switchIdentity')">{{ content.user.switchLabel }}</button>
+            </view>
+            <view v-else class="platform-mine__identity">
               <view class="platform-mine__avatar">
                 <image
                   v-if="content.user.avatarUrl"
@@ -90,10 +105,13 @@ const stageCount = (code: MineOrderStage): number | undefined =>
                   <text class="platform-mine__name">{{ content.user.displayName }}</text>
                   <text v-if="content.user.levelName" class="platform-mine__level">{{ content.user.levelName }}</text>
                 </view>
-                <text class="platform-mine__location">
+                <!-- Wraps between the number and the city, never inside 东营 (board Mine). -->
+                <text v-if="content.user.maskedPhone" class="platform-mine__location" data-testid="mine-phone-line" :aria-label="formatMineSubline(content.user)"><text class="platform-mine__nowrap">{{ content.user.maskedPhone }} · </text><text class="platform-mine__nowrap">{{ formatMineCity(content.user.locationText) }}</text></text>
+                <text v-else class="platform-mine__location">
                   <text v-if="content.user.certificationLabel" class="platform-mine__certification">{{ content.user.certificationLabel }} · </text>{{ formatMineCity(content.user.locationText) }}
                 </text>
               </view>
+              <button v-if="content.user.switchLabel" class="platform-mine__switch" data-testid="mine-switch-identity" @click.stop="emit('switchIdentity')">{{ content.user.switchLabel }}</button>
             </view>
           </view>
         </template>
@@ -360,6 +378,30 @@ button::after {
   color: #627187;
   font-size: 12px;
   line-height: 17px;
+}
+
+.platform-mine__nowrap {
+  white-space: nowrap;
+}
+
+/* S5-7 the switch button (board Mine). */
+.platform-mine__switch {
+  flex: none;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid #c9d3e1;
+  border-radius: 999px;
+  color: #202c42;
+  background: #fff;
+  font-size: 12px;
+  line-height: 34px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.platform-mine__switch::after {
+  border: 0;
 }
 
 /* Guest */

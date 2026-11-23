@@ -85,6 +85,56 @@ class TradeOrderServiceTest {
 
     // ---- 提交 ----
 
+    // S5-7：企业身份下单把付款主体记成企业快照；个人身份记 PERSONAL；S5-8：注销冷静期内不能下单。
+    @Test
+    void theCurrentIdentityIsRecordedAsThePayer() {
+        UUID enterprise = UUID.fromString("e5000000-0000-4000-8000-000000000001");
+        TradeOrderService enterpriseBuyer = new TradeOrderService(mapper, checkout, clock, this::nextSuffix,
+                TradeSourceEvents.none(), TradeBuyerEvents.none(),
+                buyerId -> new TradePayerPort.Payer("ENTERPRISE", enterprise, "东营港务物流", false));
+        suffixes.add("00000043");
+
+        enterpriseBuyer.submit(BUYER, KEY, fromCart(GOODS + SHIPPING));
+
+        InMemoryMapper.Order stored = mapper.only();
+        assertThat(mapper.payers.get(stored.id)).containsExactly("ENTERPRISE", enterprise.toString(), "东营港务物流");
+    }
+
+    @Test
+    void aPersonalOrderRecordsAPersonalPayer() {
+        suffixes.add("00000044");
+
+        service.submit(BUYER, KEY, fromCart(GOODS + SHIPPING));
+
+        assertThat(mapper.payers.get(mapper.only().id)).containsExactly("PERSONAL", null, null);
+    }
+
+    @Test
+    void anAccountInItsCoolingOffCannotOrder() {
+        TradeOrderService closing = new TradeOrderService(mapper, checkout, clock, this::nextSuffix,
+                TradeSourceEvents.none(), TradeBuyerEvents.none(),
+                buyerId -> new TradePayerPort.Payer("PERSONAL", null, null, true));
+
+        assertThatThrownBy(() -> closing.submit(BUYER, KEY, fromCart(GOODS + SHIPPING)))
+                .isInstanceOfSatisfying(TradeException.class,
+                        exception -> assertThat(exception.error()).isEqualTo(TradeException.Error.ACCOUNT_CLOSING));
+        assertThat(mapper.payers).isEmpty();
+        assertThat(checkout.requests).isEmpty();
+    }
+
+    @Test
+    void enterpriseOrdersAreOnlyForMembers() {
+        UUID enterprise = UUID.fromString("e5000000-0000-4000-8000-000000000001");
+        TradeEnterpriseAccess outsider = new TradeEnterpriseAccess() {
+            public boolean isActiveMember(UUID accountId, UUID enterpriseId) { return false; }
+            public java.util.Map<UUID, String> displayNames(List<UUID> accountIds) { return java.util.Map.of(); }
+        };
+
+        assertThatThrownBy(() -> service.listEnterpriseOrders(BUYER, enterprise, 1, 20, outsider))
+                .isInstanceOfSatisfying(TradeException.class,
+                        exception -> assertThat(exception.error()).isEqualTo(TradeException.Error.NOT_FOUND));
+    }
+
     @Test
     void anOrderFromTheCartSnapshotsTheQuoteAndRemovesTheCartLines() {
         suffixes.add("00000042");
@@ -1614,11 +1664,40 @@ class TradeOrderServiceTest {
 
     /** 按 TradeOrderMapper 的 SQL 写的内存实现；插入时检查 V001 的唯一约束和金额约束。 */
     private static final class InMemoryMapper implements TradeOrderMapper {
+        // ---- S5-7、S5-8（交易迁移 V013）：付款主体、企业订单、注销 ----
+        final java.util.Map<java.util.UUID, String[]> payers = new java.util.HashMap<>();
+
+        @Override
+        public int updatePayer(java.util.UUID orderId, String payerType, java.util.UUID organizationId, String payerName) {
+            payers.put(orderId, new String[] {payerType, organizationId == null ? null : organizationId.toString(), payerName});
+            return 1;
+        }
+
         // ---- 0.6.0 新加的读写：这些测试不关心，什么都不做 ----
 
         @Override
         public int saveParties(UUID orderId, String fulfilledFrom, String invoiceIssuer, String aftersaleParty) {
             return 1;
+        }
+
+        @Override
+        public java.util.List<EnterpriseOrderRow> findEnterpriseOrders(java.util.UUID organizationId, int limit, int offset) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public EnterpriseCountRow countEnterpriseOrders(java.util.UUID organizationId) {
+            return new EnterpriseCountRow(0, 0, 0, 0);
+        }
+
+        @Override
+        public long countOpenOrders(java.util.UUID buyerId) {
+            return 0;
+        }
+
+        @Override
+        public int anonymizeBuyerDeliveries(java.util.UUID buyerId) {
+            return 0;
         }
 
         @Override

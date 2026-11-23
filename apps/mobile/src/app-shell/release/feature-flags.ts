@@ -33,6 +33,7 @@ export type ReleaseFeatureKey =
   | 'SUPPORT'
   | 'SETTINGS'
   | 'FAVORITE'
+  | 'ACCOUNT'
   | 'COURSE'
   | 'SYSTEM_NOTICE'
   | 'SEARCH'

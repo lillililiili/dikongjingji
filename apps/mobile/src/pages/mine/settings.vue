@@ -3,7 +3,18 @@ import { onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
+import { ACCOUNT_PREVIEW_ENABLED } from '@/features/account/application/account-preview'
 import { addressApi } from '@/features/account/data/address-api-client'
+import { identityAccountApi } from '@/features/account/data/identity-account-api-client'
+import type { AccountClosure } from '@/features/account/domain/identity-account'
+import {
+  DATA_EXPORT_PATH,
+  DEVICES_PATH,
+  PERMISSIONS_PATH,
+  PHONE_PATH,
+  buildOnboardingUrl,
+} from '@/features/account/navigation/account-routes'
+import AccountClosureSheet from '@/features/account/presentation/security/AccountClosureSheet.vue'
 import { getBookingAuthContext } from '@/features/inspection/application/service-flow/booking-auth-context'
 import {
   inspectionAccountApi,
@@ -23,8 +34,12 @@ import SettingsPage from '@/features/settings/presentation/SettingsPage.vue'
 import { buildSupportHelpUrl } from '@/features/support/navigation/support-routes'
 import SupportUnavailable from '@/features/support/presentation/shared/SupportUnavailable.vue'
 
-const account = ref<{ displayName: string; organizationName: string | null } | null>(null)
+const account = ref<{ displayName: string; organizationName: string | null; maskedPhone?: string | null } | null>(null)
 const addressCount = ref<number | null>(null)
+// 注销账户 (S5-8): the conditions and a running request, read with the page; the sheet shows them.
+const closure = ref<AccountClosure | null>(null)
+const closureOpen = ref(false)
+const closureBusy = ref(false)
 const badges = useRootTabBadgeStore()
 
 // 通知 switches (S5-9, preview builds): read with the page, each tap saved on its own.
@@ -48,14 +63,20 @@ async function load(): Promise<void> {
     uni.redirectTo({ url: buildInspectionLoginUrl(SETTINGS_PATH) })
     return
   }
-  const [loadedAccount, addresses] = await Promise.allSettled([
+  const [loadedAccount, addresses, loadedClosure] = await Promise.allSettled([
     inspectionAccountApi.loadCurrent(token),
     addressApi.list(token),
+    ACCOUNT_PREVIEW_ENABLED ? identityAccountApi.readClosure(token) : Promise.resolve(null),
   ])
   if (loadedAccount.status === 'fulfilled') {
-    account.value = { displayName: loadedAccount.value.displayName || '已登录', organizationName: loadedAccount.value.organizationName }
+    account.value = {
+      displayName: loadedAccount.value.displayName || '已登录',
+      organizationName: loadedAccount.value.organizationName,
+      maskedPhone: loadedAccount.value.maskedPhone ?? null,
+    }
   }
   if (addresses.status === 'fulfilled') addressCount.value = addresses.value.length
+  if (loadedClosure.status === 'fulfilled') closure.value = loadedClosure.value
   if (SYSTEM_NOTICE_PREVIEW_ENABLED) await switches.load()
 }
 
@@ -90,6 +111,31 @@ function logout(): void {
   })
 }
 
+function openClosure(): void {
+  if (!closure.value) {
+    uni.showToast({ title: '注销条件暂时读取不到，请稍后再试', icon: 'none' })
+    return
+  }
+  closureOpen.value = true
+}
+
+async function changeClosure(action: 'apply' | 'withdraw'): Promise<void> {
+  const token = getBookingAuthContext().getAccessToken()
+  if (!token || closureBusy.value) return
+  closureBusy.value = true
+  try {
+    closure.value = action === 'apply'
+      ? await identityAccountApi.requestClosure(token)
+      : await identityAccountApi.withdrawClosure(token)
+    uni.showToast({ title: action === 'apply' ? '已提交注销申请' : '已撤回注销申请', icon: 'none' })
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '操作失败，请重试', icon: 'none' })
+    void load()
+  } finally {
+    closureBusy.value = false
+  }
+}
+
 onShow(() => {
   if (SETTINGS_PREVIEW_ENABLED) void load()
 })
@@ -107,7 +153,24 @@ onShow(() => {
     @help="open(buildSupportHelpUrl())"
     @about="open(ABOUT_PATH)"
     @logout="logout"
+    :account-pages="ACCOUNT_PREVIEW_ENABLED"
+    :closure-tag="closure?.status === 'PENDING' ? '处理中' : null"
+    @phone="open(PHONE_PATH)"
+    @devices="open(DEVICES_PATH)"
+    @data="open(DATA_EXPORT_PATH)"
+    @permissions="open(PERMISSIONS_PATH)"
+    @onboarding="open(buildOnboardingUrl('settings'))"
+    @closure="openClosure"
     @toggle-notification="toggleNotification"
   />
   <SupportUnavailable v-else text="设置尚未开通" />
+  <!-- After the v-if / v-else pair, so 设置尚未开通 hangs off the settings page, not this sheet. -->
+  <AccountClosureSheet
+    v-if="SETTINGS_PREVIEW_ENABLED && ACCOUNT_PREVIEW_ENABLED && closureOpen && closure"
+    :closure="closure"
+    :busy="closureBusy"
+    @close="closureOpen = false"
+    @apply="changeClosure('apply')"
+    @withdraw="changeClosure('withdraw')"
+  />
 </template>

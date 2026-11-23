@@ -28,9 +28,20 @@ class ActivityEnrollmentMapperContractTest {
 
         // 接口里每个方法都带着一条语句，没有漏掉注解的。
         assertThat(statements).hasSize(ActivityEnrollmentMapper.class.getDeclaredMethods().length);
-        // V002 的 25 条，加上 E09 收费报名的 11 条。
-        assertThat(statements).hasSize(36);
+        // V002 的 25 条，加上 E09 收费报名的 11 条，S5-8 注销去标识的 2 条。
+        assertThat(statements).hasSize(38);
         assertThat(statements.values()).allSatisfy(sql -> assertThat(sql).doesNotContain("${"));
+    }
+
+    // S5-8 注销到期去标识：只动这个账号的参与人和它名下报名凭证上的姓名快照。
+    @Test
+    void closureAnonymizationIsLimitedToTheAccount() {
+        assertThat(normalized(sql("anonymizeParticipants")))
+                .contains("SET name = '已注销用户', birth_month = NULL")
+                .endsWith("WHERE owner_id = #{ownerId}");
+        assertThat(normalized(sql("anonymizeTicketNames")))
+                .contains("SET participant_name = '已注销用户'")
+                .endsWith("AND e.account_id = #{ownerId}");
     }
 
     @Test

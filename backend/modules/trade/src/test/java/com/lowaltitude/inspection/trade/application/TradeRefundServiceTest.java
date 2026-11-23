@@ -1757,11 +1757,40 @@ class TradeRefundServiceTest {
 
         /** 退款服务只用它记状态迁移；返回的订单由 TradeOrderService 经它读。其余的方法退款用不到。 */
         private final class OrderMapper implements TradeOrderMapper {
+        // ---- S5-7、S5-8（交易迁移 V013）：付款主体、企业订单、注销 ----
+        final java.util.Map<java.util.UUID, String[]> payers = new java.util.HashMap<>();
+
+        @Override
+        public int updatePayer(java.util.UUID orderId, String payerType, java.util.UUID organizationId, String payerName) {
+            payers.put(orderId, new String[] {payerType, organizationId == null ? null : organizationId.toString(), payerName});
+            return 1;
+        }
+
         // ---- 0.6.0 新加的读写：这些测试不关心，什么都不做 ----
 
         @Override
         public int saveParties(UUID orderId, String fulfilledFrom, String invoiceIssuer, String aftersaleParty) {
             return 1;
+        }
+
+        @Override
+        public java.util.List<EnterpriseOrderRow> findEnterpriseOrders(java.util.UUID organizationId, int limit, int offset) {
+            return java.util.List.of();
+        }
+
+        @Override
+        public EnterpriseCountRow countEnterpriseOrders(java.util.UUID organizationId) {
+            return new EnterpriseCountRow(0, 0, 0, 0);
+        }
+
+        @Override
+        public long countOpenOrders(java.util.UUID buyerId) {
+            return 0;
+        }
+
+        @Override
+        public int anonymizeBuyerDeliveries(java.util.UUID buyerId) {
+            return 0;
         }
 
         @Override
