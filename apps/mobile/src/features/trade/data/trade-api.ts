@@ -33,6 +33,8 @@ export interface TradeApi {
   list(accessToken: string, tab: TradeOrderTab, page: number, size: number): Promise<TradeOrderPage>
   read(accessToken: string, orderId: string): Promise<TradeOrder>
   launchPayment(accessToken: string, orderId: string, idempotencyKey: string): Promise<PaymentLaunch>
+  // 仅开发、演示环境有这个接口（收银台的“模拟付款”）。
+  simulatePayment(accessToken: string, orderId: string): Promise<void>
   checkPayment(accessToken: string, orderId: string): Promise<TradeOrder>
   cancel(accessToken: string, orderId: string, command: TradeCommand): Promise<TradeOrder>
   confirmReceipt(accessToken: string, orderId: string, command: TradeCommand): Promise<TradeOrder>
@@ -108,6 +110,13 @@ export function createTradeApi(request: TradeRequest): TradeApi {
         method: 'GET',
         headers: auth(accessToken),
       }))
+    },
+    async simulatePayment(accessToken, orderId) {
+      await request<void>({
+        url: `/api/v1/dev/trade/orders/${encodeURIComponent(orderId)}/simulated-payment`,
+        method: 'POST',
+        headers: auth(accessToken),
+      })
     },
     async launchPayment(accessToken, orderId, idempotencyKey) {
       const dto = await request<PaymentLaunch>({

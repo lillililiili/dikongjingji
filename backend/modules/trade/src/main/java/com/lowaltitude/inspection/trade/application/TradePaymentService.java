@@ -257,6 +257,23 @@ public class TradePaymentService {
     }
 
     /**
+     * 买家自己这张单正在进行的支付单号；没有在途支付时返回 null。只给开发环境的“模拟付款”用：
+     * 它拿这个号去让本机模拟微信付款，订单状态仍然只由验签后的回调推进。
+     */
+    public String openPaymentNo(UUID buyerId, UUID orderId) {
+        if (buyerId == null || orderId == null) {
+            throw new IllegalArgumentException("buyer and order are required");
+        }
+        return tx.execute(status -> {
+            if (payments.findBuyerOrder(buyerId, orderId) == null) {
+                throw new TradeException(Error.NOT_FOUND);
+            }
+            PaymentRow open = payments.findOpenPayment(orderId);
+            return open == null ? null : open.outTradeNo();
+        });
+    }
+
+    /**
      * 同一张订单 {@link #CHECK_INTERVAL} 内只放行一次真正的查单（App 回来后会连着查几次，不能每次都打到渠道）。
      * 记录只在本实例的内存里，多实例部署时各算各的，最多多查几次，不影响结果；
      * 条数超过 {@link #MAX_TRACKED_CHECKS} 时先清掉已过期的，还超就整个清空。

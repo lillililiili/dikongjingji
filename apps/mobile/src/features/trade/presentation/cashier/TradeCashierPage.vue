@@ -27,6 +27,11 @@ import {
   describeCashierClosed,
   formatTradeAmount,
 } from '../../application/order-view'
+import {
+  SIMULATED_PAYMENT_ENABLED,
+  SIMULATED_PAYMENT_NOTE,
+  createSimulatedPaymentLauncher,
+} from '../../application/simulated-payment'
 import { isUnauthorizedFailure, readTradeFailure, startPayment } from '../../application/start-payment'
 import { createTradeKey } from '../../application/trade-keys'
 import { tradeApi } from '../../data/trade-api-client'
@@ -151,7 +156,13 @@ async function pay(): Promise<void> {
   paying.value = true
   const result = await startPayment({
     launch: (key) => tradeApi.launchPayment(token, props.orderId, key),
-    launcher: wechatPaymentLauncher,
+    launcher: SIMULATED_PAYMENT_ENABLED
+      ? createSimulatedPaymentLauncher({
+          amountText: amountText.value,
+          confirm: confirmDialog,
+          pay: () => tradeApi.simulatePayment(token, props.orderId),
+        })
+      : wechatPaymentLauncher,
   })
   if (result.kind === 'TO_RESULT') {
     if (result.outcome === 'UNSUPPORTED') {
@@ -290,7 +301,7 @@ onBeforeUnmount(() => {
             <text class="cashier__method-name">{{ TRADE_PAYMENT_METHOD_LABEL }}</text>
             <view class="cashier__method-check"><LineIcon name="check" :size="12" color="#ffffff" :stroke-width="3" /></view>
           </view>
-          <text class="cashier__methods-note">目前只支持这一种支付方式</text>
+          <text class="cashier__methods-note" data-testid="cashier-method-note">{{ SIMULATED_PAYMENT_ENABLED ? SIMULATED_PAYMENT_NOTE : '目前只支持这一种支付方式' }}</text>
         </view>
       </view>
 

@@ -5,6 +5,7 @@
 //   set -a; . .runtime/fake-wechat/backend.env; set +a   # 再启动后端
 //   FAKE_WECHAT_PORT          默认 17460
 //   FAKE_WECHAT_BACKEND_URL   后端地址（回调发到这里），默认 http://127.0.0.1:8080
+//   FAKE_WECHAT_AUTO_REFUND_MS 大于 0 时，受理退款这么久以后自动给出“退款成功”并发回调（现场演示用）；默认 0，由控制入口给结果
 // 回调和账单都按微信文档的格式签名、加密；它只是测试替身，真实微信的差别只有联调能发现。
 // 实现：APP 下单、按商户单号查单、关单；应答用“平台私钥”签名，后端用对应公钥验。
 // 控制入口（不签名，只在 127.0.0.1）：
@@ -31,6 +32,7 @@ const STATE = process.env.FAKE_WECHAT_DIR || path.join(REPO, '.runtime', 'fake-w
 const SECRETS = path.join(STATE, 'secrets');
 const BACKEND_URL = (process.env.FAKE_WECHAT_BACKEND_URL || 'http://127.0.0.1:8080').replace(/\/+$/, '');
 const PORT = Number(process.env.FAKE_WECHAT_PORT || 17460);
+const AUTO_REFUND_MS = Number(process.env.FAKE_WECHAT_AUTO_REFUND_MS || 0);
 const SP_MCHID = '1900000001';
 const SP_APPID = 'wxdevfakeapp000001';
 const MERCHANT_SERIAL = '5157F09EFDC096DE15EBE81A47057A7232F1B8E1';
@@ -207,6 +209,14 @@ async function post(url, body) {
   return { status: response.status, body: await response.text() };
 }
 
+// 自动退款：控制入口已经给过结果的不再动。
+async function settleRefund(refund) {
+  if (refund.status !== 'PROCESSING') return;
+  refund.status = 'SUCCESS';
+  refund.success_time = rfc3339(new Date());
+  await notifyRefund(refund).catch((error) => console.error('refund notification failed', error.message));
+}
+
 const server = http.createServer((req, res) => {
   const chunks = [];
   req.on('data', (chunk) => chunks.push(chunk));
@@ -371,6 +381,7 @@ const server = http.createServer((req, res) => {
         };
         refunds.set(refund.out_refund_no, refund);
         order.state = 'REFUND';
+        if (AUTO_REFUND_MS > 0) setTimeout(() => settleRefund(refund), AUTO_REFUND_MS);
         return reply(res, 200, { refund_id: refund.refund_id, out_refund_no: refund.out_refund_no, create_time: refund.create_time, amount: { refund: refund.refund, payer_refund: refund.refund, currency: 'CNY' } });
       }
       const refundQuery = url.pathname.match(/^\/v3\/ecommerce\/refunds\/out-refund-no\/([^/]+)$/);
