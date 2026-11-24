@@ -6,18 +6,19 @@ import java.util.regex.Pattern;
 import com.lowaltitude.inspection.bootstrap.infrastructure.storage.PlatformStorage;
 import com.lowaltitude.inspection.bootstrap.infrastructure.storage.S3ObjectClient.ObjectStorageUnavailableException;
 import com.lowaltitude.inspection.identity.application.OnboardingPorts;
+import com.lowaltitude.inspection.identity.application.account.AccountPorts;
 import com.lowaltitude.inspection.mall.application.MallOpsPorts;
 import com.lowaltitude.inspection.opsimport.application.OpsImportPorts;
 import com.lowaltitude.inspection.serviceorder.application.ServiceOrderPorts;
 import com.lowaltitude.inspection.trade.application.TradeAftersaleImageStore;
 
 /**
- * 五类模块文件接 S3 兼容对象存储（S6，platform.storage.provider=s3）：各模块的存储端口实现委托给
+ * 模块文件接 S3 兼容对象存储（platform.storage.provider=s3）：各模块的存储端口实现委托给
  * {@link PlatformStorage.Area}，每个模块一个命名空间，模块之间不互读文件。键的格式和对应的本机实现（Local*Store）一样，
  * 只认模块自己生成的键；存储出错时照各端口原有的约定报“不可用”（接口回 503），不假装存好了。
  *
  * <ul>
- *   <li>资质附件（identity/）、服务订单交付文件（serviceorder/）、批量导入文件（opsimport/）、售后凭证（trade/）：
+ *   <li>资质附件和个人信息导出（identity/）、服务订单交付文件（serviceorder/）、批量导入文件（opsimport/）、售后凭证（trade/）：
  *       私有桶，只经受权接口回读；</li>
  *   <li>商品图片（mall/）：公开桶，对外地址是公开 https 前缀加对象键。</li>
  * </ul>
@@ -32,6 +33,44 @@ public final class S3ModuleFileStores {
             throw new IllegalArgumentException("storage key is invalid");
         }
         return key;
+    }
+
+    /** 个人信息导出 ZIP（私有），通过账号模块签发的一次性下载凭据读取。 */
+    public static final class DataExports implements AccountPorts.ExportFiles {
+
+        private final PlatformStorage.Area area;
+
+        public DataExports(PlatformStorage storage) {
+            this.area = storage.privateArea("identity");
+        }
+
+        @Override
+        public void put(String key, byte[] content) {
+            try {
+                area.put(requireKey(LocalDataExportStore.KEY, key), content, "application/zip");
+            } catch (ObjectStorageUnavailableException failure) {
+                throw new AccountPorts.ExportStoreUnavailableException("data export was not written", failure);
+            }
+        }
+
+        @Override
+        public byte[] read(String key) {
+            try {
+                return area.get(requireKey(LocalDataExportStore.KEY, key)).orElseThrow(() ->
+                        new AccountPorts.ExportStoreUnavailableException("data export is missing"));
+            } catch (ObjectStorageUnavailableException failure) {
+                throw new AccountPorts.ExportStoreUnavailableException("data export was not read", failure);
+            }
+        }
+
+        @Override
+        public void delete(String key) {
+            try {
+                area.delete(requireKey(LocalDataExportStore.KEY, key));
+            } catch (ObjectStorageUnavailableException failure) {
+                throw new AccountPorts.ExportStoreUnavailableException("data export was not deleted", failure);
+            }
+        }
     }
 
     /** 机构资质附件（私有）。 */

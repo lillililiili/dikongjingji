@@ -163,7 +163,7 @@ class ActivityOpenApiContractTest {
 
     @Test
     void theThreeCatalogRoutesStayPublic() throws Exception {
-        String contract = Files.readString(CONTRACT);
+        String contract = Files.readString(CONTRACT).replace("\r\n", "\n");
         List<Operation> catalog = operations(ActivityCatalogController.class);
 
         assertThat(catalog).extracting(Operation::key).containsExactlyInAnyOrder(
@@ -178,7 +178,7 @@ class ActivityOpenApiContractTest {
 
     @Test
     void everyEnrollmentRouteIsDeclaredWithItsMethodAndNeedsALogin() throws Exception {
-        String contract = Files.readString(CONTRACT);
+        String contract = Files.readString(CONTRACT).replace("\r\n", "\n");
         List<Operation> enrollment = loginOperations();
 
         assertThat(enrollment).extracting(Operation::key).containsExactlyInAnyOrder(

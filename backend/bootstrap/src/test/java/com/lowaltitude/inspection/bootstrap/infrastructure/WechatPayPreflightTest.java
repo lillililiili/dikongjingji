@@ -37,6 +37,7 @@ class WechatPayPreflightTest {
     private static Path publicKey;
     private static Path merchantPublicKey;
     private static Path certificate;
+    private static boolean posixPermissions;
 
     @BeforeAll
     static void writeKeys() throws NoSuchAlgorithmException, IOException {
@@ -45,7 +46,10 @@ class WechatPayPreflightTest {
         KeyPair merchant = generator.generateKeyPair();
         KeyPair platform = generator.generateKeyPair();
         privateKey = Files.writeString(secrets.resolve("apiclient_key.pem"), pem("PRIVATE KEY", merchant.getPrivate().getEncoded()));
-        Files.setPosixFilePermissions(privateKey, PosixFilePermissions.fromString("r--------"));
+        posixPermissions = Files.getFileStore(privateKey).supportsFileAttributeView("posix");
+        if (posixPermissions) {
+            Files.setPosixFilePermissions(privateKey, PosixFilePermissions.fromString("r--------"));
+        }
         publicKey = Files.writeString(secrets.resolve("pub_key.pem"), pem("PUBLIC KEY", platform.getPublic().getEncoded()));
         merchantPublicKey = Files.writeString(secrets.resolve("merchant_pub.pem"),
                 pem("PUBLIC KEY", merchant.getPublic().getEncoded()));
@@ -76,7 +80,9 @@ class WechatPayPreflightTest {
         assertThat(statuses(items)).containsOnlyKeys("ENABLED", "API_BASE", "SP_MCHID", "SP_APPID", "MERCHANT_SERIAL_NO",
                 "MERCHANT_PRIVATE_KEY", "MERCHANT_PRIVATE_KEY_FILE", "API_V3_KEY", "PLATFORM_PUBLIC_KEY_ID",
                 "PLATFORM_PUBLIC_KEY", "KEYS_DISTINCT", "PAYMENT_NOTIFY_URL", "REFUND_NOTIFY_URL");
-        assertThat(statuses(items).values()).containsOnly("PASS");
+        Map<String, String> results = statuses(items);
+        assertThat(results.remove("MERCHANT_PRIVATE_KEY_FILE")).isEqualTo(posixPermissions ? "PASS" : "SKIPPED");
+        assertThat(results.values()).containsOnly("PASS");
         assertThat(WechatPayPreflight.requireStartable(complete)).isEmpty();
     }
 
@@ -113,7 +119,9 @@ class WechatPayPreflightTest {
     @Test
     void doubtfulValuesOnlyWarn() throws IOException {
         Path open = Files.copy(privateKey, secrets.resolve("open_key.pem"));
-        Files.setPosixFilePermissions(open, PosixFilePermissions.fromString("rw-r--r--"));
+        if (posixPermissions) {
+            Files.setPosixFilePermissions(open, PosixFilePermissions.fromString("rw-r--r--"));
+        }
         TradeWechatPayProperties doubtful = properties(URI.create("https://proxy.example.test"), "190000000123", open,
                 API_V3_KEY, publicKey, URI.create("https://pay.example.test/wechat/notify"));
 
@@ -121,10 +129,11 @@ class WechatPayPreflightTest {
 
         assertThat(statuses).containsEntry("API_BASE", "WARN")
                 .containsEntry("SP_MCHID", "WARN")
-                .containsEntry("MERCHANT_PRIVATE_KEY_FILE", "WARN")
+                .containsEntry("MERCHANT_PRIVATE_KEY_FILE", posixPermissions ? "WARN" : "SKIPPED")
                 .containsEntry("PAYMENT_NOTIFY_URL", "WARN");
-        assertThat(WechatPayPreflight.requireStartable(doubtful)).extracting(ChannelCheckItemView::code)
-                .contains("API_BASE", "SP_MCHID", "MERCHANT_PRIVATE_KEY_FILE", "PAYMENT_NOTIFY_URL");
+        var warnings = WechatPayPreflight.requireStartable(doubtful).stream().map(ChannelCheckItemView::code).toList();
+        assertThat(warnings).contains("API_BASE", "SP_MCHID", "PAYMENT_NOTIFY_URL");
+        assertThat(warnings.contains("MERCHANT_PRIVATE_KEY_FILE")).isEqualTo(posixPermissions);
     }
 
     @Test

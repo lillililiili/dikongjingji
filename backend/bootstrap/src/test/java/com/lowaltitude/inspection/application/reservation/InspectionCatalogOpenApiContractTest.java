@@ -30,7 +30,7 @@ class InspectionCatalogOpenApiContractTest {
 
     @Test
     void everyCatalogRouteIsDeclaredInTheContract() throws Exception {
-        String contract = Files.readString(CONTRACT);
+        String contract = Files.readString(CONTRACT).replace("\r\n", "\n");
 
         List<String> routes = new ArrayList<>();
         for (Method method : InspectionServiceCatalogController.class.getDeclaredMethods()) {

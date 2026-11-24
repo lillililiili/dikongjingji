@@ -69,7 +69,8 @@ class PlatformCityMapperSqlTest {
              var referenceStream = getClass().getResourceAsStream(
                      "/db/migration/inspection/R__platform_city_reference.sql")) {
             migration = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-            reference = new String(referenceStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            reference = new String(referenceStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("\r\n", "\n");
         }
         assertThat(migration)
                 .contains("ADD COLUMN service_status varchar(16) NOT NULL DEFAULT 'CLOSED'")

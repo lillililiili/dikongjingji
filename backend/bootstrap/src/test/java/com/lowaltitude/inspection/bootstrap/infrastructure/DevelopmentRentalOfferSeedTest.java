@@ -18,7 +18,7 @@ class DevelopmentRentalOfferSeedTest {
         String sql;
         try (var stream = getClass().getResourceAsStream("/db/development/mall/R__dev_mall_rental_offers.sql")) {
             assertThat(stream).isNotNull();
-            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
         }
 
         assertThat(sql)

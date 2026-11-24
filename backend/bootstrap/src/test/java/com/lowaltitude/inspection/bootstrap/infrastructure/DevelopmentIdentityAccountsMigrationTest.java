@@ -118,7 +118,7 @@ class DevelopmentIdentityAccountsMigrationTest {
         try (var stream = getClass().getResourceAsStream(
                 "/db/development/identity/R__dev_identity_qualification.sql")) {
             assertThat(stream).isNotNull();
-            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
         }
 
         assertThat(sql)
@@ -158,7 +158,7 @@ class DevelopmentIdentityAccountsMigrationTest {
     private String seed() throws IOException {
         try (var stream = getClass().getResourceAsStream(SEED)) {
             assertThat(stream).isNotNull();
-            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
         }
     }
 }

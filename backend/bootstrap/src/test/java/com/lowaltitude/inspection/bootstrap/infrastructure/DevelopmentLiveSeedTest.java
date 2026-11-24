@@ -124,7 +124,7 @@ class DevelopmentLiveSeedTest {
     private String resource(String path) throws Exception {
         try (var stream = getClass().getResourceAsStream(path)) {
             assertThat(stream).as(path).isNotNull();
-            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
         }
     }
 

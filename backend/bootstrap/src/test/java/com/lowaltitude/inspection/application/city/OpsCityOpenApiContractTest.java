@@ -63,7 +63,7 @@ class OpsCityOpenApiContractTest {
     @Test
     void publicDirectoryCarriesTheServiceStatus() throws Exception {
         String contract = java.nio.file.Files.readString(
-                java.nio.file.Path.of("..", "..", "contracts", "openapi-platform-city.yaml"));
+                java.nio.file.Path.of("..", "..", "contracts", "openapi-platform-city.yaml")).replace("\r\n", "\n");
         assertThat(contract).contains("version: 1.1.0")
                 .contains("        - openCities\n        - preparingCities\n")
                 .contains("        - serviceStatus\n");
