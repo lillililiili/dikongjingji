@@ -1,5 +1,6 @@
 package com.lowaltitude.inspection.mall.application;
 
+import com.lowaltitude.inspection.identity.domain.OpsStatsExclusion;
 import com.lowaltitude.inspection.mall.infrastructure.persistence.MallOpsStatsMapper;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,10 +17,10 @@ public class MallOpsStatsService {
     }
 
     @Transactional(readOnly = true)
-    public Stats stats() {
+    public Stats stats(OpsStatsExclusion excluded) {
         return new Stats(
-                mapper.products(),
-                mapper.sellingMerchants(),
+                mapper.products(excluded),
+                mapper.sellingMerchants(excluded),
                 mapper.pendingMerchantProfiles());
     }
 }

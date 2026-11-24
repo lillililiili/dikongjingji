@@ -1,10 +1,13 @@
 package com.lowaltitude.inspection.mall.infrastructure.persistence;
 
+import com.lowaltitude.inspection.identity.domain.OpsStatsExclusion;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 /**
  * 运营端首页“经营概览”（契约 contracts/openapi-ops-dashboard.yaml）里商城的汇总数。只做 COUNT / SUM，不读明细。
  * 时间区间都是 [from, to)。
+ * excluded 是不计入的账号和机构（{@link OpsStatsExclusion}）；待处理的数不排除。
  */
 public interface MallOpsStatsMapper {
 
@@ -16,8 +19,9 @@ public interface MallOpsStatsMapper {
             WHERE p.status = 'PUBLISHED'
               AND s.status = 'ACTIVE'
               AND o.status = 'ACTIVE'
+              AND o.merchant_id <> ALL (CAST(#{excluded.organizationArray} AS uuid[]))
             """)
-    long products();
+    long products(@Param("excluded") OpsStatsExclusion excluded);
 
     /** 有在售报价的商家。 */
     @Select("""
@@ -27,8 +31,9 @@ public interface MallOpsStatsMapper {
             WHERE p.status = 'PUBLISHED'
               AND s.status = 'ACTIVE'
               AND o.status = 'ACTIVE'
+              AND o.merchant_id <> ALL (CAST(#{excluded.organizationArray} AS uuid[]))
             """)
-    long sellingMerchants();
+    long sellingMerchants(@Param("excluded") OpsStatsExclusion excluded);
 
     /** 待审的商家资料。 */
     @Select("""

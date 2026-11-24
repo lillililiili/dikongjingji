@@ -8,6 +8,7 @@ import com.lowaltitude.inspection.application.reservation.InspectionOpsStatsServ
 import com.lowaltitude.inspection.course.application.CourseOpsStatsService;
 import com.lowaltitude.inspection.experience.application.ExperienceOpsStatsService;
 import com.lowaltitude.inspection.identity.application.account.OpsIdentityStatsService;
+import com.lowaltitude.inspection.identity.application.account.OpsStatsExclusionService;
 import com.lowaltitude.inspection.mall.application.MallOpsStatsService;
 import com.lowaltitude.inspection.proservice.application.ProServiceOpsStatsService;
 import com.lowaltitude.inspection.support.application.SupportOpsStatsService;
@@ -21,12 +22,13 @@ import org.springframework.context.annotation.Configuration;
 public class OpsDashboardConfiguration {
 
     @Bean
-    OpsDashboardService opsDashboardService(OpsIdentityStatsService identity, OpsTradeStatsService trade,
-                                            MallOpsStatsService mall, InspectionOpsStatsService inspection,
+    OpsDashboardService opsDashboardService(OpsStatsExclusionService exclusions, OpsIdentityStatsService identity,
+                                            OpsTradeStatsService trade, MallOpsStatsService mall,
+                                            InspectionOpsStatsService inspection,
                                             ProServiceOpsStatsService proService, ActivityOpsStatsService activity,
                                             ExperienceOpsStatsService experience, CourseOpsStatsService course,
                                             SupportOpsStatsService support, CityOperationsService cities) {
-        return new OpsDashboardService(identity, trade, mall, inspection, proService, activity, experience, course,
-                support, cities, Clock.systemUTC());
+        return new OpsDashboardService(exclusions, identity, trade, mall, inspection, proService, activity,
+                experience, course, support, cities, Clock.systemUTC());
     }
 }

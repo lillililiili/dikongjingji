@@ -2,7 +2,7 @@ import type { ApiClient } from '@/core/http/api-client'
 
 import type { OrderSource } from '../lookup/lookup-api'
 
-// 契约 contracts/openapi-ops-dashboard.yaml 1.0.0：运营端首页“经营概览”，平台运营和平台客服能看。全是汇总数，金额是分。
+// 契约 contracts/openapi-ops-dashboard.yaml 1.1.0：运营端首页“经营概览”，平台运营和平台客服能看。全是汇总数，金额是分。
 
 export type DashboardDays = 7 | 30 | 90
 export const DASHBOARD_DAYS: readonly DashboardDays[] = [7, 30, 90]
