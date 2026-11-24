@@ -1,5 +1,8 @@
 # 巡检服务两模块 Codex 开发包 V1.0
 
+> **第一次看这个项目？先读 [交接文档.md](交接文档.md)**：一张图看懂系统、代码在哪、怎么跑、现在到哪一步。
+> 本文件下面是最早的开发包说明，范围已过时，仅作历史记录。
+
 > 当前批准范围已扩展为 M03 至 INS-M-008 的用户侧交易闭环；范围、运行和验收事实源见
 > [`docs/12-inspection-service-flow-baseline.md`](docs/12-inspection-service-flow-baseline.md)、
 > [`docs/13-inspection-service-flow-task-plan.md`](docs/13-inspection-service-flow-task-plan.md) 和
