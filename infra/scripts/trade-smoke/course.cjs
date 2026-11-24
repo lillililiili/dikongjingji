@@ -270,6 +270,17 @@ async function ops() {
   check('editing the outline keeps the lesson ids', r.status === 200 && r.json.chapters[0].lessons.map((l) => l.lessonId).join() === lessons.map((l) => l.lessonId).join() && r.json.listMissing.length === 0, r.json);
   r = await call('POST', `/api/v1/ops/courses/${id}/list`, { token: operator, body: { version: r.json.version } });
   check('ops lists the course', r.status === 200 && r.json.status === 'LISTED' && r.json.firstListedAt, r.json);
+  const listedVersion = r.json.version;
+  const resource = '/api/v1/ops/courses/' + id;
+  const rejectedEdit = await call('PUT', resource, { token: operator, body: { ...draft, version: listedVersion } });
+  check('a listed course keeps its cover', rejectedEdit.status === 422 && rejectedEdit.json?.details?.missing?.includes('coverUrl'), rejectedEdit.json);
+  const rejectedOutline = await call('PUT', resource + '/outline', { token: operator, body: { version: listedVersion, chapters: [] } });
+  check('a listed course keeps its lessons', rejectedOutline.status === 422 && rejectedOutline.json?.details?.missing?.includes('lessons'), rejectedOutline.json);
+  const restored = await call('GET', resource, { token: operator });
+  check('rejected edits roll back version, cover, and outline', restored.json.version === listedVersion
+    && restored.json.coverUrl === withCover.coverUrl && restored.json.chapters[0].lessons.length === 2, restored.json);
+  r = await call('PUT', resource, { token: operator, body: { ...draft, version: listedVersion, coverUrl: withCover.coverUrl, title: '更新后的冒烟课程' } });
+  check('a complete listed edit succeeds', r.status === 200 && r.json.version === listedVersion + 1, r.json);
   const listed = await call('GET', '/api/v1/courses?cityCode=370500');
   check('the listed course shows in the app', listed.json.items.some((c) => c.courseId === id));
   const trial = await call('GET', `/api/v1/course-trials?courseId=${id}`);
@@ -277,7 +288,7 @@ async function ops() {
   r = await call('POST', `/api/v1/ops/courses/${id}/unlist`, { token: operator, body: { version: r.json.version } });
   check('ops unlists the course', r.json?.status === 'UNLISTED' && !(await call('GET', '/api/v1/courses?cityCode=370500')).json.items.some((c) => c.courseId === id), r.json);
   r = await call('GET', `/api/v1/ops/courses/${id}/changes`, { token: operator });
-  check('every change is recorded', r.json?.map((c) => c.action).join() === 'UNLIST,LIST,OUTLINE,UPDATE,OUTLINE,UPDATE,CREATE', r.json?.map((c) => c.action));
+  check('every change is recorded', r.json?.map((c) => c.action).join() === 'UNLIST,UPDATE,LIST,OUTLINE,UPDATE,OUTLINE,UPDATE,CREATE', r.json?.map((c) => c.action));
   check('a customer cannot use ops', (await call('GET', '/api/v1/ops/courses', { token: await login('dev-customer') })).status === 403);
 }
 

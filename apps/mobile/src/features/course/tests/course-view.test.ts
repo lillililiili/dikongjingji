@@ -60,6 +60,7 @@ const detail = (overrides: Partial<CourseDetail> = {}): CourseDetail => ({
   purchasable: true,
   onlinePayment: true,
   experienceItemId: null,
+  simulationItemId: null,
   ...overrides,
 })
 

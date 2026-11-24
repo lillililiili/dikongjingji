@@ -1,8 +1,10 @@
 openapi: "3.1.0"
 info:
   title: "Ops Course API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
+    1.1.0：线上课程可在草稿创建和资料编辑时指定试听后的仿真项目 simulationItemId；既有课程及旧客户端兼容。
+
     1.0.0（S5-5，docs/redesign/09-课程实现说明.md）：Web 运营端“课程”。课程与章节的增改、上下架，只给平台运营。
 
     Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR role; other roles (PLATFORM_SUPPORT included) get 403
@@ -546,6 +548,7 @@ components:
         - "extraSpecs"
         - "intro"
         - "experienceItemId"
+        - "simulationItemId"
         - "bundledProductIds"
         - "activityId"
         - "scheduleLabel"
@@ -634,6 +637,12 @@ components:
             type: "string"
             maxLength: 500
           maxItems: 20
+        simulationItemId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "课程配置的仿真项目 ID；可保留已下线的项目 ID，供运营修正。"
         experienceItemId:
           type:
             - "string"
@@ -833,6 +842,12 @@ components:
             - "null"
           format: "uuid"
           description: "线下班必填，线上课不填"
+        simulationItemId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "线上课程可关联已发布且已配置模板的 SIMULATION；省略或为空时无关联。"
     OpsCourseRequest:
       type: "object"
       additionalProperties: false
@@ -917,6 +932,12 @@ components:
             minLength: 1
             maxLength: 500
           maxItems: 20
+        simulationItemId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "仅线上课可设置；目标须为已发布且已配置模板的 SIMULATION。省略保留当前关联，显式 null 解除。"
         experienceItemId:
           type:
             - "string"

@@ -55,8 +55,8 @@ public interface CourseOpsMapper {
     );
 
     @Insert("""
-            INSERT INTO course (id, organization_id, delivery_mode, topic, title, activity_id, created_at, updated_at)
-            VALUES (#{id}, #{organizationId}, #{mode}, #{topic}, #{title}, #{activityId}, #{at}, #{at})
+            INSERT INTO course (id, organization_id, delivery_mode, topic, title, activity_id, simulation_item_id, created_at, updated_at)
+            VALUES (#{id}, #{organizationId}, #{mode}, #{topic}, #{title}, #{activityId}, #{simulationItemId}, #{at}, #{at})
             """)
     int insertCourse(
             @Param("id") UUID id,
@@ -65,6 +65,7 @@ public interface CourseOpsMapper {
             @Param("topic") String topic,
             @Param("title") String title,
             @Param("activityId") UUID activityId,
+            @Param("simulationItemId") UUID simulationItemId,
             @Param("at") OffsetDateTime at
     );
 
@@ -85,6 +86,7 @@ public interface CourseOpsMapper {
                 extra_specs = CAST(#{extraSpecs} AS jsonb),
                 intro = CAST(#{intro} AS jsonb),
                 experience_item_id = #{experienceItemId},
+                simulation_item_id = #{simulationItemId},
                 activity_id = #{activityId},
                 schedule_label = #{scheduleLabel},
                 sort_order = #{sortOrder},
@@ -111,6 +113,7 @@ public interface CourseOpsMapper {
             @Param("extraSpecs") String extraSpecs,
             @Param("intro") String intro,
             @Param("experienceItemId") UUID experienceItemId,
+            @Param("simulationItemId") UUID simulationItemId,
             @Param("activityId") UUID activityId,
             @Param("scheduleLabel") String scheduleLabel,
             @Param("sortOrder") int sortOrder,

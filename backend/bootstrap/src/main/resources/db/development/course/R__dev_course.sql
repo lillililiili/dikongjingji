@@ -9,7 +9,7 @@
 
 INSERT INTO course (
     id, organization_id, delivery_mode, topic, title, subtitle, cover_url, price_amount_minor, validity_days,
-    age_note, instructor_name, instructor_title, includes, extra_specs, intro, experience_item_id,
+    age_note, instructor_name, instructor_title, includes, extra_specs, intro, experience_item_id, simulation_item_id,
     activity_id, schedule_label, sort_order, status, first_listed_at
 )
 VALUES
@@ -20,28 +20,28 @@ VALUES
      '[{"name": "录播课程", "quantity": 12}, {"name": "课后练习", "quantity": 4}, {"name": "电子证书", "quantity": 1}]',
      '[{"label": "练习", "value": "每章配练习与模拟任务"}, {"label": "证书", "value": "完成后发放电子证书"}]',
      '["每节约 15 分钟，手机上随时学，学到哪里自动记住。", "前两节可以免费试听；开通后 365 天内可以反复观看。"]',
-     'b1000000-0000-4000-8000-000000000005', NULL, NULL, 30, 'LISTED', now()),
+     'b1000000-0000-4000-8000-000000000005', 'b1000000-0000-4000-8000-000000000002', NULL, NULL, 30, 'LISTED', now()),
     -- 画板 CourseDetail / MyCourses：随“编程机器人探索套装 · 标准套装”附带的数字课程，不单独出售，16 课时。
     ('d7c00000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000001', 'ONLINE', 'PROGRAMMING',
      '编程机器人入门课', '配套数字课程：从开箱到综合项目，16 课时', NULL, NULL, NULL,
      '8 岁以上', NULL, NULL,
      '[{"name": "录播课程", "quantity": 16}]', '[]', '[]',
-     NULL, NULL, NULL, 20, 'LISTED', now()),
+     NULL, NULL, NULL, NULL, 20, 'LISTED', now()),
     -- 线下班：在课程页显示，点进对应的活动报名（画板 CourseCamp → 机器人研学体验）。
     ('d7c00000-0000-4000-8000-000000000003', 'a1000000-0000-4000-8000-000000000002', 'OFFLINE', 'ROBOT',
-     '青少年机器人研学（线下班）', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '[]', '[]', '[]', NULL,
+     '青少年机器人研学（线下班）', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '[]', '[]', '[]', NULL, NULL,
      'a2000000-0000-4000-8000-000000000002', '按场次', 20, 'LISTED', now()),
     -- 线下班：画板 CourseCert 的执照培训 → 多旋翼无人机驾驶员培训（价格面议）。
     ('d7c00000-0000-4000-8000-000000000004', 'a1000000-0000-4000-8000-000000000003', 'OFFLINE', 'CERTIFICATE',
-     '无人机操作员执照培训（线下班）', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '[]', '[]', '[]', NULL,
+     '无人机操作员执照培训（线下班）', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '[]', '[]', '[]', NULL, NULL,
      'a2000000-0000-4000-8000-000000000004', '按班期', 10, 'LISTED', now()),
     -- 线下班：画板 CourseRobotIntro 的入门线下班挂在一个已下线的活动上，列表里不应出现（没有对应活动时不显示）。
     ('d7c00000-0000-4000-8000-000000000005', 'c1000000-0000-4000-8000-000000000001', 'OFFLINE', 'PROGRAMMING',
-     '编程机器人入门课 线下班', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '[]', '[]', '[]', NULL,
+     '编程机器人入门课 线下班', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '[]', '[]', '[]', NULL, NULL,
      'a2000000-0000-4000-8000-000000000006', '8 次课', 25, 'LISTED', now()),
     -- 草稿不应出现在列表里。
     ('d7c00000-0000-4000-8000-000000000006', 'a1000000-0000-4000-8000-000000000003', 'ONLINE', 'DRONE',
-     '未上架的示例课程', NULL, NULL, 9900, NULL, NULL, NULL, NULL, '[]', '[]', '[]', NULL,
+     '未上架的示例课程', NULL, NULL, 9900, NULL, NULL, NULL, NULL, '[]', '[]', '[]', NULL, NULL,
      NULL, NULL, 99, 'DRAFT', NULL)
 ON CONFLICT (id) DO UPDATE
 SET organization_id = EXCLUDED.organization_id,
@@ -59,6 +59,7 @@ SET organization_id = EXCLUDED.organization_id,
     extra_specs = EXCLUDED.extra_specs,
     intro = EXCLUDED.intro,
     experience_item_id = EXCLUDED.experience_item_id,
+    simulation_item_id = EXCLUDED.simulation_item_id,
     activity_id = EXCLUDED.activity_id,
     schedule_label = EXCLUDED.schedule_label,
     sort_order = EXCLUDED.sort_order,

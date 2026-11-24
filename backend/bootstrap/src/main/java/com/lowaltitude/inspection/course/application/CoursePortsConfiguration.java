@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.lowaltitude.inspection.activity.application.ActivityCourseListings;
+import com.lowaltitude.inspection.experience.application.ExperienceCatalogReadService;
 import com.lowaltitude.inspection.identity.domain.IdentityOrganizationPort;
 import com.lowaltitude.inspection.trade.application.TradeException;
 import com.lowaltitude.inspection.trade.application.TradeOrderCompletionListener;
@@ -35,6 +36,11 @@ public class CoursePortsConfiguration {
     @Bean
     CoursePorts.Payments coursePayments(TradeSourceOrders orders) {
         return new TradeBackedCoursePayments(orders);
+    }
+
+    @Bean
+    CoursePorts.Simulations courseSimulations(ExperienceCatalogReadService catalog) {
+        return catalog::isPlayableSimulation;
     }
 
     @Bean

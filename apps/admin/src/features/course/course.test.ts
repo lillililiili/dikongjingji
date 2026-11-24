@@ -29,6 +29,7 @@ const ORG = 'a1000000-0000-4000-8000-000000000001'
 const ACTIVITY = 'b1000000-0000-4000-8000-000000000001'
 const PRODUCT = 'c1000000-0000-4000-8000-000000000001'
 const EXPERIENCE = 'd1000000-0000-4000-8000-000000000001'
+const SIMULATION = 'd1000000-0000-4000-8000-000000000002'
 
 function fakeHttp() {
   const calls: Array<{ method: string, path: string, body?: unknown, query?: unknown }> = []
@@ -72,6 +73,7 @@ function onlineCourse(overrides: Partial<OpsCourse> = {}): OpsCourse {
     extraSpecs: [{ label: '上课方式', value: '线上录播' }],
     intro: ['第一段'],
     experienceItemId: EXPERIENCE,
+    simulationItemId: SIMULATION,
     bundledProductIds: [PRODUCT],
     activityId: null,
     scheduleLabel: null,
@@ -126,6 +128,7 @@ describe('基本资料：表单 ↔ 请求体（金额元 ↔ 分）', () => {
     expect(request.scheduleLabel).toBeNull()
     expect(request.bundledProductIds).toEqual([PRODUCT])
     expect(request.experienceItemId).toBe(EXPERIENCE)
+    expect(request.simulationItemId).toBe(SIMULATION)
   })
 
   it('价格留空 = 不单独出售（null）；0.01 元是 1 分；空白变 null，空行和空段落不提交', () => {
@@ -134,6 +137,7 @@ describe('基本资料：表单 ↔ 请求体（金额元 ↔ 分）', () => {
       priceYuan: '  ',
       subtitle: '   ',
       experienceItemId: ' ',
+      simulationItemId: '',
       includes: [{ name: ' 飞行手册 ', quantity: ' 2 ' }, { name: '', quantity: '' }],
       extraSpecs: [{ label: '', value: '  ' }],
       intro: ['  第一段 ', '', '   '],
@@ -143,6 +147,7 @@ describe('基本资料：表单 ↔ 请求体（金额元 ↔ 分）', () => {
     expect(request.priceAmountMinor).toBeNull()
     expect(request.subtitle).toBeNull()
     expect(request.experienceItemId).toBeNull()
+    expect(request.simulationItemId).toBeNull()
     expect(request.includes).toEqual([{ name: '飞行手册', quantity: 2 }])
     expect(request.extraSpecs).toEqual([])
     expect(request.intro).toEqual(['第一段'])
@@ -172,6 +177,7 @@ describe('基本资料：表单 ↔ 请求体（金额元 ↔ 分）', () => {
       extraSpecs: [],
       intro: [],
       experienceItemId: null,
+      simulationItemId: null,
       bundledProductIds: [],
     })
   })

@@ -75,6 +75,13 @@ public final class ExperienceCatalogReadService {
         return new ExperienceItemPageView(page, size, total, hasMore(page, size, total), items);
     }
 
+    /** 只从公开目录核对课程选用的仿真项目，模板为空的项目不能进入仿真。 */
+    public boolean isPlayableSimulation(UUID itemId) {
+        return store.findExperienceItem(itemId)
+                .filter(row -> ExperienceType.SIMULATION.name().equals(row.type()) && row.simulationTemplate() != null)
+                .isPresent();
+    }
+
     /** S5-4：一个已发布的线上体验项目，带仿真模板和试用时长；没有或没发布时 404。 */
     public ExperienceItemDetailView findExperienceItem(UUID experienceId) {
         if (experienceId == null) {

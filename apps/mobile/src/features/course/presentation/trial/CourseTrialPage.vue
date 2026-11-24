@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
-import { ApiRequestError } from '@/shared/http/public-api-request'
+import { EXPERIENCE_PREVIEW_ENABLED } from '@/features/experience/application/experience-preview'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { formatCoursePrice, formatLessonLength } from '../../application/course-format'
+import { useCourseTrialState } from '../../application/course-trial-state'
 import { courseApi } from '../../data/course-api-client'
 import { coursePlaySource, resolveCoursePreviewCover } from '../../data/preview/course-preview-media'
-import type { CourseTrial } from '../../domain/course'
+import { courseTrialSimulationUrl } from '../../navigation/course-routes'
 
 // 课程试听 (board CourseTrial, opened from 体验中心 “课程试听”, the course detail's 先试听 and
 // 我的课程): the trial lessons of one course, playable without buying or signing in. Watching a
@@ -21,15 +22,15 @@ const emit = defineEmits<{
   back: []
   buy: [courseId: string]
   detail: [courseId: string]
+  simulation: [url: string]
 }>()
 
-type State = { kind: 'loading' } | { kind: 'ready'; trial: CourseTrial } | { kind: 'missing' } | { kind: 'error' }
-
-const state = ref<State>({ kind: 'loading' })
+const { state, load } = useCourseTrialState(courseApi.loadTrial)
 const currentId = ref<string | null>(null)
-const started = ref(false)
+const playback = ref<'idle' | 'playing' | 'failed'>('idle')
 
 const trial = computed(() => (state.value.kind === 'ready' ? state.value.trial : null))
+const simulationUrl = computed(() => courseTrialSimulationUrl(trial.value?.simulationItemId ?? null, EXPERIENCE_PREVIEW_ENABLED))
 const current = computed(() => trial.value?.lessons.find((lesson) => lesson.lessonId === currentId.value) ?? trial.value?.lessons[0] ?? null)
 const source = computed(() => (trial.value && current.value
   ? coursePlaySource(trial.value.courseId, current.value.no, current.value.playUrl)
@@ -39,29 +40,18 @@ const poster = computed(() => (trial.value
   : null))
 const title = computed(() => (trial.value ? `${trial.value.title.replace(/\s*线上课$/, '')}试听` : '课程试听'))
 
-async function load(): Promise<void> {
-  if (!props.target) {
-    state.value = { kind: 'missing' }
-    return
-  }
-  state.value = { kind: 'loading' }
-  try {
-    const loaded = await courseApi.loadTrial(props.target)
-    state.value = { kind: 'ready', trial: loaded }
-    currentId.value = loaded.lessons[0]?.lessonId ?? null
-    started.value = false
-  } catch (error) {
-    state.value = error instanceof ApiRequestError && error.status === 404 ? { kind: 'missing' } : { kind: 'error' }
-  }
-}
+watch(trial, loaded => {
+  currentId.value = loaded?.lessons[0]?.lessonId ?? null
+  playback.value = 'idle'
+})
 
 function pick(lessonId: string): void {
   if (currentId.value === lessonId) return
   currentId.value = lessonId
-  started.value = false
+  playback.value = 'idle'
 }
 
-watch(() => props.target, () => { void load() }, { immediate: true })
+watch(() => props.target, target => { void load(target) }, { immediate: true })
 </script>
 
 <template>
@@ -71,28 +61,30 @@ watch(() => props.target, () => { void load() }, { immediate: true })
     <view v-if="state.kind === 'loading'" class="course-trial__state"><text>正在加载…</text></view>
     <view v-else-if="state.kind !== 'ready'" class="course-trial__state" data-testid="course-trial-missing">
       <text class="course-trial__state-title">{{ state.kind === 'missing' ? '这门课暂时不能试听' : '加载失败，请稍后重试' }}</text>
-      <button v-if="state.kind === 'error'" class="course-trial__state-action" @click="load">重新加载</button>
+      <button v-if="state.kind === 'error'" class="course-trial__state-action" @click="load(target)">重新加载</button>
     </view>
 
     <template v-else-if="trial">
       <view class="course-trial__slot" data-testid="course-trial-slot">
         <video
-          v-if="started && source"
+          v-if="playback === 'playing' && source"
           class="course-trial__video"
           :src="source"
           :poster="poster ?? ''"
           :autoplay="true"
           controls
           data-testid="course-trial-video"
+          @error="playback = 'failed'"
         />
         <template v-else>
           <image v-if="poster" class="course-trial__poster" :src="poster" mode="aspectFill" />
           <view class="course-trial__cover">
             <text class="course-trial__kicker">试听 · 第 {{ current?.no }} 课 · {{ current ? formatLessonLength(current.durationSeconds) : '' }}</text>
             <text class="course-trial__slot-title">{{ current?.title }}</text>
-            <button v-if="source" class="course-trial__play" data-testid="course-trial-play" @click="started = true">
+            <text v-if="playback === 'failed'" role="alert">视频加载失败，请重试</text>
+            <button v-if="source" class="course-trial__play" role="button" data-testid="course-trial-play" @click="playback = 'playing'">
               <LineIcon name="play" :size="18" :stroke-width="2" color="#ffffff" />
-              <text>开始试听</text>
+              <text>{{ playback === 'failed' ? '重新播放' : '开始试听' }}</text>
             </button>
             <text v-else class="course-trial__pending">课程视频待授权素材</text>
           </view>
@@ -109,6 +101,7 @@ watch(() => props.target, () => { void load() }, { immediate: true })
             v-for="lesson in trial.lessons"
             :key="lesson.lessonId"
             :class="['course-trial__lesson', { 'course-trial__lesson--on': lesson.lessonId === current?.lessonId }]"
+            :aria-pressed="lesson.lessonId === current?.lessonId"
             :data-testid="`course-trial-lesson-${lesson.no}`"
             @click="pick(lesson.lessonId)"
           >
@@ -135,12 +128,19 @@ watch(() => props.target, () => { void load() }, { immediate: true })
       <view class="course-trial__bar">
         <button
           class="course-trial__buy"
+          :class="{ 'course-trial__buy--secondary': simulationUrl }"
           data-testid="course-trial-buy"
           :disabled="!trial.purchasable"
           @click="emit('buy', trial.courseId)"
         >
           {{ trial.purchasable ? `立即报名 ${formatCoursePrice(trial.price)}` : '暂未开通在线报名' }}
         </button>
+        <button
+          v-if="simulationUrl"
+          class="course-trial__buy"
+          data-testid="course-trial-simulation"
+          @click="emit('simulation', simulationUrl)"
+        >试试配套仿真</button>
       </view>
     </template>
   </view>
@@ -236,7 +236,7 @@ button::after {
 
 .course-trial__play {
   display: flex;
-  height: 40px;
+  min-height: 44px;
   margin-top: 6px;
   padding: 0 18px;
   align-items: center;
@@ -369,6 +369,7 @@ button::after {
 
 .course-trial__bar {
   display: flex;
+  gap: 8px;
   padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
   border-top: 1px solid #e5ebf3;
   background: #ffffff;
@@ -390,5 +391,10 @@ button::after {
 .course-trial__buy[disabled] {
   color: #738096;
   background: #eef2f8;
+}
+
+.course-trial__buy--secondary:not([disabled]) {
+  color: #a74500;
+  background: #fff0e3;
 }
 </style>

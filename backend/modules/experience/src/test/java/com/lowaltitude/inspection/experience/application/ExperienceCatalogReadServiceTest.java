@@ -79,6 +79,18 @@ class ExperienceCatalogReadServiceTest {
     }
 
     @Test
+    void courseLinksRequireAPublishedSimulationWithATemplate() {
+        UUID id = UUID.randomUUID();
+        assertThat(service.isPlayableSimulation(id)).isFalse();
+        store.itemDetail = new ExperienceItemDetailRow(id, "SIMULATION", "仿真", null, null, false, null, null, null);
+        assertThat(service.isPlayableSimulation(id)).isFalse();
+        store.itemDetail = new ExperienceItemDetailRow(id, "COURSE_TRIAL", "试听", null, null, false, null, null, 10);
+        assertThat(service.isPlayableSimulation(id)).isFalse();
+        store.itemDetail = new ExperienceItemDetailRow(id, "SIMULATION", "仿真", null, null, false, null, "DRONE_HOVER", null);
+        assertThat(service.isPlayableSimulation(id)).isTrue();
+    }
+
+    @Test
     void rejectsInvalidPagingAndFilters() {
         assertInvalid(() -> service.listExperienceItems("GAME", 1, 20));
         assertInvalid(() -> service.listExperienceItems(null, 0, 20));

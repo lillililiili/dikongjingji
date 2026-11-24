@@ -191,7 +191,9 @@ final class CourseContract {
             for (RecordComponent component : type.getRecordComponents()) {
                 String field = schemaName + "." + component.getName();
                 Map<String, Object> property = map(properties.get(component.getName()));
-                Class<?> javaType = component.getType();
+                // The update body distinguishes an omitted simulation ID from an explicit JSON null.
+                Class<?> javaType = type == OpsCourseController.CourseRequest.class && component.getName().equals("simulationItemId")
+                        ? UUID.class : component.getType();
                 if (javaType.isRecord() || javaType.isEnum()) {
                     String expected = SCHEMA_PREFIX + (javaType.isRecord() ? schemaOf(all, javaType)
                             : schemaOf(enums, javaType));

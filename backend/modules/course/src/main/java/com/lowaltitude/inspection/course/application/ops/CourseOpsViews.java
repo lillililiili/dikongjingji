@@ -52,6 +52,7 @@ public final class CourseOpsViews {
             List<OpsCourseSpecView> extraSpecs,
             List<String> intro,
             UUID experienceItemId,
+            UUID simulationItemId,
             List<UUID> bundledProductIds,
             UUID activityId,
             String scheduleLabel,
@@ -90,7 +91,8 @@ public final class CourseOpsViews {
     public record Operator(UUID accountId, String displayName) {
     }
 
-    public record CreateCommand(String mode, String topic, String title, UUID organizationId, UUID activityId) {
+    public record CreateCommand(String mode, String topic, String title, UUID organizationId, UUID activityId,
+                                UUID simulationItemId) {
     }
 
     public record IncludeDraft(String name, Integer quantity) {
@@ -115,6 +117,8 @@ public final class CourseOpsViews {
             List<SpecDraft> extraSpecs,
             List<String> intro,
             UUID experienceItemId,
+            UUID simulationItemId,
+            boolean simulationItemSpecified,
             List<UUID> bundledProductIds,
             UUID activityId,
             String scheduleLabel,

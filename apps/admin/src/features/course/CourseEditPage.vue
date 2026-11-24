@@ -23,6 +23,7 @@ import ActivitySelect from './components/ActivitySelect.vue'
 import OrganizationSelect from './components/OrganizationSelect.vue'
 import ParagraphListEditor from './components/ParagraphListEditor.vue'
 import ProductMultiSelect from './components/ProductMultiSelect.vue'
+import SimulationSelect from './components/SimulationSelect.vue'
 import CourseOutlineEditor from './CourseOutlineEditor.vue'
 import {
   CHANGE_ACTION_LABELS,
@@ -80,7 +81,7 @@ function placeholderCourse(): OpsCourse {
     courseId: '', mode: 'ONLINE', topic: 'DRONE', status: 'DRAFT', title: '', subtitle: null,
     organization: { organizationId: '', name: '' }, coverUrl: null, galleryUrls: [], priceAmountMinor: null,
     validityDays: null, ageNote: null, instructorName: null, instructorTitle: null, includes: [], extraSpecs: [],
-    intro: [], experienceItemId: null, bundledProductIds: [], activityId: null, scheduleLabel: null, sortOrder: 0,
+    intro: [], experienceItemId: null, simulationItemId: null, bundledProductIds: [], activityId: null, scheduleLabel: null, sortOrder: 0,
     chapters: [], lessonCount: 0, enrollmentCount: 0, listMissing: [], firstListedAt: null, createdAt: '', updatedAt: '',
     version: 0,
   }
@@ -374,6 +375,10 @@ onMounted(() => {
                 <el-input v-model="form.experienceItemId" clearable style="width: 360px"
                           placeholder="体验项目 ID（UUID），可不填" />
                 <div class="course-edit__hint">一门课一个；已经给了别的课程的不能再用。</div>
+              </el-form-item>
+              <el-form-item label="试听后的配套仿真" prop="simulationItemId">
+                <SimulationSelect v-model="form.simulationItemId" />
+                <div class="course-edit__hint">选择后，学员可从试听页进入该仿真任务。</div>
               </el-form-item>
               <el-form-item label="附带于商品" prop="bundledProductIds">
                 <ProductMultiSelect v-model="form.bundledProductIds" :max="LIMITS.bundledProducts" />

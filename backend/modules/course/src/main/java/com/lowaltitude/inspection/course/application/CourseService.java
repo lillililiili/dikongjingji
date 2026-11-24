@@ -39,7 +39,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 课程（S5-5，契约 contracts/openapi-course.yaml 1.0.0，说明见 docs/redesign/09-课程实现说明.md）。
+ * 课程（S5-5，契约 contracts/openapi-course.yaml 1.1.0，说明见 docs/redesign/09-课程实现说明.md）。
  *
  * <ul>
  *   <li>列表：上架的线上课（单独出售的）全国都列；线下班只列对应活动在当前城市公开可见的，标题、封面、价格取自活动。</li>
@@ -72,6 +72,7 @@ public class CourseService {
     private final CoursePorts.Payments payments;
     private final CoursePorts.Activities activities;
     private final CoursePorts.Organizations organizations;
+    private final CoursePorts.Simulations simulations;
     private final Clock clock;
 
     CourseService(
@@ -79,12 +80,14 @@ public class CourseService {
             CoursePorts.Payments payments,
             CoursePorts.Activities activities,
             CoursePorts.Organizations organizations,
+            CoursePorts.Simulations simulations,
             Clock clock
     ) {
         this.mapper = mapper;
         this.payments = payments;
         this.activities = activities;
         this.organizations = organizations;
+        this.simulations = simulations;
         this.clock = clock;
     }
 
@@ -204,7 +207,7 @@ public class CourseService {
                 CourseJson.strings(row.intro()),
                 row.priceAmountMinor() != null && collecting && !lessons.isEmpty(),
                 collecting,
-                row.experienceItemId());
+                row.experienceItemId(), playableSimulation(row));
     }
 
     /** 这个账号和这门课的关系：开通着（没过期）或待付款的那一条。 */
@@ -252,7 +255,12 @@ public class CourseService {
         boolean collecting = payments.merchantCanCollect(row.organizationId());
         return new CourseTrialView(row.id(), row.title(), cover(row), organization(row.organizationId()), lessons.size(),
                 row.priceAmountMinor() == null ? null : new CoursePriceView(CoursePriceMode.FIXED, row.priceAmountMinor()),
-                row.priceAmountMinor() != null && collecting, List.copyOf(trial));
+                row.priceAmountMinor() != null && collecting, playableSimulation(row), List.copyOf(trial));
+    }
+
+    private UUID playableSimulation(CourseRow course) {
+        UUID itemId = course.simulationItemId();
+        return itemId != null && simulations.isPlayable(itemId) ? itemId : null;
     }
 
     // ---- 购买 ----

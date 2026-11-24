@@ -42,7 +42,7 @@ import com.lowaltitude.inspection.ops.common.OpsText;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 运营端“课程”（S5-5，契约 contracts/openapi-ops-course.yaml 1.0.0）。只给平台运营；写操作带版本号，每次改动记一条改动记录。
+ * 运营端“课程”（S5-5，契约 contracts/openapi-ops-course.yaml 1.1.0）。只给平台运营；写操作带版本号，每次改动记一条改动记录。
  * 规则见契约的描述。
  */
 public class CourseOpsService {
@@ -80,6 +80,7 @@ public class CourseOpsService {
     private final CoursePorts.Organizations organizations;
     private final CoursePorts.Payments payments;
     private final CoursePorts.Activities activities;
+    private final CoursePorts.Simulations simulations;
     private final Clock clock;
 
     public CourseOpsService(
@@ -88,6 +89,7 @@ public class CourseOpsService {
             CoursePorts.Organizations organizations,
             CoursePorts.Payments payments,
             CoursePorts.Activities activities,
+            CoursePorts.Simulations simulations,
             Clock clock
     ) {
         this.courses = courses;
@@ -95,6 +97,7 @@ public class CourseOpsService {
         this.organizations = organizations;
         this.payments = payments;
         this.activities = activities;
+        this.simulations = simulations;
         this.clock = clock;
     }
 
@@ -158,9 +161,11 @@ public class CourseOpsService {
         if ((mode == OpsCourseMode.OFFLINE) != (command.activityId() != null)) {
             throw new IllegalArgumentException("activityId is required for an offline course only");
         }
+        validateSimulation(mode == OpsCourseMode.ONLINE, command.simulationItemId());
         OffsetDateTime now = now();
         UUID id = UUID.randomUUID();
-        mapper.insertCourse(id, command.organizationId(), mode.name(), topic.name(), title, command.activityId(), now);
+        mapper.insertCourse(id, command.organizationId(), mode.name(), topic.name(), title, command.activityId(),
+                command.simulationItemId(), now);
         record(id, "CREATE", "新建" + (mode == OpsCourseMode.ONLINE ? "线上课" : "线下班") + "草稿“" + title + "”",
                 operator, now);
         return view(found(id));
@@ -197,6 +202,11 @@ public class CourseOpsService {
         Long price = draft.priceAmountMinor();
         Integer validity = draft.validityDays();
         UUID experience = draft.experienceItemId();
+        UUID simulation = row.simulationItemId();
+        if (draft.simulationItemSpecified()) {
+            simulation = draft.simulationItemId();
+            validateSimulation(online, simulation);
+        }
         UUID activity = draft.activityId();
         String schedule = OpsText.optional(draft.scheduleLabel(), MAX_SCHEDULE_LABEL, "scheduleLabel");
         if (online) {
@@ -228,7 +238,7 @@ public class CourseOpsService {
         if (mapper.updateCourse(courseId, version, topic.name(), title, subtitle, draft.organizationId(), cover,
                 CourseJson.writeStrings(gallery), price, validity, ageNote, instructorName, instructorTitle,
                 CourseJson.writeIncludes(includes), CourseJson.writeSpecs(specs), CourseJson.writeStrings(intro),
-                experience, activity, schedule, sortOrder, now) == 0) {
+                experience, simulation, activity, schedule, sortOrder, now) == 0) {
             throw new OpsException(CourseOpsError.VERSION_CONFLICT);
         }
         mapper.deleteBundles(courseId);
@@ -541,6 +551,7 @@ public class CourseOpsService {
                         .map(item -> new OpsCourseSpecView(item.label(), item.value())).toList(),
                 CourseJson.strings(row.intro()),
                 row.experienceItemId(),
+                row.simulationItemId(),
                 mapper.findBundledProducts(row.id()),
                 row.activityId(),
                 row.scheduleLabel(),
@@ -588,6 +599,12 @@ public class CourseOpsService {
             throw new OpsException(CourseOpsError.NOT_FOUND);
         }
         return row;
+    }
+
+    private void validateSimulation(boolean online, UUID itemId) {
+        if (itemId != null && (!online || !simulations.isPlayable(itemId))) {
+            throw new IllegalArgumentException("simulationItemId requires an online course and a published playable simulation");
+        }
     }
 
     private static boolean isOnline(CourseRow row) {

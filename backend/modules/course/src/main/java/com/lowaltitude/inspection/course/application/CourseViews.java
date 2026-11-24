@@ -74,7 +74,8 @@ record CourseDetailView(
         List<String> intro,
         boolean purchasable,
         boolean onlinePayment,
-        UUID experienceItemId
+        UUID experienceItemId,
+        UUID simulationItemId
 ) {
 }
 
@@ -93,6 +94,7 @@ record CourseTrialView(
         int lessonCount,
         CoursePriceView price,
         boolean purchasable,
+        UUID simulationItemId,
         List<CourseTrialLessonView> lessons
 ) {
 }

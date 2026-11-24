@@ -129,6 +129,7 @@ export function toCourseDetail(dto: Dto): CourseDetail {
     purchasable: dto.purchasable === true,
     onlinePayment: dto.onlinePayment === true,
     experienceItemId: text(dto.experienceItemId),
+    simulationItemId: text(dto.simulationItemId),
   }
 }
 
@@ -218,6 +219,7 @@ function toEnrollmentCard(dto: Dto): CourseEnrollmentCard {
 function toTrial(dto: Dto): CourseTrial {
   return {
     courseId: String(dto.courseId),
+    simulationItemId: text(dto.simulationItemId),
     title: text(dto.title) ?? '课程',
     coverImage: toImage(dto.coverImage),
     organization: toOrganization(dto.organization),
