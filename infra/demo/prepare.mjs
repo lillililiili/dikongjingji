@@ -2,11 +2,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { PORTS, REPO, STATE } from './demo.mjs';
+import { PORTS, REPO, STATE } from './config.mjs';
 
 const BASE = `http://127.0.0.1:${PORTS.backend}`;
-// 示例青少年科技机构的收费活动，核销员是 dev-organizer（开发种子）。
-const ACTIVITY = 'a2000000-0000-4000-8000-000000000001';
+// 核销员 dev-organizer 所在的机构（开发种子：东营低空与机器人体验馆，已登记模拟收款账户）。
+const ORGANIZER = 'a1000000-0000-4000-8000-000000000004';
+const TITLE = '无人机飞行体验课（演示）';
+const COVER = path.join(REPO, 'apps/mobile/src/static/images/preview');
 
 async function call(method, route, token, body) {
   const response = await fetch(BASE + route, {
@@ -23,13 +25,32 @@ export async function prepare(env) {
   const { accessToken } = await call('POST', '/api/v1/auth/login', null, { loginName: 'dev-operator', password: env.DEV_OPERATOR_PASSWORD });
   const minutes = (count) => new Date(Date.now() + count * 60_000).toISOString();
   const label = `演示场 ${new Date(Date.now() + 8 * 3600_000).toISOString().slice(5, 16).replace('T', ' ')}`;
-  const activity = await call('POST', `/api/v1/ops/activities/${ACTIVITY}/sessions`, accessToken, {
-    label, startsAt: minutes(120), endsAt: minutes(240), checkInOpensAt: minutes(1), enrollmentClosesAt: minutes(119), capacity: 20,
-  });
-  console.log(`活动“${activity.title}”加了场次“${label}”，2 小时后开始，1 分钟后可以核销。`);
+  const found = (await call('GET', '/api/v1/ops/activities?page=1&size=50', accessToken)).items.find((item) => item.title === TITLE);
+  let activity = found ? await call('GET', `/api/v1/ops/activities/${found.activityId}`, accessToken) : await createActivity(accessToken);
+  const usable = activity.sessions.find((item) => Date.parse(item.startsAt) > Date.now() + 45 * 60_000 && Date.parse(item.startsAt) < Date.now() + 180 * 60_000);
+  if (!usable) {
+    activity = await call('POST', `/api/v1/ops/activities/${activity.activityId}/sessions`, accessToken, {
+      label, startsAt: minutes(120), endsAt: minutes(240), checkInOpensAt: minutes(1), enrollmentClosesAt: minutes(119), capacity: 20,
+    });
+  }
+  if (activity.status !== 'PUBLISHED') await call('POST', `/api/v1/ops/activities/${activity.activityId}/publish`, accessToken, { version: activity.version });
+  console.log(usable ? `活动“${TITLE}”已有能用的场次“${usable.label}”。` : `活动“${TITLE}”（¥99/人）加了场次“${label}”，2 小时后开始，1 分钟后可以核销。`);
   const target = path.join(STATE, 'samples');
   writeSamples(target);
   console.log(`样例交付文件在 ${path.relative(REPO, target)}/（zip、xlsx、kml、pdf 各一份）。`);
+}
+
+async function createActivity(token) {
+  const picture = fs.readdirSync(COVER, { recursive: true }).map(String).find((name) => /\.(jpe?g|png)$/i.test(name));
+  const form = new FormData();
+  form.append('file', new Blob([fs.readFileSync(path.join(COVER, picture))], { type: /png$/i.test(picture) ? 'image/png' : 'image/jpeg' }), path.basename(picture));
+  const uploaded = await fetch(`${BASE}/api/v1/ops/media`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+  if (!uploaded.ok) throw new Error(`上传封面 → ${uploaded.status}`);
+  return call('POST', '/api/v1/ops/activities', token, {
+    type: 'OPEN_DAY', title: TITLE, subtitle: '现场演示用', coverUrl: (await uploaded.json()).url, galleryUrls: [], organizerId: ORGANIZER, coOrganizerId: null, cityCode: '370500',
+    venueName: '东营低空与机器人体验馆', venueAddress: '示例路 1 号（示例地址）', scheduleNote: null, priceMode: 'PER_PERSON', priceAmountMinor: 9900,
+    minAge: 6, maxAge: 60, eligibilityNote: '6–60 岁', seatNote: '每人 1 个名额', refundNote: '开始前可取消，按人原路退回', enrollmentNotice: '现场演示用的活动，不真实举办。',
+  });
 }
 
 function writeSamples(target) {

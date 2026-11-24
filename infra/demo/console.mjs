@@ -6,7 +6,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { PG_CONTAINER, PORTS, STATE } from './demo.mjs';
+import { PG_CONTAINER, PORTS, STATE } from './config.mjs';
 
 const run = promisify(execFile);
 const escape = (value) => String(value ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

@@ -14,13 +14,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-export const STATE = path.join(REPO, '.runtime', 'demo');
-export const PORTS = { backend: 19420, postgres: 19421, redis: 19422, minio: 19423, minioConsole: 19424, admin: 19430, console: 19440, h5: 19450, wechat: 19460 };
-export const PROJECT = 'low-altitude-demo';
-export const PG_CONTAINER = `${PROJECT}-postgres-1`;
+import { PORTS, PROJECT, REPO, STATE, readEnv } from './config.mjs';
+import { prepare } from './prepare.mjs';
+
 /** 演示图片的假主机，App 和运营端都会换成能读到的地址（apps/mobile/src/shared/http/media-url.ts）。 */
 const MEDIA_ORIGIN = 'https://media.demo.localhost';
 const JAR = path.join(STATE, 'backend.jar');
@@ -28,7 +25,7 @@ const H5 = path.join(STATE, 'h5');
 const APP = path.join(REPO, 'output', 'demo-app');
 const file = (name) => path.join(STATE, name);
 
-export function lanHost() {
+function lanHost() {
   if (process.env.DEMO_HOST) return process.env.DEMO_HOST;
   const isPrivate = (ip) => /^10\./.test(ip) || /^192\.168\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip);
   const found = Object.values(os.networkInterfaces()).flat().find((item) => item && item.family === 'IPv4' && !item.internal && isPrivate(item.address));
@@ -51,11 +48,6 @@ function secrets() {
     ].join('\n'), { mode: 0o600 });
   }
   return readEnv(file('stack.env'));
-}
-
-export function readEnv(target) {
-  return Object.fromEntries(fs.readFileSync(target, 'utf8').split('\n').filter((line) => /^[A-Z0-9_]+=/.test(line))
-    .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
 }
 
 function stackEnv(host) {
@@ -111,11 +103,11 @@ async function waitFor(url, seconds, accept = (status) => status < 500) {
   throw new Error(`${url} 没有起来，看 .runtime/demo/logs/`);
 }
 
-function appEnv(host) {
+function appEnv(host, discovery) {
   return {
     ...process.env,
     VITE_INSPECTION_API_BASE_URL: `http://${host}:${PORTS.backend}`,
-    VITE_INSPECTION_ALLOW_INSECURE_LAN_API: 'true', VITE_INSPECTION_ENABLE_LAN_DISCOVERY: 'true',
+    VITE_INSPECTION_ALLOW_INSECURE_LAN_API: 'true', VITE_INSPECTION_ENABLE_LAN_DISCOVERY: String(discovery),
     VITE_PLATFORM_PREVIEW_ENABLED: 'true', VITE_SIMULATED_PAYMENT: 'true', VITE_DEMO_MEDIA_REWRITE: 'true',
     VITE_INSPECTION_DEFAULT_CITY_CODE: '370500', VITE_INSPECTION_DEFAULT_CITY_NAME: '东营市',
   };
@@ -131,9 +123,9 @@ const commands = {
     console.log('2/4 运营端'); run('npm', ['run', 'build', '--silent'], { cwd: path.join(REPO, 'apps/admin') });
     const mobile = path.join(REPO, 'apps/mobile');
     const uni = path.join(mobile, 'node_modules/.bin/uni');
-    console.log('3/4 App 的 H5（手机浏览器备用）'); run(uni, ['build'], { cwd: mobile, env: { ...appEnv(host), UNI_OUTPUT_DIR: H5 } });
-    console.log('4/4 App 资源'); run(uni, ['build', '-p', 'app'], { cwd: mobile, env: { ...appEnv(host), UNI_OUTPUT_DIR: APP } });
-    console.log(`完成。App 资源在 output/demo-app（后端地址 ${host}，换了网络会在同一网段自动找后端）。`);
+    console.log('3/4 App 的 H5（手机浏览器备用）'); run(uni, ['build'], { cwd: mobile, env: { ...appEnv(host, false), UNI_OUTPUT_DIR: H5 } });
+    console.log('4/4 App 资源'); run(uni, ['build', '-p', 'app'], { cwd: mobile, env: { ...appEnv(host, true), UNI_OUTPUT_DIR: APP } });
+    console.log(`完成。App 资源在 output/demo-app（后端地址 ${host}，App 会在同一网段自动找后端；H5 写死这个地址，换网络要重新 build）。`);
   },
 
   async up() {
@@ -166,7 +158,7 @@ const commands = {
     console.log('平台运营账号     dev-operator，口令在 .runtime/demo/stack.env 的 DEV_OPERATOR_PASSWORD');
   },
 
-  async prepare() { await (await import(pathToFileURL(path.join(REPO, 'infra/demo/prepare.mjs')))).prepare(readEnv(file('stack.env'))); },
+  async prepare() { await prepare(readEnv(file('stack.env'))); },
 
   down() {
     for (const [name, pid] of Object.entries(pids())) if (alive(pid)) { process.kill(pid); console.log(`停掉 ${name}（${pid}）`); }
@@ -182,8 +174,6 @@ const commands = {
   },
 };
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const command = commands[process.argv[2]];
-  if (!command) { console.error('用法：node infra/demo/demo.mjs build|up|prepare|status|down|reset'); process.exit(2); }
-  try { await command.call(commands); } catch (error) { console.error(error.message); process.exit(1); }
-}
+const command = commands[process.argv[2]];
+if (!command) { console.error('用法：node infra/demo/demo.mjs build|up|prepare|status|down|reset'); process.exit(2); }
+try { await command.call(commands); } catch (error) { console.error(error.message); process.exit(1); }
