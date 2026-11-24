@@ -7,6 +7,7 @@ import {
   blockersFromDetails,
   createCatalogApi,
   mediaProblem,
+  MERCHANT_CATALOG_BASE,
   priceUnitsFor,
   type OfferDraft,
   type OpsOffer,
@@ -208,5 +209,23 @@ describe('商品与供给表单规则', () => {
     expect(stockLabel(null)).toBe('不限')
     expect(stockLabel(0)).toBe('缺货')
     expect(stockLabel(12)).toBe('12 件')
+  })
+})
+
+describe('商家工作台“我的商品”用同一套接口，只换前缀', () => {
+  it('列表、新建、上传图片走 /api/v1/provider/catalog；建供给不发 merchantId', async () => {
+    const { http, requests } = recordingClient({ page: 1, size: 20, total: 0, hasMore: false, items: [] })
+    const api = createCatalogApi(http, MERCHANT_CATALOG_BASE)
+    await api.list({ keyword: '', category: '', saleMode: '', status: '' }, 1, 20)
+    await api.createOffer('p-1', 'sku-1', '', { merchantKind: 'LOCAL_STORE', cityCode: null, priceAmountMinor: 129900,
+      priceUnit: 'ITEM', stockQuantity: null, expressAvailable: true, shippingFeeMinor: 0, pickupPoint: '',
+      deliveryNote: '', shippingNote: '', fulfilledFrom: '' }, '22222222-2222-4222-8222-222222222222')
+
+    expect(requests[0]?.url).toContain('/api/v1/provider/catalog/products?')
+    expect(requests[1]?.url).toBe('/api/v1/provider/catalog/products/p-1/offers')
+    const body = jsonBody(requests[1]) as Record<string, unknown>
+    expect(body).not.toHaveProperty('merchantId')
+    expect(body.skuId).toBe('sku-1')
+    expect(createCatalogApi(http)).toBeDefined()
   })
 })

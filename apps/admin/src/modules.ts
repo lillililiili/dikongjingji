@@ -16,11 +16,13 @@ import { liveHostModule } from '@/features/live-host/live-host-module'
 import { liveModule } from '@/features/live/live-module'
 import { mallInquiryModule } from '@/features/mall-inquiry/mall-inquiry-module'
 import { merchantAccountModule } from '@/features/merchant-account/merchant-account-module'
+import { merchantCatalogModule } from '@/features/merchant-catalog/merchant-catalog-module'
 import { merchantOrdersModule } from '@/features/merchant-orders/merchant-orders-module'
 import { merchantProfileReviewModule } from '@/features/merchant-profile-review/merchant-profile-review-module'
 import { merchantProfileModule } from '@/features/merchant-profile/merchant-profile-module'
 import { opsMerchantAccountModule } from '@/features/ops-merchant-account/merchant-account-module'
 import { organizationModule } from '@/features/organization/organization-module'
+import { organizationSelfModule } from '@/features/organization-self/organization-self-module'
 import { platformSupportModule } from '@/features/platform-support/platform-support-module'
 import { reconciliationModule } from '@/features/reconciliation/reconciliation-module'
 import { proServiceModule } from '@/features/proservice/proservice-module'
@@ -52,6 +54,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   platformSupportModule,
   feedbackModule,
   merchantOrdersModule,
+  merchantCatalogModule,
   aftersaleWorkbenchModule,
   mallInquiryModule,
   rentalWorkbenchModule,
@@ -62,6 +65,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   supportDeskModule,
   liveHostModule,
   providerProfileModule,
+  organizationSelfModule,
   merchantProfileModule,
   merchantAccountModule,
   contentModule,

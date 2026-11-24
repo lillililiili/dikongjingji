@@ -59,6 +59,13 @@ const MESSAGES: Record<string, string> = {
   OPS_SKU_LIMIT: '规格已到上限（20 个）',
   OPS_MERCHANT_UNKNOWN: '选的商家不是在用的经营机构',
   OPS_MERCHANT_NOT_COLLECTING: '这家商家还没有有效的收款账户，标价商品不能启用；请先在“收款账户”里登记',
+  OPS_MERCHANT_NOT_QUALIFIED: '机构资质还没审核通过，暂时不能上架；请在“入驻资料”里补齐资质附件，等平台审核',
+  // 账号模块（手机号、验证码）的码不带前缀：自助入驻的发码和申请会答这些。
+  SMS_TOO_FREQUENT: '验证码发送太频繁，请稍后再试',
+  PHONE_LOCKED: '验证码错误次数太多，请 30 分钟后再试',
+  SMS_UNAVAILABLE: '短信服务暂不可用，请稍后再试',
+  SMS_CODE_INVALID: '验证码不正确或已失效',
+  PHONE_TAKEN: '这个手机号已绑定其他账号',
   OPS_MEDIA_URL_UNCONTROLLED: '图片地址只能用上传得到的地址或 https 地址',
   OPS_SUB_MCHID_PLACEHOLDER: '这是开发用的占位商户号（1900000xxx），这个环境不能登记，请填真实的二级商户号',
   OPS_IMPORT_HAS_ISSUES: '这批文件有问题，不能导入：请看问题列表，改好后重新预检',

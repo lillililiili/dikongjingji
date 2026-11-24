@@ -3,7 +3,9 @@ import { createRouter, createWebHistory, type Router, type RouteRecordRaw } from
 import type { AdminModule } from './module'
 import { createAuthGuard, FORBIDDEN_NAME, LOGIN_PATH, type GuardSession } from './guard'
 
-/** 所有路由：登录页（公开）+ 登录后的布局（首页、各功能块、无权限、找不到）。 */
+export const SIGNUP_PATH = '/signup'
+
+/** 所有路由：登录页和入驻申请页（公开）+ 登录后的布局（首页、各功能块、无权限、找不到）。 */
 export function adminRoutes(modules: readonly AdminModule[]): RouteRecordRaw[] {
   return [
     {
@@ -11,6 +13,13 @@ export function adminRoutes(modules: readonly AdminModule[]): RouteRecordRaw[] {
       name: 'login',
       component: () => import('@/features/auth/LoginPage.vue'),
       meta: { public: true, title: '登录' },
+    },
+    {
+      // 商家自助入驻（契约 openapi-organization-signup.yaml）：不登录就能填；申请成功后回登录页。
+      path: SIGNUP_PATH,
+      name: 'signup',
+      component: () => import('@/features/signup/SignupPage.vue'),
+      meta: { public: true, title: '商家入驻申请' },
     },
     {
       path: '/',

@@ -17,6 +17,8 @@ import { stockLabel } from './offer-form'
 const props = defineProps<{
   api: CatalogApi
   detail: OpsProductDetail
+  /** 商家工作台：供给只能是本机构的。 */
+  merchant?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -117,7 +119,8 @@ async function toggle(offer: OpsOffer): Promise<void> {
     </el-table-column>
   </el-table>
 
-  <OfferDialog :api="api" :detail="detail" :target="target" @close="target = null" @changed="changed" />
+  <OfferDialog :api="api" :detail="detail" :target="target" :merchant="merchant" @close="target = null"
+               @changed="changed" />
 </template>
 
 <style scoped>

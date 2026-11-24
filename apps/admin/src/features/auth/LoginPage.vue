@@ -56,6 +56,9 @@ async function submit(): Promise<void> {
         <el-button class="login__submit" type="primary" native-type="submit" :loading="submitting">登录</el-button>
       </el-form>
       <p class="login__hint">登录后一直在用会自动续期，最长 90 天；30 天不用要重新登录。关闭浏览器标签后不保留登录状态。</p>
+      <p class="login__hint">
+        商家还没有账号？<router-link to="/signup" data-testid="signup-link">申请入驻</router-link>，审核通过后即可上架商品。
+      </p>
     </el-card>
   </div>
 </template>

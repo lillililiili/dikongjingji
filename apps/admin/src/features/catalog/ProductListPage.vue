@@ -13,6 +13,8 @@ import {
   CATEGORY_OPTIONS,
   categoryLabel,
   createCatalogApi,
+  MERCHANT_CATALOG_BASE,
+  OPS_CATALOG_BASE,
   PRODUCT_STATUS_OPTIONS,
   productStatus,
   SALE_MODE_OPTIONS,
@@ -23,14 +25,19 @@ import {
 } from './catalog-api'
 import ProductCreateDialog from './ProductCreateDialog.vue'
 
+/** merchant：商家工作台“我的商品”（只列本机构建的，接口前缀不同，详情页也在工作台下）。 */
+const props = defineProps<{
+  merchant?: boolean
+}>()
+
 const router = useRouter()
-const api = createCatalogApi(http)
+const api = createCatalogApi(http, props.merchant ? MERCHANT_CATALOG_BASE : OPS_CATALOG_BASE)
 const list = usePagedList<OpsProductSummary, ProductFilters>((filters, page, size) => api.list(filters, page, size),
   { keyword: '', category: '', saleMode: '', status: '' })
 const creating = ref(false)
 
 function open(productId: string): void {
-  void router.push({ name: 'catalog-product-detail', params: { productId } })
+  void router.push({ name: props.merchant ? 'workbench-product-detail' : 'catalog-product-detail', params: { productId } })
 }
 
 function created(detail: OpsProductDetail): void {
@@ -45,8 +52,10 @@ onMounted(() => {
 
 <template>
   <PageSection
-    title="商品与供给"
-    description="商品资料、规格、在售供给（商家 × 规格 × 城市 × 价格 × 库存）和上下架。新建的商品是草稿，补齐必填并启用供给后才能上架。"
+    :title="merchant ? '我的商品' : '商品与供给'"
+    :description="merchant
+      ? '本机构自己建的商品：资料、规格、在售供给（规格 × 城市 × 价格 × 库存）和上下架。新建的商品是草稿，补齐必填、启用供给，并且机构资质审核通过后才能上架；标价商品启用供给前还要平台登记收款账户。'
+      : '商品资料、规格、在售供给（商家 × 规格 × 城市 × 价格 × 库存）和上下架。新建的商品是草稿，补齐必填并启用供给后才能上架。商家在工作台自己建的商品也在这里，带“建自商家”。'"
     traced
   >
     <template #actions>
@@ -122,6 +131,9 @@ onMounted(() => {
             {{ productStatus((row as OpsProductSummary).status).label }}
           </el-tag>
         </template>
+      </el-table-column>
+      <el-table-column v-if="!merchant" label="建自商家" min-width="140">
+        <template #default="{ row }">{{ (row as OpsProductSummary).ownerName ?? '平台' }}</template>
       </el-table-column>
       <el-table-column label="启用规格" width="90" prop="skuCount" />
       <el-table-column label="启用供给" width="90" prop="activeOfferCount" />

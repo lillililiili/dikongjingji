@@ -28,6 +28,8 @@ function detail(overrides: Partial<OpsProductDetail> = {}): OpsProductDetail {
       createdAt: '2026-11-23T02:00:00Z',
       updatedAt: '2026-11-23T02:00:00Z',
       version: 4,
+      ownerOrganizationId: null,
+      ownerName: null,
     },
     sellingPoints: [],
     specs: [],

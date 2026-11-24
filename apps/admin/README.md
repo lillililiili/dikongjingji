@@ -147,6 +147,14 @@ src/
   统一翻成 ApiError，不用改全局异常处理；输入整理用 `ops.common.OpsText`；契约测试用 `OpsContractChecker.verifyOpsErrors`
   核对错误码。
 
+## 商家自助入驻与自助上架（2026-11-24）
+
+- 登录页“申请入驻”→ `/signup`（公开路由，`features/signup/`，契约 `contracts/openapi-organization-signup.yaml`）：填机构、营业
+  执照、联系人手机号（短信验证码）、自设登录名和口令，一次建好经营机构、待审核的资质和服务商操作员账号。
+- 工作台“入驻资料”（`features/organization-self/`）：看资质审核结果、改资料、传营业执照附件；审核仍在运营端“机构与资质”。
+- 工作台“我的商品”（`features/merchant-catalog/`，契约 `contracts/openapi-merchant-catalog.yaml`）：复用 `features/catalog/`
+  的页面，`merchant` 模式下接口前缀是 `/api/v1/provider/catalog`、供给不选商家、不显示交易条款；上架要资质审核通过。
+
 ## 新增一个运营菜单要改哪几处
 
 以已经做好的“商品与供给”为例（后端接口 `/api/v1/ops/catalog/…`，契约 `contracts/openapi-ops-catalog.yaml`）：

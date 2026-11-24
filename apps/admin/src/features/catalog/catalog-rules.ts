@@ -85,7 +85,7 @@ function fromProblem(problem: () => string | null): FormItemRule {
 
 /** 供给弹窗的规则：依赖表单里的交易方式和是否快递，所以按当前表单造。 */
 export function offerRules(form: { expressAvailable: boolean, pickupPoint: string, priceYuan: number | null,
-  priceUnit: string }, saleMode: () => MallSaleMode, creating: boolean): FormRules {
+  priceUnit: string }, saleMode: () => MallSaleMode, creating: boolean, merchantFixed = false): FormRules {
   const rules: FormRules = {
     merchantKind: [required('商家类型', 'change')],
     priceUnit: [required('价格单位', 'change'), fromProblem(() => priceUnitProblem(saleMode(), form.priceUnit))],
@@ -97,7 +97,8 @@ export function offerRules(form: { expressAvailable: boolean, pickupPoint: strin
   }
   if (creating) {
     rules.skuId = [required('规格', 'change')]
-    rules.merchantId = [required('商家', 'change')]
+    // 商家工作台里供给的商家就是本机构，不用选。
+    if (!merchantFixed) rules.merchantId = [required('商家', 'change')]
   }
   return rules
 }

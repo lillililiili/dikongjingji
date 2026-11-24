@@ -11,6 +11,7 @@ import {
   createMerchantAccountApi,
   type OpsMerchantAccount,
 } from '@/features/ops-merchant-account/merchant-account-api'
+import { createOrganizationApi } from '@/features/organization/organization-api'
 
 import {
   CATALOG_LIMITS as L,
@@ -30,6 +31,8 @@ const props = defineProps<{
   detail: OpsProductDetail
   /** 打开弹窗：'new' 新建；一条供给表示编辑它；null 关着。 */
   target: OpsOffer | 'new' | null
+  /** 商家工作台：供给的商家就是本机构（不选商家，城市从公开城市目录里选，运营端的接口商家调不了）。 */
+  merchant?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -53,7 +56,9 @@ const saleMode = computed(() => props.detail.product.saleMode)
 const creating = computed(() => props.target === 'new')
 const editing = computed(() => (props.target && props.target !== 'new' ? props.target : null))
 const units = computed(() => PRICE_UNIT_OPTIONS.filter((option) => priceUnitsFor(saleMode.value).includes(option.value)))
-const rules = computed(() => offerRules(form, () => saleMode.value, creating.value))
+const rules = computed(() => offerRules(form, () => saleMode.value, creating.value, props.merchant === true))
+/** 商家工作台用的公开城市目录（一次读完，本地按关键词挑）。 */
+let directory: OpsCity[] | null = null
 const chosenMerchant = computed(() => merchants.value.find((merchant) => merchant.organizationId === form.merchantId))
 
 watch(() => props.target, (target) => {
@@ -65,7 +70,7 @@ watch(() => props.target, (target) => {
     cities.value = [{ cityCode: target.cityCode, cityName: target.cityName ?? target.cityCode } as OpsCity]
   }
   formRef.value?.clearValidate()
-  if (target === 'new') void searchMerchants('')
+  if (target === 'new' && !props.merchant) void searchMerchants('')
 }, { immediate: true })
 
 async function searchMerchants(keyword: string): Promise<void> {
@@ -84,7 +89,15 @@ async function searchCities(keyword: string): Promise<void> {
   if (keyword.trim() === '') return
   citiesLoading.value = true
   try {
-    cities.value = (await cityApi.list({ keyword, serviceStatus: '' }, 1, 20)).items
+    if (props.merchant) {
+      directory ??= (await createOrganizationApi(http).cities())
+        .map((city) => ({ cityCode: city.code, cityName: city.name, provinceName: city.provinceName }) as OpsCity)
+      const needle = keyword.trim()
+      cities.value = directory.filter((city) => city.cityName.includes(needle) || city.cityCode.startsWith(needle))
+        .slice(0, 20)
+    } else {
+      cities.value = (await cityApi.list({ keyword, serviceStatus: '' }, 1, 20)).items
+    }
   } catch (failure) {
     showError(failure)
   } finally {
@@ -142,7 +155,7 @@ const pricePreview = computed(() => {
         </el-select>
         <span v-else>{{ editing?.skuName }}</span>
       </el-form-item>
-      <el-form-item label="商家" prop="merchantId">
+      <el-form-item v-if="!merchant" label="商家" prop="merchantId">
         <template v-if="creating">
           <el-select v-model="form.merchantId" filterable remote :remote-method="searchMerchants"
                      :loading="merchantsLoading" placeholder="输入机构名称或编码搜索" style="width: 100%">

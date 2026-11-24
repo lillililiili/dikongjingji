@@ -1,7 +1,8 @@
 import { newIdempotencyKey, type ApiClient } from '@/core/http/api-client'
 import type { Page } from '@/core/ui/use-paged-list'
 
-// 契约 contracts/openapi-ops-catalog.yaml 1.0.0（商品、规格、在售供给、商品图片）。金额都是分。
+// 契约 contracts/openapi-ops-catalog.yaml 1.1.0（商品、规格、在售供给、商品图片）。金额都是分。
+// 商家工作台“我的商品”（openapi-merchant-catalog.yaml）接口形状相同，只换前缀：createCatalogApi(http, MERCHANT_CATALOG_BASE)。
 
 export type MallCategory = 'DRONE' | 'ROBOT' | 'PARTS' | 'RENTAL' | 'COURSE'
 export type MallSaleMode = 'BUY' | 'RENT' | 'INQUIRY'
@@ -144,6 +145,9 @@ export interface OpsProductSummary {
   activeOfferCount: number
   updatedAt: string
   version: number
+  /** 建它的商家（工作台自助上架）；平台建的为 null。 */
+  ownerOrganizationId: string | null
+  ownerName: string | null
 }
 
 export interface OpsProduct {
@@ -159,6 +163,8 @@ export interface OpsProduct {
   createdAt: string
   updatedAt: string
   version: number
+  ownerOrganizationId: string | null
+  ownerName: string | null
 }
 
 export interface OpsSpec {
@@ -332,9 +338,12 @@ function offerFields(draft: OfferDraft) {
   }
 }
 
-const PRODUCTS = '/api/v1/ops/catalog/products'
+export const OPS_CATALOG_BASE = '/api/v1/ops/catalog'
+/** 商家工作台“我的商品”的前缀（PROVIDER_OPERATOR，只看自己建的商品）。 */
+export const MERCHANT_CATALOG_BASE = '/api/v1/provider/catalog'
 
-export function createCatalogApi(http: ApiClient) {
+export function createCatalogApi(http: ApiClient, base: string = OPS_CATALOG_BASE) {
+  const PRODUCTS = `${base}/products`
   const one = (productId: string) => `${PRODUCTS}/${encodeURIComponent(productId)}`
   return {
     list(filters: ProductFilters, page: number, size: number): Promise<Page<OpsProductSummary>> {
@@ -370,10 +379,11 @@ export function createCatalogApi(http: ApiClient) {
       return http.put<OpsProductDetail>(`${one(productId)}/skus/${encodeURIComponent(skuId)}`,
         { name: draft.name.trim(), sortOrder: draft.sortOrder ?? null, status, version })
     },
+    /** merchantId 为空表示商家工作台：供给的商家由后端按令牌里的机构记，不发这个字段。 */
     createOffer(productId: string, skuId: string, merchantId: string, draft: OfferDraft,
       idempotencyKey: string = newIdempotencyKey()): Promise<OpsProductDetail> {
       return http.post<OpsProductDetail>(`${one(productId)}/offers`,
-        { skuId, merchantId, ...offerFields(draft) }, { idempotencyKey })
+        { skuId, ...(merchantId ? { merchantId } : {}), ...offerFields(draft) }, { idempotencyKey })
     },
     updateOffer(productId: string, offerId: string, draft: OfferDraft, version: number): Promise<OpsProductDetail> {
       return http.put<OpsProductDetail>(`${one(productId)}/offers/${encodeURIComponent(offerId)}`,
@@ -387,7 +397,7 @@ export function createCatalogApi(http: ApiClient) {
     uploadMedia(file: File): Promise<OpsMedia> {
       const form = new FormData()
       form.append('file', file, file.name)
-      return http.request<OpsMedia>('POST', '/api/v1/ops/catalog/media', { form })
+      return http.request<OpsMedia>('POST', `${base}/media`, { form })
     },
   }
 }
