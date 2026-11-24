@@ -75,12 +75,3 @@ export function resolveHomeCarouselSlides(
   return HOME_CAROUSEL_SLIDES
     .filter((slide) => isHomeEntryTargetVisible(slide.target, previewEnabled))
 }
-
-export function stepHomeCarousel(
-  current: number,
-  delta: number,
-  slideCount: number,
-): number {
-  if (slideCount < 1) return 0
-  return (current + delta + slideCount) % slideCount
-}

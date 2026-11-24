@@ -4,7 +4,6 @@ import { computed, ref, watch } from 'vue'
 
 import {
   HOME_CAROUSEL_INTERVAL_MS,
-  stepHomeCarousel,
   type HomeCarouselSlide,
 } from '@/app-shell/navigation/home-carousel'
 import type { HomeEntryTarget } from '@/app-shell/navigation/home-channels'
@@ -20,17 +19,18 @@ const emit = defineEmits<{
 }>()
 
 function prefersReducedMotion(): boolean {
-  // matchMedia only exists on H5; the App keeps auto-play on until the user pauses it.
+  // matchMedia only exists on H5; the App always auto-plays.
   return typeof window !== 'undefined'
     && typeof window.matchMedia === 'function'
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+// Slides change by swiping only (user 2026-11-23: no arrows, dots or pause bar under the banner).
 const currentIndex = ref(0)
-const userPaused = ref(prefersReducedMotion())
+const reducedMotion = prefersReducedMotion()
 const hasSeveralSlides = computed(() => props.slides.length > 1)
 const autoplay = computed(() =>
-  hasSeveralSlides.value && props.active && !userPaused.value,
+  hasSeveralSlides.value && props.active && !reducedMotion,
 )
 
 function handleChange(event: Event): void {
@@ -45,14 +45,6 @@ function handleChange(event: Event): void {
   currentIndex.value = current ?? 0
 }
 
-function step(delta: number): void {
-  currentIndex.value = stepHomeCarousel(
-    currentIndex.value,
-    delta,
-    props.slides.length,
-  )
-}
-
 watch(() => props.slides.length, (slideCount) => {
   if (currentIndex.value >= slideCount) currentIndex.value = 0
 })
@@ -63,6 +55,7 @@ watch(() => props.slides.length, (slideCount) => {
     v-if="slides.length"
     class="home-carousel"
     data-testid="home-carousel"
+    :data-current-slide="slides[currentIndex]?.id"
     aria-roledescription="轮播图"
     aria-label="热门精选"
   >
@@ -122,53 +115,6 @@ watch(() => props.slides.length, (slideCount) => {
         </view>
       </swiper-item>
     </swiper>
-
-    <view v-if="hasSeveralSlides" class="home-carousel__bar">
-      <text class="home-carousel__note">运营精选 · 示例内容</text>
-      <view class="home-carousel__controls">
-        <button
-          class="home-carousel__control"
-          data-testid="home-carousel-prev"
-          aria-label="上一张"
-          @click="step(-1)"
-        >
-          <UniIcons type="left" size="14" color="#596b84" />
-        </button>
-        <button
-          v-for="(slide, index) in slides"
-          :key="slide.id"
-          class="home-carousel__control home-carousel__control--dot"
-          :data-testid="`home-carousel-dot-${slide.id}`"
-          :aria-label="`第 ${index + 1} 张：${slide.tag}`"
-          :aria-pressed="index === currentIndex"
-          @click="currentIndex = index"
-        >
-          <view
-            :class="[
-              'home-carousel__dot',
-              { 'home-carousel__dot--active': index === currentIndex },
-            ]"
-          />
-        </button>
-        <button
-          class="home-carousel__control"
-          data-testid="home-carousel-next"
-          aria-label="下一张"
-          @click="step(1)"
-        >
-          <UniIcons type="right" size="14" color="#596b84" />
-        </button>
-        <button
-          class="home-carousel__control home-carousel__control--pause"
-          data-testid="home-carousel-pause"
-          :aria-label="userPaused ? '播放轮播' : '暂停轮播'"
-          :aria-pressed="userPaused"
-          @click="userPaused = !userPaused"
-        >
-          <text class="home-carousel__pause-glyph">{{ userPaused ? '▶' : 'Ⅱ' }}</text>
-        </button>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -305,56 +251,4 @@ button::after {
   white-space: nowrap;
 }
 
-.home-carousel__bar {
-  display: flex;
-  min-height: 44px;
-  padding: 0 7px 0 12px;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.85);
-}
-
-.home-carousel__note {
-  color: #64748b;
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.home-carousel__controls {
-  display: flex;
-  align-items: center;
-}
-
-.home-carousel__control {
-  display: flex;
-  min-width: 32px;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-}
-
-.home-carousel__control--dot {
-  min-width: 24px;
-}
-
-.home-carousel__control--pause {
-  min-width: 38px;
-}
-
-.home-carousel__dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 9px;
-  background: #bac4d3;
-}
-
-.home-carousel__dot--active {
-  width: 15px;
-  background: #ff6a00;
-}
-
-.home-carousel__pause-glyph {
-  color: #596b84;
-  font-size: 13px;
-}
 </style>

@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { swipeCarouselTo } from './support/home-carousel'
+
 // Home revamp from the 2026-11-14 revised prototype: carousel, renamed channel, play games.
 // None of these cases needs the back end; the recommend channel keeps its entries when content fails to load.
 const visualOutput = resolve(__dirname, '../../../.planning/home-revamp/visual')
@@ -19,17 +21,6 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
     scrollWidth: document.documentElement.scrollWidth,
   }))
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1)
-}
-
-function activeDot(page: Page) {
-  return page.locator('.home-carousel__control--dot[aria-pressed="true"]')
-}
-
-// The home tab stays alive between visits, so the carousel may already be paused.
-async function pauseCarousel(page: Page): Promise<void> {
-  const pause = page.getByTestId('home-carousel-pause')
-  if ((await pause.getAttribute('aria-label')) === '暂停轮播') await pause.click()
-  await expect(pause).toHaveAttribute('aria-label', '播放轮播')
 }
 
 test.describe('首页改版', () => {
@@ -59,80 +50,58 @@ test.describe('首页改版', () => {
     )
   })
 
-  test('HOME-002 轮播四张，圆点、前后按钮可切换', async ({ page }) => {
-    await openHome(page)
-    await pauseCarousel(page)
+  test.describe('轮播只靠左右滑动', () => {
+    test.use({ reducedMotion: 'reduce' })
 
-    await expect(page.locator('.home-carousel__control--dot')).toHaveCount(4)
-    await page.getByTestId('home-carousel-dot-contest').click()
-    await expect(activeDot(page)).toHaveAttribute(
-      'data-testid',
-      'home-carousel-dot-contest',
-    )
-    await expect(page.getByTestId('home-carousel-action-contest')).toBeInViewport()
+    test('HOME-002 轮播四张，下方没有圆点、箭头和暂停按钮，左滑依次切换', async ({ page }) => {
+      await openHome(page)
+      const carousel = page.getByTestId('home-carousel')
 
-    await page.getByTestId('home-carousel-next').click()
-    await expect(activeDot(page)).toHaveAttribute(
-      'data-testid',
-      'home-carousel-dot-study-tour',
-    )
+      await expect(carousel.locator('swiper-item, uni-swiper-item')).toHaveCount(4)
+      await expect(carousel.getByRole('button', { name: /上一张|下一张|暂停轮播|播放轮播|第 \d 张/ })).toHaveCount(0)
+      await expect(carousel).not.toContainText('运营精选')
 
-    await page.getByTestId('home-carousel-prev').click()
-    await page.getByTestId('home-carousel-prev').click()
-    await expect(activeDot(page)).toHaveAttribute(
-      'data-testid',
-      'home-carousel-dot-experience',
-    )
-    await expect(
-      page.getByTestId('home-carousel-action-experience'),
-    ).toBeInViewport()
+      await expect(carousel).toHaveAttribute('data-current-slide', 'contest')
+      await swipeCarouselTo(page, 'study-tour')
+      await swipeCarouselTo(page, 'games')
+      await swipeCarouselTo(page, 'experience')
+      // Circular: one more swipe comes back to the first slide.
+      await swipeCarouselTo(page, 'contest')
+    })
+
+    test('HOME-004 轮播按钮各到各的去处', async ({ page }) => {
+      await openHome(page)
+
+      await swipeCarouselTo(page, 'contest')
+      await page.getByTestId('home-carousel-action-contest').click()
+      await expect(page.getByTestId('home-channel-activity')).toHaveClass(
+        /home-header__channel--active/,
+      )
+
+      await page.getByTestId('home-channel-recommend').click()
+      await swipeCarouselTo(page, 'experience')
+      await page.getByTestId('home-carousel-action-experience').click()
+      await expect(page.getByTestId('home-channel-experience')).toHaveClass(
+        /home-header__channel--active/,
+      )
+
+      await page.getByTestId('home-channel-recommend').click()
+      await swipeCarouselTo(page, 'games')
+      await page.getByTestId('home-carousel-action-games').click()
+      await expect(page.getByTestId('play-games')).toBeVisible()
+    })
   })
 
-  test('HOME-003 轮播自动切换，暂停后不再前进', async ({ page }) => {
+  test('HOME-003 轮播自己往后翻', async ({ page }) => {
     test.setTimeout(40_000)
     await openHome(page)
-    await page.getByTestId('home-carousel-dot-contest').click()
-    await expect(activeDot(page)).toHaveAttribute(
-      'data-testid',
-      'home-carousel-dot-contest',
-    )
+    const carousel = page.getByTestId('home-carousel')
+    await expect(carousel).toHaveAttribute('data-current-slide', 'contest')
 
     // One interval is 5.5 s; the second slide has to arrive on its own.
-    await expect(activeDot(page)).toHaveAttribute(
-      'data-testid',
-      'home-carousel-dot-study-tour',
-      { timeout: 9_000 },
-    )
-
-    await pauseCarousel(page)
-    await page.waitForTimeout(7_000)
-    await expect(activeDot(page)).toHaveAttribute(
-      'data-testid',
-      'home-carousel-dot-study-tour',
-    )
-  })
-
-  test('HOME-004 轮播按钮各到各的去处', async ({ page }) => {
-    await openHome(page)
-    await pauseCarousel(page)
-
-    await page.getByTestId('home-carousel-dot-contest').click()
-    await page.getByTestId('home-carousel-action-contest').click()
-    await expect(page.getByTestId('home-channel-activity')).toHaveClass(
-      /home-header__channel--active/,
-    )
-
-    await page.getByTestId('home-channel-recommend').click()
-    await page.getByTestId('home-carousel-dot-experience').click()
-    await page.getByTestId('home-carousel-action-experience').click()
-    await expect(page.getByTestId('home-channel-experience')).toHaveClass(
-      /home-header__channel--active/,
-    )
-
-    await page.getByTestId('home-channel-recommend').click()
-    await page.getByTestId('home-carousel-dot-games').click()
-    await page.getByTestId('home-carousel-action-games').click()
-    await expect(page.getByTestId('play-games')).toBeVisible()
+    await expect(carousel).toHaveAttribute('data-current-slide', 'study-tour', {
+      timeout: 9_000,
+    })
   })
 
   test('HOME-005 金刚位：趣玩挑战换下专业服务，商品入口进商城频道', async ({
@@ -303,13 +272,13 @@ test.describe('趣玩挑战', () => {
 
 test('VIS-HOME 首页与趣玩在 320/375/430 无横向溢出并留存截图', async ({ page }) => {
   mkdirSync(visualOutput, { recursive: true })
+  // No auto-play, so every screenshot shows the first slide.
+  await page.emulateMedia({ reducedMotion: 'reduce' })
 
   for (const width of [320, 375, 430]) {
     await page.setViewportSize({ width, height: 844 })
     await openHome(page)
-    await pauseCarousel(page)
-    await page.getByTestId('home-carousel-dot-contest').click()
-    await expect(page.getByTestId('home-carousel-action-contest')).toBeInViewport()
+    await swipeCarouselTo(page, 'contest')
     await assertNoHorizontalOverflow(page)
     await page.screenshot({ path: resolve(visualOutput, `home-${width}.png`) })
 

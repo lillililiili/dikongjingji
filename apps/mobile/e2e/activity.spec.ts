@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Page, type Route } from '@playwright/test'
 
+import { swipeCarouselTo } from './support/home-carousel'
+
 // 赛事研学频道（只读）：列表、筛选、日期条、分页、详情与选场次。
 // 真实数据来自 dev 环境的示例活动（backend/.../db/development/activity）；分页和出错两条用接口桩，
 // 因为示例数据只有 5 条、也没法让真实后端按需失败。
@@ -61,10 +63,9 @@ function stubCard(index: number) {
 
 test.describe('赛事研学频道', () => {
   test('ACT-001 首页轮播“查看赛事” → 赛事研学频道，列出本城活动', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await openHome(page)
-    const pause = page.getByTestId('home-carousel-pause')
-    if ((await pause.getAttribute('aria-label')) === '暂停轮播') await pause.click()
-    await page.getByTestId('home-carousel-dot-contest').click()
+    await swipeCarouselTo(page, 'contest')
     await page.getByTestId('home-carousel-action-contest').click()
 
     await expect(page.getByTestId('home-channel-activity')).toHaveClass(

@@ -3,6 +3,8 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Page, type Route } from '@playwright/test'
 
+import { swipeCarouselTo } from './support/home-carousel'
+
 // 体验频道与场馆（只读）：线上体验列表、场馆列表、场馆详情与场次、馆内设备。
 // 数据来自 dev 环境的示例场馆（backend/.../db/development/experience），场次按灌入当天起 7 天生成；
 // 超过一周没重新灌数据时，按场次断言的用例会找不到可约场次，届时按种子文件开头的说明刷新日期。
@@ -87,10 +89,9 @@ test.describe('体验频道', () => {
   })
 
   test('EXP-002 首页轮播“探索体验” → 体验频道', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await openHome(page)
-    const pause = page.getByTestId('home-carousel-pause')
-    if ((await pause.getAttribute('aria-label')) === '暂停轮播') await pause.click()
-    await page.getByTestId('home-carousel-dot-experience').click()
+    await swipeCarouselTo(page, 'experience')
     await page.getByTestId('home-carousel-action-experience').click()
 
     await expect(page.getByTestId('experience-channel')).toBeVisible()

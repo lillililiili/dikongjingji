@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import pages from '../../pages.json'
 import tabBarSource from '../components/RootAppTabBar.vue?raw'
 import { useHomeChannelStore } from '../state/home-channel'
-import { resolveHomeCarouselSlides, stepHomeCarousel } from './home-carousel'
+import { resolveHomeCarouselSlides } from './home-carousel'
 import {
   DEFAULT_HOME_CHANNEL,
   HOME_CHANNELS,
@@ -202,13 +202,6 @@ describe('home carousel', () => {
 
   it('keeps sample slides out of public builds', () => {
     expect(resolveHomeCarouselSlides(false)).toEqual([])
-  })
-
-  it('wraps around in both directions', () => {
-    expect(stepHomeCarousel(0, 1, 4)).toBe(1)
-    expect(stepHomeCarousel(3, 1, 4)).toBe(0)
-    expect(stepHomeCarousel(0, -1, 4)).toBe(3)
-    expect(stepHomeCarousel(0, 1, 0)).toBe(0)
   })
 })
 
