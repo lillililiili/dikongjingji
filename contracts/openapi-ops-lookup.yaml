@@ -1,0 +1,674 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Order and User Lookup API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（2026-11-23，用户要求“先补订单和用户查询”）：Web 运营端“订单查询”“用户查询”，给平台客服和平台运营在客户来问时查到这笔单、
+    这个账号。只读，不能在这里改单、退款或停用账号。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR or PLATFORM_SUPPORT role; other roles get 403
+    COMMON_FORBIDDEN.
+
+    规则：
+    - 订单指统一交易模块（M14）里的交易订单，七种来源：MALL 商城（含询价下的单）、RENTAL 租赁、ACTIVITY 收费活动报名、VENUE 到馆预约、
+      INSPECTION 巡检付款节点、PRO_SERVICE 通用服务订单、COURSE 课程。没有付款环节的单（免费报名、巡检预约本身）不在这里。
+    - 订单查询的 q：11 位手机号按买家账号的登录手机号精确查；订单 ID（UUID）精确查；其他按订单号、微信支付商户订单号（outTradeNo）、
+      微信支付交易号（transactionId）、退款单号（outRefundNo）、售后单号精确查，不做模糊匹配。q 可以和 source、status、
+      buyerId、下单日期（北京时间自然日 from–to，含两头，最长 366 天）一起用。按下单时间倒序。
+    - 用户查询的 q：11 位手机号、账号 ID（UUID）、登录名精确查；其他按显示名包含查（1–20 字）。不带 q 时按注册时间倒序列全部账号。
+    - 敏感资料只给打码后的：手机号前 3 后 4、收货人只留姓、不给详细地址、不给自提码；买家留言照原样给（客户自己写的）。
+      登录名、手机号不在 App 给出，但运营端为了认账号给出登录名（打码后的手机号和登录名一起才能对上人）。
+    - 打开一个用户或一张订单的详情记一条查看记录（谁、什么时候、看了哪个），不记列表和搜索。查看记录只写不读，没有页面。
+    - 金额是分（long）。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/orders:
+    get:
+      operationId: "searchOpsOrders"
+      summary: "订单查询"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "q"
+          in: "query"
+          required: false
+          description: "手机号、订单 ID、订单号、商户订单号、微信交易号、退款单号或售后单号，1–64 字"
+          schema:
+            type: "string"
+        - name: "buyerId"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "uuid"
+        - name: "source"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsOrderSource"
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/OpsOrderStatus"
+        - name: "from"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "date"
+        - name: "to"
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "date"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页订单"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrderPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/orders/{orderId}:
+    get:
+      operationId: "getOpsOrder"
+      summary: "订单详情（记一条查看记录）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "orderId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+      responses:
+        "200":
+          description: "订单详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsOrderDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/ops/users:
+    get:
+      operationId: "searchOpsUsers"
+      summary: "用户查询"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "q"
+          in: "query"
+          required: false
+          description: "手机号、账号 ID、登录名或显示名，1–40 字"
+          schema:
+            type: "string"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页账号"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsUserPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/ops/users/{userId}:
+    get:
+      operationId: "getOpsUser"
+      summary: "用户详情（记一条查看记录）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "userId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+      responses:
+        "200":
+          description: "用户详情"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsUserDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    Page:
+      name: "page"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        default: 1
+    Size:
+      name: "size"
+      in: "query"
+      required: false
+      schema:
+        type: "integer"
+        minimum: 1
+        maximum: 50
+        default: 20
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营或平台客服（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "订单或账号不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+    OpsOrderSource:
+      type: "string"
+      enum: [MALL, RENTAL, ACTIVITY, VENUE, INSPECTION, PRO_SERVICE, COURSE]
+    OpsOrderStatus:
+      type: "string"
+      description: "交易订单状态，同 openapi-trade.yaml"
+      enum: [PENDING_PAYMENT, PAID, SHIPPED, COMPLETED, CLOSED, REFUNDING, REFUNDED, REFUND_FAILED]
+    OpsBuyer:
+      type: "object"
+      additionalProperties: false
+      required: [userId, displayName, maskedPhone]
+      properties:
+        userId:
+          type: "string"
+          format: "uuid"
+        displayName:
+          type: ["string", "null"]
+          description: "账号已注销时为 null"
+        maskedPhone:
+          type: ["string", "null"]
+    OpsOrderSummary:
+      type: "object"
+      additionalProperties: false
+      required: [id, orderNo, source, status, cityCode, merchantName, buyer, payerName, title, itemCount, payableMinor, paidMinor, refundedMinor, createdAt, paidAt]
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        orderNo:
+          type: "string"
+        source:
+          $ref: "#/components/schemas/OpsOrderSource"
+        status:
+          $ref: "#/components/schemas/OpsOrderStatus"
+        cityCode:
+          type: "string"
+        merchantName:
+          type: "string"
+          description: "收款方（卖家、主办、场馆运营机构或服务商）"
+        buyer:
+          $ref: "#/components/schemas/OpsBuyer"
+        payerName:
+          type: ["string", "null"]
+          description: "企业身份下单时的付款主体名称；个人下单为 null"
+        title:
+          type: "string"
+          description: "第一行商品或项目名称"
+        itemCount:
+          type: "integer"
+          description: "订单行数"
+        payableMinor:
+          type: "integer"
+          format: "int64"
+        paidMinor:
+          type: "integer"
+          format: "int64"
+        refundedMinor:
+          type: "integer"
+          format: "int64"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        paidAt:
+          type: ["string", "null"]
+          format: "date-time"
+    OpsOrderPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsOrderSummary"
+    OpsOrderDetail:
+      type: "object"
+      additionalProperties: false
+      required: [id, orderNo, source, status, cityCode, merchantName, buyer, payerName, title, itemCount, payableMinor, paidMinor, refundedMinor, createdAt, paidAt, sourceRef, deliveryMode, goodsMinor, shippingMinor, buyerNote, payBefore, shippedAt, completedAt, closedAt, lines, delivery, payments, refunds, aftersales, history]
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        orderNo:
+          type: "string"
+        source:
+          $ref: "#/components/schemas/OpsOrderSource"
+        status:
+          $ref: "#/components/schemas/OpsOrderStatus"
+        cityCode:
+          type: "string"
+        merchantName:
+          type: "string"
+          description: "收款方（卖家、主办、场馆运营机构或服务商）"
+        buyer:
+          $ref: "#/components/schemas/OpsBuyer"
+        payerName:
+          type: ["string", "null"]
+          description: "企业身份下单时的付款主体名称；个人下单为 null"
+        title:
+          type: "string"
+          description: "第一行商品或项目名称"
+        itemCount:
+          type: "integer"
+          description: "订单行数"
+        payableMinor:
+          type: "integer"
+          format: "int64"
+        paidMinor:
+          type: "integer"
+          format: "int64"
+        refundedMinor:
+          type: "integer"
+          format: "int64"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        paidAt:
+          type: ["string", "null"]
+          format: "date-time"
+        sourceRef:
+          type: ["string", "null"]
+          format: "uuid"
+          description: "业务单 ID（报名单、到馆预约、租赁单、巡检服务单、服务订单、课程购买）；商城订单为 null"
+        deliveryMode:
+          type: ["string", "null"]
+          description: "EXPRESS 快递、PICKUP 自提；不发货的订单为 null"
+        goodsMinor:
+          type: "integer"
+          format: "int64"
+        shippingMinor:
+          type: "integer"
+          format: "int64"
+        buyerNote:
+          type: ["string", "null"]
+        payBefore:
+          type: ["string", "null"]
+          format: "date-time"
+        shippedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        completedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        closedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        lines:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsOrderLine"
+        delivery:
+          anyOf:
+            - $ref: "#/components/schemas/OpsOrderDelivery"
+            - type: "null"
+          description: "商城订单的收货或自提信息，打码后给出；没有时为 null"
+        payments:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsOrderPayment"
+        refunds:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsOrderRefund"
+        aftersales:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsOrderAftersale"
+        history:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsOrderTransition"
+          description: "状态变化，按时间先后"
+    OpsOrderLine:
+      type: "object"
+      additionalProperties: false
+      required: [productName, skuName, unitAmountMinor, quantity, subtotalMinor]
+      properties:
+        productName:
+          type: "string"
+        skuName:
+          type: ["string", "null"]
+        unitAmountMinor:
+          type: "integer"
+          format: "int64"
+        quantity:
+          type: "integer"
+        subtotalMinor:
+          type: "integer"
+          format: "int64"
+    OpsOrderDelivery:
+      type: "object"
+      additionalProperties: false
+      required: [mode, recipientMasked, phoneMasked, cityName, pickupPoint, carrierName, trackingNo]
+      properties:
+        mode:
+          type: "string"
+          description: "EXPRESS 快递、PICKUP 自提"
+        recipientMasked:
+          type: ["string", "null"]
+          description: "只留姓"
+        phoneMasked:
+          type: ["string", "null"]
+        cityName:
+          type: ["string", "null"]
+        pickupPoint:
+          type: ["string", "null"]
+        carrierName:
+          type: ["string", "null"]
+        trackingNo:
+          type: ["string", "null"]
+    OpsOrderPayment:
+      type: "object"
+      additionalProperties: false
+      required: [outTradeNo, transactionId, amountMinor, status, createdAt, succeededAt, closedAt]
+      properties:
+        outTradeNo:
+          type: "string"
+        transactionId:
+          type: ["string", "null"]
+          description: "微信支付交易号"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+        status:
+          type: "string"
+          description: "CREATED、PREPAID、SUCCEEDED、CLOSED、MISMATCH"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        succeededAt:
+          type: ["string", "null"]
+          format: "date-time"
+        closedAt:
+          type: ["string", "null"]
+          format: "date-time"
+    OpsOrderRefund:
+      type: "object"
+      additionalProperties: false
+      required: [outRefundNo, refundId, amountMinor, reason, initiator, status, createdAt, acceptedAt, succeededAt]
+      properties:
+        outRefundNo:
+          type: "string"
+        refundId:
+          type: ["string", "null"]
+          description: "微信退款单号"
+        amountMinor:
+          type: "integer"
+          format: "int64"
+        reason:
+          type: ["string", "null"]
+        initiator:
+          type: "string"
+          description: "BUYER_CANCEL 买家取消、MERCHANT 商家退款、SOURCE 业务模块发起"
+        status:
+          type: "string"
+          description: "REQUESTED、PROCESSING、SUCCEEDED、CLOSED、ABNORMAL"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        acceptedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        succeededAt:
+          type: ["string", "null"]
+          format: "date-time"
+    OpsOrderAftersale:
+      type: "object"
+      additionalProperties: false
+      required: [id, aftersaleNo, kind, status, reason, requestedMinor, refundMinor, submittedAt]
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        aftersaleNo:
+          type: "string"
+        kind:
+          type: "string"
+          description: "RETURN_REFUND 退货退款、REFUND_ONLY 仅退款"
+        status:
+          type: "string"
+          description: "同 openapi-trade-aftersale.yaml"
+        reason:
+          type: "string"
+        requestedMinor:
+          type: "integer"
+          format: "int64"
+        refundMinor:
+          type: ["integer", "null"]
+          format: "int64"
+        submittedAt:
+          type: ["string", "null"]
+          format: "date-time"
+    OpsOrderTransition:
+      type: "object"
+      additionalProperties: false
+      required: [fromStatus, toStatus, cause, occurredAt]
+      properties:
+        fromStatus:
+          type: ["string", "null"]
+        toStatus:
+          type: "string"
+        cause:
+          type: "string"
+          description: "SUBMIT、PAYMENT_NOTIFIED、PAYMENT_QUERIED、BUYER_CANCEL、TIMEOUT、SHIPMENT、PICKUP、RECEIPT、AUTO_RECEIPT、REFUND_NOTIFIED、REFUND_QUERIED、MERCHANT_REFUND、REFUND_REJECTED、SOURCE_REFUND"
+        occurredAt:
+          type: "string"
+          format: "date-time"
+    OpsUserStatus:
+      type: "string"
+      description: "ACTIVE 正常；CLOSING 已申请注销、冷静期内；LOCKED 已锁定；DISABLED 已停用；CLOSED 已注销（资料已匿名化）"
+      enum: [ACTIVE, CLOSING, LOCKED, DISABLED, CLOSED]
+    OpsUserSummary:
+      type: "object"
+      additionalProperties: false
+      required: [id, displayName, loginName, maskedPhone, status, registeredVia, roles, createdAt]
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        displayName:
+          type: "string"
+        loginName:
+          type: "string"
+        maskedPhone:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/OpsUserStatus"
+        registeredVia:
+          type: ["string", "null"]
+          description: "PHONE 手机号注册；PASSWORD 运营或种子建的账号"
+        roles:
+          type: "array"
+          description: "角色编码（CUSTOMER、PROVIDER_OPERATOR、PLATFORM_OPERATOR、PLATFORM_SUPPORT、LIVE_HOST），去重"
+          items:
+            type: "string"
+        createdAt:
+          type: "string"
+          format: "date-time"
+    OpsUserPage:
+      type: "object"
+      additionalProperties: false
+      required: [page, size, total, hasMore, items]
+      properties:
+        page:
+          type: "integer"
+        size:
+          type: "integer"
+        total:
+          type: "integer"
+          format: "int64"
+        hasMore:
+          type: "boolean"
+        items:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsUserSummary"
+    OpsUserDetail:
+      type: "object"
+      additionalProperties: false
+      required: [id, displayName, loginName, maskedPhone, status, registeredVia, roles, createdAt, closingDueAt, closedAt, organizations, enterprises, activeDeviceCount, lastActiveAt, orderCount]
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        displayName:
+          type: "string"
+        loginName:
+          type: "string"
+        maskedPhone:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/OpsUserStatus"
+        registeredVia:
+          type: ["string", "null"]
+          description: "PHONE 手机号注册；PASSWORD 运营或种子建的账号"
+        roles:
+          type: "array"
+          description: "角色编码（CUSTOMER、PROVIDER_OPERATOR、PLATFORM_OPERATOR、PLATFORM_SUPPORT、LIVE_HOST），去重"
+          items:
+            type: "string"
+        createdAt:
+          type: "string"
+          format: "date-time"
+        closingDueAt:
+          type: ["string", "null"]
+          format: "date-time"
+          description: "注销冷静期结束时间（CLOSING 时有）"
+        closedAt:
+          type: ["string", "null"]
+          format: "date-time"
+        organizations:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsUserOrganization"
+          description: "所属机构（经营机构、平台），只列在用的成员关系"
+        enterprises:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsUserEnterprise"
+          description: "企业组织成员关系（S5-7），含已结束的"
+        activeDeviceCount:
+          type: "integer"
+          description: "近 30 天用过、没有退出的登录设备数（和 App“登录设备”页同一口径）"
+        lastActiveAt:
+          type: ["string", "null"]
+          format: "date-time"
+        orderCount:
+          type: "integer"
+          format: "int64"
+          description: "作为买家的交易订单数；订单列表用 GET /api/v1/ops/orders?buyerId= 取"
+    OpsUserOrganization:
+      type: "object"
+      additionalProperties: false
+      required: [id, name, type]
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        type:
+          type: "string"
+          description: "CUSTOMER、PROVIDER、PLATFORM"
+    OpsUserEnterprise:
+      type: "object"
+      additionalProperties: false
+      required: [id, name, memberRole, memberStatus]
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+        name:
+          type: "string"
+        memberRole:
+          type: "string"
+        memberStatus:
+          type: "string"
+          description: "ACTIVE、LEFT、REMOVED"

@@ -11,6 +11,7 @@ import { feedbackModule } from '@/features/feedback/feedback-module'
 import { importModule } from '@/features/import/import-module'
 import { inspectionCatalogModule } from '@/features/inspection-catalog/inspection-catalog-module'
 import { inspectionWorkbenchModule } from '@/features/inspection-workbench/inspection-workbench-module'
+import { lookupModule } from '@/features/lookup/lookup-module'
 import { liveHostModule } from '@/features/live-host/live-host-module'
 import { liveModule } from '@/features/live/live-module'
 import { mallInquiryModule } from '@/features/mall-inquiry/mall-inquiry-module'
@@ -47,6 +48,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
   opsMerchantAccountModule,
   reconciliationModule,
   importModule,
+  lookupModule,
   platformSupportModule,
   feedbackModule,
   merchantOrdersModule,

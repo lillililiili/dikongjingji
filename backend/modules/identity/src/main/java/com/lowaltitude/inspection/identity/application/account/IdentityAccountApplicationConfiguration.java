@@ -70,6 +70,15 @@ public class IdentityAccountApplicationConfiguration {
                 new SecureRandom());
     }
 
+    /** 运营端用户查询（只读，打开详情留查看记录）。 */
+    @Bean
+    OpsUserLookupService opsUserLookupService(
+            com.lowaltitude.inspection.identity.infrastructure.persistence.OpsUserLookupMapper mapper,
+            Clock identityClock
+    ) {
+        return new OpsUserLookupService(mapper, identityClock);
+    }
+
     @Bean
     AccountStatePort identityAccountStatePort(LoginSessionService sessions, EnterpriseService enterprises,
                                               AccountMapper mapper) {

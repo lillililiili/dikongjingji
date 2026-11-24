@@ -77,6 +77,8 @@ import org.springframework.test.web.servlet.MockMvc;
         com.lowaltitude.inspection.mall.application.MallMerchantService.class,
         com.lowaltitude.inspection.trade.application.TradeAftersaleService.class,
         com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
+        com.lowaltitude.inspection.trade.application.OpsOrderLookupService.class,
+        com.lowaltitude.inspection.identity.application.account.OpsUserLookupService.class,
         com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
         com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,
         com.lowaltitude.inspection.experience.application.ops.VenueOpsService.class,

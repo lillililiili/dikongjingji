@@ -199,4 +199,33 @@ test.describe('机构工作台（运营端）', () => {
     await expect(page.locator('body')).toContainText('没有运营端权限')
     await expect(page).toHaveURL(/\/login/)
   })
+
+  // 订单查询、用户查询（契约 openapi-ops-lookup.yaml）：平台客服按登录名找到人，看详情（手机号打码），跳到这个人的订单，
+  // 再按订单号打开订单详情。
+  test('ADM-WB-005 平台客服查用户、查订单', async ({ page, request }) => {
+    test.setTimeout(120_000)
+    const addressId = await addAddressByApi(request, buyer)
+    const order = await submitOrderByApi(request, buyer, { offer: KIT_FACTORY, mode: 'EXPRESS', payableMinor: KIT_PRICE, addressId })
+
+    await adminSignIn(page, 'dev-support', '/lookup/users')
+    await page.getByPlaceholder('手机号 / 账号 ID / 登录名 / 显示名').fill(BUYER)
+    await page.getByTestId('user-lookup-search').click()
+    await page.locator('.el-table__row').first().getByRole('button').first().click()
+    await expect(page.getByTestId('user-lookup-basics')).toContainText(BUYER)
+    await expect(page.getByTestId('user-lookup-basics')).toContainText(/1\d{2}\*{4}\d{4}/)
+    await noErrorAlert(page)
+
+    await page.getByTestId('user-lookup-orders').click()
+    await expect(page).toHaveURL(/\/lookup\/orders\?buyerId=/)
+    await expect(page.locator('.el-table__row')).toHaveCount(1)
+    await page.getByRole('button', { name: order.orderNo }).click()
+    await expect(page.locator('.page-section__title').first()).toContainText(order.orderNo)
+    await expect(page.locator('.page-section__description').first()).toContainText('商城 · 待付款')
+    await expect(page.getByTestId('order-lookup-basics')).toContainText('付款截止')
+    await expect(page.locator('body')).toContainText('详细地址不在这里显示')
+    // 没有完整手机号（单号里也有长串数字，所以要求前后不是数字）。
+    await expect(page.locator('body')).not.toContainText(/(?<!\d)1[3-9]\d{9}(?!\d)/)
+    await noErrorAlert(page)
+    await page.screenshot({ path: resolve(compareOutput, 'support-order-lookup.png'), fullPage: true })
+  })
 })

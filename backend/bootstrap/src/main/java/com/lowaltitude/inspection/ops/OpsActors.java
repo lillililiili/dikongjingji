@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>{@link #operator} 平台运营（PLATFORM_OPERATOR）：城市开通、机构入驻与资质审核，以后的商品、活动、场馆、内容等运营页。</li>
  *   <li>{@link #support} 平台客服（PLATFORM_SUPPORT）：反馈与举报处理。</li>
+ *   <li>{@link #staff} 两者之一：订单查询、用户查询。</li>
  * </ul>
  * 角色不对时抛 AccessDeniedException，由全局异常处理给 403 COMMON_FORBIDDEN。安全配置对 /api/v1/ops/** 另外要求
  * 这两个角色之一（SecurityConfiguration），这里再按具体接口收紧。操作人的显示名写进各模块的操作记录（留痕）。
@@ -40,10 +41,15 @@ public class OpsActors {
         return require(authentication, OpsRoles.PLATFORM_SUPPORT);
     }
 
-    private OpsActor require(Authentication authentication, String role) {
+    /** 平台运营或平台客服都可以（订单查询、用户查询）。 */
+    public OpsActor staff(Authentication authentication) {
+        return require(authentication, OpsRoles.PLATFORM_OPERATOR, OpsRoles.PLATFORM_SUPPORT);
+    }
+
+    private OpsActor require(Authentication authentication, String... roles) {
         Subject subject = subject(authentication);
-        if (!subject.roles().contains(role)) {
-            throw new AccessDeniedException("ops route needs " + role);
+        if (java.util.Arrays.stream(roles).noneMatch(subject.roles()::contains)) {
+            throw new AccessDeniedException("ops route needs one of " + String.join(", ", roles));
         }
         // 账号还在用时取它的显示名；令牌有效但账号已经停用时按没有权限处理。
         String name = profiles.findProfile(subject.id())

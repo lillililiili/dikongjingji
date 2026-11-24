@@ -57,6 +57,14 @@ public class TradeApplicationConfiguration {
         return new OpsMerchantAccountService(mapper, allowPlaceholder, Clock.systemUTC());
     }
 
+    /** 运营端订单查询（只读）。 */
+    @Bean
+    OpsOrderLookupService opsOrderLookupService(
+            com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOpsLookupMapper mapper
+    ) {
+        return new OpsOrderLookupService(mapper);
+    }
+
     /** 商城订单完成时告诉业务模块（S5-5：商品附带的数字课程开通）。监听者第一次用到时才取。 */
     @Bean
     TradeCompletionEvents tradeCompletionEvents(
