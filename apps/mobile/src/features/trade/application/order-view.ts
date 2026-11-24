@@ -33,9 +33,9 @@ export const TRADE_MERCHANT_KIND_LABELS: Record<TradeMerchantKind, string> = {
 }
 
 export const TRADE_REFUND_STATUS_LABELS: Record<TradeRefundStatus, string> = {
-  REQUESTED: '退款处理中',
-  PROCESSING: '退款处理中',
-  SUCCEEDED: '已退回',
+  REQUESTED: '退款中',
+  PROCESSING: '退款中',
+  SUCCEEDED: '已退款',
   CLOSED: '退款已关闭',
   ABNORMAL: '退款异常',
 }
@@ -277,4 +277,22 @@ export function describePayment(order: TradeOrder): string | null {
   if (refundedMinor > 0 && refundedMinor >= paidMinor) return '已支付 · 已全额退款'
   if (refundedMinor > 0) return `已支付 · 已退 ${formatTradeAmount(refundedMinor)}`
   return '已支付'
+}
+
+/**
+ * The refund rows of the order page, apart from the payment status: what state the money is in and
+ * when it arrived. Null while the order has no refund. Several refunds are summed up here; each one
+ * keeps its own line under 退款记录.
+ */
+export function describeRefund(order: TradeOrder): { status: string; arrival: string | null } | null {
+  if (order.refunds.length === 0) return null
+  const has = (...statuses: TradeRefundStatus[]) => order.refunds.some((refund) => statuses.includes(refund.status))
+  if (has('REQUESTED', 'PROCESSING')) return { status: '退款中', arrival: '以微信支付处理为准' }
+  const arrivals = order.refunds.flatMap((refund) => (refund.succeededAt ? [refund.succeededAt] : []))
+  const latest = Math.max(...arrivals.map((time) => Date.parse(time)))
+  const arrival = arrivals.length > 0 ? formatTradeTime(new Date(latest).toISOString()) : null
+  // A closed refund that was made again later is not a problem any more: the order says whether one is left.
+  if (order.status === 'REFUND_FAILED' || has('ABNORMAL') || !has('SUCCEEDED')) return { status: '退款异常', arrival }
+  const { paidMinor, refundedMinor } = order.amounts
+  return { status: refundedMinor >= paidMinor ? '已退款' : `已退款 ${formatTradeAmount(refundedMinor)}（部分退款）`, arrival }
 }

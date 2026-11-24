@@ -140,6 +140,36 @@ export function describeAftersaleHead(aftersale: Aftersale): AftersaleHead {
   }
 }
 
+/**
+ * 退款状态，和售后状态（状态头）分开说：售后状态讲申请走到哪一步，退款状态只讲钱。
+ * 有退款单时只看退款单的状态；接口没给退款单时按售后状态推，免得和状态头互相矛盾。
+ */
+export function describeAftersaleRefundStatus(aftersale: Aftersale): string {
+  switch (aftersale.refund?.status) {
+    case 'REQUESTED':
+    case 'PROCESSING':
+      return '退款中'
+    case 'SUCCEEDED':
+      return '已退款'
+    case 'CLOSED':
+    case 'ABNORMAL':
+      return '退款异常'
+    case undefined:
+      break
+  }
+  switch (aftersale.status) {
+    case 'REFUNDING':
+      return '退款中'
+    case 'REFUNDED':
+      return '已退款'
+    case 'REFUND_FAILED':
+      return '退款异常'
+    default:
+      // 结束了的不会再退，不写“还没”。
+      return ended(aftersale.status) ? '没有发起退款' : '还没发起'
+  }
+}
+
 export interface AftersaleInfoRow {
   key: string
   label: string
@@ -148,10 +178,17 @@ export interface AftersaleInfoRow {
   emphasis: boolean
 }
 
-// 状态头下的灰底块：退款金额、去向、到账时间、交易号。撤销、拒绝、关闭之后不显示。
+// 状态头下的灰底块：退款状态、金额、去向、到账时间、交易号。撤销、拒绝、关闭之后只剩退款状态一行。
 export function describeAftersaleInfo(aftersale: Aftersale): AftersaleInfoRow[] {
-  if (ended(aftersale.status)) return []
+  const refundStatus: AftersaleInfoRow = {
+    key: 'refund-status',
+    label: '退款状态',
+    value: describeAftersaleRefundStatus(aftersale),
+    emphasis: false,
+  }
+  if (ended(aftersale.status)) return [refundStatus]
   const rows: AftersaleInfoRow[] = [
+    refundStatus,
     { key: 'amount', label: '退款金额', value: formatTradeAmount(aftersaleAmount(aftersale)), emphasis: true },
     { key: 'route', label: '退款去向', value: AFTERSALE_REFUND_ROUTE, emphasis: false },
   ]

@@ -233,7 +233,9 @@ test.describe('商品订单与支付', () => {
     await confirmModal(page, '货款将原路退回')
     await expect(page.getByTestId('goods-order-status-title')).toHaveText('退款中')
     await expect(page.getByTestId('goods-order-refunds')).toContainText('¥1,299')
-    await expect(page.getByTestId('goods-order-refund-status')).toHaveText('退款处理中')
+    await expect(page.getByTestId('goods-order-refund-status')).toHaveText('退款中')
+    await expect(page.getByTestId('goods-order-refund-summary')).toHaveText('退款中')
+    await expect(page.getByTestId('goods-order-refund-arrival')).toHaveText('以微信支付处理为准')
     await expect(page.getByTestId('goods-order-pickup-code')).toHaveCount(0)
 
     await fakeWechatRefunds(request, latestRefundNo(order.orderId))
@@ -242,7 +244,9 @@ test.describe('商品订单与支付', () => {
     await expect(page.getByTestId('goods-order-status-title')).toHaveText('已退款')
     await expect(page.getByTestId('goods-order-status-line')).toHaveText('¥1,299 已原路退回')
     await expect(page.getByTestId('goods-order-refunded')).toHaveText('¥1,299')
-    await expect(page.getByTestId('goods-order-refund-status')).toHaveText('已退回')
+    await expect(page.getByTestId('goods-order-refund-status')).toHaveText('已退款')
+    await expect(page.getByTestId('goods-order-refund-summary')).toHaveText('已退款')
+    await expect(page.getByTestId('goods-order-refund-arrival')).toHaveText(/^\d{2}\/\d{2} \d{2}:\d{2}$/)
     await expect(page.getByTestId('goods-order-payment-status')).toHaveText('已支付 · 已全额退款')
     // Nothing left to do with the order; only 联系商家 (G1) stays in the bar.
     await expect(page.locator('.goods-order__bar-button')).toHaveCount(0)

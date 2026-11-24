@@ -10,6 +10,7 @@ import {
   classifyAftersaleFailure,
   describeAftersaleHead,
   describeAftersaleInfo,
+  describeAftersaleRefundStatus,
   describeAftersaleSteps,
   evidenceSlots,
   refuseRows,
@@ -64,6 +65,7 @@ describe('aftersale status head (board AftersaleFlow status table)', () => {
 describe('aftersale info rows', () => {
   it('shows the amount and where it goes while the case runs', () => {
     expect(describeAftersaleInfo(aftersale()).map((row) => [row.label, row.value])).toEqual([
+      ['退款状态', '还没发起'],
       ['退款金额', '¥1,299'],
       ['退款去向', '经平台支付渠道原路退回'],
     ])
@@ -76,6 +78,7 @@ describe('aftersale info rows', () => {
       refund: { status: 'SUCCEEDED', amountMinor: 129900, succeededAt: REFUNDED, channelTransactionId: '4200000001' },
     })
     expect(describeAftersaleInfo(refunded).map((row) => [row.label, row.value])).toEqual([
+      ['退款状态', '已退款'],
       ['退款金额', '¥1,299'],
       ['退款去向', '经平台支付渠道原路退回'],
       ['到账时间', '11/09 09:30'],
@@ -83,10 +86,29 @@ describe('aftersale info rows', () => {
     ])
   })
 
-  it('has none after a refusal, a revocation or a closing', () => {
+  it('only says that no refund was made after a refusal, a revocation or a closing', () => {
     for (const status of ['REJECTED', 'RECEIPT_REJECTED', 'REVOKED', 'CLOSED'] as const) {
-      expect(describeAftersaleInfo(aftersale({ status }))).toEqual([])
+      expect(describeAftersaleInfo(aftersale({ status })).map((row) => [row.label, row.value])).toEqual([['退款状态', '没有发起退款']])
     }
+  })
+
+  it('keeps the refund status apart from the aftersale status', () => {
+    for (const status of ['PENDING_REVIEW', 'AWAITING_RETURN', 'RETURN_SHIPPED'] as const) {
+      expect(describeAftersaleRefundStatus(aftersale({ status }))).toBe('还没发起')
+    }
+    const refund = (status: 'REQUESTED' | 'PROCESSING' | 'SUCCEEDED' | 'CLOSED' | 'ABNORMAL') =>
+      ({ status, amountMinor: 129900, succeededAt: null, channelTransactionId: null })
+    const words = { REQUESTED: '退款中', PROCESSING: '退款中', SUCCEEDED: '已退款', CLOSED: '退款异常', ABNORMAL: '退款异常' } as const
+    for (const status of ['REQUESTED', 'PROCESSING', 'SUCCEEDED', 'CLOSED', 'ABNORMAL'] as const) {
+      // The refund itself decides, whatever the aftersale status says.
+      expect(describeAftersaleRefundStatus(aftersale({ status: 'REFUNDING', refund: refund(status) }))).toBe(words[status])
+    }
+  })
+
+  it('follows the aftersale status when the server sends no refund', () => {
+    expect(describeAftersaleRefundStatus(aftersale({ status: 'REFUNDING' }))).toBe('退款中')
+    expect(describeAftersaleRefundStatus(aftersale({ status: 'REFUNDED' }))).toBe('已退款')
+    expect(describeAftersaleRefundStatus(aftersale({ status: 'REFUND_FAILED' }))).toBe('退款异常')
   })
 })
 
