@@ -1,0 +1,115 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MALL 租赁询价 · 添加设备</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 660px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="RentalInquiry.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">添加其他设备</h1>
+      <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">出租方 示例机器人商家 · 可租 3 台</span>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #e6f0ff; font-size: 13px; line-height: 19px; color: #1d63c4;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2f80ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+      <span style="min-width: 0;">只有同一出租方的设备能合并到一份询价单。询价单里已有：巡检机器狗 ×1</span>
+    </div>
+
+    <sc-for list="{{devices}}" as="d" hint-placeholder-count="3">
+      <label style="position: relative; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px; box-sizing: border-box; border-radius: 14px; border: 1.5px solid {{d.bd}}; background: {{d.bg}}; cursor: pointer;">
+        <input type="checkbox" aria-label="{{d.aria}}" checked="{{d.on}}" onChange="{{d.toggle}}" style="position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: 0; opacity: 0;">
+        <sc-if value="{{d.on}}" hint-placeholder-val="{{false}}">
+          <span style="flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        </sc-if>
+        <sc-if value="{{d.off}}" hint-placeholder-val="{{true}}">
+          <span style="flex-shrink: 0; width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid #c9d3e1; background: #fff;"></span>
+        </sc-if>
+        <img src="{{d.img}}" alt="{{d.name}}" style="flex-shrink: 0; width: 80px; height: 80px; border-radius: 10px; object-fit: cover; display: block; background: #eef2f8;">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{d.name}}</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{d.sub}}</span>
+          <span style="display: flex;"><span style="padding: 1px 6px; border-radius: 6px; background: #eef2f8; color: #627187; font-size: 12px; line-height: 17px; white-space: nowrap;">档期由商家报价时确认</span></span>
+          <span style="display: flex; align-items: baseline; gap: 2px;">
+            <span style="font-size: 17px; font-weight: 700; line-height: 24px; color: #e85400; white-space: nowrap;">{{d.price}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #e85400; white-space: nowrap;">/天 起</span>
+          </span>
+        </span>
+      </label>
+    </sc-for>
+
+    <div style="flex-shrink: 0; padding: 0 2px; font-size: 12px; line-height: 19px; color: #627187;">添加后在询价单里调整台数，租期与巡检机器狗一致。参考价按天计，真实价格以商家报价为准。</div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+      <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">{{pickedLine}}</span>
+      <span style="font-size: 16px; font-weight: 700; line-height: 22px; color: {{sumColor}}; white-space: nowrap;">{{sumLine}}</span>
+    </div>
+    <sc-if value="{{canAdd}}" hint-placeholder-val="{{false}}">
+      <a href="RentalInquiry.dc.html" style="flex-shrink: 0; width: 150px; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">确认添加</a>
+    </sc-if>
+    <sc-if value="{{noPick}}" hint-placeholder-val="{{true}}">
+      <button type="button" disabled="{{true}}" style="flex-shrink: 0; width: 150px; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #c9d3e1; color: #fff; font: inherit; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: not-allowed;">确认添加</button>
+    </sc-if>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // picked：已勾选的设备 id → true。台数在询价单里调整，这里只选设备
+    this.state = { picked: {} };
+  }
+  renderVals() {
+    const { picked } = this.state;
+    // 同出租方（示例机器人商家）的另外 3 台可租设备：名称和图片沿用商城与体验馆的样例，按天参考价是设计假设
+    const list = [
+      { id: 'kit', name: '编程机器人探索套装', sub: '图形化编程教学 · 按套出租', price: '¥60', perDay: 60, img: '_blob/5d32505e8b9a494f8436e31c3008ef99.jpg' },
+      { id: 'field', name: '避障训练场地套件', sub: '机器人避障闯关同款场地', price: '¥150', perDay: 150, img: '_blob/822c9edc2d0d857c67055194c02161d3.jpg' },
+      { id: 'drone', name: '便携航拍无人机', sub: '航拍记录 · 含 2 块电池', price: '¥120', perDay: 120, img: '_blob/277bff54e5d7d5be019694787d4e648d.jpg' }
+    ];
+    const devices = list.map((d) => {
+      const on = !!picked[d.id];
+      return {
+        ...d, on, off: !on,
+        aria: (on ? '取消选择' : '选择') + d.name,
+        bd: on ? '#ff6a00' : '#fff', bg: on ? '#fffdfb' : '#fff',
+        toggle: () => this.setState((s) => ({ picked: { ...s.picked, [d.id]: !s.picked[d.id] } }))
+      };
+    });
+    const chosen = list.filter((d) => picked[d.id]);
+    const sum = chosen.reduce((n, d) => n + d.perDay, 0);
+    return {
+      devices,
+      pickedLine: chosen.length ? '已选 ' + chosen.length + ' 台 · 各 1 台' : '还没有选择设备',
+      sumLine: chosen.length ? '参考 ¥' + sum.toLocaleString('en-US') + '/天 起' : '勾选要一起询价的设备',
+      sumColor: chosen.length ? '#e85400' : '#738096',
+      canAdd: chosen.length > 0,
+      noPick: chosen.length === 0
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

@@ -1,0 +1,105 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>馆内展示设备列表</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 1040px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 4px; padding: 8px;">
+      <a href="VenueDetail.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+        <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">馆内展示设备</h1>
+        <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">东营低空与机器人体验馆 · 6 件</span>
+      </div>
+    </div>
+    <div style="display: flex; gap: 8px; padding: 2px 16px 12px;">
+      <sc-for list="{{cats}}" as="c" hint-placeholder-count="4">
+        <button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="flex-shrink: 0; height: 36px; margin: 0; padding: 0 14px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid {{c.bd}}; background: {{c.bg}}; font: inherit; font-size: 14px; font-weight: {{c.w}}; color: {{c.fg}}; white-space: nowrap; cursor: pointer;">{{c.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; box-sizing: border-box; border-radius: 10px; background: #eefaf3; font-size: 13px; line-height: 18px; color: #11804a;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+      <span style="min-width: 0;">到馆可看真机，想买或想租到商品页选商家</span>
+    </div>
+
+    <sc-for list="{{items}}" as="d" hint-placeholder-count="6">
+      <a href="{{d.href}}" style="flex-shrink: 0; display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: #fff; color: #202c42; text-decoration: none;">
+        <img src="{{d.img}}" alt="{{d.name}}" style="flex-shrink: 0; width: 96px; height: 96px; border-radius: 10px; object-fit: cover; background: #eef0f3;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{d.name}}</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{d.sub}}</span>
+          <div style="display: flex;">
+            <span style="padding: 1px 6px; border-radius: 6px; background: {{d.tbg}}; color: {{d.tfg}}; font-size: 12px; line-height: 17px; white-space: nowrap;">{{d.tag}}</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 2px; margin-top: auto;">
+            <span style="font-size: 17px; font-weight: 700; line-height: 24px; color: #e85400; white-space: nowrap;">{{d.price}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #e85400; white-space: nowrap;">{{d.unit}}</span>
+            <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{d.sellers}}</span>
+          </div>
+        </div>
+      </a>
+    </sc-for>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <a href="VenueDetail.dc.html" style="height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">预约到馆看真机</a>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // cat：顶部分类
+    this.state = { cat: '全部' };
+  }
+  renderVals() {
+    const { cat } = this.state;
+    // 名称、价格、在售商家沿用商城和定稿的样例；陪同试用或只看的标注是设计假设，由场馆在档案里维护
+    const trial = { tag: '工作人员陪同试用', tbg: '#e2f6ed', tfg: '#11804a' };
+    const view = { tag: '只展示，不试用', tbg: '#eef2f8', tfg: '#627187' };
+    const list = [
+      { cat: '机器人', name: '编程机器人探索套装', sub: '图形化编程入门，适合 8 岁以上', price: '¥1,299', unit: '起', sellers: '3 家在售', img: '_blob/5d32505e8b9a494f8436e31c3008ef99.jpg', href: 'PdFull.dc.html', ...trial },
+      { cat: '无人机', name: '便携航拍无人机', sub: '便携机身，体验馆可看', price: '¥1,999', unit: '', sellers: '1 家在售', img: '_blob/277bff54e5d7d5be019694787d4e648d.jpg', href: 'PdDroneMini.dc.html', ...trial },
+      { cat: '机器人', name: '巡检机器狗', sub: '园区巡逻与巡检演示', price: '¥380', unit: '/天 起', sellers: '租赁 · 1 家', img: '_blob/a016bad56a0e687061b30b2a4fd96ff6.jpg', href: 'PdRental.dc.html', ...view },
+      { cat: '配件', name: '无人机配件套装', sub: '型号需确认后再下单', price: '¥386', unit: '', sellers: '1 家在售', img: '_blob/44b9df29cd316503b6cad0f764a0798b.jpg', href: 'PdPartsKit.dc.html', ...view },
+      { cat: '配件', name: '避障训练场地套件', sub: '机器人避障闯关同款场地', price: '¥460', unit: '', sellers: '1 家在售', img: '_blob/822c9edc2d0d857c67055194c02161d3.jpg', href: 'PdField.dc.html', ...trial },
+      { cat: '无人机', name: '行业测绘无人机', sub: '定制配置 · 含培训 · 厂家直营', price: '询价', unit: '', sellers: '按项目报价', img: '_blob/b6a30fa51bcba7d4ced06ace8b4d74ed.png', href: 'PdInquiryFull.dc.html', ...view }
+    ];
+    const cats = ['全部', '机器人', '无人机', '配件'].map((label) => {
+      const on = label === cat;
+      return {
+        label, on,
+        bd: on ? '#ff6a00' : '#e5ebf3',
+        bg: on ? '#fff0e3' : '#fff',
+        fg: on ? '#ba470b' : '#202c42',
+        w: on ? 500 : 400,
+        pick: () => this.setState({ cat: label })
+      };
+    });
+    return { cats, items: cat === '全部' ? list : list.filter((d) => d.cat === cat) };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

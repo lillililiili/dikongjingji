@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>公共状态板</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 1100px; height: 2810px; display: flex; flex-direction: column; gap: 30px; padding: 40px 44px; box-sizing: border-box; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;">
+    <h1 style="margin: 0; font-size: 28px; line-height: 40px; font-weight: 700; white-space: nowrap;">公共状态板</h1>
+    <div style="font-size: 14px; line-height: 1.6; color: #555a62;">所有列表页和详情页共用这 8 种状态，不逐页画。示例用商品列表、订单和报名记录；业务页只换对象名和去向，结构和按钮位置不变。</div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">1 · 八种状态</h2>
+      <span style="font-size: 13px; line-height: 20px; color: #8a8f97;">小手机框只表达结构，文案是默认值。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 30px 20px;">
+      <sc-for list="{{cells}}" as="c" hint-placeholder-count="8">
+        <div style="min-width: 0; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: #fff3e8; color: #d94f00; font-size: 12px; line-height: 22px; font-weight: 700; text-align: center;">{{c.n}}</span>
+            <span style="font-size: 15px; line-height: 22px; font-weight: 700; white-space: nowrap;">{{c.k}}</span>
+          </div>
+
+          <div style="height: 400px; display: flex; flex-direction: column; box-sizing: border-box; border: 1px solid #dcdfe3; border-radius: 22px; background: #f7f8fa; overflow: hidden;">
+            <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; height: 46px; padding: 0 10px; background: #fff;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2.2" style="flex-shrink: 0;" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+              <sc-if value="{{c.title}}" hint-placeholder-val="{{true}}">
+                <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">{{c.title}}</span>
+              </sc-if>
+              <sc-if value="{{c.keyword}}" hint-placeholder-val="{{false}}">
+                <span style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 6px; height: 30px; box-sizing: border-box; padding: 0 10px; border-radius: 999px; border: 1.5px solid #ff6a00; font-size: 12px; line-height: 17px; white-space: nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666b73" stroke-width="2.2" style="flex-shrink: 0;" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>{{c.keyword}}</span>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{c.isSkeleton}}" hint-placeholder-val="{{true}}">
+              <div style="flex-shrink: 0; display: flex; gap: 6px; padding: 2px 10px 10px; background: #fff;">
+                <span style="width: 52px; height: 24px; border-radius: 999px; background: #eef0f3;"></span>
+                <span style="width: 52px; height: 24px; border-radius: 999px; background: #eef0f3;"></span>
+                <span style="width: 52px; height: 24px; border-radius: 999px; background: #eef0f3;"></span>
+              </div>
+              <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: min-content; gap: 8px; padding: 10px;">
+                <sc-for list="{{skeletons}}" as="k" hint-placeholder-count="4">
+                  <div style="display: flex; flex-direction: column; gap: 7px; padding-bottom: 10px; border-radius: 10px; background: #fff;">
+                    <span style="height: 84px; border-radius: 10px 10px 0 0; background: #eef0f3;"></span>
+                    <span style="width: 84%; height: 10px; margin-left: 8px; border-radius: 5px; background: #eef0f3;"></span>
+                    <span style="width: 58%; height: 10px; margin-left: 8px; border-radius: 5px; background: #f2f3f5;"></span>
+                    <span style="width: 38%; height: 12px; margin-left: 8px; border-radius: 6px; background: #eef0f3;"></span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{c.isState}}" hint-placeholder-val="{{false}}">
+              <sc-if value="{{c.hasTabs}}" hint-placeholder-val="{{false}}">
+                <div style="flex-shrink: 0; display: flex; gap: 18px; padding: 0 14px; background: #fff; border-bottom: 1px solid #f0f1f3;">
+                  <sc-for list="{{c.tabs}}" as="tb" hint-placeholder-count="3">
+                    <span style="padding: 2px 0 7px; border-bottom: 2px solid {{tb.bd}}; font-size: 13px; line-height: 18px; font-weight: {{tb.w}}; color: {{tb.c}}; white-space: nowrap;">{{tb.t}}</span>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 18px 28px; text-align: center;">
+                <span style="width: 72px; height: 72px; margin-bottom: 8px; border-radius: 50%; background: #eef0f3; display: flex; align-items: center; justify-content: center;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.d}}"></path></svg></span>
+                <span style="font-size: 15px; line-height: 21px; font-weight: 700;">{{c.h}}</span>
+                <span style="font-size: 12px; line-height: 18px; color: #666b73;">{{c.s}}</span>
+                <sc-if value="{{c.btn}}" hint-placeholder-val="{{true}}">
+                  <span style="display: flex; align-items: center; height: 38px; margin-top: 12px; padding: 0 20px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; white-space: nowrap;">{{c.btn}}</span>
+                </sc-if>
+                <sc-if value="{{c.btn2}}" hint-placeholder-val="{{false}}">
+                  <span style="display: flex; align-items: center; height: 32px; margin-top: 2px; font-size: 13px; line-height: 18px; color: #555a62; white-space: nowrap;">{{c.btn2}}</span>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 18px; color: #555a62;">
+            <span><span style="font-weight: 700; color: #191919;">何时出现</span>　{{c.when}}</span>
+            <span><span style="font-weight: 700; color: #191919;">怎么恢复</span>　{{c.how}}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">2 · 列表翻页</h2>
+      <span style="font-size: 13px; line-height: 20px; color: #8a8f97;">翻页时已加载的内容不清空，状态只出现在列表底部。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+      <sc-for list="{{listEnds}}" as="e" hint-placeholder-count="3">
+        <div style="min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">{{e.k}}</span>
+          <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 10px 4px; border: 1px solid #ebedf0; border-radius: 12px; background: #f7f8fa;">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; background: #fff;">
+              <span style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 8px; background: #eef0f3;"></span>
+              <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 13px; line-height: 18px; white-space: nowrap;">编程机器人探索套装</span>
+                <span style="font-size: 13px; line-height: 18px; font-weight: 700; color: #e85400; white-space: nowrap;">¥1,299 起</span>
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; font-size: 13px; line-height: 18px; color: #8a8f97; white-space: nowrap;">
+              <sc-if value="{{e.spin}}" hint-placeholder-val="{{false}}">
+                <span style="width: 14px; height: 14px; box-sizing: border-box; border-radius: 50%; border: 2px solid #ebedf0; border-top-color: #ff6a00;"></span>
+              </sc-if>
+              <span>{{e.t}}</span>
+              <sc-if value="{{e.retry}}" hint-placeholder-val="{{false}}">
+                <span style="font-weight: 500; color: #d94f00;">点击重试</span>
+              </sc-if>
+            </div>
+          </div>
+          <span style="font-size: 12px; line-height: 18px; color: #555a62;">{{e.note}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">3 · 各页空状态文案</h2>
+      <span style="font-size: 13px; line-height: 20px; color: #8a8f97;">都套用第 7 格的模板。没有合适的下一步时不放按钮。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 196px 196px minmax(0, 1fr) 236px; border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">页面</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">标题</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">说明</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">按钮 → 去向</div>
+      <sc-for list="{{empties}}" as="m" hint-placeholder-count="8">
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; white-space: nowrap;"><span style="font-weight: 700;">{{m.p}}</span> <span style="color: #8a8f97;">{{m.b}}</span></div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; white-space: nowrap;">{{m.h}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{m.s}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62; white-space: nowrap;">{{m.a}}</div>
+      </sc-for>
+    </div>
+    <span style="font-size: 13px; line-height: 20px; color: #555a62;">购物车的空态和未登录态见 CartStates；消息的未登录态见 MineGuest。</span>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;">
+    <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">4 · 通用规则</h2>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px;">
+      <sc-for list="{{rules}}" as="r" hint-placeholder-count="6">
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 10px; background: #f7f8fa;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700;">{{r.t}}</span>
+          <span style="font-size: 13px; line-height: 1.6; color: #555a62;">{{r.d}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size: 12px; line-height: 1.6; color: #8a8f97;">依据：建设方案 §7.2（空数据和异常提示一并确认）；HomeMallSpec 列表状态；AGENTS.md §9（M02、M03 的错误与恢复路径）。文案是默认值，上线前可调整。</div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">5 · 外部系统动作</h2>
+      <span style="font-size: 13px; line-height: 20px; color: #8a8f97;">这些动作都调系统能力或外部平台，不画 App 页面；来源板只放入口和回来后的状态。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 120px 330px minmax(0, 1fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">动作</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">出现在</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">怎么处理</div>
+      <sc-for list="{{externals}}" as="x" hint-placeholder-count="7">
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700; white-space: nowrap;">{{x.t}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{x.where}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{x.how}}</div>
+      </sc-for>
+    </div>
+    <span style="font-size: 13px; line-height: 20px; color: #555a62;">选择器回来后的上传中 / 失败 / 超限态按 InspBooking 附件行的做法在各来源板补，不在这里画；地图、定位走适配器（概要设计）。</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1100,"height":2810}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ICON = {
+      offline: 'M3 3l18 18M5 12.5a10 10 0 0 1 5-2.7M14.5 9.9a10 10 0 0 1 4.5 2.6M8.5 16a5 5 0 0 1 7 0M12 19.5h.01',
+      timeout: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7.5V12l3 2',
+      error: 'M12 4l9 16H3zM12 10v4M12 17h.01',
+      gone: 'M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8',
+      lock: 'M6 11h12v10H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3M12 15v2',
+      empty: 'M4 13l3-8h10l3 8v6H4zM4 13h5l1 2h4l1-2h5',
+      search: 'M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4'
+    };
+    const tabsOf = (list, active) => list.map((t) => ({ t, bd: t === active ? '#ff6a00' : 'transparent', w: t === active ? 700 : 400, c: t === active ? '#191919' : '#666b73' }));
+
+    // 第 8 格的文案与 MallSearch 的无结果示例一致；第 4 格的标题与 InspCatalog 的“暂时无法加载”一致
+    const cells = [
+      { k: '加载骨架', title: '机器人', skeleton: true,
+        when: '首次进入、切换分类或城市时。',
+        how: '不用操作。骨架和真实卡片同尺寸，数据到了直接替换，不跳动。' },
+      { k: '断网', title: '机器人', d: ICON.offline, h: '网络连接已断开', s: '请检查网络后重试', btn: '重新加载',
+        when: '没有网络，页面也没有已加载的内容。',
+        how: '点“重新加载”回到骨架，网络恢复后正常显示。' },
+      { k: '超时', title: '机器人', d: ICON.timeout, h: '加载超时', s: '网络较慢，请稍后重试', btn: '重试',
+        when: '请求超过时长仍没有响应。',
+        how: '点“重试”。不自动循环请求。' },
+      { k: '服务错误', title: '机器人', d: ICON.error, h: '暂时无法加载', s: '服务出了点问题，请稍后重试', btn: '重试', btn2: '联系客服',
+        when: '服务端返回错误。',
+        how: '点“重试”；一直失败可联系客服（Chat）。' },
+      { k: '内容失效', title: '商品详情', d: ICON.gone, h: '这个商品已下架', s: '内容可能已过期或被移除', btn: '看看同类商品', btn2: '回到首页',
+        when: '分享链接、消息或收藏打开已下架、已删除、已过期的对象。',
+        how: '给同类列表和首页两个去向。活动写“看看其他活动”，服务写“看看其他服务”。' },
+      { k: '无权访问', title: '订单详情', d: ICON.lock, h: '你没有权限查看', s: '这条记录属于其他账号或企业身份', btn: '切换身份', btn2: '回到首页',
+        when: '对象不属于当前账号或当前身份。',
+        how: '不显示对象内容。“切换身份”回到“我的”；未登录时先到登录，不显示这一屏。' },
+      { k: '空列表', title: '我的报名', tabs: tabsOf(['待参加', '已完成', '已退改'], '待参加'), d: ICON.empty, h: '还没有报名记录', s: '报名后，凭证和进度都在这里', btn: '去看看活动',
+        when: '查询成功，但没有记录。',
+        how: '给最近的下一步，这里到活动频道（HomeAct）。各页文案见第 3 节。' },
+      { k: '搜索无结果', keyword: '激光雷达模块', d: ICON.search, h: '没有找到“激光雷达模块”', s: '换个关键词试试，或者直接把需求发给平台，由商家报价。', btn: '发布采购需求', btn2: '联系客服',
+        when: '搜索或目录筛选没有结果。',
+        how: '发布需求（Demand）或联系客服（Chat）。目录页有筛选时按钮换成“清空条件”。' }
+    ].map((c, i) => ({
+      n: i + 1, k: c.k, title: c.title || '', keyword: c.keyword || '',
+      isSkeleton: Boolean(c.skeleton), isState: !c.skeleton,
+      hasTabs: Boolean(c.tabs), tabs: c.tabs || [],
+      d: c.d || '', h: c.h || '', s: c.s || '', btn: c.btn || '', btn2: c.btn2 || '',
+      when: c.when, how: c.how
+    }));
+
+    const listEnds = [
+      { k: '加载下一页', t: '正在加载', spin: true, retry: false, note: '上拉到底时触发，防止重复请求。' },
+      { k: '下一页加载失败', t: '加载失败', spin: false, retry: true, note: '断网、超时、服务错误都用这一行，已有内容保留。' },
+      { k: '没有更多', t: '没有更多了', spin: false, retry: false, note: '翻到最后一页时明确告知。服务目录写“没有更多服务了”。' }
+    ];
+
+    // 商品类目的两行来自 HomeMallSpec 的列表状态；本城无活动来自 HomeMallSpec 的活动频道
+    const empties = [
+      { p: '我的订单', b: 'OrderList', h: '暂无相关订单', s: '下单、预约或报名后显示在这里', a: '不放按钮' },
+      { p: '消息', b: 'Messages', h: '还没有消息', s: '订单进度、服务通知和活动提醒都在这里', a: '不放按钮' },
+      { p: '我的体验', b: 'ExpRecords', h: '还没有体验记录', s: '试试线上体验，记录会保存在这里', a: '去体验 → ExpCenter' },
+      { p: '我的课程', b: 'MyCourses', h: '还没有课程', s: '购买课程后在这里学习', a: '看看课程 → Mall2' },
+      { p: '地址管理', b: 'AddressList', h: '还没有收货地址', s: '添加后下单时可以直接选', a: '新增地址 → 页内表单' },
+      { p: '活动频道', b: 'HomeAct', h: '本城暂无活动', s: '可以切换城市看看', a: '切换城市 → CitySheet' },
+      { p: '商品类目', b: 'Mall2', h: '该分类暂无商品', s: '看看其他分类的商品', a: '查看全部 → Mall2' },
+      { p: '筛选结果', b: 'Mall2', h: '没有符合条件的商品', s: '放宽条件试试', a: '清除筛选 → 页内' }
+    ];
+
+    const rules = [
+      { t: '已有内容不清空', d: '刷新或翻页失败时保留已加载的内容，只在列表底部提示重试。整屏错误只在页面没有内容时出现。' },
+      { t: '失败不造数据', d: '任何失败都不回退到示例数据，也不显示假的成功结果。' },
+      { t: '一屏一个主按钮', d: '重试或下一步用橙色实心按钮，次要去向用文字。' },
+      { t: '未登录不走这块板', d: '需要登录的动作先到登录页，登录后回到原动作（TradeSpec 第 5 节）。' },
+      { t: '提交失败留在当前页', d: '下单、付款、验收等提交失败时在当前页提示并可重试，已填内容不清空。' },
+      { t: '只显示最后一次查询', d: '快速切换分类或城市时，旧请求的结果不回填，旧城市的数据不闪回。' }
+    ];
+
+    // 第 5 节：系统调起或外部平台的动作，App 内不画页面；来源板只保留入口和回来后的状态
+    const externals = [
+      { t: '导航', where: 'ActDetail、EnrollTicket、VenueCode、VenueDetail 的「导航」', how: '调系统地图应用（装了多个时用系统选择器），不画地图页；定位被拒时提示去 SetPerm' },
+      { t: '电话', where: 'VenueDetail「电话」', how: '调系统拨号，号码来自场馆资料；不画拨号页' },
+      { t: '系统设置', where: 'SetPerm「去系统设置」、Onboarding 定位授权说明', how: '跳系统设置里本 App 的权限页，回来后重新读权限状态' },
+      { t: '合作平台', where: 'LiveNotice「去合作平台观看」「回看」', how: '跳外部平台页面，App 内不自建直播；离开前提示“将打开外部平台”' },
+      { t: '发送图片', where: 'Chat「发送图片」', how: '调系统相册 / 相机选择器，发送后在会话里显示图片气泡；失败可重发' },
+      { t: '下载模板', where: 'TeamSignup「下载模板」', how: '受控短时下载链接交给系统下载或分享，App 内只显示“已生成 · [协议约定时间] 内有效”' },
+      { t: '选择文件', where: 'TeamSignup「选择文件」、Demand / InspBooking「更多附件」、AftersaleApply 上传格', how: '调系统文件 / 相册选择器，不画选择页；回来后在页内显示上传中 / 失败 / 超限态' }
+    ];
+
+    return { cells, skeletons: [1, 2, 3, 4], listEnds, empties, rules, externals };
+  }
+}
+</script>
+</body>
+</html>

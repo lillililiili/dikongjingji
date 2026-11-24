@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>直播预告</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1061px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column;">
+    <div style="position: relative; flex-shrink: 0; height: 236px; background: #f2f3f5;">
+      <img src="/_blob/e42bb39cca5b4f528e6577da8445bced" alt="园区外景" style="width: 390px; height: 236px; object-fit: cover; display: block; font-size: 12px; line-height: 17px;">
+      <div style="position: absolute; left: 8px; right: 8px; top: 40px; display: flex; align-items: center;">
+        <a href="Discover.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></span></a>
+        <button type="button" aria-label="分享" aria-haspopup="dialog" onClick="{{openShare}}" style="flex-shrink: 0; margin: 0 0 0 auto; padding: 0; width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v7h14v-7"></path></svg></span></button>
+      </div>
+      <span style="position: absolute; left: 16px; bottom: 24px; padding: 2px 8px; border-radius: 6px; background: {{tagBg}}; color: #fff; font-size: 12px; font-weight: 500; line-height: 18px; white-space: nowrap;">{{tagText}}</span>
+    </div>
+
+    <div style="position: relative; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; margin-top: -14px; padding: 0 16px 16px;">
+      <div style="display: flex; flex-direction: column; padding: 14px 14px 6px; background: #fff; border-radius: 14px;">
+        <h1 style="margin: 0; font-size: 20px; font-weight: 700; line-height: 28px;">机器狗园区夜巡演示</h1>
+        <span style="margin-top: 2px; font-size: 13px; line-height: 18px; color: #666b73;">看一台机器狗怎样走完园区夜间路线</span>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 5h14v15H5zM5 9h14M9 3v4M15 3v4"></path></svg>
+          <span style="flex-grow: 1; min-width: 0; font-size: 17px; font-weight: 700; line-height: 24px; white-space: nowrap;">11/08 周日 19:30</span>
+          <span style="flex-shrink: 0; padding: 1px 8px; border-radius: 6px; background: {{chipBg}}; color: {{chipC}}; font-size: 12px; font-weight: 500; line-height: 20px; white-space: nowrap;">{{chipText}}</span>
+        </div>
+        <a href="ProviderPage.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 60px; color: #191919; text-decoration: none;">
+          <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #fff3e8; color: #ff6a00; font-size: 15px; font-weight: 700; line-height: 36px; text-align: center;">王</span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap;">主讲 王工</span>
+            <span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">鹰眼智能巡检 · 项目负责人</span>
+          </span>
+          <span style="flex-shrink: 0; height: 30px; padding: 0 14px; box-sizing: border-box; border-radius: 999px; border: 1px solid #ff6a00; color: #d94f00; font-size: 13px; font-weight: 500; line-height: 28px; white-space: nowrap;">主页</span>
+        </a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px; padding: 14px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">怎么看</h2>
+          <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">[合作平台名称]</span>
+        </div>
+        <div role="list" aria-label="直播阶段" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+            <div role="listitem" style="position: relative; display: flex; flex-direction: column; align-items: center;">
+              <span style="position: absolute; left: 0; right: 50%; top: 11px; height: 2px; background: {{s.lc}};"></span>
+              <span style="position: absolute; left: 50%; right: 0; top: 11px; height: 2px; background: {{s.rc}};"></span>
+              <span style="position: relative; width: 24px; height: 24px; margin-bottom: 6px; border-radius: 50%; background: {{s.bg}}; color: {{s.fg}}; font-size: 12px; font-weight: 700; line-height: 24px; text-align: center;">{{s.n}}</span>
+              <span style="font-size: 13px; font-weight: {{s.w}}; line-height: 18px; color: {{s.tc}}; white-space: nowrap;">{{s.t}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">{{s.d}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; line-height: 18px; color: #666b73;">{{watchNote}}</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">这场讲什么</h2>
+        <sc-for list="{{topics}}" as="t" hint-placeholder-count="3">
+          <span style="display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 21px; color: #555a62;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 3px;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg><span style="min-width: 0;">{{t}}</span></span>
+        </sc-for>
+      </div>
+
+      <h2 style="margin: 4px 0 0; font-size: 16px; font-weight: 700; line-height: 22px;">内容中提到</h2>
+      <a href="InspCatalog.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #fff; border-radius: 14px; color: #191919; text-decoration: none;">
+        <img src="/_blob/2c1e1ca24d68733bb78471f4b065c9d9" alt="园区安防巡检" style="flex-shrink: 0; width: 60px; height: 60px; padding: 10px; box-sizing: border-box; border-radius: 10px; object-fit: contain; display: block; background: #fff3e8; font-size: 11px; line-height: 15px;">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+          <span style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+            <span style="flex-shrink: 0; padding: 0 5px; border-radius: 6px; background: #eaf2fd; color: #1d63c4; font-size: 12px; line-height: 18px; white-space: nowrap;">服务</span>
+            <span style="min-width: 0; font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">园区安防巡检</span>
+          </span>
+          <span style="font-size: 14px; font-weight: 700; line-height: 20px; color: #e85400; white-space: nowrap;">按项目报价</span>
+        </span>
+        <span style="flex-shrink: 0; height: 36px; padding: 0 14px; box-sizing: border-box; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; line-height: 36px; white-space: nowrap;">看服务</span>
+      </a>
+      <a href="ContentArticle.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #fff; border-radius: 14px; color: #191919; text-decoration: none;">
+        <img src="/_blob/e42bb39cca5b4f528e6577da8445bced" alt="园区外景" style="flex-shrink: 0; width: 60px; height: 60px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5; font-size: 11px; line-height: 15px;">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+          <span style="padding: 0 5px; border-radius: 6px; background: #f2f3f5; color: #555a62; font-size: 12px; line-height: 18px; white-space: nowrap;">案例</span>
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">一台机器狗如何完成园区夜间巡逻</span>
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </div>
+  </div>
+
+  <sc-if value="{{showRemindHint}}" hint-placeholder-val="{{false}}">
+    <div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 92px; z-index: 3; padding: 8px 10px; box-sizing: border-box; border: 1px solid #c9eed9; border-radius: 10px; background: #e8f7ef; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font-size: 12px; line-height: 18px; color: #11804a;">已设提醒，开播前会在消息里通知你</div>
+  </sc-if>
+  <sc-if value="{{showExtHint}}" hint-placeholder-val="{{false}}">
+    <div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 92px; z-index: 3; padding: 8px 10px; box-sizing: border-box; border: 1px solid #ffd8b8; border-radius: 10px; background: #fff3e8; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font-size: 12px; line-height: 18px; color: #d94f00;">已在合作平台打开直播，回到本 App 可继续浏览（合作平台在 App 外）</div>
+  </sc-if>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <a href="Chat.dc.html" style="flex-shrink: 0; width: 46px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #555a62; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>咨询</a>
+    <sc-if value="{{remindOff}}" hint-placeholder-val="{{true}}">
+      <button type="button" aria-pressed="false" onClick="{{toggleRemind}}" style="flex: 1 1 0; min-width: 0; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"></path></svg>提醒我</button>
+    </sc-if>
+    <sc-if value="{{remindOn}}" hint-placeholder-val="{{false}}">
+      <button type="button" aria-pressed="true" onClick="{{toggleRemind}}" style="flex: 1 1 0; min-width: 0; height: 46px; margin: 0; padding: 0; box-sizing: border-box; border: 1.5px solid #ffd8b8; border-radius: 999px; background: #fff3e8; color: #d94f00; font: inherit; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>已设提醒</button>
+    </sc-if>
+    <sc-if value="{{canWatch}}" hint-placeholder-val="{{false}}">
+      <button type="button" onClick="{{openExt}}" style="flex: 1 1 0; min-width: 0; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">{{watchLabel}}</button>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{extOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeExt}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 4; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="打开合作平台" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">离开本 App，打开合作平台</span>
+        <span style="font-size: 13px; line-height: 18px; color: #666b73;">机器狗园区夜巡演示 · [合作平台名称]</span>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 18px; color: #555a62;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span style="min-width: 0;">观看和回看都在合作平台完成，账号和隐私规则由对方负责</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeExt}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">取消</button>
+        <button type="button" onClick="{{goExt}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">继续打开</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{shareOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeShare}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 4; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="分享直播预告" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">分享直播预告</span>
+        <span style="font-size: 13px; line-height: 18px; color: #666b73;">机器狗园区夜巡演示 · 11/08 19:30</span>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 18px; color: #555a62;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span style="min-width: 0;">链接带内容和城市来源标识，用于统计报名和订单来自哪里，不包含你的个人信息</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeShare}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">关闭</button>
+        <sc-if value="{{canCopy}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{copyLink}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">复制链接</button>
+        </sc-if>
+        <sc-if value="{{copied}}" hint-placeholder-val="{{false}}">
+          <span role="status" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 4px; height: 44px; border-radius: 999px; background: #e8f7ef; font-size: 15px; font-weight: 500; color: #11804a; white-space: nowrap;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>链接已复制</span>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["预告中","直播中","可回看"],"default":"预告中"},"$preview":{"width":390,"height":1061}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 时间线：今天 11/03，开播 11/08 19:30。预告中 / 直播中 / 可回看在 Tweaks 的 frame 切换
+    // reminded：是否已设提醒；ext：确认离开面板是否打开；left：是否已点“继续打开”（合作平台在 App 外，未绘制）；share、copied：分享面板是否打开、这次打开后是否已复制
+    this.state = { reminded: false, ext: false, left: false, share: false, copied: false };
+  }
+  renderVals() {
+    const { reminded, ext, left, share, copied } = this.state;
+    const frame = this.props.frame ?? '预告中';
+    const stage = { 预告中: 0, 直播中: 1, 可回看: 2 }[frame] ?? 0;
+    const view = [
+      { tagText: '直播预告', tagBg: '#6a4fe0', chipText: '还有 5 天', chipBg: '#f1edff', chipC: '#6a4fe0', watchNote: '直播在合作平台播出，本 App 不提供直播画面。设提醒后，开播前会在消息里通知你。', watchLabel: '' },
+      { tagText: '直播中', tagBg: '#e5484d', chipText: '正在播出', chipBg: '#fdecec', chipC: '#e5484d', watchNote: '直播在合作平台播出，本 App 不提供直播画面。点下方按钮跳转到合作平台观看。', watchLabel: '去合作平台观看' },
+      { tagText: '已结束 · 可回看', tagBg: 'rgba(0,0,0,0.55)', chipText: '已结束', chipBg: '#f2f3f5', chipC: '#555a62', watchNote: '回看由合作平台提供，本 App 不保存画面，能看多久以对方的规定为准。', watchLabel: '去合作平台回看' }
+    ][stage];
+    // 当前阶段实色，走过的浅橙，没到的灰；连线走到当前阶段为止
+    const steps = [['预告', '可设提醒'], ['直播', '合作平台播出'], ['回看', '合作平台提供']].map((s, i) => {
+      const on = i === stage;
+      const past = i < stage;
+      return {
+        n: i + 1, t: s[0], d: s[1],
+        bg: on ? '#ff6a00' : (past ? '#fff3e8' : '#f2f3f5'),
+        fg: on ? '#fff' : (past ? '#d94f00' : '#8a8f97'),
+        tc: on ? '#d94f00' : '#191919',
+        w: on ? 700 : 500,
+        lc: i === 0 ? 'transparent' : (i <= stage ? '#ffd8b8' : '#ebedf0'),
+        rc: i === 2 ? 'transparent' : (i < stage ? '#ffd8b8' : '#ebedf0')
+      };
+    });
+    const topics = [
+      '夜间路线怎么定，重点点位怎么选',
+      '机器狗到点位后拍什么、记什么',
+      '发现异常后，现场怎么复核和留记录'
+    ];
+    const soon = stage === 0;
+    return {
+      ...view, steps, topics,
+      remindOff: soon && !reminded,
+      remindOn: soon && reminded,
+      showRemindHint: soon && reminded,
+      toggleRemind: () => this.setState((s) => ({ reminded: !s.reminded })),
+      canWatch: !soon,
+      extOpen: ext,
+      showExtHint: !soon && left && !ext,
+      openExt: () => this.setState({ ext: true, left: false }),
+      closeExt: () => this.setState({ ext: false }),
+      goExt: () => this.setState({ ext: false, left: true }),
+      shareOpen: share,
+      canCopy: !copied,
+      copied,
+      openShare: () => this.setState({ share: true }),
+      copyLink: () => this.setState({ copied: true }),
+      // 关闭时清掉“已复制”，下次打开回到可复制状态
+      closeShare: () => this.setState({ share: false, copied: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

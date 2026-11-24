@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>售后进度</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1100px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="AftersaleList.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">售后详情</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px; background: #fff; border-radius: 14px;">
+      <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: {{statusColor}};">{{statusTitle}}</span>
+      <span style="font-size: 13px; line-height: 18px; color: #555a62;">{{statusSub}}</span>
+      <sc-if value="{{showInfo}}" hint-placeholder-val="{{true}}">
+        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 20px;">
+          <sc-for list="{{info}}" as="f" hint-placeholder-count="2">
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="flex-shrink: 0; width: 56px; color: #666b73; white-space: nowrap;">{{f.k}}</span><span style="min-width: 0; font-size: {{f.fs}}; font-weight: {{f.fw}}; color: {{f.c}};">{{f.v}}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{showAddress}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; align-items: center; min-height: 22px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">寄回地址</h2>
+          <button type="button" onClick="{{copyAddress}}" style="flex-shrink: 0; margin: -11px 0 -11px auto; height: 44px; padding: 0 0 0 12px; border: 0; background: none; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">{{addressLabel}}</button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11zM12 7.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5z"></path></svg>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px;">示例机器人商家 售后组 0546-000-0000</span>
+            <span style="font-size: 13px; line-height: 18px; color: #555a62;">山东省东营市东营区 示例路 120 号（示例）</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa;">
+          <sc-for list="{{returnTips}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; gap: 6px; font-size: 12px; line-height: 17px; color: #555a62;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+              <span style="min-width: 0;">{{r.t}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showWaybill}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; align-items: center; min-height: 22px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">退货物流</h2>
+          <button type="button" onClick="{{copyWaybill}}" style="flex-shrink: 0; margin: -11px 0 -11px auto; height: 44px; padding: 0 0 0 12px; border: 0; background: none; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">{{waybillLabel}}</button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a1.5 1.5 0 1 0 0-.1M17 19a1.5 1.5 0 1 0 0-.1"></path></svg>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px;">{{carrier}} · 运单号 {{waybill}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">{{waybillNote}}</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showRefuse}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">商家说明</h2>
+        <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 12px; font-size: 13px; line-height: 18px;">
+          <sc-for list="{{refuseRows}}" as="x" hint-placeholder-count="2">
+            <span style="color: #666b73; white-space: nowrap;">{{x.k}}</span><span>{{x.v}}</span>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #fff3e8; font-size: 13px; line-height: 19px; color: #555a62;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+          <span style="min-width: 0;">你可以先联系商家协商；协商不成，可联系平台客服协助沟通，平台不裁决。</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showEvidence}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">你提交的凭证</h2>
+        <div style="display: flex; gap: 10px;">
+          <sc-for list="{{evidence}}" as="e" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+              <span style="width: 72px; height: 72px; box-sizing: border-box; border-radius: 10px; border: 1px {{e.bs}} {{e.bd}}; background: {{e.bg}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; line-height: 15px; color: {{e.tc}}; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{e.ic}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7a3.5 3.5 0 1 0 0 7z"></path></svg>{{e.t}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: {{e.sc}}; white-space: nowrap;">{{e.s}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 0; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; min-height: 22px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">售后进度</h2>
+        <sc-if value="{{canRefresh}}" hint-placeholder-val="{{false}}">
+          <button type="button" onClick="{{refresh}}" style="flex-shrink: 0; margin: -11px 0 -11px auto; height: 44px; padding: 0 0 0 12px; border: 0; background: none; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">刷新进度</button>
+        </sc-if>
+      </div>
+      <div role="list" aria-label="售后进度" style="display: flex; flex-direction: column;">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+          <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 14px;">
+            <span style="position: relative; flex-shrink: 0; width: 16px;">
+              <span style="position: absolute; left: 7px; top: 10px; bottom: -24px; width: 2px; background: {{s.line}};"></span>
+              <span style="position: absolute; left: 0; top: 2px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{s.bd}}; background: {{s.bg}}; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{s.check}}" hint-placeholder-val="{{false}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+                <sc-if value="{{s.inner}}" hint-placeholder-val="{{false}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+                <sc-if value="{{s.cross}}" hint-placeholder-val="{{false}}"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+              </span>
+            </span>
+            <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; line-height: 20px; color: {{s.tc}}; font-weight: {{s.tw}};">{{s.t}}</span>
+              <sc-if value="{{s.sub}}" hint-placeholder-val="{{true}}">
+                <span style="font-size: 12px; line-height: 17px; color: {{s.sc}};">{{s.sub}}</span>
+              </sc-if>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">申请信息</h2>
+      <div style="display: flex; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #f0f1f3;">
+        <img src="/_blob/5d32505e8b9a494f8436e31c3008ef99" alt="编程机器人探索套装" style="width: 56px; height: 56px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #f2f3f5; font-size: 11px;">
+        <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">编程机器人探索套装</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">标准套装（1 台 + 数字课程）× 1</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">实付 ¥1,299</span>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 12px; font-size: 13px; line-height: 18px;">
+        <span style="color: #666b73; white-space: nowrap;">售后类型</span><span>退货退款</span>
+        <span style="color: #666b73; white-space: nowrap;">申请原因</span><span>不想要了（未拆封，7 天无理由）</span>
+        <span style="color: #666b73; white-space: nowrap;">申请金额</span><span>¥1,299</span>
+        <span style="color: #666b73; white-space: nowrap;">处理方</span><span>示例机器人商家 · 平台协助沟通</span>
+        <span style="color: #666b73; white-space: nowrap;">提交时间</span><span>11/05 09:12</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{showContact}}" hint-placeholder-val="{{true}}">
+      <a href="Chat.dc.html" style="flex-shrink: 0; width: 52px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #555a62; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>联系商家</a>
+    </sc-if>
+    <sc-if value="{{canRevoke}}" hint-placeholder-val="{{true}}">
+      <button type="button" onClick="{{revoke}}" style="flex: 1 1 0; height: 46px; margin: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">撤销申请</button>
+    </sc-if>
+    <sc-if value="{{canFill}}" hint-placeholder-val="{{true}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex: 1 1 0; height: 46px; margin: 0; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">填写运单</button>
+    </sc-if>
+    <sc-if value="{{canEdit}}" hint-placeholder-val="{{false}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex: 1 1 0; height: 46px; margin: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">修改运单</button>
+    </sc-if>
+    <sc-if value="{{showPlatform}}" hint-placeholder-val="{{false}}">
+      <a href="Chat.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">联系平台客服</a>
+    </sc-if>
+    <sc-if value="{{canReapply}}" hint-placeholder-val="{{false}}">
+      <a href="AftersaleApply.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">重新申请</a>
+    </sc-if>
+    <sc-if value="{{showOrder}}" hint-placeholder-val="{{false}}">
+      <a href="OrderGoods.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看订单</a>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: #fff; border-radius: 20px 20px 0 0; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center;">
+        <span style="font-size: 17px; font-weight: 700; line-height: 24px;">{{sheetTitle}}</span>
+        <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="margin-left: auto; margin-right: -10px; width: 44px; height: 44px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 56px; border-bottom: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">承运商</span>
+          <div role="radiogroup" aria-label="承运商" style="flex-grow: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+            <sc-for list="{{carriers}}" as="c" hint-placeholder-count="2">
+              <label style="position: relative; height: 40px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid {{c.bd}}; background: {{c.bg}}; color: {{c.tc}}; font-size: 14px; font-weight: {{c.tw}}; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">
+                <input type="radio" name="aftersale-flow-carrier" checked="{{c.on}}" onChange="{{c.choose}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+                <span>{{c.name}}</span>
+              </label>
+            </sc-for>
+          </div>
+        </div>
+        <label style="display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">运单号</span>
+          <input type="text" placeholder="输入或粘贴运单号" value="{{draft}}" onChange="{{setDraft}}" style="flex-grow: 1; min-width: 0; height: 48px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #191919;">
+        </label>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">商家确认收货前可以修改运单。</span>
+      <div style="display: flex; gap: 10px; margin-top: 4px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">取消</button>
+        <sc-if value="{{canSubmit}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{submit}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">提交运单</button>
+        </sc-if>
+        <sc-if value="{{cannotSubmit}}" hint-placeholder-val="{{false}}">
+          <button type="button" disabled="{{true}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #c4c8ce; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: not-allowed;">提交运单</button>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["待寄回","待商家收货","退款中","已退款","商家拒绝","验货未通过"],"default":"待寄回"},"$preview":{"width":390,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // adv：从当前帧往后走了几步（提交运单、刷新进度）；revoked：寄回前撤销申请
+    // sheet：运单弹层是否打开；draft、pick：弹层里正在填的单号和承运商；waybill、carrier：已提交的运单（预填是为了点一下就能走通，同 AddressList）
+    // copied：已点过“复制”的内容
+    this.state = { adv: 0, revoked: false, sheet: false, draft: '2026110600012', pick: '示例快递', waybill: '2026110600012', carrier: '示例快递', copied: {} };
+  }
+  renderVals() {
+    const { adv, revoked, sheet, draft, pick, waybill, carrier, copied } = this.state;
+    const frame = this.props.frame ?? '待寄回';
+
+    // 主线四步：待寄回 → 待商家收货 → 退款中 → 已退款。拒绝是两个分支：审核时拒绝、收货验货时拒绝
+    const line = ['待寄回', '待商家收货', '退款中', '已退款'];
+    const refusedAt = { 商家拒绝: 'review', 验货未通过: 'inspect' }[frame] || '';
+    const stage = refusedAt ? -1 : Math.min(line.indexOf(frame) + adv, 3);
+    const running = !refusedAt && !revoked;
+
+    const orange = '#d94f00', green = '#11804a', gray = '#555a62', red = '#e5484d';
+    let status = [
+      { t: '商家已同意，请寄回商品', sub: '请在 [协议约定时间] 内寄回并填写运单', c: orange },
+      { t: '等待商家收货', sub: '运单已提交，商家收到并验货后发起退款', c: orange },
+      { t: '退款中', sub: '商家已确认收货，¥1,299 正在原路退回', c: orange },
+      { t: '已退款', sub: '¥1,299 已原路退回，本次售后已完成', c: green }
+    ][stage];
+    if (refusedAt === 'review') status = { t: '商家未同意退货', sub: '这次申请没有通过，不会发起退款', c: red };
+    if (refusedAt === 'inspect') status = { t: '验货未通过', sub: '商家收到商品后未同意退款', c: red };
+    if (revoked) status = { t: '已撤销', sub: '本次售后申请已撤销', c: gray };
+
+    const plain = { fs: '13px', fw: 400, c: '#191919' };
+    let info = [
+      { k: '退款金额', v: '¥1,299', fs: '15px', fw: 700, c: '#e85400' },
+      { k: '退款去向', v: '[主用支付渠道] 原路退回', ...plain }
+    ];
+    if (stage === 2) info = info.concat([{ k: '到账时间', v: '[协议约定时间]', ...plain }]);
+    if (stage === 3) info = info.concat([{ k: '到账时间', v: '11/09 09:30', ...plain }, { k: '交易号', v: '[渠道交易号]', ...plain }]);
+
+    const refuseRows = (refusedAt === 'inspect'
+      ? [['拒绝原因', '外包装已拆封，不符合 7 天无理由退货条件'], ['商家说明', '商品将按原收货地址退回，退回运单会在这里更新']]
+      : [['拒绝原因', '凭证不足，无法确认商品未拆封'], ['商家说明', '请补充商品和外包装照片后重新申请']]
+    ).map(([k, v]) => ({ k, v }));
+
+    // 进度：done 已完成 / cur 进行中 / todo 未开始 / end 已结束（撤销或拒绝，后续不再发生）
+    const submitted = { t: '提交申请', sub: '11/05 09:12 · 已完成', kind: 'done' };
+    const agreed = { t: '商家审核', sub: '11/05 15:40 · 已同意退货', kind: 'done' };
+    const shipped = { t: '寄回商品', sub: '11/06 10:05 · 运单已提交', kind: 'done' };
+    let raw;
+    if (revoked) raw = [submitted, agreed, { t: '撤销申请', sub: '已撤销', kind: 'end' }];
+    else if (refusedAt === 'review') raw = [submitted, { t: '商家审核', sub: '11/05 15:40 · 未同意', kind: 'end' }];
+    else if (refusedAt === 'inspect') raw = [submitted, agreed, shipped, { t: '商家确认收货', sub: '11/08 14:20 · 验货未通过', kind: 'end' }];
+    else {
+      raw = [
+        submitted, agreed,
+        stage === 0 ? { t: '寄回商品', sub: '等你寄回并填写运单', kind: 'cur' } : shipped,
+        [
+          { t: '商家确认收货', sub: '', kind: 'todo' },
+          { t: '商家确认收货', sub: '进行中', kind: 'cur' },
+          { t: '商家确认收货', sub: '11/08 14:20 · 验货通过', kind: 'done' },
+          { t: '商家确认收货', sub: '11/08 14:20 · 验货通过', kind: 'done' }
+        ][stage],
+        [
+          { t: '退款原路退回', sub: '[主用支付渠道]', kind: 'todo' },
+          { t: '退款原路退回', sub: '[主用支付渠道]', kind: 'todo' },
+          { t: '退款原路退回', sub: '退款中 · [主用支付渠道]', kind: 'cur' },
+          { t: '退款原路退回', sub: '11/09 09:30 · 已到账 [主用支付渠道]', kind: 'done' }
+        ][stage]
+      ];
+    }
+    const look = {
+      done: { bg: '#ff6a00', bd: '#ff6a00', tc: '#191919', tw: 500, sc: '#8a8f97' },
+      cur: { bg: '#fff', bd: '#ff6a00', tc: '#d94f00', tw: 700, sc: '#d94f00' },
+      todo: { bg: '#fff', bd: '#c4c8ce', tc: '#8a8f97', tw: 400, sc: '#a3a8b0' },
+      end: { bg: '#8a8f97', bd: '#8a8f97', tc: '#555a62', tw: 700, sc: '#8a8f97' }
+    };
+    const steps = raw.map((s, i) => {
+      const next = raw[i + 1];
+      // 连线颜色：通往已完成/进行中节点为橙色，通往结束节点为灰色，未到达为浅灰，末项不画
+      let bar = 'transparent';
+      if (next) bar = next.kind === 'done' || next.kind === 'cur' ? '#ff6a00' : (next.kind === 'end' ? '#c4c8ce' : '#ebedf0');
+      return { t: s.t, sub: s.sub, line: bar, check: s.kind === 'done', inner: s.kind === 'cur', cross: s.kind === 'end', ...look[s.kind] };
+    });
+
+    const carriers = ['示例快递', '其他承运商'].map((name) => {
+      const on = name === pick;
+      return {
+        name, on,
+        bd: on ? '#ff6a00' : '#ebedf0', bg: on ? '#fffaf5' : '#fff', tc: on ? '#d94f00' : '#191919', tw: on ? 500 : 400,
+        choose: () => this.setState({ pick: name })
+      };
+    });
+
+    const canFill = running && stage === 0;
+    const canEdit = running && stage === 1;
+    const canSubmit = draft.trim() !== '';
+    const copy = (key) => () => this.setState((st) => ({ copied: { ...st.copied, [key]: true } }));
+    return {
+      statusTitle: status.t,
+      statusSub: status.sub,
+      statusColor: status.c,
+      showInfo: running,
+      info,
+      showAddress: canFill,
+      addressLabel: copied.address ? '已复制' : '复制地址',
+      copyAddress: copy('address'),
+      returnTips: [
+        { t: '请在 [协议约定时间] 内寄回，逾期申请自动关闭' },
+        { t: '商品、配件和包装保持完整，包裹内附订单号' },
+        { t: '寄回运费按销售方规则承担' }
+      ],
+      showWaybill: (running && stage >= 1) || refusedAt === 'inspect',
+      carrier,
+      waybill,
+      waybillNote: running && stage === 1 ? '11/06 10:05 已提交 · 商家确认收货前可修改' : '11/08 14:20 商家已签收',
+      waybillLabel: copied.waybill ? '已复制' : '复制单号',
+      copyWaybill: copy('waybill'),
+      showRefuse: !!refusedAt,
+      refuseRows,
+      // 审核拒绝的原因是凭证不足，把提交过的凭证摆出来，用户才知道要补什么
+      showEvidence: refusedAt === 'review',
+      evidence: [
+        { t: '商品照片', s: '已上传 1 张', bs: 'solid', bd: '#ebedf0', bg: '#f2f3f5', ic: '#8a8f97', tc: '#555a62', sc: '#11804a' },
+        { t: '包装照片', s: '未上传', bs: 'dashed', bd: '#c4c8ce', bg: '#fafafb', ic: '#a3a8b0', tc: '#8a8f97', sc: '#d94f00' },
+        { t: '其他凭证', s: '未上传', bs: 'dashed', bd: '#c4c8ce', bg: '#fafafb', ic: '#a3a8b0', tc: '#8a8f97', sc: '#8a8f97' }
+      ],
+      steps,
+      // 进度由服务端决定：运单提交后，后面两步只能靠“刷新进度”看到
+      canRefresh: running && (stage === 1 || stage === 2),
+      refresh: () => this.setState((st) => ({ adv: st.adv + 1 })),
+      showContact: !revoked,
+      canRevoke: canFill,
+      revoke: () => this.setState({ revoked: true }),
+      canFill,
+      canEdit,
+      showPlatform: !!refusedAt,
+      canReapply: refusedAt === 'review',
+      showOrder: !canFill && refusedAt !== 'review',
+      sheetOpen: sheet,
+      sheetTitle: canEdit ? '修改退货运单' : '填写退货运单',
+      openSheet: () => this.setState((st) => ({ sheet: true, draft: st.waybill, pick: st.carrier })),
+      closeSheet: () => this.setState({ sheet: false }),
+      carriers,
+      draft,
+      // 输入框 onChange 才带事件对象；没有事件对象时保持原值
+      setDraft: (e) => { if (e && e.target) this.setState({ draft: String(e.target.value || '').slice(0, 30) }); },
+      canSubmit,
+      cannotSubmit: !canSubmit,
+      // 首次提交推进到“待商家收货”；修改运单只改内容，不推进
+      submit: () => this.setState((st) => (st.draft.trim() === '' ? {} : { sheet: false, waybill: st.draft.trim(), carrier: st.pick, adv: canFill ? st.adv + 1 : st.adv }))
+    };
+  }
+}
+</script>
+</body>
+</html>

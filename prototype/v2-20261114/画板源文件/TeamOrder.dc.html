@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>团队报名订单</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1636px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column;">
+    <div style="flex-shrink: 0; padding: 8px 8px 52px; background: linear-gradient(180deg, #ff6a00 0%, #ff8a3d 100%); color: #fff;">
+      <div style="display: flex; align-items: center;">
+        <a href="EnrollList.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+        <h1 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; text-align: center; color: #fff;">团队报名订单</h1>
+        <span style="flex-shrink: 0; width: 44px; height: 44px;"></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 8px 0;">
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; line-height: 30px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{statusIcon}}"></path></svg>{{statusTitle}}</span>
+        <span style="font-size: 13px; font-weight: 500; line-height: 19px;">{{statusSub}}</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; position: relative; margin-top: -36px; display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px;">
+      <div style="display: flex; flex-direction: column; padding: 16px 16px 6px; border-radius: 14px; background: #fff;">
+        <span style="font-size: 17px; font-weight: 700; line-height: 24px;">青少年无人机编程挑战赛（东营站）</span>
+        <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 10px; margin-top: 12px; font-size: 13px; line-height: 19px;">
+          <span style="color: #8a8f97;">场次</span><span style="font-weight: 500;">11/15 上午场 09:00</span>
+          <span style="color: #8a8f97;">场馆</span><span>东营低空与机器人体验馆</span>
+          <span style="color: #8a8f97;">签到时间</span><span>08:30 起签到 · 凭队员各自的码入场</span>
+          <span style="color: #8a8f97;">团队</span><span style="display: flex; align-items: center; gap: 6px; min-width: 0;"><span style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">东营港务物流职工子女队</span><span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: #eaf2fd; color: #1d63c4; font-size: 11px; line-height: 16px; white-space: nowrap;">企业</span></span>
+        </div>
+        <div style="margin-top: 14px; border-top: 1px dashed #ebedf0;"></div>
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 56px;">
+          <span aria-hidden="true" style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #fff3e8; color: #d94f00; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; line-height: 1;">王</span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; font-weight: 500; line-height: 21px;">王女士<span style="margin-left: 8px; font-size: 13px; font-weight: 400; color: #666b73;">138****2026</span></span>
+            <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">领队 · 东营港务物流 经办人 · 负责到场组织和协助签到</span>
+          </span>
+          <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #fff3e8; color: #d94f00; font-size: 11px; line-height: 16px; white-space: nowrap;">领队</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; padding: 14px; border-radius: 14px; background: #fff;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">队员名单</h2>
+          <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">{{signSummary}}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; margin-top: 6px;">
+          <sc-for list="{{members}}" as="m" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 64px; border-top: 1px solid #f0f1f3;">
+              <span aria-hidden="true" style="flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: {{m.avBg}}; color: {{m.avFg}}; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; line-height: 1;">{{m.av}}</span>
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 15px; line-height: 21px; white-space: nowrap;">{{m.name}}<span style="margin-left: 6px; font-size: 13px; color: #8a8f97;">{{m.age}}</span></span>
+                <span style="font-size: 11px; line-height: 16px; color: #8a8f97; white-space: nowrap;">凭证号 {{m.code}}</span>
+              </span>
+              <span style="flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                <span style="font-size: 12px; font-weight: 500; line-height: 17px; color: {{m.stateC}}; white-space: nowrap;">{{m.state}}</span>
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <sc-if value="{{m.canRefund}}" hint-placeholder-val="{{true}}">
+                    <a href="EnrollRefund.dc.html" aria-label="{{m.refundAria}}" style="height: 32px; box-sizing: border-box; padding: 0 10px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 13px; line-height: 18px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">退改</a>
+                  </sc-if>
+                  <button type="button" aria-pressed="{{m.on}}" aria-label="{{m.showAria}}" onClick="{{m.pick}}" style="height: 32px; box-sizing: border-box; margin: 0; padding: 0 10px; border-radius: 999px; border: 1px solid {{m.bd}}; background: {{m.bg}}; font: inherit; font-size: 13px; font-weight: 500; line-height: 18px; color: {{m.fg}}; white-space: nowrap; cursor: pointer;">{{m.showLabel}}</button>
+                </span>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; margin-top: 10px; padding: 12px 12px 10px; border-radius: 12px; background: #f7f8fa;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap;">{{curName}} 的签到码</span>
+          <div style="position: relative; width: 148px; height: 148px; margin-top: 8px;">
+            <svg width="148" height="148" viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="二维码占位" style="display: block; opacity: {{qrOp}};"><path d="{{qr}}" fill="#191919" fill-rule="evenodd"></path></svg>
+            <sc-if value="{{curStamp}}" hint-placeholder-val="{{false}}">
+              <span style="position: absolute; left: 36px; top: 36px; width: 76px; height: 76px; box-sizing: border-box; border-radius: 50%; border: 2px solid #11804a; background: #fff; color: #11804a; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{curStamp}}</span>
+            </sc-if>
+          </div>
+          <span style="margin-top: 8px; font-size: 13px; line-height: 18px; color: #555a62; white-space: nowrap;">凭证号 {{curCode}}</span>
+          <span style="margin-top: 2px; font-size: 12px; line-height: 17px; color: {{curHintC}}; text-align: center;">{{curHint}}</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; padding: 12px 14px; border-radius: 14px; background: #fff;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2M14 18h2v2M18 18h2v2"></path></svg>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; line-height: 20px;">协助签到<span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; border: 1px dashed #c4c8ce; color: #555a62; font-size: 11px; font-weight: 400; line-height: 16px; white-space: nowrap;">[D8 待定]</span></span>
+          <span style="font-size: 12px; line-height: 17px; color: #555a62;">到场后领队在本页逐个出示队员的码，由现场核销员扫码签到；核销员用 App 还是场馆设备扫码，按 D8 决策。</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff; font-size: 13px; line-height: 19px;">
+        <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">金额与支付</h2>
+        <div style="display: flex;"><span style="color: #666b73;">报名费</span><span style="margin-left: auto;">4 人 × ¥120</span></div>
+        <div style="display: flex;"><span style="color: #666b73;">付款人</span><span style="margin-left: auto;">领队 王女士 · 一次付清</span></div>
+        <div style="display: flex; align-items: baseline;"><span style="color: #666b73;">实付</span><span style="margin-left: auto; font-size: 18px; font-weight: 700; line-height: 25px; color: #e85400;">¥480</span></div>
+        <div style="height: 1px; margin: 4px 0; background: #f0f1f3;"></div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="flex-shrink: 0; width: 72px; color: #666b73;">收款方</span>
+          <span style="min-width: 0;">东营低空与机器人体验馆 · 经平台支付渠道</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="flex-shrink: 0; width: 72px; color: #666b73;">支付方式</span>
+          <span style="padding: 0 6px; border-radius: 4px; border: 1px dashed #c4c8ce; color: #555a62; white-space: nowrap;">[主用支付渠道]</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="flex-shrink: 0; width: 72px; color: #666b73;">渠道交易号</span>
+          <span style="padding: 0 6px; border-radius: 4px; border: 1px dashed #c4c8ce; color: #555a62; white-space: nowrap;">[渠道交易号]</span>
+          <button type="button" onClick="{{copyTxn}}" style="flex-shrink: 0; margin: -9px 0 -9px auto; height: 36px; padding: 0 4px 0 8px; border: 0; background: none; font: inherit; font-size: 13px; line-height: 18px; color: {{txnColor}}; white-space: nowrap; cursor: pointer;">{{txnLabel}}</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="flex-shrink: 0; width: 72px; color: #666b73;">支付状态</span>
+          <span style="color: #11804a;">已支付 · 渠道回执已核验</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">退改规则</h2>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: {{ruleBg}}; color: {{ruleC}}; font-size: 14px; font-weight: 500; line-height: 20px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ruleIcon}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2"></path></svg>{{ruleLine}}</div>
+        <sc-for list="{{rules}}" as="r" hint-placeholder-count="3">
+          <div style="display: flex; gap: 8px; font-size: 13px; line-height: 19px; color: #555a62;">
+            <span style="flex-shrink: 0; width: 4px; height: 4px; margin: 8px 2px 0; border-radius: 50%; background: #a3a8b0;"></span>
+            <span style="min-width: 0;">{{r.t}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 8px 16px 20px; background: #fff; border-top: 1px solid #ebedf0;">
+    <span style="flex-grow: 1; min-width: 0; font-size: 12px; line-height: 17px; color: {{barNoteC}};">{{barNote}}</span>
+    <a href="{{barHref}}" style="flex-shrink: 0; height: 44px; box-sizing: border-box; padding: 0 22px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; line-height: 21px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{barLabel}}</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["待参加","活动当天"],"default":"待参加"},"$preview":{"width":390,"height":1636}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // who：正在出示谁的签到码（一人一码，领队逐个出示）；txnCopied：是否点过渠道交易号的“复制”
+    this.state = { who: 'a', txnCopied: false };
+  }
+  renderVals() {
+    const { who, txnCopied } = this.state;
+    // 时间线：待参加 = 11/03 领队付清后；活动当天 = 11/15 08:45，签到进行中，用 Tweaks 的 frame 切
+    const onDay = (this.props.frame ?? '待参加') === '活动当天';
+
+    // 名单与 TeamSignup 一致：导入 6 人，王小禾（已单独报名）和王小满（未满 8 岁）不计入，成团 4 人；凭证号接在王小禾、王小川两张单人码之后
+    const base = [
+      { id: 'a', name: '李明轩', age: 12, code: 'ACT-2611-0928-11', seed: 311, inAt: '08:41' },
+      { id: 'b', name: '张雨桐', age: 10, code: 'ACT-2611-0928-12', seed: 142, inAt: '08:43' },
+      { id: 'c', name: '赵子涵', age: 13, code: 'ACT-2611-0928-13', seed: 57, inAt: '' },
+      { id: 'd', name: '陈可欣', age: 11, code: 'ACT-2611-0928-14', seed: 219, inAt: '' }
+    ];
+    const signedOf = (p) => onDay && p.inAt !== '';
+
+    // 二维码占位：按序号生成固定图样，不是真码；三个定位角 + 伪随机点阵，换人时图样跟着变（同 EnrollTicket）
+    const qrOf = (seed) => {
+      const N = 25;
+      let s = seed;
+      const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+      const corner = (x, y) => (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+      let d = '';
+      for (let y = 0; y < N; y += 1) {
+        for (let x = 0; x < N; x += 1) {
+          const on = rnd() > 0.5;
+          if (on && !corner(x, y)) d += `M${x} ${y}h1v1h-1z`;
+        }
+      }
+      [[0, 0], [N - 7, 0], [0, N - 7]].forEach(([x, y]) => {
+        d += `M${x} ${y}h7v7h-7zM${x + 1} ${y + 1}h5v5h-5zM${x + 2} ${y + 2}h3v3h-3z`;
+      });
+      return d;
+    };
+
+    const members = base.map((p) => {
+      const on = p.id === who;
+      const signed = signedOf(p);
+      return {
+        name: p.name, age: `${p.age} 岁`, av: p.name.slice(0, 1), code: p.code,
+        avBg: signed ? '#e8f7ef' : '#fff3e8', avFg: signed ? '#11804a' : '#d94f00',
+        state: signed ? `已签到 ${p.inAt}` : '待签到',
+        stateC: signed ? '#11804a' : '#d94f00',
+        on,
+        bd: on ? '#ff6a00' : '#c4c8ce', bg: on ? '#fff3e8' : '#fff', fg: on ? '#d94f00' : '#191919',
+        showLabel: on ? '出示中' : '出示码',
+        showAria: `出示 ${p.name} 的签到码`,
+        refundAria: `为 ${p.name} 申请退改`,
+        // 按人退改：免费取消窗口内每个队员都能单独退；活动当天已过窗口，只能转让或联系主办方
+        canRefund: !onDay,
+        pick: () => this.setState({ who: p.id })
+      };
+    });
+    const cur = base.find((p) => p.id === who) || base[0];
+    const curSigned = signedOf(cur);
+    const signedCount = base.filter(signedOf).length;
+    const CHECK = 'M5 12l5 5 9-10';
+    const CLOCK = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2';
+
+    return {
+      statusIcon: onDay ? CLOCK : CHECK,
+      statusTitle: onDay ? `签到中 · ${signedCount}/4 已签到` : '报名成功 · 待参加',
+      statusSub: onDay ? '11/15 08:30 起签到，09:00 开始 · 领队逐个出示队员的码' : '活动前一天将发送提醒 · 领队到场协助签到',
+      signSummary: onDay ? `${signedCount}/4 已签到` : '4 人 · 一人一码',
+      members,
+      curName: cur.name,
+      curCode: cur.code,
+      qr: qrOf(cur.seed),
+      qrOp: curSigned ? 0.18 : 1,
+      curStamp: curSigned ? '已核销' : '',
+      curHint: curSigned ? `已于 11/15 ${cur.inAt} 核销，不能重复使用` : '到场出示此码签到 · 开始后 30 分钟停止入场（示例）',
+      curHintC: curSigned ? '#555a62' : '#8a8f97',
+      txnLabel: txnCopied ? '已复制' : '复制',
+      txnColor: txnCopied ? '#11804a' : '#d94f00',
+      copyTxn: () => this.setState({ txnCopied: true }),
+      // 免费取消截止 = 活动开始（11/15 09:00）前 48 小时；活动当天已过窗口
+      ruleLine: onDay ? '已过免费取消时间（11/13 09:00）' : '11/13 09:00 前可免费取消（整单或按人）',
+      ruleBg: onDay ? '#f2f3f5' : '#e8f7ef',
+      ruleC: onDay ? '#555a62' : '#11804a',
+      ruleIcon: onDay ? '#8a8f97' : '#19b866',
+      rules: [
+        { t: '按人退改只退该队员的报名费 ¥120，其余队员的码不受影响' },
+        { t: '之后不退报名费，可转让同场次名额' },
+        { t: '活动延期或取消全额退款' }
+      ],
+      barNote: onDay ? '已过免费取消时间，可转让同场次名额' : '11/13 09:00 前可免费取消（整单或按人）',
+      barNoteC: onDay ? '#8a8f97' : '#11804a',
+      barHref: onDay ? 'Chat.dc.html' : 'EnrollRefund.dc.html',
+      barLabel: onDay ? '联系主办方' : '申请退改'
+    };
+  }
+}
+</script>
+</body>
+</html>

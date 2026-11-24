@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>报价比选</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1048px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="DemandList.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">报价比选</h1>
+    <span style="margin-left: auto; margin-right: 8px; font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #fff3e8; color: #d94f00;">企业 · 东营港务物流</span>
+  </div>
+
+  <div style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="display: flex; gap: 12px; background: #fff; border-radius: 12px; padding: 12px;">
+      <img src="/_blob/e42bb39cca5b4f528e6577da8445bced" alt="园区现场" style="width: 72px; height: 72px; border-radius: 10px; object-fit: cover; flex-shrink: 0;">
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 16px; font-weight: 700;">物流园区季度安防巡检</div>
+        <div style="font-size: 12px; color: #666b73;">约 42 万㎡ · 每月 2 次 · 需夜间巡查</div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <span style="font-size: 12px; color: #11804a;">● 3 家已报价</span>
+          <span style="font-size: 12px; color: #666b73;">· 报价截止 10/31</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div role="group" aria-label="排序" style="display: flex; gap: 8px; font-size: 13px;">
+        <button type="button" aria-pressed="{{sortAll.on}}" onClick="{{sortAll.pick}}" style="margin: -6px 0; padding: 6px 0; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer;"><span style="display: flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; background: {{sortAll.bg}}; color: {{sortAll.fg}};">综合</span></button>
+        <button type="button" aria-pressed="{{sortPrice.on}}" onClick="{{sortPrice.pick}}" style="margin: -6px 0; padding: 6px 0; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer;"><span style="display: flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; background: {{sortPrice.bg}}; color: {{sortPrice.fg}};">总价</span></button>
+        <button type="button" aria-pressed="{{sortCycle.on}}" onClick="{{sortCycle.pick}}" style="margin: -6px 0; padding: 6px 0; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer;"><span style="display: flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; background: {{sortCycle.bg}}; color: {{sortCycle.fg}};">交付周期</span></button>
+      </div>
+      <a href="PlanCompare.dc.html" style="flex-shrink: 0; height: 44px; margin: -6px 0 -6px auto; display: flex; align-items: center; font-size: 13px; line-height: 18px; color: #666b73; text-decoration: none; white-space: nowrap;">对比明细 ›</a>
+    </div>
+
+    <sc-for list="{{quotes}}" as="q" hint-placeholder-count="3">
+      <div style="background: #fff; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; border: 1.5px solid {{q.bd}};">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 700; white-space: nowrap;">{{q.name}}</span>
+          <span style="font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; white-space: nowrap;">资质已审核</span>
+          <span style="margin-left: auto; display: flex; align-items: baseline; gap: 4px; white-space: nowrap;"><span style="font-size: 12px; color: #8a8f97;">总价</span><span style="font-size: 18px; font-weight: 700; color: #e85400;">{{q.price}}</span></span>
+        </div>
+        <div style="display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 4px 8px; font-size: 13px; line-height: 19px;">
+          <sc-for list="{{q.rows}}" as="r" hint-placeholder-count="5">
+            <span style="color: #666b73; white-space: nowrap;">{{r.k}}</span><span style="min-width: 0;">{{r.v}}</span>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <a href="PlanCompare.dc.html" style="min-height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font-size: 13px; color: #191919; white-space: nowrap; text-decoration: none; display: flex; align-items: center; justify-content: center;">查看方案 v{{q.ver}}</a>
+          <button type="button" aria-pressed="{{q.chosen}}" onClick="{{q.choose}}" style="min-height: 36px; min-width: 93px; padding: 0 14px; border-radius: 999px; border: 0; background: {{q.btnBg}}; color: {{q.btnFg}}; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;">{{q.btnText}}</button>
+        </div>
+      </div>
+    </sc-for>
+    <div style="font-size: 12px; color: #666b73; line-height: 1.6;">选择后进入方案确认，按合同节点付款与履约；本平台不承担飞行审批与空中调度。</div>
+  </div>
+
+  <sc-if value="{{hasChosen}}" hint-placeholder-val="{{false}}">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden;">
+        <span style="flex-shrink: 0; font-size: 13px; color: #666b73;">已选</span>
+        <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 15px; font-weight: 500;">{{chosenLabel}}</span>
+      </div>
+      <a href="PlanConfirm.dc.html" style="flex-shrink: 0; height: 46px; padding: 0 22px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">进入方案确认</a>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1048}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { sort: 'all', chosen: '' };
+  }
+  renderVals() {
+    const { sort, chosen } = this.state;
+    // 工期（次数与首次进场）、有效期是示例，和 PlanCompare 一致；有效期同 PlanConfirm 的 v2
+    const base = [
+      { id: 'eagle', name: '鹰眼智能巡检', price: '¥18,600', amount: 18600, how: '无人机 + 机器狗', work: '共 6 次 · 11/02 首次进场', cycle: '3 个月', months: 3, deliver: '巡检报告、隐患清单、影像存档', ver: 2 },
+      { id: 'yrd', name: '黄河口飞服', price: '¥15,200', amount: 15200, how: '无人机', work: '共 6 次 · 11/05 首次进场', cycle: '3 个月', months: 3, deliver: '巡检报告、影像存档', ver: 1 },
+      { id: 'anxun', name: '东营安巡科技', price: '¥21,000', amount: 21000, how: '机器狗 + 人工复核', work: '共 6 次 · 11/09 首次进场', cycle: '3 个月', months: 3, deliver: '报告、隐患闭环跟踪', ver: 1 }
+    ];
+    const valid = '至 11/01 18:00';
+    // 综合 = 原顺序；总价从低到高；交付周期从短到长，相同时保持综合顺序
+    const order = base.map((q, i) => ({ q, i }));
+    if (sort === 'price') order.sort((a, b) => a.q.amount - b.q.amount || a.i - b.i);
+    if (sort === 'cycle') order.sort((a, b) => a.q.months - b.q.months || a.i - b.i);
+    // 未选择前沿用原稿：第一家报价高亮；选择后只高亮所选报价
+    const focus = chosen || 'eagle';
+    const quotes = order.map(({ q }) => {
+      const pick = q.id === focus;
+      const isChosen = q.id === chosen;
+      return {
+        ...q, pick, chosen: isChosen,
+        // 三家同一行顺序：总价在标题行，下面依次是方式、工期、周期、交付物、有效期；不放推荐标签和付款节点
+        rows: [['方式', q.how], ['工期', q.work], ['周期', q.cycle], ['交付物', q.deliver], ['有效期', valid]].map(([k, v]) => ({ k, v })),
+        bd: pick ? '#ff6a00' : '#fff', btnBg: pick ? '#ff6a00' : '#fff3e8', btnFg: pick ? '#fff' : '#d94f00',
+        btnText: isChosen ? '已选择' : '选择此报价',
+        choose: () => this.setState({ chosen: q.id })
+      };
+    });
+    const sortOf = (id) => {
+      const on = id === sort;
+      return { on, bg: on ? '#191919' : '#fff', fg: on ? '#fff' : '#191919', pick: () => this.setState({ sort: id }) };
+    };
+    const cur = base.find((q) => q.id === chosen);
+    return {
+      quotes,
+      sortAll: sortOf('all'), sortPrice: sortOf('price'), sortCycle: sortOf('cycle'),
+      hasChosen: !!cur,
+      // 底栏文案：已选 <服务商> v<版本>
+      chosenLabel: cur ? cur.name + ' v' + cur.ver : ''
+    };
+  }
+}
+</script>
+</body>
+</html>

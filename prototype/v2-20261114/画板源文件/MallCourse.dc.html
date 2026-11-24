@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>首页·课程频道</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden; position: relative;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; background: linear-gradient(180deg, #fff3e8 0%, #fff8f2 70%, #f7f8fa 100%);">
+    <div style="position: relative; display: flex; align-items: center; gap: 2px; padding-left: 14px; overflow: hidden;">
+      <a href="CitySheet.dc.html" style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; min-height: 40px; margin-right: 6px; font-size: 16px; font-weight: 700; color: #191919; text-decoration: none;">{{city}}<svg width="14" height="14" viewBox="0 0 24 24" fill="#191919" aria-hidden="true"><path d="M6 9l6 6 6-6z"></path></svg></a>
+      <span style="flex-shrink: 0; width: 1px; height: 16px; margin-right: 2px; background: #e8d5c4;"></span>
+      <sc-for list="{{channels}}" as="ch" hint-placeholder-count="8">
+        <a href="{{ch.href}}" style="flex-shrink: 0; position: relative; display: flex; align-items: center; min-height: 40px; padding: 0 9px; color: {{ch.c}}; font-size: {{ch.fs}}; font-weight: {{ch.w}}; text-decoration: none; white-space: nowrap;">{{ch.label}}<sc-if value="{{ch.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 3px; width: 16px; height: 3px; margin-left: -8px; border-radius: 3px; background: #ff6a00;"></span></sc-if></a>
+      </sc-for>
+      <span style="position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: linear-gradient(90deg, rgba(255,243,232,0), #fff3e8);"></span>
+    </div>
+    <div style="padding: 0 16px;">
+      <div style="display: flex; align-items: center; height: 40px; padding: 0 4px 0 0; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff;">
+        <a href="Scan.dc.html" aria-label="扫一扫" style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; height: 44px; margin: -2px 0; padding: 0 8px 0 12px; text-decoration: none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M4 12h16"></path></svg>
+          <span style="width: 1px; height: 16px; background: #ebedf0;"></span>
+        </a>
+        <a href="SearchPre.dc.html" style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; text-decoration: none;">
+          <span style="flex-grow: 1; min-width: 0; font-size: 14px; color: #8a8f97; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{placeholder}}</span>
+          <span style="flex-shrink: 0; height: 32px; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; display: flex; align-items: center;">搜索</span>
+        </a>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 0 16px; overflow: hidden;">
+      <sc-for list="{{cats}}" as="k" hint-placeholder-count="6">
+        <a href="{{k.href}}" aria-current="{{k.cur}}" style="flex-shrink: 0; height: 30px; padding: 0 12px; border-radius: 999px; background: {{k.bg}}; color: {{k.c}}; font-size: 13px; line-height: 30px; font-weight: {{k.w}}; text-decoration: none; white-space: nowrap;">{{k.label}}</a>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 10px 16px 0;">
+    <div style="flex-shrink: 0; display: flex; gap: 6px;">
+      <sc-for list="{{subs}}" as="s" hint-placeholder-count="5">
+        <button type="button" onClick="{{s.pick}}" aria-pressed="{{s.pressed}}" style="flex-shrink: 0; height: 36px; margin: -4px 0 0; padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; display: flex; align-items: flex-end;"><span style="height: 32px; padding: 0 12px; border-radius: 999px; background: {{s.bg}}; color: {{s.fg}}; font-size: 14px; line-height: 20px; font-weight: {{s.w}}; display: flex; align-items: center; white-space: nowrap;">{{s.label}}</span></button>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 20px; height: 36px; font-size: 14px; line-height: 20px; color: #555a62; white-space: nowrap;">
+      <span style="color: {{sortDefaultC}}; font-weight: {{sortDefaultW}};">综合 ▾</span>
+      <button type="button" onClick="{{cyclePrice}}" aria-label="{{priceAria}}" style="height: 36px; margin: 0; padding: 0; border: 0; background: transparent; font: inherit; color: {{priceC}}; font-weight: {{priceW}}; cursor: pointer; display: flex; align-items: center; white-space: nowrap;">价格 {{priceArrow}}</button>
+      <span>距离</span>
+      <a href="MallFilter.dc.html" style="margin-left: auto; height: 36px; display: flex; align-items: center; gap: 4px; color: #d94f00; text-decoration: none; font-weight: 500;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>筛选</a>
+    </div>
+
+    <sc-if value="{{showChipRow}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; height: 28px; white-space: nowrap;">
+        <sc-for list="{{activeChips}}" as="f" hint-placeholder-count="2">
+          <button type="button" onClick="{{f.remove}}" aria-label="{{f.aria}}" style="flex-shrink: 0; height: 36px; margin: 0 0 -8px; padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; display: flex; align-items: flex-start;"><span style="height: 28px; padding: 0 10px; border-radius: 999px; background: #fff3e8; color: #d94f00; font-size: 12px; display: flex; align-items: center; gap: 4px;">{{f.text}}</span></button>
+        </sc-for>
+        <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #666b73;">共 18 件</span>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; height: 44px; margin-top: 8px; padding: 0 4px 0 12px; border-radius: 12px; background: linear-gradient(90deg, #fff3e8 0%, #fffaf5 100%);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2"></path></svg>
+      <span style="flex-grow: 1; min-width: 0; font-size: 12px; line-height: 20px; color: #666b73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><b style="font-size: 14px; font-weight: 700; color: #191919;">企业团培</b> · 定制课程与团队报名，合同留档</span>
+      <a href="Demand.dc.html" style="flex-shrink: 0; height: 44px; padding: 0 4px; display: flex; align-items: center; text-decoration: none;"><span style="height: 30px; padding: 0 12px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 13px; line-height: 18px; font-weight: 500; display: flex; align-items: center; white-space: nowrap;">发布需求</span></a>
+    </div>
+
+    <div style="flex-shrink: 0; margin-top: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-content: start;">
+      <sc-for list="{{items}}" as="p" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; border: 1.5px solid {{p.bd}};">
+          <a href="{{p.href}}" style="position: relative; display: block; height: 104px; background: #eef0f3; text-decoration: none;">
+            <sc-if value="{{p.img}}" hint-placeholder-val="{{true}}">
+              <img src="{{p.img}}" alt="{{p.name}}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+            </sc-if>
+            <sc-if value="{{p.ph}}" hint-placeholder-val="{{false}}">
+              <span style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21h10M10 21v-3M7 18h6M10 18L7 10l8-4M15 6l3 1.5M15 6l1.5-3M5.4 10a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"></path></svg>
+                <span style="font-size: 11px; line-height: 16px; color: #8a8f97;">商品图（待授权素材）</span>
+              </span>
+            </sc-if>
+            <sc-if value="{{p.badge}}" hint-placeholder-val="{{true}}">
+              <span style="position: absolute; left: 8px; top: 8px; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: {{p.bbg}}; color: #fff;">{{p.badge}}</span>
+            </sc-if>
+            <sc-if value="{{p.rent}}" hint-placeholder-val="{{false}}">
+              <span style="position: absolute; right: 0; top: 0; padding: 0 9px; border-radius: 0 0 0 10px; background: #ff6a00; color: #fff; font-size: 12px; font-weight: 500; line-height: 22px; white-space: nowrap;">租赁</span>
+            </sc-if>
+          </a>
+          <div style="display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 2px;">
+            <a href="{{p.href}}" style="font-size: 14px; line-height: 20px; font-weight: 500; color: #191919; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{p.name}}</a>
+            <div style="display: flex; align-items: baseline; gap: 3px; height: 24px; white-space: nowrap;">
+              <span style="font-size: 17px; line-height: 24px; font-weight: 700; color: #e85400;">{{p.price}}<sc-if value="{{p.per}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; font-weight: 500;">{{p.per}}</span></sc-if></span>
+              <span style="font-size: 12px; line-height: 17px; color: #666b73;">{{p.unit}}</span>
+              <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #555a62;">{{p.sellers}}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <a href="{{p.btnHref}}" style="flex-grow: 1; height: 44px; display: flex; align-items: center; text-decoration: none;"><span style="height: 30px; padding: 0 12px; border-radius: 999px; background: {{p.btnBg}}; color: {{p.btnFg}}; font-size: 13px; line-height: 18px; font-weight: 500; display: flex; align-items: center; white-space: nowrap;">{{p.btn}}</span></a>
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: #555a62; min-height: 44px; cursor: pointer;"><input type="checkbox" checked="{{p.cmp}}" disabled="{{p.cmpOff}}" onChange="{{p.toggleCmp}}" aria-label="{{p.cmpAria}}" style="accent-color: #ff6a00; width: 16px; height: 16px; margin: 0;">对比</label>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{showCompare}}" hint-placeholder-val="{{true}}">
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 72px; height: 52px; border-radius: 999px; background: #191919; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 18px; color: #fff;">
+      <span style="font-size: 14px;">已选 {{cmpCount}} 件对比</span>
+      <span style="font-size: 12px; color: #c4c8ce;">最多 3 件</span>
+      <a href="MallCompare.dc.html" style="margin-left: auto; height: 40px; padding: 0 18px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; text-decoration: none; display: flex; align-items: center;">开始对比</a>
+    </div>
+  </sc-if>
+
+  <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <a href="{{t.href}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px; font-weight: {{t.w}};">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+        <span>{{t.label}}</span>
+        <sc-if value="{{t.badge}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 4px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">{{t.badge}}</span>
+        </sc-if>
+        <sc-if value="{{t.dot}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 7px; left: 50%; margin-left: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ff5200;"></span>
+        </sc-if>
+      </a>
+    </sc-for>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 页内交互状态，初始值与静态稿一致：子类目“全部”、综合排序、两个已选筛选条件、勾选两件对比
+    this.state = { sub: '全部', sort: 'default', filters: [], cmp: { fly: false, robot: false, camp: false, cert: false } };
+  }
+  renderVals() {
+    const { sub, sort, filters, cmp } = this.state;
+    const ACTIVE_CHANNEL = '商城';
+    const ACTIVE_CAT = '课程';
+    const city = '东营';
+    const placeholder = '搜索课程或主题';
+    // 频道行已横向滚动，让选中的“课程”完整露出；城市固定在左侧不随频道滚动
+    const allChannels = [
+      ['推荐', 'HomeFull.dc.html'], ['专业服务', 'HomeSvc.dc.html'], ['活动', 'HomeAct.dc.html'], ['体验', 'ExpCenter.dc.html'],
+      ['商城', 'MallHome.dc.html']
+    ].map(([label, href]) => {
+      const on = label === ACTIVE_CHANNEL;
+      return { label, href, on, c: on ? '#ff6a00' : '#191919', fs: on ? '18px' : '15px', w: on ? 700 : 400 };
+    });
+    // 频道行不滚动，从当前频道往前数三个开始截，保证当前频道完整露出
+    const channels = allChannels;
+    // 商城内的类目页签：每个类目一张列表页，当前类目高亮
+    const cats = [['全部', 'MallHome.dc.html'], ['无人机', 'MallDrone.dc.html'], ['机器人', 'Mall2.dc.html'], ['配件', 'MallParts.dc.html'], ['租赁', 'MallRental.dc.html'], ['课程', 'MallCourse.dc.html']].map(([label, href]) => {
+      const on = label === ACTIVE_CAT;
+      return { label, href, cur: on ? 'page' : 'false', bg: on ? '#ff6a00' : '#fff', c: on ? '#fff' : '#191919', w: on ? 500 : 400 };
+    });
+
+
+    const ACTIVE = 0; // 0 首页 1 发现 2 消息 3 购物车 4 我的
+    const tabs = [
+      ['首页', 'HomeFull.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', '', false],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z', '', true],
+      ['消息', 'Messages.dc.html', 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01', '3', false],
+      ['购物车', 'Cart.dc.html', 'M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1', '3', false],
+      ['我的', 'Mine.dc.html', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', '', false]
+    ].map((t, i) => ({ label: t[0], href: t[1], d: t[2], badge: t[3], dot: t[4] && i !== ACTIVE, c: i === ACTIVE ? '#ff6a00' : '#8a8f97', w: i === ACTIVE ? 500 : 400 }));
+
+    // “课程”频道下的子类目：点选后只显示该子类目的商品
+    const subs = ['全部', '无人机', '机器人', '编程', '考证'].map((label) => {
+      const on = label === sub;
+      return {
+        label, pressed: on ? 'true' : 'false',
+        bg: on ? '#ff6a00' : '#fff', fg: on ? '#fff' : '#191919', w: on ? 500 : 400,
+        pick: () => this.setState({ sub: label })
+      };
+    });
+
+    // 价格排序：综合 → 价格从低到高 → 价格从高到低 → 回到综合
+    const priceOn = sort !== 'default';
+    const sortDefaultC = priceOn ? '#555a62' : '#d94f00';
+    const sortDefaultW = priceOn ? 400 : 500;
+    const priceArrow = sort === 'asc' ? '↑' : sort === 'desc' ? '↓' : '⇅';
+    const priceC = priceOn ? '#d94f00' : '#555a62';
+    const priceW = priceOn ? 500 : 400;
+    const priceAria = sort === 'asc' ? '价格排序：从低到高' : sort === 'desc' ? '价格排序：从高到低' : '价格排序';
+    const cyclePrice = () => this.setState((s) => ({ sort: s.sort === 'default' ? 'asc' : s.sort === 'asc' ? 'desc' : 'default' }));
+
+    // 已选筛选条件：点 × 移除；全部移除后整行隐藏（“共 18 件”“筛选 2”不随之变化）
+    const activeChips = filters.map((label) => ({
+      label, text: label + ' ×', aria: '移除筛选条件：' + label,
+      remove: () => this.setState((s) => ({ filters: s.filters.filter((x) => x !== label) }))
+    }));
+    const showChipRow = activeChips.length > 0;
+
+    // 对比：最多 3 件；少于 2 件时不显示对比条
+    const cmpCount = Object.keys(cmp).filter((k) => cmp[k]).length;
+    const showCompare = cmpCount >= 2;
+
+    // 主按钮按交易方式：明码标价 → 立即购买；租赁/价格不明确 → 联系询价。不显示评分和销量。
+    // cat = 所属子类目；amount = 排序用的标价（元）
+    // 租赁卡和普通商品卡分开标：图片右上角“租赁”角标，价格带计费单位“/天”（rent、per）
+    const products = [
+      { id: 'fly', cat: '无人机', amount: 199, name: '无人机飞行原理 线上课', img: '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489', badge: '线上', price: '¥199', per: '', unit: '', sellers: '12 课时', href: 'CourseFly.dc.html', btn: '立即报名', btnHref: 'PdSkuCourseFly.dc.html' },
+      { id: 'robot', cat: '编程', amount: 1280, name: '编程机器人入门课 线下班', img: '/_blob/5d32505e8b9a494f8436e31c3008ef99', badge: '东营开班', price: '¥1,280', per: '', unit: '', sellers: '8 次课', href: 'CourseRobotIntro.dc.html', btn: '立即报名', btnHref: 'PdSkuCourseRobotIntro.dc.html' },
+      { id: 'camp', cat: '机器人', amount: 2980, name: '青少年机器人研学营 3 天', img: '/_blob/f9a69cf415def2dd6f6807969effb1dc', badge: '东营开班', price: '¥2,980', per: '', unit: '', sellers: '3 天', href: 'CourseCamp.dc.html', btn: '立即报名', btnHref: 'PdSkuCourseCamp.dc.html' },
+      { id: 'cert', cat: '考证', amount: 0, name: '无人机操作员执照培训', img: '', badge: '', price: '价格面议', per: '', unit: '', sellers: '按班期', href: 'CourseCert.dc.html', btn: '联系询价', btnHref: 'Chat.dc.html' }
+    ];
+    const inSub = products.filter((p) => sub === '全部' || p.cat === sub);
+    // 按价格排序时，询价商品（联系询价）始终排在最后
+    const priced = inSub.filter((p) => p.btn !== '联系询价');
+    const inquiry = inSub.filter((p) => p.btn === '联系询价');
+    const ordered = priceOn
+      ? priced.slice().sort((a, b) => (sort === 'asc' ? a.amount - b.amount : b.amount - a.amount)).concat(inquiry)
+      : inSub;
+
+    const items = ordered.map((p) => {
+      const picked = !!cmp[p.id];
+      return {
+        ...p,
+        cmp: picked,
+        cmpOff: !picked && cmpCount >= 3,
+        cmpAria: '对比：' + p.name,
+        toggleCmp: () => this.setState((s) => {
+          const count = Object.keys(s.cmp).filter((k) => s.cmp[k]).length;
+          if (!s.cmp[p.id] && count >= 3) return {};
+          return { cmp: { ...s.cmp, [p.id]: !s.cmp[p.id] } };
+        }),
+        ph: !p.img,
+        rent: !!p.rent,
+        bd: picked ? '#ff6a00' : '#fff',
+        bbg: p.badge === '体验馆可看' ? '#2f80ed' : p.badge === '线上' ? '#2f80ed' : '#19b866',
+        btnBg: p.btn === '联系询价' ? '#fff3e8' : '#ff6a00',
+        btnFg: p.btn === '联系询价' ? '#d94f00' : '#fff'
+      };
+    });
+
+    return {
+      city, placeholder, channels, cats, tabs, subs, items,
+      sortDefaultC, sortDefaultW, priceArrow, priceC, priceW, priceAria, cyclePrice,
+      activeChips, showChipRow, cmpCount, showCompare
+    };
+  }
+}
+</script>
+</body>
+</html>

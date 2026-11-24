@@ -1,0 +1,187 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>服务商主页（鹰眼智能巡检）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; background: linear-gradient(180deg, #fff0e3, #fff); padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 12px;">
+    <a href="InspDetailPark.dc.html" aria-label="返回" style="width: 44px; height: 44px; margin-left: -8px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="width: 56px; height: 56px; border-radius: 14px; background: #fff; border: 1px solid #e5ebf3; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 22px; font-weight: 700; color: #ff6a00;">鹰</div>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">鹰眼智能巡检</span>
+        <div style="display: flex; gap: 6px;">
+          <span style="font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a; white-space: nowrap;">资质已审核</span>
+          <span style="font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #fff0e3; color: #ba470b; white-space: nowrap;">东营本地团队</span>
+        </div>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px 8px; font-size: 12px; line-height: 17px;">
+      <span style="color: #627187;">经营主体</span><span>示例鹰眼智能科技有限公司</span>
+      <span style="color: #627187;">服务方式</span><span>无人机巡检 · 机器狗夜巡</span>
+      <span style="color: #627187;">授权有效期</span><span>至 2027-10-31</span>
+    </div>
+  </div>
+
+  <div role="tablist" aria-label="服务商信息" style="flex-shrink: 0; display: flex; gap: 22px; padding: 0 16px; background: #fff; border-bottom: 1px solid #f0f1f3;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+      <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="margin: 0; min-height: 44px; padding: 10px 0; border: 0; border-bottom: 3px solid {{t.bb}}; background: none; font: inherit; font-size: 15px; font-weight: {{t.w}}; line-height: 21px; color: {{t.c}}; white-space: nowrap; cursor: pointer;">{{t.label}}</button>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{showScope}}" hint-placeholder-val="{{true}}">
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+      <a href="InspDetailPark.dc.html" style="flex-shrink: 0; display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #202c42;">
+        <img src="_blob/e42bb39cca5b4f528e6577da8445bced.webp" alt="园区安防巡检" style="flex-shrink: 0; width: 96px; height: 84px; border-radius: 8px; object-fit: cover; display: block; background: #eef2f8; font-size: 11px;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">园区安防巡检</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">周界、重点区域和夜间巡查</span>
+          <span style="margin-top: auto; font-size: 14px; font-weight: 700; line-height: 20px; color: #e85400;">按项目报价</span>
+        </div>
+      </a>
+      <sc-for list="{{moreServices}}" as="s" hint-placeholder-count="2">
+        <a href="InspDetailPark.dc.html" style="flex-shrink: 0; display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #202c42;">
+          <img src="{{s.img}}" alt="{{s.name}}" style="flex-shrink: 0; width: 96px; height: 84px; border-radius: 8px; object-fit: cover; display: block; background: #eef2f8; font-size: 11px;">
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px;">{{s.name}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #627187;">{{s.sub}}</span>
+            <span style="margin-top: auto; font-size: 14px; font-weight: 700; line-height: 20px; color: #e85400;">按项目报价</span>
+          </span>
+        </a>
+      </sc-for>
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: #fff; border-radius: 12px;">
+        <span style="font-size: 15px; font-weight: 700; line-height: 21px;">可交付</span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px;">
+          <sc-for list="{{deliver}}" as="d" hint-placeholder-count="4">
+            <span style="display: flex; align-items: center; gap: 4px; font-size: 13px; line-height: 18px; color: #536178; white-space: nowrap;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{d}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showCases}}" hint-placeholder-val="{{false}}">
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+      <a href="ContentArticle.dc.html" style="flex-shrink: 0; display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; text-decoration: none; color: #202c42;">
+        <img src="_blob/e42bb39cca5b4f528e6577da8445bced.webp" alt="一台机器狗如何完成园区夜间巡逻" style="width: 100%; height: 132px; object-fit: cover; display: block; background: #eef2f8; font-size: 11px;">
+        <div style="padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 15px; font-weight: 500; line-height: 21px;">一台机器狗如何完成园区夜间巡逻</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">园区安防 · 图文案例</span>
+        </div>
+      </a>
+      <a href="ContentArticle.dc.html" style="flex-shrink: 0; display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; text-decoration: none; color: #202c42;">
+        <img src="_blob/b6a30fa51bcba7d4ced06ace8b4d74ed.png" alt="无人机巡检周界案例" style="width: 100%; height: 132px; object-fit: cover; display: block; background: #eef2f8; font-size: 11px;">
+        <span style="padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 15px; font-weight: 500; line-height: 21px;">无人机巡检周界：一次巡完要看什么</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">周期巡检 · 图文案例</span>
+        </span>
+      </a>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showQual}}" hint-placeholder-val="{{false}}">
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="flex-shrink: 0; background: #fff; border-radius: 12px; padding: 4px 14px;">
+        <sc-for list="{{quals}}" as="r" hint-placeholder-count="6">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid {{r.line}}; font-size: 14px; line-height: 20px;">
+            <span style="flex-shrink: 0; width: 104px; color: #627187; white-space: nowrap;">{{r.k}}</span>
+            <span style="flex-grow: 1; min-width: 0; color: {{r.c}};">{{r.v}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="flex-shrink: 0; font-size: 12px; line-height: 19px; color: #627187;">资质由平台审核，到期前需重新提交。飞行审批与空中调度由服务商按规定办理，本平台不承担。</span>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showCities}}" hint-placeholder-val="{{false}}">
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="flex-shrink: 0; background: #fff; border-radius: 12px; padding: 4px 14px;">
+        <sc-for list="{{cities}}" as="c" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; min-height: 60px; border-bottom: 1px solid {{c.line}};">
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 15px; font-weight: 500; line-height: 21px;">{{c.name}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #627187;">{{c.sub}}</span>
+            </div>
+            <span style="flex-shrink: 0; font-size: 12px; line-height: 18px; padding: 1px 6px; border-radius: 6px; background: {{c.bg}}; color: {{c.fg}}; white-space: nowrap;">{{c.state}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="flex-shrink: 0; font-size: 12px; line-height: 19px; color: #627187;">跨城履约的差旅费用在方案报价里单列，以你确认的方案为准。</span>
+    </div>
+  </sc-if>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <a href="Chat.dc.html" style="flex-shrink: 0; width: 44px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; line-height: 16px; color: #536178; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>咨询</a>
+    <a href="Demand.dc.html" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">发布需求</a>
+  </div>
+
+  <sc-if value="{{hasHint}}" hint-placeholder-val="{{false}}">
+    <button type="button" role="status" onClick="{{closeHint}}" style="position: absolute; bottom: 92px; left: 16px; right: 16px; z-index: 3; display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 8px 10px; box-sizing: border-box; border: 1px solid #ffd8b8; border-radius: 10px; background: #fff0e3; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font: inherit; font-size: 12px; line-height: 18px; color: #ba470b; text-align: left; cursor: pointer;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+      <span style="flex-grow: 1; min-width: 0;">{{hint}}</span>
+      <span aria-hidden="true" style="flex-shrink: 0; font-size: 14px; line-height: 18px; color: #ba470b;">×</span>
+    </button>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // tab：scope 服务范围 / cases 案例 / qual 资质 / cities 可服务城市；hint：未绘制目标的提示
+    // 版式沿用商家主页 Merchant
+    this.state = { tab: 'scope', hint: '' };
+  }
+  renderVals() {
+    const { tab, hint } = this.state;
+    const tabs = [['scope', '服务范围'], ['cases', '案例'], ['qual', '资质'], ['cities', '可服务城市']].map(([id, label]) => {
+      const on = id === tab;
+      return { on, label, bb: on ? '#ff6a00' : 'transparent', w: on ? 700 : 400, c: on ? '#202c42' : '#627187', pick: () => this.setState({ tab: id, hint: '' }) };
+    });
+    // 周期巡检、设备检测都是按项目报价，原型里接园区安防巡检详情这份样例（正式产品按 serviceId 打开各自详情）；两个案例都接图文案例样例
+    const moreServices = [
+      { name: '周期巡检', sub: '按月或按季固定巡检，一次签约', img: '_blob/b6a30fa51bcba7d4ced06ace8b4d74ed.png' },
+      { name: '设备检测', sub: '安防与电力设备的现场检测', img: '_blob/d26647dbfc9226eacaf364aaff076d9d.webp' }
+    ];
+    const deliver = ['巡检报告', '隐患清单', '影像存档', '隐患跟踪'];
+    const quals = [
+      { k: '经营主体', v: '示例鹰眼智能科技有限公司', c: '#202c42' },
+      { k: '营业执照', v: '已审核', c: '#11804a' },
+      { k: '无人机运营资质', v: '已审核', c: '#11804a' },
+      { k: '飞手资质', v: '已审核', c: '#11804a' },
+      { k: '服务保险', v: '至 2027-03-31', c: '#202c42' },
+      { k: '东营授权', v: '至 2027-10-31', c: '#202c42' }
+    ].map((r, i, all) => ({ ...r, line: i === all.length - 1 ? 'transparent' : '#f0f1f3' }));
+    const cities = [
+      { name: '东营', sub: '本地团队，全市可服务', state: '可服务', bg: '#e2f6ed', fg: '#11804a' },
+      { name: '滨州', sub: '跨城履约，按项目确认', state: '可服务', bg: '#e2f6ed', fg: '#11804a' },
+      { name: '济南', sub: '暂未开始接单', state: '筹备中', bg: '#eef2f8', fg: '#536178' }
+    ].map((c, i, all) => ({ ...c, line: i === all.length - 1 ? 'transparent' : '#f0f1f3' }));
+    return {
+      tabs, moreServices, deliver, quals, cities,
+      showScope: tab === 'scope', showCases: tab === 'cases', showQual: tab === 'qual', showCities: tab === 'cities',
+      hasHint: hint !== '', hint,
+      closeHint: () => this.setState({ hint: '' })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

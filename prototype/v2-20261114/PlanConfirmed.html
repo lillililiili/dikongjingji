@@ -1,0 +1,188 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SVC-05 方案确认 · 已确认（M05 · 从订单进入）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 1339px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderService.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">方案确认</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; gap: 12px; padding: 12px; background: #fff; border-radius: 14px;">
+      <img src="_blob/e42bb39cca5b4f528e6577da8445bced.webp" alt="物流园区现场" style="width: 72px; height: 72px; border-radius: 10px; object-fit: cover; flex-shrink: 0;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 16px; font-weight: 700; line-height: 22px;">物流园区季度安防巡检</span>
+        <div style="display: flex; align-items: center; gap: 6px; height: 20px;">
+          <span style="font-size: 13px; line-height: 20px; color: #536178; white-space: nowrap;">服务商 鹰眼智能巡检</span>
+          <span style="flex-shrink: 0; font-size: 12px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a; white-space: nowrap;">资质已审核</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 20px;">
+          <span style="flex-shrink: 0; font-size: 12px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e6f0ff; color: #1d63c4; white-space: nowrap;">企业</span>
+          <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #536178; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">东营港务物流（经办人 王女士）</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 0; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px; min-height: 32px;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700; line-height: 24px; white-space: nowrap;">方案 v2</h2>
+        <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; padding: 1px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a; white-space: nowrap;">已确认</span>
+        <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">11/01 更新</span>
+        <button type="button" aria-expanded="{{v1Open}}" onClick="{{toggleV1}}" style="flex-shrink: 0; margin: -6px 0 -6px auto; padding: 6px 0; border: 0; background: none; font: inherit; cursor: pointer;"><span style="height: 32px; box-sizing: border-box; padding: 0 10px 0 12px; border-radius: 999px; border: 1px solid #e5ebf3; background: #fff; font-size: 13px; line-height: 18px; color: #536178; display: flex; align-items: center; gap: 2px; white-space: nowrap;">{{v1Label}}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#738096" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{v1Chevron}}"></path></svg></span></button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 10px; background: #fffaf5; font-size: 13px; line-height: 19px; color: #536178;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2.4" stroke-linecap="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+        <span style="min-width: 0;">相比 v1：增加机器狗夜巡 6 次，<b style="font-weight: 500; color: #e85400;">+¥6,600</b></span>
+      </div>
+      <sc-if value="{{v1Open}}" hint-placeholder-val="{{false}}">
+        <div role="region" aria-label="方案 v1 报价" style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 10px; background: #f5f7fc;">
+          <div style="display: flex; align-items: center; gap: 12px; font-size: 13px; line-height: 18px;">
+            <span style="font-weight: 500; white-space: nowrap;">方案 v1</span>
+            <span style="margin-left: auto; white-space: nowrap;">合计 <b style="font-weight: 700;">¥12,000</b></span>
+          </div>
+          <span style="font-size: 12px; line-height: 17px; color: #536178;">无人机巡检 6 次 ¥10,800 + 报告与隐患跟踪 ¥1,200</span>
+        </div>
+      </sc-if>
+      <a href="Contract.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #f0f1f3; color: #ba470b; text-decoration: none;">
+        <span style="font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap;">查看合同</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ba470b" stroke-width="2" style="flex-shrink: 0; margin-left: auto;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 0; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">报价明细</h2>
+      <sc-for list="{{quoteItems}}" as="q" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 14px; line-height: 20px; white-space: nowrap;">{{q.name}}</span>
+            <sc-if value="{{q.isNew}}" hint-placeholder-val="{{false}}">
+              <span style="flex-shrink: 0; font-size: 12px; line-height: 16px; padding: 1px 5px; border-radius: 6px; background: #fff0e3; color: #ba470b; white-space: nowrap;">v2 新增</span>
+            </sc-if>
+          </div>
+          <span style="flex-shrink: 0; font-size: 13px; line-height: 18px; color: #738096; white-space: nowrap;">{{q.qty}}</span>
+          <span style="flex-shrink: 0; width: 68px; font-size: 15px; font-weight: 500; line-height: 21px; text-align: right; white-space: nowrap;">{{q.amount}}</span>
+        </div>
+      </sc-for>
+      <div style="display: flex; align-items: center; min-height: 48px; border-top: 1px solid #f0f1f3;">
+        <span style="font-size: 15px; font-weight: 500; line-height: 21px;">合计</span>
+        <span style="margin-left: auto; font-size: 20px; font-weight: 700; line-height: 28px; color: #e85400;">¥18,600</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">服务安排</h2>
+      <div style="display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 10px; font-size: 13px; line-height: 19px;">
+        <span style="color: #627187; white-space: nowrap;">范围</span><span>约 42 万㎡</span>
+        <span style="color: #627187; white-space: nowrap;">方式</span><span>无人机巡检 + 机器狗夜巡</span>
+        <span style="color: #627187; white-space: nowrap;">周期</span><span>11/02–01/18 · 共 6 次</span>
+      </div>
+      <div role="list" aria-label="巡检日期" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px;">
+        <sc-for list="{{visits}}" as="d" hint-placeholder-count="6">
+          <span role="listitem" aria-label="{{d.aria}}" style="height: 32px; border-radius: 8px; background: #f5f7fc; font-size: 13px; line-height: 32px; text-align: center; white-space: nowrap;">{{d.date}}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">交付约定</h2>
+      <sc-for list="{{terms}}" as="t" hint-placeholder-count="3">
+        <div style="display: flex; gap: 8px; font-size: 13px; line-height: 19px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+          <span style="min-width: 0; color: #536178;">{{t.t}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 12px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">付款节点</h2>
+      <sc-for list="{{payNodes}}" as="p" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 56px; border-top: 1px solid #f0f1f3;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; line-height: 20px;">{{p.name}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: {{p.sc}};">{{p.state}}</span>
+          </div>
+          <span style="flex-shrink: 0; font-size: 16px; font-weight: 700; line-height: 22px;">{{p.amount}}</span>
+        </div>
+      </sc-for>
+      <div style="display: flex; gap: 6px; padding-top: 10px; border-top: 1px solid #f0f1f3; font-size: 12px; line-height: 17px; color: #738096;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#738096" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span style="min-width: 0;">款项经平台支付渠道付给服务商；本平台不承担飞行审批与空中调度。</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px 16px 20px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <div role="status" style="display: flex; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #eefaf3;">
+      <span style="flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: #159a70; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 14px; font-weight: 700; line-height: 20px; color: #11804a;">已确认方案 v2</span>
+        <span style="font-size: 12px; line-height: 17px; color: #536178;">王女士（经办人）· 11/01 09:30</span>
+        <span style="font-size: 12px; line-height: 17px; color: #738096;">你确认的是 v2；服务商如更新方案，需要重新确认</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <a href="Chat.dc.html" style="flex-shrink: 0; width: 68px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; line-height: 16px; color: #536178; white-space: nowrap; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>联系服务商</a>
+      <a href="Fulfillment.dc.html" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看服务安排</a>
+    </div>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 时间线：从订单详情（OrderService）进入时看到的已确认帧，方案 v2 已于 11/01 09:30 确认，首付已于 11/01 支付
+    // v1Open：是否展开 v1 报价
+    this.state = { v1Open: false };
+  }
+  renderVals() {
+    const { v1Open } = this.state;
+    // 方案 v2 报价明细：合计 ¥18,600（v1 为 ¥12,000，v2 增加机器狗夜巡 6 次 +¥6,600）
+    const quoteItems = [
+      { name: '无人机巡检', qty: '6 次 × ¥1,800', amount: '¥10,800', isNew: false },
+      { name: '机器狗夜巡', qty: '6 次 × ¥1,100', amount: '¥6,600', isNew: true },
+      { name: '报告与隐患跟踪', qty: '', amount: '¥1,200', isNew: false }
+    ];
+    // 周期由下面的巡检次算出：11/02–01/18，共 6 次；这里只列方案约定的日期，履约进度看 Fulfillment
+    const visits = ['11/02', '11/16', '12/01', '12/15', '01/04', '01/18'].map((date, i) => ({ date, aria: '第 ' + (i + 1) + ' 次 ' + date }));
+    const terms = [
+      { t: '每次巡检后 48 小时内交付报告与隐患清单' },
+      { t: '影像存档保存 90 天' },
+      { t: '交付文件通过受控链接下载' }
+    ];
+    // 付款节点由统一交易模块单列，本页只显示：首付已支付；按次结算每次验收后支付 ¥2,170，共 6 次
+    const payNodes = [
+      { name: '首付 30%', amount: '¥5,580', state: '已支付 · 11/01', sc: '#11804a' },
+      { name: '按次结算 70%', amount: '¥13,020', state: '每次验收后支付 ¥2,170 · 已付 0/6', sc: '#738096' }
+    ];
+    return {
+      quoteItems, visits, terms, payNodes,
+      v1Open,
+      v1Label: v1Open ? '收起 v1' : '查看 v1',
+      v1Chevron: v1Open ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6',
+      toggleV1: () => this.setState((s) => ({ v1Open: !s.v1Open }))
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

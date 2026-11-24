@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>企业组织</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 745px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; background: linear-gradient(180deg, #eaf2fd 0, #f7f8fa 180px);">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px;">
+      <a href="Mine.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+      <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap;">企业组织</h1>
+      <a href="OrgMembers.dc.html" aria-label="成员与角色" style="margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></a>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 0 16px 24px;">
+      <button type="button" aria-haspopup="dialog" onClick="{{openProfile}}" style="width: 100%; margin: 0; padding: 14px; box-sizing: border-box; border: 0; border-radius: 14px; background: #fff; font: inherit; color: #191919; text-align: left; display: flex; align-items: center; gap: 12px; cursor: pointer;">
+        <span style="flex-shrink: 0; width: 52px; height: 52px; border-radius: 14px; background: #eaf2fd; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2f80ed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2"></path></svg></span>
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">东营港务物流</span>
+          <span style="display: flex; gap: 6px;">
+            <span style="padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 12px; line-height: 18px; white-space: nowrap;">资料已认证</span>
+            <span style="padding: 1px 6px; border-radius: 6px; background: #f2f3f5; color: #555a62; font-size: 12px; line-height: 18px; white-space: nowrap;">我是经办人</span>
+          </span>
+        </span>
+        <span style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">组织资料<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></span>
+      </button>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 12px 0; border-radius: 14px; background: #fff;">
+        <sc-for list="{{stats}}" as="s" hint-placeholder-count="3">
+          <a href="{{s.href}}" style="display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 52px; border-left: 1px solid {{s.bd}}; color: #191919; text-decoration: none;">
+            <span style="font-size: 22px; font-weight: 700; line-height: 30px;">{{s.n}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">{{s.t}}</span>
+          </a>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; margin-top: 4px;">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; line-height: 24px; white-space: nowrap;"><span style="width: 4px; height: 16px; border-radius: 2px; background: #ff6a00;"></span>需求与合同</h2>
+        <a href="DemandList.dc.html" style="min-height: 44px; margin: -4px 0; padding-left: 8px; display: flex; align-items: center; font-size: 13px; color: #666b73; text-decoration: none; white-space: nowrap;">全部 ›</a>
+      </div>
+      <div style="display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+        <sc-for list="{{deals}}" as="d" hint-placeholder-count="3">
+          <a href="{{d.href}}" style="display: flex; flex-direction: column; gap: 4px; min-height: 68px; padding: 12px 0; box-sizing: border-box; border-top: 1px solid {{d.bd}}; color: #191919; text-decoration: none;">
+            <span style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+              <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{d.title}}</span>
+              <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: {{d.tagBg}}; color: {{d.tagC}}; font-size: 12px; line-height: 18px; white-space: nowrap;">{{d.tag}}</span>
+            </span>
+            <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{d.sub}}</span>
+          </a>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; margin-top: 4px;">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; line-height: 24px; white-space: nowrap;"><span style="width: 4px; height: 16px; border-radius: 2px; background: #ff6a00;"></span>成员</h2>
+        <a href="OrgMembers.dc.html" style="min-height: 44px; margin: -4px 0; padding-left: 8px; display: flex; align-items: center; gap: 2px; font-size: 13px; color: #d94f00; text-decoration: none; white-space: nowrap;">邀请成员<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></a>
+      </div>
+      <div style="display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+        <sc-for list="{{members}}" as="m" hint-placeholder-count="3">
+          <a href="OrgMembers.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 56px; border-top: 1px solid {{m.bd}}; color: #191919; text-decoration: none;">
+            <span style="flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: {{m.bg}}; color: {{m.fg}}; font-size: 14px; font-weight: 700; line-height: 34px; text-align: center;">{{m.ch}}</span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{m.name}}</span>
+            <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: {{m.tagBg}}; color: {{m.tagC}}; font-size: 12px; line-height: 18px; white-space: nowrap;">{{m.role}}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{profileOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeProfile}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="组织资料" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 12px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">组织资料</span>
+      <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; font-size: 14px; line-height: 20px;">
+        <sc-for list="{{profile}}" as="r" hint-placeholder-count="6">
+          <span style="color: #666b73; white-space: nowrap;">{{r.k}}</span><span style="color: {{r.c}};">{{r.v}}</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 18px; color: #555a62;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span style="min-width: 0;">资料变更由负责人提交，平台审核后生效</span>
+      </div>
+      <button type="button" onClick="{{closeProfile}}" style="height: 44px; margin: 0; padding: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">知道了</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":745}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 时间线：11/03。定稿 24 的示例企业和人名换成沿用数据：东营港务物流、经办人王女士；数字按已有画板的单据数
+    // profile：组织资料面板是否打开
+    this.state = { profile: false };
+  }
+  renderVals() {
+    const { profile } = this.state;
+    // 进行中需求 = DemandList 里待报价和报价中的 3 份；待验收 = 物流园区季度安防巡检第 1 次；生效合同 = Contract
+    const stats = [
+      { n: 3, t: '进行中需求', href: 'DemandList.dc.html' },
+      { n: 1, t: '待验收', href: 'Delivery.dc.html' },
+      { n: 1, t: '生效合同', href: 'Contract.dc.html' }
+    ].map((s, i) => ({ ...s, bd: i === 0 ? 'transparent' : '#ebedf0' }));
+    const blue = { tagBg: '#eaf2fd', tagC: '#1d63c4' };
+    const orange = { tagBg: '#fff3e8', tagC: '#d94f00' };
+    const green = { tagBg: '#e8f7ef', tagC: '#11804a' };
+    const deals = [
+      { title: '园区综合巡检需求', tag: '待报价', ...orange, sub: '需求单 · 经办：王女士 · 截止 11/05 18:00', href: 'Demand.dc.html' },
+      { title: '行业测绘无人机（定制配置）', tag: '报价中 · 2 份', ...blue, sub: '询价单 · 经办：王女士 · 截止 11/05 18:00', href: 'QuoteGoods.dc.html' },
+      { title: '物流园区季度安防巡检', tag: '合同生效中', ...green, sub: '合同 ¥18,600 · 鹰眼智能巡检 · 已结 0/6 次', href: 'Contract.dc.html' }
+    ].map((d, i) => ({ ...d, bd: i === 0 ? 'transparent' : '#f0f1f3' }));
+    const members = [
+      { ch: '李', name: '李**', role: '负责人', bg: '#ffe3cc', fg: '#d94f00', tagBg: '#fff3e8', tagC: '#d94f00' },
+      { ch: '王', name: '王女士（我）', role: '经办人', bg: '#dbe9fc', fg: '#1d63c4', tagBg: '#f2f3f5', tagC: '#555a62' },
+      { ch: '张', name: '张工', role: '验收人', bg: '#d6f2e2', fg: '#11804a', tagBg: '#f2f3f5', tagC: '#555a62' }
+    ].map((m, i) => ({ ...m, bd: i === 0 ? 'transparent' : '#f0f1f3' }));
+    const c = '#191919';
+    const profileRows = [
+      { k: '组织名称', v: '东营港务物流', c },
+      { k: '认证状态', v: '资料已认证', c: '#11804a' },
+      { k: '信用代码', v: '9137************6X', c },
+      { k: '所在城市', v: '东营', c },
+      { k: '办公地址', v: '山东省东营市东营港经济开发区示例港路 6 号（示例）', c },
+      { k: '联系人', v: '王女士 138****2026', c }
+    ];
+    return {
+      stats, deals, members,
+      profile: profileRows,
+      profileOpen: profile,
+      openProfile: () => this.setState({ profile: true }),
+      closeProfile: () => this.setState({ profile: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

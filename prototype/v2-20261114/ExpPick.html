@@ -1,0 +1,73 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>EX2 选择体验方式</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 844px; position: relative; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <img src="_blob/85dbe79468bbacd46343cf281dfb4e4b.jpg" alt="" style="width: 100%; height: 300px; object-fit: cover; display: block;">
+  <a href="PdFull.dc.html" aria-label="关闭" style="position: absolute; inset: 0; background: rgba(0,0,0,0.45);"></a>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 600px; background: #fff; border-radius: 20px 20px 0 0; display: flex; flex-direction: column;">
+    <div style="display: flex; align-items: center; padding: 14px 16px 4px;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">选择体验方式</h2>
+        <span style="font-size: 12px; color: #627187;">编程机器人探索套装 · 体验结束不会自动下单</span>
+      </div>
+      <a href="PdFull.dc.html" aria-label="关闭" style="margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    </div>
+
+    <div style="flex-grow: 1; padding: 10px 16px; display: flex; flex-direction: column; gap: 10px;">
+      <sc-for list="{{ways}}" as="w" hint-placeholder-count="3">
+        <a href="{{w.href}}" style="display: flex; gap: 12px; padding: 14px; border-radius: 12px; border: 1.5px solid {{w.bd}}; text-decoration: none; color: #202c42;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: {{w.ibg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{w.ifg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{w.d}}"></path></svg>
+          </div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px; font-weight: 700;">{{w.t}}</span>
+              <span style="font-size: 11px; padding: 1px 6px; border-radius: 6px; background: {{w.ibg}}; color: {{w.ifg}};">{{w.kind}}</span>
+            </div>
+            <span style="font-size: 13px; color: #536178; line-height: 1.5;">{{w.desc}}</span>
+            <span style="font-size: 12px; color: #627187;">{{w.meta}}</span>
+          </div>
+          <span style="align-self: center; font-size: 14px; font-weight: 700; color: {{w.pc}};">{{w.price}}</span>
+        </a>
+      </sc-for>
+      <div style="padding: 12px; border-radius: 10px; background: #f5f7fc; font-size: 12px; color: #536178; line-height: 1.7;">
+        三种方式在页面和记录中分别标注，不混称“真机体验”。<br>到馆体验按场馆标价单独付费，与商品订单分开。
+      </div>
+    </div>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    const ways = [
+      { t: '虚拟仿真', kind: '不连接真实设备', desc: '在手机上完成避障小任务，了解编程方式', meta: '约 3 分钟 · 免登录可试', price: '免费', pc: '#11804a', href: 'ExpSim.dc.html', bd: '#ff6a00', ibg: '#e2f6ed', ifg: '#11804a', d: 'M4 5h16v11H4zM8 20h8M12 16v4M10 8.5l4 2.5-4 2.5z' },
+      { t: '录播演示', kind: '厂家录制视频', desc: '真机实拍的功能演示，可拖动查看', meta: '3:12 · 示例机器人商家', price: '免费', pc: '#11804a', href: 'ContentVideo.dc.html', bd: '#e5ebf3', ibg: '#e6f0ff', ifg: '#1d63c4', d: 'M5 5h14v14H5zM10 9l5 3-5 3z' },
+      { t: '到馆体验', kind: '真机 · 工作人员陪同', desc: '示例体验馆 · 机器人避障闯关', meta: '今天 14:00 余 5 · 3.2km', price: '¥39', pc: '#e85400', href: 'VenueDetail.dc.html', bd: '#e5ebf3', ibg: '#fff0e3', ifg: '#ba470b', d: 'M4 20h16M6 20V9l6-4 6 4v11M10 20v-5h4v5' }
+    ];
+    return { ways };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

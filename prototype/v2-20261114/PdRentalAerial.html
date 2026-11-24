@@ -1,0 +1,297 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RENT 4K 航拍无人机 含飞手</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 2158px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding-bottom: 16px;">
+    <div style="position: relative; height: 300px; flex-shrink: 0;">
+      <img src="_blob/277bff54e5d7d5be019694787d4e648d.jpg" alt="4K 航拍无人机 含飞手" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+      <div style="position: absolute; left: 8px; right: 8px; top: 40px; display: flex; align-items: center;">
+        <a href="MallRental.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></span></a>
+        <a href="ShareSheet.dc.html" aria-label="分享" style="flex-shrink: 0; margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"></path></svg></span></a>
+        <a href="Cart.dc.html" aria-label="购物车" style="flex-shrink: 0; position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1"></path></svg></span><span style="position: absolute; top: 1px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">3</span></a>
+        <a href="MoreSheet.dc.html" aria-label="更多" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></span></a>
+      </div>
+      <span style="position: absolute; right: 12px; bottom: 26px; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: rgba(0,0,0,0.4); color: #fff;">1/4</span>
+    </div>
+
+    <div style="margin: -24px 16px 0; position: relative; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; align-items: baseline; gap: 4px;">
+        <span style="font-size: 26px; font-weight: 700; color: #e85400;">¥260</span><span style="font-size: 13px; color: #e85400; white-space: nowrap;">/天 起</span>
+        <span style="margin-left: auto; font-size: 12px; color: #627187; white-space: nowrap;">租赁 · 2 家 · 东营可租</span>
+      </div>
+      <div style="font-size: 18px; font-weight: 700;">4K 航拍无人机 含飞手</div>
+      <div style="font-size: 13px; color: #627187;">含持证飞手上门，按天计费，金额以报价和合同为准</div>
+      <div style="display: flex; gap: 6px;">
+        <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #fff0e3; color: #ba470b; white-space: nowrap;">租赁</span>
+        <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #fff0e3; color: #ba470b; white-space: nowrap;">按天计费</span>
+        <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a; white-space: nowrap;">体验馆可看</span>
+      </div>
+    </div>
+
+    <div style="margin: 0 16px; background: #eefaf3; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 16px; font-weight: 700; color: #11804a;">先体验，再决定</span>
+        <span style="font-size: 12px; color: #536178;">体验结束不会自动下单</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <a href="ContentVideo.dc.html" style="flex: 1 1 0; min-height: 36px; border-radius: 999px; background: #fff; color: #11804a; font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">录播演示</a>
+        <a href="VenueDetail.dc.html" style="flex: 1 1 0; min-height: 36px; border-radius: 999px; background: #fff; color: #202c42; font-size: 13px; text-decoration: none; display: flex; align-items: center; justify-content: center;">到馆体验</a>
+      </div>
+      <div style="font-size: 12px; color: #536178;">东营低空与机器人体验馆有这款设备 · <a href="VenueDevices.dc.html" style="text-decoration: none;">馆内展示设备</a></div>
+    </div>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px 14px 4px; display: flex; flex-direction: column;">
+      <h2 style="margin: 0 0 8px; font-size: 16px; font-weight: 700;">租赁须知</h2>
+      <sc-for list="{{terms}}" as="t" hint-placeholder-count="4">
+        <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #fff0e3; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg></span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap;">{{t.k}}</span>
+              <sc-if value="{{t.tag}}" hint-placeholder-val="{{false}}">
+                <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 0 6px; border-radius: 6px; background: #eef2f8; color: #627187; white-space: nowrap;">{{t.tag}}</span>
+              </sc-if>
+            </div>
+            <span style="font-size: 13px; line-height: 19px; color: #536178;">{{t.v}}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; align-items: baseline;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700;">租赁怎么走</h2>
+        <span style="margin-left: auto; font-size: 12px; color: #11804a; white-space: nowrap;">提交询价不产生费用</span>
+      </div>
+      <div role="list" aria-label="租赁流程" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+          <div role="listitem" style="position: relative; display: flex; flex-direction: column; align-items: center;">
+            <span style="position: absolute; left: 0; right: 50%; top: 11px; height: 2px; background: {{s.lc}};"></span>
+            <span style="position: absolute; left: 50%; right: 0; top: 11px; height: 2px; background: {{s.rc}};"></span>
+            <span style="position: relative; width: 24px; height: 24px; margin-bottom: 6px; border-radius: 50%; background: #fff0e3; color: #ba470b; font-size: 12px; font-weight: 700; line-height: 24px; text-align: center;">{{s.n}}</span>
+            <span style="font-size: 12px; font-weight: 500; line-height: 17px; white-space: nowrap;">{{s.t}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size: 12px; line-height: 18px; color: #627187;">商家 2 个工作日内报价，档期在报价时确认。</span>
+    </div>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: baseline;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700;">交易主体</h2>
+        <span style="margin-left: auto; font-size: 12px; color: #627187;">本商品 1 家出租</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px 10px; font-size: 13px;">
+        <sc-for list="{{parties}}" as="p" hint-placeholder-count="5">
+          <span style="color: #627187;">{{p.k}}</span><span>{{p.v}}</span>
+        </sc-for>
+      </div>
+      <a href="Merchant.dc.html" style="align-self: flex-start; font-size: 13px; text-decoration: none;">查看商家主页与资质 ›</a>
+    </div>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700;">售后与保障</h2>
+      <sc-for list="{{after}}" as="a" hint-placeholder-count="3">
+        <div style="display: flex; gap: 8px; font-size: 13px; line-height: 1.5;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2.2" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+          <span><b style="font-weight: 500;">{{a.k}}</b><span style="color: #536178;"> {{a.v}}</span></span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 0 14px; display: flex; flex-direction: column;">
+      <h2 style="margin: 0; font-size: 16px;">
+        <button type="button" aria-expanded="{{secSpec.on}}" onClick="{{secSpec.pick}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 52px; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">参数</span>
+          <span style="font-size: 13px; font-weight: 400; line-height: 18px; color: #738096; white-space: nowrap;">{{specCount}}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-left: auto;" aria-hidden="true"><path d="{{secSpec.chev}}"></path></svg>
+        </button>
+      </h2>
+      <sc-if value="{{secSpec.on}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px;">
+          <div style="display: grid; grid-template-columns: 96px 1fr; font-size: 13px; border: 1px solid #f0f1f3; border-radius: 8px; overflow: hidden;">
+            <sc-for list="{{specs}}" as="s" hint-placeholder-count="6">
+              <span style="padding: 8px 10px; background: #fafafb; color: #627187; border-bottom: 1px solid #f0f1f3;">{{s.k}}</span>
+              <span style="padding: 8px 10px; border-bottom: 1px solid #f0f1f3;">{{s.v}}</span>
+            </sc-for>
+          </div>
+          <span style="font-size: 12px; color: #738096;">参数由厂家填报，平台审核后展示</span>
+        </div>
+      </sc-if>
+      <h2 style="margin: 0; font-size: 16px; border-top: 1px solid #f0f1f3;">
+        <button type="button" aria-expanded="{{secPack.on}}" onClick="{{secPack.pick}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 52px; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">随箱清单</span>
+          <span style="font-size: 13px; font-weight: 400; line-height: 18px; color: #738096; white-space: nowrap;">{{packCount}}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-left: auto;" aria-hidden="true"><path d="{{secPack.chev}}"></path></svg>
+        </button>
+      </h2>
+      <sc-if value="{{secPack.on}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px;">
+          <div style="display: flex; flex-direction: column; font-size: 13px; border: 1px solid #f0f1f3; border-radius: 8px; overflow: hidden;">
+            <sc-for list="{{pack}}" as="k" hint-placeholder-count="6">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid #f0f1f3;">
+                <span style="flex-grow: 1; min-width: 0;">{{k.n}}</span>
+                <span style="flex-shrink: 0; color: #536178;">{{k.q}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <span style="font-size: 12px; color: #738096;">交接时按这份清单逐项核对</span>
+        </div>
+      </sc-if>
+      <h2 style="margin: 0; font-size: 16px; border-top: 1px solid #f0f1f3;">
+        <button type="button" aria-expanded="{{secIntro.on}}" onClick="{{secIntro.pick}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 52px; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">图文介绍</span>
+          <span style="font-size: 13px; font-weight: 400; line-height: 18px; color: #738096; white-space: nowrap;">待商家上传</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-left: auto;" aria-hidden="true"><path d="{{secIntro.chev}}"></path></svg>
+        </button>
+      </h2>
+      <sc-if value="{{secIntro.on}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px;">
+          <div style="min-height: 238px; padding: 16px; box-sizing: border-box; border-radius: 8px; background: #eef2f8; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 13px; color: #627187;">商家图文详情（待商家上传）</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="margin: 0 16px; display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700;">相关内容与服务</h2>
+      <a href="ContentArticle.dc.html" style="display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #202c42;">
+        <img src="_blob/e42bb39cca5b4f528e6577da8445bced.webp" alt="园区外景" style="width: 88px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 11px; color: #1d63c4;">案例</span>
+          <span style="font-size: 14px; font-weight: 500;">一台机器狗如何完成园区夜间巡逻</span>
+        </div>
+      </a>
+      <a href="InspDetailPark.dc.html" style="display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #202c42;">
+        <img src="_blob/b6a30fa51bcba7d4ced06ace8b4d74ed.png" alt="园区安防巡检" style="width: 88px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 11px; color: #1d63c4;">专业服务 · 不想自己操作</span>
+          <span style="font-size: 14px; font-weight: 500;">园区安防巡检 · 由服务商作业</span>
+          <span style="font-size: 13px; font-weight: 700; color: #e85400;">按项目报价</span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 8px 12px 20px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <a href="Merchant.dc.html" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #536178; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" aria-hidden="true"><path d="M4 9l2-5h12l2 5M4 9v11h16V9M4 9h16M9 20v-6h6v6"></path></svg>商家</a>
+    <a href="Chat.dc.html" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #536178; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>咨询</a>
+    <button type="button" onClick="{{openExp}}" style="flex-shrink: 0; height: 44px; box-sizing: border-box; margin: 0; padding: 0 18px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; font: inherit; color: #ba470b; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">先体验</button>
+    <a href="RentalInquiry.dc.html" style="flex: 1 1 auto; min-width: 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">联系询价</a>
+  </div>
+
+  <sc-if value="{{expOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeExp}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 4; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="选择体验方式" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 10px; padding: 8px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; align-items: center;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700;">选择体验方式</h2>
+          <span style="font-size: 12px; color: #627187;">4K 航拍无人机 含飞手 · 体验结束不会自动下单</span>
+        </div>
+        <button type="button" onClick="{{closeExp}}" aria-label="收起" style="flex-shrink: 0; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <sc-for list="{{ways}}" as="w" hint-placeholder-count="2">
+        <a href="{{w.href}}" style="display: flex; gap: 12px; padding: 14px; border-radius: 12px; border: 1.5px solid #e5ebf3; text-decoration: none; color: #202c42;">
+          <div style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: {{w.ibg}}; display: flex; align-items: center; justify-content: center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{w.ifg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{w.d}}"></path></svg>
+          </div>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px; font-weight: 700; white-space: nowrap;">{{w.t}}</span>
+              <span style="font-size: 11px; padding: 1px 6px; border-radius: 6px; background: {{w.ibg}}; color: {{w.ifg}}; white-space: nowrap;">{{w.kind}}</span>
+            </div>
+            <span style="font-size: 13px; color: #536178; line-height: 1.5;">{{w.desc}}</span>
+          </div>
+          <span style="flex-shrink: 0; align-self: center; font-size: 14px; font-weight: 700; color: {{w.pc}}; white-space: nowrap;">{{w.price}}</span>
+        </a>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // open：参数 / 随箱清单 / 图文介绍 哪一块展开（'' 表示都收起）
+    this.state = { open: 'spec', expOpen: false };
+  }
+  renderVals() {
+    const { open, expOpen } = this.state;
+    // 租赁走询价合同订单：¥380/天 是起步参考，真金额在报价和合同里；不做实时档期，保证金不在线收取
+    const terms = [
+      { k: '租期', tag: '', v: '1 天起租，按天计费；长期租用的价格以报价为准', d: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4' },
+      { k: '押金', tag: '待定', v: '[押金规则待确认]，当前不在线收取', d: 'M12 3l7 3v5c0 5-3 8-7 10c-4-2-7-5-7-10V6z' },
+      { k: '交接', tag: '', v: '商家送达或到店自提，双方按清单核对设备和配件，留下交接记录', d: 'M4 9h14l-3-3M20 15H6l3 3' },
+      { k: '损坏处理', tag: '', v: '归还时核对交接记录，人为损坏按合同赔付', d: 'M12 4l9 16H3zM12 10v5M12 18h.01' }
+    ];
+    const stepRows = ['提交询价', '商家报价', '确认合同', '交接使用', '归还结束'];
+    const steps = stepRows.map((t, i) => ({
+      n: String(i + 1), t,
+      lc: i === 0 ? 'transparent' : '#ffd8b8',
+      rc: i === stepRows.length - 1 ? 'transparent' : '#ffd8b8'
+    }));
+    const parties = [
+      ['出租方', '示例无人机厂家（厂家直营）'],
+      ['收款方', '示例无人机厂家 · 经平台支付渠道'],
+      ['开票方', '示例无人机厂家 · 按合同开具'],
+      ['交接履约', '示例无人机厂家 东营仓'],
+      ['售后责任', '示例无人机厂家 · 按合同约定']
+    ].map(([k, v]) => ({ k, v }));
+    const after = [
+      ['设备故障', '使用中非人为故障，由商家维修或更换'],
+      ['平台协助', '协商不成时，可联系平台客服协助沟通'],
+      ['发票', '由出租方开具，平台不代开']
+    ].map(([k, v]) => ({ k, v }));
+    const specs = [
+      ['适用场景', '活动记录、工程进度、宣传素材'],
+      ['相机', '1 英寸 4K/60fps'],
+      ['续航', '单电约 31 分钟 · 配 3 电'],
+      ['飞手', '持证飞手随机'],
+      ['成果交付', '当天拷贝原始素材'],
+      ['上手', '飞手操作，不需自行飞行']
+    ].map(([k, v]) => ({ k, v }));
+    const pack = [
+      { n: '航拍无人机', q: '×1' }, { n: '电池', q: '×3' }, { n: '充电管家', q: '×1' }, { n: '遥控器', q: '×1' }, { n: '运输箱', q: '×1' }
+    ];
+    // “只显示该商品已配置的体验方式”：这款配置了录播演示和到馆体验
+    const ways = [
+      { t: '录播演示', kind: '厂家录制视频', desc: '实拍园区夜巡过程，可拖动查看', price: '免费', pc: '#11804a', href: 'ContentVideo.dc.html', ibg: '#e6f0ff', ifg: '#1d63c4', d: 'M5 5h14v14H5zM10 9l5 3-5 3z' },
+      { t: '到馆体验', kind: '工作人员陪同', desc: '东营低空与机器人体验馆，需预约场次', price: '¥39', pc: '#e85400', href: 'VenueDetail.dc.html', ibg: '#fff0e3', ifg: '#ba470b', d: 'M4 20h16M6 20V9l6-4 6 4v11M10 20v-5h4v5' }
+    ];
+    // 竖向展开区：同一时间只展开一块，默认展开参数；点已展开的标题收起。标题带数量，随箱清单按件数合计
+    const secOf = (id) => {
+      const on = id === open;
+      return { on, chev: on ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6', pick: () => this.setState((s) => ({ open: s.open === id ? '' : id })) };
+    };
+    const pieces = pack.reduce((n, k) => n + Number(k.q.replace('×', '')), 0);
+    return {
+      terms, steps, parties, after, specs, pack, ways, expOpen,
+      secSpec: secOf('spec'), secPack: secOf('pack'), secIntro: secOf('intro'),
+      specCount: specs.length + ' 项', packCount: pieces + ' 件',
+      openExp: () => this.setState({ expOpen: true }),
+      closeExp: () => this.setState({ expOpen: false })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

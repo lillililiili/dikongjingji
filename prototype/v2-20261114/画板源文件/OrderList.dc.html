@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>我的订单</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1552px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; background: #fff;">
+    <div style="display: flex; align-items: center; padding: 8px;">
+      <a href="Mine.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+      <h1 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; text-align: center;">我的订单</h1>
+      <a href="OrderSearch.dc.html" aria-label="搜索订单" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4"></path></svg></a>
+    </div>
+    <div role="tablist" aria-label="业务类型" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 8px;">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="position: relative; height: 44px; padding: 0; border: 0; background: none; font: inherit; font-size: 16px; line-height: 22px; font-weight: {{t.w}}; color: {{t.c}}; white-space: nowrap; cursor: pointer;">{{t.label}}<sc-if value="{{t.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 3px; width: 20px; height: 3px; margin-left: -10px; border-radius: 3px; background: #ff6a00;"></span></sc-if></button>
+      </sc-for>
+    </div>
+    <div role="group" aria-label="按状态筛选" style="display: flex; gap: 6px; padding: 8px 16px 12px;">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="4">
+        <button type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}" style="flex: 1 0 auto; height: 36px; padding: 0 6px; border: 1px solid {{c.bd}}; border-radius: 999px; background: {{c.bg}}; font: inherit; font-size: 13px; line-height: 18px; font-weight: {{c.w}}; color: {{c.fg}}; white-space: nowrap; cursor: pointer;">{{c.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 12px 16px;">
+    <sc-if value="{{showB}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: #fff3e8; color: #d94f00; font-size: 12px; line-height: 20px;">商品</span>
+          <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">示例机器人商家</span>
+          <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: {{bStatusC}};">{{bStatus}}</span>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <img src="/_blob/5d32505e8b9a494f8436e31c3008ef99" alt="编程机器人探索套装" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+              <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">编程机器人探索套装</span>
+              <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">¥1,299</span>
+            </div>
+            <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">标准套装 × 1 · 快递配送</span>
+            <sc-if value="{{bPending}}" hint-placeholder-val="{{true}}">
+              <span style="display: flex; align-items: center; gap: 4px; font-size: 13px; line-height: 18px; color: #e85400;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e85400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2"></path></svg>剩 29:45 未支付将自动取消</span>
+            </sc-if>
+            <sc-if value="{{bCancelled}}" hint-placeholder-val="{{false}}">
+              <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">订单已取消</span>
+            </sc-if>
+          </div>
+        </div>
+        <sc-if value="{{bPending}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onClick="{{cancelB}}" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 14px; line-height: 20px; color: #191919; white-space: nowrap; cursor: pointer;">取消订单</button>
+            <a href="Cashier.dc.html" style="height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">继续支付</a>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showA}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+        <a href="OrderGoods.dc.html" style="display: flex; flex-direction: column; gap: 12px; color: #191919; text-decoration: none;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: #fff3e8; color: #d94f00; font-size: 12px; line-height: 20px;">商品</span>
+            <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">示例机器人商家</span>
+            <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: {{aStatusC}};">{{aStatus}}</span>
+          </span>
+          <span style="display: flex; gap: 12px;">
+            <img src="/_blob/5d32505e8b9a494f8436e31c3008ef99" alt="编程机器人探索套装" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: flex-start; gap: 8px;">
+                <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">编程机器人探索套装</span>
+                <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">¥1,299</span>
+              </span>
+              <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">标准套装（1 台 + 数字课程）× 1</span>
+              <span style="display: flex; align-items: center; gap: 4px; font-size: 13px; line-height: 18px; color: #11804a;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a1.5 1.5 0 1 0 0-.1M17 19a1.5 1.5 0 1 0 0-.1"></path></svg>11/03 10:24 已发货 · 示例快递</span>
+            </span>
+          </span>
+        </a>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <a href="OrderGoods.dc.html" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 14px; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看订单</a>
+          <sc-if value="{{aCanConfirm}}" hint-placeholder-val="{{true}}">
+            <button type="button" onClick="{{confirmA}}" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; font: inherit; font-size: 14px; font-weight: 500; line-height: 20px; color: #d94f00; white-space: nowrap; cursor: pointer;">确认收货</button>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showEnroll}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+        <a href="OrderEnroll.dc.html" style="display: flex; flex-direction: column; gap: 12px; color: #191919; text-decoration: none;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: #f1edff; color: #6a4fe0; font-size: 12px; line-height: 20px;">报名</span>
+            <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">东营低空与机器人体验馆</span>
+            <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: #6a4fe0;">待参加</span>
+          </span>
+          <span style="display: flex; gap: 12px;">
+            <img src="/_blob/b41e3fb34601d5b9b3c9e40e84d2a489" alt="青少年无人机编程挑战赛" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: flex-start; gap: 8px;">
+                <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">青少年无人机编程挑战赛<span style="display: inline-block; white-space: nowrap;">（东营站）</span></span>
+                <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">¥240</span>
+              </span>
+              <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">参与人：王小禾、王小川</span>
+              <span style="font-size: 13px; line-height: 18px; color: #555a62;">11/15 09:00 · 东营低空与机器人体验馆</span>
+            </span>
+          </span>
+        </a>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <a href="EnrollTicket.dc.html" style="height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看凭证</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showSvc}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+        <a href="OrderService.dc.html" style="display: flex; flex-direction: column; gap: 12px; color: #191919; text-decoration: none;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 12px; line-height: 20px;">服务</span>
+            <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">鹰眼智能巡检</span>
+            <span style="flex-shrink: 0; padding: 0 5px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 11px; line-height: 18px;">资质已审核</span>
+            <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: #1d63c4;">第 1 次待验收</span>
+          </span>
+          <span style="display: flex; gap: 12px;">
+            <img src="/_blob/e42bb39cca5b4f528e6577da8445bced" alt="物流园区现场" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: flex-start; gap: 8px;">
+                <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">物流园区季度安防巡检</span>
+                <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">¥18,600</span>
+              </span>
+              <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">企业 · 东营港务物流 · 方案 v2</span>
+              <span style="font-size: 13px; line-height: 18px; color: #555a62;">第 1 次巡检 11/02 完成 · 报告已交付</span>
+              <span style="font-size: 13px; line-height: 18px; color: #555a62; white-space: nowrap;">首付 ¥5,580 已支付 · 按次结算 0/6 次</span>
+            </span>
+          </span>
+        </a>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <a href="Delivery.dc.html" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 14px; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看报告</a>
+          <a href="Delivery.dc.html" style="height: 36px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">去验收</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showRental}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+        <a href="OrderRental.dc.html" style="display: flex; flex-direction: column; gap: 12px; color: #191919; text-decoration: none;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: #fff3e8; color: #d94f00; font-size: 12px; line-height: 20px;">租赁</span>
+            <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">示例机器人商家</span>
+            <span style="flex-shrink: 0; padding: 0 5px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 11px; line-height: 18px;">资质已审核</span>
+            <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: #d94f00;">使用中</span>
+          </span>
+          <span style="display: flex; gap: 12px;">
+            <img src="/_blob/a016bad56a0e687061b30b2a4fd96ff6" alt="巡检机器狗" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: flex-start; gap: 8px;">
+                <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">巡检机器狗 ×1</span>
+                <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">¥1,900</span>
+              </span>
+              <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">企业 · 东营港务物流</span>
+              <span style="font-size: 13px; line-height: 18px; color: #555a62;">租期 11/01–11/05 · 还有 2 天到期</span>
+            </span>
+          </span>
+        </a>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <a href="OrderRental.dc.html" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 14px; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看详情</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showBooked}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+        <a href="InspBooked.dc.html" style="display: flex; flex-direction: column; gap: 12px; color: #191919; text-decoration: none;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 12px; line-height: 20px;">服务</span>
+            <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">示例电力巡检服务商</span>
+            <span style="flex-shrink: 0; padding: 0 5px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 11px; line-height: 18px;">资质已审核</span>
+            <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: #1d63c4;">待方案</span>
+          </span>
+          <span style="display: flex; gap: 12px;">
+            <img src="/_blob/d26647dbfc9226eacaf364aaff076d9d" alt="电力线路现场" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: flex-start; gap: 8px;">
+                <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">电力线路巡检</span>
+                <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">待报价</span>
+              </span>
+              <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">个人 · 王女士</span>
+              <span style="font-size: 13px; line-height: 18px; color: #555a62;">期望 11/06 · 等待服务商确认</span>
+            </span>
+          </span>
+        </a>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <a href="InspBooked.dc.html" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 14px; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看进度</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showExpired}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+        <a href="PlanExpired.dc.html" style="display: flex; flex-direction: column; gap: 12px; color: #191919; text-decoration: none;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 12px; line-height: 20px;">服务</span>
+            <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">示例新能源运维公司</span>
+            <span style="flex-shrink: 0; padding: 0 5px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 11px; line-height: 18px;">资质已审核</span>
+            <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: #d94f00;">待确认</span>
+          </span>
+          <span style="display: flex; gap: 12px;">
+            <img src="/_blob/248020917b29731ae2eb5c415d406dd0" alt="光伏电站现场" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: flex-start; gap: 8px;">
+                <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">光伏电站巡检</span>
+                <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">¥3,000</span>
+              </span>
+              <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">个人 · 王女士</span>
+              <span style="font-size: 13px; line-height: 18px; color: #555a62;">服务商已发布方案，待你确认</span>
+            </span>
+          </span>
+        </a>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <a href="PlanExpired.dc.html" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 14px; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">确认方案</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showAfter}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+        <a href="AftersaleFlow.dc.html" style="display: flex; flex-direction: column; gap: 12px; color: #191919; text-decoration: none;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: #fff3e8; color: #d94f00; font-size: 12px; line-height: 20px; white-space: nowrap;">退货退款</span>
+            <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">示例机器人商家</span>
+            <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: #d94f00; white-space: nowrap;">等待商家处理</span>
+          </span>
+          <span style="display: flex; gap: 12px;">
+            <img src="/_blob/5d32505e8b9a494f8436e31c3008ef99" alt="编程机器人探索套装" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: flex-start; gap: 8px;">
+                <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">编程机器人探索套装</span>
+                <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">¥1,299</span>
+              </span>
+              <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">标准套装（1 台 + 数字课程）× 1</span>
+              <span style="font-size: 13px; line-height: 18px; color: #555a62;">商家处理时限 [协议约定时间]</span>
+            </span>
+          </span>
+        </a>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <a href="AftersaleFlow.dc.html" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 14px; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看进度</a>
+        </div>
+      </div>
+      <a href="AftersaleList.dc.html" style="flex-shrink: 0; align-self: center; display: flex; align-items: center; min-height: 44px; padding: 0 12px; font-size: 13px; color: #d94f00; text-decoration: none; white-space: nowrap;">全部售后单 ›</a>
+    </sc-if>
+
+    <sc-if value="{{showEmpty}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 72px 0;">
+        <span style="width: 64px; height: 64px; border-radius: 50%; background: #eef0f3; display: flex; align-items: center; justify-content: center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"></path></svg></span>
+        <span style="font-size: 14px; line-height: 20px; color: #8a8f97;">暂无相关订单</span>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1552}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // tab：业务类型（all 全部 / goods 商品 / service 服务 / enroll 报名）；chip：状态筛选（'' 表示不限，再点一次已选状态即取消；refund 退款/售后 只列售后单）
+    // received：商品订单 A 已确认收货；cancelled：商品订单 B 已取消
+    this.state = { tab: 'all', chip: '', received: false, cancelled: false };
+  }
+  renderVals() {
+    const { tab, chip, received, cancelled } = this.state;
+    const tabs = [['all', '全部'], ['goods', '商品'], ['service', '服务'], ['enroll', '报名']].map(([id, label]) => {
+      const on = id === tab;
+      return { id, label, on, c: on ? '#191919' : '#666b73', w: on ? 700 : 400, pick: () => this.setState({ tab: id }) };
+    });
+    const chips = [['pay', '待付款'], ['ship', '待发货/履约'], ['attend', '待参加'], ['accept', '待验收'], ['refund', '退款/售后']].map(([id, label]) => {
+      const on = id === chip;
+      return {
+        id, label, on,
+        bg: on ? '#fff3e8' : '#f2f3f5', bd: on ? '#ffd8b8' : '#f2f3f5', fg: on ? '#d94f00' : '#191919', w: on ? 500 : 400,
+        pick: () => this.setState((s) => ({ chip: s.chip === id ? '' : id }))
+      };
+    });
+    // 每张卡片的业务类型与当前状态：已发货（运输中）归入“待发货/履约”；已收货、已取消不属于任何状态筛选，只在“全部 / 商品”里出现
+    const cards = {
+      b: { biz: 'goods', status: cancelled ? '' : 'pay' },
+      a: { biz: 'goods', status: '' },  // 已发货属于“待收货”，不在五个快捷状态里，只在 全部 / 商品 显示
+      enroll: { biz: 'enroll', status: 'attend' },
+      svc: { biz: 'service', status: 'accept' },
+      // 租赁属“服务及合同”；使用中不在快捷状态里，只在 全部 / 服务 显示，Mine 的“待发货/履约”角标仍是 0
+      rental: { biz: 'service', status: '' },
+      // 待方案和待确认不属于五个快捷状态，只在 全部 / 服务 显示；方案是否过期要进 M05 才知道
+      booked: { biz: 'service', status: '' },
+      expired: { biz: 'service', status: '' }
+    };
+    const shown = (c) => (tab === 'all' || c.biz === tab) && (!chip || c.status === chip);
+    const showB = shown(cards.b);
+    const showA = shown(cards.a);
+    const showEnroll = shown(cards.enroll);
+    const showSvc = shown(cards.svc);
+    const showRental = shown(cards.rental);
+    const showBooked = shown(cards.booked);
+    const showExpired = shown(cards.expired);
+    // 售后卡（商品退货退款）只在“退款/售后”筛选下出现，不进“全部”的默认列表；业务类型选“商品”时也显示
+    const showAfter = chip === 'refund' && (tab === 'all' || tab === 'goods');
+    return {
+      tabs, chips,
+      showB, showA, showEnroll, showSvc, showRental, showBooked, showExpired, showAfter,
+      showEmpty: !(showB || showA || showEnroll || showSvc || showRental || showBooked || showExpired || showAfter),
+      bStatus: cancelled ? '已取消' : '待付款',
+      bStatusC: cancelled ? '#8a8f97' : '#d94f00',
+      bPending: !cancelled,
+      bCancelled: cancelled,
+      cancelB: () => this.setState({ cancelled: true }),
+      aStatus: received ? '已收货' : '已发货',
+      aStatusC: received ? '#11804a' : '#d94f00',
+      aCanConfirm: !received,
+      confirmA: () => this.setState({ received: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

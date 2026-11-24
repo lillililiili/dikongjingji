@@ -1,0 +1,112 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>D 体验结果（早期稿，定稿见 09）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px 8px; background: #fff;">
+    <a href="PdFull.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">体验结果</h1>
+  </div>
+
+  <div style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 12px 16px;">
+    <div style="background: #fff; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #e2f6ed; color: #11804a;">虚拟仿真 · 不连接真实设备</span>
+        <span style="font-size: 12px; color: #627187;">编程机器人探索套装</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: #e2f6ed; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 20px; font-weight: 700;">完成「机器人避障模拟」</div>
+          <div style="font-size: 13px; color: #536178;">3 个关卡全部通过 · 用时 2′36″</div>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+        <div style="background: #f5f7fc; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; align-items: center;"><span style="font-size: 18px; font-weight: 700;">3/3</span><span style="font-size: 12px; color: #627187;">关卡</span></div>
+        <div style="background: #f5f7fc; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; align-items: center;"><span style="font-size: 18px; font-weight: 700;">12</span><span style="font-size: 12px; color: #627187;">编程积木</span></div>
+        <div style="background: #f5f7fc; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; align-items: center;"><span style="font-size: 18px; font-weight: 700;">1 次</span><span style="font-size: 12px; color: #627187;">碰撞重试</span></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 700;">接下来，由你决定</h2>
+      <p style="margin: 0; font-size: 13px; color: #627187;">体验结束不会自动下单</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; background: #fff; border-radius: 14px; overflow: hidden;">
+      <button type="button" onClick="{{toggleFav}}" style="box-sizing: border-box; width: 100%; min-height: 69px; margin: 0; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 0; border-bottom: 1px solid #f0f1f3; background: #fff; color: #202c42; font: inherit; text-align: left; cursor: pointer;">
+        <span style="width: 36px; height: 36px; border-radius: 10px; background: #fff0e3; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="{{favFill}}" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg>
+        </span>
+        <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; font-weight: 500;">{{favLabel}}</span>
+          <span style="font-size: 12px; color: #627187;">稍后再看，可在“我的 → 收藏与对比”找到</span>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </button>
+      <sc-for list="{{next}}" as="n" hint-placeholder-count="4">
+        <a href="{{n.href}}" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 44px; border-bottom: 1px solid #f0f1f3; text-decoration: none; color: #202c42;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: #fff0e3; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+          </div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; font-weight: 500;">{{n.t}}</span>
+            <span style="font-size: 12px; color: #627187;">{{n.s}}</span>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; gap: 10px; padding: 10px 16px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <a href="ExpSim.dc.html" style="flex: 1 1 0; box-sizing: border-box; height: 44px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; color: #ba470b; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-decoration: none;">再试一次</a>
+    <a href="PdFull.dc.html" style="flex: 1 1 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-decoration: none;">查看购买选项</a>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { fav: false };
+  }
+  renderVals() {
+    const { fav } = this.state;
+    return {
+      // “收藏”在本页原地切换，不跳页；其余出口保持原链接
+      favLabel: fav ? '已收藏' : '收藏',
+      favFill: fav ? '#ff6a00' : 'none',
+      toggleFav: () => this.setState((s) => ({ fav: !s.fav })),
+      next: [
+        { t: '加入对比', s: '与同类型号比较参数和价格', href: 'MallCompare.dc.html', d: 'M4 6h7v12H4zM13 6h7v12h-7z' },
+        { t: '联系商家', s: '咨询课程配套与批量价格', href: 'PdFull.dc.html', d: 'M4 5h16v11H9l-5 4z' },
+        { t: '预约到馆体验', s: '东营低空与机器人体验馆', href: 'Ref10Venue.dc.html', d: 'M5 5h14v15H5zM5 9h14M9 3v4M15 3v4' },
+        { t: '直接下单', s: '选择经营商家后支付', href: 'PdFull.dc.html', d: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2' }
+      ]
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

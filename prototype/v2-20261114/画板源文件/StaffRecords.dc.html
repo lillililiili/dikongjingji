@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>核销记录</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1077px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="StaffVerify.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap;">核销记录</h1>
+    <span style="margin-left: auto; padding-right: 8px; font-size: 13px; line-height: 18px; color: #8a8f97; white-space: nowrap;">11/03 周二</span>
+  </div>
+
+  <div role="tablist" aria-label="记录类型" style="flex-shrink: 0; display: flex; gap: 22px; padding: 0 16px; background: #fff; border-bottom: 1px solid #f0f1f3;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+      <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="margin: 0; min-height: 44px; padding: 10px 0; border: 0; border-bottom: 3px solid {{t.bb}}; background: none; font: inherit; font-size: 15px; font-weight: {{t.w}}; line-height: 21px; color: {{t.c}}; white-space: nowrap; cursor: pointer;">{{t.label}}</button>
+    </sc-for>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px;">
+    <div style="flex-shrink: 0; position: relative;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="1.8" stroke-linecap="round" style="position: absolute; left: 12px; top: 13px;" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+      <input type="search" value="{{kw}}" onChange="{{setKw}}" placeholder="搜索姓名或凭证尾号" aria-label="搜索姓名或凭证尾号" style="width: 100%; height: 44px; box-sizing: border-box; margin: 0; padding: 0 12px 0 38px; border: 0; border-radius: 999px; background: #fff; font: inherit; font-size: 14px; color: #191919;">
+    </div>
+
+    <div role="group" aria-label="按场次筛选" style="flex-shrink: 0; display: flex; gap: 6px;">
+      <sc-for list="{{filters}}" as="f" hint-placeholder-count="4">
+        <button type="button" aria-pressed="{{f.pressed}}" onClick="{{f.pick}}" style="margin: -6px 0; padding: 6px 0; border: 0; background: none; font: inherit; cursor: pointer;"><span style="display: flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; background: {{f.bg}}; color: {{f.fg}}; font-size: 13px; line-height: 18px; white-space: nowrap;">{{f.label}}</span></button>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: baseline; gap: 4px; font-size: 13px; line-height: 18px; color: #555a62; white-space: nowrap;">今日已核销 <span style="font-size: 16px; font-weight: 700; line-height: 22px; color: #11804a;">10</span> / 16 人<span style="margin-left: 8px;">异常</span> <span style="font-size: 16px; font-weight: 700; line-height: 22px; color: #d94f00;">3</span> 条</div>
+
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+        <div style="display: flex; align-items: center; gap: 8px; min-height: 48px;">
+          <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{g.time}} {{g.name}}</span>
+          <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: {{g.tagBg}}; color: {{g.tagC}}; font-size: 12px; line-height: 18px; white-space: nowrap;">{{g.status}}</span>
+          <span style="flex-shrink: 0; min-width: 44px; font-size: 14px; line-height: 20px; color: #555a62; text-align: right; white-space: nowrap;">{{g.done}} / {{g.total}} 人</span>
+        </div>
+        <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+          <button type="button" aria-haspopup="dialog" onClick="{{r.open}}" style="width: 100%; min-height: 58px; margin: 0; padding: 0; box-sizing: border-box; border: 0; border-top: 1px solid #f0f1f3; background: none; font: inherit; color: #191919; text-align: left; display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <span style="flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: {{r.dotBg}}; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{r.dotPath}}"></path></svg></span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.title}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.sub}}</span>
+            </span>
+            <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: {{r.tagBg}}; color: {{r.tagC}}; font-size: 12px; line-height: 18px; white-space: nowrap;">{{r.tag}}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </button>
+        </sc-for>
+        <sc-if value="{{g.none}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; align-items: center; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 13px; line-height: 18px; color: #8a8f97;">还没有核销记录</div>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    <sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 16px; border-radius: 14px; background: #fff;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#c4c8ce" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+        <span style="font-size: 14px; line-height: 20px; color: #8a8f97;">没有符合条件的记录</span>
+        <button type="button" onClick="{{clearFilter}}" style="height: 36px; margin: 0; padding: 0 16px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 13px; color: #191919; white-space: nowrap; cursor: pointer;">清除筛选</button>
+      </div>
+    </sc-if>
+
+    <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; color: #8a8f97;">仅显示本场馆今日记录，操作人和时间已留存</span>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="记录详情" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="flex-grow: 1; min-width: 0; font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{sheetTitle}}</span>
+        <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: {{sheetTagBg}}; color: {{sheetTagC}}; font-size: 12px; line-height: 18px; white-space: nowrap;">{{sheetTag}}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; font-size: 14px; line-height: 20px;">
+        <sc-for list="{{sheetRows}}" as="d" hint-placeholder-count="5">
+          <span style="color: #666b73; white-space: nowrap;">{{d.k}}</span><span>{{d.v}}</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">关闭</button>
+        <sc-if value="{{sheetBad}}" hint-placeholder-val="{{false}}">
+          <a href="StaffException.dc.html" style="flex: 1 1 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看异常登记</a>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1077}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 时间线：11/03 14:10。14:00 场含王女士 14:05 那次核销（合计 4 人），与工作台扫码后的数字一致
+    // tab：all 全部 / ok 已核销 / bad 异常；session：场次筛选，空串 = 全部；kw：姓名或凭证尾号；open：打开详情的记录 id
+    this.state = { tab: 'all', session: '', kw: '', open: '' };
+  }
+  renderVals() {
+    const { tab, session, kw, open } = this.state;
+    const sessions = [
+      { id: 's1400', time: '14:00', name: '机器人避障闯关', status: '进行中', tagBg: '#fff3e8', tagC: '#d94f00', done: 4, total: 8 },
+      { id: 's1000', time: '10:00', name: '模拟飞行', status: '已结束', tagBg: '#f2f3f5', tagC: '#8a8f97', done: 6, total: 6 },
+      { id: 's1530', time: '15:30', name: '机器人闯关', status: '未开始', tagBg: '#eaf2fd', tagC: '#1d63c4', done: 0, total: 2 }
+    ];
+    // 异常三条是 StaffException 的三张凭证，处理结果都不放行，所以不计入已核销人数
+    const records = [
+      { id: 'r1', s: 's1400', who: '周**', n: 1, tail: '5208', at: '14:10', way: '扫码', bad: '凭证已过期', act: '不予核销（拒绝入场）', why: '凭证已过期（11/02 场）' },
+      { id: 'r2', s: 's1400', who: '孙**', n: 1, tail: '0815', at: '14:08', way: '扫码', bad: '场次不符', act: '不予核销（拒绝入场）', why: '凭证属于 15:30 场，按原场次参加' },
+      { id: 'r3', s: 's1400', who: '李**', n: 1, tail: '3762', at: '14:06', way: '扫码', bad: '重复核销', act: '拦截，不予入场', why: '重复核销（该凭证已于 14:02 核销）' },
+      { id: 'r4', s: 's1400', who: '王女士', n: 1, tail: '0314', at: '14:05', way: '扫码' },
+      { id: 'r5', s: 's1400', who: '李**', n: 1, tail: '3762', at: '14:02', way: '扫码' },
+      { id: 'r6', s: 's1400', who: '赵**', n: 2, tail: '6410', at: '14:01', way: '手动输入凭证号' },
+      { id: 'r7', s: 's1000', who: '钱**', n: 2, tail: '7731', at: '10:03', way: '扫码' },
+      { id: 'r8', s: 's1000', who: '吴**', n: 1, tail: '2946', at: '09:58', way: '扫码' },
+      { id: 'r9', s: 's1000', who: '郑**', n: 1, tail: '1187', at: '09:56', way: '扫码' },
+      { id: 'r10', s: 's1000', who: '冯**', n: 2, tail: '4059', at: '09:52', way: '手动输入凭证号' }
+    ];
+    const OK_DOT = 'M5 12l5 5 9-10';
+    const BAD_DOT = 'M12 6v8M12 18h.01';
+    const look = (r) => (r.bad
+      ? { dotBg: '#ff6a00', dotPath: BAD_DOT, tag: '未核销', tagBg: '#fff3e8', tagC: '#d94f00' }
+      : { dotBg: '#19b866', dotPath: OK_DOT, tag: '已核销', tagBg: '#e8f7ef', tagC: '#11804a' });
+
+    const text = String(kw).trim();
+    const match = (r) => (tab === 'all' || (tab === 'bad') === !!r.bad)
+      && (!session || r.s === session)
+      && (!text || r.who.includes(text) || r.tail.includes(text));
+    const filtering = tab !== 'all' || !!text;
+    const groups = sessions
+      .filter((s) => !session || s.id === session)
+      .map((s) => {
+        const rows = records.filter((r) => r.s === s.id && match(r)).map((r) => ({
+          ...look(r),
+          title: r.who + ' · ' + r.n + ' 人',
+          sub: r.at + ' · ' + (r.bad || r.way),
+          open: () => this.setState({ open: r.id })
+        }));
+        return { ...s, rows, none: rows.length === 0 && !filtering };
+      })
+      // 筛选时只留有结果的场次；没筛选时未开始的场次也显示，写明还没有记录
+      .filter((g) => g.rows.length > 0 || g.none);
+
+    const count = (id) => records.filter((r) => id === 'all' || (id === 'bad') === !!r.bad).length;
+    const tabs = [['all', '全部'], ['ok', '已核销'], ['bad', '异常']].map(([id, name]) => {
+      const on = id === tab;
+      return { on, label: name + ' ' + count(id), bb: on ? '#ff6a00' : 'transparent', w: on ? 700 : 400, c: on ? '#191919' : '#666b73', pick: () => this.setState({ tab: id }) };
+    });
+    const filters = [['', '全部场次']].concat(sessions.map((s) => [s.id, s.time + ' 场'])).map(([id, label]) => {
+      const on = id === session;
+      return { label, pressed: on ? 'true' : 'false', bg: on ? '#191919' : '#fff', fg: on ? '#fff' : '#191919', pick: () => this.setState({ session: id }) };
+    });
+
+    const cur = records.find((r) => r.id === open);
+    const curLook = cur ? look(cur) : { tag: '', tagBg: '#fff', tagC: '#191919' };
+    const curSession = cur ? sessions.find((s) => s.id === cur.s) : null;
+    const sheetRows = !cur ? [] : [
+      { k: '场次', v: curSession.time + ' ' + curSession.name },
+      { k: '凭证尾号', v: cur.tail },
+      { k: '时间', v: '11/03 ' + cur.at },
+      { k: '方式', v: cur.way },
+      { k: '操作人', v: '核销员 李员' }
+    ].concat(cur.bad ? [
+      { k: '异常', v: cur.bad },
+      { k: '处理', v: cur.act },
+      { k: '原因', v: cur.why }
+    ] : []);
+
+    return {
+      tabs, filters, groups,
+      kw,
+      setKw: (e) => this.setState({ kw: String(e && e.target ? e.target.value : '') }),
+      isEmpty: groups.length === 0,
+      clearFilter: () => this.setState({ tab: 'all', session: '', kw: '' }),
+      sheetOpen: !!cur,
+      sheetTitle: cur ? cur.who + ' · ' + cur.n + ' 人' : '',
+      sheetTag: curLook.tag,
+      sheetTagBg: curLook.tagBg,
+      sheetTagC: curLook.tagC,
+      sheetRows,
+      sheetBad: !!(cur && cur.bad),
+      closeSheet: () => this.setState({ open: '' })
+    };
+  }
+}
+</script>
+</body>
+</html>

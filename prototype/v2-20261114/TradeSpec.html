@@ -1,0 +1,328 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>06 交易闭环 · 规格</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>body{margin:0;background:#dfe2e6;padding:16px;font-family:-apple-system,'PingFang SC',sans-serif}.bar{font-size:13px;color:#555;margin:0 0 10px}.bar a{color:#ba470b}#root{width:max-content;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.18)}</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body><div class="bar"><a href="HomeFull.html">← 回到 App</a> &nbsp; 06 交易闭环 · 规格（设计文档，不是 App 页面）</div><div id="root"></div><template id="tpl">
+
+<div style="width: 1100px; height: 4080px; display: flex; flex-direction: column; gap: 26px; padding: 40px 44px; box-sizing: border-box; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 700;">交易闭环 · 规格（第一批补页）</h1>
+    <span style="font-size: 14px; color: #536178; line-height: 1.6;">本批补齐三条交易链路缺的页面：登录拦截、确认订单、收银台、支付结果、我的订单、三类订单详情、售后申请与售后详情。依据 docs/redesign/01-概要设计.md §5.2 页面地图与 §6 核心业务流程；资金范围按 AGENTS.md V2.1：一期只做一种主用支付渠道的在线支付、支付回执、标准退款与对账导出，均由统一交易模块实现。</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">1 · 页面流</h2>
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #536178;"><span style="width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ffd8b8; background: #fff0e3;"></span>本批新画板</span>
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #536178;"><span style="width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 1px solid #e5ebf3; background: #eef2f8;"></span>已有画板</span>
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #536178;"><span style="width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 1px dashed #c9d3e1; background: #fff;"></span>本画布未画</span>
+      <span style="font-size: 12px; color: #738096;">点卡片可跳到对应画板</span>
+    </div>
+    <sc-for list="{{flows}}" as="fl" hint-placeholder-count="3">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid #e5ebf3; border-radius: 12px;">
+        <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+          <span style="font-size: 15px; font-weight: 700;">{{fl.name}}</span>
+          <span style="font-size: 12px; color: #738096;">{{fl.note}}</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+          <sc-for list="{{fl.steps}}" as="s" hint-placeholder-count="7">
+            <sc-if value="{{s.isNew}}" hint-placeholder-val="{{true}}">
+              <a href="{{s.href}}" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #ffd8b8; background: #fff0e3; color: #202c42; text-decoration: none;">
+                <span style="font-size: 13px; font-weight: 500; white-space: nowrap;">{{s.t}}</span>
+                <span style="font-size: 11px; color: #ba470b; white-space: nowrap;">{{s.p}}</span>
+              </a>
+            </sc-if>
+            <sc-if value="{{s.isOld}}" hint-placeholder-val="{{false}}">
+              <a href="{{s.href}}" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #e5ebf3; background: #eef2f8; color: #202c42; text-decoration: none;">
+                <span style="font-size: 13px; font-weight: 500; white-space: nowrap;">{{s.t}}</span>
+                <span style="font-size: 11px; color: #627187; white-space: nowrap;">{{s.p}}</span>
+              </a>
+            </sc-if>
+            <sc-if value="{{s.isNone}}" hint-placeholder-val="{{false}}">
+              <span style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px dashed #c9d3e1; background: #fff;">
+                <span style="font-size: 13px; font-weight: 500; color: #536178; white-space: nowrap;">{{s.t}}</span>
+                <span style="font-size: 11px; color: #738096; white-space: nowrap;">{{s.p}}</span>
+              </span>
+            </sc-if>
+            <span style="font-size: 14px; color: #91a0b4;">{{s.arrow}}</span>
+          </sc-for>
+        </div>
+        <div style="font-size: 12px; line-height: 1.6; color: #536178;">{{fl.rule}}</div>
+      </div>
+    </sc-for>
+    <div style="font-size: 13px; line-height: 1.6; color: #536178;"><span style="font-weight: 700; color: #202c42;">订单台账</span>　我的 → <a href="OrderList.dc.html" style="text-decoration: none;">我的订单（OrderList）</a>：商品已发货进商品订单详情，服务待验收进服务订单详情，报名待参加进报名订单详情；商品待付款「继续支付」回收银台。</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">2 · 三类订单状态与显示页面</h2>
+      <span style="font-size: 13px; color: #738096;">主业务状态按概要设计 §6.6；支付、退款、售后各自独立计状态，不用一个“已完成”代替全部业务。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 132px minmax(0, 1.15fr) minmax(0, 1fr); border: 1px solid #e5ebf3; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">状态</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">在哪个页面显示（画板）</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">规则与凭据</div>
+      <sc-for list="{{stateGroups}}" as="sg" hint-placeholder-count="3">
+        <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 12px; border-top: 1px solid #e5ebf3; background: #eef2f8;">
+          <sc-if value="{{sg.isGoods}}" hint-placeholder-val="{{true}}"><span style="font-size: 12px; line-height: 18px; padding: 0 6px; border-radius: 6px; background: #fff0e3; color: #ba470b;">商品</span></sc-if>
+          <sc-if value="{{sg.isSvc}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; line-height: 18px; padding: 0 6px; border-radius: 6px; background: #e2f6ed; color: #11804a;">服务</span></sc-if>
+          <sc-if value="{{sg.isEnroll}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; line-height: 18px; padding: 0 6px; border-radius: 6px; background: #eee7ff; color: #6a4fe0;">报名</span></sc-if>
+          <span style="font-size: 14px; font-weight: 700;">{{sg.name}}</span>
+          <span style="font-size: 12px; color: #536178;">{{sg.chain}}</span>
+        </div>
+        <sc-for list="{{sg.rows}}" as="r" hint-placeholder-count="7">
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700;">{{r.c0}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{r.c1}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #536178;">{{r.c2}}</div>
+        </sc-for>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start;">
+    <div style="border: 1px solid #e5ebf3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">3 · 支付规则</h2>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px;">
+        <span style="padding: 3px 8px; border-radius: 6px; background: #eef2f8; color: #202c42;">待付款 · 收银台</span>
+        <span style="color: #91a0b4;">→</span>
+        <span style="padding: 3px 8px; border-radius: 6px; background: #fff0e3; color: #ba470b;">确认中 · 等渠道回执</span>
+        <span style="color: #91a0b4;">→</span>
+        <span style="padding: 3px 8px; border-radius: 6px; background: #e2f6ed; color: #11804a;">已支付 · 回执金额一致</span>
+        <span style="color: #91a0b4;">/</span>
+        <span style="padding: 3px 8px; border-radius: 6px; background: #eef2f8; color: #d64f67;">支付失败 · 可重新支付</span>
+      </div>
+      <sc-for list="{{payRules}}" as="p" hint-placeholder-count="9">
+        <div style="font-size: 13px; line-height: 1.6;"><span style="font-weight: 700;">{{p.c0}}</span><span style="color: #536178;">：{{p.c1}}</span></div>
+      </sc-for>
+    </div>
+    <div style="border: 1px solid #e5ebf3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">4 · 售后规则</h2>
+      <div style="padding: 8px 12px; border-radius: 10px; background: #e2f6ed; font-size: 13px; line-height: 1.55; color: #11804a;">售后由售后责任方处理；协商不成时，平台客服只协助沟通，不裁决。</div>
+      <sc-for list="{{afterRules}}" as="ar" hint-placeholder-count="7">
+        <div style="font-size: 13px; line-height: 1.6;"><span style="font-weight: 700;">{{ar.c0}}</span><span style="color: #536178;">：{{ar.c1}}</span></div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; font-weight: 700;">5 · 登录拦截</h2>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start;">
+      <div style="border: 1px solid #e5ebf3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 14px; font-weight: 700;">需要登录的操作（游客点击时先到登录页）</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <sc-for list="{{loginActs}}" as="la" hint-placeholder-count="6">
+            <span style="padding: 5px 12px; border-radius: 999px; background: #fff0e3; color: #ba470b; font-size: 13px;">{{la}}</span>
+          </sc-for>
+        </div>
+        <span style="font-size: 14px; font-weight: 700;">游客不用登录</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <sc-for list="{{guestCan}}" as="gc" hint-placeholder-count="4">
+            <span style="padding: 5px 12px; border-radius: 999px; background: #e2f6ed; color: #11804a; font-size: 13px;">{{gc}}</span>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; line-height: 1.6; color: #738096;">依据概要设计 §4 游客用例与 §5.3：登录拦截在下单、询价、报名、预约、需求发布时发生，登录后恢复原动作。</span>
+      </div>
+      <div style="border: 1px solid #e5ebf3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 14px; font-weight: 700;">登录后回到原操作</span>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+          <a href="PdFull.dc.html" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #e5ebf3; background: #eef2f8; color: #202c42; text-decoration: none;">
+            <span style="font-size: 13px; font-weight: 500; white-space: nowrap;">立即购买</span>
+            <span style="font-size: 11px; color: #627187; white-space: nowrap;">PdFull · 游客点击</span>
+          </a>
+          <span style="font-size: 14px; color: #91a0b4;">→</span>
+          <a href="Login.dc.html" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #ffd8b8; background: #fff0e3; color: #202c42; text-decoration: none;">
+            <span style="font-size: 13px; font-weight: 500; white-space: nowrap;">登录</span>
+            <span style="font-size: 11px; color: #ba470b; white-space: nowrap;">Login · APP-COM-03</span>
+          </a>
+          <span style="font-size: 14px; color: #91a0b4;">→</span>
+          <a href="PdSku.dc.html" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #e5ebf3; background: #eef2f8; color: #202c42; text-decoration: none;">
+            <span style="font-size: 13px; font-weight: 500; white-space: nowrap;">规格面板</span>
+            <span style="font-size: 11px; color: #627187; white-space: nowrap;">PdSku · 回到原操作</span>
+          </a>
+        </div>
+        <sc-for list="{{loginRules}}" as="lr" hint-placeholder-count="4">
+          <div style="font-size: 13px; line-height: 1.6;"><span style="font-weight: 700;">{{lr.c0}}</span><span style="color: #536178;">：{{lr.c1}}</span></div>
+        </sc-for>
+        <div style="font-size: 13px; line-height: 1.6;"><span style="font-weight: 700;">先随便看看</span><span style="color: #536178;">：放弃登录，回到</span><a href="HomeFull.dc.html" style="text-decoration: none;">首页（HomeFull）</a><span style="color: #536178;">继续浏览。</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">6 · 本批画板对应的页面编号</h2>
+      <span style="font-size: 13px; color: #738096;">编号取自概要设计 §5.2，按 §14 D4 为草案编号，确认后生效。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 136px minmax(0, 1.05fr) 120px minmax(0, 1fr) minmax(0, 1.7fr); border: 1px solid #e5ebf3; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">画板</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">页面</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">页面编号</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">参考定稿图</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">本页状态与去向</div>
+      <sc-for list="{{pageRows}}" as="pr" hint-placeholder-count="11">
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700;">
+          <sc-if value="{{pr.link}}" hint-placeholder-val="{{true}}"><a href="{{pr.href}}" style="text-decoration: none;">{{pr.c0}}</a></sc-if>
+          <sc-if value="{{pr.self}}" hint-placeholder-val="{{false}}"><span>{{pr.c0}}</span></sc-if>
+        </div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{pr.c1}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; white-space: nowrap;">{{pr.c2}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #536178;">{{pr.c3}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #536178;">{{pr.c4}}</div>
+      </sc-for>
+    </div>
+    <div style="font-size: 13px; line-height: 1.6; color: #536178;">同一编号可对应多张画板：APP-MALL-05 = 收银台 + 支付结果 + 服务费收银台（CashierFinal）；APP-ORD-02 = 三类订单详情；APP-ORD-03 = 售后申请 + 售后详情。购物车（Cart）是导航方案 C 新增的底栏 Tab，编号 APP-MALL-07。</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; font-weight: 700;">7 · 待确认</h2>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px;">
+      <sc-for list="{{asks}}" as="ak" hint-placeholder-count="6">
+        <div style="font-size: 13px; line-height: 1.55; padding: 8px 12px; border-radius: 10px; background: #fff0e3;"><span style="font-weight: 700;">{{ak.c0}}</span><span style="color: #536178;">：{{ak.c1}}</span></div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="font-size: 12px; line-height: 1.6; color: #738096;">依据：docs/redesign/01-概要设计.md §4、§5.2、§5.3、§6、§9、§10、§13、§14；AGENTS.md V2.1 文件头、§3、§11。主体、金额、单号均为示意数据。</div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    // 页面流卡片：new = 本批新画板（橙），old = 已有画板（灰），none = 本画布未画（虚线，不做链接）
+    const step = (kind, t, p, href, arrow) => ({ t, p, href, arrow, isNew: kind === 'new', isOld: kind === 'old', isNone: kind === 'none' });
+    const flows = [
+      { name: '商品直购', note: '一期每次只结算一个商家；询价商品、服务、活动不进购物车',
+        rule: '规格面板「去确认订单」、购物车「结算」都进入确认订单；「提交订单」后服务端生成待付款订单并占用库存；「确认支付」后先显示“确认中”，「刷新结果」得到“已支付”，失败时「重新支付」回收银台。',
+        steps: [
+          step('old', '规格面板', 'PdSku · 规格与配送', 'PdSku.dc.html', '/'),
+          step('old', '购物车', 'Cart · 底栏 Tab', 'Cart.dc.html', '→'),
+          step('new', '确认订单', 'Checkout · APP-MALL-04', 'Checkout.dc.html', '→'),
+          step('new', '收银台', 'Cashier · APP-MALL-05', 'Cashier.dc.html', '→'),
+          step('new', '支付结果', 'PayResult · APP-MALL-05', 'PayResult.dc.html', '→'),
+          step('new', '商品订单详情', 'OrderGoods · APP-ORD-02', 'OrderGoods.dc.html', '→'),
+          step('new', '售后申请', 'AftersaleApply · APP-ORD-03', 'AftersaleApply.dc.html', '→'),
+          step('new', '售后详情', 'AftersaleDetail · APP-ORD-03', 'AftersaleDetail.dc.html', '')
+        ] },
+      { name: '服务及合同', note: '企业身份 东营港务物流；付款节点由统一交易模块单列',
+        rule: '选定 鹰眼智能巡检 方案 v2 · 合同金额 ¥18,600；首付 30% ¥5,580 已支付（11/01）；按次结算 70% ¥13,020，每次验收后支付 ¥2,170，共 6 次；验收确认后不可撤销。',
+        steps: [
+          step('old', '报价比选', 'Quote · APP-SVC-04', 'Quote.dc.html', '→'),
+          step('old', '方案确认', 'PlanConfirm · 巡检 M05', 'PlanConfirm.dc.html', '→'),
+          step('old', '履约', 'Fulfillment · 巡检 M06', 'Fulfillment.dc.html', '→'),
+          step('old', '交付与验收', 'Delivery · 巡检 M07', 'Delivery.dc.html', '→'),
+          step('new', '按次服务费', 'CashierFinal · 每次 ¥2,170', 'CashierFinal.dc.html', '')
+        ] },
+      { name: '活动报名', note: '参与人 王小禾（11 岁）、王小川（9 岁）',
+        rule: '青少年无人机编程挑战赛（东营站）· 11/15 上午场 09:00 · 2 人 × ¥120 = ¥240；免费活动跳过支付；报名订单详情「查看凭证」到报名凭证，「申请退改」到退改申请。',
+        steps: [
+          step('old', '报名填写', 'Signup · APP-ACT-03', 'Signup.dc.html', '→'),
+          step('new', '报名收银台', 'CashierEnroll', 'CashierEnroll.dc.html', '→'),
+          step('old', '报名凭证', 'Ref08Ticket · APP-ACT-04', 'EnrollTicket.dc.html', '/'),
+          step('new', '报名订单详情', 'OrderEnroll · APP-ORD-02', 'OrderEnroll.dc.html', '→'),
+          step('old', '退改', 'Ref22Refund · APP-ORD-03', 'EnrollRefund.dc.html', '')
+        ] }
+    ];
+
+    // 三类订单状态：c0 状态，c1 显示页面（画板），c2 规则与凭据
+    const stateGroups = [
+      { name: '实物商品', chain: '待付款 → 待发货 → 已发货 → 已收货 → 已完成', isGoods: true, isSvc: false, isEnroll: false, rows: [
+        ['待付款', '收银台 Cashier（DY20261103150800 · 剩余支付时间 29:45）；我的订单 OrderList「继续支付」（同一张订单 DY20261103150800 · 剩 29:45）', '「提交订单」后服务端生成并占用库存；保留 30 分钟（待业务确认），超时自动取消、释放库存'],
+        ['待发货', '支付结果 PayResult「已支付」→「查看订单」；详情沿用 OrderGoods 模板（画板画的是已发货）', '服务端收到渠道回执且金额一致才进入；“确认中”时仍是待付款，不能再次支付'],
+        ['已发货', '商品订单详情 OrderGoods（订单 A DY20261102201500 · 11/03 10:24 发货 · 示例快递 2026110300088）；消息“订单已发货 · 10:24”', '只放「复制单号去承运商查询」，一期不画物流轨迹；显示“11/13 10:24 将自动确认收货（按平台交易协议约定天数）”'],
+        ['已收货', 'OrderGoods、OrderList 点「确认收货」后本页显示（无单独画板）', '用户确认收货，或到期自动确认收货'],
+        ['已完成', '未单独画；会出现在 OrderList「全部」，详情沿用 OrderGoods', '凭物流/交接记录与收货确认'],
+        ['已取消（旁支）', '我的订单 OrderList：订单 B 点「取消订单」后显示（全部 / 商品）', '待付款超时或用户取消；释放库存'],
+        ['售后（独立状态）', '售后申请 AftersaleApply → 售后详情 AftersaleDetail（退货退款 · ¥1,299 · 等待商家处理）', '售后单回连原订单，单独计状态；可撤销申请，撤销后显示“已撤销”']
+      ] },
+      { name: '服务及合同', chain: '待报价 → 待确认 → 待履约 → 履约中 → 待验收 → 已完成（按次验收共 6 次；付款节点单列：首付 + 按次结算 ×6）', isGoods: false, isSvc: true, isEnroll: false, rows: [
+        ['待报价', '需求发布 Ref20Demand 提交后；我的「需求与报价」', '平台按范围分派给授权城市内的服务商，服务商按版本报价'],
+        ['待确认', '报价比选 Quote → 方案确认 PlanConfirm（巡检 M05）', '选定 鹰眼智能巡检（资质已审核）方案 v2 · 合同金额 ¥18,600；企业身份：东营港务物流'],
+        ['待履约', '首付收银台 CashierFirst；服务订单详情 OrderService 状态链', '确认方案后先付首付 30% ¥5,580（11/01 已付），再安排履约'],
+        ['履约中', '服务履约 Fulfillment（巡检 M06）；OrderService 履约记录', '共 6 次，进度由服务商经受权接口推进，客户端只读'],
+        ['待验收', '交付与验收 Delivery（巡检 M07）；OrderService、我的、我的订单 OrderList 的「去验收」都进 Delivery', '按次验收（第 1–5 次时订单仍为履约中，第 6 次交付后进入待验收）；下载链接短时有效，不显示文件地址；验收不可撤销并留痕'],
+        ['已完成', '单次样例见 FulfillOneDone；OrderService 状态链终点', '全部巡检验收并结清后进入；凭合同范围、服务记录与验收材料'],
+        ['付款节点（单列）', 'OrderService 付款节点只读；Delivery 验收后 → 服务费收银台 CashierFinal（确认中 / 已支付 / 失败在本页切换）', '首付 30% ¥5,580（11/01 已付）+ 按次结算 70% ¥13,020（每次验收后 ¥2,170 × 6）；每笔以渠道回执为准']
+      ] },
+      { name: '活动报名', chain: '待付款 → 报名成功 → 待参加 → 已签到 → 已完成（免费活动跳过付款）', isGoods: false, isSvc: false, isEnroll: true, rows: [
+        ['待付款', '报名填写 Signup「提交并支付」（2 人 × ¥120 = ¥240）', '保留 15 分钟（待业务确认），超时释放名额；本批画板支付后直接进入凭证'],
+        ['报名成功', '报名凭证 Ref08Ticket；消息“报名成功”', '服务端收到支付回执后生成电子凭证：二维码 + 场次 + 地点 + 状态'],
+        ['待参加', '报名订单详情 OrderEnroll；我的“报名成功 · 待参加”；我的订单 OrderList 报名卡', '青少年无人机编程挑战赛（东营站）· 11/15 上午场 09:00 · 东营低空与机器人体验馆 · 08:30 起签到'],
+        ['已签到', '报名凭证显示签到状态；扫码在核销工作台 StaffVerify（APP-STAFF-01）', '核销员扫码，服务端校验场次、有效期、是否已核销'],
+        ['已完成', 'OrderEnroll 同一模板（未单独画）', '凭报名资料与签到核销记录'],
+        ['已取消（旁支）', '未单独画；会出现在我的订单 OrderList「全部」', '待付款超时，或退改取消后；释放名额'],
+        ['退改（独立状态）', '申请退改 → 退改申请 Ref22Refund（沿用定稿 22）', '退改处理：东营低空与机器人体验馆；11/13 09:00 前可免费取消，之后不退报名费、可转让同场次名额；活动延期或取消全额退款']
+      ] }
+    ];
+
+    const payRules = [
+      ['一种主用渠道', '一期只接一种，还没定是哪家：界面写 [主用支付渠道]，交易号写 [渠道交易号]，不写任何真实支付品牌'],
+      ['统一交易模块', '商品订单、服务付款节点、报名费都经统一交易模块发起；业务模块不直连支付渠道'],
+      ['以回执为准', '支付结果只认服务端收到的渠道回执，回执金额与应付一致才记“已支付”；重复通知只处理一次，客户端回跳不算成功'],
+      ['确认中', '未收到回执前只有「刷新结果」「支付遇到问题」，不能再次支付'],
+      ['待付款保留', '商品 30 分钟、报名 15 分钟（待业务确认）；收银台显示剩余支付时间（示例 29:45），超时自动取消并释放库存或名额'],
+      ['收款方写明', '收银台写明收款方（示例机器人商家）；订单详情列出销售、收款、开票、发货履约、售后五个主体'],
+      ['退款原路退回', '退款只退回原支付渠道 [主用支付渠道]，金额不超过实付；退款结果同样以渠道回执为准'],
+      ['对账与结算', '对账导出在后台完成；一期不创建结算状态，App 不显示结算（页面上的“按次结算”指客户按次付款）'],
+      ['一期不做', '用户钱包、保证金、App 内开具发票、多方自动分账、抽佣自动结算、预售与账期授信；不支持跨商家合并支付']
+    ];
+
+    const afterRules = [
+      ['谁来处理', '商品看交易主体里的“售后责任”（示例机器人商家 · 厂家保修）；报名退改由东营低空与机器人体验馆处理'],
+      ['时限', '处理时限、自动确认收货天数都来自平台交易协议；没有约定时不显示倒计时'],
+      ['金额上限', '申请金额不超过该订单实付，服务端校验；示例退货退款 ¥1,299，实付 ¥1,299'],
+      ['进度', '提交申请（11/05 09:12）→ 商家审核 → 寄回商品 → 商家确认收货 → 退款原路退回 [主用支付渠道]'],
+      ['用户可做', '撤销申请（撤销后显示“已撤销”）、联系商家；售后单回连原订单'],
+      ['商品条款', '未拆封 7 天无理由退货（按销售方规则）；一年保修由厂家负责'],
+      ['报名退改', '11/13 09:00 前可免费取消；之后不退报名费，可转让同场次名额；活动延期或取消全额退款']
+    ];
+
+    const loginActs = ['立即购买', '加入购物车', '联系询价', '报名', '预约到馆', '发布需求'];
+    const guestCan = ['选城市', '浏览商品、活动与内容', '搜索', '线上体验（免登录可试）'];
+    const loginRules = [
+      ['回到原操作', '登录页顶部写“登录后继续：立即购买 · 编程机器人探索套装”；登录成功回到规格面板（PdSku）'],
+      ['只带 ID', '回跳只带稳定 ID 与必要上下文（如 cityCode、source），业务数据回服务端重新读取'],
+      ['统一身份', '复用公共登录（APP-COM-03：手机号登录、协议、回跳原目标），各业务不另建账号或会话'],
+      ['企业身份', '登录后在“我的”切换；服务订单以 东营港务物流（经办人）身份办理']
+    ];
+
+    // 页面编号表：href 为空的行（本板）不做链接
+    const pageRows = [
+      ['Login', 'Login.dc.html', '登录（拦截后回到原操作）', 'APP-COM-03', '无', '登录成功 → PdSku；先随便看看 → HomeFull'],
+      ['Checkout', 'Checkout.dc.html', '确认订单', 'APP-MALL-04', '04-checkout.png', '快递配送 / 到店自提可切换；提交订单 → Cashier'],
+      ['Cashier', 'Cashier.dc.html', '收银台', 'APP-MALL-05', '无', 'DY20261103150800 · 应付 ¥1,299 · 剩余 29:45；确认支付 → PayResult'],
+      ['PayResult', 'PayResult.dc.html', '支付结果（确认中 / 已支付 / 失败）', 'APP-MALL-05', '无', '初始“确认中”；刷新结果 → 已支付，支付遇到问题 → 支付失败'],
+      ['OrderList', 'OrderList.dc.html', '我的订单（统一台账）', 'APP-ORD-01', '14-orders.png', '全部 / 商品 / 服务 / 报名；卡片进三类详情，待付款「继续支付」→ Cashier'],
+      ['OrderGoods', 'OrderGoods.dc.html', '商品订单详情', 'APP-ORD-02', '21-order-detail.png', '订单 A 已发货；申请售后 → AftersaleApply'],
+      ['OrderService', 'OrderService.dc.html', '服务订单详情（按状态导航）', 'APP-ORD-02', '无（参考 13-quote-compare、12-service 风格）', '履约中 · 第 1 次待验收；方案 → PlanConfirm、履约 → Fulfillment、验收 → Delivery'],
+      ['OrderEnroll', 'OrderEnroll.dc.html', '报名订单详情', 'APP-ORD-02', '参考 08-ticket.png', '查看凭证 → Ref08Ticket；申请退改 → Ref22Refund'],
+      ['AftersaleApply', 'AftersaleApply.dc.html', '售后 / 退改申请', 'APP-ORD-03', '22-aftersale.png', '提交申请 → AftersaleDetail'],
+      ['AftersaleDetail', 'AftersaleDetail.dc.html', '售后详情（提交之后）', 'APP-ORD-03', '无', '撤销申请 → 显示“已撤销”；查看订单 → OrderGoods'],
+      ['TradeSpec', '', '交易闭环 · 规格（本板）', '—', '—', '1100 宽规格板，不属于 App 页面']
+    ].map(([c0, href, c1, c2, c3, c4]) => ({ c0, c1, c2, c3, c4, href, link: href !== '', self: href === '' }));
+
+    const asks = [
+      ['主用支付渠道选哪家', '一期只接一种；界面暂写 [主用支付渠道]、[渠道交易号]，概要设计 §13 要求在 P0 确认'],
+      ['待付款保留时长', '商品 30 分钟、报名 15 分钟为暂定值，待业务确认；决定收银台倒计时（示例 29:45）和超时自动取消'],
+      ['自动确认收货天数', '按平台交易协议约定；画板按发货后 10 天示意（11/03 10:24 发货 → 11/13 10:24 自动确认）'],
+      ['一期是否保留到店自提', '规格面板与确认订单可切换到店自提（示例体验馆 · 3.2km）；保留则以到店交接记录作凭据'],
+      ['发票一期不在 App 内开具', '页面只写“发票由销售方开具，可联系销售方申请”；发票开具对接按 AGENTS.md V2.1 暂缓，请确认'],
+      ['报名支付暂时直接进入凭证', '收银台只画了商品订单；报名填写「提交并支付」直接到报名凭证（Ref08Ticket），报名是否也走收银台待确认']
+    ];
+
+    const cells = (row) => Array.isArray(row) ? Object.fromEntries(row.map((v, i) => ['c' + i, v])) : row;
+    return {
+      flows,
+      stateGroups: stateGroups.map((g) => ({ ...g, rows: g.rows.map(cells) })),
+      payRules: payRules.map(cells),
+      afterRules: afterRules.map(cells),
+      loginActs,
+      guestCan,
+      loginRules: loginRules.map(cells),
+      pageRows,
+      asks: asks.map(cells)
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));</script></body></html>

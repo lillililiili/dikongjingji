@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>活动详情</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1139px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column;">
+    <div style="position: relative; flex-shrink: 0; height: 236px; background: #f2f3f5;">
+      <img src="/_blob/b41e3fb34601d5b9b3c9e40e84d2a489" alt="青少年无人机编程挑战赛" style="width: 390px; height: 236px; object-fit: cover; display: block;">
+      <div style="position: absolute; left: 8px; right: 8px; top: 40px; display: flex; align-items: center;">
+        <a href="HomeAct.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></span></a>
+        <a href="ShareSheet.dc.html" aria-label="分享" style="flex-shrink: 0; margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"></path></svg></span></a>
+      </div>
+      <span style="position: absolute; left: 16px; bottom: 24px; padding: 2px 8px; border-radius: 6px; background: #6a4fe0; color: #fff; font-size: 12px; font-weight: 500; line-height: 18px; white-space: nowrap;">赛事</span>
+    </div>
+
+    <div style="position: relative; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; margin-top: -14px; padding: 0 16px 12px;">
+      <div style="display: flex; flex-direction: column; padding: 14px; background: #fff; border-radius: 14px;">
+        <h1 style="margin: 0; font-size: 20px; font-weight: 700; line-height: 28px;">青少年无人机编程挑战赛（东营站）</h1>
+        <span style="margin-top: 2px; font-size: 13px; line-height: 18px; color: #666b73;">用图形化编程控制无人机，完成指定飞行任务</span>
+        <div style="display: flex; align-items: baseline; gap: 2px; margin-top: 8px; white-space: nowrap;">
+          <span style="font-size: 26px; font-weight: 700; line-height: 34px; color: #e85400;">¥120</span>
+          <span style="font-size: 14px; line-height: 20px; color: #e85400;">/人</span>
+          <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #666b73;">{{seatLine}}</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; padding: 14px 14px 0; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0 0 10px; font-size: 16px; font-weight: 700; line-height: 22px;">选择场次</h2>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{sessions}}" as="s" hint-placeholder-count="3">
+            <button type="button" onClick="{{s.pick}}" disabled="{{s.dis}}" aria-pressed="{{s.on}}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 76px; margin: 0; padding: 8px 9px; box-sizing: border-box; border-radius: 10px; border: 1.5px solid {{s.bd}}; background: {{s.bg}}; font: inherit; text-align: left; cursor: {{s.cur}};">
+              <span style="font-size: 14px; font-weight: 700; line-height: 20px; color: {{s.tc}}; white-space: nowrap;">{{s.day}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: {{s.sc}}; white-space: nowrap;">{{s.time}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: {{s.qc}}; white-space: nowrap;">{{s.seat}}</span>
+            </button>
+          </sc-for>
+        </div>
+        <span style="margin-top: 8px; padding-bottom: 12px; font-size: 12px; line-height: 17px; color: {{lineColor}};">{{sessionLine}}</span>
+        <sc-if value="{{showTeam}}" hint-placeholder-val="{{true}}">
+          <a href="TeamSignup.dc.html" style="display: flex; align-items: center; gap: 6px; min-height: 46px; border-top: 1px solid #f0f1f3; color: #191919; text-decoration: none;">
+            <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 18px; color: #555a62;">学校、机构多人参加</span>
+            <span style="flex-shrink: 0; font-size: 13px; font-weight: 500; line-height: 18px; color: #d94f00; white-space: nowrap;">团队报名</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </a>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; flex-direction: column; padding: 0 14px; background: #fff; border-radius: 14px;">
+        <a href="Merchant.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 46px; color: #191919; font-size: 14px; line-height: 20px; text-decoration: none;">
+          <span style="flex-shrink: 0; width: 68px; color: #666b73; white-space: nowrap;">主办</span>
+          <span style="flex-grow: 1; min-width: 0;">东营市青少年科技协会</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+        <a href="VenueDetail.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 46px; border-top: 1px solid #f0f1f3; color: #191919; font-size: 14px; line-height: 20px; text-decoration: none;">
+          <span style="flex-shrink: 0; width: 68px; color: #666b73; white-space: nowrap;">承办/交付</span>
+          <span style="flex-grow: 1; min-width: 0;">东营低空与机器人体验馆</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+        <button type="button" onClick="{{toggleNav}}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 62px; margin: 0; padding: 8px 0; box-sizing: border-box; border: 0; border-top: 1px solid #f0f1f3; background: none; font: inherit; font-size: 14px; line-height: 20px; color: #191919; text-align: left; cursor: pointer;">
+          <span style="flex-shrink: 0; width: 68px; color: #666b73; white-space: nowrap;">活动地点</span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span>东营低空与机器人体验馆</span>
+            <span style="font-size: 12px; line-height: 17px; color: #666b73;">东营区示例路 66 号 · 距你 2.3km</span>
+          </span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"></path></svg>
+        </button>
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 68px; color: #666b73; white-space: nowrap;">参与条件</span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span>8–15 岁，由监护人代报名并到场</span>
+            <span style="display: flex; flex-direction: column; font-size: 12px; line-height: 17px; color: #666b73;"><span>参赛的孩子每人报 1 个名额，</span><span>陪同家长不用报名<span style="color: #a3a8b0;">（示例）</span></span></span>
+          </span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 68px; color: #666b73; white-space: nowrap;">退改规则</span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span>开始前 [协议约定时间] 可免费取消</span>
+            <span style="font-size: 12px; line-height: 17px; color: #666b73;">之后不退报名费，可转让同场次名额；活动延期或取消全额退款</span>
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; padding: 0 14px; background: #fff; border-radius: 14px;">
+        <a href="PdFull.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 76px; color: #191919; text-decoration: none;">
+          <img src="/_blob/5d32505e8b9a494f8436e31c3008ef99" alt="编程机器人探索套装" style="flex-shrink: 0; width: 52px; height: 52px; border-radius: 8px; object-fit: cover; display: block; background: #f2f3f5; font-size: 11px;">
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">活动使用器材 · 非必购</span>
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px;">编程机器人探索套装</span>
+          </span>
+          <span style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap;">看看<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></span>
+        </a>
+        <a href="ExpPick.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 76px; border-top: 1px solid #f0f1f3; color: #191919; text-decoration: none;">
+          <span style="flex-shrink: 0; width: 52px; height: 52px; border-radius: 8px; background: #e8f7ef; display: flex; align-items: center; justify-content: center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l11 7-11 7z"></path></svg></span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">报名前可先体验 · 不会自动下单</span>
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px;">在线试试编程任务</span>
+          </span>
+          <span style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; font-size: 13px; line-height: 18px; color: #11804a; white-space: nowrap;">去体验<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#11804a" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{navDone}}" hint-placeholder-val="{{false}}">
+    <div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 92px; z-index: 3; padding: 8px 10px; box-sizing: border-box; border: 1px solid #cdeedd; border-radius: 10px; background: #e8f7ef; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font-size: 12px; line-height: 18px; color: #11804a;">{{navDoneText}}</div>
+  </sc-if>
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <a href="Chat.dc.html" style="flex-shrink: 0; width: 46px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #555a62; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>咨询</a>
+    <button type="button" onClick="{{toggleFav}}" aria-pressed="{{fav}}" style="flex-shrink: 0; width: 46px; height: 46px; margin: 0 6px 0 0; padding: 0; border: 0; background: none; font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: {{favColor}}; white-space: nowrap; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="{{favFill}}" stroke="{{favColor}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.6-9-9.1C1.7 7.7 3.8 5 6.7 5c2 0 3.6 1 5.3 3 1.7-2 3.3-3 5.3-3 2.9 0 5 2.7 3.7 5.9-2 4.5-9 9.1-9 9.1z"></path></svg>{{favLabel}}</button>
+    <sc-if value="{{needPick}}" hint-placeholder-val="{{true}}">
+      <button type="button" onClick="{{askPick}}" style="flex: 1 1 0; min-width: 0; height: 46px; margin: 0; padding: 0; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: pointer;">选择场次</button>
+    </sc-if>
+    <sc-if value="{{canSignup}}" hint-placeholder-val="{{false}}">
+      <a href="Signup.dc.html" style="flex: 1 1 0; min-width: 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">立即报名</a>
+    </sc-if>
+    <sc-if value="{{canWait}}" hint-placeholder-val="{{false}}">
+      <a href="EnrollWaitlist.dc.html" style="flex: 1 1 0; min-width: 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">加入候补</a>
+    </sc-if>
+    <sc-if value="{{closed}}" hint-placeholder-val="{{false}}">
+      <button type="button" disabled style="flex: 1 1 0; min-width: 0; height: 46px; margin: 0; padding: 0; border-radius: 999px; border: 0; background: #eef0f3; color: #a3a8b0; font: inherit; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: not-allowed;">{{closedLabel}}</button>
+    </sc-if>
+  </div>
+  <sc-if value="{{navOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" aria-label="关闭" onClick="{{navClose}}" style="position: absolute; inset: 0; z-index: 8; margin: 0; padding: 0; border: 0; background: rgba(0,0,0,0.45);"></button>
+    <div role="dialog" aria-label="导航到活动地点" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 9; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 24px; border-radius: 16px 16px 0 0; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif;">
+      <span style="font-size: 16px; font-weight: 700; line-height: 22px; text-align: center; color: #191919;">导航到活动地点</span>
+      <span style="font-size: 12px; line-height: 17px; text-align: center; color: #8a8f97;">东营低空与机器人体验馆 · 东营区示例路 66 号</span>
+      <sc-for list="{{navApps}}" as="r" hint-placeholder-count="3">
+        <button type="button" onClick="{{r.pick}}" style="height: 48px; margin: 0; padding: 0; border: 0; border-radius: 12px; background: #f7f8fa; font: inherit; font-size: 15px; line-height: 20px; color: #191919; cursor: pointer;">{{r.label}}</button>
+      </sc-for>
+      <button type="button" onClick="{{navClose}}" style="height: 48px; margin: 4px 0 0; padding: 0; border: 0; border-radius: 999px; background: #fff; font: inherit; font-size: 15px; line-height: 20px; color: #555a62; cursor: pointer;">取消</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["报名中","全部已满","报名截止","活动结束"],"default":"报名中"},"$preview":{"width":390,"height":1139}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // session：选中的场次（空 = 还没选，主按钮是「选择场次」）；ask：没选场次就点了主按钮
+    // fav：是否已收藏；nav：点了活动地点（地图导航未画，只在页内提示）
+    this.state = { session: '', ask: false, fav: false, nav: false, navDone: '' };
+  }
+  renderVals() {
+    const { session, ask, fav, nav, navDone } = this.state;
+    const frame = this.props.frame ?? '报名中';
+    const ended = frame === '活动结束';
+    const closed = ended || frame === '报名截止';
+    const allFull = frame === '全部已满';
+    // 与 HomeAct、Signup 同一份数据；11/22 上午场是为“改到其他场次”补的第三场（设计假设），每场 60 个名额
+    const raw = [
+      { id: 'am', day: '11/15 周日', time: '上午 09:00', left: 12, signin: '08:30 起签到', end: '11/14 18:00' },
+      { id: 'pm', day: '11/15 周日', time: '下午 14:00', left: 0, signin: '13:30 起签到', end: '11/14 18:00' },
+      { id: 'next', day: '11/22 周日', time: '上午 09:00', left: 30, signin: '08:30 起签到', end: '11/21 18:00' }
+    ].map((s) => ({ ...s, left: allFull ? 0 : s.left }));
+    const sessions = raw.map((s) => {
+      const on = !closed && s.id === session;
+      const full = s.left === 0;
+      const dim = closed || full;
+      let seat = full ? '已满 · 可候补' : `余 ${s.left}`;
+      if (closed) seat = ended ? '已结束' : '已截止';
+      return {
+        day: s.day, time: s.time, seat, on, dis: closed,
+        bd: on ? '#ff6a00' : '#ebedf0',
+        bg: on ? '#fffaf5' : (dim ? '#f7f8fa' : '#fff'),
+        tc: on ? '#d94f00' : (dim ? '#8a8f97' : '#191919'),
+        sc: dim && !on ? '#a3a8b0' : '#666b73',
+        qc: on && full ? '#d94f00' : (dim ? '#8a8f97' : '#666b73'),
+        cur: closed ? 'not-allowed' : 'pointer',
+        pick: () => this.setState({ session: s.id, ask: false, nav: false })
+      };
+    });
+    // 主按钮四态：没选场次 → 选择场次；选了有余位的 → 立即报名；选了已满的 → 加入候补；截止或结束 → 置灰
+    const cur = raw.find((s) => s.id === session);
+    const picked = !closed && Boolean(cur);
+    const curFull = picked && cur.left === 0;
+    let sessionLine = picked ? `${cur.signin} · 报名截止 ${cur.end}` : '选好场次后显示签到和报名截止时间';
+    if (!picked && ask) sessionLine = '请先选择一个场次';
+    if (curFull) sessionLine = '本场已满，加入候补后有名额会通知你';
+    if (frame === '报名截止') sessionLine = '报名已截止，下次开放请留意活动频道';
+    if (ended) sessionLine = '本期活动已结束';
+    return {
+      seatLine: picked ? `已报名 ${60 - cur.left} / 60` : '每场 60 个名额',
+      sessions,
+      sessionLine,
+      lineColor: !closed && !picked && ask ? '#d94f00' : '#666b73',
+      showTeam: !closed,
+      // 导航：点活动地点弹出选地图面板；选了哪个地图，就在原来提示的位置写一句
+      navOpen: nav, navDone: !!navDone, navDoneText: navDone,
+      toggleNav: () => this.setState({ nav: true }),
+      navClose: () => this.setState({ nav: false }),
+      navApps: [['高德地图', 'amap'], ['百度地图', 'baidu'], ['苹果地图', 'apple']].map(([label]) => ({ label, pick: () => this.setState({ nav: false, navDone: '已用' + label + '打开导航' }) })),
+      fav,
+      favLabel: fav ? '已收藏' : '收藏',
+      favColor: fav ? '#ff6a00' : '#555a62',
+      favFill: fav ? '#ff6a00' : 'none',
+      toggleFav: () => this.setState((st) => ({ fav: !st.fav })),
+      needPick: !closed && !picked,
+      askPick: () => this.setState({ ask: true, nav: false }),
+      canSignup: picked && !curFull,
+      canWait: curFull,
+      closed,
+      closedLabel: ended ? '活动已结束' : '报名已截止'
+    };
+  }
+}
+</script>
+</body>
+</html>

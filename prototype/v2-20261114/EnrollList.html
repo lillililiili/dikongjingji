@@ -1,0 +1,170 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>我的报名列表</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 820px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; background: #fff;">
+    <div style="display: flex; align-items: center; padding: 8px;">
+      <a href="Mine.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+      <h1 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; text-align: center;">我的报名</h1>
+      <span style="flex-shrink: 0; width: 44px; height: 44px;"></span>
+    </div>
+    <div role="tablist" aria-label="报名状态" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0 8px 4px;">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="position: relative; height: 44px; padding: 0; border: 0; background: none; font: inherit; font-size: 16px; line-height: 22px; font-weight: {{t.w}}; color: {{t.c}}; white-space: nowrap; cursor: pointer;">{{t.label}}<sc-if value="{{t.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 3px; width: 20px; height: 3px; margin-left: -10px; border-radius: 3px; background: #ff6a00;"></span></sc-if></button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 8px;">
+    <sc-for list="{{cards}}" as="c" hint-placeholder-count="3">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+        <sc-if value="{{c.href}}" hint-placeholder-val="{{true}}">
+          <a href="{{c.href}}" style="display: flex; flex-direction: column; gap: 12px; color: #202c42; text-decoration: none;">
+            <span style="display: flex; align-items: center; gap: 8px;">
+              <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: {{c.tagBg}}; color: {{c.tagC}}; font-size: 12px; line-height: 20px;">{{c.tag}}</span>
+              <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{c.org}}</span>
+              <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: {{c.statusC}};">{{c.status}}</span>
+            </span>
+            <span style="display: flex; gap: 12px;">
+              <img src="{{c.img}}" alt="{{c.t}}" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #eef2f8;">
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+                <span style="display: flex; align-items: flex-start; gap: 8px;">
+                  <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">{{c.t}}<span style="display: inline-block; white-space: nowrap;">{{c.t2}}</span></span>
+                  <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">{{c.price}}</span>
+                </span>
+                <span style="font-size: 13px; line-height: 18px; color: #738096;">{{c.who}}</span>
+                <span style="font-size: 13px; line-height: 18px; color: #536178;">{{c.when}}</span>
+                <sc-if value="{{c.note}}" hint-placeholder-val="{{false}}">
+                  <span style="font-size: 13px; line-height: 18px; color: {{c.noteC}};">{{c.note}}</span>
+                </sc-if>
+              </span>
+            </span>
+          </a>
+        </sc-if>
+        <sc-if value="{{c.bodyHint}}" hint-placeholder-val="{{false}}">
+          <button type="button" onClick="{{c.tapBody}}" style="box-sizing: border-box; width: 100%; margin: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; display: flex; flex-direction: column; gap: 12px; color: #202c42; cursor: pointer;">
+            <span style="width: 100%; display: flex; align-items: center; gap: 8px;">
+              <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: {{c.tagBg}}; color: {{c.tagC}}; font-size: 12px; line-height: 20px;">{{c.tag}}</span>
+              <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{c.org}}</span>
+              <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: {{c.statusC}};">{{c.status}}</span>
+            </span>
+            <span style="width: 100%; display: flex; gap: 12px;">
+              <img src="{{c.img}}" alt="{{c.t}}" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #eef2f8;">
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+                <span style="display: flex; align-items: flex-start; gap: 8px;">
+                  <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">{{c.t}}<span style="display: inline-block; white-space: nowrap;">{{c.t2}}</span></span>
+                  <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px;">{{c.price}}</span>
+                </span>
+                <span style="font-size: 13px; line-height: 18px; color: #738096;">{{c.who}}</span>
+                <span style="font-size: 13px; line-height: 18px; color: #536178;">{{c.when}}</span>
+                <sc-if value="{{c.note}}" hint-placeholder-val="{{false}}">
+                  <span style="font-size: 13px; line-height: 18px; color: {{c.noteC}};">{{c.note}}</span>
+                </sc-if>
+              </span>
+            </span>
+          </button>
+        </sc-if>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <sc-for list="{{c.acts}}" as="a" hint-placeholder-count="2">
+            <sc-if value="{{a.href}}" hint-placeholder-val="{{true}}">
+              <a href="{{a.href}}" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: {{a.bd}}; background: {{a.bg}}; color: {{a.fg}}; font-size: 14px; font-weight: {{a.w}}; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{a.label}}</a>
+            </sc-if>
+            <sc-if value="{{a.isHint}}" hint-placeholder-val="{{false}}">
+              <button type="button" onClick="{{a.tap}}" style="height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; border: {{a.bd}}; background: {{a.bg}}; font: inherit; font-size: 14px; font-weight: {{a.w}}; line-height: 20px; color: {{a.fg}}; white-space: nowrap; cursor: pointer;">{{a.label}}</button>
+            </sc-if>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <a href="OrderList.dc.html" style="flex-shrink: 0; align-self: center; display: flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 8px; font-size: 13px; line-height: 18px; color: #627187; text-decoration: none; white-space: nowrap;">金额和支付记录在“我的订单”查看<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></a>
+  </div>
+
+  <sc-if value="{{hint}}" hint-placeholder-val="{{false}}">
+    <button type="button" role="status" onClick="{{closeHint}}" style="position: absolute; left: 16px; right: 16px; bottom: 24px; z-index: 3; margin: 0; padding: 8px 10px; box-sizing: border-box; border: 1px solid #ffd8b8; border-radius: 10px; background: #fff0e3; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font: inherit; font-size: 12px; line-height: 18px; color: #ba470b; text-align: left; cursor: pointer;">{{hint}}</button>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // tab：todo 待参加 / done 已完成 / back 已退改；hint：未绘制目标的页内提示
+    this.state = { tab: 'todo', hint: '' };
+  }
+  renderVals() {
+    const { tab, hint } = this.state;
+    const tabs = [['todo', '待参加'], ['done', '已完成'], ['back', '已退改']].map(([id, label]) => {
+      const on = id === tab;
+      return { label, on, c: on ? '#202c42' : '#627187', w: on ? 700 : 400, pick: () => this.setState({ tab: id, hint: '' }) };
+    });
+    // 每张卡和按钮都有去处，点卡片正文只收起提示
+    const nope = () => () => this.setState({ hint: '' });
+    const primary = { bd: '0', bg: '#ff6a00', fg: '#fff', w: 500 };
+    const plain = { bd: '1px solid #c9d3e1', bg: '#fff', fg: '#202c42', w: 400 };
+    const outline = { bd: '1.5px solid #ff6a00', bg: '#fff', fg: '#ba470b', w: 500 };
+    // 样例卡的目标都已绘制（团队卡 → TeamOrder；体验日、未到场 → EnrollResult；退款中 → EnrollRefundDetail；已改期 → EnrollTicket），正式产品按记录状态决定去向
+    const go = (label, href, look) => ({ label, href, isHint: false, tap: nope(label), ...look });
+    const purple = { tagBg: '#eee7ff', tagC: '#6a4fe0' };
+    const blue = { tagBg: '#e6f0ff', tagC: '#1d63c4' };
+    const contest = { tag: '赛事', ...purple, org: '东营低空与机器人体验馆', t: '青少年无人机编程挑战赛', t2: '（东营站）', img: '_blob/b41e3fb34601d5b9b3c9e40e84d2a489.jpg', who: '参与人：王小禾、王小川', price: '¥240' };
+    const study = { tag: '研学', ...purple, org: '示例体验场馆', t: '机器人研学体验', t2: '', img: '_blob/7dea67aa257759d5c4cffcda675bc107.jpg', price: '¥168' };
+    const lists = {
+      todo: [
+        { ...contest, status: '待参加', statusC: '#6a4fe0', when: '11/15 09:00 · 上午场', note: '', href: 'OrderEnroll.dc.html',
+          acts: [go('申请退改', 'EnrollRefund.dc.html', plain), go('查看凭证', 'EnrollTicket.dc.html', primary)] },
+        { ...contest, status: '候补中', statusC: '#ba470b', when: '11/15 14:00 · 下午场', note: '排第 3 位 · 候补成功后再付款', noteC: '#ba470b', href: 'EnrollWaitlist.dc.html',
+          acts: [go('查看候补', 'EnrollWaitlist.dc.html', outline)] },
+        { ...contest, tag: '团队', ...blue, org: '东营港务物流职工子女队', status: '待参加', statusC: '#6a4fe0', who: '领队：王女士 · 4 人', when: '11/15 09:00 · 上午场', price: '¥480', note: '', href: 'TeamOrder.dc.html',
+          acts: [go('团队名单', 'TeamOrder.dc.html', outline)] }
+      ],
+      done: [
+        { ...contest, status: '已完成', statusC: '#11804a', when: '10/25 09:00 · 上午场', note: '2 人完赛 · 结果记录已发布', noteC: '#11804a', href: 'EnrollResult.dc.html',
+          acts: [go('再次报名', 'ActDetail.dc.html', plain), go('查看结果', 'EnrollResult.dc.html', primary)] },
+        { tag: '体验日', ...purple, org: '东营低空与机器人体验馆', status: '已完成', statusC: '#11804a', t: '无人机开放体验日', t2: '', img: '_blob/e42bb39cca5b4f528e6577da8445bced.webp', who: '参与人：王小禾', when: '10/18 10:00', price: '免费', note: '', href: 'EnrollResult.dc.html',
+          acts: [go('查看记录', 'EnrollResult.dc.html', plain)] },
+        { ...study, status: '未到场', statusC: '#738096', who: '参与人：王小川', when: '10/11 09:30', note: '没有签到记录', noteC: '#738096', href: 'EnrollResult.dc.html',
+          acts: [go('联系主办方', 'Chat.dc.html', plain)] }
+      ],
+      back: [
+        { ...contest, status: '已退款', statusC: '#536178', when: '09/20 09:00 · 上午场', note: '¥240 已原路退回', noteC: '#11804a', href: 'EnrollRefundDetail.dc.html',
+          acts: [go('查看进度', 'EnrollRefundDetail.dc.html', plain)] },
+        { tag: '研学', ...purple, org: '黄河口户外飞行营地', status: '退款中', statusC: '#ba470b', t: '黄河口低空研学一日营', t2: '', img: '_blob/eada5bcde09c62b71c41868194f30706.jpg', who: '参与人：王小禾', when: '11/07 周六 · 含接送', price: '¥268', note: '原路退回 [主用支付渠道]', noteC: '#ba470b', href: 'EnrollRefundDetail.dc.html',
+          acts: [go('查看进度', 'EnrollRefundDetail.dc.html', plain)] },
+        { ...study, status: '已改期', statusC: '#1d63c4', who: '参与人：王小川', when: '09/13 09:30', note: '已改到 09/27 09:30，新凭证已发放', noteC: '#1d63c4', href: 'EnrollTicket.dc.html',
+          acts: [go('查看凭证', 'EnrollTicket.dc.html', plain)] }
+      ]
+    };
+    const cards = lists[tab].map((c) => ({
+      ...c,
+      noteC: c.noteC || '#738096',
+      bodyHint: !c.href,
+      tapBody: nope(c.tapName || c.t)
+    }));
+    return {
+      tabs, cards, hint,
+      closeHint: () => this.setState({ hint: '' })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

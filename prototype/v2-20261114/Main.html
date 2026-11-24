@@ -1,0 +1,109 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>01 设计总览：定位、信息架构与边界</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>body{margin:0;background:#dfe2e6;padding:16px;font-family:-apple-system,'PingFang SC',sans-serif}.bar{font-size:13px;color:#555;margin:0 0 10px}.bar a{color:#ba470b}#root{width:max-content;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.18)}</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body><div class="bar"><a href="HomeFull.html">← 回到 App</a> &nbsp; 01 设计总览：定位、信息架构与边界（设计文档，不是 App 页面）</div><div id="root"></div><template id="tpl">
+
+<div style="width: 1600px; height: 1040px; box-sizing: border-box; padding: 56px 64px; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; display: flex; flex-direction: column; gap: 32px; overflow: hidden;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 40px;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-size: 15px; color: #ba470b; font-weight: 500; letter-spacing: 2px;">东营样板 · 城市复制</div>
+      <h1 style="margin: 0; font-size: 40px; font-weight: 700; line-height: 1.2;">低空经济与机器人产业商业生态运营平台 · App 设计</h1>
+      <p style="margin: 0; font-size: 18px; color: #536178; line-height: 1.6;">从“卖设备的网站”升级为可复制的运营能力：以商城连接供需，以赛事研学聚集用户，以线下体验承接服务，以真实经营成果支撑城市复制。</p>
+    </div>
+    <div style="flex-shrink: 0; padding: 14px 18px; border-radius: 12px; background: #fff; border: 1px solid #e5ebf3; font-size: 14px; color: #536178; line-height: 1.7;">依据：建设方案（2026.10）<br>融瓴专题研讨会议纪要<br>现有 App：巡检 M01–M08</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; flex-grow: 1;">
+
+    <div style="display: flex; flex-direction: column; gap: 16px; background: #fff; border-radius: 16px; padding: 28px; border: 1px solid #e5ebf3;">
+      <h2 style="margin: 0; font-size: 22px; font-weight: 700;">信息架构：底栏 5 个 Tab + 首页频道（参照淘宝）</h2>
+      <p style="margin: 0; font-size: 14px; color: #627187; line-height: 1.6;">2026-11-03 选定方案 C，11/04 已同步进概要设计 V0.2 与 AGENTS.md V2.2。</p>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; gap: 14px; padding: 14px; border-radius: 12px; background: #fff0e3;">
+          <div style="width: 52px; flex-shrink: 0; font-size: 16px; font-weight: 700; color: #ba470b;">首页</div>
+          <div style="font-size: 14px; line-height: 1.6;">城市 + 横滑频道：推荐、专业服务、活动、体验、无人机、机器人、配件、租赁、课程；频道即子首页<br><span style="color: #627187;">各业务中心入口</span></div>
+        </div>
+        <div style="display: flex; gap: 14px; padding: 14px; border-radius: 12px; background: #fff0e3;">
+          <div style="width: 52px; flex-shrink: 0; font-size: 16px; font-weight: 700; color: #ba470b;">发现</div>
+          <div style="font-size: 14px; line-height: 1.6;">图文、视频、直播预告、专题，内容挂商品与活动<br><span style="color: #627187;">新媒体与内容</span></div>
+        </div>
+        <div style="display: flex; gap: 14px; padding: 14px; border-radius: 12px; background: #fff0e3;">
+          <div style="width: 52px; flex-shrink: 0; font-size: 16px; font-weight: 700; color: #ba470b;">消息</div>
+          <div style="font-size: 14px; line-height: 1.6;">交易物流、服务进度、活动提醒、系统通知、客服<br><span style="color: #627187;">统一通知</span></div>
+        </div>
+        <div style="display: flex; gap: 14px; padding: 14px; border-radius: 12px; background: #fff0e3;">
+          <div style="width: 52px; flex-shrink: 0; font-size: 16px; font-weight: 700; color: #ba470b;">购物车</div>
+          <div style="font-size: 14px; line-height: 1.6;">直接购买的商品，按商家分组，一期单商家结算<br><span style="color: #627187;">综合交易商城</span></div>
+        </div>
+        <div style="display: flex; gap: 14px; padding: 14px; border-radius: 12px; background: #fff0e3;">
+          <div style="width: 52px; flex-shrink: 0; font-size: 16px; font-weight: 700; color: #ba470b;">我的</div>
+          <div style="font-size: 14px; line-height: 1.6;">三类订单、我的参与、参与人、企业组织、售后<br><span style="color: #627187;">统一账户与订单台账</span></div>
+        </div>
+      </div>
+      <div style="font-size: 13px; color: #627187; line-height: 1.6;">产业数据中心与城市复制体系落在 Web 运营端，不在用户端暴露经营数据。</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px; background: #fff; border-radius: 16px; padding: 28px; border: 1px solid #e5ebf3;">
+      <h2 style="margin: 0; font-size: 22px; font-weight: 700;">关键设计原则</h2>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 16px; font-weight: 700;">1 · 体验不等于成交</div>
+          <div style="font-size: 14px; color: #536178; line-height: 1.6;">体验结束后给出收藏、对比、联系商家、预约线下、下单五个出口，由用户决定；仿真、录播、远程真机明确标注。</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 16px; font-weight: 700;">2 · 交易主体逐项明示</div>
+          <div style="font-size: 14px; color: #536178; line-height: 1.6;">商品、服务、活动均展示销售、收款、开票、履约、售后主体；同型号多商家分别报价。</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 16px; font-weight: 700;">3 · 价格不明就询价</div>
+          <div style="font-size: 14px; color: #536178; line-height: 1.6;">标准品直接购买；定制、大额、租赁走需求—报价—确认，不以虚低价引流。</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 16px; font-weight: 700;">4 · 一个账号，多城可用</div>
+          <div style="font-size: 14px; color: #536178; line-height: 1.6;">切城不重新注册；账户、参与人、企业组织分开建模，家长可为多名孩子报名。</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 16px; font-weight: 700;">5 · 延续现有视觉语言</div>
+          <div style="font-size: 14px; color: #536178; line-height: 1.6;">主色橙 #FF6A00，保障与成功用绿；生活化服务交易气质，不做驾驶舱或霓虹科技风。</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: auto;">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #ff6a00;"></div>
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #fff0e3; border: 1px solid #ffd9bd;"></div>
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #159a70;"></div>
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #202c42;"></div>
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #f5f7fc; border: 1px solid #e5ebf3;"></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; background: #fff; border-radius: 16px; padding: 28px; border: 1px solid #e5ebf3;">
+        <h2 style="margin: 0; font-size: 22px; font-weight: 700;">角色与终端</h2>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; font-size: 14px; line-height: 1.5;">
+          <div style="padding: 10px 12px; border-radius: 10px; background: #f5f7fc;"><b>用户端 App</b><br><span style="color: #627187;">个人与家长</span></div>
+          <div style="padding: 10px 12px; border-radius: 10px; background: #f5f7fc;"><b>企业采购</b><br><span style="color: #627187;">需求、报价、验收</span></div>
+          <div style="padding: 10px 12px; border-radius: 10px; background: #f5f7fc;"><b>商家工作台</b><br><span style="color: #627187;">供给、订单、对账</span></div>
+          <div style="padding: 10px 12px; border-radius: 10px; background: #f5f7fc;"><b>机构与场馆</b><br><span style="color: #627187;">名单、核销、台账</span></div>
+          <div style="padding: 10px 12px; border-radius: 10px; background: #f5f7fc;"><b>城市运营端</b><br><span style="color: #627187;">本地目录、活动、看板</span></div>
+          <div style="padding: 10px 12px; border-radius: 10px; background: #f5f7fc;"><b>总部管理端</b><br><span style="color: #627187;">开城、授权、审计</span></div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; background: #fff; border-radius: 16px; padding: 28px; border: 1px solid #e5ebf3; flex-grow: 1;">
+        <h2 style="margin: 0; font-size: 22px; font-weight: 700;">范围边界</h2>
+        <div style="font-size: 14px; line-height: 1.7; color: #202c42;"><span style="color: #159a70; font-weight: 700;">一期纳入</span>　商品与服务交易、一种主用支付渠道的在线支付、支付回执、标准退款与对账导出（统一交易模块）、赛事研学报名、轻量内容、场馆核销；运营看板、资源入驻、城市管理基础<span style="color: #ba470b;">（Web 运营端是否进一期，待确认）</span></div>
+        <div style="font-size: 14px; line-height: 1.7; color: #202c42;"><span style="color: #1d63c4; font-weight: 700;">暂缓</span>　用户钱包、保证金、发票开具对接、多方自动分账、抽佣自动结算、预售与账期授信</div>
+        <div style="font-size: 14px; line-height: 1.7; color: #202c42;"><span style="color: #ba470b; font-weight: 700;">后续扩展</span>　原生直播、复杂社区、评分赛制、多仓库存</div>
+        <div style="font-size: 14px; line-height: 1.7; color: #202c42;"><span style="color: #536178; font-weight: 700;">明确不做</span>　空域审批、飞行调度、“一网统飞”、供应链金融</div>
+        <div style="font-size: 13px; line-height: 1.6; color: #627187; padding-top: 10px; border-top: 1px solid #e5ebf3;">会议中的虚拟电厂 A/B 与融合感知控制器为独立产品线，不进入本 App。</div>
+      </div>
+    </div>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));</script></body></html>

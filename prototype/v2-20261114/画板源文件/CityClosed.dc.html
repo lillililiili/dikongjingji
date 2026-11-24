@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>城市未开通</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; background: linear-gradient(180deg, #fff3e8 0%, #fff8f2 70%, #f7f8fa 100%);">
+    <div style="position: relative; display: flex; align-items: center; gap: 2px; padding-left: 14px; overflow: hidden;">
+      <a href="CitySheet.dc.html" style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; min-height: 40px; margin-right: 6px; font-size: 16px; font-weight: 700; color: #191919; text-decoration: none;">{{city}}<svg width="14" height="14" viewBox="0 0 24 24" fill="#191919" aria-hidden="true"><path d="M6 9l6 6 6-6z"></path></svg></a>
+      <span style="flex-shrink: 0; width: 1px; height: 16px; margin-right: 2px; background: #e8d5c4;"></span>
+      <sc-for list="{{channels}}" as="ch" hint-placeholder-count="8">
+        <a href="{{ch.href}}" style="flex-shrink: 0; position: relative; display: flex; align-items: center; min-height: 40px; padding: 0 9px; color: {{ch.c}}; font-size: {{ch.fs}}; font-weight: {{ch.w}}; text-decoration: none; white-space: nowrap;">{{ch.label}}<sc-if value="{{ch.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 3px; width: 16px; height: 3px; margin-left: -8px; border-radius: 3px; background: #ff6a00;"></span></sc-if></a>
+      </sc-for>
+      <span style="position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: linear-gradient(90deg, rgba(255,243,232,0), #fff3e8);"></span>
+    </div>
+    <div style="padding: 0 16px;">
+      <div style="display: flex; align-items: center; height: 40px; padding: 0 4px 0 0; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff;">
+        <a href="Scan.dc.html" aria-label="扫一扫" style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; height: 44px; margin: -2px 0; padding: 0 8px 0 12px; text-decoration: none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M4 12h16"></path></svg>
+          <span style="width: 1px; height: 16px; background: #ebedf0;"></span>
+        </a>
+        <a href="SearchPre.dc.html" style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; text-decoration: none;">
+          <span style="flex-grow: 1; min-width: 0; font-size: 14px; color: #8a8f97; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{placeholder}}</span>
+          <span style="flex-shrink: 0; height: 32px; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; display: flex; align-items: center;">搜索</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 2px 16px 16px;">
+    <div style="background: #fff; border-radius: 16px; padding: 24px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;">
+      <div style="width: 64px; height: 64px; border-radius: 50%; background: #fff3e8; display: flex; align-items: center; justify-content: center;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 20h16M6 20V9l6-4 6 4v11M10 20v-5h4v5"></path></svg>
+      </div>
+      <div style="font-size: 18px; line-height: 25px; font-weight: 700;">潍坊城市站筹备中</div>
+      <div style="font-size: 13px; color: #666b73; line-height: 1.6;">本地活动、场馆和本地现货暂未上线。<br>全国发货商品和线上体验可以正常使用。</div>
+      <div style="display: flex; gap: 10px; margin-top: 6px;">
+        <a href="HomeFull.dc.html" style="min-height: 44px; padding: 0 18px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; text-decoration: none; display: flex; align-items: center;">切换到东营</a>
+        <button type="button" onClick="{{toggleNotify}}" style="min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid {{notifyBd}}; background: #fff; font: inherit; font-size: 14px; color: {{notifyC}}; white-space: nowrap; cursor: pointer;">{{notifyLabel}}</button>
+      </div>
+    </div>
+
+    <h2 style="margin: 4px 0 0; font-size: 17px; line-height: 24px; font-weight: 700;">全国可用</h2>
+    <sc-for list="{{nation}}" as="n" hint-placeholder-count="3">
+      <a href="{{n.href}}" style="display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 12px; padding: 14px; text-decoration: none; color: #191919;">
+        <div style="width: 44px; height: 44px; border-radius: 12px; background: {{n.bg}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{n.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+        </div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+          <span style="font-size: 15px; line-height: 21px; font-weight: 500;">{{n.t}}</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">{{n.s}}</span>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </sc-for>
+  </div>
+
+  <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <a href="{{t.href}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px; font-weight: {{t.w}};">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+        <span>{{t.label}}</span>
+        <sc-if value="{{t.badge}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 4px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">{{t.badge}}</span>
+        </sc-if>
+        <sc-if value="{{t.dot}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 7px; left: 50%; margin-left: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ff5200;"></span>
+        </sc-if>
+      </a>
+    </sc-for>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // notify：是否已订阅本城开通通知；再点一次取消
+    this.state = { notify: false };
+  }
+  renderVals() {
+    const { notify } = this.state;
+    const notifyLabel = notify ? '已订阅开通通知' : '开通后通知我';
+    const notifyBd = notify ? '#19b866' : '#c4c8ce';
+    const notifyC = notify ? '#11804a' : '#191919';
+    const toggleNotify = () => this.setState((s) => ({ notify: !s.notify }));
+
+    // 城市未开通：频道只保留全国可用的 推荐、体验、商城
+    const ACTIVE_CHANNEL = '推荐';
+    const city = '潍坊';
+    const placeholder = '搜索全国发货商品与线上体验';
+    const channels = [
+      ['推荐', 'HomeFull.dc.html'], ['体验', 'ExpCenter.dc.html'],
+      ['商城', 'MallHome.dc.html']
+    ].map(([label, href]) => {
+      const on = label === ACTIVE_CHANNEL;
+      return { label, href, on, c: on ? '#ff6a00' : '#191919', fs: on ? '18px' : '15px', w: on ? 700 : 400 };
+    });
+
+    const ACTIVE = 0; // 0 首页 1 发现 2 消息 3 购物车 4 我的
+    const tabs = [
+      ['首页', 'HomeFull.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', '', false],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z', '', true],
+      ['消息', 'Messages.dc.html', 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01', '3', false],
+      ['购物车', 'Cart.dc.html', 'M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1', '3', false],
+      ['我的', 'Mine.dc.html', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', '', false]
+    ].map((t, i) => ({ label: t[0], href: t[1], d: t[2], badge: t[3], dot: t[4] && i !== ACTIVE, c: i === ACTIVE ? '#ff6a00' : '#8a8f97', w: i === ACTIVE ? 500 : 400 }));
+
+    const nation = [
+      { t: '线上体验', s: '虚拟仿真、录播演示，无需到场', href: 'ExpCenter.dc.html', bg: '#e8f7ef', fg: '#19b866', d: 'M4 5h16v11H4zM8 20h8M12 16v4M10 8.5l4 2.5-4 2.5z' },
+      { t: '全国发货商品', s: '厂家或授权经销商直发', href: 'MallHome.dc.html', bg: '#fff3e8', fg: '#ff6a00', d: 'M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a1.5 1.5 0 1 0 0-.1M17 19a1.5 1.5 0 1 0 0-.1' },
+      { t: '线上课程', s: '理论课与编程课，可跨城学习', href: 'MallCourse.dc.html', bg: '#eaf2fd', fg: '#2f80ed', d: 'M4 6l8-3 8 3-8 3zM7 8v5c0 1.5 2.5 3 5 3s5-1.5 5-3V8' }
+    ];
+
+    return { city, placeholder, channels, tabs, nation, notifyLabel, notifyBd, notifyC, toggleNotify };
+  }
+}
+</script>
+</body>
+</html>

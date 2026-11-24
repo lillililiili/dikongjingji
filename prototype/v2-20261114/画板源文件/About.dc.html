@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>关于</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 664px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="Settings.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">关于</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 0 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 32px 0 18px;">
+      <span role="img" aria-label="App 图标" style="width: 76px; height: 76px; margin-bottom: 10px; border-radius: 20px; background: linear-gradient(145deg, #ff8f3d 0%, #ff6a00 100%); box-shadow: 0 6px 16px rgba(255,106,0,0.24); display: flex; align-items: center; justify-content: center;"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9L6 6M15 9l3-3M9 15l-3 3M15 15l3 3M10 9h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zM3 6h6M15 6h6M3 18h6M15 18h6"></path></svg></span>
+      <span style="font-size: 20px; line-height: 28px; font-weight: 700;">{{appName}}</span>
+      <span style="font-size: 13px; line-height: 18px; color: #8a8f97;">版本 {{version}}</span>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;">
+      <h2 style="margin: 0; padding: 0 4px; font-size: 13px; line-height: 18px; font-weight: 400; color: #8a8f97;">协议与规则</h2>
+      <div style="display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+        <sc-for list="{{rules}}" as="r" hint-placeholder-count="3">
+          <a href="Agreement.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 0 14px; border-bottom: 1px solid {{r.bd}}; color: #191919; text-decoration: none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{r.d}}"></path></svg>
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; white-space: nowrap;">{{r.t}}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;">
+      <h2 style="margin: 0; padding: 0 4px; font-size: 13px; line-height: 18px; font-weight: 400; color: #8a8f97;">备案信息</h2>
+      <div style="display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+        <sc-for list="{{filings}}" as="f" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 0 14px; border-bottom: 1px solid {{f.bd}};">
+            <span style="flex-shrink: 0; font-size: 15px; line-height: 21px; white-space: nowrap;">{{f.k}}</span>
+            <span style="min-width: 0; font-size: 14px; line-height: 20px; color: #8a8f97; text-align: right;">{{f.v}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; padding: 20px 16px 28px; font-size: 12px; line-height: 17px; color: #a3a8b0; text-align: center;">Copyright © 2026 [运营主体待确认]</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":664}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 三份协议的名称和图标与 Settings 一致；正文都落到通用协议页 Agreement
+    const rows = (list) => list.map((r, i, a) => ({ ...r, bd: i === a.length - 1 ? 'transparent' : '#f0f1f3' }));
+    return {
+      // App 名称未定，沿用画布标题里的“低空产业平台”；版本号是示意值
+      appName: '低空产业平台',
+      version: '1.0.0',
+      rules: rows([
+        { t: '用户协议', d: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5' },
+        { t: '隐私政策', d: 'M6 11h12v10H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3M12 15v2' },
+        { t: '儿童个人信息保护规则', d: 'M12 9.5a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM8 21v-4.5a4 4 0 0 1 8 0V21M10.5 21v-3M13.5 21v-3' }
+      ]),
+      // 备案号和运营主体待确认，只放占位
+      filings: rows([
+        { k: 'App 备案号', v: '[备案号待确认]' },
+        { k: '运营主体', v: '[运营主体待确认]' }
+      ])
+    };
+  }
+}
+</script>
+</body>
+</html>

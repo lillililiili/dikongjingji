@@ -1,0 +1,149 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>登录设备管理</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 576px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="Settings.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">登录设备管理</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <span style="flex-shrink: 0; padding: 0 4px; font-size: 13px; line-height: 19px; color: #627187;">这些设备最近登录过你的账号，共 {{count}} 台</span>
+
+    <sc-if value="{{doneText}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #eefaf3;">
+        <span style="flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: #159a70; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        <span style="min-width: 0; font-size: 14px; font-weight: 500; line-height: 20px; color: #11804a;">{{doneText}}</span>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+      <sc-for list="{{devices}}" as="d" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 72px; box-sizing: border-box; padding: 10px 14px; border-bottom: 1px solid {{d.bd}};">
+          <span style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: {{d.bg}}; display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{d.fg}}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{d.d}}"></path></svg></span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 15px; line-height: 21px; font-weight: 500; white-space: nowrap;">{{d.name}}</span>
+              <sc-if value="{{d.me}}" hint-placeholder-val="{{false}}">
+                <span style="flex-shrink: 0; font-size: 12px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #fff0e3; color: #ba470b; white-space: nowrap;">本机</span>
+              </sc-if>
+            </div>
+            <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{d.meta}}</span>
+          </div>
+          <sc-if value="{{d.canOut}}" hint-placeholder-val="{{true}}">
+            <button type="button" aria-haspopup="dialog" aria-label="{{d.aria}}" onClick="{{d.ask}}" style="flex-shrink: 0; height: 36px; margin: 0; padding: 0 16px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #202c42; white-space: nowrap; cursor: pointer;">退出</button>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{hasOthers}}" hint-placeholder-val="{{true}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{askAll}}" style="flex-shrink: 0; width: 100%; height: 50px; margin: 0; padding: 0; border: 0; border-radius: 14px; background: #fff; font: inherit; font-size: 15px; font-weight: 500; color: #202c42; cursor: pointer;">退出其他全部设备</button>
+    </sc-if>
+    <sc-if value="{{noOthers}}" hint-placeholder-val="{{false}}">
+      <span style="flex-shrink: 0; padding: 6px 0; font-size: 13px; line-height: 19px; color: #738096; text-align: center;">没有其他登录设备</span>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">发现不认识的设备？</h2>
+        <span style="font-size: 13px; line-height: 19px; color: #627187;">先退出这台设备，再更换手机号</span>
+      </div>
+      <a href="SetPhone.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 46px; border-top: 1px solid #f0f1f3; color: #202c42; text-decoration: none;">
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; white-space: nowrap;">更换手机号</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+      <a href="Chat.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 46px; border-top: 1px solid #f0f1f3; color: #202c42; text-decoration: none;">
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; white-space: nowrap;">联系平台客服</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </div>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">{{sheetTitle}}</span>
+        <span style="font-size: 14px; line-height: 21px; color: #536178;">{{sheetText}}</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 46px; margin: 0; padding: 0; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 16px; color: #202c42; cursor: pointer;">取消</button>
+        <button type="button" onClick="{{confirm}}" style="flex: 1 1 0; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 16px; font-weight: 500; color: #fff; cursor: pointer;">确认退出</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // removed：已退出的设备 id；asking：确认面板的目标（设备 id、'all' 或空）；doneText：刚完成的操作提示
+    this.state = { removed: [], asking: '', doneText: '' };
+  }
+  renderVals() {
+    const { removed, asking, doneText } = this.state;
+    const phoneIcon = 'M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2';
+    const tabletIcon = 'M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2';
+    // 设备清单是示意；本机不在这里退出，走“设置 → 退出登录”。设备名和地区由服务端按登录记录给出，地区只到城市
+    const all = [
+      { id: 'self', name: 'iPhone 15', meta: '东营 · 当前在线', me: true, d: phoneIcon },
+      { id: 'android', name: 'Android 手机', meta: '东营 · 11/01 09:12 登录', me: false, d: phoneIcon },
+      { id: 'tablet', name: 'iPad', meta: '济南 · 10/18 16:40 登录', me: false, d: tabletIcon }
+    ];
+    const list = all.filter((d) => !removed.includes(d.id));
+    const others = list.filter((d) => !d.me);
+    const devices = list.map((d, i, a) => ({
+      name: d.name, meta: d.meta, me: d.me, d: d.d,
+      canOut: !d.me,
+      aria: '退出 ' + d.name,
+      bg: d.me ? '#fff0e3' : '#eef2f8',
+      fg: d.me ? '#ff6a00' : '#536178',
+      bd: i === a.length - 1 ? 'transparent' : '#f0f1f3',
+      ask: () => this.setState({ asking: d.id })
+    }));
+    const target = all.find((d) => d.id === asking);
+    const isAll = asking === 'all';
+
+    return {
+      devices,
+      count: list.length,
+      hasOthers: others.length > 0,
+      noOthers: others.length === 0,
+      doneText,
+      askAll: () => this.setState({ asking: 'all' }),
+      sheetOpen: asking !== '',
+      sheetTitle: isAll ? '退出其他全部设备？' : '退出这台设备？',
+      sheetText: (isAll ? '除本机外的设备' : (target ? target.name + ' ' : '该设备')) + '需要重新登录才能使用，订单和消息不受影响。',
+      closeSheet: () => this.setState({ asking: '' }),
+      confirm: () => this.setState((s) => {
+        if (s.asking === 'all') return { removed: all.filter((d) => !d.me).map((d) => d.id), asking: '', doneText: '已退出其他全部设备' };
+        const one = all.find((d) => d.id === s.asking);
+        return one ? { removed: s.removed.concat(one.id), asking: '', doneText: '已退出 ' + one.name } : { asking: '' };
+      })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

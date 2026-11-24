@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>消息</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 1044px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; padding-top: 6px; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 2px; padding: 0 6px 0 16px;">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; line-height: 44px;">消息</h1>
+      <button type="button" onClick="{{markAllRead}}" style="margin-left: auto; display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 14px; color: #555a62;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12l3 3 5-6"></path></svg>全部已读</button>
+      <a href="Settings.dc.html" aria-label="通知设置" style="width: 44px; height: 44px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></a>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 10px 6px 16px;">
+      <sc-for list="{{cats}}" as="c" hint-placeholder-count="4">
+        <button type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}" style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: inherit; font-size: 12px; color: #191919;">
+          <span style="position: relative; width: 44px; height: 44px; border-radius: 14px; background: {{c.bg}}; box-shadow: {{c.ring}}; display: flex; align-items: center; justify-content: center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{c.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.d}}"></path></svg>
+            <sc-if value="{{c.badge}}" hint-placeholder-val="{{false}}">
+              <span style="position: absolute; top: -6px; right: -8px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; border: 1.5px solid #fff; background: #ff5200; color: #fff; font-size: 11px; line-height: 15px; text-align: center;">{{c.badge}}</span>
+            </sc-if>
+          </span>
+          <span style="white-space: nowrap; color: {{c.lc}}; font-weight: {{c.lw}};">{{c.label}}</span>
+        </button>
+      </sc-for>
+      <a href="Chat.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; font-size: 12px; color: #191919; text-decoration: none;">
+        <span style="position: relative; width: 44px; height: 44px; border-radius: 14px; background: #fff3e8; display: flex; align-items: center; justify-content: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2"></path></svg>
+        </span>
+        <span style="white-space: nowrap; color: #191919; font-weight: 400;">联系客服</span>
+      </a>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; margin: 10px 16px 0; background: #fff; border-radius: 14px;">
+    <sc-for list="{{linked}}" as="m" hint-placeholder-count="9">
+      <a href="{{m.href}}" style="display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-bottom: 1px solid {{m.bd}}; text-decoration: none; color: #191919;">
+        <span style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: {{m.bg}}; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{m.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{m.d}}"></path></svg></span>
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+          <span style="display: flex; align-items: baseline; gap: 8px;">
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; font-weight: {{m.tw}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span style="font-size: 13px; font-weight: 400; color: #8a8f97;">{{m.cat}} · </span>{{m.title}}</span>
+            <span style="flex-shrink: 0; font-size: 12px; color: #a3a8b0;">{{m.time}}</span>
+          </span>
+          <span style="display: flex; align-items: flex-start; gap: 8px;">
+            <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 19px; color: {{m.tc}}; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{m.text}}</span>
+            <sc-if value="{{m.unread}}" hint-placeholder-val="{{false}}">
+              <span style="flex-shrink: 0; width: 8px; height: 8px; margin: 6px 2px 0 0; border-radius: 50%; background: #ff5200;"></span>
+            </sc-if>
+          </span>
+        </span>
+      </a>
+    </sc-for>
+  </div>
+
+  <div style="flex-shrink: 0; margin: 12px 16px 0; font-size: 12px; line-height: 17px; color: #8a8f97; text-align: center;">推送和红点可在“我的 → 设置 → 通知”中关闭。</div>
+  <div style="flex-grow: 1;"></div>
+
+  <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <a href="{{t.href}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px; font-weight: {{t.w}};">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+        <span>{{t.label}}</span>
+        <sc-if value="{{t.badge}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 4px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">{{t.badge}}</span>
+        </sc-if>
+        <sc-if value="{{t.dot}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 7px; left: 50%; margin-left: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ff5200;"></span>
+        </sc-if>
+      </a>
+    </sc-for>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1044}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // allRead：是否点过“全部已读”；filter：当前筛选的分类方块（'' 表示全部）
+    this.state = { allRead: false, filter: '' };
+  }
+  renderVals() {
+    const { allRead, filter } = this.state;
+    const icon = {
+      truck: 'M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a1.5 1.5 0 1 0 0-.1M17 19a1.5 1.5 0 1 0 0-.1',
+      progress: 'M9 4h6v3H9zM7 5H5v16h14V5h-2M9 14l2 2 4-4',
+      flag: 'M6 21V4M6 4h11l-2 4 2 4H6',
+      bell: 'M6 16v-5a6 6 0 1 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0',
+      service: 'M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2',
+      calendar: 'M5 5h14v15H5zM5 9h14M9 3v4M15 3v4'
+    };
+    const orange = { bg: '#fff3e8', fg: '#ff6a00' };
+    const blue = { bg: '#eaf2fd', fg: '#2f80ed' };
+    const green = { bg: '#e8f7ef', fg: '#19b866' };
+    const grey = { bg: '#f2f3f5', fg: '#555a62' };
+
+    // 消息（示意）：恰好 3 条未读，与底栏“消息”角标 3 一致。group = 所属分类方块；“体验预约”归入“活动提醒”（同为绿色、同属我的参与）
+    // 按时间倒序；今天 = 11/03（到馆提醒与“我的体验”“今天 14:00”、核销工作台 11/03 场次一致）
+    const linkedAll = [
+      { group: '交易物流', cat: '交易物流', title: '订单已发货', text: '编程机器人探索套装，示例机器人商家东营仓已发出', time: '10:24', unread: true, href: 'OrderGoods.dc.html', d: icon.truck, ...orange },
+      { group: '活动提醒', cat: '活动提醒', title: '候补转正', text: '青少年无人机编程挑战赛 11/15 下午场有名额释放，名额保留 15 分钟，请尽快付款', time: '10:20', unread: false, href: 'EnrollWaitlist.dc.html', d: icon.flag, ...green },
+      { group: '服务进度', cat: '服务进度', title: '巡检报告已交付', text: '物流园区季度安防巡检第 1 次报告已交付，请核对后验收', time: '10:00', unread: true, href: 'Delivery.dc.html', d: icon.progress, ...blue },
+      { group: '活动提醒', cat: '体验预约', title: '到馆提醒', text: '今天 14:00 机器人避障闯关，请提前 10 分钟到馆', time: '09:00', unread: false, href: 'VenueCode.dc.html', d: icon.calendar, ...green },
+      { group: '活动提醒', cat: '活动提醒', title: '活动延期', text: '青少年无人机编程挑战赛 11/15 上午场延期至 11/22 上午，请选择保留新场次或退款', time: '08:30', unread: false, href: 'EnrollResult.dc.html', d: icon.flag, ...green },
+      { group: '活动提醒', cat: '活动提醒', title: '报名成功', text: '青少年无人机编程挑战赛 2 人，11/15 08:30 起签到', time: '昨天', unread: true, href: 'EnrollTicket.dc.html', d: icon.flag, ...green },
+      { group: '系统通知', cat: '系统通知', title: '组织邀请', text: '东营港务物流邀请你以经办人身份加入组织，接受后可用企业身份发布需求和比选报价', time: '昨天', unread: false, href: 'OrgInvite.dc.html', d: icon.bell, ...grey },
+      { group: '系统通知', cat: '系统通知', title: '隐私政策更新摘要', text: '查看主要变化与生效日期', time: '11/01', unread: false, href: 'NoticeDetail.dc.html', d: icon.bell, ...grey },
+      { group: '联系客服', cat: '客服', title: '示例机器人商家', text: '教室套装可开增值税普通发票', time: '10/30', unread: false, href: 'Chat.dc.html', d: icon.service, ...orange }
+    ];
+    const isUnread = (m) => m.unread && !allRead;
+    const badgeOf = (n) => (n > 99 ? '99+' : n > 0 ? String(n) : '');
+    const unreadCount = (group) => linkedAll.filter((m) => (!group || m.group === group) && isUnread(m)).length;
+
+    const ACTIVE = 2; // 0 首页 1 发现 2 消息 3 购物车 4 我的
+    const msgBadge = badgeOf(unreadCount('')); // 底栏“消息”角标 = 未读数，0 不显示
+    const tabs = [
+      ['首页', 'HomeFull.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', '', false],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z', '', true],
+      ['消息', 'Messages.dc.html', 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01', msgBadge, false],
+      ['购物车', 'Cart.dc.html', 'M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1', '3', false],
+      ['我的', 'Mine.dc.html', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', '', false]
+    ].map((t, i) => ({ label: t[0], href: t[1], d: t[2], badge: t[3], dot: t[4] && i !== ACTIVE, c: i === ACTIVE ? '#ff6a00' : '#8a8f97', w: i === ACTIVE ? 500 : 400 }));
+
+    // 分类角标 = 该分类未读数（初始：交易物流 1、服务进度 1、活动提醒 1）；点方块筛选列表，再点一次显示全部；“联系客服”方块直达 Chat，不参与筛选
+    const cats = [
+      ['交易物流', icon.truck, orange],
+      ['服务进度', icon.progress, blue],
+      ['活动提醒', icon.flag, green],
+      ['系统通知', icon.bell, grey]
+    ].map((c) => {
+      const label = c[0];
+      const on = label === filter;
+      return {
+        label, d: c[1], bg: c[2].bg, fg: c[2].fg, badge: badgeOf(unreadCount(label)),
+        on, ring: on ? '0 0 0 2px #fff, 0 0 0 3.5px #ff6a00' : 'none', lc: on ? '#d94f00' : '#191919', lw: on ? 500 : 400,
+        pick: () => this.setState((s) => ({ filter: s.filter === label ? '' : label }))
+      };
+    });
+
+    const shown = (m) => !filter || m.group === filter;
+    const style = (m) => ({ ...m, unread: isUnread(m), tw: isUnread(m) ? 500 : 400, tc: isUnread(m) ? '#555a62' : '#8a8f97' });
+    // 卡片里最后一条不画分隔线
+    const linked = linkedAll.filter(shown).map(style).map((m, i, a) => ({ ...m, bd: i === a.length - 1 ? 'transparent' : '#f0f1f3' }));
+
+    const markAllRead = () => this.setState({ allRead: true });
+    return { tabs, cats, linked, markAllRead };
+  }
+}
+</script>
+</body>
+</html>

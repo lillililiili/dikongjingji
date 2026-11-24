@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>发现</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; min-height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; padding-top: 6px; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px 0 16px;">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; line-height: 44px;">发现</h1>
+      <a href="CitySheet.dc.html" style="display: flex; align-items: center; gap: 2px; min-height: 44px; font-size: 15px; font-weight: 500; color: #191919; text-decoration: none;">{{city}}<svg width="14" height="14" viewBox="0 0 24 24" fill="#191919" aria-hidden="true"><path d="M6 9l6 6 6-6z"></path></svg></a>
+      <a href="SearchPre.dc.html" aria-label="搜索" style="margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg></a>
+    </div>
+    <div role="tablist" aria-label="内容频道" style="display: flex; align-items: center; padding: 0 7px 2px; overflow: hidden;">
+      <sc-for list="{{channels}}" as="ch" hint-placeholder-count="7">
+        <button type="button" role="tab" aria-selected="{{ch.on}}" onClick="{{ch.pick}}" style="flex-shrink: 0; position: relative; display: flex; align-items: center; min-height: 44px; margin: 0; padding: 0 9px; border: 0; background: none; font: inherit; color: {{ch.c}}; font-size: {{ch.fs}}; font-weight: {{ch.w}}; white-space: nowrap; cursor: pointer;">{{ch.label}}<sc-if value="{{ch.live}}" hint-placeholder-val="{{false}}"><span style="position: absolute; right: 2px; top: 9px; width: 6px; height: 6px; border-radius: 50%; background: #e5484d;"></span></sc-if><sc-if value="{{ch.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 3px; width: 16px; height: 3px; margin-left: -8px; border-radius: 3px; background: #ff6a00;"></span></sc-if></button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px 16px 16px;">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 17px; color: #8a8f97;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="1.8" stroke-linecap="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+      <span>{{note}}</span>
+    </div>
+
+    <sc-if value="{{showFeature}}" hint-placeholder-val="{{true}}">
+      <a href="Topic.dc.html" style="flex-shrink: 0; display: flex; height: 132px; border-radius: 14px; overflow: hidden; background: #fff; text-decoration: none; color: #191919;">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 12px 14px; background: linear-gradient(135deg, #fff3e8 0%, #fffaf5 100%);">
+          <span style="font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #ff6a00; color: #fff;">专题</span>
+          <span style="font-size: 19px; font-weight: 700; line-height: 25px;">黄河口低空体验季</span>
+          <span style="font-size: 13px; line-height: 18px; color: #555a62;">到馆体验、赛事、研学合集</span>
+          <span style="margin-top: auto; font-size: 12px; line-height: 17px; color: #8a8f97;">东营城市运营中心 · 运营精选</span>
+        </span>
+        <img src="/_blob/f9a69cf415def2dd6f6807969effb1dc" alt="孩子们和老师一起体验编程机器人" style="flex-shrink: 0; width: 132px; height: 132px; object-fit: cover; object-position: right center; display: block;">
+      </a>
+    </sc-if>
+
+    <sc-if value="{{showLiveBar}}" hint-placeholder-val="{{true}}">
+      <a href="LiveRoom.dc.html" style="flex-shrink: 0; position: relative; display: block; height: 150px; border-radius: 14px; overflow: hidden; background: #191919; text-decoration: none; color: #fff;">
+        <img src="/_blob/e42bb39cca5b4f528e6577da8445bced" alt="机器狗园区夜巡直播画面" style="width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.85;">
+        <span style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: linear-gradient(180deg, rgba(0,0,0,0.1) 30%, rgba(0,0,0,0.7) 100%);"></span>
+        <span style="position: absolute; left: 10px; top: 10px; display: flex; align-items: center; gap: 6px;"><span style="display: flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 999px; background: #e5484d; font-size: 11px; font-weight: 700;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #fff;"></span>直播中</span><span style="height: 22px; padding: 0 8px; border-radius: 999px; background: rgba(0,0,0,0.45); font-size: 11px; line-height: 22px;">1.2万 观看</span></span>
+        <span style="position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; align-items: flex-end; gap: 10px;">
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 16px; font-weight: 700; line-height: 22px;">机器狗园区夜巡演示</span><span style="font-size: 12px; line-height: 17px; color: rgba(255,255,255,0.8);">鹰眼智能巡检 · 正在讲解 园区安防巡检</span></span>
+          <span style="flex-shrink: 0; height: 32px; padding: 0 14px; border-radius: 999px; background: #ff6a00; font-size: 13px; line-height: 32px; font-weight: 500; white-space: nowrap;">进直播间</span>
+        </span>
+      </a>
+    </sc-if>
+
+    <sc-for list="{{sections}}" as="sec" hint-placeholder-count="2">
+      <sc-if value="{{sec.title}}" hint-placeholder-val="{{false}}">
+        <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+          <span style="width: 4px; height: 16px; border-radius: 2px; background: #ff6a00;"></span>
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">{{sec.title}}</h2>
+          <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">{{sec.sub}}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{sec.isGrid}}" hint-placeholder-val="{{true}}">
+        <div style="flex-shrink: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start;">
+          <sc-for list="{{sec.cols}}" as="col" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <sc-for list="{{col.items}}" as="g" hint-placeholder-count="3">
+                <a href="{{g.href}}" style="display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; text-decoration: none; color: #191919;">
+                  <span style="position: relative; display: block; height: {{g.h}}; background: #eef0f3;">
+                    <img src="{{g.img}}" alt="{{g.title}}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                    <span style="position: absolute; left: 8px; top: 8px; display: flex; align-items: center; gap: 4px; height: 18px; padding: 0 6px; border-radius: 6px; background: {{g.tagBg}}; color: #fff; font-size: 11px; line-height: 18px;"><sc-if value="{{g.live}}" hint-placeholder-val="{{false}}"><span style="width: 5px; height: 5px; border-radius: 50%; background: #fff;"></span></sc-if>{{g.tag}}</span>
+                    <sc-if value="{{g.corner}}" hint-placeholder-val="{{true}}">
+                      <span style="position: absolute; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: 999px; background: rgba(0,0,0,0.55); color: #fff; font-size: 11px;"><sc-if value="{{g.play}}" hint-placeholder-val="{{true}}"><svg width="8" height="8" viewBox="0 0 10 10" fill="#fff" aria-hidden="true"><path d="M2 1l7 4-7 4z"></path></svg></sc-if>{{g.corner}}</span>
+                    </sc-if>
+                  </span>
+                  <span style="padding: 8px 10px 0; font-size: 14px; font-weight: 500; line-height: 20px;">{{g.title}}</span>
+                  <span style="display: flex; align-items: center; gap: 6px; padding: 6px 10px 10px; font-size: 12px; line-height: 17px; color: #8a8f97;">
+                    <span style="flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: {{g.avBg}}; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;">{{g.initial}}</span>
+                    <span style="flex-grow: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{g.author}}</span>
+                    <span style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; white-space: nowrap;"><sc-if value="{{g.heart}}" hint-placeholder-val="{{true}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.6-9-9.1C1.7 7.7 3.8 5 6.7 5c2 0 3.6 1 5.3 3 1.7-2 3.3-3 5.3-3 2.9 0 5 2.7 3.7 5.9-2 4.5-9 9.1-9 9.1z"></path></svg></sc-if>{{g.meta}}</span>
+                  </span>
+                </a>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{sec.isRows}}" hint-placeholder-val="{{false}}">
+        <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;">
+          <sc-for list="{{sec.rows}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 10px; background: #fff; border-radius: 12px;">
+              <a href="{{r.href}}" style="flex-grow: 1; min-width: 0; display: flex; gap: 12px; text-decoration: none; color: #191919;">
+                <span style="position: relative; flex-shrink: 0; display: block; width: 104px; height: 78px; border-radius: 10px; overflow: hidden; background: #eef0f3;">
+                  <img src="{{r.img}}" alt="{{r.title}}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                  <span style="position: absolute; left: 4px; top: 4px; padding: 0 5px; border-radius: 6px; background: {{r.tagBg}}; color: {{r.tagC}}; font-size: 11px; line-height: 17px; font-weight: 500; white-space: nowrap;">{{r.tag}}</span>
+                </span>
+                <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                  <span style="font-size: 15px; font-weight: 500; line-height: 21px;">{{r.title}}</span>
+                  <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.sub}}</span>
+                  <span style="margin-top: auto; display: flex; align-items: baseline; gap: 6px; font-size: 12px; line-height: 17px; white-space: nowrap;"><span style="font-size: 14px; font-weight: 700; color: {{r.metaC}};">{{r.meta}}</span><span style="color: #8a8f97;">{{r.meta2}}</span></span>
+                </span>
+              </a>
+              <sc-if value="{{r.canRemind}}" hint-placeholder-val="{{false}}">
+                <button type="button" aria-pressed="{{r.reminded}}" onClick="{{r.toggleRemind}}" style="flex-shrink: 0; height: 36px; margin: 0; padding: 0 12px; border-radius: 999px; border: 1.5px solid {{r.remBd}}; background: {{r.remBg}}; font: inherit; font-size: 13px; font-weight: 500; color: #d94f00; white-space: nowrap; cursor: pointer;">{{r.remLabel}}</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </sc-for>
+
+    <span style="flex-shrink: 0; padding: 6px 0 2px; font-size: 12px; line-height: 17px; color: #a3a8b0; text-align: center;">没有更多内容了</span>
+  </div>
+
+  <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <a href="{{t.href}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px; font-weight: {{t.w}};">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+        <span>{{t.label}}</span>
+        <sc-if value="{{t.badge}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 4px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">{{t.badge}}</span>
+        </sc-if>
+        <sc-if value="{{t.dot}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 7px; left: 50%; margin-left: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ff5200;"></span>
+        </sc-if>
+      </a>
+    </sc-for>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1620}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // channel：当前频道；reminded：已设提醒的直播预告 id
+    this.state = { channel: '推荐', reminded: {} };
+  }
+  renderVals() {
+    const { channel, reminded } = this.state;
+    const ACTIVE = 1; // 0 首页 1 发现 2 消息 3 购物车 4 我的
+    const tabs = [
+      ['首页', 'HomeFull.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', '', false],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z', '', true],
+      ['消息', 'Messages.dc.html', 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01', '3', false],
+      ['购物车', 'Cart.dc.html', 'M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1', '3', false],
+      ['我的', 'Mine.dc.html', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', '', false]
+    ].map((t, i) => ({ label: t[0], href: t[1], d: t[2], badge: t[3], dot: t[4] && i !== ACTIVE, c: i === ACTIVE ? '#ff6a00' : '#8a8f97', w: i === ACTIVE ? 500 : 400 }));
+    const city = '东营';
+    const channels = ['推荐', '视频', '直播', '赛事', '研学', '案例', '知识'].map((label) => {
+      const on = label === channel;
+      // 有直播在播时，“直播”频道名右上角带一个红点
+      return { label, on, live: label === '直播' && !on, c: on ? '#ff6a00' : '#191919', fs: on ? '18px' : '15px', w: on ? 700 : 400, pick: () => this.setState({ channel: label }) };
+    });
+
+    // ---- 内容库：视频都进竖屏视频流（VideoFeed），直播进直播间（LiveRoom），图文进各自的详情
+    const AV = { 示: '#ff6a00', 鹰: '#11804a', 东: '#1d63c4' };
+    const av = (author) => ({ author, initial: author.slice(0, 1), avBg: AV[author.slice(0, 1)] || '#6a4fe0' });
+    const video = (title, img, dur, author, likes, h) => ({ kind: 'video', href: 'VideoFeed.dc.html', title, img, h: h || '236px', tag: '视频', tagBg: 'rgba(0,0,0,0.45)', corner: dur, play: true, heart: true, meta: likes, ...av(author) });
+    const live = (title, img, author, viewers, h) => ({ kind: 'live', href: 'LiveRoom.dc.html', title, img, h: h || '200px', tag: '直播中', tagBg: '#e5484d', live: true, corner: viewers + ' 观看', play: false, heart: false, meta: '进直播间', ...av(author) });
+    const article = (tag, title, img, href, author, meta, h) => ({ kind: 'article', href, title, img, h: h || '120px', tag, tagBg: 'rgba(0,0,0,0.45)', corner: '', play: false, heart: false, meta, ...av(author) });
+    const V = {
+      robot: video('3 分钟看懂编程机器人', '/_blob/d7f749aa0af5b1d1784040d2a816e2f0', '3:12', '示例机器人商家', '2380'),
+      dog: video('机器狗园区夜巡实录', '/_blob/e42bb39cca5b4f528e6577da8445bced', '1:48', '鹰眼智能巡检', '5120', '200px'),
+      survey: video('无人机航测三天出图', '/_blob/b6a30fa51bcba7d4ced06ace8b4d74ed', '2:36', '示例测绘服务商', '1860', '200px'),
+      contest: video('编程挑战赛精彩回顾', '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489', '2:05', '东营城市运营中心', '3210'),
+      aerial: video('4K 航拍黄河口', '/_blob/277bff54e5d7d5be019694787d4e648d', '0:58', '示例科创器材店', '8900', '200px'),
+      camp: video('研学营的一天', '/_blob/f9a69cf415def2dd6f6807969effb1dc', '1:30', '示例研学机构', '1420')
+    };
+    const L = {
+      dog: live('机器狗园区夜巡演示', '/_blob/e42bb39cca5b4f528e6577da8445bced', '鹰眼智能巡检', '1.2万'),
+      drone: live('编程无人机开箱与首飞', '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489', '示例无人机厂家', '3860')
+    };
+    const A = {
+      case1: article('案例', '一台机器狗如何完成园区夜间巡逻', '/_blob/e42bb39cca5b4f528e6577da8445bced', 'ContentArticle.dc.html', '鹰眼智能巡检', '10/28'),
+      case2: article('案例', '无人机航测如何三天出图', '/_blob/b6a30fa51bcba7d4ced06ace8b4d74ed', 'ContentCase2.dc.html', '示例测绘服务商', '11/01'),
+      know1: article('知识', '新手买无人机前，先弄清这 4 件事', '/_blob/277bff54e5d7d5be019694787d4e648d', 'ContentKnow1.dc.html', '东营城市运营中心', '11/02'),
+      know2: article('知识', '给孩子选编程机器人，看这 5 点', '/_blob/5d32505e8b9a494f8436e31c3008ef99', 'ContentKnow2.dc.html', '示例机器人商家', '10/26')
+    };
+    // 两列瀑布：按顺序轮流放进左右两列
+    const grid = (items, title, sub) => ({
+      title: title || '', sub: sub || '', isGrid: true, isRows: false,
+      cols: [0, 1].map((c) => ({ items: items.filter((_, i) => i % 2 === c) }))
+    });
+    const C = { purple: ['#f1edff', '#6a4fe0'], blue: ['#eaf2fd', '#1d63c4'], green: ['#e8f7ef', '#11804a'], orange: ['#fff3e8', '#d94f00'], dark: ['rgba(0,0,0,0.5)', '#fff'], red: ['#e5484d', '#fff'] };
+    const row = (tone, tag, title, sub, meta, meta2, img, href, extra) => ({ tag, tagBg: C[tone][0], tagC: C[tone][1], title, sub, meta, meta2: meta2 || '', metaC: /^¥|询价|免费/.test(meta) ? '#e85400' : '#555a62', img, href, canRemind: false, ...(extra || {}) });
+    const rows = (list, title, sub) => ({ title: title || '', sub: sub || '', isGrid: false, isRows: true, rows: list });
+    const notice = (id, title, when, host, img) => {
+      const on = !!reminded[id];
+      return row('purple', '预告', title, host + ' · 合作平台播出', when, '', img, 'LiveNotice.dc.html', {
+        canRemind: true, reminded: on, remLabel: on ? '已设提醒' : '提醒我', remBd: on ? '#ffd8b8' : '#ff6a00', remBg: on ? '#fff3e8' : '#fff',
+        toggleRemind: () => this.setState((s) => ({ reminded: { ...s.reminded, [id]: !s.reminded[id] } }))
+      });
+    };
+
+    const pages = {
+      推荐: { note: '内容由城市运营和商家发布，按发布时间与运营精选排序。', feature: true, liveBar: true,
+        sections: [grid([V.robot, A.case1, V.contest, V.aerial, A.know1, V.dog, A.case2, V.camp])] },
+      视频: { note: '点任意视频进入竖屏播放，上下切换下一条。',
+        sections: [grid([V.robot, V.dog, V.aerial, V.contest, V.survey, V.camp])] },
+      直播: { note: '平台内直播可互动、看讲解清单；交易在平台内完成，直播间不收款。',
+        sections: [
+          grid([L.dog, L.drone], '正在直播', '2 场'),
+          rows([
+            notice('n1', '园区夜巡方案怎么定：服务商答疑', '11/08 19:30', '鹰眼智能巡检', '/_blob/a016bad56a0e687061b30b2a4fd96ff6'),
+            notice('n2', '编程挑战赛赛前说明会', '11/12 20:00', '东营城市运营中心', '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489')
+          ], '直播预告', '可设提醒'),
+          rows([
+            row('dark', '回看', '光伏电站热斑巡检现场连线', '示例新能源运维公司 · 52 分钟', '10/30', '已结束', '/_blob/248020917b29731ae2eb5c415d406dd0', 'ContentCase3.dc.html'),
+            row('dark', '回看', '机器人避障闯关：体验馆开放日', '东营低空与机器人体验馆 · 38 分钟', '10/25', '已结束', '/_blob/822c9edc2d0d857c67055194c02161d3', 'VideoFeed.dc.html')
+          ], '往期回看', '')
+        ] },
+      赛事: { note: '赛事由主办方发布，报名、退改和成绩以活动详情为准。', feature: true,
+        sections: [
+          rows([
+            row('purple', '赛事', '青少年无人机编程挑战赛（东营站）', '11/15 · 东营低空与机器人体验馆', '¥120/人', '余 12/60', '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489', 'ActDetail.dc.html'),
+            row('green', '体验日', '无人机开放体验日', '11/14 · 模拟飞行、真机展示、教练答疑', '免费', '报名中', '/_blob/e42bb39cca5b4f528e6577da8445bced', 'ActOpenDay.dc.html'),
+            row('blue', '培训', '多旋翼无人机驾驶员培训', '12 月班 · 理论 + 实操', '询价', '余 8/30', '/_blob/277bff54e5d7d5be019694787d4e648d', 'ActTraining.dc.html')
+          ], '正在报名', ''),
+          grid([V.contest, { ...A.case1, tag: '回顾', title: '上一站：60 个孩子和 12 条航线', href: 'VideoFeed.dc.html', img: '/_blob/7dea67aa257759d5c4cffcda675bc107', author: '东营城市运营中心', initial: '东', avBg: '#1d63c4', meta: '10/26' }], '赛事回顾', '')
+        ] },
+      研学: { note: '研学活动面向未成年人，由监护人代报名；行程和退改以活动详情为准。',
+        sections: [
+          rows([
+            row('purple', '研学', '黄河口低空研学一日营', '每周六 · 含接送 · 户外飞行营地', '¥268/人', '可候补', '/_blob/eada5bcde09c62b71c41868194f30706', 'ActCamp.dc.html'),
+            row('purple', '研学', '机器人研学体验', '11/08 · 半天 · 体验馆', '¥168/人', '余 12', '/_blob/7dea67aa257759d5c4cffcda675bc107', 'ActStudyRobot.dc.html'),
+            row('blue', '研学营', '青少年机器人研学营 3 天', '寒假营 · 含食宿与保险', '¥2,980', '东营开班', '/_blob/f9a69cf415def2dd6f6807969effb1dc', 'CourseCamp.dc.html')
+          ], '可报名的研学', ''),
+          grid([V.camp, { ...A.know2, tag: '家长必读' }], '看看别的孩子怎么玩', '')
+        ] },
+      案例: { note: '案例由服务商提供，实际范围、周期和费用以报价方案为准。',
+        sections: [
+          rows([
+            row('dark', '案例', '一台机器狗如何完成园区夜间巡逻', '鹰眼智能巡检 · 园区安防', '10/28', '关联 园区安防巡检', '/_blob/e42bb39cca5b4f528e6577da8445bced', 'ContentArticle.dc.html'),
+            row('dark', '案例', '无人机航测如何三天出图', '示例测绘服务商 · 园区测绘', '11/01', '关联 航测与三维建模', '/_blob/b6a30fa51bcba7d4ced06ace8b4d74ed', 'ContentCase2.dc.html'),
+            row('dark', '案例', '光伏电站巡检：热斑是怎么被找出来的', '示例新能源运维公司 · 光伏', '10/30', '关联 光伏电站巡检', '/_blob/248020917b29731ae2eb5c415d406dd0', 'ContentCase3.dc.html')
+          ], '', ''),
+          grid([V.dog, V.survey], '案例视频', '')
+        ] },
+      知识: { note: '知识内容仅作入门参考，登记和飞行要求以主管部门的最新规定为准。',
+        sections: [
+          rows([
+            row('blue', '知识', '新手买无人机前，先弄清这 4 件事', '东营城市运营中心 · 约 3 分钟', '11/02', '入门', '/_blob/277bff54e5d7d5be019694787d4e648d', 'ContentKnow1.dc.html'),
+            row('blue', '知识', '给孩子选编程机器人，看这 5 点', '示例机器人商家 · 约 3 分钟', '10/26', '选购', '/_blob/5d32505e8b9a494f8436e31c3008ef99', 'ContentKnow2.dc.html'),
+            row('blue', '知识', '航拍前的检查清单：场地、天气和电量', '示例无人机厂家 · 约 3 分钟', '10/20', '安全', '/_blob/eada5bcde09c62b71c41868194f30706', 'ContentKnow3.dc.html'),
+            row('orange', '课程', '无人机飞行原理 线上课', '12 课时 · 支持试听', '¥199', '系统学', '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489', 'CourseFly.dc.html')
+          ], '', ''),
+          grid([V.robot, V.aerial], '看视频学', '')
+        ] }
+    };
+    const page = pages[channel] || pages['推荐'];
+    return { tabs, city, channels, note: page.note, showFeature: !!page.feature, showLiveBar: !!page.liveBar, sections: page.sections };
+  }
+}
+</script>
+</body>
+</html>

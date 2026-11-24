@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>巡检闭环规格</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 1100px; height: 9190px; display: flex; flex-direction: column; gap: 26px; padding: 40px 44px; box-sizing: border-box; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <h1 style="margin: 0; font-size: 28px; line-height: 40px; font-weight: 700; white-space: nowrap;">巡检闭环 · 规格（第四批补页）</h1>
+      <a href="Batch3Spec.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">内容与增强 · 规格（Batch3Spec）›</a>
+    </div>
+    <div style="font-size: 14px; line-height: 1.6; color: #555a62;">本批补齐 13 张画板：巡检服务目录 M02、服务详情 M03、确认订单与提交结果 M04，单次样例的方案、两张收银台、履约和交付，方案已过期帧、方案已确认帧，以及 6 次样例 12/15 这一帧。原型里巡检原来到“专业服务”频道就断了，现在从首页能一路点到验收付款。导航沿用方案 C：底栏 首页 / 发现 / 消息 / 购物车 / 我的。M02–M04 已有代码，和画板不一致的地方记在第 9 节。阶段 B 已按 v55 的方案、履约、交付画板做完并验收（分支 codex/inspection-visits）；这批新板的状态行、按钮和下载文案已对齐已验收代码，单次样例还有少量文字差异（第 9 节）；新增的是单次样例、12/15 帧和 M02–M04。有效期和已过期态、下载不写死分钟数、全部下载、取消订单这四处回改是 v55 已发布的内容，不是这批做的；这批在 v55 上加了什么见第 8 节。</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">1 · 页面清单</h2>
+      <span style="font-size: 13px; line-height: 20px; color: #8a8f97;">本批 13 张画板；文件名省略 .dc.html，点文件名跳到对应画板；编号为概要设计 §5.2 的草案编号，确认后生效。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 136px 156px 160px minmax(0, 1fr) minmax(0, 1.75fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">文件</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">页面</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">编号</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">入口</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">主要交互</div>
+      <sc-for list="{{pageRows}}" as="pr" hint-placeholder-count="13">
+        <a href="{{pr.href}}" style="display: block; padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700; text-decoration: none; overflow-wrap: anywhere;">{{pr.file}}</a>
+        <div style="display: flex; flex-direction: column; padding: 9px 12px; border-top: 1px solid #f0f1f3;">
+          <span style="white-space: nowrap;">{{pr.page}}</span>
+          <span style="font-size: 12px; line-height: 18px; color: #8a8f97; white-space: nowrap;">{{pr.mod}}</span>
+        </div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; white-space: nowrap;">{{pr.code}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{pr.entry}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{pr.act}}</div>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 10px; background: #f7f8fa;">
+      <span style="font-size: 14px; line-height: 20px; font-weight: 700;">这批改过的 11 张旧画板</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 24px;">
+        <sc-for list="{{retro}}" as="rt" hint-placeholder-count="11">
+          <div style="display: flex; align-items: baseline; gap: 10px; font-size: 13px; line-height: 1.55;">
+            <a href="{{rt.href}}" style="flex: 0 0 92px; font-weight: 700; text-decoration: none;">{{rt.file}}</a>
+            <span style="min-width: 0; color: #555a62;">{{rt.what}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">2 · 黄金路径</h2>
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 17px; color: #555a62; white-space: nowrap;"><span style="width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ffd8b8; background: #fff3e8;"></span>本批新画板</span>
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 17px; color: #555a62; white-space: nowrap;"><span style="width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ebedf0; background: #f2f3f5;"></span>已有画板</span>
+      <span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">点卡片可跳到对应画板；日期是这一帧所在的时刻</span>
+    </div>
+    <sc-for list="{{flows}}" as="fl" hint-placeholder-count="2">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid #ebedf0; border-radius: 12px;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="font-size: 15px; line-height: 22px; font-weight: 700; white-space: nowrap;">{{fl.name}}</span>
+          <span style="min-width: 0; font-size: 12px; line-height: 18px; color: #8a8f97;">{{fl.note}}</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+          <sc-for list="{{fl.steps}}" as="s" hint-placeholder-count="12">
+            <sc-if value="{{s.isNew}}" hint-placeholder-val="{{true}}">
+              <a href="{{s.href}}" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #ffd8b8; background: #fff3e8; color: #191919; text-decoration: none;">
+                <span style="font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{s.t}}</span>
+                <span style="font-size: 12px; line-height: 17px; color: #d94f00; white-space: nowrap;">{{s.p}}</span>
+              </a>
+            </sc-if>
+            <sc-if value="{{s.isOld}}" hint-placeholder-val="{{false}}">
+              <a href="{{s.href}}" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #ebedf0; background: #f2f3f5; color: #191919; text-decoration: none;">
+                <span style="font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{s.t}}</span>
+                <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">{{s.p}}</span>
+              </a>
+            </sc-if>
+            <span style="font-size: 14px; line-height: 20px; color: #a3a8b0;">{{s.arrow}}</span>
+          </sc-for>
+        </div>
+        <div style="font-size: 12px; line-height: 1.6; color: #555a62;">{{fl.rule}}</div>
+      </div>
+    </sc-for>
+    <div style="font-size: 13px; line-height: 1.6; padding: 10px 14px; border-radius: 10px; background: #f7f8fa;"><span style="font-weight: 700;">金刚位入口</span><span style="color: #555a62;">：AGENTS.md §15 要求黄金路径从首页顶部频道“专业服务”真实点击进入，推荐频道金刚位“专业服务”另设一条入口用例。画板上 HomeFull 的顶部频道、金刚位“专业服务”和大卡“找专业服务”都到 HomeSvc，后面的路径相同。</span></div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">3 · 样例与时间线</h2>
+      <span style="flex-shrink: 0; display: flex; align-items: center; min-height: 26px; box-sizing: border-box; padding: 0 10px; border-radius: 6px; border: 1px dashed #d94f00; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">今天 = 11/03（周二），约 14:30</span>
+      <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #8a8f97;">比今天晚的帧都是分镜：每张画板是不同时刻的样子，各记各的状态，跨页不共享。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 148px 196px minmax(0, 1fr) minmax(0, 1.1fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">样例</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">账号身份</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">金额拆分</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">关键日期</div>
+      <sc-for list="{{samples}}" as="sp" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; padding: 9px 12px; border-top: 1px solid #f0f1f3;">
+          <span style="font-weight: 700;">{{sp.name}}</span>
+          <span style="font-size: 12px; line-height: 18px; color: #8a8f97;">{{sp.note}}</span>
+        </div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62; white-space: pre-line;">{{sp.who}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62; white-space: pre-line;">{{sp.money}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62; white-space: pre-line;">{{sp.dates}}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">4 · 服务目录和详情</h2>
+      <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #8a8f97;">目录每页 5 条，东营 6 条服务；原型的筛选、排序都在页内算，正式产品由服务端查询。</span>
+      <a href="InspCatalog.dc.html" style="margin-left: auto; flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">巡检服务目录 ›</a>
+      <a href="InspDetail.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">服务详情 ›</a>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+      <sc-for list="{{catalogRules}}" as="cr" hint-placeholder-count="8">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid #ebedf0; border-radius: 12px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700;">{{cr.c0}}</span>
+          <span style="font-size: 13px; line-height: 1.6; color: #555a62;">{{cr.c1}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; padding: 12px 14px; border-radius: 10px; border: 1px solid #ebedf0; background: #f7f8fa;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">M03 区块顺序</span>
+        <span style="min-width: 0; font-size: 12px; line-height: 17px; color: #555a62;">照代码。用户评价只画空态“暂无评价”“完成服务后可在这里查看真实用户评价”，不写分数和条数；服务内容的四项就是确认订单的四个巡检项目。</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <sc-for list="{{detailOrder}}" as="dt" hint-placeholder-count="8">
+          <span style="display: flex; align-items: center; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid #ebedf0; background: #fff; font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{dt.t}}</span>
+          <span style="font-size: 14px; line-height: 20px; color: #a3a8b0;">{{dt.arrow}}</span>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 14px; line-height: 20px; font-weight: 700;">这些状态代码里已有，原型不用点到</span>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; flex-direction: column; height: 300px; box-sizing: border-box; border: 1px solid #ebedf0; border-radius: 12px; overflow: hidden; background: #f7f8fa;">
+            <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 36px; background: #fff; border-bottom: 1px solid #f0f1f3; font-size: 13px; line-height: 18px; font-weight: 700;">巡检服务</div>
+            <div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px;">
+              <sc-for list="{{skeletonCards}}" as="sk" hint-placeholder-count="4">
+                <div style="flex-shrink: 0; display: flex; gap: 8px; height: 52px; box-sizing: border-box; padding: 6px; border-radius: 8px; background: #fff;">
+                  <span style="flex-shrink: 0; width: 56px; border-radius: 6px; background: #eef0f3;"></span>
+                  <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 0;">
+                    <span style="width: {{sk.w1}}; height: 9px; border-radius: 4px; background: #eef0f3;"></span>
+                    <span style="width: 100%; height: 7px; border-radius: 4px; background: #f2f3f5;"></span>
+                    <span style="width: {{sk.w2}}; height: 7px; border-radius: 4px; background: #f2f3f5;"></span>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <span style="font-size: 14px; line-height: 20px; font-weight: 500;">加载中（骨架）</span>
+          <span style="font-size: 12px; line-height: 18px; color: #555a62;">M02 读取目录时显示 4 张骨架卡，代替列表；首次进入、切换排序、切换城市和下拉刷新都走这里。</span>
+        </div>
+        <sc-for list="{{stateFrames}}" as="sf" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; flex-direction: column; height: 300px; box-sizing: border-box; border: 1px solid #ebedf0; border-radius: 12px; overflow: hidden; background: #f7f8fa;">
+              <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 36px; background: #fff; border-bottom: 1px solid #f0f1f3; font-size: 13px; line-height: 18px; font-weight: 700;">{{sf.bar}}</div>
+              <div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; text-align: center;">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#b8bdc4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{sf.icon}}"></path></svg>
+                <span style="font-size: 15px; line-height: 21px; font-weight: 700; color: #343840;">{{sf.title}}</span>
+                <span style="font-size: 12px; line-height: 18px; color: #8a8f97;">{{sf.desc}}</span>
+                <span style="margin-top: 6px; display: flex; align-items: center; height: 36px; padding: 0 18px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{sf.action}}</span>
+              </div>
+            </div>
+            <span style="font-size: 14px; line-height: 20px; font-weight: 500;">{{sf.name}}</span>
+            <span style="font-size: 12px; line-height: 18px; color: #555a62;">{{sf.note}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">5 · 确认订单和提交结果</h2>
+      <span style="flex-shrink: 0; display: flex; align-items: center; min-height: 26px; box-sizing: border-box; padding: 0 10px; border-radius: 6px; border: 1px dashed #d94f00; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">这里不创建支付记录</span>
+      <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #8a8f97;">AGENTS.md §9：提交只创建预约，方案确认前不收费。</span>
+      <a href="InspBooking.dc.html" style="margin-left: auto; flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">确认订单 ›</a>
+      <a href="InspBooked.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">提交结果 ›</a>
+    </div>
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid #ebedf0; border-radius: 12px;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="font-size: 15px; line-height: 22px; font-weight: 700; white-space: nowrap;">校验顺序</span>
+          <span style="min-width: 0; font-size: 12px; line-height: 18px; color: #8a8f97;">点「提交订单」才校验，只显示第一条</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1.2fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+          <sc-for list="{{checks}}" as="ck" hint-placeholder-count="8">
+            <div style="padding: 9px 10px; border-top: 1px solid {{ck.line}}; background: #f7f8fa; color: #555a62; white-space: nowrap;">{{ck.n}}</div>
+            <div style="padding: 9px 10px; border-top: 1px solid {{ck.line}}; color: #555a62;">{{ck.when}}</div>
+            <div style="padding: 9px 10px; border-top: 1px solid {{ck.line}}; color: #e5484d;">{{ck.msg}}</div>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; line-height: 1.6; color: #555a62;">校验红字在底部固定区（「提交订单」按钮上方）；被拦下的那一项改好后红字消失，下一条要再点一次才显示。全部通过时「提交订单」到 InspBooked。底部固定写“平台保障 · 方案确认前不收取费用”。原型的手机号等于默认打码值“138****2026”或 11 位 1 开头就算通过，代码要求 11 位、第二位 3–9。代码还有两条画板碰不到的校验：“请重新选择巡检地点”（地点没有有效坐标）、“附件最多上传 9 个”。</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid #ebedf0; border-radius: 12px;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="font-size: 15px; line-height: 22px; font-weight: 700; white-space: nowrap;">时段规则</span>
+          <span style="min-width: 0; font-size: 12px; line-height: 18px; color: #8a8f97;">弹层“选择服务时间”；不可用的格子灰底，写原因</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 104px repeat(3, minmax(0, 1fr)); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+          <div style="padding: 7px 10px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">日期</div>
+          <div style="padding: 7px 10px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">09:00–12:00</div>
+          <div style="padding: 7px 10px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">14:00–17:00</div>
+          <div style="padding: 7px 10px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">18:00–21:00</div>
+          <sc-for list="{{slotRows}}" as="sl" hint-placeholder-count="4">
+            <div style="padding: 7px 10px; border-top: 1px solid #f0f1f3; white-space: nowrap;">{{sl.day}}</div>
+            <sc-for list="{{sl.cells}}" as="ce" hint-placeholder-count="3">
+              <div style="padding: 7px 10px; border-top: 1px solid #f0f1f3; background: {{ce.bg}}; color: {{ce.c}}; font-size: 12px; line-height: 20px; white-space: nowrap;">{{ce.t}}</div>
+            </sc-for>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; line-height: 1.6; color: #555a62;">默认选中周五，时段未选；换日期后清掉已选时段。时段未选时「确定」禁用，下方写“请选择日期和时段”；选好后写“已选择：11月6日 09:00–12:00”，确定后填入期望时间。弹层写“预计服务时长3小时”，「更多日期 ›」点后提示未绘制。</span>
+      </div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid #ebedf0; border-radius: 12px;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="font-size: 15px; line-height: 22px; font-weight: 700; white-space: nowrap;">附件规则</span>
+          <span style="min-width: 0; font-size: 12px; line-height: 18px; color: #8a8f97;">上传框写“上传线路图或现场照片”“支持图片、PDF，最多9个文件”</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 124px minmax(0, 1fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+          <sc-for list="{{fileSteps}}" as="fs" hint-placeholder-count="3">
+            <div style="padding: 7px 10px; border-top: 1px solid {{fs.line}}; background: #f7f8fa; color: #555a62; white-space: nowrap;">{{fs.t}}</div>
+            <div style="padding: 7px 10px; border-top: 1px solid {{fs.line}}; color: #555a62;">{{fs.d}}</div>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; line-height: 1.6; color: #555a62;">有上传失败的附件时不能提交（校验第 8 条）。原型只有这两份样例，第 3 次点提示“更多文件”未绘制。</span>
+      </div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">提交结果三帧</span>
+        <span style="min-width: 0; font-size: 12px; line-height: 18px; color: #8a8f97;">「取消订单」在待方案、方案已发布两帧显示，弹层标题“确认取消订单？”，写“取消后将停止安排本次服务。”，按钮「暂不取消」「确认取消」。</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 92px 92px minmax(0, 1.2fr) 84px minmax(0, 1.5fr) minmax(0, 0.9fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">帧</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">页头</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">结果卡</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">状态胶囊</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">进度卡</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">底栏</div>
+        <sc-for list="{{resultFrames}}" as="rf" hint-placeholder-count="3">
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700; white-space: nowrap;">{{rf.name}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62; white-space: nowrap;">{{rf.head}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{rf.card}}</div>
+          <div style="display: flex; align-items: flex-start; padding: 9px 12px; border-top: 1px solid #f0f1f3;"><span style="padding: 0 8px; border-radius: 999px; background: {{rf.chipBg}}; color: {{rf.chipFg}}; font-size: 12px; line-height: 20px; white-space: nowrap;">{{rf.chip}}</span></div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{rf.steps}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{rf.foot}}</div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">6 · 单次规则</h2>
+      <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #8a8f97;">修订方案 §2.2：只有 1 次巡检的服务，付款规则一样，首付 30%，验收后付 70%。</span>
+      <a href="FulfillOne.dc.html" style="margin-left: auto; flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">服务履约 · 单次 ›</a>
+      <a href="FulfillOneDone.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">已完成 ›</a>
+    </div>
+    <div style="display: flex; align-items: stretch; gap: 8px;">
+      <sc-for list="{{payNodes}}" as="pn" hint-placeholder-count="3">
+        <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; box-sizing: border-box; padding: 10px 14px; border-radius: 10px; border: 1px solid {{pn.bd}}; background: {{pn.bg}};">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">{{pn.t}}</span>
+          <span style="font-size: 13px; line-height: 1.6; color: #555a62;">{{pn.d}}</span>
+        </div>
+        <sc-if value="{{pn.arrow}}" hint-placeholder-val="{{true}}"><span style="align-self: center; font-size: 16px; line-height: 22px; color: #a3a8b0;">{{pn.arrow}}</span></sc-if>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: 116px 136px 72px minmax(0, 1.05fr) minmax(0, 1.25fr) minmax(0, 1fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">帧</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">画板</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">进度条</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">头卡</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">巡检进度这一行</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">底栏</div>
+      <sc-for list="{{oneFrames}}" as="of" hint-placeholder-count="5">
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700; word-break: keep-all;">{{of.name}}</div>
+        <a href="{{of.href}}" style="display: block; padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700; text-decoration: none; overflow-wrap: anywhere;">{{of.file}}</a>
+        <div style="padding: 16px 12px 0; border-top: 1px solid #f0f1f3;"><div style="height: 6px; border-radius: 3px; background: {{of.bar}};"></div></div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{of.head}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{of.row}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{of.foot}}</div>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px;">
+      <div style="display: grid; grid-template-columns: 124px minmax(0, 1fr) minmax(0, 1.2fr); align-content: start; border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">身份写法</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">个人身份（样例 A、C）</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">企业身份（样例 B）</div>
+        <sc-for list="{{idRows}}" as="id" hint-placeholder-count="3">
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62; white-space: nowrap;">{{id.c0}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{id.c1}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{id.c2}}</div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid #ebedf0; border-radius: 12px;">
+        <span style="font-size: 14px; line-height: 20px; font-weight: 700;">以个人身份下单</span>
+        <span style="font-size: 13px; line-height: 1.6; color: #555a62;">样例 A、C 以个人身份下单（Mine 里这个手机号也能切企业身份），显示“个人 + 姓名”，蓝底标签和“企业”标签同样式。个人和企业身份的区分要等 P1，这之前按账号所属组织显示（修订方案 §8 第 8 项）。</span>
+      </div>
+    </div>
+    <div style="font-size: 13px; line-height: 1.6; color: #555a62;">验收款和服务费的叫法：单次叫验收款，多次叫本次服务费。DeliveryOne 确认面板写“验收款 ¥4,200 · 验收后支付”，Delivery、FulfillmentLater 写“本次服务费 ¥2,170 · 验收后支付”。</div>
+    <div style="font-size: 13px; line-height: 1.6; color: #555a62;">下载时效不写死分钟数，页面按 expiresAt 显示。DeliveryOne 和 FulfillOneDone 的 M07 回看写“下载链接已生成，15:40 前有效”，「全部下载」后写“全部文件链接已生成，15:40 前有效”。</div>
+    <div style="font-size: 13px; line-height: 1.6; color: #555a62;">验收后、付款前停在 DeliveryOne：已验收条写“11/07 15:30 · 王女士 · 验收记录已留存”，下方「支付验收款 ¥4,200」。付完才到“已完成”帧。阶段 B 的页面隐藏付款区块，阶段 C 接统一交易模块后才打开（修订方案 §1）。</div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">阶段 B 付款关闭时</span>
+        <span style="min-width: 0; font-size: 12px; line-height: 18px; color: #8a8f97;">payment_mode=NONE：不生成付款节点，页面不显示付款区块，全部验收即已完成（修订方案 §3.2、§9.1）。</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 172px minmax(0, 1.2fr) minmax(0, 1fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">位置</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">画板（付款打开）</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">阶段 B（payment_mode=NONE）</div>
+        <sc-for list="{{noPayRows}}" as="np" hint-placeholder-count="4">
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700;">{{np.c0}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{np.c1}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{np.c2}}</div>
+        </sc-for>
+      </div>
+      <div style="font-size: 13px; line-height: 1.6; color: #555a62;">“待履约 · 待付首付”“全部验收，未结清”两个状态在阶段 C 开工前补帧。</div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">7 · 多次规则（12/15 这一帧）</h2>
+      <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #8a8f97;">样例 B，“6 次中已完成 3 次”，下次巡检 01/04。周期 11/02–01/18：周期由巡检次算出，不是合同字段。巡检次的状态见修订方案 §3.2。</span>
+      <a href="FulfillmentLater.dc.html" style="margin-left: auto; flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">服务履约 · 第 2–6 次 ›</a>
+    </div>
+    <div style="display: grid; grid-template-columns: 118px 148px minmax(0, 1.5fr) minmax(0, 1.25fr) minmax(0, 0.85fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">巡检次状态</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">服务端编码</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">12/15 这一帧</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">M06 这一行</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">客户能做什么</div>
+      <sc-for list="{{visitStates}}" as="vs" hint-placeholder-count="5">
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700; color: {{vs.c}}; white-space: nowrap;">{{vs.st}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62; white-space: nowrap;">{{vs.code}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; white-space: pre-line;">{{vs.now}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62; white-space: pre-line;">{{vs.row}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{vs.act}}</div>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+      <sc-for list="{{laterRules}}" as="lr" hint-placeholder-count="6">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid #ebedf0; border-radius: 12px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700;">{{lr.c0}}</span>
+          <span style="font-size: 13px; line-height: 1.6; color: #555a62;">{{lr.c1}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size: 13px; line-height: 1.6; color: #555a62;">下载时效同样按 expiresAt 显示：Delivery 写“下载链接已生成，16:05 前有效”，FulfillmentLater 写“下载链接已生成，21:00 前有效”，按次记录；「全部下载」后写“全部文件链接已生成，16:05 前有效”“全部文件链接已生成，21:00 前有效”。</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">8 · 这批在 v55 上加了什么</h2>
+      <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #8a8f97;">有效期和已过期态、下载不写死分钟数、全部下载、取消订单这四处回改是 v55 已发布的内容，不是这批做的。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 148px minmax(0, 1fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">画板</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">这批加了什么</div>
+      <sc-for list="{{addedItems}}" as="ad" hint-placeholder-count="6">
+        <a href="{{ad.href}}" style="display: block; padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700; text-decoration: none;">{{ad.file}}</a>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{ad.what}}</div>
+      </sc-for>
+    </div>
+    <div style="font-size: 13px; line-height: 1.6; color: #555a62;">PlanConfirm 的已过期态在 Tweaks 里切，这批的 PlanExpired 是能点到的一帧：按钮是「申请更新方案」，点后提示接平台客服，没有弹层。</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">9 · 和代码不一致的地方</h2>
+      <span style="font-size: 13px; line-height: 20px; color: #8a8f97;">只记录，没有改代码。M05–M07 对照 codex/inspection-visits（0cd67a2），M02–M04 对照 codex/nav-plan-c（b5bb55e）。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 144px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">位置</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">代码</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">画板</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">说明</div>
+      <sc-for list="{{codeDiffs}}" as="cd" hint-placeholder-count="15">
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700;">{{cd.c0}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{cd.c1}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{cd.c2}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{cd.c3}}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">10 · 原型限制</h2>
+    <div style="display: grid; grid-template-columns: 172px minmax(0, 1.2fr) minmax(0, 1fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">项目</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">原型</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62; white-space: nowrap;">正式产品</div>
+      <sc-for list="{{limits}}" as="lm" hint-placeholder-count="11">
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700;">{{lm.c0}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{lm.c1}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{lm.c2}}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">11 · 待确认</h2>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px;">
+      <sc-for list="{{asks}}" as="ak" hint-placeholder-count="7">
+        <div style="font-size: 13px; line-height: 1.55; padding: 8px 12px; border-radius: 10px; background: #fff3e8;"><span style="font-weight: 700;">{{ak.c0}}</span><span style="color: #555a62;">：{{ak.c1}}</span></div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="font-size: 12px; line-height: 1.6; color: #8a8f97;">依据：docs/redesign/02-巡检服务流程修订方案.md（V0.2，已确认）§1、§2.2、§2.3、§3、§7、§8；docs/redesign/01-概要设计.md §5.2；AGENTS.md §3、§8、§9、§15；参考图 ui-02、ui-03；代码 codex/inspection-visits（0cd67a2）、codex/nav-plan-c（b5bb55e）。人名、主体、金额、日期均为示意数据。</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1100,"height":9190}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 表格行用 c0、c1… 取值（模板里只能写点号取值，不能写下标）
+    const cells = (row) => Array.isArray(row) ? Object.fromEntries(row.map((v, i) => ['c' + i, v])) : row;
+    const board = (file) => file + '.dc.html';
+
+    // 1 页面清单：本批 13 张画板（不含本板）；文件名链接到各自画板
+    const pageRows = [
+      ['InspCatalog', '巡检服务目录', 'M02', 'APP-SVC-02',
+        'HomeSvc 的场景格、「查看全部」、搜索框；SearchPre 联想、Discover 服务条、Favorites 收藏的“园区安防巡检”',
+        '搜索、分类、排序、距离权限、切换城市、筛选弹层、「上拉加载更多」（第 4 节）；电力线路巡检卡和它的「详情」→ InspDetail，其余服务卡点后页内提示；返回 → HomeSvc'],
+      ['InspDetail', '服务详情', 'M03', 'APP-SVC-02',
+        'InspCatalog 电力线路巡检卡；HomeSvc 热门“电力线路巡检”；InspBooked 服务行',
+        '「立即预约」→ InspBooking；分享、「查看服务商 ›」、「客服」点后在底栏上方提示未绘制；返回 → InspCatalog'],
+      ['InspBooking', '确认订单', 'M04', '待补编号（§5.2 暂无）',
+        'InspDetail「立即预约」',
+        '选巡检地点、填线路长度、时段弹层、巡检项目多选、附件、协议勾选（第 5 节）；校验通过的「提交订单」→ InspBooked；返回 → InspDetail'],
+      ['InspBooked', '提交结果', 'M04', '待补编号（§5.2 暂无）',
+        'InspBooking「提交订单」；OrderList 电力线路巡检卡',
+        '三帧：待方案、方案已发布、已取消。「刷新状态」进方案已发布；「复制」预约编号；「取消订单」弹层；服务行 → InspDetail；「查看服务方案」→ PlanOne；返回、「返回订单」→ OrderList'],
+      ['PlanOne', '方案确认 · 单次', 'M05', 'APP-SVC-05',
+        'InspBooked「查看服务方案」',
+        '勾选后「确认方案 v1」，确认后「支付首付 ¥1,800」→ CashierOneFirst；「取消订单」进已取消帧；返回、「查看我的订单」→ OrderList'],
+      ['PlanExpired', '方案确认 · 已过期', 'M05', 'APP-SVC-05',
+        'OrderList 光伏电站巡检卡',
+        '没有勾选框和确认按钮；「申请更新方案」点后提示接平台客服，没有弹层；「取消订单」进已取消帧；「联系服务商」点后提示未绘制；返回、「查看我的订单」→ OrderList'],
+      ['PlanConfirmed', '方案确认 · 已确认', 'M05', 'APP-SVC-05',
+        '订单详情的方案条目（OrderService）',
+        '只读：方案 v2 已确认，首付已支付；「查看 v1」展开 v1 报价；「联系服务商」点后提示未绘制；「查看服务安排」→ Fulfillment；返回 → OrderService'],
+      ['CashierOneFirst', '首付收银台 · 单次', '付款节点 1', 'APP-MALL-05',
+        'PlanOne「支付首付 ¥1,800」',
+        '待支付 → 确认中 → 已支付或失败；已支付帧「查看履约安排」和返回 → FulfillOne；其余帧返回、「取消支付」、「返回方案确认」→ PlanOne'],
+      ['FulfillOne', '服务履约 · 单次', 'M06', 'APP-SVC-05',
+        'CashierOneFirst「查看履约安排」',
+        '「刷新进度」逐帧到已交付待验收；「查看第 1 次交付 ›」「去验收」→ DeliveryOne；「联系负责人」提示接平台客服；返回 → OrderList'],
+      ['DeliveryOne', '交付与验收 · 单次', 'M07', 'APP-SVC-05',
+        'FulfillOne「查看第 1 次交付 ›」「去验收」',
+        '单个文件「下载」和「全部下载」生成短时链接；「确认验收」弹确认面板；验收后「支付验收款 ¥4,200」→ CashierOneFinal；返回 → FulfillOne'],
+      ['CashierOneFinal', '验收款收银台 · 单次', '付款节点 2', 'APP-MALL-05',
+        'DeliveryOne「支付验收款 ¥4,200」',
+        '步骤同首付收银台；已支付帧「查看服务进度」和返回 → FulfillOneDone；其余帧返回、「取消支付」、「返回交付与验收」→ DeliveryOne'],
+      ['FulfillOneDone', '服务履约 · 已完成', 'M06 + M07 回看', 'APP-SVC-05',
+        'CashierOneFinal「查看服务进度」',
+        '「查看第 1 次交付 ›」切到本画板内的 M07 回看，文件仍可下载，不再有验收和支付入口；返回 → OrderList，回看屏返回 → 服务履约'],
+      ['FulfillmentLater', '服务履约 · 第 2–6 次', 'M06 12/15 + 按次验收', 'APP-SVC-05',
+        'CashierFinal 已支付帧「查看后续巡检进度」',
+        '画板内切 M06、M07、收银台三屏：点哪一次就看哪一次，验收和付款结果回到进度（第 7 节）；返回 → OrderService']
+    ].map(([file, page, mod, code, entry, act]) => ({ file, href: board(file), page, mod, code, entry, act }));
+
+    // 这批改过的旧画板，各一句；前 6 张的详情见第 8 节
+    const retro = [
+      ['PlanConfirm', '周期改 11/02–01/18；已取消后付款节点写“订单已取消，无需支付”'],
+      ['Delivery', '“对报告有疑问”提示接平台客服'],
+      ['Fulfillment', '周期改 11/02–01/18；第 2 次写“已排期 · 19:00”；“联系负责人”提示接平台客服'],
+      ['CashierFirst', '已支付帧返回到履约'],
+      ['CashierFinal', '加「查看后续巡检进度」→ FulfillmentLater；已支付帧返回到订单'],
+      ['OrderService', '方案条目改到 PlanConfirmed'],
+      ['HomeSvc', '场景格、「查看全部」、搜索框 → InspCatalog；热门“电力线路巡检”→ InspDetail'],
+      ['OrderList', '新增两张服务卡：电力线路巡检“待方案”「查看进度」；光伏电站巡检“待确认”「确认方案」，点进去才看到已过期。分别到 InspBooked、PlanExpired，只在“全部”“服务”显示'],
+      ['SearchPre', '联想“园区安防巡检”由 HomeSvc 改到 InspCatalog'],
+      ['Discover', '案例卡里的服务条“园区安防巡检”由 HomeSvc 改到 InspCatalog'],
+      ['Favorites', '服务收藏“园区安防巡检”由 HomeSvc 改到 InspCatalog']
+    ].map(([file, what]) => ({ file, href: board(file), what }));
+
+    // 2 黄金路径：new = 本批新画板（橙），old = 已有画板（灰）
+    const step = (kind, t, p, file, last) => ({ t, p, href: board(file), arrow: last ? '' : '→', isNew: kind === 'new', isOld: kind === 'old' });
+    const flows = [
+      { name: '单次', note: '样例 A · 电力线路巡检（个人身份）。从首页一路点到已完成。',
+        steps: [
+          step('old', '首页', 'HomeFull · 顶部频道「专业服务」', 'HomeFull'),
+          step('old', '专业服务频道', 'HomeSvc · 场景格、查看全部、搜索框', 'HomeSvc'),
+          step('new', '目录', 'InspCatalog · M02', 'InspCatalog'),
+          step('new', '详情', 'InspDetail · M03', 'InspDetail'),
+          step('new', '确认订单', 'InspBooking · 11/03', 'InspBooking'),
+          step('new', '提交结果', 'InspBooked · 11/03 14:30', 'InspBooked'),
+          step('new', '方案确认', 'PlanOne · 11/04', 'PlanOne'),
+          step('new', '首付', 'CashierOneFirst · ¥1,800', 'CashierOneFirst'),
+          step('new', '履约', 'FulfillOne · 11/06', 'FulfillOne'),
+          step('new', '交付验收', 'DeliveryOne · 11/07', 'DeliveryOne'),
+          step('new', '验收款', 'CashierOneFinal · ¥4,200', 'CashierOneFinal'),
+          step('new', '已完成', 'FulfillOneDone · 11/07', 'FulfillOneDone', true)
+        ],
+        rule: '点的顺序：确认订单填完必填项后「提交订单」；提交结果点「刷新状态」才出现「查看服务方案」；方案确认勾选后「确认方案 v1」，再「支付首付 ¥1,800」；收银台「确认支付」「刷新结果」「查看履约安排」；履约点三次「刷新进度」到待验收，「去验收」；交付与验收「确认验收」后「支付验收款 ¥4,200」；收银台同样两步后「查看服务进度」。' },
+      { name: '多次', note: '样例 B · 物流园区季度安防巡检（企业，6 次）。前五张是已有画板，这批补上最后一帧。',
+        steps: [
+          step('old', '方案确认', 'PlanConfirm · 11/01', 'PlanConfirm'),
+          step('old', '首付', 'CashierFirst · ¥5,580', 'CashierFirst'),
+          step('old', '履约 11/03', 'Fulfillment · 第 1 次', 'Fulfillment'),
+          step('old', '交付验收', 'Delivery · 第 1 次', 'Delivery'),
+          step('old', '服务费', 'CashierFinal · ¥2,170', 'CashierFinal'),
+          step('new', '12/15 这一帧', 'FulfillmentLater', 'FulfillmentLater', true)
+        ],
+        rule: 'CashierFinal 已支付帧的「查看后续巡检进度」跳到 12/15 这一帧，中间的 11/16 到 12/09 不逐张画。这一帧里点第几次就看第几次的交付，验收和付款都在画板内切屏（第 7 节）。' }
+    ];
+
+    // 3 样例：账号身份、金额拆分、关键日期
+    const samples = [
+      { name: '样例 A · 单次', note: '电力线路巡检',
+        who: '王女士 138****2026\n以个人身份下单（Mine 里这个手机号也能切企业身份），标签“个人”\n服务商：示例电力巡检服务商',
+        money: '合计 ¥6,000（方案 v1）\n无人机线路巡检 8 公里 × ¥699 = ¥5,592\n报告与缺陷清单 ¥408\n首付 30% ¥1,800 + 验收后付款 70% ¥4,200',
+        dates: '11/03 14:30 提交预约 YY202611030018\n11/04 10:30 发布方案 v1，版本行写“11/04 更新”，报价有效期至 11/05 18:00\n11/04 11:05 确认方案，随后付首付\n11/06 “已排期 · 09:00”；09:10 开始作业，11:40 完成作业\n11/07 10:00 报告已交付，15:30 验收，当天付验收款' },
+      { name: '样例 B · 6 次', note: '物流园区季度安防巡检',
+        who: '东营港务物流（企业身份）\n经办人 王女士\n服务商：鹰眼智能巡检',
+        money: '合计 ¥18,600（方案 v2）\n无人机巡检 6 次 × ¥1,800 = ¥10,800\n机器狗夜巡 6 次 × ¥1,100 = ¥6,600\n报告与隐患跟踪 ¥1,200\n首付 30% ¥5,580 + 按次结算 70% ¥13,020（每次验收后 ¥2,170，共 6 次）',
+        dates: '周期 11/02–01/18\n周期由巡检次算出，不是合同字段\n11/01 更新方案 v2，报价有效期至 11/01 18:00\n11/01 09:30 确认 v2，当天付首付\n今天：第 1 次报告 11/03 10:00 已交付，待验收\n12/15 这一帧：第 4 次作业中，其余见第 7 节\n第 3 次 12/08（原定 12/01，服务商已改期）' },
+      { name: '样例 C · 已过期', note: '光伏电站巡检',
+        who: '王女士，以个人身份下单\n服务商：示例新能源运维公司',
+        money: '合计 ¥3,000（方案 v1）\n光伏组件巡检 1 次 ¥2,600\n报告与运维建议 ¥400\n首付 30% ¥900 + 验收后付款 70% ¥2,100',
+        dates: '10/30 发布方案 v1\n报价有效期至 11/02 18:00，今天已过期\n计划服务日期 11/05，范围约 3 万㎡' }
+    ];
+
+    // 4 服务目录规则
+    const catalogRules = [
+      ['搜索', '占位词固定“搜索巡检服务、场景或关键词”（AGENTS.md §8）。原型输入即按标题、说明、标签包含匹配，用实时过滤代表提交；有内容时显示清除按钮，最多 50 字。'],
+      ['分类', '全部 / 电力 / 光伏 / 油气 / 热力 / 园区 / 设备 / 定期，横向滚动，选中橙底白字，切换后回到第 1 页。“设备”没有服务，点了走空态。'],
+      ['排序', '综合排序 / 距离最近 / 价格。价格点一次升序，再点降序；“按项目报价”升序降序都排最后。切换后回到第 1 页。'],
+      ['距离权限', '第一次点“距离最近”弹“允许使用你的位置？”。允许：按距离排序，价格下方写“距你 3.8 公里”，以后不再询问。不允许：回到综合排序，排序栏下方写“未开启定位，已按综合排序”，再点重新询问。'],
+      ['城市', '排序栏右侧“东营 ▾”打开“切换城市”：东营（当前）、济南、潍坊。济南只剩电力线路巡检、光伏电站巡检；潍坊为空，显示“潍坊暂未开通巡检服务”和「切换城市」。切城后回到第 1 页。'],
+      ['筛选', '底部弹层“筛选巡检服务”：巡检方式、报价方式、开关“包含巡检报告”。弹层里是草稿，「查看结果」才生效并回到第 1 页；「重置」清空草稿和已生效条件并关闭。有生效条件时图标旁显示橙色小圆点。'],
+      ['分页', '每页 5 条。还有下一页时列表尾是「上拉加载更多」，点后加载下一页；没有下一页时写“没有更多服务了”。'],
+      ['空态', '没有匹配时写“没有找到相关服务”“请更换关键词、分类或筛选条件”，「清空条件」清关键词、分类和筛选，回到第 1 页。']
+    ].map(cells);
+    const detailOrder = ['固定头部', '头图与核心信息', '服务内容', '用户评价', '服务流程', '交付成果', '服务保障', '固定底栏']
+      .map((t, i, all) => ({ t, arrow: i < all.length - 1 ? '→' : '' }));
+    const skeletonCards = [
+      { w1: '72%', w2: '46%' }, { w1: '60%', w2: '52%' }, { w1: '68%', w2: '40%' }, { w1: '56%', w2: '48%' }
+    ];
+    const iconInfo = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 8h.01M11 12h1v5h1';
+    const iconPin = 'M12 21c4.6-4.7 7-8.1 7-11a7 7 0 0 0-14 0c0 2.9 2.4 6.3 7 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5z';
+    const stateFrames = [
+      { bar: '巡检服务', icon: iconInfo, title: '暂时无法加载', desc: '巡检服务加载失败，请检查网络后重试', action: '重新加载',
+        name: '暂时无法加载', note: 'M02 读取失败时清空列表，「重新加载」重新读取。' },
+      { bar: '巡检服务', icon: iconPin, title: '请先选择城市', desc: '选择城市后查看当地的巡检服务', action: '选择城市',
+        name: '请先选择城市', note: 'M02 没有当前城市时显示，不算读取失败；「选择城市」打开城市面板。' },
+      { bar: '服务详情', icon: iconInfo, title: '服务详情暂不可用', desc: '当前城市暂无这项服务，或服务已下架', action: '看看其他服务',
+        name: '服务详情暂不可用', note: 'M03 服务下架或城市不匹配时重试也没用，「看看其他服务」回到目录。网络失败时写“服务详情加载失败，请检查网络后重试”，按钮换成「重新加载」。' }
+    ];
+
+    // 5 确认订单：校验顺序、时段、附件；提交结果三帧
+    const checks = [
+      ['未选巡检地点', '请填写巡检地点'],
+      ['线路长度不是大于 0 的数字', '请填写有效的线路长度'],
+      ['未选时段', '请选择期望巡检时间'],
+      ['一个巡检项目都没选', '请至少选择一个巡检项目'],
+      ['联系人为空', '请填写联系人'],
+      ['手机号不对', '请填写正确的手机号'],
+      ['没勾选协议', '请阅读并同意服务协议'],
+      ['有上传失败的附件', '请重试上传失败的附件']
+    ].map(([when, msg], i) => ({ n: String(i + 1), when, msg, line: i === 0 ? 'transparent' : '#f0f1f3' }));
+    const open = { t: '可选', bg: '#fff', c: '#191919' };
+    const shut = (t) => ({ t, bg: '#f2f3f5', c: '#8a8f97' });
+    const slotRows = [
+      { day: '今天 11月3日', cells: [shut('需提前1小时预约'), shut('需提前1小时预约'), open] },
+      { day: '明天 11月4日', cells: [open, open, open] },
+      { day: '周四 11月5日', cells: [open, shut('已约满'), open] },
+      { day: '周五 11月6日', cells: [open, open, shut('已约满')] }
+    ];
+    const fileSteps = [
+      { t: '第 1 次点上传框', d: '加线路走向图.jpg，“已选择，提交时上传”，可「移除」', line: 'transparent' },
+      { t: '第 2 次点上传框', d: '加现场照片.pdf，红字“上传失败”，可「重试」「移除」', line: '#f0f1f3' },
+      { t: '点「重试」', d: '状态变成“已选择，提交时上传”', line: '#f0f1f3' }
+    ];
+    const resultFrames = [
+      { name: '待方案', head: '提交成功', card: '“订单已提交”“预约申请已提交，服务商将在 [协议约定时间] 内联系你”', chip: '待方案', chipBg: '#fff3e8', chipFg: '#d94f00',
+        steps: '标题“接下来”，右侧「刷新状态」。需求已提交 ✓（11/03 14:30）→ 服务商确认需求（当前，等待联系）→ 确认方案与报价 → 现场巡检与报告交付',
+        foot: '「联系服务商」「返回订单」' },
+      { name: '方案已发布', head: '预约详情', card: '“方案已发布”“服务商已发布方案，请在 11/05 18:00 前确认”', chip: '待确认', chipBg: '#fff3e8', chipFg: '#d94f00',
+        steps: '没有「刷新状态」。需求已提交 ✓ → 服务商确认需求 ✓（11/04 10:30）→ 确认方案与报价（当前，等待你确认）→ 现场巡检与报告交付',
+        foot: '「联系服务商」「查看服务方案」→ PlanOne' },
+      { name: '已取消', head: '预约详情', card: '“订单已取消”“本次服务已停止安排，订单记录将继续保留”；圆变灰，对勾换成叉', chip: '已取消', chipBg: '#f2f3f5', chipFg: '#555a62',
+        steps: '标题“订单状态”，一行“订单已取消”“服务已停止安排”',
+        foot: '只有「返回订单」' }
+    ];
+
+    // 6 单次规则
+    const payNodes = [
+      { t: '首付 30% ¥1,800', d: '确认方案后支付：PlanOne 确认后这一行变“待支付”，到 CashierOneFirst 付。', arrow: '→', bd: '#ffd8b8', bg: '#fffaf5' },
+      { t: '验收后付款 70% ¥4,200', d: '验收后支付：DeliveryOne 确认验收后到 CashierOneFinal 付。', arrow: '→', bd: '#ffd8b8', bg: '#fffaf5' },
+      { t: '合计 ¥6,000', d: '全部付清才算已完成，头卡写“全部款项已结清”。', arrow: '', bd: '#ebedf0', bg: '#fff' }
+    ];
+    const oneFrames = [
+      { name: '已排期', file: 'FulfillOne', bar: '#ebedf0',
+        head: '“待履约”；右侧“共 1 次 · 未开始”；下方“现场巡检 11/06 09:00”',
+        row: '第 1 次 · 11/06，蓝字“已排期 · 09:00”',
+        foot: '“服务商按实际作业更新进度”+「刷新进度」' },
+      { name: '作业中', file: 'FulfillOne', bar: '#ffd8b8',
+        head: '状态大字写“履约中”；右侧“共 1 次 · 作业中”；下方同上',
+        row: '胶囊“作业中”；日志“11/06 09:10 开始作业”',
+        foot: '同上' },
+      { name: '现场已完成 · 报告整理中', file: 'FulfillOne', bar: '#ffd8b8',
+        head: '状态大字仍写“履约中”；右侧“共 1 次 · 现场已完成”；下方同上',
+        row: '蓝字“现场已完成 · 报告整理中”，没有胶囊；日志 2 行（加 11/06 11:40 完成作业）',
+        foot: '同上' },
+      { name: '已交付待验收', file: 'FulfillOne', bar: '#ff6a00',
+        head: '“待验收”；右侧“共 1 次 · 报告已交付”；下方“请核对报告后验收”',
+        row: '胶囊“待验收”，绿字“已完成 · 报告已交付”；日志 3 行；「查看第 1 次交付 ›」→ DeliveryOne',
+        foot: '“报告待验收”“11/07 10:00 已交付，请核对后验收”+「去验收」' },
+      { name: '已完成', file: 'FulfillOneDone', bar: '#19b866',
+        head: '绿字“已完成”；右侧“共 1 次 · 已验收”；下方“全部款项已结清”',
+        row: '绿色胶囊“已验收”，绿字“已验收 · 11/07 15:30”“验收款已支付”；日志 4 行（加 11/07 15:30 已验收）；「查看第 1 次交付 ›」进回看',
+        foot: '只留一行“服务已完成，感谢使用”' }
+    ].map((f) => ({ ...f, href: board(f.file) }));
+    const idRows = [
+      ['方案确认身份行', '“个人”+ 王女士', '“企业”+ 东营港务物流（经办人 王女士）'],
+      ['收银台付款主体', '王女士（个人身份）', '东营港务物流（企业身份）'],
+      ['确认面板验收人', '王女士（个人）', '王女士 · 东营港务物流 经办人']
+    ].map(cells);
+
+    // 阶段 B 付款关闭时（payment_mode=NONE）和画板不同的地方
+    const noPayRows = [
+      ['M06 头卡小字', '“全部款项已结清”', '只写周期，如“周期 11/06”'],
+      ['M06 巡检进度这一行', '“已验收 · 11/07 15:30”下面写“验收款已支付”或“服务费已支付”', '只写“已验收 · 11/07 15:30”'],
+      ['M07 回看底栏', '“验收款 ¥4,200 已支付 · 11/07”“第 n 次服务费 ¥2,170 已支付”', '不写付款行'],
+      ['方案确认后的主按钮', '「支付首付 ¥1,800」→ CashierOneFirst；「支付首付 ¥5,580」→ CashierFirst', '「查看服务安排」→ M06']
+    ].map(cells);
+
+    // 7 多次规则：巡检次五态
+    const visitStates = [
+      { st: '待排期', code: 'PENDING_SCHEDULE', c: '#8a8f97', now: '第 6 次 · 01/18',
+        row: '灰字“待排期”', act: '只能看' },
+      { st: '已排期', code: 'SCHEDULED', c: '#1d63c4', now: '第 5 次 · 01/04',
+        row: '蓝字“已排期 · 19:00”', act: '只能看' },
+      { st: '作业中', code: 'IN_PROGRESS', c: '#1d63c4', now: '第 4 次 · 12/15',
+        row: '蓝字“作业中”', act: '只能看' },
+      { st: '已交付待验收', code: 'DELIVERED', c: '#d94f00', now: '第 3 次 · 12/08（原定 12/01，服务商已改期）：报告 12/09 11:20；隐患 1 项；影像 34 张；服务费验收后支付',
+        row: '胶囊“待验收”，绿字“已完成 · 报告已交付”；小字“原定 12/01，服务商已改期”', act: '「查看第 3 次交付 ›」或底栏「去验收」' },
+      { st: '已验收', code: 'ACCEPTED', c: '#11804a', now: '第 1 次 · 11/02：报告 11/03 10:00；验收 11/03 16:20；隐患 3 项；影像 36 张；¥2,170 已支付\n第 2 次 · 11/16：报告 11/17 09:40；验收 11/18 10:05；隐患 2 项；影像 32 张；¥2,170 待支付',
+        row: '第 1 次：绿字“已验收 · 11/03 16:20”“服务费已支付”\n第 2 次：绿字“已验收 · 11/18 10:05”，橙字“服务费 ¥2,170 待支付”', act: '「查看第 n 次交付 ›」回看；没付的走提醒卡「去支付」' }
+    ];
+    const laterRules = [
+      ['改期不用客户确认', '服务商改排期不需要客户确认（修订方案 §2.2），客户在 M06 能看到：第 3 次这一行写“原定 12/01，服务商已改期”。'],
+      ['没付服务费只提醒不阻止', '第 2 次 ¥2,170 没付，第 3、4 次照常开工。提醒卡写最小的未付次：“第 2 次服务费 ¥2,170 待支付”“不影响后续巡检，全部结清后服务单才算完成”，「去支付」进该次收银台。没有未付次时不显示。'],
+      ['已交付的一行可进该次交付', '第 1–3 次每行都能进该次 M07，隐患、影像张数和下载链接都按次取。正式产品用 serviceOrderId + visitId 打开（修订方案 §7）。'],
+      ['验收后不可撤销', '确认面板写“验收确认后不可撤销；验收人与时间会留存记录”，重复确认不会有第二条记录。第 3 次在原型里验收时写 12/15 20:10，之后这一行写“已验收 · 12/15 20:10”“服务费 ¥2,170 待支付”，底栏写“暂无待验收的报告”。'],
+      ['“已完成 N 次”的口径', '已完成 = 现场完成并交付；“现场已完成 · 报告整理中”不计入。“6 次中已完成 3 次”和 Fulfillment 的“6 次中已完成 1 次”同一口径，验收和付款不改这个数。进度条前 3 格橙色，第 4 格浅橙，其余灰色。'],
+      ['为什么在画板内切屏', '原型不能跨画板传参，下一张画板不知道点的是第几次。所以 FulfillmentLater 把 M06、M07、收银台放在一张画板里切屏，验收和付款结果才能回到进度、提醒卡和底栏。']
+    ].map(cells);
+
+    // 8 这批在 v55 上加了什么：只列改过的旧画板；v55 已发布的四处回改不算在内
+    const addedItems = [
+      ['PlanConfirm', '周期改 11/02–01/18；已取消后付款节点写“订单已取消，无需支付”'],
+      ['Delivery', '“对报告有疑问”提示接平台客服（修订方案 §8 第 21 项）'],
+      ['Fulfillment', '周期改 11/02–01/18；第 2 次写“已排期 · 19:00”；“联系负责人”提示接平台客服（修订方案 §8 第 13 项）'],
+      ['CashierFinal', '加「查看后续巡检进度」→ FulfillmentLater；已支付帧返回到订单（OrderService）'],
+      ['CashierFirst', '已支付帧返回到履约（Fulfillment）'],
+      ['OrderService', '方案条目改到 PlanConfirmed']
+    ].map(([file, what]) => ({ file, href: board(file), what }));
+
+    // 9 和代码不一致的地方：位置、代码、画板、说明
+    const codeDiffs = [
+      ['M02 范围', '标题“电力巡检”；分类 全部、输电线路、变电站、配电网、电缆、光伏；只查电力类前 50 条（categoryCode=POWER）；排序是综合排序、SALES_DESC（按已服务次数从高到低）、价格',
+        '标题“巡检服务”；全品类 全部、电力、光伏、油气、热力、园区、设备、定期；排序是综合排序、距离最近、价格',
+        '画板按 AGENTS.md §9 和 ui-02 画'],
+      ['M02 搜索占位词', '“搜索电力巡检项目或关键词”', '“搜索巡检服务、场景或关键词”', '代码违反 AGENTS.md §8，画板是对的'],
+      ['M02 城市未开通', '没有这个状态，列表为空时都写“没有找到相关服务”', '潍坊写“潍坊暂未开通巡检服务”和「切换城市」', '画板加的状态，代码没有'],
+      ['M02、M03 聚合', '有真实聚合时显示分数、服务次数和评价列表，没有时隐藏', '只画“暂无评价”这一帧，不写分数和服务次数', '有数据时的版式画板没有画'],
+      ['M03 能力标签', '开发数据里有“AI 缺陷识别”', '改成“缺陷标注”', 'AGENTS.md §3 不做 AI 缺陷识别算法'],
+      ['M04 页面名称', '标题“确认订单”，按钮“提交订单”', '照代码',
+        '这时没有服务单，也不收钱，又和商品的确认订单同名。要不要改回“预约服务”待确认'],
+      ['M04 表单初值', '线路长度、联系人、手机号都是空的；时段弹层默认今天', '线路长度、联系人、手机号预填；时段弹层默认周五', '原型为少打字做的，以代码为准'],
+      ['M04 附件失败', '提交时才上传，失败状态在提交后才出现', '提交前就显示：第 2 个附件一加入就是“上传失败”', '原型为了把失败帧画出来提前显示，实际时机以代码为准'],
+      ['M04 校验错误', '放在页面下部，手机首屏看不到', '移到「提交订单」按钮上方（底部固定区）', '画板改的位置，代码没有改'],
+      ['M04 联系时限', '“服务商将在 30分钟内联系您”', '“服务商将在 [协议约定时间] 内联系你”', '时限没有依据'],
+      ['M04 提交结果', '方案发布后结果卡和进度不变，只有主按钮换成「查看服务方案」；服务商名固定写“云翼科技”',
+        '方案已发布帧的结果卡、状态胶囊和进度都变；不写服务商名', '修订方案把 M04 列为不变的部分，这几处要不要改代码待定'],
+      ['M04 提交结果页', '页头一直写“提交成功”；底栏写“联系商家”；期望时间只显示日期；没有巡检项目行；提交时间写“2026-11-03 14:30”',
+        '页头 submitted 写“提交成功”，其余写“预约详情”；底栏写“联系服务商”；期望时间写“11/06 09:00–12:00”；有巡检项目行；提交时间写“11/03 14:30”', '同上一行，要不要改代码待定'],
+      ['M06 单次样例', '右上“1 次中已完成 0 次”；小字“下次巡检 11/06 · 周期 11/06”；“每次巡检：…”“每次交付后由你验收”；已验收行不展开',
+        '右上“共 1 次 · 未开始”；小字“现场巡检 11/06 09:00”；“本次巡检：…”“交付后由你验收”；已验收行是带胶囊和日志的卡片', '画板是单次的读法，代码沿用多次的写法，要不要改代码待定'],
+      ['M05–M07 行为', '取消后跳到 M04 提交结果页；「申请更新方案」「联系服务商」弹窗说明；文件行多「查看」和文件大小；已验收行按钮写“查看交付”',
+        '取消后留在本页；都是页内提示；文件行只有「下载」；按钮写“查看第 n 次交付”', '原型简化，以代码为准'],
+      ['M05–M07 付款', '阶段 C 前关闭：payment_mode=NONE 时不生成付款节点，页面不显示付款区块',
+        '画的是付款打开时的样子：付款节点、支付按钮、收银台、已支付字样', '阶段 C 接统一交易模块后打开，逐项见第 6 节“阶段 B 付款关闭时”']
+    ].map(cells);
+
+    // 10 原型限制
+    const limits = [
+      ['「刷新状态」「刷新进度」', '只代表时间推进：InspBooked 从待方案到方案已发布，FulfillOne 从已排期到已交付待验收', '进页面或下拉时重新读取服务端状态'],
+      ['从场景格进目录', '不传参，都停在“全部”', '带 categoryCode 进入对应分类（AGENTS.md §9）'],
+      ['其余服务的详情', '只画了电力线路巡检；目录和 HomeSvc 的其余服务卡点了只提示', '每个服务都有详情，版式同电力线路巡检'],
+      ['未登录拦截', '没有接：InspDetail 直接到 InspBooking；Login 登录后固定回 PdSku，回跳是写死的', '需要登录时走公共身份能力，登录成功后恢复原目标（AGENTS.md §9）'],
+      ['OrderList', '是 11/03 的快照：付完款回到订单，电力线路巡检仍是“待方案”，所以路径终点放在“已完成”帧', '订单状态读服务端，和页面一致'],
+      ['多次样例的 M06 返回', 'Fulfillment、FulfillmentLater 返回到 OrderService', '阶段 B 没有这页，M06 一律回 M08'],
+      ['页面返回', '都是固定目标', '回上一页'],
+      ['DeliveryOne 返回', '返回 FulfillOne 时回到初始帧（已排期）', '回到 M06 时重新读取服务端状态，不会退回已排期'],
+      ['M02 城市弹层', '简化画法：只有东营、济南、潍坊三行', '用公共城市面板'],
+      ['「支付遇到问题」', '只是原型进入失败帧的手段', '客户端不能自己判定失败，结果以支付渠道回执为准'],
+      ['375 宽', 'PlanOne 服务商行、InspBooking 附件状态行、InspDetail“绝缘子及金具巡检”有 2–4px 超出', '开发时放开 nowrap']
+    ].map(cells);
+
+    // 11 待确认
+    const asks = [
+      ['客服形式', '入口都接“平台客服”（「客服」「联系负责人」「对报告有疑问」和「申请更新方案」），客服会话见 Chat'],
+      ['验收不通过和服务单退款', '画板只有确认验收和“对报告有疑问”，验收不通过怎么走、已付款项怎么退还没有规则'],
+      ['按项目报价的服务走预约还是需求发布', '园区安防巡检、园区设备定期巡检没有起步价，画板只画了电力线路巡检的预约路径'],
+      ['评价提交', '详情只读真实评价（AGENTS.md §3），用户怎么提交评价没有定'],
+      ['收款主体和支付渠道（修订方案 §2.3）', '画布写 [主用支付渠道] 和“经平台支付渠道”，服务商用自己的商户号还是平台代收未定'],
+      ['M04 的名称和提交结果', '第 9 节的“确认订单”和提交结果三帧，以代码还是画板为准'],
+      ['状态名“待报价”和“待方案”定一个', '修订方案 §3.2 和 OrderService 状态链写“待报价”，代码和 OrderList 写“待方案”']
+    ].map(cells);
+
+    return {
+      pageRows, retro, flows, samples,
+      catalogRules, detailOrder, skeletonCards, stateFrames,
+      checks, slotRows, fileSteps, resultFrames,
+      payNodes, oneFrames, idRows, noPayRows,
+      visitStates, laterRules, addedItems, codeDiffs, limits, asks
+    };
+  }
+}
+</script>
+</body>
+</html>

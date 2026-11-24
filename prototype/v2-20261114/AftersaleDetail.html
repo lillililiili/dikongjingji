@@ -1,0 +1,152 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ORD-03 售后详情</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 890px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderGoods.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">售后详情</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px; background: #fff; border-radius: 14px;">
+      <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: {{statusColor}};">{{statusTitle}}</span>
+      <span style="font-size: 13px; line-height: 18px; color: #536178;">{{statusSub}}</span>
+      <sc-if value="{{active}}" hint-placeholder-val="{{true}}">
+        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f5f7fc; font-size: 13px; line-height: 20px;">
+          <div style="display: flex; align-items: center; gap: 12px;"><span style="flex-shrink: 0; width: 56px; color: #627187;">退款金额</span><span style="font-size: 15px; font-weight: 700; color: #e85400;">¥1,299</span></div>
+          <div style="display: flex; align-items: center; gap: 12px;"><span style="flex-shrink: 0; width: 56px; color: #627187;">退款去向</span><span>[主用支付渠道] 原路退回</span></div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 0; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">售后进度</h2>
+        <sc-if value="{{active}}" hint-placeholder-val="{{true}}">
+          <a href="AftersaleFlow.dc.html" style="flex-shrink: 0; display: flex; align-items: center; margin: -11px 0 -11px auto; height: 44px; padding: 0 0 0 12px; font-size: 13px; line-height: 18px; color: #ba470b; white-space: nowrap; text-decoration: none;">刷新进度</a>
+        </sc-if>
+      </div>
+      <div role="list" aria-label="售后进度" style="display: flex; flex-direction: column;">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+          <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 14px;">
+            <span style="position: relative; flex-shrink: 0; width: 16px;">
+              <span style="position: absolute; left: 7px; top: 10px; bottom: -24px; width: 2px; background: {{s.line}};"></span>
+              <span style="position: absolute; left: 0; top: 2px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{s.bd}}; background: {{s.bg}}; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{s.check}}" hint-placeholder-val="{{false}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+                <sc-if value="{{s.inner}}" hint-placeholder-val="{{false}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+                <sc-if value="{{s.cross}}" hint-placeholder-val="{{false}}"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+              </span>
+            </span>
+            <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; line-height: 20px; color: {{s.tc}}; font-weight: {{s.tw}};">{{s.t}}</span>
+              <sc-if value="{{s.sub}}" hint-placeholder-val="{{true}}">
+                <span style="font-size: 12px; line-height: 17px; color: {{s.sc}};">{{s.sub}}</span>
+              </sc-if>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">申请信息</h2>
+      <div style="display: flex; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #f0f1f3;">
+        <img src="_blob/5d32505e8b9a494f8436e31c3008ef99.jpg" alt="编程机器人探索套装" style="width: 56px; height: 56px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">
+        <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">编程机器人探索套装</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">标准套装（1 台 + 数字课程）× 1</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">实付 ¥1,299</span>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 12px; font-size: 13px; line-height: 18px;">
+        <span style="color: #627187;">售后类型</span><span>退货退款</span>
+        <span style="color: #627187;">申请原因</span><span>不想要了（未拆封，7 天无理由）</span>
+        <span style="color: #627187;">申请金额</span><span>¥1,299</span>
+        <span style="color: #627187;">处理方</span><span>示例机器人商家 · 平台协助沟通</span>
+        <span style="color: #627187;">提交时间</span><span>11/05 09:12</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <sc-if value="{{active}}" hint-placeholder-val="{{true}}">
+      <a href="Chat.dc.html" style="flex-shrink: 0; width: 52px; height: 46px; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #536178; white-space: nowrap; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>联系商家</a>
+      <button type="button" onClick="{{revoke}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">撤销申请</button>
+    </sc-if>
+    <a href="OrderGoods.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">查看订单</a>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // revoked：是否已撤销本次售后申请
+    this.state = { revoked: false };
+  }
+  renderVals() {
+    const { revoked } = this.state;
+
+    // 进度：done 已完成 / cur 进行中 / todo 未开始 / end 已撤销（撤销后后续步骤不再发生，只保留到撤销为止）
+    const raw = revoked
+      ? [
+          { t: '提交申请', sub: '11/05 09:12 · 已完成', kind: 'done' },
+          { t: '撤销申请', sub: '已撤销', kind: 'end' }
+        ]
+      : [
+          { t: '提交申请', sub: '11/05 09:12 · 已完成', kind: 'done' },
+          { t: '商家审核', sub: '进行中', kind: 'cur' },
+          { t: '寄回商品', sub: '', kind: 'todo' },
+          { t: '商家确认收货', sub: '', kind: 'todo' },
+          { t: '退款原路退回', sub: '[主用支付渠道]', kind: 'todo' }
+        ];
+    const look = {
+      done: { bg: '#ff6a00', bd: '#ff6a00', tc: '#202c42', tw: 500, sc: '#738096' },
+      cur: { bg: '#fff', bd: '#ff6a00', tc: '#ba470b', tw: 700, sc: '#ba470b' },
+      todo: { bg: '#fff', bd: '#c9d3e1', tc: '#738096', tw: 400, sc: '#91a0b4' },
+      end: { bg: '#738096', bd: '#738096', tc: '#536178', tw: 700, sc: '#738096' }
+    };
+    const steps = raw.map((s, i) => {
+      const next = raw[i + 1];
+      // 连线颜色：通往已完成/进行中节点为橙色，通往撤销节点为灰色，未到达为浅灰，末项不画
+      let line = 'transparent';
+      if (next) line = next.kind === 'done' || next.kind === 'cur' ? '#ff6a00' : (next.kind === 'end' ? '#c9d3e1' : '#e5ebf3');
+      return {
+        t: s.t, sub: s.sub, line,
+        check: s.kind === 'done', inner: s.kind === 'cur', cross: s.kind === 'end',
+        ...look[s.kind]
+      };
+    });
+
+    return {
+      active: !revoked,
+      statusTitle: revoked ? '已撤销' : '等待商家处理',
+      statusColor: revoked ? '#536178' : '#ba470b',
+      statusSub: revoked ? '本次售后申请已撤销' : '处理时限以平台交易协议为准',
+      steps,
+      revoke: () => this.setState({ revoked: true })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

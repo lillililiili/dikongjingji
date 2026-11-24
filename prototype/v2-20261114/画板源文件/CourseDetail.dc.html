@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>课程学习</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1140px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="MyCourses.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">课程学习</h1>
+  </div>
+
+  <div style="flex-shrink: 0; position: relative; height: 220px; background: #2b2e33; overflow: hidden;">
+    <img src="/_blob/5d32505e8b9a494f8436e31c3008ef99" alt="" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; display: block;">
+    <div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 0 24px; background: rgba(25, 25, 25, 0.66); color: #fff; text-align: center;">
+      <span style="font-size: 13px; line-height: 18px; white-space: nowrap;">{{slot.kicker}}</span>
+      <span style="font-size: 22px; font-weight: 700; line-height: 30px;">{{slot.title}}</span>
+      <span style="margin-top: 6px; padding: 2px 10px; border-radius: 6px; border: 1px dashed rgba(255, 255, 255, 0.6); font-size: 12px; line-height: 17px; white-space: nowrap;">课程视频待授权素材</span>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700; line-height: 24px; white-space: nowrap;">编程机器人入门课</h2>
+        <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #eaf2fd; color: #1d63c4; font-size: 12px; line-height: 17px; white-space: nowrap;">配套数字课程</span>
+        <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">16 课时</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px 10px; font-size: 13px; line-height: 19px;">
+        <span style="color: #666b73;">提供方</span>
+        <span>示例机器人商家</span>
+        <span style="color: #666b73;">来源订单</span>
+        <a href="OrderGoods.dc.html" style="position: relative; display: flex; align-items: center; gap: 8px; min-height: 36px; color: #191919; text-decoration: none;">
+          <span aria-hidden="true" style="position: absolute; left: 0; right: 0; top: -4px; bottom: -4px;"></span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+            <span style="color: #d94f00; white-space: nowrap;">DY20261102201500</span>
+            <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">编程机器人探索套装 · 标准套装</span>
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+        <span style="color: #666b73;">开通时间</span>
+        <span>11/02 20:16</span>
+        <span style="color: #666b73;">有效期</span>
+        <span style="justify-self: start; padding: 0 6px; border-radius: 4px; border: 1px dashed #c4c8ce; color: #555a62; white-space: nowrap;">[协议约定时间]</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">已学 {{doneCount}} / 16 课时</span>
+        <sc-if value="{{resumeLabel}}" hint-placeholder-val="{{true}}">
+          <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap;">{{resumeLabel}}</span>
+        </sc-if>
+      </div>
+      <div role="progressbar" aria-label="学习进度" aria-valuemin="0" aria-valuemax="16" aria-valuenow="{{doneCount}}" style="display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px;">
+        <sc-for list="{{segments}}" as="g" hint-placeholder-count="16">
+          <span style="height: 6px; border-radius: 3px; background: {{g.bg}};"></span>
+        </sc-for>
+      </div>
+      <sc-if value="{{canFinish}}" hint-placeholder-val="{{true}}">
+        <button type="button" onClick="{{finishLesson}}" style="height: 44px; margin: 2px 0 0; padding: 0 16px; box-sizing: border-box; border: 1px dashed #ff6a00; border-radius: 999px; background: #fffaf5; color: #d94f00; font: inherit; font-size: 15px; font-weight: 500; line-height: 21px; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">本课播放完成（模拟）</button>
+      </sc-if>
+      <sc-if value="{{allDone}}" hint-placeholder-val="{{false}}">
+        <div role="status" style="height: 44px; margin-top: 2px; box-sizing: border-box; border-radius: 999px; background: #e8f7ef; color: #11804a; font-size: 15px; font-weight: 500; line-height: 21px; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>已学完全部课时</div>
+      </sc-if>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 0 4px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px; padding: 0 14px 10px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">课程目录</h2>
+        <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">4 章 · 每课约 12 分钟</span>
+      </div>
+      <sc-for list="{{chapters}}" as="c" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; border-top: 1px solid #f0f1f3;">
+          <button type="button" onClick="{{c.toggle}}" aria-expanded="{{c.open}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 52px; margin: 0; padding: 0 14px; box-sizing: border-box; border: 0; background: transparent; color: #191919; font: inherit; text-align: left; cursor: pointer;">
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px;">{{c.title}}</span>
+            <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; color: {{c.pc}}; white-space: nowrap;">{{c.progress}}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{c.chevron}}"></path></svg>
+          </button>
+          <sc-if value="{{c.open}}" hint-placeholder-val="{{false}}">
+            <div role="group" aria-label="{{c.title}}" style="display: flex; flex-direction: column; padding-bottom: 6px;">
+              <sc-for list="{{openRows}}" as="l" hint-placeholder-count="4">
+                <button type="button" onClick="{{l.pick}}" aria-current="{{l.aria}}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; margin: 0; padding: 0 14px; box-sizing: border-box; border: 0; background: {{l.bg}}; color: #191919; font: inherit; text-align: left; cursor: pointer;">
+                  <span style="position: relative; flex-shrink: 0; align-self: stretch; width: 16px;">
+                    <span style="position: absolute; left: 7px; top: 0; bottom: 50%; width: 2px; background: {{l.up}};"></span>
+                    <span style="position: absolute; left: 7px; top: 50%; bottom: 0; width: 2px; background: {{l.down}};"></span>
+                    <span style="position: absolute; left: 0; top: 50%; margin-top: -8px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{l.bd}}; background: {{l.fill}}; display: flex; align-items: center; justify-content: center;">
+                      <sc-if value="{{l.done}}" hint-placeholder-val="{{false}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+                      <sc-if value="{{l.dot}}" hint-placeholder-val="{{false}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+                    </span>
+                  </span>
+                  <span style="flex-shrink: 0; font-size: 13px; line-height: 20px; color: {{l.nc}}; white-space: nowrap;">{{l.no}}</span>
+                  <span style="flex-grow: 1; min-width: 0; font-size: 14px; font-weight: {{l.tw}}; line-height: 20px; color: {{l.tc}};">{{l.title}}</span>
+                  <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; color: {{l.sc}}; white-space: nowrap;">{{l.status}}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 6px; padding: 0 2px; font-size: 12px; line-height: 17px; color: #666b73;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 8h.01"></path></svg>
+      <span style="min-width: 0;">支付成功后自动开通，不发货、不走物流。课程退款随商品订单规则处理，入口在订单详情</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1140}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // doneIds：已学完的课（按 1–16 编号）；currentId：视频位显示的课；openId：展开的章，0 表示全部收起
+    this.state = { doneIds: [1, 2], currentId: 3, openId: 1 };
+  }
+  renderVals() {
+    const { doneIds, currentId, openId } = this.state;
+
+    const outline = [
+      ['第 1 章 认识机器人', ['开箱与安全须知', '认识传感器', '连接编程环境', '第一次让它动起来']],
+      ['第 2 章 图形化编程', ['顺序与循环', '条件判断', '让机器人避障', '小任务：走出迷宫']],
+      ['第 3 章 传感器进阶', ['巡线原理', '巡线实战', '声音与灯光', '小任务：自动巡线']],
+      ['第 4 章 综合项目', ['项目构思', '分步实现', '调试与优化', '结课展示']]
+    ];
+    const lessons = outline.flatMap(([, titles], ci) => titles.map((title, li) => ({
+      id: ci * titles.length + li + 1,
+      chapterId: ci + 1,
+      title,
+      first: li === 0,
+      last: li === titles.length - 1
+    })));
+    const total = lessons.length;
+
+    // 从某一课往后找下一节未学的课，到末尾后回到开头；都学完了返回 0
+    const nextUndone = (fromId, done) => {
+      for (let step = 1; step < total; step += 1) {
+        const id = (fromId - 1 + step) % total + 1;
+        if (!done.includes(id)) return id;
+      }
+      return 0;
+    };
+
+    // 模拟播放完成事件：已学完的课重看一遍不重复计入进度。正式产品由服务端按播放完成事件记录
+    const finishLesson = () => this.setState((s) => {
+      const done = s.doneIds.includes(s.currentId) ? s.doneIds : s.doneIds.concat(s.currentId);
+      const nextId = nextUndone(s.currentId, done);
+      if (!nextId) return { doneIds: done };
+      return { doneIds: done, currentId: nextId, openId: lessons[nextId - 1].chapterId };
+    });
+
+    const currentDone = doneIds.includes(currentId);
+    const allDone = doneIds.length === total;
+    const resumeId = currentDone ? nextUndone(currentId, doneIds) : currentId;
+
+    const slot = {
+      kicker: `第 ${currentId} 课 · ${currentDone ? '已学完' : '约 12 分钟'}`,
+      title: lessons[currentId - 1].title
+    };
+
+    // 一格一课时，按课的实际完成情况点亮（跳着学时中间会留空格）
+    const segments = lessons.map((l) => ({ bg: doneIds.includes(l.id) ? '#ff6a00' : '#ebedf0' }));
+
+    // 一次只展开一章：页面高度稳定，跳到下一章时自动展开那一章
+    const chapters = outline.map(([title, titles], ci) => {
+      const id = ci + 1;
+      const open = id === openId;
+      const learned = lessons.filter((l) => l.chapterId === id && doneIds.includes(l.id)).length;
+      return {
+        title, open,
+        progress: `已学 ${learned} / ${titles.length}`,
+        pc: learned === titles.length ? '#11804a' : '#8a8f97',
+        chevron: open ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6',
+        toggle: () => this.setState((s) => ({ openId: s.openId === id ? 0 : id }))
+      };
+    });
+
+    // 只有展开那一章的课时行；节点样式与“服务履约”的时间线一致
+    // 底色跟视频位走（重看已学完的课时底色在那一课），“继续学习”始终标在下一节要学的课上
+    const openRows = lessons.filter((l) => l.chapterId === openId).map((l) => {
+      const done = doneIds.includes(l.id);
+      const cur = l.id === currentId;
+      const resume = l.id === resumeId;
+      return {
+        no: String(l.id).padStart(2, '0'),
+        title: l.title,
+        done,
+        dot: resume,
+        aria: cur ? 'true' : 'false',
+        status: done ? '已学完' : (resume ? '继续学习' : '未开始'),
+        sc: done ? '#11804a' : (resume ? '#d94f00' : '#8a8f97'),
+        tc: done || resume ? '#191919' : '#555a62',
+        tw: cur ? 700 : 400,
+        nc: cur ? '#d94f00' : '#8a8f97',
+        bg: cur ? '#fff3e8' : 'transparent',
+        bd: done || resume ? '#ff6a00' : '#c4c8ce',
+        fill: done ? '#ff6a00' : '#fff',
+        // 节点之间的连线：上半段看上一课，下半段看本课；一章的首尾不画
+        up: l.first ? 'transparent' : (doneIds.includes(l.id - 1) ? '#ffd8b8' : '#ebedf0'),
+        down: l.last ? 'transparent' : (done ? '#ffd8b8' : '#ebedf0'),
+        pick: () => this.setState({ currentId: l.id })
+      };
+    });
+
+    return {
+      slot, segments, chapters, openRows, allDone, finishLesson,
+      doneCount: doneIds.length,
+      canFinish: !allDone,
+      resumeLabel: allDone ? '' : `继续学习：第 ${resumeId} 课`
+    };
+  }
+}
+</script>
+</body>
+</html>

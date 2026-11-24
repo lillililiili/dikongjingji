@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>体验结果</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 806px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; padding: 8px; background: #f7f8fa;">
+    <a href="PdFull.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; text-align: center;">机器人避障模拟</h1>
+    <span style="flex-shrink: 0; width: 44px; height: 44px;"></span>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 0 16px 12px;">
+    <span style="flex-shrink: 0; align-self: flex-start; padding: 0 8px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 12px; font-weight: 500; line-height: 22px; white-space: nowrap;">虚拟仿真 · 不连接真实设备</span>
+
+    <div style="flex-shrink: 0; position: relative; height: {{heroH}}; border-radius: 16px; background: #3a3f47; overflow: hidden;">
+      <img src="/_blob/192fc8acf4d61dc58d9c5109a1cad0da" alt="机器人避障模拟场景" style="display: block; width: 100%; height: 100%; object-fit: cover;">
+      <div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%);"></div>
+      <span style="position: absolute; left: 10px; top: 10px; padding: 0 8px; border-radius: 999px; background: rgba(255,255,255,0.85); color: #555a62; font-size: 12px; line-height: 22px; white-space: nowrap;">模拟场景</span>
+      <div style="position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; flex-direction: column; gap: 4px; color: #fff;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 20px; font-weight: 700; line-height: 28px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{heroIcon}}"></path></svg>{{heroTitle}}</span>
+        <span style="font-size: 12px; line-height: 17px;">{{heroSub}}</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; padding: 14px 0; border-radius: 14px; background: #fff;">
+      <sc-for list="{{stats}}" as="s" hint-placeholder-count="3">
+        <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; border-left: {{s.bl}};">
+          <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: {{s.c}}; white-space: nowrap;">{{s.v}}</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">{{s.k}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{guest}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; border-radius: 14px; background: #fff3e8;">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">登录后保存这次记录</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">没登录时只存在这台设备上</span>
+        </span>
+        <a href="Login.dc.html" style="flex-shrink: 0; height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">去登录</a>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700; line-height: 24px;">接下来，由你决定</h2>
+        <span style="font-size: 12px; line-height: 17px; color: #666b73;">体验结束不会自动下单</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+        <sc-for list="{{tiles}}" as="t" hint-placeholder-count="6">
+          <sc-if value="{{t.href}}" hint-placeholder-val="{{true}}">
+            <a href="{{t.href}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; border-radius: 10px; background: #f7f8fa; color: #191919; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>{{t.t}}</a>
+          </sc-if>
+          <sc-if value="{{t.toggle}}" hint-placeholder-val="{{false}}">
+            <button type="button" aria-pressed="{{t.on}}" onClick="{{t.tap}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; margin: 0; padding: 0; border: 0; border-radius: 10px; background: #f7f8fa; color: #191919; font: inherit; font-size: 13px; line-height: 18px; white-space: nowrap; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="{{t.fill}}" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>{{t.t}}</button>
+          </sc-if>
+        </sc-for>
+      </div>
+    </div>
+
+    <a href="PdFull.dc.html" style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px 14px 12px 12px; border-radius: 14px; background: #fff; color: #191919; text-decoration: none;">
+      <img src="/_blob/85dbe79468bbacd46343cf281dfb4e4b" alt="编程机器人探索套装" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+      <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">编程机器人探索套装</span>
+        <span style="display: flex; align-items: baseline; gap: 6px;"><span style="font-size: 16px; font-weight: 700; line-height: 22px; color: #e85400; white-space: nowrap;">¥1,299 起</span><span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">3 家在售</span></span>
+      </span>
+      <span style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap;">去下单<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></span>
+    </a>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <a href="PdFull.dc.html" style="flex: 1 1 0; box-sizing: border-box; height: 46px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; color: #d94f00; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看商品</a>
+    <a href="{{mainHref}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{mainLabel}}</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["挑战完成","未完成","游客"],"default":"挑战完成"},"$preview":{"width":390,"height":806}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // fav：“收藏商品”在本页原地切换，不跳页
+    this.state = { fav: false };
+  }
+  renderVals() {
+    const { fav } = this.state;
+    const frame = this.props.frame ?? '挑战完成';
+    const guest = frame === '游客';
+    const unfinished = frame === '未完成';
+    const CHECK = 'M5 12l5 5 9-10';
+    const AGAIN = 'M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4';
+    const heart = 'M12 20s-8-4.8-8-10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5C20 15.2 12 20 12 20z';
+    // 三项数据和“我的体验”一致：完成 2′36″ · 碰撞 1 次；未完成停在第 2 关
+    const raw = unfinished
+      ? [['1′48″', '用时', '#191919'], ['1/3', '绕过障碍', '#e09400'], ['3 次', '轻微碰撞', '#e09400']]
+      : [['2′36″', '用时', '#191919'], ['3/3', '绕过障碍', '#11804a'], ['1 次', '轻微碰撞', '#e09400']];
+    const stats = raw.map(([v, k, c], i) => ({ v, k, c, bl: i ? '1px solid #ebedf0' : '0' }));
+    const link = (t, href, d) => ({ t, href, d, toggle: false, on: false, fill: 'none', tap: () => {} });
+    // 游客收藏先登录；其余出口都由用户自己选，结果页不替用户下单
+    const favTile = guest
+      ? link('收藏商品', 'Login.dc.html', heart)
+      : { t: fav ? '已收藏' : '收藏商品', href: '', d: heart, toggle: true, on: fav, fill: fav ? '#ff6a00' : 'none', tap: () => this.setState((st) => ({ fav: !st.fav })) };
+    return {
+      guest,
+      heroH: guest ? '144px' : '216px',
+      heroIcon: unfinished ? AGAIN : CHECK,
+      heroTitle: unfinished ? '还差一点' : '挑战完成',
+      heroSub: guest ? '记录只保存在本机，登录后可归档到账户' : (unfinished ? '停在第 2 关，体验记录已保存' : '体验记录已保存，可随时再次查看'),
+      stats,
+      tiles: [
+        link('再试一次', 'ExpSim.dc.html', AGAIN),
+        favTile,
+        link('加入对比', 'MallCompare.dc.html', 'M7 4v16M17 4v16M4 8l3-4 3 4M14 16l3 4 3-4'),
+        link('咨询商家', 'Chat.dc.html', 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z'),
+        link('到馆体验', 'VenueDetail.dc.html', 'M4 21V5l8-2v18M12 8h8v13M2 21h20M7.5 8h1M7.5 12h1M7.5 16h1M15.5 12h1M15.5 16h1'),
+        link('相关活动', 'HomeAct.dc.html', 'M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4M12 14v4M8 21h8M9.5 18h5')
+      ],
+      mainHref: unfinished ? 'ExpSim.dc.html' : 'VenueDetail.dc.html',
+      mainLabel: unfinished ? '再试一次' : '预约到馆体验'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>系统通知详情（隐私政策更新）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 684px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="Messages.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">通知详情</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 14px 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: #eef2f8; display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"></path></svg></span>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">隐私政策更新摘要</h2>
+          <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">系统通知 · 11/01 09:00</span>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 14px; line-height: 22px; color: #536178;">我们更新了《隐私政策》。下面是这次的主要变化，完整内容以协议正文为准。</p>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px 0; border-radius: 10px; background: #f5f7fc;">
+        <sc-for list="{{meta}}" as="k" hint-placeholder-count="2">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+            <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{k.k}}</span>
+            <span style="font-size: 15px; line-height: 21px; font-weight: 500; white-space: nowrap;">{{k.v}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 6px; font-size: 16px; font-weight: 700; line-height: 22px;">主要变化</h2>
+      <sc-for list="{{changes}}" as="c" hint-placeholder-count="3">
+        <a href="{{c.href}}" style="display: flex; align-items: center; gap: 12px; min-height: 68px; border-top: 1px solid #f0f1f3; text-decoration: none; color: #202c42;">
+          <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: #fff0e3; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.d}}"></path></svg></span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; line-height: 21px; font-weight: 500; white-space: nowrap;">{{c.t}}</span>
+            <span style="font-size: 13px; line-height: 19px; color: #627187;">{{c.s}}</span>
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; gap: 6px; padding: 0 4px; font-size: 12px; line-height: 18px; color: #627187;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#738096" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+      <span style="min-width: 0;">生效前可以阅读全文。有疑问可以联系平台客服；不再使用平台时，可以在设置里申请注销账户。</span>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <a href="Chat.dc.html" style="flex-shrink: 0; width: 56px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; line-height: 16px; color: #536178; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2"></path></svg>客服</a>
+    <a href="Agreement.dc.html" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看完整隐私政策</a>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    // 通知时间、标题与 Messages 的系统通知行一致；版本、生效日期与 Agreement 的隐私政策一致
+    // 三条变化是示意，协议定稿后按真实变更替换。每条都落到能操作的页面
+    const meta = [{ k: '版本', v: 'v1.1' }, { k: '生效日期', v: '2026-11-08' }];
+    const changes = [
+      { t: '参与人信息', s: '写明报名填写的信息只用于核验和凭证', href: 'Participants.dc.html', d: 'M9 11a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM3 20c.8-3 3-5 6-5s5.2 2 6 5M17 11a2.5 2.5 0 1 0 0-5M21 19c-.4-2-1.6-3.4-3.5-4' },
+      { t: '权限用途', s: '逐项说明定位、相机、通知用在哪里', href: 'SetPerm.dc.html', d: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4' },
+      { t: '查看与导出', s: '你可以在设置里查看和导出个人信息', href: 'SetData.dc.html', d: 'M10 11a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM3 21c.8-3.5 3.4-6 7-6c1.2 0 2.3.3 3.2.8M18 14v7M15 18l3 3 3-3' }
+    ];
+    return { meta, changes };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

@@ -1,0 +1,327 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ME-06 设置（账号 · 通知 · 隐私 · 注销）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="cancelState"><option selected>条件未满足</option><option>条件已满足</option><option>处理中</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 1160px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="Mine.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">设置</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;">
+      <h2 style="margin: 0; padding: 0 4px; font-size: 13px; line-height: 18px; font-weight: 400; color: #738096;">账号与安全</h2>
+      <div style="display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+        <sc-for list="{{account}}" as="r" hint-placeholder-count="2">
+          <div style="display: flex; flex-direction: column; border-bottom: 1px solid {{r.bd}};">
+            <a href="{{r.href}}" aria-label="{{r.aria}}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; box-sizing: border-box; padding: 8px 14px; text-decoration: none; color: #202c42;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{r.d}}"></path></svg>
+              <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.t}}</span>
+              <sc-if value="{{r.v}}" hint-placeholder-val="{{true}}">
+                <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #738096; white-space: nowrap;">{{r.v}}</span>
+              </sc-if>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+            </a>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;">
+      <h2 style="margin: 0; padding: 0 4px; font-size: 13px; line-height: 18px; font-weight: 400; color: #738096;">通知</h2>
+      <div style="display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+        <div style="display: flex; flex-direction: column; padding-bottom: 4px; border-bottom: 1px solid #f0f1f3;">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"></path></svg>
+            <span style="font-size: 15px; line-height: 21px; white-space: nowrap;">订单与服务进度</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 2px 14px 6px 46px;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; line-height: 20px; white-space: nowrap;">站内消息</span>
+              <span style="font-size: 12px; line-height: 17px; color: #738096;">交易与服务状态必须通知到你</span>
+            </span>
+            <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #738096; white-space: nowrap;">始终开启</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 10px 0 46px;">
+            <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; white-space: nowrap;">推送</span>
+            <button type="button" role="switch" aria-checked="{{push.aria}}" aria-label="订单与服务进度推送" onClick="{{push.toggle}}" style="flex-shrink: 0; width: 52px; height: 44px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <span style="width: 44px; height: 26px; box-sizing: border-box; padding: 2px; border-radius: 13px; background: {{push.bg}}; display: flex; justify-content: {{push.jc}};"><span style="width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></span></span>
+            </button>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 0 10px 0 14px; border-bottom: 1px solid #f0f1f3;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M6 21V4M6 4h11l-2 4 2 4H6"></path></svg>
+          <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; white-space: nowrap;">活动提醒</span>
+          <button type="button" role="switch" aria-checked="{{act.aria}}" aria-label="活动提醒" onClick="{{act.toggle}}" style="flex-shrink: 0; width: 52px; height: 44px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <span style="width: 44px; height: 26px; box-sizing: border-box; padding: 2px; border-radius: 13px; background: {{act.bg}}; display: flex; justify-content: {{act.jc}};"><span style="width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></span></span>
+          </button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; box-sizing: border-box; padding: 6px 10px 6px 14px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z"></path></svg>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; line-height: 21px; white-space: nowrap;">发现内容更新红点</span>
+            <span style="font-size: 12px; line-height: 17px; color: #738096;">关闭后底栏“发现”不再显示红点</span>
+          </span>
+          <button type="button" role="switch" aria-checked="{{dot.aria}}" aria-label="发现内容更新红点" onClick="{{dot.toggle}}" style="flex-shrink: 0; width: 52px; height: 44px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <span style="width: 44px; height: 26px; box-sizing: border-box; padding: 2px; border-radius: 13px; background: {{dot.bg}}; display: flex; justify-content: {{dot.jc}};"><span style="width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <a href="AddressList.dc.html" style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 0 14px; border-radius: 14px; background: #fff; text-decoration: none; color: #202c42;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z"></path></svg>
+      <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; white-space: nowrap;">地址管理</span>
+      <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #738096; white-space: nowrap;">2 个</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+    </a>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;">
+      <h2 style="margin: 0; padding: 0 4px; font-size: 13px; line-height: 18px; font-weight: 400; color: #738096;">隐私</h2>
+      <div style="display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+        <sc-for list="{{privacy}}" as="r" hint-placeholder-count="2">
+          <div style="display: flex; flex-direction: column; border-bottom: 1px solid {{r.bd}};">
+            <a href="{{r.href}}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; box-sizing: border-box; padding: 8px 14px; text-decoration: none; color: #202c42;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{r.d}}"></path></svg>
+              <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 15px; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.t}}</span>
+                <sc-if value="{{r.sub}}" hint-placeholder-val="{{false}}">
+                  <span style="font-size: 12px; line-height: 17px; color: #738096;">{{r.sub}}</span>
+                </sc-if>
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+            </a>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;">
+      <h2 style="margin: 0; padding: 0 4px; font-size: 13px; line-height: 18px; font-weight: 400; color: #738096;">协议与规则</h2>
+      <div style="display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+        <sc-for list="{{rules}}" as="r" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; border-bottom: 1px solid {{r.bd}};">
+            <a href="{{r.href}}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; box-sizing: border-box; padding: 8px 14px; text-decoration: none; color: #202c42;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{r.d}}"></path></svg>
+              <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.t}}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+            </a>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+      <sc-for list="{{more}}" as="r" hint-placeholder-count="2">
+        <div style="display: flex; flex-direction: column; border-bottom: 1px solid {{r.bd}};">
+          <a href="{{r.href}}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; box-sizing: border-box; padding: 8px 14px; text-decoration: none; color: #202c42;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{r.d}}"></path></svg>
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.t}}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </a>
+        </div>
+      </sc-for>
+    </div>
+
+    <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; box-sizing: border-box; padding: 0 14px; border: 0; border-radius: 14px; background: #fff; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M10 11a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM3 21c.8-3.5 3.4-6 7-6c1.2 0 2.3.3 3.2.8M16 16l5 5M21 16l-5 5"></path></svg>
+      <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; white-space: nowrap;">注销账户</span>
+      <sc-if value="{{cancelTag}}" hint-placeholder-val="{{false}}">
+        <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #ba470b; white-space: nowrap;">{{cancelTag}}</span>
+      </sc-if>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+    </button>
+  </div>
+
+  <div style="flex-shrink: 0; padding: 10px 16px 24px;">
+    <a href="MineGuest.dc.html" style="height: 50px; border-radius: 14px; background: #fff; color: #202c42; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">退出登录</a>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-label="注销账户" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: #fff; border-radius: 20px 20px 0 0; padding: 20px 16px 24px; display: flex; flex-direction: column; gap: 12px;">
+      <sc-if value="{{showConds}}" hint-placeholder-val="{{true}}">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">注销账户</span>
+        <span style="font-size: 13px; line-height: 18px; color: #536178;">{{condsSub}}</span>
+      </div>
+      <div role="list" aria-label="注销条件" style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: #f5f7fc;">
+        <sc-for list="{{conds}}" as="c" hint-placeholder-count="4">
+          <div role="listitem" style="display: flex; align-items: flex-start; gap: 10px;">
+            <sc-if value="{{c.ok}}" hint-placeholder-val="{{false}}">
+              <span role="img" aria-label="已满足" style="flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: #e2f6ed; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+            </sc-if>
+            <sc-if value="{{c.bad}}" hint-placeholder-val="{{true}}">
+              <span role="img" aria-label="未满足" style="flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: #fdecec; display: flex; align-items: center; justify-content: center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#d64f67" stroke-width="3.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+            </sc-if>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; line-height: 20px;">{{c.t}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: {{c.dc}};">{{c.d}}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: {{condBg}}; font-size: 13px; line-height: 18px; color: {{condC}};">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{condIcon}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="{{condPath}}"></path></svg>
+        <span>{{condLine}}</span>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #738096;">申请提交后在 [协议约定时间] 内处理（示例：7 天），期间可撤回；完成后账户信息按隐私政策删除或匿名化</span>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">{{dismissLabel}}</button>
+        <sc-if value="{{canApply}}" hint-placeholder-val="{{false}}">
+          <button type="button" onClick="{{apply}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">申请注销</button>
+        </sc-if>
+        <sc-if value="{{cannotApply}}" hint-placeholder-val="{{true}}">
+          <button type="button" disabled style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #c9d3e1; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: not-allowed;">申请注销</button>
+        </sc-if>
+      </div>
+      </sc-if>
+      <sc-if value="{{showPending}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #fff0e3; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2"></path></svg></span>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 18px; font-weight: 700; line-height: 25px;">注销申请处理中</span>
+          <span style="font-size: 13px; line-height: 18px; color: #536178;">11/03 提交 · 处理期 [协议约定时间]（示例：7 天）</span>
+        </div>
+      </div>
+      <div role="list" aria-label="注销进度" style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: #f5f7fc;">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+          <div role="listitem" style="display: flex; align-items: center; gap: 10px;">
+            <span style="flex-shrink: 0; width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{s.bd}}; background: {{s.bg}}; display: flex; align-items: center; justify-content: center;"><sc-if value="{{s.done}}" hint-placeholder-val="{{true}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if></span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; color: {{s.c}};">{{s.t}}</span>
+            <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{s.when}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #fff0e3; font-size: 13px; line-height: 18px; color: #ba470b;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 4l9 16H3zM12 10v4M12 17h.01"></path></svg>
+        <span>处理期间不能下单、报名和发布需求；撤回申请后立即恢复</span>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #738096;">完成后账户信息按隐私政策删除或匿名化，不能恢复</span>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{withdraw}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">撤回申请</button>
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">知道了</button>
+      </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // push / act / dot：订单与服务进度推送、活动提醒、发现内容更新红点三个开关，初始都开启
+    // sheet：注销账户面板是否打开；applied：本页点过“申请注销”；withdrawn：处理中帧里点过“撤回申请”
+    this.state = { push: true, act: true, dot: true, sheet: false, applied: false, withdrawn: false };
+  }
+  renderVals() {
+    const { sheet, applied, withdrawn } = this.state;
+    // 注销三帧用 Tweaks 的 cancelState 切：条件未满足（默认，与 11/03 的订单台账一致）/ 条件已满足 / 处理中；条件已满足帧点“申请注销”进处理中，处理中点“撤回申请”回到条件已满足
+    const cancelState = this.props.cancelState ?? '条件未满足';
+    const allOk = cancelState !== '条件未满足';
+    const pending = applied || (cancelState === '处理中' && !withdrawn);
+
+    const rowsOf = (list) => list.map((r, i, a) => ({
+      t: r.t,
+      v: r.v || '',
+      sub: r.sub || '',
+      d: r.d,
+      aria: r.aria || r.t,
+      href: r.href,
+      bd: i === a.length - 1 ? 'transparent' : '#f0f1f3'
+    }));
+    const account = rowsOf([
+      { t: '手机号', v: '138****2026', href: 'SetPhone.dc.html', aria: '更换手机号，当前 138****2026', d: 'M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2' },
+      { t: '登录设备管理', href: 'SetDevices.dc.html', d: 'M3 5h13v9H3zM6 18h7M9.5 14v4M18 9h3v11h-3z' }
+    ]);
+    const privacy = rowsOf([
+      { t: '个人信息查看与导出', href: 'SetData.dc.html', d: 'M10 11a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM3 21c.8-3.5 3.4-6 7-6c1.2 0 2.3.3 3.2.8M18 14v7M15 18l3 3 3-3' },
+      { t: '权限管理', sub: '定位、相机、通知', href: 'SetPerm.dc.html', d: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4' }
+    ]);
+    const rules = rowsOf([
+      { t: '用户协议', href: 'Agreement.dc.html', d: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5' },
+      { t: '隐私政策', href: 'Agreement.dc.html', d: 'M6 11h12v10H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3M12 15v2' },
+      { t: '儿童个人信息保护规则', href: 'Agreement.dc.html', d: 'M12 9.5a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM8 21v-4.5a4 4 0 0 1 8 0V21M10.5 21v-3M13.5 21v-3' }
+    ]);
+    const more = rowsOf([
+      { t: '帮助与反馈', href: 'Help.dc.html', d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8M12 16.5h.01' },
+      { t: '新手引导', href: 'Onboarding.dc.html', d: 'M4 6h16v12H4zM8 12l3 3 5-5' },
+      { t: '关于', href: 'About.dc.html', d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01' }
+    ]);
+
+    // 开关：交易类站内消息不可关闭（只画“始终开启”文字），推送、活动提醒、发现红点可以开关
+    const switchOf = (key) => {
+      const on = Boolean(this.state[key]);
+      return {
+        aria: on ? 'true' : 'false',
+        bg: on ? '#ff6a00' : '#c9d3e1',
+        jc: on ? 'flex-end' : 'flex-start',
+        toggle: () => this.setState((s) => ({ [key]: !s[key] }))
+      };
+    };
+
+    // 注销条件与“今天 11/03”的订单台账一致：服务订单履约中；商品订单 A 已发货、B 待付款；报名待参加；仍是企业经办人
+    const conds = [
+      { t: '没有进行中的订单', d: '1 笔服务订单履约中、2 笔商品订单未完成', ok: false },
+      { t: '没有未完成的售后和退改', d: '已满足', ok: true },
+      { t: '没有待参加的报名', d: '1 个报名待参加', ok: false },
+      { t: '企业身份已移交或退出', d: '仍为 东营港务物流 经办人', ok: false }
+    ].map((c) => {
+      const ok = allOk || c.ok;
+      return { t: c.t, d: ok ? '已满足' : c.d, ok, bad: !ok, dc: ok ? '#11804a' : '#536178' };
+    });
+    const steps = [
+      { t: '已提交申请', when: '11/03', done: true },
+      { t: '平台核验账户状态', when: '处理中', done: false, now: true },
+      { t: '完成注销', when: '[协议约定时间] 内', done: false }
+    ].map((s) => ({ t: s.t, when: s.when, done: s.done, bd: s.done || s.now ? '#ff6a00' : '#c9d3e1', bg: s.done ? '#ff6a00' : '#fff', c: s.done || s.now ? '#202c42' : '#738096' }));
+
+    return {
+      account, privacy, rules, more,
+      push: switchOf('push'),
+      act: switchOf('act'),
+      dot: switchOf('dot'),
+      conds,
+      cancelTag: pending ? '处理中' : '',
+      sheetOpen: sheet,
+      showConds: !pending,
+      showPending: pending,
+      condsSub: allOk ? '注销条件已全部满足' : '注销前需要满足以下条件',
+      condBg: allOk ? '#e2f6ed' : '#fff0e3',
+      condC: allOk ? '#11804a' : '#ba470b',
+      condIcon: allOk ? '#159a70' : '#ff6a00',
+      condPath: allOk ? 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM8 12l3 3 5-6' : 'M12 4l9 16H3zM12 10v4M12 17h.01',
+      condLine: allOk ? '可以申请注销；申请后账户先冻结，处理完成前可撤回' : '暂不能注销，处理完以上事项后再申请',
+      dismissLabel: allOk ? '再想想' : '知道了',
+      canApply: allOk,
+      cannotApply: !allOk,
+      steps,
+      openSheet: () => this.setState({ sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      apply: () => this.setState({ applied: true, withdrawn: false }),
+      withdraw: () => this.setState({ applied: false, withdrawn: true })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"cancelState":"条件未满足"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

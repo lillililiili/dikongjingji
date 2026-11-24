@@ -1,0 +1,271 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PD 桌面六轴机械臂</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 2277px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding-bottom: 16px;">
+    <div style="position: relative; height: 300px; flex-shrink: 0;">
+      <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: #eef0f3;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21h10M10 21v-3M7 18h6M10 18L7 10l8-4M15 6l3 1.5M15 6l1.5-3M5.4 10a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"></path></svg><span style="font-size: 12px; line-height: 17px; color: #738096;">商品图（待授权素材）</span></div>
+      <div style="position: absolute; left: 8px; right: 8px; top: 40px; display: flex; align-items: center;">
+        <a href="Mall2.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></span></a>
+        <a href="ShareSheet.dc.html" aria-label="分享" style="flex-shrink: 0; margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"></path></svg></span></a>
+        <a href="Cart.dc.html" aria-label="购物车" style="flex-shrink: 0; position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1"></path></svg></span><span style="position: absolute; top: 1px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">3</span></a>
+        <a href="MoreSheet.dc.html" aria-label="更多" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></span></a>
+      </div>
+      <span style="position: absolute; right: 12px; bottom: 26px; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: rgba(0,0,0,0.4); color: #fff;">1/5</span>
+    </div>
+
+    <div style="margin: -24px 16px 0; position: relative; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; align-items: baseline; gap: 4px;">
+        <span style="font-size: 26px; font-weight: 700; color: #e85400;">¥9,800</span><span style="font-size: 13px; color: #e85400;">起</span>
+        <span style="margin-left: auto; font-size: 12px; color: #627187;">2 家在售 · 东营可售</span>
+      </div>
+      <div style="font-size: 18px; font-weight: 700;">桌面六轴机械臂 教学版</div>
+      <div style="font-size: 13px; color: #627187;">六轴教学机械臂，图形化与 Python 双模式，适合中学及以上</div>
+      <div style="display: flex; gap: 6px;">
+        <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #fff0e3; color: #ba470b;">Python 编程</span>
+        <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #fff0e3; color: #ba470b;">示教编程</span>
+        <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a;">支持模拟体验</span>
+      </div>
+      <a href="PdSkuArm.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; margin: 4px 0 -8px; border-top: 1px solid #f0f1f3; color: #202c42; text-decoration: none;">
+        <span style="flex-shrink: 0; width: 40px; font-size: 13px; color: #627187;">配送</span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ship}}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </div>
+
+    <div style="margin: 0 16px; background: #eefaf3; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-size: 16px; font-weight: 700; color: #11804a;">先体验，再决定</span>
+        <span style="font-size: 12px; color: #536178;">体验结束不会自动下单</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <a href="ExpSim.dc.html" style="flex: 1 1 0; min-height: 36px; border-radius: 999px; background: #fff; color: #11804a; font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">虚拟仿真</a>
+        <a href="ExpPick.dc.html" style="flex: 1 1 0; min-height: 36px; border-radius: 999px; background: #fff; color: #202c42; font-size: 13px; text-decoration: none; display: flex; align-items: center; justify-content: center;">录播演示</a>
+        <a href="ExpPick.dc.html" style="flex: 1 1 0; min-height: 36px; border-radius: 999px; background: #fff; color: #202c42; font-size: 13px; text-decoration: none; display: flex; align-items: center; justify-content: center;">到馆体验</a>
+      </div>
+      <div style="font-size: 12px; color: #536178;">你在 11/02 体验过“机器人避障模拟”，用时 2′36″ · <a href="ExpRecords.dc.html" style="text-decoration: none;">查看记录</a></div>
+    </div>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: baseline;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700;">选择在售商家</h2>
+        <span style="margin-left: auto; font-size: 12px; color: #627187;">同型号 · 不同供给</span>
+      </div>
+      <sc-for list="{{offers}}" as="o" hint-placeholder-count="3">
+        <label style="position: relative; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 10px; border: 1.5px solid {{o.bd}}; background: {{o.bg}}; cursor: pointer;">
+          <input type="radio" name="pdfull-seller" checked="{{o.on}}" onChange="{{o.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+          <span style="width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; border: 1.5px solid {{o.rd}}; background: {{o.rf}}; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px;">{{o.tick}}</span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 14px; font-weight: 500;">{{o.name}}</span>
+              <span style="font-size: 11px; padding: 0 5px; border-radius: 4px; border: 1px solid #e5ebf3; color: #536178;">{{o.kind}}</span>
+            </div>
+            <span style="font-size: 12px; color: #627187;">{{o.meta}}</span>
+          </div>
+          <span style="font-size: 16px; font-weight: 700; color: {{o.pc}};">{{o.price}}</span>
+        </label>
+      </sc-for>
+      <span style="font-size: 12px; color: #627187;">排序：东营现货优先，再按价格。价格为商家当前报价。</span>
+    </div>
+
+    <a href="PdSkuArm.dc.html" style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 0 14px; display: flex; flex-direction: column; text-decoration: none; color: #202c42;">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 48px;">
+        <span style="font-size: 13px; color: #627187; width: 40px;">已选</span>
+        <span style="font-size: 14px; flex-grow: 1;">标准套装 · 1 件</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </div>
+    </a>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: baseline;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700;">交易主体</h2>
+        <span style="margin-left: auto; font-size: 12px; color: #627187;">随所选商家变化</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px 10px; font-size: 13px;">
+        <sc-for list="{{parties}}" as="p" hint-placeholder-count="5">
+          <span style="color: #627187;">{{p.k}}</span><span>{{p.v}}</span>
+        </sc-for>
+      </div>
+      <a href="Merchant.dc.html" style="align-self: flex-start; font-size: 13px; text-decoration: none;">查看商家主页与资质 ›</a>
+    </div>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700;">售后与保障</h2>
+      <sc-for list="{{after}}" as="a" hint-placeholder-count="4">
+        <div style="display: flex; gap: 8px; font-size: 13px; line-height: 1.5;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2.2" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+          <span><b style="font-weight: 500;">{{a.k}}</b><span style="color: #536178;"> {{a.v}}</span></span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 0 14px; display: flex; flex-direction: column;">
+      <h2 style="margin: 0; font-size: 16px;">
+        <button type="button" aria-expanded="{{secSpec.on}}" onClick="{{secSpec.pick}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 52px; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">参数</span>
+          <span style="font-size: 13px; font-weight: 400; line-height: 18px; color: #738096; white-space: nowrap;">{{specCount}}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-left: auto;" aria-hidden="true"><path d="{{secSpec.chev}}"></path></svg>
+        </button>
+      </h2>
+      <sc-if value="{{secSpec.on}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px;">
+          <div style="display: grid; grid-template-columns: 96px 1fr; font-size: 13px; border: 1px solid #f0f1f3; border-radius: 8px; overflow: hidden;">
+            <sc-for list="{{specs}}" as="s" hint-placeholder-count="6">
+              <span style="padding: 8px 10px; background: #fafafb; color: #627187; border-bottom: 1px solid #f0f1f3;">{{s.k}}</span>
+              <span style="padding: 8px 10px; border-bottom: 1px solid #f0f1f3;">{{s.v}}</span>
+            </sc-for>
+          </div>
+          <span style="font-size: 12px; color: #738096;">参数由厂家填报，平台审核后展示</span>
+        </div>
+      </sc-if>
+      <h2 style="margin: 0; font-size: 16px; border-top: 1px solid #f0f1f3;">
+        <button type="button" aria-expanded="{{secPack.on}}" onClick="{{secPack.pick}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 52px; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">包装清单</span>
+          <span style="font-size: 13px; font-weight: 400; line-height: 18px; color: #738096; white-space: nowrap;">{{packCount}}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-left: auto;" aria-hidden="true"><path d="{{secPack.chev}}"></path></svg>
+        </button>
+      </h2>
+      <sc-if value="{{secPack.on}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px;">
+          <div style="display: flex; flex-direction: column; font-size: 13px; border: 1px solid #f0f1f3; border-radius: 8px; overflow: hidden;">
+            <sc-for list="{{pack}}" as="k" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid #f0f1f3;">
+                <span style="flex-grow: 1; min-width: 0;">{{k.n}}</span>
+                <span style="flex-shrink: 0; color: #536178;">{{k.q}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <h2 style="margin: 0; font-size: 16px; border-top: 1px solid #f0f1f3;">
+        <button type="button" aria-expanded="{{secIntro.on}}" onClick="{{secIntro.pick}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 52px; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">图文介绍</span>
+          <span style="font-size: 13px; font-weight: 400; line-height: 18px; color: #738096; white-space: nowrap;">待商家上传</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-left: auto;" aria-hidden="true"><path d="{{secIntro.chev}}"></path></svg>
+        </button>
+      </h2>
+      <sc-if value="{{secIntro.on}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px;">
+          <div style="min-height: 160px; padding: 16px; box-sizing: border-box; border-radius: 8px; background: #eef2f8; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 13px; color: #627187;">商家图文详情（待商家上传）</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: baseline;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700;">买家评价</h2>
+        <span style="margin-left: 8px; font-size: 12px; color: #627187;">仅展示已完成订单的评价</span>
+      </div>
+      <div style="font-size: 13px; color: #536178; padding: 10px 12px; border-radius: 8px; border: 1px dashed #c9d3e1;">真实评价不足 3 条时，整块隐藏；不显示评分和销量。</div>
+    </div>
+
+    <div style="margin: 0 16px; display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700;">相关内容与活动</h2>
+      <a href="ContentVideo.dc.html" style="display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #202c42;">
+        <img src="_blob/d7f749aa0af5b1d1784040d2a816e2f0.jpg" alt="编程机器人演示视频" style="width: 88px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 11px; color: #1d63c4;">视频 · 3:12</span>
+          <span style="font-size: 14px; font-weight: 500;">3 分钟看懂编程机器人</span>
+        </div>
+      </a>
+      <a href="ActDetail.dc.html" style="display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #202c42;">
+        <img src="_blob/7dea67aa257759d5c4cffcda675bc107.jpg" alt="机器人研学" style="width: 88px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 11px; color: #6a4fe0;">研学 · 11/08 周日</span>
+          <span style="font-size: 14px; font-weight: 500;">机器人研学体验 · 用的就是这款套装</span>
+          <span style="font-size: 13px; font-weight: 700; color: #e85400;">¥168</span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 8px 12px 20px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <a href="Merchant.dc.html" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #536178; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" aria-hidden="true"><path d="M4 9l2-5h12l2 5M4 9v11h16V9M4 9h16M9 20v-6h6v6"></path></svg>商家</a>
+    <a href="Chat.dc.html" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #536178; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>咨询</a>
+    <a href="ExpPick.dc.html" style="flex-shrink: 0; height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1.5px solid #ff6a00; color: #ba470b; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">先体验</a>
+    <div style="flex: 1 1 auto; min-width: 0; display: flex; height: 44px; border-radius: 999px; overflow: hidden;">
+      <a href="PdSkuArm.dc.html" style="flex: 1 1 auto; min-width: 0; padding: 0 10px; display: flex; align-items: center; justify-content: center; background: #fff0e3; color: #ba470b; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap;">加入购物车</a>
+      <a href="PdSkuArm.dc.html" style="flex: 1 1 auto; min-width: 0; padding: 0 10px; display: flex; align-items: center; justify-content: center; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap;">立即购买</a>
+    </div>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // open：参数 / 包装清单 / 图文介绍 哪一块展开（'' 表示都收起）
+    this.state = { seller: 'maker', open: 'spec' };
+  }
+  renderVals() {
+    const { seller, open } = this.state;
+    // ship：首屏配送行，一行写清 本地区能否购买 · 运费 · 发货时效。没有到货日数据，只写发货时效
+    const sellers = [
+      { id: 'maker', name: '示例机器人商家', kind: '厂家直营', meta: '东营现货 · 7 天内发货 · 一年保修', price: '¥9,800', depot: '示例机器人商家 东营仓', ship: '东营可买 · 包邮 · 7 天内发货' },
+      { id: 'agent', name: '示例教育装备代理', kind: '授权经销', meta: '交期 14 天 · 含安装培训', price: '¥10,200', depot: '示例教育装备代理 合作仓', ship: '东营可买 · 包邮 · 交期 14 天' }
+    ];
+    const cur = sellers.find((o) => o.id === seller) || sellers[0];
+    const offers = sellers.map((o) => {
+      const on = o.id === cur.id;
+      return { ...o, on, bd: on ? '#ff6a00' : '#e5ebf3', bg: on ? '#fffaf5' : '#fff', rd: on ? '#ff6a00' : '#c9d3e1', rf: on ? '#ff6a00' : '#fff', tick: on ? '✓' : '', pc: on ? '#e85400' : '#202c42', pick: () => this.setState({ seller: o.id }) };
+    });
+    // 交易主体随所选商家变化，结构保持 销售方 / 收款方 / 开票方 / 发货履约 / 售后责任
+    const parties = [
+      ['销售方', cur.name + '（' + cur.kind + '）'],
+      ['收款方', cur.name + ' · 经平台支付渠道'],
+      ['开票方', cur.name + ' · 可开增值税普通发票'],
+      ['发货履约', cur.depot],
+      ['售后责任', cur.name + ' · 厂家保修']
+    ].map(([k, v]) => ({ k, v }));
+    const after = [
+      ['7 天无理由退货', '未拆封，按销售方规则执行'],
+      ['一年保修', '由厂家负责，非人为损坏免费维修'],
+      ['平台协助', '与商家协商不成时，可联系平台客服协助沟通'],
+      ['发票', '由销售方开具，平台不代开']
+    ].map(([k, v]) => ({ k, v }));
+    const specs = [
+      ['自由度', '6 轴'],
+      ['负载', '500 g'],
+      ['臂展', '320 mm'],
+      ['重复定位精度', '±0.5 mm'],
+      ['编程方式', '图形化 / Python / 示教'],
+      ['供电', '220V 适配器']
+    ].map(([k, v]) => ({ k, v }));
+    const pack = [
+      { n: '机械臂主机', q: '×1' }, { n: '电源适配器', q: '×1' }, { n: '夹爪', q: '×1' }, { n: '快速上手指南', q: '×1' }
+    ];
+    // 竖向展开区：同一时间只展开一块，默认展开参数；点已展开的标题收起。标题带数量，包装清单按件数合计
+    const secOf = (id) => {
+      const on = id === open;
+      return { on, chev: on ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6', pick: () => this.setState((s) => ({ open: s.open === id ? '' : id })) };
+    };
+    const pieces = pack.reduce((n, k) => n + Number(k.q.replace('×', '')), 0);
+    return {
+      offers, parties, ship: cur.ship, after, specs, pack,
+      secSpec: secOf('spec'), secPack: secOf('pack'), secIntro: secOf('intro'),
+      specCount: specs.length + ' 项', packCount: pieces + ' 件'
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

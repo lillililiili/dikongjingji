@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>服务履约</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1144px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderService.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">服务履约</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <img src="/_blob/e42bb39cca5b4f528e6577da8445bced" alt="物流园区现场" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px;">物流园区季度安防巡检</span>
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+            <span style="font-size: 13px; line-height: 20px; color: #555a62; white-space: nowrap;">服务商 鹰眼智能巡检</span>
+            <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 12px; line-height: 17px; white-space: nowrap;">资质已审核</span>
+          </div>
+        </div>
+      </div>
+      <div style="height: 1px; background: #f0f1f3;"></div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: #d94f00; white-space: nowrap;">履约中</span>
+          <span style="margin-left: auto; font-size: 14px; line-height: 20px; white-space: nowrap;">6 次中已完成 1 次</span>
+        </div>
+        <div role="progressbar" aria-label="巡检完成进度" aria-valuemin="0" aria-valuemax="6" aria-valuenow="1" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px;">
+          <sc-for list="{{segments}}" as="g" hint-placeholder-count="6">
+            <span style="height: 6px; border-radius: 3px; background: {{g.bg}};"></span>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">下次巡检 11/16 · 周期 11/02–01/18</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">履约安排</h2>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 60px; border-top: 1px solid #f0f1f3;">
+        <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">项目负责人</span>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">王工</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">138****6621</span>
+        </div>
+        <a href="Chat.dc.html" style="flex-shrink: 0; height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fffaf5; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; text-decoration: none; display: flex; align-items: center;">联系负责人</a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+        <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">持证飞手</span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px;">2 名</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+        <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">设备</span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px;">行业无人机 ×1、巡检机器狗 ×1</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">巡检进度</h2>
+          <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">共 6 次</span>
+        </div>
+        <span style="font-size: 12px; line-height: 17px; color: #666b73;">每次巡检：无人机巡检 + 机器狗夜巡</span>
+      </div>
+      <div role="list" aria-label="巡检进度" style="display: flex; flex-direction: column;">
+        <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 12px;">
+          <span style="position: relative; flex-shrink: 0; width: 16px;">
+            <span style="position: absolute; left: 7px; top: 21px; bottom: -22px; width: 2px; background: #ffd8b8;"></span>
+            <span style="position: absolute; left: 0; top: 13px; width: 16px; height: 16px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          </span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-radius: 10px; border: 1px solid #ffd8b8; background: #fffaf5;">
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+              <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 15px; font-weight: 700; line-height: 21px;">第 1 次 · 11/02</span>
+                <span style="font-size: 12px; line-height: 17px; color: #11804a;">已完成 · 报告已交付</span>
+              </div>
+              <span style="flex-shrink: 0; padding: 2px 8px; border-radius: 6px; background: #ff6a00; color: #fff; font-size: 12px; line-height: 17px; white-space: nowrap;">待验收</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 8px; font-size: 12px; line-height: 17px;">
+              <span style="color: #8a8f97; white-space: nowrap;">11/02 19:00</span><span style="color: #555a62;">开始作业</span>
+              <span style="color: #8a8f97; white-space: nowrap;">11/02 21:30</span><span style="color: #555a62;">完成作业</span>
+              <span style="color: #8a8f97; white-space: nowrap;">11/03 10:00</span><span style="color: #555a62;">报告已交付（48 小时内）</span>
+            </div>
+            <a href="Delivery.dc.html" style="align-self: flex-start; height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; display: flex; align-items: center; white-space: nowrap;">查看第 1 次交付 ›</a>
+          </div>
+        </div>
+        <sc-for list="{{visits}}" as="v" hint-placeholder-count="5">
+          <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 12px;">
+            <span style="position: relative; flex-shrink: 0; width: 16px;">
+              <span style="position: absolute; left: 7px; top: 10px; bottom: -22px; width: 2px; background: {{v.line}};"></span>
+              <span style="position: absolute; left: 0; top: 2px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{v.bd}}; background: #fff; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{v.next}}" hint-placeholder-val="{{false}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+              </span>
+            </span>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; font-weight: {{v.tw}}; line-height: 20px; color: {{v.tc}};">{{v.title}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: {{v.sc}};">{{v.status}}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 6px; padding: 0 2px; font-size: 12px; line-height: 17px; color: #666b73;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 8h.01"></path></svg>
+      <span style="min-width: 0;">履约状态由服务商按实际作业更新，每次交付后由你验收</span>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+      <span style="font-size: 14px; font-weight: 500; line-height: 20px;">第 1 次报告待验收</span>
+      <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">11/03 10:00 已交付，请核对后验收</span>
+    </div>
+    <a href="Delivery.dc.html" style="flex-shrink: 0; height: 46px; padding: 0 28px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">去验收</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1144}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // 本页对客户只读：进度、排期与状态都由服务商按实际作业在服务端更新，客户端不提供改状态的按钮
+    // 进度条共 6 格，已完成 1 次
+    const TOTAL = 6;
+    const DONE = 1;
+    const segments = Array.from({ length: TOTAL }, (_, i) => ({ bg: i < DONE ? '#ff6a00' : '#ebedf0' }));
+
+    // 第 1 次在模板里单独展开（含作业时间与交付入口）；这里是第 2–6 次：下一次已排期，其余待排期
+    const rest = [
+      ['第 2 次 · 11/16', '已排期 · 19:00', true],
+      ['第 3 次 · 12/01', '待排期', false],
+      ['第 4 次 · 12/15', '待排期', false],
+      ['第 5 次 · 01/04', '待排期', false],
+      ['第 6 次 · 01/18', '待排期', false]
+    ];
+    const visits = rest.map(([title, status, next], i) => ({
+      title, status, next,
+      bd: next ? '#ff6a00' : '#c4c8ce',
+      tc: next ? '#191919' : '#555a62',
+      tw: next ? 500 : 400,
+      sc: next ? '#1d63c4' : '#8a8f97',
+      // 节点之间的连线：最后一次不画
+      line: i === rest.length - 1 ? 'transparent' : '#ebedf0'
+    }));
+
+    return { segments, visits };
+  }
+}
+</script>
+</body>
+</html>

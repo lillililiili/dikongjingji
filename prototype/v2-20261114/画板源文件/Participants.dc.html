@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>参与人管理</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+input::placeholder{color:#8a8f97;opacity:1}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1124px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="Mine.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">参与人</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 12px; background: #e8f7ef;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6zM9 12l2 2 4-4"></path></svg>
+      <span style="min-width: 0; font-size: 13px; line-height: 19px; color: #555a62;">参与人用于活动报名，与登录账号分开管理；未成年人由监护人维护。</span>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 4px 12px 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px;">
+        <span aria-hidden="true" style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: #fff3e8; color: #d94f00; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; line-height: 1;">{{selfAv}}</span>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+            <span style="min-width: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{selfName}}</span>
+            <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #f2f3f5; font-size: 12px; line-height: 17px; color: #555a62; white-space: nowrap;">本人</span>
+          </div>
+          <span style="font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">138****2026 · 账户持有人</span>
+        </div>
+        <button type="button" aria-label="编辑本人信息" aria-haspopup="dialog" onClick="{{editSelf}}" style="flex-shrink: 0; min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: #555a62; white-space: nowrap; cursor: pointer;">编辑</button>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px;">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 700; line-height: 21px; white-space: nowrap;">{{kidsTitle}}</h2>
+      <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">监护人：本人</span>
+    </div>
+
+    <sc-for list="{{kids}}" as="k" hint-placeholder-count="3">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 4px 0 14px; border-radius: 14px; background: #fff;">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px;">
+          <span aria-hidden="true" style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: {{k.avBg}}; color: {{k.avFg}}; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; line-height: 1;">{{k.av}}</span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+              <span style="min-width: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{k.name}}</span>
+              <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #fff3e8; font-size: 12px; line-height: 17px; color: #d94f00; white-space: nowrap;">{{k.tag}}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 17px; white-space: nowrap;">
+              <span style="color: #11804a;">监护人确认</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="已完成"><path d="M5 12l5 5 9-10"></path></svg>
+              <span style="color: #c4c8ce;">·</span>
+              <span style="color: {{k.docC}};">{{k.doc}}</span>
+            </div>
+          </div>
+          <button type="button" aria-label="{{k.editLabel}}" aria-haspopup="dialog" onClick="{{k.edit}}" style="flex-shrink: 0; min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: #555a62; white-space: nowrap; cursor: pointer;">编辑</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 8px 0 0 56px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; white-space: nowrap;">活动照片可公开使用</span>
+          <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; color: {{k.photoC}}; white-space: nowrap;">{{k.photoState}}</span>
+          <button type="button" role="switch" aria-checked="{{k.ariaOn}}" aria-label="{{k.switchLabel}}" onClick="{{k.togglePhoto}}" style="flex-shrink: 0; width: 56px; height: 44px; padding: 0 10px 0 2px; border: 0; background: none; display: flex; align-items: center; justify-content: flex-end; cursor: pointer;">
+            <span style="width: 44px; height: 26px; box-sizing: border-box; padding: 2px; border-radius: 999px; background: {{k.track}}; display: flex; justify-content: {{k.knobAt}};">
+              <span style="width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </sc-for>
+
+    <span style="flex-shrink: 0; padding: 0 4px; font-size: 12px; line-height: 17px; color: #8a8f97;">照片公开使用需单独授权，可随时撤回</span>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px 0 14px; border-radius: 14px; background: #fff;">
+      <span style="flex-shrink: 0; font-size: 15px; line-height: 21px; white-space: nowrap;">常用联系人</span>
+      <sc-if value="{{hasContact}}" hint-placeholder-val="{{false}}">
+        <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 18px; color: #555a62; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{contactLine}}</span>
+        <button type="button" aria-label="编辑常用联系人" aria-haspopup="dialog" onClick="{{editContact}}" style="flex-shrink: 0; min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: #555a62; white-space: nowrap; cursor: pointer;">编辑</button>
+      </sc-if>
+      <sc-if value="{{noContact}}" hint-placeholder-val="{{true}}">
+        <span style="flex-grow: 1; min-width: 0; padding-right: 10px; font-size: 13px; line-height: 18px; color: #8a8f97; text-align: right; white-space: nowrap;">暂无 · 添加时选“常用联系人”</span>
+      </sc-if>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff;">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 700; line-height: 21px;">资料使用说明</h2>
+      <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 20px; color: #555a62;">
+        <div style="display: flex; gap: 4px;"><span style="flex-shrink: 0; width: 8px;">·</span><span style="min-width: 0;">证件号码不在列表显示；未成年人信息仅监护人可见</span></div>
+        <div style="display: flex; gap: 4px;"><span style="flex-shrink: 0; width: 8px;">·</span><span style="min-width: 0;">主办方仅在报名活动中查看所需字段</span></div>
+        <div style="display: flex; gap: 4px;"><span style="flex-shrink: 0; width: 8px;">·</span><span style="min-width: 0;">活动结束后名单按规定期限保存</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 2px 0 12px; border-radius: 10px; background: #e8f7ef;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: #11804a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{toast}}</span>
+        <sc-if value="{{toastBack}}" hint-placeholder-val="{{false}}">
+          <a href="Signup.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 44px; padding: 0 10px; font-size: 14px; color: #d94f00; text-decoration: none; white-space: nowrap;">返回报名填写 ›</a>
+        </sc-if>
+        <sc-if value="{{toastPlain}}" hint-placeholder-val="{{true}}">
+          <span style="flex-shrink: 0; width: 10px;"></span>
+        </sc-if>
+      </div>
+    </sc-if>
+    <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="height: 46px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; font: inherit; font-size: 16px; font-weight: 500; color: #d94f00; white-space: nowrap; cursor: pointer;">＋ 添加参与人</button>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: #fff; border-radius: 20px 20px 0 0; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center;">
+        <span style="font-size: 17px; font-weight: 700; line-height: 24px;">{{sheetTitle}}</span>
+        <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="margin-left: auto; width: 44px; height: 44px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div style="display: flex; flex-direction: column;">
+        <label style="display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid #f0f1f3; cursor: text;">
+          <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">姓名</span>
+          <input type="text" aria-label="姓名" placeholder="请填写姓名" value="{{form.name}}" onChange="{{setName}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 15px; color: #191919;">
+        </label>
+        <sc-if value="{{relEditable}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 52px; border-bottom: 1px solid #f0f1f3;">
+            <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">关系</span>
+            <div role="group" aria-label="关系" style="flex-grow: 1; min-width: 0; display: flex; gap: 8px;">
+              <sc-for list="{{rels}}" as="r" hint-placeholder-count="3">
+                <button type="button" aria-pressed="{{r.on}}" aria-disabled="{{r.dis}}" onClick="{{r.pick}}" style="flex-shrink: 0; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid {{r.bd}}; background: {{r.bg}}; font: inherit; font-size: 13px; color: {{r.tc}}; white-space: nowrap; cursor: pointer;">{{r.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{relFixed}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid #f0f1f3;">
+            <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">关系</span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px;">{{relLabel}}</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{isChild}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid #f0f1f3;">
+            <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">出生年月</span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px;">{{form.birth}}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 48px;">
+            <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">证件</span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; color: {{form.docC}};">{{form.doc}}</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{isSelf}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 48px;">
+            <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">手机号</span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px;">138****2026</span>
+            <a href="SetPhone.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 44px; padding: 0 4px; font-size: 14px; color: #d94f00; text-decoration: none; white-space: nowrap;">更换 ›</a>
+          </div>
+        </sc-if>
+        <sc-if value="{{isContact}}" hint-placeholder-val="{{false}}">
+          <label style="display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: text;">
+            <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">手机号</span>
+            <input type="tel" aria-label="手机号" placeholder="请填写手机号" value="{{form.phone}}" onChange="{{setPhone}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 15px; color: #191919;">
+          </label>
+        </sc-if>
+      </div>
+      <sc-if value="{{dup}}" hint-placeholder-val="{{false}}">
+        <span style="font-size: 12px; line-height: 18px; color: #e5484d;">王小安 已在列表中，无需重复添加</span>
+      </sc-if>
+      <sc-if value="{{noteSelf}}" hint-placeholder-val="{{false}}">
+        <span style="font-size: 12px; line-height: 18px; color: #555a62;">本人已在参与人列表中，无需重复添加</span>
+      </sc-if>
+      <sc-if value="{{noteContact}}" hint-placeholder-val="{{false}}">
+        <span style="font-size: 12px; line-height: 18px; color: #555a62;">常用联系人只保存姓名和手机号，用于成人报名和现场联系，不需要证件</span>
+      </sc-if>
+      <sc-if value="{{needConsent}}" hint-placeholder-val="{{true}}">
+        <label style="display: flex; align-items: flex-start; gap: 8px; min-height: 44px; padding: 3px 0; box-sizing: border-box; font-size: 13px; line-height: 19px; color: #191919; cursor: pointer;">
+          <input type="checkbox" checked="{{consent}}" onChange="{{toggleConsent}}" style="flex-shrink: 0; accent-color: #ff6a00; width: 18px; height: 18px; margin: 1px 0 0 0;">
+          <span style="min-width: 0;">我是该未成年人的监护人，已阅读<a href="Agreement.dc.html" style="color: #d94f00; text-decoration: none;">《儿童个人信息保护规则》</a></span>
+        </label>
+      </sc-if>
+      <sc-if value="{{delIdle}}" hint-placeholder-val="{{false}}">
+        <button type="button" onClick="{{askDelete}}" style="align-self: flex-start; min-height: 44px; margin: -4px 0; padding: 0 4px; border: 0; background: none; font: inherit; font-size: 14px; color: #e5484d; white-space: nowrap; cursor: pointer;">{{deleteLabel}}</button>
+      </sc-if>
+      <sc-if value="{{delAsk}}" hint-placeholder-val="{{false}}">
+        <div role="status" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: #fff3e8;">
+          <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 18px; color: #555a62;">{{delAskText}}</span>
+          <button type="button" onClick="{{keepIt}}" style="flex-shrink: 0; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 13px; color: #191919; white-space: nowrap; cursor: pointer;">保留</button>
+          <button type="button" onClick="{{confirmDelete}}" style="flex-shrink: 0; height: 36px; padding: 0 12px; border-radius: 999px; border: 0; background: #e5484d; font: inherit; font-size: 13px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">确认删除</button>
+        </div>
+      </sc-if>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">取消</button>
+        <sc-if value="{{canSave}}" hint-placeholder-val="{{false}}">
+          <button type="button" onClick="{{save}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">保存</button>
+        </sc-if>
+        <sc-if value="{{cannotSave}}" hint-placeholder-val="{{true}}">
+          <button type="button" disabled="{{true}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #eef0f3; font: inherit; font-size: 15px; font-weight: 500; color: #a3a8b0; cursor: not-allowed;">保存</button>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1124}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // sheet：'' 关闭 / 'add' 添加参与人 / 'edit' 编辑（同一个面板，按模式切换标题、字段和保存行为）
+    // editId：编辑的是谁（子女 id / 'self' 本人 / 'contact' 常用联系人）；rel：面板里的关系（child / self / contact）
+    // name / phone / consent / delAsk：面板里的表单值、监护人确认、删除二次确认，每次打开面板都重置
+    // added：示例新参与人 王小安 是否已保存；removed：已删除的参与人 id；names：改过名字的参与人
+    // contact：已保存的常用联系人（原型只保留一位）；photo：各子女“活动照片可公开使用”的单独授权，初始只有王小禾已授权
+    // note：面板里点“本人”时的提示；toast：底栏的一行结果反馈
+    this.state = {
+      sheet: '', editId: '', rel: 'child', name: '', phone: '', consent: false, delAsk: false,
+      added: false, removed: [], names: {}, contact: null,
+      photo: { xh: true, xc: false, xm: false, xa: false }, note: '', toast: ''
+    };
+  }
+  renderVals() {
+    const { sheet, editId, rel, name, phone, consent, delAsk, added, removed, names, contact, photo, note, toast } = this.state;
+
+    // 子女由王女士作为监护人维护；列表只显示证件“已登记 / 未登记”，不显示证件号码
+    const BASE = [
+      { id: 'xh', name: '王小禾', age: 11, doc: true, birth: '2015 年' },
+      { id: 'xc', name: '王小川', age: 9, doc: true, birth: '2017 年' },
+      { id: 'xm', name: '王小满', age: 6, doc: false, birth: '2020 年' }
+    ];
+    // 保存后在末尾追加示例新参与人：王小安 · 2019 年 5 月（7 岁），证件未登记，照片未授权
+    const XA = { id: 'xa', name: '王小安', age: 7, doc: false, birth: '2019 年 5 月' };
+    const all = added ? BASE.concat([XA]) : BASE;
+    const list = all.filter((k) => !removed.includes(k.id));
+    const nameOf = (k) => names[k.id] || k.name;
+    const xaPresent = list.some((k) => k.id === 'xa');
+    const selfName = names.self || '王女士';
+
+    // 打开面板时的公共重置；编辑模式用对方的资料预填
+    const open = (patch) => this.setState({ sheet: 'add', editId: '', rel: 'child', name: '王小安', phone: '', consent: false, delAsk: false, note: '', toast: '', ...patch });
+
+    const kids = list.map((k, i) => {
+      const on = Boolean(photo[k.id]);
+      const kName = nameOf(k);
+      return {
+        name: kName,
+        av: kName.slice(-1),
+        tag: `未成年 · ${k.age} 岁`,
+        avBg: i % 2 === 0 ? '#eaf2fd' : '#e8f7ef',
+        avFg: i % 2 === 0 ? '#1d63c4' : '#11804a',
+        doc: k.doc ? '证件已登记' : '证件未登记',
+        docC: k.doc ? '#555a62' : '#8a8f97',
+        photoState: on ? '已授权' : '未授权',
+        photoC: on ? '#11804a' : '#8a8f97',
+        ariaOn: on ? 'true' : 'false',
+        track: on ? '#ff6a00' : '#c4c8ce',
+        knobAt: on ? 'flex-end' : 'flex-start',
+        switchLabel: `${kName}的活动照片可公开使用`,
+        togglePhoto: () => this.setState((s) => ({ photo: { ...s.photo, [k.id]: !s.photo[k.id] } })),
+        editLabel: `编辑${kName}`,
+        edit: () => open({ sheet: 'edit', editId: k.id, rel: 'child', name: kName })
+      };
+    });
+
+    // 添加模式才能选关系：本人已在列表里，点了只提示不切换；常用联系人只要姓名和手机号（预填值沿用地址管理里的 张工）
+    const rels = [
+      { id: 'self', label: '本人' },
+      { id: 'child', label: '子女' },
+      { id: 'contact', label: '常用联系人' }
+    ].map((r) => {
+      const on = r.id === rel;
+      const dis = r.id === 'self';
+      return {
+        label: r.label,
+        on,
+        dis: dis ? 'true' : 'false',
+        bd: on ? '#ff6a00' : '#ebedf0',
+        bg: on ? '#fffaf5' : (dis ? '#f7f8fa' : '#fff'),
+        tc: on ? '#d94f00' : (dis ? '#a3a8b0' : '#191919'),
+        pick: () => this.setState((s) => {
+          if (r.id === 'self') return { note: 'self' };
+          if (r.id === 'contact') return { rel: 'contact', name: s.contact ? s.contact.name : '张工', phone: s.contact ? s.contact.phone : '139****0817', consent: false, note: '' };
+          return { rel: 'child', name: '王小安', phone: '', note: '' };
+        })
+      };
+    });
+
+    const isChild = rel === 'child';
+    const isSelf = rel === 'self';
+    const isContact = rel === 'contact';
+    const editingKid = sheet === 'edit' && isChild ? all.find((k) => k.id === editId) : null;
+    const form = {
+      name,
+      phone,
+      birth: editingKid ? `${editingKid.birth}（${editingKid.age} 岁）` : '2019 年 5 月（7 岁）',
+      doc: editingKid && editingKid.doc ? '已登记 · 证件号不在此显示' : '选填，按活动要求再填',
+      docC: editingKid && editingKid.doc ? '#191919' : '#8a8f97'
+    };
+    const nameOk = name.trim() !== '';
+    const phoneOk = phone.trim() !== '';
+    // 添加子女要勾监护人确认，且示例新参与人不能重复加；常用联系人要姓名和手机号；编辑只要字段不为空
+    const dup = sheet === 'add' && isChild && xaPresent && name.trim() === '王小安';
+    const canSave = sheet === 'add'
+      ? (isChild ? consent && nameOk && !dup : isContact && nameOk && phoneOk)
+      : (isContact ? nameOk && phoneOk : nameOk);
+
+    const mask = (p) => (/^\d{11}$/.test(p) ? p.slice(0, 3) + '****' + p.slice(7) : p);
+    const delTarget = isContact ? '常用联系人 ' + name.trim() : name.trim();
+
+    return {
+      selfName,
+      selfAv: selfName.slice(0, 1),
+      editSelf: () => open({ sheet: 'edit', editId: 'self', rel: 'self', name: selfName, phone: '138****2026' }),
+      kids,
+      kidsTitle: `子女 · ${kids.length} 人`,
+      hasContact: !!contact,
+      noContact: !contact,
+      contactLine: contact ? contact.name + ' ' + mask(contact.phone) : '',
+      editContact: () => open({ sheet: 'edit', editId: 'contact', rel: 'contact', name: contact ? contact.name : '', phone: contact ? contact.phone : '' }),
+      hasToast: toast !== '',
+      toast,
+      toastBack: toast.startsWith('已添加'),
+      toastPlain: !toast.startsWith('已添加'),
+      sheetOpen: sheet !== '',
+      sheetTitle: sheet === 'edit' ? (isSelf ? '编辑本人信息' : (isContact ? '编辑常用联系人' : '编辑参与人')) : '添加参与人',
+      openSheet: () => open({}),
+      closeSheet: () => this.setState({ sheet: '', note: '', delAsk: false }),
+      form,
+      setName: (e) => { if (e && e.target) this.setState({ name: String(e.target.value || '').slice(0, 12) }); },
+      setPhone: (e) => { if (e && e.target) this.setState({ phone: String(e.target.value || '').slice(0, 11) }); },
+      rels,
+      relEditable: sheet === 'add',
+      relFixed: sheet === 'edit',
+      relLabel: isSelf ? '本人' : (isContact ? '常用联系人' : '子女'),
+      isChild, isSelf, isContact,
+      dup,
+      noteSelf: note === 'self',
+      noteContact: sheet === 'add' && isContact,
+      needConsent: sheet === 'add' && isChild,
+      consent,
+      toggleConsent: () => this.setState((s) => ({ consent: !s.consent })),
+      // 删除只在编辑子女或常用联系人时出现（本人不能删），要二次确认
+      delIdle: sheet === 'edit' && !isSelf && !delAsk,
+      delAsk,
+      deleteLabel: isContact ? '删除常用联系人' : '删除参与人',
+      delAskText: `确定删除 ${delTarget}？删除后报名时不能再选择`,
+      askDelete: () => this.setState({ delAsk: true }),
+      keepIt: () => this.setState({ delAsk: false }),
+      confirmDelete: () => this.setState((s) => {
+        if (s.sheet !== 'edit' || s.rel === 'self') return {};
+        if (s.rel === 'contact') return { contact: null, sheet: '', delAsk: false, toast: '已删除常用联系人' };
+        return { removed: s.removed.concat(s.editId), sheet: '', delAsk: false, toast: '已删除 ' + s.name.trim() };
+      }),
+      canSave,
+      cannotSave: !canSave,
+      // 添加子女：追加王小安并提示回报名填写；添加常用联系人：保存一位；编辑：改名或改联系方式后关闭面板
+      save: () => this.setState((s) => {
+        if (!canSave) return {};
+        const n = s.name.trim();
+        if (s.sheet === 'add' && s.rel === 'child') return { added: true, removed: s.removed.filter((id) => id !== 'xa'), names: { ...s.names, xa: n }, sheet: '', consent: false, note: '', toast: '已添加 ' + n };
+        if (s.sheet === 'add') return { contact: { name: n, phone: s.phone.trim() }, sheet: '', note: '', toast: '已保存常用联系人 ' + n };
+        if (s.rel === 'contact') return { contact: { name: n, phone: s.phone.trim() }, sheet: '', toast: '已保存' };
+        return { names: { ...s.names, [s.editId]: n }, sheet: '', toast: '已保存' };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

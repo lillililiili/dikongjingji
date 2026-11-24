@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>体验结果</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px 8px; background: #fff;">
+    <a href="PdFull.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">体验结果</h1>
+  </div>
+
+  <div style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 12px 16px;">
+    <div style="background: #fff; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 12px; padding: 3px 8px; border-radius: 6px; background: #e8f7ef; color: #11804a;">虚拟仿真 · 不连接真实设备</span>
+        <span style="font-size: 12px; color: #666b73;">编程机器人探索套装</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: #e8f7ef; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 20px; font-weight: 700;">完成「机器人避障模拟」</div>
+          <div style="font-size: 13px; color: #555a62;">3 个关卡全部通过 · 用时 2′36″</div>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+        <div style="background: #f7f8fa; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; align-items: center;"><span style="font-size: 18px; font-weight: 700;">3/3</span><span style="font-size: 12px; color: #666b73;">关卡</span></div>
+        <div style="background: #f7f8fa; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; align-items: center;"><span style="font-size: 18px; font-weight: 700;">12</span><span style="font-size: 12px; color: #666b73;">编程积木</span></div>
+        <div style="background: #f7f8fa; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; align-items: center;"><span style="font-size: 18px; font-weight: 700;">1 次</span><span style="font-size: 12px; color: #666b73;">碰撞重试</span></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 700;">接下来，由你决定</h2>
+      <p style="margin: 0; font-size: 13px; color: #666b73;">体验结束不会自动下单</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; background: #fff; border-radius: 14px; overflow: hidden;">
+      <button type="button" onClick="{{toggleFav}}" style="box-sizing: border-box; width: 100%; min-height: 69px; margin: 0; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 0; border-bottom: 1px solid #f0f1f3; background: #fff; color: #191919; font: inherit; text-align: left; cursor: pointer;">
+        <span style="width: 36px; height: 36px; border-radius: 10px; background: #fff3e8; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="{{favFill}}" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg>
+        </span>
+        <span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; font-weight: 500;">{{favLabel}}</span>
+          <span style="font-size: 12px; color: #666b73;">稍后再看，可在“我的 → 收藏与对比”找到</span>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </button>
+      <sc-for list="{{next}}" as="n" hint-placeholder-count="4">
+        <a href="{{n.href}}" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 44px; border-bottom: 1px solid #f0f1f3; text-decoration: none; color: #191919;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: #fff3e8; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+          </div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; font-weight: 500;">{{n.t}}</span>
+            <span style="font-size: 12px; color: #666b73;">{{n.s}}</span>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; gap: 10px; padding: 10px 16px; background: #fff; border-top: 1px solid #ebedf0;">
+    <a href="ExpSim.dc.html" style="flex: 1 1 0; box-sizing: border-box; height: 44px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; color: #d94f00; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-decoration: none;">再试一次</a>
+    <a href="PdFull.dc.html" style="flex: 1 1 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-decoration: none;">查看购买选项</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { fav: false };
+  }
+  renderVals() {
+    const { fav } = this.state;
+    return {
+      // “收藏”在本页原地切换，不跳页；其余出口保持原链接
+      favLabel: fav ? '已收藏' : '收藏',
+      favFill: fav ? '#ff6a00' : 'none',
+      toggleFav: () => this.setState((s) => ({ fav: !s.fav })),
+      next: [
+        { t: '加入对比', s: '与同类型号比较参数和价格', href: 'MallCompare.dc.html', d: 'M4 6h7v12H4zM13 6h7v12h-7z' },
+        { t: '联系商家', s: '咨询课程配套与批量价格', href: 'PdFull.dc.html', d: 'M4 5h16v11H9l-5 4z' },
+        { t: '预约到馆体验', s: '东营低空与机器人体验馆', href: 'Ref10Venue.dc.html', d: 'M5 5h14v15H5zM5 9h14M9 3v4M15 3v4' },
+        { t: '直接下单', s: '选择经营商家后支付', href: 'PdFull.dc.html', d: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

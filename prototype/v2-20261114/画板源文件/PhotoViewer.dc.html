@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>图片查看器</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #111214; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #fff; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px;">
+    <a href="OrderRental.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+      <h1 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{title}}</h1>
+      <span style="font-size: 12px; line-height: 17px; color: #c4c8ce; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{subTitle}}</span>
+    </div>
+    <span role="status" aria-label="{{pageAria}}" style="flex-shrink: 0; margin-right: 8px; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,0.14); font-size: 13px; line-height: 18px; white-space: nowrap;">{{pageText}}</span>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden;">
+    <img src="{{cur.img}}" alt="{{cur.alt}}" style="width: 100%; height: 100%; object-fit: contain; display: block;">
+    <span style="position: absolute; left: 12px; top: 12px; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,0.55); font-size: 12px; line-height: 17px; color: #fff; white-space: nowrap;">{{cur.tag}}</span>
+    <button type="button" aria-label="上一张" disabled="{{atFirst}}" onClick="{{prev}}" style="position: absolute; left: 6px; top: 50%; width: 44px; height: 44px; margin: -22px 0 0; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,0.45); opacity: {{prevOp}}; display: flex; align-items: center; justify-content: center; cursor: {{prevCur}};"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+    <button type="button" aria-label="下一张" disabled="{{atLast}}" onClick="{{next}}" style="position: absolute; right: 6px; top: 50%; width: 44px; height: 44px; margin: -22px 0 0; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,0.45); opacity: {{nextOp}}; display: flex; align-items: center; justify-content: center; cursor: {{nextCur}};"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></button>
+  </div>
+
+  <div style="flex-shrink: 0; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 6px 10px; padding: 12px 16px 10px; background: #1c1d20; font-size: 13px; line-height: 18px;">
+    <span style="color: #a3a8b0; white-space: nowrap;">拍摄时间</span><span>{{cur.time}}</span>
+    <span style="color: #a3a8b0; white-space: nowrap;">录入人</span><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cur.by}}</span>
+    <span style="color: #a3a8b0; white-space: nowrap;">说明</span><span style="min-width: 0;">{{cur.note}}</span>
+  </div>
+
+  <div role="list" aria-label="全部照片" style="flex-shrink: 0; display: flex; gap: 8px; padding: 0 16px 10px; background: #1c1d20;">
+    <sc-for list="{{thumbs}}" as="t" hint-placeholder-count="3">
+      <button type="button" role="listitem" aria-label="{{t.aria}}" aria-pressed="{{t.on}}" onClick="{{t.pick}}" style="width: 64px; height: 64px; margin: 0; padding: 0; box-sizing: border-box; border-radius: 8px; border: 2px solid {{t.bd}}; background: #000; overflow: hidden; cursor: pointer;"><img src="{{t.img}}" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block; opacity: {{t.op}};"></button>
+    </sc-for>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 24px; background: #1c1d20; border-top: 1px solid rgba(255,255,255,0.12);">
+    <sc-if value="{{ready}}" hint-placeholder-val="{{false}}">
+      <span role="status" style="display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 17px; color: #4cd68a; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4cd68a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{readyText}}</span>
+    </sc-if>
+    <sc-if value="{{notReady}}" hint-placeholder-val="{{true}}">
+      <span style="display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 17px; color: #a3a8b0; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3"></path></svg>原图经受控链接下载，不显示存储地址</span>
+    </sc-if>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 18px; color: #c4c8ce; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{sourceText}}</span>
+      <button type="button" aria-label="{{dlAria}}" onClick="{{download}}" style="flex-shrink: 0; height: 44px; margin: 0; padding: 0 22px; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">{{dlLabel}}</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["交接照片","归还照片"],"default":"交接照片"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 公共图片查看器：从租赁订单的“交接照片 / 归还照片”进入，Delivery 影像存档、售后凭证、会话图片都可复用同一版式
+    // idx：当前看第几张（两组都是 3 张，换 Tweaks 帧时序号沿用）；links：已生成短时下载链接的照片，键为 帧 + 序号
+    this.state = { idx: 0, links: {} };
+  }
+  renderVals() {
+    const frame = this.props.frame ?? '交接照片';
+    const { idx, links } = this.state;
+    // 照片组：商家录入记录时拍摄，用户只能查看和受控下载，不能改动
+    const BOX = '/_blob/a016bad56a0e687061b30b2a4fd96ff6';
+    const PARTS = '/_blob/44b9df29cd316503b6cad0f764a0798b';
+    const groups = {
+      交接照片: {
+        subTitle: '租赁订单 · 交接记录 11/01 09:30',
+        by: '示例机器人商家 · 交接人员',
+        expire: '16:05',
+        photos: [
+          { tag: '整机外观', img: BOX, alt: '交接时的巡检机器狗整机外观', time: '11/01 09:28', note: '无损伤，与出库记录一致' },
+          { tag: '配件清单', img: PARTS, alt: '交接时的配件', time: '11/01 09:29', note: '遥控手柄、电池 ×2、充电器、运输箱' },
+          { tag: '编号与电量', img: BOX, alt: '设备编号与电量显示', time: '11/01 09:30', note: '编号 DOG-0118 · 电量 100%' }
+        ]
+      },
+      归还照片: {
+        subTitle: '租赁订单 · 归还记录 11/05 16:40',
+        by: '示例机器人商家 · 取回人员',
+        expire: '17:40',
+        photos: [
+          { tag: '整机外观', img: BOX, alt: '归还时的巡检机器狗整机外观', time: '11/05 16:36', note: '无新增损伤' },
+          { tag: '配件核对', img: PARTS, alt: '归还时的配件', time: '11/05 16:38', note: '齐全，与交接记录一致' },
+          { tag: '编号与电量', img: BOX, alt: '设备编号与电量显示', time: '11/05 16:40', note: '编号 DOG-0118 · 电量 35%' }
+        ]
+      }
+    };
+    const g = groups[frame] || groups['交接照片'];
+    const n = g.photos.length;
+    const i = Math.min(Math.max(idx, 0), n - 1);
+    const p = g.photos[i];
+    const key = frame + ':' + i;
+    const ready = Boolean(links[key]);
+    const thumbs = g.photos.map((t, j) => ({
+      img: t.img,
+      aria: '第 ' + (j + 1) + ' 张 ' + t.tag,
+      on: j === i ? 'true' : 'false',
+      bd: j === i ? '#ff6a00' : 'transparent',
+      op: j === i ? 1 : 0.6,
+      pick: () => this.setState({ idx: j })
+    }));
+    return {
+      title: frame,
+      subTitle: g.subTitle,
+      pageText: (i + 1) + ' / ' + n,
+      pageAria: '第 ' + (i + 1) + ' 张，共 ' + n + ' 张',
+      cur: { img: p.img, alt: p.alt, tag: p.tag, time: p.time, by: g.by, note: p.note },
+      atFirst: i === 0, prevOp: i === 0 ? 0.35 : 1, prevCur: i === 0 ? 'not-allowed' : 'pointer',
+      atLast: i === n - 1, nextOp: i === n - 1 ? 0.35 : 1, nextCur: i === n - 1 ? 'not-allowed' : 'pointer',
+      prev: () => this.setState((s) => ({ idx: Math.max(0, Math.min(s.idx, n - 1) - 1) })),
+      next: () => this.setState((s) => ({ idx: Math.min(n - 1, Math.max(s.idx, 0) + 1) })),
+      thumbs,
+      // 下载只生成短时链接，到期时刻以服务端返回为准，这里的时间是示例；同一张重复点不会再生成
+      ready, notReady: !ready,
+      readyText: '下载链接已生成，' + g.expire + ' 前有效（示例）',
+      sourceText: '第 ' + (i + 1) + ' 张 · ' + p.tag + ' · 原图',
+      dlLabel: ready ? '已生成' : '下载',
+      dlAria: ready ? '第 ' + (i + 1) + ' 张下载链接已生成' : '下载第 ' + (i + 1) + ' 张',
+      download: () => this.setState((s) => ({ links: { ...s.links, [key]: true } }))
+    };
+  }
+}
+</script>
+</body>
+</html>

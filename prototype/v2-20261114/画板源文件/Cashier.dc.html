@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>收银台</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="{{backHref}}" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">{{title}}</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <sc-if value="{{isPay}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px 16px 20px; border-radius: 14px; background: #fff;">
+        <span style="font-size: 13px; line-height: 18px; color: #666b73;">应付金额</span>
+        <span style="font-size: 36px; line-height: 44px; font-weight: 700; color: #e85400;">{{total}}</span>
+        <span style="margin-top: 4px; padding: 4px 10px; border-radius: 999px; background: #fff3e8; font-size: 12px; line-height: 17px; color: #d94f00;">剩余支付时间 29:45 · 超时订单自动取消</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isExpired}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 24px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 56px; height: 56px; border-radius: 50%; background: #f2f3f5; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2"></path></svg></span>
+        <span style="font-size: 18px; line-height: 25px; font-weight: 700;">支付已超时</span>
+        <span style="font-size: 13px; line-height: 19px; color: #555a62;">超过 30 分钟（示例时限）未支付，库存已释放，订单已关闭</span>
+        <span style="font-size: 13px; line-height: 19px; color: #666b73;">没有扣款，可以重新下单</span>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 56px; color: #666b73;">订单号</span>
+        <span style="flex-grow: 1; min-width: 0;">{{orderNo}}</span>
+        <button type="button" onClick="{{copyOrder}}" style="flex-shrink: 0; min-height: 44px; margin-right: -8px; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer;">
+          <sc-if value="{{orderNotCopied}}" hint-placeholder-val="{{true}}"><span style="color: #d94f00;">复制</span></sc-if>
+          <sc-if value="{{orderCopied}}" hint-placeholder-val="{{false}}"><span style="color: #11804a;">已复制</span></sc-if>
+        </button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 56px; color: #666b73;">收款方</span>
+        <span style="flex-grow: 1; min-width: 0;">示例机器人商家</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 56px; color: #666b73;">商品</span>
+        <span style="flex-grow: 1; min-width: 0; padding: 12px 0;">{{goodsLine}}</span>
+      </div>
+      <sc-if value="{{priceNote}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 56px; color: #666b73;">价格</span>
+          <span style="flex-grow: 1; min-width: 0; color: #d94f00;">{{priceNote}}</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{isPay}}" hint-placeholder-val="{{true}}">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px 12px; border-radius: 14px; background: #fff;">
+      <h2 style="margin: 0; display: flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 700;">支付方式</h2>
+      <label style="position: relative; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 12px; box-sizing: border-box; border-radius: 10px; border: 1.5px solid #ff6a00; background: #fffaf5; cursor: pointer;">
+        <input type="radio" name="cashier-pay" checked="{{payMain}}" onChange="{{pickMain}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+        <span style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; background: #fff3e8; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM4 7V6a2 2 0 0 1 2-2h10v3M16 13.5h.01"></path></svg></span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; font-weight: 500;">[主用支付渠道]</span>
+        <span style="flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+      </label>
+      <span style="margin-top: 8px; font-size: 12px; line-height: 17px; color: #8a8f97;">目前只支持这一种支付方式</span>
+    </div>
+    </sc-if>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 10px 16px 12px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{isPay}}" hint-placeholder-val="{{true}}">
+      <a href="PayResult.dc.html" style="height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">{{payLabel}}</a>
+      <a href="{{backHref}}" style="align-self: center; min-height: 44px; margin-top: 4px; padding: 0 16px; display: flex; align-items: center; font-size: 14px; color: #666b73; text-decoration: none;">取消支付</a>
+    </sc-if>
+    <sc-if value="{{isExpired}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; gap: 10px;">
+        <a href="OrderList.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center;">查看订单</a>
+        <a href="PdFull.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">重新选购</a>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["待支付","多件","改价后","已超时"],"default":"待支付"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // pay：只有一种主用支付渠道，固定选中；copied：订单号是否已复制
+    // 超时帧没有页内入口（由服务端到时关闭），用 Tweaks 切到“已超时”；30 分钟是示例时限（待业务确认）
+    // 金额帧与确认订单一致：待支付 ¥1,299 从 Checkout 进来；多件（套装 ¥1,299 + 场地套件 ¥460）¥1,759 和改价后 ¥1,349 从 CheckoutStates 的两条「提交订单」路径进来，返回和取消都回各自来源
+    this.state = { pay: 'main', copied: false };
+  }
+  renderVals() {
+    const { pay, copied } = this.state;
+    const frame = this.props.frame ?? '待支付';
+    const expired = frame === '已超时';
+    const orders = {
+      待支付: { total: '¥1,299', orderNo: 'DY20261103150800', goods: '编程机器人探索套装 · 标准套装 × 1', priceNote: '', back: 'Checkout.dc.html' },
+      多件: { total: '¥1,759', orderNo: 'DY20261103151200', goods: '编程机器人探索套装 · 标准套装 × 1、避障训练场地套件 × 1（共 2 件）', priceNote: '', back: 'CheckoutStates.dc.html' },
+      改价后: { total: '¥1,349', orderNo: 'DY20261103151500', goods: '编程机器人探索套装 · 标准套装 × 1', priceNote: '价格已更新 ¥1,299 → ¥1,349，已按新价格提交', back: 'CheckoutStates.dc.html' }
+    };
+    const o = orders[frame] || orders['待支付'];
+    return {
+      title: expired ? '支付结果' : '收银台',
+      // 超时帧从订单列表进入，返回也回订单列表；待支付的几帧回各自的确认订单页
+      backHref: expired ? 'OrderList.dc.html' : o.back,
+      total: o.total,
+      orderNo: o.orderNo,
+      goodsLine: o.goods,
+      priceNote: o.priceNote,
+      payLabel: '确认支付 ' + o.total,
+      isPay: !expired,
+      isExpired: expired,
+      payMain: pay === 'main',
+      pickMain: () => this.setState({ pay: 'main' }),
+      orderCopied: copied,
+      orderNotCopied: !copied,
+      copyOrder: () => this.setState({ copied: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

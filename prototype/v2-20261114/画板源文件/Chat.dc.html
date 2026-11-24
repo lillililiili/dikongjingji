@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>咨询会话</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px 16px 8px 8px; background: #fff; border-bottom: 1px solid #f0f1f3;">
+    <a href="Messages.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap;">{{peer.name}}</h1>
+        <sc-if value="{{peer.tag}}" hint-placeholder-val="{{false}}">
+          <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; white-space: nowrap;">{{peer.tag}}</span>
+        </sc-if>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">{{peer.sub}}</span>
+    </div>
+    <a href="{{peer.pageHref}}" style="flex-shrink: 0; height: 44px; display: flex; align-items: center; text-decoration: none;"><span style="height: 32px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #ebedf0; background: #fff; font-size: 13px; line-height: 30px; color: #555a62; white-space: nowrap;">{{peer.pageLabel}}</span></a>
+  </div>
+
+  <div role="log" aria-label="会话记录" style="flex-grow: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column-reverse;">
+    <div style="flex-shrink: 0; margin-bottom: auto; display: flex; flex-direction: column; gap: 14px; padding: 14px 16px;">
+      <sc-for list="{{thread}}" as="m" hint-placeholder-count="6">
+        <sc-if value="{{m.isNote}}" hint-placeholder-val="{{false}}">
+          <span style="align-self: center; display: flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 8px; background: #eef0f3; font-size: 12px; line-height: 17px; color: #666b73;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9c-4-1.5-7-4.5-7-9V6z"></path></svg>{{m.t}}</span>
+        </sc-if>
+        <sc-if value="{{m.isTime}}" hint-placeholder-val="{{false}}">
+          <span style="align-self: center; font-size: 12px; line-height: 17px; color: #a3a8b0; white-space: nowrap;">{{m.t}}</span>
+        </sc-if>
+        <sc-if value="{{m.isLeft}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #fff3e8; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: #ff6a00;">
+              <sc-if value="{{peer.isPlatform}}" hint-placeholder-val="{{true}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2"></path></svg></sc-if>
+              {{peer.initial}}
+            </span>
+            <span style="max-width: 258px; box-sizing: border-box; padding: 9px 12px; border-radius: 4px 14px 14px 14px; background: #fff; font-size: 14px; line-height: 21px;">{{m.t}}</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{m.isRight}}" hint-placeholder-val="{{true}}">
+          <span style="align-self: flex-end; max-width: 258px; box-sizing: border-box; padding: 9px 12px; border-radius: 14px 4px 14px 14px; border: 1px solid #ffd8b8; background: #fff3e8; font-size: 14px; line-height: 21px;">{{m.t}}</span>
+        </sc-if>
+        <sc-if value="{{m.isCard}}" hint-placeholder-val="{{false}}">
+          <a href="{{m.href}}" style="align-self: flex-end; display: flex; align-items: center; gap: 10px; width: 258px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: #fff; text-decoration: none; color: #191919;">
+            <img src="{{m.img}}" alt="" style="flex-shrink: 0; width: 52px; height: 52px; border-radius: 8px; object-fit: cover; display: block; background: #f2f3f5;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{m.title}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{m.sub}}</span>
+            </span>
+          </a>
+        </sc-if>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{pinOn}}" hint-placeholder-val="{{true}}">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; margin: 0 16px 8px; padding: 8px 10px; border-radius: 12px; background: #fff;">
+      <a href="{{pin.href}}" style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-decoration: none; color: #191919;">
+        <img src="{{pin.img}}" alt="" style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 8px; object-fit: cover; display: block; background: #f2f3f5;">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{pin.title}}</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{pin.sub}}</span>
+        </span>
+      </a>
+      <button type="button" onClick="{{sendPin}}" style="flex-shrink: 0; height: 36px; margin: 0; padding: 0 16px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">发送</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{hasChips}}" hint-placeholder-val="{{true}}">
+    <div style="flex-shrink: 0; display: flex; gap: 8px; padding: 0 16px 8px;">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="4">
+        <button type="button" onClick="{{c.ask}}" style="flex-shrink: 0; height: 36px; margin: 0; padding: 0 12px; border-radius: 999px; border: 1px solid #ebedf0; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #191919; white-space: nowrap; cursor: pointer;">{{c.label}}</button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 8px 16px 24px 8px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{hint}}" hint-placeholder-val="{{false}}">
+      <span role="status" style="padding-left: 8px; font-size: 12px; line-height: 17px; color: #555a62;">{{hint}}</span>
+    </sc-if>
+    <div style="display: flex; align-items: center; gap: 4px;">
+      <button type="button" aria-label="发送图片" onClick="{{pickImage}}" style="flex-shrink: 0; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01"></path></svg></button>
+      <input type="text" aria-label="输入消息" placeholder="{{peer.ph}}" value="{{draft}}" onChange="{{setDraft}}" style="flex-grow: 1; min-width: 0; height: 40px; box-sizing: border-box; padding: 0 14px; border: 0; outline: none; border-radius: 999px; background: #f2f3f5; font: inherit; font-size: 14px; color: #191919;">
+      <sc-if value="{{canSend}}" hint-placeholder-val="{{false}}">
+        <button type="button" onClick="{{send}}" style="flex-shrink: 0; height: 36px; margin: 0 0 0 4px; padding: 0 16px; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 14px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">发送</button>
+      </sc-if>
+      <sc-if value="{{cantSend}}" hint-placeholder-val="{{true}}">
+        <button type="button" disabled="{{true}}" style="flex-shrink: 0; height: 36px; margin: 0 0 0 4px; padding: 0 16px; border: 0; border-radius: 999px; background: #c4c8ce; font: inherit; font-size: 14px; font-weight: 500; color: #fff; white-space: nowrap; cursor: not-allowed;">发送</button>
+      </sc-if>
+    </div>
+  </div>
+  <sc-if value="{{imgOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" aria-label="关闭" onClick="{{imgClose}}" style="position: absolute; inset: 0; z-index: 8; margin: 0; padding: 0; border: 0; background: rgba(0,0,0,0.45);"></button>
+    <div role="dialog" aria-label="发送图片" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 9; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 24px; border-radius: 16px 16px 0 0; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif;">
+      <span style="font-size: 16px; font-weight: 700; line-height: 22px; text-align: center; color: #191919;">发送图片</span>
+      <span style="font-size: 12px; line-height: 17px; text-align: center; color: #8a8f97;">图片只发给当前会话对方，用于沟通订单</span>
+      <sc-for list="{{imgRows}}" as="r" hint-placeholder-count="3">
+        <button type="button" onClick="{{r.pick}}" style="height: 48px; margin: 0; padding: 0; border: 0; border-radius: 12px; background: #f7f8fa; font: inherit; font-size: 15px; line-height: 20px; color: #191919; cursor: pointer;">{{r.label}}</button>
+      </sc-for>
+      <button type="button" onClick="{{imgClose}}" style="height: 48px; margin: 4px 0 0; padding: 0; border: 0; border-radius: 999px; background: #fff; font: inherit; font-size: 15px; line-height: 20px; color: #555a62; cursor: pointer;">取消</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["平台客服","商家","服务商"],"default":"平台客服"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // log：本次会话里新发出的消息；pinSent：底部订单卡是否已发送；draft：输入框；hint：未绘制目标的提示
+    this.state = { log: [], pinSent: false, draft: '', hint: '', imgOpen: false };
+  }
+  renderVals() {
+    const { log, pinSent, draft, hint, imgOpen } = this.state;
+    const frame = this.props.frame ?? '平台客服';
+
+    // 设计假设：站内会话，平台客服、商家、服务商共用这一个模板。商家和服务商的回复在 Web 端，App 不画。
+    // 不下发真实号码；平台只协助沟通，不裁决。数据与 OrderGoods、OrderService、Fulfillment、Messages 一致，今天 = 11/03
+    const goods = { title: '编程机器人探索套装', sub: '已发货 · 实付 ¥1,299', img: '/_blob/5d32505e8b9a494f8436e31c3008ef99', href: 'OrderGoods.dc.html' };
+    const service = { title: '物流园区季度安防巡检', sub: '第 1 次待验收 · 合同 ¥18,600', img: '/_blob/e42bb39cca5b4f528e6577da8445bced', href: 'OrderService.dc.html' };
+    const note = { k: 'note', t: '会话会保存，请勿在会话外付款或透露验证码' };
+
+    const peers = {
+      平台客服: {
+        name: '平台客服', sub: '人工服务时间 [协议约定时间]', tag: '', initial: '', isPlatform: true,
+        pageLabel: '帮助', pageHref: 'Help.dc.html', ph: '说说你遇到的问题',
+        reply: '收到，我们核对后在这里回复你。', pin: goods, pinReply: '收到这笔订单了，你想了解物流还是售后？',
+        seed: [
+          note,
+          { k: 'time', t: '今天 10:32' },
+          { k: 'left', t: '你好，这里是平台客服。订单、售后和投诉都可以在这里说，我们协助你和商家、服务商沟通。' },
+          { k: 'card', ...service },
+          { k: 'right', t: '第 1 次报告的隐患清单，想再确认一下处理建议' },
+          { k: 'left', t: '收到，已转给鹰眼智能巡检，回复会发到这里和“消息”。验收状态不变，你可以继续核对报告。' }
+        ],
+        chips: [
+          { id: 'progress', label: '查进度', q: '帮我看看订单进度', a: '巡检第 1 次报告已交付，待你验收；编程机器人探索套装今天 10:24 已发货。' },
+          { id: 'owner', label: '联系负责人', q: '想联系项目负责人王工', a: '号码不对外显示。我们已转告王工，他的回复会发到这里。' },
+          { id: 'aftersale', label: '售后协商', q: '和商家协商不成怎么办', a: '把订单或售后单发给我们，我们协助你和商家沟通。平台不裁决，结果以双方确认为准。' },
+          { id: 'complain', label: '我要投诉', q: '我要投诉', a: '请写明投诉对象和经过，可以附图片。我们在 [协议约定时间] 内回复，进度发到“消息”。' }
+        ]
+      },
+      商家: {
+        name: '示例机器人商家', sub: '商品与售后问题由商家回复', tag: '资质已审核', initial: '示', isPlatform: false,
+        pageLabel: '进店', pageHref: 'Merchant.dc.html', ph: '问问商家',
+        reply: '收到，我们看到后在这里回复你。', pin: goods, pinReply: '收到订单，有什么可以帮你？',
+        seed: [
+          note,
+          { k: 'time', t: '10/30 15:20' },
+          { k: 'card', title: '编程机器人探索套装', sub: '教室套装 6 台 + 教师端 ¥7,380', img: goods.img, href: 'PdFull.dc.html' },
+          { k: 'right', t: '教室套装包含什么？' },
+          { k: 'left', t: '6 台机器人和教师端，教室上课可以统一管理。' },
+          { k: 'right', t: '可以开发票吗？' },
+          { k: 'left', t: '教室套装可开增值税普通发票' }
+        ],
+        chips: [
+          { id: 'ship', label: '物流到哪了', q: '我的订单到哪了', a: '今天 10:24 已从东营仓发出，运单号在订单详情里，可以复制后去承运商查询。' },
+          { id: 'warranty', label: '保修多久', q: '保修多久', a: '一年保修由厂家负责，有问题可以在订单里申请售后。' },
+          { id: 'return', label: '怎么退货', q: '怎么退货', a: '未拆封 7 天内可以无理由退货，在订单详情点“申请售后”提交。' }
+        ]
+      },
+      服务商: {
+        name: '鹰眼智能巡检', sub: '项目与排期问题由服务商回复', tag: '资质已审核', initial: '鹰', isPlatform: false,
+        pageLabel: '主页', pageHref: 'ProviderPage.dc.html', ph: '问问服务商',
+        reply: '收到，我们核对排期后在这里回复你。', pin: service, pinReply: '收到订单，有什么可以帮你？',
+        seed: [
+          note,
+          { k: 'time', t: '11/01 10:05' },
+          { k: 'left', t: '方案 v2 已确认。第 1 次巡检安排在 11/02，共 6 次，每次含无人机巡检和机器狗夜巡。' },
+          { k: 'right', t: '夜巡时需要我们安排人到场吗？' },
+          { k: 'left', t: '需要一位现场联系人，作业前一天我们会再确认。' },
+          { k: 'time', t: '今天 10:05' },
+          { k: 'left', t: '第 1 次报告已交付，发现隐患 3 项，请核对后验收。' }
+        ],
+        chips: [
+          { id: 'next', label: '下次什么时候', q: '第 2 次巡检什么时候？', a: '第 2 次安排在 11/16，具体时间会提前发到“消息”。' },
+          { id: 'report', label: '报告有疑问', q: '第 1 次报告有疑问', a: '请说明是哪一项，我们核对后回复。也可以联系平台客服协助沟通。' },
+          { id: 'reschedule', label: '想改时间', q: '想改下次巡检时间', a: '改期要先核对人员和设备排期，请告诉我们想改到哪一天。' }
+        ]
+      }
+    };
+    const peer = peers[frame] || peers['平台客服'];
+
+    // 只画一屏放得下的最近消息；更早的消息在正式产品里上滑查看
+    const thread = peer.seed.concat(log).slice(-7).map((m) => ({
+      isNote: m.k === 'note', isTime: m.k === 'time', isLeft: m.k === 'left', isRight: m.k === 'right', isCard: m.k === 'card',
+      t: m.t || '', title: m.title || '', sub: m.sub || '', img: m.img || '', href: m.href || ''
+    }));
+
+    const chips = peer.chips.filter((c) => !log.some((m) => m.chip === c.id)).map((c) => ({
+      label: c.label,
+      ask: () => this.setState((s) => ({ log: s.log.concat({ k: 'right', t: c.q, chip: c.id }, { k: 'left', t: c.a }), hint: '' }))
+    }));
+    const ready = draft.trim() !== '';
+
+    return {
+      peer: { name: peer.name, sub: peer.sub, tag: peer.tag, initial: peer.initial, isPlatform: peer.isPlatform, pageLabel: peer.pageLabel, pageHref: peer.pageHref, ph: peer.ph },
+      thread, chips,
+      hasChips: chips.length > 0,
+      pin: peer.pin,
+      pinOn: !pinSent,
+      sendPin: () => this.setState((s) => ({ pinSent: true, log: s.log.concat({ k: 'card', ...peer.pin }, { k: 'left', t: peer.pinReply }), hint: '' })),
+      draft,
+      setDraft: (e) => { if (e && e.target) this.setState({ draft: String(e.target.value || '').slice(0, 200) }); },
+      canSend: ready,
+      cantSend: !ready,
+      send: () => this.setState((s) => (s.draft.trim() === '' ? {} : { log: s.log.concat({ k: 'right', t: s.draft.trim() }, { k: 'left', t: peer.reply }), draft: '', hint: '' })),
+      hint,
+      imgOpen,
+      pickImage: () => this.setState({ imgOpen: true, hint: '' }),
+      imgClose: () => this.setState({ imgOpen: false }),
+      // 选图后直接作为一条消息发出，对方回一句收到
+      imgRows: [['拍照', 'IMG_20261106.jpg'], ['从相册选择', '现场照片.jpg']].map(([label, file]) => ({ label, pick: () => this.setState((s) => ({ imgOpen: false, log: s.log.concat({ k: 'right', t: '[图片] ' + file }, { k: 'left', t: '图片已收到，我们看一下再回复你' }) })) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

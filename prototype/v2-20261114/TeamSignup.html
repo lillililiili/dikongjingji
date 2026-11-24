@@ -1,0 +1,289 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>团队批量报名</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 1446px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="ActDetail.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">团队报名</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: #fff;">
+      <img src="_blob/b41e3fb34601d5b9b3c9e40e84d2a489.jpg" alt="青少年无人机编程挑战赛" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #eef2f8;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 15px; font-weight: 700; line-height: 21px;">青少年无人机编程挑战赛<span style="display: inline-block; white-space: nowrap;">（东营站）</span></span>
+        <span style="font-size: 13px; line-height: 18px; color: #627187;">东营低空与机器人体验馆</span>
+        <span style="font-size: 13px; line-height: 18px; color: #627187;">8–15 岁 · <span style="font-weight: 700; color: #e85400;">¥120</span> / 人</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: #fff;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">选择场次</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+        <button type="button" aria-pressed="true" onClick="{{pickAm}}" style="min-height: 56px; border-radius: 10px; border: 1.5px solid #ff6a00; background: #fffaf5; font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer;"><span style="font-size: 14px; font-weight: 500; color: #ba470b;">11/15 上午</span><span style="font-size: 12px; color: #627187;">余 12</span></button>
+        <button type="button" disabled style="min-height: 56px; border-radius: 10px; border: 1.5px solid #e5ebf3; background: #f5f7fc; font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: not-allowed;"><span style="font-size: 14px; font-weight: 500; color: #738096;">11/15 下午</span><span style="font-size: 12px; color: #738096;">已满</span></button>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #738096;">团队报名不支持候补，名额不足时请换场次或减少人数</span>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 2px; border-radius: 14px; background: #fff;">
+      <h2 style="margin: 0 0 6px; font-size: 16px; font-weight: 700; line-height: 22px;">团队与领队</h2>
+      <div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+        <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">所属单位</span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; text-align: right;">东营港务物流</span>
+        <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #e6f0ff; font-size: 11px; line-height: 16px; color: #1d63c4; white-space: nowrap;">企业账号</span>
+      </div>
+      <label style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #f0f1f3; cursor: text;">
+        <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">团队名称</span>
+        <input type="text" aria-label="团队名称" placeholder="请输入团队名称" value="{{teamName}}" onChange="{{setTeamName}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #202c42; text-align: right;">
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #f0f1f3; cursor: text;">
+        <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">领队姓名</span>
+        <input type="text" aria-label="领队姓名" placeholder="请输入领队姓名" value="{{leader}}" onChange="{{setLeader}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #202c42; text-align: right;">
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #f0f1f3; cursor: text;">
+        <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">领队手机</span>
+        <input type="tel" aria-label="领队手机" placeholder="请输入领队手机号" value="{{leaderPhone}}" onChange="{{setLeaderPhone}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #202c42; text-align: right;">
+      </label>
+      <span style="padding: 4px 0 12px; font-size: 12px; line-height: 17px; color: #738096;">领队负责到场组织和协助签到，主办方有事会联系领队</span>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 6px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">队员名单</h2>
+        <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #627187; white-space: nowrap;">{{rosterLine}}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+        <button type="button" aria-haspopup="dialog" onClick="{{openImport}}" style="height: 40px; border-radius: 10px; border: 1px solid #ffd8b8; background: #fff0e3; font: inherit; font-size: 14px; font-weight: 500; color: #ba470b; display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ba470b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 15v5h14v-5"></path></svg>批量导入</button>
+        <button type="button" aria-haspopup="dialog" onClick="{{openAdd}}" style="height: 40px; border-radius: 10px; border: 1px dashed #c9d3e1; background: #fff; font: inherit; font-size: 14px; color: #536178; white-space: nowrap; cursor: pointer;">＋ 添加队员</button>
+      </div>
+      <sc-if value="{{hasIssue}}" hint-placeholder-val="{{true}}">
+        <div role="status" style="display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border-radius: 10px; background: #fff0e3; font-size: 13px; line-height: 19px; color: #ba470b;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ba470b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7.5v5.5M12 16.5h.01"></path></svg><span style="min-width: 0;">{{issueLine}}</span></div>
+      </sc-if>
+      <div style="display: flex; flex-direction: column;">
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+          <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; border-top: 1px solid #f0f1f3;">
+            <span aria-hidden="true" style="flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: {{r.avBg}}; color: {{r.avFg}}; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; line-height: 1;">{{r.av}}</span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+              <span style="font-size: 15px; line-height: 21px; color: {{r.nameC}};">{{r.name}}<span style="margin-left: 6px; font-size: 13px; color: #738096;">{{r.age}}</span></span>
+              <span style="font-size: 12px; line-height: 17px; color: {{r.stateC}};">{{r.state}}</span>
+            </span>
+            <button type="button" aria-label="{{r.removeLabel}}" onClick="{{r.remove}}" style="flex-shrink: 0; min-height: 44px; padding: 0 0 0 10px; border: 0; background: none; font: inherit; font-size: 13px; color: #627187; white-space: nowrap; cursor: pointer;">移除</button>
+          </div>
+        </sc-for>
+        <sc-if value="{{empty}}" hint-placeholder-val="{{false}}">
+          <span style="padding: 16px 0 14px; border-top: 1px solid #f0f1f3; font-size: 13px; line-height: 19px; color: #738096; text-align: center;">名单是空的，批量导入或添加队员后再提交</span>
+        </sc-if>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff; font-size: 13px; line-height: 19px;">
+      <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">费用与规则</h2>
+      <div style="display: flex;"><span style="color: #627187;">报名费</span><span style="margin-left: auto;">{{countLine}}</span></div>
+      <div style="display: flex;"><span style="color: #627187;">付款方式</span><span style="margin-left: auto;">领队一次付清 · [主用支付渠道]</span></div>
+      <div style="height: 1px; margin: 4px 0; background: #f0f1f3;"></div>
+      <span style="color: #536178;">活动开始 48 小时前可免费取消（整单或按人）；之后不退，可转让同场次名额；活动延期或取消全额退款。</span>
+      <label style="position: relative; display: flex; align-items: flex-start; gap: 8px; padding-top: 4px; color: #202c42; cursor: pointer;">
+        <input type="checkbox" checked="{{agree}}" onChange="{{toggleAgree}}" style="accent-color: #ff6a00; flex-shrink: 0; width: 18px; height: 18px; margin: 1px 0 0;">
+        <span style="min-width: 0;">我已取得全部队员监护人的同意，并已阅读报名须知与照片使用说明</span>
+      </label>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <div style="display: flex; flex-direction: column;">
+      <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">{{countLine}}</span>
+      <span style="font-size: 20px; font-weight: 700; line-height: 26px; color: #e85400;">{{total}}</span>
+    </div>
+    <sc-if value="{{canPay}}" hint-placeholder-val="{{true}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{openPay}}" style="margin-left: auto; width: 180px; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: pointer;">提交并支付</button>
+    </sc-if>
+    <sc-if value="{{cannotPay}}" hint-placeholder-val="{{false}}">
+      <button type="button" disabled style="margin-left: auto; width: 180px; height: 46px; border-radius: 999px; border: 0; background: #eef0f3; color: #91a0b4; font: inherit; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: not-allowed;">提交并支付</button>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{showImport}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="批量导入名单" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">批量导入名单</span>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <sc-for list="{{importSteps}}" as="s" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: #fff0e3; color: #ba470b; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">{{s.n}}</span>
+            <span style="min-width: 0; font-size: 14px; line-height: 20px; color: #202c42;">{{s.t}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <sc-if value="{{importHint}}" hint-placeholder-val="{{false}}">
+        <span role="status" style="font-size: 12px; line-height: 17px; color: #738096; text-align: center;">{{importHint}}</span>
+      </sc-if>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{tapTemplate}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; white-space: nowrap; cursor: pointer;">下载模板</button>
+        <button type="button" onClick="{{tapFile}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">选择文件</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showAdd}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="添加队员" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 6px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">添加队员</span>
+      <div style="display: flex; flex-direction: column;">
+        <label style="display: flex; align-items: center; gap: 8px; min-height: 48px; border-bottom: 1px solid #f0f1f3; cursor: text;">
+          <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">姓名</span>
+          <input type="text" aria-label="队员姓名" placeholder="请输入队员姓名" value="{{newName}}" onChange="{{setNewName}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #202c42; text-align: right;">
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; min-height: 48px; border-bottom: 1px solid #f0f1f3; cursor: text;">
+          <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">年龄</span>
+          <input type="text" aria-label="队员年龄" placeholder="8–15 岁" value="{{newAge}}" onChange="{{setNewAge}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #202c42; text-align: right;">
+        </label>
+      </div>
+      <button type="button" onClick="{{confirmAdd}}" style="margin-top: 10px; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 16px; font-weight: 500; color: #fff; cursor: pointer;">加入名单</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showPay}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="收银台" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 12px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px; text-align: center;">收银台</span>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <span style="font-size: 13px; line-height: 18px; color: #627187;">应付金额</span>
+        <span style="font-size: 36px; line-height: 44px; font-weight: 700; color: #e85400;">{{total}}</span>
+        <span style="padding: 4px 10px; border-radius: 999px; background: #fff0e3; font-size: 12px; line-height: 17px; color: #ba470b; white-space: nowrap;">名额保留 14:58 · 超时自动释放</span>
+      </div>
+      <div style="display: flex; flex-direction: column; padding: 0 12px; border-radius: 12px; background: #f5f7fc; font-size: 14px; line-height: 20px;">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px;"><span style="flex-shrink: 0; width: 60px; color: #627187;">收款方</span><span style="min-width: 0;">东营低空与机器人体验馆</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #e5ebf3;"><span style="flex-shrink: 0; width: 60px; color: #627187;">报名</span><span style="min-width: 0;">{{payLine}}</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #e5ebf3;"><span style="flex-shrink: 0; width: 60px; color: #627187;">支付方式</span><span style="min-width: 0;">[主用支付渠道]</span></div>
+      </div>
+      <button type="button" onClick="{{confirmPay}}" style="height: 46px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 16px; font-weight: 500; color: #fff; cursor: pointer;">{{payLabel}}</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showDone}}" hint-placeholder-val="{{false}}">
+    <div aria-hidden="true" style="position: absolute; inset: 0; z-index: 1; background: rgba(0,0,0,0.45);"></div>
+    <div role="dialog" aria-modal="true" aria-label="团队报名成功" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 12px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 40px; height: 40px; border-radius: 50%; background: #e2f6ed; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 18px; font-weight: 700;">团队报名成功</span>
+          <span style="font-size: 13px; color: #536178;">{{doneLine}}</span>
+        </div>
+      </div>
+      <div style="font-size: 13px; color: #536178; line-height: 1.6;">每位队员一人一码，领队在团队订单里查看名单和每人的码，到场协助签到。</div>
+      <div style="display: flex; gap: 10px;">
+        <a href="ActDetail.dc.html" style="flex: 1 1 0; box-sizing: border-box; height: 46px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; color: #202c42; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center;">返回活动</a>
+        <a href="TeamOrder.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">查看团队订单</a>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // removed：已移除的队员 id；added：本页手动添加的那一位（原型只保留一位，再次添加会替换）
+    // sheet：'' 无 / batch 批量导入 / add 添加队员 / pay 收银台 / done 报名成功
+    this.state = {
+      teamName: '东营港务物流职工子女队', leader: '王女士', leaderPhone: '138****2026',
+      removed: [], added: null, newName: '刘思远', newAge: '10', agree: true, sheet: '', importHint: ''
+    };
+  }
+  renderVals() {
+    const { teamName, leader, leaderPhone, removed, added, newName, newAge, agree, sheet, importHint } = this.state;
+    const PRICE = 120;
+    // 导入后的名单：服务端校验年龄（8–15 岁）和重复报名；不通过的不计入人数和费用
+    const base = [
+      { id: 'a', name: '李明轩', age: 12, issue: '' },
+      { id: 'b', name: '张雨桐', age: 10, issue: '' },
+      { id: 'c', name: '赵子涵', age: 13, issue: '' },
+      { id: 'd', name: '陈可欣', age: 11, issue: '' },
+      { id: 'e', name: '王小禾', age: 11, issue: '已报名 11/15 上午场，不能重复报名' },
+      { id: 'f', name: '王小满', age: 6, issue: '未满 8 岁，不符合参赛年龄' }
+    ].filter((p) => !removed.includes(p.id));
+    const list = added ? base.concat(added) : base;
+    const rows = list.map((p) => {
+      const bad = Boolean(p.issue);
+      return {
+        name: p.name, age: `${p.age} 岁`, av: p.name.slice(0, 1),
+        avBg: bad ? '#eef2f8' : '#fff0e3', avFg: bad ? '#91a0b4' : '#ba470b',
+        nameC: bad ? '#738096' : '#202c42',
+        state: bad ? p.issue : '符合报名条件', stateC: bad ? '#d64f67' : '#11804a',
+        removeLabel: `移除 ${p.name}`,
+        remove: () => this.setState((st) => (p.id === 'new' ? { added: null } : { removed: st.removed.concat(p.id) }))
+      };
+    });
+    const bad = list.filter((p) => p.issue).length;
+    const count = list.length - bad;
+    const total = `¥${(count * PRICE).toLocaleString('en-US')}`;
+    const ready = agree && count > 0 && teamName.trim() !== '' && leader.trim() !== '' && leaderPhone.trim() !== '';
+    const setField = (key) => (e) => { if (e && e.target) this.setState({ [key]: String(e.target.value || '') }); };
+    return {
+      pickAm: () => this.setState({ importHint: '' }),
+      teamName, leader, leaderPhone,
+      setTeamName: setField('teamName'), setLeader: setField('leader'), setLeaderPhone: setField('leaderPhone'),
+      rosterLine: bad ? `共 ${list.length} 人 · 可报名 ${count} 人` : `共 ${list.length} 人`,
+      hasIssue: bad > 0,
+      issueLine: `${bad} 人不符合条件，不计入人数和费用`,
+      rows,
+      empty: list.length === 0,
+      countLine: `${count} 人 × ¥${PRICE}`,
+      total,
+      agree,
+      toggleAgree: () => this.setState((st) => ({ agree: !st.agree })),
+      canPay: ready,
+      cannotPay: !ready,
+      showImport: sheet === 'batch',
+      showAdd: sheet === 'add',
+      showPay: sheet === 'pay',
+      showDone: sheet === 'done',
+      openImport: () => this.setState({ sheet: 'batch', importHint: '' }),
+      openAdd: () => this.setState({ sheet: 'add' }),
+      openPay: () => this.setState({ sheet: 'pay' }),
+      closeSheet: () => this.setState({ sheet: '' }),
+      importSteps: [
+        { n: '1', t: '下载名单模板' },
+        { n: '2', t: '按模板填写姓名、年龄和监护人手机号' },
+        { n: '3', t: '上传后自动校验年龄和重复报名' }
+      ],
+      importHint,
+      tapTemplate: () => this.setState({ importHint: '模板“团队报名名单.xlsx”已保存到手机文件' }),
+      tapFile: () => this.setState({ importHint: '已导入“报名名单.xlsx”：4 人，年龄校验通过，无重复报名' }),
+      newName, newAge,
+      setNewName: setField('newName'), setNewAge: setField('newAge'),
+      confirmAdd: () => this.setState((st) => {
+        const age = parseInt(st.newAge, 10) || 0;
+        const issue = age >= 8 && age <= 15 ? '' : '不在 8–15 岁范围内，不符合参赛年龄';
+        return { added: { id: 'new', name: st.newName.trim() || '刘思远', age, issue }, sheet: '' };
+      }),
+      payLine: `挑战赛 11/15 上午场 · ${count} 人`,
+      payLabel: `确认支付 ${total}`,
+      confirmPay: () => this.setState({ sheet: 'done' }),
+      doneLine: `11/15 上午场 · ${count} 人 · 已支付 ${total}`
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

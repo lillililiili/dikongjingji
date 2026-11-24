@@ -1,0 +1,209 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>A5 首页 · 赛事研学频道</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; background: linear-gradient(180deg, #fff0e3 0%, #fff8f2 70%, #f5f7fc 100%);">
+    <div style="position: relative; display: flex; align-items: center; gap: 2px; padding-left: 14px; overflow: hidden;">
+      <a href="CitySheet.dc.html" style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; min-height: 40px; margin-right: 6px; font-size: 16px; font-weight: 700; color: #202c42; text-decoration: none;">{{city}}<svg width="14" height="14" viewBox="0 0 24 24" fill="#202c42" aria-hidden="true"><path d="M6 9l6 6 6-6z"></path></svg></a>
+      <span style="flex-shrink: 0; width: 1px; height: 16px; margin-right: 2px; background: #e8d5c4;"></span>
+      <sc-for list="{{channels}}" as="ch" hint-placeholder-count="8">
+        <a href="{{ch.href}}" style="flex-shrink: 0; position: relative; display: flex; align-items: center; min-height: 40px; padding: 0 9px; color: {{ch.c}}; font-size: {{ch.fs}}; font-weight: {{ch.w}}; text-decoration: none; white-space: nowrap;">{{ch.label}}<sc-if value="{{ch.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 3px; width: 16px; height: 3px; margin-left: -8px; border-radius: 3px; background: #ff6a00;"></span></sc-if></a>
+      </sc-for>
+      <span style="position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: linear-gradient(90deg, rgba(255,243,232,0), #fff0e3);"></span>
+    </div>
+    <div style="padding: 0 16px;">
+      <div style="display: flex; align-items: center; height: 40px; padding: 0 4px 0 0; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff;">
+        <a href="Scan.dc.html" aria-label="扫一扫" style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; height: 44px; margin: -2px 0; padding: 0 8px 0 12px; text-decoration: none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M4 12h16"></path></svg>
+          <span style="width: 1px; height: 16px; background: #e5ebf3;"></span>
+        </a>
+        <a href="SearchPre.dc.html" style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; text-decoration: none;">
+          <span style="flex-grow: 1; min-width: 0; font-size: 14px; color: #738096; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{placeholder}}</span>
+          <span style="flex-shrink: 0; height: 32px; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; display: flex; align-items: center;">搜索</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 8px; padding: 4px 16px 0;">
+
+    <div style="flex-shrink: 0; display: flex; gap: 24px; height: 34px;">
+      <sc-for list="{{types}}" as="t" hint-placeholder-count="5">
+        <button type="button" onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="flex-shrink: 0; position: relative; display: flex; align-items: center; height: 34px; margin: 0; padding: 0 0 4px; box-sizing: border-box; border: 0; background: none; font: inherit; font-size: {{t.fs}}; line-height: 22px; font-weight: {{t.w}}; color: {{t.c}}; white-space: nowrap; cursor: pointer;">{{t.label}}<sc-if value="{{t.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 0; width: 16px; height: 3px; margin-left: -8px; border-radius: 3px; background: #ff6a00;"></span></sc-if><span aria-hidden="true" style="position: absolute; left: -12px; right: -12px; top: -5px; bottom: -5px;"></span></button>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px;">
+      <button type="button" onClick="{{allDates.pick}}" aria-pressed="{{allDates.on}}" style="width: 100%; height: 48px; margin: 0; padding: 0; box-sizing: border-box; border: 0; border-radius: 10px; background: {{allDates.bg}}; color: {{allDates.fg}}; font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; line-height: 17px; font-weight: 500; white-space: nowrap; cursor: pointer;"><span>全部</span><span>日期</span></button>
+      <sc-for list="{{dates}}" as="d" hint-placeholder-count="5">
+        <button type="button" onClick="{{d.pick}}" aria-pressed="{{d.on}}" style="position: relative; width: 100%; height: 48px; margin: 0; padding: 0 0 3px; box-sizing: border-box; border: 0; border-radius: 10px; background: {{d.bg}}; font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; white-space: nowrap; cursor: pointer;">
+          <span style="font-size: 11px; line-height: 15px; color: {{d.tc}};">{{d.top}}</span>
+          <span style="font-size: 14px; line-height: 19px; font-weight: 500; color: {{d.dc}};">{{d.day}}</span>
+          <sc-if value="{{d.dot}}" hint-placeholder-val="{{false}}">
+            <span style="position: absolute; left: 50%; bottom: 4px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: {{d.dotc}};"></span>
+          </sc-if>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; gap: 8px;">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="5">
+        <button type="button" onClick="{{c.toggle}}" aria-pressed="{{c.on}}" style="flex-shrink: 0; position: relative; height: 28px; margin: 0; padding: 0 12px; box-sizing: border-box; border-radius: 999px; border: 1px solid {{c.bd}}; background: {{c.bg}}; color: {{c.fg}}; font: inherit; font-size: 13px; line-height: 18px; font-weight: {{c.w}}; display: flex; align-items: center; white-space: nowrap; cursor: pointer;">{{c.label}}<span aria-hidden="true" style="position: absolute; left: -4px; right: -4px; top: -5px; bottom: -5px;"></span></button>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; margin-top: 2px;">
+      <sc-for list="{{acts}}" as="a" hint-placeholder-count="5">
+        <a href="{{a.href}}" style="display: flex; gap: 12px; padding: 10px; background: #fff; border-radius: 12px; text-decoration: none; color: #202c42;">
+          <div style="position: relative; flex-shrink: 0; width: 76px; height: 76px; border-radius: 10px; overflow: hidden;">
+            <img src="{{a.img}}" alt="{{a.t}}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+            <span style="position: absolute; left: 4px; top: 4px; padding: 0 5px; border-radius: 6px; background: #eee7ff; color: #6a4fe0; font-size: 11px; line-height: 17px; font-weight: 500; white-space: nowrap;">{{a.tag}}</span>
+          </div>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{a.t}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{a.when}}</span>
+            <div style="margin-top: auto; display: flex; align-items: baseline; gap: 3px; white-space: nowrap;">
+              <span style="font-size: 16px; line-height: 22px; font-weight: 700; color: #e85400;">{{a.price}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #738096;">{{a.unit}}</span>
+              <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: {{a.sc}};">{{a.status}}</span>
+            </div>
+          </div>
+        </a>
+      </sc-for>
+      <sc-if value="{{noActs}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 16px; background: #fff; border-radius: 12px;">
+          <span style="font-size: 14px; line-height: 20px; color: #738096; white-space: nowrap;">没有符合条件的活动</span>
+          <button type="button" onClick="{{clearFilters}}" style="height: 44px; margin: 0; padding: 0 22px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; color: #ba470b; font: inherit; font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">清除筛选</button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <a href="{{t.href}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px; font-weight: {{t.w}};">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+        <span>{{t.label}}</span>
+        <sc-if value="{{t.badge}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 4px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">{{t.badge}}</span>
+        </sc-if>
+        <sc-if value="{{t.dot}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 7px; left: 50%; margin-left: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ff5200;"></span>
+        </sc-if>
+      </a>
+    </sc-for>
+  </nav>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { type: '全部', date: 'all', picked: [] };
+  }
+  renderVals() {
+    const { type, date, picked } = this.state;
+    const ACTIVE_CHANNEL = '赛事研学';
+    const city = '东营';
+    const placeholder = '搜索赛事、培训、研学';
+    const channels = [
+      ['推荐', 'HomeFull.dc.html'], ['专业服务', 'HomeSvc.dc.html'], ['赛事研学', 'HomeAct.dc.html'], ['体验', 'ExpCenter.dc.html'],
+      ['商城', 'MallHome.dc.html']
+    ].map(([label, href]) => {
+      const on = label === ACTIVE_CHANNEL;
+      return { label, href, on, c: on ? '#ff6a00' : '#202c42', fs: on ? '18px' : '15px', w: on ? 700 : 400 };
+    });
+
+    const ACTIVE = 0; // 0 首页 1 发现 2 消息 3 购物车 4 我的
+    const tabs = [
+      ['首页', 'HomeFull.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', '', false],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z', '', true],
+      ['消息', 'Messages.dc.html', 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01', '3', false],
+      ['购物车', 'Cart.dc.html', 'M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1', '3', false],
+      ['我的', 'Mine.dc.html', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', '', false]
+    ].map((t, i) => ({ label: t[0], href: t[1], d: t[2], badge: t[3], dot: t[4] && i !== ACTIVE, c: i === ACTIVE ? '#ff6a00' : '#738096', w: i === ACTIVE ? 500 : 400 }));
+
+    // 类型行：按活动卡片的标签筛选
+    const types = ['全部', '赛事', '培训', '研学', '体验日'].map((label) => {
+      const on = label === type;
+      return {
+        label, on, c: on ? '#202c42' : '#536178', fs: on ? '16px' : '15px', w: on ? 700 : 400,
+        pick: () => this.setState({ type: label })
+      };
+    });
+    // 默认“全部日期”；圆点表示当天有活动；点日期只切换选中，不筛选卡片
+    const allDatesOn = date === 'all';
+    const allDates = {
+      on: allDatesOn, bg: allDatesOn ? '#ff6a00' : '#fff', fg: allDatesOn ? '#fff' : '#202c42',
+      pick: () => this.setState({ date: 'all' })
+    };
+    const dates = [
+      { top: '今天', day: '11/03', dot: false },
+      { top: '明天', day: '11/04', dot: false },
+      { top: '周六', day: '11/07', dot: true },
+      { top: '周日', day: '11/08', dot: true },
+      { top: '周六', day: '11/14', dot: true }
+    ].map((d) => {
+      const on = d.day === date;
+      return {
+        ...d, on,
+        bg: on ? '#ff6a00' : '#fff',
+        tc: on ? '#fff' : (d.top === '今天' ? '#ba470b' : '#738096'),
+        dc: on ? '#fff' : '#202c42',
+        dotc: on ? '#fff' : '#ff6a00',
+        pick: () => this.setState({ date: d.day })
+      };
+    });
+    // 筛选胶囊可开关，选中为浅橙；只有“报名中”“免费”参与筛选，其余只切换样式
+    const chips = ['报名中', '免费', '亲子', '8–15 岁', '线上'].map((label) => {
+      const on = picked.includes(label);
+      return {
+        label, on,
+        bd: on ? '#ffd8b8' : '#e5ebf3', bg: on ? '#fff0e3' : '#fff', fg: on ? '#ba470b' : '#536178', w: on ? 500 : 400,
+        toggle: () => this.setState({ picked: on ? picked.filter((x) => x !== label) : picked.concat(label) })
+      };
+    });
+    const ok = '#11804a', warn = '#ba470b';
+    const allActs = [
+      { href: 'ActDetail.dc.html', tag: '赛事', t: '青少年无人机编程挑战赛（东营站）', when: '11/15 09:00 · 东营低空与机器人体验馆', price: '¥120', unit: '/人 · 8–15 岁', status: '余 12/60', sc: ok, img: '_blob/b41e3fb34601d5b9b3c9e40e84d2a489.jpg' },
+      { href: 'ActStudyRobot.dc.html', tag: '研学', t: '机器人研学体验', when: '11/08 09:30 · 示例体验场馆', price: '¥168', unit: '/人', status: '余 12', sc: ok, img: '_blob/7dea67aa257759d5c4cffcda675bc107.jpg' },
+      { href: 'ActCamp.dc.html', tag: '研学', t: '黄河口低空研学一日营', when: '每周六 · 含接送 · 黄河口户外飞行营地', price: '¥268', unit: '/人', status: '已满 · 可候补', sc: warn, img: '_blob/eada5bcde09c62b71c41868194f30706.jpg' },
+      { href: 'ActTraining.dc.html', tag: '培训', t: '多旋翼无人机驾驶员培训', when: '12 月班 · 理论 + 实操 · 示例培训机构', price: '询价', unit: '', status: '余 8/30', sc: ok, img: '_blob/277bff54e5d7d5be019694787d4e648d.jpg' },
+      { href: 'ActOpenDay.dc.html', tag: '体验日', t: '无人机开放体验日', when: '11/14 10:00 · 东营低空与机器人体验馆', price: '免费', unit: '', status: '报名中', sc: ok, img: '_blob/e42bb39cca5b4f528e6577da8445bced.webp' }
+    ];
+    // “报名中”= 状态为报名中或显示余位；“免费”= 价格为免费
+    const openOnly = picked.includes('报名中');
+    const freeOnly = picked.includes('免费');
+    const acts = allActs.filter((a) =>
+      (type === '全部' || a.tag === type) &&
+      (!openOnly || a.status === '报名中' || a.status.indexOf('余') === 0) &&
+      (!freeOnly || a.price === '免费')
+    );
+    const noActs = acts.length === 0;
+    const clearFilters = () => this.setState({ type: '全部', picked: [] });
+
+    return { city, placeholder, channels, tabs, types, allDates, dates, chips, acts, noActs, clearFilters };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

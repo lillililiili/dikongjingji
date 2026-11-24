@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>退改详情</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 920px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderEnroll.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">退改详情</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px; background: #fff; border-radius: 14px;">
+      <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: {{statusColor}};">{{statusTitle}}</span>
+      <span style="font-size: 13px; line-height: 18px; color: #555a62;">{{statusSub}}</span>
+      <sc-if value="{{showInfo}}" hint-placeholder-val="{{true}}">
+        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 20px;">
+          <sc-for list="{{info}}" as="f" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 12px;"><span style="flex-shrink: 0; width: 56px; color: #666b73; white-space: nowrap;">{{f.k}}</span><span style="min-width: 0; font-size: {{f.fs}}; font-weight: {{f.fw}}; color: {{f.c}};">{{f.v}}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{showTicket}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">新凭证</h2>
+          <span style="padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 12px; line-height: 16px; white-space: nowrap;">已发放</span>
+          <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">一人一码</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <sc-for list="{{people}}" as="p" hint-placeholder-count="2">
+            <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.on}}" style="height: 36px; margin: 0; padding: 0 14px; box-sizing: border-box; border-radius: 999px; border: 1px solid {{p.bd}}; background: {{p.bg}}; color: {{p.fg}}; font: inherit; font-size: 14px; font-weight: {{p.w}}; white-space: nowrap; cursor: pointer;">{{p.name}}</button>
+          </sc-for>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <svg width="112" height="112" viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="二维码占位" style="flex-shrink: 0; display: block;"><path d="{{qr}}" fill="#191919" fill-rule="evenodd"></path></svg>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 15px; font-weight: 700; line-height: 21px;">11/22 周日 09:00</span>
+            <span style="font-size: 13px; line-height: 18px; color: #555a62;">08:30 起签到 · 待签到</span>
+            <span style="font-size: 13px; line-height: 18px; color: #555a62;">东营低空与机器人体验馆</span>
+            <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">凭证号 {{code}}</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 0; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; min-height: 22px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">退改进度</h2>
+        <sc-if value="{{canRefresh}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{refresh}}" style="flex-shrink: 0; margin: -11px 0 -11px auto; height: 44px; padding: 0 0 0 12px; border: 0; background: none; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">刷新进度</button>
+        </sc-if>
+      </div>
+      <div role="list" aria-label="退改进度" style="display: flex; flex-direction: column;">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+          <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 14px;">
+            <span style="position: relative; flex-shrink: 0; width: 16px;">
+              <span style="position: absolute; left: 7px; top: 10px; bottom: -24px; width: 2px; background: {{s.line}};"></span>
+              <span style="position: absolute; left: 0; top: 2px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{s.bd}}; background: {{s.bg}}; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{s.check}}" hint-placeholder-val="{{false}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+                <sc-if value="{{s.inner}}" hint-placeholder-val="{{false}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+                <sc-if value="{{s.cross}}" hint-placeholder-val="{{false}}"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+              </span>
+            </span>
+            <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; line-height: 20px; color: {{s.tc}}; font-weight: {{s.tw}};">{{s.t}}</span>
+              <sc-if value="{{s.sub}}" hint-placeholder-val="{{true}}">
+                <span style="font-size: 12px; line-height: 17px; color: {{s.sc}};">{{s.sub}}</span>
+              </sc-if>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">申请信息</h2>
+      <div style="display: flex; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #f0f1f3;">
+        <img src="/_blob/b41e3fb34601d5b9b3c9e40e84d2a489" alt="青少年无人机编程挑战赛" style="width: 56px; height: 56px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #f2f3f5; font-size: 11px;">
+        <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">青少年无人机编程挑战赛（东营站）</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">11/15 上午场 09:00 · 2 人</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">实付 ¥240</span>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 12px; font-size: 13px; line-height: 18px;">
+        <sc-for list="{{apply}}" as="a" hint-placeholder-count="5">
+          <span style="color: #666b73; white-space: nowrap;">{{a.k}}</span><span>{{a.v}}</span>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <a href="Chat.dc.html" style="flex-shrink: 0; width: 60px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #555a62; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>联系主办方</a>
+    <sc-if value="{{canRevoke}}" hint-placeholder-val="{{true}}">
+      <button type="button" onClick="{{revoke}}" style="flex: 1 1 0; height: 46px; margin: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">撤销申请</button>
+    </sc-if>
+    <sc-if value="{{canReapply}}" hint-placeholder-val="{{false}}">
+      <a href="EnrollRefund.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center;">重新申请</a>
+    </sc-if>
+    <a href="OrderEnroll.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">查看订单</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["退款申请","改期申请","改期未成功"],"default":"退款申请"},"$preview":{"width":390,"height":920}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // step：0 待主办方确认 → 1 退款中 → 2 已退款（改期是 0 → 1 已改期）；点“刷新进度”前进，进度以服务端为准
+    // revoked：确认前撤销；who：已改期帧里看谁的新凭证
+    this.state = { step: 0, revoked: false, who: 'xh' };
+  }
+  renderVals() {
+    const { step, revoked, who } = this.state;
+    const frame = this.props.frame ?? '退款申请';
+    const failed = frame === '改期未成功';
+    const isMove = failed || frame === '改期申请';
+    const moved = isMove && !failed && step >= 1;
+
+    // 二维码占位：同 EnrollTicket 的画法，不是真码
+    const qrOf = (seed) => {
+      const N = 25;
+      let s = seed;
+      const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+      const corner = (x, y) => (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+      let d = '';
+      for (let y = 0; y < N; y += 1) {
+        for (let x = 0; x < N; x += 1) {
+          const on = rnd() > 0.5;
+          if (on && !corner(x, y)) d += `M${x} ${y}h1v1h-1z`;
+        }
+      }
+      [[0, 0], [N - 7, 0], [0, N - 7]].forEach(([x, y]) => {
+        d += `M${x} ${y}h7v7h-7zM${x + 1} ${y + 1}h5v5h-5zM${x + 2} ${y + 2}h3v3h-3z`;
+      });
+      return d;
+    };
+    const list = [
+      { id: 'xh', name: '王小禾', code: 'ACT-2611-0928-05', seed: 131 },
+      { id: 'xc', name: '王小川', code: 'ACT-2611-0928-06', seed: 208 }
+    ];
+    const cur = list.find((p) => p.id === who);
+    const people = list.map((p) => {
+      const on = p.id === who;
+      return {
+        name: p.name, on,
+        bd: on ? '#ffd8b8' : '#ebedf0', bg: on ? '#fff3e8' : '#fff', fg: on ? '#d94f00' : '#555a62', w: on ? 500 : 400,
+        pick: () => this.setState({ who: p.id })
+      };
+    });
+
+    // 状态文案：撤销、改期未成功都回到原凭证继续有效
+    const orange = '#d94f00', green = '#11804a', gray = '#555a62';
+    let status = { t: '等待主办方确认', sub: '确认时限 [协议约定时间] · 原凭证在确认前仍有效', c: orange };
+    if (!isMove && step === 1) status = { t: '退款中', sub: '主办方已确认，2 个名额已释放，原凭证已作废', c: orange };
+    if (!isMove && step === 2) status = { t: '已退款', sub: '¥240 已原路退回，凭证已作废', c: green };
+    if (moved) status = { t: '已改期', sub: '名额已转入 11/22 上午场，原凭证已作废', c: green };
+    if (failed) status = { t: '改期未成功', sub: '11/22 上午场名额已满，原凭证继续有效', c: gray };
+    if (revoked) status = { t: '已撤销', sub: '本次退改申请已撤销，原凭证继续有效', c: gray };
+
+    const plain = { fs: '13px', fw: 400, c: '#191919' };
+    let info = [
+      { k: '退款金额', v: '¥240', fs: '15px', fw: 700, c: '#e85400' },
+      { k: '退款去向', v: '[主用支付渠道] 原路退回', ...plain },
+      { k: '到账时间', v: step === 2 ? '11/04 09:10' : '[协议约定时间]', ...plain }
+    ];
+    if (step === 2) info = info.concat([{ k: '交易号', v: '[渠道交易号]', ...plain }]);
+    if (isMove) {
+      info = [
+        { k: '原场次', v: '11/15 上午场 09:00', ...plain },
+        { k: '新场次', v: '11/22 上午场 09:00', fs: '13px', fw: 700, c: '#191919' },
+        { k: '费用变化', v: '无需补差价', ...plain }
+      ];
+    }
+
+    // 进度：done 已完成 / cur 进行中 / todo 未开始 / end 已结束（撤销或未成功，后续不再发生）
+    const submit = { t: '提交申请', sub: '11/03 10:12 · 已完成', kind: 'done' };
+    let raw;
+    if (revoked) raw = [submit, { t: '撤销申请', sub: '已撤销', kind: 'end' }];
+    else if (failed) raw = [submit, { t: '主办方确认', sub: '11/03 15:30 · 新场次名额已满', kind: 'end' }];
+    else if (isMove) {
+      raw = moved
+        ? [submit, { t: '主办方确认', sub: '11/03 15:30 · 已同意改期', kind: 'done' }, { t: '发放新凭证', sub: '11/03 15:31 · 一人一码', kind: 'done' }]
+        : [submit, { t: '主办方确认', sub: '进行中', kind: 'cur' }, { t: '发放新凭证', sub: '', kind: 'todo' }];
+    } else {
+      raw = [
+        submit,
+        step === 0 ? { t: '主办方确认', sub: '进行中', kind: 'cur' } : { t: '主办方确认', sub: '11/03 15:30 · 已同意取消', kind: 'done' },
+        step === 0 ? { t: '释放名额', sub: '', kind: 'todo' } : { t: '释放名额', sub: '11/03 15:31 · 2 个名额', kind: 'done' },
+        [
+          { t: '退款原路退回', sub: '[主用支付渠道]', kind: 'todo' },
+          { t: '退款原路退回', sub: '退款中 · [主用支付渠道]', kind: 'cur' },
+          { t: '退款原路退回', sub: '11/04 09:10 · 已到账 [主用支付渠道]', kind: 'done' }
+        ][step]
+      ];
+    }
+    const look = {
+      done: { bg: '#ff6a00', bd: '#ff6a00', tc: '#191919', tw: 500, sc: '#8a8f97' },
+      cur: { bg: '#fff', bd: '#ff6a00', tc: '#d94f00', tw: 700, sc: '#d94f00' },
+      todo: { bg: '#fff', bd: '#c4c8ce', tc: '#8a8f97', tw: 400, sc: '#a3a8b0' },
+      end: { bg: '#8a8f97', bd: '#8a8f97', tc: '#555a62', tw: 700, sc: '#8a8f97' }
+    };
+    const steps = raw.map((s, i) => {
+      const next = raw[i + 1];
+      // 连线颜色：通往已完成/进行中节点为橙色，通往结束节点为灰色，未到达为浅灰，末项不画
+      let line = 'transparent';
+      if (next) line = next.kind === 'done' || next.kind === 'cur' ? '#ff6a00' : (next.kind === 'end' ? '#c4c8ce' : '#ebedf0');
+      return { t: s.t, sub: s.sub, line, check: s.kind === 'done', inner: s.kind === 'cur', cross: s.kind === 'end', ...look[s.kind] };
+    });
+
+    // 已改期帧有新凭证卡，参与人和处理方不再重复
+    const apply = (moved
+      ? [['申请类型', '改到其他场次 · 无需补差价'], ['申请原因', '时间冲突'], ['提交时间', '11/03 10:12']]
+      : [
+          ['申请类型', isMove ? '改到其他场次' : '取消报名并退款'],
+          ['参与人', '王小禾、王小川'],
+          ['申请原因', '时间冲突'],
+          ['处理方', '东营低空与机器人体验馆 · 平台协助沟通'],
+          ['提交时间', '11/03 10:12']
+        ]
+    ).map(([k, v]) => ({ k, v }));
+
+    const lastStep = isMove ? 1 : 2;
+    const open = !revoked && !failed && step < lastStep;
+    return {
+      statusTitle: status.t,
+      statusSub: status.sub,
+      statusColor: status.c,
+      showInfo: !revoked && !moved,
+      info,
+      showTicket: moved && !revoked,
+      people,
+      code: cur.code,
+      qr: qrOf(cur.seed),
+      steps,
+      apply,
+      canRefresh: open,
+      refresh: () => this.setState((st) => ({ step: Math.min(st.step + 1, lastStep) })),
+      // 主办方确认之前才能撤销
+      canRevoke: open && step === 0,
+      revoke: () => this.setState({ revoked: true }),
+      canReapply: failed || revoked
+    };
+  }
+}
+</script>
+</body>
+</html>

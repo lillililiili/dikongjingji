@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>商品筛选</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="height: 44px; display: flex; align-items: center; font-size: 22px; font-weight: 700;">东营 · 机器人</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <div style="height: 230px; border-radius: 12px; background: #fff;"></div>
+      <div style="height: 230px; border-radius: 12px; background: #fff;"></div>
+    </div>
+  </div>
+  <a href="Mall2.dc.html" aria-label="关闭" style="position: absolute; inset: 0; background: rgba(0,0,0,0.45);"></a>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 700px; background: #fff; border-radius: 20px 20px 0 0; display: flex; flex-direction: column;">
+    <div style="display: flex; align-items: center; padding: 14px 16px 6px;">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 700;">筛选</h2>
+      <a href="Mall2.dc.html" aria-label="关闭" style="margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    </div>
+
+    <div style="flex-grow: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 18px;">
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="5">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span style="font-size: 15px; font-weight: 500;">{{g.t}}</span>
+            <span style="font-size: 12px; color: #8a8f97;">{{g.hint}}</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+            <sc-for list="{{g.opts}}" as="o" hint-placeholder-count="3">
+              <button type="button" onClick="{{o.toggle}}" aria-pressed="{{o.pressed}}" style="min-height: 38px; border-radius: 8px; border: 1px solid {{o.bd}}; background: {{o.bg}}; color: {{o.fg}}; font: inherit; font-size: 13px; padding: 0 4px; cursor: pointer;">{{o.l}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 500;">价格区间（元）</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input aria-label="最低价" placeholder="最低价" value="{{minPrice}}" onChange="{{setMinPrice}}" style="flex: 1 1 0; min-width: 0; height: 38px; border-radius: 8px; border: 1px solid #ebedf0; background: #f7f8fa; padding: 0 12px; font: inherit; font-size: 14px; text-align: center;">
+          <span style="color: #8a8f97;">—</span>
+          <input aria-label="最高价" placeholder="最高价" value="{{maxPrice}}" onChange="{{setMaxPrice}}" style="flex: 1 1 0; min-width: 0; height: 38px; border-radius: 8px; border: 1px solid #ebedf0; background: #f7f8fa; padding: 0 12px; font: inherit; font-size: 14px; text-align: center;">
+        </div>
+        <span style="font-size: 12px; color: #8a8f97;">询价商品无标价，设置价格区间后不显示</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; gap: 10px; padding: 10px 16px 24px; border-top: 1px solid #ebedf0;">
+      <button type="button" onClick="{{reset}}" style="width: 112px; height: 46px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">重置</button>
+      <a href="Mall2.dc.html" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">查看 18 件</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 已选项：键为“分组序号-选项序号”，初始与静态稿一致（可线上体验、体验馆可看、东营现货）
+    this.state = { sel: { '0-0': true, '0-1': true, '2-0': true }, minPrice: '', maxPrice: '' };
+  }
+  renderVals() {
+    const { sel, minPrice, maxPrice } = this.state;
+    const on = { bd: '#ff6a00', bg: '#fffaf5', fg: '#d94f00' }, off = { bd: '#f2f3f5', bg: '#f2f3f5', fg: '#191919' };
+    // 每个选项可单独选中/取消，同一分组内可多选
+    const mk = (gi, labels) => labels.map((l, i) => {
+      const key = gi + '-' + i;
+      const picked = !!sel[key];
+      return {
+        l, ...(picked ? on : off), pressed: picked ? 'true' : 'false',
+        toggle: () => this.setState((s) => ({ sel: { ...s.sel, [key]: !s.sel[key] } }))
+      };
+    });
+    const groups = [
+      { t: '体验方式', hint: '先体验再决定', opts: mk(0, ['可线上体验', '体验馆可看', '可预约试飞']) },
+      { t: '交易方式', hint: '', opts: mk(1, ['直接购买', '询价报价', '租赁']) },
+      { t: '配送与自提', hint: '按当前城市', opts: mk(2, ['东营现货', '到店自提', '厂家直发']) },
+      { t: '经营商家', hint: '均已审核资质', opts: mk(3, ['厂家直营', '授权经销', '本地服务商']) },
+      { t: '适用场景', hint: '', opts: mk(4, ['青少年教育', '行业作业', '个人消费']) }
+    ];
+    // 重置：清空全部选项和已填的价格区间（“查看 18 件”文案不变）
+    const reset = () => this.setState({ sel: {}, minPrice: '', maxPrice: '' });
+    // 输入框 onChange 才带事件对象；没有事件对象时（例如脚本直接调用）保持原值
+    const setMinPrice = (e) => { if (e && e.target) this.setState({ minPrice: e.target.value }); };
+    const setMaxPrice = (e) => { if (e && e.target) this.setState({ maxPrice: e.target.value }); };
+    return { groups, reset, minPrice, maxPrice, setMinPrice, setMaxPrice };
+  }
+}
+</script>
+</body>
+</html>

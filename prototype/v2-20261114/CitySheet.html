@@ -1,0 +1,82 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>A2 切换城市</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 844px; position: relative; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 12px;">
+    <div style="height: 44px; display: flex; align-items: center; font-size: 20px; font-weight: 700;">东营 ▾</div>
+    <div style="height: 164px; border-radius: 16px; background: #eef0f3;"></div>
+    <div style="height: 180px; border-radius: 14px; background: #fff;"></div>
+  </div>
+  <a href="HomeFull.dc.html" aria-label="关闭" style="position: absolute; inset: 0; background: rgba(0,0,0,0.45);"></a>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 640px; background: #fff; border-radius: 20px 20px 0 0; display: flex; flex-direction: column;">
+    <div style="display: flex; align-items: center; padding: 14px 16px 8px;">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 700;">选择城市</h2>
+      <a href="HomeFull.dc.html" aria-label="关闭" style="margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    </div>
+    <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 16px; flex-grow: 1;">
+      <label style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; background: #eef2f8;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#627187" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+        <input aria-label="搜索城市" placeholder="输入城市名" style="border: 0; outline: none; font: inherit; font-size: 14px; width: 100%; background: transparent;">
+      </label>
+
+      <div style="display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: #fffaf5; border: 1px solid #ffd8b8;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 12px; color: #627187;">当前定位</span>
+          <span style="font-size: 15px; font-weight: 500;">东营市 · 已开通</span>
+        </div>
+        <span style="margin-left: auto; font-size: 13px; color: #ba470b;">当前使用</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 13px; color: #536178;">已开通城市</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <a href="HomeFull.dc.html" style="box-sizing: border-box; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1.5px solid #ff6a00; background: #fffaf5; color: #ba470b; font: inherit; font-size: 14px; font-weight: 500; text-decoration: none;">东营 ✓</a>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 13px; color: #536178;">筹备中（可先浏览全国商品与线上体验）</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{soon}}" as="c" hint-placeholder-count="3">
+            <a href="CityClosed.dc.html" style="height: 40px; border-radius: 10px; background: #eef2f8; color: #536178; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none;">{{c}}<span style="font-size: 11px; color: #738096;">筹备</span></a>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="margin-top: auto; margin-bottom: 24px; padding: 12px; border-radius: 12px; background: #f5f7fc; font-size: 12px; color: #536178; line-height: 1.7;">
+        切换城市后，活动、场馆、本地现货和城市资讯随之变化；<br>账号、订单、参与人和收藏不变，跨城通用。
+      </div>
+    </div>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    return { soon: ['济南', '青岛', '潍坊'] };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>商品对比</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="Mall2.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">商品对比</h1>
+    <span style="font-size: 13px; color: #666b73; margin-left: 6px;">2 / 3</span>
+    <label style="margin-left: auto; margin-right: 8px; min-height: 44px; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555a62; cursor: pointer;"><input type="checkbox" checked="{{onlyDiff}}" onChange="{{toggleDiff}}" style="accent-color: #ff6a00; width: 16px; height: 16px; margin: 0;">只看不同</label>
+  </div>
+
+  <div style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column;">
+    <div style="display: grid; grid-template-columns: 84px 1fr 1fr; background: #fff; border-bottom: 1px solid #ebedf0;">
+      <div></div>
+      <sc-for list="{{cols}}" as="c" hint-placeholder-count="2">
+        <div style="padding: 12px 8px; display: flex; flex-direction: column; gap: 6px; border-left: 1px solid #f0f1f3;">
+          <div style="height: 76px; border-radius: 10px; background: #eef0f3; display: flex; align-items: center; justify-content: center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="{{c.d}}"></path></svg></div>
+          <span style="font-size: 13px; font-weight: 500; line-height: 1.4;">{{c.name}}</span>
+          <span style="font-size: 16px; font-weight: 700; color: #e85400;">{{c.price}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+      <div style="display: grid; grid-template-columns: 84px 1fr 1fr; background: {{r.bg}}; border-bottom: 1px solid #f0f1f3;">
+        <div style="padding: 10px 8px 10px 16px; font-size: 12px; color: #666b73;">{{r.k}}</div>
+        <div style="padding: 10px 8px; font-size: 13px; line-height: 1.45; border-left: 1px solid #f0f1f3;">{{r.a}}</div>
+        <div style="padding: 10px 8px; font-size: 13px; line-height: 1.45; border-left: 1px solid #f0f1f3;">{{r.b}}</div>
+      </div>
+    </sc-for>
+    <div style="padding: 10px 16px; font-size: 12px; color: #666b73; line-height: 1.6;">参数由商家填报并经平台审核，以商品详情页为准。同一商品多家在售时，展示最低报价及商家数。</div>
+  </div>
+
+  <div style="flex-shrink: 0; display: grid; grid-template-columns: 84px 1fr 1fr; gap: 0; padding: 10px 0 14px; background: #fff; border-top: 1px solid #ebedf0;">
+    <div></div>
+    <div style="padding: 0 6px;"><a href="PdFull.dc.html" style="height: 40px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">选商家购买</a></div>
+    <div style="padding: 0 6px;"><a href="PdFull.dc.html" style="height: 40px; border-radius: 999px; background: #fff3e8; color: #d94f00; font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">选商家购买</a></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // “只看不同”初始不勾选（与静态稿一致）
+    this.state = { onlyDiff: false };
+  }
+  renderVals() {
+    const { onlyDiff } = this.state;
+    const drone = 'M12 10v4M8 12h8M5 6a2 2 0 1 0 0 .1M19 6a2 2 0 1 0 0 .1M5 18a2 2 0 1 0 0 .1M19 18a2 2 0 1 0 0 .1M7 8l3 3M17 8l-3 3M7 16l3-3M17 16l-3-3';
+    const robot = 'M6 8h12v10H6zM9 12h.01M15 12h.01M12 4v4M10 15h4M4 12h2M18 12h2';
+    const cols = [
+      { name: '编程机器人探索套装', price: '¥1,299 起', d: robot },
+      { name: '桌面六轴机械臂 教学版', price: '¥9,800 起', d: robot }
+    ];
+    const rows = [
+      { k: '在售商家', a: '3 家（厂家 1 · 经销 2）', b: '2 家（厂家 1 · 本地 1）' },
+      { k: '体验方式', a: '线上仿真 · 体验馆可看', b: '线上仿真' },
+      { k: '适用年龄', a: '8 岁以上', b: '12 岁以上' },
+      { k: '编程方式', a: '图形化 / Python', b: '图形化 / Python / ROS' },
+      { k: '配套课程', a: '16 课时（标准套装含）', b: '24 课时（含）' },
+      { k: '东营现货', a: '有 · 可到店自提', b: '厂家直发 5–7 天' },
+      { k: '售后主体', a: '按所选商家', b: '厂家统一售后' },
+      { k: '发票', a: '可开 · 由销售方开具', b: '可开 · 由销售方开具' }
+    ]
+      // 勾选“只看不同”后，隐藏两件商品取值完全相同的行
+      .filter((r) => !onlyDiff || r.a !== r.b)
+      .map((r, i) => ({ ...r, bg: i % 2 ? '#fff' : '#fcfcfd' }));
+    const toggleDiff = () => this.setState((s) => ({ onlyDiff: !s.onlyDiff }));
+    return { cols, rows, onlyDiff, toggleDiff };
+  }
+}
+</script>
+</body>
+</html>

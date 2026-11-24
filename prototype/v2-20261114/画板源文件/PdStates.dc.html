@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>商品详情异常帧</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1051px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding-bottom: 16px;">
+    <div style="position: relative; height: 300px; flex-shrink: 0; background: #eef0f3;">
+      <img src="/_blob/85dbe79468bbacd46343cf281dfb4e4b" alt="编程机器人探索套装" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: {{heroFilter}}; opacity: {{heroOpacity}};">
+      <div style="position: absolute; left: 8px; right: 8px; top: 40px; display: flex; align-items: center;">
+        <a href="Mall2.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></span></a>
+        <a href="ShareSheet.dc.html" aria-label="分享" style="flex-shrink: 0; margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"></path></svg></span></a>
+        <a href="Cart.dc.html" aria-label="购物车" style="flex-shrink: 0; position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1"></path></svg></span><span style="position: absolute; top: 1px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">3</span></a>
+        <a href="MoreSheet.dc.html" aria-label="更多" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></span></a>
+      </div>
+      <sc-if value="{{heroTag}}" hint-placeholder-val="{{true}}">
+        <span style="position: absolute; left: 50%; top: 134px; transform: translateX(-50%); padding: 6px 18px; border-radius: 999px; background: rgba(0,0,0,0.55); color: #fff; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap;">{{heroTag}}</span>
+      </sc-if>
+      <span style="position: absolute; right: 12px; bottom: 26px; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: rgba(0,0,0,0.4); color: #fff;">1/5</span>
+    </div>
+
+    <div style="margin: -24px 16px 0; position: relative; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; align-items: baseline; gap: 4px;">
+        <span style="font-size: {{hd.fs}}; font-weight: 700; color: {{hd.mc}}; white-space: nowrap;">{{hd.main}}</span><span style="font-size: 13px; color: {{hd.mc}};">{{hd.unit}}</span>
+        <span style="margin-left: auto; font-size: 12px; color: {{hd.rc}}; white-space: nowrap;">{{hd.right}}</span>
+      </div>
+      <div style="font-size: 18px; font-weight: 700; color: {{hd.tc}};">编程机器人探索套装</div>
+      <div style="font-size: 13px; color: #666b73;">{{hd.sub}}</div>
+      <sc-if value="{{showExp}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; gap: 6px;">
+          <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #fff3e8; color: #d94f00; white-space: nowrap;">图形化编程</span>
+          <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #fff3e8; color: #d94f00; white-space: nowrap;">避障练习</span>
+          <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; white-space: nowrap;">支持模拟体验</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{isStock}}" hint-placeholder-val="{{true}}">
+      <div role="status" style="margin: 0 16px; background: {{notice.bg}}; border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; gap: 10px;">
+        <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{notice.ic}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"></path></svg></span>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; font-weight: 700; line-height: 21px; color: {{notice.tc}};">{{notice.t}}</span>
+          <span style="font-size: 12px; line-height: 17px; color: #555a62;">{{notice.s}}</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isCity}}" hint-placeholder-val="{{false}}">
+      <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700;">潍坊暂无在售商家</h2>
+          <span style="font-size: 13px; line-height: 19px; color: #555a62;">目前在东营有售，切换城市后可查看价格和配送。</span>
+        </div>
+        <a href="CitySheet.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 12px; border-radius: 10px; background: #fffaf5; color: #191919; text-decoration: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5z"></path></svg>
+          <span style="font-size: 14px; font-weight: 500; white-space: nowrap;">东营</span>
+          <span style="font-size: 12px; color: #666b73; white-space: nowrap;">3 家在售 · ¥1,299 起</span>
+          <span style="margin-left: auto; font-size: 13px; color: #d94f00; white-space: nowrap;">切换 ›</span>
+        </a>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isOff}}" hint-placeholder-val="{{false}}">
+      <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 0 14px; display: flex; flex-direction: column;">
+        <a href="OrderList.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 48px; border-bottom: 1px solid #f0f1f3; color: #191919; text-decoration: none;">
+          <span style="flex-shrink: 0; font-size: 14px; white-space: nowrap;">我的订单</span>
+          <span style="margin-left: auto; font-size: 12px; color: #666b73; white-space: nowrap;">已买的订单和售后不受影响</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+        <a href="ExpRecords.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 48px; color: #191919; text-decoration: none;">
+          <span style="flex-shrink: 0; font-size: 14px; white-space: nowrap;">我的体验</span>
+          <span style="margin-left: auto; font-size: 12px; color: #666b73; white-space: nowrap;">11/02 机器人避障模拟 记录保留</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showExp}}" hint-placeholder-val="{{true}}">
+      <div style="margin: 0 16px; background: #eefaf3; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-size: 16px; font-weight: 700; color: #11804a;">先体验，再决定</span>
+          <span style="font-size: 12px; color: #555a62;">体验结束不会自动下单</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <sc-for list="{{pills}}" as="w" hint-placeholder-count="3">
+            <a href="{{w.href}}" style="flex: 1 1 0; min-height: 36px; border-radius: 999px; background: #fff; color: {{w.c}}; font-size: 13px; font-weight: {{w.fw}}; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{w.t}}</a>
+          </sc-for>
+        </div>
+        <div style="font-size: 12px; color: #555a62;">{{expLine}}</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isStock}}" hint-placeholder-val="{{true}}">
+      <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700;">在售商家</h2>
+          <span style="margin-left: auto; font-size: 12px; color: #666b73;">同型号 · 不同供给</span>
+        </div>
+        <sc-for list="{{offers}}" as="o" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 10px; border: 1.5px solid #f0f1f3; background: #fafafb;">
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 14px; font-weight: 500; color: #555a62; white-space: nowrap;">{{o.name}}</span>
+                <span style="font-size: 11px; padding: 0 5px; border-radius: 4px; border: 1px solid #ebedf0; color: #8a8f97; white-space: nowrap;">{{o.kind}}</span>
+              </div>
+              <span style="font-size: 12px; color: #8a8f97;">{{o.meta}}</span>
+            </div>
+            <span style="flex-shrink: 0; font-size: 16px; font-weight: 700; color: #a3a8b0;">{{o.price}}</span>
+          </div>
+        </sc-for>
+        <span style="font-size: 12px; color: #666b73;">到货时间以商家通知为准，到货后价格可能调整。</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isCity}}" hint-placeholder-val="{{false}}">
+      <div style="margin: 0 16px; background: #fff; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700;">商品参数</h2>
+        <div style="display: grid; grid-template-columns: 96px 1fr; font-size: 13px; border: 1px solid #f0f1f3; border-radius: 8px; overflow: hidden;">
+          <sc-for list="{{specs}}" as="s" hint-placeholder-count="4">
+            <span style="padding: 8px 10px; background: #fafafb; color: #666b73; border-bottom: 1px solid #f0f1f3;">{{s.k}}</span>
+            <span style="padding: 8px 10px; border-bottom: 1px solid #f0f1f3;">{{s.v}}</span>
+          </sc-for>
+        </div>
+        <span style="font-size: 12px; color: #8a8f97;">参数由厂家填报，平台审核后展示</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isOff}}" hint-placeholder-val="{{false}}">
+      <div style="margin: 0 16px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700;">同类商品</h2>
+          <span style="margin-left: auto; font-size: 12px; color: #666b73;">机器人类目</span>
+        </div>
+        <sc-for list="{{similar}}" as="g" hint-placeholder-count="3">
+          <a href="{{g.href}}" style="display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #191919;">
+            <img src="{{g.img}}" alt="{{g.name}}" style="width: 88px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <span style="font-size: 14px; font-weight: 500; line-height: 20px;">{{g.name}}</span>
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <span style="font-size: 15px; font-weight: 700; color: #e85400; white-space: nowrap;">{{g.price}}</span>
+                <span style="font-size: 12px; color: #666b73; white-space: nowrap;">{{g.meta}}</span>
+              </div>
+            </div>
+          </a>
+        </sc-for>
+      </div>
+      <div style="margin: 0 16px; display: flex; flex-direction: column; gap: 10px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700;">相关内容</h2>
+        <a href="ContentVideo.dc.html" style="display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #191919;">
+          <img src="/_blob/d7f749aa0af5b1d1784040d2a816e2f0" alt="编程机器人演示视频" style="width: 88px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 11px; color: #1d63c4;">视频 · 3:12</span>
+            <span style="font-size: 14px; font-weight: 500;">3 分钟看懂编程机器人</span>
+          </div>
+        </a>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 8px 12px 20px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{isStock}}" hint-placeholder-val="{{true}}">
+      <a href="Merchant.dc.html" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #555a62; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" aria-hidden="true"><path d="M4 9l2-5h12l2 5M4 9v11h16V9M4 9h16M9 20v-6h6v6"></path></svg>商家</a>
+    </sc-if>
+    <a href="Chat.dc.html" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; line-height: 15px; color: #555a62; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>咨询</a>
+    <sc-if value="{{showExp}}" hint-placeholder-val="{{true}}">
+      <a href="ExpPick.dc.html" style="flex-shrink: 0; height: 44px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1.5px solid #ff6a00; color: #d94f00; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">先体验</a>
+    </sc-if>
+    <sc-if value="{{isStock}}" hint-placeholder-val="{{true}}">
+      <div style="flex: 1 1 auto; min-width: 0; display: flex; height: 44px; border-radius: 999px; overflow: hidden;">
+        <span aria-disabled="true" style="flex: 1 1 auto; min-width: 0; padding: 0 10px; display: flex; align-items: center; justify-content: center; background: #f2f3f5; color: #a3a8b0; font-size: 15px; font-weight: 500; white-space: nowrap;">立即购买</span>
+        <button type="button" aria-pressed="{{reminded}}" onClick="{{toggleRemind}}" style="flex: 1 1 auto; min-width: 0; margin: 0; padding: 0 10px; border: 0; background: {{remind.bg}}; font: inherit; color: {{remind.c}}; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">{{remind.label}}</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{isCity}}" hint-placeholder-val="{{false}}">
+      <a href="CitySheet.dc.html" style="flex: 1 1 auto; min-width: 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">切换城市</a>
+    </sc-if>
+    <sc-if value="{{isOff}}" hint-placeholder-val="{{false}}">
+      <a href="Mall2.dc.html" style="flex: 1 1 auto; min-width: 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看同类商品</a>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{hint}}" hint-placeholder-val="{{false}}">
+    <button type="button" role="status" onClick="{{closeHint}}" style="position: absolute; top: 92px; left: 16px; right: 16px; z-index: 3; margin: 0; padding: 8px 10px; box-sizing: border-box; border: 1px solid #ffd8b8; border-radius: 10px; background: #fff3e8; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font: inherit; font-size: 12px; line-height: 18px; color: #d94f00; text-align: left; cursor: pointer;">{{hint}}</button>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["无货","本城不可售","已下架"],"default":"无货"},"$preview":{"width":390,"height":1051}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { reminded: false, hint: '' };
+  }
+  renderVals() {
+    // 异常帧的顶部沿用 PdFull。规则来自 PdExpSpec：
+    // 库存 0：立即购买置灰，显示“到货提醒”；无可售 Offer：显示“当前城市暂不可售”，保留体验入口；下架：体验记录保留，不再进入购买
+    const frame = this.props.frame ?? '无货';
+    const { reminded, hint } = this.state;
+    const isStock = frame === '无货';
+    const isCity = frame === '本城不可售';
+    const isOff = frame === '已下架';
+    const hd = {
+      '无货': { main: '¥1,299', unit: '起', right: '东营暂时无货', fs: '26px', mc: '#e85400', rc: '#e5484d', tc: '#191919', sub: '图形化编程入门，适合 8 岁以上' },
+      '本城不可售': { main: '当前城市暂不可售', unit: '', right: '当前城市 潍坊', fs: '20px', mc: '#191919', rc: '#666b73', tc: '#191919', sub: '图形化编程入门，适合 8 岁以上' },
+      '已下架': { main: '商品已下架', unit: '', right: '', fs: '20px', mc: '#8a8f97', rc: '#666b73', tc: '#555a62', sub: '这款商品已停止销售，不能再购买' }
+    }[frame];
+    const notice = reminded
+      ? { t: '已设到货提醒', s: '有货时通过“消息”通知你，不会自动下单', bg: '#eefaf3', ic: '#19b866', tc: '#11804a' }
+      : { t: '3 家商家都暂时无货', s: '设置到货提醒，有货时通过“消息”通知你', bg: '#fff3e8', ic: '#ff6a00', tc: '#d94f00' };
+    const remind = reminded
+      ? { label: '已设提醒', bg: '#fff3e8', c: '#d94f00' }
+      : { label: '到货提醒', bg: '#ff6a00', c: '#fff' };
+    const offers = [
+      { name: '示例机器人商家', kind: '厂家直营', meta: '东营仓暂时无货', price: '¥1,299' },
+      { name: '示例教育装备代理', kind: '授权经销', meta: '合作仓暂时无货', price: '¥1,350' },
+      { name: '示例科创器材店', kind: '本地商家', meta: '东营门店暂时无货', price: '¥1,380' }
+    ];
+    const pillRows = [
+      { t: '虚拟仿真', href: 'ExpSim.dc.html', c: '#11804a', fw: 500 },
+      { t: '录播演示', href: 'ContentVideo.dc.html', c: '#191919', fw: 400 },
+      { t: '到馆体验', href: 'VenueDetail.dc.html', c: '#191919', fw: 400 }
+    ];
+    // 本城不可售时只保留线上体验：潍坊没有体验馆，到馆体验要先切换城市
+    const pills = isCity ? pillRows.slice(0, 2) : pillRows;
+    const expLine = isCity ? '线上体验不受城市限制，到馆体验请先切换城市' : '你在 11/02 体验过“机器人避障模拟”，用时 2′36″';
+    const specs = [
+      ['适用年龄', '8 岁以上'], ['编程方式', '图形化 / Python'], ['传感器', '超声波、循线、陀螺仪'],
+      ['续航', '约 90 分钟']
+    ].map(([k, v]) => ({ k, v }));
+    const similar = [
+      { name: '编程机器人 · 教室套装', price: '¥7,380', meta: '示例机器人商家', img: '/_blob/85dbe79468bbacd46343cf281dfb4e4b', href: 'PdFull.dc.html' },
+      { name: '避障训练场地套件', price: '¥460', meta: '1 家在售', img: '/_blob/822c9edc2d0d857c67055194c02161d3', href: 'PdFull.dc.html' },
+      { name: '巡检机器狗', price: '¥380/天 起', meta: '租赁 · 1 家', img: '/_blob/a016bad56a0e687061b30b2a4fd96ff6', href: 'PdRental.dc.html' }
+    ];
+    return {
+      isStock, isCity, isOff, showExp: !isOff, hd, notice, remind, reminded, offers, pills, expLine, specs, similar, hint,
+      heroTag: isStock ? '暂时无货' : (isOff ? '已下架' : ''),
+      heroFilter: isOff ? 'grayscale(1)' : 'none', heroOpacity: isOff ? 0.6 : 1,
+      toggleRemind: () => this.setState((st) => ({ reminded: !st.reminded })),
+      closeHint: () => this.setState({ hint: '' })
+    };
+  }
+}
+</script>
+</body>
+</html>

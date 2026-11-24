@@ -1,0 +1,196 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ME-05 收藏与对比（二期待定）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 4px; padding: 8px;">
+      <a href="Mine.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+      <h1 style="margin: 0; font-size: 18px; font-weight: 700;">收藏与对比</h1>
+    </div>
+    <div role="tablist" aria-label="收藏类型" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 8px;">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="position: relative; height: 44px; padding: 0; border: 0; background: none; font: inherit; font-size: 16px; line-height: 22px; font-weight: {{t.w}}; color: {{t.c}}; white-space: nowrap; cursor: pointer;">{{t.label}} <span style="font-size: 13px; font-weight: 400; color: {{t.cc}};">{{t.count}}</span><sc-if value="{{t.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 3px; width: 20px; height: 3px; margin-left: -10px; border-radius: 3px; background: #ff6a00;"></span></sc-if></button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <sc-if value="{{showCmpTip}}" hint-placeholder-val="{{true}}">
+      <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; color: #627187;">勾选 2–3 件商品即可对比</span>
+    </sc-if>
+
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 12px 4px; border-radius: 14px; border: 1.5px solid {{r.bd}}; background: #fff;">
+        <sc-if value="{{r.live}}" hint-placeholder-val="{{true}}">
+          <a href="{{r.href}}" style="display: flex; gap: 12px; color: #202c42; text-decoration: none;">
+            <span style="flex-shrink: 0; position: relative; display: block; width: 80px; height: 80px; border-radius: 10px; overflow: hidden; background: #eef0f3;">
+              <sc-if value="{{r.img}}" hint-placeholder-val="{{true}}">
+                <img src="{{r.img}}" alt="{{r.alt}}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+              </sc-if>
+              <sc-if value="{{r.ph}}" hint-placeholder-val="{{false}}">
+                <span style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21h10M10 21v-3M7 18h6M10 18L7 10l8-4M15 6l3 1.5M15 6l1.5-3M5.4 10a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0-3.2 0"></path></svg>
+                  <span style="font-size: 12px; line-height: 16px; color: #738096; white-space: nowrap;">商品图</span>
+                  <span style="font-size: 12px; line-height: 16px; color: #738096; white-space: nowrap;">待授权素材</span>
+                </span>
+              </sc-if>
+            </span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+              <span style="font-size: 14px; line-height: 20px; font-weight: 500;">{{r.name}}</span>
+              <sc-if value="{{r.price}}" hint-placeholder-val="{{true}}">
+                <span style="display: flex; align-items: baseline; gap: 3px; white-space: nowrap;">
+                  <span style="font-size: 16px; line-height: 24px; font-weight: 700; color: #e85400;">{{r.price}}</span>
+                  <span style="font-size: 12px; line-height: 17px; color: #627187;">{{r.unit}}</span>
+                </span>
+              </sc-if>
+              <sc-if value="{{r.meta}}" hint-placeholder-val="{{true}}">
+                <span style="font-size: 12px; line-height: 17px; color: #536178; white-space: nowrap;">{{r.meta}}</span>
+              </sc-if>
+              <sc-if value="{{r.tag}}" hint-placeholder-val="{{false}}">
+                <span style="padding: 0 6px; border-radius: 6px; background: #e6f0ff; font-size: 12px; line-height: 20px; color: #1d63c4; white-space: nowrap;">{{r.tag}}</span>
+              </sc-if>
+            </span>
+          </a>
+        </sc-if>
+        <sc-if value="{{r.gone}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; gap: 12px;">
+            <span style="flex-shrink: 0; display: block; width: 80px; height: 80px; border-radius: 10px; overflow: hidden; background: #eef0f3;">
+              <img src="{{r.img}}" alt="{{r.alt}}" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(1); opacity: 0.5;">
+            </span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+              <span style="font-size: 14px; line-height: 20px; font-weight: 500; color: #738096;">{{r.name}}</span>
+              <span style="padding: 0 6px; border-radius: 6px; background: #eef2f8; font-size: 12px; line-height: 20px; color: #627187; white-space: nowrap;">已下架</span>
+              <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">不能查看详情或购买</span>
+            </span>
+          </div>
+        </sc-if>
+        <div style="display: flex; align-items: center; min-height: 44px; margin-top: 2px;">
+          <sc-if value="{{r.canCmp}}" hint-placeholder-val="{{true}}">
+            <label style="display: flex; align-items: center; gap: 6px; min-height: 44px; padding-right: 12px; font-size: 13px; color: {{r.cmpC}}; white-space: nowrap; cursor: {{r.cmpCursor}};"><input type="checkbox" checked="{{r.cmp}}" disabled="{{r.cmpOff}}" onChange="{{r.toggleCmp}}" aria-label="{{r.cmpAria}}" style="accent-color: #ff6a00; width: 16px; height: 16px; margin: 0;">对比</label>
+          </sc-if>
+          <button type="button" aria-label="{{r.removeAria}}" onClick="{{r.remove}}" style="margin-left: auto; height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #536178; white-space: nowrap; cursor: pointer;">取消收藏</button>
+        </div>
+      </div>
+    </sc-for>
+
+    <sc-if value="{{showEmpty}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 72px 0;">
+        <span style="width: 64px; height: 64px; border-radius: 50%; background: #eef0f3; display: flex; align-items: center; justify-content: center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"></path></svg></span>
+        <span style="font-size: 14px; line-height: 20px; color: #738096;">还没有收藏</span>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 3; display: flex; flex-direction: column; gap: 8px;">
+    <sc-if value="{{showUndo}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="display: flex; align-items: center; gap: 6px; height: 46px; box-sizing: border-box; padding-left: 12px; border: 1px solid #ffd8b8; border-radius: 10px; background: #fff0e3; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font-size: 13px; line-height: 18px; color: #536178; white-space: nowrap;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span>已取消收藏 ·</span>
+        <button type="button" onClick="{{undoRemove}}" style="height: 44px; margin-left: -4px; padding: 0 10px 0 6px; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 700; color: #ba470b; cursor: pointer;">撤销</button>
+        <button type="button" aria-label="关闭提示" onClick="{{dismissUndo}}" style="margin-left: auto; width: 44px; height: 44px; padding: 0; border: 0; background: none; font: inherit; font-size: 16px; color: #ba470b; cursor: pointer;">×</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{showCompare}}" hint-placeholder-val="{{true}}">
+      <div style="height: 56px; box-sizing: border-box; border-radius: 999px; background: #202c42; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 18px; color: #fff; white-space: nowrap;">
+        <span style="font-size: 14px;">已选 {{cmpCount}} 件对比</span>
+        <span style="font-size: 12px; color: #c9d3e1;">最多 3 件</span>
+        <a href="MallCompare.dc.html" style="margin-left: auto; height: 44px; padding: 0 18px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; text-decoration: none; display: flex; align-items: center;">开始对比</a>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // tab：当前类型；cmp：勾选对比的商品，默认两件，与商品类目频道一致；
+    // removed：已取消收藏的条目；undo：可撤销的最近一条（空字符串表示没有）
+    this.state = { tab: 'goods', cmp: { kit: true, arm: true, dog: false }, removed: {}, undo: '' };
+  }
+  renderVals() {
+    const { tab, cmp, removed, undo } = this.state;
+    const MAX_CMP = 3;
+    // canCmp：可以勾选对比；gone：已下架，保留在列表里并灰显，没有链接、不能对比，只能取消收藏
+    const favorites = [
+      { id: 'kit', tab: 'goods', name: '编程机器人探索套装', img: '_blob/5d32505e8b9a494f8436e31c3008ef99.jpg', href: 'PdFull.dc.html', price: '¥1,299', unit: '起', meta: '3 家在售', canCmp: true },
+      { id: 'arm', tab: 'goods', name: '桌面六轴机械臂 教学版', img: '', href: 'PdArm.dc.html', price: '¥9,800', unit: '起', meta: '2 家在售', canCmp: true },
+      { id: 'dog', tab: 'goods', name: '巡检机器狗', img: '_blob/a016bad56a0e687061b30b2a4fd96ff6.jpg', href: 'PdRental.dc.html', price: '¥380', unit: '/天 起', meta: '租赁', canCmp: true },
+      { id: 'field', tab: 'goods', name: '入门教学无人机', img: '_blob/277bff54e5d7d5be019694787d4e648d.jpg', href: '', gone: true },
+      { id: 'svc', tab: 'service', name: '园区安防巡检', img: '_blob/e42bb39cca5b4f528e6577da8445bced.webp', href: 'InspDetailPark.dc.html', price: '按项目报价', meta: '鹰眼智能巡检', alt: '园区外景' },
+      { id: 'act', tab: 'event', name: '青少年无人机编程挑战赛（东营站）', img: '_blob/b41e3fb34601d5b9b3c9e40e84d2a489.jpg', href: 'ActDetail.dc.html', price: '¥120', unit: '/人', meta: '11/15', alt: '青少年无人机编程挑战赛' },
+      { id: 'case', tab: 'content', name: '一台机器狗如何完成园区夜间巡逻', img: '_blob/e42bb39cca5b4f528e6577da8445bced.webp', href: 'ContentArticle.dc.html', tag: '案例', alt: '园区外景' }
+    ];
+    const kept = favorites.filter((f) => !removed[f.id]);
+    // 已取消收藏的商品不计入对比，撤销后恢复原来的勾选
+    const countPicked = (s) => favorites.filter((f) => s.cmp[f.id] && !s.removed[f.id]).length;
+    const cmpCount = countPicked(this.state);
+
+    const tabs = [['goods', '商品'], ['service', '服务'], ['event', '活动'], ['content', '内容']].map(([id, label]) => {
+      const on = id === tab;
+      return {
+        id, label, on,
+        count: String(kept.filter((f) => f.tab === id).length),
+        c: on ? '#202c42' : '#627187', cc: on ? '#ba470b' : '#738096', w: on ? 700 : 400,
+        // 撤销只针对当前列表里刚取消的那一条，切换类型后不再提供
+        pick: () => this.setState({ tab: id, undo: '' })
+      };
+    });
+
+    const rows = kept.filter((f) => f.tab === tab).map((f) => {
+      const picked = !!cmp[f.id];
+      const cmpOff = !picked && cmpCount >= MAX_CMP;
+      return {
+        id: f.id, name: f.name, img: f.img, alt: f.alt || f.name, href: f.href,
+        price: f.price || '', unit: f.unit || '', meta: f.meta || '', tag: f.tag || '',
+        live: !f.gone, gone: !!f.gone, ph: !f.img, canCmp: !!f.canCmp,
+        cmp: picked, cmpOff,
+        cmpC: cmpOff ? '#91a0b4' : '#536178',
+        cmpCursor: cmpOff ? 'not-allowed' : 'pointer',
+        cmpAria: '对比：' + f.name,
+        toggleCmp: () => this.setState((s) => {
+          if (!s.cmp[f.id] && countPicked(s) >= MAX_CMP) return {};
+          return { cmp: { ...s.cmp, [f.id]: !s.cmp[f.id] } };
+        }),
+        bd: picked ? '#ff6a00' : '#fff',
+        removeAria: '取消收藏：' + f.name,
+        remove: () => this.setState((s) => ({ removed: { ...s.removed, [f.id]: true }, undo: f.id }))
+      };
+    });
+
+    const onGoods = tab === 'goods';
+    return {
+      tabs, rows, cmpCount,
+      showEmpty: rows.length === 0,
+      // 可对比的商品不足 2 件时不再提示
+      showCmpTip: onGoods && kept.filter((f) => f.canCmp).length >= 2,
+      // 少于 2 件不显示对比条；对比只针对商品，其余类型不显示
+      showCompare: onGoods && cmpCount >= 2,
+      showUndo: !!undo,
+      undoRemove: () => this.setState((s) => (s.undo ? { removed: { ...s.removed, [s.undo]: false }, undo: '' } : {})),
+      dismissUndo: () => this.setState({ undo: '' })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

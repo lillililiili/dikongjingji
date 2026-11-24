@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>导航规格</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 1100px; height: 3300px; display: flex; flex-direction: column; gap: 22px; padding: 40px 44px; box-sizing: border-box; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 700;">导航规格 · 参照淘宝（方案 C）</h1>
+    <span style="font-size: 14px; color: #555a62; line-height: 1.6;">2026-11-03 产品负责人选定方案 C：底栏照搬淘宝的结构，改为 首页 / 发现 / 消息 / 购物车 / 我的；商品类目、专业服务、活动、体验全部进首页顶部的横滑频道。“淘宝现状”只写 2025–2026 年有日期来源的内容，其余一律标为“我们的设计”。</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; font-weight: 700;">1 · 淘宝现状（已核实）</h2>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px;">
+      <sc-for list="{{facts}}" as="f" hint-placeholder-count="9">
+        <div style="padding: 8px 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 1.55;"><span style="font-weight: 700;">{{f.k}}</span>　{{f.v}}<span style="font-size: 12px; color: #8a8f97;">　{{f.src}}</span></div>
+      </sc-for>
+      <div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 10px; background: #fffaf5; border: 1px solid #ffd8b8; font-size: 13px; line-height: 1.55;">
+        <div style="font-weight: 700; color: #d94f00;">未核实（只有 2019–2021 年旧资料）</div>
+        <sc-for list="{{unverified}}" as="u" hint-placeholder-count="3">
+          <div>· {{u}}</div>
+        </sc-for>
+        <div style="font-size: 12px; line-height: 1.5; color: #8a8f97;">2025–2026 年没有可靠来源。我们如果要做，写成“我们的设计”。</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; font-weight: 700;">2 · 我们的底栏：首页 / 发现 / 消息 / 购物车 / 我的</h2>
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 392px; gap: 24px; align-items: start;">
+      <div style="display: grid; grid-template-columns: 64px minmax(0, 1.15fr) minmax(0, 1fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62;">Tab</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62;">作用</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62;">角标</div>
+        <sc-for list="{{tabRows}}" as="r" hint-placeholder-count="5">
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700;"><a href="{{r.href}}" style="text-decoration: none;">{{r.t}}</a></div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{r.role}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{r.badge}}</div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 12px; color: #8a8f97;">示意：停在首页；消息未读 3、购物车 3 件、发现有新内容</div>
+        <div style="width: 392px; box-sizing: border-box; border: 1px solid #ebedf0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; background: #f7f8fa;">
+          <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #ebedf0;">
+            <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+              <a href="{{t.href}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px; font-weight: {{t.w}};">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+                <span>{{t.label}}</span>
+                <sc-if value="{{t.badge}}" hint-placeholder-val="{{false}}">
+                  <span style="position: absolute; top: 4px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">{{t.badge}}</span>
+                </sc-if>
+                <sc-if value="{{t.dot}}" hint-placeholder-val="{{false}}">
+                  <span style="position: absolute; top: 7px; left: 50%; margin-left: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ff5200;"></span>
+                </sc-if>
+              </a>
+            </sc-for>
+          </nav>
+        </div>
+        <sc-for list="{{barRules}}" as="b" hint-placeholder-count="4">
+          <div style="font-size: 13px; line-height: 1.55; color: #555a62;">· {{b}}</div>
+        </sc-for>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-radius: 10px; background: #fff3e8; font-size: 13px; line-height: 1.55;">
+          <span style="font-weight: 700;">在首页时再点“首页”：页面滚回顶部</span>
+          <span style="align-self: flex-start; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #fff; border: 1px solid #ffd8b8; color: #d94f00;">我们的设计（淘宝现状未核实）</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; font-weight: 700;">3 · 首页头部：城市 + 横滑频道行 / 常驻搜索框</h2>
+    <div style="display: grid; grid-template-columns: 392px minmax(0, 1fr); gap: 24px; align-items: start;">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <sc-for list="{{heads}}" as="hd" hint-placeholder-count="2">
+          <div style="font-size: 12px; color: #8a8f97;">{{hd.cap}}</div>
+          <div style="width: 392px; box-sizing: border-box; border: 1px solid #ebedf0; border-radius: 12px; overflow: hidden; background: #f7f8fa;">
+            <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; background: linear-gradient(180deg, #fff3e8 0%, #fff8f2 70%, #f7f8fa 100%);">
+              <div style="position: relative; display: flex; align-items: center; gap: 2px; padding-left: 14px; overflow: hidden;">
+                <a href="CitySheet.dc.html" style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; min-height: 40px; margin-right: 6px; font-size: 16px; font-weight: 700; color: #191919; text-decoration: none;">{{hd.city}}<svg width="14" height="14" viewBox="0 0 24 24" fill="#191919" aria-hidden="true"><path d="M6 9l6 6 6-6z"></path></svg></a>
+                <sc-for list="{{hd.channels}}" as="ch" hint-placeholder-count="8">
+                  <a href="{{ch.href}}" style="flex-shrink: 0; position: relative; display: flex; align-items: center; min-height: 40px; padding: 0 9px; color: {{ch.c}}; font-size: {{ch.fs}}; font-weight: {{ch.w}}; text-decoration: none; white-space: nowrap;">{{ch.label}}<sc-if value="{{ch.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 3px; width: 16px; height: 3px; margin-left: -8px; border-radius: 3px; background: #ff6a00;"></span></sc-if></a>
+                </sc-for>
+                <span style="position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: linear-gradient(90deg, rgba(255,243,232,0), #fff3e8);"></span>
+              </div>
+              <div style="padding: 0 16px;">
+                <a href="SearchPre.dc.html" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 4px 0 12px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; text-decoration: none;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="1.8" stroke-linecap="round" aria-label="扫一扫"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M4 12h16"></path></svg>
+                  <span style="width: 1px; height: 16px; background: #ebedf0;"></span>
+                  <span style="flex-grow: 1; min-width: 0; font-size: 14px; color: #8a8f97; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{hd.placeholder}}</span>
+                  <span style="flex-shrink: 0; height: 32px; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; display: flex; align-items: center;">搜索</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.3fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62;">频道（按此顺序）</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62;">子首页</div>
+        <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62;">搜索占位词</div>
+        <sc-for list="{{channelRows}}" as="c" hint-placeholder-count="5">
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700;"><a href="{{c.href}}" style="text-decoration: none;">{{c.ch}}</a></div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{c.sub}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{c.ph}}</div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px;">
+      <sc-for list="{{headRules}}" as="h" hint-placeholder-count="7">
+        <div style="font-size: 13px; line-height: 1.55;"><span style="font-weight: 700;">{{h.k}}</span><span style="color: #555a62;">：{{h.v}}</span></div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; font-weight: 700;">4 · 推荐频道结构（从上到下）</h2>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px;">
+      <sc-for list="{{recFlow}}" as="rf" hint-placeholder-count="8">
+        <span style="padding: 8px 12px; border-radius: 8px; background: {{rf.bg}}; color: {{rf.fg}};">{{rf.t}}</span>
+        <span style="color: #a3a8b0;">{{rf.arrow}}</span>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: 236px minmax(0, 1fr) minmax(0, 1fr); gap: 14px;">
+      <div style="border: 1px solid #ebedf0; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-size: 13px; font-weight: 700;">两张大卡（等宽并排）</div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{bigCards}}" as="bc" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 10px; background: {{bc.bg}};">
+              <span style="font-size: 14px; font-weight: 700;">{{bc.t}}</span>
+              <span style="font-size: 11px; line-height: 1.4; color: #555a62;">{{bc.to}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <sc-for list="{{kingPages}}" as="pg" hint-placeholder-count="2">
+        <div style="border: 1px solid #ebedf0; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-size: 13px; font-weight: 700;">{{pg.title}}</div>
+          <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px;">
+            <sc-for list="{{pg.items}}" as="e" hint-placeholder-count="5">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;">
+                <div style="width: 44px; height: 44px; border-radius: 14px; background: {{e.bg}}; display: flex; align-items: center; justify-content: center;">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{e.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{e.d}}"></path></svg>
+                </div>
+                <span style="font-size: 13px; white-space: nowrap;">{{e.label}}</span>
+                <span style="font-size: 11px; line-height: 1.4; color: #8a8f97;">{{e.to}}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; justify-content: center; gap: 4px;">
+            <sc-for list="{{pg.dots}}" as="d" hint-placeholder-count="2">
+              <span style="width: {{d.w}}; height: 4px; border-radius: 2px; background: {{d.c}};"></span>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size: 13px; color: #555a62; line-height: 1.6;">参照淘宝推荐频道：金刚区只占一行，第 2 页用“全部频道”兜底；大卡用 2 张等宽（淘宝为 2 到 3 张）。各区块无数据时整体隐藏；每块的数据来源与点击去向见 <a href="HomeMallSpec.dc.html">首页频道与商品类目 · 模块规格</a>。</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">5 · 其他沿用的淘宝做法</h2>
+      <sc-for list="{{keep}}" as="kp" hint-placeholder-count="5">
+        <div style="font-size: 13px; line-height: 1.55;"><span style="font-weight: 700;">{{kp.k}}</span>　{{kp.v}}<span style="font-size: 12px; color: #8a8f97;">　{{kp.ref}}</span></div>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">6 · 不照搬</h2>
+      <sc-for list="{{skip}}" as="sk" hint-placeholder-count="7">
+        <div style="font-size: 13px; line-height: 1.55;"><span style="font-weight: 700;">{{sk.k}}</span><span style="color: #555a62;">：{{sk.why}}</span></div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">7 · 与现有文档的冲突（2026-11-04 已同步）</h2>
+      <span style="font-size: 13px; color: #8a8f97;">已同步进 概要设计 V0.2 与 AGENTS.md V2.2；“方案 C 需要改成”一列即现行写法。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 190px minmax(0, 1fr) minmax(0, 1.2fr); border: 1px solid #ebedf0; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62;">位置</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62;">原来写的</div>
+      <div style="padding: 9px 12px; background: #f7f8fa; font-weight: 500; color: #555a62;">方案 C 需要改成</div>
+      <sc-for list="{{conflicts}}" as="cf" hint-placeholder-count="10">
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 500;">{{cf.c0}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #555a62;">{{cf.c1}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{cf.c2}}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">8 · 待确认（来自一致性检查）</h2>
+      <sc-for list="{{ask}}" as="a" hint-placeholder-count="4">
+        <div style="font-size: 13px; line-height: 1.55; padding: 8px 12px; border-radius: 10px; background: #fff3e8;"><span style="font-weight: 700;">{{a.k}}</span><span style="color: #555a62;">：{{a.v}}</span></div>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">来源</h2>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <sc-for list="{{sources}}" as="s" hint-placeholder-count="14">
+          <div style="font-size: 12px; line-height: 1.5; color: #555a62;">{{s}}</div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1100,"height":3300}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const facts = [
+      { k: '底栏', v: '首页（选中时显示品牌 Logo）/ 视频 / 消息 / 购物车 / 我的淘宝；5 个等宽，没有凸起按钮。', src: '2026-10 App Store 官方截图（iOS 10.68.10）；2025-04-30 IT之家' },
+      { k: '新业务进频道', v: '闪购、飞猪、国补都没进底栏，都在首页顶部频道行；飞猪 2025-08-06 成为首页顶部一级频道。', src: '2025-08-06 新浪科技' },
+      { k: '首页顶部两层', v: '上层横滑文字频道（关注｜推荐｜闪购｜国补｜飞猪…），选中项放大、加粗、变橙；下层常驻搜索框：左扫一扫、中间占位词、右拍照搜、最右橙色“搜索”按钮。', src: '2025-04 至 2026-10 截图' },
+      { k: '频道即子首页', v: '切换频道 = 换一个子首页，搜索语境和下方内容跟着变；底栏停在首页。', src: '2025-04-30 IT之家（闪购频道）' },
+      { k: '推荐频道', v: '金刚区一行加分页点，第 2 页有“分类”“全部频道”；下面 2 到 3 张等宽频道大卡。', src: '2025-12-08 小众软件论坛截图；2025-06-28 钛媒体' },
+      { k: '角标', v: '消息用数字，99+ 封顶；视频用红点，可在设置里关掉。', src: '2026-10 App Store 截图；2025-11-15 百度知道；2026-07-05 卖家网' },
+      { k: '订单', v: '一个订单中心，顶部按业务分 Tab：全部订单｜购物｜闪购。', src: '2025-07-01 亿邦动力 / 新浪科技' },
+      { k: '二级页头部', v: '返回 + 搜索框或标题 + 最多 3 个按钮（分享、带数字角标的购物车、•••）。', src: '2025-06 至 2026-10 截图' },
+      { k: '搜索', v: '中间页用“搜索范围 Tab”（搜宝贝｜闪购｜AI万能搜）；结果页是排序行 + 快捷筛选胶囊 + 筛选面板 + 回顶按钮。', src: '2026-04-07 人人都是产品经理；2025-06-30 IT之家；2025-09-17 36氪' }
+    ];
+    const unverified = [
+      '首页 Tab 下滑后变成“回顶”',
+      '上滑时频道行、搜索框吸顶',
+      '商品详情顶部的锚点 Tab'
+    ];
+
+    const ACTIVE = 0; // 0 首页 1 发现 2 消息 3 购物车 4 我的
+    const tabs = [
+      ['首页', 'HomeFull.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', '', false],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z', '', true],
+      ['消息', 'Messages.dc.html', 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01', '3', false],
+      ['购物车', 'Cart.dc.html', 'M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1', '3', false],
+      ['我的', 'Mine.dc.html', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', '', false]
+    ].map((t, i) => ({ label: t[0], href: t[1], d: t[2], badge: t[3], dot: t[4] && i !== ACTIVE, c: i === ACTIVE ? '#ff6a00' : '#8a8f97', w: i === ACTIVE ? 500 : 400 }));
+
+    const tabRows = [
+      { t: '首页', href: 'HomeFull.dc.html', role: '城市首页；全部业务在顶部频道里切换，切到哪个频道，底栏都停在“首页”。', badge: '不显示' },
+      { t: '发现', href: 'Discover.dc.html', role: '图文、视频、直播预告、专题，内容挂商品与活动，由运营配置。', badge: '有新内容时显示红点，可在“我的 → 设置”关闭；正在发现页时不显示。' },
+      { t: '消息', href: 'Messages.dc.html', role: '交易物流、服务进度、活动提醒、系统通知、客服。', badge: '数字 = 未读数（示意 3）；超过 99 显示“99+”；0 或无数据不显示。' },
+      { t: '购物车', href: 'Cart.dc.html', role: '只放可直接购买的商品，按商家分组；一期每次结算一个商家。', badge: '数字 = 购物车件数（示意 3）；0 件不显示。' },
+      { t: '我的', href: 'Mine.dc.html', role: '账户、三类订单、我的参与、参与人、企业组织、售后、设置。', badge: '不显示' }
+    ];
+    const barRules = [
+      '5 个等宽 Tab，没有凸起按钮；高 60px，触控区不小于 44px。',
+      '选中时图标和文字变橙（#ff6a00），未选中为灰色。',
+      '“首页”始终显示图标和文字，不换成品牌 Logo。',
+      '只在 Tab 根页显示，二级页不放；新业务进首页频道，不进底栏。'
+    ];
+
+    const channelList = [
+      ['推荐', 'HomeFull.dc.html'], ['专业服务', 'HomeSvc.dc.html'], ['活动', 'HomeAct.dc.html'], ['体验', 'ExpCenter.dc.html'],
+      ['商城', 'MallHome.dc.html']
+    ];
+    const mkChannels = (ACTIVE_CHANNEL) => channelList.map(([label, href]) => {
+      const on = label === ACTIVE_CHANNEL;
+      return { label, href, on, c: on ? '#ff6a00' : '#191919', fs: on ? '18px' : '15px', w: on ? 700 : 400 };
+    });
+    const heads = [
+      { cap: '示意：推荐频道（默认进入）', city: '东营', placeholder: '搜索设备、活动或服务', channels: mkChannels('推荐') },
+      { cap: '示意：切到“专业服务”，占位词和下方内容一起换', city: '东营', placeholder: '搜索巡检服务、场景或关键词', channels: mkChannels('专业服务') }
+    ];
+    const channelRows = [
+      { ch: '推荐', href: 'HomeFull.dc.html', sub: '城市首页长页', ph: '搜索设备、活动或服务' },
+      { ch: '专业服务', href: 'HomeSvc.dc.html', sub: '复用巡检 M01，默认“巡检”', ph: '搜索巡检服务、场景或关键词（AGENTS.md §8 固定文案）' },
+      { ch: '活动', href: 'HomeAct.dc.html', sub: '活动列表', ph: '搜索赛事、培训、研学' },
+      { ch: '体验', href: 'ExpCenter.dc.html', sub: '体验中心', ph: '搜索体验项目或场馆' },
+      { ch: '无人机 / 机器人 / 配件 / 租赁 / 课程', href: 'Mall2.dc.html', sub: '每个频道一张列表页（MallDrone / Mall2 / MallParts / MallRental / MallCourse）', ph: '按类目换，如“搜索机器人型号或品牌”' }
+    ];
+    const headRules = [
+      { k: '两层', v: '上层是城市（点开切换城市面板）+ 横滑频道行；下层是常驻搜索框：左扫一扫、中间占位词、最右橙色“搜索”按钮。' },
+      { k: '不放', v: '不做拍照搜（我们没有图搜能力）；不放消息按钮（消息已是底栏 Tab）。' },
+      { k: '选中样式', v: '18px、加粗、橙色，下方 16×3 橙色短条；未选中 15px、常规、黑色；行尾渐隐，提示还能横滑。' },
+      { k: '频道即子首页', v: '切换频道时，搜索占位词和下方内容一起换，底栏始终停在“首页”；冷启动默认进入“推荐”。' },
+      { k: '只放常驻频道', v: '一期只放上表的常驻频道，不放大促、节日等临时频道。' },
+      { k: '按城市配置', v: '频道顺序由城市运营配置；本城未开通的能力，对应频道隐藏。' },
+      { k: '城市未开通', v: '例如潍坊：只留全国可用的推荐、体验、无人机、机器人、课程，占位词“搜索全国发货商品与线上体验”。' }
+    ];
+
+    const g = { bg: '#e8f7ef', fg: '#11804a' }, o = { bg: '#fff3e8', fg: '#d94f00' }, n = { bg: '#f2f3f5', fg: '#191919' };
+    const recFlow = [
+      { t: 'Banner', ...n }, { t: '两张大卡', ...o }, { t: '金刚区（一行 + 分页）', ...o }, { t: '今天去体验', ...g },
+      { t: '近期活动', ...n }, { t: '本地精选', ...n }, { t: '附近场馆', ...g }, { t: '城市资讯（位置待确认）', ...n }
+    ].map((f, i, a) => ({ ...f, arrow: i < a.length - 1 ? '→' : '' }));
+    const bigCards = [
+      { t: '找专业服务', to: '→ 专业服务频道（默认“巡检”）', bg: '#fff3e8' },
+      { t: '去体验', to: '→ 体验频道', bg: '#e8f7ef' }
+    ];
+    const io = { bg: '#fff3e8', fg: '#ff6a00' }, ig = { bg: '#e8f7ef', fg: '#19b866' }, ib = { bg: '#eaf2fd', fg: '#2f80ed' }, in0 = { bg: '#f2f3f5', fg: '#555a62' };
+    const drone = 'M12 10v4M8 12h8M5 6a2 2 0 1 0 0 .1M19 6a2 2 0 1 0 0 .1M5 18a2 2 0 1 0 0 .1M19 18a2 2 0 1 0 0 .1M7 8l3 3M17 8l-3 3M7 16l3-3M17 16l-3-3';
+    const robot = 'M6 8h12v10H6zM9 12h.01M15 12h.01M12 4v4M10 15h4M4 12h2M18 12h2';
+    const mkItem = (label, to, c, d) => ({ label, to, bg: c.bg, fg: c.fg, d });
+    const kingPages = [
+      { title: '金刚区 · 第 1 页', dots: [{ w: '14px', c: '#ff6a00' }, { w: '4px', c: '#d6d9de' }], items: [
+        mkItem('无人机', '无人机频道', io, drone),
+        mkItem('机器人', '机器人频道', io, robot),
+        mkItem('专业服务', '专业服务频道', ig, 'M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2'),
+        mkItem('设备租赁', '租赁频道', io, 'M4 7h16v12H4zM8 7V5h8v2M4 12h16'),
+        mkItem('培训课程', '活动频道·培训（暂定）', ib, 'M4 6l8-3 8 3-8 3zM7 8v5c0 1.5 2.5 3 5 3s5-1.5 5-3V8M20 6v6')
+      ]},
+      { title: '金刚区 · 第 2 页（左滑）', dots: [{ w: '4px', c: '#d6d9de' }, { w: '14px', c: '#ff6a00' }], items: [
+        mkItem('赛事活动', '活动频道·赛事', ib, 'M8 4h8v5a4 4 0 0 1-8 0zM12 13v4M8 20h8M8 6H5v2a3 3 0 0 0 3 3M16 6h3v2a3 3 0 0 1-3 3'),
+        mkItem('研学体验', '活动频道·研学', ig, 'M5 4h10l4 4v12H5zM9 12h6M9 16h6'),
+        mkItem('线下场馆', '体验频道·线下', ig, 'M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6'),
+        mkItem('全部频道', '全部频道面板', in0, 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z')
+      ]}
+    ];
+
+    const keep = [
+      { k: '二级页头部', v: '返回（44×44）+ 标题或搜索框 + 右侧最多 3 个按钮：分享、购物车（数字角标）、•••；不放底栏。', ref: '参照 2025-06 至 2026-10 截图' },
+      { k: '全局搜索', v: '范围 Tab：综合 / 商品 / 服务 / 活动 / 内容 / 场馆；结果页 = 排序行（无销量）+ 快捷筛选 + 筛选面板 + 回顶。', ref: '参照 2026-04-07、2025-06-30、2025-09-17' },
+      { k: '订单中心', v: '只有一个订单中心，顶部按业务分 Tab：全部 / 商品 / 服务 / 报名，默认“全部”。', ref: '参照 2025-07-01 全部订单｜购物｜闪购' },
+      { k: '购物车', v: '按商家分组，一期每次只结算一个商家；询价商品、服务、活动不进购物车。', ref: '参照 2026-10 底栏' },
+      { k: '消息', v: '分类：交易物流 / 服务进度 / 活动提醒 / 系统通知 / 客服；未读用数字角标。', ref: '参照 2026-10 底栏与角标' }
+    ];
+    const skip = [
+      { k: '视频 Tab 的海量内容与推荐算法', why: '同城平台内容少，撑不起视频 Tab；它的位置给“发现”，只放运营配置的内容，不做推荐算法。' },
+      { k: '只显示 Logo 的首页图标', why: '我们的品牌认知弱，去掉“首页”二字更难认。' },
+      { k: '8 个以上、千人千面的频道', why: '依赖海量品类和个性化推荐；我们是固定的 9 个常驻频道，全城一致，由城市运营排序。' },
+      { k: '营销角标与临时大促频道', why: '容易制造噪音和虚假紧迫感；规范也不允许为填满页面加营销活动。' },
+      { k: 'AI 入口', why: '依赖大模型和全量商品数据，不在范围内，不为对标先占位。' },
+      { k: '拍照搜', why: '我们没有图搜能力。' },
+      { k: '用小定位图标代替城市名', why: '城市决定全部内容，必须明确显示城市名并可切换。' }
+    ];
+
+    const conflicts = [
+      ['概要设计 §5.1 底部导航', '首页 / 商城 / 活动 / 发现 / 我的（§14 D1 已确认）', '首页 / 发现 / 消息 / 购物车 / 我的；其余业务进首页频道'],
+      ['概要设计 §5.2 页面地图', 'APP-MALL-01 是独立的商城页；消息中心（APP-ME-04）挂在“我的”下；没有购物车页', 'APP-MALL-01 改为首页的商品类目频道；消息、购物车升为底栏 Tab，购物车需补页面编号'],
+      ['概要设计 §7.1 城市首页', '城市 + 搜索 + 消息 → Banner → 双入口卡 → 金刚区 8 格 → 近期活动 → 本地精选 → 附近场馆', '城市 + 频道行 + 搜索框 → Banner → 两张大卡 → 金刚区（一行分页）→ 今天去体验 → 近期活动 → 本地精选 → 附近场馆 → 城市资讯'],
+      ['概要设计 §7.2 商城与商品', '分类：全部、无人机、机器人、配件、租赁、专业服务、课程', '类目与专业服务各成首页频道，“全部”由“全部频道”兜底'],
+      ['概要设计 §7.4 活动', '活动列表（APP-ACT-01）是底栏“活动”Tab 的根页', '改为首页“活动”频道；报名、排课、核销、凭证规则不变'],
+      ['AGENTS.md 文件头、§16', '底部导航为“首页 / 商城 / 活动 / 发现 / 我的”，§16 把偏离此顺序列为不允许差异', '改为“首页 / 发现 / 消息 / 购物车 / 我的”；巡检位于首页“专业服务”频道'],
+      ['AGENTS.md §2、§15', '黄金路径与 E2E：底部“商城”或首页金刚位 →“专业服务”→ 巡检 → …', '新入口：首页频道“专业服务”→ 巡检（金刚位保留）；E2E 至少一条从首页频道真实点击进入'],
+      ['AGENTS.md §9 M01', '从“商城 → 专业服务”或首页“专业服务”金刚位进入', '从首页频道或金刚位“专业服务”进入；旧路由 /pages/service/index 仍重定向到该频道'],
+      ['建设方案 §4.3.1', '赛事研学“作为独立经营业务，而非商城附加页面”；概要设计 §5.1 据此设“活动”Tab', '缓解：“活动”是首页一级频道，与商品类目平级、不挂在商城下；保留自己的列表、详情、报名、凭证链路和“报名”订单'],
+      ['连带', '概要设计 §7.7 我的页有“消息”入口；§12 第 2 条、§14 D3 写“商城 → 专业服务”', '一并修订：消息入口移出“我的”；入口统一写首页频道“专业服务”']
+    ];
+    const ask = [
+      { k: '收藏与对比', v: '概要设计列为二期（APP-ME-05），画布已有对比入口和对比页（标“二期待定”）。一期做还是二期做？' },
+      { k: 'Web 运营端', v: '运营看板、资源入驻、城市管理基础是否进一期？' },
+      { k: '金刚位“培训课程”', v: '去活动频道的“培训”，还是商品类目“课程”？画布暂定去活动频道。' },
+      { k: '“今天去体验”和“城市资讯”', v: '概要设计 §7.1 没有这两块，画布暂放推荐频道；城市资讯也可以放到发现。放在哪里？' }
+    ];
+    const sources = [
+      '2026-10-27 · App Store 淘宝 10.68.10 官方截图',
+      '2026-10-26 · 应用宝 淘宝 10.68.10（Android）',
+      '2026-07-18 · That’s Mandarin 使用指南（首页头部、评价页）',
+      '2026-07-05 · 卖家网（关闭底栏视频红点）',
+      '2026-04-07 · 人人都是产品经理（搜索范围 Tab）',
+      '2025-12-08 · 小众软件论坛截图（推荐频道、金刚区、大卡）',
+      '2025-11-15 · 百度知道（关闭底栏视频红点）',
+      '2025-09-17 · 36氪（搜索中间页与结果页）',
+      '2025-08-06 · 新浪科技（飞猪成为首页一级频道）',
+      '2025-07-01 · 亿邦动力 / 新浪科技（订单按业务分 Tab）',
+      '2025-06-30 · IT之家（搜索结果页与筛选面板）',
+      '2025-06-28 · 钛媒体（频道大卡）',
+      '2025-04-30 · IT之家（闪购频道与底栏配图）',
+      '仅“未核实”项：约 2021 站酷；2019、2022 人人都是产品经理'
+    ];
+    const cells = (row) => Array.isArray(row) ? Object.fromEntries(row.map((v, i) => ['c' + i, v])) : row;
+    return { facts, unverified, tabs, tabRows, barRules, heads, channelRows, headRules, recFlow, bigCards, kingPages, keep, skip, conflicts: conflicts.map(cells), ask, sources };
+  }
+}
+</script>
+</body>
+</html>

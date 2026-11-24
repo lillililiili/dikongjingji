@@ -1,0 +1,175 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>扫一扫落地与结果去向</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="frame"><option selected>取景</option><option>无法识别</option><option>核销码</option><option>相机被拒</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #16181b; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #fff; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px;">
+    <a href="HomeFull.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">扫一扫</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 76px;">
+    <div style="position: relative; flex-shrink: 0; width: 248px; height: 248px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center;">
+      <span style="position: absolute; left: 0; top: 0; width: 34px; height: 34px; box-sizing: border-box; border-left: 3px solid #ff6a00; border-top: 3px solid #ff6a00; border-radius: 10px 0 0 0;"></span>
+      <span style="position: absolute; right: 0; top: 0; width: 34px; height: 34px; box-sizing: border-box; border-right: 3px solid #ff6a00; border-top: 3px solid #ff6a00; border-radius: 0 10px 0 0;"></span>
+      <span style="position: absolute; left: 0; bottom: 0; width: 34px; height: 34px; box-sizing: border-box; border-left: 3px solid #ff6a00; border-bottom: 3px solid #ff6a00; border-radius: 0 0 0 10px;"></span>
+      <span style="position: absolute; right: 0; bottom: 0; width: 34px; height: 34px; box-sizing: border-box; border-right: 3px solid #ff6a00; border-bottom: 3px solid #ff6a00; border-radius: 0 0 10px 0;"></span>
+      <span style="position: absolute; left: 14px; right: 14px; top: 92px; height: 2px; border-radius: 1px; background: linear-gradient(90deg, rgba(255,106,0,0), #ff6a00 50%, rgba(255,106,0,0));"></span>
+      <span style="font-size: 13px; line-height: 18px; color: rgba(255,255,255,0.64); white-space: nowrap;">系统扫码取景占位</span>
+    </div>
+    <span style="font-size: 15px; line-height: 21px; font-weight: 500; white-space: nowrap;">将二维码放入框内，自动识别</span>
+    <span style="font-size: 13px; line-height: 18px; color: rgba(255,255,255,0.72); white-space: nowrap;">可识别平台内的商品、活动和场馆码</span>
+  </div>
+
+  <sc-if value="{{isView}}" hint-placeholder-val="{{true}}">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 18px 16px 24px; border-radius: 20px 20px 0 0; background: #fff; color: #202c42;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 16px; line-height: 22px; font-weight: 700;">原型演示：选一个扫码结果</span>
+        <span style="font-size: 12px; line-height: 17px; color: #627187;">正式版调用系统扫码，这块面板只用于演示去向</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+        <sc-for list="{{codes}}" as="c" hint-placeholder-count="3">
+          <a href="{{c.href}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 58px; border-radius: 12px; background: #fff0e3; color: #202c42; text-decoration: none;">
+            <span style="font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap;">{{c.t}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #ba470b; white-space: nowrap;">{{c.s}}</span>
+          </a>
+        </sc-for>
+        <sc-for list="{{others}}" as="o" hint-placeholder-count="3">
+          <button type="button" aria-haspopup="dialog" onClick="{{o.tap}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 58px; margin: 0; padding: 0; border: 0; border-radius: 12px; background: #eef2f8; font: inherit; color: #202c42; cursor: pointer;">
+            <span style="font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap;">{{o.t}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">{{o.s}}</span>
+          </button>
+        </sc-for>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #738096;">码对应的对象已下架或已过期时，落到公共状态板的“内容失效”</span>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{hasSheet}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{toView}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 24px 16px 24px; border-radius: 20px 20px 0 0; background: #fff; color: #202c42;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;">
+        <span style="width: 64px; height: 64px; margin-bottom: 6px; border-radius: 50%; background: {{sheetBg}}; display: flex; align-items: center; justify-content: center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="{{sheetFg}}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{sheetIcon}}"></path></svg></span>
+        <span style="font-size: 18px; line-height: 25px; font-weight: 700;">{{sheetTitle}}</span>
+        <span style="font-size: 14px; line-height: 21px; color: #536178;">{{sheetText}}</span>
+      </div>
+
+      <sc-if value="{{isVerify}}" hint-placeholder-val="{{false}}">
+        <div role="list" aria-label="核销码去向" style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: #f5f7fc;">
+          <sc-for list="{{routes}}" as="r" hint-placeholder-count="2">
+            <div role="listitem" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+              <span style="flex-shrink: 0; font-size: 13px; line-height: 19px; font-weight: 500; white-space: nowrap;">{{r.who}}</span>
+              <span style="min-width: 0; font-size: 13px; line-height: 19px; color: #536178; text-align: right;">{{r.go}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <div style="display: flex; gap: 10px; margin-top: 2px;">
+        <sc-if value="{{isUnknown}}" hint-placeholder-val="{{false}}">
+          <a href="SearchPre.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font-size: 15px; color: #202c42; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">去搜索</a>
+          <button type="button" onClick="{{toView}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">重新扫描</button>
+        </sc-if>
+        <sc-if value="{{isVerify}}" hint-placeholder-val="{{false}}">
+          <a href="StaffVerify.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font-size: 15px; color: #202c42; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">进入工作模式</a>
+          <button type="button" onClick="{{toView}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">知道了</button>
+        </sc-if>
+        <sc-if value="{{isDenied}}" hint-placeholder-val="{{false}}">
+          <a href="HomeFull.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font-size: 15px; color: #202c42; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">暂不开启</a>
+          <a href="SetPerm.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; font-size: 15px; font-weight: 500; color: #fff; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">去设置</a>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // view：页内按钮切到的帧；viewAt：切换时 Tweaks 选的帧，Tweaks 换帧后以 Tweaks 为准
+    this.state = { view: '', viewAt: '' };
+  }
+  renderVals() {
+    const tweak = this.props.frame ?? '取景';
+    const { view, viewAt } = this.state;
+    const frame = view && viewAt === tweak ? view : tweak;
+    const go = (to) => () => this.setState({ view: to, viewAt: tweak });
+
+    // 平台码直接到对象详情；其余三种结果在本页弹层说明
+    const codes = [
+      { t: '商品码', s: '商品详情', href: 'PdFull.dc.html' },
+      { t: '活动码', s: '活动详情', href: 'ActDetail.dc.html' },
+      { t: '场馆码', s: '场馆详情', href: 'VenueDetail.dc.html' }
+    ];
+    const others = [
+      { t: '核销码', s: '跳转说明', tap: go('核销码') },
+      { t: '其他二维码', s: '无法识别', tap: go('无法识别') },
+      { t: '相机被拒', s: '权限说明', tap: go('相机被拒') }
+    ];
+
+    const SHEETS = {
+      无法识别: {
+        title: '未识别到平台二维码',
+        text: '这不是平台内的码，为了安全不会打开外部链接。可以换一个码，或者直接搜索。',
+        bg: '#eef2f8', fg: '#738096',
+        icon: 'M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M9 9l6 6M15 9l-6 6'
+      },
+      核销码: {
+        title: '这是核销码',
+        text: '核销码由现场工作人员扫描，用于签到和到馆核销。',
+        bg: '#fff0e3', fg: '#ff6a00',
+        icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2M14 18h2v2M18 18h2v2'
+      },
+      相机被拒: {
+        title: '需要相机权限',
+        text: '相机只用于扫描二维码，不保存画面。',
+        bg: '#fff0e3', fg: '#ff6a00',
+        icon: 'M4 8h3l2-3h6l2 3h3v11H4zM12 16a3 3 0 1 0 0-6a3 3 0 1 0 0 6z'
+      }
+    };
+    const sheet = SHEETS[frame] || { title: '', text: '', bg: '', fg: '', icon: '' };
+
+    // 普通用户扫到别人的码时不显示码内信息；“工作模式”正式产品只对授权核销员显示
+    const routes = [
+      { who: '普通用户', go: '停在这里，不显示码内信息' },
+      { who: '已授权核销员', go: '进入工作模式，由工作台核销' }
+    ];
+
+    return {
+      codes, others, routes,
+      isView: frame === '取景',
+      hasSheet: frame !== '取景',
+      isUnknown: frame === '无法识别',
+      isVerify: frame === '核销码',
+      isDenied: frame === '相机被拒',
+      sheetTitle: sheet.title,
+      sheetText: sheet.text,
+      sheetBg: sheet.bg,
+      sheetFg: sheet.fg,
+      sheetIcon: sheet.icon,
+      toView: go('取景')
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"frame":"取景"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

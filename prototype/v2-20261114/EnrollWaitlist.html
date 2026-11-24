@@ -1,0 +1,226 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>候补记录与转正付款</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="frame"><option selected>候补中</option><option>转正待付款</option><option>转正已超时</option><option>候补未成功</option><option>已放弃</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 996px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column;">
+    <div style="flex-shrink: 0; padding: 8px 8px 52px; background: {{heroBg}}; color: #fff;">
+      <div style="display: flex; align-items: center;">
+        <a href="EnrollList.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+        <h1 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; text-align: center; color: #fff;">候补详情</h1>
+        <span style="flex-shrink: 0; width: 44px; height: 44px;"></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 8px 0;">
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; line-height: 30px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{heroIcon}}"></path></svg>{{heroTitle}}</span>
+        <span style="font-size: 13px; font-weight: 500; line-height: 19px;">{{heroSub}}</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; position: relative; margin-top: -36px; display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px;">
+      <div style="display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 14px; background: #fff;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <span style="font-size: 17px; font-weight: 700; line-height: 24px;">青少年无人机编程挑战赛（东营站）</span>
+          <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 10px; font-size: 13px; line-height: 19px;">
+            <span style="color: #738096;">场次</span><span style="font-weight: 500;">11/15 下午场 14:00</span>
+            <span style="color: #738096;">场馆</span><span>东营低空与机器人体验馆</span>
+            <span style="color: #738096;">加入时间</span><span>11/03 09:40</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: {{noteBg}}; color: {{noteC}}; font-size: 14px; font-weight: 500; line-height: 20px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{noteC}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{noteIcon}}"></path></svg><span style="min-width: 0;">{{note}}</span></div>
+        <div style="border-top: 1px dashed #e5ebf3;"></div>
+        <div role="list" aria-label="候补进度" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+            <div role="listitem" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+              <span style="position: absolute; left: 0; right: 50%; top: 9px; height: 2px; background: {{s.lineL}};"></span>
+              <span style="position: absolute; left: 50%; right: 0; top: 9px; height: 2px; background: {{s.lineR}};"></span>
+              <span style="position: relative; width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{s.bd}}; background: {{s.bg}}; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{s.check}}" hint-placeholder-val="{{false}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+                <sc-if value="{{s.inner}}" hint-placeholder-val="{{false}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+                <sc-if value="{{s.cross}}" hint-placeholder-val="{{false}}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></sc-if>
+              </span>
+              <span style="font-size: 12px; line-height: 17px; color: {{s.tc}}; font-weight: {{s.tw}}; white-space: nowrap;">{{s.t}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: #fff;">
+        <div style="display: flex; align-items: baseline;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">参与人</h2>
+          <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #627187;">2 人一起候补</span>
+        </div>
+        <sc-for list="{{people}}" as="p" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #eef2f8; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#738096" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6"></path></svg></span>
+            <span style="font-size: 15px; line-height: 21px;">{{p.name}}</span>
+            <span style="font-size: 13px; line-height: 18px; color: #627187;">{{p.age}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff; font-size: 13px; line-height: 19px;">
+        <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">费用</h2>
+        <div style="display: flex;"><span style="color: #627187;">报名费</span><span style="margin-left: auto;">2 人 × ¥120</span></div>
+        <div style="display: flex; align-items: baseline;"><span style="color: #627187;">{{payLabel}}</span><span style="margin-left: auto; font-size: {{payFs}}; font-weight: 700; color: {{payC}};">{{payValue}}</span></div>
+        <div style="height: 1px; margin: 4px 0; background: #f0f1f3;"></div>
+        <div style="display: flex; gap: 10px;"><span style="flex-shrink: 0; color: #627187;">收款方</span><span style="margin-left: auto; min-width: 0; text-align: right;">东营低空与机器人体验馆 · 经平台支付渠道</span></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">候补规则</h2>
+        <sc-for list="{{rules}}" as="r" hint-placeholder-count="4">
+          <div style="display: flex; gap: 8px; font-size: 13px; line-height: 19px; color: #536178;">
+            <span style="flex-shrink: 0; width: 4px; height: 4px; margin: 8px 2px 0; border-radius: 50%; background: #91a0b4;"></span>
+            <span style="min-width: 0;">{{r.t}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{barWaiting}}" hint-placeholder-val="{{true}}">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+      <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; white-space: nowrap; cursor: pointer;">放弃候补</button>
+      <a href="ActDetail.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看活动详情</a>
+    </div>
+  </sc-if>
+  <sc-if value="{{barPay}}" hint-placeholder-val="{{false}}">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+        <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">2 人 × ¥120</span>
+        <span style="font-size: 20px; font-weight: 700; line-height: 26px; color: #e85400;">¥240</span>
+      </div>
+      <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex-shrink: 0; height: 46px; padding: 0 16px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; white-space: nowrap; cursor: pointer;">放弃候补</button>
+      <a href="CashierEnroll.dc.html" style="flex-shrink: 0; width: 132px; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">去付款</a>
+    </div>
+  </sc-if>
+  <sc-if value="{{barEnded}}" hint-placeholder-val="{{false}}">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+      <a href="{{leftHref}}" style="flex: 1 1 0; box-sizing: border-box; height: 46px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; color: #202c42; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{leftLabel}}</a>
+      <a href="{{rightHref}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{rightLabel}}</a>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showSheet}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="放弃候补" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">放弃这次候补？</span>
+        <span style="font-size: 13px; line-height: 20px; color: #536178;">{{sheetText}}</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #f5f7fc; font-size: 13px; line-height: 19px;">
+        <div style="display: flex; gap: 12px;"><span style="flex-shrink: 0; color: #627187;">场次</span><span style="margin-left: auto;">11/15 下午场 14:00</span></div>
+        <div style="display: flex; gap: 12px;"><span style="flex-shrink: 0; color: #627187;">参与人</span><span style="margin-left: auto;">王小禾、王小川</span></div>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">再想想</button>
+        <button type="button" onClick="{{confirmAbandon}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">确认放弃</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // abandoned：在本页确认了“放弃候补”；sheet：放弃确认面板是否打开
+    this.state = { abandoned: false, sheet: false };
+  }
+  renderVals() {
+    const { abandoned, sheet } = this.state;
+    // 服务端推进的状态用 Tweaks 的 frame 切；用户自己点“放弃候补”时在本页直接落到“已放弃”
+    const frame = abandoned ? '已放弃' : (this.props.frame ?? '候补中');
+    const ORANGE = 'linear-gradient(180deg, #ff6a00 0%, #ff8a3d 100%)';
+    const GRAY = 'linear-gradient(180deg, #7d828a 0%, #91a0b4 100%)';
+    const CLOCK = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2';
+    const CHECK = 'M5 12l5 5 9-10';
+    const CROSS = 'M6 6l12 12M18 6L6 18';
+    const INFO = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 8h.01';
+    const noteOrange = { noteBg: '#fff0e3', noteC: '#ba470b' };
+    const noteGray = { noteBg: '#eef2f8', noteC: '#536178' };
+    const free = { payLabel: '本次费用', payValue: '未产生费用', payFs: '14px', payC: '#11804a' };
+    const due = { payFs: '18px', payC: '#e85400', payValue: '¥240' };
+    const ended = { heroBg: GRAY, ...noteGray, noteIcon: INFO, ...free };
+    const F = {
+      候补中: { heroBg: ORANGE, heroIcon: CLOCK, heroTitle: '候补中 · 第 3 位', heroSub: '有名额释放时会通过“消息”通知你，候补成功后再付款',
+        ...noteOrange, noteIcon: CLOCK, note: '下午场已满 · 前面还有 2 位在候补', ...due, payLabel: '候补成功后应付',
+        steps: ['done', 'cur', 'todo', 'todo'] },
+      转正待付款: { heroBg: ORANGE, heroIcon: CHECK, heroTitle: '候补成功 · 待付款', heroSub: '名额已为你保留 15 分钟，超时释放给下一位',
+        ...noteOrange, noteIcon: CLOCK, note: '名额保留 14:58 · 超时自动释放', ...due, payLabel: '应付',
+        steps: ['done', 'done', 'cur', 'todo'] },
+      转正已超时: { ...ended, heroIcon: CLOCK, heroTitle: '候补已失效', heroSub: '15 分钟内没有付款，名额已释放给下一位', note: '付款时限已过，未收取任何费用',
+        steps: ['done', 'done', 'end', 'todo'], end: '已超时',
+        leftLabel: '看看其他活动', leftHref: 'HomeAct.dc.html', rightLabel: '重新候补', rightHref: 'Signup.dc.html' },
+      候补未成功: { ...ended, heroIcon: INFO, heroTitle: '候补未成功', heroSub: '活动开始前没有释放足够名额，本次候补已结束', note: '候补已自动结束，未收取任何费用',
+        steps: ['done', 'end', 'todo', 'todo'], end: '未转正',
+        leftLabel: '查看活动详情', leftHref: 'ActDetail.dc.html', rightLabel: '看看其他活动', rightHref: 'HomeAct.dc.html' },
+      已放弃: { ...ended, heroIcon: CROSS, heroTitle: '已放弃候补', heroSub: '排队位置不再保留，需要时可以重新加入', note: '再次候补要重新排队，未收取任何费用',
+        steps: ['done', 'end', 'todo', 'todo'], end: '已放弃',
+        leftLabel: '查看活动详情', leftHref: 'ActDetail.dc.html', rightLabel: '看看其他活动', rightHref: 'HomeAct.dc.html' }
+    };
+    const c = F[frame] || F['候补中'];
+    const names = ['加入候补', '等待名额', '付款', '报名成功'];
+    const look = {
+      done: { bg: '#ff6a00', bd: '#ff6a00', tc: '#202c42', tw: 500 },
+      cur: { bg: '#fff', bd: '#ff6a00', tc: '#ba470b', tw: 700 },
+      todo: { bg: '#fff', bd: '#c9d3e1', tc: '#738096', tw: 400 },
+      end: { bg: '#738096', bd: '#738096', tc: '#536178', tw: 700 }
+    };
+    // 节点左右各半截连线：通往已完成或进行中的节点为橙色，其余为浅灰，首尾那半截不画
+    const reached = (k) => k === 'done' || k === 'cur';
+    const steps = c.steps.map((k, i) => ({
+      t: k === 'end' ? c.end : names[i],
+      check: k === 'done', inner: k === 'cur', cross: k === 'end',
+      lineL: i === 0 ? 'transparent' : (reached(k) ? '#ff6a00' : '#e5ebf3'),
+      lineR: i === 3 ? 'transparent' : (reached(c.steps[i + 1]) ? '#ff6a00' : '#e5ebf3'),
+      ...look[k]
+    }));
+    const paying = frame === '转正待付款';
+    const waiting = frame === '候补中';
+    return {
+      heroBg: c.heroBg, heroIcon: c.heroIcon, heroTitle: c.heroTitle, heroSub: c.heroSub,
+      noteBg: c.noteBg, noteC: c.noteC, noteIcon: c.noteIcon, note: c.note,
+      payLabel: c.payLabel, payValue: c.payValue, payFs: c.payFs, payC: c.payC,
+      steps,
+      people: [{ name: '王小禾', age: '11 岁' }, { name: '王小川', age: '9 岁' }],
+      rules: [
+        { t: '名额释放后按加入先后转正，并通过“消息”通知你' },
+        { t: '同单 2 人一起转正，余位不足 2 个时继续排队' },
+        { t: '转正后保留 15 分钟，超时未付款释放给下一位' },
+        { t: '候补期间不收费，可随时放弃；活动开始前仍未转正，候补自动结束' }
+      ],
+      barWaiting: waiting,
+      barPay: paying,
+      barEnded: !waiting && !paying,
+      leftLabel: c.leftLabel || '', leftHref: c.leftHref || 'HomeAct.dc.html',
+      rightLabel: c.rightLabel || '', rightHref: c.rightHref || 'HomeAct.dc.html',
+      showSheet: sheet && (waiting || paying),
+      sheetText: paying ? '为你保留的名额会马上释放给下一位，放弃后不能恢复。' : '放弃后排队位置不再保留，再次候补要重新排队。',
+      openSheet: () => this.setState({ sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      confirmAbandon: () => this.setState({ abandoned: true, sheet: false })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"frame":"候补中"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

@@ -1,0 +1,98 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PD 商品详情「更多」面板</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="frame"><option selected>标准商品</option><option>询价商品</option><option>租赁商品</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px;">
+    <div style="position: relative; height: 300px; flex-shrink: 0;">
+      <img src="{{src.img}}" alt="{{src.t}}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+      <div style="position: absolute; left: 8px; right: 8px; top: 40px; display: flex; align-items: center;">
+        <a href="{{backHref}}" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></span></a>
+        <a href="ShareSheet.dc.html" aria-label="分享" style="flex-shrink: 0; margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"></path></svg></span></a>
+        <a href="Cart.dc.html" aria-label="购物车" style="flex-shrink: 0; position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1"></path></svg></span><span style="position: absolute; top: 1px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">3</span></a>
+        <span aria-label="更多（已打开）" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><span style="width: 36px; height: 36px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></span></span>
+      </div>
+      <span style="position: absolute; right: 12px; bottom: 26px; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: rgba(0,0,0,0.4); color: #fff;">{{src.page}}</span>
+    </div>
+    <div style="flex-shrink: 0; margin: -24px 16px 0; position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: baseline; gap: 4px;">
+        <span style="font-size: 26px; font-weight: 700; color: #e85400; white-space: nowrap;">{{src.price}}</span><span style="font-size: 13px; color: #e85400; white-space: nowrap;">{{src.unit}}</span>
+        <span style="margin-left: auto; font-size: 12px; color: #627187; white-space: nowrap;">{{src.meta}}</span>
+      </div>
+      <div style="font-size: 18px; line-height: 25px; font-weight: 700;">{{src.t}}</div>
+      <div style="font-size: 13px; line-height: 18px; color: #627187;">{{src.desc}}</div>
+    </div>
+    <div style="flex-shrink: 0; margin: 0 16px; height: 120px; border-radius: 14px; background: #eefaf3;"></div>
+  </div>
+
+  <a href="{{backHref}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; background: rgba(0,0,0,0.45);"></a>
+  <div role="dialog" aria-modal="true" aria-label="更多操作" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 10px; padding: 8px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+    <div style="display: flex; align-items: center;">
+      <span style="font-size: 17px; font-weight: 700; line-height: 24px;">更多操作</span>
+      <a href="{{backHref}}" aria-label="关闭" style="margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; background: #f5f7fc;">
+      <img src="{{src.img}}" alt="{{src.t}}" style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 8px; object-fit: cover; display: block; background: #eef2f8; font-size: 11px;">
+      <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{src.t}}</span>
+        <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{src.seller}}</span>
+      </span>
+    </div>
+    <div style="display: flex; flex-direction: column;">
+      <sc-for list="{{actions}}" as="a" hint-placeholder-count="3">
+        <a href="{{a.href}}" style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-top: 1px solid {{a.line}}; color: #202c42; text-decoration: none;">
+          <span style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; background: {{a.bg}}; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{a.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{a.d}}"></path></svg></span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; line-height: 21px; font-weight: 500; white-space: nowrap;">{{a.label}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{a.sub}}</span>
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+      </sc-for>
+    </div>
+    <a href="{{backHref}}" style="height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; color: #202c42; font-size: 16px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">取消</a>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    // 商品详情右上角“更多”打开的面板；三种商品详情共用，只换来源页和商品信息（PdStates 的三帧与标准商品同一来源）
+    const SOURCES = {
+      标准商品: { back: 'PdFull.dc.html', img: '_blob/85dbe79468bbacd46343cf281dfb4e4b.jpg', page: '1/5', t: '编程机器人探索套装', price: '¥1,299', unit: '起', meta: '3 家在售 · 东营可售', desc: '图形化编程入门，适合 8 岁以上', seller: '示例机器人商家 · 商品' },
+      询价商品: { back: 'PdInquiryFull.dc.html', img: '_blob/277bff54e5d7d5be019694787d4e648d.jpg', page: '1/4', t: '行业测绘无人机', price: '询价', unit: '按配置与数量报价', meta: '3 家可报价 · 东营可售', desc: '面向地形测绘和园区建模，配置可按作业需求定制', seller: '示例无人机厂家 · 询价商品' },
+      租赁商品: { back: 'PdRental.dc.html', img: '_blob/a016bad56a0e687061b30b2a4fd96ff6.jpg', page: '1/4', t: '巡检机器狗', price: '¥380', unit: '/天 起', meta: '租赁 · 1 家 · 东营可租', desc: '园区夜巡和设备点检，按天租用，金额以报价和合同为准', seller: '示例机器人商家 · 租赁' }
+    };
+    const src = SOURCES[this.props.frame ?? '标准商品'] || SOURCES['标准商品'];
+
+    // 面板只放三件事：回首页、反馈（帮助与反馈）、举报（交给平台客服核实）。分享已在头部单独有入口
+    const actions = [
+      { label: '回首页', sub: '回到首页推荐频道', href: 'HomeFull.dc.html', bg: '#fff0e3', fg: '#ff6a00', d: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z' },
+      { label: '反馈', sub: '页面有问题或信息不准确，告诉我们', href: 'Help.dc.html', bg: '#e6f0ff', fg: '#2f80ed', d: 'M4 5h16v11H9l-5 4zM8 9h8M8 12.5h5' },
+      { label: '举报', sub: '向平台客服举报该商品，由平台核实处理', href: 'Chat.dc.html', bg: '#fdecec', fg: '#d64f67', d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 8v5M12 16h.01' }
+    ].map((a, i) => ({ ...a, line: i === 0 ? 'transparent' : '#f0f1f3' }));
+
+    return { backHref: src.back, src, actions };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"frame":"标准商品"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

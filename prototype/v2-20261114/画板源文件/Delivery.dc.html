@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>交付与验收</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 956px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="Fulfillment.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">交付与验收</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px; background: #fff; border-radius: 14px;">
+      <span style="font-size: 13px; line-height: 18px; color: #666b73;">物流园区季度安防巡检 · 鹰眼智能巡检</span>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap;">第 1 次巡检 · 11/02</span>
+        <span style="flex-shrink: 0; margin-left: auto; padding: 2px 8px; border-radius: 6px; background: {{chipBg}}; color: {{chipFg}}; font-size: 12px; line-height: 17px; white-space: nowrap;">{{chipText}}</span>
+      </div>
+      <span style="font-size: 13px; line-height: 18px; color: #555a62;">报告 11/03 10:00 已交付</span>
+    </div>
+
+    <sc-if value="{{accepted}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #e8f7ef;">
+        <span style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #19b866; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; font-weight: 700; line-height: 21px; color: #11804a;">第 1 次已验收</span>
+          <span style="font-size: 12px; line-height: 17px; color: #11804a;">11/03 16:20 · 王女士 · 验收记录已留存</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">巡检结果摘要</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa;">
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">巡检覆盖</span>
+          <span style="font-size: 20px; font-weight: 700; line-height: 28px; white-space: nowrap;">约 42 万㎡</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: #fff3e8;">
+          <span style="font-size: 12px; line-height: 17px; color: #d94f00;">发现隐患</span>
+          <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: #d94f00; white-space: nowrap;">3 项</span>
+        </div>
+      </div>
+      <div role="list" aria-label="隐患分类" style="display: flex; flex-direction: column;">
+        <sc-for list="{{hazards}}" as="h" hint-placeholder-count="3">
+          <div role="listitem" style="display: flex; align-items: center; gap: 8px; min-height: 40px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+            <span style="flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span>
+            <span style="flex-grow: 1; min-width: 0;">{{h.name}}</span>
+            <span style="flex-shrink: 0; color: #555a62; white-space: nowrap;">{{h.count}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 12px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 44px; margin-bottom: 4px;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">交付文件</h2>
+          <sc-if value="{{allNotReady}}" hint-placeholder-val="{{true}}">
+            <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">共 3 个文件</span>
+          </sc-if>
+          <sc-if value="{{allReady}}" hint-placeholder-val="{{false}}">
+            <span role="status" style="display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 17px; color: #11804a; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>全部文件链接已生成，16:05 前有效</span>
+          </sc-if>
+        </div>
+        <button type="button" onClick="{{getAll}}" style="flex-shrink: 0; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">全部下载</button>
+      </div>
+      <sc-for list="{{files}}" as="f" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 60px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; background: #eaf2fd; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2f80ed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{f.d}}"></path></svg></span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; line-height: 20px;">{{f.name}}</span>
+            <sc-if value="{{f.ready}}" hint-placeholder-val="{{false}}">
+              <span role="status" style="display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 17px; color: #11804a; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>下载链接已生成，16:05 前有效</span>
+            </sc-if>
+          </div>
+          <button type="button" aria-label="{{f.aria}}" onClick="{{f.get}}" style="flex-shrink: 0; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">下载</button>
+        </div>
+      </sc-for>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding-top: 10px; border-top: 1px solid #f0f1f3; font-size: 12px; line-height: 17px; color: #666b73;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3"></path></svg>
+        <div style="min-width: 0; display: flex; flex-direction: column;">
+          <span>文件经受控链接下载，不显示存储地址</span>
+          <span>影像存档按交付约定保存 90 天</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{showActions}}" hint-placeholder-val="{{true}}">
+      <div style="display: flex; gap: 10px;">
+        <a href="Chat.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; padding: 1px 6px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font-size: 15px; color: #191919; white-space: nowrap; text-decoration: none; display: flex; align-items: center; justify-content: center;">对报告有疑问</a>
+        <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">确认验收</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{accepted}}" hint-placeholder-val="{{false}}">
+      <span style="font-size: 12px; line-height: 17px; color: #666b73; text-align: center;">按次结算：每次验收后支付 ¥2,170，共 6 次</span>
+      <a href="CashierFinal.dc.html" style="height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">支付第 1 次服务费 ¥2,170</a>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="确认第 1 次验收" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">确认第 1 次验收</span>
+      <div style="display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px 12px; padding: 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 18px;">
+        <span style="color: #666b73; white-space: nowrap;">验收内容</span>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{acceptItems}}" as="it" hint-placeholder-count="3">
+            <span style="display: flex; align-items: center; gap: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{it.name}}</span>
+          </sc-for>
+        </div>
+        <span style="color: #666b73; white-space: nowrap;">服务商</span><span>鹰眼智能巡检</span>
+        <span style="color: #666b73; white-space: nowrap;">验收人</span><span>王女士 · 东营港务物流 经办人</span>
+        <span style="color: #666b73; white-space: nowrap;">本次服务费</span><span>¥2,170 · 验收后支付</span>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #fff3e8; font-size: 13px; line-height: 18px; color: #d94f00;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 4l9 16H3zM12 10v4M12 17h.01"></path></svg>
+        <span style="min-width: 0;">验收确认后不可撤销；验收人与时间会留存记录</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">取消</button>
+        <button type="button" onClick="{{confirmAccept}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">确认验收</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":956}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // accepted：第 1 次是否已验收（确认后不可撤销）；sheet：验收确认面板是否打开；
+    // links：已生成短时下载链接的文件（all 为全部下载）
+    this.state = { accepted: false, sheet: false, links: {} };
+  }
+  renderVals() {
+    const { accepted, sheet, links } = this.state;
+
+    // 第 1 次交付的结果摘要：隐患分项与“发现隐患 3 项”一致
+    const hazards = [
+      { name: '围栏破损', count: '1 项' },
+      { name: '照明故障', count: '1 项' },
+      { name: '消防通道占用', count: '1 项' }
+    ];
+
+    // 交付文件只走受控短时链接：点“下载”或“全部下载”生成链接，到期时刻以服务端返回的 expiresAt 为准，页面不写死分钟数；每个文件各自记录，不显示文件地址
+    const icons = {
+      report: 'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6',
+      issues: 'M4 5h16v14H4zM4 10h16M4 15h16M10 5v14',
+      photos: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9.5h.01'
+    };
+    const fileList = [
+      { id: 'report', name: '巡检报告（PDF）' },
+      { id: 'issues', name: '隐患清单（表格）' },
+      { id: 'photos', name: '影像存档（36 张）' }
+    ];
+    const files = fileList.map((f) => ({
+      name: f.name,
+      d: icons[f.id],
+      ready: Boolean(links[f.id]),
+      aria: '下载' + f.name,
+      get: () => this.setState((s) => ({ links: { ...s.links, [f.id]: true } }))
+    }));
+    const acceptItems = fileList.map((f) => ({ name: f.name }));
+
+    return {
+      hazards, files, acceptItems, accepted,
+      allReady: Boolean(links.all),
+      allNotReady: !links.all,
+      getAll: () => this.setState((s) => ({ links: { ...s.links, all: true } })),
+      chipText: accepted ? '已验收' : '待验收',
+      chipBg: accepted ? '#e8f7ef' : '#fff3e8',
+      chipFg: accepted ? '#11804a' : '#d94f00',
+      // 面板打开时底部按钮被遮住，不再重复显示；已验收后不再出现“确认验收”
+      showActions: !accepted && !sheet,
+      sheetOpen: sheet && !accepted,
+      openSheet: () => this.setState({ sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      // 验收只会从未验收变为已验收：重复确认不会产生第二条验收记录
+      confirmAccept: () => this.setState({ accepted: true, sheet: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

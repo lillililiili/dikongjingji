@@ -1,0 +1,203 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SVC-05 方案确认 · 已过期（M05）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 1188px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderList.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">方案确认</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; gap: 12px; padding: 12px; background: #fff; border-radius: 14px;">
+      <img src="_blob/248020917b29731ae2eb5c415d406dd0.webp" alt="光伏电站现场" style="width: 72px; height: 72px; border-radius: 10px; object-fit: cover; flex-shrink: 0;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 16px; font-weight: 700; line-height: 22px;">光伏电站巡检</span>
+        <div style="display: flex; align-items: center; gap: 6px; height: 20px;">
+          <span style="font-size: 13px; line-height: 20px; color: #536178; white-space: nowrap;">服务商 示例新能源运维公司</span>
+          <span style="flex-shrink: 0; font-size: 12px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a; white-space: nowrap;">资质已审核</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 20px;">
+          <span style="flex-shrink: 0; font-size: 12px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e6f0ff; color: #1d63c4; white-space: nowrap;">个人</span>
+          <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #536178; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">王女士</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px; min-height: 32px;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700; line-height: 24px; white-space: nowrap;">方案 v1</h2>
+        <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; padding: 1px 6px; border-radius: 6px; background: {{planChipBg}}; color: {{planChipFg}}; white-space: nowrap;">{{planChip}}</span>
+        <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">10/30 更新</span>
+      </div>
+      <sc-if value="{{showValid}}" hint-placeholder-val="{{true}}">
+        <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">报价有效期至 11/02 18:00</span>
+      </sc-if>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 0; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">报价明细</h2>
+      <sc-for list="{{quoteItems}}" as="q" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 14px; line-height: 20px; white-space: nowrap;">{{q.name}}</span>
+          </div>
+          <span style="flex-shrink: 0; font-size: 13px; line-height: 18px; color: #738096; white-space: nowrap;">{{q.qty}}</span>
+          <span style="flex-shrink: 0; width: 68px; font-size: 15px; font-weight: 500; line-height: 21px; text-align: right; white-space: nowrap;">{{q.amount}}</span>
+        </div>
+      </sc-for>
+      <div style="display: flex; align-items: center; min-height: 48px; border-top: 1px solid #f0f1f3;">
+        <span style="font-size: 15px; font-weight: 500; line-height: 21px;">合计</span>
+        <span style="margin-left: auto; font-size: 20px; font-weight: 700; line-height: 28px; color: #e85400;">¥3,000</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">服务安排</h2>
+      <div style="display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 10px; font-size: 13px; line-height: 19px;">
+        <span style="color: #627187; white-space: nowrap;">范围</span><span>约 3 万㎡</span>
+        <span style="color: #627187; white-space: nowrap;">方式</span><span>无人机巡检</span>
+        <span style="color: #627187; white-space: nowrap;">周期</span><span>11/05 · 共 1 次</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">交付约定</h2>
+      <sc-for list="{{terms}}" as="t" hint-placeholder-count="3">
+        <div style="display: flex; gap: 8px; font-size: 13px; line-height: 19px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+          <span style="min-width: 0; color: #536178;">{{t.t}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 12px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">付款节点</h2>
+      <sc-for list="{{payNodes}}" as="p" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 56px; border-top: 1px solid #f0f1f3;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; line-height: 20px;">{{p.name}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: {{p.sc}};">{{p.state}}</span>
+          </div>
+          <span style="flex-shrink: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: {{p.ac}};">{{p.amount}}</span>
+        </div>
+      </sc-for>
+      <div style="display: flex; gap: 6px; padding-top: 10px; border-top: 1px solid #f0f1f3; font-size: 12px; line-height: 17px; color: #738096;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#738096" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span style="min-width: 0;">款项经平台支付渠道付给服务商；本平台不承担飞行审批与空中调度。</span>
+      </div>
+    </div>
+
+    <sc-if value="{{canCancel}}" hint-placeholder-val="{{true}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{openCancel}}" style="flex-shrink: 0; align-self: center; height: 44px; padding: 0 20px; border: 0; background: none; font: inherit; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap; cursor: pointer;">取消订单</button>
+    </sc-if>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px 16px 20px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <sc-if value="{{expired}}" hint-placeholder-val="{{true}}">
+      <div role="status" style="display: flex; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #fff0e3;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ba470b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2"></path></svg>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 700; line-height: 20px; color: #ba470b;">方案 v1 已过期</span>
+          <span style="font-size: 12px; line-height: 17px; color: #536178;">报价有效期已结束，请申请更新方案后再确认</span>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{cancelled}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: #eef2f8;">
+        <span style="font-size: 14px; font-weight: 700; line-height: 20px;">订单已取消</span>
+        <span style="font-size: 12px; line-height: 17px; color: #536178;">需要服务时请重新预约</span>
+      </div>
+    </sc-if>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <a href="Chat.dc.html" style="flex-shrink: 0; width: 68px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; line-height: 16px; color: #536178; white-space: nowrap; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>联系服务商</a>
+      <sc-if value="{{expired}}" hint-placeholder-val="{{true}}">
+        <a href="Chat.dc.html" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">申请更新方案</a>
+      </sc-if>
+      <sc-if value="{{cancelled}}" hint-placeholder-val="{{false}}">
+        <a href="OrderList.dc.html" style="flex-grow: 1; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; color: #202c42; font-size: 16px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看我的订单</a>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{cancelSheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeCancel}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="取消订单" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">确认取消订单？</span>
+      <span style="font-size: 14px; line-height: 20px; color: #536178;">取消后将停止安排本次服务。</span>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeCancel}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">暂不取消</button>
+        <button type="button" onClick="{{confirmCancel}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">确认取消</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 时间线：今天 11/03，方案 v1 的报价有效期已于 11/02 18:00 结束，不能确认和支付，只能申请更新方案或取消
+    // cancelSheet：取消确认面板是否打开
+    // cancelled：订单是否已取消（取消后不再显示申请更新入口）
+    this.state = { cancelSheet: false, cancelled: false };
+  }
+  renderVals() {
+    const { cancelSheet, cancelled } = this.state;
+    // 方案 v1 报价明细：合计 ¥3,000（包干项不显示数量）
+    const quoteItems = [
+      { name: '光伏组件巡检', qty: '1 次 × ¥2,600', amount: '¥2,600' },
+      { name: '报告与运维建议', qty: '', amount: '¥400' }
+    ];
+    const terms = [
+      { t: '巡检后 48 小时内交付报告与组件问题清单' },
+      { t: '影像存档保存 90 天' },
+      { t: '交付文件通过受控链接下载' }
+    ];
+    // 方案过期后两个付款节点都不能支付，首付也不会进入待支付；订单取消后两个节点都不再收款
+    const payNodes = cancelled ? [
+      { name: '首付 30%', amount: '¥900', state: '订单已取消，无需支付', sc: '#738096', ac: '#738096' },
+      { name: '验收后付款 70%', amount: '¥2,100', state: '订单已取消，无需支付', sc: '#738096', ac: '#738096' }
+    ] : [
+      { name: '首付 30%', amount: '¥900', state: '方案过期后不可支付', sc: '#738096', ac: '#202c42' },
+      { name: '验收后付款 70%', amount: '¥2,100', state: '方案过期后不可支付', sc: '#738096', ac: '#202c42' }
+    ];
+    return {
+      quoteItems, terms, payNodes,
+      planChip: cancelled ? '已取消' : '已过期',
+      planChipBg: '#eef2f8',
+      planChipFg: '#536178',
+      // 有效期、过期块和取消入口在取消后都隐藏，已取消帧与待确认方案取消后一致
+      showValid: !cancelled,
+      canCancel: !cancelled,
+      expired: !cancelled,
+      cancelled,
+      cancelSheetOpen: cancelSheet && !cancelled,
+      openCancel: () => this.setState({ cancelSheet: true }),
+      closeCancel: () => this.setState({ cancelSheet: false }),
+      // 重复确认取消不改变任何状态
+      confirmCancel: () => this.setState((s) => (s.cancelled ? {} : { cancelled: true, cancelSheet: false }))
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

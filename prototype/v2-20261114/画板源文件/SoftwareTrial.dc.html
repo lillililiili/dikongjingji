@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>软件试用</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="ExpCenter.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">软件试用</h1>
+    <sc-if value="{{running}}" hint-placeholder-val="{{true}}">
+      <span role="timer" style="flex-shrink: 0; margin: 0 8px 0 auto; padding: 4px 10px; border-radius: 999px; background: #fff3e8; font-size: 13px; font-weight: 500; line-height: 18px; color: #d94f00; white-space: nowrap;">剩余 25:00</span>
+    </sc-if>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; gap: 12px; padding: 12px; background: #fff; border-radius: 14px;">
+      <img src="/_blob/85dbe79468bbacd46343cf281dfb4e4b" alt="图形化编程软件" style="width: 64px; height: 64px; border-radius: 10px; object-fit: cover; flex-shrink: 0;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">图形化编程软件（示例）</span>
+        <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">示例机器人商家 · 关联 编程机器人探索套装</span>
+        <div style="display: flex; gap: 6px;">
+          <span style="font-size: 12px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; white-space: nowrap;">软件试用 · 隔离环境</span>
+          <span style="font-size: 12px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #f2f3f5; color: #555a62; white-space: nowrap;">不安装到手机</span>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{starting}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 20px; background: #fff; border-radius: 14px; text-align: center;">
+        <span style="width: 56px; height: 56px; border-radius: 50%; background: #fff3e8; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"></path></svg></span>
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">正在启动试用环境</span>
+        <span style="font-size: 13px; line-height: 19px; color: #555a62;">通常需要 30 秒左右（示例），启动好后自动进入软件画面</span>
+      </div>
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 4px 14px; background: #fff; border-radius: 14px;">
+        <sc-for list="{{bootSteps}}" as="b" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+            <span style="flex-shrink: 0; width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{b.bd}}; background: {{b.bg}}; display: flex; align-items: center; justify-content: center;">
+              <sc-if value="{{b.done}}" hint-placeholder-val="{{true}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+              <sc-if value="{{b.cur}}" hint-placeholder-val="{{false}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+            </span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; color: {{b.c}};">{{b.t}}</span>
+            <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; color: {{b.sc}}; white-space: nowrap;">{{b.s}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{running}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; background: #fff; border-radius: 14px; overflow: hidden;">
+        <div style="position: relative; height: 214px; background: #1c1d20;">
+          <img src="/_blob/192fc8acf4d61dc58d9c5109a1cad0da" alt="软件画面" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+          <span style="position: absolute; left: 10px; top: 10px; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,0.55); font-size: 12px; line-height: 17px; color: #fff; white-space: nowrap;">软件画面 · 远程串流</span>
+          <span style="position: absolute; right: 10px; top: 10px; display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,0.55); font-size: 12px; line-height: 17px; color: #fff; white-space: nowrap;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #19b866;"></span>连接正常</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 12px; line-height: 17px; color: #666b73;">
+          <span style="white-space: nowrap;">延迟 38 ms（示例）</span>
+          <span style="margin-left: auto; white-space: nowrap;">作品只在本次试用内有效</span>
+        </div>
+      </div>
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">试用说明</h2>
+        <sc-for list="{{rules}}" as="r" hint-placeholder-count="4">
+          <div style="display: flex; gap: 8px; font-size: 13px; line-height: 19px; color: #555a62;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+            <span style="min-width: 0;">{{r.t}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{over}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 20px; background: #fff; border-radius: 14px; text-align: center;">
+        <span style="width: 56px; height: 56px; border-radius: 50%; background: #f2f3f5; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{overIcon}}"></path></svg></span>
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">{{overTitle}}</span>
+        <span style="font-size: 13px; line-height: 19px; color: #555a62;">{{overSub}}</span>
+      </div>
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">本次试用</h2>
+        <div style="display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px 10px; font-size: 13px; line-height: 19px;">
+          <span style="color: #666b73; white-space: nowrap;">开始</span><span>11/03 14:02</span>
+          <span style="color: #666b73; white-space: nowrap;">结束</span><span>{{overEnd}}</span>
+          <span style="color: #666b73; white-space: nowrap;">时长</span><span>{{overDur}}</span>
+          <span style="color: #666b73; white-space: nowrap;">再次试用</span><span>同一软件的试用间隔按 [协议约定时间]</span>
+        </div>
+        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">试用中的作品不保存，环境已销毁；体验结束不会自动下单</span>
+      </div>
+    </sc-if>
+
+    <a href="ExpRecords.dc.html" style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; background: #fff; border-radius: 14px; color: #191919; text-decoration: none;">
+      <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px;">本次试用记入“我的体验记录”</span>
+      <span style="flex-shrink: 0; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">查看</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+    </a>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{starting}}" hint-placeholder-val="{{false}}">
+      <a href="ExpCenter.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">取消启动</a>
+    </sc-if>
+    <sc-if value="{{running}}" hint-placeholder-val="{{true}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex: 1 1 0; height: 46px; box-sizing: border-box; margin: 0; padding: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">结束试用</button>
+    </sc-if>
+    <sc-if value="{{over}}" hint-placeholder-val="{{false}}">
+      <a href="ExpCenter.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">返回体验频道</a>
+    </sc-if>
+    <a href="PdFull.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看关联商品</a>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="结束试用" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">结束这次试用？</span>
+      <span style="font-size: 14px; line-height: 20px; color: #555a62;">结束后隔离环境立即销毁，试用中的作品不会保存；剩余的 25 分钟不会保留（示例）。</span>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">继续试用</button>
+        <button type="button" onClick="{{confirmEnd}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">结束试用</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["启动中","试用中","已到期"],"default":"试用中"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 线上体验的“软件试用”：软件跑在平台的隔离环境里，手机只看串流画面（设计假设）。启动 / 到期由服务端推进，用 Tweaks 的 frame 切
+    // from：在哪一帧点了“结束试用”；ended：用户主动结束（换帧后不沿用）；sheet：结束确认面板
+    this.state = { from: '', ended: false, sheet: false };
+  }
+  renderVals() {
+    const frame = this.props.frame ?? '试用中';
+    const { from, ended, sheet } = this.state;
+    const endedHere = ended && from === frame;
+    const stage = endedHere ? '已结束' : frame;
+    const starting = stage === '启动中';
+    const running = stage === '试用中';
+    const over = stage === '已到期' || stage === '已结束';
+    // 启动步骤：分配环境已完成，正在加载软件
+    const bootSteps = [
+      { t: '分配隔离环境', s: '已完成', done: true, cur: false },
+      { t: '加载软件', s: '进行中', done: false, cur: true },
+      { t: '连接画面', s: '等待中', done: false, cur: false }
+    ].map((b) => ({
+      ...b,
+      bd: b.done || b.cur ? '#ff6a00' : '#c4c8ce', bg: b.done ? '#ff6a00' : '#fff',
+      c: b.cur ? '#191919' : (b.done ? '#555a62' : '#8a8f97'),
+      sc: b.cur ? '#d94f00' : '#8a8f97'
+    }));
+    const rules = [
+      { t: '单次试用 25 分钟，到期自动结束（示例时长）' },
+      { t: '软件运行在隔离环境，不接触你的设备与数据' },
+      { t: '试用中的作品不保存，结束后环境即销毁' },
+      { t: '体验结束不会自动下单，是否购买由你决定' }
+    ];
+    const CLOCK = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2';
+    const CROSS = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9 9l6 6M15 9l-6 6';
+    return {
+      starting, running, over,
+      bootSteps, rules,
+      overIcon: endedHere ? CROSS : CLOCK,
+      overTitle: endedHere ? '试用已结束' : '试用已到期',
+      overSub: endedHere ? '你已结束本次试用，隔离环境已销毁' : '25 分钟试用时间已用完（示例），隔离环境已销毁',
+      overEnd: endedHere ? '11/03 14:09 · 你主动结束' : '11/03 14:27 · 到期自动结束',
+      overDur: endedHere ? '7 分钟' : '25 分钟',
+      sheetOpen: sheet && running,
+      openSheet: () => this.setState({ sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      // 结束只会从试用中变为已结束；重复确认不会再触发
+      confirmEnd: () => this.setState({ from: frame, ended: true, sheet: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>首次启动（隐私与定位授权）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="frame"><option selected>隐私同意</option><option>不同意确认</option><option>定位说明</option><option>系统授权</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: linear-gradient(180deg, #fff0e3 0%, #fffaf5 48%, #fff 100%); font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <sc-if value="{{isConsent}}" hint-placeholder-val="{{true}}">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 96px;">
+      <span role="img" aria-label="App 图标" style="width: 76px; height: 76px; margin-bottom: 10px; border-radius: 20px; background: linear-gradient(145deg, #ff8f3d 0%, #ff6a00 100%); box-shadow: 0 6px 16px rgba(255,106,0,0.24); display: flex; align-items: center; justify-content: center;"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9L6 6M15 9l3-3M9 15l-3 3M15 15l3 3M10 9h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zM3 6h6M15 6h6M3 18h6M15 18h6"></path></svg></span>
+      <span style="font-size: 22px; line-height: 30px; font-weight: 700;">{{appName}}</span>
+      <span style="font-size: 14px; line-height: 20px; color: #627187;">设备、活动、体验和专业服务</span>
+    </div>
+    <div style="position: absolute; inset: 0; z-index: 1; background: rgba(0,0,0,0.45);"></div>
+  </sc-if>
+
+  <sc-if value="{{isPrivacy}}" hint-placeholder-val="{{true}}">
+    <div role="dialog" aria-modal="true" aria-label="隐私同意" style="position: absolute; left: 20px; right: 20px; top: 252px; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 22px 20px 12px; border-radius: 20px; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 18px; line-height: 25px; font-weight: 700; text-align: center;">欢迎使用{{appName}}</span>
+        <span style="font-size: 14px; line-height: 22px; color: #536178;">使用前请了解我们如何处理你的信息。以下信息只在你用到对应功能时才会获取：</span>
+      </div>
+      <div role="list" aria-label="信息用途" style="display: flex; flex-direction: column; gap: 12px;">
+        <sc-for list="{{uses}}" as="u" hint-placeholder-count="3">
+          <div role="listitem" style="display: flex; align-items: center; gap: 10px;">
+            <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: {{u.bg}}; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{u.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{u.d}}"></path></svg></span>
+            <span style="min-width: 0; display: flex; flex-direction: column;">
+              <span style="font-size: 14px; line-height: 20px; font-weight: 500;">{{u.t}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #627187;">{{u.s}}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <span style="font-size: 13px; line-height: 20px; color: #536178;">点“同意并继续”，表示你已阅读并同意<a href="Agreement.dc.html" style="text-decoration: none;">《用户协议》</a><a href="Agreement.dc.html" style="text-decoration: none;">《隐私政策》</a><a href="Agreement.dc.html" style="text-decoration: none;">《儿童个人信息保护规则》</a>。</span>
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <button type="button" onClick="{{agree}}" style="height: 46px; margin: 0; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 16px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">同意并继续</button>
+        <button type="button" onClick="{{decline}}" style="height: 44px; margin: 0; padding: 0; border: 0; background: none; font: inherit; font-size: 14px; color: #627187; white-space: nowrap; cursor: pointer;">不同意</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isDecline}}" hint-placeholder-val="{{false}}">
+    <div role="dialog" aria-modal="true" aria-label="不同意确认" style="position: absolute; left: 20px; right: 20px; top: 296px; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 22px 20px 12px; border-radius: 20px; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 18px; line-height: 25px; font-weight: 700; text-align: center;">需要你的同意才能继续</span>
+        <span style="font-size: 14px; line-height: 22px; color: #536178;">不同意《用户协议》和《隐私政策》，App 无法提供服务。你可以再看看，也可以退出 App，下次打开时会再次询问。</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <button type="button" onClick="{{reread}}" style="height: 46px; margin: 0; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 16px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">再看看</button>
+        <button type="button" onClick="{{exitApp}}" style="height: 44px; margin: 0; padding: 0; border: 0; background: none; font: inherit; font-size: 14px; color: #627187; white-space: nowrap; cursor: pointer;">退出 App</button>
+      </div>
+      <sc-if value="{{quit}}" hint-placeholder-val="{{false}}">
+        <span role="status" style="margin-bottom: 8px; padding: 8px 10px; border-radius: 10px; background: #f5f7fc; font-size: 12px; line-height: 17px; color: #627187; text-align: center;">App 已退出（原型停在这里），下次打开回到隐私同意</span>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isLocation}}" hint-placeholder-val="{{false}}">
+    <div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; padding: 92px 24px 36px;">
+      <div style="flex-shrink: 0; align-self: center; width: 196px; height: 196px; border-radius: 50%; background: rgba(255,106,0,0.08); display: flex; align-items: center; justify-content: center;">
+        <span style="width: 132px; height: 132px; border-radius: 50%; background: rgba(255,106,0,0.14); display: flex; align-items: center; justify-content: center;"><svg width="66" height="66" viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff6a00" fill-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.6 7.5 12.5 7.5 12.5s7.5-6.9 7.5-12.5A7.5 7.5 0 0 0 12 2zm0 10.2a2.7 2.7 0 1 1 0-5.4a2.7 2.7 0 0 1 0 5.4z"></path></svg></span>
+      </div>
+      <h1 style="flex-shrink: 0; margin: 32px 0 0; font-size: 22px; line-height: 30px; font-weight: 700; text-align: center;">开启定位，看本城可用的服务</h1>
+      <span style="flex-shrink: 0; margin-top: 6px; font-size: 14px; line-height: 22px; color: #627187; text-align: center;">活动、体验和专业服务都按城市开通</span>
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; margin-top: 26px; padding: 16px 14px; border-radius: 14px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.04);">
+        <sc-for list="{{gains}}" as="g" hint-placeholder-count="3">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <span style="flex-shrink: 0; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; background: #e2f6ed; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+            <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 15px; line-height: 21px; font-weight: 500;">{{g.t}}</span>
+              <span style="font-size: 13px; line-height: 18px; color: #627187;">{{g.s}}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+      <button type="button" onClick="{{askSystem}}" style="flex-shrink: 0; height: 48px; margin: auto 0 0; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 16px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">开启定位</button>
+      <a href="CitySheet.dc.html" style="flex-shrink: 0; align-self: center; min-height: 44px; margin-top: 6px; padding: 0 16px; display: flex; align-items: center; font-size: 14px; color: #627187; text-decoration: none; white-space: nowrap;">暂不开启，手动选择城市</a>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isSystem}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 44px; background: rgba(0,0,0,0.45);">
+      <div role="dialog" aria-modal="true" aria-label="系统定位授权" style="align-self: stretch; display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 18px 16px 14px; text-align: center;">
+          <span style="font-size: 15px; line-height: 21px; font-weight: 700;">允许“{{appName}}”使用你的位置？</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">用于确定当前城市，展示本城的服务和活动</span>
+        </div>
+        <sc-for list="{{results}}" as="r" hint-placeholder-count="3">
+          <a href="{{r.href}}" style="display: flex; align-items: center; justify-content: center; min-height: 46px; border-top: 1px solid #e5ebf3; font-size: 14px; line-height: 20px; color: #1d63c4; text-decoration: none; white-space: nowrap;">{{r.t}}</a>
+        </sc-for>
+        <span style="padding: 8px 14px 10px; border-top: 1px solid #e5ebf3; border-radius: 0 0 14px 14px; background: #f5f7fc; font-size: 12px; line-height: 17px; color: #738096; text-align: center;">系统弹窗占位，样式以手机系统为准，三个选项演示不同结果的去向</span>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // step：页内按钮推进到的帧；stepAt：推进时 Tweaks 选的帧，Tweaks 换帧后以 Tweaks 为准
+    // quit：不同意确认里点过“退出 App”
+    this.state = { step: '', stepAt: '', quit: false };
+  }
+  renderVals() {
+    const tweak = this.props.frame ?? '隐私同意';
+    const { step, stepAt, quit } = this.state;
+    const frame = step && stepAt === tweak ? step : tweak;
+    const go = (to) => () => this.setState({ step: to, stepAt: tweak, quit: false });
+
+    // App 名称未定，沿用画布标题里的“低空产业平台”
+    const appName = '低空产业平台';
+
+    // 隐私告知排在定位之前；这里只写功能用途，完整清单在《隐私政策》
+    const uses = [
+      { t: '位置', s: '确定当前城市，展示本城的服务和活动', bg: '#fff0e3', fg: '#ff6a00', d: 'M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z' },
+      { t: '手机号', s: '登录、下单，接收订单与服务通知', bg: '#e6f0ff', fg: '#2f80ed', d: 'M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2' },
+      { t: '相机与文件', s: '扫码、上传需求附件和反馈截图', bg: '#e2f6ed', fg: '#159a70', d: 'M4 8h3l2-3h6l2 3h3v11H4zM12 16a3 3 0 1 0 0-6a3 3 0 1 0 0 6z' }
+    ];
+
+    const gains = [
+      { t: '自动切到你所在的城市', s: '首页频道和内容跟随当前城市' },
+      { t: '看离你多近', s: '场馆和服务可以按距离排序' },
+      { t: '只在使用 App 时获取', s: '随时可以在 设置 → 权限管理 关闭' }
+    ];
+
+    // 定位结果的去向（HomeMallSpec）：已开通进首页，未开通走城市未开通页；首次启动没有上次城市，拒绝或失败时手动选城
+    const results = [
+      { t: '允许 · 定位到东营', href: 'HomeFull.dc.html' },
+      { t: '允许 · 定位到潍坊（未开通）', href: 'CityClosed.dc.html' },
+      { t: '不允许，或定位失败', href: 'CitySheet.dc.html' }
+    ];
+
+    return {
+      appName, uses, gains, results, quit,
+      isConsent: frame === '隐私同意' || frame === '不同意确认',
+      isPrivacy: frame === '隐私同意',
+      isDecline: frame === '不同意确认',
+      isLocation: frame === '定位说明' || frame === '系统授权',
+      isSystem: frame === '系统授权',
+      agree: go('定位说明'),
+      decline: go('不同意确认'),
+      reread: go('隐私同意'),
+      askSystem: go('系统授权'),
+      exitApp: () => this.setState({ quit: true })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"frame":"隐私同意"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>成员与角色</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 789px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrgDetail.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap;">成员与角色</h1>
+    <span style="margin-left: auto; padding-right: 8px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">东营港务物流</span>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px;">
+    <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #eaf2fd; font-size: 13px; line-height: 19px; color: #1d63c4;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2f80ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+      <span style="min-width: 0;">{{permNote}}</span>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">成员</h2>
+        <span style="font-size: 13px; line-height: 18px; color: #8a8f97; white-space: nowrap;">{{memberCount}} 人</span>
+      </div>
+      <sc-for list="{{members}}" as="m" hint-placeholder-count="3">
+        <sc-if value="{{m.canEdit}}" hint-placeholder-val="{{false}}">
+          <button type="button" aria-haspopup="dialog" onClick="{{m.open}}" style="width: 100%; min-height: 60px; margin: 0; padding: 0; box-sizing: border-box; border: 0; border-top: 1px solid #f0f1f3; background: none; font: inherit; color: #191919; text-align: left; display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: {{m.bg}}; color: {{m.fg}}; font-size: 15px; font-weight: 700; line-height: 36px; text-align: center;">{{m.ch}}</span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+              <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{m.label}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">{{m.phone}}</span>
+            </span>
+            <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: {{m.tagBg}}; color: {{m.tagC}}; font-size: 12px; line-height: 18px; white-space: nowrap;">{{m.role}}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </button>
+        </sc-if>
+        <sc-if value="{{m.readOnly}}" hint-placeholder-val="{{true}}">
+          <div style="min-height: 60px; box-sizing: border-box; border-top: 1px solid #f0f1f3; display: flex; align-items: center; gap: 10px;">
+            <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: {{m.bg}}; color: {{m.fg}}; font-size: 15px; font-weight: 700; line-height: 36px; text-align: center;">{{m.ch}}</span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+              <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{m.label}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">{{m.phone}}</span>
+            </span>
+            <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: {{m.tagBg}}; color: {{m.tagC}}; font-size: 12px; line-height: 18px; white-space: nowrap;">{{m.role}}</span>
+          </div>
+        </sc-if>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{hasPending}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">待加入</h2>
+          <span style="font-size: 13px; line-height: 18px; color: #8a8f97; white-space: nowrap;">{{pendingCount}} 人</span>
+        </div>
+        <sc-for list="{{pending}}" as="p" hint-placeholder-count="1">
+          <div style="min-height: 60px; padding: 8px 0; box-sizing: border-box; border-top: 1px solid #f0f1f3; display: flex; align-items: center; gap: 8px;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+              <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap;">{{p.phone}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">{{p.role}} · {{p.when}}</span>
+            </span>
+            <button type="button" onClick="{{p.revoke}}" aria-label="{{p.revokeAria}}" style="flex-shrink: 0; height: 36px; margin: 0; padding: 0 12px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 13px; color: #191919; white-space: nowrap; cursor: pointer;">撤销</button>
+            <button type="button" onClick="{{p.resend}}" aria-label="{{p.resendAria}}" style="flex-shrink: 0; height: 36px; margin: 0; padding: 0 12px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; color: #d94f00; white-space: nowrap; cursor: pointer;">再发一次</button>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">角色说明</h2>
+      <sc-for list="{{roleGuide}}" as="r" hint-placeholder-count="3">
+        <div style="display: flex; align-items: flex-start; gap: 10px;">
+          <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: {{r.tagBg}}; color: {{r.tagC}}; font-size: 12px; line-height: 18px; white-space: nowrap;">{{r.t}}</span>
+          <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 20px; color: #555a62;">{{r.d}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{showNote}}" hint-placeholder-val="{{false}}">
+    <div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 92px; z-index: 1; padding: 8px 10px; box-sizing: border-box; border: 1px solid #c9eed9; border-radius: 10px; background: #e8f7ef; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font-size: 12px; line-height: 18px; color: #11804a;">{{note}}</div>
+  </sc-if>
+
+  <div style="flex-shrink: 0; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <button type="button" aria-haspopup="dialog" onClick="{{openInvite}}" style="width: 100%; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: pointer;">邀请成员</button>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 2; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+  </sc-if>
+
+  <sc-if value="{{inviteOpen}}" hint-placeholder-val="{{false}}">
+    <div role="dialog" aria-modal="true" aria-label="邀请成员" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">邀请成员</span>
+        <span style="font-size: 13px; line-height: 18px; color: #666b73;">加入 东营港务物流</span>
+      </div>
+      <label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; line-height: 20px;">手机号
+        <input type="tel" inputmode="numeric" value="{{phone}}" onChange="{{setPhone}}" placeholder="输入对方手机号" aria-label="手机号" style="width: 100%; height: 44px; box-sizing: border-box; margin: 0; padding: 0 12px; border: 1px solid #ebedf0; border-radius: 10px; background: #f7f8fa; font: inherit; font-size: 15px; font-weight: 400; color: #191919;">
+      </label>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 14px; font-weight: 500; line-height: 20px;">加入后的角色</span>
+        <div role="radiogroup" aria-label="加入后的角色" style="display: flex; gap: 10px;">
+          <sc-for list="{{inviteRoles}}" as="o" hint-placeholder-count="2">
+            <button type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; box-sizing: border-box; border: 1.5px solid {{o.bd}}; border-radius: 10px; background: {{o.bg}}; font: inherit; font-size: 15px; font-weight: {{o.w}}; color: {{o.c}}; white-space: nowrap; cursor: pointer;">{{o.t}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <span style="font-size: 12px; line-height: 18px; color: #666b73;">对方用这个手机号登录后，在“消息”里确认加入；邀请 [协议约定时间] 内有效。负责人不能通过邀请设置。</span>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">取消</button>
+        <button type="button" onClick="{{sendInvite}}" disabled="{{cantSend}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: {{sendBg}}; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">发送邀请</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{roleOpen}}" hint-placeholder-val="{{false}}">
+    <div role="dialog" aria-modal="true" aria-label="调整角色" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: 12px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">调整角色</span>
+        <span style="font-size: 13px; line-height: 18px; color: #666b73;">{{curName}} · {{curPhone}}</span>
+      </div>
+      <div role="radiogroup" aria-label="角色" style="display: flex; flex-direction: column; gap: 8px;">
+        <sc-for list="{{roleOptions}}" as="o" hint-placeholder-count="2">
+          <button type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="width: 100%; min-height: 60px; margin: 0; padding: 10px 12px; box-sizing: border-box; border: 1.5px solid {{o.bd}}; border-radius: 12px; background: {{o.bg}}; font: inherit; color: #191919; text-align: left; display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <span style="flex-shrink: 0; width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{o.ring}}; display: flex; align-items: center; justify-content: center;"><span style="width: 10px; height: 10px; border-radius: 50%; background: {{o.dot}};"></span></span>
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+              <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap;">{{o.t}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #666b73;">{{o.d}}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+      <button type="button" onClick="{{askRemove}}" style="align-self: flex-start; min-height: 44px; margin: 0; padding: 0; border: 0; background: none; font: inherit; font-size: 14px; color: #e5484d; white-space: nowrap; cursor: pointer;">移除这位成员</button>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">取消</button>
+        <button type="button" onClick="{{saveRole}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">保存</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{removeOpen}}" hint-placeholder-val="{{false}}">
+    <div role="dialog" aria-modal="true" aria-label="确认移除成员" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">确认移除 {{curName}}？</span>
+        <span style="font-size: 14px; line-height: 21px; color: #555a62;">移除后对方不能再以组织身份发布需求和验收，已有的需求、合同和订单仍归组织所有。</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{cancelRemove}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">暂不移除</button>
+        <button type="button" onClick="{{doRemove}}" style="flex: 1 1 0; height: 44px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #e5484d; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">确认移除</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"viewer":{"editor":"enum","options":["经办人","负责人"],"default":"经办人"},"$preview":{"width":390,"height":789}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 时间线：11/03。默认是王女士（经办人）看到的页面；Tweaks 的 viewer 切到负责人 李** 的视角，才能调整角色和移除成员
+    // sheet：'' / 'invite' / 'role' / 'remove'；phone、inviteRole：邀请面板的输入；cur：正在调整的成员；draft：面板里选中的角色
+    // roles：已改过的角色；removed：已移除的成员；sent：本次发出的那条邀请（原型只保留最新一条，画板高度按两条待加入算）；sampleGone：示例邀请已撤销；note：页内提示
+    this.state = { sheet: '', phone: '', inviteRole: '验收人', cur: '', draft: '', roles: {}, removed: {}, sent: null, sampleGone: false, note: '' };
+  }
+  renderVals() {
+    const { sheet, phone, inviteRole, cur, draft, roles, removed, sent, sampleGone, note } = this.state;
+    const viewer = this.props.viewer ?? '经办人';
+    const isOwner = viewer === '负责人';
+    const selfId = isOwner ? 'li' : 'wang';
+    const roleTag = (role) => (role === '负责人' ? { tagBg: '#fff3e8', tagC: '#d94f00' } : { tagBg: '#f2f3f5', tagC: '#555a62' });
+
+    // 张工的手机号与 AddressList 的 东营港务物流 收货点一致；负责人不走邀请和调整，只能由平台移交
+    const members = [
+      { id: 'li', name: '李**', ch: '李', phone: '135****3301', role: '负责人', bg: '#ffe3cc', fg: '#d94f00' },
+      { id: 'wang', name: '王女士', ch: '王', phone: '138****2026', role: '经办人', bg: '#dbe9fc', fg: '#1d63c4' },
+      { id: 'zhang', name: '张工', ch: '张', phone: '139****0817', role: '验收人', bg: '#d6f2e2', fg: '#11804a' }
+    ].filter((m) => !removed[m.id]).map((m) => {
+      const role = roles[m.id] || m.role;
+      const canEdit = isOwner && m.id !== 'li';
+      return {
+        ...m, ...roleTag(role), role, canEdit, readOnly: !canEdit,
+        label: m.id === selfId ? m.name + '（我）' : m.name,
+        open: () => this.setState({ sheet: 'role', cur: m.id, draft: role, note: '' })
+      };
+    });
+    const curMember = members.find((m) => m.id === cur) || { name: '', phone: '', role: '' };
+
+    const sample = { id: 'sample', phone: '137****5520', role: '验收人', when: '11/02 发送，待确认' };
+    const pending = (sampleGone ? [] : [sample]).concat(sent ? [sent] : []).map((p) => ({
+      ...p,
+      revokeAria: '撤销邀请：' + p.phone,
+      resendAria: '再发一次邀请：' + p.phone,
+      revoke: () => this.setState(p.id === 'sample' ? { sampleGone: true, note: '已撤销 ' + p.phone + ' 的邀请' } : { sent: null, note: '已撤销 ' + p.phone + ' 的邀请' }),
+      resend: () => this.setState({ note: '已向 ' + p.phone + ' 再次发送邀请' })
+    }));
+
+    const guide = {
+      负责人: '管理成员和角色，提交组织资料变更',
+      经办人: '发布需求、比较报价、确认合同订单和验收',
+      验收人: '查看履约进度，确认服务交付和验收'
+    };
+    const roleGuide = ['负责人', '经办人', '验收人'].map((t) => ({ t, d: guide[t], ...roleTag(t) }));
+
+    const validPhone = /^1\d{10}$/.test(phone);
+    const inviteRoles = ['经办人', '验收人'].map((t) => {
+      const on = t === inviteRole;
+      return { t, on, bd: on ? '#ff6a00' : '#dcdfe4', bg: on ? '#fff3e8' : '#fff', c: on ? '#d94f00' : '#191919', w: on ? 500 : 400, pick: () => this.setState({ inviteRole: t }) };
+    });
+    const roleOptions = ['经办人', '验收人'].map((t) => {
+      const on = t === draft;
+      return { t, on, d: guide[t], bd: on ? '#ff6a00' : '#ebedf0', bg: on ? '#fffaf5' : '#fff', ring: on ? '#ff6a00' : '#c4c8ce', dot: on ? '#ff6a00' : '#fff', pick: () => this.setState({ draft: t }) };
+    });
+
+    return {
+      permNote: isOwner ? '你是负责人，点成员可以调整角色或移除。' : '你是经办人，可以邀请成员。调整角色和移除成员由负责人 李** 操作。',
+      members, memberCount: members.length,
+      pending, pendingCount: pending.length, hasPending: pending.length > 0,
+      roleGuide,
+      showNote: note !== '' && sheet === '',
+      note,
+      sheetOpen: sheet !== '',
+      inviteOpen: sheet === 'invite',
+      roleOpen: sheet === 'role',
+      removeOpen: sheet === 'remove',
+      openInvite: () => this.setState({ sheet: 'invite', phone: '', inviteRole: '验收人', note: '' }),
+      closeSheet: () => this.setState({ sheet: '', cur: '', draft: '' }),
+      phone,
+      setPhone: (e) => this.setState({ phone: String(e && e.target ? e.target.value : '').replace(/\D/g, '').slice(0, 11) }),
+      inviteRoles,
+      cantSend: !validPhone,
+      sendBg: validPhone ? '#ff6a00' : '#c4c8ce',
+      sendInvite: () => this.setState((s) => {
+        if (!/^1\d{10}$/.test(s.phone)) return null;
+        const masked = s.phone.slice(0, 3) + '****' + s.phone.slice(7);
+        return { sheet: '', phone: '', sent: { id: 'new', phone: masked, role: s.inviteRole, when: '11/03 发送，待确认' }, note: '邀请已发送，对方登录后在“消息”里确认加入' };
+      }),
+      curName: curMember.name,
+      curPhone: curMember.phone,
+      roleOptions,
+      saveRole: () => this.setState((s) => {
+        if (!s.cur) return { sheet: '' };
+        return { sheet: '', roles: { ...s.roles, [s.cur]: s.draft }, cur: '', draft: '', note: '已更新 ' + curMember.name + ' 的角色' };
+      }),
+      askRemove: () => this.setState({ sheet: 'remove' }),
+      cancelRemove: () => this.setState({ sheet: 'role' }),
+      doRemove: () => this.setState((s) => (s.cur ? { sheet: '', removed: { ...s.removed, [s.cur]: true }, cur: '', draft: '', note: '已移除 ' + curMember.name } : { sheet: '' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

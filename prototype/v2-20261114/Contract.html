@@ -1,0 +1,218 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>合同查看与受控下载</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="contract"><option selected>服务合同</option><option>租赁合同</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 1360px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="{{backHref}}" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">合同详情</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: flex-start; gap: 10px; padding-bottom: 12px;">
+        <span style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: #fff0e3; display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"></path></svg></span>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px;">{{name}}</span>
+          <span style="align-self: flex-start; font-size: 12px; line-height: 18px; padding: 1px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a; white-space: nowrap;">生效中</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; color: #627187; white-space: nowrap;">合同编号</span>
+        <span style="flex-grow: 1; min-width: 0; white-space: nowrap;">{{no}}</span>
+        <button type="button" onClick="{{copyNo}}" style="flex-shrink: 0; min-height: 44px; margin: 0; padding: 0 0 0 8px; border: 0; background: none; font: inherit; font-size: 13px; line-height: 18px; color: {{copyColor}}; white-space: nowrap; cursor: pointer;">{{copyText}}</button>
+      </div>
+      <div style="display: flex; align-items: center; min-height: 48px; border-top: 1px solid #f0f1f3;">
+        <span style="font-size: 14px; line-height: 20px; color: #627187;">合同金额</span>
+        <span style="margin-left: auto; font-size: 20px; font-weight: 700; line-height: 28px; color: #e85400;">{{amount}}</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">签约主体</h2>
+      <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 10px; font-size: 13px; line-height: 19px;">
+        <sc-for list="{{parties}}" as="r" hint-placeholder-count="5">
+          <span style="color: #627187; white-space: nowrap;">{{r.k}}</span><span>{{r.v}}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 0; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 10px; font-size: 16px; font-weight: 700; line-height: 22px;">{{scopeTitle}}</h2>
+      <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px 10px; padding-bottom: 12px; font-size: 13px; line-height: 19px;">
+        <sc-for list="{{scope}}" as="r" hint-placeholder-count="4">
+          <span style="color: #627187; white-space: nowrap;">{{r.k}}</span><span>{{r.v}}</span>
+        </sc-for>
+      </div>
+      <a href="{{planHref}}" style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #f0f1f3; color: #202c42; text-decoration: none;">
+        <span style="font-size: 14px; line-height: 20px; white-space: nowrap;">{{planName}}</span>
+        <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a; white-space: nowrap;">已确认</span>
+        <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #627187; white-space: nowrap;">{{planCta}}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">付款约定</h2>
+      <sc-for list="{{pays}}" as="p" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; border-top: 1px solid #f0f1f3;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; line-height: 20px;">{{p.name}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: {{p.sc}};">{{p.state}}</span>
+          </div>
+          <span style="flex-shrink: 0; font-size: {{p.fs}}; font-weight: {{p.fw}}; line-height: 22px; color: {{p.ac}}; white-space: nowrap;">{{p.amount}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 12px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">合同附件</h2>
+        <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">共 {{fileCount}} 个文件</span>
+      </div>
+      <sc-for list="{{files}}" as="f" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 60px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; background: #e6f0ff; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2f80ed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"></path></svg></span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; line-height: 20px;">{{f.name}}</span>
+            <sc-if value="{{f.ready}}" hint-placeholder-val="{{false}}">
+              <span role="status" style="display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 17px; color: #11804a; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>下载链接已生成，16:05 前有效</span>
+            </sc-if>
+            <sc-if value="{{f.notReady}}" hint-placeholder-val="{{true}}">
+              <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{f.sub}}</span>
+            </sc-if>
+          </div>
+          <button type="button" aria-label="{{f.aria}}" onClick="{{f.get}}" style="flex-shrink: 0; height: 36px; margin: 0; padding: 0 16px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #ba470b; white-space: nowrap; cursor: pointer;">下载</button>
+        </div>
+      </sc-for>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding-top: 10px; border-top: 1px solid #f0f1f3; font-size: 12px; line-height: 17px; color: #627187;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#738096" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3"></path></svg>
+        <span style="min-width: 0;">文件经受控链接下载，不显示存储地址</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; font-size: 12px; line-height: 19px; color: #627187;">{{footNote}}</div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <a href="Chat.dc.html" style="flex-shrink: 0; width: 68px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; line-height: 16px; color: #536178; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>{{contactLabel}}</a>
+    <a href="{{orderHref}}" style="flex-grow: 1; flex-basis: 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; color: #202c42; font-size: 16px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看订单</a>
+    <button type="button" onClick="{{getContract}}" style="flex-grow: 1; flex-basis: 0; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: pointer;">下载合同</button>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 时间线：11/03。默认帧是物流园区季度安防巡检的服务合同，金额、方案版本、付款节点与 OrderService、PlanConfirmed 一致
+    // Tweaks 的 contract 切到“租赁合同”帧：巡检机器狗租赁，与 OrderRental、RentalQuote 一致（10/30 16:20 在报价单确认，租金已付，押金待定）；本页只读
+    // links：已生成短时下载链接的文件；copied：合同编号是否已复制
+    this.state = { links: {}, copied: false };
+  }
+  renderVals() {
+    const { links, copied } = this.state;
+    const rental = (this.props.contract ?? '服务合同') === '租赁合同';
+    const money = { fs: '16px', fw: 700, ac: '#202c42' };
+    const quiet = { fs: '13px', fw: 400, ac: '#627187' };
+    const service = {
+      backHref: 'OrderService.dc.html', orderHref: 'OrderService.dc.html', contactLabel: '联系服务商',
+      name: '物流园区季度安防巡检服务合同', no: 'HT20261101093000', amount: '¥18,600',
+      parties: [
+        { k: '甲方', v: '东营港务物流（经办人 王女士）' },
+        { k: '乙方', v: '鹰眼智能巡检' },
+        { k: '收款方', v: '鹰眼智能巡检 · 经平台支付渠道' },
+        { k: '签署', v: '线下签署，扫描件已归档' },
+        { k: '生效', v: '11/01 · 服务期至 01/18' }
+      ],
+      scopeTitle: '服务范围',
+      scope: [
+        { k: '范围', v: '约 42 万㎡' },
+        { k: '方式', v: '无人机巡检 + 机器狗夜巡' },
+        { k: '周期', v: '11/02–01/18 · 共 6 次' },
+        { k: '交付物', v: '巡检报告、隐患清单、影像存档' }
+      ],
+      planHref: 'PlanConfirmed.dc.html', planName: '服务方案 v2', planCta: '查看方案',
+      pays: [
+        { name: '首付 30%', amount: '¥5,580', state: '已支付', sc: '#11804a', ...money },
+        { name: '按次结算 70%', amount: '¥13,020', state: '每次验收后支付 ¥2,170，已结 0/6 次', sc: '#738096', ...money }
+      ],
+      files: [
+        { id: 'contract', name: '服务合同.pdf', sub: '已归档 · 11/01' },
+        { id: 'plan', name: '服务方案 v2.pdf', sub: '已确认 · 11/01' },
+        { id: 'quote', name: '报价明细.pdf', sub: '方案 v2 附件' }
+      ],
+      footNote: '合同由东营港务物流与鹰眼智能巡检签订。履约有分歧时平台协助沟通；本平台不承担飞行审批与空中调度。'
+    };
+    // 租赁合同：租金在合同确认后一次付清（设计假设）；押金规则未定，不在线收取；超期和赔付按合同，没有发生就不计费
+    const lease = {
+      backHref: 'OrderRental.dc.html', orderHref: 'OrderRental.dc.html', contactLabel: '联系商家',
+      name: '巡检机器狗租赁合同', no: 'HT20261030162000', amount: '¥1,900',
+      parties: [
+        { k: '甲方', v: '东营港务物流（经办人 王女士）' },
+        { k: '乙方', v: '示例机器人商家（出租方）' },
+        { k: '收款方', v: '示例机器人商家 · 经平台支付渠道' },
+        { k: '签署', v: '10/30 16:20 在租赁报价单确认' },
+        { k: '生效', v: '11/01 · 租期至 11/05' }
+      ],
+      scopeTitle: '租赁内容',
+      scope: [
+        { k: '设备', v: '巡检机器狗 ×1 · 编号 DOG-0118' },
+        { k: '租期', v: '11/01–11/05 · 共 5 天' },
+        { k: '交接', v: '商家送达 · 东营港务物流 收货点' },
+        { k: '归还', v: '商家上门取回 · 11/05 18:00 前' }
+      ],
+      planHref: 'RentalQuote.dc.html', planName: '租赁报价单', planCta: '查看报价',
+      pays: [
+        { name: '租金', amount: '¥1,900', state: '5 天 × ¥380 · 已支付 10/30', sc: '#11804a', ...money },
+        { name: '押金', amount: '待定', state: '押金规则 [协议约定时间] 内确认，当前不在线收取', sc: '#627187', ...quiet },
+        { name: '超期费', amount: '合同约定', state: '超过 11/05 18:00 后按天计费', sc: '#627187', ...quiet },
+        { name: '损坏赔付', amount: '合同约定', state: '以交接和归还记录为依据，人为损坏按合同赔付', sc: '#627187', ...quiet }
+      ],
+      files: [
+        { id: 'contract', name: '租赁合同.pdf', sub: '已归档 · 10/30' },
+        { id: 'plan', name: '租赁报价单.pdf', sub: '已确认 · 10/30' },
+        { id: 'quote', name: '交接清单.pdf', sub: '11/01 交接时双方签署' }
+      ],
+      footNote: '合同由东营港务物流与示例机器人商家签订。履约有分歧时平台协助沟通；押金、超期和赔付以合同约定为准。'
+    };
+    const c = rental ? lease : service;
+    // 合同文件只走受控短时链接：到期时刻以服务端返回为准，页面不显示文件地址
+    const files = c.files.map((f) => ({
+      ...f, ready: Boolean(links[f.id]), notReady: !links[f.id], aria: '下载' + f.name,
+      get: () => this.setState((s) => ({ links: { ...s.links, [f.id]: true } }))
+    }));
+    return {
+      backHref: c.backHref, orderHref: c.orderHref, contactLabel: c.contactLabel,
+      name: c.name, no: c.no, amount: c.amount,
+      parties: c.parties, scopeTitle: c.scopeTitle, scope: c.scope,
+      planHref: c.planHref, planName: c.planName, planCta: c.planCta,
+      pays: c.pays, files, fileCount: files.length, footNote: c.footNote,
+      copyText: copied ? '已复制' : '复制',
+      copyColor: copied ? '#11804a' : '#ba470b',
+      copyNo: () => this.setState({ copied: true }),
+      getContract: () => this.setState((s) => ({ links: { ...s.links, contract: true } }))
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"contract":"服务合同"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

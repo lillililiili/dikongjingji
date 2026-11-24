@@ -1,0 +1,127 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>A 首页（初稿，已被 A1 取代）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 12px;">
+
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button style="display: flex; align-items: center; gap: 2px; border: 0; background: none; padding: 0; min-height: 44px; font: inherit; font-size: 20px; font-weight: 700; color: #202c42;">东营<svg width="16" height="16" viewBox="0 0 24 24" fill="#202c42" aria-hidden="true"><path d="M6 9l6 6 6-6z"></path></svg></button>
+      <label style="flex-grow: 1; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; border: 1.5px solid #202c42; background: #fff;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#627187" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+        <input aria-label="搜索" placeholder="搜索设备、赛事研学或服务" style="border: 0; outline: none; font: inherit; font-size: 14px; width: 100%; background: transparent;">
+      </label>
+      <button aria-label="消息" style="width: 44px; height: 44px; border: 0; background: none; padding: 0; display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="1.8" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg></button>
+    </div>
+
+    <div style="position: relative; height: 150px; border-radius: 16px; overflow: hidden; flex-shrink: 0;">
+      <img src="_blob/b6a30fa51bcba7d4ced06ace8b4d74ed.png" alt="无人机飞行场景" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 70%; padding: 18px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,0.86);">
+        <div style="font-size: 12px; color: #ba470b; font-weight: 500;">东营低空体验季</div>
+        <div style="font-size: 21px; font-weight: 700; line-height: 1.3;">先体验，再决定</div>
+        <div style="font-size: 13px; color: #536178;">模拟飞行 · 机器人闯关 · 厂家云演示</div>
+        <a href="Experience.dc.html" style="margin-top: auto; align-self: flex-start; padding: 7px 14px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 13px; font-weight: 500; text-decoration: none;">去体验</a>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 6px; background: #fff; border-radius: 14px; padding: 14px 6px;">
+      <sc-for list="{{entries}}" as="e" hint-placeholder-count="8">
+        <a href="{{e.href}}" style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: #202c42;">
+          <div style="width: 44px; height: 44px; border-radius: 14px; background: {{e.bg}}; display: flex; align-items: center; justify-content: center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{e.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{e.d}}"></path></svg>
+          </div>
+          <span style="font-size: 13px;">{{e.label}}</span>
+        </a>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700;">近期活动</h2>
+        <a href="Discover.dc.html" style="font-size: 13px; color: #627187; text-decoration: none;">全部活动 ›</a>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <a href="Signup.dc.html" style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; background: #fff; border-radius: 12px; padding: 12px; text-decoration: none; color: #202c42;">
+          <span style="align-self: flex-start; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #fff0e3; color: #ba470b;">赛事</span>
+          <span style="font-size: 15px; font-weight: 500; line-height: 1.35;">青少年无人机编程挑战赛</span>
+          <span style="font-size: 12px; color: #627187;">11月15日 · 东营体验馆</span>
+          <span style="font-size: 12px; color: #159a70;">余 12 个名额</span>
+        </a>
+        <a href="Signup.dc.html" style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; background: #fff; border-radius: 12px; padding: 12px; text-decoration: none; color: #202c42;">
+          <span style="align-self: flex-start; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a;">研学</span>
+          <span style="font-size: 15px; font-weight: 500; line-height: 1.35;">机器人周末研学营</span>
+          <span style="font-size: 12px; color: #627187;">每周六 · 2 场次</span>
+          <span style="font-size: 12px; color: #159a70;">可候补</span>
+        </a>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 700;">附近体验馆</h2>
+      <div style="display: flex; gap: 12px; align-items: center; background: #fff; border-radius: 12px; padding: 12px;">
+        <img src="_blob/e42bb39cca5b4f528e6577da8445bced.webp" alt="体验馆外景" style="width: 76px; height: 64px; border-radius: 10px; object-fit: cover; flex-shrink: 0;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 15px; font-weight: 500;">东营低空与机器人体验馆</div>
+          <div style="font-size: 12px; color: #627187;">09:30–18:00 · 模拟飞行 · 机器人编程</div>
+          <div style="font-size: 12px; color: #627187;">距你 2.3km</div>
+        </div>
+        <button style="flex-shrink: 0; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; color: #ba470b; font: inherit; font-size: 13px;">预约</button>
+      </div>
+    </div>
+  </div>
+
+  <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <a href="{{t.href}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+        <span>{{t.label}}</span>
+      </a>
+    </sc-for>
+  </nav>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    const tabs = [
+      ['首页', 'Home.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z'],
+      ['商城', 'Mall.dc.html', 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2'],
+      ['活动', 'Signup.dc.html', 'M5 5h14v15H5zM5 9h14M9 3v4M15 3v4M9 14l2 2 4-4'],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z'],
+      ['我的', 'Mine.dc.html', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6']
+    ].map((t, i) => ({ label: t[0], href: t[1], d: t[2], c: i === 0 ? '#ff6a00' : '#738096' }));
+    const o = { bg: '#fff0e3', fg: '#ff6a00' }, g = { bg: '#e2f6ed', fg: '#159a70' }, b = { bg: '#e6f0ff', fg: '#2f80ed' };
+    const entries = [
+      ['无人机', 'Mall.dc.html', o, 'M12 10v4M8 12h8M5 6a2 2 0 1 0 0 .1M19 6a2 2 0 1 0 0 .1M5 18a2 2 0 1 0 0 .1M19 18a2 2 0 1 0 0 .1M7 8l3 3M17 8l-3 3M7 16l3-3M17 16l-3-3'],
+      ['机器人', 'Mall.dc.html', o, 'M6 8h12v10H6zM9 12h.01M15 12h.01M12 4v4M10 15h4M4 12h2M18 12h2'],
+      ['配件耗材', 'Mall.dc.html', o, 'M14 6l4 4-8 8H6v-4zM12 8l4 4'],
+      ['设备租赁', 'Mall.dc.html', o, 'M4 7h16v12H4zM8 7V5h8v2M4 12h16'],
+      ['赛事', 'Discover.dc.html', b, 'M8 4h8v5a4 4 0 0 1-8 0zM12 13v4M8 20h8M8 6H5v2a3 3 0 0 0 3 3M16 6h3v2a3 3 0 0 1-3 3'],
+      ['培训课程', 'Discover.dc.html', b, 'M4 6l8-3 8 3-8 3zM7 8v5c0 1.5 2.5 3 5 3s5-1.5 5-3V8M20 6v6'],
+      ['研学', 'Discover.dc.html', g, 'M5 4h10l4 4v12H5zM9 12h6M9 16h6'],
+      ['企业采购', 'Quote.dc.html', g, 'M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2']
+    ].map((e) => ({ label: e[0], href: e[1], bg: e[2].bg, fg: e[2].fg, d: e[3] }));
+    return { tabs, entries };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

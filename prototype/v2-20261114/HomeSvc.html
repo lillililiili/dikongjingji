@@ -1,0 +1,260 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>A4 首页 · 专业服务频道（巡检入口）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; background: linear-gradient(180deg, #fff0e3 0%, #fff8f2 70%, #f5f7fc 100%);">
+    <div style="position: relative; display: flex; align-items: center; gap: 2px; padding-left: 14px; overflow: hidden;">
+      <a href="CitySheet.dc.html" style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; min-height: 40px; margin-right: 6px; font-size: 16px; font-weight: 700; color: #202c42; text-decoration: none;">{{city}}<svg width="14" height="14" viewBox="0 0 24 24" fill="#202c42" aria-hidden="true"><path d="M6 9l6 6 6-6z"></path></svg></a>
+      <span style="flex-shrink: 0; width: 1px; height: 16px; margin-right: 2px; background: #e8d5c4;"></span>
+      <sc-for list="{{channels}}" as="ch" hint-placeholder-count="8">
+        <a href="{{ch.href}}" style="flex-shrink: 0; position: relative; display: flex; align-items: center; min-height: 40px; padding: 0 9px; color: {{ch.c}}; font-size: {{ch.fs}}; font-weight: {{ch.w}}; text-decoration: none; white-space: nowrap;">{{ch.label}}<sc-if value="{{ch.on}}" hint-placeholder-val="{{false}}"><span style="position: absolute; left: 50%; bottom: 3px; width: 16px; height: 3px; margin-left: -8px; border-radius: 3px; background: #ff6a00;"></span></sc-if></a>
+      </sc-for>
+      <span style="position: absolute; right: 0; top: 0; bottom: 0; width: 40px; background: linear-gradient(90deg, rgba(255,243,232,0), #fff0e3);"></span>
+    </div>
+    <div style="padding: 0 16px;">
+      <div style="display: flex; align-items: center; height: 40px; padding: 0 4px 0 0; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff;">
+        <a href="Scan.dc.html" aria-label="扫一扫" style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; height: 44px; margin: -2px 0; padding: 0 8px 0 12px; text-decoration: none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M4 12h16"></path></svg>
+          <span style="width: 1px; height: 16px; background: #e5ebf3;"></span>
+        </a>
+        <a href="{{searchHref}}" style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; text-decoration: none;">
+          <span style="flex-grow: 1; min-width: 0; font-size: 14px; color: #738096; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{placeholder}}</span>
+          <span style="flex-shrink: 0; height: 32px; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; display: flex; align-items: center;">搜索</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 10px 16px 0;">
+
+    <div style="flex-shrink: 0; display: flex; gap: 8px;">
+      <sc-for list="{{subs}}" as="s" hint-placeholder-count="5">
+        <button type="button" onClick="{{s.pick}}" aria-pressed="{{s.on}}" style="flex-shrink: 0; position: relative; height: 32px; margin: 0; padding: 0 12px; box-sizing: border-box; border: 0; border-radius: 999px; background: {{s.bg}}; color: {{s.fg}}; font: inherit; font-size: 14px; line-height: 20px; font-weight: {{s.w}}; display: flex; align-items: center; white-space: nowrap; cursor: pointer;">{{s.label}}<span aria-hidden="true" style="position: absolute; left: -4px; right: -4px; top: -6px; bottom: -6px;"></span></button>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 12px; border-radius: 10px; background: #eefaf3;">
+      <span style="display: flex; align-items: center; gap: 4px; font-size: 13px; line-height: 18px; font-weight: 700; color: #11804a; white-space: nowrap;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM8.5 12l2.5 2.5 4.5-5"></path></svg>{{guardTitle}}</span>
+      <sc-for list="{{guards}}" as="g" hint-placeholder-count="3">
+        <span style="display: flex; align-items: center; gap: 3px; font-size: 12px; line-height: 17px; color: #536178; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{g}}</span>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{isInspection}}" hint-placeholder-val="{{true}}">
+    <div style="flex-shrink: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 4px; padding: 12px 4px; background: #fff; border-radius: 14px;">
+      <sc-for list="{{scenes}}" as="c" hint-placeholder-count="8">
+        <a href="InspCatalog.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; color: #202c42; text-decoration: none;">
+          <img src="{{c.icon}}" alt="{{c.label}}" style="width: 40px; height: 40px; object-fit: contain; display: block;">
+          <span style="font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{c.label}}</span>
+        </a>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; border-radius: 14px; background: linear-gradient(90deg, #fff0e3 0%, #fffaf5 100%);">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap;">非标需求？发布后多家报价</span>
+        <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">报价版本留档，比选后再签约</span>
+      </div>
+      <a href="Demand.dc.html" style="flex-shrink: 0; height: 44px; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; white-space: nowrap;">发布巡检需求</a>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 6px; height: 24px;">
+        <span style="width: 4px; height: 16px; border-radius: 2px; background: #ff6a00;"></span>
+        <h2 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700;">热门巡检服务</h2>
+        <sc-if value="{{hint}}" hint-placeholder-val="{{false}}">
+          <span role="status" style="margin-left: auto; font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{hint}}</span>
+        </sc-if>
+        <sc-if value="{{noHint}}" hint-placeholder-val="{{true}}">
+          <a href="InspCatalog.dc.html" style="margin: -10px 0 -10px auto; height: 44px; display: flex; align-items: center; font-size: 13px; line-height: 18px; color: #627187; text-decoration: none; white-space: nowrap;">查看全部 ›</a>
+        </sc-if>
+      </div>
+      <div style="display: flex; gap: 10px; margin-right: -16px; overflow: hidden;">
+        <sc-for list="{{hots}}" as="h" hint-placeholder-count="3">
+          <sc-if value="{{h.href}}" hint-placeholder-val="{{false}}">
+          <a href="{{h.href}}" style="flex-shrink: 0; width: 156px; display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; color: #202c42; text-decoration: none;">
+            <img src="{{h.img}}" alt="{{h.name}}" style="width: 156px; height: 88px; object-fit: cover; display: block;">
+            <div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px;">
+              <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{h.name}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{h.provider}}</span>
+              <div style="display: flex; align-items: baseline; gap: 2px; height: 22px; margin-top: 4px; white-space: nowrap;">
+                <span style="font-size: {{h.pfs}}; line-height: 22px; font-weight: 700; color: #e85400;">{{h.price}}</span>
+                <span style="font-size: 12px; line-height: 17px; color: #738096;">{{h.unit}}</span>
+              </div>
+            </div>
+          </a>
+          </sc-if>
+          <sc-if value="{{h.noHref}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{h.tap}}" style="flex-shrink: 0; width: 156px; display: flex; flex-direction: column; margin: 0; padding: 0; border: 0; background: #fff; border-radius: 12px; overflow: hidden; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+            <img src="{{h.img}}" alt="{{h.name}}" style="width: 156px; height: 88px; object-fit: cover; display: block;">
+            <div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px;">
+              <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{h.name}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{h.provider}}</span>
+              <div style="display: flex; align-items: baseline; gap: 2px; height: 22px; margin-top: 4px; white-space: nowrap;">
+                <span style="font-size: {{h.pfs}}; line-height: 22px; font-weight: 700; color: #e85400;">{{h.price}}</span>
+                <span style="font-size: 12px; line-height: 17px; color: #738096;">{{h.unit}}</span>
+              </div>
+            </div>
+          </button>
+          </sc-if>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isOther}}" hint-placeholder-val="{{false}}">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px; background: #fff; border-radius: 14px;">
+      <div style="align-self: stretch; display: flex; align-items: center; height: 24px;">
+        <h2 style="margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; white-space: nowrap;">{{otherTitle}}</h2>
+        <a href="SvcCatalog.dc.html" style="margin: -10px 0 -10px auto; height: 44px; display: flex; align-items: center; font-size: 13px; line-height: 18px; color: #627187; text-decoration: none; white-space: nowrap;">查看全部服务 ›</a>
+      </div>
+      <p style="margin: 0; font-size: 13px; line-height: 19px; color: #627187;">该类服务按项目报价，发布需求后由已审核的服务商报价</p>
+      <a href="Demand.dc.html" style="margin-top: 8px; height: 44px; padding: 0 24px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; white-space: nowrap;">发布需求</a>
+    </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 700;">服务流程</h2>
+      <div style="display: flex;">
+        <sc-for list="{{steps}}" as="st" hint-placeholder-count="4">
+          <div style="position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            <span style="width: 28px; height: 28px; border-radius: 50%; background: #e6f0ff; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2f80ed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{st.d}}"></path></svg></span>
+            <span style="font-size: 12px; line-height: 17px; color: #536178; white-space: nowrap;">{{st.label}}</span>
+            <sc-if value="{{st.arrow}}" hint-placeholder-val="{{true}}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: -6px; top: 8px;" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <a href="{{t.href}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px; font-weight: {{t.w}};">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+        <span>{{t.label}}</span>
+        <sc-if value="{{t.badge}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 4px; left: 50%; margin-left: 5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: #ff5200; color: #fff; font-size: 11px; line-height: 16px; text-align: center;">{{t.badge}}</span>
+        </sc-if>
+        <sc-if value="{{t.dot}}" hint-placeholder-val="{{false}}">
+          <span style="position: absolute; top: 7px; left: 50%; margin-left: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ff5200;"></span>
+        </sc-if>
+      </a>
+    </sc-for>
+  </nav>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // hint：点了没有画板的目标时，“热门巡检服务”标题行显示的提示
+    this.state = { sub: '巡检', hint: '' };
+  }
+  renderVals() {
+    const { sub, hint } = this.state;
+    const ACTIVE_CHANNEL = '专业服务';
+    const city = '东营';
+    // 巡检用 M01 固定占位词；其余四类按类型写
+    const placeholder = sub === '巡检' ? '搜索巡检服务、场景或关键词' : '搜索' + sub + '服务、场景或关键词';
+    const channels = [
+      ['推荐', 'HomeFull.dc.html'], ['专业服务', 'HomeSvc.dc.html'], ['赛事研学', 'HomeAct.dc.html'], ['体验', 'ExpCenter.dc.html'],
+      ['商城', 'MallHome.dc.html']
+    ].map(([label, href]) => {
+      const on = label === ACTIVE_CHANNEL;
+      return { label, href, on, c: on ? '#ff6a00' : '#202c42', fs: on ? '18px' : '15px', w: on ? 700 : 400 };
+    });
+
+    const ACTIVE = 0; // 0 首页 1 发现 2 消息 3 购物车 4 我的
+    const tabs = [
+      ['首页', 'HomeFull.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', '', false],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z', '', true],
+      ['消息', 'Messages.dc.html', 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01', '3', false],
+      ['购物车', 'Cart.dc.html', 'M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1', '3', false],
+      ['我的', 'Mine.dc.html', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', '', false]
+    ].map((t, i) => ({ label: t[0], href: t[1], d: t[2], badge: t[3], dot: t[4] && i !== ACTIVE, c: i === ACTIVE ? '#ff6a00' : '#738096', w: i === ACTIVE ? 500 : 400 }));
+
+    // 专业服务频道下的服务类型，默认选中“巡检”（复用巡检 M01 结构）
+    // 其他类型暂无场景与热门服务，只显示一张“按项目报价、发布需求”的说明卡，卡上“查看全部服务”到服务目录
+    const subs = ['巡检', '航拍', '测绘', '设备维护', '技术支持'].map((label) => {
+      const on = label === sub;
+      return {
+        label, on, bg: on ? '#ff6a00' : '#fff', fg: on ? '#fff' : '#202c42', w: on ? 500 : 400,
+        pick: () => this.setState({ sub: label, hint: '' })
+      };
+    });
+    const isInspection = sub === '巡检';
+    const isOther = !isInspection;
+    const otherTitle = sub + '服务';
+    // 巡检保持 M01 原样；其余四类只走发布需求，搜索去向、保障条和服务流程跟着类型变
+    // 设备维护、技术支持不涉及飞行，不写“持证飞手”；技术支持不一定有报告，不写“报告可追溯”
+    const searchHref = isInspection ? 'InspCatalog.dc.html' : 'SvcCatalog.dc.html';
+    const guards = {
+      巡检: ['资质审核', '持证飞手', '报告可追溯'],
+      航拍: ['资质审核', '持证飞手', '成果可追溯'],
+      测绘: ['资质审核', '持证飞手', '成果可追溯'],
+      设备维护: ['资质审核', '服务记录', '报告可追溯'],
+      技术支持: ['资质审核', '服务记录', '报价留档']
+    }[sub];
+    // 场景格、“查看全部”和搜索到巡检服务目录；原型不传参，进目录后都停在“全部”，正式产品带 categoryCode
+    const scenes = [
+      ['电力', '_blob/ed87a8ca604a55583799179628ab71b7.webp'],
+      ['光伏', '_blob/34573ec322a368316984cb95d8a42f31.webp'],
+      ['油气', '_blob/0019f4b01170c61b5486b786979b36d6.webp'],
+      ['热力', '_blob/0de11f8afc21ac3534a717d29977cf12.webp'],
+      ['园区', '_blob/2c1e1ca24d68733bb78471f4b065c9d9.webp'],
+      ['设备', '_blob/23f86d362a1aecaf3c2483fda2bf56bc.webp'],
+      ['定期', '_blob/38050a7e29738df8d42ab0ded4823f21.webp'],
+      ['更多', '_blob/88f5edd445f55b7062855819e6bb4636.webp']
+    ].map(([label, icon]) => ({ label, icon }));
+    // 价格两种模式：起步价 / 按项目报价；不显示评分和服务次数
+    // 三张热门卡都有详情画板
+    const hots = [
+      { name: '电力线路巡检', provider: '示例电力巡检服务商', price: '¥699', unit: '起/公里', pfs: '17px', img: '_blob/d26647dbfc9226eacaf364aaff076d9d.webp', href: 'InspDetail.dc.html' },
+      { name: '园区安防巡检', provider: '鹰眼智能巡检', price: '按项目报价', unit: '', pfs: '15px', img: '_blob/e42bb39cca5b4f528e6577da8445bced.webp', href: 'InspDetailPark.dc.html' },
+      { name: '光伏电站巡检', provider: '示例新能源运维公司', price: '¥699', unit: '起/次', pfs: '17px', img: '_blob/248020917b29731ae2eb5c415d406dd0.webp', href: 'InspDetailSolar.dc.html' }
+    ].map((h) => ({
+      ...h,
+      noHref: !h.href,
+      tap: () => this.setState({ hint: '' })
+    }));
+    // 四类没有预约路径：流程从发布需求开始，经比选报价，交付后做成果验收
+    const steps = (isInspection ? [
+      ['预约需求', 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h4'],
+      ['确认方案', 'M9 4h6v3H9zM7 5H5v16h14V5h-2M9 14l2 2 4-4'],
+      ['服务履约', 'M12 10v4M8 12h8M5 6a2 2 0 1 0 0 .1M19 6a2 2 0 1 0 0 .1M5 18a2 2 0 1 0 0 .1M19 18a2 2 0 1 0 0 .1M7 8l3 3M17 8l-3 3M7 16l3-3M17 16l-3-3'],
+      ['报告验收', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM8.5 12l2.5 2.5 4.5-5']
+    ] : [
+      ['发布需求', 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h4'],
+      ['比选报价', 'M4 20h16M7 20v-7M12 20V5M17 20v-10'],
+      ['服务履约', 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4'],
+      ['成果验收', 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM8.5 12l2.5 2.5 4.5-5']
+    ]).map(([label, d], i, arr) => ({ label, d, arrow: i < arr.length - 1 }));
+
+    const guardTitle = isInspection ? '巡检保障' : '服务保障';
+    return { city, placeholder, searchHref, channels, tabs, subs, guards, scenes, hots, steps, isInspection, isOther, otherTitle, guardTitle, hint, noHint: !hint };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

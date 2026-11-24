@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>登录</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="{{backHref}}" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">登录</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 8px 16px 24px;">
+    <sc-if value="{{showResume}}" hint-placeholder-val="{{true}}">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #ffd8b8; background: #fff3e8;">
+      <img src="/_blob/5d32505e8b9a494f8436e31c3008ef99" alt="编程机器人探索套装" style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px; object-fit: cover; display: block; background: #fff;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 13px; line-height: 18px; font-weight: 500;">登录后继续：立即购买 · 编程机器人探索套装</span>
+        <span style="font-size: 12px; line-height: 17px; color: #666b73;">登录成功后自动回到原操作</span>
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{isQuick}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 0 28px;">
+        <span style="font-size: 14px; line-height: 20px; color: #666b73;">本机号码</span>
+        <span style="font-size: 30px; line-height: 40px; font-weight: 700; letter-spacing: 1px;">138****2026</span>
+        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">认证服务由运营商提供</span>
+      </div>
+      <sc-if value="{{agree}}" hint-placeholder-val="{{false}}">
+        <a href="{{doneHref}}" style="flex-shrink: 0; height: 48px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">本机号码一键登录</a>
+      </sc-if>
+      <sc-if value="{{notAgree}}" hint-placeholder-val="{{true}}">
+        <button type="button" disabled="{{true}}" style="flex-shrink: 0; height: 48px; border: 0; border-radius: 999px; background: #c4c8ce; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: not-allowed;">本机号码一键登录</button>
+      </sc-if>
+      <button type="button" onClick="{{usePhone}}" style="flex-shrink: 0; align-self: center; min-height: 44px; margin-top: 8px; padding: 0 16px; border: 0; background: none; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">其他手机号登录</button>
+    </sc-if>
+
+    <sc-if value="{{isPhone}}" hint-placeholder-val="{{false}}">
+      <h2 style="flex-shrink: 0; margin: 28px 0 16px; font-size: 22px; line-height: 30px; font-weight: 700;">验证码登录</h2>
+      <label style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 14px; border-radius: 12px; background: #f7f8fa;">
+        <span style="flex-shrink: 0; font-size: 15px; color: #191919;">+86</span>
+        <span style="flex-shrink: 0; width: 1px; height: 16px; background: #dcdfe3;"></span>
+        <input type="tel" aria-label="手机号" placeholder="请输入手机号" value="{{phone}}" onChange="{{setPhone}}" style="flex-grow: 1; min-width: 0; height: 50px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 15px; color: #191919;">
+      </label>
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; height: 50px; margin-top: 12px; padding: 0 4px 0 14px; border-radius: 12px; background: #f7f8fa;">
+        <input type="text" aria-label="验证码" placeholder="请输入验证码" value="{{code}}" onChange="{{setCode}}" style="flex-grow: 1; min-width: 0; height: 50px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 15px; color: #191919;">
+        <sc-if value="{{codeIdle}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{sendCode}}" style="flex-shrink: 0; min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: #d94f00; white-space: nowrap; cursor: pointer;">获取验证码</button>
+        </sc-if>
+        <sc-if value="{{codeSent}}" hint-placeholder-val="{{false}}">
+          <button type="button" disabled="{{true}}" style="flex-shrink: 0; min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: #a3a8b0; white-space: nowrap; cursor: default;">60 秒后重新获取</button>
+        </sc-if>
+      </div>
+      <sc-if value="{{agree}}" hint-placeholder-val="{{false}}">
+        <a href="{{doneHref}}" style="flex-shrink: 0; height: 48px; margin-top: 24px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">登录</a>
+      </sc-if>
+      <sc-if value="{{notAgree}}" hint-placeholder-val="{{true}}">
+        <button type="button" disabled="{{true}}" style="flex-shrink: 0; height: 48px; margin-top: 24px; border: 0; border-radius: 999px; background: #c4c8ce; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: not-allowed;">登录</button>
+      </sc-if>
+      <button type="button" onClick="{{useQuick}}" style="flex-shrink: 0; align-self: center; min-height: 44px; margin-top: 8px; padding: 0 16px; border: 0; background: none; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">使用本机号码一键登录</button>
+    </sc-if>
+
+    <label style="flex-shrink: 0; position: relative; display: flex; align-items: flex-start; gap: 8px; margin-top: 16px; padding: 6px 0; font-size: 12px; line-height: 18px; color: #666b73; cursor: pointer;">
+      <input type="checkbox" checked="{{agree}}" onChange="{{toggleAgree}}" style="position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: 0; opacity: 0;">
+      <sc-if value="{{agree}}" hint-placeholder-val="{{false}}">
+        <span style="flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+      </sc-if>
+      <sc-if value="{{notAgree}}" hint-placeholder-val="{{true}}">
+        <span style="flex-shrink: 0; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid #a3a8b0; background: #fff;"></span>
+      </sc-if>
+      <span>我已阅读并同意<a href="Agreement.dc.html" style="color: #d94f00; text-decoration: none;">《用户协议》</a><a href="Agreement.dc.html" style="color: #d94f00; text-decoration: none;">《隐私政策》</a><a href="Agreement.dc.html" style="color: #d94f00; text-decoration: none;">《儿童个人信息保护规则》</a></span>
+    </label>
+
+    <a href="HomeFull.dc.html" style="flex-shrink: 0; align-self: center; margin-top: auto; min-height: 44px; padding: 0 16px; display: flex; align-items: center; font-size: 14px; color: #666b73; text-decoration: none;">先随便看看</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["商品详情拦截","从我的进入"],"default":"商品详情拦截"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // mode：quick 本机号码一键登录 / phone 其他手机号 + 验证码
+    // agree：协议勾选，未勾选时两种登录按钮都置灰（协议不默认勾选）
+    // codeSent：已点“获取验证码”，按钮变成“60 秒后重新获取”（原型不做倒计时）
+    this.state = { mode: 'quick', agree: false, phone: '', code: '', codeSent: false };
+  }
+  renderVals() {
+    const { mode, agree, phone, code, codeSent } = this.state;
+    // 跨板链接带不了帧：默认帧是商品详情拦截，用 Tweaks 切“从我的进入”后不显示继续操作条，登录成功回 Mine，返回回 MineGuest
+    const fromMine = (this.props.frame ?? '商品详情拦截') === '从我的进入';
+    // 输入框 onChange 才带事件对象；没有事件对象时保持原值。只保留数字：手机号最多 11 位，验证码最多 6 位
+    const digitsOf = (e, max) => (e && e.target ? String(e.target.value || '').replace(/\D/g, '').slice(0, max) : null);
+    return {
+      backHref: fromMine ? 'MineGuest.dc.html' : 'PdFull.dc.html',
+      doneHref: fromMine ? 'Mine.dc.html' : 'PdSku.dc.html',
+      showResume: !fromMine,
+      isQuick: mode === 'quick',
+      isPhone: mode === 'phone',
+      usePhone: () => this.setState({ mode: 'phone' }),
+      useQuick: () => this.setState({ mode: 'quick' }),
+      agree,
+      notAgree: !agree,
+      toggleAgree: () => this.setState((s) => ({ agree: !s.agree })),
+      phone,
+      code,
+      setPhone: (e) => { const v = digitsOf(e, 11); if (v !== null) this.setState({ phone: v }); },
+      setCode: (e) => { const v = digitsOf(e, 6); if (v !== null) this.setState({ code: v }); },
+      codeIdle: !codeSent,
+      codeSent,
+      sendCode: () => this.setState({ codeSent: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

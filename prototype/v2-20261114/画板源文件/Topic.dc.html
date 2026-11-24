@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>专题页</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1319px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="Discover.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">专题</h1>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; height: 190px; background: linear-gradient(135deg, #fff3e8 0%, #fffaf5 100%);">
+    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 6px 14px 16px;">
+      <span style="font-size: 12px; line-height: 17px; padding: 1px 6px; border-radius: 6px; background: #ff6a00; color: #fff; white-space: nowrap;">专题</span>
+      <h2 style="margin: 0; font-size: 22px; font-weight: 700; line-height: 30px; white-space: nowrap;">黄河口低空体验季</h2>
+      <span style="font-size: 13px; line-height: 19px; color: #555a62; white-space: nowrap;">到馆体验、赛事、研学合集</span>
+      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 2px; font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">
+        <span>东营城市运营中心 · 运营精选</span>
+        <span>11/01–11/30（示例）</span>
+      </div>
+    </div>
+    <img src="/_blob/f9a69cf415def2dd6f6807969effb1dc" alt="孩子们和老师一起体验编程机器人" style="flex-shrink: 0; width: 184px; height: 190px; object-fit: cover; object-position: right center; display: block; font-size: 12px; line-height: 17px;">
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+      <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 700; line-height: 22px;">本季活动</h3>
+      <sc-for list="{{acts}}" as="r" hint-placeholder-count="3">
+        <a href="{{r.href}}" style="display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid #f0f1f3; text-decoration: none; color: #191919;">
+          <span style="position: relative; flex-shrink: 0; display: block; width: 76px; height: 76px; border-radius: 10px; overflow: hidden; background: #f2f3f5;">
+            <img src="{{r.img}}" alt="{{r.t}}" style="width: 100%; height: 100%; object-fit: cover; display: block; font-size: 12px; line-height: 17px;">
+            <span style="position: absolute; left: 4px; top: 4px; padding: 0 5px; border-radius: 6px; background: #f1edff; color: #6a4fe0; font-size: 12px; line-height: 17px; font-weight: 500; white-space: nowrap;">{{r.tag}}</span>
+          </span>
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.t}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.when}}</span>
+            <span style="margin-top: auto; display: flex; align-items: baseline; gap: 3px; white-space: nowrap;">
+              <span style="font-size: 16px; line-height: 22px; font-weight: 700; color: #e85400;">{{r.price}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">{{r.unit}}</span>
+              <span style="margin-left: auto; font-size: 12px; line-height: 17px; font-weight: 500; color: {{r.sc}};">{{r.status}}</span>
+            </span>
+          </span>
+        </a>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">到馆体验</h3>
+      <a href="VenueDetail.dc.html" style="display: flex; align-items: center; gap: 6px; min-height: 44px; font-size: 13px; line-height: 18px; color: #555a62; text-decoration: none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5a7 7 0 0 0-14 0C5 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z"></path></svg>
+        <span style="flex-grow: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">东营低空与机器人体验馆 · 09:30–18:00</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+      <sc-for list="{{sessions}}" as="s" hint-placeholder-count="2">
+        <a href="VenueDetail.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 60px; border-top: 1px solid #f0f1f3; text-decoration: none; color: #191919;">
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; line-height: 21px; font-weight: 500; white-space: nowrap;">{{s.t}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">今天 {{s.when}}</span>
+          </span>
+          <span style="flex-shrink: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: {{s.c}}; white-space: nowrap;">{{s.left}}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+      <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 700; line-height: 22px;">相关内容</h3>
+      <sc-for list="{{contents}}" as="c" hint-placeholder-count="2">
+        <a href="{{c.href}}" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #f0f1f3; text-decoration: none; color: #191919;">
+          <span style="position: relative; flex-shrink: 0; display: block; width: 100px; height: 66px; border-radius: 10px; overflow: hidden; background: #f2f3f5;">
+            <img src="{{c.img}}" alt="{{c.t}}" style="width: 100%; height: 100%; object-fit: cover; display: block; font-size: 12px; line-height: 17px;">
+            <span style="position: absolute; left: 4px; top: 4px; padding: 0 5px; border-radius: 6px; background: rgba(0,0,0,0.45); color: #fff; font-size: 12px; line-height: 17px; white-space: nowrap;">{{c.tag}}</span>
+            <sc-if value="{{c.dur}}" hint-placeholder-val="{{true}}">
+              <span style="position: absolute; right: 4px; bottom: 4px; padding: 0 5px; border-radius: 6px; background: rgba(0,0,0,0.55); color: #fff; font-size: 12px; line-height: 17px; white-space: nowrap;">{{c.dur}}</span>
+            </sc-if>
+          </span>
+          <span style="flex-grow: 1; min-width: 0; font-size: 14px; font-weight: 500; line-height: 20px;">{{c.t}}</span>
+        </a>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+      <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 700; line-height: 22px;">商家内容</h3>
+      <a href="PdFull.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #f0f1f3; text-decoration: none; color: #191919;">
+        <img src="/_blob/5d32505e8b9a494f8436e31c3008ef99" alt="编程机器人探索套装" style="flex-shrink: 0; width: 76px; height: 76px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5; font-size: 12px; line-height: 17px;">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+            <span style="flex-shrink: 0; padding: 0 5px; border-radius: 6px; background: #f2f3f5; color: #555a62; font-size: 12px; line-height: 17px; font-weight: 500; white-space: nowrap;">广告</span>
+            <span style="min-width: 0; font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">示例机器人商家发布</span>
+          </span>
+          <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">编程机器人探索套装</span>
+          <span style="display: flex; align-items: baseline; gap: 3px; font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;"><span style="font-size: 16px; line-height: 22px; font-weight: 700; color: #e85400;">¥1,299</span> 起 · 3 家在售</span>
+        </span>
+      </a>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px; height: 46px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 13v7h14v-7"></path></svg>分享专题</button>
+    <a href="HomeAct.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看全部活动</a>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="分享专题" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">分享专题</span>
+        <span style="font-size: 13px; line-height: 18px; color: #666b73;">黄河口低空体验季 · 东营城市运营中心</span>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 18px; color: #555a62;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span style="min-width: 0;">链接带专题和城市来源标识，用于统计报名和订单来自哪里，不包含你的个人信息</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">关闭</button>
+        <sc-if value="{{canCopy}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{copyLink}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">复制链接</button>
+        </sc-if>
+        <sc-if value="{{copied}}" hint-placeholder-val="{{false}}">
+          <span role="status" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 4px; height: 44px; border-radius: 999px; background: #e8f7ef; font-size: 15px; font-weight: 500; color: #11804a; white-space: nowrap;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>链接已复制</span>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1319}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // sheet：分享面板是否打开；copied：这次打开后是否已复制链接
+    this.state = { sheet: false, copied: false };
+  }
+  renderVals() {
+    const { sheet, copied } = this.state;
+    const ok = '#11804a', warn = '#d94f00';
+
+    // 本季活动：数据与“活动”频道一致，全部落到活动详情
+    const acts = [
+      { href: 'ActDetail.dc.html', tag: '赛事', t: '青少年无人机编程挑战赛（东营站）', when: '11/15 09:00 · 东营低空与机器人体验馆', price: '¥120', unit: '/人', status: '余 12/60', sc: ok, img: '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489' },
+      { href: 'ActOpenDay.dc.html', tag: '体验日', t: '无人机开放体验日', when: '11/14 10:00 · 东营低空与机器人体验馆', price: '免费', unit: '', status: '报名中', sc: ok, img: '/_blob/e42bb39cca5b4f528e6577da8445bced' },
+      { href: 'ActCamp.dc.html', tag: '研学', t: '黄河口低空研学一日营', when: '每周六 · 含接送', price: '¥268', unit: '/人', status: '已满 · 可候补', sc: warn, img: '/_blob/eada5bcde09c62b71c41868194f30706' }
+    ];
+
+    // 到馆体验：数据与首页“今天去体验”一致，余位紧张时用橙色；全部落到场馆详情
+    const sessions = [
+      { t: '模拟飞行', when: '14:00 场', left: '余 6 位', c: ok },
+      { t: '机器人闯关', when: '15:30 场', left: '余 2 位', c: warn }
+    ];
+
+    // 相关内容：封面与发现页一致；只有视频显示时长；视频到视频详情，案例到图文详情
+    const contents = [
+      { tag: '视频', dur: '3:12', t: '3 分钟看懂编程机器人', img: '/_blob/d7f749aa0af5b1d1784040d2a816e2f0', href: 'ContentVideo.dc.html' },
+      { tag: '案例', dur: '', t: '一台机器狗如何完成园区夜间巡逻', img: '/_blob/e42bb39cca5b4f528e6577da8445bced', href: 'ContentArticle.dc.html' }
+    ];
+
+    return {
+      acts, sessions, contents,
+      sheetOpen: sheet,
+      canCopy: !copied,
+      copied,
+      openSheet: () => this.setState({ sheet: true }),
+      copyLink: () => this.setState({ copied: true }),
+      // 关闭时清掉“已复制”，下次打开回到可复制状态
+      closeSheet: () => this.setState({ sheet: false, copied: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

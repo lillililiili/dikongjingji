@@ -1,0 +1,256 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>租赁询价单：租期、地点、交接</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 1228px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="PdRental.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">填写租赁询价单</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">设备清单</h2>
+      <div style="display: flex; gap: 12px;">
+        <img src="_blob/a016bad56a0e687061b30b2a4fd96ff6.jpg" alt="巡检机器狗" style="width: 80px; height: 80px; border-radius: 10px; object-fit: cover; flex-shrink: 0;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between;">
+          <span style="font-size: 15px; font-weight: 500; line-height: 21px;">巡检机器狗</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">出租方 示例机器人商家</span>
+          <div style="display: flex; align-items: center;">
+            <span style="font-size: 15px; font-weight: 700; line-height: 21px; color: #e85400; white-space: nowrap;">¥380/天 起</span>
+            <div style="margin-left: auto; display: flex; align-items: center; border: 1px solid #e5ebf3; border-radius: 8px;">
+              <button type="button" aria-label="减少台数" disabled="{{decOff}}" onClick="{{dec}}" style="width: 36px; height: 44px; margin: -7px 0; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 18px; color: {{decColor}}; cursor: {{decCursor}};">−</button>
+              <span style="width: 36px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; border-left: 1px solid #e5ebf3; border-right: 1px solid #e5ebf3;">{{qty}}</span>
+              <button type="button" aria-label="增加台数" onClick="{{inc}}" style="width: 36px; height: 44px; margin: -7px 0; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 18px; color: #202c42; cursor: pointer;">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <a href="DevicePick.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; border: 1px dashed #c9d3e1; background: #fff; font-size: 14px; color: #536178; text-decoration: none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#738096" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+        <span style="white-space: nowrap;">添加其他设备</span>
+      </a>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: baseline;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">租期<span style="color: #d64f67;">*</span></h2>
+        <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">档期由商家报价时确认</span>
+      </div>
+      <div style="display: flex; align-items: stretch; gap: 8px;">
+        <button type="button" aria-haspopup="dialog" onClick="{{openDate}}" style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; min-height: 60px; box-sizing: border-box; margin: 0; padding: 8px 12px; border-radius: 10px; border: 1.5px solid #ff6a00; background: #fffaf5; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+          <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">起租日</span>
+          <span style="font-size: 15px; font-weight: 700; line-height: 21px; white-space: nowrap;">{{startText}}</span>
+        </button>
+        <span style="flex-shrink: 0; align-self: center; font-size: 13px; line-height: 18px; color: #ba470b; white-space: nowrap;">共 {{days}} 天</span>
+        <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; min-height: 60px; box-sizing: border-box; padding: 8px 12px; border-radius: 10px; border: 1.5px solid #f0f1f3; background: #f5f7fc;">
+          <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">到期日</span>
+          <span style="font-size: 15px; font-weight: 700; line-height: 21px; white-space: nowrap;">{{endText}}</span>
+        </div>
+      </div>
+      <div role="group" aria-label="租用天数" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+        <sc-for list="{{dayOptions}}" as="o" hint-placeholder-count="4">
+          <button type="button" aria-pressed="{{o.on}}" onClick="{{o.pick}}" style="min-width: 0; height: 36px; box-sizing: border-box; margin: 0; padding: 0; border-radius: 999px; border: 1.5px solid {{o.bd}}; background: {{o.bg}}; font: inherit; font-size: 13px; color: {{o.c}}; font-weight: {{o.w}}; white-space: nowrap; cursor: pointer;">{{o.label}}</button>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; background: #fff0e3;">
+        <span style="flex-shrink: 0; font-size: 13px; line-height: 18px; color: #536178; white-space: nowrap;">参考租金</span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">¥380 × {{days}} 天 × {{qty}} 台</span>
+        <span style="flex-shrink: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: #e85400; white-space: nowrap;">{{estimate}} 起</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 6px; font-size: 16px; font-weight: 700; line-height: 22px;">使用与交接</h2>
+      <button type="button" aria-haspopup="dialog" onClick="{{openPlace}}" style="display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; margin: 0; padding: 0; border: 0; border-top: 1px solid #f0f1f3; background: none; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5z"></path></svg>
+        <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; white-space: nowrap;">使用地点<span style="color: #d64f67;">*</span></span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{placeName}}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </button>
+      <div style="display: flex; align-items: center; gap: 8px; min-height: 48px; border-top: 1px solid #f0f1f3;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M4 9h14l-3-3M20 15H6l3 3"></path></svg>
+        <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; white-space: nowrap;">交接方式<span style="color: #d64f67;">*</span></span>
+        <div role="radiogroup" aria-label="交接方式" style="margin-left: auto; display: flex; padding: 2px; border-radius: 999px; background: #eef2f8;">
+          <sc-for list="{{handoverOptions}}" as="h" hint-placeholder-count="2">
+            <button type="button" role="radio" aria-checked="{{h.on}}" onClick="{{h.pick}}" style="height: 36px; margin: 0; padding: 0 14px; border: 0; border-radius: 999px; background: {{h.bg}}; font: inherit; font-size: 13px; font-weight: {{h.w}}; color: {{h.c}}; white-space: nowrap; cursor: pointer;">{{h.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="margin: -2px 0 10px 26px; font-size: 12px; line-height: 17px; color: #627187;">{{handoverNote}}</div>
+      <label style="display: flex; align-items: center; gap: 8px; min-height: 48px; border-top: 1px solid #f0f1f3; cursor: text;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6"></path></svg>
+        <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; white-space: nowrap;">联系人<span style="color: #d64f67;">*</span></span>
+        <input type="text" aria-label="联系人" placeholder="请输入联系人姓名" value="{{contact}}" onChange="{{setContact}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #202c42; text-align: right;">
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; min-height: 48px; border-top: 1px solid #f0f1f3; cursor: text;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2"></path></svg>
+        <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; white-space: nowrap;">手机号<span style="color: #d64f67;">*</span></span>
+        <input type="tel" aria-label="手机号" placeholder="请输入联系人手机号" value="{{phone}}" onChange="{{setPhone}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #202c42; text-align: right;">
+      </label>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">询价身份<span style="color: #d64f67;">*</span></h2>
+      <div role="radiogroup" aria-label="询价身份" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+        <sc-for list="{{identities}}" as="d" hint-placeholder-count="2">
+          <button type="button" role="radio" aria-checked="{{d.on}}" onClick="{{d.pick}}" style="display: flex; align-items: center; gap: 4px; min-width: 0; min-height: 60px; box-sizing: border-box; margin: 0; padding: 8px 10px 8px 12px; border-radius: 12px; border: 1.5px solid {{d.bd}}; background: {{d.bg}}; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap;">{{d.t}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">{{d.s}}</span>
+            </span>
+            <sc-if value="{{d.on}}" hint-placeholder-val="{{false}}">
+              <span style="flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+            </sc-if>
+            <sc-if value="{{d.off}}" hint-placeholder-val="{{true}}">
+              <span style="flex-shrink: 0; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid #c9d3e1; background: #fff;"></span>
+            </sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">补充说明</h2>
+      <textarea aria-label="补充说明" placeholder="例如夜间使用、需要现场讲解（选填）" value="{{note}}" onChange="{{setNote}}" style="display: block; width: 100%; height: 76px; box-sizing: border-box; margin: 0; padding: 10px 12px; border: 1px solid #e5ebf3; border-radius: 10px; background: #f5f7fc; font: inherit; font-size: 14px; line-height: 20px; color: #202c42; resize: none; outline: none;"></textarea>
+    </div>
+
+    <div style="flex-shrink: 0; padding: 0 2px; font-size: 12px; line-height: 19px; color: #627187;">提交后商家在 2 个工作日内报价，报价会通过“消息”通知你，并在“我的 → 需求与报价”中查看。押金和赔付以合同约定为准。</div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0 -16px 10px; padding: 7px 16px; background: #eefaf3; font-size: 12px; line-height: 17px; color: #11804a;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10c-4-2-7-5-7-10V6zM9 12l2 2 4-4"></path></svg>
+      <span style="white-space: nowrap;">提交询价不产生费用，确认合同后才付款</span>
+    </div>
+    <a href="DemandList.dc.html" style="height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">提交询价</a>
+  </div>
+
+  <sc-if value="{{dateOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="选择起租日" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 12px; padding: 8px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; align-items: center;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">选择起租日</h2>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">这是你的期望日期，档期由商家报价时确认</span>
+        </div>
+        <button type="button" onClick="{{closeSheet}}" aria-label="收起" style="flex-shrink: 0; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div role="group" aria-label="起租日" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+        <sc-for list="{{dateOptions}}" as="o" hint-placeholder-count="8">
+          <button type="button" aria-pressed="{{o.on}}" onClick="{{o.pick}}" style="min-width: 0; min-height: 56px; box-sizing: border-box; margin: 0; padding: 6px 0; border-radius: 10px; border: 1.5px solid {{o.bd}}; background: {{o.bg}}; font: inherit; color: {{o.c}}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer;">
+            <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap;">{{o.md}}</span>
+            <span style="font-size: 12px; line-height: 17px; white-space: nowrap;">{{o.wk}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{placeOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="选择使用地点" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 10px; padding: 8px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; align-items: center;">
+        <h2 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">选择使用地点</h2>
+        <button type="button" onClick="{{closeSheet}}" aria-label="收起" style="flex-shrink: 0; width: 44px; height: 44px; margin: 0; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <sc-for list="{{places}}" as="p" hint-placeholder-count="2">
+        <button type="button" aria-pressed="{{p.on}}" onClick="{{p.pick}}" style="display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; margin: 0; padding: 12px; border-radius: 12px; border: 1.5px solid {{p.bd}}; background: {{p.bg}}; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px;">{{p.name}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #627187;">{{p.addr}}</span>
+          </span>
+          <sc-if value="{{p.on}}" hint-placeholder-val="{{false}}">
+            <span style="flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          </sc-if>
+        </button>
+      </sc-for>
+      <a href="AddressList.dc.html" style="align-self: flex-start; min-height: 36px; display: flex; align-items: center; font-size: 13px; text-decoration: none;">管理地址 ›</a>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { qty: 1, days: 5, startAt: 9, handover: 'deliver', place: 'org', who: 'org', contact: '王女士', phone: '138****2026', note: '', sheet: '' };
+  }
+  renderVals() {
+    const { qty, days, startAt, handover, place, who, contact, phone, note, sheet } = this.state;
+    // startAt = 相对 11/01（周日）的天数，到期日算法只服务这块画板的示例日期
+    const weekNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const dateOf = (n) => ({ md: n < 30 ? '11/' + String(n + 1).padStart(2, '0') : '12/' + String(n - 29).padStart(2, '0'), wk: weekNames[n % 7] });
+    const start = dateOf(startAt);
+    const end = dateOf(startAt + days - 1);
+    const chipOf = (on) => ({ bd: on ? '#ff6a00' : '#e5ebf3', bg: on ? '#fffaf5' : '#fff', c: on ? '#ba470b' : '#202c42', w: on ? 500 : 400 });
+    const dayOptions = [3, 5, 7, 30].map((d) => {
+      const on = d === days;
+      return { label: d + ' 天', on, ...chipOf(on), pick: () => this.setState({ days: d }) };
+    });
+    const dateOptions = [4, 5, 6, 7, 8, 9, 10, 11].map((n) => {
+      const on = n === startAt;
+      return { ...dateOf(n), on, ...chipOf(on), pick: () => this.setState({ startAt: n, sheet: '' }) };
+    });
+    // 参考金额只按 ¥380/天 起算，带“起”，真金额在商家报价和合同里
+    const estimate = '¥' + (380 * days * qty).toLocaleString('en-US');
+    const handoverOptions = [['deliver', '商家送达'], ['pickup', '到店自提']].map(([id, label]) => {
+      const on = id === handover;
+      return { label, on, bg: on ? '#fff' : 'transparent', c: on ? '#ba470b' : '#536178', w: on ? 500 : 400, pick: () => this.setState({ handover: id }) };
+    });
+    const handoverNote = handover === 'deliver'
+      ? '商家送到使用地点，现场核对设备和配件后交接'
+      : '到示例机器人商家东营仓取机，现场核对后交接';
+    const placeRows = [
+      { id: 'org', name: '东营港务物流 收货点', addr: '山东省东营市东营港经济开发区 示例港路 6 号（示例）' },
+      { id: 'home', name: '示例路 88 号', addr: '山东省东营市东营区 示例路 88 号（示例）' }
+    ];
+    const places = placeRows.map((p) => {
+      const on = p.id === place;
+      return { ...p, on, bd: on ? '#ff6a00' : '#e5ebf3', bg: on ? '#fffaf5' : '#fff', pick: () => this.setState({ place: p.id, sheet: '' }) };
+    });
+    const placeName = (placeRows.find((p) => p.id === place) || placeRows[0]).name;
+    const identities = [['org', '企业', '东营港务物流'], ['me', '个人', '王女士']].map(([id, t, s]) => {
+      const on = id === who;
+      return { t, s, on, off: !on, bd: on ? '#ff6a00' : '#e5ebf3', bg: on ? '#fffaf5' : '#fff', pick: () => this.setState({ who: id }) };
+    });
+    const closeSheet = () => this.setState({ sheet: '' });
+    const decOff = qty <= 1;
+    return {
+      qty, days, decOff, decColor: decOff ? '#c9d3e1' : '#202c42', decCursor: decOff ? 'not-allowed' : 'pointer',
+      dec: () => this.setState((st) => ({ qty: Math.max(1, st.qty - 1) })),
+      inc: () => this.setState((st) => ({ qty: Math.min(9, st.qty + 1) })),
+      startText: start.md + ' ' + start.wk, endText: end.md + ' ' + end.wk,
+      dayOptions, dateOptions, estimate, handoverOptions, handoverNote, places, placeName, identities,
+      contact, phone, note,
+      setContact: (e) => this.setState({ contact: e && e.target ? e.target.value : '' }),
+      setPhone: (e) => this.setState({ phone: e && e.target ? e.target.value : '' }),
+      setNote: (e) => this.setState({ note: e && e.target ? e.target.value : '' }),
+      dateOpen: sheet === 'date', placeOpen: sheet === 'place',
+      openDate: () => this.setState({ sheet: 'date' }),
+      openPlace: () => this.setState({ sheet: 'place' }),
+      closeSheet
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

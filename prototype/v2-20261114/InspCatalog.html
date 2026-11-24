@@ -1,0 +1,390 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SVC-02 巡检服务目录（M02）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+input::placeholder{color:#738096;opacity:1}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 1197px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px 16px 8px 8px; background: #fff;">
+    <a href="HomeSvc.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">巡检服务</h1>
+    <a href="Chat.dc.html" style="flex-shrink: 0; height: 44px; margin: 0 0 0 auto; display: flex; align-items: center; text-decoration: none;"><span style="height: 34px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #e5ebf3; color: #202c42; font-size: 13px; line-height: 18px; display: flex; align-items: center; gap: 4px; white-space: nowrap;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 1 1 16 0v2M4 14h3v5H5a1 1 0 0 1-1-1zM20 14h-3v5h2a1 1 0 0 0 1-1zM17 19c0 1.5-2 2-5 2"></path></svg>客服</span></a>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; padding: 0 8px 4px 16px; background: #fff;">
+    <div style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; box-sizing: border-box; padding: 0 4px 0 12px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#627187" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+      <input type="text" aria-label="搜索巡检服务" placeholder="搜索巡检服务、场景或关键词" value="{{keyword}}" onChange="{{setKeyword}}" style="flex-grow: 1; min-width: 0; height: 36px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #202c42;">
+      <sc-if value="{{keyword}}" hint-placeholder-val="{{false}}">
+        <button type="button" aria-label="清除搜索词" onClick="{{clearKeyword}}" style="flex-shrink: 0; width: 36px; height: 44px; margin: -2px 0; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#c9d3e1"></circle><path d="M9 9l6 6M15 9l-6 6" stroke="#fff" stroke-width="2"></path></svg></button>
+      </sc-if>
+    </div>
+    <button type="button" aria-haspopup="dialog" onClick="{{openFilter}}" style="flex-shrink: 0; height: 44px; margin: 0; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 14px; line-height: 20px; color: #202c42; display: flex; align-items: center; gap: 1px; white-space: nowrap; cursor: pointer;"><span style="position: relative; display: flex; padding: 2px 3px 0 0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.2 7.6V19l-3.6 1.8v-8.2z"></path></svg><sc-if value="{{hasFilter}}" hint-placeholder-val="{{false}}"><span role="img" aria-label="已设置筛选条件" style="position: absolute; top: 0; right: 0; width: 8px; height: 8px; border-radius: 50%; background: #ff6a00;"></span></sc-if></span>筛选</button>
+  </div>
+
+  <div role="group" aria-label="巡检分类" style="flex-shrink: 0; display: flex; gap: 8px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; background: #fff;">
+    <sc-for list="{{cats}}" as="s" hint-placeholder-count="8">
+      <button type="button" onClick="{{s.pick}}" aria-pressed="{{s.pressed}}" style="flex-shrink: 0; height: 44px; margin: 0; padding: 0; border: 0; background: none; font: inherit; display: flex; align-items: center; cursor: pointer;"><span style="height: 32px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; background: {{s.bg}}; color: {{s.fg}}; font-size: 14px; line-height: 20px; font-weight: {{s.w}}; display: flex; align-items: center; white-space: nowrap;">{{s.label}}</span></button>
+    </sc-for>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; height: 44px; padding: 0 6px; background: #fff; border-bottom: 1px solid #f0f1f3;">
+    <button type="button" onClick="{{sortComp.pick}}" aria-pressed="{{sortComp.pressed}}" style="flex-shrink: 0; height: 44px; margin: 0; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; line-height: 20px; font-weight: {{sortComp.w}}; color: {{sortComp.c}}; white-space: nowrap; cursor: pointer;">综合排序</button>
+    <span style="flex-shrink: 0; width: 1px; height: 14px; background: #e5ebf3;"></span>
+    <button type="button" onClick="{{sortDist.pick}}" aria-pressed="{{sortDist.pressed}}" style="flex-shrink: 0; height: 44px; margin: 0; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; line-height: 20px; font-weight: {{sortDist.w}}; color: {{sortDist.c}}; white-space: nowrap; cursor: pointer;">距离最近</button>
+    <span style="flex-shrink: 0; width: 1px; height: 14px; background: #e5ebf3;"></span>
+    <button type="button" onClick="{{sortPrice.pick}}" aria-pressed="{{sortPrice.pressed}}" aria-label="{{sortPrice.aria}}" style="flex-shrink: 0; height: 44px; margin: 0; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; line-height: 20px; font-weight: {{sortPrice.w}}; color: {{sortPrice.c}}; display: flex; align-items: center; gap: 3px; white-space: nowrap; cursor: pointer;">价格<svg width="10" height="14" viewBox="0 0 10 14" aria-hidden="true"><path d="M5 1l3.5 4.5h-7z" fill="{{sortPrice.up}}"></path><path d="M5 13L1.5 8.5h7z" fill="{{sortPrice.down}}"></path></svg></button>
+    <button type="button" aria-haspopup="dialog" aria-label="{{cityAria}}" onClick="{{openCity}}" style="flex-shrink: 0; height: 44px; margin: 0 0 0 auto; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; line-height: 20px; color: #202c42; display: flex; align-items: center; gap: 2px; white-space: nowrap; cursor: pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>{{city}}<svg width="14" height="14" viewBox="0 0 24 24" fill="#202c42" aria-hidden="true"><path d="M6 9l6 6 6-6z"></path></svg></button>
+  </div>
+
+  <sc-if value="{{locDenied}}" hint-placeholder-val="{{false}}">
+    <div role="status" style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 16px; background: #fffaf5; font-size: 12px; line-height: 17px; color: #ba470b; white-space: nowrap;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>未开启定位，已按综合排序</div>
+  </sc-if>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding: 10px 16px 16px;">
+    <sc-for list="{{cards}}" as="c" hint-placeholder-count="5">
+      <div style="position: relative; flex-shrink: 0;">
+        <sc-if value="{{c.isLink}}" hint-placeholder-val="{{true}}">
+          <a href="{{c.href}}" style="display: flex; height: {{c.cardH}}; border-radius: 14px; background: #fff; overflow: hidden; color: #202c42; text-decoration: none;">
+            <div style="position: relative; flex-shrink: 0; width: 118px; height: {{c.cardH}}; display: flex; align-items: center; justify-content: center; background: {{c.imgBg}};">
+              <img src="{{c.img}}" alt="{{c.alt}}" style="width: {{c.imgW}}; height: {{c.imgH}}; object-fit: {{c.imgFit}}; display: block;">
+              <span style="position: absolute; left: 0; top: 0; padding: 1px 8px; border-radius: 0 0 8px 0; background: {{c.catBg}}; color: #fff; font-size: 11px; line-height: 17px; font-weight: 500; white-space: nowrap;">{{c.cat}}</span>
+            </div>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; padding: 10px;">
+              <span style="font-size: 16px; line-height: 22px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{c.title}}</span>
+              <span style="margin-top: 2px; font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{c.desc}}</span>
+              <div style="display: flex; gap: 4px; margin-top: 6px;">
+                <sc-for list="{{c.tags}}" as="t" hint-placeholder-count="3">
+                  <span style="flex-shrink: 0; height: 20px; box-sizing: border-box; padding: 0 5px; border-radius: 6px; border: 1px solid #159a70; color: #11804a; font-size: 11px; line-height: 18px; white-space: nowrap;">{{t}}</span>
+                </sc-for>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: {{c.priceH}}; margin-top: 6px;">
+                <div style="min-width: 0; display: flex; flex-direction: column;">
+                  <div style="display: flex; align-items: baseline; gap: 2px; height: 20px; white-space: nowrap;">
+                    <span style="font-size: {{c.priceFs}}; line-height: 20px; font-weight: 700; color: #e85400;">{{c.price}}</span>
+                    <span style="font-size: 12px; line-height: 17px; color: #738096;">{{c.unit}}</span>
+                  </div>
+                  <span style="font-size: 12px; line-height: 16px; color: #738096; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{c.note}}</span>
+                  <sc-if value="{{c.showKm}}" hint-placeholder-val="{{false}}">
+                    <span style="font-size: 12px; line-height: 16px; color: #627187; white-space: nowrap;">{{c.kmText}}</span>
+                  </sc-if>
+                </div>
+                <span style="flex-shrink: 0; height: 32px; padding: 0 14px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 13px; line-height: 18px; font-weight: 500; display: flex; align-items: center; white-space: nowrap;">详情</span>
+              </div>
+            </div>
+          </a>
+        </sc-if>
+        <sc-if value="{{c.isBtn}}" hint-placeholder-val="{{false}}">
+          <button type="button" onClick="{{c.tap}}" style="display: flex; width: 100%; height: {{c.cardH}}; margin: 0; padding: 0; border: 0; border-radius: 14px; background: #fff; overflow: hidden; font: inherit; color: #202c42; text-align: left; cursor: pointer;">
+            <div style="position: relative; flex-shrink: 0; width: 118px; height: {{c.cardH}}; display: flex; align-items: center; justify-content: center; background: {{c.imgBg}};">
+              <img src="{{c.img}}" alt="{{c.alt}}" style="width: {{c.imgW}}; height: {{c.imgH}}; object-fit: {{c.imgFit}}; display: block;">
+              <span style="position: absolute; left: 0; top: 0; padding: 1px 8px; border-radius: 0 0 8px 0; background: {{c.catBg}}; color: #fff; font-size: 11px; line-height: 17px; font-weight: 500; white-space: nowrap;">{{c.cat}}</span>
+            </div>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; padding: 10px;">
+              <span style="font-size: 16px; line-height: 22px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{c.title}}</span>
+              <span style="margin-top: 2px; font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{c.desc}}</span>
+              <div style="display: flex; gap: 4px; margin-top: 6px;">
+                <sc-for list="{{c.tags}}" as="t" hint-placeholder-count="3">
+                  <span style="flex-shrink: 0; height: 20px; box-sizing: border-box; padding: 0 5px; border-radius: 6px; border: 1px solid #159a70; color: #11804a; font-size: 11px; line-height: 18px; white-space: nowrap;">{{t}}</span>
+                </sc-for>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: {{c.priceH}}; margin-top: 6px;">
+                <div style="min-width: 0; display: flex; flex-direction: column;">
+                  <div style="display: flex; align-items: baseline; gap: 2px; height: 20px; white-space: nowrap;">
+                    <span style="font-size: {{c.priceFs}}; line-height: 20px; font-weight: 700; color: #e85400;">{{c.price}}</span>
+                    <span style="font-size: 12px; line-height: 17px; color: #738096;">{{c.unit}}</span>
+                  </div>
+                  <span style="font-size: 12px; line-height: 16px; color: #738096; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{c.note}}</span>
+                  <sc-if value="{{c.showKm}}" hint-placeholder-val="{{false}}">
+                    <span style="font-size: 12px; line-height: 16px; color: #627187; white-space: nowrap;">{{c.kmText}}</span>
+                  </sc-if>
+                </div>
+                <span style="flex-shrink: 0; height: 32px; padding: 0 14px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 13px; line-height: 18px; font-weight: 500; display: flex; align-items: center; white-space: nowrap;">详情</span>
+              </div>
+            </div>
+          </button>
+        </sc-if>
+        <sc-if value="{{c.hinted}}" hint-placeholder-val="{{false}}">
+          <button type="button" role="status" onClick="{{c.closeHint}}" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 3; display: flex; align-items: flex-start; gap: 6px; margin: 4px 0 0; padding: 8px 10px; box-sizing: border-box; border: 1px solid #ffd8b8; border-radius: 10px; background: #fff0e3; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font: inherit; font-size: 12px; line-height: 18px; color: #ba470b; text-align: left; cursor: pointer;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+            <span style="flex-grow: 1; min-width: 0;">{{c.hintText}}</span>
+            <span aria-hidden="true" style="flex-shrink: 0; font-size: 14px; line-height: 18px; color: #ba470b;">×</span>
+          </button>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    <sc-if value="{{hasMore}}" hint-placeholder-val="{{true}}">
+      <button type="button" onClick="{{loadMore}}" style="flex-shrink: 0; height: 44px; margin: 0; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; line-height: 18px; color: #627187; white-space: nowrap; cursor: pointer;">上拉加载更多</button>
+    </sc-if>
+    <sc-if value="{{noMore}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 18px; color: #738096; white-space: nowrap;">没有更多服务了</div>
+    </sc-if>
+
+    <sc-if value="{{showEmpty}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 16px; background: #fff; border-radius: 14px;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+        <span style="font-size: 15px; line-height: 21px; font-weight: 500;">没有找到相关服务</span>
+        <span style="font-size: 13px; line-height: 18px; color: #627187;">请更换关键词、分类或筛选条件</span>
+        <button type="button" onClick="{{clearAll}}" style="height: 44px; margin: 8px 0 0; padding: 0 22px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; color: #ba470b; font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;">清空条件</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{showClosed}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 16px; background: #fff; border-radius: 14px;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="1.5" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+        <span style="font-size: 15px; line-height: 21px; font-weight: 500;">{{closedText}}</span>
+        <button type="button" aria-haspopup="dialog" onClick="{{openCity}}" style="height: 44px; margin: 8px 0 0; padding: 0 22px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; color: #ba470b; font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;">切换城市</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 4; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+  </sc-if>
+
+  <sc-if value="{{filterOpen}}" hint-placeholder-val="{{false}}">
+    <div role="dialog" aria-modal="true" aria-label="筛选巡检服务" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 14px; padding: 10px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; align-items: center; margin-right: -12px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">筛选巡检服务</span>
+        <button type="button" aria-label="关闭筛选" onClick="{{closeSheet}}" style="flex-shrink: 0; width: 44px; height: 44px; margin: 0 0 0 auto; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 500; line-height: 21px;">巡检方式</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{methodOpts}}" as="o" hint-placeholder-count="3">
+            <button type="button" onClick="{{o.pick}}" aria-pressed="{{o.pressed}}" style="height: 44px; margin: 0; padding: 0 4px; border-radius: 8px; border: 1px solid {{o.bd}}; background: {{o.bg}}; color: {{o.fg}}; font: inherit; font-size: 14px; font-weight: {{o.w}}; white-space: nowrap; cursor: pointer;">{{o.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 500; line-height: 21px;">报价方式</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{quoteOpts}}" as="o" hint-placeholder-count="3">
+            <button type="button" onClick="{{o.pick}}" aria-pressed="{{o.pressed}}" style="height: 44px; margin: 0; padding: 0 4px; border-radius: 8px; border: 1px solid {{o.bd}}; background: {{o.bg}}; color: {{o.fg}}; font: inherit; font-size: 14px; font-weight: {{o.w}}; white-space: nowrap; cursor: pointer;">{{o.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; margin-right: -4px;">
+        <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px;">包含巡检报告</span>
+        <button type="button" role="switch" aria-checked="{{reportSwitch.aria}}" aria-label="包含巡检报告" onClick="{{reportSwitch.toggle}}" style="flex-shrink: 0; width: 52px; height: 44px; margin: 0; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+          <span style="width: 44px; height: 26px; box-sizing: border-box; padding: 2px; border-radius: 13px; background: {{reportSwitch.bg}}; display: flex; justify-content: {{reportSwitch.jc}};"><span style="width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></span></span>
+        </button>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{resetFilter}}" style="width: 112px; height: 46px; margin: 0; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">重置</button>
+        <button type="button" onClick="{{applyFilter}}" style="flex-grow: 1; height: 46px; margin: 0; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">查看结果</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{cityOpen}}" hint-placeholder-val="{{false}}">
+    <div role="dialog" aria-modal="true" aria-label="切换城市" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; padding: 10px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; align-items: center; margin: 0 -12px 4px 0;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">切换城市</span>
+        <button type="button" aria-label="关闭切换城市" onClick="{{closeSheet}}" style="flex-shrink: 0; width: 44px; height: 44px; margin: 0 0 0 auto; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <sc-for list="{{cityRows}}" as="r" hint-placeholder-count="3">
+        <button type="button" onClick="{{r.pick}}" aria-pressed="{{r.pressed}}" style="display: flex; align-items: center; width: 100%; height: 50px; margin: 0; padding: 0; border: 0; border-top: 1px solid #f0f1f3; background: none; font: inherit; font-size: 15px; line-height: 21px; font-weight: {{r.w}}; color: {{r.c}}; text-align: left; white-space: nowrap; cursor: pointer;">{{r.label}}<sc-if value="{{r.on}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="margin-left: auto;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if></button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{locOpen}}" hint-placeholder-val="{{false}}">
+    <div role="dialog" aria-modal="true" aria-label="允许使用你的位置？" style="position: absolute; left: 32px; right: 32px; top: 330px; z-index: 5; display: flex; flex-direction: column; gap: 6px; padding: 20px 16px 16px; border-radius: 14px; background: #fff;">
+      <span style="font-size: 17px; font-weight: 700; line-height: 24px; text-align: center;">允许使用你的位置？</span>
+      <span style="font-size: 14px; line-height: 20px; color: #536178; text-align: center;">用于按距离排序附近的巡检服务</span>
+      <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <button type="button" onClick="{{denyLoc}}" style="flex: 1 1 0; height: 44px; margin: 0; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">不允许</button>
+        <button type="button" onClick="{{allowLoc}}" style="flex: 1 1 0; height: 44px; margin: 0; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">允许</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // keyword：搜索词（原型用实时过滤代表提交）；cat：分类；city：当前城市；page：已加载页数，每页 5 条
+    // sort：comp 综合 / dist 距离 / priceAsc 价格升序 / priceDesc 价格降序
+    // filter：已生效的筛选；draft：筛选弹层里的草稿，点“查看结果”才生效
+    // sheet：'' / filter 筛选 / city 切换城市 / loc 位置确认框（画板比手机屏长，确认框按第一屏居中）
+    // locAllowed：已允许定位，以后不再询问；locDenied：拒绝后排序栏下方显示说明
+    // hint：点了没有画板的服务卡片，值是服务 id；提示贴着点击的位置，不用翻到长页面底部
+    this.state = {
+      keyword: '', cat: '全部', city: '东营', page: 1, sort: 'comp',
+      filter: { method: '不限', quote: '不限', report: false },
+      draft: { method: '不限', quote: '不限', report: false },
+      sheet: '', locAllowed: false, locDenied: false, hint: ''
+    };
+  }
+  renderVals() {
+    const { keyword, cat, city, page, sort, filter, draft, sheet, locAllowed, locDenied, hint } = this.state;
+    const PAGE_SIZE = 5;
+    const noFilter = { method: '不限', quote: '不限', report: false };
+    // 每次操作都收起未绘制提示
+    const go = (patch) => this.setState({ hint: '', ...patch });
+
+    // 东营的全部服务，数组顺序就是综合排序；jinan：济南也开通；潍坊未开通
+    // sortPrice 为 null 是按项目报价；price 与 unit 只负责显示
+    // note：价格下面的小字，写起步价含什么；按项目报价的写“方案确认后定价”
+    // icon：没有授权照片的服务用场景图标占位，不伪造照片
+    const services = [
+      { id: 'power', title: '电力线路巡检', cat: '电力', desc: '杆塔精细巡检 · 导线通道检测 · 缺陷报告', tags: ['杆塔巡检', '通道检测', '巡检报告'], price: '¥699', unit: '/公里起', note: '含现场巡检和报告', sortPrice: 699, methods: ['无人机'], report: true, km: 3.8, jinan: true, img: '_blob/d26647dbfc9226eacaf364aaff076d9d.webp', alt: '电力线路现场', icon: false },
+      { id: 'park', title: '园区安防巡检', cat: '园区', desc: '安防巡查 · 夜间巡逻 · 隐患清单', tags: ['无人机', '机器狗', '巡检报告'], price: '按项目报价', unit: '', note: '方案确认后定价', sortPrice: null, methods: ['无人机', '智能设备'], report: true, km: 2.4, jinan: false, img: '_blob/e42bb39cca5b4f528e6577da8445bced.webp', alt: '园区现场', icon: false },
+      { id: 'solar', title: '光伏电站巡检', cat: '光伏', desc: '组件热斑检测 · 故障定位 · 运维报告', tags: ['热斑检测', '组件检测', '巡检报告'], price: '¥699', unit: '/次起', note: '含组件检测和报告', sortPrice: 699, methods: ['无人机'], report: true, km: 6.5, jinan: true, img: '_blob/248020917b29731ae2eb5c415d406dd0.webp', alt: '光伏电站现场', icon: false },
+      { id: 'oil', title: '油气管线巡检', cat: '油气', desc: '管线巡查 · 泄漏排查 · 安全报告', tags: ['管线巡查', '泄漏排查', '巡检报告'], price: '¥899', unit: '/次起', note: '含管线巡查和报告', sortPrice: 899, methods: ['无人机'], report: true, km: 12.6, jinan: false, img: '_blob/ee1e30b9b857f7be121fae8b2cad93e7.webp', alt: '油气管线现场', icon: false },
+      { id: 'heat', title: '热力管网巡检', cat: '热力', desc: '管网巡查 · 热成像检测 · 管网评估', tags: ['热成像', '泄漏识别', '巡检报告'], price: '¥999', unit: '/次起', note: '含热成像检测和报告', sortPrice: 999, methods: ['智能设备'], report: true, km: 7.2, jinan: false, img: '_blob/0de11f8afc21ac3534a717d29977cf12.webp', alt: '热力', icon: true },
+      { id: 'cycle', title: '园区设备定期巡检', cat: '定期', desc: '按月巡检 · 设备点检 · 隐患跟踪', tags: ['周期巡检', '设备点检'], price: '按项目报价', unit: '', note: '方案确认后定价', sortPrice: null, methods: ['智能设备'], report: false, km: 9.0, jinan: false, img: '_blob/38050a7e29738df8d42ab0ded4823f21.webp', alt: '定期', icon: true }
+    ];
+    const catBg = { 电力: '#11804a', 园区: '#11804a', 光伏: '#6a4fe0', 油气: '#1d63c4', 热力: '#ba470b', 定期: '#1d63c4' };
+
+    // 先按城市，再按关键词、分类、筛选；城市一项都没有时走“未开通”，不走“没有找到”
+    const inCity = services.filter((s) => (city === '东营') || (city === '济南' && s.jinan));
+    const words = keyword.trim().toLowerCase();
+    const matched = inCity.filter((s) => {
+      const text = [s.title, s.desc, ...s.tags].join(' ').toLowerCase();
+      return (cat === '全部' || s.cat === cat)
+        && (!words || text.includes(words))
+        && (filter.method === '不限' || s.methods.includes(filter.method))
+        && (filter.quote === '不限' || (filter.quote === '明确价格') === (s.sortPrice !== null))
+        && (!filter.report || s.report);
+    });
+
+    // 按项目报价没有价格，升序降序都排最后；同价保持综合顺序
+    const priceRank = (s, dir) => (s.sortPrice === null ? 1e9 : s.sortPrice * dir);
+    const sorters = {
+      comp: () => 0,
+      dist: (a, b) => a.km - b.km,
+      priceAsc: (a, b) => priceRank(a, 1) - priceRank(b, 1),
+      priceDesc: (a, b) => priceRank(a, -1) - priceRank(b, -1)
+    };
+    const sorted = [...matched].sort(sorters[sort]);
+    const shown = sorted.slice(0, page * PAGE_SIZE);
+    const hasMore = shown.length < sorted.length;
+
+    const closeHint = () => this.setState({ hint: '' });
+    // 每个服务都有详情画板
+    const details = { power: 'InspDetail.dc.html', park: 'InspDetailPark.dc.html', solar: 'InspDetailSolar.dc.html', oil: 'InspDetailOil.dc.html', heat: 'InspDetailHeat.dc.html', cycle: 'InspDetailCycle.dc.html' };
+    const cards = shown.map((s) => ({
+      ...s,
+      href: details[s.id] || '',
+      isLink: Boolean(details[s.id]),
+      isBtn: !details[s.id],
+      catBg: catBg[s.cat],
+      imgBg: s.icon ? '#fff0e3' : '#eef0f3',
+      // 价格下面一行小字说明起步价含什么；按距离排序时再多一行距离，卡片跟着高一行
+      cardH: sort === 'dist' ? '145px' : '129px',
+      priceH: sort === 'dist' ? '52px' : '36px',
+      imgW: s.icon ? '56px' : '118px',
+      imgH: s.icon ? '56px' : (sort === 'dist' ? '145px' : '129px'),
+      imgFit: s.icon ? 'contain' : 'cover',
+      priceFs: s.sortPrice === null ? '15px' : '17px',
+      showKm: sort === 'dist',
+      kmText: '距你 ' + s.km.toFixed(1) + ' 公里',
+      hinted: hint === s.id,
+      hintText: '“' + s.title + '”详情整理中',
+      tap: () => go({ hint: s.id }),
+      closeHint
+    }));
+
+    // 切换分类、排序、城市、筛选、关键词都回到第 1 页
+    const cats = ['全部', '电力', '光伏', '油气', '热力', '园区', '设备', '定期'].map((label) => {
+      const on = label === cat;
+      return {
+        label, pressed: on ? 'true' : 'false', bg: on ? '#ff6a00' : '#eef2f8', fg: on ? '#fff' : '#202c42', w: on ? 500 : 400,
+        pick: () => go({ cat: label, page: 1 })
+      };
+    });
+
+    const sortLook = (on) => ({ pressed: on ? 'true' : 'false', c: on ? '#ba470b' : '#536178', w: on ? 700 : 400 });
+    const pricing = sort === 'priceAsc' || sort === 'priceDesc';
+    // 选了别的排序后，“已按综合排序”的说明不再成立，一起收起
+    const sortComp = { ...sortLook(sort === 'comp'), pick: () => go({ sort: 'comp', page: 1, locDenied: false }) };
+    const sortDist = {
+      ...sortLook(sort === 'dist'),
+      // 允许过就不再询问；拒绝过再点时重新询问
+      pick: () => (locAllowed ? go({ sort: 'dist', page: 1 }) : go({ sheet: 'loc' }))
+    };
+    const sortPrice = {
+      ...sortLook(pricing),
+      aria: sort === 'priceAsc' ? '价格，当前从低到高' : sort === 'priceDesc' ? '价格，当前从高到低' : '价格',
+      up: sort === 'priceAsc' ? '#ba470b' : '#91a0b4',
+      down: sort === 'priceDesc' ? '#ba470b' : '#91a0b4',
+      // 点一次升序，再点降序
+      pick: () => go({ sort: sort === 'priceAsc' ? 'priceDesc' : 'priceAsc', page: 1, locDenied: false })
+    };
+
+    // 筛选弹层改的都是草稿；打开时从已生效条件复制，关闭不保存
+    const optsOf = (key, labels) => labels.map((label) => {
+      const on = draft[key] === label;
+      return {
+        label, pressed: on ? 'true' : 'false', bd: on ? '#ff6a00' : '#eef2f8', bg: on ? '#fffaf5' : '#eef2f8', fg: on ? '#ba470b' : '#202c42', w: on ? 500 : 400,
+        pick: () => this.setState((s) => ({ draft: { ...s.draft, [key]: label } }))
+      };
+    });
+    const reportSwitch = {
+      aria: draft.report ? 'true' : 'false',
+      bg: draft.report ? '#ff6a00' : '#c9d3e1',
+      jc: draft.report ? 'flex-end' : 'flex-start',
+      toggle: () => this.setState((s) => ({ draft: { ...s.draft, report: !s.draft.report } }))
+    };
+
+    const cityRows = ['东营', '济南', '潍坊'].map((name) => {
+      const on = name === city;
+      return {
+        label: on ? name + '（当前）' : name, on, pressed: on ? 'true' : 'false', c: on ? '#ba470b' : '#202c42', w: on ? 500 : 400,
+        pick: () => go({ city: name, page: 1, sheet: '' })
+      };
+    });
+
+    return {
+      keyword, cats, cards, city, locDenied, hasMore, sortComp, sortDist, sortPrice, cityRows, reportSwitch,
+      methodOpts: optsOf('method', ['不限', '无人机', '智能设备']),
+      quoteOpts: optsOf('quote', ['不限', '明确价格', '按项目报价']),
+      cityAria: '切换城市，当前' + city,
+      noMore: shown.length > 0 && !hasMore,
+      showEmpty: inCity.length > 0 && sorted.length === 0,
+      showClosed: inCity.length === 0,
+      closedText: city + '暂未开通巡检服务',
+      hasFilter: filter.method !== '不限' || filter.quote !== '不限' || filter.report,
+      sheetOpen: sheet !== '',
+      filterOpen: sheet === 'filter',
+      cityOpen: sheet === 'city',
+      locOpen: sheet === 'loc',
+      // 输入框 onChange 才带事件对象；没有事件对象时保持原值。关键词最多 50 字
+      setKeyword: (e) => { if (e && e.target) go({ keyword: String(e.target.value || '').slice(0, 50), page: 1 }); },
+      clearKeyword: () => go({ keyword: '', page: 1 }),
+      openFilter: () => go({ sheet: 'filter', draft: filter }),
+      openCity: () => go({ sheet: 'city' }),
+      closeSheet: () => this.setState({ sheet: '' }),
+      applyFilter: () => go({ filter: draft, page: 1, sheet: '' }),
+      resetFilter: () => go({ filter: noFilter, draft: noFilter, page: 1, sheet: '' }),
+      allowLoc: () => go({ locAllowed: true, locDenied: false, sort: 'dist', page: 1, sheet: '' }),
+      // 拒绝后回退综合排序，不保留之前的价格排序，说明文字才成立
+      denyLoc: () => go({ locDenied: true, sort: 'comp', page: 1, sheet: '' }),
+      loadMore: () => { if (hasMore) go({ page: page + 1 }); },
+      clearAll: () => go({ keyword: '', cat: '全部', filter: noFilter, draft: noFilter, page: 1 })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

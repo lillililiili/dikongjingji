@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>我的 · 游客</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <sc-if value="{{isMine}}" hint-placeholder-val="{{true}}">
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 0 16px 8px;">
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; margin: 0 -16px; padding: 32px 16px 12px; background: linear-gradient(180deg, #fff3e8 0%, #fff8f2 70%, #f7f8fa 100%);">
+        <div style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="1.8" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6"></path></svg>
+        </div>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 19px; font-weight: 700;">未登录</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">登录后查看订单和报名记录</span>
+        </div>
+        <a href="Login.dc.html" style="flex-shrink: 0; display: flex; align-items: center; height: 40px; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap;">登录 / 注册</a>
+      </div>
+
+      <div style="flex-shrink: 0; background: #fff; border-radius: 14px; padding: 10px 8px 8px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 8px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">我的订单</h2>
+          <a href="Login.dc.html" style="display: flex; align-items: center; min-height: 44px; margin: -6px -8px; padding: 0 8px; font-size: 13px; color: #666b73; text-decoration: none;">全部 ›</a>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));">
+          <sc-for list="{{orders}}" as="o" hint-placeholder-count="5">
+            <a href="Login.dc.html" style="text-decoration: none; color: #191919; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 48px;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{o.d}}"></path></svg>
+              <span style="font-size: 12px; line-height: 17px; white-space: nowrap;">{{o.label}}</span>
+            </a>
+          </sc-for>
+        </div>
+        <a href="Login.dc.html" style="display: flex; align-items: center; gap: 6px; min-height: 44px; margin: 0 6px; padding: 0 12px; border-radius: 10px; background: #fff3e8; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+          <span style="flex-grow: 1; min-width: 0;">登录后查看你的订单和服务进度</span>
+          <span style="flex-shrink: 0; font-weight: 500; white-space: nowrap;">去登录 ›</span>
+        </a>
+      </div>
+
+      <div style="flex-shrink: 0; background: #fff; border-radius: 14px; padding: 10px 8px 10px; display: flex; flex-direction: column; gap: 8px;">
+        <h2 style="margin: 0; padding: 0 8px; font-size: 16px; font-weight: 700; line-height: 22px;">我的参与</h2>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));">
+          <sc-for list="{{joins}}" as="j" hint-placeholder-count="4">
+            <a href="Login.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #191919;">
+              <span style="width: 40px; height: 40px; border-radius: 12px; background: {{j.bg}}; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{j.fg}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{j.d}}"></path></svg></span>
+              <span style="font-size: 13px; line-height: 18px; white-space: nowrap;">{{j.label}}</span>
+            </a>
+          </sc-for>
+        </div>
+        <span style="padding: 0 8px; font-size: 12px; line-height: 17px; color: #8a8f97;">未登录时的体验结果只保存在本机，登录后可归档到账户</span>
+      </div>
+
+      <div style="flex-shrink: 0; background: #fff; border-radius: 14px; display: flex; flex-direction: column;">
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+          <a href="{{r.href}}" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-bottom: 1px solid {{r.bd}}; text-decoration: none; color: #191919;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{r.d}}"></path></svg>
+            <span style="font-size: 15px; flex-grow: 1;">{{r.t}}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isBlank}}" hint-placeholder-val="{{false}}">
+    <div style="flex-shrink: 0; padding: 6px 16px 8px; background: #fff;">
+      <h1 style="margin: 0; font-size: {{blank.fs}}; font-weight: 700; line-height: 44px;">{{blank.h}}</h1>
+    </div>
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 0 40px 64px;">
+      <span style="width: 96px; height: 96px; margin-bottom: 10px; border-radius: 50%; background: #fff3e8; display: flex; align-items: center; justify-content: center;"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{blank.d}}"></path></svg></span>
+      <span style="font-size: 17px; line-height: 24px; font-weight: 700;">{{blank.t}}</span>
+      <span style="font-size: 14px; line-height: 20px; color: #666b73; text-align: center;">{{blank.s}}</span>
+      <a href="Login.dc.html" style="display: flex; align-items: center; justify-content: center; width: 168px; height: 46px; margin-top: 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; white-space: nowrap;">登录 / 注册</a>
+    </div>
+  </sc-if>
+
+  <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <sc-if value="{{t.isLink}}" hint-placeholder-val="{{true}}">
+        <a href="{{t.href}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px; font-weight: {{t.w}};">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+          <span>{{t.label}}</span>
+          <sc-if value="{{t.dot}}" hint-placeholder-val="{{false}}">
+            <span style="position: absolute; top: 7px; left: 50%; margin-left: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ff5200;"></span>
+          </sc-if>
+        </a>
+      </sc-if>
+      <sc-if value="{{t.isTap}}" hint-placeholder-val="{{false}}">
+        <button type="button" onClick="{{t.tap}}" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: {{t.c}}; font-size: 12px; font-weight: {{t.w}}; cursor: pointer;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+          <span>{{t.label}}</span>
+        </button>
+      </sc-if>
+    </sc-for>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["我的","消息","购物车"],"default":"我的"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // tab：页内点底栏切到的帧；tabAt：切换时 Tweaks 选的帧，Tweaks 换帧后以 Tweaks 为准
+    this.state = { tab: '', tabAt: '' };
+  }
+  renderVals() {
+    const tweak = this.props.frame ?? '我的';
+    const { tab, tabAt } = this.state;
+    const frame = tab && tabAt === tweak ? tab : tweak;
+
+    // 底栏：游客没有未读和购物车件数，不显示数字角标。
+    // 我的、消息、购物车三帧都在这块画板里，这三项用按钮页内切帧；首页、发现照常跳转
+    const ACTIVE = { 消息: 2, 购物车: 3 }[frame] ?? 4; // 0 首页 1 发现 2 消息 3 购物车 4 我的
+    const tabs = [
+      ['首页', 'HomeFull.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z', false],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z', true],
+      ['消息', '', 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01', false],
+      ['购物车', '', 'M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1', false],
+      ['我的', '', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6', false]
+    ].map((t, i) => ({
+      label: t[0], href: t[1], d: t[2],
+      dot: t[3] && i !== ACTIVE,
+      c: i === ACTIVE ? '#ff6a00' : '#8a8f97',
+      w: i === ACTIVE ? 500 : 400,
+      isLink: Boolean(t[1]),
+      isTap: !t[1],
+      tap: () => this.setState({ tab: t[0], tabAt: tweak })
+    }));
+
+    // 订单和参与区的结构与 Mine 一致，不显示角标；游客点任何一项都先到登录
+    const orders = [
+      { label: '待付款', d: 'M4 7h16v12H4zM4 11h16M8 15h3' },
+      { label: '待发货/履约', d: 'M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19a1.5 1.5 0 1 0 0-.1M17 19a1.5 1.5 0 1 0 0-.1' },
+      { label: '待参加', d: 'M5 5h14v15H5zM5 9h14M9 3v4M15 3v4' },
+      { label: '待验收', d: 'M6 4h12v16H6zM9 12l2 2 4-4' },
+      { label: '退款/售后', d: 'M4 12a8 8 0 1 0 3-6.2M4 4v4h4' }
+    ];
+    const joins = [
+      { label: '活动报名', bg: '#fff3e8', fg: '#ff6a00', d: 'M6 21V4M6 4h11l-2 4 2 4H6' },
+      { label: '体验预约', bg: '#e8f7ef', fg: '#19b866', d: 'M5 5h14v15H5zM5 9h14M9 3v4M15 3v4M9 14l2 2 4-4' },
+      { label: '体验记录', bg: '#eaf2fd', fg: '#2f80ed', d: 'M6 8h12v10H6zM9 12h.01M15 12h.01M12 4v4M10 15h4M4 12h2M18 12h2' },
+      { label: '我的课程', bg: '#fff3e8', fg: '#ff6a00', d: 'M12 5L2 10l10 5 10-5zM6 12.2V17c1.6 1.4 3.7 2 6 2s4.4-.6 6-2v-4.8M22 10v5' }
+    ];
+    // 账户相关的行先到登录；帮助、权限、关于不用登录。工作模式只对授权核销员显示，游客隐藏
+    const rows = [
+      { t: '参与人管理', href: 'Login.dc.html', d: 'M9 11a3 3 0 1 0 0-6a3 3 0 1 0 0 6zM3 20c.8-3 3-5 6-5s5.2 2 6 5M17 11a2.5 2.5 0 1 0 0-5M21 19c-.4-2-1.6-3.4-3.5-4' },
+      { t: '企业组织', href: 'Login.dc.html', d: 'M4 20V8l6-4v16M10 20h10V10l-10-2M14 13h2M14 16h2' },
+      { t: '需求与报价', href: 'Login.dc.html', d: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5' },
+      { t: '收藏与对比', href: 'Login.dc.html', d: 'M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z' },
+      { t: '帮助与反馈', href: 'Help.dc.html', d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8M12 16.5h.01' },
+      { t: '权限管理', href: 'SetPerm.dc.html', d: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4' },
+      { t: '关于', href: 'About.dc.html', d: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01' }
+    ].map((r, i, a) => ({ ...r, bd: i === a.length - 1 ? 'transparent' : '#f0f1f3' }));
+
+    // 消息、购物车的未登录空态；购物车文案与 CartStates 的未登录帧一致
+    const BLANK = {
+      消息: { h: '消息', fs: '22px', t: '登录后查看消息', s: '订单进度、服务通知和活动提醒都在这里', d: 'M4 5h16v11H9l-5 4zM8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01' },
+      购物车: { h: '购物车', fs: '20px', t: '登录后查看购物车', s: '登录后可以加入商品、查看购物车并结算', d: 'M3 4h2l2 11h11l2-8H6M9 20a1 1 0 1 0 0-.1M17 20a1 1 0 1 0 0-.1' }
+    };
+
+    return { tabs, orders, joins, rows, isMine: !BLANK[frame], isBlank: Boolean(BLANK[frame]), blank: BLANK[frame] || BLANK.消息 };
+  }
+}
+</script>
+</body>
+</html>

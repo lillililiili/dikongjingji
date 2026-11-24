@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>支付结果</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderList.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">支付结果</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <sc-if value="{{isPending}}" hint-placeholder-val="{{true}}">
+      <div role="status" style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 20px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 64px; height: 64px; border-radius: 50%; background: #fff3e8; display: flex; align-items: center; justify-content: center;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#ffd8b8" stroke-width="2.4"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke="#ff6a00" stroke-width="2.4" stroke-linecap="round"></path></svg></span>
+        <span style="margin-top: 6px; font-size: 20px; line-height: 28px; font-weight: 700;">支付结果确认中</span>
+        <span style="font-size: 14px; line-height: 20px; color: #555a62;">正在向支付渠道确认结果，请勿重复支付</span>
+        <div style="align-self: stretch; display: flex; gap: 10px; margin-top: 12px;">
+          <button type="button" onClick="{{toFailed}}" style="flex: 1 1 0; min-width: 0; height: 44px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">支付遇到问题</button>
+          <button type="button" onClick="{{toPaid}}" style="flex: 1 1 0; min-width: 0; height: 44px; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">刷新结果</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isPaid}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 20px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 64px; height: 64px; border-radius: 50%; background: #e8f7ef; display: flex; align-items: center; justify-content: center;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        <span style="margin-top: 6px; font-size: 20px; line-height: 28px; font-weight: 700;">已支付</span>
+        <span style="font-size: 32px; line-height: 40px; font-weight: 700; color: #e85400;">¥1,299</span>
+        <div style="align-self: stretch; display: flex; gap: 10px; margin-top: 12px;">
+          <a href="HomeFull.dc.html" style="flex: 1 1 0; min-width: 0; height: 44px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">返回首页</a>
+          <a href="OrderGoods.dc.html" style="flex: 1 1 0; min-width: 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">查看订单</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isFailed}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 20px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 64px; height: 64px; border-radius: 50%; background: #fdecec; display: flex; align-items: center; justify-content: center;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#e5484d" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 6.5v7.5M12 18h.01"></path></svg></span>
+        <span style="margin-top: 6px; font-size: 20px; line-height: 28px; font-weight: 700;">支付失败</span>
+        <span style="font-size: 14px; line-height: 20px; color: #555a62;">支付未成功，如已扣款将原路退回</span>
+        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">订单仍为待付款，超时订单自动取消</span>
+        <div style="align-self: stretch; display: flex; gap: 10px; margin-top: 12px;">
+          <a href="OrderList.dc.html" style="flex: 1 1 0; min-width: 0; height: 44px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">查看订单</a>
+          <a href="Cashier.dc.html" style="flex: 1 1 0; min-width: 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">重新支付</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 76px; color: #666b73;">订单号</span>
+        <span style="flex-grow: 1; min-width: 0;">DY20261103150800</span>
+        <button type="button" onClick="{{copyOrder}}" style="flex-shrink: 0; min-height: 44px; margin-right: -8px; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer;">
+          <sc-if value="{{orderNotCopied}}" hint-placeholder-val="{{true}}"><span style="color: #d94f00;">复制</span></sc-if>
+          <sc-if value="{{orderCopied}}" hint-placeholder-val="{{false}}"><span style="color: #11804a;">已复制</span></sc-if>
+        </button>
+      </div>
+      <sc-if value="{{showDue}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 76px; color: #666b73;">应付金额</span>
+          <span style="flex-grow: 1; min-width: 0;">¥1,299</span>
+        </div>
+      </sc-if>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 76px; color: #666b73;">收款方</span>
+        <span style="flex-grow: 1; min-width: 0;">示例机器人商家</span>
+      </div>
+      <sc-if value="{{isPaid}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 76px; color: #666b73;">渠道交易号</span>
+          <span style="flex-grow: 1; min-width: 0;">[渠道交易号]</span>
+          <button type="button" onClick="{{copyTxn}}" style="flex-shrink: 0; min-height: 44px; margin-right: -8px; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer;">
+            <sc-if value="{{txnNotCopied}}" hint-placeholder-val="{{true}}"><span style="color: #d94f00;">复制</span></sc-if>
+            <sc-if value="{{txnCopied}}" hint-placeholder-val="{{false}}"><span style="color: #11804a;">已复制</span></sc-if>
+          </button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 76px; color: #666b73;">支付时间</span>
+          <span style="flex-grow: 1; min-width: 0;">11/03 15:09</span>
+        </div>
+      </sc-if>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 76px; color: #666b73;">支付方式</span>
+        <span style="flex-grow: 1; min-width: 0;">[主用支付渠道]</span>
+      </div>
+    </div>
+
+    <sc-if value="{{isPaid}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 12px; line-height: 17px; color: #8a8f97;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span>支付结果以支付渠道回执为准</span>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // status：pending 确认中（初始，不能再次发起支付）/ paid 已支付 / failed 支付失败
+    // copied：已点过“复制”的号码（order 订单号、txn 渠道交易号）
+    this.state = { status: 'pending', copied: {} };
+  }
+  renderVals() {
+    const { status, copied } = this.state;
+    const copy = (key) => () => this.setState((s) => ({ copied: { ...s.copied, [key]: true } }));
+    return {
+      isPending: status === 'pending',
+      isPaid: status === 'paid',
+      isFailed: status === 'failed',
+      // 未支付（确认中、失败）时显示应付金额；已支付时金额在结果区大字显示
+      showDue: status !== 'paid',
+      toPaid: () => this.setState({ status: 'paid' }),
+      toFailed: () => this.setState({ status: 'failed' }),
+      orderCopied: !!copied.order,
+      orderNotCopied: !copied.order,
+      copyOrder: copy('order'),
+      txnCopied: !!copied.txn,
+      txnNotCopied: !copied.txn,
+      copyTxn: copy('txn')
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>订单搜索</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+input::placeholder{color:#8a8f97;opacity:1}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 4px 16px 10px 4px; background: #fff; border-bottom: 1px solid #f0f1f3;">
+    <a href="OrderList.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="flex-grow: 1; min-width: 0; display: flex; align-items: center; height: 40px; box-sizing: border-box; padding: 0 4px 0 12px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff;">
+      <label style="flex-grow: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666b73" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+        <input type="text" aria-label="搜索订单" value="{{q}}" onChange="{{setQ}}" placeholder="订单号、商品名、服务商或活动名" style="flex-grow: 1; min-width: 0; border: 0; outline: none; padding: 0; font: inherit; font-size: 14px; color: #191919; background: transparent;">
+      </label>
+      <sc-if value="{{hasQ}}" hint-placeholder-val="{{true}}">
+        <button type="button" onClick="{{clearQ}}" aria-label="清除" style="flex-shrink: 0; width: 40px; height: 40px; margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#c4c8ce"></circle><path d="M9 9l6 6M15 9l-6 6" stroke="#fff" stroke-width="2"></path></svg></button>
+      </sc-if>
+      <button type="button" onClick="{{doSearch}}" style="flex-shrink: 0; height: 32px; margin: 0; padding: 0 16px; border: 0; border-radius: 999px; background: #ff6a00; color: #fff; font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;">搜索</button>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 10px 16px;">
+    <sc-if value="{{idle}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; background: #fff; border-radius: 12px; padding: 0 12px 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; height: 44px;">
+          <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap;">最近搜索</span>
+          <sc-if value="{{hasRecent}}" hint-placeholder-val="{{true}}">
+            <button type="button" onClick="{{clearRecent}}" style="flex-shrink: 0; height: 44px; margin: 0; padding: 0 0 0 18px; border: 0; background: transparent; font: inherit; font-size: 13px; color: #666b73; cursor: pointer; display: flex; align-items: center; white-space: nowrap;">清空</button>
+          </sc-if>
+        </div>
+        <sc-if value="{{hasRecent}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{recent}}" as="r" hint-placeholder-count="3">
+              <button type="button" onClick="{{r.pick}}" style="height: 36px; margin: 0; padding: 0 14px; border: 0; border-radius: 999px; background: #f2f3f5; color: #191919; font: inherit; font-size: 14px; white-space: nowrap; cursor: pointer;">{{r.label}}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{noRecent}}" hint-placeholder-val="{{false}}">
+          <span style="font-size: 13px; line-height: 18px; color: #666b73;">还没有搜索记录</span>
+        </sc-if>
+      </div>
+
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; background: #fff; border-radius: 12px; padding: 0 12px 6px;">
+        <div style="display: flex; align-items: center; height: 44px; font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap;">可以这样搜</div>
+        <sc-for list="{{tips}}" as="t" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 10px; min-height: 40px; border-top: 1px solid #f0f1f3;">
+            <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">{{t.k}}</span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 18px; color: #191919; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{t.v}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; color: #666b73;">最近搜索只保存在本机，可随时清空；只能搜到当前账号和当前身份下的订单</span>
+    </sc-if>
+
+    <sc-if value="{{hasHits}}" hint-placeholder-val="{{true}}">
+      <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">“{{typed}}” · {{hitCount}}</span>
+      <sc-for list="{{hits}}" as="h" hint-placeholder-count="3">
+        <a href="{{h.href}}" style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: #fff; color: #191919; text-decoration: none;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: {{h.bg}}; color: {{h.fg}}; font-size: 12px; line-height: 20px; white-space: nowrap;">{{h.type}}</span>
+            <span style="min-width: 0; font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{h.who.pre}}<span style="color: #ff6a00; white-space: nowrap;">{{h.who.hit}}</span>{{h.who.post}}</span>
+            <span style="flex-shrink: 0; margin-left: auto; font-size: 14px; font-weight: 500; line-height: 21px; color: {{h.sc}}; white-space: nowrap;">{{h.status}}</span>
+          </span>
+          <span style="display: flex; gap: 12px;">
+            <img src="{{h.img}}" alt="{{h.alt}}" style="flex-shrink: 0; width: 72px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5; font-size: 11px;">
+            <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: flex; align-items: flex-start; gap: 8px;">
+                <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px;">{{h.title.pre}}<span style="color: #ff6a00; white-space: nowrap;">{{h.title.hit}}</span>{{h.title.post}}</span>
+                <span style="flex-shrink: 0; font-size: 15px; font-weight: 700; line-height: 21px; white-space: nowrap;">{{h.price}}</span>
+              </span>
+              <span style="font-size: 13px; line-height: 18px; color: #555a62;">{{h.sub.pre}}<span style="color: #ff6a00; white-space: nowrap;">{{h.sub.hit}}</span>{{h.sub.post}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">订单号 {{h.no.pre}}<span style="color: #ff6a00; white-space: nowrap;">{{h.no.hit}}</span>{{h.no.post}}</span>
+            </span>
+          </span>
+        </a>
+      </sc-for>
+      <span style="flex-shrink: 0; align-self: center; padding: 4px 0; font-size: 12px; line-height: 17px; color: #8a8f97;">没有更多了</span>
+    </sc-if>
+
+    <sc-if value="{{noHits}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 64px 24px 24px;">
+        <span style="width: 64px; height: 64px; border-radius: 50%; background: #eef0f3; display: flex; align-items: center; justify-content: center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4M8.5 11h5"></path></svg></span>
+        <span style="font-size: 16px; font-weight: 700; line-height: 22px; text-align: center;">没有找到“{{typed}}”</span>
+        <span style="font-size: 13px; line-height: 19px; color: #666b73; text-align: center;">换个关键词试试，或直接输入订单号；企业身份下的订单要切换身份后再搜</span>
+        <div style="display: flex; gap: 10px; margin-top: 8px;">
+          <a href="Chat.dc.html" style="height: 40px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 14px; text-decoration: none; display: flex; align-items: center; white-space: nowrap;">联系客服</a>
+          <a href="OrderList.dc.html" style="height: 40px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; text-decoration: none; display: flex; align-items: center; white-space: nowrap;">查看全部订单</a>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["搜索前","有结果","无结果"],"default":"有结果"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // q：输入框文字（null 表示还没输入，用当前帧的示例关键词）；recent：最近搜索，点“搜索”会把关键词记到最前面
+    this.state = { q: null, recent: ['编程机器人', '鹰眼智能巡检', '挑战赛'] };
+  }
+  renderVals() {
+    const { recent } = this.state;
+    // 三帧只是输入框里的示例关键词不同：搜索前为空，有结果搜“东营”三类订单各命中一张，无结果搜一个不存在的东西
+    const FRAME_Q = { 搜索前: '', 有结果: '东营', 无结果: '激光雷达模块' };
+    const frame = this.props.frame ?? '有结果';
+    const q = this.state.q === null ? (FRAME_Q[frame] ?? '东营') : this.state.q;
+    const typed = q.trim();
+    const key = typed.replace(/\s+/g, '');
+
+    // 订单数据沿用 OrderList / OrderGoods / OrderService / OrderEnroll；搜索匹配标题、商家或服务商、副标题和订单号
+    const tone = {
+      商品: { bg: '#fff3e8', fg: '#d94f00' },
+      服务: { bg: '#e8f7ef', fg: '#11804a' },
+      报名: { bg: '#f1edff', fg: '#6a4fe0' }
+    };
+    const ORDERS = [
+      { type: '商品', who: '示例机器人商家', status: '已发货', sc: '#11804a', img: '/_blob/5d32505e8b9a494f8436e31c3008ef99', alt: '编程机器人探索套装',
+        title: '编程机器人探索套装', price: '¥1,299', sub: '标准套装 × 1 · 11/03 从东营仓发出', no: 'DY20261102201500', href: 'OrderGoods.dc.html' },
+      { type: '服务', who: '鹰眼智能巡检', status: '第 1 次待验收', sc: '#1d63c4', img: '/_blob/e42bb39cca5b4f528e6577da8445bced', alt: '物流园区现场',
+        title: '物流园区季度安防巡检', price: '¥18,600', sub: '企业 · 东营港务物流 · 方案 v2', no: 'DY20261101093000', href: 'OrderService.dc.html' },
+      { type: '报名', who: '东营低空与机器人体验馆', status: '待参加', sc: '#6a4fe0', img: '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489', alt: '青少年无人机编程挑战赛',
+        title: '青少年无人机编程挑战赛（东营站）', price: '¥240', sub: '11/15 09:00 · 参与人 王小禾、王小川', no: 'DY20261102143000', href: 'OrderEnroll.dc.html' }
+    ];
+    // 把命中的那一段切出来高亮；订单号不分大小写
+    const cut = (text, ci) => {
+      const hay = ci ? text.toUpperCase() : text;
+      const needle = ci ? key.toUpperCase() : key;
+      const at = key ? hay.indexOf(needle) : -1;
+      if (at < 0) return { pre: text, hit: '', post: '' };
+      return { pre: text.slice(0, at), hit: text.slice(at, at + key.length), post: text.slice(at + key.length) };
+    };
+    const hits = (key ? ORDERS : []).flatMap((o) => {
+      const parts = { title: cut(o.title, false), who: cut(o.who, false), sub: cut(o.sub, false), no: cut(o.no, true) };
+      const matched = Object.keys(parts).some((k) => parts[k].hit !== '');
+      return matched ? [{ ...o, ...parts, bg: tone[o.type].bg, fg: tone[o.type].fg }] : [];
+    });
+
+    const tips = [
+      { k: '订单号', v: 'DY2026… 完整或后几位' },
+      { k: '商品名', v: '编程机器人探索套装' },
+      { k: '服务商', v: '鹰眼智能巡检' },
+      { k: '活动名', v: '青少年无人机编程挑战赛' }
+    ];
+
+    return {
+      q, hasQ: q !== '', typed,
+      idle: key === '',
+      hasHits: key !== '' && hits.length > 0,
+      noHits: key !== '' && hits.length === 0,
+      hits,
+      hitCount: '找到 ' + hits.length + ' 条相关订单',
+      tips,
+      recent: recent.map((label) => ({ label, pick: () => this.setState({ q: label }) })),
+      hasRecent: recent.length > 0,
+      noRecent: recent.length === 0,
+      setQ: (e) => { if (e && e.target) this.setState({ q: String(e.target.value || '') }); },
+      clearQ: () => this.setState({ q: '' }),
+      clearRecent: () => this.setState({ recent: [] }),
+      // 点“搜索”：关键词记入最近搜索（去重，最多 6 条）；结果本来就随输入实时显示
+      doSearch: () => this.setState((s) => (typed ? { q: typed, recent: [typed].concat(s.recent.filter((r) => r !== typed)).slice(0, 6) } : {}))
+    };
+  }
+}
+</script>
+</body>
+</html>

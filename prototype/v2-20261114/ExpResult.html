@@ -1,0 +1,146 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>体验结果（定稿 09）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="frame"><option selected>挑战完成</option><option>未完成</option><option>游客</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 806px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; padding: 8px; background: #f5f7fc;">
+    <a href="{{productHref}}" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; text-align: center;">{{experienceTitle}}</h1>
+    <span style="flex-shrink: 0; width: 44px; height: 44px;"></span>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 0 16px 12px;">
+    <span style="flex-shrink: 0; align-self: flex-start; padding: 0 8px; border-radius: 6px; background: #e2f6ed; color: #11804a; font-size: 12px; font-weight: 500; line-height: 22px; white-space: nowrap;">虚拟仿真 · 不连接真实设备</span>
+
+    <div style="flex-shrink: 0; position: relative; height: {{heroH}}; border-radius: 16px; background: #3a3f47; overflow: hidden;">
+      <img src="{{experienceImg}}" alt="{{experienceTitle}}" style="display: block; width: 100%; height: 100%; object-fit: cover;">
+      <div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%);"></div>
+      <span style="position: absolute; left: 10px; top: 10px; padding: 0 8px; border-radius: 999px; background: rgba(255,255,255,0.85); color: #536178; font-size: 12px; line-height: 22px; white-space: nowrap;">模拟场景</span>
+      <div style="position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; flex-direction: column; gap: 4px; color: #fff;">
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 20px; font-weight: 700; line-height: 28px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{heroIcon}}"></path></svg>{{heroTitle}}</span>
+        <span style="font-size: 12px; line-height: 17px;">{{heroSub}}</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; padding: 14px 0; border-radius: 14px; background: #fff;">
+      <sc-for list="{{stats}}" as="s" hint-placeholder-count="3">
+        <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; border-left: {{s.bl}};">
+          <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: {{s.c}}; white-space: nowrap;">{{s.v}}</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">{{s.k}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{guest}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; border-radius: 14px; background: #fff0e3;">
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">登录后保存这次记录</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">没登录时只存在这台设备上</span>
+        </span>
+        <a href="Login.dc.html" style="flex-shrink: 0; height: 36px; box-sizing: border-box; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; line-height: 20px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">去登录</a>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700; line-height: 24px;">接下来，由你决定</h2>
+        <span style="font-size: 12px; line-height: 17px; color: #627187;">体验结束不会自动下单</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+        <sc-for list="{{tiles}}" as="t" hint-placeholder-count="6">
+          <sc-if value="{{t.href}}" hint-placeholder-val="{{true}}">
+            <a href="{{t.href}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; border-radius: 10px; background: #f5f7fc; color: #202c42; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>{{t.t}}</a>
+          </sc-if>
+          <sc-if value="{{t.toggle}}" hint-placeholder-val="{{false}}">
+            <button type="button" aria-pressed="{{t.on}}" onClick="{{t.tap}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; margin: 0; padding: 0; border: 0; border-radius: 10px; background: #f5f7fc; color: #202c42; font: inherit; font-size: 13px; line-height: 18px; white-space: nowrap; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="{{t.fill}}" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>{{t.t}}</button>
+          </sc-if>
+        </sc-for>
+      </div>
+    </div>
+
+    <a href="{{productHref}}" style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px 14px 12px 12px; border-radius: 14px; background: #fff; color: #202c42; text-decoration: none;">
+      <img src="{{productImg}}" alt="{{productTitle}}" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 10px; object-fit: cover; display: block; background: #eef2f8;">
+      <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 15px; font-weight: 500; line-height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{productTitle}}</span>
+        <span style="display: flex; align-items: baseline; gap: 6px;"><span style="font-size: 16px; font-weight: 700; line-height: 22px; color: #e85400; white-space: nowrap;">{{productPrice}}</span><span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">示例商品</span></span>
+      </span>
+      <span style="flex-shrink: 0; display: flex; align-items: center; gap: 2px; font-size: 13px; line-height: 18px; color: #ba470b; white-space: nowrap;">去下单<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ba470b" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></span>
+    </a>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <a href="{{productHref}}" style="flex: 1 1 0; box-sizing: border-box; height: 46px; border-radius: 999px; border: 1.5px solid #ff6a00; background: #fff; color: #ba470b; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看商品</a>
+    <a href="{{mainHref}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{mainLabel}}</a>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // fav：“收藏商品”在本页原地切换，不跳页
+    this.state = { fav: false };
+  }
+  renderVals() {
+    const { fav } = this.state;
+    const exp = PrototypeData.getExperience() || PrototypeData.experiences['robot-obstacle'];
+    const retry = 'ExpSim.dc.html?experience=' + exp.id;
+    const frame = this.props.frame ?? '挑战完成';
+    const guest = frame === '游客';
+    const unfinished = frame === '未完成';
+    const CHECK = 'M5 12l5 5 9-10';
+    const AGAIN = 'M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4';
+    const heart = 'M12 20s-8-4.8-8-10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5C20 15.2 12 20 12 20z';
+    // 三项数据和“我的体验”一致：完成 2′36″ · 碰撞 1 次；未完成停在第 2 关
+    const raw = unfinished
+      ? [['1′48″', '用时', '#202c42'], ['1/3', '绕过障碍', '#e09400'], ['3 次', '轻微碰撞', '#e09400']]
+      : [['2′36″', '用时', '#202c42'], ['3/3', '绕过障碍', '#11804a'], ['1 次', '轻微碰撞', '#e09400']];
+    if (exp.id === 'drone-hover') raw.splice(0, raw.length, ['示例', '记录类型', '#202c42'], [unfinished ? '练习中' : '已完成', '起降任务', '#11804a'], [unfinished ? '待练习' : '3 秒', '悬停', '#11804a']);
+    const stats = raw.map(([v, k, c], i) => ({ v, k, c, bl: i ? '1px solid #e5ebf3' : '0' }));
+    const link = (t, href, d) => ({ t, href, d, toggle: false, on: false, fill: 'none', tap: () => {} });
+    // 游客收藏先登录；其余出口都由用户自己选，结果页不替用户下单
+    const favTile = guest
+      ? link('收藏商品', 'Login.dc.html', heart)
+      : { t: fav ? '已收藏' : '收藏商品', href: '', d: heart, toggle: true, on: fav, fill: fav ? '#ff6a00' : 'none', tap: () => this.setState((st) => ({ fav: !st.fav })) };
+    return {
+      experienceTitle: exp.title, experienceImg: exp.img, productHref: exp.productHref, productImg: exp.productImg, productTitle: exp.productTitle, productPrice: exp.price,
+      guest,
+      heroH: guest ? '144px' : '216px',
+      heroIcon: unfinished ? AGAIN : CHECK,
+      heroTitle: unfinished ? '还差一点' : '挑战完成',
+      heroSub: guest ? '记录只保存在本机，登录后可归档到账户' : (unfinished ? '未完成示例，可返回继续体验' : '示例结果，仅用于原型展示'),
+      stats,
+      tiles: [
+        link('再试一次', retry, AGAIN),
+        favTile,
+        link('加入对比', 'MallCompare.dc.html', 'M7 4v16M17 4v16M4 8l3-4 3 4M14 16l3 4 3-4'),
+        link('咨询商家', 'Chat.dc.html', 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z'),
+        link('到馆体验', 'VenueDetail.dc.html', 'M4 21V5l8-2v18M12 8h8v13M2 21h20M7.5 8h1M7.5 12h1M7.5 16h1M15.5 12h1M15.5 16h1'),
+        link('赛事研学', 'HomeAct.dc.html', 'M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4M12 14v4M8 21h8M9.5 18h5')
+      ],
+      mainHref: unfinished ? retry : 'VenueDetail.dc.html',
+      mainLabel: unfinished ? '再试一次' : '预约到馆体验'
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"frame":"挑战完成"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

@@ -1,0 +1,124 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>04 首页频道与商品类目 · 模块规格</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>body{margin:0;background:#dfe2e6;padding:16px;font-family:-apple-system,'PingFang SC',sans-serif}.bar{font-size:13px;color:#555;margin:0 0 10px}.bar a{color:#ba470b}#root{width:max-content;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.18)}</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body><div class="bar"><a href="HomeFull.html">← 回到 App</a> &nbsp; 04 首页频道与商品类目 · 模块规格（设计文档，不是 App 页面）</div><div id="root"></div><template id="tpl">
+
+<div style="width: 1100px; height: 2740px; display: flex; flex-direction: column; gap: 28px; padding: 40px 44px; box-sizing: border-box; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 700;">首页频道与商品类目 · 模块规格（方案 C）</h1>
+    <span style="font-size: 14px; color: #536178;">每个区块写明数据来源、排序规则、无数据时怎么处理、点击去哪。没有真实数据的区块整体隐藏，不放假内容。</span>
+  </div>
+
+  <sc-for list="{{tables}}" as="tb" hint-placeholder-count="4">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">{{tb.title}}</h2>
+      <div style="display: grid; grid-template-columns: 108px minmax(0, 1.1fr) minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1.6fr); border: 1px solid #e5ebf3; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+        <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">区块</div>
+        <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">数据来源</div>
+        <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">规则</div>
+        <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">无数据时</div>
+        <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">点击去向</div>
+        <sc-for list="{{tb.rows}}" as="r" hint-placeholder-count="6">
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 500;">{{r.c0}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{r.c1}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{r.c2}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #536178;">{{r.c3}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #ba470b;">{{r.c4}}</div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+    <div style="border: 1px solid #e5ebf3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700;">价格的 4 种显示</h3>
+      <sc-for list="{{prices}}" as="p" hint-placeholder-count="4">
+        <div style="display: flex; align-items: baseline; gap: 10px; font-size: 13px;">
+          <span style="width: 86px; flex-shrink: 0; font-weight: 700; color: #e85400;">{{p.c0}}</span>
+          <span style="color: #536178;">{{p.c1}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="border: 1px solid #e5ebf3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700;">卡片角标（只显示一个）</h3>
+      <sc-for list="{{badges}}" as="b" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px;">
+          <span style="font-size: 11px; padding: 2px 6px; border-radius: 6px; background: {{b.bg}}; color: #fff; flex-shrink: 0;">{{b.t}}</span>
+          <span style="color: #536178;">{{b.d}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="border: 1px solid #e5ebf3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700;">列表状态</h3>
+      <sc-for list="{{states}}" as="s" hint-placeholder-count="5">
+        <div style="font-size: 13px; line-height: 1.5;"><span style="font-weight: 500;">{{s.c0}}</span><span style="color: #536178;">：{{s.c1}}</span></div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="padding: 14px 16px; border-radius: 12px; background: #fff0e3; font-size: 13px; color: #536178; line-height: 1.7;">
+    按 2026-11-03 选定的方案 C 绘制；概要设计 §5.1 与 AGENTS.md V2.2 已于 11/04 同步；“首页频道 → 专业服务 → 巡检”是巡检黄金路径的新入口。
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    const tables = [
+      { title: '首页头部与推荐频道', rows: [
+        ['城市与频道行', '公共城市上下文；频道清单与顺序由城市运营配置', '城市名常显、可点；频道横滑，选中项放大、加粗、变橙；一期只放常驻频道；本城未开通的能力隐藏对应频道；冷启动默认“推荐”', '定位失败用上次城市；城市未开通走城市未开通页，只留全国可用频道', '城市 → 切换城市面板（CitySheet）；频道 → 对应子首页，底栏停在“首页”'],
+        ['搜索框', '全局搜索（APP-COM-02）', '常驻：左扫一扫，最右橙色“搜索”按钮，不做拍照搜。占位词随频道变：推荐“搜索设备、赛事研学或服务”，专业服务“搜索巡检服务、场景或关键词”，活动“搜索赛事、培训、研学”，体验“搜索体验项目或场馆”，类目如“搜索机器人型号或品牌”', '占位词按频道固定，不做热词推荐', '搜索前置页（SearchPre），提交后到全局搜索（MallSearch），默认范围随频道；专业服务频道沿用 M01，提交后进入巡检服务目录 M02；扫一扫识别平台内的商品、活动、场馆码'],
+        ['Banner', '城市运营后台配置，最多 3 帧', '按投放时间与城市生效，过期自动下线', '整块隐藏', '活动详情（Ref06）、体验频道或专题页'],
+        ['两张大卡', '固定位：找专业服务 / 去体验；副标题取本城已开通的服务类型与体验项目', '两张等宽并排；本城只开通其中一项时，留下的一张占满整行', '两项都未开通时整块隐藏', '找专业服务 → 专业服务频道（HomeSvc，默认“巡检”）；去体验 → 体验频道（ExpCenter）'],
+        ['金刚区第 1 页', '城市运营配置，每页 5 个，按排序展示', '一行加分页点，左右滑动翻页。第 1 页：无人机、机器人、专业服务、设备租赁、培训课程', '本城未开通的入口隐藏，后面的前移，不留空位', '无人机、机器人 → 对应类目频道（Mall2）；专业服务 → 专业服务频道（HomeSvc）；设备租赁 → 租赁频道（Mall2）；培训课程 → 赛事研学频道·培训（HomeAct，暂定，待确认）'],
+        ['金刚区第 2 页', '同上', '第 2 页：赛事活动、研学体验、线下场馆、全部频道；“全部频道”固定在最后', '“全部频道”始终保留，兜底长尾入口', '赛事活动、研学体验 → 赛事研学频道并筛好对应类型（HomeAct）；线下场馆 → 场馆详情（Ref10）；全部频道 → 全部频道面板（HomeFull 页内弹层）'],
+        ['今天去体验', '体验点当日场次与余位；线上体验项目', '线下只列当天可预约的场次，余位 ≤3 用橙色；线上项目写明形式（虚拟仿真、录播演示、软件试用、课程试听）；体验结束不自动下单', '今日无场次时显示下一个开放日；线上、线下都没有时整块隐藏', '线下场次 → 场馆详情与场次预约（Ref10）；线上项目 → 体验频道（ExpCenter）'],
+        ['近期活动', '赛事、培训、研学中报名进行中的活动', '按开始时间升序，最多 6 个，横滑；卡片显示报名状态与名额', '整块隐藏', '活动卡 → 活动详情（Ref06）；全部 → 赛事研学频道（HomeAct）'],
+        ['本地精选', '城市运营配置的商品分组：可体验 / 本地现货 / 租赁', '人工配置，不做个性化推荐；不显示销量、评分', '无商品的分组隐藏；全部为空时整块隐藏', '商品卡 → 商品详情（PdFull）；更多 → 对应类目频道（Mall2）'],
+        ['附近场馆', '场馆资料 + 定位', '有定位按距离排序；无定位按运营排序，不显示距离', '整块隐藏', '场馆详情与场次预约（Ref10）'],
+        ['城市资讯（待确认位置）', '新媒体中心发布的本城内容', '最新 1 条；放在推荐频道底部还是发现，待产品负责人确认', '整块隐藏', '内容详情（Ref19）']
+      ]},
+      { title: '专业服务 / 活动 / 体验频道', rows: [
+        ['专业服务（HomeSvc）', '巡检 M01 入口数据：场景、热门服务、保障、流程；本城已开通的服务类型', '复用巡检 M01 结构，频道内默认选中“巡检”；占位词固定（AGENTS.md §8）', '本城未开通专业服务时整个频道隐藏；保障、流程无配置时整块隐藏', '场景、查看全部、搜索 → 巡检服务目录 M02；热门服务 → 服务详情 M03；发布需求 → 需求发布（Ref20）'],
+        ['活动（HomeAct）', '活动目录（APP-ACT-01）：赛事、培训、研学、体验日', '按类型、日期、状态筛选，默认按开始时间升序；卡片显示报名状态与名额', '本城暂无活动时显示空状态，可切换城市', '活动卡 → 活动详情（Ref06）→ 报名填写（Signup）→ 报名凭证（Ref08）'],
+        ['体验（ExpCenter）', '体验中心（APP-EXP-01）：线上体验项目、线下场馆与场次', '线上、线下两区；每张卡带体验形式标签（虚拟仿真、录播演示、软件试用、课程试听、到馆体验）和关联商品或活动', '某一区无内容时隐藏该区', '虚拟仿真 → 仿真任务（ExpSim）；录播演示 → 内容详情（Ref19）；线下 → 场馆详情（Ref10）']
+      ]},
+      { title: '商品类目频道（无人机 / 机器人 / 配件 / 租赁 / 课程，画板以“机器人”为例）', rows: [
+        ['子类目', '商品类目树，后台排序', '频道顶部一行子类目胶囊，第一个为“全部”；切换时页码归一，保留筛选', '无商品的子类目隐藏', '刷新列表'],
+        ['排序', '综合 / 价格 / 距离', '不提供销量排序；询价商品在价格排序中排最后；距离需定位授权', '无定位时禁用距离并说明原因', '刷新列表'],
+        ['筛选', '体验方式、交易方式、配送、商家、场景、价格', '快捷筛选胶囊 + 底部筛选面板，按钮实时显示结果数', '结果为 0 时按钮置灰，提示放宽条件', '筛选面板（MallFilter）'],
+        ['企业采购入口', '固定位', '列表上方一条，面向企业批量或定制采购', '本城未开通需求发布时隐藏', '需求发布（Ref20）'],
+        ['商品卡', '商品 + 本城在售商家聚合', '同型号多商家合并成一张卡，显示最低价与商家数；主按钮按交易方式：立即购买 / 联系询价 / 发布需求', '图片失败显示占位', '卡片 → 商品详情（PdFull）；立即购买 → 规格面板（PdSku）→ 确认订单（Checkout）；联系询价 → 询价单（PdInquiry）；发布需求 → 需求发布（Ref20）'],
+        ['对比（二期待定）', '用户勾选，本地保存', '收藏与对比在概要设计里是二期，等用户确认；已有入口保持原样，不再新增', '少于 2 件不显示对比条', '商品对比（MallCompare）']
+      ]},
+      { title: '全局搜索（APP-COM-02）', rows: [
+        ['范围 Tab', '商品、服务、活动、内容、场馆分组结果', '综合 / 商品 / 服务 / 活动 / 内容 / 场馆，Tab 带结果数；默认范围随频道（活动 → 活动，商品类目 → 商品，其余 → 综合）；综合下每组最多 3 条', '无结果的范围不显示', '各组“全部” → 对应范围 Tab；卡片 → 商品详情（PdFull）、服务详情 M03、活动详情（Ref06）、场馆详情（Ref10）、内容详情（Ref19）'],
+        ['结果列表', '本城可见的供给与内容', '排序行（不含销量）+ 快捷筛选胶囊 + 筛选面板；下滑后出现回顶按钮', '网络错误保留已加载内容，底部重试', '筛选面板（MallFilter）'],
+        ['无结果', '—', '提示换个关键词或放宽筛选，并给出发布需求入口', '显示“没有找到相关结果”', '需求发布（Ref20）']
+      ]}
+    ];
+    const prices = [
+      ['¥2,680 起', '多商家或多规格，取最低在售价'],
+      ['¥1,999', '单一商家单一规格'],
+      ['¥380/天 起', '租赁，按天或按月计价'],
+      ['询价', '行业定制，走报价与合同订单']
+    ];
+    const badges = [
+      { t: '可线上体验', bg: '#159a70', d: '已配置虚拟仿真、录播演示、软件试用或课程试听中的至少一种，优先级最高' },
+      { t: '体验馆可看', bg: '#2f80ed', d: '当前城市体验点有展机' },
+      { t: '租赁', bg: '#738096', d: '只租不售的设备' }
+    ];
+    const states = [
+      ['加载中', '卡片骨架，保持网格尺寸不跳动'],
+      ['空分类', '“该分类暂无商品”，推荐查看全部'],
+      ['筛选无结果', '提示放宽条件，一键清除筛选'],
+      ['网络错误', '保留已加载内容，底部重试'],
+      ['没有更多', '列表底部明确提示']
+    ];
+    const cells = (row) => Array.isArray(row) ? Object.fromEntries(row.map((v, i) => ['c' + i, v])) : row;
+    return { tables: tables.map((tb) => ({ ...tb, rows: tb.rows.map(cells) })), prices: prices.map(cells), badges, states: states.map(cells) };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));</script></body></html>

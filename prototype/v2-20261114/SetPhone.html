@@ -1,0 +1,191 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>更换手机号</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 600px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="Settings.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">更换手机号</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div role="list" aria-label="更换步骤" style="flex-shrink: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 14px 0 12px; background: #fff; border-radius: 14px;">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+        <div role="listitem" aria-current="{{s.current}}" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <sc-if value="{{s.hasLine}}" hint-placeholder-val="{{true}}">
+            <span style="position: absolute; top: 11px; left: -50%; width: 100%; height: 2px; background: {{s.lineBg}};"></span>
+          </sc-if>
+          <span style="position: relative; z-index: 1; width: 24px; height: 24px; border-radius: 50%; background: {{s.bg}}; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: {{s.fg}};">
+            <sc-if value="{{s.done}}" hint-placeholder-val="{{false}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+            <sc-if value="{{s.notDone}}" hint-placeholder-val="{{true}}">{{s.n}}</sc-if>
+          </span>
+          <span style="font-size: 13px; line-height: 18px; font-weight: {{s.lw}}; color: {{s.lc}}; white-space: nowrap;">{{s.label}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{isVerify}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 14px 8px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700; line-height: 24px;">验证当前手机号</h2>
+          <span style="font-size: 13px; line-height: 19px; color: #627187;">验证码发送到 138****2026</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 4px 0 14px; border-radius: 12px; background: #f5f7fc;">
+          <input type="text" aria-label="验证码" placeholder="请输入验证码" value="{{oldCode}}" onChange="{{setOldCode}}" style="flex-grow: 1; min-width: 0; height: 50px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 15px; color: #202c42;">
+          <sc-if value="{{oldIdle}}" hint-placeholder-val="{{true}}">
+            <button type="button" onClick="{{sendOld}}" style="flex-shrink: 0; min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: #ba470b; white-space: nowrap; cursor: pointer;">获取验证码</button>
+          </sc-if>
+          <sc-if value="{{oldSent}}" hint-placeholder-val="{{false}}">
+            <button type="button" disabled="{{true}}" style="flex-shrink: 0; min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: #91a0b4; white-space: nowrap; cursor: default;">60 秒后重新获取</button>
+          </sc-if>
+        </div>
+        <a href="Chat.dc.html" style="align-self: flex-start; display: flex; align-items: center; gap: 2px; min-height: 44px; font-size: 13px; color: #536178; text-decoration: none; white-space: nowrap;">这个号码收不到验证码？联系平台客服<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2.4" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></a>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isBind}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 14px 14px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 700; line-height: 24px;">绑定新手机号</h2>
+          <span style="font-size: 13px; line-height: 19px; color: #627187;">一个手机号只能绑定一个账号</span>
+        </div>
+        <label style="display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 14px; border-radius: 12px; background: #f5f7fc;">
+          <span style="flex-shrink: 0; font-size: 15px; color: #202c42;">+86</span>
+          <span style="flex-shrink: 0; width: 1px; height: 16px; background: #dcdfe3;"></span>
+          <input type="tel" aria-label="新手机号" placeholder="请输入新手机号" value="{{phone}}" onChange="{{setPhone}}" style="flex-grow: 1; min-width: 0; height: 50px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 15px; color: #202c42;">
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 4px 0 14px; border-radius: 12px; background: #f5f7fc;">
+          <input type="text" aria-label="新手机号验证码" placeholder="请输入验证码" value="{{newCode}}" onChange="{{setNewCode}}" style="flex-grow: 1; min-width: 0; height: 50px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 15px; color: #202c42;">
+          <sc-if value="{{newIdle}}" hint-placeholder-val="{{true}}">
+            <button type="button" onClick="{{sendNew}}" style="flex-shrink: 0; min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: #ba470b; white-space: nowrap; cursor: pointer;">获取验证码</button>
+          </sc-if>
+          <sc-if value="{{newSent}}" hint-placeholder-val="{{false}}">
+            <button type="button" disabled="{{true}}" style="flex-shrink: 0; min-height: 44px; padding: 0 10px; border: 0; background: none; font: inherit; font-size: 14px; color: #91a0b4; white-space: nowrap; cursor: default;">60 秒后重新获取</button>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{notDone}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">更换后</h2>
+        <sc-for list="{{terms}}" as="t" hint-placeholder-count="3">
+          <div style="display: flex; gap: 8px; font-size: 13px; line-height: 19px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+            <span style="min-width: 0; color: #536178;">{{t.t}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 32px 14px 28px; background: #fff; border-radius: 14px;">
+        <span style="width: 56px; height: 56px; margin-bottom: 8px; border-radius: 50%; background: #159a70; display: flex; align-items: center; justify-content: center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700; line-height: 28px;">手机号已更换</h2>
+        <span style="font-size: 14px; line-height: 20px; color: #536178; white-space: nowrap;">新手机号 {{maskedPhone}}</span>
+        <span style="font-size: 13px; line-height: 19px; color: #738096; white-space: nowrap;">下次登录请使用新手机号</span>
+      </div>
+      <a href="SetDevices.dc.html" style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 14px; border-radius: 14px; background: #fff; text-decoration: none; color: #202c42;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M3 5h13v9H3zM6 18h7M9.5 14v4M18 9h3v11h-3z"></path></svg>
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; line-height: 21px; white-space: nowrap;">登录设备管理</span>
+          <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">其他设备已退出，需用新手机号重新登录</span>
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </sc-if>
+  </div>
+
+  <div style="flex-shrink: 0; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <sc-if value="{{canNext}}" hint-placeholder-val="{{false}}">
+      <button type="button" onClick="{{next}}" style="width: 100%; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;">{{nextLabel}}</button>
+    </sc-if>
+    <sc-if value="{{blocked}}" hint-placeholder-val="{{true}}">
+      <button type="button" disabled="{{true}}" style="width: 100%; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #c9d3e1; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: not-allowed;">{{nextLabel}}</button>
+    </sc-if>
+    <sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+      <a href="Settings.dc.html" style="height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">返回设置</a>
+    </sc-if>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // step：1 验证当前手机号 / 2 绑定新手机号 / 3 完成。验证码不校验真实值，填满 6 位就能继续（原型不做倒计时）
+    this.state = { step: 1, oldCode: '', oldSent: false, phone: '', newCode: '', newSent: false };
+  }
+  renderVals() {
+    const { step, oldCode, oldSent, phone, newCode, newSent } = this.state;
+    // 输入框 onChange 才带事件对象；没有事件对象时保持原值。只保留数字
+    const digitsOf = (e, max) => (e && e.target ? String(e.target.value || '').replace(/\D/g, '').slice(0, max) : null);
+    const input = (key, max) => (e) => { const v = digitsOf(e, max); if (v !== null) this.setState({ [key]: v }); };
+
+    const steps = ['验证当前号码', '绑定新号码', '完成'].map((label, i) => {
+      const n = i + 1;
+      const done = n < step || step === 3;
+      const reached = n <= step;
+      return {
+        n, label, done, notDone: !done, current: n === step ? 'step' : 'false', hasLine: i > 0,
+        lineBg: done ? '#159a70' : reached ? '#ff6a00' : '#e5ebf3',
+        bg: done ? '#159a70' : reached ? '#ff6a00' : '#eef2f8',
+        fg: reached ? '#fff' : '#738096',
+        lc: reached ? '#202c42' : '#738096',
+        lw: n === step ? 500 : 400
+      };
+    });
+    // 设计假设：账号、订单、报名和企业身份随账号保留；更换成功后其他设备退出登录
+    const terms = [
+      { t: '账号不变，订单、报名、参与人和企业身份都保留' },
+      { t: '登录和验证码改用新手机号，通知也发到新手机号' },
+      { t: '其他设备需要用新手机号重新登录' }
+    ];
+    const ready = step === 1 ? oldCode.length === 6 : phone.length === 11 && newCode.length === 6;
+    const notFinished = step !== 3;
+
+    return {
+      steps, terms,
+      isVerify: step === 1,
+      isBind: step === 2,
+      isDone: step === 3,
+      notDone: notFinished,
+      oldCode, phone, newCode,
+      setOldCode: input('oldCode', 6),
+      setPhone: input('phone', 11),
+      setNewCode: input('newCode', 6),
+      oldIdle: !oldSent,
+      oldSent,
+      newIdle: !newSent,
+      newSent,
+      sendOld: () => this.setState({ oldSent: true }),
+      sendNew: () => this.setState({ newSent: true }),
+      canNext: notFinished && ready,
+      blocked: notFinished && !ready,
+      nextLabel: step === 1 ? '下一步' : '确认更换',
+      next: () => this.setState((s) => ({ step: Math.min(s.step + 1, 3) })),
+      maskedPhone: phone.length === 11 ? phone.slice(0, 3) + '****' + phone.slice(7) : '139****8888'
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

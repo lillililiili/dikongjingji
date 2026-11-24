@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>服务履约 · 第 2–6 次</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1204px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <sc-if value="{{isM06}}" hint-placeholder-val="{{true}}">
+      <a href="OrderService.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    </sc-if>
+    <sc-if value="{{isInner}}" hint-placeholder-val="{{false}}">
+      <button type="button" aria-label="返回" onClick="{{goBack}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+    </sc-if>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">{{title}}</h1>
+  </div>
+
+  <sc-if value="{{isM06}}" hint-placeholder-val="{{true}}">
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <img src="/_blob/e42bb39cca5b4f528e6577da8445bced" alt="物流园区现场" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5; font-size: 12px;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 16px; font-weight: 700; line-height: 22px;">物流园区季度安防巡检</span>
+            <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+              <span style="font-size: 13px; line-height: 20px; color: #555a62; white-space: nowrap;">服务商 鹰眼智能巡检</span>
+              <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 12px; line-height: 17px; white-space: nowrap;">资质已审核</span>
+            </div>
+          </div>
+        </div>
+        <div style="height: 1px; background: #f0f1f3;"></div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: #d94f00; white-space: nowrap;">履约中</span>
+            <span style="margin-left: auto; font-size: 14px; line-height: 20px; white-space: nowrap;">6 次中已完成 3 次</span>
+          </div>
+          <div role="progressbar" aria-label="巡检完成进度" aria-valuemin="0" aria-valuemax="6" aria-valuenow="3" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px;">
+            <sc-for list="{{segments}}" as="g" hint-placeholder-count="6">
+              <span style="height: 6px; border-radius: 3px; background: {{g.bg}};"></span>
+            </sc-for>
+          </div>
+          <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">下次巡检 01/04 · 周期 11/02–01/18</span>
+        </div>
+      </div>
+
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">履约安排</h2>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 60px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">项目负责人</span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px;">王工</span>
+            <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">138****6621</span>
+          </div>
+          <a href="Chat.dc.html" style="flex-shrink: 0; height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fffaf5; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; text-decoration: none; display: flex; align-items: center;">联系负责人</a>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">持证飞手</span>
+          <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px;">2 名</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">设备</span>
+          <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px;">行业无人机 ×1、巡检机器狗 ×1</span>
+        </div>
+      </div>
+
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">巡检进度</h2>
+            <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">共 6 次</span>
+          </div>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">每次巡检：无人机巡检 + 机器狗夜巡</span>
+        </div>
+        <div role="list" aria-label="巡检进度" style="display: flex; flex-direction: column;">
+          <sc-for list="{{delivered}}" as="v" hint-placeholder-count="3">
+            <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 12px;">
+              <span style="position: relative; flex-shrink: 0; width: 16px;">
+                <span style="position: absolute; left: 7px; top: {{v.lineTop}}; bottom: {{v.lineBottom}}; width: 2px; background: #ffd8b8;"></span>
+                <span style="position: absolute; left: 0; top: {{v.nodeTop}}; width: 16px; height: 16px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+              </span>
+              <sc-if value="{{v.waiting}}" hint-placeholder-val="{{false}}">
+                <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-radius: 10px; border: 1px solid #ffd8b8; background: #fffaf5;">
+                  <div style="display: flex; align-items: flex-start; gap: 8px;">
+                    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                      <span style="font-size: 15px; font-weight: 700; line-height: 21px;">{{v.title}}</span>
+                      <sc-if value="{{v.note}}" hint-placeholder-val="{{false}}">
+                        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">{{v.note}}</span>
+                      </sc-if>
+                      <span style="font-size: 12px; line-height: 17px; color: #11804a;">已完成 · 报告已交付</span>
+                    </div>
+                    <span style="flex-shrink: 0; padding: 2px 8px; border-radius: 6px; background: #ff6a00; color: #fff; font-size: 12px; line-height: 17px; white-space: nowrap;">待验收</span>
+                  </div>
+                  <button type="button" onClick="{{v.open}}" style="align-self: flex-start; height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; display: flex; align-items: center; white-space: nowrap; cursor: pointer;">{{v.openLabel}}</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{v.done}}" hint-placeholder-val="{{true}}">
+                <div style="flex-grow: 1; min-width: 0; display: flex; align-items: center; gap: 8px;">
+                  <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500; line-height: 20px;">{{v.title}}</span>
+                    <sc-if value="{{v.note}}" hint-placeholder-val="{{false}}">
+                      <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">{{v.note}}</span>
+                    </sc-if>
+                    <span style="font-size: 12px; line-height: 17px; color: #11804a; white-space: nowrap;">{{v.status}}</span>
+                    <span style="font-size: 12px; line-height: 17px; color: {{v.feeColor}}; white-space: nowrap;">{{v.fee}}</span>
+                  </div>
+                  <button type="button" onClick="{{v.open}}" style="flex-shrink: 0; height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; display: flex; align-items: center; white-space: nowrap; cursor: pointer;">{{v.openLabel}}</button>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <sc-for list="{{upcoming}}" as="v" hint-placeholder-count="3">
+            <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 12px;">
+              <span style="position: relative; flex-shrink: 0; width: 16px;">
+                <span style="position: absolute; left: 7px; top: 10px; bottom: -22px; width: 2px; background: {{v.line}};"></span>
+                <span style="position: absolute; left: 0; top: 2px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{v.bd}}; background: #fff; display: flex; align-items: center; justify-content: center;">
+                  <sc-if value="{{v.next}}" hint-placeholder-val="{{false}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+                </span>
+              </span>
+              <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 14px; font-weight: {{v.tw}}; line-height: 20px; color: {{v.tc}};">{{v.title}}</span>
+                <span style="font-size: 12px; line-height: 17px; color: {{v.sc}};">{{v.status}}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <sc-if value="{{hasDue}}" hint-placeholder-val="{{true}}">
+        <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: #fff3e8;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; font-weight: 700; line-height: 21px; color: #d94f00;">{{dueTitle}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #555a62;">不影响后续巡检，全部结清后服务单才算完成</span>
+          </div>
+          <button type="button" onClick="{{goPayDue}}" style="flex-shrink: 0; height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">去支付</button>
+        </div>
+      </sc-if>
+
+      <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 6px; padding: 0 2px; font-size: 12px; line-height: 17px; color: #666b73;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 8h.01"></path></svg>
+        <span style="min-width: 0;">履约状态由服务商按实际作业更新，每次交付后由你验收</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+      <sc-if value="{{hasWaiting}}" hint-placeholder-val="{{true}}">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">第 3 次报告待验收</span>
+          <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">12/09 11:20 已交付，请核对后验收</span>
+        </div>
+        <button type="button" onClick="{{goAccept}}" style="flex-shrink: 0; height: 46px; padding: 0 28px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 16px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">去验收</button>
+      </sc-if>
+      <sc-if value="{{noWaiting}}" hint-placeholder-val="{{false}}">
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; color: #666b73; text-align: center;">暂无待验收的报告</span>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{isM07}}" hint-placeholder-val="{{false}}">
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px; background: #fff; border-radius: 14px;">
+        <span style="font-size: 13px; line-height: 18px; color: #666b73;">物流园区季度安防巡检 · 鹰眼智能巡检</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap;">{{visitTitle}}</span>
+          <span style="flex-shrink: 0; margin-left: auto; padding: 2px 8px; border-radius: 6px; background: {{chipBg}}; color: {{chipFg}}; font-size: 12px; line-height: 17px; white-space: nowrap;">{{chipText}}</span>
+        </div>
+        <span style="font-size: 13px; line-height: 18px; color: #555a62;">{{reportLine}}</span>
+      </div>
+
+      <sc-if value="{{isAccepted}}" hint-placeholder-val="{{false}}">
+        <div role="status" style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #e8f7ef;">
+          <span style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #19b866; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 15px; font-weight: 700; line-height: 21px; color: #11804a;">{{acceptedTitle}}</span>
+            <span style="font-size: 12px; line-height: 17px; color: #11804a;">{{acceptedLine}}</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">巡检结果摘要</h2>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa;">
+            <span style="font-size: 12px; line-height: 17px; color: #666b73;">巡检覆盖</span>
+            <span style="font-size: 20px; font-weight: 700; line-height: 28px; white-space: nowrap;">约 42 万㎡</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: #fff3e8;">
+            <span style="font-size: 12px; line-height: 17px; color: #d94f00;">发现隐患</span>
+            <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: #d94f00; white-space: nowrap;">{{hazardTotal}}</span>
+          </div>
+        </div>
+        <div role="list" aria-label="隐患分类" style="display: flex; flex-direction: column;">
+          <sc-for list="{{hazards}}" as="h" hint-placeholder-count="3">
+            <div role="listitem" style="display: flex; align-items: center; gap: 8px; min-height: 40px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+              <span style="flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span>
+              <span style="flex-grow: 1; min-width: 0;">{{h.name}}</span>
+              <span style="flex-shrink: 0; color: #555a62; white-space: nowrap;">{{h.count}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 12px; background: #fff; border-radius: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 44px; margin-bottom: 4px;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">交付文件</h2>
+            <sc-if value="{{allNotReady}}" hint-placeholder-val="{{true}}">
+              <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">共 3 个文件</span>
+            </sc-if>
+            <sc-if value="{{allReady}}" hint-placeholder-val="{{false}}">
+              <span role="status" style="display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 17px; color: #11804a; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>全部文件链接已生成，21:00 前有效</span>
+            </sc-if>
+          </div>
+          <button type="button" onClick="{{getAll}}" style="flex-shrink: 0; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">全部下载</button>
+        </div>
+        <sc-for list="{{files}}" as="f" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; min-height: 60px; border-top: 1px solid #f0f1f3;">
+            <span style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; background: #eaf2fd; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2f80ed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{f.d}}"></path></svg></span>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; line-height: 20px;">{{f.name}}</span>
+              <sc-if value="{{f.ready}}" hint-placeholder-val="{{false}}">
+                <span role="status" style="display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 17px; color: #11804a; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>下载链接已生成，21:00 前有效</span>
+              </sc-if>
+            </div>
+            <button type="button" aria-label="{{f.aria}}" onClick="{{f.get}}" style="flex-shrink: 0; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; cursor: pointer;">下载</button>
+          </div>
+        </sc-for>
+        <div style="display: flex; align-items: flex-start; gap: 6px; padding-top: 10px; border-top: 1px solid #f0f1f3; font-size: 12px; line-height: 17px; color: #666b73;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M6 11h12v9H6zM9 11V8a3 3 0 0 1 6 0v3"></path></svg>
+          <div style="min-width: 0; display: flex; flex-direction: column;">
+            <span>文件经受控链接下载，不显示存储地址</span>
+            <span>影像存档按交付约定保存 90 天</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+      <sc-if value="{{showActions}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; gap: 10px;">
+          <a href="Chat.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; padding: 1px 6px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font-size: 15px; color: #191919; white-space: nowrap; text-decoration: none; display: flex; align-items: center; justify-content: center;">对报告有疑问</a>
+          <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">确认验收</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{showPayEntry}}" hint-placeholder-val="{{false}}">
+        <span style="font-size: 12px; line-height: 17px; color: #666b73; text-align: center;">按次结算：每次验收后支付 ¥2,170，共 6 次</span>
+        <button type="button" onClick="{{payThisVisit}}" style="height: 46px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 16px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">{{payEntryLabel}}</button>
+      </sc-if>
+      <sc-if value="{{showPaidLine}}" hint-placeholder-val="{{false}}">
+        <span style="font-size: 14px; line-height: 20px; color: #666b73; text-align: center;">{{paidLine}}</span>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+      <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+      <div role="dialog" aria-modal="true" aria-label="{{sheetTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">{{sheetTitle}}</span>
+        <div style="display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px 12px; padding: 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 18px;">
+          <span style="color: #666b73; white-space: nowrap;">验收内容</span>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <sc-for list="{{acceptItems}}" as="it" hint-placeholder-count="3">
+              <span style="display: flex; align-items: center; gap: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>{{it.name}}</span>
+            </sc-for>
+          </div>
+          <span style="color: #666b73; white-space: nowrap;">服务商</span><span>鹰眼智能巡检</span>
+          <span style="color: #666b73; white-space: nowrap;">验收人</span><span>王女士 · 东营港务物流 经办人</span>
+          <span style="color: #666b73; white-space: nowrap;">本次服务费</span><span>¥2,170 · 验收后支付</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #fff3e8; font-size: 13px; line-height: 18px; color: #d94f00;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 4l9 16H3zM12 10v4M12 17h.01"></path></svg>
+          <span style="min-width: 0;">验收确认后不可撤销；验收人与时间会留存记录</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">取消</button>
+          <button type="button" onClick="{{confirmAccept}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">确认验收</button>
+        </div>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{isPayView}}" hint-placeholder-val="{{false}}">
+    <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+      <sc-if value="{{stepPay}}" hint-placeholder-val="{{true}}">
+        <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px 16px 20px; border-radius: 14px; background: #fff;">
+          <span style="font-size: 13px; line-height: 18px; color: #666b73;">应付金额</span>
+          <span style="font-size: 36px; line-height: 44px; font-weight: 700; color: #e85400;">¥2,170</span>
+          <span style="margin-top: 4px; padding: 4px 10px; border-radius: 999px; background: #fff3e8; font-size: 12px; line-height: 17px; color: #d94f00;">{{payChip}}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{stepPending}}" hint-placeholder-val="{{false}}">
+        <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 24px; border-radius: 14px; background: #fff; text-align: center;">
+          <span style="width: 56px; height: 56px; border-radius: 50%; background: #fff3e8; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"></path></svg></span>
+          <span style="font-size: 18px; line-height: 25px; font-weight: 700;">支付结果确认中</span>
+          <span style="font-size: 13px; line-height: 19px; color: #555a62;">正在向支付渠道确认结果，请勿重复支付</span>
+          <span style="font-size: 13px; line-height: 19px; color: #666b73;">应付金额 ¥2,170</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{stepPaid}}" hint-placeholder-val="{{false}}">
+        <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 24px; border-radius: 14px; background: #fff; text-align: center;">
+          <span style="width: 56px; height: 56px; border-radius: 50%; background: #e8f7ef; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          <span style="font-size: 18px; line-height: 25px; font-weight: 700;">{{paidTitle}}</span>
+          <span style="font-size: 28px; line-height: 36px; font-weight: 700; color: #e85400;">¥2,170</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73;">支付结果以支付渠道回执为准</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{stepFail}}" hint-placeholder-val="{{false}}">
+        <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 24px; border-radius: 14px; background: #fff; text-align: center;">
+          <span style="width: 56px; height: 56px; border-radius: 50%; background: #fdecec; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e5484d" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 7v6M12 17h.01"></path></svg></span>
+          <span style="font-size: 18px; line-height: 25px; font-weight: 700;">支付失败</span>
+          <span style="font-size: 13px; line-height: 19px; color: #555a62;">支付未成功，如已扣款将原路退回</span>
+          <span style="font-size: 13px; line-height: 19px; color: #666b73;">{{failNote}}</span>
+        </div>
+      </sc-if>
+
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid {{r.bd}}; font-size: 14px; line-height: 20px;">
+            <span style="flex-shrink: 0; width: 70px; color: #666b73; white-space: nowrap;">{{r.k}}</span>
+            <span style="flex-grow: 1; min-width: 0;">{{r.v}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{stepPay}}" hint-placeholder-val="{{true}}">
+        <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px 12px; border-radius: 14px; background: #fff;">
+          <h2 style="margin: 0; display: flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 700;">支付方式</h2>
+          <div style="display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 12px; box-sizing: border-box; border-radius: 10px; border: 1.5px solid #ff6a00; background: #fffaf5;">
+            <span style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; background: #fff3e8; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM4 7V6a2 2 0 0 1 2-2h10v3M16 13.5h.01"></path></svg></span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; font-weight: 500;">[主用支付渠道]</span>
+            <span style="flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+          </div>
+          <span style="margin-top: 8px; font-size: 12px; line-height: 17px; color: #8a8f97;">目前只支持这一种支付方式</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 16px 12px; background: #fff; border-top: 1px solid #ebedf0;">
+      <sc-if value="{{stepPay}}" hint-placeholder-val="{{true}}">
+        <button type="button" onClick="{{pay}}" style="height: 46px; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;">确认支付 ¥2,170</button>
+        <button type="button" onClick="{{cancelPay}}" style="align-self: center; min-height: 44px; padding: 0 16px; display: flex; align-items: center; border: 0; background: transparent; font: inherit; font-size: 14px; color: #666b73; cursor: pointer;">取消支付</button>
+      </sc-if>
+      <sc-if value="{{stepPending}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; gap: 10px;">
+          <button type="button" onClick="{{showFail}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">支付遇到问题</button>
+          <button type="button" onClick="{{refresh}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer;">刷新结果</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{stepPaid}}" hint-placeholder-val="{{false}}">
+        <button type="button" onClick="{{backToProgress}}" style="height: 46px; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;">返回服务履约</button>
+      </sc-if>
+      <sc-if value="{{stepFail}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; gap: 10px;">
+          <button type="button" onClick="{{backToProgress}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">返回服务履约</button>
+          <button type="button" onClick="{{retry}}" style="flex: 1 1 0; height: 46px; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer;">重新支付</button>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1204}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 12/15 这一帧：一个画板里切三屏，点哪一次就看哪一次，验收和付款结果回到 m06 的行、提醒卡和底栏
+    // view：m06 服务履约 / m07 交付与验收 / pay 收银台；visit：m07、pay 正在看第几次（只有前 3 次已交付）
+    // accepted、paid：按次记录，第 1 次已验收已付，第 2 次已验收待付，第 3 次待验收
+    // payStep：pay 待支付 → pending 确认中 → paid 已支付 / fail 失败；结果只以服务端收到的渠道回执为准
+    // paying：哪几次还在确认中，离开收银台再回来仍是确认中，不让用户重复支付；payFrom：收银台的返回键和「取消支付」回到哪一屏
+    // sheet：验收确认面板是否打开；links、allLink：按次记录已生成的短时下载链接
+    this.state = {
+      view: 'm06', visit: 3,
+      accepted: { 1: true, 2: true, 3: false },
+      paid: { 1: true, 2: false, 3: false },
+      payStep: 'pay', paying: {}, payFrom: 'm07',
+      sheet: false, links: {}, allLink: {}
+    };
+  }
+  renderVals() {
+    const { view, visit, accepted, paid, payStep, paying, sheet, links, allLink } = this.state;
+
+    // 已交付的 3 次；第 3 次的验收时间只在原型里验收后才显示
+    const VISITS = {
+      1: { date: '11/02', report: '11/03 10:00', acceptedAt: '11/03 16:20', note: '', total: '3 项', photos: 36, hazards: ['围栏破损', '照明故障', '消防通道占用'] },
+      2: { date: '11/16', report: '11/17 09:40', acceptedAt: '11/18 10:05', note: '', total: '2 项', photos: 32, hazards: ['照明故障', '围栏破损'] },
+      3: { date: '12/08', report: '12/09 11:20', acceptedAt: '12/15 20:10', note: '原定 12/01，服务商已改期', total: '1 项', photos: 34, hazards: ['消防通道占用'] }
+    };
+
+    const goVisit = (n) => this.setState({ view: 'm07', visit: n });
+    const openPay = (n, from) => this.setState((s) => ({
+      view: 'pay', visit: n, payFrom: from,
+      payStep: s.paying[n] ? 'pending' : 'pay'
+    }));
+
+    // 进度、排期与状态都由服务商按实际作业在服务端更新，客户在这里只能验收和付款
+    // 已完成 = 现场完成并交付：前 3 次已完成，第 4 次作业中，其余未开始；验收和付款不改这个口径
+    const segments = Array.from({ length: 6 }, (_, i) => ({ bg: i < 3 ? '#ff6a00' : i === 3 ? '#ffd8b8' : '#ebedf0' }));
+
+    const delivered = [1, 2, 3].map((n) => {
+      const waiting = !accepted[n];
+      // 待验收的一行是卡片，节点比普通行低 11px，上一行的连线要接到它的圆心
+      const nextIsCard = n < 3 && !accepted[n + 1];
+      return {
+        title: '第 ' + n + ' 次 · ' + VISITS[n].date,
+        note: VISITS[n].note,
+        waiting,
+        done: !waiting,
+        status: '已验收 · ' + VISITS[n].acceptedAt,
+        fee: paid[n] ? '服务费已支付' : '服务费 ¥2,170 待支付',
+        feeColor: paid[n] ? '#11804a' : '#d94f00',
+        nodeTop: waiting ? '13px' : '2px',
+        lineTop: waiting ? '21px' : '10px',
+        lineBottom: nextIsCard ? '-33px' : '-22px',
+        openLabel: '查看第 ' + n + ' 次交付 ›',
+        open: () => goVisit(n)
+      };
+    });
+
+    const upcoming = [
+      { title: '第 4 次 · 12/15', status: '作业中', next: true, sc: '#1d63c4' },
+      { title: '第 5 次 · 01/04', status: '已排期 · 19:00', next: true, sc: '#1d63c4' },
+      { title: '第 6 次 · 01/18', status: '待排期', next: false, sc: '#8a8f97' }
+    ].map((v, i, all) => ({
+      ...v,
+      bd: v.next ? '#ff6a00' : '#c4c8ce',
+      tc: v.next ? '#191919' : '#555a62',
+      tw: v.next ? 500 : 400,
+      // 节点之间的连线：最后一次不画
+      line: i === all.length - 1 ? 'transparent' : '#ebedf0'
+    }));
+
+    // 提醒卡写最小的未付次：付完一次提醒落到下一次，全部付清后不显示
+    const dueVisit = [1, 2, 3].find((n) => accepted[n] && !paid[n]);
+
+    // 下面是 m07、pay 正在看的这一次；屏幕隐藏时也要有值
+    const d = VISITS[visit];
+    const isAccepted = accepted[visit];
+    const isPaid = paid[visit];
+
+    // 交付文件只走受控短时链接：点“下载”生成链接，页面按接口返回的到期时间显示（这里示意 21:00 前有效），不写死分钟数；
+    // 每次、每个文件各自记录，换到另一次不会显示这一次的链接；不显示文件地址
+    const icons = {
+      report: 'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6',
+      issues: 'M4 5h16v14H4zM4 10h16M4 15h16M10 5v14',
+      photos: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9.5h.01'
+    };
+    const fileList = [
+      { id: 'report', name: '巡检报告（PDF）' },
+      { id: 'issues', name: '隐患清单（表格）' },
+      { id: 'photos', name: '影像存档（' + d.photos + ' 张）' }
+    ];
+    const files = fileList.map((f) => {
+      const key = visit + '-' + f.id;
+      return {
+        name: f.name,
+        d: icons[f.id],
+        ready: Boolean(links[key]),
+        aria: '下载' + f.name,
+        get: () => this.setState((s) => ({ links: { ...s.links, [key]: true } }))
+      };
+    });
+
+    // 收银台：第 n 次验收后支付 ¥2,170，共 6 次
+    const base = [
+      ['服务订单', '物流园区季度安防巡检 · 方案 v2'],
+      ['收款方', '鹰眼智能巡检 · 经平台支付渠道'],
+      ['付款主体', '东营港务物流（企业身份）']
+    ];
+    const extra = payStep === 'paid'
+      ? [['渠道交易号', '[渠道交易号]'], ['支付方式', '[主用支付渠道]']]
+      : [['付款节点', '首付已付 · 第 ' + visit + '/6 次 ¥2,170']];
+    const rows = base.concat(extra).map((r, i) => ({ k: r[0], v: r[1], bd: i === 0 ? 'transparent' : '#f0f1f3' }));
+    const titles = { pay: '收银台', pending: '支付结果', paid: '支付结果', fail: '支付结果' };
+
+    return {
+      isM06: view === 'm06',
+      isM07: view === 'm07',
+      isPayView: view === 'pay',
+      isInner: view !== 'm06',
+      title: view === 'm06' ? '服务履约' : view === 'm07' ? '交付与验收' : titles[payStep],
+      // 收银台的返回键回到进来的那一屏（「取消支付」同样）；m07 的返回键回到进度
+      goBack: () => this.setState((s) => ({ view: s.view === 'pay' ? s.payFrom : 'm06' })),
+
+      segments, delivered, upcoming,
+      hasDue: Boolean(dueVisit),
+      dueTitle: dueVisit ? '第 ' + dueVisit + ' 次服务费 ¥2,170 待支付' : '',
+      goPayDue: () => { if (dueVisit) openPay(dueVisit, 'm06'); },
+      hasWaiting: !accepted[3],
+      noWaiting: accepted[3],
+      goAccept: () => goVisit(3),
+
+      visitTitle: '第 ' + visit + ' 次巡检 · ' + d.date,
+      reportLine: '报告 ' + d.report + ' 已交付',
+      chipText: isAccepted ? '已验收' : '待验收',
+      chipBg: isAccepted ? '#e8f7ef' : '#fff3e8',
+      chipFg: isAccepted ? '#11804a' : '#d94f00',
+      isAccepted,
+      acceptedTitle: '第 ' + visit + ' 次已验收',
+      acceptedLine: d.acceptedAt + ' · 王女士 · 验收记录已留存',
+      hazardTotal: d.total,
+      hazards: d.hazards.map((name) => ({ name, count: '1 项' })),
+      files,
+      acceptItems: fileList.map((f) => ({ name: f.name })),
+      allReady: Boolean(allLink[visit]),
+      allNotReady: !allLink[visit],
+      getAll: () => this.setState((s) => ({ allLink: { ...s.allLink, [s.visit]: true } })),
+      // 面板打开时底部按钮被遮住，不再重复显示；已验收后不再出现“确认验收”
+      showActions: !isAccepted && !sheet,
+      showPayEntry: isAccepted && !isPaid,
+      showPaidLine: isAccepted && isPaid,
+      payEntryLabel: '支付第 ' + visit + ' 次服务费 ¥2,170',
+      paidLine: '第 ' + visit + ' 次服务费 ¥2,170 已支付',
+      payThisVisit: () => openPay(visit, 'm07'),
+      sheetOpen: sheet && !isAccepted,
+      sheetTitle: '确认第 ' + visit + ' 次验收',
+      openSheet: () => this.setState({ sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      // 验收只会从未验收变为已验收：重复确认不会产生第二条验收记录
+      confirmAccept: () => this.setState((s) => ({ accepted: { ...s.accepted, [s.visit]: true }, sheet: false })),
+
+      stepPay: payStep === 'pay',
+      stepPending: payStep === 'pending',
+      stepPaid: payStep === 'paid',
+      stepFail: payStep === 'fail',
+      payChip: '按次结算 · 第 ' + visit + '/6 次服务费（第 ' + visit + ' 次已验收）',
+      paidTitle: '第 ' + visit + ' 次服务费已支付',
+      failNote: '第 ' + visit + ' 次服务费仍为待支付',
+      rows,
+      pay: () => this.setState((s) => ({ payStep: 'pending', paying: { ...s.paying, [s.visit]: true } })),
+      refresh: () => this.setState((s) => ({ payStep: 'paid', paying: { ...s.paying, [s.visit]: false }, paid: { ...s.paid, [s.visit]: true } })),
+      showFail: () => this.setState((s) => ({ payStep: 'fail', paying: { ...s.paying, [s.visit]: false } })),
+      retry: () => this.setState({ payStep: 'pay' }),
+      cancelPay: () => this.setState((s) => ({ view: s.payFrom })),
+      backToProgress: () => this.setState({ view: 'm06' })
+    };
+  }
+}
+</script>
+</body>
+</html>

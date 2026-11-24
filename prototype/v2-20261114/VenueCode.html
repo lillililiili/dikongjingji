@@ -1,0 +1,320 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>到馆核销码（待到馆/已核销/已过期）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="frame"><option selected>待到馆</option><option>已核销</option><option>已过期</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 1000px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column;">
+    <div style="flex-shrink: 0; padding: 8px 8px 52px; background: {{headBg}}; color: #fff;">
+      <div style="display: flex; align-items: center;">
+        <a href="ExpRecords.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+        <h1 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; text-align: center; color: #fff;">到馆核销码</h1>
+        <span style="flex-shrink: 0; width: 44px; height: 44px;"></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 8px 0;">
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; line-height: 30px; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{headIcon}}"></path></svg>{{headTitle}}</span>
+        <span style="font-size: 13px; font-weight: 500; line-height: 19px;">{{headSub}}</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; position: relative; margin-top: -36px; display: flex; flex-direction: column; gap: 12px; padding: 0 16px 16px;">
+      <div style="display: flex; flex-direction: column; border-radius: 14px; background: #fff;">
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
+          <span style="font-size: 17px; font-weight: 700; line-height: 24px;">机器人避障闯关</span>
+          <div style="display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 10px; font-size: 13px; line-height: 19px;">
+            <span style="color: #738096; white-space: nowrap;">场次</span><span style="font-weight: 500;">{{slotLine}}</span>
+            <span style="color: #738096; white-space: nowrap;">参与人</span><span>王小禾 · 1 人</span>
+            <span style="color: #738096; white-space: nowrap;">地点</span><span style="display: flex; flex-direction: column;"><span>东营低空与机器人体验馆</span><span style="color: #627187;">东营区示例路 66 号</span></span>
+          </div>
+        </div>
+        <div style="position: relative; height: 16px;">
+          <span style="position: absolute; left: 0; top: 0; width: 8px; height: 16px; border-radius: 0 8px 8px 0; background: #f5f7fc;"></span>
+          <span style="position: absolute; left: 16px; right: 16px; top: 8px; border-top: 1px dashed #dcdfe3;"></span>
+          <span style="position: absolute; right: 0; top: 0; width: 8px; height: 16px; border-radius: 8px 0 0 8px; background: #f5f7fc;"></span>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 16px 16px;">
+          <div role="img" aria-label="核销码二维码占位" style="position: relative; width: 176px; height: 176px; margin-bottom: 6px;">
+            <svg width="176" height="176" viewBox="0 0 25 25" shape-rendering="crispEdges" style="display: block; opacity: {{qrOp}};" aria-hidden="true"><path fill="#202c42" d="M0 0h7v1h-7zM8 0h3v1h-3zM13 0h2v1h-2zM18 0h7v1h-7zM0 1h1v1h-1zM6 1h1v1h-1zM8 1h3v1h-3zM12 1h2v1h-2zM15 1h1v1h-1zM18 1h1v1h-1zM24 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM8 2h4v1h-4zM13 2h4v1h-4zM18 2h1v1h-1zM20 2h3v1h-3zM24 2h1v1h-1zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM11 3h3v1h-3zM15 3h2v1h-2zM18 3h1v1h-1zM20 3h3v1h-3zM24 3h1v1h-1zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM12 4h1v1h-1zM15 4h1v1h-1zM18 4h1v1h-1zM20 4h3v1h-3zM24 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM9 5h1v1h-1zM13 5h1v1h-1zM18 5h1v1h-1zM24 5h1v1h-1zM0 6h7v1h-7zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h7v1h-7zM8 7h1v1h-1zM10 7h1v1h-1zM12 7h1v1h-1zM4 8h4v1h-4zM10 8h2v1h-2zM16 8h3v1h-3zM20 8h1v1h-1zM23 8h1v1h-1zM0 9h2v1h-2zM3 9h1v1h-1zM9 9h2v1h-2zM12 9h1v1h-1zM15 9h2v1h-2zM22 9h1v1h-1zM0 10h2v1h-2zM3 10h1v1h-1zM5 10h2v1h-2zM11 10h1v1h-1zM13 10h1v1h-1zM19 10h2v1h-2zM3 11h3v1h-3zM12 11h3v1h-3zM20 11h2v1h-2zM23 11h1v1h-1zM0 12h3v1h-3zM4 12h1v1h-1zM6 12h2v1h-2zM10 12h1v1h-1zM13 12h1v1h-1zM15 12h1v1h-1zM18 12h2v1h-2zM24 12h1v1h-1zM0 13h1v1h-1zM4 13h2v1h-2zM17 13h1v1h-1zM19 13h1v1h-1zM23 13h2v1h-2zM1 14h2v1h-2zM6 14h1v1h-1zM9 14h2v1h-2zM13 14h1v1h-1zM19 14h1v1h-1zM23 14h2v1h-2zM0 15h1v1h-1zM4 15h1v1h-1zM7 15h1v1h-1zM10 15h1v1h-1zM12 15h1v1h-1zM17 15h4v1h-4zM22 15h3v1h-3zM1 16h1v1h-1zM4 16h1v1h-1zM6 16h1v1h-1zM9 16h1v1h-1zM15 16h8v1h-8zM24 16h1v1h-1zM15 17h2v1h-2zM20 17h2v1h-2zM24 17h1v1h-1zM0 18h7v1h-7zM11 18h1v1h-1zM16 18h1v1h-1zM18 18h1v1h-1zM20 18h1v1h-1zM24 18h1v1h-1zM0 19h1v1h-1zM6 19h1v1h-1zM12 19h1v1h-1zM14 19h1v1h-1zM16 19h1v1h-1zM20 19h2v1h-2zM24 19h1v1h-1zM0 20h1v1h-1zM2 20h3v1h-3zM6 20h1v1h-1zM12 20h1v1h-1zM14 20h1v1h-1zM16 20h5v1h-5zM23 20h1v1h-1zM0 21h1v1h-1zM2 21h3v1h-3zM6 21h1v1h-1zM9 21h5v1h-5zM17 21h1v1h-1zM19 21h2v1h-2zM22 21h3v1h-3zM0 22h1v1h-1zM2 22h3v1h-3zM6 22h1v1h-1zM8 22h1v1h-1zM11 22h1v1h-1zM13 22h1v1h-1zM15 22h4v1h-4zM20 22h1v1h-1zM24 22h1v1h-1zM0 23h1v1h-1zM6 23h1v1h-1zM8 23h2v1h-2zM14 23h2v1h-2zM17 23h1v1h-1zM21 23h2v1h-2zM24 23h1v1h-1zM0 24h7v1h-7zM8 24h1v1h-1zM10 24h1v1h-1zM12 24h1v1h-1zM14 24h1v1h-1zM21 24h4v1h-4z"></path></svg>
+            <sc-if value="{{stamp}}" hint-placeholder-val="{{false}}">
+              <span style="position: absolute; left: 44px; top: 44px; width: 88px; height: 88px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{stampC}}; background: #fff; color: {{stampC}}; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{stamp}}</span>
+            </sc-if>
+          </div>
+          <span style="font-size: 14px; line-height: 20px; color: #536178; white-space: nowrap;">凭证号 {{code}}</span>
+          <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{codeHint}}</span>
+        </div>
+      </div>
+
+      <sc-if value="{{isWait}}" hint-placeholder-val="{{true}}">
+        <div style="position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+          <button type="button" onClick="{{navTap}}" style="height: 76px; margin: 0; padding: 0; border: 0; border-radius: 14px; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #202c42; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"></path></svg>导航到场馆</button>
+          <button type="button" onClick="{{openMove}}" style="height: 76px; margin: 0; padding: 0; border: 0; border-radius: 14px; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #202c42; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h14v15H5zM5 9h14M9 3v4M15 3v4"></path></svg>改期</button>
+          <button type="button" onClick="{{openCancel}}" style="height: 76px; margin: 0; padding: 0; border: 0; border-radius: 14px; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #202c42; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 0 1 5 5"></path></svg>取消预约</button>
+          <sc-if value="{{hint}}" hint-placeholder-val="{{false}}">
+            <button type="button" role="status" onClick="{{closeHint}}" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 3; display: flex; align-items: flex-start; gap: 6px; margin: 6px 0 0; padding: 8px 10px; box-sizing: border-box; border: 1px solid #ffd8b8; border-radius: 10px; background: #fff0e3; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font: inherit; font-size: 12px; line-height: 18px; color: #ba470b; text-align: left; cursor: pointer;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+              <span style="flex-grow: 1; min-width: 0;">{{hint}}</span>
+              <span aria-hidden="true" style="flex-shrink: 0; font-size: 14px; line-height: 18px; color: #ba470b;">×</span>
+            </button>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff;">
+        <div style="display: flex; align-items: center; padding: 0 45px;">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+            <span style="flex-shrink: 0; width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{s.bd}}; background: {{s.bg}}; display: flex; align-items: center; justify-content: center;"><sc-if value="{{s.done}}" hint-placeholder-val="{{true}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if></span>
+            <sc-if value="{{s.line}}" hint-placeholder-val="{{true}}">
+              <span style="flex-grow: 1; height: 2px; background: {{s.line}};"></span>
+            </sc-if>
+          </sc-for>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+            <span style="font-size: 13px; line-height: 18px; color: {{s.c}}; text-align: center; white-space: nowrap;">{{s.label}}</span>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff; font-size: 13px; line-height: 19px;">
+        <h2 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; line-height: 22px;">订单与支付</h2>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="flex-shrink: 0; width: 72px; color: #627187; white-space: nowrap;">订单号</span>
+          <span style="white-space: nowrap;">DY20261103110600</span>
+          <button type="button" onClick="{{copyOrder}}" style="flex-shrink: 0; margin: -9px 0 -9px auto; height: 36px; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 13px; line-height: 18px; color: {{copyC}}; white-space: nowrap; cursor: pointer;">{{copyLabel}}</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="flex-shrink: 0; width: 72px; color: #627187; white-space: nowrap;">实付</span>
+          <span style="font-size: 15px; font-weight: 700; line-height: 21px; color: #e85400;">¥39</span>
+          <span style="color: #627187;">1 人 × ¥39</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="flex-shrink: 0; width: 72px; color: #627187; white-space: nowrap;">支付方式</span>
+          <span style="padding: 0 6px; border-radius: 4px; border: 1px dashed #c9d3e1; color: #536178; white-space: nowrap;">[主用支付渠道]</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="flex-shrink: 0; width: 72px; color: #627187; white-space: nowrap;">渠道交易号</span>
+          <span style="padding: 0 6px; border-radius: 4px; border: 1px dashed #c9d3e1; color: #536178; white-space: nowrap;">[渠道交易号]</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 10px;">
+          <span style="flex-shrink: 0; width: 72px; color: #627187; white-space: nowrap;">收款方</span>
+          <span style="min-width: 0; display: flex; flex-direction: column;"><span>东营低空与机器人体验馆</span><span style="color: #627187;">经平台支付渠道</span></span>
+        </div>
+        <sc-if value="{{isCancel}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="flex-shrink: 0; width: 72px; color: #627187; white-space: nowrap;">退款</span>
+            <span style="color: #ba470b;">¥39 退款中 · 原路退回</span>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{showBar}}" hint-placeholder-val="{{false}}">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+      <sc-if value="{{barNote}}" hint-placeholder-val="{{false}}">
+        <span style="font-size: 12px; line-height: 17px; color: #627187;">{{barNote}}</span>
+      </sc-if>
+      <div style="display: flex; gap: 10px;">
+        <a href="{{barLeft.href}}" style="flex: 1 1 0; min-width: 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; color: #202c42; font-size: 15px; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">{{barLeft.label}}</a>
+        <a href="VenueDetail.dc.html" style="flex: 1 1 0; min-width: 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">{{barRight}}</a>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{sheetMove}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 4; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="改期" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 12px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">改期</span>
+        <span style="font-size: 13px; line-height: 19px; color: #627187;">当前场次 {{slotLine}}</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <sc-for list="{{moveDays}}" as="d" hint-placeholder-count="3">
+          <button type="button" onClick="{{d.pick}}" aria-pressed="{{d.on}}" style="flex: 1 1 0; min-width: 0; height: 36px; margin: 0; padding: 0; border: 0; border-radius: 8px; background: {{d.bg}}; font: inherit; font-size: 13px; font-weight: {{d.w}}; color: {{d.c}}; white-space: nowrap; cursor: pointer;">{{d.label}}</button>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+        <sc-for list="{{moveSlots}}" as="s" hint-placeholder-count="5">
+          <button type="button" onClick="{{s.pick}}" disabled="{{s.off}}" aria-pressed="{{s.on}}" style="min-height: 56px; margin: 0; padding: 0; box-sizing: border-box; border-radius: 10px; border: 1.5px solid {{s.bd}}; background: {{s.bg}}; font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: {{s.cur}};"><span style="font-size: 15px; font-weight: 500; line-height: 21px; color: {{s.tc}};">{{s.time}}</span><span style="font-size: 12px; line-height: 17px; color: {{s.sc}};">{{s.sub}}</span></button>
+        </sc-for>
+      </div>
+      <span style="font-size: 13px; line-height: 19px; color: #536178;">开场前 [协议约定时间] 可免费改期。改期后旧码作废，本页换成新码。</span>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">暂不改期</button>
+        <button type="button" onClick="{{confirmMove}}" disabled="{{moveOff}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: {{moveBg}}; font: inherit; font-size: 15px; font-weight: 500; color: {{moveFg}}; cursor: {{moveCur}};">确认改期</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{sheetCancel}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 4; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="确认取消这次预约" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">确认取消这次预约？</span>
+      <div style="display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px 12px; padding: 12px; border-radius: 10px; background: #f5f7fc; font-size: 13px; line-height: 18px;">
+        <span style="color: #627187; white-space: nowrap;">场次</span><span>{{slotLine}}</span>
+        <span style="color: #627187; white-space: nowrap;">退款金额</span><span style="font-weight: 700; color: #e85400;">¥39</span>
+        <span style="color: #627187; white-space: nowrap;">退款方式</span><span>原路退回 [主用支付渠道]</span>
+        <span style="color: #627187; white-space: nowrap;">到账时间</span><span>[协议约定时间]</span>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #fff0e3; font-size: 13px; line-height: 18px; color: #ba470b;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 4l9 16H3zM12 10v4M12 17h.01"></path></svg>
+        <span style="min-width: 0;">取消后名额释放，核销码立即失效</span>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">暂不取消</button>
+        <button type="button" onClick="{{confirmCancel}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">确认取消</button>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{navOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" aria-label="关闭" onClick="{{navClose}}" style="position: absolute; inset: 0; z-index: 8; margin: 0; padding: 0; border: 0; background: rgba(0,0,0,0.45);"></button>
+    <div role="dialog" aria-label="导航到场馆" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 9; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 24px; border-radius: 16px 16px 0 0; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif;">
+      <span style="font-size: 16px; font-weight: 700; line-height: 22px; text-align: center; color: #202c42;">导航到场馆</span>
+      <span style="font-size: 12px; line-height: 17px; text-align: center; color: #738096;">东营低空与机器人体验馆 · 东营区示例路 66 号</span>
+      <sc-for list="{{navApps}}" as="r" hint-placeholder-count="3">
+        <button type="button" onClick="{{r.pick}}" style="height: 48px; margin: 0; padding: 0; border: 0; border-radius: 12px; background: #f5f7fc; font: inherit; font-size: 15px; line-height: 20px; color: #202c42; cursor: pointer;">{{r.label}}</button>
+      </sc-for>
+      <button type="button" onClick="{{navClose}}" style="height: 48px; margin: 4px 0 0; padding: 0; border: 0; border-radius: 999px; background: #fff; font: inherit; font-size: 15px; line-height: 20px; color: #536178; cursor: pointer;">取消</button>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // sheet：'' 无弹层 / move 改期 / cancel 取消；moveDay、moveSlot：改期面板里的选择
+    // moved：已确认的新场次（空 = 没改过）；cancelled：已取消；hint：导航的页内提示；copied：订单号已复制
+    this.state = { sheet: '', moveDay: 'tomorrow', moveSlot: '', moved: '', cancelled: false, hint: '', copied: false, navOpen: false };
+  }
+  renderVals() {
+    const { sheet, moveDay, moveSlot, moved, cancelled, hint, copied, navOpen } = this.state;
+    const frame = this.props.frame ?? '待到馆';
+    const status = cancelled ? 'cancel' : (frame === '已核销' ? 'used' : (frame === '已过期' ? 'expired' : 'wait'));
+    // 场次时长 30 分钟
+    const span = (time) => {
+      const [h, m] = time.split(':').map(Number);
+      const end = h * 60 + m + 30;
+      return time + '–' + String(Math.floor(end / 60)).padStart(2, '0') + ':' + String(end % 60).padStart(2, '0');
+    };
+    // 可改期的日期与余位，和场馆详情一致；0 = 已满
+    const dayList = [
+      { id: 'tomorrow', label: '明天', full: '明天 11/04 周三', rows: [['10:00', 8], ['14:00', 6], ['15:30', 8], ['17:00', 4]] },
+      { id: 'sat', label: '11/07 周六', full: '11/07 周六', rows: [['10:00', 0], ['11:00', 1], ['14:00', 3], ['15:30', 6], ['17:00', 8]] },
+      { id: 'sun', label: '11/08 周日', full: '11/08 周日', rows: [['10:00', 4], ['11:00', 7], ['14:00', 0], ['15:30', 2], ['17:00', 8]] }
+    ];
+    const moveDays = dayList.map((d) => {
+      const on = d.id === moveDay;
+      return {
+        label: d.label, on,
+        bg: on ? '#ff6a00' : '#eef2f8',
+        c: on ? '#fff' : '#202c42',
+        w: on ? 500 : 400,
+        pick: () => this.setState({ moveDay: d.id, moveSlot: '' })
+      };
+    });
+    const curDay = dayList.find((d) => d.id === moveDay);
+    const moveSlots = curDay.rows.map(([time, left]) => {
+      const off = left === 0;
+      const on = time === moveSlot;
+      const tight = !off && left <= 2;
+      return {
+        time, on, off,
+        sub: off ? '已满' : '余 ' + left,
+        bd: on ? '#ff6a00' : '#e5ebf3',
+        bg: on ? '#fffaf5' : (off ? '#f5f7fc' : '#fff'),
+        tc: on ? '#ba470b' : (off ? '#91a0b4' : '#202c42'),
+        sc: on || tight ? '#ba470b' : (off ? '#738096' : '#627187'),
+        cur: off ? 'not-allowed' : 'pointer',
+        pick: off ? () => {} : () => this.setState({ moveSlot: time })
+      };
+    });
+    const slotLine = moved || ('今天 11/03 周二 ' + span('14:00'));
+    const orange = 'linear-gradient(180deg, #ff6a00 0%, #ff8a3d 100%)';
+    const green = 'linear-gradient(180deg, #11804a 0%, #159a70 100%)';
+    const gray = 'linear-gradient(180deg, #627187 0%, #738096 100%)';
+    const check = 'M5 12l5 5 9-10';
+    const cross = 'M6 6l12 12M18 6L6 18';
+    const views = {
+      wait: { bg: orange, icon: check, title: moved ? '改期成功 · 待到馆' : '预约成功 · 待到馆', sub: moved ? '旧码已作废，请出示下面的新码' : '请提前 10 分钟到馆，开场前会发送提醒', stamp: '', hintLine: '到馆出示二维码核销 · 一单一码，含 1 人', op: 1 },
+      used: { bg: green, icon: check, title: '已核销', sub: '11/03 14:05 到馆核销完成', stamp: '已核销', stampC: '#11804a', hintLine: '这张码已使用，不能重复核销', op: 0.18 },
+      expired: { bg: gray, icon: cross, title: '已过期', sub: '场次已结束，未到馆核销，费用按退改说明处理', stamp: '已过期', stampC: '#627187', hintLine: '这张码已失效', op: 0.18 },
+      cancel: { bg: gray, icon: cross, title: '已取消 · 退款中', sub: '¥39 原路退回，到账时间 [协议约定时间]', stamp: '已失效', stampC: '#627187', hintLine: '这张码已失效', op: 0.18 }
+    };
+    const v = views[status];
+    // 进度：已支付 → 预约成功 → 第三步随状态变化
+    const third = { wait: '到馆核销', used: '已核销', expired: '已过期', cancel: '已取消' }[status];
+    const doneC = '#ff6a00';
+    const idleC = '#dcdfe3';
+    const steps = [
+      { label: '已支付', done: true, bd: doneC, bg: doneC, c: '#202c42', line: doneC },
+      { label: '预约成功', done: true, bd: doneC, bg: doneC, c: '#202c42', line: status === 'used' ? doneC : idleC },
+      { label: third, done: status === 'used', bd: status === 'used' ? doneC : idleC, bg: status === 'used' ? doneC : '#fff', c: status === 'used' ? '#202c42' : '#738096', line: '' }
+    ];
+    const bars = {
+      used: { left: { href: 'VenueDevices.dc.html', label: '看馆内设备' }, right: '再约一场', note: '体验结束不会自动下单，接下来由你决定' },
+      expired: { left: { href: 'Chat.dc.html', label: '联系场馆' }, right: '重新预约', note: '' },
+      cancel: { left: { href: 'ExpRecords.dc.html', label: '返回我的体验' }, right: '再约一场', note: '' },
+      wait: { left: { href: 'ExpRecords.dc.html', label: '返回我的体验' }, right: '再约一场', note: '' }
+    };
+    const bar = bars[status];
+    const canMove = Boolean(moveSlot);
+    return {
+      headBg: v.bg, headIcon: v.icon, headTitle: v.title, headSub: v.sub,
+      slotLine,
+      code: moved ? 'EXP-2611-0314-02' : 'EXP-2611-0314-01',
+      codeHint: v.hintLine,
+      qrOp: v.op,
+      stamp: v.stamp,
+      stampC: v.stampC || '#627187',
+      isWait: status === 'wait',
+      isCancel: status === 'cancel',
+      steps,
+      showBar: status !== 'wait',
+      barLeft: bar.left,
+      barRight: bar.right,
+      barNote: bar.note,
+      hint,
+      closeHint: () => this.setState({ hint: '' }),
+      navOpen,
+      navTap: () => this.setState({ navOpen: true, hint: '' }),
+      navClose: () => this.setState({ navOpen: false }),
+      navApps: [['高德地图', 'amap'], ['百度地图', 'baidu'], ['苹果地图', 'apple']].map(([label]) => ({ label, pick: () => this.setState({ navOpen: false, hint: '已用' + label + '打开导航' }) })),
+      copyLabel: copied ? '已复制' : '复制',
+      copyC: copied ? '#11804a' : '#ba470b',
+      copyOrder: () => this.setState({ copied: true }),
+      sheetMove: sheet === 'move',
+      sheetCancel: sheet === 'cancel',
+      openMove: () => this.setState({ sheet: 'move', moveDay: 'tomorrow', moveSlot: '', hint: '' }),
+      openCancel: () => this.setState({ sheet: 'cancel', hint: '' }),
+      closeSheet: () => this.setState({ sheet: '' }),
+      moveDays, moveSlots,
+      moveOff: !canMove,
+      moveBg: canMove ? '#ff6a00' : '#eef0f3',
+      moveFg: canMove ? '#fff' : '#91a0b4',
+      moveCur: canMove ? 'pointer' : 'not-allowed',
+      confirmMove: canMove ? () => this.setState({ sheet: '', moved: curDay.full + ' ' + span(moveSlot) }) : () => {},
+      confirmCancel: () => this.setState({ sheet: '', cancelled: true })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"frame":"待到馆"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

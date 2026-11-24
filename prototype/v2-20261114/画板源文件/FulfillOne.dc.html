@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>服务履约 · 单次</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 888px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderList.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">服务履约</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <img src="/_blob/d26647dbfc9226eacaf364aaff076d9d" alt="电力线路现场" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5; font-size: 12px; line-height: 17px;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px;">电力线路巡检</span>
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+            <span style="font-size: 13px; line-height: 20px; color: #555a62; white-space: nowrap;">服务商 示例电力巡检服务商</span>
+            <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; font-size: 12px; line-height: 17px; white-space: nowrap;">资质已审核</span>
+          </div>
+        </div>
+      </div>
+      <div style="height: 1px; background: #f0f1f3;"></div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: #d94f00; white-space: nowrap;">{{statusText}}</span>
+          <span style="margin-left: auto; font-size: 14px; line-height: 20px; white-space: nowrap;">{{statusSide}}</span>
+        </div>
+        <div role="progressbar" aria-label="巡检完成进度" aria-valuemin="0" aria-valuemax="1" aria-valuenow="{{barNow}}" style="display: grid; grid-template-columns: minmax(0, 1fr);">
+          <span style="height: 6px; border-radius: 3px; background: {{barBg}};"></span>
+        </div>
+        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">{{statusNote}}</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">履约安排</h2>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 60px; border-top: 1px solid #f0f1f3;">
+        <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">项目负责人</span>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 500; line-height: 20px;">李工</span>
+          <span style="font-size: 12px; line-height: 17px; color: #666b73; white-space: nowrap;">139****2208</span>
+        </div>
+        <a href="Chat.dc.html" style="flex-shrink: 0; height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fffaf5; font-size: 13px; line-height: 18px; color: #d94f00; white-space: nowrap; text-decoration: none; display: flex; align-items: center;">联系负责人</a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+        <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">持证飞手</span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px;">1 名</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+        <span style="flex-shrink: 0; width: 72px; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">设备</span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px;">行业无人机 ×1</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">巡检进度</h2>
+          <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">共 1 次</span>
+        </div>
+        <span style="font-size: 12px; line-height: 17px; color: #666b73;">本次巡检：无人机巡检</span>
+      </div>
+      <div role="list" aria-label="巡检进度" style="display: flex; flex-direction: column;">
+        <sc-if value="{{isScheduled}}" hint-placeholder-val="{{true}}">
+          <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 12px;">
+            <span style="position: relative; flex-shrink: 0; width: 16px;">
+              <span style="position: absolute; left: 0; top: 2px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid #ff6a00; background: #fff; display: flex; align-items: center; justify-content: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></span>
+            </span>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 14px; font-weight: 500; line-height: 20px; color: #191919;">第 1 次 · 11/06</span>
+              <span style="font-size: 12px; line-height: 17px; color: #1d63c4;">已排期 · 09:00</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{showCard}}" hint-placeholder-val="{{false}}">
+          <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 12px;">
+            <span style="position: relative; flex-shrink: 0; width: 16px;">
+              <sc-if value="{{isWorking}}" hint-placeholder-val="{{false}}">
+                <span style="position: absolute; left: 0; top: 13px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid #ff6a00; background: #fff; display: flex; align-items: center; justify-content: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></span>
+              </sc-if>
+              <sc-if value="{{isDelivered}}" hint-placeholder-val="{{false}}">
+                <span style="position: absolute; left: 0; top: 13px; width: 16px; height: 16px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+              </sc-if>
+            </span>
+            <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-radius: 10px; border: 1px solid #ffd8b8; background: #fffaf5;">
+              <div style="display: flex; align-items: flex-start; gap: 8px;">
+                <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 15px; font-weight: 700; line-height: 21px;">第 1 次 · 11/06</span>
+                  <sc-if value="{{isWorking}}" hint-placeholder-val="{{false}}">
+                    <span style="font-size: 12px; line-height: 17px; color: #1d63c4;">{{workingText}}</span>
+                  </sc-if>
+                  <sc-if value="{{isDelivered}}" hint-placeholder-val="{{false}}">
+                    <span style="font-size: 12px; line-height: 17px; color: #11804a;">已完成 · 报告已交付</span>
+                  </sc-if>
+                </div>
+                <sc-if value="{{chipText}}" hint-placeholder-val="{{false}}">
+                  <span style="flex-shrink: 0; padding: 2px 8px; border-radius: 6px; background: {{chipBg}}; color: {{chipFg}}; font-size: 12px; line-height: 17px; white-space: nowrap;">{{chipText}}</span>
+                </sc-if>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 17px;">
+                <sc-for list="{{logs}}" as="l" hint-placeholder-count="3">
+                  <div style="display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px;">
+                    <span style="color: #8a8f97; white-space: nowrap;">{{l.time}}</span>
+                    <span style="color: #555a62;">{{l.text}}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{isDelivered}}" hint-placeholder-val="{{false}}">
+                <a href="DeliveryOne.dc.html" style="align-self: flex-start; height: 36px; box-sizing: border-box; padding: 0 14px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; color: #d94f00; font-size: 13px; line-height: 18px; text-decoration: none; display: flex; align-items: center; white-space: nowrap;">查看第 1 次交付 ›</a>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 6px; padding: 0 2px; font-size: 12px; line-height: 17px; color: #666b73;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 8h.01"></path></svg>
+      <span style="min-width: 0;">履约状态由服务商按实际作业更新，交付后由你验收</span>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{canRefresh}}" hint-placeholder-val="{{true}}">
+      <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 18px; color: #666b73;">服务商按实际作业更新进度</span>
+      <button type="button" onClick="{{refresh}}" style="flex-shrink: 0; height: 46px; padding: 0 24px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; white-space: nowrap; cursor: pointer;">刷新进度</button>
+    </sc-if>
+    <sc-if value="{{isDelivered}}" hint-placeholder-val="{{false}}">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 14px; font-weight: 500; line-height: 20px;">第 1 次报告待验收</span>
+        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">11/07 10:00 已交付，请核对后验收</span>
+      </div>
+      <a href="DeliveryOne.dc.html" style="flex-shrink: 0; height: 46px; padding: 0 28px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">去验收</a>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":888}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // frame：这一单在不同时刻的分镜，0 已排期 / 1 作业中 / 2 现场已完成 / 3 已交付待验收
+    this.state = { frame: 0 };
+  }
+  renderVals() {
+    const { frame } = this.state;
+
+    // 本页对客户只读：状态由服务商按实际作业在服务端更新；「刷新进度」只代表重新读取服务端状态，不是客户改状态
+    const frames = [
+      { text: '待履约', side: '共 1 次 · 未开始', bar: '#ebedf0', note: '现场巡检 11/06 09:00', chip: '' },
+      { text: '履约中', side: '共 1 次 · 作业中', bar: '#ffd8b8', note: '现场巡检 11/06 09:00', chip: '' },
+      { text: '履约中', side: '共 1 次 · 现场已完成', bar: '#ffd8b8', note: '现场巡检 11/06 09:00', chip: '' },
+      { text: '待验收', side: '共 1 次 · 报告已交付', bar: '#ff6a00', note: '请核对报告后验收', chip: '待验收' }
+    ];
+    const cur = frames[frame];
+
+    // 作业日志：作业中只有开始作业一行；现场已完成补完成作业；已交付再补报告交付
+    const allLogs = [
+      { time: '11/06 09:10', text: '开始作业' },
+      { time: '11/06 11:40', text: '完成作业' },
+      { time: '11/07 10:00', text: '报告已交付（48 小时内）' }
+    ];
+    const logs = allLogs.slice(0, frame);
+
+    return {
+      statusText: cur.text,
+      statusSide: cur.side,
+      statusNote: cur.note,
+      barBg: cur.bar,
+      barNow: frame === 3 ? 1 : 0,
+      isScheduled: frame === 0,
+      // 现场已完成但报告还没交付，这一次还不算完成，节点仍是进行中
+      isWorking: frame === 1 || frame === 2,
+      workingText: frame === 2 ? '现场已完成 · 报告整理中' : '作业中',
+      isDelivered: frame === 3,
+      showCard: frame > 0,
+      canRefresh: frame < 3,
+      chipText: cur.chip,
+      chipBg: frame === 3 ? '#ff6a00' : '#eaf2fd',
+      chipFg: frame === 3 ? '#fff' : '#1d63c4',
+      logs,
+      refresh: () => this.setState((s) => ({ frame: Math.min(s.frame + 1, 3) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>B 商城列表（初稿，已被 B1 取代）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 10px; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700;">商城</h1>
+      <label style="flex-grow: 1; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; border: 1.5px solid #202c42;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#627187" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+        <input aria-label="搜索商品" placeholder="搜索型号、品牌或课程" style="border: 0; outline: none; font: inherit; font-size: 14px; width: 100%; background: transparent;">
+      </label>
+    </div>
+    <div style="display: flex; gap: 8px; overflow: hidden;">
+      <sc-for list="{{cats}}" as="c" hint-placeholder-count="6">
+        <button style="flex-shrink: 0; height: 34px; padding: 0 14px; border-radius: 999px; border: 0; font: inherit; font-size: 14px; background: {{c.bg}}; color: {{c.fg}}; font-weight: {{c.w}};">{{c.label}}</button>
+      </sc-for>
+    </div>
+    <div style="display: flex; align-items: center; gap: 18px; font-size: 14px; color: #536178;">
+      <span style="color: #ba470b; font-weight: 500;">综合 ▾</span>
+      <span>价格 ⇅</span>
+      <span>可体验</span>
+      <span>现货</span>
+      <span style="margin-left: auto; display: flex; align-items: center; gap: 4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>东营</span>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; overflow: hidden; padding: 12px 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-content: start;">
+    <sc-for list="{{items}}" as="p" hint-placeholder-count="4">
+      <a href="Product.dc.html" style="display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; text-decoration: none; color: #202c42;">
+        <div style="height: 128px; background: #eef0f3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; position: relative;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{p.d}}"></path></svg>
+          <span style="font-size: 11px; color: #738096;">商品图（待授权素材）</span>
+          <sc-if value="{{p.exp}}" hint-placeholder-val="{{true}}">
+            <span style="position: absolute; left: 8px; top: 8px; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #159a70; color: #fff;">可线上体验</span>
+          </sc-if>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px; padding: 10px;">
+          <div style="font-size: 14px; font-weight: 500; line-height: 1.4;">{{p.name}}</div>
+          <div style="font-size: 12px; color: #627187;">{{p.sub}}</div>
+          <div style="display: flex; align-items: baseline; gap: 4px;">
+            <span style="font-size: 18px; font-weight: 700; color: #e85400;">{{p.price}}</span>
+            <span style="font-size: 12px; color: #627187;">{{p.unit}}</span>
+          </div>
+          <div style="font-size: 12px; color: #536178;">{{p.sellers}}</div>
+        </div>
+      </a>
+    </sc-for>
+  </div>
+
+  <nav style="flex-shrink: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 60px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+      <a href="{{t.href}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: {{t.c}}; font-size: 12px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{t.c}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+        <span>{{t.label}}</span>
+      </a>
+    </sc-for>
+  </nav>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    const tabs = [
+      ['首页', 'Home.dc.html', 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z'],
+      ['商城', 'Mall.dc.html', 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2'],
+      ['活动', 'Signup.dc.html', 'M5 5h14v15H5zM5 9h14M9 3v4M15 3v4M9 14l2 2 4-4'],
+      ['发现', 'Discover.dc.html', 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM15.5 8.5l-2 5-5 2 2-5z'],
+      ['我的', 'Mine.dc.html', 'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6']
+    ].map((t, i) => ({ label: t[0], href: t[1], d: t[2], c: i === 1 ? '#ff6a00' : '#738096' }));
+    const cats = ['全部', '无人机', '机器人', '配件', '租赁', '课程'].map((l, i) => ({
+      label: l, bg: i === 0 ? '#ff6a00' : '#eef2f8', fg: i === 0 ? '#fff' : '#202c42', w: i === 0 ? 500 : 400
+    }));
+    const drone = 'M12 10v4M8 12h8M5 6a2 2 0 1 0 0 .1M19 6a2 2 0 1 0 0 .1M5 18a2 2 0 1 0 0 .1M19 18a2 2 0 1 0 0 .1M7 8l3 3M17 8l-3 3M7 16l3-3M17 16l-3-3';
+    const robot = 'M6 8h12v10H6zM9 12h.01M15 12h.01M12 4v4M10 15h4M4 12h2M18 12h2';
+    const items = [
+      { name: '教育编程无人机套装', sub: '图形化编程 · 室内定位', price: '¥2,680', unit: '起', sellers: '3 家商家在售', exp: true, d: drone },
+      { name: '桌面六轴机械臂', sub: '教学版 · 含课程包', price: '¥9,800', unit: '起', sellers: '2 家商家在售', exp: true, d: robot },
+      { name: '行业测绘无人机', sub: '定制配置 · 含培训', price: '询价', unit: '', sellers: '按项目报价', exp: false, d: drone },
+      { name: '巡检机器狗（租赁）', sub: '按天 / 按月 · 含操作员', price: '询价', unit: '', sellers: '询价合同订单', exp: true, d: robot }
+    ];
+    return { tabs, cats, items };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

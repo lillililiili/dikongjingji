@@ -1,0 +1,529 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>08 内容与增强 · 规格</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>body{margin:0;background:#dfe2e6;padding:16px;font-family:-apple-system,'PingFang SC',sans-serif}.bar{font-size:13px;color:#555;margin:0 0 10px}.bar a{color:#ba470b}#root{width:max-content;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.18)}</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body><div class="bar"><a href="HomeFull.html">← 回到 App</a> &nbsp; 08 内容与增强 · 规格（设计文档，不是 App 页面）</div><div id="root"></div><template id="tpl">
+
+<div style="position: relative; width: 1100px; height: 4764px; display: flex; flex-direction: column; gap: 26px; padding: 40px 44px; box-sizing: border-box; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <h1 style="margin: 0; font-size: 28px; line-height: 40px; font-weight: 700; white-space: nowrap;">内容与增强 · 规格（第三批补页）</h1>
+      <a href="Batch2Spec.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff0e3; color: #ba470b; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">账户与履约 · 规格（Batch2Spec）›</a>
+    </div>
+    <div style="font-size: 14px; line-height: 1.6; color: #536178;">本批补齐 5 张画板：专题页、搜索前置页、我的课程、课程学习、收藏与对比。导航沿用方案 C：底栏 首页 / 发现 / 消息 / 购物车 / 我的，商品类目、专业服务、活动、体验是首页顶部频道。课程交付（第 5 节）是设计假设，待确认；收藏（第 6 节）概要设计列二期，是否提前待确认。</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">1 · 页面清单</h2>
+      <span style="font-size: 13px; line-height: 20px; color: #738096;">本批 5 张画板；文件名省略 .dc.html，点文件名跳到对应画板；编号为概要设计 §5.2 的草案编号，确认后生效。</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 128px 104px 176px minmax(0, 1fr) minmax(0, 1.9fr); border: 1px solid #e5ebf3; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">文件</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">页面</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">编号</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">入口</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">主要交互</div>
+      <sc-for list="{{pageRows}}" as="pr" hint-placeholder-count="5">
+        <a href="{{pr.href}}" style="display: block; padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 700; text-decoration: none; overflow-wrap: anywhere;">{{pr.file}}</a>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{pr.page}}</div>
+        <div style="display: flex; flex-direction: column; padding: 9px 12px; border-top: 1px solid #f0f1f3;">
+          <span style="white-space: nowrap;">{{pr.code}}</span>
+          <sc-if value="{{pr.codeNote}}" hint-placeholder-val="{{true}}"><span style="font-size: 12px; line-height: 18px; color: #738096; white-space: pre-line;">{{pr.codeNote}}</span></sc-if>
+        </div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #536178;">{{pr.entry}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #536178;">{{pr.act}}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">2 · 页面流</h2>
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 17px; color: #536178; white-space: nowrap;"><span style="width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ffd8b8; background: #fff0e3;"></span>本批新画板</span>
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 17px; color: #536178; white-space: nowrap;"><span style="width: 14px; height: 14px; box-sizing: border-box; border-radius: 4px; border: 1px solid #e5ebf3; background: #eef2f8;"></span>已有画板</span>
+      <span style="font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">点卡片可跳到对应画板；“/”表示几个并列的入口或去向</span>
+    </div>
+    <sc-for list="{{flows}}" as="fl" hint-placeholder-count="4">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid #e5ebf3; border-radius: 12px;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="font-size: 15px; line-height: 22px; font-weight: 700; white-space: nowrap;">{{fl.name}}</span>
+          <span style="min-width: 0; font-size: 12px; line-height: 18px; color: #738096;">{{fl.note}}</span>
+        </div>
+        <sc-for list="{{fl.paths}}" as="pa" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="flex: 0 0 60px; font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{pa.label}}</span>
+            <div style="flex: 1 1 0; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+              <sc-for list="{{pa.steps}}" as="s" hint-placeholder-count="5">
+                <sc-if value="{{s.isNew}}" hint-placeholder-val="{{true}}">
+                  <a href="{{s.href}}" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #ffd8b8; background: #fff0e3; color: #202c42; text-decoration: none;">
+                    <span style="font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{s.t}}</span>
+                    <span style="font-size: 12px; line-height: 17px; color: #ba470b; white-space: nowrap;">{{s.p}}</span>
+                  </a>
+                </sc-if>
+                <sc-if value="{{s.isOld}}" hint-placeholder-val="{{false}}">
+                  <a href="{{s.href}}" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #e5ebf3; background: #eef2f8; color: #202c42; text-decoration: none;">
+                    <span style="font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{s.t}}</span>
+                    <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">{{s.p}}</span>
+                  </a>
+                </sc-if>
+                <span style="font-size: 14px; line-height: 20px; color: #91a0b4;">{{s.arrow}}</span>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <div style="font-size: 12px; line-height: 1.6; color: #536178;">{{fl.rule}}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">3 · 专题规则</h2>
+      <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #738096;">示例专题：黄河口低空体验季 · 到馆体验、赛事、研学合集</span>
+      <a href="Topic.dc.html" style="margin-left: auto; flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff0e3; color: #ba470b; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">专题页 ›</a>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+      <sc-for list="{{topicRules}}" as="tr" hint-placeholder-count="6">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid #e5ebf3; border-radius: 12px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700;">{{tr.c0}}</span>
+          <span style="font-size: 13px; line-height: 1.6; color: #536178;">{{tr.c1}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: flex; align-items: stretch; gap: 8px;">
+      <div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; padding: 12px 14px; border-radius: 10px; border: 1px solid #ffd8b8; background: #fffaf5;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">分享链接带</span>
+          <span style="font-size: 12px; line-height: 17px; color: #536178; white-space: nowrap;">不带个人信息</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <sc-for list="{{linkParams}}" as="lp" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #ffd8b8; background: #fff;">
+              <span style="font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{lp.k}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #ba470b; white-space: nowrap;">{{lp.v}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <span style="align-self: center; font-size: 16px; line-height: 22px; color: #91a0b4;">→</span>
+      <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; padding: 12px 14px; border-radius: 10px; border: 1px solid #e5ebf3; background: #f5f7fc;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">用于统计来源</span>
+          <span style="min-width: 0; font-size: 12px; line-height: 17px; color: #536178;">无来源标记“来源未知”，不强行归因</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <sc-for list="{{attrSteps}}" as="at" hint-placeholder-count="5">
+            <span style="display: flex; align-items: center; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid #e5ebf3; background: #fff; font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{at.t}}</span>
+            <span style="font-size: 14px; line-height: 20px; color: #91a0b4;">{{at.arrow}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">4 · 搜索规则</h2>
+      <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #738096;">点首页搜索框先到前置页，提交后到结果页。</span>
+      <a href="SearchPre.dc.html" style="margin-left: auto; flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff0e3; color: #ba470b; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">搜索前置页 ›</a>
+      <a href="MallSearch.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #e5ebf3; background: #eef2f8; color: #536178; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">结果页 ›</a>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; min-height: 44px; box-sizing: border-box; padding: 4px 14px; border-radius: 10px; background: #f5f7fc;">
+      <span style="flex-shrink: 0; margin-right: 6px; font-size: 13px; line-height: 20px; font-weight: 500; white-space: nowrap;">范围 Tab</span>
+      <sc-for list="{{scopes}}" as="sc" hint-placeholder-count="6">
+        <span style="flex-shrink: 0; padding: 0 10px; border-radius: 6px; border: 1px solid {{sc.bd}}; background: {{sc.bg}}; color: {{sc.c}}; font-size: 13px; line-height: 26px; white-space: nowrap;">{{sc.t}}</span>
+      </sc-for>
+      <span style="margin-left: auto; flex-shrink: 0; font-size: 12px; line-height: 17px; color: #536178; white-space: nowrap;">Tab 下方一行小字：东营 · 结果按本城可用范围显示</span>
+    </div>
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid #e5ebf3; border-radius: 12px;">
+        <span style="font-size: 15px; line-height: 22px; font-weight: 700; white-space: nowrap;">无输入时</span>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 13px; line-height: 1.6;"><span style="font-weight: 700;">最近搜索</span><span style="color: #536178;">：都到 MallSearch（结果页示例就是“测绘”）；「清空」后显示“还没有搜索记录”</span></div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <sc-for list="{{recents}}" as="rc" hint-placeholder-count="4">
+              <a href="MallSearch.dc.html" style="display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; background: #eef2f8; color: #202c42; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">{{rc}}</a>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 13px; line-height: 1.6;"><span style="font-weight: 700;">按类目找</span><span style="color: #536178;">：运营配置的固定入口，不是热搜</span></div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <sc-for list="{{catLinks}}" as="cl" hint-placeholder-count="4">
+              <a href="{{cl.href}}" style="display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 44px; box-sizing: border-box; padding: 4px 12px; border-radius: 8px; border: 1px solid #e5ebf3; background: #eef2f8; color: #202c42; text-decoration: none;">
+                <span style="font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">{{cl.t}}</span>
+                <span style="font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">{{cl.p}}</span>
+              </a>
+            </sc-for>
+          </div>
+        </div>
+        <div style="margin-top: auto; font-size: 13px; line-height: 1.6;"><span style="font-weight: 700;">说明一行</span><span style="color: #536178;">：最近搜索只保存在本机，可随时清空</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid #e5ebf3; border-radius: 12px;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="font-size: 15px; line-height: 22px; font-weight: 700; white-space: nowrap;">有输入时</span>
+          <span style="min-width: 0; font-size: 12px; line-height: 18px; color: #738096;">显示联想；按输入文字包含匹配，并受范围 Tab 过滤</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 56px minmax(0, 1fr) 124px; border: 1px solid #e5ebf3; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+          <div style="padding: 8px 10px; background: #fff0e3; color: #ba470b; white-space: nowrap;">首行</div>
+          <div style="padding: 8px 10px; background: #fff0e3;">固定一行 搜索“xx”</div>
+          <a href="MallSearch.dc.html" style="display: block; padding: 8px 10px; background: #fff0e3; font-weight: 500; text-decoration: none;">MallSearch</a>
+          <sc-for list="{{suggests}}" as="sg" hint-placeholder-count="7">
+            <div style="padding: 8px 10px; border-top: 1px solid #f0f1f3; color: #536178; white-space: nowrap;">{{sg.c0}}</div>
+            <div style="padding: 8px 10px; border-top: 1px solid #f0f1f3;">{{sg.c1}}</div>
+            <a href="{{sg.href}}" style="display: block; padding: 8px 10px; border-top: 1px solid #f0f1f3; font-weight: 500; text-decoration: none;">{{sg.c2}}</a>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+      <sc-for list="{{searchRules}}" as="sr" hint-placeholder-count="8">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid #e5ebf3; border-radius: 12px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700;">{{sr.c0}}</span>
+          <span style="font-size: 13px; line-height: 1.6; color: #536178;">{{sr.c1}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">5 · 课程交付</h2>
+      <span style="display: flex; align-items: center; min-height: 26px; box-sizing: border-box; padding: 0 10px; border-radius: 6px; border: 1px dashed #ba470b; background: #fff0e3; color: #ba470b; font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">设计假设，待确认</span>
+      <a href="MyCourses.dc.html" style="margin-left: auto; flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff0e3; color: #ba470b; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">我的课程 ›</a>
+      <a href="CourseDetail.dc.html" style="flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff0e3; color: #ba470b; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">课程学习 ›</a>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; border: 1px dashed #ba470b; background: #fffaf5;">
+        <span style="font-size: 14px; line-height: 20px; font-weight: 700;">假设</span>
+        <span style="font-size: 13px; line-height: 1.6; color: #536178;">一期“课程”只交付线上录播的数字课程。它来自两处：随商品配套，或在“课程”频道单独购买。线下培训走活动报名，凭证在“活动报名”里，不进“我的课程”。</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid #e5ebf3;">
+        <span style="font-size: 14px; line-height: 20px; font-weight: 700;">依据（画布已有数据）</span>
+        <span style="font-size: 13px; line-height: 1.6; color: #536178;">标准套装“1 台 + 数字课程”；商品详情“配套课程 16 课时（数字版）”；“培训”属于活动类型。</span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px minmax(0, 1fr); border: 1px solid #e5ebf3; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <sc-for list="{{courseFacts}}" as="cf" hint-placeholder-count="5">
+        <div style="padding: 9px 12px; border-top: 1px solid {{cf.line}}; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">{{cf.c0}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid {{cf.line}};">{{cf.c1}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid {{cf.line}}; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">{{cf.c2}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid {{cf.line}};">{{cf.c3}}</div>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 14px; line-height: 20px; font-weight: 700;">章节（示例）</span>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+        <sc-for list="{{chapters}}" as="ch" hint-placeholder-count="4">
+          <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: 10px; background: #f5f7fc;">
+            <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">{{ch.name}}</span>
+            <sc-for list="{{ch.lessons}}" as="ls" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px;">
+                <span style="min-width: 0; font-size: 13px; line-height: 20px;">{{ls.t}}</span>
+                <sc-if value="{{ls.st}}" hint-placeholder-val="{{false}}">
+                  <span style="flex-shrink: 0; padding: 0 6px; border-radius: 6px; background: {{ls.stBg}}; color: {{ls.stC}}; font-size: 12px; line-height: 18px; white-space: nowrap;">{{ls.st}}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+      <sc-for list="{{courseRules}}" as="cr" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid #e5ebf3; border-radius: 12px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700;">{{cr.c0}}</span>
+          <span style="font-size: 13px; line-height: 1.6; color: #536178;">{{cr.c1}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 14px; line-height: 20px; font-weight: 700;">行为假设（画板已按此实现，待确认）</span>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+        <sc-for list="{{courseAssumes}}" as="ca" hint-placeholder-count="4">
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; border: 1px dashed #ba470b; background: #fffaf5;">
+            <span style="font-size: 14px; line-height: 20px; font-weight: 700;">{{ca.c0}}</span>
+            <span style="font-size: 13px; line-height: 1.6; color: #536178;">{{ca.c1}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">6 · 收藏规则</h2>
+      <span style="display: flex; align-items: center; min-height: 26px; box-sizing: border-box; padding: 0 10px; border-radius: 6px; border: 1px dashed #ba470b; background: #fff0e3; color: #ba470b; font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap;">概要设计列二期，是否提前待确认</span>
+      <a href="Favorites.dc.html" style="margin-left: auto; flex-shrink: 0; display: flex; align-items: center; min-height: 36px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ffd8b8; background: #fff0e3; color: #ba470b; font-size: 13px; line-height: 18px; text-decoration: none; white-space: nowrap;">收藏与对比 ›</a>
+    </div>
+    <div style="display: grid; grid-template-columns: 60px minmax(0, 1.5fr) minmax(0, 1.15fr) minmax(0, 1fr) 96px; border: 1px solid #e5ebf3; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">Tab</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">收藏条目</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">示例数据</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">点击落点</div>
+      <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178; white-space: nowrap;">对比</div>
+      <sc-for list="{{favRows}}" as="fv" hint-placeholder-count="7">
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; background: {{fv.bg}}; color: #536178; white-space: nowrap;">{{fv.tab}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; background: {{fv.bg}}; color: {{fv.c}};">{{fv.name}}</div>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; background: {{fv.bg}}; color: {{fv.c2}};">{{fv.meta}}</div>
+        <sc-if value="{{fv.isLink}}" hint-placeholder-val="{{true}}">
+          <a href="{{fv.href}}" style="display: block; padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 500; text-decoration: none;">{{fv.dest}}</a>
+        </sc-if>
+        <sc-if value="{{fv.noLink}}" hint-placeholder-val="{{false}}">
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; background: {{fv.bg}}; color: {{fv.c2}};">{{fv.dest}}</div>
+        </sc-if>
+        <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; background: {{fv.bg}}; color: {{fv.c2}}; white-space: nowrap;">{{fv.cmp}}</div>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 14px; line-height: 20px; font-weight: 700;">对比条（对比最多 3 件，与“商品类目频道”一致）</span>
+      <div style="display: flex; align-items: stretch; gap: 8px;">
+        <sc-for list="{{cmpStates}}" as="cs" hint-placeholder-count="3">
+          <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; box-sizing: border-box; padding: 10px 14px; border-radius: 10px; border: 1px solid {{cs.bd}}; background: {{cs.bg}};">
+            <span style="font-size: 14px; line-height: 20px; font-weight: 700; white-space: nowrap;">{{cs.t}}</span>
+            <span style="font-size: 13px; line-height: 1.6; color: #536178;">{{cs.d}}</span>
+          </div>
+          <sc-if value="{{cs.arrow}}" hint-placeholder-val="{{true}}"><span style="align-self: center; font-size: 16px; line-height: 22px; color: #91a0b4;">{{cs.arrow}}</span></sc-if>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+      <sc-for list="{{favRules}}" as="fr" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid #e5ebf3; border-radius: 12px;">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 700;">{{fr.c0}}</span>
+          <span style="font-size: 13px; line-height: 1.6; color: #536178;">{{fr.c1}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; line-height: 28px; font-weight: 700; white-space: nowrap;">7 · 待确认</h2>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px;">
+      <sc-for list="{{asks}}" as="ak" hint-placeholder-count="6">
+        <div style="font-size: 13px; line-height: 1.55; padding: 8px 12px; border-radius: 10px; background: #fff0e3;"><span style="font-weight: 700;">{{ak.c0}}</span><span style="color: #536178;">：{{ak.c1}}</span></div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="font-size: 12px; line-height: 1.6; color: #738096;">依据：docs/redesign/01-概要设计.md §5.2（APP-CNT-03、APP-COM-02、APP-ME-05）、§5.3（来源标识）、§13、§14 D10；画布已有数据（标准套装、商品详情的配套课程）。人名、主体、金额、日期均为示意数据。</div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    // 表格行用 c0、c1… 取值（模板里只能写点号取值，不能写下标）
+    const cells = (row) => Array.isArray(row) ? Object.fromEntries(row.map((v, i) => ['c' + i, v])) : row;
+
+    // 1 页面清单：本批 5 张画板（不含本板）；文件名链接到各自画板
+    const pageRows = [
+      ['Topic', '专题页', 'APP-CNT-03', '',
+        '发现的专题卡“黄河口低空体验季”；也是城市分享页',
+        '活动卡 → Ref06ActDetail；到馆体验 → Ref10Venue；相关内容 → Ref19Content；商家内容（标“广告”）→ PdFull；「分享专题」页内弹层，只有“复制链接”；「查看全部活动」→ HomeAct；返回 → Discover'],
+      ['SearchPre', '搜索前置页', 'APP-COM-02', '结果页 MallSearch 同编号',
+        '首页各频道的搜索框；发现的搜索图标；结果页的返回和搜索框',
+        '输入框可真实输入，有内容时显示清除；范围 Tab 页内切换；无输入显示最近搜索、按类目找，有输入显示联想；输入“巡简”“机器够”出现纠错；「搜索」→ MallSearch；返回 → HomeFull'],
+      ['MyCourses', '我的课程', 'APP-ME-08', '设计假设 · 概要设计 §14 D15',
+        '我的 → 我的参与宫格第 4 格「我的课程」',
+        '筛选 全部 / 学习中 / 已学完（已学完为空状态）；课程卡 → CourseDetail；试听卡 → ExpCenter；底部说明“线下培训在“活动报名”里查看”→ Ref08Ticket；返回 → Mine'],
+      ['CourseDetail', '课程学习', 'APP-ME-08', '设计假设 · 概要设计 §14 D15',
+        'MyCourses 课程卡；商品订单详情 OrderGoods「去学习 ›」',
+        '点章节展开或收起（默认展开第 1 章，一次只展开一章）；点某一课，顶部视频位切到这一课；「本课播放完成（模拟）」标记已学完，进度加 1；来源订单 → OrderGoods；返回 → MyCourses'],
+      ['Favorites', '收藏与对比', 'APP-ME-05', '概要设计列二期，\n是否提前待确认',
+        '我的「收藏与对比」',
+        'Tab 商品 / 服务 / 活动 / 内容，显示数量；勾选 2–3 件后「开始对比」→ MallCompare；「取消收藏」后底部“已取消收藏 · 撤销”；已下架商品灰显；返回 → Mine']
+    ].map(([file, page, code, codeNote, entry, act]) => ({ file, href: file + '.dc.html', page, code, codeNote, entry, act }));
+
+    // 2 页面流卡片：new = 本批新画板（橙），old = 已有画板（灰）；arrow 为 “/” 表示并列的入口或去向
+    const step = (kind, t, p, href, arrow) => ({ t, p, href, arrow, isNew: kind === 'new', isOld: kind === 'old' });
+    const flows = [
+      { name: '专题', note: '发现的专题卡原来落到 Ref19Content，现在落到专题页',
+        paths: [
+          { label: '进入', steps: [
+            step('old', '发现', 'Discover · 专题卡', 'Discover.dc.html', '→'),
+            step('new', '专题页', 'Topic · APP-CNT-03', 'Topic.dc.html', '')
+          ] },
+          { label: '页内去向', steps: [
+            step('old', '活动详情', 'Ref06ActDetail · 本季活动', 'ActDetail.dc.html', '/'),
+            step('old', '场馆详情', 'Ref10Venue · 到馆体验', 'VenueDetail.dc.html', '/'),
+            step('old', '内容详情', 'Ref19Content · 相关内容', 'ContentVideo.dc.html', '/'),
+            step('old', '商品详情', 'PdFull · 商家内容', 'PdFull.dc.html', '/'),
+            step('old', '赛事研学频道', 'HomeAct · 查看全部', 'HomeAct.dc.html', '')
+          ] }
+        ],
+        rule: '专题页返回 → 发现。底部「分享专题」是页内弹层，不跳页。' },
+      { name: '搜索', note: '首页搜索框和发现的搜索图标原来直达 MallSearch，现在先到搜索前置页',
+        paths: [
+          { label: '进入', steps: [
+            step('old', '首页各频道', 'HomeFull 等 5 张 · 搜索框', 'HomeFull.dc.html', '/'),
+            step('old', '发现', 'Discover · 搜索图标', 'Discover.dc.html', '→'),
+            step('new', '搜索前置页', 'SearchPre · APP-COM-02', 'SearchPre.dc.html', '→'),
+            step('old', '搜索结果', 'MallSearch · 提交后', 'MallSearch.dc.html', '')
+          ] },
+          { label: '联想直达', steps: [
+            step('old', '商品详情', 'PdFull', 'PdFull.dc.html', '/'),
+            step('old', '专业服务频道', 'HomeSvc', 'HomeSvc.dc.html', '/'),
+            step('old', '活动详情', 'Ref06ActDetail', 'ActDetail.dc.html', '/'),
+            step('old', '内容详情', 'Ref19Content', 'ContentVideo.dc.html', '/'),
+            step('old', '场馆详情', 'Ref10Venue', 'VenueDetail.dc.html', '')
+          ] }
+        ],
+        rule: '5 张首页频道：HomeFull、HomeAct、ExpCenter、Mall2、CityClosed。专业服务频道 HomeSvc 的搜索直达巡检目录 InspCatalog（AGENTS.md §9）。SearchPre 返回 → HomeFull；结果页 MallSearch 的返回和搜索框 → SearchPre。' },
+      { name: '课程', note: '设计假设，待确认（第 5 节）',
+        paths: [
+          { label: '从我的', steps: [
+            step('old', '我的', 'Mine · 我的参与第 4 格', 'Mine.dc.html', '→'),
+            step('new', '我的课程', 'MyCourses · 新增', 'MyCourses.dc.html', '→'),
+            step('new', '课程学习', 'CourseDetail · 新增', 'CourseDetail.dc.html', '')
+          ] },
+          { label: '从订单', steps: [
+            step('old', '商品订单详情', 'OrderGoods ·「去学习 ›」', 'OrderGoods.dc.html', '→'),
+            step('new', '课程学习', 'CourseDetail · 新增', 'CourseDetail.dc.html', '')
+          ] },
+          { label: '其他去向', steps: [
+            step('old', '体验频道', 'ExpCenter · 试听', 'ExpCenter.dc.html', '/'),
+            step('old', '报名凭证', 'Ref08Ticket · 线下培训说明', 'EnrollTicket.dc.html', '/'),
+            step('old', '商品订单详情', 'OrderGoods · 课程学习的来源订单', 'OrderGoods.dc.html', '')
+          ] }
+        ],
+        rule: '商品订单详情的商品卡下方新增一行“配套数字课程 · 16 课时 · 已开通”和「去学习 ›」。CourseDetail 返回 → MyCourses；MyCourses 返回 → Mine。' },
+      { name: '收藏', note: '概要设计列二期，是否提前待确认（第 6 节）',
+        paths: [
+          { label: '进入', steps: [
+            step('old', '我的', 'Mine ·「收藏与对比」', 'Mine.dc.html', '→'),
+            step('new', '收藏与对比', 'Favorites · APP-ME-05', 'Favorites.dc.html', '→'),
+            step('old', '商品对比', 'MallCompare ·「开始对比」', 'MallCompare.dc.html', '')
+          ] }
+        ],
+        rule: '“我的”的「收藏与对比」不再显示未绘制提示。Favorites 返回 → Mine；MallCompare 的返回仍 → Mall2（画板只有一个返回目标）。' }
+    ];
+
+    // 3 专题规则
+    const topicRules = [
+      ['发布方必须写明', '专题页写明发布方。示例：东营城市运营中心 · 运营精选；时间 11/01–11/30（示例）。'],
+      ['商家内容标“广告”和发布主体', '商家发布、带购买入口的内容必须标“广告”并写明发布主体。示例：编程机器人探索套装（¥1,299 起，3 家在售），写“示例机器人商家发布”。'],
+      ['区块无数据时整块隐藏', '本季活动、到馆体验、相关内容、商家内容，哪块没有数据就整块隐藏。'],
+      ['分享只有“复制链接”', '「分享专题」是页内弹层，只有“复制链接”一个动作，点后显示“链接已复制”。不出现任何社交平台名称，不做海报。'],
+      ['弹层说明', '链接带专题和城市来源标识，用于统计报名和订单来自哪里，不包含你的个人信息。'],
+      ['访问不需要登录', '专题页不需要登录即可查看；报名、下单时才拦截登录。']
+    ].map(cells);
+    const linkParams = [
+      { k: 'campaignId', v: '专题' },
+      { k: 'cityCode', v: '城市' },
+      { k: 'source', v: '来源' }
+    ];
+    const attrSteps = ['访问', '咨询/注册', '报名/订单', '支付', '履约'].map((t, i, all) => ({ t, arrow: i < all.length - 1 ? '→' : '' }));
+
+    // 4 搜索规则
+    const scopes = ['综合', '商品', '服务', '活动', '内容', '场馆'].map((t, i) => ({
+      t, bd: i === 0 ? '#ffd8b8' : '#e5ebf3', bg: i === 0 ? '#fff0e3' : '#fff', c: i === 0 ? '#ba470b' : '#202c42'
+    }));
+    const recents = ['测绘', '测绘无人机', '航测', '三维建模'];
+    const catLinks = [
+      { t: '专业服务', p: 'HomeSvc', href: 'HomeSvc.dc.html' },
+      { t: '活动', p: 'HomeAct', href: 'HomeAct.dc.html' },
+      { t: '体验', p: 'ExpCenter', href: 'ExpCenter.dc.html' },
+      { t: '无人机 / 机器人 / 配件 / 租赁 / 课程', p: 'Mall2', href: 'Mall2.dc.html' }
+    ];
+    const suggests = [
+      ['商品', '编程机器人探索套装', 'PdFull'],
+      ['商品', '桌面六轴机械臂 教学版', 'PdFull'],
+      ['服务', '园区安防巡检', 'InspCatalog'],
+      ['服务', '无人机航测与三维建模', 'HomeSvc'],
+      ['活动', '青少年无人机编程挑战赛', 'Ref06ActDetail'],
+      ['内容', '3 分钟看懂编程机器人', 'Ref19Content'],
+      ['场馆', '东营低空与机器人体验馆', 'Ref10Venue']
+    ].map((row) => ({ ...cells(row), href: row[2] + '.dc.html' }));
+    const searchRules = [
+      ['范围 Tab 与结果页一致', '与 MallSearch 相同的 6 个范围；页内切换，联想只显示对应类型。'],
+      ['从频道进入', '默认落到对应范围（活动 → 活动，商品类目 → 商品，其余 → 综合）；专业服务频道的搜索框直达巡检服务目录 InspCatalog（AGENTS.md §9），不经过本页。原型统一进“综合”。城市小字原型固定写东营（CityClosed 进入也一样），正式产品跟随当前城市。'],
+      ['最近搜索本机保存', '只保存在本机，可随时清空；搜索记录不带手机号等个人信息。'],
+      ['联想直达详情', '点联想直接到详情，不经过结果页。'],
+      ['纠错', '输入“巡简”显示“你是不是要搜：巡检”，点它把输入框改成“巡检”；输入“机器够”同理改成“机器狗”。'],
+      ['不做', '不做热搜榜、个性化推荐、拍照搜、“猜你喜欢”。'],
+      ['无结果出口在结果页', '前置页不处理无结果；出口在结果页 MallSearch 的无结果状态。'],
+      ['“搜索”按钮', '点「搜索」直接进结果页 MallSearch，不用先选联想。']
+    ].map(cells);
+
+    // 5 课程交付（设计假设，待确认）
+    const courseFacts = [
+      ['课程', '编程机器人入门课 · 16 课时 · 配套数字课程', '进度', '已学 2 / 16 课时；继续学习：第 3 课'],
+      ['提供方', '示例机器人商家', '时长', '每课约 12 分钟（示例）'],
+      ['来源', '订单 DY20261102201500（编程机器人探索套装 · 标准套装）', '视频位', '用占位，写“课程视频待授权素材”，不画成真实播放器控件堆'],
+      ['开通', '支付成功后自动开通（11/02 20:16），不发货、不走物流', '售后', '课程退款随商品订单规则处理，入口在订单详情；退款规则待确认'],
+      ['有效期', '写 [协议约定时间]', '试听', '无人机飞行原理（试听）· 试听 2 课 · 来自体验中心“课程试听” → ExpCenter；体验频道“课程试听”筛选下有同名卡 → Ref19Content（录播落点，假设）']
+    ].map((row, i) => ({ ...cells(row), line: i === 0 ? 'transparent' : '#f0f1f3' }));
+    const lessonTone = {
+      done: { st: '已学完', stBg: '#e2f6ed', stC: '#11804a' },
+      next: { st: '继续学习', stBg: '#fff0e3', stC: '#ba470b' },
+      none: { st: '', stBg: 'transparent', stC: '#738096' }
+    };
+    const lesson = (t, k) => ({ t, ...lessonTone[k || 'none'] });
+    const chapters = [
+      { name: '第 1 章 认识机器人', lessons: [lesson('01 开箱与安全须知', 'done'), lesson('02 认识传感器', 'done'), lesson('03 连接编程环境', 'next'), lesson('04 第一次让它动起来')] },
+      { name: '第 2 章 图形化编程', lessons: [lesson('05 顺序与循环'), lesson('06 条件判断'), lesson('07 让机器人避障'), lesson('08 小任务：走出迷宫')] },
+      { name: '第 3 章 传感器进阶', lessons: [lesson('09 巡线原理'), lesson('10 巡线实战'), lesson('11 声音与灯光'), lesson('12 小任务：自动巡线')] },
+      { name: '第 4 章 综合项目', lessons: [lesson('13 项目构思'), lesson('14 分步实现'), lesson('15 调试与优化'), lesson('16 结课展示')] }
+    ];
+    const courseRules = [
+      ['我的课程筛选', '全部 / 学习中 / 已学完；“已学完”为空状态，文案“还没有学完的课程”。底部说明“线下培训在“活动报名”里查看”，链接 → Ref08Ticket。'],
+      ['课程学习页内交互', '点章节展开或收起（默认展开第 1 章）；点某一课，顶部视频位切到这一课；全部学完时显示“已学完全部课时”。'],
+      ['「本课播放完成（模拟）」', '把当前课标记已学完，进度加 1（重看已学完的课不加）。这个按钮是原型用的，正式产品由播放完成事件在服务端记录。'],
+      ['商品对比同步修正', 'MallCompare 的“配套课程”原写“16 课时（另购）”，与标准套装含数字课程冲突，改为“16 课时（标准套装含）”。']
+    ].map(cells);
+    // 画板已按这些行为实现，但需求没有规定，所以单列为假设
+    const courseAssumes = [
+      ['“学习中”的口径', '只算已开通、未学完的正式课程。试听不记学习进度，只在“全部”里出现。'],
+      ['进度怎么算', '一格一课时，按实际学完的课点亮，跳着学时中间留空格。已学完的课可以重看，不重复计入进度。'],
+      ['下一节怎么定', '从当前课往后找下一节未学的课，到末尾回到开头；跳到下一章时自动展开那一章。全部学完后停在当前课，仍可点课重看。'],
+      ['两页的进度不同步', '每张画板各自保存状态：我的课程固定显示 2 / 16，课程学习里点出来的进度不带回去。正式产品两页读同一份服务端进度。']
+    ].map(cells);
+
+    // 6 收藏规则（概要设计列二期，是否提前待确认）
+    const favRows = [
+      ['商品', '编程机器人探索套装', '¥1,299 起 · 3 家在售', 'PdFull', '默认勾选'],
+      ['商品', '桌面六轴机械臂 教学版', '¥9,800 起 · 2 家在售', 'PdFull', '默认勾选'],
+      ['商品', '巡检机器狗', '¥380/天 起 · 租赁', 'PdInquiry', '可勾选'],
+      ['商品', '入门教学无人机', '已下架', '灰显，不能进入详情', '不能勾选', 'off'],
+      ['服务', '园区安防巡检', '按项目报价 · 鹰眼智能巡检', 'InspCatalog', '—'],
+      ['活动', '青少年无人机编程挑战赛（东营站）', '¥120/人 · 11/15', 'Ref06ActDetail', '—'],
+      ['内容', '一台机器狗如何完成园区夜间巡逻', '案例', 'Ref19Content', '—']
+    ].map(([tab, name, meta, dest, cmp, off]) => ({
+      tab, name, meta, dest, cmp,
+      href: off ? '' : dest + '.dc.html', isLink: !off, noLink: !!off,
+      bg: off ? '#f5f7fc' : '#fff', c: off ? '#738096' : '#202c42', c2: off ? '#738096' : '#536178'
+    }));
+    const cmpStates = [
+      { t: '勾选少于 2 件', d: '不显示对比条。', arrow: '→', bd: '#e5ebf3', bg: '#fff' },
+      { t: '勾选 2–3 件', d: '显示“已选 N 件对比”和「开始对比」→ MallCompare。', arrow: '→', bd: '#ffd8b8', bg: '#fffaf5' },
+      { t: '已选 3 件', d: '其余勾选框不可选。', arrow: '', bd: '#e5ebf3', bg: '#fff' }
+    ];
+    const favRules = [
+      ['个人列表与 Tab', '收藏是个人列表（个人还是企业共享清单待确认）。Tab：商品 / 服务 / 活动 / 内容，Tab 上显示数量。'],
+      ['取消收藏与撤销', '每条有「取消收藏」按钮：点后移出列表，底部出现“已取消收藏 · 撤销”，撤销恢复。某 Tab 为空时显示“还没有收藏”。'],
+      ['下架商品', '保留在列表里并灰显，不能购买；不能进入详情，不能勾选对比，可取消收藏。'],
+      ['图片', '用画布已有素材；没有合适图的用占位色块，不要造图。']
+    ].map(cells);
+
+    // 7 待确认
+    const asks = [
+      ['一期课程卖什么', '当前假设是线上录播数字课程（概要设计 §14 D15）'],
+      ['课程退款规则与有效期', '当前写“课程退款随商品订单规则处理”，退款规则待确认；有效期写 [协议约定时间]'],
+      ['收藏与对比的期次（§14 D10）', '概要设计列二期，待产品负责人确认；维持二期则一期隐藏这些入口'],
+      ['收藏是个人列表还是企业共享清单', '当前按个人列表画'],
+      ['最近搜索是否跟随账号同步', '当前只保存在本机'],
+      ['专题页的海报分享是否需要', '当前只有“复制链接”，不做海报']
+    ].map(cells);
+
+    return {
+      pageRows, flows, topicRules, linkParams, attrSteps,
+      scopes, recents, catLinks, suggests, searchRules,
+      courseFacts, chapters, courseRules, courseAssumes,
+      favRows, cmpStates, favRules, asks
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));</script></body></html>

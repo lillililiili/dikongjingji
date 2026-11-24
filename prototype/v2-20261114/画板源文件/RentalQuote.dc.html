@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>租赁报价单</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1416px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="DemandList.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">租赁报价单</h1>
+    <span style="margin-left: auto; margin-right: 8px; font-size: 12px; line-height: 17px; padding: 3px 8px; border-radius: 6px; background: #fff3e8; color: #d94f00; white-space: nowrap;">企业 · 东营港务物流</span>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; gap: 12px; padding: 12px; background: #fff; border-radius: 14px;">
+      <img src="/_blob/a016bad56a0e687061b30b2a4fd96ff6" alt="巡检机器狗" style="width: 72px; height: 72px; border-radius: 10px; object-fit: cover; flex-shrink: 0;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">巡检机器狗 ×1</span>
+          <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #fff3e8; color: #d94f00; white-space: nowrap;">租赁</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 20px;">
+          <span style="font-size: 13px; line-height: 20px; color: #555a62; white-space: nowrap;">出租方 示例机器人商家</span>
+          <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; white-space: nowrap;">资质已审核</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 20px;">
+          <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #eaf2fd; color: #1d63c4; white-space: nowrap;">企业</span>
+          <span style="min-width: 0; font-size: 13px; line-height: 20px; color: #555a62; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">东营港务物流（经办人 王女士）</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px; min-height: 24px;">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700; line-height: 24px; white-space: nowrap;">商家报价</h2>
+        <span style="flex-shrink: 0; font-size: 12px; line-height: 17px; padding: 1px 6px; border-radius: 6px; background: {{chipBg}}; color: {{chipFg}}; white-space: nowrap;">{{chip}}</span>
+        <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #8a8f97; white-space: nowrap;">11/03 10:20 报价</span>
+      </div>
+      <sc-if value="{{showValid}}" hint-placeholder-val="{{true}}">
+        <span style="font-size: 12px; line-height: 17px; color: #666b73;">报价有效期 3 天（示例），至 11/06 18:00</span>
+      </sc-if>
+      <div style="display: flex; align-items: flex-start; gap: 6px; padding: 8px 10px; border-radius: 10px; background: #fffaf5; font-size: 13px; line-height: 19px; color: #555a62;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"></path></svg>
+        <span style="min-width: 0;">按你的询价：1 台、5 天，商家按参考价 <b style="font-weight: 500; color: #e85400;">¥380/天</b> 报价，东营市内送达和取回不另收费</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 0; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">报价明细</h2>
+      <sc-for list="{{quoteItems}}" as="q" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; font-size: 14px; line-height: 20px; white-space: nowrap;">{{q.name}}</span>
+          <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 18px; color: #8a8f97; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{q.qty}}</span>
+          <span style="flex-shrink: 0; width: 68px; font-size: 15px; font-weight: 500; line-height: 21px; text-align: right; white-space: nowrap; color: {{q.c}};">{{q.amount}}</span>
+        </div>
+      </sc-for>
+      <div style="display: flex; align-items: center; min-height: 48px; border-top: 1px solid #f0f1f3;">
+        <span style="font-size: 15px; font-weight: 500; line-height: 21px;">合计</span>
+        <span style="margin-left: auto; font-size: 20px; font-weight: 700; line-height: 28px; color: #e85400;">¥1,900</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">租期与档期</h2>
+        <span style="flex-shrink: 0; margin-left: auto; display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 18px; padding: 1px 8px; border-radius: 6px; background: #e8f7ef; color: #11804a; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>档期可用</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 10px; font-size: 13px; line-height: 19px;">
+        <sc-for list="{{schedule}}" as="r" hint-placeholder-count="5">
+          <span style="color: #666b73; white-space: nowrap;">{{r.k}}</span><span style="min-width: 0;">{{r.v}}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">合同条款</h2>
+      <sc-for list="{{terms}}" as="t" hint-placeholder-count="4">
+        <div style="display: flex; gap: 10px; font-size: 13px; line-height: 19px;">
+          <span style="flex-shrink: 0; width: 60px; color: #666b73; white-space: nowrap;">{{t.k}}</span>
+          <span style="min-width: 0; color: #555a62;">{{t.v}}</span>
+        </div>
+      </sc-for>
+      <div style="display: flex; gap: 6px; padding-top: 10px; border-top: 1px solid #f0f1f3; font-size: 12px; line-height: 17px; color: #8a8f97;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span style="min-width: 0;">确认后生成租赁合同，在订单的“租赁合同”里查看和下载。</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 12px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 700; line-height: 22px;">付款节点</h2>
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 56px; border-top: 1px solid #f0f1f3;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; line-height: 20px;">租金</span>
+          <span style="font-size: 12px; line-height: 17px; color: {{payStateColor}};">{{payState}}</span>
+        </div>
+        <span style="flex-shrink: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: {{payAmountColor}};">¥1,900</span>
+      </div>
+      <div style="display: flex; gap: 6px; padding-top: 10px; border-top: 1px solid #f0f1f3; font-size: 12px; line-height: 17px; color: #8a8f97;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1.5px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span style="min-width: 0;">款项经平台支付渠道付给出租方；押金不在线收取。</span>
+      </div>
+    </div>
+
+    <sc-if value="{{canClose}}" hint-placeholder-val="{{true}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{openClose}}" style="flex-shrink: 0; align-self: center; height: 44px; padding: 0 20px; border: 0; background: none; font: inherit; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap; cursor: pointer;">关闭询价</button>
+    </sc-if>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px 16px 20px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{pending}}" hint-placeholder-val="{{true}}">
+      <label style="position: relative; display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; line-height: 18px; color: #555a62; cursor: pointer;">
+        <input type="checkbox" checked="{{agree}}" onChange="{{toggleAgree}}" style="position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: 0; opacity: 0;">
+        <sc-if value="{{agree}}" hint-placeholder-val="{{false}}">
+          <span style="flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        </sc-if>
+        <sc-if value="{{notAgree}}" hint-placeholder-val="{{true}}">
+          <span style="flex-shrink: 0; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid #a3a8b0; background: #fff;"></span>
+        </sc-if>
+        <span style="min-width: 0;">我已核对租期、费用与合同条款</span>
+      </label>
+    </sc-if>
+    <sc-if value="{{expired}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="display: flex; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #fff3e8;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2"></path></svg>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 14px; font-weight: 700; line-height: 20px; color: #d94f00;">报价已过期</span>
+          <span style="font-size: 12px; line-height: 17px; color: #555a62;">有效期已结束，请重新询价或联系商家更新报价</span>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{closed}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: #f2f3f5;">
+        <span style="font-size: 14px; font-weight: 700; line-height: 20px;">询价已关闭</span>
+        <span style="font-size: 12px; line-height: 17px; color: #555a62;">商家报价已失效，需要时重新发起询价</span>
+      </div>
+    </sc-if>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <a href="Chat.dc.html" style="flex-shrink: 0; width: 68px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; line-height: 16px; color: #555a62; white-space: nowrap; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>联系商家</a>
+      <sc-if value="{{canConfirm}}" hint-placeholder-val="{{false}}">
+        <a href="CashierRental.dc.html" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">确认合同并支付 ¥1,900</a>
+      </sc-if>
+      <sc-if value="{{confirmLocked}}" hint-placeholder-val="{{true}}">
+        <button type="button" disabled="{{true}}" style="flex-grow: 1; height: 46px; border: 0; border-radius: 999px; background: #c4c8ce; color: #fff; font: inherit; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: not-allowed;">确认合同并支付 ¥1,900</button>
+      </sc-if>
+      <sc-if value="{{expired}}" hint-placeholder-val="{{false}}">
+        <a href="RentalInquiry.dc.html" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">重新询价</a>
+      </sc-if>
+      <sc-if value="{{closed}}" hint-placeholder-val="{{false}}">
+        <a href="DemandList.dc.html" style="flex-grow: 1; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 16px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看需求与报价</a>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="关闭询价" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">确认关闭询价？</span>
+      <span style="font-size: 14px; line-height: 20px; color: #555a62;">关闭后这份报价失效，商家不再为你保留档期。</span>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">暂不关闭</button>
+        <button type="button" onClick="{{confirmClose}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">确认关闭</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"quoteState":{"editor":"enum","options":["待确认","已过期"],"default":"待确认"},"$preview":{"width":390,"height":1416}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // 时间线：11/03 商家报价（这一帧还没确认）；OrderRental、Contract 里的 10/30 那单是上一次租赁（OrderRental 的“租赁合同 已确认 10/30 16:20”、租金“已支付 10/30”）；已过期态在 Tweaks 的 quoteState 切换
+    // agree：是否勾选“我已核对…”；sheet：关闭询价确认面板是否打开；closed：询价是否已关闭（确认合同之前才能关闭）
+    this.state = { agree: false, sheet: false, closed: false };
+  }
+  renderVals() {
+    const { agree, sheet, closed } = this.state;
+    // 过期由服务端判定：有效期过后不能确认，只能重新询价
+    const expired = (this.props.quoteState ?? '待确认') === '已过期' && !closed;
+    const open = !expired && !closed;
+    // 报价按 PdRental 的参考价 ¥380/天 起执行；配件和市内送达取回包含在租金里（设计假设）
+    const quoteItems = [
+      { name: '租金', qty: '5 天 × ¥380 × 1 台', amount: '¥1,900', c: '#191919' },
+      { name: '随机配件', qty: '按随箱清单', amount: '含', c: '#666b73' },
+      { name: '送达与取回', qty: '东营市内（示例）', amount: '含', c: '#666b73' }
+    ];
+    // 租期、交接和归还安排与 OrderRental 一致
+    const schedule = [
+      { k: '租期', v: '11/08–11/12 · 共 5 天' },
+      { k: '数量', v: '1 台 · 设备编号交接时确定' },
+      { k: '交接', v: '商家送达 · 11/08 上午 · 东营港务物流 收货点' },
+      { k: '归还', v: '商家上门取回 · 11/12 18:00 前' },
+      { k: '档期', v: '商家已确认这 5 天可以出租' }
+    ];
+    // 押金规则未定：按 [协议约定时间] 内确认处理，当前不在线收取；超期和赔付按合同，没有发生就不计费
+    const terms = [
+      { k: '押金', v: '待定 · 押金规则 [协议约定时间] 内确认，当前不在线收取' },
+      { k: '超期', v: '超过 11/12 18:00 后按天计费，费率以合同为准' },
+      { k: '损坏处理', v: '归还时核对交接记录，人为损坏按合同赔付；非人为故障由商家维修或更换' },
+      { k: '取消', v: '确认合同前可以直接关闭询价；确认后取消按合同约定处理' }
+    ];
+    return {
+      quoteItems, schedule, terms,
+      chip: closed ? '已关闭' : (expired ? '已过期' : '待确认'),
+      chipBg: closed || expired ? '#f2f3f5' : '#fff3e8',
+      chipFg: closed || expired ? '#555a62' : '#d94f00',
+      showValid: open || expired,
+      payState: closed ? '询价已关闭，无需支付' : (expired ? '报价已过期，无需支付' : '合同确认后一次付清（设计假设）'),
+      payStateColor: open ? '#d94f00' : '#8a8f97',
+      payAmountColor: open ? '#191919' : '#8a8f97',
+      agree,
+      notAgree: !agree,
+      pending: open,
+      expired,
+      closed,
+      // 只有勾选后才能确认；确认合同的动作本身发生在服务端，这里只放行到收银台
+      canConfirm: open && agree,
+      confirmLocked: open && !agree,
+      canClose: open || expired,
+      toggleAgree: () => this.setState((s) => ({ agree: !s.agree })),
+      sheetOpen: sheet,
+      openClose: () => this.setState({ sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      // 关闭只发生在确认之前；关闭后不能再确认
+      confirmClose: () => this.setState({ sheet: false, closed: true, agree: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CNT 直播间</title>
+<style>
+body{margin:0}
+a{color:#fff}a:hover{color:#ffd8b8}
+input::placeholder{color:rgba(255,255,255,0.7);opacity:1}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 844px; background: #000; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #fff; overflow: hidden;">
+  <img src="{{room.img}}" alt="{{room.title}}" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.85;">
+  <div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.8) 100%);"></div>
+
+  <div style="position: absolute; left: 10px; right: 10px; top: 48px; display: flex; align-items: center; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 4px 0 5px; border-radius: 999px; background: rgba(0,0,0,0.45);">
+      <a href="{{room.hostHref}}" aria-label="{{room.hostAria}}" style="flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: {{room.hostBg}}; color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-decoration: none;">{{room.initial}}</a>
+      <span style="display: flex; flex-direction: column; min-width: 0;"><span style="font-size: 13px; font-weight: 500; line-height: 17px; white-space: nowrap;">{{room.host}}</span><span style="font-size: 11px; line-height: 14px; color: rgba(255,255,255,0.75); white-space: nowrap;">{{viewers}} 观看 · {{likesText}} 赞</span></span>
+      <button type="button" onClick="{{toggleFollow}}" aria-pressed="{{followed}}" style="flex-shrink: 0; height: 36px; margin: 0; padding: 0 12px; border: 0; border-radius: 999px; background: {{followBg}}; color: #fff; font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;">{{followLabel}}</button>
+    </div>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
+      <span style="display: flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 999px; background: #d64f67; font-size: 11px; font-weight: 700; white-space: nowrap;">直播中</span>
+      <a href="Discover.dc.html" aria-label="关闭直播间" style="width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; text-decoration: none;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    </div>
+  </div>
+  <div style="position: absolute; left: 10px; top: 100px; display: flex; align-items: center; gap: 6px;">
+    <span style="display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 999px; background: rgba(0,0,0,0.45); font-size: 11px; white-space: nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21c4.6-4.7 7-8.1 7-11a7 7 0 0 0-14 0c0 2.9 2.4 6.3 7 11z"></path></svg>{{room.place}}</span>
+    <span style="display: flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 999px; background: rgba(0,0,0,0.45); font-size: 11px; white-space: nowrap;">已播 {{room.elapsed}}</span>
+  </div>
+
+  <div style="position: absolute; left: 6px; top: 50%; margin-top: -48px; display: flex; flex-direction: column; gap: 8px;">
+    <button type="button" onClick="{{prevRoom}}" disabled="{{noPrev}}" aria-label="上一个直播间" style="width: 44px; height: 44px; margin: 0; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: {{prevOp}};"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+    <button type="button" onClick="{{nextRoom}}" disabled="{{noNext}}" aria-label="下一个直播间" style="width: 44px; height: 44px; margin: 0; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,0.35); cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: {{nextOp}};"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+  </div>
+
+  <div style="position: absolute; right: 8px; bottom: 170px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+    <button type="button" onClick="{{openBag}}" aria-haspopup="dialog" aria-label="讲解中的商品与服务" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: #fff; font-size: 11px; cursor: pointer;"><span style="width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"></path></svg></span><span style="position: absolute; right: -2px; top: -2px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: #ff6a00; font-size: 11px; line-height: 18px; text-align: center;">{{bagCount}}</span>讲解</button>
+    <a href="ShareSheet.dc.html" aria-label="分享直播间" style="display: flex; flex-direction: column; align-items: center; gap: 3px; color: #fff; font-size: 11px; text-decoration: none;"><span style="width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M14 4l8 7-8 7v-4.5C8 13.5 4.5 15.5 2 19c1-5 4-9.5 12-10.5z"></path></svg></span>分享</a>
+    <button type="button" onClick="{{like}}" aria-label="点赞" style="display: flex; flex-direction: column; align-items: center; gap: 3px; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: #fff; font-size: 11px; cursor: pointer;"><span style="width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="#ff2d55" aria-hidden="true"><path d="M12 20s-7-4.6-9-9.1C1.7 7.7 3.8 5 6.7 5c2 0 3.6 1 5.3 3 1.7-2 3.3-3 5.3-3 2.9 0 5 2.7 3.7 5.9-2 4.5-9 9.1-9 9.1z"></path></svg></span>{{myLikes}}</button>
+  </div>
+  <sc-if value="{{showHearts}}" hint-placeholder-val="{{false}}">
+    <div aria-hidden="true" style="position: absolute; right: 18px; bottom: 344px; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; color: #ff2d55;">
+      <sc-for list="{{hearts}}" as="h" hint-placeholder-count="3">
+        <span style="font-size: {{h.size}}; opacity: {{h.op}}; margin-right: {{h.mr}};">❤</span>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <a href="{{pin.href}}" style="position: absolute; left: 10px; bottom: 236px; width: 232px; display: flex; align-items: center; gap: 8px; padding: 8px; box-sizing: border-box; border-radius: 10px; background: rgba(255,255,255,0.95); color: #202c42; text-decoration: none;">
+    <img src="{{pin.img}}" alt="{{pin.name}}" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 8px; object-fit: cover; display: block; background: #eef0f3;">
+    <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+      <span style="display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 15px; color: #d64f67;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #d64f67;"></span>讲解中 · {{pin.kind}}</span>
+      <span style="font-size: 13px; font-weight: 500; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{pin.name}}</span>
+      <span style="font-size: 13px; font-weight: 700; line-height: 18px; color: #e85400; white-space: nowrap;">{{pin.price}}</span>
+    </span>
+    <span style="flex-shrink: 0; height: 28px; padding: 0 10px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 12px; line-height: 28px; font-weight: 500; white-space: nowrap;">{{pin.cta}}</span>
+  </a>
+
+  <div style="position: absolute; left: 10px; right: 76px; bottom: 84px; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; height: 144px; overflow: hidden;">
+    <sc-for list="{{chat}}" as="m" hint-placeholder-count="5">
+      <span style="align-self: flex-start; max-width: 100%; padding: 5px 10px; border-radius: 12px; background: rgba(0,0,0,0.42); font-size: 13px; line-height: 18px;"><span style="color: {{m.nc}}; font-weight: 500;">{{m.name}}：</span>{{m.text}}</span>
+    </sc-for>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 8px; padding: 8px 12px 28px;">
+    <input type="text" value="{{draft}}" onChange="{{setDraft}}" placeholder="说点什么…" aria-label="发弹幕" style="flex-grow: 1; min-width: 0; height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(255,255,255,0.18); font: inherit; font-size: 14px; color: #fff;">
+    <button type="button" onClick="{{send}}" disabled="{{cantSend}}" style="flex-shrink: 0; height: 44px; margin: 0; padding: 0 16px; border: 0; border-radius: 999px; background: {{sendBg}}; color: #fff; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;">发送</button>
+    <a href="LiveNotice.dc.html" style="flex-shrink: 0; height: 44px; padding: 0 12px; border-radius: 999px; background: rgba(255,255,255,0.18); color: #fff; font-size: 13px; text-decoration: none; display: flex; align-items: center; white-space: nowrap;">直播预告</a>
+  </div>
+
+  <sc-if value="{{bagOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" aria-label="关闭讲解清单" onClick="{{closeBag}}" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 8; margin: 0; padding: 0; border: 0; background: rgba(0,0,0,0.3); cursor: pointer;"></button>
+    <div role="dialog" aria-label="讲解中的商品与服务" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 9; display: flex; flex-direction: column; gap: 10px; padding: 10px 16px 24px; border-radius: 16px 16px 0 0; background: #fff; color: #202c42;">
+      <div style="display: flex; align-items: center;">
+        <span style="font-size: 16px; font-weight: 700; line-height: 22px;">本场讲解 · {{bagCount}} 项</span>
+        <button type="button" onClick="{{closeBag}}" aria-label="关闭" style="margin-left: auto; width: 44px; height: 44px; padding: 0; border: 0; background: none; font: inherit; font-size: 22px; color: #536178; cursor: pointer;">×</button>
+      </div>
+      <sc-for list="{{bag}}" as="b" hint-placeholder-count="3">
+        <a href="{{b.href}}" style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px; background: #f5f7fc; color: #202c42; text-decoration: none;">
+          <img src="{{b.img}}" alt="{{b.name}}" style="flex-shrink: 0; width: 64px; height: 64px; border-radius: 8px; object-fit: cover; display: block; background: #eef0f3;">
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+            <span style="font-size: 11px; line-height: 15px; color: {{b.kc}};">{{b.kind}}</span>
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{b.name}}</span>
+            <span style="font-size: 14px; font-weight: 700; line-height: 20px; color: #e85400; white-space: nowrap;">{{b.price}}<span style="margin-left: 6px; font-size: 11px; font-weight: 400; color: #627187;">{{b.note}}</span></span>
+          </span>
+          <span style="flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 13px; line-height: 32px; font-weight: 500; white-space: nowrap;">{{b.cta}}</span>
+        </a>
+      </sc-for>
+      <span style="font-size: 12px; line-height: 17px; color: #738096;">交易在平台内完成，直播间不收款</span>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // room：当前直播间；followed：按主播记；myLikes：本次点赞次数；sent：按直播间记本次发出的弹幕；bagOpen：讲解清单
+    this.state = { room: 0, followed: {}, myLikes: 0, draft: '', sent: {}, bagOpen: false };
+  }
+  renderVals() {
+    const { room: roomIdx, followed, myLikes, draft, sent, bagOpen } = this.state;
+    const fmt = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + '万' : String(n));
+    // 两个正在直播的房间，上下切换；讲解清单里的每一项都进平台内的详情页，直播间不收款、不做打赏
+    const rooms = [
+      { id: 'r1', title: '机器狗园区夜巡演示', img: '_blob/e42bb39cca5b4f528e6577da8445bced.webp', host: '鹰眼智能巡检', hostHref: 'ProviderPage.dc.html', hostBg: '#11804a', place: '东营 · 示例物流园区', elapsed: '42:17', viewers: 12400, likes: 23600,
+        bag: [
+          { kind: '服务', kc: '#11804a', name: '园区安防巡检', price: '按项目报价', note: '方案确认后定价', cta: '看服务', href: 'InspDetailPark.dc.html', img: '_blob/2c1e1ca24d68733bb78471f4b065c9d9.webp' },
+          { kind: '租赁', kc: '#ba470b', name: '巡检机器狗', price: '¥380/天 起', note: '东营可租', cta: '去询价', href: 'PdRental.dc.html', img: '_blob/a016bad56a0e687061b30b2a4fd96ff6.jpg' },
+          { kind: '案例', kc: '#1d63c4', name: '一台机器狗如何完成园区夜间巡逻', price: '图文', note: '免费阅读', cta: '去看', href: 'ContentArticle.dc.html', img: '_blob/e42bb39cca5b4f528e6577da8445bced.webp' }
+        ],
+        chat: [['王女士', '机器狗一晚上能巡几圈？'], ['主播', '这个园区 6 个点位，一圈 40 分钟，一晚 6 圈', 'host'], ['张工', '热成像能看清人吗'], ['李**', '按项目报价大概什么范围'], ['主播', '点右侧“讲解”进服务详情发需求，1 个工作日内报价', 'host']] },
+      { id: 'r2', title: '编程无人机开箱与首飞', img: '_blob/b41e3fb34601d5b9b3c9e40e84d2a489.jpg', host: '示例无人机厂家', hostHref: 'Merchant.dc.html', hostBg: '#ff6a00', place: '东营低空与机器人体验馆', elapsed: '18:05', viewers: 3860, likes: 7400,
+        bag: [
+          { kind: '商品', kc: '#ba470b', name: '编程教学无人机 入门套装', price: '¥899 起', note: '3 家在售', cta: '去看看', href: 'PdDroneEdu.dc.html', img: '_blob/b41e3fb34601d5b9b3c9e40e84d2a489.jpg' },
+          { kind: '配件', kc: '#ba470b', name: '智能飞行电池 适配教学机', price: '¥329', note: '4 家在售', cta: '去看看', href: 'PdBattery.dc.html', img: '_blob/44b9df29cd316503b6cad0f764a0798b.jpg' },
+          { kind: '课程', kc: '#1d63c4', name: '无人机飞行原理 线上课', price: '¥199', note: '12 课时', cta: '去报名', href: 'CourseFly.dc.html', img: '_blob/f9a69cf415def2dd6f6807969effb1dc.jpg' }
+        ],
+        chat: [['赵**', '室内能飞吗？'], ['主播', '可以，带桨叶保护罩，客厅就能练悬停', 'host'], ['钱**', '10 岁孩子能自己编程吗'], ['主播', '图形化编程，拖积木就行，配套有 12 节课', 'host'], ['孙**', '电池能飞多久']] }
+    ];
+    const room = rooms[Math.min(roomIdx, rooms.length - 1)];
+    const isFollowed = !!followed[room.host];
+    const mine = (sent[room.id] || []).map((t) => ['我', t, 'me']);
+    const chat = [['系统', '欢迎来到直播间，文明互动；交易请在平台内下单', 'sys']].concat(room.chat, mine).slice(-5).map(([name, text, who]) => ({
+      name, text, nc: who === 'sys' ? '#ffc53d' : (who === 'host' ? '#ff8a5b' : (who === 'me' ? '#7dd3fc' : '#9fe1cb'))
+    }));
+    const canSend = draft.trim() !== '';
+    const hearts = myLikes > 0 ? [[`${18 + (myLikes % 3) * 2}px`, 0.9, '0'], ['16px', 0.6, '10px'], ['14px', 0.35, '-8px']].map(([size, op, mr]) => ({ size, op, mr })) : [];
+    const at = Math.min(roomIdx, rooms.length - 1);
+    return {
+      room: { ...room, initial: room.host.slice(0, 1), hostAria: room.host + '主页' },
+      viewers: fmt(room.viewers + myLikes * 3), likesText: fmt(room.likes + myLikes),
+      followed: isFollowed, followLabel: isFollowed ? '已关注' : '关注', followBg: isFollowed ? 'rgba(255,255,255,0.25)' : '#ff2d55',
+      toggleFollow: () => this.setState((s) => ({ followed: { ...s.followed, [room.host]: !s.followed[room.host] } })),
+      myLikes: myLikes > 0 ? '+' + myLikes : '点赞',
+      like: () => this.setState((s) => ({ myLikes: s.myLikes + 1 })),
+      showHearts: myLikes > 0, hearts,
+      pin: room.bag[0], bag: room.bag, bagCount: room.bag.length, bagOpen, chat, draft,
+      cantSend: !canSend, sendBg: canSend ? '#ff6a00' : 'rgba(255,255,255,0.25)',
+      setDraft: (e) => { if (e && e.target) this.setState({ draft: String(e.target.value || '') }); },
+      send: () => this.setState((s) => (s.draft.trim() === '' ? {} : { sent: { ...s.sent, [room.id]: (s.sent[room.id] || []).concat(s.draft.trim()) }, draft: '' })),
+      openBag: () => this.setState({ bagOpen: true }),
+      closeBag: () => this.setState({ bagOpen: false }),
+      noPrev: at === 0, noNext: at >= rooms.length - 1, prevOp: at === 0 ? 0.35 : 1, nextOp: at >= rooms.length - 1 ? 0.35 : 1,
+      prevRoom: () => this.setState((s) => ({ room: Math.max(0, s.room - 1), bagOpen: false })),
+      nextRoom: () => this.setState((s) => ({ room: Math.min(rooms.length - 1, s.room + 1), bagOpen: false }))
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

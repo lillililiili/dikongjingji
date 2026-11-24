@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>分享面板</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px;">
+    <div style="position: relative; height: 300px; flex-shrink: 0;">
+      <img src="{{src.img}}" alt="{{src.t}}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+      <div style="position: absolute; left: 8px; right: 8px; top: 40px; display: flex; align-items: center;">
+        <a href="{{backHref}}" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span style="width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></span></a>
+      </div>
+    </div>
+    <div style="flex-shrink: 0; margin: -24px 16px 0; position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; background: #fff;">
+      <sc-if value="{{src.price}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; align-items: baseline; gap: 4px;">
+          <span style="font-size: 26px; font-weight: 700; color: #e85400; white-space: nowrap;">{{src.price}}</span><span style="font-size: 13px; color: #e85400; white-space: nowrap;">{{src.unit}}</span>
+        </div>
+      </sc-if>
+      <div style="font-size: 18px; line-height: 25px; font-weight: 700;">{{src.t}}</div>
+      <div style="font-size: 13px; line-height: 18px; color: #666b73;">{{src.desc}}</div>
+    </div>
+  </div>
+
+  <a href="{{backHref}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; background: rgba(0,0,0,0.45);"></a>
+  <div role="dialog" aria-modal="true" aria-label="{{src.title}}" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">{{src.title}}</span>
+      <span style="font-size: 13px; line-height: 18px; color: #666b73;">{{src.owner}}</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; border: 1px solid #ebedf0;">
+      <img src="{{src.img}}" alt="{{src.t}}" style="flex-shrink: 0; width: 64px; height: 64px; border-radius: 8px; object-fit: cover; display: block; background: #f2f3f5;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{src.t}}</span>
+        <span style="font-size: 13px; line-height: 18px; color: {{src.subC}}; font-weight: {{src.subW}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{src.sub}}</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f7f8fa;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+      <span style="min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 13px; line-height: 18px; color: #555a62;">{{src.note}}</span>
+        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">来源标识：{{src.mark}}</span>
+        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">推广海报和二维码由运营端生成，App 内只复制链接</span>
+      </span>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <a href="{{backHref}}" style="flex: 1 1 0; height: 44px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font-size: 15px; color: #191919; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">关闭</a>
+      <sc-if value="{{canCopy}}" hint-placeholder-val="{{true}}">
+        <button type="button" onClick="{{copyLink}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">复制链接</button>
+      </sc-if>
+      <sc-if value="{{copied}}" hint-placeholder-val="{{false}}">
+        <span role="status" style="flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 4px; height: 44px; border-radius: 999px; background: #e8f7ef; font-size: 15px; font-weight: 500; color: #11804a; white-space: nowrap;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>链接已复制</span>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["商品","活动","场馆","服务","内容","专题"],"default":"商品"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // copied：这次打开后是否已复制链接；面板是来源页上的弹层，关闭后回到来源页
+    this.state = { copied: false };
+  }
+  renderVals() {
+    const { copied } = this.state;
+    const price = '#e85400', plain = '#666b73';
+
+    // 六种来源共用这个弹层，只换对象和来源标识；数据沿用各自的来源画板
+    const SOURCES = {
+      商品: {
+        back: 'PdFull.dc.html', title: '分享商品', owner: '示例机器人商家',
+        t: '编程机器人探索套装', img: '/_blob/85dbe79468bbacd46343cf281dfb4e4b',
+        price: '¥1,299', unit: '起', desc: '图形化编程入门，适合 8 岁以上',
+        sub: '¥1,299 起 · 东营可售', subC: price, subW: 500,
+        noun: '商品', mark: '商品 · 东营 · 商品详情'
+      },
+      活动: {
+        back: 'ActDetail.dc.html', title: '分享活动', owner: '东营市青少年科技协会',
+        t: '青少年无人机编程挑战赛（东营站）', img: '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489',
+        price: '¥120', unit: '/人', desc: '11/15 09:00 · 东营低空与机器人体验馆',
+        sub: '11/15 09:00 · ¥120/人', subC: price, subW: 500,
+        noun: '活动', mark: '活动 · 东营 · 活动详情'
+      },
+      场馆: {
+        back: 'VenueDetail.dc.html', title: '分享场馆', owner: '到馆体验 · 东营',
+        t: '东营低空与机器人体验馆', img: '/_blob/822c9edc2d0d857c67055194c02161d3',
+        price: '', unit: '', desc: '09:30–18:00 · 模拟飞行、机器人闯关',
+        sub: '09:30–18:00', subC: plain, subW: 400,
+        noun: '场馆', mark: '场馆 · 东营 · 场馆详情'
+      },
+      服务: {
+        back: 'InspDetailPark.dc.html', title: '分享服务', owner: '鹰眼智能巡检',
+        t: '园区安防巡检', img: '/_blob/e42bb39cca5b4f528e6577da8445bced',
+        price: '按项目报价', unit: '', desc: '鹰眼智能巡检',
+        sub: '按项目报价', subC: price, subW: 500,
+        noun: '服务', mark: '服务 · 东营 · 服务详情'
+      },
+      内容: {
+        back: 'ContentVideo.dc.html', title: '分享内容', owner: '发现 · 视频',
+        t: '3 分钟看懂编程机器人', img: '/_blob/d7f749aa0af5b1d1784040d2a816e2f0',
+        price: '', unit: '', desc: '视频 · 3:12',
+        sub: '视频 · 3:12', subC: plain, subW: 400,
+        noun: '内容', mark: '内容 · 东营 · 内容详情'
+      },
+      专题: {
+        back: 'Topic.dc.html', title: '分享专题', owner: '东营城市运营中心 · 运营精选',
+        t: '黄河口低空体验季', img: '/_blob/f9a69cf415def2dd6f6807969effb1dc',
+        price: '', unit: '', desc: '到馆体验、赛事、研学合集',
+        sub: '到馆体验、赛事、研学合集', subC: plain, subW: 400,
+        noun: '专题', mark: '专题 · 东营 · 专题页'
+      }
+    };
+    const s = SOURCES[this.props.frame ?? '商品'];
+
+    return {
+      backHref: s.back,
+      // 说明沿用 Topic 分享弹层的话，只换对象名
+      src: { ...s, note: '链接带' + s.noun + '和城市来源标识，用于统计报名和订单来自哪里，不包含你的个人信息' },
+      canCopy: !copied,
+      copied,
+      copyLink: () => this.setState({ copied: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

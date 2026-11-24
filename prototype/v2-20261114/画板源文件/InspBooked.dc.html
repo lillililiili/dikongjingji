@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>提交结果</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1012px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderList.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">{{head}}</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 14px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 50%; background: {{circleBg}}; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="{{circleFg}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{circlePath}}"></path></svg></span>
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+          <span style="font-size: 18px; font-weight: 700; line-height: 25px; white-space: nowrap;">{{title}}</span>
+          <span style="font-size: 13px; line-height: 19px; color: #555a62;">{{desc}}</span>
+          <sc-if value="{{note}}" hint-placeholder-val="{{true}}">
+            <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">{{note}}</span>
+          </sc-if>
+          <span style="margin-top: 2px; padding: 1px 6px; border-radius: 6px; background: {{chipBg}}; color: {{chipFg}}; font-size: 12px; line-height: 17px; white-space: nowrap;">{{chip}}</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; background: #f7f8fa;">
+          <span style="flex-shrink: 0; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">预约编号</span>
+          <span style="flex-grow: 1; min-width: 0; font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap;">YY202611030018</span>
+          <button type="button" onClick="{{copy}}" style="flex-shrink: 0; height: 44px; margin: 0 -8px 0 0; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 13px; line-height: 18px; color: {{copyFg}}; white-space: nowrap; cursor: pointer;">{{copyLabel}}</button>
+        </div>
+        <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">提交时间：11/03 14:30</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 0; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; line-height: 22px;">预约信息</h2>
+      <a href="InspDetail.dc.html" style="display: flex; align-items: center; gap: 12px; padding-bottom: 10px; color: #191919; text-decoration: none;">
+        <img src="/_blob/d26647dbfc9226eacaf364aaff076d9d" alt="电力线路现场" style="flex-shrink: 0; width: 72px; height: 48px; border-radius: 8px; object-fit: cover; display: block; background: #f2f3f5;">
+        <span style="flex-grow: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 21px; white-space: nowrap;">电力线路巡检</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+      </a>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 70px; color: #666b73; white-space: nowrap;">{{r.k}}</span>
+          <span style="flex-grow: 1; min-width: 0;">{{r.v}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 2px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px; min-height: 32px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">{{progressTitle}}</h2>
+        <sc-if value="{{canRefresh}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{refresh}}" style="flex-shrink: 0; margin: -6px 0 -6px auto; padding: 6px 0; border: 0; background: none; font: inherit; cursor: pointer;"><span style="height: 32px; box-sizing: border-box; padding: 0 12px; border-radius: 999px; border: 1px solid #ebedf0; background: #fff; font-size: 13px; line-height: 18px; color: #555a62; display: flex; align-items: center; white-space: nowrap;">刷新状态</span></button>
+        </sc-if>
+      </div>
+      <sc-if value="{{inProgress}}" hint-placeholder-val="{{true}}">
+        <div role="list" aria-label="订单进度" style="display: flex; flex-direction: column;">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+            <div role="listitem" style="display: flex; gap: 10px; padding-bottom: 12px;">
+              <span style="position: relative; flex-shrink: 0; width: 16px;">
+                <span style="position: absolute; left: 7px; top: 10px; bottom: -14px; width: 2px; background: {{s.line}};"></span>
+                <sc-if value="{{s.done}}" hint-placeholder-val="{{false}}">
+                  <span style="position: absolute; left: 0; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #19b866; display: flex; align-items: center; justify-content: center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+                </sc-if>
+                <sc-if value="{{s.open}}" hint-placeholder-val="{{true}}">
+                  <span style="position: absolute; left: 0; top: 2px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{s.bd}}; background: #fff; display: flex; align-items: center; justify-content: center;">
+                    <sc-if value="{{s.current}}" hint-placeholder-val="{{false}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+                  </span>
+                </sc-if>
+              </span>
+              <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 14px; font-weight: {{s.tw}}; line-height: 20px; color: {{s.tc}};">{{s.title}}</span>
+                <sc-if value="{{s.note}}" hint-placeholder-val="{{false}}">
+                  <span style="font-size: 12px; line-height: 17px; color: {{s.nc}};">{{s.note}}</span>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{isCancelled}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; gap: 10px; padding-bottom: 12px;">
+          <span style="flex-shrink: 0; width: 16px; height: 16px; margin-top: 2px; border-radius: 50%; background: #a3a8b0; display: flex; align-items: center; justify-content: center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px;">订单已取消</span>
+            <span style="font-size: 12px; line-height: 17px; color: #8a8f97;">服务已停止安排</span>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{inProgress}}" hint-placeholder-val="{{true}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex-shrink: 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #555a62; white-space: nowrap; cursor: pointer;">取消订单</button>
+    </sc-if>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <sc-if value="{{inProgress}}" hint-placeholder-val="{{true}}">
+        <a href="Chat.dc.html" style="flex-shrink: 0; width: 68px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; line-height: 16px; color: #555a62; white-space: nowrap; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg>联系服务商</a>
+      </sc-if>
+      <sc-if value="{{showPlan}}" hint-placeholder-val="{{false}}">
+        <a href="PlanOne.dc.html" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">查看服务方案</a>
+      </sc-if>
+      <sc-if value="{{showOrders}}" hint-placeholder-val="{{true}}">
+        <a href="OrderList.dc.html" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">返回订单</a>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="取消订单" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <span style="font-size: 18px; font-weight: 700; line-height: 25px;">确认取消订单？</span>
+      <span style="font-size: 14px; line-height: 20px; color: #555a62;">取消后将停止安排本次服务。</span>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">暂不取消</button>
+        <button type="button" onClick="{{confirmCancel}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">确认取消</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1012}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // stage：submitted 已提交 / published 方案已发布 / cancelled 已取消；状态由服务端推进，原型用「刷新状态」代表重新读取
+    // sheet：取消确认弹层是否打开；copied：是否点过“复制”
+    this.state = { stage: 'submitted', sheet: false, copied: false };
+  }
+  renderVals() {
+    const { stage, sheet, copied } = this.state;
+    const isCancelled = stage === 'cancelled';
+    const inProgress = !isCancelled;
+
+    const result = {
+      // note：说明下面的小字，只在刚提交时告诉用户去哪看进度
+      submitted: { head: '提交成功', title: '需求已提交', desc: '等待服务商确认，方案确认前不收费', note: '进度可在“我的订单”查看', chip: '待方案' },
+      published: { head: '预约详情', title: '方案已发布', desc: '服务商已发布方案，请在 11/05 18:00 前确认', note: '', chip: '待确认' },
+      cancelled: { head: '预约详情', title: '订单已取消', desc: '本次服务已停止安排，订单记录将继续保留', note: '', chip: '已取消' }
+    }[stage];
+
+    const rows = [
+      { k: '巡检地点', v: '东营区示例路 88 号附近线路段' },
+      { k: '线路长度', v: '8 公里' },
+      { k: '期望时间', v: '11/06 09:00–12:00' },
+      { k: '巡检项目', v: '杆塔本体巡检、导线地线巡检' },
+      { k: '联系人', v: '王女士 138****2026' }
+    ];
+
+    // 进度四步：方案发布后第 2 步打勾（时间取方案发布时间），当前步移到确认方案与报价
+    const isPublished = stage === 'published';
+    const stepData = [
+      { title: '需求已提交', state: 'done', note: '11/03 14:30' },
+      isPublished
+        ? { title: '服务商确认需求', state: 'done', note: '11/04 10:30' }
+        : { title: '服务商确认需求', state: 'current', note: '等待联系' },
+      isPublished
+        ? { title: '确认方案与报价', state: 'current', note: '等待你确认' }
+        : { title: '确认方案与报价', state: 'todo', note: '' },
+      { title: '现场巡检与报告交付', state: 'todo', note: '' }
+    ];
+    const steps = stepData.map((s, i) => {
+      const done = s.state === 'done';
+      const current = s.state === 'current';
+      return {
+        title: s.title, note: s.note, done, current, open: !done,
+        bd: current ? '#ff6a00' : '#c4c8ce',
+        tc: current ? '#d94f00' : (done ? '#191919' : '#555a62'),
+        tw: done || current ? 500 : 400,
+        nc: current ? '#d94f00' : '#8a8f97',
+        // 节点之间的连线：已完成一段用绿色，最后一步不画
+        line: i === stepData.length - 1 ? 'transparent' : (done ? '#19b866' : '#ebedf0')
+      };
+    });
+
+    return {
+      head: result.head,
+      title: result.title,
+      desc: result.desc,
+      note: result.note,
+      chip: result.chip,
+      chipBg: isCancelled ? '#f2f3f5' : '#fff3e8',
+      chipFg: isCancelled ? '#555a62' : '#d94f00',
+      circleBg: isCancelled ? '#f2f3f5' : '#e8f7ef',
+      circleFg: isCancelled ? '#a3a8b0' : '#19b866',
+      circlePath: isCancelled ? 'M6 6l12 12M18 6L6 18' : 'M5 12l5 5 9-10',
+      copyLabel: copied ? '已复制' : '复制',
+      copyFg: copied ? '#11804a' : '#d94f00',
+      copy: () => this.setState({ copied: true }),
+      rows, steps, isCancelled, inProgress,
+      progressTitle: isCancelled ? '订单状态' : '接下来',
+      canRefresh: stage === 'submitted',
+      // 只有已提交这一帧能刷新到方案已发布；已取消的订单不再变化
+      refresh: () => this.setState((s) => (s.stage === 'submitted' ? { stage: 'published' } : {})),
+      showPlan: isPublished,
+      showOrders: !isPublished,
+      sheetOpen: sheet && inProgress,
+      openSheet: () => this.setState((s) => (s.stage === 'cancelled' ? {} : { sheet: true })),
+      closeSheet: () => this.setState({ sheet: false }),
+      confirmCancel: () => this.setState({ stage: 'cancelled', sheet: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

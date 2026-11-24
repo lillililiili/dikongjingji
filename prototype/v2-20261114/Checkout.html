@@ -1,0 +1,200 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MALL-04 确认订单</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 1011px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="PdSku.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">确认订单</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <sc-if value="{{isExpress}}" hint-placeholder-val="{{true}}">
+      <a href="AddressList.dc.html" aria-label="更换收货地址：王女士 138****2026 山东省东营市东营区 示例路 88 号（示例）" style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: #fff; color: #202c42; text-decoration: none;">
+        <span style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #fff0e3; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z"></path></svg></span>
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 16px; line-height: 22px; font-weight: 700;">王女士 138****2026</span>
+          <span style="font-size: 13px; line-height: 18px; color: #536178;">山东省东营市东营区 示例路 88 号（示例）</span>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 6px; min-height: 44px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M4 9l2-5h12l2 5M4 9v11h16V9M4 9h16M9 20v-6h6v6"></path></svg>
+        <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap;">示例机器人商家</span>
+        <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid #e5ebf3; color: #536178; white-space: nowrap;">厂家直营</span>
+      </div>
+      <div style="display: flex; gap: 10px; padding-bottom: 12px;">
+        <img src="_blob/5d32505e8b9a494f8436e31c3008ef99.jpg" alt="编程机器人探索套装" style="flex-shrink: 0; width: 80px; height: 80px; border-radius: 10px; object-fit: cover; display: block; background: #eef2f8;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+          <span style="font-size: 15px; line-height: 21px; font-weight: 500;">编程机器人探索套装</span>
+          <span style="font-size: 12px; line-height: 17px; padding: 2px 6px; border-radius: 6px; background: #eef2f8; color: #536178;">标准套装（1 台 + 数字课程）</span>
+          <div style="align-self: stretch; margin-top: auto; display: flex; align-items: baseline;">
+            <span style="font-size: 16px; line-height: 22px; font-weight: 700;">¥1,299</span>
+            <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #627187;">× 1</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid #f0f1f3;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #627187;">配送方式</span>
+          <div role="radiogroup" aria-label="配送方式" style="flex-grow: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+            <label style="position: relative; height: 40px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid {{shipExpress.bd}}; background: {{shipExpress.bg}}; color: {{shipExpress.tc}}; font-size: 14px; font-weight: {{shipExpress.tw}}; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">
+              <input type="radio" name="checkout-ship" checked="{{shipExpress.on}}" onChange="{{shipExpress.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+              <span>快递配送</span>
+            </label>
+            <label style="position: relative; height: 40px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid {{shipPickup.bd}}; background: {{shipPickup.bg}}; color: {{shipPickup.tc}}; font-size: 14px; font-weight: {{shipPickup.tw}}; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">
+              <input type="radio" name="checkout-ship" checked="{{shipPickup.on}}" onChange="{{shipPickup.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+              <span>到店自提</span>
+            </label>
+          </div>
+        </div>
+        <sc-if value="{{isExpress}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; align-items: center; gap: 4px; padding-left: 76px; font-size: 13px; line-height: 18px; color: #11804a;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M2 7h12v9H2zM14 10h4l3 3v3h-7zM6.5 19a1.5 1.5 0 1 0 0-3a1.5 1.5 0 1 0 0 3zM17.5 19a1.5 1.5 0 1 0 0-3a1.5 1.5 0 1 0 0 3z"></path></svg>
+            <span>东营仓发货 · 包邮</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{isPickup}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; align-items: center; gap: 4px; padding-left: 76px; font-size: 13px; line-height: 18px; color: #536178;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z"></path></svg>
+            <span>自提点 示例体验馆 · 3.2km</span>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+        <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #627187;">售后保障</span>
+        <span style="font-size: 14px; line-height: 20px;">未拆封 7 天无理由退货 · 一年保修</span>
+      </div>
+      <label style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; cursor: text;">
+        <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #627187;">留言</span>
+        <input type="text" placeholder="选填，给商家留言" value="{{note}}" onChange="{{setNote}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #202c42;">
+      </label>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1px dashed #c9d3e1;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10c-4-1.6-7-5.4-7-10V6zM8.5 12l2.5 2.5 4.5-5"></path></svg>
+        <h2 style="margin: 0; font-size: 15px; line-height: 21px; font-weight: 700;">交易主体</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px 10px; font-size: 13px; line-height: 18px;">
+        <span style="color: #627187;">销售方</span><span>示例机器人商家（厂家直营）</span>
+        <span style="color: #627187;">收款方</span><span>示例机器人商家 · 经平台支付渠道</span>
+        <span style="color: #627187;">开票方</span><span>示例机器人商家</span>
+        <span style="color: #627187;">发货履约</span><span>示例机器人商家 东营仓</span>
+        <span style="color: #627187;">售后责任</span><span>示例机器人商家 · 厂家保修</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: center; min-height: 44px; font-size: 14px; line-height: 20px;">
+        <span style="color: #536178;">商品金额</span>
+        <span style="margin-left: auto;">¥1,299</span>
+      </div>
+      <div style="display: flex; align-items: center; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+        <span style="color: #536178;">运费</span>
+        <span style="margin-left: auto;">¥0</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 13px; line-height: 18px; color: #536178;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#738096" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span>发票由销售方开具，可联系销售方申请</span>
+      </div>
+      <div style="display: flex; align-items: center; min-height: 48px; border-top: 1px solid #f0f1f3;">
+        <span style="font-size: 15px; line-height: 21px; font-weight: 500;">应付</span>
+        <span style="margin-left: auto; font-size: 18px; line-height: 25px; font-weight: 700; color: #e85400;">¥1,299</span>
+      </div>
+    </div>
+
+    <label style="flex-shrink: 0; position: relative; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 2px; font-size: 13px; line-height: 18px; color: #536178; cursor: pointer;">
+      <input type="checkbox" checked="{{agree}}" onChange="{{toggleAgree}}" style="position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: 0; opacity: 0;">
+      <sc-if value="{{agree}}" hint-placeholder-val="{{false}}">
+        <span style="flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+      </sc-if>
+      <sc-if value="{{notAgree}}" hint-placeholder-val="{{true}}">
+        <span style="flex-shrink: 0; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid #91a0b4; background: #fff;"></span>
+      </sc-if>
+      <span>已阅读并同意<a href="Agreement.dc.html" style="color: #ba470b; text-decoration: none;">《交易协议》</a></span>
+    </label>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <sc-if value="{{agreeTip}}" hint-placeholder-val="{{false}}">
+      <span role="status" style="font-size: 12px; line-height: 17px; color: #d64f67;">请先阅读并同意《交易协议》</span>
+    </sc-if>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="display: flex; align-items: baseline; gap: 4px; font-size: 13px; color: #536178; white-space: nowrap;">应付<span style="font-size: 22px; font-weight: 700; color: #e85400;">¥1,299</span></span>
+      <sc-if value="{{agree}}" hint-placeholder-val="{{false}}">
+        <a href="Cashier.dc.html" style="flex-shrink: 0; margin-left: auto; width: 160px; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">提交订单</a>
+      </sc-if>
+      <sc-if value="{{notAgree}}" hint-placeholder-val="{{true}}">
+        <button type="button" onClick="{{tapSubmit}}" style="flex-shrink: 0; margin-left: auto; width: 160px; height: 46px; border: 0; border-radius: 999px; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;">提交订单</button>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // ship：express 快递配送 / pickup 到店自提（自提时隐藏收货地址卡，显示自提点）
+    // agree：交易协议勾选，默认不勾（同预约页、登录页）；tip：没勾时点过“提交订单”，按钮上方提示先同意
+    // note：给商家的留言（选填）
+    this.state = { ship: 'express', agree: false, tip: false, note: '' };
+  }
+  renderVals() {
+    const { ship, agree, tip, note } = this.state;
+    const shipOf = (id) => {
+      const on = id === ship;
+      return {
+        on,
+        bd: on ? '#ff6a00' : '#e5ebf3',
+        bg: on ? '#fffaf5' : '#fff',
+        tc: on ? '#ba470b' : '#202c42',
+        tw: on ? 500 : 400,
+        pick: () => this.setState({ ship: id })
+      };
+    };
+    return {
+      shipExpress: shipOf('express'),
+      shipPickup: shipOf('pickup'),
+      // 两种配送方式运费都是 ¥0，应付金额不随配送方式变化
+      isExpress: ship === 'express',
+      isPickup: ship === 'pickup',
+      note,
+      // 输入框 onChange 才带事件对象；没有事件对象时保持原值。留言最多 50 字
+      setNote: (e) => { if (e && e.target) this.setState({ note: String(e.target.value || '').slice(0, 50) }); },
+      agree,
+      notAgree: !agree,
+      // 勾选或取消都清掉提示；没勾时“提交订单”仍可点，点了只提示先同意，不进收银台
+      agreeTip: tip && !agree,
+      toggleAgree: () => this.setState((s) => ({ agree: !s.agree, tip: false })),
+      tapSubmit: () => this.setState({ tip: true })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

@@ -1,0 +1,2184 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-02T10:00:00Z"
+ },
+ "title": "低空产业平台 App 设计",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1600,
+   "h": 1040,
+   "title": "01 设计总览：定位、信息架构与边界"
+  },
+  "Flows.dc.html": {
+   "x": 1680,
+   "y": 0,
+   "w": 1600,
+   "h": 1040,
+   "title": "02 四个业务闭环与页面流"
+  },
+  "NavSpec.dc.html": {
+   "x": 3360,
+   "y": 0,
+   "w": 1100,
+   "h": 3300,
+   "title": "03 导航规格 · 参照淘宝（方案 C）"
+  },
+  "HomeMallSpec.dc.html": {
+   "x": 0,
+   "y": 1340,
+   "w": 1100,
+   "h": 2740,
+   "title": "04 首页频道与商品类目 · 模块规格"
+  },
+  "PdExpSpec.dc.html": {
+   "x": 1180,
+   "y": 1340,
+   "w": 1100,
+   "h": 2140,
+   "title": "05 商品详情与体验 · 规格"
+  },
+  "Ops.dc.html": {
+   "x": 1180,
+   "y": 3780,
+   "w": 1440,
+   "h": 900,
+   "title": "I 城市运营看板（Web，是否进一期待确认）"
+  },
+  "HomeFull.dc.html": {
+   "x": 0,
+   "y": 5300,
+   "w": 390,
+   "h": 1720,
+   "title": "A1 首页 · 推荐频道（长页）",
+   "is_interactive": true
+  },
+  "HomeSvc.dc.html": {
+   "x": 470,
+   "y": 5300,
+   "w": 390,
+   "h": 844,
+   "title": "A4 首页 · 专业服务频道（巡检入口）",
+   "is_interactive": true
+  },
+  "HomeAct.dc.html": {
+   "x": 940,
+   "y": 5300,
+   "w": 390,
+   "h": 844,
+   "title": "A5 首页 · 活动频道",
+   "is_interactive": true
+  },
+  "ExpCenter.dc.html": {
+   "x": 1410,
+   "y": 5300,
+   "w": 390,
+   "h": 844,
+   "title": "EX1 首页 · 体验频道",
+   "is_interactive": true
+  },
+  "Mall2.dc.html": {
+   "x": 1880,
+   "y": 5300,
+   "w": 390,
+   "h": 844,
+   "title": "B1 首页 · 商品类目频道（以机器人为例）",
+   "is_interactive": true
+  },
+  "CityClosed.dc.html": {
+   "x": 2350,
+   "y": 5300,
+   "w": 390,
+   "h": 844,
+   "title": "A3 首页 · 城市未开通",
+   "is_interactive": true
+  },
+  "CitySheet.dc.html": {
+   "x": 2820,
+   "y": 5300,
+   "w": 390,
+   "h": 844,
+   "title": "A2 切换城市",
+   "is_interactive": true
+  },
+  "Discover.dc.html": {
+   "x": 3290,
+   "y": 5300,
+   "w": 390,
+   "h": 1620,
+   "title": "E 发现（底栏 Tab · 七个频道）",
+   "is_interactive": true
+  },
+  "Messages.dc.html": {
+   "x": 3760,
+   "y": 5300,
+   "w": 390,
+   "h": 1044,
+   "title": "消息（底栏 Tab）",
+   "is_interactive": true
+  },
+  "Cart.dc.html": {
+   "x": 4230,
+   "y": 5300,
+   "w": 390,
+   "h": 844,
+   "title": "购物车（底栏 Tab）",
+   "is_interactive": true
+  },
+  "Mine.dc.html": {
+   "x": 4700,
+   "y": 5300,
+   "w": 390,
+   "h": 931,
+   "title": "H 我的（底栏 Tab）",
+   "is_interactive": true
+  },
+  "MallSearch.dc.html": {
+   "x": 0,
+   "y": 7620,
+   "w": 390,
+   "h": 844,
+   "title": "B3 全局搜索结果",
+   "is_interactive": true
+  },
+  "MallFilter.dc.html": {
+   "x": 470,
+   "y": 7620,
+   "w": 390,
+   "h": 844,
+   "title": "B2 筛选面板",
+   "is_interactive": true
+  },
+  "MallCompare.dc.html": {
+   "x": 940,
+   "y": 7620,
+   "w": 390,
+   "h": 844,
+   "title": "B4 商品对比（二期待定）",
+   "is_interactive": true
+  },
+  "PdFull.dc.html": {
+   "x": 1410,
+   "y": 7620,
+   "w": 390,
+   "h": 2277,
+   "title": "PD1 商品详情（长页）",
+   "is_interactive": true
+  },
+  "PdSku.dc.html": {
+   "x": 1880,
+   "y": 7620,
+   "w": 390,
+   "h": 844,
+   "title": "PD2 规格与配送",
+   "is_interactive": true
+  },
+  "Ref04Checkout.dc.html": {
+   "x": 2350,
+   "y": 7620,
+   "w": 390,
+   "h": 890,
+   "title": "Ref04 确认订单定稿（交互版见“交易闭环”行）",
+   "is_interactive": true
+  },
+  "PdInquiry.dc.html": {
+   "x": 2820,
+   "y": 7620,
+   "w": 390,
+   "h": 844,
+   "title": "PD3 询价单",
+   "is_interactive": true
+  },
+  "Merchant.dc.html": {
+   "x": 3290,
+   "y": 7620,
+   "w": 390,
+   "h": 844,
+   "title": "PD4 商家主页",
+   "is_interactive": true
+  },
+  "Quote.dc.html": {
+   "x": 3760,
+   "y": 7620,
+   "w": 390,
+   "h": 1048,
+   "title": "G 报价比选",
+   "is_interactive": true
+  },
+  "Ref20Demand.dc.html": {
+   "x": 4230,
+   "y": 7620,
+   "w": 390,
+   "h": 890,
+   "title": "Ref20 需求发布（定稿图，交互版见 Demand）",
+   "is_interactive": true
+  },
+  "Ref24Org.dc.html": {
+   "x": 4700,
+   "y": 7620,
+   "w": 390,
+   "h": 890,
+   "title": "Ref24 企业组织（定稿图，交互版见 OrgDetail）",
+   "is_interactive": true
+  },
+  "ExpPick.dc.html": {
+   "x": 0,
+   "y": 10430,
+   "w": 390,
+   "h": 844,
+   "title": "EX2 选择体验方式",
+   "is_interactive": true
+  },
+  "ExpSim.dc.html": {
+   "x": 470,
+   "y": 10430,
+   "w": 390,
+   "h": 844,
+   "title": "EX3 仿真任务进行中",
+   "is_interactive": true
+  },
+  "Experience.dc.html": {
+   "x": 940,
+   "y": 10430,
+   "w": 390,
+   "h": 844,
+   "title": "D 体验结果（早期稿，定稿见 09）",
+   "is_interactive": true
+  },
+  "ExpRecords.dc.html": {
+   "x": 1410,
+   "y": 10430,
+   "w": 390,
+   "h": 844,
+   "title": "EX4 我的体验",
+   "is_interactive": true
+  },
+  "Ref10Venue.dc.html": {
+   "x": 1880,
+   "y": 10430,
+   "w": 390,
+   "h": 890,
+   "title": "Ref10 场馆详情与预约（定稿图，交互版见 VenueDetail）",
+   "is_interactive": true
+  },
+  "Ref06ActDetail.dc.html": {
+   "x": 2350,
+   "y": 10430,
+   "w": 390,
+   "h": 890,
+   "title": "Ref06 活动详情（定稿图，交互版见 ActDetail）",
+   "is_interactive": true
+  },
+  "Signup.dc.html": {
+   "x": 2820,
+   "y": 10430,
+   "w": 390,
+   "h": 856,
+   "title": "F 报名填写",
+   "is_interactive": true
+  },
+  "Ref08Ticket.dc.html": {
+   "x": 3290,
+   "y": 10430,
+   "w": 390,
+   "h": 890,
+   "title": "Ref08 报名凭证（定稿图，交互版见 EnrollTicket）",
+   "is_interactive": true
+  },
+  "Ref19Content.dc.html": {
+   "x": 3760,
+   "y": 10430,
+   "w": 390,
+   "h": 890,
+   "title": "Ref19 内容详情（定稿图，交互版见 ContentVideo）",
+   "is_interactive": true
+  },
+  "Home.dc.html": {
+   "x": 0,
+   "y": 48366,
+   "w": 390,
+   "h": 844,
+   "title": "A 首页（初稿，已被 A1 取代）"
+  },
+  "Mall.dc.html": {
+   "x": 470,
+   "y": 48366,
+   "w": 390,
+   "h": 844,
+   "title": "B 商城列表（初稿，已被 B1 取代）"
+  },
+  "Product.dc.html": {
+   "x": 940,
+   "y": 48366,
+   "w": 390,
+   "h": 844,
+   "title": "C 商品详情（早期稿，以 PD1 为准）"
+  },
+  "TradeSpec.dc.html": {
+   "x": 4540,
+   "y": 0,
+   "w": 1100,
+   "h": 4080,
+   "title": "06 交易闭环 · 规格"
+  },
+  "Login.dc.html": {
+   "x": 0,
+   "y": 11920,
+   "w": 390,
+   "h": 844,
+   "title": "COM-03 登录（拦截后回到原操作）",
+   "is_interactive": true
+  },
+  "Checkout.dc.html": {
+   "x": 470,
+   "y": 11920,
+   "w": 390,
+   "h": 1011,
+   "title": "MALL-04 确认订单",
+   "is_interactive": true
+  },
+  "Cashier.dc.html": {
+   "x": 940,
+   "y": 11920,
+   "w": 390,
+   "h": 844,
+   "title": "MALL-05 收银台（新订单）",
+   "is_interactive": true
+  },
+  "PayResult.dc.html": {
+   "x": 1410,
+   "y": 11920,
+   "w": 390,
+   "h": 844,
+   "title": "MALL-05 支付结果（确认中 / 已支付 / 失败）",
+   "is_interactive": true
+  },
+  "OrderList.dc.html": {
+   "x": 1880,
+   "y": 11920,
+   "w": 390,
+   "h": 1552,
+   "title": "ORD-01 我的订单",
+   "is_interactive": true
+  },
+  "OrderGoods.dc.html": {
+   "x": 2350,
+   "y": 11920,
+   "w": 390,
+   "h": 1546,
+   "title": "ORD-02 商品订单详情（长页）",
+   "is_interactive": true
+  },
+  "AftersaleApply.dc.html": {
+   "x": 2820,
+   "y": 11920,
+   "w": 390,
+   "h": 870,
+   "title": "ORD-03 售后申请（退货退款）",
+   "is_interactive": true
+  },
+  "AftersaleDetail.dc.html": {
+   "x": 3290,
+   "y": 11920,
+   "w": 390,
+   "h": 890,
+   "title": "ORD-03 售后详情",
+   "is_interactive": true
+  },
+  "OrderService.dc.html": {
+   "x": 3760,
+   "y": 11920,
+   "w": 390,
+   "h": 976,
+   "title": "ORD-02 服务订单详情（按状态去方案 / 履约 / 交付）",
+   "is_interactive": true
+  },
+  "CashierFinal.dc.html": {
+   "x": 4230,
+   "y": 11920,
+   "w": 390,
+   "h": 844,
+   "title": "MALL-05 按次服务费收银台（第 1/6 次）",
+   "is_interactive": true
+  },
+  "OrderEnroll.dc.html": {
+   "x": 4700,
+   "y": 11920,
+   "w": 390,
+   "h": 1140,
+   "title": "ORD-02 报名订单详情",
+   "is_interactive": true
+  },
+  "Ref22Refund.dc.html": {
+   "x": 5170,
+   "y": 11920,
+   "w": 390,
+   "h": 890,
+   "title": "Ref22 报名退改申请（定稿图，交互版见 EnrollRefund）",
+   "is_interactive": true
+  },
+  "Participants.dc.html": {
+   "x": 0,
+   "y": 13960,
+   "w": 390,
+   "h": 1124,
+   "title": "ME-02 参与人管理（本人 · 子女 · 常用联系人）",
+   "is_interactive": true
+  },
+  "Settings.dc.html": {
+   "x": 470,
+   "y": 13960,
+   "w": 390,
+   "h": 1160,
+   "title": "ME-06 设置（账号 · 通知 · 隐私 · 注销）",
+   "is_interactive": true
+  },
+  "AddressList.dc.html": {
+   "x": 940,
+   "y": 13960,
+   "w": 390,
+   "h": 844,
+   "title": "ME-07 地址管理（从确认订单选地址）",
+   "is_interactive": true
+  },
+  "PlanConfirm.dc.html": {
+   "x": 1410,
+   "y": 13960,
+   "w": 390,
+   "h": 1400,
+   "title": "SVC-05 方案确认（M05 · 11/01 这一帧）",
+   "is_interactive": true
+  },
+  "CashierFirst.dc.html": {
+   "x": 1880,
+   "y": 13960,
+   "w": 390,
+   "h": 844,
+   "title": "MALL-05 首付收银台（付款节点 1）",
+   "is_interactive": true
+  },
+  "Fulfillment.dc.html": {
+   "x": 2350,
+   "y": 13960,
+   "w": 390,
+   "h": 1144,
+   "title": "SVC-05 服务履约（M06 · 客户只读）",
+   "is_interactive": true
+  },
+  "Delivery.dc.html": {
+   "x": 2820,
+   "y": 13960,
+   "w": 390,
+   "h": 956,
+   "title": "SVC-05 交付与验收（M07 · 按次验收）",
+   "is_interactive": true
+  },
+  "StaffVerify.dc.html": {
+   "x": 3290,
+   "y": 13960,
+   "w": 390,
+   "h": 900,
+   "title": "STAFF-01 核销工作台（工作模式）",
+   "is_interactive": true
+  },
+  "StaffException.dc.html": {
+   "x": 3760,
+   "y": 13960,
+   "w": 390,
+   "h": 900,
+   "title": "STAFF-02 核销异常处理",
+   "is_interactive": true
+  },
+  "Batch2Spec.dc.html": {
+   "x": 5720,
+   "y": 0,
+   "w": 1100,
+   "h": 5024,
+   "title": "07 账户与履约 · 规格"
+  },
+  "Topic.dc.html": {
+   "x": 0,
+   "y": 15900,
+   "w": 390,
+   "h": 1319,
+   "title": "CNT-03 专题页（发现专题落点 · 城市分享页）",
+   "is_interactive": true
+  },
+  "SearchPre.dc.html": {
+   "x": 470,
+   "y": 15900,
+   "w": 390,
+   "h": 844,
+   "title": "COM-02 搜索前置页（最近搜索 · 联想 · 纠错）",
+   "is_interactive": true
+  },
+  "MyCourses.dc.html": {
+   "x": 940,
+   "y": 15900,
+   "w": 390,
+   "h": 844,
+   "title": "ME-08 我的课程（设计假设 · 线上录播）",
+   "is_interactive": true
+  },
+  "CourseDetail.dc.html": {
+   "x": 1410,
+   "y": 15900,
+   "w": 390,
+   "h": 1140,
+   "title": "ME-08 课程学习（设计假设 · 章节与进度）",
+   "is_interactive": true
+  },
+  "Favorites.dc.html": {
+   "x": 1880,
+   "y": 15900,
+   "w": 390,
+   "h": 844,
+   "title": "ME-05 收藏与对比（二期待定）",
+   "is_interactive": true
+  },
+  "Batch3Spec.dc.html": {
+   "x": 6900,
+   "y": 0,
+   "w": 1100,
+   "h": 4764,
+   "title": "08 内容与增强 · 规格"
+  },
+  "InspCatalog.dc.html": {
+   "x": 0,
+   "y": 17820,
+   "w": 390,
+   "h": 1197,
+   "title": "SVC-02 巡检服务目录（M02）",
+   "is_interactive": true
+  },
+  "InspDetail.dc.html": {
+   "x": 470,
+   "y": 17820,
+   "w": 390,
+   "h": 1444,
+   "title": "SVC-02 服务详情（M03）",
+   "is_interactive": true
+  },
+  "InspBooking.dc.html": {
+   "x": 940,
+   "y": 17820,
+   "w": 390,
+   "h": 1249,
+   "title": "M04 确认订单（预约需求）",
+   "is_interactive": true
+  },
+  "InspBooked.dc.html": {
+   "x": 1410,
+   "y": 17820,
+   "w": 390,
+   "h": 1012,
+   "title": "M04 提交结果（待方案 / 方案已发布 / 已取消）",
+   "is_interactive": true
+  },
+  "PlanOne.dc.html": {
+   "x": 1880,
+   "y": 17820,
+   "w": 390,
+   "h": 1192,
+   "title": "SVC-05 方案确认 · 单次（M05 · 11/04 这一帧）",
+   "is_interactive": true
+  },
+  "CashierOneFirst.dc.html": {
+   "x": 2350,
+   "y": 17820,
+   "w": 390,
+   "h": 844,
+   "title": "MALL-05 首付收银台 · 单次",
+   "is_interactive": true
+  },
+  "FulfillOne.dc.html": {
+   "x": 2820,
+   "y": 17820,
+   "w": 390,
+   "h": 888,
+   "title": "SVC-05 服务履约 · 单次（M06 · 已排期 → 待验收）",
+   "is_interactive": true
+  },
+  "DeliveryOne.dc.html": {
+   "x": 3290,
+   "y": 17820,
+   "w": 390,
+   "h": 955,
+   "title": "SVC-05 交付与验收 · 单次（M07 · 电力）",
+   "is_interactive": true
+  },
+  "CashierOneFinal.dc.html": {
+   "x": 3760,
+   "y": 17820,
+   "w": 390,
+   "h": 844,
+   "title": "MALL-05 验收款收银台 · 单次",
+   "is_interactive": true
+  },
+  "FulfillOneDone.dc.html": {
+   "x": 4230,
+   "y": 17820,
+   "w": 390,
+   "h": 906,
+   "title": "SVC-05 服务履约 · 单次已完成（含已验收回看）",
+   "is_interactive": true
+  },
+  "PlanExpired.dc.html": {
+   "x": 4700,
+   "y": 17820,
+   "w": 390,
+   "h": 1188,
+   "title": "SVC-05 方案确认 · 已过期（M05）",
+   "is_interactive": true
+  },
+  "PlanConfirmed.dc.html": {
+   "x": 5170,
+   "y": 17820,
+   "w": 390,
+   "h": 1339,
+   "title": "SVC-05 方案确认 · 已确认（M05 · 从订单进入）",
+   "is_interactive": true
+  },
+  "FulfillmentLater.dc.html": {
+   "x": 5640,
+   "y": 17820,
+   "w": 390,
+   "h": 1204,
+   "title": "SVC-05 服务履约 · 第 2–6 次（12/15 这一帧，含按次验收）",
+   "is_interactive": true
+  },
+  "Batch4Spec.dc.html": {
+   "x": 8080,
+   "y": 0,
+   "w": 1100,
+   "h": 9190,
+   "title": "09 巡检闭环 · 规格"
+  },
+  "ActDetail.dc.html": {
+   "x": 0,
+   "y": 19759,
+   "w": 390,
+   "h": 1139,
+   "title": "活动详情（定稿 06 真组件）",
+   "is_interactive": true
+  },
+  "CashierEnroll.dc.html": {
+   "x": 470,
+   "y": 19759,
+   "w": 390,
+   "h": 852,
+   "title": "报名收银台与支付结果",
+   "is_interactive": true
+  },
+  "EnrollTicket.dc.html": {
+   "x": 940,
+   "y": 19759,
+   "w": 390,
+   "h": 844,
+   "title": "报名凭证（定稿 08 一人一码）",
+   "is_interactive": true
+  },
+  "EnrollRefund.dc.html": {
+   "x": 1410,
+   "y": 19759,
+   "w": 390,
+   "h": 916,
+   "title": "报名退改申请（定稿 22）",
+   "is_interactive": true
+  },
+  "EnrollRefundDetail.dc.html": {
+   "x": 1880,
+   "y": 19759,
+   "w": 390,
+   "h": 920,
+   "title": "退改进度与退款结果",
+   "is_interactive": true
+  },
+  "EnrollWaitlist.dc.html": {
+   "x": 2350,
+   "y": 19759,
+   "w": 390,
+   "h": 996,
+   "title": "候补记录与转正付款",
+   "is_interactive": true
+  },
+  "TeamSignup.dc.html": {
+   "x": 2820,
+   "y": 19759,
+   "w": 390,
+   "h": 1446,
+   "title": "团队批量报名",
+   "is_interactive": true
+  },
+  "EnrollResult.dc.html": {
+   "x": 3290,
+   "y": 19759,
+   "w": 390,
+   "h": 1362,
+   "title": "活动签到、完成与结果记录",
+   "is_interactive": true
+  },
+  "EnrollList.dc.html": {
+   "x": 3760,
+   "y": 19759,
+   "w": 390,
+   "h": 820,
+   "title": "我的报名列表",
+   "is_interactive": true
+  },
+  "VenueDetail.dc.html": {
+   "x": 0,
+   "y": 21805,
+   "w": 390,
+   "h": 1227,
+   "title": "场馆详情与场次预约",
+   "is_interactive": true
+  },
+  "VenueBook.dc.html": {
+   "x": 470,
+   "y": 21805,
+   "w": 390,
+   "h": 1128,
+   "title": "到馆预约确认",
+   "is_interactive": true
+  },
+  "CashierVenue.dc.html": {
+   "x": 940,
+   "y": 21805,
+   "w": 390,
+   "h": 844,
+   "title": "到馆收银台与支付结果",
+   "is_interactive": true
+  },
+  "VenueCode.dc.html": {
+   "x": 1410,
+   "y": 21805,
+   "w": 390,
+   "h": 1000,
+   "title": "到馆核销码（待到馆/已核销/已过期）",
+   "is_interactive": true
+  },
+  "VenueDevices.dc.html": {
+   "x": 1880,
+   "y": 21805,
+   "w": 390,
+   "h": 1040,
+   "title": "馆内展示设备列表",
+   "is_interactive": true
+  },
+  "ExpResult.dc.html": {
+   "x": 2350,
+   "y": 21805,
+   "w": 390,
+   "h": 806,
+   "title": "体验结果（定稿 09）",
+   "is_interactive": true
+  },
+  "Demand.dc.html": {
+   "x": 0,
+   "y": 23632,
+   "w": 390,
+   "h": 1072,
+   "title": "发布服务需求（定稿 20）",
+   "is_interactive": true
+  },
+  "DemandList.dc.html": {
+   "x": 470,
+   "y": 23632,
+   "w": 390,
+   "h": 1300,
+   "title": "需求与报价列表",
+   "is_interactive": true
+  },
+  "QuoteGoods.dc.html": {
+   "x": 940,
+   "y": 23632,
+   "w": 390,
+   "h": 902,
+   "title": "询价报价比选与转订单",
+   "is_interactive": true
+  },
+  "PlanCompare.dc.html": {
+   "x": 1410,
+   "y": 23632,
+   "w": 390,
+   "h": 1030,
+   "title": "方案详情与报价对比明细",
+   "is_interactive": true
+  },
+  "Contract.dc.html": {
+   "x": 1880,
+   "y": 23632,
+   "w": 390,
+   "h": 1360,
+   "title": "合同查看与受控下载",
+   "is_interactive": true
+  },
+  "ProviderPage.dc.html": {
+   "x": 2350,
+   "y": 23632,
+   "w": 390,
+   "h": 844,
+   "title": "服务商主页（鹰眼智能巡检）",
+   "is_interactive": true
+  },
+  "SvcCatalog.dc.html": {
+   "x": 0,
+   "y": 25532,
+   "w": 390,
+   "h": 968,
+   "title": "服务目录（航拍、测绘、维护、技术）",
+   "is_interactive": true
+  },
+  "SvcAerial.dc.html": {
+   "x": 470,
+   "y": 25532,
+   "w": 390,
+   "h": 1545,
+   "title": "航拍服务详情（园区与工程航拍）",
+   "is_interactive": true
+  },
+  "SvcSurvey.dc.html": {
+   "x": 940,
+   "y": 25532,
+   "w": 390,
+   "h": 1631,
+   "title": "测绘服务详情（航测与三维建模）",
+   "is_interactive": true
+  },
+  "SvcMaint.dc.html": {
+   "x": 1410,
+   "y": 25532,
+   "w": 390,
+   "h": 1663,
+   "title": "设备维护服务详情（上门 / 送修）",
+   "is_interactive": true
+  },
+  "SvcTech.dc.html": {
+   "x": 1880,
+   "y": 25532,
+   "w": 390,
+   "h": 1580,
+   "title": "技术支持服务详情（远程 / 驻场）",
+   "is_interactive": true
+  },
+  "InspDetailPark.dc.html": {
+   "x": 2350,
+   "y": 25532,
+   "w": 390,
+   "h": 1454,
+   "title": "园区安防巡检详情（按项目报价）",
+   "is_interactive": true
+  },
+  "PdInquiryFull.dc.html": {
+   "x": 0,
+   "y": 27795,
+   "w": 390,
+   "h": 2123,
+   "title": "询价商品详情（行业测绘无人机）",
+   "is_interactive": true
+  },
+  "PdRental.dc.html": {
+   "x": 470,
+   "y": 27795,
+   "w": 390,
+   "h": 2158,
+   "title": "租赁商品详情（巡检机器狗）",
+   "is_interactive": true
+  },
+  "RentalInquiry.dc.html": {
+   "x": 940,
+   "y": 27795,
+   "w": 390,
+   "h": 1228,
+   "title": "租赁询价单：租期、地点、交接",
+   "is_interactive": true
+  },
+  "OrderRental.dc.html": {
+   "x": 1410,
+   "y": 27795,
+   "w": 390,
+   "h": 1458,
+   "title": "租赁合同订单：交接与归还记录",
+   "is_interactive": true
+  },
+  "PdStates.dc.html": {
+   "x": 1880,
+   "y": 27795,
+   "w": 390,
+   "h": 1051,
+   "title": "商品详情异常帧：无货、不可售、下架",
+   "is_interactive": true
+  },
+  "AftersaleFlow.dc.html": {
+   "x": 2350,
+   "y": 27795,
+   "w": 390,
+   "h": 1100,
+   "title": "商品售后后半程（寄回到退款）",
+   "is_interactive": true
+  },
+  "AftersaleList.dc.html": {
+   "x": 2820,
+   "y": 27795,
+   "w": 390,
+   "h": 780,
+   "title": "退款/售后列表与回看",
+   "is_interactive": true
+  },
+  "CartStates.dc.html": {
+   "x": 3290,
+   "y": 27795,
+   "w": 390,
+   "h": 844,
+   "title": "购物车管理、失效、空态与未登录",
+   "is_interactive": true
+  },
+  "CheckoutStates.dc.html": {
+   "x": 3760,
+   "y": 27795,
+   "w": 390,
+   "h": 1104,
+   "title": "确认订单：多件、无地址、提交失败",
+   "is_interactive": true
+  },
+  "Chat.dc.html": {
+   "x": 0,
+   "y": 30553,
+   "w": 390,
+   "h": 844,
+   "title": "客服与商家咨询会话",
+   "is_interactive": true
+  },
+  "Agreement.dc.html": {
+   "x": 470,
+   "y": 30553,
+   "w": 390,
+   "h": 674,
+   "title": "协议与规则正文",
+   "is_interactive": true
+  },
+  "NoticeDetail.dc.html": {
+   "x": 940,
+   "y": 30553,
+   "w": 390,
+   "h": 684,
+   "title": "系统通知详情（隐私政策更新）",
+   "is_interactive": true
+  },
+  "SetPhone.dc.html": {
+   "x": 1410,
+   "y": 30553,
+   "w": 390,
+   "h": 600,
+   "title": "更换手机号",
+   "is_interactive": true
+  },
+  "SetDevices.dc.html": {
+   "x": 1880,
+   "y": 30553,
+   "w": 390,
+   "h": 576,
+   "title": "登录设备管理",
+   "is_interactive": true
+  },
+  "SetData.dc.html": {
+   "x": 2350,
+   "y": 30553,
+   "w": 390,
+   "h": 904,
+   "title": "个人信息查看与导出",
+   "is_interactive": true
+  },
+  "SetPerm.dc.html": {
+   "x": 2820,
+   "y": 30553,
+   "w": 390,
+   "h": 704,
+   "title": "权限管理",
+   "is_interactive": true
+  },
+  "Help.dc.html": {
+   "x": 3290,
+   "y": 30553,
+   "w": 390,
+   "h": 730,
+   "title": "帮助与反馈（含投诉）",
+   "is_interactive": true
+  },
+  "About.dc.html": {
+   "x": 3760,
+   "y": 30553,
+   "w": 390,
+   "h": 664,
+   "title": "关于与版本",
+   "is_interactive": true
+  },
+  "Onboarding.dc.html": {
+   "x": 4230,
+   "y": 30553,
+   "w": 390,
+   "h": 844,
+   "title": "首次启动（隐私与定位授权）",
+   "is_interactive": true
+  },
+  "MineGuest.dc.html": {
+   "x": 4700,
+   "y": 30553,
+   "w": 390,
+   "h": 844,
+   "title": "游客态（我的、消息、购物车）",
+   "is_interactive": true
+  },
+  "ShareSheet.dc.html": {
+   "x": 5170,
+   "y": 30553,
+   "w": 390,
+   "h": 844,
+   "title": "分享面板（六种来源）",
+   "is_interactive": true
+  },
+  "Scan.dc.html": {
+   "x": 5640,
+   "y": 30553,
+   "w": 390,
+   "h": 844,
+   "title": "扫一扫落地与结果去向",
+   "is_interactive": true
+  },
+  "ContentVideo.dc.html": {
+   "x": 0,
+   "y": 32057,
+   "w": 390,
+   "h": 786,
+   "title": "内容详情 · 视频（定稿 19）",
+   "is_interactive": true
+  },
+  "ContentArticle.dc.html": {
+   "x": 470,
+   "y": 32057,
+   "w": 390,
+   "h": 1706,
+   "title": "内容详情 · 图文案例",
+   "is_interactive": true
+  },
+  "LiveNotice.dc.html": {
+   "x": 940,
+   "y": 32057,
+   "w": 390,
+   "h": 1061,
+   "title": "直播预告与回看入口",
+   "is_interactive": true
+  },
+  "OrgDetail.dc.html": {
+   "x": 1410,
+   "y": 32057,
+   "w": 390,
+   "h": 745,
+   "title": "企业组织（定稿 24）",
+   "is_interactive": true
+  },
+  "OrgMembers.dc.html": {
+   "x": 1880,
+   "y": 32057,
+   "w": 390,
+   "h": 789,
+   "title": "成员邀请与角色",
+   "is_interactive": true
+  },
+  "StaffRecords.dc.html": {
+   "x": 2350,
+   "y": 32057,
+   "w": 390,
+   "h": 1077,
+   "title": "核销全部记录",
+   "is_interactive": true
+  },
+  "StatusBoard.dc.html": {
+   "x": 10440,
+   "y": 0,
+   "w": 1100,
+   "h": 2810,
+   "title": "COM 公共状态板"
+  },
+  "Batch5Spec.dc.html": {
+   "x": 9260,
+   "y": 0,
+   "w": 1100,
+   "h": 12001,
+   "title": "10 全量补页 · 规格"
+  },
+  "MapPick.dc.html": {
+   "x": 0,
+   "y": 34363,
+   "w": 390,
+   "h": 844,
+   "title": "COM 地图选点（需求地点 / 巡检地点）",
+   "is_interactive": true
+  },
+  "RegionPick.dc.html": {
+   "x": 470,
+   "y": 34363,
+   "w": 390,
+   "h": 844,
+   "title": "COM 省市区选择",
+   "is_interactive": true
+  },
+  "CalendarPick.dc.html": {
+   "x": 940,
+   "y": 34363,
+   "w": 390,
+   "h": 812,
+   "title": "COM 整月日历（预约巡检 / 到馆场次）",
+   "is_interactive": true
+  },
+  "PhotoViewer.dc.html": {
+   "x": 1410,
+   "y": 34363,
+   "w": 390,
+   "h": 844,
+   "title": "COM 图片查看器",
+   "is_interactive": true
+  },
+  "MoreSheet.dc.html": {
+   "x": 1880,
+   "y": 34363,
+   "w": 390,
+   "h": 844,
+   "title": "PD 商品详情「更多」面板",
+   "is_interactive": true
+  },
+  "OrderSearch.dc.html": {
+   "x": 2350,
+   "y": 34363,
+   "w": 390,
+   "h": 844,
+   "title": "ORD 订单搜索",
+   "is_interactive": true
+  },
+  "RentalQuote.dc.html": {
+   "x": 2820,
+   "y": 34363,
+   "w": 390,
+   "h": 1416,
+   "title": "MALL 租赁报价单与确认合同",
+   "is_interactive": true
+  },
+  "CashierRental.dc.html": {
+   "x": 3290,
+   "y": 34363,
+   "w": 390,
+   "h": 844,
+   "title": "MALL-05 租金收银台",
+   "is_interactive": true
+  },
+  "DevicePick.dc.html": {
+   "x": 3760,
+   "y": 34363,
+   "w": 390,
+   "h": 660,
+   "title": "MALL 租赁询价 · 添加设备",
+   "is_interactive": true
+  },
+  "TeamOrder.dc.html": {
+   "x": 4230,
+   "y": 34363,
+   "w": 390,
+   "h": 1636,
+   "title": "ORD-02 团队报名订单详情（领队）",
+   "is_interactive": true
+  },
+  "OrgInvite.dc.html": {
+   "x": 4700,
+   "y": 34363,
+   "w": 390,
+   "h": 900,
+   "title": "ME-03 加入组织邀请确认",
+   "is_interactive": true
+  },
+  "SoftwareTrial.dc.html": {
+   "x": 5170,
+   "y": 34363,
+   "w": 390,
+   "h": 844,
+   "title": "EXP-02 软件试用（启动 / 试用中 / 到期）",
+   "is_interactive": true
+  },
+  "MallDrone.dc.html": {
+   "x": 0,
+   "y": 36599,
+   "w": 390,
+   "h": 844,
+   "title": "B1 首页·无人机频道列表",
+   "is_interactive": true
+  },
+  "MallParts.dc.html": {
+   "x": 470,
+   "y": 36599,
+   "w": 390,
+   "h": 844,
+   "title": "B1 首页·配件频道列表",
+   "is_interactive": true
+  },
+  "MallRental.dc.html": {
+   "x": 940,
+   "y": 36599,
+   "w": 390,
+   "h": 844,
+   "title": "B1 首页·租赁频道列表",
+   "is_interactive": true
+  },
+  "MallCourse.dc.html": {
+   "x": 1410,
+   "y": 36599,
+   "w": 390,
+   "h": 844,
+   "title": "B1 首页·课程频道列表",
+   "is_interactive": true
+  },
+  "InspDetailSolar.dc.html": {
+   "x": 0,
+   "y": 38043,
+   "w": 390,
+   "h": 1444,
+   "title": "SVC-02 光伏电站巡检详情",
+   "is_interactive": true
+  },
+  "InspDetailOil.dc.html": {
+   "x": 470,
+   "y": 38043,
+   "w": 390,
+   "h": 1444,
+   "title": "SVC-02 油气管线巡检详情",
+   "is_interactive": true
+  },
+  "InspDetailHeat.dc.html": {
+   "x": 940,
+   "y": 38043,
+   "w": 390,
+   "h": 1444,
+   "title": "SVC-02 热力管网巡检详情",
+   "is_interactive": true
+  },
+  "InspDetailCycle.dc.html": {
+   "x": 1410,
+   "y": 38043,
+   "w": 390,
+   "h": 1454,
+   "title": "SVC-02 园区设备定期巡检详情",
+   "is_interactive": true
+  },
+  "SvcAerialEnergy.dc.html": {
+   "x": 1880,
+   "y": 38043,
+   "w": 390,
+   "h": 1545,
+   "title": "SVC-03 能源设施航拍详情",
+   "is_interactive": true
+  },
+  "SvcAerialScenic.dc.html": {
+   "x": 2350,
+   "y": 38043,
+   "w": 390,
+   "h": 1545,
+   "title": "SVC-03 文旅风光航拍详情",
+   "is_interactive": true
+  },
+  "SvcAerialEvent.dc.html": {
+   "x": 2820,
+   "y": 38043,
+   "w": 390,
+   "h": 1545,
+   "title": "SVC-03 活动现场航拍详情",
+   "is_interactive": true
+  },
+  "PdDroneEdu.dc.html": {
+   "x": 0,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 编程教学无人机",
+   "is_interactive": true
+  },
+  "PdSkuDroneEdu.dc.html": {
+   "x": 470,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 编程教学无人机",
+   "is_interactive": true
+  },
+  "PdDroneAerial.dc.html": {
+   "x": 940,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 4K 航拍无人机",
+   "is_interactive": true
+  },
+  "PdSkuDroneAerial.dc.html": {
+   "x": 1410,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 4K 航拍无人机",
+   "is_interactive": true
+  },
+  "PdDroneMini.dc.html": {
+   "x": 1880,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 便携航拍无人机",
+   "is_interactive": true
+  },
+  "PdSkuDroneMini.dc.html": {
+   "x": 2350,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 便携航拍无人机",
+   "is_interactive": true
+  },
+  "PdSim.dc.html": {
+   "x": 2820,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 飞行模拟器",
+   "is_interactive": true
+  },
+  "PdSkuSim.dc.html": {
+   "x": 3290,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 飞行模拟器",
+   "is_interactive": true
+  },
+  "PdArm.dc.html": {
+   "x": 3760,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 桌面六轴机械臂",
+   "is_interactive": true
+  },
+  "PdSkuArm.dc.html": {
+   "x": 4230,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 机械臂",
+   "is_interactive": true
+  },
+  "PdField.dc.html": {
+   "x": 4700,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 避障训练场地套件",
+   "is_interactive": true
+  },
+  "PdSkuField.dc.html": {
+   "x": 5170,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 场地套件",
+   "is_interactive": true
+  },
+  "PdBattery.dc.html": {
+   "x": 5640,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 智能飞行电池",
+   "is_interactive": true
+  },
+  "PdSkuBattery.dc.html": {
+   "x": 6110,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 电池",
+   "is_interactive": true
+  },
+  "PdProp.dc.html": {
+   "x": 6580,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 快拆桨叶",
+   "is_interactive": true
+  },
+  "PdSkuProp.dc.html": {
+   "x": 7050,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 桨叶",
+   "is_interactive": true
+  },
+  "PdLidar.dc.html": {
+   "x": 7520,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 避障激光雷达模块",
+   "is_interactive": true
+  },
+  "PdSkuLidar.dc.html": {
+   "x": 7990,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 雷达",
+   "is_interactive": true
+  },
+  "PdPartsKit.dc.html": {
+   "x": 8460,
+   "y": 40306,
+   "w": 390,
+   "h": 2277,
+   "title": "PD 无人机配件套装",
+   "is_interactive": true
+  },
+  "PdSkuPartsKit.dc.html": {
+   "x": 8930,
+   "y": 40306,
+   "w": 390,
+   "h": 844,
+   "title": "PD 规格 · 配件套装",
+   "is_interactive": true
+  },
+  "CourseFly.dc.html": {
+   "x": 0,
+   "y": 43183,
+   "w": 390,
+   "h": 2277,
+   "title": "COURSE 无人机飞行原理 线上课",
+   "is_interactive": true
+  },
+  "PdSkuCourseFly.dc.html": {
+   "x": 470,
+   "y": 43183,
+   "w": 390,
+   "h": 844,
+   "title": "COURSE 报名 · 飞行原理",
+   "is_interactive": true
+  },
+  "CourseRobotIntro.dc.html": {
+   "x": 940,
+   "y": 43183,
+   "w": 390,
+   "h": 2277,
+   "title": "COURSE 编程机器人入门课 线下班",
+   "is_interactive": true
+  },
+  "PdSkuCourseRobotIntro.dc.html": {
+   "x": 1410,
+   "y": 43183,
+   "w": 390,
+   "h": 844,
+   "title": "COURSE 报名 · 入门课",
+   "is_interactive": true
+  },
+  "CourseCamp.dc.html": {
+   "x": 1880,
+   "y": 43183,
+   "w": 390,
+   "h": 2277,
+   "title": "COURSE 机器人研学营",
+   "is_interactive": true
+  },
+  "PdSkuCourseCamp.dc.html": {
+   "x": 2350,
+   "y": 43183,
+   "w": 390,
+   "h": 844,
+   "title": "COURSE 报名 · 研学营",
+   "is_interactive": true
+  },
+  "CourseCert.dc.html": {
+   "x": 2820,
+   "y": 43183,
+   "w": 390,
+   "h": 2277,
+   "title": "COURSE 执照培训",
+   "is_interactive": true
+  },
+  "PdSkuCourseCert.dc.html": {
+   "x": 3290,
+   "y": 43183,
+   "w": 390,
+   "h": 844,
+   "title": "COURSE 报名 · 执照培训",
+   "is_interactive": true
+  },
+  "PdRentalAerial.dc.html": {
+   "x": 3760,
+   "y": 43183,
+   "w": 390,
+   "h": 2158,
+   "title": "RENT 4K 航拍无人机 含飞手",
+   "is_interactive": true
+  },
+  "PdRentalSurvey.dc.html": {
+   "x": 4230,
+   "y": 43183,
+   "w": 390,
+   "h": 2158,
+   "title": "RENT 行业测绘无人机",
+   "is_interactive": true
+  },
+  "PdRentalField.dc.html": {
+   "x": 4700,
+   "y": 43183,
+   "w": 390,
+   "h": 2158,
+   "title": "RENT 户外飞行训练场地",
+   "is_interactive": true
+  },
+  "ActStudyRobot.dc.html": {
+   "x": 5170,
+   "y": 43183,
+   "w": 390,
+   "h": 1139,
+   "title": "ACT 机器人研学体验",
+   "is_interactive": true
+  },
+  "ActCamp.dc.html": {
+   "x": 5640,
+   "y": 43183,
+   "w": 390,
+   "h": 1139,
+   "title": "ACT 黄河口低空研学一日营",
+   "is_interactive": true
+  },
+  "ActTraining.dc.html": {
+   "x": 6110,
+   "y": 43183,
+   "w": 390,
+   "h": 1139,
+   "title": "ACT 多旋翼驾驶员培训",
+   "is_interactive": true
+  },
+  "ActOpenDay.dc.html": {
+   "x": 6580,
+   "y": 43183,
+   "w": 390,
+   "h": 1139,
+   "title": "ACT 无人机开放体验日",
+   "is_interactive": true
+  },
+  "VenueOutdoor.dc.html": {
+   "x": 7050,
+   "y": 43183,
+   "w": 390,
+   "h": 1227,
+   "title": "VENUE 黄河口户外飞行营地",
+   "is_interactive": true
+  },
+  "SvcSurveyPark.dc.html": {
+   "x": 3290,
+   "y": 38043,
+   "w": 390,
+   "h": 1631,
+   "title": "SVC-03 园区实景建模详情",
+   "is_interactive": true
+  },
+  "SvcSurveyTerrain.dc.html": {
+   "x": 3760,
+   "y": 38043,
+   "w": 390,
+   "h": 1631,
+   "title": "SVC-03 光伏场地地形测绘详情",
+   "is_interactive": true
+  },
+  "SvcSurveyCorridor.dc.html": {
+   "x": 4230,
+   "y": 38043,
+   "w": 390,
+   "h": 1631,
+   "title": "SVC-03 管线走廊测绘详情",
+   "is_interactive": true
+  },
+  "SvcMaintCalib.dc.html": {
+   "x": 4700,
+   "y": 38043,
+   "w": 390,
+   "h": 1663,
+   "title": "SVC-03 无人机校准与固件升级详情",
+   "is_interactive": true
+  },
+  "SvcMaintRobot.dc.html": {
+   "x": 5170,
+   "y": 38043,
+   "w": 390,
+   "h": 1663,
+   "title": "SVC-03 编程机器人保养详情",
+   "is_interactive": true
+  },
+  "SvcMaintDog.dc.html": {
+   "x": 5640,
+   "y": 38043,
+   "w": 390,
+   "h": 1663,
+   "title": "SVC-03 巡检机器狗检修详情",
+   "is_interactive": true
+  },
+  "SvcTechFlight.dc.html": {
+   "x": 6110,
+   "y": 38043,
+   "w": 390,
+   "h": 1580,
+   "title": "SVC-03 飞行作业指导详情",
+   "is_interactive": true
+  },
+  "SvcTechEvent.dc.html": {
+   "x": 6580,
+   "y": 38043,
+   "w": 390,
+   "h": 1580,
+   "title": "SVC-03 活动现场技术保障详情",
+   "is_interactive": true
+  },
+  "SvcTechSoftware.dc.html": {
+   "x": 7050,
+   "y": 38043,
+   "w": 390,
+   "h": 1580,
+   "title": "SVC-03 软件配置与数据处理详情",
+   "is_interactive": true
+  },
+  "MallHome.dc.html": {
+   "x": 0,
+   "y": 46060,
+   "w": 390,
+   "h": 844,
+   "title": "B1 首页·商城频道（全部）",
+   "is_interactive": true
+  },
+  "VideoFeed.dc.html": {
+   "x": 470,
+   "y": 46060,
+   "w": 390,
+   "h": 844,
+   "title": "CNT 竖屏视频流（抖音式）",
+   "is_interactive": true
+  },
+  "LiveRoom.dc.html": {
+   "x": 940,
+   "y": 46060,
+   "w": 390,
+   "h": 844,
+   "title": "CNT 直播间",
+   "is_interactive": true
+  },
+  "ContentCase2.dc.html": {
+   "x": 1410,
+   "y": 46060,
+   "w": 390,
+   "h": 1706,
+   "title": "CNT 案例 · 无人机航测三天出图",
+   "is_interactive": true
+  },
+  "ContentCase3.dc.html": {
+   "x": 1880,
+   "y": 46060,
+   "w": 390,
+   "h": 1706,
+   "title": "CNT 案例 · 光伏热斑巡检",
+   "is_interactive": true
+  },
+  "ContentKnow1.dc.html": {
+   "x": 2350,
+   "y": 46060,
+   "w": 390,
+   "h": 1706,
+   "title": "CNT 知识 · 新手买无人机",
+   "is_interactive": true
+  },
+  "ContentKnow2.dc.html": {
+   "x": 2820,
+   "y": 46060,
+   "w": 390,
+   "h": 1706,
+   "title": "CNT 知识 · 选编程机器人",
+   "is_interactive": true
+  },
+  "ContentKnow3.dc.html": {
+   "x": 3290,
+   "y": 46060,
+   "w": 390,
+   "h": 1706,
+   "title": "CNT 知识 · 航拍检查清单",
+   "is_interactive": true
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Flows.dc.html",
+  "NavSpec.dc.html",
+  "HomeMallSpec.dc.html",
+  "PdExpSpec.dc.html",
+  "Ops.dc.html",
+  "TradeSpec.dc.html",
+  "Batch2Spec.dc.html",
+  "Batch3Spec.dc.html",
+  "Batch4Spec.dc.html",
+  "Batch5Spec.dc.html",
+  "StatusBoard.dc.html",
+  "HomeFull.dc.html",
+  "HomeSvc.dc.html",
+  "HomeAct.dc.html",
+  "ExpCenter.dc.html",
+  "Mall2.dc.html",
+  "MallCourse.dc.html",
+  "MallRental.dc.html",
+  "MallParts.dc.html",
+  "MallDrone.dc.html",
+  "CityClosed.dc.html",
+  "CitySheet.dc.html",
+  "Discover.dc.html",
+  "Messages.dc.html",
+  "Cart.dc.html",
+  "Mine.dc.html",
+  "MallSearch.dc.html",
+  "MallFilter.dc.html",
+  "MallCompare.dc.html",
+  "PdFull.dc.html",
+  "PdSku.dc.html",
+  "Ref04Checkout.dc.html",
+  "PdInquiry.dc.html",
+  "Merchant.dc.html",
+  "Quote.dc.html",
+  "Ref20Demand.dc.html",
+  "Ref24Org.dc.html",
+  "ExpPick.dc.html",
+  "ExpSim.dc.html",
+  "Experience.dc.html",
+  "ExpRecords.dc.html",
+  "Ref10Venue.dc.html",
+  "Ref06ActDetail.dc.html",
+  "Signup.dc.html",
+  "Ref08Ticket.dc.html",
+  "Ref19Content.dc.html",
+  "Login.dc.html",
+  "Checkout.dc.html",
+  "Cashier.dc.html",
+  "PayResult.dc.html",
+  "OrderList.dc.html",
+  "OrderGoods.dc.html",
+  "AftersaleApply.dc.html",
+  "AftersaleDetail.dc.html",
+  "OrderService.dc.html",
+  "CashierFinal.dc.html",
+  "OrderEnroll.dc.html",
+  "Ref22Refund.dc.html",
+  "Participants.dc.html",
+  "Settings.dc.html",
+  "AddressList.dc.html",
+  "PlanConfirm.dc.html",
+  "CashierFirst.dc.html",
+  "Fulfillment.dc.html",
+  "Delivery.dc.html",
+  "StaffVerify.dc.html",
+  "StaffException.dc.html",
+  "Topic.dc.html",
+  "SearchPre.dc.html",
+  "MyCourses.dc.html",
+  "CourseDetail.dc.html",
+  "Favorites.dc.html",
+  "InspCatalog.dc.html",
+  "InspDetail.dc.html",
+  "InspBooking.dc.html",
+  "InspBooked.dc.html",
+  "PlanOne.dc.html",
+  "CashierOneFirst.dc.html",
+  "FulfillOne.dc.html",
+  "DeliveryOne.dc.html",
+  "CashierOneFinal.dc.html",
+  "FulfillOneDone.dc.html",
+  "PlanExpired.dc.html",
+  "PlanConfirmed.dc.html",
+  "FulfillmentLater.dc.html",
+  "ActDetail.dc.html",
+  "CashierEnroll.dc.html",
+  "EnrollTicket.dc.html",
+  "EnrollRefund.dc.html",
+  "EnrollRefundDetail.dc.html",
+  "EnrollWaitlist.dc.html",
+  "TeamSignup.dc.html",
+  "EnrollResult.dc.html",
+  "EnrollList.dc.html",
+  "VenueDetail.dc.html",
+  "VenueBook.dc.html",
+  "CashierVenue.dc.html",
+  "VenueCode.dc.html",
+  "VenueDevices.dc.html",
+  "ExpResult.dc.html",
+  "Demand.dc.html",
+  "DemandList.dc.html",
+  "QuoteGoods.dc.html",
+  "PlanCompare.dc.html",
+  "Contract.dc.html",
+  "ProviderPage.dc.html",
+  "SvcCatalog.dc.html",
+  "SvcAerial.dc.html",
+  "SvcSurvey.dc.html",
+  "SvcMaint.dc.html",
+  "SvcTech.dc.html",
+  "InspDetailPark.dc.html",
+  "PdInquiryFull.dc.html",
+  "PdRental.dc.html",
+  "RentalInquiry.dc.html",
+  "OrderRental.dc.html",
+  "PdStates.dc.html",
+  "AftersaleFlow.dc.html",
+  "AftersaleList.dc.html",
+  "CartStates.dc.html",
+  "CheckoutStates.dc.html",
+  "Chat.dc.html",
+  "Agreement.dc.html",
+  "NoticeDetail.dc.html",
+  "SetPhone.dc.html",
+  "SetDevices.dc.html",
+  "SetData.dc.html",
+  "SetPerm.dc.html",
+  "Help.dc.html",
+  "About.dc.html",
+  "Onboarding.dc.html",
+  "MineGuest.dc.html",
+  "ShareSheet.dc.html",
+  "Scan.dc.html",
+  "ContentVideo.dc.html",
+  "ContentArticle.dc.html",
+  "LiveNotice.dc.html",
+  "OrgDetail.dc.html",
+  "OrgMembers.dc.html",
+  "StaffRecords.dc.html",
+  "MapPick.dc.html",
+  "RegionPick.dc.html",
+  "CalendarPick.dc.html",
+  "PhotoViewer.dc.html",
+  "MoreSheet.dc.html",
+  "OrderSearch.dc.html",
+  "RentalQuote.dc.html",
+  "CashierRental.dc.html",
+  "DevicePick.dc.html",
+  "TeamOrder.dc.html",
+  "OrgInvite.dc.html",
+  "SoftwareTrial.dc.html",
+  "InspDetailSolar.dc.html",
+  "InspDetailOil.dc.html",
+  "InspDetailHeat.dc.html",
+  "InspDetailCycle.dc.html",
+  "SvcAerialEnergy.dc.html",
+  "SvcAerialScenic.dc.html",
+  "SvcAerialEvent.dc.html",
+  "PdDroneEdu.dc.html",
+  "PdSkuDroneEdu.dc.html",
+  "PdDroneAerial.dc.html",
+  "PdSkuDroneAerial.dc.html",
+  "PdDroneMini.dc.html",
+  "PdSkuDroneMini.dc.html",
+  "PdSim.dc.html",
+  "PdSkuSim.dc.html",
+  "PdArm.dc.html",
+  "PdSkuArm.dc.html",
+  "PdField.dc.html",
+  "PdSkuField.dc.html",
+  "PdBattery.dc.html",
+  "PdSkuBattery.dc.html",
+  "PdProp.dc.html",
+  "PdSkuProp.dc.html",
+  "PdLidar.dc.html",
+  "PdSkuLidar.dc.html",
+  "PdPartsKit.dc.html",
+  "PdSkuPartsKit.dc.html",
+  "CourseFly.dc.html",
+  "PdSkuCourseFly.dc.html",
+  "CourseRobotIntro.dc.html",
+  "PdSkuCourseRobotIntro.dc.html",
+  "CourseCamp.dc.html",
+  "PdSkuCourseCamp.dc.html",
+  "CourseCert.dc.html",
+  "PdSkuCourseCert.dc.html",
+  "PdRentalAerial.dc.html",
+  "PdRentalSurvey.dc.html",
+  "PdRentalField.dc.html",
+  "ActStudyRobot.dc.html",
+  "ActCamp.dc.html",
+  "ActTraining.dc.html",
+  "ActOpenDay.dc.html",
+  "VenueOutdoor.dc.html",
+  "SvcSurveyPark.dc.html",
+  "SvcSurveyTerrain.dc.html",
+  "SvcSurveyCorridor.dc.html",
+  "SvcMaintCalib.dc.html",
+  "SvcMaintRobot.dc.html",
+  "SvcMaintDog.dc.html",
+  "SvcTechFlight.dc.html",
+  "SvcTechEvent.dc.html",
+  "SvcTechSoftware.dc.html",
+  "MallHome.dc.html",
+  "VideoFeed.dc.html",
+  "LiveRoom.dc.html",
+  "ContentCase2.dc.html",
+  "ContentCase3.dc.html",
+  "ContentKnow1.dc.html",
+  "ContentKnow2.dc.html",
+  "ContentKnow3.dc.html",
+  "Home.dc.html",
+  "Mall.dc.html",
+  "Product.dc.html"
+ ],
+ "notes": {
+  "t1": {
+   "x": 0,
+   "y": -300,
+   "text": "设计方案与规格",
+   "kind": "title1",
+   "maxW": 9180
+  },
+  "t2": {
+   "x": 0,
+   "y": 5000,
+   "text": "底栏 Tab 与首页频道（方案 C：参照淘宝底栏，2026-11-03 选定）",
+   "kind": "title1",
+   "maxW": 5090
+  },
+  "t3": {
+   "x": 0,
+   "y": 7320,
+   "text": "交易与服务链路（二级页）",
+   "kind": "title1",
+   "maxW": 5090
+  },
+  "t4": {
+   "x": 0,
+   "y": 10130,
+   "text": "体验与活动链路（二级页）",
+   "kind": "title1",
+   "maxW": 4150
+  },
+  "t5": {
+   "x": 0,
+   "y": 48066,
+   "text": "早期稿（已被取代，仅供对照）",
+   "kind": "title1",
+   "maxW": 1330
+  },
+  "n2": {
+   "x": 5180,
+   "y": 5300,
+   "w": 360,
+   "text": "导航按方案 C：底栏 首页 / 发现 / 消息 / 购物车 / 我的；商城类目、专业服务、活动、体验都是首页顶部的横滑频道，频道即子首页，底栏始终停在“首页”。巡检入口改为“首页频道 · 专业服务”。2026-11-04 已同步进 概要设计 V0.2 与 AGENTS.md V2.2。"
+  },
+  "n1": {
+   "x": 5180,
+   "y": 5760,
+   "w": 360,
+   "fill": "orange",
+   "text": "说明：所有价格、名额、角标与指标均为示意数据，生产环境须来自真实接口或真实聚合，无数据时隐藏。商品图位为占位或项目示例图，需替换为有使用权的素材。"
+  },
+  "n3": {
+   "x": 4700,
+   "y": 10430,
+   "w": 360,
+   "text": "“沿用定稿”画板直接展示 docs/redesign/ui 里已确认的定稿图（04、06、08、10、19、20、22、24），作为链接落点，不在画布上重画。体验结果的定稿为 09。"
+  },
+  "n4": {
+   "x": 5180,
+   "y": 6300,
+   "w": 360,
+   "fill": "green",
+   "text": "可点击原型：在“A1 首页 · 推荐频道”画板上点 ▶ 播放，从首页开始点。底栏、首页频道和各页按钮都能跳到对应画板；选商家、加减数量、勾选购物车、报名勾选参与人等在页内生效。每张画板各自记状态，跨页不共享（比如购物车角标不会随操作变化）。"
+  },
+  "t6": {
+   "x": 0,
+   "y": 11620,
+   "text": "交易闭环（确认订单 → 支付 → 订单 → 售后）",
+   "kind": "title1",
+   "maxW": 5560
+  },
+  "t7": {
+   "x": 0,
+   "y": 13660,
+   "text": "账户与履约（参与人 · 设置 · 地址 · 巡检后半程 · 核销工作模式）",
+   "kind": "title1",
+   "maxW": 4590
+  },
+  "n5": {
+   "x": 4230,
+   "y": 13960,
+   "w": 360,
+   "fill": "orange",
+   "text": "巡检后半程按时间排：报价 10/31 截止 → 11/01 确认方案 v2 并付首付 ¥5,580 → 今天（11/03）第 1 次报告待验收 → 验收后付第 1 次服务费 ¥2,170。付款口径从“验收后一次付尾款 70%”改为“首付 30% + 每次验收后按次结算（6 × ¥2,170）”，11/04 已确认。服务流程契约 2.0.0 已按 D9 和画布修订（多次巡检、按次验收、付款节点），11/04 验收，在分支 codex/inspection-visits；App 的 M05–M08 还按旧契约实现，阶段 B 改造。"
+  },
+  "n6": {
+   "x": 4230,
+   "y": 14380,
+   "w": 360,
+   "fill": "green",
+   "text": "入口：“我的”齿轮 → 设置 → 地址管理；“我的 / 报名填写” → 参与人管理；“我的”服务订单卡或消息“巡检报告已交付” → 交付与验收；“我的 → 工作模式”（仅授权核销员可见）→ 核销工作台。订单详情只按状态导航到方案、履约、交付，验收只在“交付与验收”页做。"
+  },
+  "t8": {
+   "x": 0,
+   "y": 15600,
+   "text": "内容与增强（专题 · 搜索前置 · 我的课程 · 收藏与对比）",
+   "kind": "title1",
+   "maxW": 2730
+  },
+  "n7": {
+   "x": 2350,
+   "y": 15900,
+   "w": 360,
+   "fill": "orange",
+   "text": "设计假设，确认前不算定稿：我的课程按线上录播数字课程画（随商品配套或单独购买，线下培训走活动报名）；收藏按个人列表画，概要设计列二期（§14 D10）。待确认项见规格板“08 内容与增强”第 7 节。"
+  },
+  "n8": {
+   "x": 2350,
+   "y": 16280,
+   "w": 360,
+   "fill": "green",
+   "text": "入口：发现的专题卡 → 专题页；首页各频道和发现的搜索 → 搜索前置页 → 结果页；“我的 → 我的课程”和商品订单的“去学习” → 课程学习；“我的 → 收藏与对比”。"
+  },
+  "t9": {
+   "x": 0,
+   "y": 17520,
+   "text": "巡检闭环（目录 → 详情 → 预约 → 方案 → 履约 → 验收）",
+   "kind": "title1",
+   "maxW": 6030
+  },
+  "n9": {
+   "x": 6110,
+   "y": 17820,
+   "w": 360,
+   "fill": "orange",
+   "text": "样例：黄金路径用“电力线路巡检”这份单次样例（个人账号，合计 ¥6,000，首付 ¥1,800 + 验收后 ¥4,200）：11/03 提交预约 → 11/04 确认方案 → 11/06 现场巡检 → 11/07 验收付款。“第 2–6 次”那块是物流园区 6 次样例在 12/15 的样子，画板内点哪一次就看哪一次，验收和付款会回到进度里。"
+  },
+  "n10": {
+   "x": 6110,
+   "y": 18240,
+   "w": 360,
+   "fill": "green",
+   "text": "入口：首页“专业服务”频道的场景格、查看全部、搜索 → 巡检服务目录；热门“电力线路巡检” → 服务详情。“我的订单”里电力线路巡检回到提交结果，光伏电站巡检打开已过期方案。原型不传参，从场景格进目录都停在“全部”。"
+  },
+  "t10": {
+   "x": 0,
+   "y": 19459,
+   "text": "活动与报名（详情 · 支付 · 凭证 · 退改 · 候补 · 团队）",
+   "kind": "title1",
+   "maxW": 4150
+  },
+  "t11": {
+   "x": 0,
+   "y": 21505,
+   "text": "到馆与体验（场馆 · 预约 · 支付 · 核销码 · 体验结果）",
+   "kind": "title1",
+   "maxW": 2740
+  },
+  "t12": {
+   "x": 0,
+   "y": 23332,
+   "text": "询价、需求与合同",
+   "kind": "title1",
+   "maxW": 2740
+  },
+  "t13": {
+   "x": 0,
+   "y": 25232,
+   "text": "其他专业服务（航拍 · 测绘 · 设备维护 · 技术支持）",
+   "kind": "title1",
+   "maxW": 2740
+  },
+  "t14": {
+   "x": 0,
+   "y": 27495,
+   "text": "商品变体、租赁、售后与购物状态",
+   "kind": "title1",
+   "maxW": 4150
+  },
+  "t15": {
+   "x": 0,
+   "y": 30253,
+   "text": "账户与公共",
+   "kind": "title1",
+   "maxW": 6030
+  },
+  "t16": {
+   "x": 0,
+   "y": 31757,
+   "text": "内容、企业与工作模式",
+   "kind": "title1",
+   "maxW": 2740
+  },
+  "t17": {
+   "x": 0,
+   "y": 34063,
+   "text": "公共选择器与最后的缺口（地图 · 地区 · 日历 · 图片 · 租赁报价 · 团队订单 · 组织邀请）",
+   "kind": "title1",
+   "maxW": 5560
+  },
+  "t18": {
+   "x": 0,
+   "y": 36299,
+   "text": "商城类目列表（商城频道内的页签：无人机 · 配件 · 租赁 · 课程；机器人见 B1 Mall2，全部见 MallHome）",
+   "kind": "title1",
+   "maxW": 1800
+  },
+  "n18": {
+   "x": 1880,
+   "y": 36599,
+   "w": 360,
+   "fill": "orange",
+   "text": "首页顶部频道行、金刚位“无人机 / 设备租赁”、搜索前置页类目、异地城市页“线上课程”都接到各自的频道列表；“机器人”仍是 Mall2。四页复用同一列表模板：子类目、价格排序、筛选、对比，租赁卡带“租赁”角标和按天价格，课程卡主按钮是“立即报名”。"
+  },
+  "t19": {
+   "x": 0,
+   "y": 37743,
+   "text": "巡检与航拍详情补全（目录里每张卡都有自己的详情）",
+   "kind": "title1",
+   "maxW": 7440
+  },
+  "t20": {
+   "x": 0,
+   "y": 40006,
+   "text": "商品详情逐项（无人机 · 配件 · 机器人；每件商品一页，规格面板随商品）",
+   "kind": "title1",
+   "maxW": 9320
+  },
+  "t21": {
+   "x": 0,
+   "y": 42883,
+   "text": "课程、租赁、活动、场馆详情逐项",
+   "kind": "title1",
+   "maxW": 7440
+  },
+  "t22": {
+   "x": 0,
+   "y": 45760,
+   "text": "商城收口与发现页内容（商城频道 · 竖屏视频 · 直播间 · 案例与知识）",
+   "kind": "title1",
+   "maxW": 3680
+  },
+  "n22": {
+   "x": 3760,
+   "y": 46060,
+   "w": 360,
+   "fill": "orange",
+   "text": "2026-11-11 用户确定：无人机、机器人、配件、租赁、课程都收进首页“商城”频道，频道内用类目页签切换（全部=MallHome）。发现页七个频道都有内容：视频进竖屏视频流 VideoFeed（上下切换、点赞、评论、关注、挂载商品/服务/活动），直播进直播间 LiveRoom（弹幕、点赞、讲解清单，直播间不收款、不做打赏），案例和知识各有图文详情。"
+  }
+ },
+ "designSystems": []
+}

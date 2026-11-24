@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>询价单</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="PdInquiryFull.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">填写询价单</h1>
+    <span style="margin-left: auto; margin-right: 8px; font-size: 12px; color: #666b73;">APP-MALL-06</span>
+  </div>
+
+  <div style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px;">
+    <div style="display: flex; gap: 12px; background: #fff; border-radius: 12px; padding: 12px;">
+      <img src="/_blob/277bff54e5d7d5be019694787d4e648d" alt="行业测绘无人机" style="width: 64px; height: 64px; border-radius: 10px; object-fit: cover; flex-shrink: 0;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px;">
+        <span style="font-size: 15px; font-weight: 500; line-height: 21px;">行业测绘无人机</span>
+        <span style="display: flex; align-items: baseline; gap: 6px; white-space: nowrap;"><span style="font-size: 15px; font-weight: 700; line-height: 21px; color: #e85400;">询价</span><span style="font-size: 12px; line-height: 17px; color: #e85400;">按配置与数量报价</span></span>
+        <span style="font-size: 12px; line-height: 17px; color: #666b73;">3 家可报价 · 东营可售</span>
+      </div>
+    </div>
+
+    <div style="background: #fff; border-radius: 12px; padding: 4px 14px;">
+      <sc-for list="{{fields}}" as="f" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid #f0f1f3;">
+          <span style="width: 76px; font-size: 14px; color: #555a62; flex-shrink: 0;">{{f.k}}<span style="color: #e5484d;">{{f.req}}</span></span>
+          <span style="font-size: 14px; flex-grow: 1; color: {{f.c}};">{{f.v}}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </div>
+      </sc-for>
+      <div style="padding: 10px 0; display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 14px; color: #555a62;">补充说明</span>
+        <div style="min-height: 36px; border-radius: 8px; background: #f7f8fa; padding: 8px 10px; font-size: 13px; color: #555a62; line-height: 1.5;">需要正射影像与三维建模，含 2 名飞手培训。</div>
+      </div>
+    </div>
+
+    <div style="background: #fff; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: baseline;">
+        <span style="font-size: 15px; font-weight: 500;">发给哪些商家</span>
+        <span style="margin-left: auto; font-size: 12px; color: #666b73;">已选 {{pickedCount}} / 3</span>
+      </div>
+      <sc-for list="{{sellers}}" as="s" hint-placeholder-count="3">
+        <label style="display: flex; align-items: center; gap: 10px; min-height: 36px; margin: -4px 0; padding: 4px 0; cursor: pointer;">
+          <input type="checkbox" checked="{{s.on}}" onChange="{{s.toggle}}" style="accent-color: #ff6a00; width: 18px; height: 18px; margin: 0;">
+          <span style="font-size: 14px;">{{s.n}}</span>
+          <span style="font-size: 12px; color: #666b73; margin-left: auto;">{{s.m}}</span>
+        </label>
+      </sc-for>
+    </div>
+    <div style="font-size: 12px; color: #666b73; line-height: 1.6;">提交后商家在 2 个工作日内报价，报价会通过“消息”通知你，并在“我的 → 需求与报价”中比选。提交询价不产生费用。</div>
+  </div>
+
+  <div style="flex-shrink: 0; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <a href="DemandList.dc.html" style="height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">提交询价</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { picked: { maker: true, agent: true, survey: false } };
+  }
+  renderVals() {
+    const { picked } = this.state;
+    const fields = [
+      { k: '配置', req: '*', v: '测绘版 · RTK · 五镜头倾斜相机', c: '#191919' },
+      { k: '数量', req: '*', v: '2 台', c: '#191919' },
+      { k: '交付城市', req: '*', v: '东营市', c: '#191919' },
+      { k: '期望交期', req: '', v: '12 月 15 日前', c: '#191919' },
+      { k: '询价身份', req: '*', v: '企业 · 东营港务物流（可开专票）', c: '#191919' }
+    ];
+    const sellers = [
+      { id: 'maker', n: '示例无人机厂家', m: '厂家直营 · 东营可售' },
+      { id: 'agent', n: '示例行业装备代理', m: '授权经销 · 含培训' },
+      { id: 'survey', n: '示例测绘服务商', m: '本地服务商' }
+    ].map((s) => ({
+      ...s,
+      on: !!picked[s.id],
+      toggle: () => this.setState((st) => ({ picked: { ...st.picked, [s.id]: !st.picked[s.id] } }))
+    }));
+    const pickedCount = sellers.filter((s) => s.on).length;
+    return { fields, sellers, pickedCount };
+  }
+}
+</script>
+</body>
+</html>

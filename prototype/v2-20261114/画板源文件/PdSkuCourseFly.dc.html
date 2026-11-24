@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>无人机飞行原理 线上课 · 规格</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <img src="/_blob/b41e3fb34601d5b9b3c9e40e84d2a489" alt="" style="width: 100%; height: 300px; object-fit: cover; display: block;">
+  <a href="CourseFly.dc.html" aria-label="关闭" style="position: absolute; inset: 0; background: rgba(0,0,0,0.45);"></a>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: {{sheetHeight}}; background: #fff; border-radius: 20px 20px 0 0; display: flex; flex-direction: column;">
+    <div style="display: flex; gap: 12px; padding: 16px 16px 12px;">
+      <img src="/_blob/b41e3fb34601d5b9b3c9e40e84d2a489" alt="单人账号" style="width: 88px; height: 88px; border-radius: 10px; object-fit: cover; margin-top: -36px; border: 3px solid #fff; flex-shrink: 0;">
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 22px; font-weight: 700; color: #e85400;">{{unitPrice}}</span>
+        <span style="font-size: 12px; color: #666b73;">示例机器人商家 · 东营现货 12 件</span>
+      </div>
+      <a href="CourseFly.dc.html" aria-label="关闭" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin: -8px -8px 0 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    </div>
+
+    <div style="flex-grow: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 500;">规格</span>
+        <sc-for list="{{skus}}" as="s" hint-placeholder-count="3">
+          <label style="position: relative; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 8px; border: 1.5px solid {{s.bd}}; background: {{s.bg}}; color: {{s.fg}}; cursor: {{s.cur}};">
+            <input type="radio" name="pdsku-spec" checked="{{s.on}}" disabled="{{s.dis}}" onChange="{{s.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+            <span style="font-size: 14px; flex-grow: 1;">{{s.t}}</span>
+            <span style="font-size: 13px;">{{s.p}}</span>
+          </label>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center;">
+          <span style="font-size: 15px; font-weight: 500;">数量</span>
+          <span style="margin-left: 8px; font-size: 12px; color: #8a8f97;">10 件以上建议走企业采购询价</span>
+          <div style="margin-left: auto; display: flex; align-items: center; border: 1px solid #ebedf0; border-radius: 8px;">
+            <button type="button" aria-label="减少数量" disabled="{{decOff}}" onClick="{{dec}}" style="box-sizing: content-box; width: 36px; height: 34px; margin: -5px -4px; padding: 5px 4px; border: 0; background: none; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 18px; color: {{decColor}}; cursor: {{decCursor}};">−</button>
+            <span style="width: 40px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 15px; border-left: 1px solid #ebedf0; border-right: 1px solid #ebedf0;">{{qty}}</span>
+            <button type="button" aria-label="增加数量" onClick="{{inc}}" style="box-sizing: content-box; width: 36px; height: 34px; margin: -5px -4px; padding: 5px 4px; border: 0; background: none; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 18px; color: #191919; cursor: pointer;">+</button>
+          </div>
+        </div>
+        <sc-if value="{{bulk}}" hint-placeholder-val="{{false}}">
+          <a href="PdInquiry.dc.html" style="align-self: flex-start; margin: -12px 0 -16px; padding: 14px 0; font-size: 13px; line-height: 16px; text-decoration: none;">按 {{qty}} 件询价 ›</a>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 15px; font-weight: 500;">配送方式</span>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <label style="position: relative; padding: 10px 12px; border-radius: 8px; border: 1.5px solid {{shipExpress.bd}}; background: {{shipExpress.bg}}; display: flex; flex-direction: column; gap: 2px; cursor: pointer;">
+            <input type="radio" name="pdsku-ship" checked="{{shipExpress.on}}" onChange="{{shipExpress.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+            <span style="font-size: 14px; color: {{shipExpress.tc}}; font-weight: {{shipExpress.tw}};">快递配送</span>
+            <span style="font-size: 12px; color: #666b73;">东营仓发货 · 包邮</span>
+          </label>
+          <label style="position: relative; padding: 10px 12px; border-radius: 8px; border: 1.5px solid {{shipPickup.bd}}; background: {{shipPickup.bg}}; display: flex; flex-direction: column; gap: 2px; cursor: pointer;">
+            <input type="radio" name="pdsku-ship" checked="{{shipPickup.on}}" onChange="{{shipPickup.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+            <span style="font-size: 14px; color: {{shipPickup.tc}}; font-weight: {{shipPickup.tw}};">到店自提</span>
+            <span style="font-size: 12px; color: #666b73;">示例体验馆 · 3.2km</span>
+          </label>
+        </div>
+      </div>
+
+      <div style="padding: 12px; border-radius: 10px; background: #f7f8fa; display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
+        <div style="display: flex;"><span style="color: #666b73;">商品金额</span><span style="margin-left: auto;">{{amountText}}</span></div>
+        <div style="display: flex;"><span style="color: #666b73;">运费</span><span style="margin-left: auto;">¥0</span></div>
+      </div>
+      <span style="font-size: 12px; color: #666b73; line-height: 1.6;">换商家会重新计算价格、库存和配送方式；已选规格不存在时提示重新选择。</span>
+      <sc-if value="{{guest}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #fff3e8; font-size: 13px; line-height: 18px; color: #d94f00;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6"></path></svg><span style="min-width: 0;">未登录 · 点「去报名」先登录，登录后回到这里继续</span></div>
+      </sc-if>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; gap: 10px; padding: 10px 16px 24px; border-top: 1px solid #ebedf0;">
+      <a href="Cart.dc.html" style="width: 120px; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #ffb27a; background: #fff3e8; color: #d94f00; font: inherit; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center;">加入购物车</a>
+      <a href="{{checkoutHref}}" style="flex-grow: 1; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-decoration: none;"><span>去报名 {{amountText}}</span></a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["已登录","游客"],"default":"已登录"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { sku: 'o0', qty: 1, ship: 'express' };
+  }
+  renderVals() {
+    const { sku, qty, ship } = this.state;
+    const yuan = (n) => '¥' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const options = [
+      { id: 'o0', t: '单人账号', price: 199, dis: false },
+      { id: 'o1', t: '家庭账号（3 人）', price: 399, dis: false }
+    ];
+    const cur = options.find((s) => s.id === sku && !s.dis) || options[0];
+    const skus = options.map((s) => {
+      const on = s.id === cur.id;
+      return {
+        t: s.t, p: s.dis ? '本商家暂不供应' : yuan(s.price), on, dis: s.dis,
+        bd: on ? '#ff6a00' : '#ebedf0', bg: on ? '#fffaf5' : (s.dis ? '#f7f8fa' : '#fff'), fg: on ? '#d94f00' : (s.dis ? '#a3a8b0' : '#191919'),
+        cur: s.dis ? 'not-allowed' : 'pointer',
+        pick: () => { if (!s.dis) this.setState({ sku: s.id }); }
+      };
+    });
+    const shipOf = (id) => {
+      const on = id === ship;
+      return { on, bd: on ? '#ff6a00' : '#ebedf0', bg: on ? '#fffaf5' : 'transparent', tc: on ? '#d94f00' : '#191919', tw: on ? 500 : 400, pick: () => this.setState({ ship: id }) };
+    };
+    const atMin = qty <= 1;
+    // 游客帧：「去报名」先到登录（Login 默认帧“商品详情拦截”，登录后回到本页继续）；加入购物车仍进购物车
+    const guest = (this.props.frame ?? '已登录') === '游客';
+    return {
+      guest,
+      // 游客帧多一行登录提示，弹层加高 30px 让规格区不被裁掉
+      sheetHeight: guest ? '730px' : '700px',
+      checkoutHref: guest ? 'Login.dc.html' : 'Checkout.dc.html',
+      skus,
+      qty,
+      unitPrice: yuan(cur.price),
+      // 两种配送方式运费均为 ¥0，按钮合计 = 商品金额 = 单价 × 数量
+      amountText: yuan(cur.price * qty),
+      decOff: atMin,
+      decColor: atMin ? '#c4c8ce' : '#191919',
+      decCursor: atMin ? 'default' : 'pointer',
+      dec: () => this.setState((st) => ({ qty: Math.max(1, st.qty - 1) })),
+      inc: () => this.setState((st) => ({ qty: st.qty + 1 })),
+      bulk: qty >= 10,
+      shipExpress: shipOf('express'),
+      shipPickup: shipOf('pickup')
+    };
+  }
+}
+</script>
+</body>
+</html>

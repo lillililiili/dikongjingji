@@ -1,0 +1,129 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ME-08 我的课程（设计假设 · 线上录播）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; background: #fff;">
+    <div style="display: flex; align-items: center; gap: 4px; padding: 8px;">
+      <a href="Mine.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+      <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">我的课程</h1>
+    </div>
+    <div role="group" aria-label="按学习状态筛选" style="display: flex; gap: 8px; padding: 0 16px 12px;">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="3">
+        <button type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}" style="flex-shrink: 0; height: 36px; padding: 0 16px; box-sizing: border-box; border: 1px solid {{c.bd}}; border-radius: 999px; background: {{c.bg}}; font: inherit; font-size: 13px; line-height: 18px; font-weight: {{c.w}}; color: {{c.fg}}; white-space: nowrap; cursor: pointer;">{{c.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <sc-if value="{{showPaid}}" hint-placeholder-val="{{true}}">
+      <a href="CourseDetail.dc.html" style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px; background: #fff; border-radius: 14px; color: #202c42; text-decoration: none;">
+        <div style="display: flex; gap: 12px;">
+          <img src="_blob/5d32505e8b9a494f8436e31c3008ef99.jpg" alt="编程机器人入门课封面" style="flex-shrink: 0; width: 96px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #eef2f8;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #e6f0ff; color: #1d63c4; font-size: 12px; line-height: 17px; white-space: nowrap;">配套数字课程</span>
+              <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">16 课时</span>
+            </div>
+            <span style="font-size: 15px; font-weight: 700; line-height: 21px;">编程机器人入门课</span>
+            <span style="font-size: 12px; line-height: 17px; color: #536178;">来源：编程机器人探索套装 · 标准套装</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 13px; line-height: 18px;">已学 2 / 16 课时</span>
+          <div role="progressbar" aria-label="学习进度" aria-valuemin="0" aria-valuemax="16" aria-valuenow="2" style="display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px;">
+            <sc-for list="{{segments}}" as="g" hint-placeholder-count="16">
+              <span style="height: 6px; border-radius: 3px; background: {{g.bg}};"></span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="flex-grow: 1; min-width: 0; font-size: 13px; line-height: 18px; color: #536178;">第 3 课 · 连接编程环境</span>
+          <span style="flex-shrink: 0; height: 36px; padding: 0 16px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 14px; font-weight: 500; line-height: 20px; display: flex; align-items: center; white-space: nowrap;">继续学习</span>
+        </div>
+      </a>
+    </sc-if>
+
+    <sc-if value="{{showTrial}}" hint-placeholder-val="{{true}}">
+      <a href="ExpCenter.dc.html" style="flex-shrink: 0; display: flex; gap: 12px; padding: 12px; background: #fff; border-radius: 14px; color: #202c42; text-decoration: none;">
+        <img src="_blob/b41e3fb34601d5b9b3c9e40e84d2a489.jpg" alt="无人机飞行原理封面" style="flex-shrink: 0; width: 96px; height: 72px; border-radius: 10px; object-fit: cover; display: block; background: #eef2f8;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="flex-shrink: 0; padding: 1px 6px; border-radius: 6px; background: #e2f6ed; color: #11804a; font-size: 12px; line-height: 17px; white-space: nowrap;">课程试听</span>
+            <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">试听 2 课</span>
+          </div>
+          <span style="font-size: 15px; font-weight: 700; line-height: 21px;">无人机飞行原理（试听）</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="min-width: 0; font-size: 12px; line-height: 17px; color: #536178;">来自体验中心“课程试听”</span>
+            <span style="flex-shrink: 0; margin-left: auto; font-size: 13px; line-height: 18px; color: #ba470b; white-space: nowrap;">去试听 ›</span>
+          </div>
+        </div>
+      </a>
+    </sc-if>
+
+    <sc-if value="{{showEmpty}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 160px; background: #fff; border-radius: 14px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c9d3e1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10 5 7 4.5 4 5v14c3-.5 6 0 8 1.5c2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V20.5"></path></svg>
+        <span style="font-size: 14px; line-height: 20px; color: #738096; white-space: nowrap;">还没有学完的课程</span>
+      </div>
+    </sc-if>
+
+    <a href="EnrollList.dc.html" style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 44px; font-size: 13px; line-height: 18px; color: #627187; text-decoration: none; white-space: nowrap;"><span>线下培训在“<span style="color: #ba470b;">活动报名</span>”里查看</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ba470b" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></a>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // filter：当前筛选（all 全部 / learning 学习中 / finished 已学完）
+    this.state = { filter: 'all' };
+  }
+  renderVals() {
+    const { filter } = this.state;
+
+    // 筛选胶囊沿用“我的订单”的状态胶囊样式
+    const chips = [['all', '全部'], ['learning', '学习中'], ['finished', '已学完']].map(([id, label]) => {
+      const on = id === filter;
+      return {
+        label, on,
+        bg: on ? '#fff0e3' : '#eef2f8', bd: on ? '#ffd8b8' : '#eef2f8', fg: on ? '#ba470b' : '#202c42', w: on ? 500 : 400,
+        pick: () => this.setState({ filter: id })
+      };
+    });
+
+    // 进度条一格一课时。每张画板各自保存状态，这里固定显示课程的初始进度 2 / 16，学习进度的变化在课程学习页演示
+    const TOTAL = 16;
+    const DONE = 2;
+    const segments = Array.from({ length: TOTAL }, (_, i) => ({ bg: i < DONE ? '#ff6a00' : '#e5ebf3' }));
+
+    // 学习中 = 已开通且未学完的课程；试听不记学习进度，只在“全部”里出现；已学完暂时没有课程
+    return {
+      chips, segments,
+      showPaid: filter !== 'finished',
+      showTrial: filter === 'all',
+      showEmpty: filter === 'finished'
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

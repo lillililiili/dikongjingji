@@ -1,0 +1,184 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>F 报名填写</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 856px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="ActDetail.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">填写报名</h1>
+  </div>
+
+  <div style="flex-grow: 1; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="background: #fff; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+      <div style="font-size: 16px; font-weight: 700;">青少年无人机编程挑战赛（东营站）</div>
+      <div style="font-size: 12px; color: #627187;">主办：东营市青少年科技协会　承办：东营低空与机器人体验馆</div>
+    </div>
+
+    <div style="background: #fff; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 700;">选择场次</h2>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+        <sc-for list="{{sessions}}" as="s" hint-placeholder-count="3">
+          <button type="button" onClick="{{s.pick}}" aria-pressed="{{s.on}}" style="min-height: 56px; border-radius: 10px; border: 1.5px solid {{s.bd}}; background: {{s.bg}}; font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer;"><span style="font-size: 14px; font-weight: 500; color: {{s.tc}};">{{s.label}}</span><span style="font-size: 12px; color: {{s.sc}};">{{s.sub}}</span></button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="background: #fff; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 700;">参与人</h2>
+        <span style="font-size: 12px; color: #627187;">由监护人代为报名</span>
+      </div>
+      <sc-for list="{{people}}" as="p" hint-placeholder-count="4">
+        <label style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px;">
+          <input type="checkbox" checked="{{p.on}}" onChange="{{p.toggle}}" aria-disabled="{{p.dis}}" style="accent-color: #ff6a00; width: 20px; height: 20px; margin: 0;">
+          <span style="font-size: 15px;">{{p.name}}</span>
+          <span style="flex-shrink: 0; margin-left: -4px; padding: 1px 6px; border-radius: 6px; background: #eef2f8; font-size: 12px; line-height: 17px; color: #536178; white-space: nowrap;">{{p.rel}}</span>
+          <span style="font-size: 12px; color: #627187;">{{p.meta}}</span>
+          <span style="margin-left: auto; font-size: 12px; color: {{p.sc}};">{{p.state}}</span>
+        </label>
+      </sc-for>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <a href="Participants.dc.html" style="flex-shrink: 0; min-height: 36px; box-sizing: border-box; border: 1px dashed #c9d3e1; background: #fff; border-radius: 8px; padding: 0 12px; display: flex; align-items: center; font-size: 13px; color: #536178; white-space: nowrap; text-decoration: none;">＋ 添加参与人</a>
+        <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #627187; white-space: nowrap;">未成年人需监护人确认</span>
+      </div>
+    </div>
+
+    <div style="background: #fff; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #536178; line-height: 1.6;">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 700; color: #202c42;">退改规则</h2>
+      <div>活动开始 48 小时前可免费取消；之后不退报名费，可转让同场次名额。活动延期或取消全额退款。</div>
+      <label style="display: flex; align-items: center; gap: 8px; color: #202c42;"><input type="checkbox" checked="{{agree}}" onChange="{{toggleAgree}}" style="accent-color: #ff6a00; width: 18px; height: 18px; margin: 0;"><span>我是参与人监护人，已阅读并同意<a href="Agreement.dc.html" style="color: #ba470b; text-decoration: none;">报名须知与照片使用说明</a></span></label>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <div style="display: flex; flex-direction: column;">
+      <span style="font-size: 12px; color: #627187;">{{countLine}}</span>
+      <sc-if value="{{showTotal}}" hint-placeholder-val="{{true}}">
+        <span style="font-size: 20px; font-weight: 700; color: #e85400;">{{total}}</span>
+      </sc-if>
+      <sc-if value="{{showWaitNote}}" hint-placeholder-val="{{false}}">
+        <span style="font-size: 15px; font-weight: 500; color: #e85400;">候补成功后再付款</span>
+      </sc-if>
+    </div>
+    <sc-if value="{{canPay}}" hint-placeholder-val="{{true}}">
+      <a href="CashierEnroll.dc.html" style="margin-left: auto; width: 180px; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">提交并支付</a>
+    </sc-if>
+    <sc-if value="{{canWait}}" hint-placeholder-val="{{false}}">
+      <button type="button" onClick="{{joinWaitlist}}" style="margin-left: auto; width: 180px; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;">加入候补</button>
+    </sc-if>
+    <sc-if value="{{showDisabled}}" hint-placeholder-val="{{false}}">
+      <button type="button" disabled style="margin-left: auto; width: 180px; height: 44px; border-radius: 999px; border: 0; background: #eef0f3; color: #91a0b4; font: inherit; font-size: 16px; font-weight: 500; cursor: not-allowed;">{{disabledLabel}}</button>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{showWaitSheet}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-label="已加入候补" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: #fff; border-radius: 20px 20px 0 0; padding: 20px 16px 24px; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 40px; height: 40px; border-radius: 50%; background: #e2f6ed; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 18px; font-weight: 700;">已加入候补</span>
+          <span style="font-size: 13px; color: #536178;">{{waitLine}}</span>
+        </div>
+      </div>
+      <div style="font-size: 13px; color: #536178; line-height: 1.6;">有名额释放时会通过“消息”通知你，候补成功后再付款。</div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; cursor: pointer;">知道了</button>
+        <a href="EnrollList.dc.html" style="flex: 1 1 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">查看我的报名</a>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { session: 'am', picked: { xh: true, xc: true }, agree: true, waitlisted: false, sheet: false };
+  }
+  renderVals() {
+    const { session, picked, agree, waitlisted, sheet } = this.state;
+    const PRICE = 120;
+    // 场次与 ActDetail 同一份数据：11/15 上午余 12、下午已满，11/22 周日上午余 30
+    const sessions = [
+      { id: 'am', label: '11/15 上午', sub: '余 12', full: false },
+      { id: 'pm', label: '11/15 下午', sub: '已满 · 可候补', full: true },
+      { id: 'next', label: '11/22 上午', sub: '余 30', full: false }
+    ].map((s) => {
+      const on = s.id === session;
+      // 选中：橙框浅橙底；未选中的已满场次：灰底灰字（原稿样式）；未选中的可报场次：白底深色字
+      return {
+        label: s.label,
+        sub: s.sub,
+        on,
+        bd: on ? '#ff6a00' : '#e5ebf3',
+        bg: on ? '#fffaf5' : (s.full ? '#f5f7fc' : '#fff'),
+        tc: on ? '#ba470b' : (s.full ? '#738096' : '#202c42'),
+        sc: !on && s.full ? '#738096' : '#627187',
+        pick: () => this.setState({ session: s.id })
+      };
+    });
+    // 关系与参与人管理一致：本人、子女。本活动只给孩子报名，陪同家长不用报名（示例规则），本人这一行不能勾选；
+    // 不校验成人陪同，没选成人也照常提交。费用仍是勾选人数 × ¥120
+    const people = [
+      { id: 'self', name: '王女士', rel: '本人', meta: '', ok: false, no: '陪同不用报名' },
+      { id: 'xh', name: '王小禾', rel: '子女', meta: '11 岁', ok: true },
+      { id: 'xc', name: '王小川', rel: '子女', meta: '9 岁', ok: true },
+      { id: 'xm', name: '王小满', rel: '子女', meta: '6 岁', ok: false, no: '未满 8 岁' }
+    ].map((p) => ({
+      name: p.name,
+      rel: p.rel,
+      meta: p.meta,
+      on: p.ok && Boolean(picked[p.id]),
+      // 不能报名的不能勾选：用 aria-disabled 并忽略点击，保持原稿复选框外观不变
+      dis: p.ok ? 'false' : 'true',
+      state: p.ok ? '符合年龄' : p.no,
+      sc: p.ok ? '#11804a' : '#738096',
+      toggle: p.ok ? () => this.setState((s) => ({ picked: { ...s.picked, [p.id]: !s.picked[p.id] } })) : () => {}
+    }));
+    const count = people.filter((p) => p.on).length;
+    const waitlist = session === 'pm';
+    // 至少一位参与人并勾选监护人同意才能提交；已满场次走候补，候补不付款，在本页确认
+    const ready = agree && count > 0;
+    const joined = waitlist && waitlisted;
+    return {
+      sessions,
+      people,
+      countLine: `${count} 人 × ¥${PRICE}`,
+      total: `¥${count * PRICE}`,
+      showTotal: !waitlist,
+      showWaitNote: waitlist,
+      agree,
+      toggleAgree: () => this.setState((s) => ({ agree: !s.agree })),
+      canPay: ready && !waitlist,
+      canWait: ready && waitlist && !waitlisted,
+      showDisabled: !ready || joined,
+      disabledLabel: joined ? '已加入候补' : (waitlist ? '加入候补' : '提交并支付'),
+      joinWaitlist: () => this.setState({ waitlisted: true, sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      showWaitSheet: joined && sheet,
+      waitLine: `11/15 下午场 · ${count} 人`
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

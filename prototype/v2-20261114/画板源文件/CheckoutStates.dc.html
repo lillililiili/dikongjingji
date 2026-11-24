@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>确认订单状态</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1104px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="{{backHref}}" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">确认订单</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <sc-if value="{{showAddress}}" hint-placeholder-val="{{true}}">
+      <a href="AddressList.dc.html" aria-label="{{addressAria}}" style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: #fff; color: #191919; text-decoration: none;">
+        <span style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #fff3e8; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z"></path></svg></span>
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 16px; line-height: 22px; font-weight: 700;">{{addressName}}</span>
+          <span style="font-size: 13px; line-height: 18px; color: #555a62;">{{addressLine}}</span>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </sc-if>
+    <sc-if value="{{showAddAddress}}" hint-placeholder-val="{{false}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{openAddr}}" style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; width: 100%; margin: 0; padding: 14px; box-sizing: border-box; border-radius: 14px; border: 1.5px dashed #ffb27a; background: #fffaf5; font: inherit; color: #191919; text-align: left; cursor: pointer;">
+        <span style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span>
+        <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 16px; line-height: 22px; font-weight: 700; color: #d94f00;">添加收货地址</span>
+          <span style="font-size: 13px; line-height: 18px; color: #555a62;">还没有收货地址，添加后才能提交订单</span>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d94f00" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </button>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 6px; min-height: 44px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M4 9l2-5h12l2 5M4 9v11h16V9M4 9h16M9 20v-6h6v6"></path></svg>
+        <span style="font-size: 15px; line-height: 21px; font-weight: 700; white-space: nowrap;">示例机器人商家</span>
+        <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid #ebedf0; color: #555a62; white-space: nowrap;">厂家直营</span>
+        <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">共 {{pieces}} 件</span>
+      </div>
+      <sc-for list="{{items}}" as="it" hint-placeholder-count="2">
+        <div style="display: flex; gap: 10px; padding-bottom: 12px;">
+          <img src="{{it.img}}" alt="{{it.name}}" style="flex-shrink: 0; width: 80px; height: 80px; border-radius: 10px; object-fit: cover; display: block; background: #f2f3f5; font-size: 11px;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+            <span style="font-size: 15px; line-height: 21px; font-weight: 500;">{{it.name}}</span>
+            <sc-if value="{{it.spec}}" hint-placeholder-val="{{true}}">
+              <span style="font-size: 12px; line-height: 17px; padding: 2px 6px; border-radius: 6px; background: #f2f3f5; color: #555a62;">{{it.spec}}</span>
+            </sc-if>
+            <sc-if value="{{it.flag}}" hint-placeholder-val="{{false}}">
+              <span style="font-size: 12px; line-height: 17px; padding: 2px 6px; border-radius: 6px; background: #fdecec; color: #e5484d; white-space: nowrap;">{{it.flag}}</span>
+            </sc-if>
+            <div style="align-self: stretch; margin-top: auto; display: flex; align-items: baseline;">
+              <span style="font-size: 16px; line-height: 22px; font-weight: 700;">{{it.price}}</span>
+              <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #666b73;">× 1</span>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid #f0f1f3;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73;">配送方式</span>
+          <div role="radiogroup" aria-label="配送方式" style="flex-grow: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+            <label style="position: relative; height: 40px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid {{shipExpress.bd}}; background: {{shipExpress.bg}}; color: {{shipExpress.tc}}; font-size: 14px; font-weight: {{shipExpress.tw}}; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">
+              <input type="radio" name="checkout-states-ship" checked="{{shipExpress.on}}" onChange="{{shipExpress.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+              <span>快递配送</span>
+            </label>
+            <label style="position: relative; height: 40px; box-sizing: border-box; border-radius: 999px; border: 1.5px solid {{shipPickup.bd}}; background: {{shipPickup.bg}}; color: {{shipPickup.tc}}; font-size: 14px; font-weight: {{shipPickup.tw}}; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">
+              <input type="radio" name="checkout-states-ship" checked="{{shipPickup.on}}" onChange="{{shipPickup.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+              <span>到店自提</span>
+            </label>
+          </div>
+        </div>
+        <sc-if value="{{isExpress}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; align-items: center; gap: 4px; padding-left: 76px; font-size: 13px; line-height: 18px; color: #11804a;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M2 7h12v9H2zM14 10h4l3 3v3h-7zM6.5 19a1.5 1.5 0 1 0 0-3a1.5 1.5 0 1 0 0 3zM17.5 19a1.5 1.5 0 1 0 0-3a1.5 1.5 0 1 0 0 3z"></path></svg>
+            <span>东营仓发货 · 包邮</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{isPickup}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; align-items: center; gap: 4px; padding-left: 76px; font-size: 13px; line-height: 18px; color: #555a62;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z"></path></svg>
+            <span>自提点 示例体验馆 · 3.2km</span>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3;">
+        <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73;">售后保障</span>
+        <span style="font-size: 14px; line-height: 20px;">未拆封 7 天无理由退货 · 一年保修</span>
+      </div>
+      <label style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; cursor: text;">
+        <span style="flex-shrink: 0; width: 64px; font-size: 14px; line-height: 20px; color: #666b73;">留言</span>
+        <input type="text" placeholder="选填，给商家留言" value="{{note}}" onChange="{{setNote}}" style="flex-grow: 1; min-width: 0; height: 44px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #191919;">
+      </label>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1px dashed #c4c8ce;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10c-4-1.6-7-5.4-7-10V6zM8.5 12l2.5 2.5 4.5-5"></path></svg>
+        <h2 style="margin: 0; font-size: 15px; line-height: 21px; font-weight: 700;">交易主体</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px 10px; font-size: 13px; line-height: 18px;">
+        <span style="color: #666b73;">销售方</span><span>示例机器人商家（厂家直营）</span>
+        <span style="color: #666b73;">收款方</span><span>示例机器人商家 · 经平台支付渠道</span>
+        <span style="color: #666b73;">开票方</span><span>示例机器人商家</span>
+        <span style="color: #666b73;">发货履约</span><span>示例机器人商家 东营仓</span>
+        <span style="color: #666b73;">售后责任</span><span>示例机器人商家 · 厂家保修</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: center; min-height: 44px; font-size: 14px; line-height: 20px;">
+        <span style="color: #555a62;">商品金额</span>
+        <span style="margin-left: auto;">{{total}}</span>
+      </div>
+      <div style="display: flex; align-items: center; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+        <span style="color: #555a62;">运费</span>
+        <span style="margin-left: auto;">¥0</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 13px; line-height: 18px; color: #555a62;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span>发票由销售方开具，可联系销售方申请</span>
+      </div>
+      <div style="display: flex; align-items: center; min-height: 48px; border-top: 1px solid #f0f1f3;">
+        <span style="font-size: 15px; line-height: 21px; font-weight: 500;">应付</span>
+        <span style="margin-left: auto; font-size: 18px; line-height: 25px; font-weight: 700; color: #e85400;">{{total}}</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; min-height: 44px; padding: 0 2px; font-size: 13px; line-height: 18px; color: #555a62;">
+      <label style="position: relative; display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer;">
+        <input type="checkbox" checked="{{agree}}" onChange="{{toggleAgree}}" style="position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: 0; opacity: 0;">
+        <sc-if value="{{agree}}" hint-placeholder-val="{{false}}">
+          <span style="flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        </sc-if>
+        <sc-if value="{{notAgree}}" hint-placeholder-val="{{true}}">
+          <span style="flex-shrink: 0; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid #a3a8b0; background: #fff;"></span>
+        </sc-if>
+        <span>已阅读并同意</span>
+      </label>
+      <a href="Agreement.dc.html" style="min-height: 44px; display: flex; align-items: center; text-decoration: none; color: #d94f00;">《交易协议》</a>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{barNote}}" hint-placeholder-val="{{false}}">
+      <span role="status" style="font-size: 12px; line-height: 17px; color: #e5484d;">{{barNote}}</span>
+    </sc-if>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="display: flex; align-items: baseline; gap: 4px; font-size: 13px; color: #555a62; white-space: nowrap;">应付<span style="font-size: 22px; font-weight: 700; color: #e85400;">{{total}}</span></span>
+      <sc-if value="{{canPay}}" hint-placeholder-val="{{false}}">
+        <a href="Cashier.dc.html" style="flex-shrink: 0; margin-left: auto; width: 160px; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">提交订单</a>
+      </sc-if>
+      <sc-if value="{{canTap}}" hint-placeholder-val="{{true}}">
+        <button type="button" onClick="{{tapSubmit}}" style="flex-shrink: 0; margin-left: auto; width: 160px; height: 46px; border: 0; border-radius: 999px; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;">提交订单</button>
+      </sc-if>
+      <sc-if value="{{blocked}}" hint-placeholder-val="{{false}}">
+        <button type="button" disabled="{{true}}" style="flex-shrink: 0; margin-left: auto; width: 160px; height: 46px; border: 0; border-radius: 999px; background: #c4c8ce; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: not-allowed;">提交订单</button>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{failOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeFail}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="{{failTitle}}" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: #fdecec; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e5484d" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 6v8M12 18h.01"></path></svg></span>
+        <span style="font-size: 18px; font-weight: 700; line-height: 25px;">{{failTitle}}</span>
+      </div>
+      <span style="font-size: 14px; line-height: 20px; color: #555a62;">{{failText}}</span>
+      <sc-if value="{{failImg}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: #f7f8fa;">
+          <img src="{{failImg}}" alt="{{failName}}" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 8px; object-fit: cover; display: block; background: #eef0f3; font-size: 11px;">
+          <span style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 14px; font-weight: 500; line-height: 20px;">{{failName}}</span>
+            <span style="font-size: 13px; line-height: 18px; color: {{failLineC}};">{{failLine}}</span>
+          </span>
+        </div>
+      </sc-if>
+      <div style="display: flex; gap: 10px;">
+        <sc-if value="{{failBackCart}}" hint-placeholder-val="{{true}}">
+          <a href="Cart.dc.html" style="flex: 1 1 0; height: 44px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center;">返回购物车</a>
+        </sc-if>
+        <sc-if value="{{failStay}}" hint-placeholder-val="{{false}}">
+          <button type="button" onClick="{{closeFail}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">暂不提交</button>
+        </sc-if>
+        <sc-if value="{{failRetry}}" hint-placeholder-val="{{false}}">
+          <a href="Cashier.dc.html" style="flex: 1 1 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">重新提交</a>
+        </sc-if>
+        <sc-if value="{{failFix}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{fix}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">{{failGo}}</button>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{addrOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeAddr}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="添加收货地址" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: #fff; border-radius: 20px 20px 0 0; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center;">
+        <span style="font-size: 17px; font-weight: 700; line-height: 24px;">添加收货地址</span>
+        <button type="button" onClick="{{closeAddr}}" aria-label="关闭" style="margin-left: auto; margin-right: -10px; width: 44px; height: 44px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555a62" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div style="display: flex; flex-direction: column;">
+        <label style="display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">收货人</span>
+          <input type="text" placeholder="请填写收货人姓名" value="{{form.name}}" onChange="{{setName}}" style="flex-grow: 1; min-width: 0; height: 48px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #191919;">
+        </label>
+        <label style="display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">手机号</span>
+          <input type="tel" placeholder="请填写手机号" value="{{form.phone}}" onChange="{{setPhone}}" style="flex-grow: 1; min-width: 0; height: 48px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #191919;">
+        </label>
+        <div style="display: flex; flex-direction: column; border-bottom: 1px solid #f0f1f3;">
+          <a href="RegionPick.dc.html" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; color: #191919; text-decoration: none;">
+            <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">所在地区</span>
+            <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{form.region}}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+          </a>
+        </div>
+        <label style="display: flex; align-items: center; gap: 10px; min-height: 48px;">
+          <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #666b73; white-space: nowrap;">详细地址</span>
+          <input type="text" placeholder="街道、楼栋号、门牌号" value="{{form.detail}}" onChange="{{setDetail}}" style="flex-grow: 1; min-width: 0; height: 48px; border: 0; outline: none; padding: 0; background: transparent; font: inherit; font-size: 14px; color: #191919;">
+        </label>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 4px;">
+        <button type="button" onClick="{{closeAddr}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">取消</button>
+        <sc-if value="{{canSave}}" hint-placeholder-val="{{true}}">
+          <button type="button" onClick="{{saveAddr}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: pointer;">保存并使用</button>
+        </sc-if>
+        <sc-if value="{{cannotSave}}" hint-placeholder-val="{{false}}">
+          <button type="button" disabled="{{true}}" style="flex: 1 1 0; height: 44px; border-radius: 999px; border: 0; background: #c4c8ce; font: inherit; font-size: 15px; font-weight: 500; color: #fff; cursor: not-allowed;">保存并使用</button>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["多件商品","无地址","提交失败·库存不足","提交失败·价格变化","提交失败·商家下架","提交失败·网络超时"],"default":"多件商品"},"$preview":{"width":390,"height":1104}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // ship、note：配送方式、留言，同 Checkout
+    // agree：协议勾选，null 表示还没动过。多件商品、无地址帧默认不勾（同 Checkout）；提交失败帧是勾选后点过提交才出现的，按已勾选显示
+    // tip：没勾协议时点过“提交订单”，按钮上方提示先同意
+    // failClosed：失败面板被关掉，还没处理；fixed：已移除商品或已接受新价格
+    // addrOpen、addrSaved、form、regionHint：无地址帧的新增地址面板（预填值同 Checkout 的地址，点一下就能走通）
+    this.state = {
+      ship: 'express', agree: null, tip: false, note: '', failClosed: false, fixed: false,
+      addrOpen: false, addrSaved: false, regionHint: false,
+      form: { name: '王女士', phone: '138****2026', region: '山东省东营市东营区', detail: '示例路 88 号（示例）' }
+    };
+  }
+  renderVals() {
+    const { ship, agree, tip, note, failClosed, fixed, addrOpen, addrSaved, regionHint, form } = this.state;
+    const frame = this.props.frame ?? '多件商品';
+
+    const kit = { id: 'kit', name: '编程机器人探索套装', spec: '标准套装（1 台 + 数字课程）', unit: 1299, img: '/_blob/5d32505e8b9a494f8436e31c3008ef99' };
+    const field = { id: 'field', name: '避障训练场地套件', spec: '', unit: 460, img: '/_blob/822c9edc2d0d857c67055194c02161d3' };
+    const NEW_PRICE = 1349;
+
+    // 提交失败：订单都没有生成，也没有扣款。who 是出问题的商品；移除后回到单件 ¥1,299，可以进收银台
+    const fails = {
+      '提交失败·库存不足': { item: field, flag: '库存不足', title: '有商品库存不足', text: '订单没有生成，也没有扣款。移除后可提交其余商品。', line: '当前库存 0 件', go: '移除并继续', note: '避障训练场地套件 库存不足，处理后才能提交' },
+      '提交失败·商家下架': { item: field, flag: '商家已下架', title: '有商品已下架', text: '订单没有生成，也没有扣款。移除后可提交其余商品。', line: '商家已下架', go: '移除并继续', note: '避障训练场地套件 已下架，处理后才能提交' },
+      '提交失败·价格变化': { item: kit, flag: '价格已更新', title: '商品价格有变化', text: '订单没有生成，也没有扣款。确认新价格后再提交。', line: '¥1,299 → ¥1,349', go: '按新价格继续', note: '编程机器人探索套装 价格已更新，确认后才能提交', price: true },
+      '提交失败·网络超时': { item: null, flag: '', title: '网络不稳定，订单未提交', text: '这次没有提交成功，也没有扣款。重试不会重复下单。', line: '', go: '', note: '网络不稳定，订单未提交，可以重新提交', retry: true }
+    };
+    const fail = fails[frame] || null;
+    const pending = !!fail && !fixed; // 失败还没处理
+    const agreed = agree === null ? !!fail : agree;
+
+    const twoItems = frame === '多件商品' || (!!fail && !fail.price && !fail.retry);
+    const list = (twoItems ? [kit, field] : [kit]).filter((it) => !(fixed && fail && !fail.price && fail.item && it.id === fail.item.id));
+    const yuan = (n) => '¥' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const unitOf = (it) => (fixed && fail && fail.price && it.id === 'kit' ? NEW_PRICE : it.unit);
+    const sum = list.reduce((n, it) => n + unitOf(it), 0);
+    const items = list.map((it) => ({
+      name: it.name, spec: it.spec, img: it.img, price: yuan(unitOf(it)),
+      flag: pending && fail.item && fail.item.id === it.id ? fail.flag : ''
+    }));
+
+    const shipOf = (id) => {
+      const on = id === ship;
+      return {
+        on,
+        bd: on ? '#ff6a00' : '#ebedf0',
+        bg: on ? '#fffaf5' : '#fff',
+        tc: on ? '#d94f00' : '#191919',
+        tw: on ? 500 : 400,
+        pick: () => this.setState({ ship: id })
+      };
+    };
+    const isExpress = ship === 'express';
+    const noAddress = frame === '无地址' && !addrSaved;
+    const needAddress = isExpress && noAddress;
+
+    // 提交按钮去向：缺地址（置灰）、失败未处理（重新打开面板）、没勾协议（提示先同意）、其余进收银台
+    const blocked = needAddress;
+    const canPay = !blocked && agreed && !pending;
+    const canTap = !blocked && !canPay;
+    const textOf = (e) => String(e.target.value || '').slice(0, 40);
+    // 输入框 onChange 才带事件对象；没有事件对象时保持原值
+    const setField = (key) => (e) => { if (e && e.target) this.setState((s) => ({ form: { ...s.form, [key]: textOf(e) } })); };
+    const canSave = form.name.trim() !== '' && form.phone.trim() !== '' && form.detail.trim() !== '';
+
+    return {
+      backHref: twoItems ? 'Cart.dc.html' : 'PdSku.dc.html',
+      showAddress: isExpress && !noAddress,
+      showAddAddress: needAddress,
+      addressName: form.name + ' ' + form.phone,
+      addressLine: form.region + ' ' + form.detail,
+      addressAria: '更换收货地址：' + form.name + ' ' + form.phone + ' ' + form.region + ' ' + form.detail,
+      openAddr: () => this.setState({ addrOpen: true }),
+      closeAddr: () => this.setState({ addrOpen: false, regionHint: false }),
+      addrOpen,
+      form,
+      setName: setField('name'),
+      setPhone: setField('phone'),
+      setDetail: setField('detail'),
+      regionHint,
+      tapRegion: () => this.setState({ regionHint: true }),
+      canSave,
+      cannotSave: !canSave,
+      saveAddr: () => this.setState({ addrSaved: true, addrOpen: false, regionHint: false }),
+
+      items,
+      pieces: list.length,
+      shipExpress: shipOf('express'),
+      shipPickup: shipOf('pickup'),
+      // 两种配送方式运费都是 ¥0，应付金额不随配送方式变化
+      isExpress,
+      isPickup: !isExpress,
+      note,
+      setNote: (e) => { if (e && e.target) this.setState({ note: String(e.target.value || '').slice(0, 50) }); },
+      total: yuan(sum),
+      agree: agreed,
+      notAgree: !agreed,
+      // 勾选或取消都清掉提示
+      toggleAgree: () => this.setState({ agree: !agreed, tip: false }),
+
+      barNote: needAddress ? '添加收货地址后才能提交订单' : (pending ? fail.note : (!agreed && tip ? '请先阅读并同意《交易协议》' : '')),
+      blocked,
+      canPay,
+      canTap,
+      // 失败未处理：再点提交，重新打开失败面板；没勾协议：提示先同意
+      tapSubmit: () => this.setState(pending ? { failClosed: false } : { tip: true }),
+
+      failOpen: pending && !failClosed,
+      failTitle: fail ? fail.title : '',
+      failText: fail ? fail.text : '',
+      failImg: fail && fail.item ? fail.item.img : '',
+      failName: fail && fail.item ? fail.item.name : '',
+      failLine: fail ? fail.line : '',
+      failLineC: fail && fail.price ? '#e85400' : '#e5484d',
+      // 两件商品来自购物车，能回去改；单件来自立即购买，留在本页
+      failBackCart: !!fail && twoItems,
+      failStay: !!fail && !twoItems,
+      failRetry: !!fail && !!fail.retry,
+      failFix: !!fail && !fail.retry,
+      failGo: fail ? fail.go : '',
+      closeFail: () => this.setState({ failClosed: true }),
+      fix: () => this.setState({ fixed: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

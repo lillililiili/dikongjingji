@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>商家主页</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; background: linear-gradient(180deg, #fff3e8, #fff); padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 12px;">
+    <a href="{{backHref}}" aria-label="返回" style="width: 44px; height: 44px; margin-left: -8px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="width: 56px; height: 56px; border-radius: 14px; background: #fff; border: 1px solid #ebedf0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 22px; font-weight: 700; color: #ff6a00;">{{head.glyph}}</div>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 18px; font-weight: 700;">{{head.name}}</span>
+        <div style="display: flex; gap: 6px;">
+          <span style="font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a;">资质已审核</span>
+          <span style="font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #fff3e8; color: #d94f00;">{{head.kind}}</span>
+        </div>
+      </div>
+      <a href="Chat.dc.html" style="min-height: 34px; box-sizing: border-box; display: flex; align-items: center; padding: 0 14px; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font-size: 13px; color: #000; text-decoration: none; white-space: nowrap;">咨询</a>
+    </div>
+    <div style="display: grid; grid-template-columns: 72px 1fr; gap: 6px 8px; font-size: 12px;">
+      <sc-for list="{{infoRows}}" as="i" hint-placeholder-count="3">
+        <span style="color: #666b73;">{{i.k}}</span><span>{{i.v}}</span>
+      </sc-for>
+    </div>
+  </div>
+
+  <div role="tablist" style="flex-shrink: 0; display: flex; gap: 22px; padding: 0 16px; background: #fff; border-bottom: 1px solid #f0f1f3;">
+    <sc-for list="{{tabs}}" as="tb" hint-placeholder-count="4">
+      <button type="button" role="tab" aria-selected="{{tb.on}}" onClick="{{tb.pick}}" style="margin: 0; padding: 10px 0; border: 0; border-bottom: 3px solid {{tb.bb}}; background: none; font: inherit; font-size: 15px; font-weight: {{tb.w}}; color: {{tb.c}}; white-space: nowrap; cursor: pointer;">{{tb.t}}</button>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{showGoods}}" hint-placeholder-val="{{true}}">
+    <div style="flex-grow: 1; overflow: hidden; padding: 12px 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-content: start;">
+      <sc-for list="{{goods}}" as="g" hint-placeholder-count="4">
+        <a href="PdFull.dc.html" style="display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden; text-decoration: none; color: #191919;">
+          <img src="{{g.img}}" alt="{{g.n}}" style="width: 100%; height: 118px; object-fit: cover; display: block;">
+          <div style="padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 14px; font-weight: 500;">{{g.n}}</span>
+            <span style="font-size: 16px; font-weight: 700; color: #e85400;">{{g.p}}</span>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showActs}}" hint-placeholder-val="{{false}}">
+    <div style="flex-grow: 1; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+      <sc-for list="{{acts}}" as="ev" hint-placeholder-count="2">
+        <a href="ActDetail.dc.html" style="display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #191919;">
+          <img src="{{ev.img}}" alt="{{ev.n}}" style="width: 88px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-size: 14px; font-weight: 500;">{{ev.n}}</span>
+            <span style="font-size: 12px; color: #666b73;">{{ev.when}}</span>
+            <span style="font-size: 13px; font-weight: 700; color: {{ev.pc}};">{{ev.p}}</span>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showPosts}}" hint-placeholder-val="{{false}}">
+    <div style="flex-grow: 1; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+      <a href="ContentVideo.dc.html" style="display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 10px; text-decoration: none; color: #191919;">
+        <img src="/_blob/d7f749aa0af5b1d1784040d2a816e2f0" alt="3 分钟看懂编程机器人" style="width: 88px; height: 64px; border-radius: 8px; object-fit: cover; flex-shrink: 0;">
+        <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 14px; font-weight: 500;">3 分钟看懂编程机器人</span>
+          <span style="font-size: 12px; color: #1d63c4;">视频</span>
+        </div>
+      </a>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showQual}}" hint-placeholder-val="{{false}}">
+    <div style="flex-grow: 1; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="background: #fff; border-radius: 12px; padding: 4px 14px;">
+        <sc-for list="{{quals}}" as="r" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid {{r.line}}; font-size: 14px;">
+            <span style="width: 72px; flex-shrink: 0; color: #666b73;">{{r.k}}</span>
+            <span style="flex-grow: 1; min-width: 0; color: {{r.c}};">{{r.v}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["商家 · 示例机器人商家","机构 · 东营市青少年科技协会"],"default":"商家 · 示例机器人商家"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // tab：当前 Tab；机构帧没有“在售”和“内容”，停在“活动”
+    this.state = { tab: 'goods' };
+  }
+  renderVals() {
+    // 商家主页和机构主页是同一个页面（概要设计 APP-MALL-03），机构样例用 Tweaks 切帧；活动主办方资料是设计假设
+    const org = (this.props.frame ?? '商家 · 示例机器人商家') === '机构 · 东营市青少年科技协会';
+    const tab = org && (this.state.tab === 'goods' || this.state.tab === 'posts') ? 'acts' : this.state.tab;
+    const goods = [
+      { n: '编程机器人探索套装', p: '¥1,299', img: '/_blob/5d32505e8b9a494f8436e31c3008ef99' },
+      { n: '编程机器人 · 教室套装', p: '¥7,380', img: '/_blob/85dbe79468bbacd46343cf281dfb4e4b' },
+      { n: '避障训练场地套件', p: '¥460', img: '/_blob/822c9edc2d0d857c67055194c02161d3' },
+      { n: '机器人编程线上课', p: '¥199', img: '/_blob/d7f749aa0af5b1d1784040d2a816e2f0' }
+    ];
+    const quals = (org ? [
+      { k: '登记主体', v: '东营市青少年科技协会', c: '#191919' },
+      { k: '登记证书', v: '已审核', c: '#11804a' },
+      { k: '活动城市', v: '东营', c: '#191919' },
+      { k: '活动类型', v: '赛事、体验日', c: '#191919' }
+    ] : [
+      { k: '经营主体', v: '示例机器人科技有限公司', c: '#191919' },
+      { k: '营业执照', v: '已审核', c: '#11804a' },
+      { k: '东营授权', v: '至 2027-10-31', c: '#191919' },
+      { k: '品类', v: '教育机器人', c: '#191919' }
+    ]).map((r, i, all) => ({ ...r, line: i === all.length - 1 ? 'transparent' : '#f0f1f3' }));
+    // 活动卡都到 ActDetail（正式产品按活动 ID 打开）；数据沿用 HomeAct
+    const acts = org ? [
+      { n: '青少年无人机编程挑战赛（东营站）', when: '11/15 09:00 · 东营低空与机器人体验馆', p: '¥120/人', pc: '#e85400', img: '/_blob/b41e3fb34601d5b9b3c9e40e84d2a489' },
+      { n: '无人机开放体验日', when: '11/14 10:00 · 东营低空与机器人体验馆', p: '免费', pc: '#11804a', img: '/_blob/e42bb39cca5b4f528e6577da8445bced' }
+    ] : [
+      { n: '机器人研学体验', when: '11/08', p: '¥168', pc: '#e85400', img: '/_blob/7dea67aa257759d5c4cffcda675bc107' }
+    ];
+    const tabOf = (id, t) => {
+      const on = id === tab;
+      return { t, on, bb: on ? '#ff6a00' : 'transparent', w: on ? 700 : 400, c: on ? '#191919' : '#666b73', pick: () => this.setState({ tab: id }) };
+    };
+    const tabs = org
+      ? [tabOf('acts', '活动 2'), tabOf('qual', '资质')]
+      : [tabOf('goods', '在售 8'), tabOf('acts', '活动 2'), tabOf('posts', '内容 5'), tabOf('qual', '资质')];
+    return {
+      // 机构主页从活动详情的主办行进入，返回回活动详情；商家主页回商品详情
+      backHref: org ? 'ActDetail.dc.html' : 'PdFull.dc.html',
+      head: org ? { glyph: '协', name: '东营市青少年科技协会', kind: '活动主办方' } : { glyph: '示', name: '示例机器人商家', kind: '厂家直营' },
+      infoRows: org ? [
+        { k: '登记主体', v: '东营市青少年科技协会（社会团体）' },
+        { k: '活动城市', v: '东营' },
+        { k: '合作有效期', v: '至 2027-10-31' }
+      ] : [
+        { k: '经营主体', v: '示例机器人科技有限公司' },
+        { k: '可售城市', v: '东营、济南（筹备）· 全国发货' },
+        { k: '授权有效期', v: '至 2027-10-31' }
+      ],
+      goods, quals, acts, tabs,
+      showGoods: tab === 'goods', showActs: tab === 'acts', showPosts: tab === 'posts', showQual: tab === 'qual'
+    };
+  }
+}
+</script>
+</body>
+</html>

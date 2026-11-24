@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>租赁合同订单</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1458px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderList.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">订单详情</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; gap: 12px; padding: 12px; background: #fff; border-radius: 14px;">
+      <img src="/_blob/a016bad56a0e687061b30b2a4fd96ff6" alt="巡检机器狗" style="width: 72px; height: 72px; border-radius: 10px; object-fit: cover; flex-shrink: 0;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">巡检机器狗 ×1</span>
+          <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #fff3e8; color: #d94f00; white-space: nowrap;">租赁</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 20px;">
+          <span style="font-size: 13px; line-height: 20px; color: #555a62; white-space: nowrap;">出租方 示例机器人商家</span>
+          <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; white-space: nowrap;">资质已审核</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; height: 20px;">
+          <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #eaf2fd; color: #1d63c4; white-space: nowrap;">企业</span>
+          <span style="font-size: 13px; line-height: 20px; color: #555a62; white-space: nowrap;">东营港务物流（经办人）</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px; background: #fff; border-radius: 14px;">
+      <span style="font-size: 20px; font-weight: 700; line-height: 28px; color: {{head.c}};">{{head.t}}</span>
+      <span style="font-size: 13px; line-height: 18px; color: #555a62;">{{head.s}}</span>
+      <div role="list" aria-label="订单状态" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: 12px;">
+        <sc-for list="{{chain}}" as="n" hint-placeholder-count="6">
+          <div role="listitem" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+            <span style="position: absolute; left: 0; right: 50%; top: 8px; height: 2px; background: {{n.lc}};"></span>
+            <span style="position: absolute; left: 50%; right: 0; top: 8px; height: 2px; background: {{n.rc}};"></span>
+            <span style="position: relative; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{n.bd}}; background: {{n.bg}}; display: flex; align-items: center; justify-content: center;">
+              <sc-if value="{{n.done}}" hint-placeholder-val="{{true}}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+              <sc-if value="{{n.cur}}" hint-placeholder-val="{{false}}"><span style="width: 6px; height: 6px; border-radius: 50%; background: #ff6a00;"></span></sc-if>
+            </span>
+            <span style="font-size: 12px; line-height: 17px; color: {{n.tc}}; font-weight: {{n.tw}}; white-space: nowrap;">{{n.label}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 3px 14px 14px; background: #fff; border-radius: 14px;">
+      <a href="Contract.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 44px; color: #191919; text-decoration: none;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">租赁合同</h2>
+        <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: #e8f7ef; color: #11804a; white-space: nowrap;">已确认</span>
+        <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">10/30 16:20</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 13px; line-height: 18px; color: #555a62;">
+        <span>租期：11/01–11/05 · 5 天</span>
+        <span>数量：1 台</span>
+        <span>交接：商家送达</span>
+        <span>归还：商家上门取回</span>
+        <span style="grid-column: 1 / -1;">地点：东营港务物流 收货点</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; margin-bottom: 4px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">费用约定</h2>
+        <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #666b73;">合同金额 <b style="font-size: 14px; font-weight: 700; color: #191919;">¥1,900</b></span>
+      </div>
+      <sc-for list="{{fees}}" as="p" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; border-top: 1px solid #f0f1f3;">
+          <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+            <span style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 14px; line-height: 20px; white-space: nowrap;">{{p.name}}</span>
+              <sc-if value="{{p.tag}}" hint-placeholder-val="{{false}}">
+                <span style="flex-shrink: 0; font-size: 11px; line-height: 16px; padding: 0 6px; border-radius: 6px; background: #f2f3f5; color: #666b73; white-space: nowrap;">{{p.tag}}</span>
+              </sc-if>
+            </span>
+            <span style="font-size: 12px; line-height: 17px; color: {{p.sc}};">{{p.state}}</span>
+          </div>
+          <span style="flex-shrink: 0; font-size: {{p.fs}}; font-weight: {{p.fw}}; line-height: 22px; color: {{p.ac}}; white-space: nowrap;">{{p.amount}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">交接记录</h2>
+        <span style="flex-shrink: 0; margin-left: auto; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: {{handover.tbg}}; color: {{handover.tfg}}; white-space: nowrap;">{{handover.tag}}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 40px 1fr; gap: 6px 10px; font-size: 13px; line-height: 18px;">
+        <sc-for list="{{handover.rows}}" as="r" hint-placeholder-count="5">
+          <span style="color: #666b73; white-space: nowrap;">{{r.k}}</span><span>{{r.v}}</span>
+        </sc-for>
+      </div>
+      <a href="PhotoViewer.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 10px; border-top: 1px solid #f0f1f3; color: #191919; text-decoration: none;">
+        <span style="font-size: 14px; line-height: 20px; white-space: nowrap;">交接照片</span>
+        <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">3 张</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </a>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 14px 14px 4px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; white-space: nowrap;">归还记录</h2>
+        <span style="flex-shrink: 0; margin-left: auto; font-size: 11px; line-height: 16px; padding: 1px 6px; border-radius: 6px; background: {{giveBack.tbg}}; color: {{giveBack.tfg}}; white-space: nowrap;">{{giveBack.tag}}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 40px 1fr; gap: 6px 10px; font-size: 13px; line-height: 18px;">
+        <sc-for list="{{giveBack.rows}}" as="r" hint-placeholder-count="5">
+          <span style="color: #666b73; white-space: nowrap;">{{r.k}}</span><span>{{r.v}}</span>
+        </sc-for>
+      </div>
+      <sc-if value="{{giveBack.recorded}}" hint-placeholder-val="{{false}}">
+        <a href="PhotoViewer.dc.html" style="display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 10px; border-top: 1px solid #f0f1f3; color: #191919; text-decoration: none;">
+          <span style="font-size: 14px; line-height: 20px; white-space: nowrap;">归还照片</span>
+          <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #666b73; white-space: nowrap;">3 张</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a3a8b0" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+        </a>
+      </sc-if>
+      <sc-if value="{{giveBack.pending}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; align-items: center; min-height: 44px; margin-top: 10px; border-top: 1px solid #f0f1f3; font-size: 12px; line-height: 17px; color: #8a8f97;">归还后商家在这里录入记录，你核对后确认</div>
+      </sc-if>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">交易主体</h2>
+      <div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px 10px; font-size: 13px; line-height: 18px;">
+        <sc-for list="{{parties}}" as="p" hint-placeholder-count="5">
+          <span style="color: #666b73; white-space: nowrap;">{{p.k}}</span><span>{{p.v}}</span>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; gap: 10px; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #ebedf0;">
+    <a href="Chat.dc.html" style="flex-shrink: 0; height: 46px; box-sizing: border-box; padding: 0 22px; border-radius: 999px; border: 1.5px solid #ebedf0; background: #fff; color: #191919; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">联系商家</a>
+    <sc-if value="{{cta.act}}" hint-placeholder-val="{{true}}">
+      <button type="button" aria-haspopup="dialog" onClick="{{openSheet}}" style="flex-grow: 1; min-width: 0; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; color: #fff; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; white-space: nowrap; cursor: pointer;">{{cta.label}}</button>
+    </sc-if>
+    <sc-if value="{{cta.again}}" hint-placeholder-val="{{false}}">
+      <a href="PdRental.dc.html" style="flex-grow: 1; min-width: 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">再次租赁</a>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closeSheet}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-modal="true" aria-label="{{cta.title}}" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px; padding: 20px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">{{cta.title}}</h2>
+        <span style="font-size: 13px; line-height: 19px; color: #555a62;">{{cta.note}}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 56px 1fr; gap: 8px 10px; padding: 12px; border-radius: 10px; background: #f7f8fa; font-size: 13px; line-height: 18px;">
+        <sc-for list="{{cta.rows}}" as="r" hint-placeholder-count="3">
+          <span style="color: #666b73; white-space: nowrap;">{{r.k}}</span><span>{{r.v}}</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{closeSheet}}" style="flex-shrink: 0; height: 46px; box-sizing: border-box; margin: 0; padding: 0 22px; border-radius: 999px; border: 1.5px solid #ebedf0; background: #fff; font: inherit; color: #191919; font-size: 15px; white-space: nowrap; cursor: pointer;">再看看</button>
+        <button type="button" onClick="{{confirmSheet}}" style="flex-grow: 1; min-width: 0; height: 46px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; color: #fff; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: pointer;">{{cta.confirm}}</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["待交接","使用中","待归还","已结束"],"default":"使用中"},"$preview":{"width":390,"height":1458}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // from：按钮推进时所在的 Tweaks 帧；Tweaks 换帧后以新帧为准
+    this.state = { from: '', stage: '', sheet: false };
+  }
+  renderVals() {
+    const base = this.props.frame ?? '使用中';
+    const { from, sheet } = this.state;
+    const stage = from === base ? this.state.stage : base;
+    // 询价合同订单的租赁变体，属“服务及合同”，不是第四种订单。主线：待报价 → 待确认 → 待交接 → 使用中 → 待归还 → 已结束
+    // 示例时间线：10/30 确认合同并支付租金，11/01 交接，11/05 归还；默认帧是“今天 11/03”
+    const steps = ['待报价', '待确认', '待交接', '使用中', '待归还', '已结束'];
+    const CURRENT = steps.indexOf(stage);
+    const ended = stage === '已结束';
+    const chain = steps.map((label, i) => {
+      const done = i < CURRENT || ended;
+      const cur = i === CURRENT && !ended;
+      const reached = i <= CURRENT;
+      const nextReached = i + 1 <= CURRENT;
+      return {
+        label, done, cur,
+        bg: done ? '#ff6a00' : '#fff',
+        bd: reached ? '#ff6a00' : '#c4c8ce',
+        tc: i === CURRENT ? '#d94f00' : (reached ? '#191919' : '#8a8f97'),
+        tw: i === CURRENT ? 700 : 400,
+        lc: i === 0 ? 'transparent' : (reached ? '#ff6a00' : '#ebedf0'),
+        rc: i === steps.length - 1 ? 'transparent' : (nextReached ? '#ff6a00' : '#ebedf0')
+      };
+    });
+    const heads = {
+      '待交接': { t: '待交接 · 请核对交接记录', s: '商家 11/01 09:30 已到场并录入记录，确认后开始计租', c: '#d94f00' },
+      '使用中': { t: '使用中 · 还有 2 天到期', s: '11/05 18:00 前归还，超期按合同约定计费', c: '#d94f00' },
+      '待归还': { t: '待归还 · 请核对归还记录', s: '商家 11/05 16:40 已取回并录入记录，确认后订单结束', c: '#d94f00' },
+      '已结束': { t: '已结束', s: '11/05 16:52 双方确认归还，没有额外费用', c: '#11804a' }
+    };
+    // 费用约定：租金在合同确认后支付（设计假设）；押金待定，不在线收取；超期和赔付按合同，没有发生就写 ¥0
+    const money = { fs: '16px', fw: 700, ac: '#191919' };
+    const quiet = { fs: '13px', fw: 400, ac: '#666b73' };
+    const fees = [
+      { name: '租金', tag: '', state: '5 天 × ¥380 · 已支付 10/30', sc: '#11804a', amount: '¥1,900', ...money },
+      { name: '押金', tag: '待定', state: '[押金规则待确认]，当前不在线收取', sc: '#666b73', amount: '待定', ...quiet },
+      ended
+        ? { name: '超期费', tag: '', state: '按时归还，未发生', sc: '#666b73', amount: '¥0', ...money }
+        : { name: '超期费', tag: '', state: '超过 11/05 18:00 后按天计费', sc: '#666b73', amount: '合同约定', ...quiet },
+      ended
+        ? { name: '损坏赔付', tag: '', state: '无新增损伤，未发生', sc: '#666b73', amount: '¥0', ...money }
+        : { name: '损坏赔付', tag: '', state: '以交接和归还记录为依据', sc: '#666b73', amount: '合同约定', ...quiet }
+    ];
+    const kv = (rows) => rows.map(([k, v]) => ({ k, v }));
+    const tagWait = { tbg: '#fff3e8', tfg: '#d94f00', tag: '待你确认' };
+    const tagDone = { tbg: '#e8f7ef', tfg: '#11804a', tag: '双方已确认' };
+    const tagIdle = { tbg: '#f2f3f5', tfg: '#666b73', tag: '未开始' };
+    const handoverRows = [
+      ['时间', '11/01 09:30'],
+      ['地点', '东营港务物流 收货点'],
+      ['设备', '巡检机器狗 ×1 · 编号 DOG-0118'],
+      ['配件', '遥控手柄、电池 ×2、充电器、运输箱'],
+      ['外观', '无损伤，电量 100%']
+    ];
+    const handover = { ...(stage === '待交接' ? tagWait : tagDone), rows: kv(handoverRows) };
+    const returnRows = [
+      ['时间', '11/05 16:40'],
+      ['方式', '商家上门取回'],
+      ['配件', '齐全，与交接记录一致'],
+      ['外观', '无新增损伤'],
+      ['超期', '未超期，没有额外费用']
+    ];
+    const planRows = [
+      ['应还', '11/05 18:00 前'],
+      ['方式', '商家上门取回'],
+      ['地点', '东营港务物流 收货点'],
+      ['核对', '设备编号、配件数量、外观'],
+      ['超期', '按合同约定计费']
+    ];
+    const recorded = stage === '待归还' || ended;
+    const giveBack = {
+      ...(ended ? tagDone : (recorded ? tagWait : tagIdle)),
+      recorded, pending: !recorded, rows: kv(recorded ? returnRows : planRows)
+    };
+    const parties = kv([
+      ['出租方', '示例机器人商家（厂家直营）'],
+      ['收款方', '示例机器人商家 · 经平台支付渠道'],
+      ['开票方', '示例机器人商家 · 按合同开具'],
+      ['交接履约', '示例机器人商家 东营仓'],
+      ['售后责任', '示例机器人商家 · 按合同约定']
+    ]);
+    // 底部动作和确认面板：交接、归还都是商家录入、用户确认；用户确认后才推进到下一帧
+    const actions = {
+      '待交接': { label: '确认交接', title: '确认交接', confirm: '确认交接', next: '使用中', note: '确认后开始计租，记录不能再改。有问题先联系商家。', rows: kv(handoverRows.slice(2)) },
+      '使用中': { label: '预约归还', title: '预约归还', confirm: '确认归还安排', next: '待归还', note: '按合同由商家上门取回，取回时录入归还记录，你核对后确认。', rows: kv(planRows.slice(0, 3)) },
+      '待归还': { label: '确认归还', title: '确认归还记录', confirm: '确认归还', next: '已结束', note: '确认后订单结束。对记录有疑问先联系商家。', rows: kv(returnRows.slice(2)) }
+    };
+    const action = actions[stage];
+    // 交接照片、归还照片各 3 张，点开进公共图片查看器 PhotoViewer
+    const cta = action
+      ? { ...action, act: true, again: false }
+      : { label: '', title: '', confirm: '', next: '', note: '', rows: [], act: false, again: true };
+    return {
+      head: heads[stage], chain, fees, handover, giveBack, parties, cta,
+      sheetOpen: sheet && !!action,
+      openSheet: () => this.setState({ sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      confirmSheet: () => { if (action) this.setState({ from: base, stage: action.next, sheet: false }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

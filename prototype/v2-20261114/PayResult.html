@@ -1,0 +1,145 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MALL-05 支付结果（确认中 / 已支付 / 失败）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="OrderList.dc.html" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">支付结果</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <sc-if value="{{isPending}}" hint-placeholder-val="{{true}}">
+      <div role="status" style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 20px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 64px; height: 64px; border-radius: 50%; background: #fff0e3; display: flex; align-items: center; justify-content: center;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#ffd8b8" stroke-width="2.4"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke="#ff6a00" stroke-width="2.4" stroke-linecap="round"></path></svg></span>
+        <span style="margin-top: 6px; font-size: 20px; line-height: 28px; font-weight: 700;">支付结果确认中</span>
+        <span style="font-size: 14px; line-height: 20px; color: #536178;">正在向支付渠道确认结果，请勿重复支付</span>
+        <div style="align-self: stretch; display: flex; gap: 10px; margin-top: 12px;">
+          <button type="button" onClick="{{toFailed}}" style="flex: 1 1 0; min-width: 0; height: 44px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; font: inherit; font-size: 15px; color: #202c42; white-space: nowrap; cursor: pointer;">支付遇到问题</button>
+          <button type="button" onClick="{{toPaid}}" style="flex: 1 1 0; min-width: 0; height: 44px; border: 0; border-radius: 999px; background: #ff6a00; font: inherit; font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; cursor: pointer;">刷新结果</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isPaid}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 20px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 64px; height: 64px; border-radius: 50%; background: #e2f6ed; display: flex; align-items: center; justify-content: center;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#159a70" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        <span style="margin-top: 6px; font-size: 20px; line-height: 28px; font-weight: 700;">已支付</span>
+        <span style="font-size: 32px; line-height: 40px; font-weight: 700; color: #e85400;">¥1,299</span>
+        <div style="align-self: stretch; display: flex; gap: 10px; margin-top: 12px;">
+          <a href="HomeFull.dc.html" style="flex: 1 1 0; min-width: 0; height: 44px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; color: #202c42; font-size: 15px; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">返回首页</a>
+          <a href="OrderGoods.dc.html" style="flex: 1 1 0; min-width: 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">查看订单</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isFailed}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 20px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 64px; height: 64px; border-radius: 50%; background: #fdecec; display: flex; align-items: center; justify-content: center;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#d64f67" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 6.5v7.5M12 18h.01"></path></svg></span>
+        <span style="margin-top: 6px; font-size: 20px; line-height: 28px; font-weight: 700;">支付失败</span>
+        <span style="font-size: 14px; line-height: 20px; color: #536178;">支付未成功，如已扣款将原路退回</span>
+        <span style="font-size: 12px; line-height: 17px; color: #738096;">订单仍为待付款，超时订单自动取消</span>
+        <div style="align-self: stretch; display: flex; gap: 10px; margin-top: 12px;">
+          <a href="OrderList.dc.html" style="flex: 1 1 0; min-width: 0; height: 44px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c9d3e1; background: #fff; color: #202c42; font-size: 15px; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">查看订单</a>
+          <a href="Cashier.dc.html" style="flex: 1 1 0; min-width: 0; height: 44px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap; display: flex; align-items: center; justify-content: center;">重新支付</a>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 76px; color: #627187;">订单号</span>
+        <span style="flex-grow: 1; min-width: 0;">DY20261103150800</span>
+        <button type="button" onClick="{{copyOrder}}" style="flex-shrink: 0; min-height: 44px; margin-right: -8px; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer;">
+          <sc-if value="{{orderNotCopied}}" hint-placeholder-val="{{true}}"><span style="color: #ba470b;">复制</span></sc-if>
+          <sc-if value="{{orderCopied}}" hint-placeholder-val="{{false}}"><span style="color: #11804a;">已复制</span></sc-if>
+        </button>
+      </div>
+      <sc-if value="{{showDue}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 76px; color: #627187;">应付金额</span>
+          <span style="flex-grow: 1; min-width: 0;">¥1,299</span>
+        </div>
+      </sc-if>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 76px; color: #627187;">收款方</span>
+        <span style="flex-grow: 1; min-width: 0;">示例机器人商家</span>
+      </div>
+      <sc-if value="{{isPaid}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 76px; color: #627187;">渠道交易号</span>
+          <span style="flex-grow: 1; min-width: 0;">[渠道交易号]</span>
+          <button type="button" onClick="{{copyTxn}}" style="flex-shrink: 0; min-height: 44px; margin-right: -8px; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer;">
+            <sc-if value="{{txnNotCopied}}" hint-placeholder-val="{{true}}"><span style="color: #ba470b;">复制</span></sc-if>
+            <sc-if value="{{txnCopied}}" hint-placeholder-val="{{false}}"><span style="color: #11804a;">已复制</span></sc-if>
+          </button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 76px; color: #627187;">支付时间</span>
+          <span style="flex-grow: 1; min-width: 0;">11/03 15:09</span>
+        </div>
+      </sc-if>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 76px; color: #627187;">支付方式</span>
+        <span style="flex-grow: 1; min-width: 0;">[主用支付渠道]</span>
+      </div>
+    </div>
+
+    <sc-if value="{{isPaid}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 12px; line-height: 17px; color: #738096;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#738096" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+        <span>支付结果以支付渠道回执为准</span>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // status：pending 确认中（初始，不能再次发起支付）/ paid 已支付 / failed 支付失败
+    // copied：已点过“复制”的号码（order 订单号、txn 渠道交易号）
+    this.state = { status: 'pending', copied: {} };
+  }
+  renderVals() {
+    const { status, copied } = this.state;
+    const copy = (key) => () => this.setState((s) => ({ copied: { ...s.copied, [key]: true } }));
+    return {
+      isPending: status === 'pending',
+      isPaid: status === 'paid',
+      isFailed: status === 'failed',
+      // 未支付（确认中、失败）时显示应付金额；已支付时金额在结果区大字显示
+      showDue: status !== 'paid',
+      toPaid: () => this.setState({ status: 'paid' }),
+      toFailed: () => this.setState({ status: 'failed' }),
+      orderCopied: !!copied.order,
+      orderNotCopied: !copied.order,
+      copyOrder: copy('order'),
+      txnCopied: !!copied.txn,
+      txnNotCopied: !copied.txn,
+      copyTxn: copy('txn')
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

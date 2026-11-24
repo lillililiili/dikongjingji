@@ -1,0 +1,154 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>COM 省市区选择</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="frame"><option selected>地址管理</option><option>确认订单</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="{{backHref}}" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 25px;">{{pageTitle}}</h1>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="height: 40px; border-radius: 10px; background: #fff0e3;"></div>
+    <div style="height: 96px; border-radius: 14px; background: #fff;"></div>
+    <div style="height: 96px; border-radius: 14px; background: #fff;"></div>
+  </div>
+
+  <a href="{{backHref}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; background: rgba(0,0,0,0.45);"></a>
+  <div role="dialog" aria-modal="true" aria-label="选择所在地区" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; height: 680px; box-sizing: border-box; display: flex; flex-direction: column; padding: 8px 16px 24px; border-radius: 20px 20px 0 0; background: #fff;">
+    <div style="flex-shrink: 0; display: flex; align-items: center;">
+      <span style="font-size: 17px; font-weight: 700; line-height: 24px;">选择所在地区</span>
+      <a href="{{backHref}}" aria-label="关闭" style="margin-left: auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; margin-top: 4px; padding: 0 12px; min-height: 52px; border-radius: 12px; background: #fffaf5; border: 1px solid #ffd8b8;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+        <span style="font-size: 12px; line-height: 16px; color: #627187; white-space: nowrap;">当前定位</span>
+        <span style="font-size: 14px; font-weight: 500; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">山东省 东营市 东营区</span>
+      </div>
+      <button type="button" onClick="{{useLocated}}" style="flex-shrink: 0; height: 32px; margin: 0; padding: 0 12px; border-radius: 999px; border: 1px solid #ff6a00; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #ba470b; white-space: nowrap; cursor: pointer;">使用</button>
+    </div>
+
+    <div role="tablist" aria-label="省市区" style="flex-shrink: 0; display: flex; gap: 16px; margin-top: 6px; border-bottom: 1px solid #f0f1f3;">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+        <button type="button" role="tab" aria-selected="{{t.aria}}" onClick="{{t.pick}}" style="position: relative; height: 44px; margin: 0; padding: 0 2px; border: 0; background: none; font: inherit; font-size: 15px; line-height: 21px; font-weight: {{t.w}}; color: {{t.c}}; white-space: nowrap; cursor: pointer;">{{t.label}}<sc-if value="{{t.on}}" hint-placeholder-val="{{true}}"><span style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 3px; background: #ff6a00;"></span></sc-if></button>
+      </sc-for>
+    </div>
+
+    <div role="listbox" aria-label="{{listAria}}" style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column;">
+      <sc-for list="{{items}}" as="it" hint-placeholder-count="5">
+        <button type="button" role="option" aria-selected="{{it.aria}}" onClick="{{it.pick}}" style="display: flex; align-items: center; gap: 10px; width: 100%; height: 48px; margin: 0; padding: 0 2px; border: 0; background: none; font: inherit; font-size: 15px; line-height: 21px; font-weight: {{it.w}}; color: {{it.c}}; text-align: left; white-space: nowrap; cursor: pointer;">
+          <span style="flex-grow: 1; min-width: 0;">{{it.label}}</span>
+          <sc-if value="{{it.on}}" hint-placeholder-val="{{false}}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+          </sc-if>
+        </button>
+      </sc-for>
+      <sc-if value="{{empty}}" hint-placeholder-val="{{false}}">
+        <span style="padding: 14px 2px; font-size: 13px; line-height: 19px; color: #738096;">原型只收录了山东省和东营市的下级地区，正式产品读取完整行政区划</span>
+      </sc-if>
+      <span style="margin-top: auto; padding: 6px 2px 10px; font-size: 12px; line-height: 17px; color: #738096;">已选：{{picked}}</span>
+    </div>
+
+    <div style="flex-shrink: 0;">
+      <sc-if value="{{canConfirm}}" hint-placeholder-val="{{true}}">
+        <a href="{{backHref}}" style="height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">确认</a>
+      </sc-if>
+      <sc-if value="{{cannotConfirm}}" hint-placeholder-val="{{false}}">
+        <button type="button" disabled="{{true}}" style="width: 100%; height: 46px; margin: 0; border: 0; border-radius: 999px; background: #c9d3e1; color: #fff; font: inherit; font-size: 16px; font-weight: 500; white-space: nowrap; cursor: not-allowed;">请选择到区县</button>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // level：当前看哪一级列表（0 省 / 1 市 / 2 区县）；prov / city / dist：已选的三级，空串表示还没选
+    // 默认停在区县级，并预选表单里已有的“山东省东营市东营区”
+    this.state = { level: 2, prov: '山东省', city: '东营市', dist: '东营区' };
+  }
+  renderVals() {
+    const { level, prov, city, dist } = this.state;
+
+    // 地址管理的新增/编辑面板和确认订单的无地址帧共用这块面板，确认后各回各的页面
+    const FRAMES = {
+      地址管理: { back: 'AddressList.dc.html', title: '地址管理' },
+      确认订单: { back: 'CheckoutStates.dc.html', title: '确认订单' }
+    };
+    const f = FRAMES[this.props.frame ?? '地址管理'] || FRAMES['地址管理'];
+
+    // 行政区划只收录到示例需要的分支；正式产品读取完整行政区划数据
+    const PROVINCES = ['山东省', '北京市', '天津市', '河北省', '江苏省', '浙江省', '河南省', '广东省'];
+    const CITIES = { 山东省: ['济南市', '青岛市', '淄博市', '枣庄市', '东营市', '烟台市', '潍坊市', '济宁市'] };
+    const DISTRICTS = { 东营市: ['东营区', '河口区', '垦利区', '利津县', '广饶县'] };
+
+    const levels = [
+      { label: prov || '请选择', value: prov, enabled: true },
+      { label: city || '请选择', value: city, enabled: prov !== '' },
+      { label: dist || '请选择', value: dist, enabled: city !== '' }
+    ];
+    const tabs = levels.map((l, i) => {
+      const on = i === level;
+      return {
+        label: l.label, on, aria: on ? 'true' : 'false',
+        w: on ? 700 : 400,
+        c: on ? '#ff6a00' : (l.enabled ? '#202c42' : '#91a0b4'),
+        // 上一级没选时下一级标签不可切换
+        pick: () => this.setState((s) => (l.enabled ? { level: i } : {}))
+      };
+    });
+
+    const list = level === 0 ? PROVINCES : (level === 1 ? (CITIES[prov] || []) : (DISTRICTS[city] || []));
+    const curValue = levels[level].value;
+    const items = list.map((name) => {
+      const on = name === curValue;
+      return {
+        label: name, on, aria: on ? 'true' : 'false', w: on ? 500 : 400, c: on ? '#ba470b' : '#202c42',
+        // 选了上一级就清空下级并自动进入下一级列表；选区县停在本级
+        pick: () => this.setState((s) => {
+          if (s.level === 0) return { prov: name, city: '', dist: '', level: 1 };
+          if (s.level === 1) return { city: name, dist: '', level: 2 };
+          return { dist: name };
+        })
+      };
+    });
+
+    const canConfirm = prov !== '' && city !== '' && dist !== '';
+    return {
+      backHref: f.back,
+      pageTitle: f.title,
+      tabs,
+      listAria: ['省份', '城市', '区县'][level],
+      items,
+      empty: items.length === 0,
+      picked: canConfirm ? prov + ' ' + city + ' ' + dist : (prov ? prov + (city ? ' ' + city : '') + ' …' : '还没有选择'),
+      // 用当前定位结果一次填满三级
+      useLocated: () => this.setState({ prov: '山东省', city: '东营市', dist: '东营区', level: 2 }),
+      canConfirm,
+      cannotConfirm: !canConfirm
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"frame":"地址管理"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

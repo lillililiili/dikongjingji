@@ -1,0 +1,242 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>报名凭证（定稿 08 一人一码）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+<div class="side">状态：<select data-prop="frame"><option selected>待参加</option><option>退改处理中</option><option>已核销</option><option>已过期</option><option>已取消</option></select></div>
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 844px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; background: {{pageBg}};">
+    <div style="flex-shrink: 0; display: flex; align-items: center; padding: 8px;">
+      <a href="OrderEnroll.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+      <h1 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; text-align: center; color: #fff;">报名凭证</h1>
+      <span style="flex-shrink: 0; width: 44px; height: 44px;"></span>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 2px 16px 0; color: #fff;">
+      <span style="display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; line-height: 30px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{statusIcon}}"></path></svg>{{statusTitle}}</span>
+      <span style="font-size: 13px; font-weight: 500; line-height: 19px;">{{statusSub}}</span>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; margin: 14px 16px 0; border-radius: 16px; background: #fff;">
+      <div style="display: flex; flex-direction: column; padding: 16px 16px 14px;">
+        <span style="font-size: 17px; font-weight: 700; line-height: 24px;">青少年无人机编程挑战赛（东营站）</span>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+          <sc-for list="{{people}}" as="p" hint-placeholder-count="2">
+            <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.on}}" style="height: 36px; margin: 0; padding: 0 14px; box-sizing: border-box; border-radius: 999px; border: 1px solid {{p.bd}}; background: {{p.bg}}; color: {{p.fg}}; font: inherit; font-size: 14px; font-weight: {{p.w}}; white-space: nowrap; cursor: pointer;">{{p.name}}</button>
+          </sc-for>
+          <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{whoMeta}}</span>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 12px; line-height: 17px; color: #738096;">场次</span>
+            <span style="font-size: 15px; font-weight: 700; line-height: 21px; white-space: nowrap;">11/15 周日 09:00</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 12px; line-height: 17px; color: #738096;">签到状态</span>
+            <span style="font-size: 15px; font-weight: 700; line-height: 21px; color: {{signColor}}; white-space: nowrap;">{{signLine}}</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 10px; font-size: 13px; line-height: 19px;">
+          <span style="flex-shrink: 0; color: #738096;">地点</span>
+          <span style="min-width: 0;">东营低空与机器人体验馆 · 东营区示例路 66 号</span>
+        </div>
+      </div>
+      <div style="position: relative; height: 0; border-top: 1.5px dashed #e3e5e8;">
+        <span style="position: absolute; left: 0; top: -11px; width: 10px; height: 20px; border-radius: 0 10px 10px 0; background: {{notch}};"></span>
+        <span style="position: absolute; right: 0; top: -11px; width: 10px; height: 20px; border-radius: 10px 0 0 10px; background: {{notch}};"></span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; padding: 16px 16px 14px;">
+        <div style="position: relative; width: 168px; height: 168px;">
+          <svg width="168" height="168" viewBox="0 0 25 25" shape-rendering="crispEdges" role="img" aria-label="二维码占位" style="display: block; opacity: {{qrOp}};"><path d="{{qr}}" fill="#202c42" fill-rule="evenodd"></path></svg>
+          <sc-if value="{{stamp}}" hint-placeholder-val="{{false}}">
+            <span style="position: absolute; left: 42px; top: 42px; width: 84px; height: 84px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{stampC}}; background: #fff; color: {{stampC}}; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{stamp}}</span>
+          </sc-if>
+        </div>
+        <span style="margin-top: 8px; font-size: 13px; line-height: 18px; color: #536178;">凭证号 {{code}}</span>
+        <span style="margin-top: 2px; font-size: 12px; line-height: 17px; color: {{hintColor}};">{{codeHint}}</span>
+        <sc-if value="{{showLate}}" hint-placeholder-val="{{true}}">
+          <span style="margin-top: 2px; font-size: 12px; line-height: 17px; color: #738096;">开始后 30 分钟停止入场<span style="color: #91a0b4;">（示例）</span></span>
+        </sc-if>
+      </div>
+    </div>
+
+    <sc-if value="{{inactive}}" hint-placeholder-val="{{false}}">
+      <a href="{{nextHref}}" style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; min-height: 56px; margin: 12px 16px 0; padding: 0 14px; border-radius: 14px; background: #fff; color: #202c42; font-size: 15px; line-height: 21px; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="{{nextIcon}}"></path></svg><span style="flex-grow: 1; min-width: 0;">{{nextLabel}}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg></a>
+    </sc-if>
+    <sc-if value="{{active}}" hint-placeholder-val="{{true}}">
+    <div style="flex-shrink: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 16px 0;">
+      <button type="button" onClick="{{toggleNav}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 72px; margin: 0; padding: 0; border: 0; border-radius: 14px; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: #202c42; white-space: nowrap; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"></path></svg>导航到场馆</button>
+      <button type="button" onClick="{{addCalendar}}" aria-pressed="{{calendared}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 72px; margin: 0; padding: 0; border: 0; border-radius: 14px; background: #fff; font: inherit; font-size: 13px; line-height: 18px; color: {{calColor}}; white-space: nowrap; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{calIcon}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"></path></svg>{{calLabel}}</button>
+      <a href="{{refundHref}}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 72px; border-radius: 14px; background: #fff; font-size: 13px; line-height: 18px; color: #202c42; text-decoration: none; white-space: nowrap;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7l-5 5 5 5M4 12h11a5 5 0 0 1 5 5v1"></path></svg>{{refundLabel}}</a>
+    </div>
+    </sc-if>
+
+    <div style="position: relative; flex-shrink: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 12px 16px 0; padding: 14px 0; border-radius: 14px; background: #fff;">
+      <span style="position: absolute; left: 12.5%; right: 12.5%; top: 23px; height: 2px; background: #e5ebf3;"></span>
+      <span style="position: absolute; left: 12.5%; width: {{progW}}; top: 23px; height: 2px; background: #ff6a00;"></span>
+      <sc-for list="{{prog}}" as="g" hint-placeholder-count="4">
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+          <span style="width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 2px solid {{g.bd}}; background: {{g.bg}}; display: flex; align-items: center; justify-content: center;"><sc-if value="{{g.mark}}" hint-placeholder-val="{{true}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{g.icon}}"></path></svg></sc-if></span>
+          <span style="font-size: 12px; line-height: 17px; color: {{g.tc}}; white-space: nowrap;">{{g.t}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin: 10px 16px 0; padding: 9px 12px; border-radius: 10px; background: {{noteBg}}; color: {{noteColor}}; font-size: 13px; font-weight: 500; line-height: 18px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{noteIcon}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2"></path></svg>{{note}}</div>
+  </div>
+
+  <sc-if value="{{navDone}}" hint-placeholder-val="{{false}}">
+    <div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 3; padding: 8px 10px; box-sizing: border-box; border: 1px solid #cdeedd; border-radius: 10px; background: #e2f6ed; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font-size: 12px; line-height: 18px; color: #11804a;">{{navDoneText}}</div>
+  </sc-if>
+  <sc-if value="{{navOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" aria-label="关闭" onClick="{{navClose}}" style="position: absolute; inset: 0; z-index: 8; margin: 0; padding: 0; border: 0; background: rgba(0,0,0,0.45);"></button>
+    <div role="dialog" aria-label="导航到场馆" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 9; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 24px; border-radius: 16px 16px 0 0; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif;">
+      <span style="font-size: 16px; font-weight: 700; line-height: 22px; text-align: center; color: #202c42;">导航到场馆</span>
+      <span style="font-size: 12px; line-height: 17px; text-align: center; color: #738096;">东营低空与机器人体验馆 · 东营区示例路 66 号</span>
+      <sc-for list="{{navApps}}" as="r" hint-placeholder-count="3">
+        <button type="button" onClick="{{r.pick}}" style="height: 48px; margin: 0; padding: 0; border: 0; border-radius: 12px; background: #f5f7fc; font: inherit; font-size: 15px; line-height: 20px; color: #202c42; cursor: pointer;">{{r.label}}</button>
+      </sc-for>
+      <button type="button" onClick="{{navClose}}" style="height: 48px; margin: 4px 0 0; padding: 0; border: 0; border-radius: 999px; background: #fff; font: inherit; font-size: 15px; line-height: 20px; color: #536178; cursor: pointer;">取消</button>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // who：当前展示谁的码（一人一码）；calendared：是否已加入手机日历；nav：点了导航（地图未画，只在页内提示）
+    this.state = { who: 'xh', calendared: false, nav: false, navDone: '' };
+  }
+  renderVals() {
+    const { who, calendared, nav, navDone } = this.state;
+    const frame = this.props.frame ?? '待参加';
+    const refunding = frame === '退改处理中';
+    // 票面状态由服务端给，用 Tweaks 切：待参加、退改处理中码有效；已核销、已过期、已取消码变灰并写原因
+    const status = { 已核销: 'used', 已过期: 'expired', 已取消: 'cancel' }[frame] || 'live';
+    const live = status === 'live';
+
+    // 二维码占位：按序号生成固定图样，不是真码；三个定位角 + 伪随机点阵，切换参与人时图样跟着变
+    const qrOf = (seed) => {
+      const N = 25;
+      let s = seed;
+      const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+      const corner = (x, y) => (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+      let d = '';
+      for (let y = 0; y < N; y += 1) {
+        for (let x = 0; x < N; x += 1) {
+          const on = rnd() > 0.5;
+          if (on && !corner(x, y)) d += `M${x} ${y}h1v1h-1z`;
+        }
+      }
+      [[0, 0], [N - 7, 0], [0, N - 7]].forEach(([x, y]) => {
+        d += `M${x} ${y}h7v7h-7zM${x + 1} ${y + 1}h5v5h-5zM${x + 2} ${y + 2}h3v3h-3z`;
+      });
+      return d;
+    };
+    const list = [
+      { id: 'xh', name: '王小禾', meta: '11 岁 · 一人一码', code: 'ACT-2611-0928-03', seed: 26, inAt: '08:42' },
+      { id: 'xc', name: '王小川', meta: '9 岁 · 一人一码', code: 'ACT-2611-0928-04', seed: 77, inAt: '08:43' }
+    ];
+    const cur = list.find((p) => p.id === who);
+    const people = list.map((p) => {
+      const on = p.id === who;
+      return {
+        name: p.name, on,
+        bd: on ? '#ffd8b8' : '#e5ebf3', bg: on ? '#fff0e3' : '#fff', fg: on ? '#ba470b' : '#536178', w: on ? 500 : 400,
+        pick: () => this.setState({ who: p.id })
+      };
+    });
+    const CHECK = 'M5 12l5 5 9-10';
+    const CROSS = 'M6 6l12 12M18 6L6 18';
+    const CLOCK = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2';
+    // 页面底色从顶部渐变到浅灰；票根两侧缺口取撕票线那一高度的底色
+    const ORANGE = { bg: 'linear-gradient(180deg, #ff7a1a 0, #ff8f3d 60px, #ffb27a 200px, #f5f7fc 340px)', notch: '#f9e9df' };
+    const GRAY = { bg: 'linear-gradient(180deg, #7d828a 0, #738096 60px, #b9bdc4 200px, #f5f7fc 340px)', notch: '#e9ebee' };
+    const views = {
+      live: { ...ORANGE, icon: CHECK, title: refunding ? '退改处理中' : '报名成功 · 待参加', sub: refunding ? '主办方确认前，原凭证仍有效' : '活动前一天将发送提醒',
+        sign: '待签到 · 08:30 起', signC: '#ba470b', hint: '到场出示二维码签到 · 一人一码', third: 'todo' },
+      used: { ...ORANGE, icon: CHECK, title: '已签到', sub: '2 人都已签到，活动结束后可查看结果记录',
+        sign: `已签到 · ${cur.inAt}`, signC: '#11804a', hint: `已于 11/15 ${cur.inAt} 核销，不能重复使用`, stamp: '已核销', stampC: '#11804a', third: 'done',
+        next: ['查看结果记录', 'EnrollResult.dc.html', 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5'],
+        note: '活动开始后不再支持退改' },
+      expired: { ...GRAY, icon: CLOCK, title: '已过期', sub: '已过入场时间，没有签到记录',
+        sign: '未签到', signC: '#738096', hint: '已过入场时间，二维码已失效', stamp: '已过期', stampC: '#627187', third: 'end', thirdT: '未签到',
+        next: ['联系主办方', 'Chat.dc.html', 'M4 5h16v11H9l-5 4z'],
+        note: '到场了却没有签到记录，可在 [协议约定时间] 内联系主办方核实' },
+      cancel: { ...GRAY, icon: CROSS, title: '报名已取消', sub: '主办方已确认退改，报名费原路退回',
+        sign: '已取消', signC: '#738096', hint: '报名已取消，二维码已作废', stamp: '已取消', stampC: '#627187', third: 'end', thirdT: '已取消',
+        next: ['查看退款进度', 'EnrollRefundDetail.dc.html', 'M9 7l-5 5 5 5M4 12h11a5 5 0 0 1 5 5v1'],
+        note: '报名费原路退回，到账时间 [协议约定时间]' }
+    };
+    const v = views[status];
+    // 定稿 08 的四步：已支付、报名成功已完成；签到随票面变（已签到打勾，过期、取消标灰叉），完成待进行
+    const look = {
+      done: { bd: '#ff6a00', bg: '#ff6a00', tc: '#202c42', mark: true, icon: CHECK },
+      end: { bd: '#738096', bg: '#738096', tc: '#536178', mark: true, icon: CROSS },
+      todo: { bd: '#c9d3e1', bg: '#fff', tc: '#738096', mark: false, icon: CHECK }
+    };
+    const prog = [['已支付', 'done'], ['报名成功', 'done'], [v.thirdT || '签到', v.third], ['完成', 'todo']].map(([t, k]) => ({ t, ...look[k] }));
+    const gray = { bg: '#eef2f8', c: '#536178', icon: '#738096' };
+    return {
+      pageBg: v.bg,
+      notch: v.notch,
+      statusIcon: v.icon,
+      statusTitle: v.title,
+      statusSub: v.sub,
+      people,
+      whoMeta: cur.meta,
+      signLine: v.sign,
+      signColor: v.signC,
+      code: cur.code,
+      qr: qrOf(cur.seed),
+      qrOp: live ? 1 : 0.18,
+      stamp: v.stamp || '',
+      stampC: v.stampC || '#627187',
+      codeHint: v.hint,
+      hintColor: live ? '#738096' : '#536178',
+      showLate: live,
+      active: live,
+      inactive: !live,
+      nextLabel: live ? '' : v.next[0],
+      nextHref: live ? 'OrderEnroll.dc.html' : v.next[1],
+      nextIcon: live ? '' : v.next[2],
+      prog,
+      progW: status === 'used' ? '50%' : '25%',
+      navOpen: nav, navDone: !!navDone, navDoneText: navDone,
+      toggleNav: () => this.setState({ nav: true }),
+      navClose: () => this.setState({ nav: false }),
+      navApps: [['高德地图', 'amap'], ['百度地图', 'baidu'], ['苹果地图', 'apple']].map(([label]) => ({ label, pick: () => this.setState({ nav: false, navDone: '已用' + label + '打开导航' }) })),
+      calendared,
+      calLabel: calendared ? '已加入日历' : '加入日历',
+      calColor: calendared ? '#11804a' : '#202c42',
+      calIcon: calendared ? '#159a70' : '#ff6a00',
+      addCalendar: () => this.setState({ calendared: true }),
+      refundHref: refunding ? 'EnrollRefundDetail.dc.html' : 'EnrollRefund.dc.html',
+      refundLabel: refunding ? '退改进度' : '申请退改',
+      note: live ? (refunding ? '退改申请已提交，等待主办方确认' : '11/13 09:00 前可免费取消') : v.note,
+      noteBg: live ? (refunding ? '#fff0e3' : '#e2f6ed') : gray.bg,
+      noteColor: live ? (refunding ? '#ba470b' : '#11804a') : gray.c,
+      noteIcon: live ? (refunding ? '#ff6a00' : '#159a70') : gray.icon
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{"frame":"待参加"},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

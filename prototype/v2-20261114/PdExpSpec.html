@@ -1,0 +1,105 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>05 商品详情与体验 · 规格</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>body{margin:0;background:#dfe2e6;padding:16px;font-family:-apple-system,'PingFang SC',sans-serif}.bar{font-size:13px;color:#555;margin:0 0 10px}.bar a{color:#ba470b}#root{width:max-content;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.18)}</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body><div class="bar"><a href="HomeFull.html">← 回到 App</a> &nbsp; 05 商品详情与体验 · 规格（设计文档，不是 App 页面）</div><div id="root"></div><template id="tpl">
+
+<div style="width: 1100px; height: 2140px; display: flex; flex-direction: column; gap: 28px; padding: 40px 44px; box-sizing: border-box; background: #fff; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 700;">商品详情与体验 · 规格</h1>
+    <span style="font-size: 14px; color: #536178; line-height: 1.6;">对齐 docs/redesign/01-概要设计.md：APP-MALL-02/03/06、APP-EXP-01/02/03/04。体验结果（09）和场馆详情（10）沿用 docs/redesign/ui 已有图，本板只补它们之间缺的页面和规则。</span>
+  </div>
+
+  <sc-for list="{{tables}}" as="tb" hint-placeholder-count="2">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <h2 style="margin: 0; font-size: 19px; font-weight: 700;">{{tb.title}}</h2>
+      <div style="display: grid; grid-template-columns: 130px 1.3fr 1.3fr 1fr; border: 1px solid #e5ebf3; border-radius: 10px; overflow: hidden; font-size: 13px; line-height: 1.55;">
+        <sc-for list="{{tb.head}}" as="h" hint-placeholder-count="4">
+          <div style="padding: 9px 12px; background: #f5f7fc; font-weight: 500; color: #536178;">{{h}}</div>
+        </sc-for>
+        <sc-for list="{{tb.rows}}" as="r" hint-placeholder-count="6">
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; font-weight: 500;">{{r.c0}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{r.c1}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3;">{{r.c2}}</div>
+          <div style="padding: 9px 12px; border-top: 1px solid #f0f1f3; color: #536178;">{{r.c3}}</div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 style="margin: 0; font-size: 19px; font-weight: 700;">先体验、再决定：页面流</h2>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px;">
+      <sc-for list="{{flow}}" as="f" hint-placeholder-count="7">
+        <span style="padding: 8px 12px; border-radius: 8px; background: {{f.bg}}; color: {{f.fg}};">{{f.t}}</span>
+        <span style="color: #91a0b4;">{{f.arrow}}</span>
+      </sc-for>
+    </div>
+    <span style="font-size: 13px; color: #536178;">结果页 6 个出口（再试、收藏、对比、咨询、到馆、相关活动）由用户自选，任何出口都不预填订单；进入购买时仍需在商品详情重新选商家与规格。</span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+    <div style="border: 1px solid #e5ebf3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700;">异常与降级</h3>
+      <sc-for list="{{edge}}" as="e" hint-placeholder-count="6">
+        <div style="font-size: 13px; line-height: 1.55;"><span style="font-weight: 500;">{{e.c0}}</span><span style="color: #536178;">：{{e.c1}}</span></div>
+      </sc-for>
+    </div>
+    <div style="border: 1px solid #e5ebf3; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700;">需要你确认</h3>
+      <sc-for list="{{ask}}" as="a" hint-placeholder-count="4">
+        <div style="font-size: 13px; line-height: 1.55;"><span style="font-weight: 500;">{{a.c0}}</span><span style="color: #536178;">：{{a.c1}}</span></div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  renderVals() {
+    const tables = [
+      { title: '商品详情（PD1–PD4）', head: ['区块', '数据来源', '规则', '无数据 / 异常'], rows: [
+        ['价格与在售数', 'Offer 聚合（商家 × SKU × 城市）', '显示当前城市可售 Offer 的最低价 + “起”；只有 1 家时去掉“起”', '无可售 Offer：显示“当前城市暂不可售”，保留体验入口'],
+        ['先体验条', 'Experience 关联记录', '只显示该商品已配置的体验方式；有本人记录时显示最近一次结果', '没有任何体验方式：整条隐藏'],
+        ['在售商家', 'Offer 列表', '默认选中：本城现货优先，其次价格最低；切换商家刷新价格、配送、交易主体', '某商家下架：从列表移除，已选则回到默认'],
+        ['交易主体', 'Offer 的销售/收款/开票/履约/售后五个主体', '五项都必须有值才允许上架；随所选商家实时变化', '缺项的 Offer 不展示，不用“平台”代填'],
+        ['售后与保障', '商家售后模板 + 平台规则', '按所选商家展示；平台协助沟通条款固定', '—'],
+        ['参数 / 包装 / 图文', '厂家填报，平台审核', '参数按类目模板对齐，用于对比', '无参数时隐藏该标签'],
+        ['买家评价', '已完成订单的评价聚合', '不足 3 条整块隐藏；不展示销量', '整块隐藏'],
+        ['相关内容与活动', '内容中心挂载、活动关联', '最多 3 条，点击携带 source=product', '整块隐藏'],
+        ['底部按钮', '交易方式', '直接购买：商家、咨询 + 先体验 + 加入购物车｜立即购买；询价商品：先体验 + 联系询价', '库存 0：立即购买置灰，显示“到货提醒”']
+      ]},
+      { title: '体验（EX1–EX4）', head: ['页面 / 区块', '内容', '规则', '无数据 / 异常'], rows: [
+        ['体验中心', '线上（虚拟仿真/录播演示/课程试听）与线下两区', '每张卡必须带体验方式标签和关联商品或活动', '某类无内容时隐藏对应筛选'],
+        ['选择体验方式', '从商品“先体验”按钮弹出', '列出该商品已配置的方式，写明是否连接真实设备、时长、费用', '只有一种方式时跳过面板直接进入'],
+        ['仿真任务', 'H5/WebGL 容器，消息桥回传结果', '顶部常驻“虚拟仿真 · 不连接真实设备”；中途退出二次确认，不保存成绩', '加载失败或设备不支持：提示并推荐录播演示'],
+        ['体验结果', '定稿 09-experience-result；原型落点是早期稿 Experience', '结果写入体验记录，带 source 用于归因', '—'],
+        ['到馆预约', '沿用 10-venue', '按场馆标价单独下单，属于活动/预约类订单', '场次已满：可选其他场次'],
+        ['我的体验', '线上记录 + 到馆预约', '到馆预约显示核销码与改期入口；线上记录可再试', '游客记录只存本机，登录后归档']
+      ]}
+    ];
+    const g = { bg: '#e2f6ed', fg: '#11804a' }, o = { bg: '#fff0e3', fg: '#ba470b' }, n = { bg: '#eef2f8', fg: '#202c42' };
+    const flow = [
+      { t: '商品详情 PD1', ...n }, { t: '选择体验方式 EX2', ...o }, { t: '仿真任务 EX3', ...g },
+      { t: '体验结果 09', ...g }, { t: '用户自选出口', ...o }, { t: '商品详情 / 到馆预约 10', ...n }, { t: '我的体验 EX4', ...n }
+    ].map((f, i, a) => ({ ...f, arrow: i < a.length - 1 ? '→' : '' }));
+    const edge = [
+      ['弱网', '仿真资源先下载再开始，进度可见；中断后回到选择页'],
+      ['横竖屏', '仿真任务锁定竖屏，避免控件跳位'],
+      ['未登录', '可以体验；收藏、对比、咨询、到馆预约时再拦截登录，登录后回到结果页'],
+      ['商品下架', '体验记录保留，关联商品显示“已下架”，不再进入购买'],
+      ['商家切换', 'PD2 中换商家后规格不存在，提示重新选择'],
+      ['数量过多', '超过 10 件提示走询价单，不阻止购买']
+    ];
+    const ask = [
+      ['购物车（已定）', '按导航方案 C 设为底栏 Tab；一期每次结算一个商家，不支持跨商家合并支付'],
+      ['仿真任务供应方', 'D7 待定：一期 2 个模板（无人机起降、机器人避障）由谁开发'],
+      ['游客记录', '游客体验结果是否只存本机，还是用设备 ID 暂存在服务端'],
+      ['评价门槛', '“不足 3 条隐藏”的阈值是否认可']
+    ];
+    const cells = (row) => Array.isArray(row) ? Object.fromEntries(row.map((v, i) => ['c' + i, v])) : row;
+    return { tables: tables.map((tb) => ({ ...tb, rows: tb.rows.map(cells) })), flow, edge: edge.map(cells), ask: ask.map(cells) };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));</script></body></html>

@@ -1,0 +1,227 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>报名退改申请（定稿 22）</title>
+<style>
+body{margin:0}
+a{color:#ba470b}a:hover{color:#a63c00}
+</style>
+<style>html,body{height:100%;overflow:hidden}body{margin:0;background:#1c1c1e;font-family:-apple-system,'PingFang SC',sans-serif}
+.side{position:fixed;right:16px;bottom:14px;font-size:13px;color:#9a9a9a;z-index:20}.side select{margin-left:8px;font-size:13px}
+.stage{position:fixed;left:50%;top:50%;width:390px;height:844px;transform:translate(-50%,-50%) scale(var(--s,1))}
+.phone{width:390px;height:844px;border-radius:46px;box-shadow:0 0 0 12px #111,0 0 0 14px #3a3a3c,0 30px 60px rgba(0,0,0,.6);overflow:hidden;position:relative;background:#f5f7fc}
+.status{position:absolute;top:0;left:0;right:0;height:44px;z-index:9;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 8px;font-size:15px;font-weight:600;color:#202c42;pointer-events:none}
+.phone.dark .status{background:rgba(0,0,0,.25);color:#fff}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#111;border-radius:0 0 22px 22px;z-index:10}
+.screen{position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;scrollbar-width:none;padding-top:44px;box-sizing:border-box;-webkit-overflow-scrolling:touch}.screen::-webkit-scrollbar{display:none}
+.phone.dark .screen{padding-top:0}
+.screen>div{overflow:visible!important}.screen>div>nav{position:sticky;bottom:0;z-index:5;padding-bottom:18px;background:#fff}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#202c42;z-index:11;opacity:.85}.phone.dark .home{background:#fff}
+img{color:#999;font-size:11px}
+</style><link rel="stylesheet" href="light-theme.css"><script src="light-theme.js"></script><link rel="stylesheet" href="prototype-v2.css"><script src="prototype-data.js"></script><script defer src="prototype-v2.js"></script></head><body>
+
+<div class="stage"><div class="phone" id="phone"><div class="notch"></div><div class="status"><span>9:41</span><span>●●● ▲ ▮</span></div><div class="screen" id="root"></div><div class="home"></div></div></div>
+<template id="tpl">
+
+<div style="position: relative; width: 390px; height: 916px; display: flex; flex-direction: column; background: #f5f7fc; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #202c42; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; padding: 8px; background: #fff;">
+    <a href="OrderEnroll.dc.html" aria-label="返回" style="flex-shrink: 0; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#202c42" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="flex-grow: 1; margin: 0; font-size: 18px; font-weight: 700; line-height: 25px; text-align: center;">申请退改</h1>
+    <span style="flex-shrink: 0; width: 44px; height: 44px;"></span>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 12px; background: #fff; border-radius: 14px;">
+      <img src="_blob/b41e3fb34601d5b9b3c9e40e84d2a489.jpg" alt="青少年无人机编程挑战赛" style="flex-shrink: 0; width: 56px; height: 56px; border-radius: 8px; object-fit: cover; display: block; background: #eef2f8; font-size: 11px;">
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+        <span style="font-size: 14px; font-weight: 700; line-height: 20px;">青少年无人机编程挑战赛（东营站）</span>
+        <span style="font-size: 12px; line-height: 17px; color: #627187;">11/15 上午场 09:00 · 实付 ¥240</span>
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px 14px 6px; background: #fff; border-radius: 14px;">
+      <div style="display: flex; align-items: baseline;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">选择参与人</h2>
+        <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: {{peopleHintColor}};">{{peopleHint}}</span>
+      </div>
+      <sc-for list="{{people}}" as="p" hint-placeholder-count="2">
+        <label style="display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer;">
+          <input type="checkbox" checked="{{p.on}}" onChange="{{p.toggle}}" style="accent-color: #ff6a00; width: 20px; height: 20px; margin: 0;">
+          <span style="font-size: 15px; line-height: 21px;">{{p.name}}</span>
+          <span style="font-size: 12px; line-height: 17px; color: #627187;">{{p.age}}</span>
+          <span style="margin-left: auto; font-size: 13px; line-height: 18px; color: #627187;">实付 ¥120</span>
+        </label>
+      </sc-for>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">选择处理方式</h2>
+      <div role="radiogroup" aria-label="处理方式" style="display: flex; flex-direction: column; gap: 8px;">
+        <sc-for list="{{modes}}" as="x" hint-placeholder-count="2">
+          <label style="position: relative; display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; border: 1.5px solid {{x.bd}}; background: {{x.bg}}; cursor: pointer;">
+            <input type="radio" name="enroll-refund-mode" checked="{{x.on}}" onChange="{{x.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+            <sc-if value="{{x.on}}" hint-placeholder-val="{{false}}">
+              <span style="flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+            </sc-if>
+            <sc-if value="{{x.off}}" hint-placeholder-val="{{true}}">
+              <span style="flex-shrink: 0; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid #c9d3e1; background: #fff;"></span>
+            </sc-if>
+            <span style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 15px; font-weight: 700; line-height: 21px;">{{x.t}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: #627187;">{{x.sub}}</span>
+            </span>
+          </label>
+        </sc-for>
+      </div>
+    </div>
+
+    <sc-if value="{{isMove}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border-radius: 14px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 22px;">选择新场次</h2>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{sessions}}" as="s" hint-placeholder-count="2">
+            <button type="button" onClick="{{s.pick}}" disabled="{{s.dis}}" aria-pressed="{{s.on}}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 60px; margin: 0; padding: 8px 10px; box-sizing: border-box; border-radius: 10px; border: 1.5px solid {{s.bd}}; background: {{s.bg}}; font: inherit; text-align: left; cursor: {{s.cur}};">
+              <span style="font-size: 14px; font-weight: 700; line-height: 20px; color: {{s.tc}}; white-space: nowrap;">{{s.day}}</span>
+              <span style="font-size: 12px; line-height: 17px; color: {{s.sc}}; white-space: nowrap;">{{s.sub}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; background: #fff; border-radius: 14px;">
+      <button type="button" aria-haspopup="dialog" onClick="{{openPicker}}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; margin: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer;">
+        <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">申请原因</span>
+        <span style="flex-grow: 1; min-width: 0; font-size: 14px; line-height: 20px; color: #202c42;">{{reasonLabel}}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#91a0b4" stroke-width="2" style="flex-shrink: 0;" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </button>
+      <sc-if value="{{isMove}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 50px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">费用变化</span>
+          <span style="font-size: 14px; line-height: 20px;">无需补差价</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{isRefund}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 50px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">退款金额</span>
+          <span style="font-size: 17px; font-weight: 700; line-height: 24px; color: #e85400;">{{amount}}</span>
+          <span style="margin-left: auto; font-size: 12px; line-height: 17px; color: #738096; white-space: nowrap;">{{amountNote}}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 50px; border-top: 1px solid #f0f1f3;">
+          <span style="flex-shrink: 0; width: 60px; font-size: 14px; line-height: 20px; color: #627187; white-space: nowrap;">退款去向</span>
+          <span style="font-size: 14px; line-height: 20px;">[主用支付渠道] 原路退回</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #fff0e3; font-size: 13px; line-height: 19px; color: #536178;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 2px;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01"></path></svg>
+      <span style="min-width: 0;">{{note}}</span>
+    </div>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 10px 16px 24px; background: #fff; border-top: 1px solid #e5ebf3;">
+    <sc-if value="{{canSubmit}}" hint-placeholder-val="{{true}}">
+      <a href="EnrollRefundDetail.dc.html" style="height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">提交申请</a>
+    </sc-if>
+    <sc-if value="{{cannotSubmit}}" hint-placeholder-val="{{false}}">
+      <button type="button" disabled style="height: 46px; margin: 0; border-radius: 999px; border: 0; background: #eef0f3; color: #91a0b4; font: inherit; font-size: 16px; font-weight: 500; cursor: not-allowed;">提交申请</button>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{pickerOpen}}" hint-placeholder-val="{{false}}">
+    <button type="button" onClick="{{closePicker}}" aria-label="关闭" style="position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; background: rgba(0,0,0,0.45); cursor: pointer;"></button>
+    <div role="dialog" aria-label="选择申请原因" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: #fff; border-radius: 20px 20px 0 0; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center;">
+        <span style="font-size: 17px; font-weight: 700; line-height: 24px;">选择申请原因</span>
+        <button type="button" onClick="{{closePicker}}" aria-label="关闭" style="margin-left: auto; width: 44px; height: 44px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: flex-end; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#536178" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div role="radiogroup" aria-label="申请原因" style="display: flex; flex-direction: column; gap: 8px;">
+        <sc-for list="{{reasons}}" as="r" hint-placeholder-count="4">
+          <label style="position: relative; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; border-radius: 10px; border: 1.5px solid {{r.bd}}; background: {{r.bg}}; cursor: pointer;">
+            <input type="radio" name="enroll-refund-reason" checked="{{r.on}}" onChange="{{r.pick}}" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none;">
+            <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; color: {{r.tc}}; font-weight: {{r.tw}};">{{r.label}}</span>
+            <sc-if value="{{r.on}}" hint-placeholder-val="{{false}}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+            </sc-if>
+          </label>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</template><script src="runtime.js"></script><script>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // mode：refund 取消报名并退款 / move 改到其他场次；picked：要退改的参与人；session：改期目标场次
+    this.state = { mode: 'refund', picked: { xh: true, xc: true }, session: 'next', reason: '时间冲突', picker: false };
+  }
+  renderVals() {
+    const { mode, picked, session, reason, picker } = this.state;
+    const PRICE = 120;
+    const people = [
+      { id: 'xh', name: '王小禾', age: '11 岁' },
+      { id: 'xc', name: '王小川', age: '9 岁' }
+    ].map((p) => ({
+      name: p.name, age: p.age, on: Boolean(picked[p.id]),
+      toggle: () => this.setState((st) => ({ picked: { ...st.picked, [p.id]: !st.picked[p.id] } }))
+    }));
+    const count = people.filter((p) => p.on).length;
+    const modes = [
+      { id: 'move', t: '改到其他场次', sub: '不退款，名额转入新场次' },
+      { id: 'refund', t: '取消报名并退款', sub: '11/13 09:00 前免费取消，原路退回' }
+    ].map((m) => {
+      const on = m.id === mode;
+      return {
+        t: m.t, sub: m.sub, on, off: !on,
+        bd: on ? '#ff6a00' : '#e5ebf3', bg: on ? '#fffaf5' : '#fff',
+        pick: () => this.setState({ mode: m.id })
+      };
+    });
+    // 同一活动的其他场次同价，所以改期不补差价（设计假设）；已满场次不能选
+    const sessions = [
+      { id: 'pm', day: '11/15 周日', sub: '下午 14:00 · 已满', full: true },
+      { id: 'next', day: '11/22 周日', sub: '上午 09:00 · 余 30', full: false }
+    ].map((s) => {
+      const on = !s.full && s.id === session;
+      return {
+        day: s.day, sub: s.sub, on, dis: s.full,
+        bd: on ? '#ff6a00' : '#e5ebf3',
+        bg: on ? '#fffaf5' : (s.full ? '#f5f7fc' : '#fff'),
+        tc: on ? '#ba470b' : (s.full ? '#738096' : '#202c42'),
+        sc: s.full ? '#91a0b4' : '#627187',
+        cur: s.full ? 'not-allowed' : 'pointer',
+        pick: () => this.setState({ session: s.id })
+      };
+    });
+    const reasons = ['时间冲突', '孩子身体不适', '行程有变', '其他原因'].map((label) => {
+      const on = label === reason;
+      return {
+        label, on,
+        bd: on ? '#ff6a00' : '#e5ebf3', bg: on ? '#fffaf5' : '#fff', tc: on ? '#ba470b' : '#202c42', tw: on ? 500 : 400,
+        pick: () => this.setState({ reason: label, picker: false })
+      };
+    });
+    const isMove = mode === 'move';
+    return {
+      people, modes, sessions, reasons,
+      peopleHint: count === 0 ? '至少选择 1 位参与人' : '可只退改其中一人',
+      peopleHintColor: count === 0 ? '#ba470b' : '#627187',
+      isMove,
+      isRefund: !isMove,
+      reasonLabel: reason,
+      amount: `¥${count * PRICE}`,
+      amountNote: `${count} 人 × ¥${PRICE} · 全额退款`,
+      note: isMove
+        ? '提交后由主办方确认，原凭证在确认前仍有效；确认后发放新凭证。'
+        : '提交后由主办方确认，原凭证在确认前仍有效；确认后释放名额，退款原路退回。',
+      canSubmit: count > 0,
+      cannotSubmit: count === 0,
+      pickerOpen: picker,
+      openPicker: () => this.setState({ picker: true }),
+      closePicker: () => this.setState({ picker: false })
+    };
+  }
+}
+
+window.mountBoard(document.getElementById('tpl').innerHTML,Component,{},document.getElementById('root'));
+(function(){var root=document.getElementById('root');var first=root.firstElementChild;if(first&&/background:\s*#000/.test(first.getAttribute('style')||''))document.getElementById('phone').classList.add('dark');
+function fit(){var w=window.innerWidth||document.documentElement.clientWidth,h=window.innerHeight||document.documentElement.clientHeight;var s=Math.min((w-40)/418,(h-40)/872,1);if(!(s>0.2))s=0.2;document.querySelector('.stage').style.setProperty('--s',String(s))}fit();window.addEventListener('resize',fit);setTimeout(fit,50);setTimeout(fit,400)})();</script></body></html>

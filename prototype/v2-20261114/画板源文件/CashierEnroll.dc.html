@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>报名收银台</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#d94f00}a:hover{color:#a63c00}
+</style>
+</helmet>
+<div style="width: 390px; height: 852px; display: flex; flex-direction: column; background: #f7f8fa; font-family: 'PingFang SC','Noto Sans SC',sans-serif; color: #191919; overflow: hidden;">
+  <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 8px; background: #fff;">
+    <a href="{{backHref}}" aria-label="返回" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 700;">{{title}}</h1>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px;">
+    <sc-if value="{{isPay}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px 16px 20px; border-radius: 14px; background: #fff;">
+        <span style="font-size: 13px; line-height: 18px; color: #666b73;">应付金额</span>
+        <span style="font-size: 36px; line-height: 44px; font-weight: 700; color: #e85400;">¥240</span>
+        <span style="font-size: 13px; line-height: 18px; color: #666b73;">报名费 2 人 × ¥120</span>
+        <span style="margin-top: 4px; padding: 4px 10px; border-radius: 999px; background: #fff3e8; font-size: 12px; line-height: 17px; color: #d94f00; white-space: nowrap;">{{holdText}}</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isPending}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 24px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 56px; height: 56px; border-radius: 50%; background: #fff3e8; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"></path></svg></span>
+        <span style="font-size: 18px; line-height: 25px; font-weight: 700;">支付结果确认中</span>
+        <span style="font-size: 13px; line-height: 19px; color: #555a62;">正在向支付渠道确认结果，请勿重复支付</span>
+        <span style="font-size: 13px; line-height: 19px; color: #666b73;">应付金额 ¥240 · 名额继续为你保留</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isPaid}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 24px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 56px; height: 56px; border-radius: 50%; background: #e8f7ef; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        <span style="font-size: 18px; line-height: 25px; font-weight: 700;">报名成功</span>
+        <span style="font-size: 28px; line-height: 36px; font-weight: 700; color: #e85400;">¥240</span>
+        <span style="font-size: 12px; line-height: 17px; color: #666b73;">2 个名额已确认 · 一人一码 · <span style="white-space: nowrap;">支付结果以支付渠道回执为准</span></span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isFail}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 24px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 56px; height: 56px; border-radius: 50%; background: #fdecec; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e5484d" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 7v6M12 17h.01"></path></svg></span>
+        <span style="font-size: 18px; line-height: 25px; font-weight: 700;">支付失败</span>
+        <span style="font-size: 13px; line-height: 19px; color: #555a62;">支付未成功，如已扣款将原路退回</span>
+        <span style="font-size: 13px; line-height: 19px; color: #d94f00;">名额保留 12:30 · 超时自动释放</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isExpired}}" hint-placeholder-val="{{false}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px 24px; border-radius: 14px; background: #fff; text-align: center;">
+        <span style="width: 56px; height: 56px; border-radius: 50%; background: #f2f3f5; display: flex; align-items: center; justify-content: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8a8f97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2"></path></svg></span>
+        <span style="font-size: 18px; line-height: 25px; font-weight: 700;">支付已超时</span>
+        <span style="font-size: 13px; line-height: 19px; color: #555a62;">超过 15 分钟未支付，名额已释放，订单已关闭</span>
+        <span style="font-size: 13px; line-height: 19px; color: #666b73;">没有扣款，可以重新报名</span>
+      </div>
+    </sc-if>
+
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px; border-radius: 14px; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; line-height: 20px;">
+        <span style="flex-shrink: 0; width: 70px; color: #666b73; white-space: nowrap;">订单号</span>
+        <span style="flex-grow: 1; min-width: 0;">DY20261102143000</span>
+        <button type="button" onClick="{{copyOrder}}" style="flex-shrink: 0; min-height: 44px; margin: 0; padding: 0 0 0 8px; border: 0; background: none; font: inherit; font-size: 13px; color: {{copyColor}}; white-space: nowrap; cursor: pointer;">{{copyLabel}}</button>
+      </div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 7px 0; box-sizing: border-box; border-top: 1px solid #f0f1f3; font-size: 14px; line-height: 20px;">
+          <span style="flex-shrink: 0; width: 70px; color: #666b73; white-space: nowrap;">{{r.k}}</span>
+          <span style="flex-grow: 1; min-width: 0;">{{r.v}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{isPay}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; padding: 0 14px 12px; border-radius: 14px; background: #fff;">
+        <h2 style="margin: 0; display: flex; align-items: center; min-height: 44px; font-size: 15px; font-weight: 700;">支付方式</h2>
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 12px; box-sizing: border-box; border-radius: 10px; border: 1.5px solid #ff6a00; background: #fffaf5;">
+          <span style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; background: #fff3e8; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6a00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM4 7V6a2 2 0 0 1 2-2h10v3M16 13.5h.01"></path></svg></span>
+          <span style="flex-grow: 1; min-width: 0; font-size: 15px; line-height: 21px; font-weight: 500;">[主用支付渠道]</span>
+          <span style="flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: #ff6a00; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></span>
+        </div>
+        <span style="margin-top: 8px; font-size: 12px; line-height: 17px; color: #8a8f97;">目前只支持这一种支付方式</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showFreeCancel}}" hint-placeholder-val="{{true}}">
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: #e8f7ef; color: #11804a; font-size: 13px; font-weight: 500; line-height: 18px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#19b866" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2"></path></svg>11/13 09:00 前可免费取消</div>
+    </sc-if>
+  </div>
+
+  <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 10px 16px 12px; background: #fff; border-top: 1px solid #ebedf0;">
+    <sc-if value="{{isPay}}" hint-placeholder-val="{{true}}">
+      <button type="button" onClick="{{pay}}" style="height: 46px; margin: 0; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;">确认支付 ¥240</button>
+      <a href="{{cancelHref}}" style="align-self: center; min-height: 44px; padding: 0 16px; display: flex; align-items: center; font-size: 14px; color: #666b73; text-decoration: none;">取消支付</a>
+    </sc-if>
+    <sc-if value="{{isPending}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onClick="{{showFail}}" style="flex: 1 1 0; height: 46px; margin: 0; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; font: inherit; font-size: 15px; color: #191919; cursor: pointer;">支付遇到问题</button>
+        <button type="button" onClick="{{refresh}}" style="flex: 1 1 0; height: 46px; margin: 0; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer;">刷新结果</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{isPaid}}" hint-placeholder-val="{{false}}">
+      <a href="EnrollTicket.dc.html" style="height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 16px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">查看报名凭证</a>
+      <a href="OrderEnroll.dc.html" style="align-self: center; min-height: 44px; padding: 0 16px; display: flex; align-items: center; font-size: 14px; color: #666b73; text-decoration: none;">查看订单</a>
+    </sc-if>
+    <sc-if value="{{isFail}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; gap: 10px;">
+        <a href="{{cancelHref}}" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap;">{{cancelLabel}}</a>
+        <button type="button" onClick="{{retry}}" style="flex: 1 1 0; height: 46px; margin: 0; border-radius: 999px; border: 0; background: #ff6a00; color: #fff; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer;">重新支付</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{isExpired}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; gap: 10px;">
+        <a href="ActDetail.dc.html" style="flex: 1 1 0; height: 46px; box-sizing: border-box; border-radius: 999px; border: 1px solid #c4c8ce; background: #fff; color: #191919; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center;">返回活动</a>
+        <a href="Signup.dc.html" style="flex: 1 1 0; height: 46px; border-radius: 999px; background: #ff6a00; color: #fff; font-size: 15px; font-weight: 500; text-decoration: none; display: flex; align-items: center; justify-content: center;">重新报名</a>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"frame":{"editor":"enum","options":["待支付","候补转正","已超时"],"default":"待支付"},"$preview":{"width":390,"height":852}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    // step：pay 待支付 → pending 确认中 → paid 已支付 / fail 失败；结果只以服务端收到的渠道回执为准
+    // 名额保留 15 分钟是暂定值（待业务确认）；超时帧没有页内入口，用 Tweaks 切到“已超时”
+    // “候补转正”帧：从 EnrollWaitlist 的“去付款”进来，场次是候补的 11/15 下午场，名额保留倒计时同样是 15 分钟
+    this.state = { step: 'pay', copied: false };
+  }
+  renderVals() {
+    const { copied } = this.state;
+    const frame = this.props.frame ?? '待支付';
+    const waitlist = frame === '候补转正';
+    const step = frame === '已超时' ? 'expired' : this.state.step;
+    const base = [
+      ['收款方', '东营低空与机器人体验馆 · 经平台支付渠道'],
+      ['活动', '青少年无人机编程挑战赛（东营站）'],
+      ['场次', waitlist ? '11/15 下午场 14:00' : '11/15 上午场 09:00'],
+      ['参与人', '王小禾、王小川']
+    ].concat(waitlist ? [['来源', '候补转正 · 名额已为你保留']] : []);
+    // 候补转正的名额超时后释放给下一位候补，不是回到公开名额
+    const holdText = waitlist ? '候补转正 · 名额保留 14:45 · 超时释放给下一位' : '名额保留 14:45 · 超时自动释放';
+    // 取消支付 / 支付失败后的返回：候补转正回候补记录，其余回报名填写
+    const cancelHref = waitlist ? 'EnrollWaitlist.dc.html' : 'Signup.dc.html';
+    const extra = step === 'paid' ? [['渠道交易号', '[渠道交易号]'], ['支付方式', '[主用支付渠道]']] : [];
+    const rows = base.concat(extra).map((r) => ({ k: r[0], v: r[1] }));
+    const titles = { pay: '收银台', pending: '支付结果', paid: '支付结果', fail: '支付结果', expired: '支付结果' };
+    return {
+      title: titles[step],
+      isPay: step === 'pay',
+      isPending: step === 'pending',
+      isPaid: step === 'paid',
+      isFail: step === 'fail',
+      isExpired: step === 'expired',
+      showFreeCancel: step === 'pay' || step === 'paid',
+      rows, holdText, cancelHref,
+      cancelLabel: waitlist ? '返回候补记录' : '返回报名',
+      copyLabel: copied ? '已复制' : '复制',
+      copyColor: copied ? '#11804a' : '#d94f00',
+      copyOrder: () => this.setState({ copied: true }),
+      // 已支付帧的返回去下一步（报名凭证），其余帧回到报名填写
+      backHref: step === 'paid' ? 'EnrollTicket.dc.html' : cancelHref,
+      pay: () => this.setState({ step: 'pending' }),
+      refresh: () => this.setState({ step: 'paid' }),
+      showFail: () => this.setState({ step: 'fail' }),
+      retry: () => this.setState({ step: 'pay' })
+    };
+  }
+}
+</script>
+</body>
+</html>
