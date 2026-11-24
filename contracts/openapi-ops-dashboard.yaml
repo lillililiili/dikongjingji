@@ -1,0 +1,353 @@
+openapi: "3.1.0"
+info:
+  title: "Ops Dashboard API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（2026-11-23，用户要求首页能看到“有多少商家、多少客户、多少用户量”）：Web 运营端首页的“经营概览”。
+    全平台一张汇总，只有数字，不给任何人的明细。
+
+    Every route needs a login (bearer JWT) with the PLATFORM_OPERATOR or PLATFORM_SUPPORT role; other roles get 403
+    COMMON_FORBIDDEN.
+
+    口径（都从数据库现查，不缓存，不估算）：
+    - 统计期：days 取 7、30、90，按北京时间自然日，到今天为止（含今天）；“上一期”是紧挨着的前 days 天，用来算环比。
+    - 客户：有客户角色、没注销的账号。新增按注册时间；活跃指统计期内在 App 用过（登录设备的最近使用时间落在统计期内）。
+      企业组织只数正常的。
+    - 机构：入驻机构指正常的经营机构（商家和服务商都算）；资质已审核按平台审核通过时间；能收款的商家指登记了微信支付收款账户且在用；
+      在售商家指有在售报价的商家。
+    - 成交：统一交易模块里的交易订单（七种来源），按付款时间落在统计期内统计。净成交额 = 实付 − 已退（这些订单到现在为止的退款）；
+      付款订单数、付款客户数（按买家去重）；客单价 = 净成交额 ÷ 付款订单数（取整到分，没有订单时为 0）。累计净成交额不分期。
+    - 转化：统计期内提交的交易订单里，完成付款的、完成付款且没有全额退款的。
+    - 每日：统计期每天一行（没有数也给 0），净成交额、付款订单数、新增客户。
+    - 来源构成按七种来源，只列有付款订单的；城市分布按订单城市，取净成交额最高的 8 个城市。
+    - 到场与预约：活动和场馆核销通过的人次（重复核销、过期等不算）；统计期内报名成功的活动报名数（不含待付款、已取消）；
+      统计期内付款确认的到馆预约数；统计期内提交的巡检预约数。
+    - 平台资源（当前数）：开通城市、在售商品（已上架且有在售报价）、上架的巡检服务、上架的专业服务（不含“示例”）、
+      已发布的活动、已发布的场馆、已上架的课程。
+    - 待处理（当前数）：待审的机构资质、商家资料、服务商资料，待处理的举报与反馈，客户发来平台客服还没读的会话，退款异常的交易订单。
+    - 金额是分（long）。
+
+    Bodies are returned bare, errors use the shared ApiError, like the other contracts.
+servers:
+  - url: "/"
+paths:
+  /api/v1/ops/dashboard:
+    get:
+      operationId: "getOpsDashboard"
+      summary: "经营概览"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "days"
+          in: "query"
+          required: false
+          description: "统计期天数：7、30 或 90"
+          schema:
+            type: "integer"
+            enum: [7, 30, 90]
+            default: 30
+      responses:
+        "200":
+          description: "经营概览"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsDashboard"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  responses:
+    BadRequest:
+      description: "days 不是 7、30、90（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或登录已失效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是平台运营或平台客服（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: ["code", "message", "traceId"]
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+    OpsDashboardSource:
+      type: "string"
+      enum: [MALL, RENTAL, ACTIVITY, VENUE, INSPECTION, PRO_SERVICE, COURSE]
+    OpsDashboard:
+      type: "object"
+      additionalProperties: false
+      required: [generatedAt, days, fromDate, toDate, customers, organizations, trade, funnel, engagement, supply,
+                 daily, bySource, byCity, todo]
+      properties:
+        generatedAt:
+          type: "string"
+          format: "date-time"
+        days:
+          type: "integer"
+        fromDate:
+          type: "string"
+          format: "date"
+          description: "统计期第一天（北京时间）"
+        toDate:
+          type: "string"
+          format: "date"
+          description: "统计期最后一天，就是今天"
+        customers:
+          $ref: "#/components/schemas/OpsDashboardCustomers"
+        organizations:
+          $ref: "#/components/schemas/OpsDashboardOrganizations"
+        trade:
+          $ref: "#/components/schemas/OpsDashboardTrade"
+        funnel:
+          $ref: "#/components/schemas/OpsDashboardFunnel"
+        engagement:
+          $ref: "#/components/schemas/OpsDashboardEngagement"
+        supply:
+          $ref: "#/components/schemas/OpsDashboardSupply"
+        daily:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsDashboardDay"
+        bySource:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsDashboardSourceShare"
+        byCity:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/OpsDashboardCityShare"
+        todo:
+          $ref: "#/components/schemas/OpsDashboardTodo"
+    OpsDashboardCustomers:
+      type: "object"
+      additionalProperties: false
+      required: [total, newInPeriod, newPreviousPeriod, activeInPeriod, enterprises]
+      properties:
+        total:
+          type: "integer"
+          format: "int64"
+        newInPeriod:
+          type: "integer"
+          format: "int64"
+        newPreviousPeriod:
+          type: "integer"
+          format: "int64"
+        activeInPeriod:
+          type: "integer"
+          format: "int64"
+        enterprises:
+          type: "integer"
+          format: "int64"
+    OpsDashboardOrganizations:
+      type: "object"
+      additionalProperties: false
+      required: [providers, qualificationReviewed, newInPeriod, collectingMerchants, sellingMerchants]
+      properties:
+        providers:
+          type: "integer"
+          format: "int64"
+        qualificationReviewed:
+          type: "integer"
+          format: "int64"
+        newInPeriod:
+          type: "integer"
+          format: "int64"
+        collectingMerchants:
+          type: "integer"
+          format: "int64"
+        sellingMerchants:
+          type: "integer"
+          format: "int64"
+    OpsDashboardTrade:
+      type: "object"
+      additionalProperties: false
+      required: [netPaidMinor, paidMinor, refundedMinor, paidOrders, payingCustomers, averageOrderMinor,
+                 previousNetPaidMinor, previousPaidOrders, previousPayingCustomers, lifetimeNetPaidMinor]
+      properties:
+        netPaidMinor:
+          type: "integer"
+          format: "int64"
+        paidMinor:
+          type: "integer"
+          format: "int64"
+        refundedMinor:
+          type: "integer"
+          format: "int64"
+        paidOrders:
+          type: "integer"
+          format: "int64"
+        payingCustomers:
+          type: "integer"
+          format: "int64"
+        averageOrderMinor:
+          type: "integer"
+          format: "int64"
+        previousNetPaidMinor:
+          type: "integer"
+          format: "int64"
+        previousPaidOrders:
+          type: "integer"
+          format: "int64"
+        previousPayingCustomers:
+          type: "integer"
+          format: "int64"
+        lifetimeNetPaidMinor:
+          type: "integer"
+          format: "int64"
+    OpsDashboardFunnel:
+      type: "object"
+      additionalProperties: false
+      required: [submitted, paid, kept]
+      properties:
+        submitted:
+          type: "integer"
+          format: "int64"
+        paid:
+          type: "integer"
+          format: "int64"
+        kept:
+          type: "integer"
+          format: "int64"
+          description: "完成付款且没有全额退款"
+    OpsDashboardEngagement:
+      type: "object"
+      additionalProperties: false
+      required: [checkinPeople, activityEnrollments, venueBookings, inspectionReservations]
+      properties:
+        checkinPeople:
+          type: "integer"
+          format: "int64"
+        activityEnrollments:
+          type: "integer"
+          format: "int64"
+        venueBookings:
+          type: "integer"
+          format: "int64"
+        inspectionReservations:
+          type: "integer"
+          format: "int64"
+    OpsDashboardSupply:
+      type: "object"
+      additionalProperties: false
+      required: [openCities, products, inspectionServices, proServices, activities, venues, courses]
+      properties:
+        openCities:
+          type: "integer"
+          format: "int64"
+        products:
+          type: "integer"
+          format: "int64"
+        inspectionServices:
+          type: "integer"
+          format: "int64"
+        proServices:
+          type: "integer"
+          format: "int64"
+        activities:
+          type: "integer"
+          format: "int64"
+        venues:
+          type: "integer"
+          format: "int64"
+        courses:
+          type: "integer"
+          format: "int64"
+    OpsDashboardDay:
+      type: "object"
+      additionalProperties: false
+      required: [date, netPaidMinor, paidOrders, newCustomers]
+      properties:
+        date:
+          type: "string"
+          format: "date"
+        netPaidMinor:
+          type: "integer"
+          format: "int64"
+        paidOrders:
+          type: "integer"
+          format: "int64"
+        newCustomers:
+          type: "integer"
+          format: "int64"
+    OpsDashboardSourceShare:
+      type: "object"
+      additionalProperties: false
+      required: [source, netPaidMinor, paidOrders]
+      properties:
+        source:
+          $ref: "#/components/schemas/OpsDashboardSource"
+        netPaidMinor:
+          type: "integer"
+          format: "int64"
+        paidOrders:
+          type: "integer"
+          format: "int64"
+    OpsDashboardCityShare:
+      type: "object"
+      additionalProperties: false
+      required: [cityCode, cityName, netPaidMinor, paidOrders]
+      properties:
+        cityCode:
+          type: "string"
+        cityName:
+          type: "string"
+          description: "城市目录里的名称；目录里没有时给城市编码"
+        netPaidMinor:
+          type: "integer"
+          format: "int64"
+        paidOrders:
+          type: "integer"
+          format: "int64"
+    OpsDashboardTodo:
+      type: "object"
+      additionalProperties: false
+      required: [qualificationReviews, merchantProfileReviews, providerProfileReviews, pendingFeedback,
+                 conversationsAwaitingReply, refundFailedOrders]
+      properties:
+        qualificationReviews:
+          type: "integer"
+          format: "int64"
+        merchantProfileReviews:
+          type: "integer"
+          format: "int64"
+        providerProfileReviews:
+          type: "integer"
+          format: "int64"
+        pendingFeedback:
+          type: "integer"
+          format: "int64"
+        conversationsAwaitingReply:
+          type: "integer"
+          format: "int64"
+        refundFailedOrders:
+          type: "integer"
+          format: "int64"

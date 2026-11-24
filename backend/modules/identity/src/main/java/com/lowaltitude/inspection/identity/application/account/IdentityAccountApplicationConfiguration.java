@@ -79,6 +79,14 @@ public class IdentityAccountApplicationConfiguration {
         return new OpsUserLookupService(mapper, identityClock);
     }
 
+    /** 运营端首页“经营概览”的客户和机构汇总（只读）。 */
+    @Bean
+    OpsIdentityStatsService opsIdentityStatsService(
+            com.lowaltitude.inspection.identity.infrastructure.persistence.IdentityOpsStatsMapper mapper
+    ) {
+        return new OpsIdentityStatsService(mapper);
+    }
+
     @Bean
     AccountStatePort identityAccountStatePort(LoginSessionService sessions, EnterpriseService enterprises,
                                               AccountMapper mapper) {

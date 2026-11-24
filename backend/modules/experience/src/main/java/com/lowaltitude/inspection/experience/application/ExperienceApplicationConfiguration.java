@@ -95,4 +95,10 @@ public class ExperienceApplicationConfiguration {
                 operators.getIfAvailable(() -> organizationId -> java.util.Optional.empty()),
                 products.getIfAvailable(VenueOpsPorts.Products::unchecked));
     }
+
+    /** 运营端首页“经营概览”的汇总数（只读）。 */
+    @Bean
+    ExperienceOpsStatsService experienceOpsStatsService(com.lowaltitude.inspection.experience.infrastructure.persistence.ExperienceOpsStatsMapper mapper) {
+        return new ExperienceOpsStatsService(mapper);
+    }
 }

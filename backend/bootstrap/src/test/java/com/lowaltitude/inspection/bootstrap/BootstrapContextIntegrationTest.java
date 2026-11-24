@@ -84,6 +84,7 @@ import org.springframework.web.bind.annotation.RestController;
         com.lowaltitude.inspection.trade.application.OpsMerchantAccountService.class,
         com.lowaltitude.inspection.trade.application.OpsOrderLookupService.class,
         com.lowaltitude.inspection.identity.application.account.OpsUserLookupService.class,
+        com.lowaltitude.inspection.ops.dashboard.OpsDashboardService.class,
         com.lowaltitude.inspection.opsimport.application.OpsImportService.class,
         com.lowaltitude.inspection.activity.application.ops.ActivityOpsService.class,
         com.lowaltitude.inspection.experience.application.ops.VenueOpsService.class,

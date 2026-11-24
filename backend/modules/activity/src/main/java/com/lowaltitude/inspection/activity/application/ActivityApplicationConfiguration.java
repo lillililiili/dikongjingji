@@ -116,4 +116,10 @@ public class ActivityApplicationConfiguration {
     ) {
         return new ActivityOpsService(mapper, organizations, cities);
     }
+
+    /** 运营端首页“经营概览”的汇总数（只读）。 */
+    @Bean
+    ActivityOpsStatsService activityOpsStatsService(com.lowaltitude.inspection.activity.infrastructure.persistence.ActivityOpsStatsMapper mapper) {
+        return new ActivityOpsStatsService(mapper);
+    }
 }

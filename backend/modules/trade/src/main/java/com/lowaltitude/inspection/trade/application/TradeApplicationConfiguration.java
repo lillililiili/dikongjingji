@@ -65,6 +65,14 @@ public class TradeApplicationConfiguration {
         return new OpsOrderLookupService(mapper);
     }
 
+    /** 运营端首页“经营概览”的交易汇总（只读）。 */
+    @Bean
+    OpsTradeStatsService opsTradeStatsService(
+            com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOpsStatsMapper mapper
+    ) {
+        return new OpsTradeStatsService(mapper);
+    }
+
     /** 商城订单完成时告诉业务模块（S5-5：商品附带的数字课程开通）。监听者第一次用到时才取。 */
     @Bean
     TradeCompletionEvents tradeCompletionEvents(

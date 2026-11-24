@@ -67,4 +67,10 @@ public class ReservationApplicationConfiguration {
                 storage,
                 Clock.systemUTC());
     }
+
+    /** 运营端首页“经营概览”的汇总数（只读）。 */
+    @Bean
+    InspectionOpsStatsService inspectionOpsStatsService(com.lowaltitude.inspection.infrastructure.persistence.InspectionOpsStatsMapper mapper) {
+        return new InspectionOpsStatsService(mapper);
+    }
 }

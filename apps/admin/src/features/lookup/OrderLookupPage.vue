@@ -15,6 +15,7 @@ import {
   STATUS_LABELS,
   type LookupApi,
   type OrderFilters,
+  type OrderStatus,
   type OrderSummary,
 } from './lookup-api'
 
@@ -30,8 +31,14 @@ const router = useRouter()
 const buyerId = typeof route.query.buyerId === 'string' ? route.query.buyerId : ''
 const buyerName = typeof route.query.buyerName === 'string' ? route.query.buyerName : ''
 
+/** 首页“待处理”里的“退款异常的订单”带 status 过来。 */
+const initialStatus = typeof route.query.status === 'string' && route.query.status in STATUS_LABELS
+  ? route.query.status as OrderStatus
+  : ''
+
 const list = usePagedList<OrderSummary, OrderFilters>((filters, page, size) => api.orders(filters, page, size),
-  { q: typeof route.query.q === 'string' ? route.query.q : '', buyerId, source: '', status: '', dates: null })
+  { q: typeof route.query.q === 'string' ? route.query.q : '', buyerId, source: '', status: initialStatus,
+    dates: null })
 
 const sourceOptions = Object.entries(SOURCE_LABELS) as Array<[keyof typeof SOURCE_LABELS, string]>
 const statusOptions = Object.entries(STATUS_LABELS) as Array<[keyof typeof STATUS_LABELS, string]>

@@ -63,4 +63,10 @@ public class MallApplicationConfiguration {
     MallRentalOffers mallRentalOffers(MallCartMapper mapper) {
         return new MallRentalOffers(mapper);
     }
+
+    /** 运营端首页“经营概览”的汇总数（只读）。 */
+    @Bean
+    MallOpsStatsService mallOpsStatsService(com.lowaltitude.inspection.mall.infrastructure.persistence.MallOpsStatsMapper mapper) {
+        return new MallOpsStatsService(mapper);
+    }
 }

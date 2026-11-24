@@ -228,4 +228,30 @@ test.describe('机构工作台（运营端）', () => {
     await noErrorAlert(page)
     await page.screenshot({ path: resolve(compareOutput, 'support-order-lookup.png'), fullPage: true })
   })
+
+  // 首页经营概览（契约 openapi-ops-dashboard.yaml）：页面上的数字就是接口给的数，切换统计期重新取；待处理只给能进的页面加链接。
+  test('ADM-WB-006 平台客服在首页看到经营概览', async ({ page }) => {
+    test.setTimeout(90_000)
+    await adminSignIn(page, 'dev-support', '/lookup/orders')
+    const first = page.waitForResponse((response) => response.url().includes('/api/v1/ops/dashboard?days=30'))
+    await page.goto(`${ADMIN}/`)
+    const thirty = await (await first).json() as {
+      trade: { paidOrders: number }, customers: { total: number }, organizations: { providers: number }
+    }
+    await expect(page.getByTestId('ops-dashboard')).toContainText('经营概览')
+    await expect(page.getByTestId('kpi-orders')).toContainText(thirty.trade.paidOrders.toLocaleString('en-US'))
+    await expect(page.getByTestId('kpi-customers')).toContainText(thirty.customers.total.toLocaleString('en-US'))
+    await expect(page.getByTestId('kpi-providers')).toContainText(thirty.organizations.providers.toLocaleString('en-US'))
+    await expect(page.getByTestId('dashboard-todo').getByRole('link', { name: '商家资料待审核' })).toHaveCount(0)
+    await noErrorAlert(page)
+
+    const seven = page.waitForResponse((response) => response.url().includes('/api/v1/ops/dashboard?days=7'))
+    await page.getByTestId('dashboard-days').getByText('近 7 天').click()
+    const week = await (await seven).json() as { fromDate: string, toDate: string, trade: { paidOrders: number } }
+    await expect(page.getByTestId('ops-dashboard')).toContainText(`${week.fromDate} 至 ${week.toDate}`)
+    await expect(page.getByTestId('kpi-orders')).toContainText(week.trade.paidOrders.toLocaleString('en-US'))
+    await noErrorAlert(page)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.screenshot({ path: resolve(compareOutput, 'ops-dashboard.png'), fullPage: true })
+  })
 })

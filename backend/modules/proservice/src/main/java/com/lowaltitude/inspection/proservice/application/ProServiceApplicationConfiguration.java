@@ -44,4 +44,10 @@ public class ProServiceApplicationConfiguration {
     ) {
         return new ProServiceOpsService(mapper, organizations, cities);
     }
+
+    /** 运营端首页“经营概览”的汇总数（只读）。 */
+    @Bean
+    ProServiceOpsStatsService proServiceOpsStatsService(com.lowaltitude.inspection.proservice.infrastructure.persistence.ProServiceOpsStatsMapper mapper) {
+        return new ProServiceOpsStatsService(mapper);
+    }
 }

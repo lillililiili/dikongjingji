@@ -21,4 +21,10 @@ public class SupportApplicationConfiguration {
     ) {
         return new SupportService(mapper, organizations, profiles, notifier);
     }
+
+    /** 运营端首页“经营概览”的汇总数（只读）。 */
+    @Bean
+    SupportOpsStatsService supportOpsStatsService(com.lowaltitude.inspection.support.infrastructure.persistence.SupportOpsStatsMapper mapper) {
+        return new SupportOpsStatsService(mapper);
+    }
 }

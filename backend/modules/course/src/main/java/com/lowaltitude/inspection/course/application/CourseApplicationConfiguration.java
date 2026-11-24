@@ -36,4 +36,10 @@ public class CourseApplicationConfiguration {
     ) {
         return new CourseOpsService(courses, mapper, organizations, payments, activities, Clock.systemUTC());
     }
+
+    /** 运营端首页“经营概览”的汇总数（只读）。 */
+    @Bean
+    CourseOpsStatsService courseOpsStatsService(com.lowaltitude.inspection.course.infrastructure.persistence.CourseOpsStatsMapper mapper) {
+        return new CourseOpsStatsService(mapper);
+    }
 }
