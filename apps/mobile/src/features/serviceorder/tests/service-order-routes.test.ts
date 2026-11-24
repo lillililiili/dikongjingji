@@ -51,7 +51,7 @@ describe('service order routes', () => {
 
 describe('service order release switch', () => {
   it('reads its own constant and stays closed on public builds by default', () => {
-    expect(flagSource).toContain(`export const SERVICE_ORDER_PREVIEW_ENABLED = ${moduleFlagExpression('SERVICE_ORDER')}\n`)
+    expect(flagSource.replace(/\r\n/g, '\n')).toContain(`export const SERVICE_ORDER_PREVIEW_ENABLED = ${moduleFlagExpression('SERVICE_ORDER')}\n`)
     expect(releaseRegistry.features.find((feature) => feature.key === 'SERVICE_ORDER')).toEqual({
       key: 'SERVICE_ORDER',
       flag: 'SERVICE_ORDER_PREVIEW_ENABLED',

@@ -335,7 +335,7 @@ function showCustomerService(): void {
   if (current.providerId) openSupportChat({ kind: 'PROVIDER', organizationId: current.providerId }, card)
   else openSupportChat({ kind: 'PLATFORM' }, card)
 }
-function formatLength(meters: number | null): string { return meters == null ? '待服务商评估' : `${(meters / 1000).toFixed(1).replace(/\.0$/, '')}公里` }
+function formatLength(meters: number): string { return `${(meters / 1000).toFixed(1).replace(/\.0$/, '')}公里` }
 function maskMobile(value: string): string {
   return /^1\d{10}$/.test(value) ? `${value.slice(0, 3)}****${value.slice(-4)}` : value
 }
@@ -378,7 +378,7 @@ const detailRows = computed(() => {
   const slot = SLOT_LABELS[current.preferredTimeSlotCode] ?? ''
   return [
     { key: 'location', label: '巡检地点', value: current.location.address },
-    { key: 'length', label: '线路长度', value: formatLength(current.lineLengthMeters) },
+    ...(current.lineLengthMeters == null ? [] : [{ key: 'length', label: '线路长度', value: formatLength(current.lineLengthMeters) }]),
     { key: 'time', label: '期望时间', value: slot ? `${date} ${slot}` : date },
     ...(current.inspectionItems.length
       ? [{ key: 'items', label: '巡检项目', value: current.inspectionItems.map((item) => item.label).join('、') }]

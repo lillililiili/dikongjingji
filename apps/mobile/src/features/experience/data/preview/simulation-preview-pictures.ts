@@ -1,5 +1,6 @@
-import { EXPERIENCE_PREVIEW_ENABLED } from '../../application/experience-preview'
 import type { SimulationTemplate } from '../../domain/simulation'
+
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // Pictures of the boards ExpSim, ExpResult, ExpRecords and SoftwareTrial for preview builds. They are
 // the prototype's own pictures (already in the preview folder under other names); the server's
@@ -30,21 +31,21 @@ const url = (name: string | undefined, previewEnabled: boolean) =>
 
 export function simulationScenePicture(
   template: SimulationTemplate | null,
-  previewEnabled: boolean = EXPERIENCE_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   return url(template ? SCENES[template] : undefined, previewEnabled)
 }
 
 export function simulationRecordPicture(
   template: SimulationTemplate | null,
-  previewEnabled: boolean = EXPERIENCE_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   return url(template ? RECORD_PICTURES[template] : undefined, previewEnabled)
 }
 
 export function trialPicture(
   which: keyof typeof TRIAL_PICTURES,
-  previewEnabled: boolean = EXPERIENCE_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   return url(TRIAL_PICTURES[which], previewEnabled)
 }

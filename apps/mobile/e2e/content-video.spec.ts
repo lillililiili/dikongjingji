@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+import { PLANNING, boardUrl } from './support/board-compare'
 import { API, BUYER, MERCHANT, apiLogin, databaseAvailable, psql, type Session } from './support/trade-fixtures'
 
 // The login page carries the target as an encoded returnUrl inside the hash (see experience.spec).
@@ -28,9 +29,8 @@ const CAMP = 'f3200000-0000-4000-8000-000000000006'
 const VIDEOS = [ROBOT, DOG, AERIAL, CONTEST, SURVEY, CAMP]
 const EAGLE_PROVIDER = 'f2000000-0000-4000-8000-000000000001'
 const ROBOT_KIT = 'c2000000-0000-4000-8000-000000000101'
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/content-video')
-const visualOutput = resolve(__dirname, '../../../../../.planning/content/visual')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const compareOutput = resolve(PLANNING, 'style-compare/content-video')
+const visualOutput = resolve(PLANNING, 'content/visual')
 
 const discover = (page: Page) => page.getByTestId('content-discover')
 const feed = (page: Page) => page.getByTestId('content-video-feed')
@@ -415,7 +415,7 @@ test.describe('发现页视频', () => {
 
     for (const [board, app] of [['Discover', 'Discover-video'], ['VideoFeed', 'VideoFeed'], ['ContentVideo', 'ContentVideo']]) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${resolve(boardDir, `${board}.html`)}`)
+      await page.goto(boardUrl(board))
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       if (board === 'Discover') await page.getByRole('tab', { name: '视频' }).click()

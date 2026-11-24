@@ -16,7 +16,7 @@ const hosts = import.meta.glob(['../../../pages/mine/{phone,devices,data,permiss
 
 describe('account pages stay behind the ACCOUNT switch (S5-7, S5-8)', () => {
   it('reads its own release constant', () => {
-    expect(flagSource).toContain(`export const ACCOUNT_PREVIEW_ENABLED = ${moduleFlagExpression('ACCOUNT')}\n`)
+    expect(flagSource.replace(/\r\n/g, '\n')).toContain(`export const ACCOUNT_PREVIEW_ENABLED = ${moduleFlagExpression('ACCOUNT')}\n`)
   })
 
   it('every new page renders only with the switch on', () => {
@@ -39,9 +39,9 @@ describe('account pages stay behind the ACCOUNT switch (S5-7, S5-8)', () => {
 
   it('settings, 我的 and the home page only add account things with the switch on', () => {
     expect(settingsHost).toContain(':account-pages="ACCOUNT_PREVIEW_ENABLED"')
-    expect(settingsHost).toContain('ACCOUNT_PREVIEW_ENABLED ? identityAccountApi.readClosure(token)')
+    expect(settingsHost).toContain('ACCOUNT_PREVIEW_ENABLED ? readClosure(token)')
     expect(mineHost).toContain("if (!user || !ACCOUNT_PREVIEW_ENABLED || !own) return user")
-    expect(mineHost).toContain("...(ACCOUNT_PREVIEW_ENABLED\n      ? [{ code: 'ENTERPRISE', title: '企业组织'")
+    expect(mineHost.replace(/\r\n/g, '\n')).toContain("...(ACCOUNT_PREVIEW_ENABLED\n      ? [{ code: 'ENTERPRISE', title: '企业组织'")
     expect(homeHost).toContain('shouldOpenOnboardingNow(ACCOUNT_PREVIEW_ENABLED)')
   })
 })

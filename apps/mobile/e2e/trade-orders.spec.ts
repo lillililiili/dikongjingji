@@ -39,7 +39,7 @@ const DRONE_FACTORY = offerId('201', '4')
 const KIT_SKU = '(?:标准版|标准套装（1 台 \\+ 数字课程）)'
 const KIT_PRICE = 129900
 const visualOutput = resolve(__dirname, '../../../.planning/trade-orders/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare')
+const compareOutput = resolve(__dirname, '../../../.planning/style-compare')
 
 async function signIn(page: Page, session: Session): Promise<void> {
   await page.addInitScript((token) => {

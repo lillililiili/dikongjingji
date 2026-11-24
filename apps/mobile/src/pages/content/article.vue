@@ -4,12 +4,11 @@ import { ref } from 'vue'
 
 import { CONTENT_PREVIEW_ENABLED } from '@/features/content/application/content-preview'
 import { parseContentArticleTarget } from '@/features/content/navigation/content-routes'
+import { openContentDiscover } from '@/features/content/navigation/open-content-discover'
 import ContentArticlePage from '@/features/content/presentation/article/ContentArticlePage.vue'
 import ContentUnavailable from '@/features/content/presentation/shared/ContentUnavailable.vue'
 import { openSupportChat } from '@/features/support/application/support-entry'
 import type { SupportTarget } from '@/features/support/navigation/support-routes'
-
-const DISCOVER_PATH = '/pages/discover/index'
 
 const target = ref<{ articleId: string; cityCode: string } | null>(null)
 
@@ -19,11 +18,11 @@ function goBack(): void {
     uni.navigateBack()
     return
   }
-  uni.switchTab({ url: DISCOVER_PATH })
+  browse()
 }
 
 function browse(): void {
-  uni.switchTab({ url: DISCOVER_PATH })
+  void openContentDiscover(target.value?.cityCode)
 }
 
 function open(url: string): void {

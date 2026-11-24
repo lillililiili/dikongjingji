@@ -94,6 +94,25 @@ describe('video stream session', () => {
     expect(state().index).toBe(0)
   })
 
+  it('advances once when next is tapped at the end of a still-loading page', async () => {
+    let finish!: (result: ContentVideoPage) => void
+    const loadStream = vi.fn()
+      .mockResolvedValueOnce(page([video('v1'), video('v2')], 'c1'))
+      .mockReturnValueOnce(new Promise<ContentVideoPage>((resolve) => { finish = resolve }))
+    const { session, state } = feedHarness({ loadStream })
+    await session.load('RECOMMEND', CITY, null)
+    await session.next()
+    expect(state().loadingMore).toBe(true)
+
+    const next = session.next()
+    const repeated = session.next()
+    await Promise.resolve()
+    finish(page([video('v3'), video('v4')]))
+    await Promise.all([next, repeated])
+    expect(loadStream).toHaveBeenCalledTimes(2)
+    expect(state().items[state().index].videoId).toBe('v3')
+  })
+
   it('says when the start is gone, when the following stream needs a login, and when nothing is there', async () => {
     const loadStream = vi.fn()
       .mockRejectedValueOnce(new HttpError(404))

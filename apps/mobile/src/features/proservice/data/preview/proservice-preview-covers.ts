@@ -1,5 +1,6 @@
-import { PROSERVICE_PREVIEW_ENABLED } from '../../application/proservice-preview'
 import type { ProServiceCategory, ProServiceType } from '../../domain/proservice'
+
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // Pictures for the sample services of the development seed (R__dev_proservice_catalog.sql). They
 // are the 2026-11-14 boards' pictures (SvcCatalog cards, SvcAerial / SvcSurvey / SvcMaint /
@@ -44,7 +45,7 @@ export function resolveProServicePreviewCover(
   type: ProServiceType,
   category: ProServiceCategory,
   hero = false,
-  previewEnabled: boolean = PROSERVICE_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   if (!previewEnabled) return null
   const key = `${type}:${category}` as const
@@ -72,7 +73,7 @@ const INSPECTION_PREVIEW_BY_CATEGORY_NAME: Record<string, string> = {
 
 export function inspectionServicePicture(
   categoryName: string,
-  previewEnabled: boolean = PROSERVICE_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   const own = INSPECTION_BY_CATEGORY_NAME[categoryName]
   if (own) return `${INSPECTION_DIRECTORY}/${own}`

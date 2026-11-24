@@ -8,7 +8,6 @@ export interface PlayGame {
   skillLabel: string
   tone: PlayGameTone
   avatar: PlayAvatar
-  coverUrl: string
   // Cell indexes on the board, counted row by row from the top-left corner.
   walls: readonly number[]
   stars: readonly number[]
@@ -26,7 +25,6 @@ export const PLAY_GAMES: readonly PlayGame[] = [
     skillLabel: '逻辑启蒙 · 避障闯关',
     tone: 'VIOLET',
     avatar: 'ROBOT',
-    coverUrl: '/static/images/home/robot-rover.jpg',
     walls: [6, 7, 8, 13, 16, 18],
     stars: [2, 10, 22],
     goal: 24,
@@ -38,7 +36,6 @@ export const PLAY_GAMES: readonly PlayGame[] = [
     skillLabel: '路线规划 · 寻星挑战',
     tone: 'SKY',
     avatar: 'DRONE',
-    coverUrl: '/static/images/home/hero-world.jpg',
     walls: [6, 8, 11, 13, 18],
     stars: [4, 12, 20],
     goal: 24,

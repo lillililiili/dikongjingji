@@ -1,16 +1,16 @@
 // 原型画板和 App 截图并排对照（S5-3 起用）。
 // 用法（在 apps/mobile 下）：
 //   node scripts/board-compare.mjs <画板名> "<帧名或空>" <App 截图 png> <输出目录> [输出名]
-// 例：node scripts/board-compare.mjs EnrollWaitlist 候补中 ../../../.planning/activity-s53/visual/EnrollWaitlist-waiting-app.png \
-//       /Users/frank/Desktop/低空经济/.planning/style-compare/activity-s53 EnrollWaitlist-waiting
+// 例：node scripts/board-compare.mjs EnrollWaitlist 候补中 ../../.planning/activity-s53/visual/EnrollWaitlist-waiting-app.png \
+//       ../../.planning/style-compare/activity-s53 EnrollWaitlist-waiting
 // 输出 <名>-board.png（画板整页，390 宽）和 <名>-compare.png（左画板、右 App）。
 import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { chromium } from '@playwright/test'
 
-const PROTOTYPE = '/Users/frank/Desktop/低空经济/.planning/prototype/v2-20261114'
+const PROTOTYPE = fileURLToPath(new URL('../../../prototype/v2-20261114/', import.meta.url))
 const [board, frame, appShot, outDir, outName] = process.argv.slice(2)
 if (!board || !appShot || !outDir) {
   console.error('usage: board-compare.mjs <Board> "<frame>" <app.png> <outDir> [name]')

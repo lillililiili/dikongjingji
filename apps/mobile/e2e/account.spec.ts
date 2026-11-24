@@ -44,6 +44,17 @@ async function openSignedIn(page: Page, token: string, route: string): Promise<v
   await page.goto(`/?e2e=${Date.now()}#${route}`)
 }
 
+// Hold the first real read until the UI has rendered, as on a slow connection.
+async function holdRead(page: Page, endpoint: string): Promise<() => void> {
+  let release!: () => void
+  const wait = new Promise<void>((resolve) => { release = resolve })
+  await page.route('**/api/v1/account/' + endpoint, async (route) => {
+    if (route.request().method() === 'GET') await wait
+    await route.continue()
+  })
+  return release
+}
+
 // uni puts the test id on its input wrapper; the native input is inside.
 const field = (page: Page, testId: string) => page.getByTestId(testId).locator('input')
 
@@ -134,8 +145,13 @@ test.describe('设置：手机号、登录设备、注销、导出（Settings, S
 
   test('ACC-005 注销：条件满足时申请，进入 15 天冷静期，可撤回；冷静期内不能下单', async ({ page, request }) => {
     const me = await signUpByApi(request, randomPhone())
-    await openSignedIn(page, me.token, '/pages/mine/settings')
-    await page.getByTestId('settings-closure').click()
+    const release = await holdRead(page, 'closure')
+    try {
+      await openSignedIn(page, me.token, '/pages/mine/settings')
+      await page.getByTestId('settings-closure').click()
+    } finally {
+      release()
+    }
     await expect(page.getByTestId('closure-sheet')).toContainText('注销条件已全部满足')
     await page.getByTestId('closure-apply').click()
     await expect(page.getByTestId('closure-sheet')).toContainText('注销申请处理中')
@@ -153,9 +169,16 @@ test.describe('设置：手机号、登录设备、注销、导出（Settings, S
   })
 
   test('ACC-006 个人信息导出：验证手机号后申请，生成后一次性下载', async ({ page, request }) => {
+    test.setTimeout(90_000) // Includes a real scheduling cycle, UI polling and the file transfer.
     const phone = randomPhone()
     const me = await signUpByApi(request, phone)
-    await openSignedIn(page, me.token, '/pages/mine/data')
+    const release = await holdRead(page, 'data-exports')
+    try {
+      await openSignedIn(page, me.token, '/pages/mine/data')
+      await expect(page.getByTestId('data-apply')).toBeDisabled()
+    } finally {
+      release()
+    }
     await expect(page.getByTestId('data-phone')).toHaveText(mask(phone))
     await page.getByTestId('data-apply').click()
     await expect(page.getByTestId('data-sheet')).toContainText(`验证手机号 ${mask(phone)}`)
@@ -167,7 +190,15 @@ test.describe('设置：手机号、登录设备、注销、导出（Settings, S
     await page.getByTestId('data-submit').click()
     await expect(page.getByTestId('data-record-making')).toBeVisible()
     // The server job runs every 15 seconds; the page reloads itself every 5.
-    await expect(page.getByTestId('data-download')).toBeVisible({ timeout: 60_000 })
+    const downloadButton = page.getByTestId('data-download')
+    await expect(downloadButton).toBeVisible({ timeout: 60_000 })
+    const [download] = await Promise.all([page.waitForEvent('download'), downloadButton.click()])
+    expect(download.suggestedFilename()).toMatch(/\.zip$/i)
+    const stream = await download.createReadStream()
+    const chunks: Buffer[] = []
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk))
+    expect(Buffer.concat(chunks).subarray(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 3, 4]))
+    expect((await request.get(download.url())).status()).toBe(404)
   })
 
   test('ACC-007 权限管理与新手引导（SetPerm, Onboarding）', async ({ page, request }) => {

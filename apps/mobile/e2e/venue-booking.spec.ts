@@ -30,8 +30,8 @@ const ROBOT_PROJECT_ID = 'b4000000-0000-4000-8000-000000000101'
 const UNIT = 3900
 const KID_OK = '到馆小禾'
 const KID_YOUNG = '到馆小满'
-const visualOutput = resolve(__dirname, '../../../../../.planning/venue-booking/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/venue')
+const visualOutput = resolve(__dirname, '../../../.planning/venue-booking/visual')
+const compareOutput = resolve(__dirname, '../../../.planning/style-compare/venue')
 
 const buyerId = () => `(SELECT id FROM identity_user WHERE login_name = '${BUYER}')`
 

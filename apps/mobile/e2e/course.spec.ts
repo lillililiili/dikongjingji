@@ -34,7 +34,7 @@ const CERT = 'd7c00000-0000-4000-8000-000000000004'
 const CAMP_ACTIVITY = 'a2000000-0000-4000-8000-000000000002'
 const TRIAL_ENTRY = 'b1000000-0000-4000-8000-000000000005'
 const ROBOT_KIT_OFFER = offerId('101', '1')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/course')
+const compareOutput = resolve(__dirname, '../../../.planning/style-compare/course')
 
 const buyerId = () => `(SELECT id FROM identity_user WHERE login_name = '${BUYER}')`
 

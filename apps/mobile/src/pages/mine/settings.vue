@@ -39,6 +39,7 @@ const addressCount = ref<number | null>(null)
 // 注销账户 (S5-8): the conditions and a running request, read with the page; the sheet shows them.
 const closure = ref<AccountClosure | null>(null)
 const closureOpen = ref(false)
+let closureRequest: Promise<AccountClosure> | undefined
 const closureBusy = ref(false)
 const badges = useRootTabBadgeStore()
 
@@ -56,6 +57,11 @@ function toggleNotification(key: NotificationSwitch): void {
   void switches.toggle(key)
 }
 
+function readClosure(token: string): Promise<AccountClosure> {
+  closureRequest ??= identityAccountApi.readClosure(token).finally(() => { closureRequest = undefined })
+  return closureRequest
+}
+
 // Settings belong to an account: without one the page goes to sign in and comes back.
 async function load(): Promise<void> {
   const token = getBookingAuthContext().getAccessToken()
@@ -66,7 +72,7 @@ async function load(): Promise<void> {
   const [loadedAccount, addresses, loadedClosure] = await Promise.allSettled([
     inspectionAccountApi.loadCurrent(token),
     addressApi.list(token),
-    ACCOUNT_PREVIEW_ENABLED ? identityAccountApi.readClosure(token) : Promise.resolve(null),
+    ACCOUNT_PREVIEW_ENABLED ? readClosure(token) : Promise.resolve(null),
   ])
   if (loadedAccount.status === 'fulfilled') {
     account.value = {
@@ -111,10 +117,16 @@ function logout(): void {
   })
 }
 
-function openClosure(): void {
+async function openClosure(): Promise<void> {
   if (!closure.value) {
-    uni.showToast({ title: '注销条件暂时读取不到，请稍后再试', icon: 'none' })
-    return
+    const token = getBookingAuthContext().getAccessToken()
+    if (!token) return
+    try {
+      closure.value = await readClosure(token)
+    } catch (reason) {
+      uni.showToast({ title: reason instanceof Error ? reason.message : '注销条件读取失败，请重试', icon: 'none' })
+      return
+    }
   }
   closureOpen.value = true
 }

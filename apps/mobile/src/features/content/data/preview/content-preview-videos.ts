@@ -1,5 +1,6 @@
-import { CONTENT_PREVIEW_ENABLED } from '../../application/content-preview'
 import type { ContentImage } from '../../domain/content'
+
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // Sample clips and posters for the six sample videos of the development seed
 // (R__dev_content_video.sql), keyed by id. There is no video storage in development, so the server
@@ -20,13 +21,13 @@ const VIDEOS: Record<string, { slug: string; alt: string }> = {
 }
 
 /** The sample clip of a seeded video on preview builds; null otherwise. */
-export function resolveVideoPreviewSource(videoId: string, previewEnabled: boolean = CONTENT_PREVIEW_ENABLED): string | null {
+export function resolveVideoPreviewSource(videoId: string, previewEnabled: boolean = PREVIEW_SAMPLES): string | null {
   const entry = previewEnabled ? VIDEOS[videoId] : undefined
   return entry ? `${VIDEO_DIRECTORY}/${entry.slug}.mp4` : null
 }
 
 /** The poster of a seeded video (its first frame) on preview builds; null otherwise. */
-export function resolveVideoPreviewCover(videoId: string, previewEnabled: boolean = CONTENT_PREVIEW_ENABLED): ContentImage | null {
+export function resolveVideoPreviewCover(videoId: string, previewEnabled: boolean = PREVIEW_SAMPLES): ContentImage | null {
   const entry = previewEnabled ? VIDEOS[videoId] : undefined
   return entry ? { url: `${IMAGE_DIRECTORY}/video-${entry.slug}.jpg`, alt: entry.alt } : null
 }
@@ -34,7 +35,7 @@ export function resolveVideoPreviewCover(videoId: string, previewEnabled: boolea
 /** What the player plays: the server's address, else the preview sample, else nothing. */
 export function videoPlaySource(
   video: { videoId: string; playUrl: string | null },
-  previewEnabled: boolean = CONTENT_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   return video.playUrl ?? resolveVideoPreviewSource(video.videoId, previewEnabled)
 }
@@ -42,7 +43,7 @@ export function videoPlaySource(
 /** The poster: the server's cover, else the preview poster. */
 export function videoPoster(
   video: { videoId: string; coverImage: ContentImage | null },
-  previewEnabled: boolean = CONTENT_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): ContentImage | null {
   return video.coverImage ?? resolveVideoPreviewCover(video.videoId, previewEnabled)
 }

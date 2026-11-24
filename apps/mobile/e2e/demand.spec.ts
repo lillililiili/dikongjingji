@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 
 import { expect, test, type APIRequestContext, type Page, type Route } from '@playwright/test'
 
+import { PLANNING, boardUrl } from './support/board-compare'
 import {
   API,
   BUYER,
@@ -20,9 +21,8 @@ import {
 const PROVIDER = 'dev-provider'
 const PROVIDER_ID = '22222222-2222-2222-2222-222222222222'
 const CITY = '370500'
-const visualOutput = resolve(__dirname, '../../../../../.planning/demand/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/demand')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const visualOutput = resolve(PLANNING, 'demand/visual')
+const compareOutput = resolve(PLANNING, 'style-compare/demand')
 
 const buyerId = () => `(SELECT id FROM identity_user WHERE login_name = '${BUYER}')`
 
@@ -569,7 +569,7 @@ test.describe('需求发布与报价比选', () => {
     // The boards at 390 next to the App at 390.
     for (const board of ['Demand', 'DemandList', 'Quote', 'PlanCompare']) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${resolve(boardDir, `${board}.html`)}`)
+      await page.goto(boardUrl(board))
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60

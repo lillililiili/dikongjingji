@@ -5,10 +5,9 @@ import { ref } from 'vue'
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import { CONTENT_PREVIEW_ENABLED } from '@/features/content/application/content-preview'
 import { buildContentArticleUrl, parseContentTopicTarget } from '@/features/content/navigation/content-routes'
+import { openContentDiscover } from '@/features/content/navigation/open-content-discover'
 import ContentUnavailable from '@/features/content/presentation/shared/ContentUnavailable.vue'
 import ContentTopicPage from '@/features/content/presentation/topic/ContentTopicPage.vue'
-
-const DISCOVER_PATH = '/pages/discover/index'
 
 const target = ref<{ topicId: string; cityCode: string } | null>(null)
 
@@ -18,11 +17,11 @@ function goBack(): void {
     uni.navigateBack()
     return
   }
-  uni.switchTab({ url: DISCOVER_PATH })
+  browse()
 }
 
 function browse(): void {
-  uni.switchTab({ url: DISCOVER_PATH })
+  void openContentDiscover(target.value?.cityCode)
 }
 
 function open(url: string): void {

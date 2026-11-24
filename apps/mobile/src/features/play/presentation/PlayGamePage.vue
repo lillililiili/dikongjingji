@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { robotArtwork } from '@/app-shell/navigation/home-artwork'
 
 import {
   createPlaySession,
@@ -19,7 +20,7 @@ const PLAY_GAMES_PATH = '/pages/play/index'
 const CLOCK_TICK_MS = 300
 // The robot starts as the little rover photo of the games page (GamePlay board); the drone keeps its drawing.
 const AVATAR_URLS = {
-  ROBOT: '/static/images/home/robot-rover.jpg',
+  ROBOT: robotArtwork,
   DRONE: '/static/images/play/avatar-drone.svg',
 } as const
 const PAD: readonly { direction: PlayDirection; label: string; glyph: string }[] = [

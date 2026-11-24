@@ -3,6 +3,7 @@ import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 import { computed, ref, watch } from 'vue'
 
 import { PLAY_GAMES_PATH } from '@/app-shell/navigation/home-channels'
+import { robotArtwork } from '@/app-shell/navigation/home-artwork'
 import { COURSE_PREVIEW_ENABLED } from '@/features/course/application/course-preview'
 import { buildCourseTrialUrl } from '@/features/course/navigation/course-routes'
 import {
@@ -115,7 +116,7 @@ function coverOf(id: string, coverImage: { url: string } | null): string | null 
 }
 
 // The games are built into the App, so their picture ships with it (the same one the games page uses).
-const GAMES_PICTURE = '/static/images/home/robot-rover.jpg'
+const GAMES_PICTURE = robotArtwork
 
 function openGames(): void {
   uni.navigateTo({ url: PLAY_GAMES_PATH })

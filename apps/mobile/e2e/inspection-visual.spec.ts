@@ -66,6 +66,18 @@ interface Screen {
   check?(page: Page): Promise<void>
 }
 
+for (const scenario of [
+  { name: '输电', id: SERVICE_ID, lengthFields: 1 },
+  { name: '光伏', id: '66666666-6666-6666-6666-666666666666', lengthFields: 0 },
+]) {
+  test('预约按服务类目收集线路长度 · ' + scenario.name, async ({ page }) => {
+    await page.goto('/#/pages/service/inspection/booking?serviceId=' + scenario.id + '&cityCode=370500')
+    await expect(page.locator('.booking-row--time')).toBeVisible()
+    const lengthRow = page.locator('.booking-row').filter({ has: page.getByText('线路长度', { exact: true }) })
+    await expect(lengthRow.locator('input')).toHaveCount(scenario.lengthFields)
+  })
+}
+
 const screens: Screen[] = [
   {
     name: 'm01-portal',

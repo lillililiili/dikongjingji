@@ -14,7 +14,7 @@ const DRONE = 'b1000000-0000-4000-8000-000000000002'
 const SOFTWARE = 'b1000000-0000-4000-8000-000000000004'
 const COURSE = 'b1000000-0000-4000-8000-000000000005'
 const KIT = 'c2000000-0000-4000-8000-000000000101'
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/experience-sim')
+const compareOutput = resolve(__dirname, '../../../.planning/style-compare/experience-sim')
 const STEP_WAIT = 15_000
 
 // Solutions of the three levels, as the palette test ids (simulation-add-<block>).

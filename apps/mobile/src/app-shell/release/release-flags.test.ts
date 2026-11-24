@@ -52,7 +52,7 @@ describe('release switches (S2-5)', () => {
     for (const feature of RELEASE_FEATURES) {
       const source = sourceOf(feature.file)
       if (feature.flag) {
-        expect(source, feature.file).toContain(`export const ${feature.flag} = ${moduleFlagExpression(feature.key)}\n`)
+        expect(source.replace(/\r\n/g, '\n'), feature.file).toContain(`export const ${feature.flag} = ${moduleFlagExpression(feature.key)}\n`)
       } else {
         expect(source, feature.file).toContain(featureConstant(feature.key))
       }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import UniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import {
   HOME_CAROUSEL_INTERVAL_MS,
@@ -18,20 +18,102 @@ const emit = defineEmits<{
   select: [target: HomeEntryTarget]
 }>()
 
-function prefersReducedMotion(): boolean {
-  // matchMedia only exists on H5; the App always auto-plays.
-  return typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
-// Slides change by swiping only (user 2026-11-23: no arrows, dots or pause bar under the banner).
 const currentIndex = ref(0)
-const reducedMotion = prefersReducedMotion()
+const carousel = ref<{ $el: HTMLElement } | null>(null)
+const motion = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null
+const reducedMotion = ref(motion?.matches ?? false)
+const pageHidden = ref(false)
+const hovering = ref(false)
+const focused = ref(false)
 const hasSeveralSlides = computed(() => props.slides.length > 1)
-const autoplay = computed(() =>
-  hasSeveralSlides.value && props.active && !reducedMotion,
-)
+const autoplay = computed(() => hasSeveralSlides.value && props.active && !reducedMotion.value
+  && !pageHidden.value && !hovering.value && !focused.value)
+
+function syncMotion(): void { reducedMotion.value = motion?.matches ?? false }
+function syncVisibility(): void { pageHidden.value = document.hidden }
+
+onMounted(() => {
+  motion?.addEventListener?.('change', syncMotion)
+  if (typeof document !== 'undefined') {
+    syncVisibility()
+    document.addEventListener('visibilitychange', syncVisibility)
+  }
+})
+onBeforeUnmount(() => {
+  motion?.removeEventListener?.('change', syncMotion)
+  if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', syncVisibility)
+})
+
+// On H5 uni-view converts component events to UniApp events, dropping pointer coordinates.
+watch(carousel, (view, _, onCleanup) => {
+  // #ifdef H5
+  const el = view?.$el
+  if (!el) return
+  let start: { x: number; y: number } | undefined
+  let dragged = false
+  function enter(event: PointerEvent) { hovering.value = event.pointerType === 'mouse' }
+  function leave() { hovering.value = false }
+  function focusIn() { focused.value = true }
+  function focusOut() { focused.value = false }
+  function pointerDown(event: PointerEvent) {
+    start = { x: event.clientX, y: event.clientY }
+    dragged = false
+  }
+  function pointerMove(event: PointerEvent) {
+    if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8) dragged = true
+  }
+  function pointerUp(event: PointerEvent) {
+    pointerMove(event)
+    start = undefined
+  }
+  function suppressDragClick(event: MouseEvent) {
+    if (dragged && event.detail !== 0) {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+    dragged = false
+  }
+  function activateWithKeyboard(event: KeyboardEvent) {
+    if (!(event.target instanceof HTMLElement) || !event.target.matches('.home-carousel__slide')) return
+    const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0
+    if (step && hasSeveralSlides.value) {
+      event.preventDefault()
+      currentIndex.value = (currentIndex.value + step + props.slides.length) % props.slides.length
+      void nextTick(() => el?.querySelector<HTMLElement>('.home-carousel__slide[tabindex="0"]')?.focus({ preventScroll: true }))
+      return
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      const slide = props.slides[currentIndex.value]
+      if (slide && !event.repeat) emit('select', slide.target)
+    }
+  }
+  el.addEventListener('keydown', activateWithKeyboard)
+  el.addEventListener('pointerenter', enter)
+  el.addEventListener('pointerleave', leave)
+  el.addEventListener('focusin', focusIn)
+  el.addEventListener('focusout', focusOut)
+  el.addEventListener('pointerdown', pointerDown, true)
+  el.addEventListener('pointermove', pointerMove, true)
+  el.addEventListener('pointerup', pointerUp, true)
+  el.addEventListener('click', suppressDragClick, true)
+  onCleanup(() => {
+    el.removeEventListener('keydown', activateWithKeyboard)
+    el.removeEventListener('pointerenter', enter)
+    el.removeEventListener('pointerleave', leave)
+    el.removeEventListener('focusin', focusIn)
+    el.removeEventListener('focusout', focusOut)
+    el.removeEventListener('pointerdown', pointerDown, true)
+    el.removeEventListener('pointermove', pointerMove, true)
+    el.removeEventListener('pointerup', pointerUp, true)
+    el.removeEventListener('click', suppressDragClick, true)
+    hovering.value = false
+    focused.value = false
+  })
+  // #endif
+})
 
 function handleChange(event: Event): void {
   const current = (
@@ -53,6 +135,7 @@ watch(() => props.slides.length, (slideCount) => {
 <template>
   <view
     v-if="slides.length"
+    ref="carousel"
     class="home-carousel"
     data-testid="home-carousel"
     :data-current-slide="slides[currentIndex]?.id"
@@ -68,13 +151,17 @@ watch(() => props.slides.length, (slideCount) => {
       :duration="350"
       @change="handleChange"
     >
-      <swiper-item v-for="slide in slides" :key="slide.id">
-        <view
+      <swiper-item v-for="(slide, index) in slides" :key="slide.id">
+        <button
           :class="[
             'home-carousel__slide',
             `home-carousel__slide--${slide.tone.toLowerCase()}`,
           ]"
           :data-testid="`home-carousel-slide-${slide.id}`"
+          role="button"
+          :aria-label="slide.actionLabel"
+          :tabindex="index === currentIndex ? 0 : -1"
+          @click="emit('select', slide.target)"
         >
           <image
             class="home-carousel__image"
@@ -103,16 +190,15 @@ watch(() => props.slides.length, (slideCount) => {
                 {{ line }}
               </text>
             </view>
-            <button
+            <view
               class="home-carousel__action"
               :data-testid="`home-carousel-action-${slide.id}`"
-              @click="emit('select', slide.target)"
             >
               <text>{{ slide.actionLabel }}</text>
               <UniIcons type="right" size="13" color="#ffffff" />
-            </button>
+            </view>
           </view>
-        </view>
+        </button>
       </swiper-item>
     </swiper>
   </view>
@@ -136,6 +222,7 @@ button {
 }
 
 button::after {
+  pointer-events: none;
   border: 0;
 }
 
@@ -145,6 +232,10 @@ button::after {
 
 .home-carousel__slide {
   position: relative;
+  display: block;
+  width: 100%;
+  border-radius: 0;
+  text-align: left;
   height: 228px;
   overflow: hidden;
   background: var(--home-carousel-bg);
@@ -174,6 +265,24 @@ button::after {
   height: 100%;
 }
 
+.home-carousel__slide--sky .home-carousel__image {
+  width: 100%;
+}
+
+.home-carousel__slide--violet .home-carousel__image {
+  width: 61%;
+}
+
+.home-carousel__slide--sky .home-carousel__image :deep(div:first-child),
+.home-carousel__slide--sun .home-carousel__image :deep(div:first-child) {
+  background-position: 60% center !important;
+}
+
+.home-carousel__slide--sky .home-carousel__image :deep(img),
+.home-carousel__slide--sun .home-carousel__image :deep(img) {
+  object-position: 60% center;
+}
+
 /* Keeps the copy readable where the picture runs under it. */
 .home-carousel__fade {
   position: absolute;
@@ -181,7 +290,7 @@ button::after {
   background: linear-gradient(
     90deg,
     var(--home-carousel-bg) 8%,
-    var(--home-carousel-bg) 34%,
+    var(--home-carousel-bg) 30%,
     rgba(255, 255, 255, 0) 89%
   );
 }

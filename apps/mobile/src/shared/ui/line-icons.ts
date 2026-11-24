@@ -1,4 +1,4 @@
-// Line icons copied from the 2026-11-14 boards (.planning/prototype/v2-20261114).
+// Line icons copied from the 2026-11-14 boards (prototype/v2-20261114).
 // Every board icon is a 24×24 stroke path, usually 1.8 wide with round caps. Paths are kept
 // exactly as the boards write them so a side-by-side screenshot matches; when a page needs an
 // icon that is not listed here, pass the board's path to LineIcon through `d` instead.

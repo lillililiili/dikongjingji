@@ -1,4 +1,4 @@
-import { MALL_PREVIEW_ENABLED } from '../../application/mall-preview'
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // Pictures for the sample products of the development seed (R__dev_mall_catalog.sql), keyed by
 // product id. They come from the 2026-11-14 prototype and only stand in until products carry
@@ -30,7 +30,7 @@ export interface MallPreviewCover {
 
 export function resolveMallPreviewCover(
   productId: string,
-  previewEnabled: boolean = MALL_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): MallPreviewCover | null {
   const name = previewEnabled ? COVERS[productId] : undefined
   return name

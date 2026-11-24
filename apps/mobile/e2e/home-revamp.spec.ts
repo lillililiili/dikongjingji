@@ -104,6 +104,32 @@ test.describe('首页改版', () => {
     })
   })
 
+  test('HOME-007 读轮播时保持当前张，点画面进入对应频道', async ({ page }) => {
+    await openHome(page)
+    const carousel = page.getByTestId('home-carousel')
+    const first = page.getByTestId('home-carousel-slide-contest')
+    await carousel.hover()
+    await page.waitForTimeout(6100)
+    await expect(carousel).toHaveAttribute('data-current-slide', 'contest')
+    await first.click({ position: { x: 300, y: 75 } })
+    await expect(page.getByTestId('home-channel-activity')).toHaveClass(/home-header__channel--active/)
+  })
+
+  test('HOME-008 焦点留在轮播时保持当前张，键盘可以打开卡片', async ({ page }) => {
+    await openHome(page)
+    const slide = page.getByTestId('home-carousel-slide-contest')
+    await slide.focus()
+    await page.waitForTimeout(6100)
+    await expect(page.getByTestId('home-carousel')).toHaveAttribute('data-current-slide', 'contest')
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.getByTestId('home-carousel')).toHaveAttribute('data-current-slide', 'experience')
+    await expect(page.getByTestId('home-carousel-slide-experience')).toBeFocused()
+    await page.keyboard.press('ArrowRight')
+    await expect(slide).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('home-channel-activity')).toHaveClass(/home-header__channel--active/)
+  })
+
   test('HOME-005 金刚位：趣玩挑战换下专业服务，商品入口进商城频道', async ({
     page,
   }) => {

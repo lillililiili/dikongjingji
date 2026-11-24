@@ -1,8 +1,10 @@
+import { pathToFileURL } from 'node:url'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { BOARD_DIR, PLANNING } from './support/board-compare'
 import {
   PLATFORM_DESK,
   PROVIDER_DESK,
@@ -32,9 +34,8 @@ const DOG_PRODUCT = 'c2000000-0000-4000-8000-000000000401'
 const DOG_OFFER = offerId('401', '1')
 const UNPAID_DOG_OFFER = offerId('401', '6')
 const AERIAL_PARK = 'f2100000-0000-4000-8000-000000000001'
-const visualOutput = resolve(__dirname, '../../../../../.planning/support/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/support')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const visualOutput = resolve(PLANNING, 'support/visual')
+const compareOutput = resolve(PLANNING, 'style-compare/support')
 // Replies arrive through polling every 10 seconds.
 const POLL_WAIT = 25_000
 
@@ -405,17 +406,17 @@ test.describe('客服会话、设置与公共页', () => {
 
     // The boards at 390 next to the App at 390. The Chat board opens in its merchant frame.
     const chatCopy = resolve(compareOutput, 'Chat-merchant-board.html')
-    writeFileSync(chatCopy, readFileSync(resolve(boardDir, 'Chat.html'), 'utf8')
-      .replace('<head>', `<head><base href="file://${boardDir}/">`)
+    writeFileSync(chatCopy, readFileSync(resolve(BOARD_DIR, 'Chat.html'), 'utf8')
+      .replace('<head>', `<head><base href="${pathToFileURL(BOARD_DIR).href}/">`)
       .replace('{"frame":"平台客服"}', '{"frame":"商家"}'))
     const boards: Array<[string, string]> = [
       ['Chat', chatCopy],
-      ['Settings', resolve(boardDir, 'Settings.html')],
-      ['Help', resolve(boardDir, 'Help.html')],
+      ['Settings', resolve(BOARD_DIR, 'Settings.html')],
+      ['Help', resolve(BOARD_DIR, 'Help.html')],
     ]
     for (const [board, file] of boards) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${file}`)
+      await page.goto(pathToFileURL(file).href)
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60
