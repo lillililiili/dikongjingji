@@ -574,15 +574,21 @@ public class TradeAftersaleService implements TradeRefundService.RefundSettlemen
     @Override
     public void settled(UUID refundId, boolean succeeded, Instant at) {
         AftersaleRow row = mapper.lockByRefund(refundId);
-        if (row == null || !"REFUNDING".equals(row.status())) {
+        if (row == null) {
+            return;
+        }
+        String from = row.status();
+        // 渠道报过异常的退款（人工处理后）可能又到账：钱退到了，售后单也要从“退款异常”变成“已退款”。
+        boolean expected = "REFUNDING".equals(from) || (succeeded && "REFUND_FAILED".equals(from));
+        if (!expected) {
             return;
         }
         String target = succeeded ? "REFUNDED" : "REFUND_FAILED";
-        mapper.changeStatus(row.id(), "REFUNDING", target, null, at);
+        mapper.changeStatus(row.id(), from, target, null, at);
         if (succeeded) {
             mapper.markRefunded(row.id(), at);
         }
-        mapper.insertEvent(row.id(), succeeded ? "REFUND_SUCCEEDED" : "REFUND_FAILED", "REFUNDING", target, null, at);
+        mapper.insertEvent(row.id(), succeeded ? "REFUND_SUCCEEDED" : "REFUND_FAILED", from, target, null, at);
     }
 
     // ---- 定时：到了处理时限的 ----

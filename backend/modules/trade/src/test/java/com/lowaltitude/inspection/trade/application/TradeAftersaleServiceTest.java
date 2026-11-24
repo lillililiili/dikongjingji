@@ -199,6 +199,20 @@ class TradeAftersaleServiceTest {
         verify(mapper, never()).changeStatus(AFTERSALE, "REFUNDING", "REFUND_FAILED", null, NOW);
     }
 
+    // 渠道先报异常（退款异常，人工处理）、之后又到账：钱已经退到了，售后单跟着变成已退款；反过来不会退回去。
+    @Test
+    void aRefundThatArrivesAfterAFailureStillFinishesTheAftersale() {
+        when(mapper.lockByRefund(REFUND)).thenReturn(row("RETURN_REFUND", "REFUND_FAILED", 129_900, REFUND));
+
+        service.settled(REFUND, false, NOW);
+        verify(mapper, never()).changeStatus(any(), any(), any(), any(), any());
+
+        service.settled(REFUND, true, NOW);
+        verify(mapper).changeStatus(AFTERSALE, "REFUND_FAILED", "REFUNDED", null, NOW);
+        verify(mapper).markRefunded(AFTERSALE, NOW);
+        verify(mapper).insertEvent(AFTERSALE, "REFUND_SUCCEEDED", "REFUND_FAILED", "REFUNDED", null, NOW);
+    }
+
     @Test
     void anUnansweredApplicationIsAgreedAutomaticallyAndAnUnshippedReturnCloses() {
         order("SHIPPED", null);
