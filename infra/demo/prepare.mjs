@@ -30,11 +30,11 @@ export async function prepare(env) {
   const usable = activity.sessions.find((item) => Date.parse(item.startsAt) > Date.now() + 45 * 60_000 && Date.parse(item.startsAt) < Date.now() + 180 * 60_000);
   if (!usable) {
     activity = await call('POST', `/api/v1/ops/activities/${activity.activityId}/sessions`, accessToken, {
-      label, startsAt: minutes(120), endsAt: minutes(240), checkInOpensAt: minutes(1), enrollmentClosesAt: minutes(119), capacity: 20,
+      label, startsAt: minutes(120), endsAt: minutes(240), checkInOpensAt: minutes(0.2), enrollmentClosesAt: minutes(119), capacity: 20,
     });
   }
   if (activity.status !== 'PUBLISHED') await call('POST', `/api/v1/ops/activities/${activity.activityId}/publish`, accessToken, { version: activity.version });
-  console.log(usable ? `活动“${TITLE}”已有能用的场次“${usable.label}”。` : `活动“${TITLE}”（¥99/人）加了场次“${label}”，2 小时后开始，1 分钟后可以核销。`);
+  console.log(usable ? `活动“${TITLE}”已有能用的场次“${usable.label}”。` : `活动“${TITLE}”（¥99/人）加了场次“${label}”，2 小时后开始，马上可以核销。`);
   const target = path.join(STATE, 'samples');
   writeSamples(target);
   console.log(`样例交付文件在 ${path.relative(REPO, target)}/（zip、xlsx、kml、pdf 各一份）。`);

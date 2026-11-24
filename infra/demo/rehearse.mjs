@@ -346,8 +346,11 @@ const items = {
     await api('POST', `${W}/products/${id}/status`, token, { action: 'PUBLISH', version: detail.product.version })
       .then(() => { throw new Error('审核前竟然能上架'); }, (error) => { if (!/OPS_MERCHANT_NOT_QUALIFIED/.test(error.message)) throw error; });
     if (await pub()) throw new Error('审核前 App 已经能看到');
-    log('审核前：上架被拦，App 看不到');
     const op = await login('dev-operator', OPERATOR_PASSWORD);
+    const seen = await api('GET', `/api/v1/ops/catalog/products/${id}`, op);
+    await api('POST', `/api/v1/ops/catalog/products/${id}/status`, op, { action: 'PUBLISH', version: seen.product.version })
+      .then(() => { throw new Error('审核前运营端竟然能代上架'); }, (error) => { if (!/OPS_MERCHANT_NOT_QUALIFIED/.test(error.message)) throw error; });
+    log('审核前：机构自己和运营端都不能上架，App 看不到');
     const me = await api('GET', '/api/v1/provider/organization', token);
     const pdf = new FormData();
     pdf.append('file', new Blob([fs.readFileSync(sample('巡检报告.pdf'))], { type: 'application/pdf' }), '营业执照.pdf');
@@ -365,6 +368,10 @@ const items = {
     if (!loaded) throw new Error('App 里没显示上传的商品图');
     await shot(app, '5-App可见');
     log('运营端审核通过后上架，App 可见，图片显示正常');
+    const changed = await api('GET', `/api/v1/ops/organizations/${orgId}`, op);
+    await api('PUT', `/api/v1/ops/organizations/${orgId}/qualification`, op, { subjectName: `${tag}改名`, licenseNumber: credit(), businessScope: '演示', qualificationNote: '演示', version: changed.qualification.version });
+    if (await pub()) throw new Error('资质改动回到待审核后，App 还能看到');
+    log('资质改动回到待审核，App 不再显示');
   },
 
   async 8() {
