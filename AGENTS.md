@@ -218,7 +218,7 @@ Codex 不得一次性完成所有任务。`docs/07-codex-task-plan.md` 只约束
 - 搜索（S5-1，模块 `search`，契约 `contracts/openapi-search.yaml`，路由 `/pages/search/*`、`/pages/mine/order-search`）。
 - 活动候补、团队报名、改期、结果记录（S5-3，活动契约 1.4.0、迁移 `V006`、`V007`，路由 `/pages/activity/waitlist|team-signup|team-order|result|change|calendar`）：候补按排队转正、15 分钟内付款；领队代报 2–20 人；只改到同一活动的其它场次。
 - 线上体验（S5-4、D7，体验契约 1.5.0，路由 `/pages/experience/*`、`/pages/mine/experience-records`）：两个 App 内仿真任务模板，不接外部仿真平台；体验记录只记本账号。
-- 课程（S5-5、D15、D12，模块 `course`，契约 `contracts/openapi-course.yaml`，交易来源 `COURSE`，路由 `/pages/course/*`、`/pages/mine/courses`）：只卖线上录播课，未开始学习 7 天内可全额退。
+- 课程（S5-5、D15、D12，模块 `course`，契约 `contracts/openapi-course.yaml`，交易来源 `COURSE`，路由 `/pages/course/*`、`/pages/mine/courses`）：只卖线上录播课，未开始学习 7 天内可全额退。按入库修订原型，运营可在课程中关联一个已发布的仿真项目（课程迁移 V002）。试听页使用服务端的 `simulationItemId` 进入对应任务，体验中心打开试听继续使用独立的 `experienceItemId`。
 - 收藏与对比（S5-6、D10，模块 `favorite`，契约 `contracts/openapi-favorite.yaml`，路由 `/pages/mine/favorites`、`/pages/mall/compare`）。
 - 企业组织与账号（S5-7、S5-8，契约 `contracts/openapi-identity-account.yaml`，身份迁移 `V009`、`V010`，交易迁移 `V013` 记付款主体，路由 `/pages/mine/org*`、`/pages/mine/phone|devices|data|permissions`、`/pages/onboarding/index`）：企业身份下单只记付款主体，不做企业结算；短信经端口，开发用模拟服务；注销 15 天冷静期后匿名化；个人信息导出受控下载。
 - 系统通知、通知详情、通知设置（S5-9，站内信契约 1.5.0 起，路由 `/pages/message/notice`）：推送经端口，开发用模拟服务，不接厂商 SDK。
@@ -239,7 +239,7 @@ Codex 不得一次性完成所有任务。`docs/07-codex-task-plan.md` 只约束
 
 ### 2026-11-24 商家自助入驻与自助上架（Web 工作台）
 
-- 入驻申请：工作台登录页“申请入驻”→ `/signup`（公开路由，契约 `contracts/openapi-organization-signup.yaml` 1.0.0，身份迁移 `V012`）。商家填机构名称和所在城市、营业执照上的主体名称和统一社会信用代码、联系人姓名和手机号（短信验证码，开发环境用模拟短信）、自己设的登录名和口令；服务端一次建齐经营机构（PROVIDER）、待审核的资质资料和一个服务商操作员（PROVIDER_OPERATOR）账号，操作记录记 `SIGNUP`。申请成功后用登录名在同一个登录页登录，没有自动登录。先查登录名、手机号是否被占再核验证码；幂等键沿用机构的 `ops_create_key`。App 里不放入驻入口。
+- 入驻申请：工作台登录页“申请入驻”→ `/signup`（公开路由，契约 `contracts/openapi-organization-signup.yaml` 1.0.1，身份迁移 `V012`、`V013`）。商家填机构名称和所在城市、营业执照上的主体名称和统一社会信用代码、联系人姓名和手机号（短信验证码，开发环境用模拟短信）、自己设的登录名和口令；服务端一次建齐经营机构（PROVIDER）、待审核的资质资料和一个服务商操作员（PROVIDER_OPERATOR）账号，操作记录记 `SIGNUP`。申请成功后用登录名在同一个登录页登录，没有自动登录。先查登录名、手机号是否被占再核验证码；幂等键沿用机构的 `ops_create_key`。新申请按同一键串行处理，保存带密钥的原始请求摘要，以首次回执答复重试。App 里不放入驻入口。
 - 工作台“入驻资料”`/workbench/organization`：机构看自己的资质审核结果和驳回原因、改资料、上传或移除营业执照等附件（规则和运营端录入一致：一动就回到待审核）。审核只在运营端“机构与资质”做，这样建的机构和运营新建的一样出现在列表里（待审核在前）；运营端机构契约升到 1.2.0（操作记录加 `SIGNUP`）。
 - 自助上架：工作台“我的商品”`/workbench/products`（契约 `contracts/openapi-merchant-catalog.yaml` 1.0.0，路由前缀 `/api/v1/provider/catalog/`，商城迁移 `V006` 给 `mall_product` 加 `owner_organization_id`）。接口、页面和运营端“商品与供给”同一套，另加三条：只能看、改自己建的商品（别家的、平台建的一律 404）；供给的商家只能是本机构（请求里的 `merchantId` 不认）；上架前机构资质要审核通过（409 `OPS_MERCHANT_NOT_QUALIFIED`），下架、建草稿、改资料不受此限。标价商品启用供给仍要平台在“收款账户”登记有效收款账户；交易条款（七天无理由、开票方）仍由平台维护。运营端“商品与供给”能看到全部商品并下架，列表和详情带“建自商家”（运营端商品契约 1.1.0）。
 - 不含：入驻审核的自动化、商家自己登记收款账户或进件、商家改交易条款、App 内的入驻和上架页面、邀请其他操作员（账号仍由运营端建）。
@@ -446,7 +446,7 @@ backend/modules/inspection/
 
 ## 7. UI 参考图和已确认验收板是视觉事实源
 
-视觉优先级（2026-11-16 起）：全部页面以 2026-11-14 修订版原型（`.planning/prototype/v2-20261114`，每个画板是 390 宽的 HTML，尺寸、颜色、图片直接取自画板）为准，M01–M08 也按它的浅色主题和版式实现；下面第 1 条的两张参考图只在原型没有覆盖的地方参考。做完页面要和画板同宽并排截图比对（`.planning/style-compare/`）。
+视觉优先级（2026-11-16 起）：全部页面以 2026-11-14 修订版原型（`prototype/v2-20261114`，每个画板是 390 宽的 HTML，尺寸、颜色、图片直接取自画板）为准，M01–M08 也按它的浅色主题和版式实现；下面第 1 条的两张参考图只在原型没有覆盖的地方参考。做完页面要和画板同宽并排截图比对（`.planning/style-compare/`）。
 
 原有优先级：
 
@@ -902,6 +902,8 @@ L1/L2 是验证等级，不自动构成阶段验收点。在用户已经批准�
 7. Android/iOS 真机、完整回归和发布候选完成后。
 
 到达上述 L3/L4 节点后，未收到“验收通过”不得执行下一节点；用户已明确授权连续推进的任务除外，但仍须逐阶段保存证据并遵守范围边界。
+
+本次全项目持续交付已获 2026-11-24 用户授权。常规开发、修复、联调与回归可连续推进，主会话在交付记录中登记范围、复现、验证和剩余问题。生产操作、不可逆删除、真实付费接入仍需单独授权。
 
 ## 18. Codex 每次汇报格式
 
