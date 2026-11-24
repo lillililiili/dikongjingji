@@ -17,6 +17,8 @@ import com.lowaltitude.inspection.application.reservation.InspectionOpsStatsServ
 import com.lowaltitude.inspection.course.application.CourseOpsStatsService;
 import com.lowaltitude.inspection.experience.application.ExperienceOpsStatsService;
 import com.lowaltitude.inspection.identity.application.account.OpsIdentityStatsService;
+import com.lowaltitude.inspection.identity.application.account.OpsStatsExclusionService;
+import com.lowaltitude.inspection.identity.domain.OpsStatsExclusion;
 import com.lowaltitude.inspection.mall.application.MallOpsStatsService;
 import com.lowaltitude.inspection.proservice.application.ProServiceOpsStatsService;
 import com.lowaltitude.inspection.support.application.SupportOpsStatsService;
@@ -24,14 +26,16 @@ import com.lowaltitude.inspection.trade.application.OpsOrderLookupService.OpsOrd
 import com.lowaltitude.inspection.trade.application.OpsTradeStatsService;
 
 /**
- * 运营端首页“经营概览”（契约 contracts/openapi-ops-dashboard.yaml 1.0.0）。各模块只出自己表里的汇总数，这里按统计期
+ * 运营端首页“经营概览”（契约 contracts/openapi-ops-dashboard.yaml 1.1.0）。各模块只出自己表里的汇总数，这里按统计期
  * （北京时间自然日，到今天为止）算好区间交给它们，再拼成一张：每日序列补齐没有数的日子，城市编码换成城市名。
+ * 配置里的测试账号、测试机构先由身份模块解析成 ID，再交给各模块排除；待处理和开通城市不排除。
  */
 public class OpsDashboardService {
 
     public static final Set<Integer> ALLOWED_DAYS = Set.of(7, 30, 90);
     static final ZoneId BEIJING = ZoneId.of("Asia/Shanghai");
 
+    private final OpsStatsExclusionService exclusions;
     private final OpsIdentityStatsService identity;
     private final OpsTradeStatsService trade;
     private final MallOpsStatsService mall;
@@ -44,11 +48,13 @@ public class OpsDashboardService {
     private final CityOperationsService cities;
     private final Clock clock;
 
-    public OpsDashboardService(OpsIdentityStatsService identity, OpsTradeStatsService trade,
-                               MallOpsStatsService mall, InspectionOpsStatsService inspection,
-                               ProServiceOpsStatsService proService, ActivityOpsStatsService activity,
-                               ExperienceOpsStatsService experience, CourseOpsStatsService course,
-                               SupportOpsStatsService support, CityOperationsService cities, Clock clock) {
+    public OpsDashboardService(OpsStatsExclusionService exclusions, OpsIdentityStatsService identity,
+                               OpsTradeStatsService trade, MallOpsStatsService mall,
+                               InspectionOpsStatsService inspection, ProServiceOpsStatsService proService,
+                               ActivityOpsStatsService activity, ExperienceOpsStatsService experience,
+                               CourseOpsStatsService course, SupportOpsStatsService support,
+                               CityOperationsService cities, Clock clock) {
+        this.exclusions = exclusions;
         this.identity = identity;
         this.trade = trade;
         this.mall = mall;
@@ -117,14 +123,15 @@ public class OpsDashboardService {
         OffsetDateTime to = startOf(toDate.plusDays(1));
         OffsetDateTime previousFrom = startOf(fromDate.minusDays(days));
 
-        OpsIdentityStatsService.Stats people = identity.stats(from, to, previousFrom);
-        OpsTradeStatsService.Stats money = trade.stats(from, to, previousFrom);
-        MallOpsStatsService.Stats shop = mall.stats();
-        InspectionOpsStatsService.Stats inspections = inspection.stats(from, to);
-        ProServiceOpsStatsService.Stats pro = proService.stats();
-        ActivityOpsStatsService.Stats activities = activity.stats(from, to);
-        ExperienceOpsStatsService.Stats venues = experience.stats(from, to);
-        CourseOpsStatsService.Stats courses = course.stats();
+        OpsStatsExclusion excluded = exclusions.resolve();
+        OpsIdentityStatsService.Stats people = identity.stats(from, to, previousFrom, excluded);
+        OpsTradeStatsService.Stats money = trade.stats(from, to, previousFrom, excluded);
+        MallOpsStatsService.Stats shop = mall.stats(excluded);
+        InspectionOpsStatsService.Stats inspections = inspection.stats(from, to, excluded);
+        ProServiceOpsStatsService.Stats pro = proService.stats(excluded);
+        ActivityOpsStatsService.Stats activities = activity.stats(from, to, excluded);
+        ExperienceOpsStatsService.Stats venues = experience.stats(from, to, excluded);
+        CourseOpsStatsService.Stats courses = course.stats(excluded);
         SupportOpsStatsService.Stats desk = support.stats();
 
         OpsTradeStatsService.Period current = money.current();

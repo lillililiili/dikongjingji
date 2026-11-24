@@ -1,5 +1,6 @@
 package com.lowaltitude.inspection.proservice.application;
 
+import com.lowaltitude.inspection.identity.domain.OpsStatsExclusion;
 import com.lowaltitude.inspection.proservice.infrastructure.persistence.ProServiceOpsStatsMapper;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +17,9 @@ public class ProServiceOpsStatsService {
     }
 
     @Transactional(readOnly = true)
-    public Stats stats() {
+    public Stats stats(OpsStatsExclusion excluded) {
         return new Stats(
-                mapper.services(),
+                mapper.services(excluded),
                 mapper.pendingProviderProfiles());
     }
 }

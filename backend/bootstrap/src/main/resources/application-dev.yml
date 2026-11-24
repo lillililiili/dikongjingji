@@ -52,6 +52,12 @@ ops:
 dev:
   operator-password: ${DEV_OPERATOR_PASSWORD:}
 
+# 运营端“经营概览”：开发环境默认不排除任何账号和机构（开发种子和演示数据都要看得到），要试排除时设这两个环境变量。
+platform:
+  ops-stats:
+    excluded-login-names: "${PLATFORM_OPS_STATS_EXCLUDED_LOGINS:}"
+    excluded-organization-codes: "${PLATFORM_OPS_STATS_EXCLUDED_ORGANIZATIONS:}"
+
 # 推送（S5-9）：开发环境用本机模拟推送（FakePushGateway），每条推送记日志和 notification_push_fake_delivery；
 # 登录后 GET /api/v1/dev/notifications/push-deliveries 看自己收到的。
 notification:

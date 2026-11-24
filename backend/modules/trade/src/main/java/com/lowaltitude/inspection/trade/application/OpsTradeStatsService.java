@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import com.lowaltitude.inspection.identity.domain.OpsStatsExclusion;
 import com.lowaltitude.inspection.trade.infrastructure.persistence.TradeOpsStatsMapper;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,21 +41,22 @@ public class OpsTradeStatsService {
     }
 
     @Transactional(readOnly = true)
-    public Stats stats(OffsetDateTime from, OffsetDateTime to, OffsetDateTime previousFrom) {
+    public Stats stats(OffsetDateTime from, OffsetDateTime to, OffsetDateTime previousFrom,
+                       OpsStatsExclusion excluded) {
         if (!previousFrom.isBefore(from) || !from.isBefore(to)) {
             throw new IllegalArgumentException("period is invalid");
         }
-        TradeOpsStatsMapper.FunnelRow funnel = mapper.funnel(from, to);
+        TradeOpsStatsMapper.FunnelRow funnel = mapper.funnel(from, to, excluded);
         return new Stats(
-                period(mapper.period(from, to)),
-                period(mapper.period(previousFrom, from)),
-                mapper.lifetimeNetPaid(),
-                mapper.daily(from, to).stream()
+                period(mapper.period(from, to, excluded)),
+                period(mapper.period(previousFrom, from, excluded)),
+                mapper.lifetimeNetPaid(excluded),
+                mapper.daily(from, to, excluded).stream()
                         .map(row -> new Day(row.day(), row.netPaidMinor(), row.paidOrders())).toList(),
-                shares(mapper.bySource(from, to)),
-                shares(mapper.byCity(from, to, TOP_CITIES)),
+                shares(mapper.bySource(from, to, excluded)),
+                shares(mapper.byCity(from, to, TOP_CITIES, excluded)),
                 new Funnel(funnel.submitted(), funnel.paid(), funnel.kept()),
-                mapper.collectingMerchants(),
+                mapper.collectingMerchants(excluded),
                 mapper.refundFailedOrders());
     }
 

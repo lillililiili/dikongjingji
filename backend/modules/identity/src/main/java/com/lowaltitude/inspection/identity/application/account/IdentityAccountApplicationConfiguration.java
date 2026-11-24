@@ -7,6 +7,7 @@ import java.util.List;
 import com.lowaltitude.inspection.identity.domain.AccountStatePort;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.AccountMapper;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -85,6 +86,16 @@ public class IdentityAccountApplicationConfiguration {
             com.lowaltitude.inspection.identity.infrastructure.persistence.IdentityOpsStatsMapper mapper
     ) {
         return new OpsIdentityStatsService(mapper);
+    }
+
+    /** 经营概览不计入的账号和机构（platform.ops-stats.*）。 */
+    @Bean
+    OpsStatsExclusionService opsStatsExclusionService(
+            com.lowaltitude.inspection.identity.infrastructure.persistence.IdentityOpsStatsMapper mapper,
+            @Value("${platform.ops-stats.excluded-login-names:}") String excludedLoginNames,
+            @Value("${platform.ops-stats.excluded-organization-codes:}") String excludedOrganizationCodes
+    ) {
+        return new OpsStatsExclusionService(mapper, excludedLoginNames, excludedOrganizationCodes);
     }
 
     @Bean

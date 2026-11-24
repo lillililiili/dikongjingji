@@ -92,6 +92,11 @@ platform:
       password: ${PLATFORM_BOOTSTRAP_OPERATOR_PASSWORD:}
       password-file: ${PLATFORM_BOOTSTRAP_OPERATOR_PASSWORD_FILE:}
       display-name: ${PLATFORM_BOOTSTRAP_OPERATOR_DISPLAY_NAME:}
+  # 运营端“经营概览”不计入的演示数据和测试账号：登录名、机构编码，逗号分隔，大小写敏感，末尾的 * 表示前缀匹配。
+  # 设成空串就是谁都不排除。开发环境默认不排除（application-dev.yml）。说明见 docs/delivery/配置与权限说明.md。
+  ops-stats:
+    excluded-login-names: "${PLATFORM_OPS_STATS_EXCLUDED_LOGINS:dev-*,demo-dash-*}"
+    excluded-organization-codes: "${PLATFORM_OPS_STATS_EXCLUDED_ORGANIZATIONS:DEV-*,DEMO-DASH-*}"
 
 # 微信支付（平台收付通）。默认关闭；关闭时没有支付渠道，发起支付回“渠道不可用”。
 # 两个 PEM 文件只给服务器上的路径；APIv3 密钥只走环境变量。都不要写进仓库。

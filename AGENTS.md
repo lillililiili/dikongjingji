@@ -233,8 +233,9 @@ Codex 不得一次性完成所有任务。`docs/07-codex-task-plan.md` 只约束
 
 ### 2026-11-23 运营端首页经营概览
 
-- 平台运营、平台客服的运营端首页先显示“经营概览”（契约 `contracts/openapi-ops-dashboard.yaml` 1.0.0，`GET /api/v1/ops/dashboard?days=7|30|90`）：累计净成交，统计期内的净成交额、付款订单、付款客户、客单价（带环比），注册 / 新增 / 活跃客户，入驻机构、能收款商家，每日趋势，下单转化，成交来源，城市分布，平台资源，到场与预约，待处理。机构账号的首页不变。
+- 平台运营、平台客服的运营端首页先显示“经营概览”（契约 `contracts/openapi-ops-dashboard.yaml` 1.1.0，`GET /api/v1/ops/dashboard?days=7|30|90`）：累计净成交，统计期内的净成交额、付款订单、付款客户、客单价（带环比），注册 / 新增 / 活跃客户，入驻机构、能收款商家，每日趋势，下单转化，成交来源，城市分布，平台资源，到场与预约，待处理。机构账号的首页不变。
 - 只有汇总数，不给任何人的明细；数字现查，不缓存，不估算，口径写在契约说明里。各模块只在自己的 `*OpsStatsMapper` 里数自己的表，运营端在 `bootstrap` 的 `OpsDashboardService` 里拼起来。
+- 演示数据和测试账号不计入（2026-11-24）：`platform.ops-stats.excluded-login-names`、`excluded-organization-codes`（末尾 `*` 为前缀匹配；生产默认 `dev-*,demo-dash-*`、`DEV-*,DEMO-DASH-*`，开发环境为空）由身份模块解析成用户 ID、机构 ID，各模块的统计按它排除；待处理和开通城市不排除。
 - 本机演示经营数据：`infra/dev/dashboard-demo/seed.sql`、`purge.sql`（演示客户、演示机构、`DEMO` 开头的订单，都带演示标记）。只能手动在本机开发库执行，不是迁移，不得进测试或生产环境。
 
 ### 2026-11-24 商家自助入驻与自助上架（Web 工作台）

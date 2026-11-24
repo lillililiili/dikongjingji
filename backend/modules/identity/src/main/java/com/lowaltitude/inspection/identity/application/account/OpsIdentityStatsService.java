@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import com.lowaltitude.inspection.identity.domain.OpsStatsExclusion;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.IdentityOpsStatsMapper;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,21 +29,22 @@ public class OpsIdentityStatsService {
     }
 
     @Transactional(readOnly = true)
-    public Stats stats(OffsetDateTime from, OffsetDateTime to, OffsetDateTime previousFrom) {
+    public Stats stats(OffsetDateTime from, OffsetDateTime to, OffsetDateTime previousFrom,
+                       OpsStatsExclusion excluded) {
         if (!previousFrom.isBefore(from) || !from.isBefore(to)) {
             throw new IllegalArgumentException("period is invalid");
         }
         return new Stats(
-                mapper.customers(),
-                mapper.newCustomers(from, to),
-                mapper.newCustomers(previousFrom, from),
-                mapper.activeCustomers(from, to),
-                mapper.enterprises(),
-                mapper.dailyNewCustomers(from, to).stream()
+                mapper.customers(excluded),
+                mapper.newCustomers(from, to, excluded),
+                mapper.newCustomers(previousFrom, from, excluded),
+                mapper.activeCustomers(from, to, excluded),
+                mapper.enterprises(excluded),
+                mapper.dailyNewCustomers(from, to, excluded).stream()
                         .map(row -> new DayCount(row.day(), row.count())).toList(),
-                mapper.providers(),
-                mapper.qualificationReviewedProviders(),
-                mapper.newProviders(from, to),
+                mapper.providers(excluded),
+                mapper.qualificationReviewedProviders(excluded),
+                mapper.newProviders(from, to, excluded),
                 mapper.pendingQualifications());
     }
 }

@@ -2,6 +2,7 @@ package com.lowaltitude.inspection.application.reservation;
 
 import java.time.OffsetDateTime;
 
+import com.lowaltitude.inspection.identity.domain.OpsStatsExclusion;
 import com.lowaltitude.inspection.infrastructure.persistence.InspectionOpsStatsMapper;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,13 +20,13 @@ public class InspectionOpsStatsService {
 
     /** 区间 [from, to) 由调用方按北京时间自然日算好。 */
     @Transactional(readOnly = true)
-    public Stats stats(OffsetDateTime from, OffsetDateTime to) {
+    public Stats stats(OffsetDateTime from, OffsetDateTime to, OpsStatsExclusion excluded) {
         if (!from.isBefore(to)) {
             throw new IllegalArgumentException("period is invalid");
         }
         return new Stats(
-                mapper.services(),
+                mapper.services(excluded),
                 mapper.openCities(),
-                mapper.reservations(from, to));
+                mapper.reservations(from, to, excluded));
     }
 }
