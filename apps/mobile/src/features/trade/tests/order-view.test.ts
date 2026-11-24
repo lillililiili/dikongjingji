@@ -10,6 +10,7 @@ import {
   describeOrderHeader,
   describeOrderStatus,
   describePayment,
+  describeRefund,
   detailActions,
   formatCountdown,
   formatTradeAmount,
@@ -20,7 +21,7 @@ import {
   listCardGoods,
   listCardHint,
 } from '../application/order-view'
-import type { TradeOrder, TradeOrderStatus } from '../domain/trade-order'
+import type { TradeOrder, TradeOrderStatus, TradeRefund } from '../domain/trade-order'
 import { EXPRESS_DELIVERY, NOW, paidOrder, tradeOrder } from './trade-fixtures'
 
 const SHIPPED_AT = '2026-11-18T02:24:00Z'
@@ -161,6 +162,39 @@ describe('card and cashier text', () => {
     expect(describePayment(partly)).toBe('已支付 · 已退 ¥20')
     const fully = paidOrder({ amounts: { ...paidOrder().amounts, refundedMinor: 129900 } })
     expect(describePayment(fully)).toBe('已支付 · 已全额退款')
+  })
+})
+
+describe('refund status on the order page', () => {
+  const refund = (status: TradeRefund['status'], amountMinor = 129900, succeededAt: string | null = null): TradeRefund => ({
+    refundId: `r-${status}-${amountMinor}`, amountMinor, reason: '售后退货退款', status, requestedAt: '2026-11-18T03:00:00Z', succeededAt,
+  })
+  const order = (refunds: TradeRefund[], refundedMinor = 0, status: TradeOrderStatus = 'SHIPPED') =>
+    paidOrder({ status, refunds, amounts: { ...paidOrder().amounts, refundedMinor } })
+
+  it('is absent without a refund', () => {
+    expect(describeRefund(tradeOrder())).toBeNull()
+    expect(describeRefund(paidOrder())).toBeNull()
+  })
+
+  it('is on its way while a refund is still running, even after an earlier one arrived', () => {
+    const running = { status: '退款中', arrival: '以微信支付处理为准' }
+    expect(describeRefund(order([refund('REQUESTED')], 0, 'REFUNDING'))).toEqual(running)
+    expect(describeRefund(order([refund('SUCCEEDED', 2000, '2026-11-18T03:05:00Z'), refund('PROCESSING', 3000)], 2000))).toEqual(running)
+  })
+
+  it('gives the latest arrival time, and the amount when only part went back', () => {
+    expect(describeRefund(order([refund('SUCCEEDED', 129900, '2026-11-18T03:05:00Z')], 129900, 'REFUNDED')))
+      .toEqual({ status: '已退款', arrival: '11/18 11:05' })
+    const partly = [refund('SUCCEEDED', 3000, '2026-11-18T04:05:00Z'), refund('SUCCEEDED', 2000, '2026-11-18T03:05:00Z')]
+    expect(describeRefund(order(partly, 5000))).toEqual({ status: '已退款 ¥50（部分退款）', arrival: '11/18 12:05' })
+  })
+
+  it('says when a refund did not go through, unless it was made again', () => {
+    expect(describeRefund(order([refund('ABNORMAL')], 0, 'REFUND_FAILED'))).toEqual({ status: '退款异常', arrival: null })
+    expect(describeRefund(order([refund('CLOSED', 2000)]))).toEqual({ status: '退款异常', arrival: null })
+    expect(describeRefund(order([refund('CLOSED', 129900), refund('SUCCEEDED', 129900, '2026-11-18T03:05:00Z')], 129900, 'REFUNDED')))
+      .toEqual({ status: '已退款', arrival: '11/18 11:05' })
   })
 })
 

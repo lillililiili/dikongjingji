@@ -12,6 +12,7 @@ import {
   TRADE_REFUND_STATUS_LABELS,
   describeOrderHeader,
   describePayment,
+  describeRefund,
   detailActions,
   formatTradeAmount,
   formatTradeTime,
@@ -86,6 +87,7 @@ function contactMerchant(): void {
 const header = computed(() => (order.value ? describeOrderHeader(order.value, now.value) : null))
 const actions = computed(() => (order.value ? detailActions(order.value, now.value) : []))
 const payment = computed(() => (order.value ? describePayment(order.value) : null))
+const refundSummary = computed(() => (order.value ? describeRefund(order.value) : null))
 const delivery = computed(() => order.value?.delivery ?? null)
 // Only while the goods wait to be picked up; after a refund the server still sends the code.
 const pickupCode = computed(() => (order.value?.status === 'PAID' ? order.value.delivery?.pickupCode ?? null : null))
@@ -358,6 +360,16 @@ onBeforeUnmount(() => {
               <text v-if="payment === '已支付'" data-testid="goods-order-payment-verified"> · 渠道回执已核验</text>
             </text>
           </view>
+          <template v-if="refundSummary">
+            <view class="goods-order__info">
+              <text class="goods-order__info-label">退款状态</text>
+              <text data-testid="goods-order-refund-summary">{{ refundSummary.status }}</text>
+            </view>
+            <view v-if="refundSummary.arrival" class="goods-order__info">
+              <text class="goods-order__info-label">到账时间</text>
+              <text data-testid="goods-order-refund-arrival">{{ refundSummary.arrival }}</text>
+            </view>
+          </template>
         </view>
 
         <view class="goods-order__card goods-order__section">

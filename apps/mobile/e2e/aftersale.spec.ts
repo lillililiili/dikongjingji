@@ -63,6 +63,13 @@ function aftersaleIdFromUrl(page: Page): string {
   return new URL(page.url().replace('/#/', '/')).searchParams.get('aftersaleId') as string
 }
 
+// 招标演示第 3 条：售后状态（状态头）和退款状态（信息区一行）是两处，分别显示。
+async function expectTwoStatuses(page: Page, aftersaleStatus: string, refundStatus: string): Promise<void> {
+  await expect(page.getByTestId('aftersale-status-title')).toHaveText(aftersaleStatus)
+  await expect(page.getByTestId('aftersale-info')).toContainText('退款状态')
+  await expect(page.getByTestId('aftersale-info-refund-status')).toHaveText(refundStatus)
+}
+
 // The merchant reads the case for its version (ETag) before every command, like the workbench does.
 async function merchantCommand(
   request: APIRequestContext,
@@ -172,6 +179,7 @@ test.describe('商品售后', () => {
     await expect(page).toHaveURL(/pages\/trade\/aftersale\?aftersaleId=/)
     const aftersaleId = aftersaleIdFromUrl(page)
     await expect(page.getByTestId('aftersale-status-title')).toHaveText('等待商家处理')
+    await expectTwoStatuses(page, '等待商家处理', '还没发起')
     await expect(page.getByTestId('aftersale-info-amount')).toHaveText('¥1,299')
     await expect(page.getByTestId('aftersale-info-route')).toHaveText('经平台支付渠道原路退回')
     await expect(page.getByTestId('aftersale-step-review')).toHaveAttribute('data-kind', 'cur')
@@ -198,7 +206,8 @@ test.describe('商品售后', () => {
     await page.waitForTimeout(150)
     await page.getByTestId('aftersale-waybill-submit').click()
     await expect(page.getByTestId('aftersale-waybill-sheet')).toHaveCount(0)
-    await expect(page.getByTestId('aftersale-status-title')).toHaveText('等待商家收货')
+    // 运单交了也还没退款：售后状态往前走，退款状态不动。
+    await expectTwoStatuses(page, '等待商家收货', '还没发起')
     await expect(page.getByTestId('aftersale-waybill-line')).toHaveText('示例快递 · 运单号 2026112300012')
     await expect(page.getByTestId('aftersale-action-edit_return')).toBeVisible()
     await expect(page.getByTestId('aftersale-action-revoke')).toHaveCount(0)
@@ -215,13 +224,13 @@ test.describe('商品售后', () => {
     // 商家确认收货并退款；退款到账只由模拟微信的回调推进。
     await merchantCommand(request, merchant, aftersaleId, 'receipt')
     await page.getByTestId('aftersale-refresh').click()
-    await expect(page.getByTestId('aftersale-status-title')).toHaveText('退款中')
+    await expectTwoStatuses(page, '退款中', '退款中')
     await expect(page.getByTestId('aftersale-step-refund')).toHaveAttribute('data-kind', 'cur')
     await shootApp(page, folder, 'AftersaleFlow-退款中')
     await fakeWechatRefunds(request, latestRefundNo(orderId))
     await expect.poll(async () => (await buyerAftersale(request, buyer, aftersaleId)).status).toBe('REFUNDED')
     await page.reload()
-    await expect(page.getByTestId('aftersale-status-title')).toHaveText('已退款')
+    await expectTwoStatuses(page, '已退款', '已退款')
     await expect(page.getByTestId('aftersale-status-sub')).toHaveText('¥1,299 已原路退回，本次售后已完成')
     await expect(page.getByTestId('aftersale-info-arrival')).toBeVisible()
     await expect(page.getByTestId('aftersale-step-refund')).toHaveAttribute('data-kind', 'done')
@@ -229,8 +238,13 @@ test.describe('商品售后', () => {
     await assertNoHorizontalOverflow(page)
     await shootApp(page, folder, 'AftersaleFlow-已退款')
 
-    // 查看订单：订单上记着退款和“查看售后 ›”。
+    // 查看订单：支付状态、退款状态、到账时间分开列，订单上还记着退款和“查看售后 ›”。
     await page.getByTestId('aftersale-action-view_order').click()
+    await expect(page.getByTestId('goods-order-payment')).toContainText('支付状态')
+    await expect(page.getByTestId('goods-order-payment')).toContainText('退款状态')
+    await expect(page.getByTestId('goods-order-refund-summary')).toHaveText('已退款')
+    await expect(page.getByTestId('goods-order-refund-arrival')).toHaveText(/^\d{2}\/\d{2} \d{2}:\d{2}$/)
+    await assertNoHorizontalOverflow(page)
     await expect(page.getByTestId('goods-order-refunds')).toContainText('¥1,299')
     await expect(page.getByTestId('goods-order-view-aftersale')).toBeVisible()
   })
@@ -281,7 +295,8 @@ test.describe('商品售后', () => {
 
     await page.goto(`/#/pages/trade/aftersale?aftersaleId=${aftersaleId}`)
     await expect(page.getByTestId('aftersale-status-title')).toHaveText('商家未同意退货')
-    await expect(page.getByTestId('aftersale-info')).toHaveCount(0)
+    await expectTwoStatuses(page, '商家未同意退货', '没有发起退款')
+    await expect(page.getByTestId('aftersale-info-amount')).toHaveCount(0)
     const refusal = page.getByTestId('aftersale-refusal')
     await expect(refusal).toContainText('拒绝原因')
     await expect(refusal).toContainText('凭证不足，无法确认商品未拆封')
