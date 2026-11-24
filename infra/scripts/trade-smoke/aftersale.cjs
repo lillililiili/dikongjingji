@@ -265,6 +265,20 @@ async function main() {
   r = await call('GET', '/api/v1/provider/trade/return-address', { token: merchant });
   check('a one-off address did not replace the default', r.status === 200 && r.json.address.includes('示例路 120 号'), r.json);
 
+  // ---- 退款先异常、后到账：售后单和订单一起从“退款异常”变成“已退款” ----
+  const f = await ship(await paidOrder(KIT));
+  r = await apply(f.orderId, { kind: 'RETURN_REFUND', reason: 'DAMAGED' });
+  const lateId = r.json.aftersaleId;
+  await merchantDo(lateId, 'approval', (await merchantRead(lateId)).json.version, {});
+  await merchantDo(lateId, 'receipt', (await merchantRead(lateId)).json.version, {});
+  const [lateRefundNo] = refundOf(lateId);
+  await fake('POST', `/_control/refund/${lateRefundNo}?status=ABNORMAL&notify=1`);
+  check('an abnormal refund fails the aftersale and the order', await waitFor(() => aftersaleStatus(lateId) === 'REFUND_FAILED', 15) && orderStatus(f.orderId) === 'REFUND_FAILED');
+  await settleRefund(lateRefundNo);
+  check('and arriving later finishes both', await waitFor(() => aftersaleStatus(lateId) === 'REFUNDED', 15) && orderStatus(f.orderId) === 'REFUNDED', aftersaleStatus(lateId));
+  detail = (await buyerRead(lateId)).json;
+  check('the late arrival is in the timeline', detail.refundedAt && detail.refund.status === 'SUCCEEDED' && detail.timeline.slice(-2).map((e) => e.action).join(',') === 'REFUND_FAILED,REFUND_SUCCEEDED', detail.timeline);
+
   // ---- 商家主页（S5-2） ----
   r = await call('GET', `/api/v1/mall/merchants/${MERCHANT}?cityCode=370500`);
   check('the merchant page is public with the approved profile', r.status === 200 && r.json.name === '示例机器人商家' && r.json.kind === 'FACTORY_DIRECT' && r.json.profile?.businessEntity.startsWith('示例机器人科技') && r.json.profile.authorizationUntil === '2027-10-31' && r.json.productCount >= 2, r.json);
