@@ -127,7 +127,9 @@ public class SecurityConfiguration {
                                 // S5-2 商家主页：公开只读。
                                 "/api/v1/mall/merchants/*",
                                 // 开发环境回读运营端上传的商品图片（只在配置了本机目录时有这个接口）。
-                                "/api/v1/mall/media/products/*").permitAll()
+                                "/api/v1/mall/media/products/*",
+                                // 开发、现场演示环境公开读运营端素材（只有 dev profile 有这个接口）。
+                                "/api/v1/dev/ops-media/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
                         // 服务订单交付文件的短时下载链接（S4-3）：令牌本身就是授权，10 分钟内有效，浏览器直接打开。
                         .requestMatchers(HttpMethod.GET, "/api/v1/service-order-files/*").permitAll()

@@ -13,6 +13,7 @@ import type {
   ActivitySession,
   ActivityType,
 } from '../domain/activity'
+import { isMediaUrl } from '../../../shared/http/media-url'
 
 interface MediaAssetDto {
   url: string
@@ -96,7 +97,7 @@ export interface ActivityApi {
 
 // The server already filters images to HTTPS; this keeps a bad row from reaching an <image> tag anyway.
 function toImage(asset: MediaAssetDto | null): ActivityImage | null {
-  return asset && /^https:\/\//i.test(asset.url)
+  return asset && isMediaUrl(asset.url)
     ? { url: asset.url, alt: asset.alt }
     : null
 }

@@ -30,6 +30,7 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 17431,
     strictPort: true,
+    proxy: { '/api': { target: backend, changeOrigin: false } },
   },
   build: {
     chunkSizeWarningLimit: 1600,

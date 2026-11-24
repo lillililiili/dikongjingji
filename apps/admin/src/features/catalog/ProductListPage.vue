@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 
 import { http } from '@/core/http'
 import { formatDateTime } from '@/core/ui/format'
+import { displayMediaUrl } from '@/core/ui/media-url'
 import PagedTable from '@/core/ui/PagedTable.vue'
 import PageSection from '@/core/ui/PageSection.vue'
 import { usePagedList } from '@/core/ui/use-paged-list'
@@ -111,7 +112,7 @@ onMounted(() => {
         <template #default="{ row }">
           <div class="product">
             <img v-if="(row as OpsProductSummary).coverUrl" class="product__cover"
-                 :src="(row as OpsProductSummary).coverUrl ?? ''" alt="" />
+                 :src="displayMediaUrl((row as OpsProductSummary).coverUrl)" alt="" />
             <div v-else class="product__cover product__cover--empty" />
             <el-button link type="primary" @click="open((row as OpsProductSummary).productId)">
               {{ (row as OpsProductSummary).name }}

@@ -3,6 +3,7 @@ import type { FormInstance } from 'element-plus'
 import { reactive, ref, watch } from 'vue'
 
 import { confirmAction, notifyRecorded, showError } from '@/core/ui/feedback'
+import { displayMediaUrl } from '@/core/ui/media-url'
 
 import {
   BADGE_OPTIONS,
@@ -227,7 +228,7 @@ async function save(): Promise<void> {
 
     <el-form-item label="封面">
       <div class="media">
-        <img v-if="form.coverUrl" class="thumb" :src="form.coverUrl" alt="封面" />
+        <img v-if="form.coverUrl" class="thumb" :src="displayMediaUrl(form.coverUrl)" alt="封面" />
         <div class="media__actions">
           <el-input v-model="form.coverUrl" :maxlength="L.url" placeholder="上传，或填受控的 https 地址" clearable />
           <MediaUploadButton :api="api" label="上传封面" @uploaded="(url) => (form.coverUrl = url)" />
@@ -239,7 +240,7 @@ async function save(): Promise<void> {
       <div class="rows">
         <div class="gallery">
           <div v-for="(url, index) in form.gallery" :key="url + index" class="gallery__item">
-            <img class="thumb" :src="url" :alt="`图集第 ${index + 1} 张`" />
+            <img class="thumb" :src="displayMediaUrl(url)" :alt="`图集第 ${index + 1} 张`" />
             <div>
               <el-button link :disabled="index === 0" @click="move(form.gallery, index, -1)">前移</el-button>
               <el-button link :disabled="index === form.gallery.length - 1"
@@ -273,7 +274,7 @@ async function save(): Promise<void> {
                     :maxlength="L.introText" show-word-limit />
           <template v-else>
             <div class="media">
-              <img v-if="block.imageUrl" class="thumb" :src="block.imageUrl" alt="" />
+              <img v-if="block.imageUrl" class="thumb" :src="displayMediaUrl(block.imageUrl)" alt="" />
               <div class="media__actions">
                 <el-input v-model="block.imageUrl" :maxlength="L.url" placeholder="上传，或填受控的 https 地址" />
                 <MediaUploadButton :api="api" @uploaded="(url) => (block.imageUrl = url)" />

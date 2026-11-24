@@ -9,6 +9,7 @@ import {
   type FavoriteState,
   type FavoriteTargetType,
 } from '../domain/favorite'
+import { isMediaUrl } from '../../../shared/http/media-url'
 
 type FavoriteRequest = <T>(input: {
   url: string
@@ -62,7 +63,7 @@ function toPrice(dto: PriceDto | null | undefined): FavoritePrice | null {
 
 // Only HTTPS pictures with a host (AGENTS.md §11); anything else is drawn as no picture.
 function secureUrl(value: string | null | undefined): string | null {
-  return typeof value === 'string' && /^https:\/\/[^/\s]+/.test(value.trim()) ? value.trim() : null
+  return typeof value === 'string' && isMediaUrl(value.trim()) ? value.trim() : null
 }
 
 export function toFavoriteItem(dto: ItemDto): FavoriteItem | null {

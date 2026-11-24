@@ -14,7 +14,8 @@
         "modules" : {
             "Maps" : {},
             "Geolocation" : {},
-            "Camera" : {}
+            "Camera" : {},
+            "Barcode" : {}
         },
         "distribute" : {
             "icons" : {

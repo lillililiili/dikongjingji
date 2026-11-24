@@ -17,6 +17,7 @@ import type {
   MallSku,
   MallSpec,
 } from '../domain/mall'
+import { isMediaUrl } from '../../../shared/http/media-url'
 
 interface MediaAssetDto {
   url: string
@@ -92,7 +93,7 @@ export interface MallApi {
 
 // The server already filters images to HTTPS; this keeps a bad row from reaching an <image> tag anyway.
 function toImage(asset: MediaAssetDto | null): MallImage | null {
-  return asset && /^https:\/\//i.test(asset.url)
+  return asset && isMediaUrl(asset.url)
     ? { url: asset.url, alt: asset.alt }
     : null
 }

@@ -22,6 +22,7 @@ import {
   type ReturnShipmentInput,
 } from '../domain/aftersale'
 import type { TradeImage, TradeOrderLine } from '../domain/trade-order'
+import { isMediaUrl } from '../../../shared/http/media-url'
 
 type AftersaleRequest = <T>(input: {
   url: string
@@ -150,7 +151,7 @@ function toLine(line: LineDto): TradeOrderLine {
     productName: line.productName,
     skuName: line.skuName,
     // 只认 HTTPS 图片，和订单的其他图片一样。
-    coverImage: line.coverImage && /^https:\/\//i.test(line.coverImage.url) ? { url: line.coverImage.url, alt: line.coverImage.alt } : null,
+    coverImage: line.coverImage && isMediaUrl(line.coverImage.url) ? { url: line.coverImage.url, alt: line.coverImage.alt } : null,
     unitAmountMinor: line.unitAmountMinor,
     quantity: line.quantity,
     subtotalMinor: line.subtotalMinor,

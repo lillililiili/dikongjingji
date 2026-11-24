@@ -20,6 +20,7 @@ import type {
   ContentVideoOrientation,
   ContentVideoSummary,
 } from '../domain/content'
+import { isMediaUrl } from '../../../shared/http/media-url'
 
 interface MediaDto {
   url: string
@@ -120,7 +121,7 @@ const REF_TYPES: readonly ContentRefType[] = ['INSPECTION_SERVICE', 'PRO_SERVICE
 
 // The server only hands out HTTPS pictures; this keeps a bad row away from an <image> anyway.
 export function toImage(media: MediaDto | null): ContentImage | null {
-  return media && /^https:\/\//i.test(media.url) ? { url: media.url, alt: media.alt } : null
+  return media && isMediaUrl(media.url) ? { url: media.url, alt: media.alt } : null
 }
 
 const ORIENTATIONS: readonly ContentVideoOrientation[] = ['PORTRAIT', 'LANDSCAPE']
@@ -173,7 +174,7 @@ function toTopicCard(dto: TopicCardDto): ContentTopicCard {
 // with url null so a preview build can draw the board's picture in its place.
 function toBlockImage(dto: BlockImageDto | null | undefined): ContentBlockImage | null {
   if (!dto) return null
-  const url = dto.url && /^https:\/\//i.test(dto.url) ? dto.url : null
+  const url = dto.url && isMediaUrl(dto.url) ? dto.url : null
   return { url, alt: dto.alt?.trim() || '', caption: dto.caption?.trim() || null }
 }
 

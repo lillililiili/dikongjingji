@@ -8,6 +8,7 @@ interface AppManifest {
     title?: string
   }
   'app-plus': {
+    modules?: Record<string, unknown>
     distribute?: {
       icons?: {
         android?: Record<string, string>
@@ -31,5 +32,10 @@ describe('app branding', () => {
       xxhdpi: 'src/static/app-icons/feixiang-xxhdpi.png',
       xxxhdpi: 'src/static/app-icons/feixiang-xxxhdpi.png',
     })
+  })
+
+  it('packs the barcode module that uni.scanCode needs (扫一扫 and 工作模式核销)', () => {
+    expect(manifest['app-plus'].modules).toHaveProperty('Barcode')
+    expect(manifest['app-plus'].modules).toHaveProperty('Camera')
   })
 })

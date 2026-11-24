@@ -1,4 +1,5 @@
 import { createBookingUuid } from '../../application/service-flow/booking-crypto'
+import { rewriteDemoMedia } from '../../../../shared/http/media-url'
 import { createCityDirectoryApi } from '../../../../shared/city/data/city-directory-api'
 import {
   beginBookingAuthenticationRecovery,
@@ -190,7 +191,7 @@ async function sendPublicRequest<T>(input: {
       data: input.data as object,
       header: { 'X-Request-Id': createBookingUuid(), ...input.headers },
       success: (response) => response.statusCode >= 200 && response.statusCode < 300
-        ? resolve(response.data as T)
+        ? resolve(rewriteDemoMedia(response.data as T, url))
         : reject(errorFromResponse(response.data, response.statusCode)),
       fail: () => reject(new ApiRequestError('网络连接失败，请稍后重试', 0, 'NETWORK_ERROR')),
     })

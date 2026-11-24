@@ -14,6 +14,7 @@ import type {
   ProviderPage,
   ProviderProfile,
 } from '../domain/proservice'
+import { isMediaUrl } from '../../../shared/http/media-url'
 
 interface PriceDto {
   mode: ProServicePrice['mode']
@@ -102,7 +103,7 @@ export interface ProServiceApi {
 
 // The server only hands out HTTPS pictures; this keeps a bad row away from an <image> anyway.
 function toCoverUrl(url: string | null): string | null {
-  return url && /^https:\/\//i.test(url) ? url : null
+  return url && isMediaUrl(url) ? url : null
 }
 
 function toPrice(dto: PriceDto): ProServicePrice {

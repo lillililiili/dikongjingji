@@ -28,6 +28,7 @@ import {
 import type { ContentRef, ContentRefType, ContentTopicMerchantItem } from '../domain/content'
 import { contentRefTargetUrl } from '../navigation/content-routes'
 import type { Tone } from './content-view'
+import { isMediaUrl } from '../../../shared/http/media-url'
 
 // The modules an article's mentions and a topic's blocks are read from, each with its own API.
 export interface ContentLinkedApis {
@@ -75,7 +76,7 @@ const TONES = {
 } satisfies Record<string, Tone>
 
 const httpsOnly = (url: string | null | undefined): string | null =>
-  url && /^https:\/\//i.test(url) ? url : null
+  url && isMediaUrl(url) ? url : null
 
 const MALL_UNITS = { ITEM: '', DAY: '/天', HALF_DAY: '/半天' } as const
 
