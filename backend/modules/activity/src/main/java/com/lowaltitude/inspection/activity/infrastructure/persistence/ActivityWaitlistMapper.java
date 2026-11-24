@@ -22,7 +22,13 @@ public interface ActivityWaitlistMapper {
                    s.capacity,
                    s.enrolled_count,
                    s.starts_at,
-                   a.status = 'PUBLISHED' AND s.status = 'ACTIVE' AND s.sale_status <> 'STOPPED' open_for_offers,
+                   a.status = 'PUBLISHED' AND s.status = 'ACTIVE' AND s.sale_status <> 'STOPPED'
+                       AND NOT EXISTS (
+                           SELECT 1
+                           FROM identity_organization suspended
+                           WHERE suspended.id = a.organizer_id
+                             AND suspended.listing_suspended
+                       ) open_for_offers,
                    a.title,
                    a.price_mode,
                    a.price_amount_minor

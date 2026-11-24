@@ -57,7 +57,14 @@ class OrganizationOnboardingMapperSqlTest {
                 .endsWith("WHERE organization_id = #{organizationId} AND status = 'SUBMITTED' AND version = #{version}");
         assertThat(normalized(sql("reopenQualification"))).endsWith("AND status <> 'SUBMITTED'");
         assertThat(normalized(sql("updateQualificationReviewedAt")))
-                .contains("SET qualification_reviewed_at = #{reviewedAt}");
+                .contains("SET qualification_reviewed_at = CAST(#{reviewedAt} AS timestamptz)")
+                // V013：审核通过放开上架，驳回、重新提交挂起；只管经营机构。
+                .contains("listing_suspended = organization_type = 'PROVIDER' AND CAST(#{reviewedAt} AS timestamptz) IS NULL");
+        assertThat(normalized(sql("insertOrganization"))).contains("#{createKey}, #{type} = 'PROVIDER', #{at}");
+        // 没有资质记录的机构改附件：以前审核过的才挂起，从来没审核过的旧机构不动。
+        assertThat(normalized(sql("withdrawUnrecordedReview")))
+                .contains("SET listing_suspended = listing_suspended OR (organization_type = 'PROVIDER'"
+                        + " AND qualification_reviewed_at IS NOT NULL), qualification_reviewed_at = NULL");
     }
 
     @Test

@@ -234,7 +234,7 @@ public class CourseService {
             throw new IllegalArgumentException("exactly one of courseId and experienceItemId is required");
         }
         CourseRow row = courseId != null ? mapper.findCourse(courseId) : mapper.findCourseByExperience(experienceItemId);
-        if (row == null || !isOnline(row) || !CourseRecordStatus.LISTED.equals(row.status())) {
+        if (row == null || !isOnline(row) || !isOpen(row)) {
             throw new CourseException(Error.NOT_FOUND);
         }
         List<LessonRow> lessons = lessonsByCourse(List.of(row.id())).getOrDefault(row.id(), List.of());
@@ -279,7 +279,7 @@ public class CourseService {
             }
             return new CourseEnrollResult(enrollment(accountId, replayed.id()), false);
         }
-        if (!CourseRecordStatus.LISTED.equals(course.status()) || !isOnline(course) || course.priceAmountMinor() == null) {
+        if (!isOpen(course) || !isOnline(course) || course.priceAmountMinor() == null) {
             throw new CourseException(Error.NOT_PURCHASABLE);
         }
         OffsetDateTime now = now();
@@ -746,12 +746,17 @@ public class CourseService {
         return new CourseOrganizationView(organizationId, name, reviewed);
     }
 
+    /** 上架，并且开课机构没被挂起上架（身份迁移 V013）：能看到、能试听、能买。 */
+    private boolean isOpen(CourseRow row) {
+        return CourseRecordStatus.LISTED.equals(row.status()) && !mapper.isListingSuspended(row.organizationId());
+    }
+
     private CourseRow listedOnline(UUID courseId) {
         if (courseId == null) {
             throw new IllegalArgumentException("course id is required");
         }
         CourseRow row = mapper.findCourse(courseId);
-        if (row == null || !isOnline(row) || !CourseRecordStatus.LISTED.equals(row.status())) {
+        if (row == null || !isOnline(row) || !isOpen(row)) {
             throw new CourseException(Error.NOT_FOUND);
         }
         return row;

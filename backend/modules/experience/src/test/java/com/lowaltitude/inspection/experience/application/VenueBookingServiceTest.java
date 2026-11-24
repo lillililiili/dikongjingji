@@ -401,6 +401,20 @@ class VenueBookingServiceTest {
 
     // ---- 改期 ----
 
+    // 身份 V013：运营机构被挂起上架后不能再约，已付款的预约仍能改期。
+    @Test
+    void aSuspendedOperatorTakesNoNewBookingsButAPaidOneCanStillBeRescheduled() {
+        VenueBookingView paid = paidBooking(KEY, SELF);
+        mapper.session(SESSION).suspended = true;
+        mapper.session(LATER_SESSION).suspended = true;
+
+        assertRejected(Error.NOT_FOUND, () -> book(UUID.randomUUID(), MING));
+        assertRejected(Error.NOT_FOUND, () -> service.listParticipants(ACCOUNT, "王女士", SESSION));
+
+        VenueBookingView moved = service.reschedule(ACCOUNT, paid.bookingId(), paid.version(), LATER_SESSION);
+        assertThat(moved.session().sessionId()).isEqualTo(LATER_SESSION);
+    }
+
     @Test
     void reschedulingMovesTheSeatsAndTheCodeToAnotherSessionOfTheSameProject() {
         VenueBookingView paid = paidBooking(KEY, SELF, MING);
@@ -1254,6 +1268,7 @@ class VenueBookingServiceTest {
             final String projectName;
             String status = "ACTIVE";
             String projectStatus = "ACTIVE";
+            boolean suspended;
 
             Session(UUID id, UUID projectId, OffsetDateTime startsAt, int capacity, int booked, Integer minAge,
                     long price, String projectName) {
@@ -1271,7 +1286,7 @@ class VenueBookingServiceTest {
             SessionRow toRow() {
                 return new SessionRow(id, projectId, VENUE, OPERATOR_ORG, "PUBLISHED", projectStatus, status,
                         startsAt, endsAt, capacity, booked, minAge, price, "东营低空与机器人体验馆", projectName,
-                        "370500 ", null);
+                        "370500 ", null, suspended);
             }
         }
 

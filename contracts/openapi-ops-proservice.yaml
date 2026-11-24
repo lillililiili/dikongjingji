@@ -1,8 +1,11 @@
 openapi: "3.1.0"
 info:
   title: "Ops Pro Service API"
-  version: "1.1.0"
+  version: "1.2.0"
   description: |-
+    1.2.0（2026-11-24）：服务商资质没审核通过（身份迁移 V013 的 listing_suspended）时不能上架服务：409
+    OPS_PROVIDER_NOT_QUALIFIED；已上架的服务和服务商主页在 App 上不可见，发需求时不能邀请它，已发出的需求、报价和订单照常，
+    审核通过后自动恢复（规则见 openapi-ops-organization.yaml 1.3.0）。
     1.1.0（2026-11-23，S4-4）：
     - 服务加 warrantyText（质保期，≤40 字，可以不填；App 的设备维护详情在“保修与收费边界”里显示）。
     - 加“服务商资料审核”：服务商在工作台提交主页资料（经营主体、服务方式、授权有效期、可交付清单、本地团队标签，
@@ -408,7 +411,7 @@ components:
           schema:
             $ref: "#/components/schemas/ApiError"
     StatusConflict:
-      description: "OPS_VERSION_CONFLICT；OPS_STATUS_UNCHANGED：已经是这个状态"
+      description: "OPS_VERSION_CONFLICT；OPS_STATUS_UNCHANGED：已经是这个状态；OPS_PROVIDER_NOT_QUALIFIED：服务商资质审核通过前不能上架"
       content:
         application/json:
           schema:
@@ -445,6 +448,7 @@ components:
         - OPS_PUBLISH_INCOMPLETE
         - OPS_STATUS_UNCHANGED
         - OPS_PROVIDER_UNKNOWN
+        - OPS_PROVIDER_NOT_QUALIFIED
         - OPS_CITY_UNKNOWN
     OpsProServicePublishField:
       type: "string"

@@ -77,6 +77,13 @@ public class CoursePortsConfiguration {
                         .map(found -> HOST_TYPES.contains(found.organizationType()))
                         .orElse(false);
             }
+
+            @Override
+            public boolean listingSuspended(UUID organizationId) {
+                return organizations.findActiveOrganization(organizationId)
+                        .map(found -> found.listingSuspended())
+                        .orElse(false);
+            }
         };
     }
 

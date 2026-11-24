@@ -4,5 +4,5 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record PersistedIdentityOrganization(UUID organizationId, String organizationName, String organizationType,
-                                            OffsetDateTime qualificationReviewedAt) {
+                                            OffsetDateTime qualificationReviewedAt, boolean listingSuspended) {
 }

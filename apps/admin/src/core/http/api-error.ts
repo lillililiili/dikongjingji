@@ -59,7 +59,7 @@ const MESSAGES: Record<string, string> = {
   OPS_SKU_LIMIT: '规格已到上限（20 个）',
   OPS_MERCHANT_UNKNOWN: '选的商家不是在用的经营机构',
   OPS_MERCHANT_NOT_COLLECTING: '这家商家还没有有效的收款账户，标价商品不能启用；请先在“收款账户”里登记',
-  OPS_MERCHANT_NOT_QUALIFIED: '机构资质还没审核通过，暂时不能上架；请在“入驻资料”里补齐资质附件，等平台审核',
+  OPS_MERCHANT_NOT_QUALIFIED: '商家的资质还没审核通过，暂时不能上架：商家在“入驻资料”里补齐资质附件，平台在“机构与资质”里审核通过后再上架',
   // 账号模块（手机号、验证码）的码不带前缀：自助入驻的发码和申请会答这些。
   SMS_TOO_FREQUENT: '验证码发送太频繁，请稍后再试',
   PHONE_LOCKED: '验证码错误次数太多，请 30 分钟后再试',
@@ -77,6 +77,7 @@ const MESSAGES: Record<string, string> = {
   OPS_MEDIA_STORE_UNAVAILABLE: '素材存储暂不可用，请稍后再试',
   // 活动与场次（openapi-ops-activity.yaml）
   OPS_ACTIVITY_STATUS_CONFLICT: '活动现在的状态不能这样操作，请刷新后再看',
+  OPS_ACTIVITY_ORGANIZER_NOT_QUALIFIED: '主办机构的资质还没审核通过，暂时不能上线；请先在“机构与资质”里审核',
   OPS_ACTIVITY_ORGANIZER_UNKNOWN: '主办或承办机构不存在、已停用，或不是经营机构',
   OPS_ACTIVITY_HAS_ENROLLMENTS: '活动已有报名，不能改收费方式、主办机构和城市',
   OPS_ACTIVITY_SESSION_HAS_ENROLLMENTS: '这一场已有报名：不能删除，也不能改开始、结束时间，只能停售',
@@ -86,6 +87,7 @@ const MESSAGES: Record<string, string> = {
   OPS_ACTIVITY_SESSION_LIMIT: '一个活动最多 50 个场次',
   // 场馆与设备（openapi-ops-venue.yaml）
   OPS_VENUE_STATUS_CONFLICT: '当前状态不能做这个操作，请刷新后再看',
+  OPS_VENUE_OPERATOR_NOT_QUALIFIED: '场馆运营机构的资质还没审核通过，暂时不能上线；请先在“机构与资质”里审核',
   OPS_VENUE_OPERATOR_INVALID: '运营机构不存在、已停用或不是服务商机构',
   OPS_VENUE_PRODUCT_UNKNOWN: '关联的商品不存在，或在场馆所在城市没有在售',
   OPS_VENUE_SESSION_STARTED: '场次已经开始，不能再改',
@@ -97,6 +99,7 @@ const MESSAGES: Record<string, string> = {
   OPS_CONTENT_ARTICLE_UNKNOWN: '专题里挂的图文不存在（视频不能挂在相关内容里）',
   OPS_CONTENT_PRODUCT_UNKNOWN: '商品不存在，或在专题的城市没有在售商家',
   // 巡检和专业服务目录（openapi-ops-inspection-catalog.yaml、openapi-ops-proservice.yaml）
+  OPS_PROVIDER_NOT_QUALIFIED: '服务商的资质还没审核通过，暂时不能上架；请先在“机构与资质”里审核',
   OPS_PROVIDER_UNKNOWN: '服务商不存在、已停用或不是服务商机构',
   OPS_INSPECTION_CATEGORY_UNKNOWN: '类目不存在或已停用',
   OPS_INSPECTION_CATEGORY_CODE_TAKEN: '类目编码已被占用，换一个试试',
@@ -106,6 +109,7 @@ const MESSAGES: Record<string, string> = {
   OPS_LIVE_ROOM_NOT_ENDED: '直播结束后才能设回看',
   // 课程（openapi-ops-course.yaml）
   OPS_COURSE_STATUS_CONFLICT: '课程现在的状态不能这样操作（已经上架、没有上架，或线下班没有目录），请刷新后再看',
+  OPS_COURSE_ORGANIZATION_NOT_QUALIFIED: '开课机构的资质还没审核通过，暂时不能上架；请先在“机构与资质”里审核',
   OPS_COURSE_ORGANIZATION_UNKNOWN: '开课机构不存在、已停用，或不是服务商、平台机构',
   OPS_COURSE_EXPERIENCE_TAKEN: '这个体验中心试听入口已经给了别的课程',
   OPS_COURSE_LESSON_IN_USE: '要删的课时已经有人学过，不能删；可以改标题、时长和视频',

@@ -43,7 +43,10 @@ public interface InspectionServiceCatalogMapper {
               ON category.code = service.category_code
             """;
 
-    /** A service a customer in #{cityCode} can see and book. Every list and count goes through it. */
+    /**
+     * A service a customer in #{cityCode} can see and book. Every list and count goes through it. The services
+     * of a provider suspended from listing (identity V013, its qualification is not approved) do not show.
+     */
     String VISIBLE_IN_CITY = """
             WHERE service.status = 'ACTIVE'
               AND service.service_no IS NOT NULL
@@ -70,6 +73,12 @@ public interface InspectionServiceCatalogMapper {
                   FROM inspection_service_booking_item item
                   WHERE item.service_id = service.id
                     AND item.status = 'ACTIVE'
+              )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = service.provider_id
+                    AND suspended.listing_suspended
               )
             """;
 
@@ -317,6 +326,7 @@ public interface InspectionServiceCatalogMapper {
               ON organization.id = service.provider_id
              AND organization.organization_type = 'PROVIDER'
              AND organization.status = 'ACTIVE'
+             AND NOT organization.listing_suspended
             LEFT JOIN inspection_provider_profile profile
               ON profile.provider_id = service.provider_id
              AND profile.status = 'ACTIVE'

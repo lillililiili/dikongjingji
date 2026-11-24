@@ -82,7 +82,8 @@ class MallCartMapperContractTest {
         // 状态不在 SQL 里过滤：能不能买、为什么不能买由服务按当前城市判断。
         assertThat(MallCartMapper.OFFER_COLUMNS)
                 .doesNotContain("WHERE")
-                .contains("offer.status offer_status")
+                // 商家资质没审核通过（身份 V013）的供给当作已停用，页面显示失效。
+                .contains("CASE WHEN merchant.listing_suspended THEN 'DISABLED' ELSE offer.status END offer_status")
                 .contains("sku.status sku_status")
                 .contains("p.status product_status")
                 .contains("offer.city_code offer_city_code")

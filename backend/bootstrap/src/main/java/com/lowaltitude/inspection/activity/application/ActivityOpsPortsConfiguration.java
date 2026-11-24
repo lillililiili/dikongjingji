@@ -18,7 +18,7 @@ public class ActivityOpsPortsConfiguration {
     ActivityOpsPorts.Organizations activityOpsOrganizations(IdentityOrganizationPort organizations) {
         return organizationId -> organizations.findActiveOrganization(organizationId)
                 .map(found -> new ActivityOpsPorts.Organization(found.organizationId(), found.name(),
-                        found.organizationType()));
+                        found.organizationType(), found.listingSuspended()));
     }
 
     @Bean

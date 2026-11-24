@@ -71,6 +71,22 @@ class ProServiceOpsServiceTest {
         when(mapper.insertChange(any(), anyString(), anyString(), any(), anyString(), any())).thenReturn(1);
     }
 
+    // 身份 V013：资质没审核通过的服务商，资料齐全也不能上架。
+    @Test
+    void aSuspendedProviderCannotPublish() {
+        when(organizations.findActiveOrganization(PROVIDER)).thenReturn(Optional.of(
+                new IdentityOrganization(PROVIDER, "新入驻服务商", "PROVIDER", null, true)));
+        when(mapper.findService(SERVICE)).thenReturn(row(SERVICE, "UNPUBLISHED", 2));
+        when(mapper.findCities(SERVICE)).thenReturn(List.of("370500"));
+        when(mapper.findItems(SERVICE)).thenReturn(List.of(new ItemRow("FACET", "PHOTOS", "照片", null),
+                new ItemRow("STEP", null, "沟通需求", null)));
+
+        assertThatThrownBy(() -> service.publish(SERVICE, 2, OPERATOR, "运营"))
+                .isInstanceOfSatisfying(OpsException.class, refused ->
+                        assertThat(refused.error()).isEqualTo(ProServiceOpsError.PROVIDER_NOT_QUALIFIED));
+        verify(mapper, never()).updateStatus(any(), anyString(), anyInt(), any());
+    }
+
     @Test
     void newServicesStartUnpublishedWithTheirItemsAndARecord() {
         when(mapper.findService(any())).thenAnswer(invocation -> row(invocation.getArgument(0), "UNPUBLISHED", 0));

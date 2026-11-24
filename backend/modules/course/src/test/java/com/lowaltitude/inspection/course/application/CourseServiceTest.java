@@ -125,6 +125,19 @@ class CourseServiceTest {
         verify(payments, never()).open(any());
     }
 
+    // 身份 V013：开课机构资质没审核通过，课程详情、试听、购买都当作没上架。
+    @Test
+    void aCourseOfASuspendedOrganizationCannotBeSeenTriedOrBought() {
+        when(mapper.lockCourse(FLY)).thenReturn(online(FLY, 19900L, "LISTED"));
+        when(mapper.findCourse(FLY)).thenReturn(online(FLY, 19900L, "LISTED"));
+        when(mapper.isListingSuspended(ORG)).thenReturn(true);
+
+        refused(() -> service.enroll(ACCOUNT, UUID.randomUUID(), FLY, 19900L), Error.NOT_PURCHASABLE);
+        refused(() -> service.trial(FLY, null), Error.NOT_FOUND);
+        refused(() -> service.mine(ACCOUNT, FLY), Error.NOT_FOUND);
+        verify(payments, never()).open(any());
+    }
+
     @Test
     void aPurchaseOpensOneTradeOrderForTheOrganizationWithAFifteenMinuteWindow() {
         when(mapper.lockCourse(FLY)).thenReturn(online(FLY, 19900L, "LISTED"));

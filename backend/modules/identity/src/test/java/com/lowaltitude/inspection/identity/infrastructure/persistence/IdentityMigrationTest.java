@@ -57,6 +57,24 @@ class IdentityMigrationTest {
                 .doesNotContain("DEFAULT");
     }
 
+    // 未通过资质审核的机构不能上架：默认不挂起，只回填有资质记录但没审核通过的经营机构。
+    @Test
+    void v013SuspendsListingOnlyForProvidersWhoseRecordedQualificationIsNotApproved() throws Exception {
+        String sql;
+        try (var stream = getClass().getResourceAsStream(
+                "/db/migration/identity/V013__identity_listing_suspended.sql")) {
+            assertThat(stream).isNotNull();
+            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        assertThat(sql)
+                .contains("ADD COLUMN listing_suspended boolean NOT NULL DEFAULT false;")
+                .contains("FROM identity_organization_qualification q")
+                .contains("q.status <> 'APPROVED'")
+                .contains("o.organization_type = 'PROVIDER'")
+                .contains("WHERE listing_suspended;");
+    }
+
     // 登录续期：刷新令牌只存哈希，状态、过期和撤销原因都有约束，旧迁移不动。
     @Test
     void v008StoresRefreshTokensOnlyAsHashesWithRotationAndRevocation() throws Exception {

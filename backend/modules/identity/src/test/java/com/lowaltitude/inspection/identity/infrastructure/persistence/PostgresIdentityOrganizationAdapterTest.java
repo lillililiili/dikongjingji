@@ -30,23 +30,25 @@ class PostgresIdentityOrganizationAdapterTest {
     @Test
     void mapsTheStoredOrganization() {
         PostgresIdentityOrganizationAdapter adapter = new PostgresIdentityOrganizationAdapter(reader(
-                id -> Optional.of(new PersistedIdentityOrganization(id, "示例机器人商家", "PROVIDER", REVIEWED)),
+                id -> Optional.of(new PersistedIdentityOrganization(id, "示例机器人商家", "PROVIDER", REVIEWED, false)),
                 ids -> List.of()));
 
         IdentityOrganization found = adapter.findActiveOrganization(ORGANIZATION).orElseThrow();
         assertThat(found).isEqualTo(new IdentityOrganization(ORGANIZATION, "示例机器人商家", "PROVIDER",
                 Instant.parse("2026-11-01T02:00:00Z")));
         assertThat(found.qualificationReviewed()).isTrue();
+        assertThat(found.listingSuspended()).isFalse();
     }
 
     @Test
     void anOrganizationWithoutAReviewTimeIsNotReviewed() {
         PostgresIdentityOrganizationAdapter adapter = new PostgresIdentityOrganizationAdapter(reader(
-                id -> Optional.of(new PersistedIdentityOrganization(id, "示例行业装备代理", "PROVIDER", null)),
+                id -> Optional.of(new PersistedIdentityOrganization(id, "示例行业装备代理", "PROVIDER", null, true)),
                 ids -> List.of()));
 
         IdentityOrganization found = adapter.findActiveOrganization(OTHER).orElseThrow();
         assertThat(found.qualificationReviewedAt()).isNull();
+        assertThat(found.listingSuspended()).isTrue();
         assertThat(found.qualificationReviewed()).isFalse();
     }
 
@@ -110,6 +112,7 @@ class PostgresIdentityOrganizationAdapterTest {
                 .contains("o.organization_name")
                 .contains("o.organization_type")
                 .contains("o.qualification_reviewed_at")
+                .contains("o.listing_suspended")
                 .contains("WHERE o.id = #{organizationId}")
                 .contains("o.status = 'ACTIVE'")
                 .doesNotContain("organization_code")

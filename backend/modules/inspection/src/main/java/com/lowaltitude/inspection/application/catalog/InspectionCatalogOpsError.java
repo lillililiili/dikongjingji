@@ -9,6 +9,7 @@ public enum InspectionCatalogOpsError implements OpsError {
     PUBLISH_INCOMPLETE(422, OpsError.PUBLISH_INCOMPLETE, "上架前还有必填项没填"),
     STATUS_UNCHANGED(409, "OPS_STATUS_UNCHANGED", "已经是这个状态"),
     PROVIDER_UNKNOWN(422, "OPS_PROVIDER_UNKNOWN", "服务商不存在、已停用或不是服务商机构"),
+    PROVIDER_NOT_QUALIFIED(409, "OPS_PROVIDER_NOT_QUALIFIED", "服务商资质审核通过前不能上架"),
     CITY_UNKNOWN(422, "OPS_CITY_UNKNOWN", "城市不在平台城市目录里"),
     CATEGORY_UNKNOWN(422, "OPS_INSPECTION_CATEGORY_UNKNOWN", "类目不存在或已停用"),
     CATEGORY_CODE_TAKEN(409, "OPS_INSPECTION_CATEGORY_CODE_TAKEN", "类目编码已被占用"),

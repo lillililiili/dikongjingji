@@ -1,5 +1,8 @@
 package com.lowaltitude.inspection.experience.application;
 
+import java.util.Optional;
+import java.util.UUID;
+
 import com.lowaltitude.inspection.application.city.CityOperationsService;
 import com.lowaltitude.inspection.experience.application.ops.VenueOpsPorts;
 import com.lowaltitude.inspection.identity.domain.IdentityOrganization;
@@ -29,9 +32,21 @@ public class VenueOpsPortsConfiguration {
 
     @Bean
     VenueOpsPorts.Operators venueOpsOperators(IdentityOrganizationPort organizations) {
-        return organizationId -> organizations.findActiveOrganization(organizationId)
-                .filter(organization -> PROVIDER.equals(organization.organizationType()))
-                .map(IdentityOrganization::name);
+        return new VenueOpsPorts.Operators() {
+            @Override
+            public Optional<String> providerName(UUID organizationId) {
+                return organizations.findActiveOrganization(organizationId)
+                        .filter(organization -> PROVIDER.equals(organization.organizationType()))
+                        .map(IdentityOrganization::name);
+            }
+
+            @Override
+            public boolean listingSuspended(UUID organizationId) {
+                return organizations.findActiveOrganization(organizationId)
+                        .map(IdentityOrganization::listingSuspended)
+                        .orElse(false);
+            }
+        };
     }
 
     @Bean

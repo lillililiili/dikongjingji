@@ -149,6 +149,7 @@ public interface ActivityEnrollmentMapper {
 
     // ---- 场次（加锁） ----
 
+    /** listing_suspended：主办机构被挂起上架（身份迁移 V013），不能再报名、候补；已有的报名、改期、退款、核销照常。 */
     String SESSION_COLUMNS = """
             SELECT s.id session_id,
                    a.id activity_id,
@@ -170,7 +171,13 @@ public interface ActivityEnrollmentMapper {
                    a.title,
                    a.cover_url,
                    s.label,
-                   s.sale_status = 'STOPPED' sale_stopped
+                   s.sale_status = 'STOPPED' sale_stopped,
+                   EXISTS (
+                       SELECT 1
+                       FROM identity_organization suspended
+                       WHERE suspended.id = a.organizer_id
+                         AND suspended.listing_suspended
+                   ) listing_suspended
             FROM activity_session s
             JOIN activity a ON a.id = s.activity_id
             WHERE s.id = #{sessionId}
@@ -698,7 +705,9 @@ public interface ActivityEnrollmentMapper {
             String coverUrl,
             String label,
             /** 运营停售了这一场（S3-1）：不能再报名，已有报名照常。 */
-            boolean saleStopped
+            boolean saleStopped,
+            /** 主办机构资质没审核通过、被挂起上架（身份迁移 V013）：不能再报名，已有报名照常。 */
+            boolean listingSuspended
     ) {
     }
 

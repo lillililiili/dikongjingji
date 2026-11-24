@@ -201,6 +201,11 @@ public class ActivityOpsService {
         if (!missing.isEmpty()) {
             throw OpsException.incomplete(ActivityOpsError.PUBLISH_INCOMPLETE, missing);
         }
+        // 资质没审核通过的机构不能上线活动（身份迁移 V013）。
+        if (organizations.find(current.organizerId())
+                .filter(ActivityOpsPorts.Organization::listingSuspended).isPresent()) {
+            throw new OpsException(ActivityOpsError.ORGANIZER_NOT_QUALIFIED);
+        }
         OffsetDateTime at = now();
         if (mapper.changeStatus(activityId, OpsActivityStatus.PUBLISHED.name(), expected, at) != 1) {
             throw new OpsException(ActivityOpsError.VERSION_CONFLICT);

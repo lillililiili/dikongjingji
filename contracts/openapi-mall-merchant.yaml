@@ -3,6 +3,7 @@ info:
   title: Mall Merchant API
   version: 1.0.0
   description: |-
+    2026-11-24（接口和字段不变）：商家资质没审核通过（身份迁移 V013）时商家主页 404。
     1.0.0（2026-11-23，S5-2、S4-4，docs/redesign/08-后续开发计划.md §5 S4-4）：商家主页（画板 Merchant、商品详情
     “查看商家主页与资质”）和商家工作台的“商家资料”。
 

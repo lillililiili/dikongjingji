@@ -30,7 +30,8 @@ public final class PostgresIdentityOrganizationAdapter implements IdentityOrgani
         return reader.findActiveOrganizationById(organizationId)
                 .map(row -> new IdentityOrganization(row.organizationId(), row.organizationName(),
                         row.organizationType(),
-                        row.qualificationReviewedAt() == null ? null : row.qualificationReviewedAt().toInstant()));
+                        row.qualificationReviewedAt() == null ? null : row.qualificationReviewedAt().toInstant(),
+                        row.listingSuspended()));
     }
 
     @Override

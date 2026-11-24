@@ -72,7 +72,7 @@ public final class MallMerchantService {
             throw new IllegalArgumentException("city code is invalid");
         }
         String city = cityCode.trim();
-        String name = mapper.findOrganizationName(merchantId);
+        String name = mapper.findListedOrganizationName(merchantId);
         if (name == null) {
             throw new OpsException(MallMerchantError.NOT_FOUND);
         }

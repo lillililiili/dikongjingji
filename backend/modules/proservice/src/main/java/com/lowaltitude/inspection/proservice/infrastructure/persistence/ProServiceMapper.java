@@ -8,7 +8,8 @@ import org.apache.ibatis.annotations.Select;
 
 /**
  * 专业服务目录的读取（F2）。全部用绑定参数；排序只在三种固定写法里选，不拼客户端的字段。
- * 能被看到的服务：已上架，并且在这个城市上架（城市行在用）。
+ * 能被看到的服务：已上架，并且在这个城市上架（城市行在用），服务商没有被挂起上架（身份迁移 V013 的 listing_suspended，
+ * 资质没审核通过）。这里只读机构的这一列。
  */
 public interface ProServiceMapper {
 
@@ -37,6 +38,12 @@ public interface ProServiceMapper {
                   WHERE c.service_id = s.id
                     AND c.city_code = #{cityCode}
                     AND c.status = 'ACTIVE'
+              )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = s.provider_id
+                    AND suspended.listing_suspended
               )
             """;
 
@@ -171,9 +178,26 @@ public interface ProServiceMapper {
             WHERE s.status = 'PUBLISHED'
               AND c.status = 'ACTIVE'
               AND c.city_code = #{cityCode}
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = s.provider_id
+                    AND suspended.listing_suspended
+              )
             ORDER BY s.provider_id
             """)
     List<UUID> findProviderIdsIn(@Param("cityCode") String cityCode);
+
+    /** 这家服务商被挂起上架（身份迁移 V013）：App 的服务商主页当作没有。 */
+    @Select("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM identity_organization
+                WHERE id = #{providerId}
+                  AND listing_suspended
+            )
+            """)
+    boolean isListingSuspended(@Param("providerId") UUID providerId);
 
     /** 质保期（V003），可以为空。 */
     @Select("SELECT warranty_text FROM pro_service WHERE id = #{serviceId}")

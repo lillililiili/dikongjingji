@@ -14,8 +14,15 @@ public interface ActivityOpsPorts {
         Optional<Organization> find(UUID organizationId);
     }
 
-    /** type：CUSTOMER / PROVIDER / PLATFORM（身份模块的机构类型）。 */
-    record Organization(UUID organizationId, String name, String type) {
+    /**
+     * type：CUSTOMER / PROVIDER / PLATFORM（身份模块的机构类型）。listingSuspended：资质没审核通过、不能上架
+     * （身份迁移 V013）。
+     */
+    record Organization(UUID organizationId, String name, String type, boolean listingSuspended) {
+
+        public Organization(UUID organizationId, String name, String type) {
+            this(organizationId, name, type, false);
+        }
     }
 
     /** 可选城市的名称；编码不对、不存在或不可选时为空。 */

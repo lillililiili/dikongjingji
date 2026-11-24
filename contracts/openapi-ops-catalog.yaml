@@ -1,12 +1,16 @@
 openapi: "3.1.0"
 info:
   title: "Ops Catalog API"
-  version: "1.1.0"
+  version: "1.2.0"
   description: |-
+    1.2.0（2026-11-24）：平台运营代上架也要商家资质审核通过。上架商品时，在售供给的商家全都资质没审核通过（身份迁移 V013 的
+    listing_suspended）；或在已上架的商品上启用这样一家的供给——409 OPS_MERCHANT_NOT_QUALIFIED。几家共售的商品，只有合格的商家
+    的供给在 App 上显示。已上架后商家资质改回待审核或被驳回，它的供给在 App 的列表、详情、商家主页不可见，购物车里显示失效、
+    不能下单和询价，已成交的订单照常；审核通过后自动恢复（规则见 openapi-ops-organization.yaml 1.3.0）。
+
     1.1.0（2026-11-24 商家自助上架，contracts/openapi-merchant-catalog.yaml）：商品多了建它的商家：OpsProductSummary、
     OpsProduct 加 ownerOrganizationId、ownerName（商家在工作台“我的商品”里建的带商家，平台建的为 null）。商家只能在工作台
-    改自己建的；平台运营在这里仍能看到全部、下架任何商品。商家上架前要资质审核通过，否则 409 OPS_MERCHANT_NOT_QUALIFIED
-    （只有商家工作台的接口会答这个码，列在这里是因为错误码和商城模块共用一套）。
+    改自己建的；平台运营在这里仍能看到全部、下架任何商品。商家上架前要资质审核通过，否则 409 OPS_MERCHANT_NOT_QUALIFIED。
 
     1.0.0（S3-1 第二部分“商品与供给”，docs/redesign/08-后续开发计划.md §2、§5 D11、S4-4）：Web 运营端的商品、规格、在售供给、
     商品图片和商家收款账户登记。
@@ -218,7 +222,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_STATUS_UNCHANGED：已经是这个状态。"
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_STATUS_UNCHANGED：已经是这个状态；OPS_MERCHANT_NOT_QUALIFIED：商家资质审核通过前不能上架。"
           content:
             application/json:
               schema:
@@ -424,7 +428,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_STATUS_UNCHANGED：已经是这个状态。"
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_STATUS_UNCHANGED：已经是这个状态；OPS_MERCHANT_NOT_QUALIFIED：商家资质审核通过前不能上架。"
           content:
             application/json:
               schema:

@@ -3,6 +3,7 @@ info:
   title: Mall Catalog API
   version: 1.4.0
   description: >-
+    2026-11-24（接口和字段不变）：商家资质没审核通过（身份迁移 V013）时，它的在售供给不在这里出现；没有别家在售的商品列表里没有、详情 404。
     Read-only catalog for the home "商城" channel (docs/redesign/03-App实现任务计划.md §9):
     products of a category that have an active offer in the city, and one product with its offers.
     1.1.0 adds keyword search and filters to the list. 1.2.0 (2026-11-19) adds onlinePayment to each

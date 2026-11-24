@@ -18,6 +18,7 @@ public interface VenueBookingMapper {
 
     // ---- 场次（加锁） ----
 
+    /** listing_suspended：运营机构被挂起上架（身份迁移 V013），不能再约；已有的预约、改期、退款、核销照常。 */
     String SESSION_COLUMNS = """
             SELECT s.id session_id,
                    s.project_id,
@@ -35,7 +36,13 @@ public interface VenueBookingMapper {
                    v.name venue_name,
                    p.name project_name,
                    v.city_code,
-                   v.cover_url
+                   v.cover_url,
+                   EXISTS (
+                       SELECT 1
+                       FROM identity_organization suspended
+                       WHERE suspended.id = v.operator_id
+                         AND suspended.listing_suspended
+                   ) listing_suspended
             FROM venue_session s
             JOIN venue_project p ON p.id = s.project_id
             JOIN venue v ON v.id = p.venue_id
@@ -481,7 +488,9 @@ public interface VenueBookingMapper {
             String venueName,
             String projectName,
             String cityCode,
-            String coverUrl
+            String coverUrl,
+            /** 场馆运营机构资质没审核通过、被挂起上架（身份迁移 V013）：不能再约，已有预约照常。 */
+            boolean listingSuspended
     ) {
     }
 

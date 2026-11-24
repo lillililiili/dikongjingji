@@ -59,7 +59,7 @@ class OpsCourseOpenApiContractTest {
 
     @Test
     void everyRouteIsDeclaredAndNeedsALogin() {
-        assertThat(CourseContract.map(contract.root().get("info")).get("version")).isEqualTo("1.0.0");
+        assertThat(CourseContract.map(contract.root().get("info")).get("version")).isEqualTo("1.1.0");
         List<Operation> operations = contract.operations();
         assertThat(operations).extracting(Operation::key).containsExactlyInAnyOrder(
                 "GET /api/v1/ops/courses",

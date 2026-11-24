@@ -3,6 +3,7 @@ info:
   title: Professional Service Catalog API
   version: 1.2.0
   description: |-
+    2026-11-24（接口和字段不变）：服务商资质没审核通过（身份迁移 V013）时，它的服务和服务商主页 404，目录里不出现。
     1.2.0（2026-11-23，S4-4，docs/redesign/08-后续开发计划.md §5“S4-4”：服务商资料由机构在工作台填、平台在运营端审核）：
     - 服务详情加 warrantyText（质保期，如“维修后质保 90 天”；设备维护“保修与收费边界”一段里显示，没有时为 null）。
       由运营端专业服务目录填写（contracts/openapi-ops-proservice.yaml 1.1.0）。

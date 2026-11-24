@@ -38,7 +38,7 @@ class OpsActivityOpenApiContractTest {
 
     @Test
     void contractMatchesTheController() {
-        checker.verifyAll("1.1.0");
+        checker.verifyAll("1.2.0");
         checker.verifyOpsErrors("OpsActivityErrorCode", ActivityOpsError.values());
     }
 

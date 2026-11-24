@@ -46,7 +46,7 @@ class OpsOrganizationOpenApiContractTest {
 
     @Test
     void contractMatchesTheController() {
-        checker.verifyAll("1.2.0");
+        checker.verifyAll("1.3.0");
     }
 
     @Test

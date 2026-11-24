@@ -32,7 +32,7 @@ public final class MallOpsException extends RuntimeException {
         MEDIA_URL_UNCONTROLLED,
         /** 图片存储没有配置。 */
         FILE_STORE_UNAVAILABLE,
-        /** 商家工作台：资质还没审核通过，不能上架。 */
+        /** 机构资质还没审核通过，不能上架（商家工作台和平台运营代上架都拦）。 */
         MERCHANT_NOT_QUALIFIED
     }
 

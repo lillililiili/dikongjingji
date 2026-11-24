@@ -121,7 +121,7 @@ public class VenueBookingService {
             throw new IllegalArgumentException("session id is required");
         }
         SessionRow session = mapper.findSession(sessionId);
-        if (session == null || !isListed(session)) {
+        if (session == null || !isBookable(session)) {
             throw new VenueBookingException(Error.NOT_FOUND);
         }
         List<VenueParticipant> people = participants.participants(accountId, accountName);
@@ -184,7 +184,7 @@ public class VenueBookingService {
             }
             return new BookingResult(readBooking(accountId, replayed.id()), false);
         }
-        if (!isListed(session)) {
+        if (!isBookable(session)) {
             throw new VenueBookingException(Error.NOT_FOUND);
         }
         boolean paid = session.priceAmountMinor() > 0;
@@ -580,6 +580,11 @@ public class VenueBookingService {
         }
         int age = person.self() ? ADULT_AGE : ageOn(person.birthMonth(), dateOf(session.startsAt()));
         return age < minAge ? VenueEligibilityReason.UNDER_MIN_AGE : VenueEligibilityReason.ELIGIBLE;
+    }
+
+    /** 能接新预约：在公开目录里，并且运营机构没被挂起上架（身份迁移 V013）。改期、付款恢复只看 {@link #isListed}。 */
+    private static boolean isBookable(SessionRow session) {
+        return isListed(session) && !session.listingSuspended();
     }
 
     private static boolean isListed(SessionRow session) {

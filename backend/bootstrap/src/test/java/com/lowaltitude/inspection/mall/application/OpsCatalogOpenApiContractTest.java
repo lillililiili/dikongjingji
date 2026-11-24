@@ -89,7 +89,7 @@ class OpsCatalogOpenApiContractTest {
 
     @Test
     void contractMatchesTheControllers() {
-        checker.verifyAll("1.1.0");
+        checker.verifyAll("1.2.0");
     }
 
     @Test

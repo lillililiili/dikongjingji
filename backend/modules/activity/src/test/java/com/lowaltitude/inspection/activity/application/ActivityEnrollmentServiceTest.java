@@ -564,6 +564,20 @@ class ActivityEnrollmentServiceTest {
         assertThat(service.enroll(ACCOUNT, KEY, command(self)).created()).isTrue();
     }
 
+    // 身份 V013：主办机构资质没审核通过时活动当作不存在，不能再报名；放开后又能报。
+    @Test
+    void aSuspendedOrganizerTakesNoNewEnrollments() {
+        UUID self = self();
+
+        mapper.session.listingSuspended = true;
+        assertRejected(Error.NOT_FOUND, () -> service.enroll(ACCOUNT, KEY, command(self)));
+        assertRejected(Error.NOT_FOUND, () -> service.listParticipants(ACCOUNT, "王女士", SESSION_ID));
+        assertNothingEnrolled();
+
+        mapper.session.listingSuspended = false;
+        assertThat(service.enroll(ACCOUNT, KEY, command(self)).created()).isTrue();
+    }
+
     @Test
     void notEnoughSeatsIsSessionFullAndTheLastSeatsCanStillBeTaken() {
         UUID self = self();
@@ -1995,7 +2009,8 @@ class ActivityEnrollmentServiceTest {
                     TITLE,
                     session.coverUrl,
                     session.label,
-                    session.saleStopped);
+                    session.saleStopped,
+                    session.listingSuspended);
         }
 
         @Override
@@ -2429,6 +2444,7 @@ class ActivityEnrollmentServiceTest {
             int enrolledCount = 48;
             String label = "上午场";
             boolean saleStopped;
+            boolean listingSuspended;
             String coverUrl = COVER;
             Double latitude = 37.43;
             Double longitude = 118.67;

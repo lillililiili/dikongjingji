@@ -9,6 +9,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -237,10 +238,13 @@ public class MallCatalogOpsService {
             if (OpsProductStatus.PUBLISHED.name().equals(row.status())) {
                 throw new MallOpsException(Error.STATUS_UNCHANGED);
             }
-            List<OpsPublishBlocker> blockers = publishBlockers(row, mapper.findSkus(id), mapper.findOffers(id));
+            List<SkuRow> skus = mapper.findSkus(id);
+            List<OfferRow> offers = mapper.findOffers(id);
+            List<OpsPublishBlocker> blockers = publishBlockers(row, skus, offers);
             if (!blockers.isEmpty()) {
                 throw new MallOpsException(Error.PRODUCT_INCOMPLETE, blockers.stream().map(Enum::name).toList());
             }
+            requireQualifiedSeller(skus, offers);
             if (mapper.updateProductStatus(id, OpsProductStatus.PUBLISHED.name(), version, at) != 1) {
                 throw new MallOpsException(Error.VERSION_CONFLICT);
             }
@@ -439,6 +443,11 @@ public class MallCatalogOpsService {
         if (target == OpsOfferStatus.ACTIVE) {
             requireActivatable(MallSaleMode.valueOf(product.saleMode()), skuStatus(id, current.skuId()),
                     current.priceAmountMinor(), current.merchantId());
+            // 商品已上架时启用供给就是上架；草稿里启用供给只是准备，上架那一步再查。
+            if (OpsProductStatus.PUBLISHED.name().equals(product.status())
+                    && merchants.listingSuspended(current.merchantId())) {
+                throw new MallOpsException(Error.MERCHANT_NOT_QUALIFIED);
+            }
         }
         OffsetDateTime at = now();
         if (mapper.updateOfferStatus(offerId, target.name(), version, at) != 1) {
@@ -608,6 +617,28 @@ public class MallCatalogOpsService {
             blockers.add(OpsPublishBlocker.NO_ACTIVE_OFFER);
         }
         return List.copyOf(blockers);
+    }
+
+    /**
+     * 上架前至少有一家在售的商家没被挂起上架（身份迁移 V013，资质没审核通过的机构不能上架）。几家共售的商品里被挂起的那家，
+     * 公开读取时不显示它的供给，不影响别家。
+     */
+    private void requireQualifiedSeller(List<SkuRow> skus, List<OfferRow> offers) {
+        Set<UUID> activeSkus = new HashSet<>();
+        for (SkuRow sku : skus) {
+            if (OpsSkuStatus.ACTIVE.name().equals(sku.status())) {
+                activeSkus.add(sku.skuId());
+            }
+        }
+        boolean anyQualified = offers.stream()
+                .filter(offer -> OpsOfferStatus.ACTIVE.name().equals(offer.status())
+                        && activeSkus.contains(offer.skuId()))
+                .map(OfferRow::merchantId)
+                .distinct()
+                .anyMatch(merchantId -> !merchants.listingSuspended(merchantId));
+        if (!anyQualified) {
+            throw new MallOpsException(Error.MERCHANT_NOT_QUALIFIED);
+        }
     }
 
     /** 启用（或保持启用）一条供给的条件。 */

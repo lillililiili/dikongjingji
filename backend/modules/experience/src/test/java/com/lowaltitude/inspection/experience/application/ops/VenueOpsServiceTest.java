@@ -55,9 +55,20 @@ class VenueOpsServiceTest {
             new VenueOpsService.Operator(UUID.fromString("90000000-0000-4000-8000-0000000000b1"), "平台运营（示例）");
 
     private final VenueOpsMapper mapper = mock(VenueOpsMapper.class);
+    private boolean operatorSuspended;
     private final VenueOpsService service = new VenueOpsService(mapper,
             code -> "370500".equals(code) ? Optional.of("东营市") : Optional.empty(),
-            org -> OPERATOR_ORG.equals(org) ? Optional.of("东营低空与机器人体验馆") : Optional.empty(),
+            new VenueOpsPorts.Operators() {
+                @Override
+                public Optional<String> providerName(UUID org) {
+                    return OPERATOR_ORG.equals(org) ? Optional.of("东营低空与机器人体验馆") : Optional.empty();
+                }
+
+                @Override
+                public boolean listingSuspended(UUID org) {
+                    return operatorSuspended;
+                }
+            },
             (product, city) -> PRODUCT.equals(product) && "370500".equals(city),
             Clock.fixed(NOW, ZoneOffset.UTC));
 
@@ -144,6 +155,10 @@ class VenueOpsServiceTest {
         when(mapper.countUpcomingSessions(eq(VENUE), any())).thenReturn(3L);
         when(mapper.updateVenueStatus(eq(VENUE), eq("DRAFT"), eq("PUBLISHED"), any(), eq(4), any())).thenReturn(1);
 
+        // 身份 V013：运营机构资质没审核通过时不能上线。
+        operatorSuspended = true;
+        assertRejected(VenueOpsError.OPERATOR_NOT_QUALIFIED, () -> service.publish(VENUE, 4, null, OPERATOR));
+        operatorSuspended = false;
         assertThat(service.publish(VENUE, 4, "首批开放", OPERATOR).status())
                 .isEqualTo(VenueOpsViews.VenueOpsStatus.PUBLISHED);
         verify(mapper).insertChange(eq(VENUE), eq("VENUE"), eq(VENUE), eq("PUBLISH"), eq("上线：首批开放"),

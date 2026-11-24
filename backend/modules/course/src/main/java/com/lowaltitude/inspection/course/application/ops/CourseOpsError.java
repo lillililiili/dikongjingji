@@ -9,6 +9,7 @@ public enum CourseOpsError implements OpsError {
     PUBLISH_INCOMPLETE(422, OpsError.PUBLISH_INCOMPLETE, "上架前还有必填项没填"),
     STATUS_CONFLICT(409, "OPS_COURSE_STATUS_CONFLICT", "课程现在的状态不能这样操作"),
     ORGANIZATION_UNKNOWN(422, "OPS_COURSE_ORGANIZATION_UNKNOWN", "开课机构不存在、已停用，或不是服务商、平台机构"),
+    ORGANIZATION_NOT_QUALIFIED(409, "OPS_COURSE_ORGANIZATION_NOT_QUALIFIED", "开课机构资质审核通过前不能上架课程"),
     EXPERIENCE_TAKEN(409, "OPS_COURSE_EXPERIENCE_TAKEN", "这个试听入口已经给了别的课程"),
     LESSON_IN_USE(409, "OPS_COURSE_LESSON_IN_USE", "要删的课时已经有人学过，只能改标题、时长和视频");
 
