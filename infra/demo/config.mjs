@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 export const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const STATE = path.join(REPO, '.runtime', 'demo');
 export const PORTS = { backend: 19420, postgres: 19421, redis: 19422, minio: 19423, minioConsole: 19424, admin: 19430, console: 19440, h5: 19450, wechat: 19460 };
+/** H5 包里写的后端地址：和 H5 同源，控制台进程按打开时的主机名换掉，再把 /api 转给后端（系统代理会拦局域网地址）。 */
+export const H5_ORIGIN = `http://127.0.0.1:${PORTS.h5}`;
 export const PROJECT = 'low-altitude-demo';
 export const PG_CONTAINER = `${PROJECT}-postgres-1`;
 

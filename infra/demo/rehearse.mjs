@@ -12,7 +12,6 @@ const require = createRequire(path.join(REPO, 'apps/mobile/package.json'));
 const { chromium, expect } = require('@playwright/test');
 const API = `http://127.0.0.1:${PORTS.backend}`;
 const ADMIN = `http://127.0.0.1:${PORTS.admin}`;
-// H5 包里写死了打包时的局域网地址，从后端配置过的来源打开；系统代理会拦局域网，所以不走代理。
 const H5 = `http://127.0.0.1:${PORTS.h5}`;
 const CITY = '370500';
 const SHOTS = path.join(STATE, 'shots');
@@ -30,7 +29,7 @@ async function api(method, route, token, body, headers = {}) {
 }
 const login = async (name, password = PASSWORD) => (await api('POST', '/api/v1/auth/login', null, { loginName: name, password })).accessToken;
 
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL ?? 'chrome', args: ['--no-proxy-server'] });
+const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL ?? 'chrome' });
 const log = (text) => console.log(`  ${new Date().toTimeString().slice(0, 8)} ${text}`);
 const tap = (page, id) => page.getByTestId(id).click();
 

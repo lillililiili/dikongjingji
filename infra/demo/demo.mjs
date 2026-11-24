@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { PORTS, PROJECT, REPO, STATE, readEnv } from './config.mjs';
+import { H5_ORIGIN, PORTS, PROJECT, REPO, STATE, readEnv } from './config.mjs';
 import { prepare } from './prepare.mjs';
 
 /** 演示图片的假主机，App 和运营端都会换成能读到的地址（apps/mobile/src/shared/http/media-url.ts）。 */
@@ -123,9 +123,9 @@ const commands = {
     console.log('2/4 运营端'); run('npm', ['run', 'build', '--silent'], { cwd: path.join(REPO, 'apps/admin') });
     const mobile = path.join(REPO, 'apps/mobile');
     const uni = path.join(mobile, 'node_modules/.bin/uni');
-    console.log('3/4 App 的 H5（手机浏览器备用）'); run(uni, ['build'], { cwd: mobile, env: { ...appEnv(host, false), UNI_OUTPUT_DIR: H5 } });
+    console.log('3/4 App 的 H5（手机浏览器备用）'); run(uni, ['build'], { cwd: mobile, env: { ...appEnv(host, false), VITE_INSPECTION_API_BASE_URL: H5_ORIGIN, VITE_INSPECTION_ALLOW_INSECURE_LOCAL_API: 'true', UNI_OUTPUT_DIR: H5 } });
     console.log('4/4 App 资源'); run(uni, ['build', '-p', 'app'], { cwd: mobile, env: { ...appEnv(host, true), UNI_OUTPUT_DIR: APP } });
-    console.log(`完成。App 资源在 output/demo-app（后端地址 ${host}，App 会在同一网段自动找后端；H5 写死这个地址，换网络要重新 build）。`);
+    console.log(`完成。App 资源在 output/demo-app（后端地址 ${host}，App 会在同一网段自动找后端）。`);
   },
 
   async up() {

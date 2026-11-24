@@ -6,7 +6,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { PG_CONTAINER, PORTS, STATE } from './config.mjs';
+import { H5_ORIGIN, PG_CONTAINER, PORTS, STATE } from './config.mjs';
 
 const run = promisify(execFile);
 const escape = (value) => String(value ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -52,7 +52,19 @@ http.createServer(async (req, res) => {
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.mp4': 'video/mp4', '.json': 'application/json', '.ttf': 'font/ttf', '.woff2': 'font/woff2' };
 const ROOT = path.join(STATE, 'h5');
+/** /api 原样转给后端；同源，不涉及跨域，所以不带 Origin。 */
+function forward(req, res) {
+  const { origin, ...headers } = req.headers;
+  const upstream = http.request({ host: '127.0.0.1', port: PORTS.backend, method: req.method, path: req.url, headers }, (answer) => {
+    res.writeHead(answer.statusCode, answer.headers);
+    answer.pipe(res);
+  });
+  upstream.on('error', () => { res.writeHead(502); res.end(); });
+  req.pipe(upstream);
+}
+
 http.createServer((req, res) => {
+  if (req.url.startsWith('/api/')) return forward(req, res);
   let target;
   try { target = path.resolve(ROOT, `.${decodeURIComponent(new URL(req.url, 'http://x').pathname)}`); } catch { res.writeHead(400); return res.end(); }
   if (target !== ROOT && !target.startsWith(ROOT + path.sep)) { res.writeHead(404); return res.end(); }
@@ -60,6 +72,7 @@ http.createServer((req, res) => {
   fs.readFile(target, (error, content) => {
     if (error) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(target).toLowerCase()] ?? 'application/octet-stream' });
-    res.end(content);
+    const host = /^[\w.-]+(:\d+)?$/.test(req.headers.host ?? '') ? req.headers.host : null;
+    res.end(target.endsWith('.js') && host ? content.toString('utf8').replaceAll(H5_ORIGIN, `http://${host}`) : content);
   });
 }).listen(PORTS.h5, '0.0.0.0', () => console.log(`h5 on port ${PORTS.h5}`));
