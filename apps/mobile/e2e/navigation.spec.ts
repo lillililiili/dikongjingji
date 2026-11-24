@@ -488,6 +488,8 @@ test.describe('专业服务子类型', () => {
     await expect(page).toHaveURL(/proservice\/catalog\?type=AERIAL&cityCode=/)
     await page.getByTestId('pro-catalog-back').click()
     await expect(page.getByTestId('service-type-aerial')).toHaveClass(/service-channel__type--active/)
+    await expect(placeholder).toContainText('搜索航拍服务、场景或关键词')
+    await expect(page.getByTestId('service-entry-aerial')).toBeVisible()
 
     await page.getByTestId('service-type-survey').click()
     await expect(page.getByTestId('service-entry-survey')).toBeVisible()

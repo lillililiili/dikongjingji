@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 
+import { DEFAULT_PLATFORM_CHANNEL, type PlatformChannelCode } from '../../features/platform/domain/platform-channel'
 import {
   DEFAULT_HOME_CHANNEL,
   type HomeChannelCode,
@@ -15,20 +16,23 @@ export interface HomeMallRequest {
 
 interface HomeChannelState {
   activeChannel: HomeChannelCode
+  activeServiceType: PlatformChannelCode
   pendingMall: HomeMallRequest | null
 }
 
 export const useHomeChannelStore = defineStore('home-channel', {
   state: (): HomeChannelState => ({
     activeChannel: DEFAULT_HOME_CHANNEL,
+    activeServiceType: DEFAULT_PLATFORM_CHANNEL,
     pendingMall: null,
   }),
   actions: {
     selectChannel(channel: HomeChannelCode): void {
+      if (channel !== 'SERVICE') this.activeServiceType = DEFAULT_PLATFORM_CHANNEL
       this.activeChannel = channel
     },
     requestMall(request: HomeMallRequest): void {
-      this.activeChannel = 'MALL'
+      this.selectChannel('MALL')
       this.pendingMall = request
     },
     takePendingMall(): HomeMallRequest | null {

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onPageScroll } from '@dcloudio/uni-app'
-import { computed, nextTick, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
+import { useHomeChannelStore } from '@/app-shell/state/home-channel'
 import { buildDemandPublishUrl } from '@/features/demand/navigation/demand-routes'
 import type { DemandType } from '@/features/demand/domain/demand'
 import { InspectionPortalPage } from '@/features/inspection/presentation/public'
@@ -43,7 +45,7 @@ const emit = defineEmits<{
   searchPlaceholderChange: [placeholder: string | null]
 }>()
 
-const activeChannel = ref<PlatformChannelCode>(DEFAULT_PLATFORM_CHANNEL)
+const { activeServiceType: activeChannel } = storeToRefs(useHomeChannelStore())
 const channelList = ref<PlatformServiceListState>({ kind: 'loading' })
 const currentScrollTop = ref(0)
 const contentTouchStart = ref<PlatformTouchPoint | null>(null)
@@ -196,10 +198,17 @@ function finishContentSwipe(event: TouchEvent): void {
   if (targetChannel) void selectChannel(targetChannel)
 }
 
-// Every entry into the channel lands on inspection, whichever type was open before leaving.
+// A catalog or sign-in return can remount the home page while the same type is still selected.
+onMounted(() => {
+  if (props.active && activeChannel.value !== DEFAULT_PLATFORM_CHANNEL) {
+    reportSearchPlaceholder()
+    void loadChannelContent()
+  }
+})
+
 watch(() => props.active, (active) => {
-  if (active || activeChannel.value === DEFAULT_PLATFORM_CHANNEL) return
-  activeChannel.value = DEFAULT_PLATFORM_CHANNEL
+  if (active) return
+  ++channelRequestVersion
   channelList.value = { kind: 'loading' }
   reportSearchPlaceholder()
 })

@@ -229,4 +229,21 @@ describe('home channel entry', () => {
     expect(switchTab).toHaveBeenCalledOnce()
     expect(switchTab).toHaveBeenCalledWith({ url: '/pages/home/index' })
   })
+
+  it('retains the selected service type on a return and resets it when leaving the channel', () => {
+    const home = useHomeChannelStore()
+    openHomeChannel('SERVICE')
+    expect(home.activeServiceType).toBe('INSPECTION')
+    home.activeServiceType = 'AERIAL'
+    openHomeChannel('SERVICE')
+    expect(useHomeChannelStore().activeServiceType).toBe('AERIAL')
+
+    home.selectChannel('RECOMMEND')
+    openHomeChannel('SERVICE')
+    expect(home.activeServiceType).toBe('INSPECTION')
+    home.activeServiceType = 'SURVEY'
+    home.requestMall({ category: 'DRONE', keyword: '' })
+    openHomeChannel('SERVICE')
+    expect(home.activeServiceType).toBe('INSPECTION')
+  })
 })
