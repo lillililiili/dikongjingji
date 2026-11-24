@@ -284,6 +284,28 @@ public interface OrganizationOnboardingMapper {
                        @Param("passwordHash") String passwordHash, @Param("organizationId") UUID organizationId,
                        @Param("at") OffsetDateTime at);
 
+    /**
+     * 自助入驻建的账号（V012）：登录名、口令由申请人自己设，手机号是验证过的联系人手机号；默认机构就是新建的那家。
+     * 登录名被占时什么都不写，返回 null；手机号是否被占由服务先查（uq_identity_user_mobile）。
+     */
+    @Select("""
+            INSERT INTO identity_user (login_name, display_name, password_hash, mobile, default_organization_id,
+                                       created_at, updated_at)
+            VALUES (#{loginName}, #{displayName}, #{passwordHash}, #{mobile}, #{organizationId}, #{at}, #{at})
+            ON CONFLICT (login_name) DO NOTHING
+            RETURNING id
+            """)
+    @Options(flushCache = Options.FlushCachePolicy.TRUE)
+    UUID insertSignupAccount(@Param("loginName") String loginName, @Param("displayName") String displayName,
+                             @Param("passwordHash") String passwordHash, @Param("mobile") String mobile,
+                             @Param("organizationId") UUID organizationId, @Param("at") OffsetDateTime at);
+
+    @Select("SELECT count(*) FROM identity_user WHERE mobile = #{mobile}")
+    long countAccountsByMobile(@Param("mobile") String mobile);
+
+    @Select("SELECT count(*) FROM identity_user WHERE login_name = #{loginName}")
+    long countAccountsByLoginName(@Param("loginName") String loginName);
+
     @Insert("""
             INSERT INTO identity_organization_member (organization_id, user_id, created_at, updated_at)
             VALUES (#{organizationId}, #{accountId}, #{at}, #{at})

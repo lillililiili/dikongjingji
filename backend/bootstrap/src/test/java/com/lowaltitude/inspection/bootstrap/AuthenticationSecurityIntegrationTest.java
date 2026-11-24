@@ -73,6 +73,8 @@ import org.springframework.test.web.servlet.MockMvc;
         // S3-1 运营端
         com.lowaltitude.inspection.application.city.CityOperationsService.class,
         com.lowaltitude.inspection.identity.application.OrganizationOnboardingService.class,
+        com.lowaltitude.inspection.identity.application.OrganizationSignupService.class,
+        com.lowaltitude.inspection.mall.application.MerchantCatalogService.class,
         // S3-1 第二部分：商品与供给、收款账户、批量导入
         com.lowaltitude.inspection.mall.application.MallCatalogOpsService.class,
         com.lowaltitude.inspection.mall.application.MallMerchantService.class,
@@ -216,6 +218,19 @@ class AuthenticationSecurityIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(refreshBody(refreshToken)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /** 商家自助入驻的两个接口不登录就能调；工作台的入驻资料和我的商品要登录。 */
+    @Test
+    void organizationSignupIsPublicButTheWorkbenchIsNot() throws Exception {
+        mockMvc.perform(post("/api/v1/organization-signups/sms-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"phone\":\"13800001234\"}"))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(get("/api/v1/provider/organization"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/provider/catalog/products"))
                 .andExpect(status().isUnauthorized());
     }
 

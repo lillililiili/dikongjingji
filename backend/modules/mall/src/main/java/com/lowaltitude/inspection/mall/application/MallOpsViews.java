@@ -10,9 +10,11 @@ public final class MallOpsViews {
     private MallOpsViews() {
     }
 
+    /** ownerOrganizationId / ownerName：商家自己建的商品带建它的商家（1.1.0）；平台建的为 null。 */
     public record OpsProductSummaryView(UUID productId, MallCategory category, String name, MallSaleMode saleMode,
                                         OpsProductStatus status, String coverUrl, int skuCount, int activeOfferCount,
-                                        OffsetDateTime updatedAt, int version) {
+                                        OffsetDateTime updatedAt, int version, UUID ownerOrganizationId,
+                                        String ownerName) {
     }
 
     public record OpsProductPageView(int page, int size, long total, boolean hasMore,
@@ -22,7 +24,7 @@ public final class MallOpsViews {
     public record OpsProductView(UUID productId, MallCategory category, String name, String summary, String coverUrl,
                                  MallSaleMode saleMode, MallExperienceBadge experienceBadge, int sortOrder,
                                  OpsProductStatus status, OffsetDateTime createdAt, OffsetDateTime updatedAt,
-                                 int version) {
+                                 int version, UUID ownerOrganizationId, String ownerName) {
     }
 
     public record OpsSpecView(String label, String value) {

@@ -38,6 +38,8 @@ public class SmsCodeService {
     public static final String VERIFY_CURRENT = "VERIFY_CURRENT";
     public static final String BIND_NEW = "BIND_NEW";
     public static final String EXPORT = "EXPORT";
+    /** 商家自助申请入驻时验证联系人手机号（迁移 V012）。 */
+    public static final String SIGNUP = "SIGNUP";
     static final String CHANGE_TICKET = "CHANGE_TICKET";
 
     public static final Duration CODE_TTL = Duration.ofMinutes(5);
@@ -53,7 +55,8 @@ public class SmsCodeService {
             LOGIN, "登录",
             VERIFY_CURRENT, "验证当前手机号",
             BIND_NEW, "绑定新手机号",
-            EXPORT, "申请导出个人信息");
+            EXPORT, "申请导出个人信息",
+            SIGNUP, "商家入驻申请");
 
     private final AccountMapper mapper;
     private final AccountPorts.SmsGateway gateway;

@@ -263,12 +263,12 @@ class OrganizationOnboardingServiceTest {
                 any());
     }
 
-    /** 代码里的每个操作记录动作都在数据库的 CHECK 约束里（迁移 V011 是最新的那一份）。 */
+    /** 代码里的每个操作记录动作都在数据库的 CHECK 约束里（迁移 V012 是最新的那一份）。 */
     @Test
     void everyOperationActionIsAllowedByTheLatestMigration() throws Exception {
         String migration;
         try (var stream = getClass().getResourceAsStream(
-                "/db/migration/identity/V011__identity_provider_profile_open_operation.sql")) {
+                "/db/migration/identity/V012__identity_organization_signup.sql")) {
             assertThat(stream).isNotNull();
             migration = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         }

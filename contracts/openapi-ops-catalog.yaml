@@ -1,8 +1,13 @@
 openapi: "3.1.0"
 info:
   title: "Ops Catalog API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
+    1.1.0（2026-11-24 商家自助上架，contracts/openapi-merchant-catalog.yaml）：商品多了建它的商家：OpsProductSummary、
+    OpsProduct 加 ownerOrganizationId、ownerName（商家在工作台“我的商品”里建的带商家，平台建的为 null）。商家只能在工作台
+    改自己建的；平台运营在这里仍能看到全部、下架任何商品。商家上架前要资质审核通过，否则 409 OPS_MERCHANT_NOT_QUALIFIED
+    （只有商家工作台的接口会答这个码，列在这里是因为错误码和商城模块共用一套）。
+
     1.0.0（S3-1 第二部分“商品与供给”，docs/redesign/08-后续开发计划.md §2、§5 D11、S4-4）：Web 运营端的商品、规格、在售供给、
     商品图片和商家收款账户登记。
 
@@ -680,7 +685,8 @@ components:
       type: "string"
       enum: [OPS_VERSION_CONFLICT, OPS_IDEMPOTENCY_KEY_REUSED, OPS_STATUS_UNCHANGED, OPS_PRODUCT_INCOMPLETE,
              OPS_OFFER_INCOMPLETE, OPS_OFFER_DUPLICATE, OPS_SKU_LIMIT, OPS_MERCHANT_UNKNOWN, OPS_MERCHANT_NOT_COLLECTING,
-             OPS_CITY_UNKNOWN, OPS_MEDIA_URL_UNCONTROLLED, OPS_FILE_STORE_UNAVAILABLE, OPS_SUB_MCHID_PLACEHOLDER]
+             OPS_CITY_UNKNOWN, OPS_MEDIA_URL_UNCONTROLLED, OPS_FILE_STORE_UNAVAILABLE, OPS_SUB_MCHID_PLACEHOLDER,
+             OPS_MERCHANT_NOT_QUALIFIED]
     MallCategory:
       type: "string"
       description: "DRONE 无人机；ROBOT 机器人；PARTS 配件；RENTAL 租赁；COURSE 课程"
@@ -736,7 +742,8 @@ components:
     OpsProductSummary:
       type: "object"
       additionalProperties: false
-      required: [productId, category, name, saleMode, status, coverUrl, skuCount, activeOfferCount, updatedAt, version]
+      required: [productId, category, name, saleMode, status, coverUrl, skuCount, activeOfferCount, updatedAt, version,
+                 ownerOrganizationId, ownerName]
       properties:
         productId:
           type: "string"
@@ -762,6 +769,12 @@ components:
           format: "date-time"
         version:
           type: "integer"
+        ownerOrganizationId:
+          type: ["string", "null"]
+          format: "uuid"
+          description: "建它的商家（工作台自助上架，1.1.0）；平台建的为 null"
+        ownerName:
+          type: ["string", "null"]
     OpsProductPage:
       type: "object"
       additionalProperties: false
@@ -783,7 +796,7 @@ components:
       type: "object"
       additionalProperties: false
       required: [productId, category, name, summary, coverUrl, saleMode, experienceBadge, sortOrder, status, createdAt,
-                 updatedAt, version]
+                 updatedAt, version, ownerOrganizationId, ownerName]
       properties:
         productId:
           type: "string"
@@ -817,6 +830,12 @@ components:
         version:
           type: "integer"
           description: "改资料、上下架时要带的版本号"
+        ownerOrganizationId:
+          type: ["string", "null"]
+          format: "uuid"
+          description: "建它的商家（工作台自助上架，1.1.0）；平台建的为 null"
+        ownerName:
+          type: ["string", "null"]
     OpsSpec:
       type: "object"
       additionalProperties: false

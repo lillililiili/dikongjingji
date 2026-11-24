@@ -1,0 +1,438 @@
+openapi: "3.1.0"
+info:
+  title: "Organization Signup API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（2026-11-24 商家自助入驻）：商家在 Web 工作台登录页“申请入驻”自己提交机构和资质，拿到账号后登录工作台补附件；
+    平台运营仍在运营端“机构与资质”（openapi-ops-organization.yaml）里审核。身份迁移 V012。
+
+    公开接口（不登录）：
+    - POST /api/v1/organization-signups/sms-codes：给联系人手机号发入驻验证码。频率、每日上限和错误锁定沿用手机号登录的
+      规则（openapi-identity-account.yaml：60 秒一条、每天 10 条、1 小时错 10 次锁 30 分钟），错了答 SMS_TOO_FREQUENT、
+      PHONE_LOCKED、SMS_UNAVAILABLE。
+    - POST /api/v1/organization-signups：申请入驻。带 Idempotency-Key：同一个键重放返回第一次建的（200）；同一个键、不同
+      内容 409 OPS_IDEMPOTENCY_KEY_REUSED。一次建齐：经营机构（type PROVIDER、status ACTIVE、所在城市）、待审核的资质资料
+      （主体名称、统一社会信用代码、经营范围）、一个账号（登录名和口令由申请人自己设，显示名是联系人姓名，手机号是验证过的
+      联系人手机号，默认机构就是这家），并授服务商操作员（PROVIDER_OPERATOR）。
+    - 校验：机构名称 1–60 字；城市是平台城市目录里的（否则 422 OPS_CITY_UNKNOWN）；主体名称 1–160 字；统一社会信用代码
+      18 位数字或大写字母（不含 I、O、Z、S、V，只校验格式）；经营范围 ≤500 字可空；联系人 1–40 字；登录名 4–32 位（小写
+      字母开头，小写字母、数字、_、-），被占 409 OPS_LOGIN_NAME_TAKEN；口令 8–64 位，至少一个字母和一个数字；手机号已绑在
+      别的账号上 409 PHONE_TAKEN；验证码不对 400 SMS_CODE_INVALID。先查登录名和手机号，再核验证码，所以
+      验证码不会白白用掉。
+    - 申请成功后没有自动登录：用这个登录名在同一个登录页（POST /api/v1/auth/login）登录。审核通过前账号已能登录工作台、
+      建草稿商品；商品上架要等资质审核通过（openapi-merchant-catalog.yaml）。
+    - 每次申请在机构的操作记录里记 SIGNUP 和 QUALIFICATION_SUBMIT 两条，操作人是申请人自己的账号。
+
+    工作台接口（bearer JWT，PROVIDER_OPERATOR，机构只从令牌里取）：
+    - GET /api/v1/provider/organization：本机构的资料、资质（含审核结果和驳回原因）、附件、服务商资料状态。不给账号列表和
+      操作记录。
+    - PUT …/qualification：改资质资料（第一次不带 version，修改带读到的 version，否则 409 OPS_VERSION_CONFLICT）；
+      保存后回到待审核，上一次的审核结果作废（和运营端录入同一套规则）。
+    - POST …/attachments（multipart file）、DELETE …/attachments/{attachmentId}：PDF、JPEG、PNG，≤10 MB，每家最多 10 份
+      （409 OPS_ATTACHMENT_LIMIT）；附件一动资质回到待审核；存储没配置 503 OPS_FILE_STORE_UNAVAILABLE。
+    - GET …/attachments/{attachmentId}/content：自己上传的附件，不缓存、按附件下载。
+    - 这些改动在机构的操作记录里沿用 QUALIFICATION_SUBMIT、ATTACHMENT_ADD、ATTACHMENT_REMOVE，操作人是商家自己的账号。
+
+    Bodies are returned bare, errors use the shared ApiError. OPS_… 错误码的含义见 openapi-ops-organization.yaml，
+    SMS_…、PHONE_… 见 openapi-identity-account.yaml（账号模块的码不带前缀）。
+servers:
+  - url: "/"
+paths:
+  /api/v1/organization-signups/sms-codes:
+    post:
+      operationId: "sendOrganizationSignupCode"
+      summary: "给联系人手机号发入驻验证码"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupSmsCodeRequest"
+      responses:
+        "202":
+          description: "已受理（开发环境验证码写到开发短信发件箱）"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: "SMS_TOO_FREQUENT / PHONE_LOCKED"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: "SMS_UNAVAILABLE"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/organization-signups:
+    post:
+      operationId: "signUpOrganization"
+      summary: "申请入驻：建经营机构、待审核的资质资料和第一个服务商操作员账号"
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationSignupRequest"
+      responses:
+        "201":
+          description: "已建好；用 loginName 登录工作台"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationSignupResult"
+        "200":
+          description: "同一个幂等键重放，返回第一次建的"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationSignupResult"
+        "400":
+          description: "参数无效（COMMON_INVALID_ARGUMENT），或验证码不对 SMS_CODE_INVALID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: "OPS_LOGIN_NAME_TAKEN / PHONE_TAKEN / PHONE_LOCKED / OPS_IDEMPOTENCY_KEY_REUSED"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: "OPS_CITY_UNKNOWN"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/organization:
+    get:
+      operationId: "readMyOrganization"
+      summary: "工作台：本机构的资料、资质审核结果和附件"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: "本机构"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnOrganization"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/organization/qualification:
+    put:
+      operationId: "submitMyQualification"
+      summary: "工作台：录入或修改资质资料（保存后待审核）"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MyQualificationRequest"
+      responses:
+        "200":
+          description: "已保存，资质为 SUBMITTED"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnOrganization"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/organization/attachments:
+    post:
+      operationId: "addMyAttachment"
+      summary: "工作台：上传一份资质附件"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              required: [file]
+              properties:
+                file:
+                  type: "string"
+                  format: "binary"
+                  description: "PDF、JPEG、PNG，≤10 MB，按文件头判断类型"
+      responses:
+        "201":
+          description: "已上传，资质回到待审核"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnOrganization"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: "OPS_ATTACHMENT_LIMIT"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: "OPS_FILE_STORE_UNAVAILABLE"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/provider/organization/attachments/{attachmentId}:
+    delete:
+      operationId: "removeMyAttachment"
+      summary: "工作台：移除一份资质附件（只做标记）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AttachmentId"
+      responses:
+        "200":
+          description: "已移除"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnOrganization"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/provider/organization/attachments/{attachmentId}/content:
+    get:
+      operationId: "downloadMyAttachment"
+      summary: "工作台：下载自己上传的资质附件（不缓存，Content-Disposition: attachment）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AttachmentId"
+      responses:
+        "200":
+          description: "文件内容"
+          content:
+            application/pdf:
+              schema:
+                type: "string"
+                format: "binary"
+            image/jpeg:
+              schema:
+                type: "string"
+                format: "binary"
+            image/png:
+              schema:
+                type: "string"
+                format: "binary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          description: "OPS_FILE_STORE_UNAVAILABLE"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+  parameters:
+    IdempotencyKey:
+      name: "Idempotency-Key"
+      in: "header"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+    AttachmentId:
+      name: "attachmentId"
+      in: "path"
+      required: true
+      schema:
+        type: "string"
+        format: "uuid"
+  responses:
+    BadRequest:
+      description: "参数无效（COMMON_INVALID_ARGUMENT）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Unauthorized:
+      description: "没登录或令牌无效（COMMON_UNAUTHORIZED）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    Forbidden:
+      description: "不是机构操作员，或令牌里没有机构（COMMON_FORBIDDEN）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+    NotFound:
+      description: "机构或附件不存在（COMMON_NOT_FOUND）"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    ApiError:
+      type: "object"
+      additionalProperties: false
+      required: [code, message, traceId]
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        traceId:
+          type: "string"
+        details:
+          type: ["object", "null"]
+          additionalProperties: true
+    SignupSmsCodeRequest:
+      type: "object"
+      additionalProperties: false
+      required: [phone]
+      properties:
+        phone:
+          type: "string"
+          pattern: "^1[3-9][0-9]{9}$"
+    OrganizationSignupRequest:
+      type: "object"
+      additionalProperties: false
+      required: [organizationName, cityCode, subjectName, licenseNumber, contactName, phone, smsCode, loginName,
+                 password]
+      properties:
+        organizationName:
+          type: "string"
+          minLength: 1
+          maxLength: 60
+          description: "对外显示的机构名称（商家名）"
+        cityCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+          description: "所在城市（平台城市目录）"
+        subjectName:
+          type: "string"
+          minLength: 1
+          maxLength: 160
+          description: "营业执照上的主体名称"
+        licenseNumber:
+          type: "string"
+          pattern: "^[0-9A-HJ-NPQRTUWXYa-hj-npqrtuwxy]{18}$"
+          description: "统一社会信用代码，小写会转成大写"
+        businessScope:
+          type: ["string", "null"]
+          maxLength: 500
+        contactName:
+          type: "string"
+          minLength: 1
+          maxLength: 40
+          description: "联系人姓名，作为第一个账号的显示名"
+        phone:
+          type: "string"
+          pattern: "^1[3-9][0-9]{9}$"
+        smsCode:
+          type: "string"
+          pattern: "^[0-9]{6}$"
+        loginName:
+          type: "string"
+          pattern: "^[a-z][a-z0-9_-]{3,31}$"
+        password:
+          type: "string"
+          minLength: 8
+          maxLength: 64
+          description: "至少一个字母和一个数字，不含空白；服务端只存摘要"
+    MyQualificationRequest:
+      type: "object"
+      additionalProperties: false
+      required: [subjectName, licenseNumber]
+      description: "和 openapi-ops-organization.yaml 的 OpsQualificationRequest 一样的字段和限制"
+      properties:
+        subjectName:
+          type: "string"
+          minLength: 1
+          maxLength: 160
+        licenseNumber:
+          type: "string"
+          pattern: "^[0-9A-HJ-NPQRTUWXY]{18}$"
+        businessScope:
+          type: ["string", "null"]
+          maxLength: 500
+        qualificationNote:
+          type: ["string", "null"]
+          maxLength: 500
+        version:
+          type: ["integer", "null"]
+          minimum: 0
+          description: "第一次录入不带；修改时带读到的版本号"
+    OrganizationSignupResult:
+      type: "object"
+      additionalProperties: false
+      required: [organizationId, organizationName, loginName, qualificationStatus]
+      properties:
+        organizationId:
+          type: "string"
+          format: "uuid"
+        organizationName:
+          type: "string"
+        loginName:
+          type: "string"
+        qualificationStatus:
+          $ref: "openapi-ops-organization.yaml#/components/schemas/OpsQualificationStatus"
+    OwnOrganization:
+      type: "object"
+      additionalProperties: false
+      required: [organization, qualification, attachments, providerProfileStatus]
+      properties:
+        organization:
+          $ref: "openapi-ops-organization.yaml#/components/schemas/OpsOrganization"
+        qualification:
+          anyOf:
+            - $ref: "openapi-ops-organization.yaml#/components/schemas/OpsQualification"
+            - type: "null"
+        attachments:
+          type: "array"
+          maxItems: 10
+          items:
+            $ref: "openapi-ops-organization.yaml#/components/schemas/OpsAttachment"
+        providerProfileStatus:
+          anyOf:
+            - $ref: "openapi-ops-organization.yaml#/components/schemas/OpsProviderProfileStatus"
+            - type: "null"

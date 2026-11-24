@@ -23,6 +23,18 @@ public class OnboardingApplicationConfiguration {
         return new OrganizationOnboardingService(mapper, cities, hasher, files, providerProfiles);
     }
 
+    /** 商家自助入驻（契约 openapi-organization-signup.yaml）：建机构、资质和第一个账号沿用机构入驻，验证码沿用账号的短信服务。 */
+    @Bean
+    OrganizationSignupService organizationSignupService(
+            OrganizationOnboardingMapper mapper,
+            OrganizationOnboardingService onboarding,
+            OnboardingPorts.Cities cities,
+            OnboardingPorts.PasswordHasher hasher,
+            com.lowaltitude.inspection.identity.application.account.SmsCodeService smsCodes
+    ) {
+        return new OrganizationSignupService(mapper, onboarding, cities, hasher, smsCodes, java.time.Clock.systemUTC());
+    }
+
     /** 批量导入经营主体和操作员账号（S2-3）：口令生成和摘要沿用机构入驻。 */
     @Bean
     OrganizationImportService organizationImportService(

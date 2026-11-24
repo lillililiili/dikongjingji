@@ -1,8 +1,12 @@
 openapi: "3.1.0"
 info:
   title: "Ops Organization API"
-  version: "1.1.0"
+  version: "1.2.0"
   description: |-
+    1.2.0（2026-11-24 商家自助入驻，contracts/openapi-organization-signup.yaml）：操作记录的动作多一个 SIGNUP（商家在工作台
+    登录页自己申请入驻那一步：机构、待审核的资质和第一个服务商操作员账号一起建，操作人是申请人自己的账号）。这样建的机构
+    和运营端新建的一样出现在列表里（待审核的在前），审核、附件、账号、角色的接口不变。身份迁移 V012。
+
     1.1.0（S6-01，docs/delivery/问题关闭记录.md）：给经营机构“开通服务商资料”。新增 POST …/{organizationId}/provider-profile
     （幂等），机构详情加 providerProfileStatus，操作记录加 PROVIDER_PROFILE_OPEN，错误码加 OPS_QUALIFICATION_NOT_APPROVED、
     OPS_PROVIDER_PROFILE_NOT_APPLICABLE。服务商资料（巡检迁移 V004 的 inspection_provider_profile）归巡检模块，身份模块经端口
@@ -558,7 +562,7 @@ components:
     OpsOrganizationAction:
       type: "string"
       enum: [CREATE, QUALIFICATION_SUBMIT, QUALIFICATION_APPROVE, QUALIFICATION_REJECT, ATTACHMENT_ADD,
-             ATTACHMENT_REMOVE, ACCOUNT_CREATE, ROLES_CHANGE, PROVIDER_PROFILE_OPEN]
+             ATTACHMENT_REMOVE, ACCOUNT_CREATE, ROLES_CHANGE, PROVIDER_PROFILE_OPEN, SIGNUP]
     OpsProviderProfileStatus:
       type: "string"
       description: "服务商资料：NOT_OPENED 未开通；ACTIVE 已开通；DISABLED 已停用"

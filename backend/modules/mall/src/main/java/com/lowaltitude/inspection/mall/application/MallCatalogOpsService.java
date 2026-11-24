@@ -107,6 +107,13 @@ public class MallCatalogOpsService {
     @Transactional(readOnly = true)
     public OpsProductPageView products(String keyword, String categoryCode, String saleModeCode, String statusCode,
                                        int page, int size) {
+        return products(keyword, categoryCode, saleModeCode, statusCode, null, page, size);
+    }
+
+    /** ownerId 不为空时只列这家商家自己建的商品（商家工作台“我的商品”）。 */
+    @Transactional(readOnly = true)
+    public OpsProductPageView products(String keyword, String categoryCode, String saleModeCode, String statusCode,
+                                       UUID ownerId, int page, int size) {
         if (page < 1 || size < 1 || size > MAX_PAGE_SIZE) {
             throw new IllegalArgumentException("page is invalid");
         }
@@ -114,12 +121,13 @@ public class MallCatalogOpsService {
         String category = blank(categoryCode) ? null : parse(MallCategory.class, categoryCode, "category").name();
         String saleMode = blank(saleModeCode) ? null : parse(MallSaleMode.class, saleModeCode, "sale mode").name();
         String status = blank(statusCode) ? null : parse(OpsProductStatus.class, statusCode, "status").name();
-        long total = mapper.countProducts(pattern, category, saleMode, status);
-        List<OpsProductSummaryView> items = mapper.findProducts(pattern, category, saleMode, status, size,
+        long total = mapper.countProducts(pattern, category, saleMode, status, ownerId);
+        List<OpsProductSummaryView> items = mapper.findProducts(pattern, category, saleMode, status, ownerId, size,
                         Math.multiplyExact(page - 1, size)).stream()
                 .map(row -> new OpsProductSummaryView(row.productId(), MallCategory.valueOf(row.category()),
                         row.name(), MallSaleMode.valueOf(row.saleMode()), OpsProductStatus.valueOf(row.status()),
-                        row.coverUrl(), row.skuCount(), row.activeOfferCount(), row.updatedAt(), row.version()))
+                        row.coverUrl(), row.skuCount(), row.activeOfferCount(), row.updatedAt(), row.version(),
+                        row.ownerOrganizationId(), row.ownerName()))
                 .toList();
         return new OpsProductPageView(page, size, total, (long) page * size < total, items);
     }
@@ -128,6 +136,13 @@ public class MallCatalogOpsService {
     @Transactional
     public OpsProductCreated create(UUID idempotencyKey, String categoryCode, String name, String saleModeCode,
                                     Operator operator) {
+        return create(idempotencyKey, categoryCode, name, saleModeCode, operator, null);
+    }
+
+    /** ownerId 不为空时记下建它的商家（商家工作台建的商品；V006）。 */
+    @Transactional
+    public OpsProductCreated create(UUID idempotencyKey, String categoryCode, String name, String saleModeCode,
+                                    Operator operator, UUID ownerId) {
         requireOperator(operator);
         if (idempotencyKey == null) {
             throw new IllegalArgumentException("idempotency key is required");
@@ -139,16 +154,16 @@ public class MallCatalogOpsService {
         if (existing != null) {
             ProductRow row = mapper.findProduct(existing);
             if (row == null || !row.category().equals(category.name()) || !row.saleMode().equals(saleMode.name())
-                    || !row.name().equals(productName)) {
+                    || !row.name().equals(productName) || !Objects.equals(row.ownerOrganizationId(), ownerId)) {
                 throw new MallOpsException(Error.IDEMPOTENCY_CONFLICT);
             }
             return new OpsProductCreated(detail(existing), false);
         }
         OffsetDateTime at = now();
-        UUID id = mapper.insertProduct(category.name(), productName, saleMode.name(), idempotencyKey, at);
+        UUID id = mapper.insertProduct(category.name(), productName, saleMode.name(), idempotencyKey, ownerId, at);
         if (id == null) {
             // 同一个键的另一次提交刚刚写进去了。
-            return create(idempotencyKey, categoryCode, name, saleModeCode, operator);
+            return create(idempotencyKey, categoryCode, name, saleModeCode, operator, ownerId);
         }
         record(id, OpsCatalogAction.PRODUCT_CREATE, "新建" + saleModeLabel(saleMode) + "商品“" + productName
                 + "”（草稿）", operator, at);
@@ -556,7 +571,7 @@ public class MallCatalogOpsService {
                         row.coverUrl(), MallSaleMode.valueOf(row.saleMode()),
                         row.experienceBadge() == null ? null : MallExperienceBadge.valueOf(row.experienceBadge()),
                         row.sortOrder(), productStatus(row.status()), row.createdAt(), row.updatedAt(),
-                        row.version()),
+                        row.version(), row.ownerOrganizationId(), row.ownerName()),
                 mapper.findSellingPoints(id),
                 mapper.findSpecs(id).stream().map(spec -> new OpsSpecView(spec.label(), spec.value())).toList(),
                 mapper.findPackItems(id).stream().map(item -> new OpsPackItemView(item.name(), item.quantity()))

@@ -68,7 +68,7 @@ class MallCatalogOpsServiceTest {
 
     private static ProductRow product(String saleMode, String status, String summary) {
         return new ProductRow(PRODUCT, "ROBOT", "编程机器人探索套装", summary, null, saleMode, null, 0, status, AT, AT, 3,
-                null);
+                null, null, null);
     }
 
     private static OfferRow offer(String status, Long price, String unit) {
@@ -243,9 +243,9 @@ class MallCatalogOpsServiceTest {
     void creatingIsIdempotentPerKey() {
         UUID key = UUID.randomUUID();
         when(mapper.findProductByCreateKey(key)).thenReturn(null, PRODUCT, PRODUCT);
-        when(mapper.insertProduct("ROBOT", "编程机器人", "BUY", key, AT)).thenReturn(PRODUCT);
+        when(mapper.insertProduct("ROBOT", "编程机器人", "BUY", key, null, AT)).thenReturn(PRODUCT);
         when(mapper.findProduct(PRODUCT)).thenReturn(new ProductRow(PRODUCT, "ROBOT", "编程机器人", null, null, "BUY",
-                null, 0, "DRAFT", AT, AT, 0, key));
+                null, 0, "DRAFT", AT, AT, 0, key, null, null));
 
         assertThat(service.create(key, "ROBOT", "编程机器人", "BUY", OPERATOR).created()).isTrue();
         assertThat(service.create(key, "ROBOT", "编程机器人", "BUY", OPERATOR).created()).isFalse();

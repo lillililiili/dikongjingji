@@ -92,6 +92,10 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/sms-codes",
                                 "/api/v1/auth/phone-login").permitAll()
+                        // 商家自助入驻（发码、申请）：不登录；验证码频率和错误次数由身份模块限制（OrganizationSignupService）。
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/organization-signups/sms-codes",
+                                "/api/v1/organization-signups").permitAll()
                         // 个人信息导出的文件：不带登录头，靠一次性的短时效下载凭据（PersonalDataExportService.download）。
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/account/data-exports/*/file").permitAll()

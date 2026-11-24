@@ -1488,6 +1488,11 @@ public class GlobalExceptionHandler {
                 code = "OPS_FILE_STORE_UNAVAILABLE";
                 message = "图片存储暂不可用";
             }
+            case MERCHANT_NOT_QUALIFIED -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_MERCHANT_NOT_QUALIFIED";
+                message = "资质审核通过前不能上架";
+            }
             default -> throw new IllegalStateException("unmapped mall ops error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request), details));

@@ -42,6 +42,13 @@ public class MallApplicationConfiguration {
         return new MallCatalogOpsService(mapper, cities, merchants, payments, media, Clock.systemUTC());
     }
 
+    /** 商家工作台“我的商品”：套在运营端商品服务外面，只放开本机构自己建的商品；上架看资质审核。 */
+    @Bean
+    MerchantCatalogService merchantCatalogService(MallCatalogOpsService catalog, MallCatalogOpsMapper mapper,
+                                                  MallInquiryPorts.MerchantQualifications qualifications) {
+        return new MerchantCatalogService(catalog, mapper, qualifications);
+    }
+
     /** 商家主页与商家资料（S5-2）。活动、内容由启动模块经端口接上；没接时两个页签是空的。 */
     @Bean
     MallMerchantService mallMerchantService(

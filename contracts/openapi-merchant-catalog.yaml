@@ -1,0 +1,455 @@
+openapi: "3.1.0"
+info:
+  title: "Merchant Catalog API"
+  version: "1.0.0"
+  description: |-
+    1.0.0（2026-11-24 商家自助上架）：商家（服务商操作员）在 Web 工作台“我的商品”里自己建商品、改资料、管规格和供给、
+    上下架。接口、请求体、响应和错误码和运营端“商品与供给”（openapi-ops-catalog.yaml 1.1.0）完全一样，只是前缀从
+    /api/v1/ops/catalog/ 换成 /api/v1/provider/catalog/，下面的 $ref 直接指向那份契约；商城迁移 V006。
+
+    Every route needs a login (bearer JWT) with the PROVIDER_OPERATOR role and an organization in the token; platform roles
+    get 403 COMMON_FORBIDDEN. 另加三条规则：
+    - 只能看、改本机构自己建的商品（mall_product.owner_organization_id 是本机构）：列表只列自己的，别家的、平台建的一律
+      404 COMMON_NOT_FOUND。新建的商品自动记上本机构。
+    - 供给的商家只能是本机构：POST …/offers 的 merchantId 可以不填，填了也不认，一律记本机构。启用供给前仍要在交易模块
+      登记了有效收款账户（422 OPS_MERCHANT_NOT_COLLECTING，由平台运营在“收款账户”里登记）。
+    - 上架（PUBLISH）前机构的资质要审核通过（身份模块 identity_organization.qualification_reviewed_at，运营端“机构与资质”
+      审），否则 409 OPS_MERCHANT_NOT_QUALIFIED；上架必填的检查（OPS_PRODUCT_INCOMPLETE）照旧。下架、建草稿、改资料、
+      传图不受此限。
+    - 操作记录里的操作人是商家自己的账号；平台运营在“商品与供给”里能看到这些商品（带 ownerName）并下架。
+
+    Bodies are returned bare, errors use the shared ApiError (openapi-ops-catalog.yaml).
+servers:
+  - url: "/"
+paths:
+  /api/v1/provider/catalog/products:
+    get:
+      operationId: "listMerchantProducts"
+      summary: "商品列表（最近改过的在前）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: "keyword"
+          in: "query"
+          required: false
+          description: "商品名称，最多 40 字；% 和 _ 会被去掉"
+          schema:
+            type: "string"
+            maxLength: 40
+        - name: "category"
+          in: "query"
+          required: false
+          schema:
+            $ref: "openapi-ops-catalog.yaml#/components/schemas/MallCategory"
+        - name: "saleMode"
+          in: "query"
+          required: false
+          schema:
+            $ref: "openapi-ops-catalog.yaml#/components/schemas/MallSaleMode"
+        - name: "status"
+          in: "query"
+          required: false
+          schema:
+            $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductStatus"
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/Page"
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/Size"
+      responses:
+        "200":
+          description: "一页商品"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductPage"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+    post:
+      operationId: "createMerchantProduct"
+      summary: "新建商品（草稿）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductCreateRequest"
+      responses:
+        "201":
+          description: "建好的商品"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "200":
+          description: "同一个幂等键重放：第一次建的那个"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "409":
+          description: "OPS_IDEMPOTENCY_KEY_REUSED：幂等键已用于内容不同的新建请求。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/provider/catalog/products/{productId}:
+    get:
+      operationId: "getMerchantProduct"
+      summary: "商品详情：资料、卖点、参数、包装清单、图集、图文、规格、供给、上架缺什么、最近 50 条操作记录"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: "商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "404":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/NotFound"
+    put:
+      operationId: "updateMerchantProduct"
+      summary: "改商品资料（整份替换卖点、参数、包装清单、图集和图文）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductUpdateRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "404":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+        "422":
+          description: "OPS_MEDIA_URL_UNCONTROLLED：封面、图集或图文里的图片地址不是受控地址。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/provider/catalog/products/{productId}/status:
+    post:
+      operationId: "changeMerchantProductStatus"
+      summary: "上架（PUBLISH）或下架（UNPUBLISH）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductStatusRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "404":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_STATUS_UNCHANGED：已经是这个状态。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+        "422":
+          description: "OPS_PRODUCT_INCOMPLETE：上架前缺必填，details.blockers 是 OpsPublishBlocker 的数组。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/provider/catalog/products/{productId}/skus:
+    post:
+      operationId: "createMerchantSku"
+      summary: "加一个规格（启用）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/ProductId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsSkuCreateRequest"
+      responses:
+        "201":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "404":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/NotFound"
+        "409":
+          description: "OPS_SKU_LIMIT：规格已到 20 个。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/provider/catalog/products/{productId}/skus/{skuId}:
+    put:
+      operationId: "updateMerchantSku"
+      summary: "改规格名称、排序或启用状态"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/ProductId"
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/SkuId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsSkuUpdateRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "404":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/provider/catalog/products/{productId}/offers:
+    post:
+      operationId: "createMerchantOffer"
+      summary: "加一条在售供给（停用，核对后再启用）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/ProductId"
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsOfferCreateRequest"
+      responses:
+        "201":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "200":
+          description: "同一个幂等键重放"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "404":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/NotFound"
+        "409":
+          description: >-
+            OPS_IDEMPOTENCY_KEY_REUSED：幂等键已用于内容不同的请求；OPS_OFFER_DUPLICATE：这个规格、商家、城市已经有一条供给。
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+        "422":
+          description: "OPS_MERCHANT_UNKNOWN：商家不是在用的经营机构；OPS_CITY_UNKNOWN：城市不在平台城市目录里。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/provider/catalog/products/{productId}/offers/{offerId}:
+    put:
+      operationId: "updateMerchantOffer"
+      summary: "改供给：价格、库存、配送方式与说明（改价单独留痕）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/ProductId"
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/OfferId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsOfferUpdateRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "404":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_OFFER_DUPLICATE：改了城市后和另一条供给重复。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+        "422":
+          description: >-
+            OPS_OFFER_INCOMPLETE：启用中的购买或租赁供给不能去掉价格；OPS_MERCHANT_NOT_COLLECTING：启用中的标价购买供给，
+            商家没有有效收款账户；OPS_CITY_UNKNOWN：城市不在目录里。
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/provider/catalog/products/{productId}/offers/{offerId}/status:
+    post:
+      operationId: "changeMerchantOfferStatus"
+      summary: "启用（ACTIVATE）或停用（DEACTIVATE）一条供给"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/ProductId"
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/OfferId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsOfferStatusRequest"
+      responses:
+        "200":
+          description: "改好的商品详情"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsProductDetail"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "404":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_STATUS_UNCHANGED：已经是这个状态。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+        "422":
+          description: "OPS_OFFER_INCOMPLETE：规格已停用或缺价格；OPS_MERCHANT_NOT_COLLECTING：商家没有有效收款账户。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+  /api/v1/provider/catalog/media:
+    post:
+      operationId: "uploadMerchantCatalogMedia"
+      summary: "上传一张商品图片，返回受控地址"
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              required: [file]
+              properties:
+                file:
+                  type: "string"
+                  format: "binary"
+                  description: "JPEG、PNG 或 WebP，≤5 MB"
+      responses:
+        "201":
+          description: "存好的图片"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/OpsMedia"
+        "400":
+          description: "没有文件、超过 5 MB 或不是 JPEG/PNG/WebP（COMMON_INVALID_ARGUMENT）"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "503":
+          description: "OPS_FILE_STORE_UNAVAILABLE：对象存储没有配置。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"

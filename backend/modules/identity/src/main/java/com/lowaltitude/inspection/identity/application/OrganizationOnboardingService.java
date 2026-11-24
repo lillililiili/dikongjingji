@@ -557,7 +557,7 @@ public class OrganizationOnboardingService {
     }
 
     /** 机构编码：ORG-北京日期-8 位随机十六进制，只给人看、给对账用，不当作关联键。 */
-    private String organizationCode(OffsetDateTime at) {
+    String organizationCode(OffsetDateTime at) {
         byte[] bytes = new byte[4];
         random.nextBytes(bytes);
         return "ORG-" + at.atZoneSameInstant(BEIJING).format(DateTimeFormatter.BASIC_ISO_DATE) + "-"

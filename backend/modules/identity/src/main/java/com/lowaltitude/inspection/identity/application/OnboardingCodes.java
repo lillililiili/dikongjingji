@@ -36,7 +36,9 @@ enum OpsOrganizationAction {
     ACCOUNT_CREATE,
     ROLES_CHANGE,
     /** 开通服务商资料（S6-01，契约 1.1.0，迁移 V011）。 */
-    PROVIDER_PROFILE_OPEN
+    PROVIDER_PROFILE_OPEN,
+    /** 商家自助申请入驻（契约 openapi-organization-signup.yaml，迁移 V012）：机构、资质和第一个账号一起建。 */
+    SIGNUP
 }
 
 /**

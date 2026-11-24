@@ -32,11 +32,21 @@ public interface MallCatalogOpsMapper {
             <if test="status != null">
               AND p.status = #{status}
             </if>
+            <if test="ownerId != null">
+              AND p.owner_organization_id = #{ownerId}
+            </if>
+            """;
+
+    /** 建这件商品的商家（V006）；平台建的为空。名称取自身份模块的机构表（只读）。 */
+    String OWNER_COLUMNS = """
+            p.owner_organization_id,
+                   (SELECT o.organization_name FROM identity_organization o WHERE o.id = p.owner_organization_id) owner_name
             """;
 
     @Select("<script>SELECT count(*)\n" + LIST_FILTER + "</script>")
     long countProducts(@Param("keyword") String keyword, @Param("category") String category,
-                       @Param("saleMode") String saleMode, @Param("status") String status);
+                       @Param("saleMode") String saleMode, @Param("status") String status,
+                       @Param("ownerId") UUID ownerId);
 
     @Select("<script>" + """
             SELECT p.id product_id,
@@ -51,18 +61,19 @@ public interface MallCatalogOpsMapper {
                       JOIN mall_offer o ON o.sku_id = s.id
                      WHERE s.product_id = p.id AND o.status = 'ACTIVE') active_offer_count,
                    p.updated_at,
-                   p.version
-            """ + LIST_FILTER + """
+                   p.version,
+                   """ + OWNER_COLUMNS + LIST_FILTER + """
             ORDER BY p.updated_at DESC, p.id DESC
             LIMIT #{limit} OFFSET #{offset}
             """ + "</script>")
     List<SummaryRow> findProducts(@Param("keyword") String keyword, @Param("category") String category,
                                   @Param("saleMode") String saleMode, @Param("status") String status,
-                                  @Param("limit") int limit, @Param("offset") int offset);
+                                  @Param("ownerId") UUID ownerId, @Param("limit") int limit, @Param("offset") int offset);
 
     String PRODUCT_COLUMNS = """
             SELECT p.id product_id, p.category, p.name, p.summary, p.cover_url, p.sale_mode, p.experience_badge,
-                   p.sort_order, p.status, p.created_at, p.updated_at, p.version, p.ops_create_key
+                   p.sort_order, p.status, p.created_at, p.updated_at, p.version, p.ops_create_key,
+                   """ + OWNER_COLUMNS + """
             FROM mall_product p
             """;
 
@@ -78,15 +89,16 @@ public interface MallCatalogOpsMapper {
 
     /** 新建商品（草稿）；同一个幂等键已经建过时什么都不写，返回 null。 */
     @Select("""
-            INSERT INTO mall_product (category, name, sale_mode, status, ops_create_key, created_at, updated_at)
-            VALUES (#{category}, #{name}, #{saleMode}, 'DRAFT', #{createKey}, #{at}, #{at})
+            INSERT INTO mall_product (category, name, sale_mode, status, ops_create_key, owner_organization_id,
+                                      created_at, updated_at)
+            VALUES (#{category}, #{name}, #{saleMode}, 'DRAFT', #{createKey}, #{ownerId}, #{at}, #{at})
             ON CONFLICT (ops_create_key) WHERE ops_create_key IS NOT NULL DO NOTHING
             RETURNING id
             """)
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     UUID insertProduct(@Param("category") String category, @Param("name") String name,
                        @Param("saleMode") String saleMode, @Param("createKey") UUID createKey,
-                       @Param("at") OffsetDateTime at);
+                       @Param("ownerId") UUID ownerId, @Param("at") OffsetDateTime at);
 
     @Update("""
             UPDATE mall_product
@@ -484,12 +496,14 @@ public interface MallCatalogOpsMapper {
     List<OperationRow> findOperations(@Param("productId") UUID productId, @Param("limit") int limit);
 
     record SummaryRow(UUID productId, String category, String name, String saleMode, String status, String coverUrl,
-                      int skuCount, int activeOfferCount, OffsetDateTime updatedAt, int version) {
+                      int skuCount, int activeOfferCount, OffsetDateTime updatedAt, int version,
+                      UUID ownerOrganizationId, String ownerName) {
     }
 
     record ProductRow(UUID productId, String category, String name, String summary, String coverUrl, String saleMode,
                       String experienceBadge, int sortOrder, String status, OffsetDateTime createdAt,
-                      OffsetDateTime updatedAt, int version, UUID opsCreateKey) {
+                      OffsetDateTime updatedAt, int version, UUID opsCreateKey, UUID ownerOrganizationId,
+                      String ownerName) {
     }
 
     record SpecRow(String label, String value) {

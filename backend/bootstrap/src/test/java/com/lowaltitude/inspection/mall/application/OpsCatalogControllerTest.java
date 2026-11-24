@@ -45,7 +45,7 @@ class OpsCatalogControllerTest {
 
     private static OpsProductDetailView detail() {
         return new OpsProductDetailView(new OpsProductView(PRODUCT, MallCategory.ROBOT, "编程机器人", null, null,
-                MallSaleMode.BUY, null, 0, OpsProductStatus.DRAFT, AT, AT, 0), List.of(), List.of(), List.of(),
+                MallSaleMode.BUY, null, 0, OpsProductStatus.DRAFT, AT, AT, 0, null, null), List.of(), List.of(), List.of(),
                 List.of(), List.of(), List.of(), List.of(),
                 List.of(OpsPublishBlocker.SUMMARY_MISSING, OpsPublishBlocker.NO_ACTIVE_SKU), List.of());
     }
