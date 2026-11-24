@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 /**
- * 某个主办机构在某城市、还有场次没开始的已上线活动（S5-2 商家主页的“活动”页签）。只读，按最近一场的开始时间排。
+ * 某个主办机构在某城市、还有场次没开始的已上线活动（S5-2 商家主页的“活动”页签；主办机构被挂起上架的不算）。只读，按最近一场的开始时间排。
  */
 public interface ActivityOrganizerMapper {
 
@@ -20,6 +20,12 @@ public interface ActivityOrganizerMapper {
                 WHERE s.activity_id = a.id AND s.status = 'ACTIVE' AND s.starts_at > #{now}
             ) next ON next.starts_at IS NOT NULL
             WHERE a.status = 'PUBLISHED'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = a.organizer_id
+                    AND suspended.listing_suspended
+              )
               AND a.city_code = #{cityCode}
               AND (a.organizer_id = #{organizerId} OR a.co_organizer_id = #{organizerId})
             """;

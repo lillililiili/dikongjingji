@@ -76,12 +76,13 @@ public interface OrganizationOnboardingMapper {
     @Select("SELECT id FROM identity_organization WHERE ops_create_key = #{createKey}")
     UUID findOrganizationByCreateKey(@Param("createKey") UUID createKey);
 
-    /** 新建机构；同一个幂等键已经建过时什么都不写，返回 null。 */
+    /** 新建机构；经营机构在资质审核通过前不能上架（V013）。同一个幂等键已经建过时什么都不写，返回 null。 */
     @Select("""
             INSERT INTO identity_organization (
-                organization_code, organization_name, organization_type, city_code, ops_create_key, created_at, updated_at
+                organization_code, organization_name, organization_type, city_code, ops_create_key,
+                listing_suspended, created_at, updated_at
             )
-            VALUES (#{code}, #{name}, #{type}, #{cityCode}, #{createKey}, #{at}, #{at})
+            VALUES (#{code}, #{name}, #{type}, #{cityCode}, #{createKey}, #{type} = 'PROVIDER', #{at}, #{at})
             ON CONFLICT (ops_create_key) WHERE ops_create_key IS NOT NULL DO NOTHING
             RETURNING id
             """)
@@ -90,10 +91,14 @@ public interface OrganizationOnboardingMapper {
                             @Param("cityCode") String cityCode, @Param("createKey") UUID createKey,
                             @Param("at") OffsetDateTime at);
 
-    /** 审核通过写时间，驳回或重新提交清空（App 上的“资质已审核”只看这一列）。 */
+    /**
+     * 审核通过写时间，驳回或重新提交清空（App 上的“资质已审核”只看这一列）。经营机构同时放开或挂起上架（V013）：
+     * 通过后商品和服务在 App 可见，驳回、重新提交后不可见。
+     */
     @Update("""
             UPDATE identity_organization
-            SET qualification_reviewed_at = #{reviewedAt},
+            SET qualification_reviewed_at = CAST(#{reviewedAt} AS timestamptz),
+                listing_suspended = organization_type = 'PROVIDER' AND CAST(#{reviewedAt} AS timestamptz) IS NULL,
                 version = version + 1,
                 updated_at = #{at}
             WHERE id = #{organizationId}
@@ -101,6 +106,21 @@ public interface OrganizationOnboardingMapper {
     int updateQualificationReviewedAt(@Param("organizationId") UUID organizationId,
                                       @Param("reviewedAt") OffsetDateTime reviewedAt,
                                       @Param("at") OffsetDateTime at);
+
+    /**
+     * 没有资质记录的机构改了附件：撤下“资质已审核”。以前审核过的经营机构同时挂起上架，等录了资料再审；
+     * 从来没审核过的旧机构不受影响（已经挂起的保持挂起）。
+     */
+    @Update("""
+            UPDATE identity_organization
+            SET listing_suspended = listing_suspended
+                    OR (organization_type = 'PROVIDER' AND qualification_reviewed_at IS NOT NULL),
+                qualification_reviewed_at = NULL,
+                version = version + 1,
+                updated_at = #{at}
+            WHERE id = #{organizationId}
+            """)
+    int withdrawUnrecordedReview(@Param("organizationId") UUID organizationId, @Param("at") OffsetDateTime at);
 
     // ---- 资质资料 ----
 

@@ -1,8 +1,11 @@
 openapi: "3.1.0"
 info:
   title: "Ops Venue API"
-  version: "1.1.0"
+  version: "1.2.0"
   description: |-
+    1.2.0（2026-11-24）：运营机构资质没审核通过（身份迁移 V013 的 listing_suspended）时不能上线场馆：409
+    OPS_VENUE_OPERATOR_NOT_QUALIFIED；已上线的场馆在 App 上不可见、不能再约，已有预约照常到馆、改期、核销、退款，审核通过后
+    自动恢复（规则见 openapi-ops-organization.yaml 1.3.0）。
     1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“场馆与设备”——场馆、项目、
     按周模板批量生成场次、停售与取消场次、馆内设备及关联商品、上线与下线、改动记录。
     1.1.0（2026-11-23，S4-4 后端补字段）：场馆加 projectSummary（≤40 字，可空，体验迁移 V007）——App 首页“附近场馆”卡片
@@ -216,7 +219,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: "OPS_VERSION_CONFLICT；OPS_VENUE_STATUS_CONFLICT：当前状态不能做这个操作"
+          description: "OPS_VERSION_CONFLICT；OPS_VENUE_STATUS_CONFLICT：当前状态不能做这个操作；OPS_VENUE_OPERATOR_NOT_QUALIFIED：运营机构资质审核通过前不能上线"
           content:
             application/json:
               schema:
@@ -812,6 +815,7 @@ components:
     OpsVenueErrorCode:
       type: "string"
       enum: [OPS_VERSION_CONFLICT, OPS_PUBLISH_INCOMPLETE, OPS_VENUE_STATUS_CONFLICT, OPS_VENUE_OPERATOR_INVALID,
+             OPS_VENUE_OPERATOR_NOT_QUALIFIED,
              OPS_CITY_UNKNOWN, OPS_VENUE_PRODUCT_UNKNOWN, OPS_VENUE_SESSION_STARTED, OPS_VENUE_SESSION_HAS_BOOKINGS,
              OPS_VENUE_TOO_MANY_SESSIONS]
     OpsVenuePublishField:

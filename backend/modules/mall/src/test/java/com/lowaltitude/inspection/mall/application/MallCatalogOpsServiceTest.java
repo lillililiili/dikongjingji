@@ -61,9 +61,20 @@ class MallCatalogOpsServiceTest {
             return url.startsWith("http://127.0.0.1:18420/api/v1/mall/media/");
         }
     };
+    private final java.util.Set<UUID> suspended = new java.util.HashSet<>();
     private final MallCatalogOpsService service = new MallCatalogOpsService(mapper,
             city -> "370500".equals(city) ? Optional.of("东营市") : Optional.empty(),
-            organization -> MERCHANT.equals(organization) ? Optional.of("示例机器人商家") : Optional.empty(),
+            new MallOpsPorts.Merchants() {
+                @Override
+                public Optional<String> activeProviderName(UUID organization) {
+                    return MERCHANT.equals(organization) ? Optional.of("示例机器人商家") : Optional.empty();
+                }
+
+                @Override
+                public boolean listingSuspended(UUID organization) {
+                    return suspended.contains(organization);
+                }
+            },
             organization -> collecting, media, Clock.fixed(Instant.parse("2026-11-23T02:00:00Z"), ZoneOffset.UTC));
 
     private static ProductRow product(String saleMode, String status, String summary) {
@@ -124,6 +135,39 @@ class MallCatalogOpsServiceTest {
                 eq("平台运营（示例）"), eq(AT));
         assertRejected(() -> service.changeStatus(PRODUCT, "PUBLISH", 2, OPERATOR), Error.VERSION_CONFLICT);
         assertRejected(() -> service.changeStatus(PRODUCT, "UNPUBLISH", 3, OPERATOR), Error.STATUS_UNCHANGED);
+    }
+
+    // 身份 V013：平台运营代上架也一样，资质没审核通过的商家不能上架；别家合格的商家不受牵连。
+    @Test
+    void aProductNeedsAtLeastOneSellerWhoseQualificationIsNotPending() {
+        suspended.add(MERCHANT);
+        given(product("BUY", "DRAFT", "一句话"), List.of(sku("ACTIVE")), List.of(offer("ACTIVE", 129900L, "ITEM")));
+        when(mapper.updateProductStatus(PRODUCT, "PUBLISHED", 3, AT)).thenReturn(1);
+
+        assertRejected(() -> service.changeStatus(PRODUCT, "PUBLISH", 3, OPERATOR), Error.MERCHANT_NOT_QUALIFIED);
+        verify(mapper, never()).updateProductStatus(any(), anyString(), anyInt(), any());
+
+        OfferRow other = new OfferRow(UUID.randomUUID(), SKU, "标准套装", UUID.randomUUID(), "另一家", "FACTORY_DIRECT",
+                "370500", 129900L, "ITEM", 12, true, 0, null, null, null, null, "ACTIVE", AT, 2, null);
+        given(product("BUY", "DRAFT", "一句话"), List.of(sku("ACTIVE")),
+                List.of(offer("ACTIVE", 129900L, "ITEM"), other));
+        service.changeStatus(PRODUCT, "PUBLISH", 3, OPERATOR);
+        verify(mapper).updateProductStatus(PRODUCT, "PUBLISHED", 3, AT);
+    }
+
+    // 身份 V013：商品已上架时，被挂起的商家不能再启用供给；草稿里可以先准备。
+    @Test
+    void aSuspendedSellerCannotActivateAnOfferOfAPublishedProduct() {
+        suspended.add(MERCHANT);
+        given(product("BUY", "PUBLISHED", "一句话"), List.of(sku("ACTIVE")), List.of(offer("DISABLED", 129900L, "ITEM")));
+        when(mapper.updateOfferStatus(OFFER, "ACTIVE", 2, AT)).thenReturn(1);
+
+        assertRejected(() -> service.changeOfferStatus(PRODUCT, OFFER, "ACTIVATE", 2, OPERATOR),
+                Error.MERCHANT_NOT_QUALIFIED);
+
+        given(product("BUY", "DRAFT", "一句话"), List.of(sku("ACTIVE")), List.of(offer("DISABLED", 129900L, "ITEM")));
+        service.changeOfferStatus(PRODUCT, OFFER, "ACTIVATE", 2, OPERATOR);
+        verify(mapper).updateOfferStatus(OFFER, "ACTIVE", 2, AT);
     }
 
     // ---- 供给 ----

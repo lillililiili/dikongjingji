@@ -135,6 +135,15 @@ class InspectionCatalogOpsServiceTest {
                 new DetailItemRow("PROCESS", "BOOK", "预约", null, null),
                 new DetailItemRow("DELIVERABLE", "REPORT", "巡检报告", null, null)));
         when(mapper.findService(SERVICE)).thenReturn(withCover(row(SERVICE, "DISABLED", 2)));
+        // 身份 V013：资质没审核通过的服务商，资料齐全也不能上架。
+        when(organizations.findActiveOrganization(PROVIDER)).thenReturn(Optional.of(
+                new IdentityOrganization(PROVIDER, "新入驻服务商", "PROVIDER", null, true)));
+        assertThatThrownBy(() -> service.publish(SERVICE, 2, OPERATOR, "运营"))
+                .extracting(failure -> ((OpsException) failure).error())
+                .isEqualTo(InspectionCatalogOpsError.PROVIDER_NOT_QUALIFIED);
+        verify(mapper, never()).updateServiceStatus(any(), anyString(), anyInt(), any());
+        when(organizations.findActiveOrganization(PROVIDER)).thenReturn(Optional.of(
+                new IdentityOrganization(PROVIDER, "鹰眼智能巡检", "PROVIDER", null)));
         service.publish(SERVICE, 2, OPERATOR, "运营");
         verify(mapper).updateServiceStatus(SERVICE, "ACTIVE", 2, NOW);
         verify(mapper).insertChange(eq("SERVICE"), eq(SERVICE), eq("PUBLISH"), anyString(), eq(OPERATOR),

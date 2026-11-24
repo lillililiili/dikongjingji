@@ -29,13 +29,15 @@ public interface IdentityPersistenceMapper
             """)
     Optional<PersistedIdentityProfile> findActiveProfileById(@Param("subjectId") UUID subjectId);
 
-    // An organization by id, only while it is active; name, type and when its qualification was reviewed.
+    // An organization by id, only while it is active; name, type, when its qualification was reviewed and
+    // whether its goods and services are suspended from listing (V013).
     @Override
     @Select("""
             SELECT o.id AS organization_id,
                    o.organization_name,
                    o.organization_type,
-                   o.qualification_reviewed_at
+                   o.qualification_reviewed_at,
+                   o.listing_suspended
               FROM identity_organization o
              WHERE o.id = #{organizationId}
                AND o.status = 'ACTIVE'

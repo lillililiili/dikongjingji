@@ -73,7 +73,7 @@ class ActivityEnrollmentChangesTest {
     private static SessionRow session(UUID id, UUID activityId, int capacity, int enrolled, OffsetDateTime startsAt) {
         return new SessionRow(id, activityId, "PUBLISHED", "PER_PERSON", 6, 12, true, true, "ACTIVE", startsAt,
                 startsAt.plusHours(3), startsAt.minusDays(1), capacity, enrolled, UNIT, ORGANIZER, "370500",
-                "机器人研学体验", null, "上午", false);
+                "机器人研学体验", null, "上午", false, false);
     }
 
     private static EnrollmentRow enrollment(String status, UUID sessionId, OffsetDateTime startsAt) {
@@ -283,7 +283,7 @@ class ActivityEnrollmentChangesTest {
                     open.priceMode(), open.minAge(), open.maxAge(), open.waitlistAllowed(), false,
                     open.sessionStatus(), open.startsAt(), open.endsAt(), open.enrollmentClosesAt(), open.capacity(),
                     open.enrolledCount(), open.priceAmountMinor(), open.organizerId(), open.cityCode(), open.title(),
-                    open.coverUrl(), open.label(), open.saleStopped());
+                    open.coverUrl(), open.label(), open.saleStopped(), false);
             when(mapper.lockSession(FROM)).thenReturn(teamsOff);
 
             assertThatThrownBy(() -> service.enrollTeam(ACCOUNT, UUID.randomUUID(), command(two(), "13800002026")))

@@ -300,6 +300,11 @@ public class InspectionCatalogOpsService {
         ServiceDetailView current = detail(row);
         if (target == ServiceStatus.ACTIVE) {
             requireComplete(completeness(current));
+            // 资质没审核通过的机构不能上架（身份迁移 V013）。
+            if (organizations.findActiveOrganization(row.providerId())
+                    .filter(IdentityOrganization::listingSuspended).isPresent()) {
+                throw new OpsException(InspectionCatalogOpsError.PROVIDER_NOT_QUALIFIED);
+            }
         }
         OffsetDateTime at = now();
         if (mapper.updateServiceStatus(serviceId, target.name(), expected, at) != 1) {

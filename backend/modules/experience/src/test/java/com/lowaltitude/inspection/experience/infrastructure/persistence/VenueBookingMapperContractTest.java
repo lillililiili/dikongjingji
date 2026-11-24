@@ -177,7 +177,8 @@ class VenueBookingMapperContractTest {
 
     /** SELECT 和第一个 FROM 之间的列名，取别名（有 AS 名的取名字），去掉表前缀。 */
     private static List<String> columns(String select) {
-        String text = normalized(select);
+        // 列里的子查询（机构有没有被挂起上架）只留列名。
+        String text = normalized(select).replaceAll("EXISTS \\([^)]*\\) ", "");
         String list = text.substring(text.indexOf("SELECT") + "SELECT".length(), text.indexOf(" FROM "));
         return Arrays.stream(list.split(","))
                 .map(String::trim)

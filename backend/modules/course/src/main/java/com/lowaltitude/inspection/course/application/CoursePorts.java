@@ -101,6 +101,11 @@ public final class CoursePorts {
 
         /** 能开课的机构：在用的服务商或平台机构（运营端选开课机构时校验）。 */
         boolean canHostCourses(UUID organizationId);
+
+        /** 这家机构资质没审核通过、被挂起上架（身份迁移 V013）。 */
+        default boolean listingSuspended(UUID organizationId) {
+            return false;
+        }
     }
 
     /**

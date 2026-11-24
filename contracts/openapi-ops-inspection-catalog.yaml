@@ -1,8 +1,11 @@
 openapi: "3.1.0"
 info:
   title: "Ops Inspection Catalog API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
+    1.1.0（2026-11-24）：服务商资质没审核通过（身份迁移 V013 的 listing_suspended）时不能上架服务：409
+    OPS_PROVIDER_NOT_QUALIFIED；已上架的服务在 App 上不可见、不能再预约，已有的预约、方案和订单照常，审核通过后自动恢复
+    （规则见 openapi-ops-organization.yaml 1.3.0）。
     1.0.0（S3-1 第三部分，docs/redesign/08-后续开发计划.md §2、§5 D11）：Web 运营端“巡检服务目录”——巡检类目和巡检服务
     （服务商、类目、价格、城市覆盖、服务项目、详情项、上下架）。
 
@@ -461,7 +464,7 @@ components:
           schema:
             $ref: "#/components/schemas/ApiError"
     StatusConflict:
-      description: "OPS_VERSION_CONFLICT；OPS_STATUS_UNCHANGED：已经是这个状态"
+      description: "OPS_VERSION_CONFLICT；OPS_STATUS_UNCHANGED：已经是这个状态；OPS_PROVIDER_NOT_QUALIFIED：服务商资质审核通过前不能上架"
       content:
         application/json:
           schema:
@@ -498,6 +501,7 @@ components:
         - OPS_PUBLISH_INCOMPLETE
         - OPS_STATUS_UNCHANGED
         - OPS_PROVIDER_UNKNOWN
+        - OPS_PROVIDER_NOT_QUALIFIED
         - OPS_CITY_UNKNOWN
         - OPS_INSPECTION_CATEGORY_UNKNOWN
         - OPS_INSPECTION_CATEGORY_CODE_TAKEN

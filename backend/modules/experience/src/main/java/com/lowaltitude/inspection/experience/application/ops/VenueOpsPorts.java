@@ -21,6 +21,11 @@ public final class VenueOpsPorts {
     @FunctionalInterface
     public interface Operators {
         Optional<String> providerName(UUID organizationId);
+
+        /** 这家机构资质没审核通过、被挂起上架（身份迁移 V013）。 */
+        default boolean listingSuspended(UUID organizationId) {
+            return false;
+        }
     }
 
     /** 商城模块：这件商品在这个城市有没有在售（馆内设备关联商品用，App 商品详情的“先体验”按城市找场馆）。 */

@@ -175,9 +175,14 @@ public class ProServiceOpsService {
         }
         DetailView current = detail(row);
         if (target == Status.PUBLISHED) {
-            boolean providerActive = organizations.findActiveOrganization(row.providerId())
-                    .filter(found -> "PROVIDER".equals(found.organizationType())).isPresent();
-            requireComplete(providerActive, current.cities().size(), current.facets().size(), current.steps().size());
+            Optional<IdentityOrganization> provider = organizations.findActiveOrganization(row.providerId())
+                    .filter(found -> "PROVIDER".equals(found.organizationType()));
+            requireComplete(provider.isPresent(), current.cities().size(), current.facets().size(),
+                    current.steps().size());
+            // 资质没审核通过的机构不能上架（身份迁移 V013）。
+            if (provider.filter(IdentityOrganization::listingSuspended).isPresent()) {
+                throw new OpsException(ProServiceOpsError.PROVIDER_NOT_QUALIFIED);
+            }
         }
         OffsetDateTime at = now();
         if (mapper.updateStatus(serviceId, target.name(), expected, at) != 1) {

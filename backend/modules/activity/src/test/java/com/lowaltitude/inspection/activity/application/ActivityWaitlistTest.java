@@ -136,7 +136,7 @@ class ActivityWaitlistTest {
         private SessionRow session(int capacity, int enrolled, boolean waitlistAllowed) {
             return new SessionRow(SESSION, ACTIVITY, "PUBLISHED", "FREE", 6, 12, waitlistAllowed, true, "ACTIVE", STARTS,
                     STARTS.plusHours(2), STARTS.minusDays(1), capacity, enrolled, null, ORGANIZER, "370500",
-                    "无人机开放体验日", null, "上午", false);
+                    "无人机开放体验日", null, "上午", false, false);
         }
 
         private JoinWaitlistCommand command() {

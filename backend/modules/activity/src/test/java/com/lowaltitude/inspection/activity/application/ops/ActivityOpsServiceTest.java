@@ -37,9 +37,11 @@ class ActivityOpsServiceTest {
     private static final String COVER = "https://cdn.example.com/cover.jpg";
 
     private final FakeMapper mapper = new FakeMapper();
+    private boolean organizerSuspended;
     private final ActivityOpsService service = new ActivityOpsService(mapper,
             id -> Map.of(
-                    ORGANIZER, new ActivityOpsPorts.Organization(ORGANIZER, "示例青少年科技机构", "PROVIDER"),
+                    ORGANIZER, new ActivityOpsPorts.Organization(ORGANIZER, "示例青少年科技机构", "PROVIDER",
+                            organizerSuspended),
                     CO_ORGANIZER, new ActivityOpsPorts.Organization(CO_ORGANIZER, "东营城市运营中心", "PLATFORM"),
                     CUSTOMER_ORG, new ActivityOpsPorts.Organization(CUSTOMER_ORG, "示例企业客户", "CUSTOMER"))
                     .entrySet().stream().filter(entry -> entry.getKey().equals(id)).map(Map.Entry::getValue)
@@ -111,6 +113,11 @@ class ActivityOpsServiceTest {
         });
 
         assertRejected(ActivityOpsError.VERSION_CONFLICT, () -> service.publish(id, 0, OPERATOR));
+        // 身份 V013：主办机构资质没审核通过时不能上线。
+        organizerSuspended = true;
+        assertRejected(ActivityOpsError.ORGANIZER_NOT_QUALIFIED,
+                () -> service.publish(id, withSession.version(), OPERATOR));
+        organizerSuspended = false;
         OpsActivityView published = service.publish(id, withSession.version(), OPERATOR);
         assertThat(published.status()).isEqualTo(ActivityOpsViews.OpsActivityStatus.PUBLISHED);
         assertThat(published.firstPublishedAt()).isEqualTo(AT);

@@ -19,6 +19,7 @@ public interface MallInquiryMapper {
 
     // ---- 询价供给 ----
 
+    /** 商家被挂起上架（身份迁移 V013）的供给当作已停用，不能再发询价。 */
     String OFFER_COLUMNS = """
             SELECT offer.id offer_id,
                    p.id product_id,
@@ -27,7 +28,7 @@ public interface MallInquiryMapper {
                    p.sale_mode,
                    p.status product_status,
                    sku.status sku_status,
-                   offer.status offer_status,
+                   CASE WHEN merchant.listing_suspended THEN 'DISABLED' ELSE offer.status END offer_status,
                    offer.city_code,
                    merchant.id merchant_id,
                    merchant.organization_name merchant_name,
@@ -46,6 +47,7 @@ public interface MallInquiryMapper {
               AND p.sale_mode = 'INQUIRY'
               AND sku.status = 'ACTIVE'
               AND offer.status = 'ACTIVE'
+              AND NOT merchant.listing_suspended
               AND (offer.city_code IS NULL OR offer.city_code = #{cityCode})
             ORDER BY merchant.organization_name ASC, offer.id ASC
             """)

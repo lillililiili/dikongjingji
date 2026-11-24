@@ -38,6 +38,8 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>平台运营新建机构（经营机构或企业客户，带所在城市），同一个幂等键只建一家。</li>
  *   <li>资质资料只存文字（主体名称、统一社会信用代码、经营范围、行业资质说明）和附件元数据；资料或附件有改动就回到待审核，
  *       上一次的审核结果作废，App 上的“资质已审核”先撤下。</li>
+ *   <li>上架（V013）：经营机构新建后、资料待审核或被驳回时 listing_suspended 为 true，商品和服务不能上架，已上架的在 App
+ *       不可见；审核通过时为 false。没有资质记录的旧机构不受影响。</li>
  *   <li>审核：只能审待审核的那一版（带版本号）；通过要至少一份附件，写 identity_organization.qualification_reviewed_at；
  *       驳回要写原因，并清空审核时间。</li>
  *   <li>账号：给机构建账号（默认机构就是这家），服务端生成一次性的初始口令，只返回这一次；授机构角色（按机构类型限定），
@@ -501,7 +503,7 @@ public class OrganizationOnboardingService {
         return id;
     }
 
-    /** 资料改了：上一次的审核结果作废，App 上的“资质已审核”先撤下。 */
+    /** 资料改了：上一次的审核结果作废，App 上的“资质已审核”先撤下，经营机构已上架的商品和服务也先不可见（V013）。 */
     private void withdrawReview(UUID id, OffsetDateTime at) {
         mapper.updateQualificationReviewedAt(id, null, at);
     }
@@ -512,7 +514,7 @@ public class OrganizationOnboardingService {
             withdrawReview(id, at);
         } else if (mapper.findQualification(id) == null) {
             // 没有资料记录、但以前线下写过审核时间的机构：附件变了，同样撤下“资质已审核”，等录入资料后再审。
-            withdrawReview(id, at);
+            mapper.withdrawUnrecordedReview(id, at);
         }
     }
 

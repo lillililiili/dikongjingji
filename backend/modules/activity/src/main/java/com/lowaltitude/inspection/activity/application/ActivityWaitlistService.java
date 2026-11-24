@@ -409,7 +409,9 @@ public class ActivityWaitlistService {
     }
 
     private static boolean isListed(SessionRow session) {
-        return "PUBLISHED".equals(session.activityStatus()) && "ACTIVE".equals(session.sessionStatus());
+        return "PUBLISHED".equals(session.activityStatus()) && "ACTIVE".equals(session.sessionStatus())
+                // 主办机构被挂起上架（身份迁移 V013）：不接新的候补。
+                && !session.listingSuspended();
     }
 
     private static LocalDate dateOf(OffsetDateTime time) {

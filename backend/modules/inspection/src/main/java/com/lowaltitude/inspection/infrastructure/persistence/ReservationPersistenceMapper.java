@@ -24,6 +24,12 @@ public interface ReservationPersistenceMapper {
              AND coverage.status = 'ACTIVE'
             WHERE service.id = #{id}
               AND service.status = 'ACTIVE'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = service.provider_id
+                    AND suspended.listing_suspended
+              )
             """)
     Optional<ServiceRow> findActiveService(@Param("id") UUID id, @Param("cityCode") String cityCode);
 
@@ -53,6 +59,12 @@ public interface ReservationPersistenceMapper {
              AND coverage.status = 'ACTIVE'
             WHERE service.id = #{serviceId}
               AND service.status = 'ACTIVE'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = service.provider_id
+                    AND suspended.listing_suspended
+              )
             FOR UPDATE
             """)
     UUID lockActiveService(

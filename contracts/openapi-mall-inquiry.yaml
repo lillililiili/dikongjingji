@@ -3,6 +3,7 @@ info:
   title: "Mall Inquiry API"
   version: "1.1.0"
   description: |-
+    2026-11-24（接口和字段不变）：商家资质没审核通过（身份迁移 V013）时，不能再向它发询价；已发出的询价和报价照常。
     1.1.0（R6-4）：报价里的商家改用 MallInquiryQuoteMerchant，多一个 qualificationReviewed（平台审核过它的资质），页面据此显示“资质已审核”。
     1.0.0（步骤 F4，docs/redesign/03-App实现任务计划.md §25）：询价商品——询价单、商家报价、比选、按报价转为订单。
 

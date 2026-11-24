@@ -3,6 +3,7 @@ info:
   title: "Course API"
   version: "1.0.0"
   description: |-
+    2026-11-24（接口和字段不变）：开课机构资质没审核通过（身份迁移 V013）时，课程列表里没有、详情和试听 404、不能再买；已经开通的照常能学、能退款。
     1.0.0（S5-5，docs/redesign/08-后续开发计划.md §2 S5-5、§5 D15、D12；说明和设计假设见 docs/redesign/09-课程实现说明.md）：商城“课程”页、
     课程详情与购买、课程试听、我的课程、课程学习。只在预览构建显示（App 发布开关 COURSE）。运营端的课程管理见 openapi-ops-course.yaml。
 

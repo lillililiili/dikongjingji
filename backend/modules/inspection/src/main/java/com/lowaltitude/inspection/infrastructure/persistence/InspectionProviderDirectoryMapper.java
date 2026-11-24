@@ -25,8 +25,9 @@ public interface InspectionProviderDirectoryMapper {
               AND o.organization_type = 'PROVIDER'
             """;
 
-    /** 服务这个城市的服务商：至少有一项在用的服务覆盖它。 */
+    /** 服务这个城市的服务商：至少有一项在用的服务覆盖它；被挂起上架（身份迁移 V013）的不算。 */
     @Select(PROVIDER_COLUMNS + """
+              AND NOT o.listing_suspended
               AND EXISTS (
                   SELECT 1
                   FROM inspection_service s

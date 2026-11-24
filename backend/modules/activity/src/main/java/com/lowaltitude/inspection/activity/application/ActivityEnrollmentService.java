@@ -167,7 +167,7 @@ public class ActivityEnrollmentService {
         Set<UUID> enrolled = Set.of();
         if (sessionId != null) {
             session = mapper.findSession(sessionId);
-            if (session == null || !isListed(session)) {
+            if (session == null || !isEnrollable(session)) {
                 throw new ActivityEnrollmentException(Error.NOT_FOUND);
             }
             enrolled = Set.copyOf(mapper.findEnrolledParticipantIds(sessionId, accountId));
@@ -309,7 +309,7 @@ public class ActivityEnrollmentService {
             }
             return new EnrollmentResult(readEnrollment(accountId, replayed.id()), false);
         }
-        if (!isListed(session)) {
+        if (!isEnrollable(session)) {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
         }
         boolean paid = isPaid(session);
@@ -815,7 +815,7 @@ public class ActivityEnrollmentService {
             throw new IllegalArgumentException("team roster is invalid");
         }
         SessionRow session = mapper.findSession(sessionId);
-        if (session == null || !isListed(session)) {
+        if (session == null || !isEnrollable(session)) {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
         }
         Set<UUID> enrolled = Set.copyOf(mapper.findEnrolledParticipantIds(sessionId, accountId));
@@ -889,7 +889,7 @@ public class ActivityEnrollmentService {
             }
             return new EnrollmentResult(readEnrollment(accountId, replayed.id()), false);
         }
-        if (!isListed(session)) {
+        if (!isEnrollable(session)) {
             throw new ActivityEnrollmentException(Error.NOT_FOUND);
         }
         // 运营端关掉了团队报名（S6-02）：不能再团队报名；已有的团队报名单照常（上面的重放也照常返回）。
@@ -1266,6 +1266,11 @@ public class ActivityEnrollmentService {
         return ActivityPriceMode.PER_PERSON.name().equals(session.priceMode())
                 && session.priceAmountMinor() != null
                 && session.priceAmountMinor() > 0;
+    }
+
+    /** 能接新报名：在公开目录里，并且主办机构没被挂起上架（身份迁移 V013）。改期、付款恢复只看 {@link #isListed}。 */
+    private static boolean isEnrollable(SessionRow session) {
+        return isListed(session) && !session.listingSuspended();
     }
 
     private static boolean isListed(SessionRow session) {

@@ -350,6 +350,10 @@ public class CourseOpsService {
             throw OpsException.incomplete(CourseOpsError.PUBLISH_INCOMPLETE,
                     missing.stream().map(Enum::name).toList());
         }
+        // 资质没审核通过的机构不能上架课程（身份迁移 V013）。
+        if (organizations.listingSuspended(row.organizationId())) {
+            throw new OpsException(CourseOpsError.ORGANIZATION_NOT_QUALIFIED);
+        }
         OffsetDateTime now = now();
         if (mapper.setStatus(courseId, version, CourseOpsStatus.LISTED, now) == 0) {
             throw new OpsException(CourseOpsError.VERSION_CONFLICT);

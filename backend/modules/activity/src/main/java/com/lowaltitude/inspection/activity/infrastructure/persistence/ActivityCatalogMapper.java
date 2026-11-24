@@ -11,12 +11,19 @@ import org.apache.ibatis.annotations.Select;
 
 /**
  * 活动目录只读查询。所有条件都用绑定参数；“当前时间”由调用方传入，便于测试，也保证同一次请求里列表和计数用同一时刻。
+ * 主办机构资质没审核通过、被挂起上架（身份迁移 V013 的 listing_suspended）的活动一律不可见。
  */
 public interface ActivityCatalogMapper {
 
-    /** 列表和计数共用的条件：已发布、属于该城市、至少还有一场未开始。 */
+    /** 列表和计数共用的条件：已发布、主办机构没被挂起、属于该城市、至少还有一场未开始。 */
     String LISTED_ACTIVITY_FILTER = """
             WHERE a.status = 'PUBLISHED'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = a.organizer_id
+                    AND suspended.listing_suspended
+              )
               AND a.city_code = #{cityCode}
               AND (#{type} = 'ALL' OR a.type = #{type})
               AND (#{freeOnly} = false OR a.price_mode = 'FREE')
@@ -134,6 +141,12 @@ public interface ActivityCatalogMapper {
             FROM activity_session s
             JOIN activity a ON a.id = s.activity_id
             WHERE a.status = 'PUBLISHED'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = a.organizer_id
+                    AND suspended.listing_suspended
+              )
               AND a.city_code = #{cityCode}
               AND (#{type} = 'ALL' OR a.type = #{type})
               AND s.status = 'ACTIVE'
@@ -183,6 +196,7 @@ public interface ActivityCatalogMapper {
             WHERE a.id = #{activityId}
               AND a.city_code = #{cityCode}
               AND a.status = 'PUBLISHED'
+              AND NOT organizer.listing_suspended
             """)
     Optional<ActivityDetailRow> findPublishedDetail(
             @Param("activityId") UUID activityId,

@@ -15,10 +15,13 @@ import org.apache.ibatis.annotations.Update;
  */
 public interface MallCartMapper {
 
-    /** 一个供给的完整情况：加入购物车和结算预览都按它判断。 */
+    /**
+     * 一个供给的完整情况：加入购物车和结算预览都按它判断（租赁询价也用）。商家被挂起上架（身份迁移 V013）的供给
+     * 当作已停用，购物车里显示失效、不能下单。
+     */
     String OFFER_COLUMNS = """
             SELECT offer.id offer_id,
-                   offer.status offer_status,
+                   CASE WHEN merchant.listing_suspended THEN 'DISABLED' ELSE offer.status END offer_status,
                    offer.city_code offer_city_code,
                    offer.price_amount_minor unit_amount_minor,
                    offer.currency,

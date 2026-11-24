@@ -157,13 +157,16 @@ public class ProServiceReadService {
 
     /**
      * 服务商主页：在 cityCode 这个城市能看到的巡检服务和四类服务；cities 是它的巡检服务和四类服务覆盖的全部城市。
-     * 服务商不存在或没有在用的服务商资料时 404。
+     * 服务商不存在、没有在用的服务商资料，或资质没审核通过被挂起上架时 404。
      */
     @Transactional(readOnly = true)
     public ProviderPageView provider(UUID providerId, String cityCode) {
         String city = requireCity(cityCode);
         if (providerId == null) {
             throw new IllegalArgumentException("provider id is required");
+        }
+        if (mapper.isListingSuspended(providerId)) {
+            throw new ProServiceNotFoundException();
         }
         Provider provider = profiles.find(providerId).orElseThrow(ProServiceNotFoundException::new);
         List<ProviderInspectionServiceView> inspectionServices = inspection.servicesOf(providerId, city).stream()

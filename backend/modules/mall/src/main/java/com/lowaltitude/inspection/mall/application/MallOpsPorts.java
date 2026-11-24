@@ -22,6 +22,11 @@ public final class MallOpsPorts {
 
         /** 在用的经营机构（PROVIDER）的名称；不存在、停用或不是经营机构时为空。 */
         Optional<String> activeProviderName(UUID organizationId);
+
+        /** 这家机构资质没审核通过、被挂起上架（身份迁移 V013）。 */
+        default boolean listingSuspended(UUID organizationId) {
+            return false;
+        }
     }
 
     /**

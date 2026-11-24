@@ -317,10 +317,16 @@ class ProServiceReadServiceTest {
     private static final class InMemoryMapper implements ProServiceMapper {
 
         final Map<UUID, String> warranties = new java.util.HashMap<>();
+        final java.util.Set<UUID> suspended = new java.util.HashSet<>();
         private final List<Service> services = new ArrayList<>();
         private final List<Item> items = new ArrayList<>();
         int catalogCalls;
         List<String> lastFacets;
+
+        @Override
+        public boolean isListingSuspended(UUID providerId) {
+            return suspended.contains(providerId);
+        }
 
         @Override
         public String findWarranty(UUID serviceId) {

@@ -9,6 +9,7 @@ public enum VenueOpsError implements OpsError {
     PUBLISH_INCOMPLETE(422, OpsError.PUBLISH_INCOMPLETE, "上线前还有必填项没填"),
     STATUS_CONFLICT(409, "OPS_VENUE_STATUS_CONFLICT", "当前状态不能做这个操作"),
     OPERATOR_INVALID(422, "OPS_VENUE_OPERATOR_INVALID", "运营机构不存在、已停用或不是服务商机构"),
+    OPERATOR_NOT_QUALIFIED(409, "OPS_VENUE_OPERATOR_NOT_QUALIFIED", "场馆运营机构资质审核通过前不能上线"),
     CITY_UNKNOWN(422, "OPS_CITY_UNKNOWN", "城市不在平台城市目录里"),
     PRODUCT_UNKNOWN(422, "OPS_VENUE_PRODUCT_UNKNOWN", "关联的商品不存在，或在场馆所在城市没有在售"),
     SESSION_STARTED(409, "OPS_VENUE_SESSION_STARTED", "场次已经开始，不能再改"),

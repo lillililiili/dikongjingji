@@ -34,8 +34,9 @@ public interface OrganizationImportMapper {
 
     @Select("""
             INSERT INTO identity_organization (organization_code, organization_name, organization_type, status,
-                                               qualification_reviewed_at, created_at, updated_at)
-            VALUES (#{code}, #{name}, #{type}, #{status}, #{reviewedAt}, #{at}, #{at})
+                                               qualification_reviewed_at, listing_suspended, created_at, updated_at)
+            VALUES (#{code}, #{name}, #{type}, #{status}, CAST(#{reviewedAt} AS timestamptz),
+                    #{type} = 'PROVIDER' AND CAST(#{reviewedAt} AS timestamptz) IS NULL, #{at}, #{at})
             RETURNING id
             """)
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
@@ -43,12 +44,13 @@ public interface OrganizationImportMapper {
                             @Param("status") String status, @Param("reviewedAt") OffsetDateTime reviewedAt,
                             @Param("at") OffsetDateTime at);
 
-    /** 第二次导入同一个编码：改名称、状态和审核时间（类型不改）。 */
+    /** 第二次导入同一个编码：改名称、状态和审核时间（类型不改）；经营机构能不能上架按有没有审核时间（V013）。 */
     @Update("""
             UPDATE identity_organization
             SET organization_name = #{name},
                 status = #{status},
-                qualification_reviewed_at = #{reviewedAt},
+                qualification_reviewed_at = CAST(#{reviewedAt} AS timestamptz),
+                listing_suspended = organization_type = 'PROVIDER' AND CAST(#{reviewedAt} AS timestamptz) IS NULL,
                 version = version + 1,
                 updated_at = #{at}
             WHERE id = #{organizationId}

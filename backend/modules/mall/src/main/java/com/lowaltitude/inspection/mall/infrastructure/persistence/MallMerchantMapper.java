@@ -17,6 +17,15 @@ public interface MallMerchantMapper {
 
     // ---- 商家主页 ----
 
+    /** App 商家主页：被挂起上架（身份迁移 V013）的商家当作没有。 */
+    @Select("""
+            SELECT organization_name
+            FROM identity_organization
+            WHERE id = #{organizationId}
+              AND NOT listing_suspended
+            """)
+    String findListedOrganizationName(@Param("organizationId") UUID organizationId);
+
     @Select("SELECT organization_name FROM identity_organization WHERE id = #{organizationId}")
     String findOrganizationName(@Param("organizationId") UUID organizationId);
 

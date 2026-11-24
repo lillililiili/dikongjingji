@@ -16,7 +16,10 @@ import org.apache.ibatis.annotations.Select;
 /** 商城目录只读查询。所有条件和排序都用绑定参数，排序是白名单分支，不拼接客户端字段。 */
 public interface MallCatalogMapper {
 
-    /** 某城市里某商品的有效供给：商品的有效规格 × 该城市或全国的有效供给。 */
+    /**
+     * 某城市里某商品的有效供给：商品的有效规格 × 该城市或全国的有效供给；商家资质没审核通过、被挂起上架的不算
+     * （身份迁移 V013 的 listing_suspended）。
+     */
     String CITY_OFFERS = """
             FROM mall_sku sku
             JOIN mall_offer offer ON offer.sku_id = sku.id
@@ -24,6 +27,12 @@ public interface MallCatalogMapper {
               AND sku.status = 'ACTIVE'
               AND offer.status = 'ACTIVE'
               AND (offer.city_code IS NULL OR offer.city_code = #{cityCode})
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = offer.merchant_id
+                    AND suspended.listing_suspended
+              )
             """;
 
     /** 该城市里有供给的已发布商品，带上按该城市供给算出的最低价、价格数和商家数。 */
@@ -161,6 +170,7 @@ public interface MallCatalogMapper {
             WHERE sku.product_id = #{productId}
               AND sku.status = 'ACTIVE'
               AND offer.status = 'ACTIVE'
+              AND NOT merchant.listing_suspended
               AND (offer.city_code IS NULL OR offer.city_code = #{cityCode})
             ORDER BY offer.price_amount_minor ASC NULLS LAST,
                      sku.sort_order ASC,

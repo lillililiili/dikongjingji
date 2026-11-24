@@ -18,7 +18,10 @@ import com.lowaltitude.inspection.experience.application.ExperienceRows.VenueSes
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
-/** 体验项目与场馆的只读查询。所有条件都用绑定参数；“当前时间”由调用方传入。 */
+/**
+ * 体验项目与场馆的只读查询。所有条件都用绑定参数；“当前时间”由调用方传入。
+ * 运营机构资质没审核通过、被挂起上架（身份迁移 V013 的 listing_suspended）的场馆一律不可见。
+ */
 public interface ExperienceCatalogMapper {
 
     @Select("""
@@ -67,9 +70,15 @@ public interface ExperienceCatalogMapper {
 
     @Select("""
             SELECT count(*)
-            FROM venue
-            WHERE status = 'PUBLISHED'
-              AND city_code = #{cityCode}
+            FROM venue v
+            WHERE v.status = 'PUBLISHED'
+              AND v.city_code = #{cityCode}
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = v.operator_id
+                    AND suspended.listing_suspended
+              )
             """)
     long countVenues(@Param("cityCode") String cityCode);
 
@@ -104,6 +113,12 @@ public interface ExperienceCatalogMapper {
             FROM venue v
             WHERE v.status = 'PUBLISHED'
               AND v.city_code = #{cityCode}
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = v.operator_id
+                    AND suspended.listing_suspended
+              )
             ORDER BY v.sort_order ASC, v.id ASC
             LIMIT #{limit} OFFSET #{offset}
             """)
@@ -139,6 +154,7 @@ public interface ExperienceCatalogMapper {
             WHERE v.id = #{venueId}
               AND v.city_code = #{cityCode}
               AND v.status = 'PUBLISHED'
+              AND NOT operator.listing_suspended
             """)
     Optional<VenueRow> findVenue(
             @Param("venueId") UUID venueId,
@@ -272,6 +288,12 @@ public interface ExperienceCatalogMapper {
                   AND d.status = 'ACTIVE'
                   AND v.status = 'PUBLISHED'
                   AND v.city_code = #{cityCode}
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM identity_organization suspended
+                      WHERE suspended.id = v.operator_id
+                        AND suspended.listing_suspended
+                  )
                 ORDER BY v.id, d.sort_order ASC, d.id ASC
             ) shown
             ORDER BY shown.venue_sort ASC, shown.venue_id ASC

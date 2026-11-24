@@ -229,6 +229,10 @@ public class VenueOpsService {
         if (!missing.isEmpty()) {
             throw OpsException.incomplete(VenueOpsError.PUBLISH_INCOMPLETE, missing);
         }
+        // 资质没审核通过的机构不能上线场馆（身份迁移 V013）。
+        if (operators.listingSuspended(current.operatorId())) {
+            throw new OpsException(VenueOpsError.OPERATOR_NOT_QUALIFIED);
+        }
         if (mapper.updateVenueStatus(venueId, status.name(), VenueOpsStatus.PUBLISHED.name(), at, version, at) != 1) {
             throw new OpsException(VenueOpsError.VERSION_CONFLICT);
         }

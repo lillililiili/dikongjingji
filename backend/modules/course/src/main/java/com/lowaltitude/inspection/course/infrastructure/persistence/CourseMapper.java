@@ -47,17 +47,34 @@ public interface CourseMapper {
 
     // ---- 目录 ----
 
-    /** 上架的课程（topic 为空时全部），按运营排序。最多 limit 条：列表在内存里再按关键词、城市和价格处理。 */
+    /** 上架的课程（topic 为空时全部；开课机构被挂起上架的不算，身份迁移 V013），按运营排序。最多 limit 条：列表在内存里再按关键词、城市和价格处理。 */
     @Select("""
             <script>
             """ + COURSE_COLUMNS + """
             WHERE c.status = 'LISTED'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM identity_organization suspended
+                  WHERE suspended.id = c.organization_id
+                    AND suspended.listing_suspended
+              )
             <if test="topic != null">AND c.topic = #{topic}</if>
             ORDER BY c.sort_order DESC, c.created_at DESC, c.id
             LIMIT #{limit}
             </script>
             """)
     List<CourseRow> findListedCourses(@Param("topic") String topic, @Param("limit") int limit);
+
+    /** 开课机构被挂起上架（资质没审核通过）：课程不可见、不能买、不能试听，已开通的照常学。 */
+    @Select("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM identity_organization
+                WHERE id = #{organizationId}
+                  AND listing_suspended
+            )
+            """)
+    boolean isListingSuspended(@Param("organizationId") UUID organizationId);
 
     @Select(COURSE_COLUMNS + "WHERE c.id = #{courseId}")
     CourseRow findCourse(@Param("courseId") UUID courseId);

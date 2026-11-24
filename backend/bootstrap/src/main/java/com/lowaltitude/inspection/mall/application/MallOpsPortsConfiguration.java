@@ -1,12 +1,15 @@
 package com.lowaltitude.inspection.mall.application;
 
 import java.nio.file.Path;
+import java.util.Optional;
+import java.util.UUID;
 
 import com.lowaltitude.inspection.application.city.CityOperationsService;
 import com.lowaltitude.inspection.bootstrap.infrastructure.LocalMallMediaStore;
 import com.lowaltitude.inspection.bootstrap.infrastructure.S3ModuleFileStores;
 import com.lowaltitude.inspection.bootstrap.infrastructure.storage.PlatformStorage;
 import org.springframework.beans.factory.ObjectProvider;
+import com.lowaltitude.inspection.identity.domain.IdentityOrganization;
 import com.lowaltitude.inspection.identity.domain.IdentityOrganizationPort;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -29,9 +32,21 @@ public class MallOpsPortsConfiguration {
 
     @Bean
     MallOpsPorts.Merchants mallOpsMerchants(IdentityOrganizationPort organizations) {
-        return organizationId -> organizations.findActiveOrganization(organizationId)
-                .filter(organization -> "PROVIDER".equals(organization.organizationType()))
-                .map(organization -> organization.name());
+        return new MallOpsPorts.Merchants() {
+            @Override
+            public Optional<String> activeProviderName(UUID organizationId) {
+                return organizations.findActiveOrganization(organizationId)
+                        .filter(organization -> "PROVIDER".equals(organization.organizationType()))
+                        .map(IdentityOrganization::name);
+            }
+
+            @Override
+            public boolean listingSuspended(UUID organizationId) {
+                return organizations.findActiveOrganization(organizationId)
+                        .map(IdentityOrganization::listingSuspended)
+                        .orElse(false);
+            }
+        };
     }
 
     @Bean
