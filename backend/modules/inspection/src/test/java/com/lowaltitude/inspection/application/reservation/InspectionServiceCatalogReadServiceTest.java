@@ -334,6 +334,7 @@ class InspectionServiceCatalogReadServiceTest {
                                 "RESERVABLE",
                                 "RESERVE",
                                 8_560L,
+                                true,
                                 providerId,
                                 "云翼科技",
                                 null,
@@ -393,7 +394,8 @@ class InspectionServiceCatalogReadServiceTest {
             assertThat(reviews.items()).singleElement().satisfies(review -> {
                 assertThat(review.id()).isEqualTo(reviewId);
                 assertThat(review.imageAssets()).containsExactly(
-                        new ReviewImageView(null, "POWER_LINE_IMAGE"));
+                        new ReviewImageView(new MediaAssetView("/api/v1/dev-media/images/inspection/service-power-line.webp",
+                                detail.name()), "POWER_LINE_IMAGE"));
             });
         });
     }
@@ -547,6 +549,7 @@ final class DetailCatalogStore implements InspectionServiceCatalogReadStore {
                 "AVAILABLE",
                 "REQUEST_QUOTE",
                 0L,
+                false,
                 UUID.randomUUID(),
                 "云翼科技",
                 null,
@@ -646,7 +649,7 @@ final class DetailCatalogStore implements InspectionServiceCatalogReadStore {
     public List<StoredReviewImage> findReviewImages(UUID reviewId) {
         return List.of(new StoredReviewImage(
                 reviewId,
-                null,
+                "/api/v1/dev-media/images/inspection/service-power-line.webp",
                 "POWER_LINE_IMAGE"));
     }
 }

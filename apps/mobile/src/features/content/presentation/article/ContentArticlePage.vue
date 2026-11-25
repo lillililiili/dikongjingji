@@ -21,7 +21,6 @@ import {
 } from '../../application/content-view'
 import { contentApi } from '../../data/content-api-client'
 import { contentLinkedApis } from '../../data/content-linked-apis'
-import { resolveArticlePreviewCover } from '../../data/preview/content-preview-covers'
 import type { ContentArticle } from '../../domain/content'
 import { buildContentArticleUrl, contentAuthorHome } from '../../navigation/content-routes'
 
@@ -71,12 +70,11 @@ const primaryRef = computed(() => refs.value?.[0] ?? null)
 const figures = computed(() => (article.value ? articleFigures(article.value) : []))
 const hasBar = computed(() => Boolean(FAVORITE_PREVIEW_ENABLED || consultLabel.value || primaryRef.value))
 
-// The head picture: the server's, otherwise (preview builds) the board's.
 const cover = computed(() => {
   const current = article.value
   if (!current) return null
   if (current.coverImage) return { ...current.coverImage, cutout: false }
-  return resolveArticlePreviewCover(current.articleId)
+  return null
 })
 
 // Tapping the head picture opens it in the shared viewer (board PhotoViewer, preview builds).

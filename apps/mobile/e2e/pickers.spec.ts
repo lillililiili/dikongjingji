@@ -7,7 +7,7 @@ import { BUYER, apiLogin, clearAddresses, type Session } from './support/trade-f
 
 // 公共页面（计划 08 S5-10，画板 MapPick、RegionPick、PhotoViewer、Scan、CityClosed），开发版（预览构建）。
 // uni-button 的禁用在 H5 上只看 disabled 属性（toBeDisabled 读不出来）。
-// 地图选点走本机模拟地图（浏览器里没有定位，落在“定位被拒”帧、从城市中心开始）；城市未开通用接口桩把东营在城市目录里标成“筹备中”。
+// 地图选点读取开发数据库的已发布地点，浏览器拒绝定位时从目录中的地点开始。
 const compareOutput = resolve(__dirname, '../../../.planning/style-compare/s5-pickers')
 const SERVICE_ID = '33333333-3333-3333-3333-333333333333'
 const BOOKING_URL = `/#/pages/service/inspection/booking?serviceId=${SERVICE_ID}&cityCode=370500`

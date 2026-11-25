@@ -73,8 +73,8 @@ describe('favorite rows', () => {
   })
 
   it('uses the server picture first and no sample picture on public builds', () => {
-    expect(resolveFavoritePicture({ targetType: 'PRODUCT', targetId: KIT, coverUrl: 'https://img.example.com/a.jpg' }, false))
+    expect(resolveFavoritePicture({ coverUrl: 'https://img.example.com/a.jpg' }))
       .toEqual({ url: 'https://img.example.com/a.jpg', contain: false })
-    expect(resolveFavoritePicture({ targetType: 'PRODUCT', targetId: KIT, coverUrl: null }, false)).toBeNull()
+    expect(resolveFavoritePicture({ coverUrl: null })).toBeNull()
   })
 })

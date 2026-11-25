@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
   title: Mall Catalog API
-  version: 1.4.0
+  version: 1.4.1
   description: >-
+    1.4.1 exposes database-backed development media at /api/v1/dev-media/; production media uses HTTPS.
+
     Read-only catalog for the home "商城" channel (docs/redesign/03-App实现任务计划.md §9):
     products of a category that have an active offer in the city, and one product with its offers.
     1.1.0 adds keyword search and filters to the list. 1.2.0 (2026-11-19) adds onlinePayment to each
@@ -210,8 +212,8 @@ components:
       properties:
         url:
           type: string
-          format: uri
-          description: Controlled HTTPS address only
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         alt:
           type: string
     MallCategory:

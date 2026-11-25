@@ -6,11 +6,12 @@ import { useRootTabBadgeStore } from '@/app-shell/state/root-tab-badges'
 import { ACCOUNT_PREVIEW_ENABLED } from '@/features/account/application/account-preview'
 import { addressApi } from '@/features/account/data/address-api-client'
 import { identityAccountApi } from '@/features/account/data/identity-account-api-client'
-import type { AccountClosure } from '@/features/account/domain/identity-account'
+import type { AccountClosure, PersonalPasswordStatus } from '@/features/account/domain/identity-account'
 import {
   DATA_EXPORT_PATH,
   DEVICES_PATH,
   PERMISSIONS_PATH,
+  PASSWORD_PATH,
   PHONE_PATH,
   buildOnboardingUrl,
 } from '@/features/account/navigation/account-routes'
@@ -36,6 +37,8 @@ import SupportUnavailable from '@/features/support/presentation/shared/SupportUn
 
 const account = ref<{ displayName: string; organizationName: string | null; maskedPhone?: string | null } | null>(null)
 const addressCount = ref<number | null>(null)
+const passwordStatus = ref<PersonalPasswordStatus | null>(null)
+const passwordLoadFailed = ref(false)
 // 注销账户 (S5-8): the conditions and a running request, read with the page; the sheet shows them.
 const closure = ref<AccountClosure | null>(null)
 const closureOpen = ref(false)
@@ -69,11 +72,14 @@ async function load(): Promise<void> {
     uni.redirectTo({ url: buildInspectionLoginUrl(SETTINGS_PATH) })
     return
   }
-  const [loadedAccount, addresses, loadedClosure] = await Promise.allSettled([
+  const [loadedAccount, addresses, loadedClosure, loadedPassword] = await Promise.allSettled([
     inspectionAccountApi.loadCurrent(token),
     addressApi.list(token),
     ACCOUNT_PREVIEW_ENABLED ? readClosure(token) : Promise.resolve(null),
+    ACCOUNT_PREVIEW_ENABLED ? identityAccountApi.passwordStatus(token) : Promise.resolve(null),
   ])
+  passwordStatus.value = loadedPassword.status === 'fulfilled' ? loadedPassword.value : null
+  passwordLoadFailed.value = loadedPassword.status === 'rejected'
   if (loadedAccount.status === 'fulfilled') {
     account.value = {
       displayName: loadedAccount.value.displayName || '已登录',
@@ -166,8 +172,11 @@ onShow(() => {
     @about="open(ABOUT_PATH)"
     @logout="logout"
     :account-pages="ACCOUNT_PREVIEW_ENABLED"
+    :password-status="passwordStatus"
+    :password-load-failed="passwordLoadFailed"
     :closure-tag="closure?.status === 'PENDING' ? '处理中' : null"
     @phone="open(PHONE_PATH)"
+    @password="open(PASSWORD_PATH)"
     @devices="open(DEVICES_PATH)"
     @data="open(DATA_EXPORT_PATH)"
     @permissions="open(PERMISSIONS_PATH)"

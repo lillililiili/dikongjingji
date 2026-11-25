@@ -1,8 +1,8 @@
+import { resolveBusinessMediaUrl } from '../../../../shared/http/business-media'
 import type {
   DetailCapability,
   InspectionServiceDetail,
 } from '../../domain/inspection-service-detail'
-import { inspectionDetailHeroImage } from '../inspection-service-images'
 
 export interface InspectionServiceDetailHttpClient {
   request<T>(input: { url: string; method: 'GET' }): Promise<T>
@@ -43,6 +43,7 @@ interface InspectionServiceDetailDto {
   availability: string
   primaryAction: string
   completedCount?: number
+  demonstrationMetrics?: boolean
   provider: {
     providerId: string
     name: string
@@ -76,15 +77,6 @@ interface InspectionServiceDetailDto {
   }
 }
 
-const ASSET_PATHS: Record<string, string> = {
-  FEIXIANG_APP_ICON: '/static/app-icons/feixiang-xxxhdpi.png',
-  POWER_LINE_IMAGE: '/static/images/inspection/service-power-line.webp',
-  THERMAL_IMAGE: '/static/images/inspection/category-thermal.webp',
-  INSPECTION_HERO_IMAGE: '/static/images/inspection/inspection-hero-v1.png',
-  DEFECT_LIST_IMAGE: '/static/images/inspection/detail-defect-list.png',
-  REPORT_COVER_IMAGE: '/static/images/inspection/detail-report-cover.png',
-}
-
 const ICONS: Record<string, string> = {
   checkbox: 'checkbox-filled',
   tower: 'map-pin-ellipse',
@@ -99,14 +91,6 @@ const ICONS: Record<string, string> = {
   locked: 'locked-filled',
 }
 
-function assetPath(
-  remote: MediaAssetDto | null | undefined,
-  assetCode: string | null | undefined,
-  fallback = '',
-): string {
-  return remote?.url || (assetCode ? ASSET_PATHS[assetCode] : '') || fallback
-}
-
 function mapDetailItems(
   items: DetailItemDto[],
   fallbackTone: DetailCapability['tone'] = 'orange',
@@ -117,20 +101,18 @@ function mapDetailItems(
     description: item.description ?? '',
     icon: ICONS[item.iconKey ?? ''] ?? 'checkbox-filled',
     tone: index % 2 === 0 ? fallbackTone : 'green',
-    imageUrl: assetPath(item.image, item.imageAssetCode),
+    imageUrl: resolveBusinessMediaUrl(item.image?.url) ?? '',
   }))
 }
 
 function mapDetail(dto: InspectionServiceDetailDto): InspectionServiceDetail {
-  // Without a server cover the head shows the category's picture (炼化厂 for 油气, 光伏板 for 光伏…).
-  const fallbackHero = inspectionDetailHeroImage(dto.category.code)
   return {
     serviceId: dto.serviceId,
     categoryCode: dto.category.code,
     categoryLabel: dto.category.name,
     title: dto.name,
     subtitle: dto.summary,
-    heroImageUrl: assetPath(dto.coverImage, null, fallbackHero),
+    heroImageUrl: resolveBusinessMediaUrl(dto.coverImage?.url) ?? '',
     priceAmountMinor: dto.price.mode === 'PROJECT_QUOTE'
       ? null
       : dto.price.startingAmountMinor ?? null,
@@ -146,18 +128,15 @@ function mapDetail(dto: InspectionServiceDetailDto): InspectionServiceDetail {
     availability: dto.availability,
     primaryAction: dto.primaryAction,
     ratingAverage: dto.reviews.average,
-    completedCountLabel: dto.completedCount
-      ? `已服务${dto.completedCount.toLocaleString()}+`
+    demonstrationMetrics: dto.demonstrationMetrics === true,
+    completedCountLabel: typeof dto.completedCount === 'number'
+      ? `已完成 ${dto.completedCount.toLocaleString('zh-CN')} 单`
       : null,
     provider: dto.provider
       ? {
           id: dto.provider.providerId,
           name: dto.provider.name,
-          logoUrl: assetPath(
-            dto.provider.logo,
-            dto.provider.logoAssetCode,
-            '/static/app-icons/feixiang-xxxhdpi.png',
-          ),
+          logoUrl: resolveBusinessMediaUrl(dto.provider.logo?.url) ?? '',
           certificationLabel: dto.provider.certificationLabel ?? '',
           // Only an explicit true shows 资质已审核.
           qualificationReviewed: dto.provider.qualificationReviewed === true,
@@ -189,8 +168,10 @@ function mapDetail(dto: InspectionServiceDetailDto): InspectionServiceDetail {
       context: dto.name,
       content: review.content,
       imageUrls: review.imageAssets
-        .map((image) => assetPath(image.image, image.assetCode))
-        .filter(Boolean),
+        .flatMap(({ image }) => {
+          const url = resolveBusinessMediaUrl(image?.url)
+          return url ? [url] : []
+        }),
     })),
   }
 }

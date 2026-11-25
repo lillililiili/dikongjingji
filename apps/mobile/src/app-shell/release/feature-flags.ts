@@ -62,9 +62,6 @@ export const featureConstant = (key: ReleaseFeatureKey): string => `__RELEASE_FE
 export const moduleFlagExpression = (key: ReleaseFeatureKey): string =>
   `import.meta.env.DEV || ${featureConstant(key)}`
 
-/** Sample pictures and videos only ever show on preview builds, whatever a feature switch says. */
-export const PREVIEW_SAMPLES_EXPRESSION = `import.meta.env.DEV || ${PREVIEW_BUILD_CONSTANT}`
-
 export interface ReleaseFlags {
   previewBuild: boolean
   features: Record<ReleaseFeatureKey, boolean>

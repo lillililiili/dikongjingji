@@ -20,7 +20,6 @@ import {
   type YearMonth,
 } from '../../application/calendar-view'
 import { activityApi } from '../../data/activity-api-client'
-import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import type { ActivityDetail } from '../../domain/activity'
 import { formatActivityTime } from '../shared/activity-format'
 
@@ -74,7 +73,7 @@ const summary = computed(() => {
   return `已选择：${formatPickedDay(pickedDate.value)} ${session.label ? `${session.label} ` : ''}${formatActivityTime(session.startsAt)}`
 })
 const coverUrl = computed(() =>
-  activity.value ? activity.value.coverImage?.url ?? resolveActivityPreviewCover(activity.value.activityId) : null)
+  activity.value?.coverImage?.url ?? null)
 const contextSub = computed(() =>
   props.exceptSessionId
     ? `改期按整单 · ${props.people} 人一起改 · 选日期后再选场次`

@@ -1,6 +1,11 @@
 # Development profile intentionally supplies no infrastructure secrets or environment fallback.
 # Compose and other deployment environments must provide INSPECTION_ENVIRONMENT explicitly.
 
+spring:
+  datasource:
+    hikari:
+      connection-init-sql: "SET platform.demo_metrics TO '${platform.demo-data.enabled:false}'"
+
 # 直播（M20）：开发环境用本机模拟直播服务（FakeLiveStreamProvider）；它的签名密钥每次启动随机生成，不是基础设施密钥。
 # 开播、断流、结束用开发控制接口模拟：node infra/scripts/dev-live-host.cjs start|interrupt|end <直播间 ID>。
 live:
@@ -11,7 +16,7 @@ live:
 identity:
   qualification-files:
     local-dir: ${IDENTITY_QUALIFICATION_FILES_DIR:${java.io.tmpdir}/lowaltitude-dev-qualification-files}
-  # S5-8 手机号验证码：开发环境用本机模拟短信（FakeSmsGateway），验证码写日志和 identity_dev_sms_outbox，不发真实短信；
+  # S5-8 手机号验证码：开发环境用本机模拟短信（FakeSmsGateway），短信进入本地发件箱 identity_dev_sms_outbox；
   # 其他环境没接短信服务商时发送验证码返回 503。
   sms:
     provider: fake
@@ -41,7 +46,7 @@ trade:
   aftersale:
     image-dir: ${TRADE_AFTERSALE_IMAGE_DIR:${java.io.tmpdir}/lowaltitude-dev-aftersale-images}
 # 运营端素材（S3-1，封面、图集、正文配图、视频）：开发环境存在本机目录（LocalOpsMediaStore）模拟对象存储；地址前缀必须是
-# https，开发默认是一个打不开的主机（App 里看不到，运营端带登录预览）。其他环境没配置时上传返回 503。
+# https。默认域名用于标识本机上传；App 在开发 API 读取当前业务公开展示的图片，运营带登录预览素材。
 ops:
   media:
     local-dir: ${OPS_MEDIA_DIR:${java.io.tmpdir}/lowaltitude-dev-ops-media}
@@ -49,6 +54,11 @@ ops:
 
 # 开发用的平台运营账号 dev-operator（运营端登录用）：口令不写进仓库，启动后端前设环境变量 DEV_OPERATOR_PASSWORD
 # （至少 12 位）才会建这个账号；不设就不建。见 db/development/identity-operator 和 apps/admin/README.md。
+platform:
+  demo-data:
+    enabled: ${PLATFORM_DEMO_DATA_ENABLED:false}
+    refresh-at-midnight: ${PLATFORM_DEMO_DATA_REFRESH_AT_MIDNIGHT:false}
+
 dev:
   operator-password: ${DEV_OPERATOR_PASSWORD:}
 

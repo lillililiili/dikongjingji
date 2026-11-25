@@ -1,5 +1,4 @@
 import type { ContentApi } from '../data/content-api'
-import { resolveArticlePreviewCover } from '../data/preview/content-preview-covers'
 import type { ContentArticleCard, ContentRefType } from '../domain/content'
 import { buildContentArticleUrl } from '../navigation/content-routes'
 
@@ -17,14 +16,13 @@ export interface RelatedContentRow {
   // discover page marks on the same card.
   kindLine: string
   title: string
-  // The article's picture, or on preview builds the board's; null leaves the kind's tint.
+  // Missing covers use the content type’s tint.
   image: { url: string; alt: string; cutout: boolean } | null
   tone: Tone
 }
 
 export function toRelatedContentRows(
   cards: readonly ContentArticleCard[],
-  previewEnabled?: boolean,
 ): RelatedContentRow[] {
   return cards.map((card) => {
     const marks = [CONTENT_KIND_LABELS[card.kind]]
@@ -32,7 +30,7 @@ export function toRelatedContentRows(
     if (card.sample) marks.push('示例')
     const image = card.coverImage
       ? { url: card.coverImage.url, alt: card.coverImage.alt, cutout: false }
-      : resolveArticlePreviewCover(card.articleId, previewEnabled)
+      : null
     return {
       articleId: card.articleId,
       kindLine: marks.join(' · '),

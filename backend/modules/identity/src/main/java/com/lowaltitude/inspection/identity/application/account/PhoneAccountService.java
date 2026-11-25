@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <ul>
  *   <li>验证码登录：号码已绑定账号就登录它（账号要是有效的）；没有就注册一个个人客户账号（显示名“用户” + 后 4 位，
- *       自己一家个人客户机构，全局客户角色），只能用验证码登录。</li>
+ *       自己一家个人客户机构，全局客户角色），之后可为同一账号设置密码。</li>
  *   <li>发登录验证码时不看号码是否注册，回答都一样。</li>
  *   <li>换号：已有手机号的先验证当前号码换一张 10 分钟的换号凭据，再验证新号码；没有手机号的直接验证新号码绑定。
  *       一个号码只能绑定一个账号。换号成功后其他设备退出登录（本机保留）。</li>
@@ -56,6 +56,8 @@ public class PhoneAccountService {
     @Transactional(noRollbackFor = AccountException.class)
     public PhoneLogin login(String phone, String code) {
         PhoneNumbers.require(phone);
+        // Serialize a verified login with a concurrent change of the same user's phone or credentials.
+        mapper.lockUserIdByMobile(phone);
         codes.verify(phone, SmsCodeService.LOGIN, code, null);
         UserRow user = mapper.findUserByMobile(phone);
         if (user != null) {
@@ -64,7 +66,7 @@ public class PhoneAccountService {
             }
             return new PhoneLogin(user.id(), false);
         }
-        return new PhoneLogin(register(phone), true);
+        return register(phone);
     }
 
     @Transactional
@@ -134,6 +136,8 @@ public class PhoneAccountService {
         }
         int signedOut = 0;
         if (ticketId != null) {
+            mapper.clearPasswordSetupProofs(userId);
+            mapper.retirePhoneCredentials(userId, user.mobile(), newPhone, now);
             codes.consume(ticketId);
             signedOut = sessions.revokeAllExcept(userId, currentSessionId, "PHONE_CHANGED");
         }
@@ -142,25 +146,25 @@ public class PhoneAccountService {
         return new PhoneBindingView(PhoneNumbers.mask(newPhone), signedOut);
     }
 
-    private UUID register(String phone) {
+    private PhoneLogin register(String phone) {
         OffsetDateTime now = now();
         String suffix = randomToken(12);
-        UUID organizationId = mapper.insertCustomerOrganization("PERSONAL-" + suffix.toUpperCase(),
-                "个人客户 " + PhoneNumbers.mask(phone), now);
-        UUID userId = mapper.insertPhoneUser("p-" + suffix, "用户" + phone.substring(7), organizationId, phone, now);
-        if (userId == null) {
-            // 同一号码并发注册：另一个请求刚建好，用它的账号（这家机构留空也无害）。
+        AccountMapper.PersonalRegistration created = mapper.insertPhoneUser("p-" + suffix, "用户" + phone.substring(7),
+                phone, "PERSONAL-" + suffix.toUpperCase(java.util.Locale.ROOT), "个人客户 " + PhoneNumbers.mask(phone), now);
+        if (created == null) {
             UserRow existing = mapper.findUserByMobile(phone);
             if (existing == null || !"ACTIVE".equals(existing.status())) {
                 throw new AccountException(Error.UNAUTHORIZED);
             }
-            return existing.id();
+            return new PhoneLogin(existing.id(), false);
         }
+        UUID userId = created.userId();
+        UUID organizationId = created.organizationId();
         mapper.insertOrganizationMember(organizationId, userId, now);
-        mapper.grantCustomerRole(userId, now);
+        mapper.grantCustomerRole(userId);
         mapper.insertAudit(userId, "ACCOUNT_REGISTER_PHONE", "USER", userId, organizationId,
                 UUID.randomUUID().toString(), now);
-        return userId;
+        return new PhoneLogin(userId, true);
     }
 
     private UserRow requireUser(UUID userId) {

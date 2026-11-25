@@ -18,7 +18,7 @@ const segmentGap = computed(() => (props.progress.segments.length > 12 ? '1px' :
 <template>
   <view class="fulfillment-summary">
     <view class="fulfillment-summary__service">
-      <image class="fulfillment-summary__cover" :src="coverUrl" mode="aspectFill" />
+      <image v-if="coverUrl" class="fulfillment-summary__cover" :src="coverUrl" mode="aspectFill" />
       <view class="fulfillment-summary__copy">
         <text class="fulfillment-summary__title">{{ title }}</text>
         <view v-if="providerName" class="fulfillment-summary__provider">

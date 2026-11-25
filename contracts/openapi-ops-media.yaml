@@ -12,8 +12,10 @@ info:
     - 图片 JPEG、PNG、WebP，≤5 MB；视频 MP4，≤50 MB。类型按文件头判断，不认浏览器给的类型和文件名。
     - 存进对象存储端口，返回受控 HTTPS 地址（url）；运营把地址填进各块的表单（活动、场馆、内容等只收 https 地址）。
       上传本身不改业务数据，不写改动记录；同一个文件传两次得到两个地址。
-    - 开发环境用本机目录模拟对象存储，地址前缀是一个打不开的 https 主机（ops.media.public-base-url）；运营端用
-      GET /api/v1/ops/media/{fileName} 带登录取回预览。没有配置存储的环境上传和预览都是 503 OPS_MEDIA_STORE_UNAVAILABLE。
+    - 开发环境用本机目录模拟对象存储，默认 HTTPS 地址标识本机素材。运营端用 GET /api/v1/ops/media/{fileName}
+      带登录取回预览。App 读取当前已发布记录实际展示的图片时，将默认地址映射到 openapi-home.yaml 的
+      GET /api/v1/dev-media/ops/covers/{fileName}。发现页的已发布视频通过同一契约的 /api/v1/dev-media/ops/videos/{fileName}
+      播放，支持分段和进度跳转。没有配置存储的环境上传和运营预览都是 503 OPS_MEDIA_STORE_UNAVAILABLE。
 
     Bodies are returned bare, errors use the shared ApiError, like the other contracts.
 servers:

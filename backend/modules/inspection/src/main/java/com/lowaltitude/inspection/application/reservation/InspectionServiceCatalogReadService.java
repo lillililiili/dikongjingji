@@ -1,5 +1,7 @@
 package com.lowaltitude.inspection.application.reservation;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
+
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -120,7 +122,7 @@ public final class InspectionServiceCatalogReadService {
                         secureMedia(hero.imageUrl(), hero.title()),
                         null,
                         PortalActionView.openCatalog(null)),
-                categories(),
+                categories(content),
                 infoItems(content, InspectionPortalContentType.GUARANTEE),
                 store.findMostCompleted(cityCode, HOT_SERVICE_LIMIT).stream()
                         .map(this::toView)
@@ -166,11 +168,17 @@ public final class InspectionServiceCatalogReadService {
     }
 
     private List<InspectionCategoryView> categories() {
+        return categories(List.of());
+    }
+
+    private List<InspectionCategoryView> categories(List<StoredPortalContent> content) {
+        var scenes = content.stream().filter(row -> row.type() == InspectionPortalContentType.SCENE)
+                .collect(java.util.stream.Collectors.toMap(StoredPortalContent::code, row -> row));
         return store.findTopLevelCategories().stream()
                 .map(category -> new InspectionCategoryView(
                         category.code(),
-                        category.name(),
-                        blankToNull(category.subtitle()),
+                        scenes.containsKey(category.code()) ? scenes.get(category.code()).title() : category.name(),
+                        blankToNull(scenes.containsKey(category.code()) ? scenes.get(category.code()).subtitle() : category.subtitle()),
                         null,
                         category.sortOrder(),
                         PortalActionView.openCatalog(category.code())))
@@ -314,6 +322,7 @@ public final class InspectionServiceCatalogReadService {
                 row.availability(),
                 row.primaryAction(),
                 row.completedCount(),
+                row.demonstrationMetrics(),
                 new ServiceProviderView(
                         row.providerId(),
                         row.providerName(),
@@ -395,6 +404,9 @@ public final class InspectionServiceCatalogReadService {
     }
 
     private static MediaAssetView secureMedia(String url, String alt) {
+        if (DevelopmentMediaPath.matches(url)) {
+            return new MediaAssetView(url, alt);
+        }
         if (url == null || url.isBlank()) {
             return null;
         }
@@ -457,7 +469,8 @@ enum InspectionServiceAvailability {
 enum InspectionPortalContentType {
     HERO,
     GUARANTEE,
-    PROCESS
+    PROCESS,
+    SCENE
 }
 
 /** inspection_service_detail_item.section_type 的取值（V004 CHECK 约束，V010 增加 PRICE_FACTOR）。 */
@@ -755,6 +768,7 @@ record StoredInspectionServiceDetail(
         String availability,
         String primaryAction,
         long completedCount,
+        boolean demonstrationMetrics,
         UUID providerId,
         String providerName,
         String providerLogoUrl,
@@ -819,6 +833,7 @@ record InspectionServiceDetailView(
         String availability,
         String primaryAction,
         long completedCount,
+        boolean demonstrationMetrics,
         ServiceProviderView provider,
         List<DetailItemView> capabilities,
         List<DetailItemView> inspectionItems,

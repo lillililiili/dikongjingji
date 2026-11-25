@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { testAdmin as ADMIN } from './support/test-stack'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 import {
@@ -21,10 +22,10 @@ import {
 } from './support/trade-fixtures'
 
 // S3-2 机构工作台（Web 运营端 apps/admin，不是 App）。放在 App 的 e2e 目录里，是为了复用真实后端、模拟微信和
-// 开发库的工具；用的是运营端的开发服务（cd apps/admin && npm run dev，默认 http://127.0.0.1:17430，/api 代理到 18420），
+// 测试库的工具。后台开发服务代理至测试 API，启动方式见 infra/README.md。
 // 运营端没起时整组跳过。买家一侧（下单、付款）用接口建好，商家一侧全在运营端页面上点：发货、自提核销、部分退款。
 // 每条用例开始前删掉 dev-customer 的全部订单（和 trade-orders.spec.ts 一样）。
-const ADMIN = process.env.ADMIN_BASE_URL ?? 'http://127.0.0.1:17430'
+
 const KIT_FACTORY = offerId('101', '1')
 const KIT_PRICE = 129900
 // 截图保存在当前检出的 .planning/style-compare。

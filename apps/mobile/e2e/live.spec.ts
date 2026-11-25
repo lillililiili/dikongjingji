@@ -102,7 +102,7 @@ test.describe('平台内直播', () => {
     await expect(room(page)).toHaveAttribute('data-status', 'LIVE')
   })
 
-  test('LIVE-002 “直播”频道：正在直播两场、直播预告带提醒我、往期回看；点进对应页面', async ({ page }) => {
+  test('LIVE-002 “直播”频道：正在直播与预告可进，未配置回看的结束场次没有入口', async ({ page }) => {
     await openDiscover(page)
     await page.getByTestId('discover-channel-live').click()
     const channel = page.getByTestId('live-channel')
@@ -118,29 +118,22 @@ test.describe('平台内直播', () => {
     await expect(page.getByTestId(`live-notice-${ROBOT_INTRO}`)).toContainText('示例机器人商家 · App 内直播')
     await expect(page.getByTestId(`live-remind-${ROBOT_INTRO}`)).toHaveText('提醒我')
     await expect(page.getByTestId(`live-notice-${PATROL_QA}`)).toBeVisible()
-    await expect(page.getByTestId(`live-replay-${SOLAR_REPLAY}`)).toContainText('光伏电站热斑巡检现场连线')
-    await expect(page.getByTestId(`live-replay-${SOLAR_REPLAY}`)).toContainText('52 分钟')
+    await expect(page.getByTestId(`live-replay-${SOLAR_REPLAY}`)).toHaveCount(0)
 
     // 没登录点提醒我：先登录，回来落在这场的预告页。
     await page.getByTestId(`live-remind-${ROBOT_INTRO}`).click()
     await expect(page).toHaveURL(/pages\/service\/inspection\/login\?returnUrl=.*pages.*live.*notice/)
 
-    await openDiscover(page)
-    await page.getByTestId('discover-channel-live').click()
-    await page.getByTestId(`live-replay-${SOLAR_REPLAY}`).click()
-    await expect(notice(page)).toHaveAttribute('data-status', 'ENDED')
-    await expect(page.getByTestId('live-notice-tag')).toHaveText('已结束 · 可回看')
-    await expect(page.getByTestId('live-notice-action')).toHaveText('去合作平台回看')
-    await page.getByTestId('live-notice-action').click()
-    await expect(page.getByTestId('live-notice-external')).toContainText('离开本 App，打开合作平台')
-    await expect(page.getByTestId('live-notice-external')).toContainText('示例直播平台')
+    await openNotice(page, SOLAR_REPLAY)
+    await expect(page.getByTestId('live-notice-tag')).toHaveText('已结束')
+    await expect(page.getByTestId('live-notice-action')).toHaveCount(0)
   })
 
   test('LIVE-003 直播间：示例画面、种子弹幕、讲解清单进平台内详情页，上下切换', async ({ page }) => {
     await openRoom(page, DOG)
     const video = page.locator('uni-video[data-testid="live-room-video"]')
     await expect(video).toHaveCount(1)
-    await expect(page.locator('video')).toHaveAttribute('src', /\/static\/videos\/preview\/live-night-patrol\.mp4$/)
+    await expect(page.locator('video')).toHaveAttribute('src', /\/api\/v1\/dev-media\/videos\/preview\/live-night-patrol\.mp4$/)
     await expect(room(page)).toContainText('鹰眼智能巡检')
     await expect(page.getByTestId('live-room-counts')).toContainText(/万 观看 · .*赞/)
     await expect(page.getByTestId('live-room-elapsed')).toContainText('已播')
@@ -274,5 +267,27 @@ test.describe('平台内直播', () => {
     await expect(notice(page)).toHaveAttribute('data-status', 'ENDED')
     await expect(page.getByTestId('live-notice-tag')).toHaveText('已结束')
     await expect(page.getByTestId('live-notice-action')).toHaveCount(0)
+
+    const replayApi = `${API}/api/v1/live-host/rooms/${roomId}/replay`
+    try {
+      const configured = await request.put(replayApi, {
+        headers: host.headers,
+        data: { replayUrl: `https://replay.example.invalid/${roomId}`, replayPlatformName: '验收合作平台' },
+      })
+      expect(configured.ok()).toBe(true)
+      await openDiscover(page)
+      await page.getByTestId('discover-channel-live').click()
+      await page.getByTestId(`live-replay-${roomId}`).click()
+      await expect(page.getByTestId('live-notice-tag')).toHaveText('已结束 · 可回看')
+      await expect(page.getByTestId('live-notice-action')).toHaveText('去合作平台回看')
+      await page.getByTestId('live-notice-action').click()
+      await expect(page.getByTestId('live-notice-external')).toContainText('离开本 App，打开合作平台')
+      await expect(page.getByTestId('live-notice-external')).toContainText('验收合作平台')
+    } finally {
+      const cleared = await request.put(replayApi, {
+        headers: host.headers, data: { replayUrl: null, replayPlatformName: null },
+      })
+      expect(cleared.ok()).toBe(true)
+    }
   })
 })

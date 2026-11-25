@@ -280,7 +280,7 @@ describe('real inspection catalog adapter', () => {
     })
   })
 
-  it('keeps every category the server returns, with its own code and an image', async () => {
+  it('keeps every category the server returns, with its own code and no invented image', async () => {
     const codes = ['POWER', 'SUBSTATION', 'OIL_GAS', 'THERMAL', 'SOMETHING_NEW']
     const http: InspectionCatalogHttpClient = {
       request: async <T,>() => ({
@@ -297,9 +297,8 @@ describe('real inspection catalog adapter', () => {
     const content = await createInspectionCatalogApi(http).searchServices(search())
 
     expect(content.services.map((service) => service.category)).toEqual(codes)
-    expect(content.services.every((service) => service.imageUrl.length > 0)).toBe(true)
-    // 2026-11-20: the board InspCatalog photo of an oil and gas line, not the scene drawing.
-    expect(content.services[2].imageUrl).toBe('/static/images/inspection/service-oil-gas.webp')
+    expect(content.services.every((service) => !service.imageUrl)).toBe(true)
+    expect(content.services[2].imageUrl).toBe('')
   })
 
   it('reports a city without inspection services as closed instead of failing', async () => {
@@ -317,7 +316,7 @@ describe('real inspection catalog adapter', () => {
       cityClosed: true,
     })
     const portal = await api.loadPortal('370700')
-    expect(portal.hero?.title).toBe('专业巡检')
+    expect(portal.hero).toBeNull()
     expect(portal.categories).toEqual([])
     expect(portal.hotServices).toEqual([])
   })
@@ -408,9 +407,9 @@ describe('real inspection catalog adapter', () => {
       accent: '隐患早发现',
       description: '无人机与智能设备',
       highlights: [],
-      imageUrl: '/static/images/inspection/inspection-hero-v1.png',
+      imageUrl: '',
     })
-    // A category the App has no picture for is left out instead of shown as a blank tile.
+    // Newly configured categories remain available even without a bundled category icon.
     expect(content.categories).toEqual([
       {
         code: 'POWER',
@@ -424,6 +423,7 @@ describe('real inspection catalog adapter', () => {
         subtitle: '',
         imageUrl: '/static/images/inspection/category-thermal.webp',
       },
+      { code: 'SOMETHING_NEW', name: '新分类', subtitle: '', imageUrl: '' },
     ])
     expect(content.hotServices.map((service) => service.categoryCode))
       .toEqual(['POWER', 'SUBSTATION'])

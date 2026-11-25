@@ -1,5 +1,5 @@
 import { highlightKeyword, type HighlightParts } from '../../search/application/search-view'
-import { inspectionServiceImage } from '../../inspection/data/inspection-service-images'
+import { resolveBusinessMediaUrl } from '../../../shared/http/business-media'
 import {
   formatInspectionOrderAmount,
   getInspectionOrderStageColour,
@@ -51,7 +51,7 @@ function hit(item: MyOrderItem, keyword: string, now: number, rentalCovers: Reco
       // The order list does not carry the provider's name yet (plan 08 S4-4).
       who: highlightKeyword('巡检服务', keyword),
       status: { text: getInspectionOrderStageText(order), tone: null, colour: getInspectionOrderStageColour(order.stage) },
-      image: inspectionServiceImage({ coverUrl: order.serviceCoverUrl, title: order.serviceTitle }),
+      image: resolveBusinessMediaUrl(order.serviceCoverUrl),
       imageAlt: order.serviceTitle,
       title: highlightKeyword(order.serviceTitle, keyword),
       amount: formatInspectionOrderAmount(order.quoteAmountMinor),

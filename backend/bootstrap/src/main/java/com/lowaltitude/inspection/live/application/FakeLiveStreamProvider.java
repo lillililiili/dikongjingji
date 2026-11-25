@@ -26,7 +26,7 @@ import com.lowaltitude.inspection.live.application.LiveException.Error;
  *
  * <ul>
  *   <li>建流：流 ID 由直播间 ID 算出；推流地址是一个假的 rtmp 地址；播放地址是 App 内两段示例视频之一
- *       （/static/videos/preview/live-*.mp4，App 只在预览构建认这种地址）。</li>
+ *       （/api/v1/dev-media/videos/preview/live-*.mp4，App 只在预览构建认这种地址）。</li>
  *   <li>回调：请求头 X-Live-Timestamp（秒）、X-Live-Signature（HMAC-SHA256(timestamp + "\n" + body) 的十六进制），
  *       请求体 {eventId, streamId, type, occurredAt}；时间戳和现在差 5 分钟以上不收。密钥每次启动随机生成，不进仓库，
  *       开发控制接口（LiveDevStreamController）用 {@link #sign} 替“服务商”签名后走同一条验签路径。</li>
@@ -38,8 +38,8 @@ public final class FakeLiveStreamProvider implements LiveStreamProvider {
     static final String SIGNATURE = "x-live-signature";
     static final Duration TOLERANCE = Duration.ofMinutes(5);
     static final List<String> PLAY_URLS = List.of(
-            "/static/videos/preview/live-night-patrol.mp4",
-            "/static/videos/preview/live-drone-unboxing.mp4");
+            "/api/v1/dev-media/videos/preview/live-night-patrol.mp4",
+            "/api/v1/dev-media/videos/preview/live-drone-unboxing.mp4");
 
     private final ObjectMapper objectMapper;
     private final Clock clock;

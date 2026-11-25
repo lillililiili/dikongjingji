@@ -17,6 +17,7 @@ import type {
   LoginToken,
   MemberRole,
   PendingInvitation,
+  PersonalPasswordStatus,
   PhoneLoginResult,
   ReceivedInvitation,
   SmsCodeSent,
@@ -44,6 +45,27 @@ export function createIdentityAccountApi(request: AccountRequest) {
     },
     loginWithCode(phone: string, code: string, device: LoginDevice): Promise<PhoneLoginResult> {
       return request({ url: '/api/v1/auth/phone-login', method: 'POST', data: { phone, code, device } })
+    },
+    loginWithPhonePassword(phone: string, password: string, device: LoginDevice): Promise<Omit<PhoneLoginResult, 'registered'>> {
+      return request({ url: '/api/v1/auth/phone-password-login', method: 'POST', data: { phone, password, device } })
+    },
+    passwordStatus(token: string): Promise<PersonalPasswordStatus> {
+      return request({ url: '/api/v1/account/password', method: 'GET', headers: auth(token) })
+    },
+    sendPasswordSetupCode(token: string): Promise<SmsCodeSent> {
+      return request({ url: '/api/v1/account/password/setup-codes', method: 'POST', data: {}, headers: auth(token) })
+    },
+    setPassword(token: string, newPassword: string, code?: string): Promise<void> {
+      return request({ url: '/api/v1/account/password/setup', method: 'POST', data: { newPassword, code }, headers: auth(token) })
+    },
+    changePassword(token: string, currentPassword: string, newPassword: string): Promise<void> {
+      return request({ url: '/api/v1/account/password/change', method: 'POST', data: { currentPassword, newPassword }, headers: auth(token) })
+    },
+    sendPasswordResetCode(phone: string): Promise<SmsCodeSent> {
+      return request({ url: '/api/v1/auth/password-reset-codes', method: 'POST', data: { phone } })
+    },
+    resetPassword(phone: string, code: string, newPassword: string): Promise<void> {
+      return request({ url: '/api/v1/auth/password-reset', method: 'POST', data: { phone, code, newPassword } })
     },
 
     // ---- phone number ----

@@ -65,6 +65,7 @@ export interface InspectionServiceDetail {
   primaryAction: string
   ratingAverage: number | null
   completedCountLabel: string | null
+  demonstrationMetrics?: boolean
   provider: DetailProvider | null
   capabilities: readonly DetailCapability[]
   inspectionItems: readonly DetailCapability[]

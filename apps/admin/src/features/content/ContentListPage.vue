@@ -11,6 +11,7 @@ import PageSection from '@/core/ui/PageSection.vue'
 import { usePagedList } from '@/core/ui/use-paged-list'
 
 import CityPicker from './components/CityPicker.vue'
+import PlayGamesPanel from './play-games/PlayGamesPanel.vue'
 import {
   createContentOpsApi,
   type ContentFilters,
@@ -20,12 +21,12 @@ import {
 } from './content-api'
 import { CONTENT_KIND_LABELS } from './content-rules'
 
-type Tab = 'articles' | 'videos' | 'topics'
+type Tab = 'articles' | 'videos' | 'topics' | 'games'
 
 const route = useRoute()
 const router = useRouter()
 const api = createContentOpsApi(http)
-const initialTab = (['articles', 'videos', 'topics'] as const).find((tab) => tab === route.query.tab) ?? 'articles'
+const initialTab = (['articles', 'videos', 'topics', 'games'] as const).find((tab) => tab === route.query.tab) ?? 'articles'
 const tab = ref<Tab>(initialTab)
 
 const articles = usePagedList<OpsContentSummary, ContentFilters>((filters, page, size) => api.articles(filters, page, size),
@@ -42,7 +43,7 @@ function show(next: Tab): void {
   loaded.add(next)
   if (next === 'articles') void articles.load()
   else if (next === 'videos') void videos.load()
-  else void topics.load()
+  else if (next === 'topics') void topics.load()
 }
 
 watch(tab, show)
@@ -64,11 +65,12 @@ onMounted(() => show(tab.value))
 <template>
   <PageSection
     title="发现内容"
-    description="App 发现页的图文、视频和专题。新建都是草稿；上线前会检查封面等必填项，商家发布的一律标“广告”。"
+    description="维护发现页的图文、视频、专题和 App 趣玩关卡。"
     traced
   >
     <template #actions>
-      <el-button type="primary" data-testid="content-create" @click="create">
+      <el-button @click="router.push('/content/agreements')">平台协议</el-button>
+      <el-button v-if="tab!=='games'" type="primary" data-testid="content-create" @click="create">
         新建{{ tab === 'articles' ? '图文' : tab === 'videos' ? '视频' : '专题' }}
       </el-button>
     </template>
@@ -106,6 +108,7 @@ onMounted(() => show(tab.value))
           :loading="articles.loading.value"
           :error="articles.error.value"
           row-key="contentId"
+          origin-resource="CONTENT"
           empty-text="没有符合条件的图文"
           @change-page="articles.changePage"
           @change-size="articles.changeSize"
@@ -165,6 +168,7 @@ onMounted(() => show(tab.value))
           :loading="videos.loading.value"
           :error="videos.error.value"
           row-key="contentId"
+          origin-resource="CONTENT"
           empty-text="没有符合条件的视频"
           @change-page="videos.changePage"
           @change-size="videos.changeSize"
@@ -218,6 +222,7 @@ onMounted(() => show(tab.value))
           :loading="topics.loading.value"
           :error="topics.error.value"
           row-key="topicId"
+          origin-resource="TOPIC"
           empty-text="没有符合条件的专题"
           @change-page="topics.changePage"
           @change-size="topics.changeSize"
@@ -245,6 +250,7 @@ onMounted(() => show(tab.value))
           </el-table-column>
         </PagedTable>
       </el-tab-pane>
+      <el-tab-pane label="趣玩关卡" name="games" lazy><PlayGamesPanel /></el-tab-pane>
     </el-tabs>
   </PageSection>
 </template>

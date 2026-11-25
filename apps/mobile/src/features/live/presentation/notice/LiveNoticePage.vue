@@ -12,7 +12,6 @@ import { openPartnerReplay } from '../../application/live-external'
 import { liveItemPrice, resolveLiveItems, type LiveItemView } from '../../application/live-items'
 import { formatLiveDay, formatLiveShort, hostInitial, noticeView } from '../../application/live-view'
 import { liveApi } from '../../data/live-api-client'
-import { resolveLivePreviewCover } from '../../data/preview/live-preview-covers'
 import type { LiveRoom } from '../../domain/live'
 import { buildLiveNoticeUrl, buildLiveRoomUrl } from '../../navigation/live-routes'
 
@@ -41,7 +40,7 @@ let revision = 0
 
 const view = computed(() => (room.value ? noticeView(room.value, now.value) : null))
 const picture = computed(() => (room.value
-  ? room.value.coverUrl ?? resolveLivePreviewCover(room.value.roomId)?.url ?? null
+  ? room.value.coverUrl ?? null
   : null))
 const pageUrl = computed(() => buildLiveNoticeUrl(props.roomId, props.cityCode))
 

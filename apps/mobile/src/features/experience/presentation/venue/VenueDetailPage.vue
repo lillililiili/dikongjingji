@@ -16,7 +16,6 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { EXPERIENCE_PREVIEW_ENABLED } from '../../application/experience-preview'
 import { experienceApi } from '../../data/experience-api-client'
-import { resolveExperiencePreviewCover } from '../../data/preview/experience-preview-covers'
 import type { VenueDetail, VenueDevice, VenueProject, VenueSession } from '../../domain/experience'
 import { buildVenueBookUrl, buildVenueDetailUrl, buildVenueDevicesUrl } from '../../navigation/experience-routes'
 import {
@@ -26,7 +25,7 @@ import {
   formatVenueSessionTime,
   toDialNumber,
 } from '../shared/experience-format'
-import { openVenueNavigation } from '../shared/venue-navigation'
+import { chooseNavigation, viewDestination } from '@/shared/map/destination-actions'
 
 // Board VenueDetail's marks: the share box with an arrow, and the address pin.
 const SHARE_ICON = 'M12 15V4M8 8l4-4 4 4M5 13v6h14v-6'
@@ -130,10 +129,9 @@ async function loadSessions(): Promise<void> {
   }
 }
 
-// The server's picture when it has one, else the sample picture of a preview build.
 const coverUrl = computed(() =>
   venue.value
-    ? venue.value.coverImage?.url ?? resolveExperiencePreviewCover(venue.value.venueId)
+    ? venue.value.coverImage?.url ?? null
     : null,
 )
 const hasClosedSessions = computed(() =>
@@ -155,7 +153,7 @@ async function loadDeviceStrip(requested: number): Promise<void> {
     )
     if (requested !== detailVersion) return
     deviceStrip.value = page.items.flatMap((device: VenueDevice) => {
-      const url = device.image?.url ?? resolveExperiencePreviewCover(device.deviceId)
+      const url = device.image?.url ?? null
       return url ? [{ deviceId: device.deviceId, name: device.name, url }] : []
     })
   } catch {
@@ -226,7 +224,7 @@ function book(): void {
 }
 
 function openNavigation(): void {
-  if (venue.value) openVenueNavigation(venue.value)
+  if (venue.value) chooseNavigation(venue.value)
 }
 
 function callVenue(): void {
@@ -321,7 +319,7 @@ onLoad((query) => {
           <text v-if="venue.openingNote" class="venue-detail__opening">{{ venue.openingNote }}</text>
           <view class="venue-detail__contact">
             <LineIcon :d="PIN_ICON" :size="16" color="#738096" />
-            <text class="venue-detail__address">{{ venue.address }}</text>
+            <text class="venue-detail__address" role="button" data-testid="venue-detail-map" @click="viewDestination(venue)">{{ venue.address }}</text>
             <button
               class="venue-detail__icon-button"
               data-testid="venue-detail-navigate"

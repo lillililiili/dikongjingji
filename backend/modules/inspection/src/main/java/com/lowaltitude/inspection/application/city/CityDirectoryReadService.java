@@ -26,6 +26,7 @@ public final class CityDirectoryReadService {
     public DirectoryView directory() {
         List<StoredCity> rows = store.findActiveCities();
         List<CityView> hot = rows.stream()
+                .filter(city -> city.searchCount() > 0)
                 .sorted(Comparator.comparingLong(StoredCity::searchCount).reversed()
                         .thenComparing(StoredCity::cityPinyin)
                         .thenComparing(StoredCity::cityCode))

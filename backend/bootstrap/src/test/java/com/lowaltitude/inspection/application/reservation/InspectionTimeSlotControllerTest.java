@@ -51,6 +51,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(classes = BootstrapApplication.class)
 @AutoConfigureMockMvc
 @MockBean({
+        com.lowaltitude.inspection.infrastructure.persistence.PlatformMapPlaceMapper.class,
+        com.lowaltitude.inspection.support.infrastructure.persistence.AgreementMapper.class,
+        com.lowaltitude.inspection.experience.infrastructure.persistence.PlayGameMapper.class,
         CityDirectoryReadService.class,
         ReservationApplicationService.class,
         CustomerReservationQueryService.class,

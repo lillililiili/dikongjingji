@@ -42,7 +42,7 @@ const publishing = ref(false)
 
 const videoId = computed(() => (route.params.videoId ? String(route.params.videoId) : null))
 const video = computed(() => editor.entity.value)
-const problems = computed(() => videoProblems(form))
+const problems = computed(() => videoProblems(form, editor.entity.value))
 const tags = computed(() => tagsFromText(form.tagsText))
 
 watch(video, (current) => {
@@ -179,7 +179,7 @@ onMounted(() => {
 
       <template v-if="video">
         <h3 class="video-edit__section">改动记录</h3>
-        <ChangeLogTable :changes="editor.changes.value" :loading="editor.changesLoading.value" :subject-labels="SUBJECT_LABELS" />
+        <ChangeLogTable :changes="editor.changes.value" :error="editor.changesError.value" :loading="editor.changesLoading.value" :subject-labels="SUBJECT_LABELS" />
       </template>
     </div>
   </PageSection>

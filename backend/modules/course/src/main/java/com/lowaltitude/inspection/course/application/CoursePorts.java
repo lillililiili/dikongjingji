@@ -72,6 +72,7 @@ public final class CoursePorts {
 
         /** 体验目录中已发布且配有可运行模板的仿真项目。 */
         boolean isPlayable(UUID itemId);
+        boolean isPublishedCourseTrial(UUID itemId);
     }
 
     public interface Activities {

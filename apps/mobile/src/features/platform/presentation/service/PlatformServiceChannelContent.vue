@@ -41,25 +41,6 @@ const PROCESS_ICONS: Record<PlatformServiceProcessStepCode, string> = {
 
 <template>
   <view class="service-entry" :data-testid="`service-entry-${content.code.toLowerCase()}`">
-    <view
-      v-if="content.guarantees.length"
-      class="service-entry__guarantees"
-      data-testid="service-entry-guarantees"
-    >
-      <view class="service-entry__guarantee-heading">
-        <UniIcons type="auth" size="15" color="#11804a" />
-        <text>服务保障</text>
-      </view>
-      <view
-        v-for="guarantee in content.guarantees"
-        :key="guarantee"
-        class="service-entry__guarantee"
-      >
-        <UniIcons type="checkmarkempty" size="12" color="#11804a" />
-        <text>{{ guarantee }}</text>
-      </view>
-    </view>
-
     <view class="service-entry__head">
       <view class="service-entry__mark" />
       <text class="service-entry__head-title">{{ typeLabel }}服务</text>
@@ -149,40 +130,6 @@ button {
 
 button::after {
   border: 0;
-}
-
-.service-entry__guarantees {
-  display: flex;
-  min-height: 34px;
-  padding: 4px 12px;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2px 10px;
-  border-radius: 10px;
-  background: #eefaf3;
-  box-sizing: border-box;
-}
-
-.service-entry__guarantee-heading {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #11804a;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 18px;
-  white-space: nowrap;
-}
-
-.service-entry__guarantee {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  color: #536178;
-  font-size: 12px;
-  line-height: 17px;
-  white-space: nowrap;
 }
 
 .service-entry__process {

@@ -37,7 +37,6 @@ import {
   type MallProductQuery,
   type MallProductSort,
 } from '../../domain/mall'
-import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import { buildMallProductUrl } from '../../navigation/mall-routes'
 import MallFilterSheet from './MallFilterSheet.vue'
 import {
@@ -192,11 +191,10 @@ function togglePriceSort(): void {
   reload()
 }
 
-// The server's picture when it has one, else the sample picture of a preview build.
 function coverOf(product: MallProductCard): { url: string; cutout: boolean } | null {
   return product.coverImage
     ? { url: product.coverImage.url, cutout: false }
-    : resolveMallPreviewCover(product.productId)
+    : null
 }
 
 // 对比 on every card and the dark pill from two picks on (boards MallHome, Mall2, plan 08 S5-6):

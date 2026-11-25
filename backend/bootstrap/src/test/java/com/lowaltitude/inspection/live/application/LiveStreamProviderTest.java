@@ -40,7 +40,7 @@ class LiveStreamProviderTest {
         assertThat(stream.streamId()).isEqualTo("fake-f4000000000040008000000000000009");
         assertThat(stream.pushUrl()).startsWith("rtmp://127.0.0.1:1935/live/" + stream.streamId() + "?key=");
         assertThat(stream.playUrl()).isIn(FakeLiveStreamProvider.PLAY_URLS)
-                .matches("/static/videos/preview/live-[a-z-]+\\.mp4");
+                .matches("/api/v1/dev-media/videos/preview/live-[a-z-]+\\.mp4");
         assertThat(fake.createStream(roomId)).isEqualTo(stream);
     }
 

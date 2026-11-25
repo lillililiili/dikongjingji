@@ -4,17 +4,13 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { expect, type APIRequestContext } from '@playwright/test'
+import { testApi, testContainer, testDatabase, testPayment } from './test-stack'
 
-// Shared by trade-orders.spec.ts and mall-cart.spec.ts. Everything here talks to the local stack
-// only: the backend on 18420, the fake WeChat Pay on 17460 (.planning/stack/fake-wechat) and the
-// development database in the homerev-postgres-1 container. A session with its own stack can point
-// the specs at it with E2E_API_URL, E2E_FAKE_WECHAT_URL and E2E_PG_CONTAINER (defaults unchanged).
-export const API = process.env.E2E_API_URL ?? 'http://127.0.0.1:18420'
-export const FAKE_WECHAT = process.env.E2E_FAKE_WECHAT_URL ?? 'http://127.0.0.1:17460'
+export const API = testApi
+export const FAKE_WECHAT = testPayment
 export const CITY = '370500'
 export const BUYER = 'dev-customer'
 export const MERCHANT = 'dev-merchant'
-const POSTGRES_CONTAINER = process.env.E2E_PG_CONTAINER ?? 'homerev-postgres-1'
 
 // The dev seed derives offer ids from the product and merchant numbers.
 export function offerId(product: string, merchant: string): string {
@@ -46,8 +42,8 @@ export async function apiLogin(request: APIRequestContext, loginName: string): P
 
 export function psql(sql: string): string {
   return execFileSync('docker', [
-    'exec', '-i', POSTGRES_CONTAINER, 'sh', '-c',
-    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -q -v ON_ERROR_STOP=1',
+    'exec', '-i', testContainer, 'sh', '-c',
+    'exec psql -X -U "$POSTGRES_USER" -d "$1" -At -q -v ON_ERROR_STOP=1', 'e2e', testDatabase,
   ], { input: sql, encoding: 'utf8' }).trim()
 }
 

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-import { resolveMallPreviewCover } from '@/features/mall/data/preview/mall-preview-covers'
 import type { MallProductDetail } from '@/features/mall/domain/mall'
 import { MALL_ACTION_LABELS } from '@/features/mall/presentation/shared/mall-format'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
@@ -36,8 +35,7 @@ const grid = computed(() => `84px repeat(${Math.max(1, props.products.length)}, 
 
 function coverOf(product: MallProductDetail): { url: string; contain: boolean } | null {
   if (product.coverImage) return { url: product.coverImage.url, contain: false }
-  const preview = resolveMallPreviewCover(product.productId)
-  return preview ? { url: preview.url, contain: preview.cutout } : null
+  return null
 }
 
 function actionLabel(product: MallProductDetail): string {

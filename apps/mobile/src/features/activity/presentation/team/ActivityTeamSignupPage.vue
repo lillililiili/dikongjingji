@@ -34,7 +34,6 @@ import {
   type RosterEntry,
 } from '../../application/team-roster'
 import { activityApi } from '../../data/activity-api-client'
-import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import { enrollmentApi } from '../../data/enrollment-api-client'
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
 import { MAX_TEAM_ROSTER_ROWS, type Participant, type TeamMemberCheck } from '../../domain/enrollment'
@@ -105,7 +104,7 @@ const selectedSession = computed(() =>
   sessions.value.find((session) => session.sessionId === selectedSessionId.value) ?? null)
 const coverUrl = computed(() =>
   activity.value
-    ? activity.value.coverImage?.url ?? resolveActivityPreviewCover(activity.value.activityId)
+    ? activity.value.coverImage?.url ?? null
     : null)
 const ageLine = computed(() => (activity.value ? formatActivityAgeRange(activity.value.ageRange) : null))
 const roster = computed(() =>

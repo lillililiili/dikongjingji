@@ -16,7 +16,6 @@ import {
 } from '../../application/course-format'
 import { describeCourseFailure } from '../../application/course-failures'
 import { courseApi } from '../../data/course-api-client'
-import { coursePlaySource, resolveCoursePreviewCover } from '../../data/preview/course-preview-media'
 import type { CourseEnrollment, CourseProgressLesson } from '../../domain/course'
 
 // 课程学习 (board CourseDetail): the video slot, the progress strip, the outline with one chapter
@@ -56,7 +55,7 @@ const allDone = computed(() => Boolean(enrollment.value && enrollment.value.less
   && enrollment.value.completedCount >= enrollment.value.lessonCount))
 const segments = computed(() => lessons.value.map((lesson) => lesson.state === 'COMPLETED'))
 const poster = computed(() => (enrollment.value
-  ? enrollment.value.coverImage?.url ?? resolveCoursePreviewCover({ courseId: enrollment.value.courseId })
+  ? enrollment.value.coverImage?.url ?? null
   : null))
 const averageMinutes = computed(() => {
   const all = lessons.value
@@ -147,7 +146,7 @@ async function play(): Promise<void> {
   notice.value = null
   try {
     const playback = await courseApi.playback(props.accessToken, value.enrollmentId, lesson.lessonId)
-    playing.value = { lessonId: lesson.lessonId, src: coursePlaySource(value.courseId, lesson.no, playback.playUrl) }
+    playing.value = { lessonId: lesson.lessonId, src: playback.playUrl }
     if (!playing.value.src) notice.value = '课程视频待授权素材，暂时不能播放'
     // The lesson now reads 学习中 and the refund rules may have changed.
     const loaded = await courseApi.loadEnrollment(props.accessToken, value.enrollmentId)

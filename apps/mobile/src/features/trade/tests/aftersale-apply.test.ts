@@ -98,23 +98,23 @@ describe('aftersale application (board AftersaleApply)', () => {
 })
 
 describe('return waybill sheet (board AftersaleFlow)', () => {
-  it('starts on 示例快递 and takes 4–40 letters, digits or dashes', () => {
+  it('requires a carrier and takes 4–40 letters, digits or dashes', () => {
     const draft = initialWaybillDraft(null)
-    expect(draft).toEqual({ pick: 'SAMPLE', otherCarrier: '', trackingNo: '' })
+    expect(draft).toEqual({ carrierName: '', trackingNo: '' })
     expect(waybillInput(draft)).toBeNull()
-    expect(waybillInput({ ...draft, trackingNo: ' 2026110600012 ' })).toEqual({ carrierName: '示例快递', trackingNo: '2026110600012' })
+    expect(waybillInput({ ...draft, carrierName: ' 顺丰 ', trackingNo: ' 2026110600012 ' })).toEqual({ carrierName: '顺丰', trackingNo: '2026110600012' })
     expect(waybillInput({ ...draft, trackingNo: '12' })).toBeNull()
-    expect(waybillHint({ ...draft, trackingNo: '12 34' })).toBe('运单号为 4–40 位字母、数字或“-”')
+    expect(waybillHint({ ...draft, carrierName: '圆通', trackingNo: '12 34' })).toBe('运单号为 4–40 位字母、数字或“-”')
   })
 
   it('asks for the name of another carrier', () => {
-    expect(waybillInput({ pick: 'OTHER', otherCarrier: ' ', trackingNo: 'YT123456' })).toBeNull()
-    expect(waybillHint({ pick: 'OTHER', otherCarrier: '', trackingNo: '' })).toBe('请填写承运商名称')
-    expect(waybillInput({ pick: 'OTHER', otherCarrier: '圆通速递', trackingNo: 'YT123456' })).toEqual({ carrierName: '圆通速递', trackingNo: 'YT123456' })
+    expect(waybillInput({ carrierName: ' ', trackingNo: 'YT123456' })).toBeNull()
+    expect(waybillHint({ carrierName: '', trackingNo: '' })).toBe('请填写承运商名称')
+    expect(waybillInput({ carrierName: '圆通速递', trackingNo: 'YT123456' })).toEqual({ carrierName: '圆通速递', trackingNo: 'YT123456' })
   })
 
   it('brings back the submitted waybill when changing it', () => {
-    expect(initialWaybillDraft({ carrierName: '示例快递', trackingNo: 'SF1', shippedAt: null })).toEqual({ pick: 'SAMPLE', otherCarrier: '', trackingNo: 'SF1' })
-    expect(initialWaybillDraft({ carrierName: '圆通速递', trackingNo: 'YT1', shippedAt: null })).toEqual({ pick: 'OTHER', otherCarrier: '圆通速递', trackingNo: 'YT1' })
+    expect(initialWaybillDraft({ carrierName: '示例快递', trackingNo: 'SF1', shippedAt: null })).toEqual({ carrierName: '示例快递', trackingNo: 'SF1' })
+    expect(initialWaybillDraft({ carrierName: '圆通速递', trackingNo: 'YT1', shippedAt: null })).toEqual({ carrierName: '圆通速递', trackingNo: 'YT1' })
   })
 })

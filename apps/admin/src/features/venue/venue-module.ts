@@ -24,6 +24,12 @@ export const venueModule: AdminModule = {
       meta: { title: '新建场馆', roles: ROLES },
     },
     {
+      path: '/venues/online-experiences',
+      name: 'online-experiences',
+      component: () => import('./OnlineExperiencePage.vue'),
+      meta: { title: '线上体验项目', roles: ROLES },
+    },
+    {
       path: '/venues/:venueId',
       name: 'venue-detail',
       component: () => import('./VenueEditPage.vue'),

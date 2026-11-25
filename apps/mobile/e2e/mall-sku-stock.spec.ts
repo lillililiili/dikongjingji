@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { testApi as API } from './support/test-stack'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 // 商品详情的卖点标签、多规格与库存（S3-1 商品与供给 / S4-4；mall catalog 1.3.0、mall cart 1.2.0；画板 PdFull、PdSku）。
@@ -9,7 +10,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 // - 三个规格：标准套装（1 台 + 数字课程）、教室套装（6 台 + 教师端）、扩展传感器包（没有任何商家供应）；
 // - 示例机器人商家：标准套装 ¥1,299 现货 12 件、教室套装 ¥7,380 现货 3 件；另两家只有标准套装，库存不限。
 // 每条用例前后清空这个账号的购物车。
-const API = 'http://127.0.0.1:18420'
+
 const visualOutput = resolve(__dirname, '../../../.planning/mall-sku-stock/visual')
 const CITY = '370500'
 const KIT_ID = 'c2000000-0000-4000-8000-000000000101'

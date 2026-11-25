@@ -4,6 +4,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Locale;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
+
 /**
  * 运营端写接口共用的输入整理和校验（S3-1）。和管理端 core/ui/form-rules.ts 一致：去掉首尾空白再判断，长度按码点算。
  * 不合格一律抛 IllegalArgumentException（全局异常处理给 400 COMMON_INVALID_ARGUMENT）；业务规则（上线前必填、状态冲突）
@@ -15,6 +17,11 @@ public final class OpsText {
     public static final int MAX_URL = 500;
     /** 操作人显示名快照的最大长度。 */
     public static final int MAX_OPERATOR_NAME = 80;
+
+    /** An editor can retain the existing seeded media reference. New or changed media must use HTTPS. */
+    public static String mediaUrl(String value, String existing, String field) {
+        return DevelopmentMediaPath.matches(value) && value.equals(existing) ? value : httpsUrl(value, field);
+    }
 
     private OpsText() {
     }

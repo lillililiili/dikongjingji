@@ -21,7 +21,9 @@ defineProps<{
       :aria-label="item.description ? `${item.title}，${item.description}` : item.title"
     >
       <LineIcon name="check" :size="12" :stroke-width="3" color="#159a70" />
-      <text>{{ item.title }}</text>
+      <view class="guarantee-strip__copy"><text>{{ item.title }}</text>
+        <text v-if="item.description" class="guarantee-strip__description">{{ item.description }}</text>
+      </view>
     </view>
   </view>
 </template>
@@ -59,6 +61,8 @@ defineProps<{
   color: #536178;
   font-size: 12px;
   line-height: 17px;
-  white-space: nowrap;
+  max-width: 100%;
 }
+.guarantee-strip__copy { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.guarantee-strip__description { color: #546b65; font-size: 11px; }
 </style>

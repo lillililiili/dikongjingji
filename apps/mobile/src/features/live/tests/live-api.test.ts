@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { createLiveApi, toLiveRoom, toLiveRoomCard } from '../data/live-api'
-import { acceptPlayUrl } from '../data/preview/live-preview-covers'
 
 const ROOM = 'f4000000-0000-4000-8000-000000000001'
 const PRODUCT = 'c2000000-0000-4000-8000-000000000401'
@@ -31,7 +30,7 @@ function roomDto(overrides: Record<string, unknown> = {}) {
     currentItemSeq: 1,
     replayUrl: null,
     replayPlatformName: null,
-    playUrl: '/static/videos/preview/live-night-patrol.mp4',
+    playUrl: 'https://media.example/live-night-patrol.mp4',
     streamInterrupted: false,
     ...overrides,
   }
@@ -44,7 +43,7 @@ describe('live DTO mapping', () => {
     expect(room.items.map((item) => item.seq)).toEqual([1, 2])
     expect(room.currentItemSeq).toBe(1)
     expect(room.topics).toEqual(['夜间路线怎么定'])
-    expect(room.playUrl).toBe('/static/videos/preview/live-night-patrol.mp4')
+    expect(room.playUrl).toBe('https://media.example/live-night-patrol.mp4')
     expect(room.host.name).toBe('鹰眼智能巡检')
   })
 
@@ -75,17 +74,6 @@ describe('live DTO mapping', () => {
   })
 })
 
-describe('play addresses', () => {
-  it('accepts https everywhere and the bundled sample videos in preview builds only', () => {
-    expect(acceptPlayUrl('https://play.example.com/live/1.m3u8', false)).toBe('https://play.example.com/live/1.m3u8')
-    expect(acceptPlayUrl('/static/videos/preview/live-drone-unboxing.mp4', true))
-      .toBe('/static/videos/preview/live-drone-unboxing.mp4')
-    expect(acceptPlayUrl('/static/videos/preview/live-drone-unboxing.mp4', false)).toBeNull()
-    expect(acceptPlayUrl('rtmp://127.0.0.1/live/x', true)).toBeNull()
-    expect(acceptPlayUrl('/static/videos/preview/../secret.mp4', true)).toBeNull()
-    expect(acceptPlayUrl(null, true)).toBeNull()
-  })
-})
 
 describe('live requests', () => {
   function recorder(answer: unknown) {

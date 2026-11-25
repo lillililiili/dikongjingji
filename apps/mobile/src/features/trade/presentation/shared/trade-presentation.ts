@@ -1,13 +1,8 @@
-// The sample products of the development seed carry no pictures of their own; the mall's preview
-// covers stand in (preview builds only, and a cover from the order always wins), so a line looks the
-// same here as on the product and confirm pages.
-import { resolveMallPreviewCover } from '@/features/mall/data/preview/mall-preview-covers'
-
 import type { TradeStatusTone } from '../../application/order-view'
 import type { TradeOrderLine } from '../../domain/trade-order'
 
 export function coverOfLine(line: TradeOrderLine): string | null {
-  return line.coverImage?.url ?? resolveMallPreviewCover(line.productId)?.url ?? null
+  return line.coverImage?.url ?? null
 }
 
 // Status colours of the board OrderList: orange for "something to do", green for done, grey for over.

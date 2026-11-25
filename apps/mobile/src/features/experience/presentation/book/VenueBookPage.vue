@@ -18,7 +18,6 @@ import {
   type VenuePayMode,
 } from '../../application/venue-booking-view'
 import { experienceApi } from '../../data/experience-api-client'
-import { resolveExperiencePreviewCover } from '../../data/preview/experience-preview-covers'
 import { venueBookingApi } from '../../data/venue-booking-api-client'
 import type { VenueDetail, VenueProject, VenueSession } from '../../domain/experience'
 import { MAX_VENUE_BOOKING_PEOPLE, type VenueParticipant } from '../../domain/venue-booking'
@@ -87,11 +86,7 @@ const projectMeta = computed(() => {
     project.minAge !== null ? `${project.minAge} 岁以上` : null,
   ].filter((part): part is string => Boolean(part)).join(' · ')
 })
-const coverUrl = computed(() => (ready.value
-  ? ready.value.venue.coverImage?.url
-    ?? resolveExperiencePreviewCover(ready.value.project.projectId)
-    ?? resolveExperiencePreviewCover(ready.value.venue.venueId)
-  : null))
+const coverUrl = computed(() => ready.value?.venue.coverImage?.url ?? null)
 // The venue's own arrival notes come first, then what this step actually does.
 const venueNotice = computed(() =>
   ready.value?.venue.infoItems.find((item) => item.label === '到馆须知')?.content ?? null)

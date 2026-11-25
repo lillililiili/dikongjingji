@@ -17,7 +17,6 @@ import {
   formatCoursePrice,
 } from '../../application/course-format'
 import { courseApi } from '../../data/course-api-client'
-import { resolveCoursePreviewCover } from '../../data/preview/course-preview-media'
 import {
   COURSE_PAGE_SIZE,
   COURSE_TOPICS,
@@ -85,7 +84,7 @@ function togglePriceSort(): void {
 }
 
 function coverOf(card: CourseCard): string | null {
-  return card.coverImage?.url ?? resolveCoursePreviewCover(card)
+  return card.coverImage?.url ?? null
 }
 
 // An online course opens its detail; the button opens it with the 报名 sheet up. An offline class

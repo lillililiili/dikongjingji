@@ -22,7 +22,6 @@ import {
 } from '../../application/reschedule-view'
 import { activityApi } from '../../data/activity-api-client'
 import { enrollmentApi } from '../../data/enrollment-api-client'
-import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import type { ActivitySession } from '../../domain/activity'
 import type { ChangeReason, Enrollment } from '../../domain/enrollment'
 import { buildActivityCalendarUrl } from '../../navigation/activity-routes'
@@ -90,7 +89,7 @@ const shownOptions = computed(() => {
 })
 const coverUrl = computed(() =>
   enrollment.value
-    ? enrollment.value.activity.coverImage?.url ?? resolveActivityPreviewCover(enrollment.value.activity.activityId)
+    ? enrollment.value.activity.coverImage?.url ?? null
     : null)
 const summary = computed(() => {
   const current = enrollment.value

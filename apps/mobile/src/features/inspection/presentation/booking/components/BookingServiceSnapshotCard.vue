@@ -1,22 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { inspectionServiceImage } from '../../../data/inspection-service-images'
+import { resolveBusinessMediaUrl } from '../../../../../shared/http/business-media'
 import type { BookingServiceSnapshot } from '../../../domain/service-flow/booking'
 import { categoryBadgeLabel } from '../../detail/detail-line-icons'
 
 const props = defineProps<{ service: BookingServiceSnapshot }>()
-const picture = computed(() => inspectionServiceImage({
-  coverUrl: props.service.coverImageUrl,
-  categoryCode: props.service.categoryCode,
-  categoryName: props.service.categoryName,
-  title: props.service.title,
-}))
+const picture = computed(() => (resolveBusinessMediaUrl(props.service.coverImageUrl) ?? ''))
 </script>
 
 <template>
   <view class="booking-service-card">
-    <image
+    <image v-if="picture"
       class="booking-service-card__image"
       :src="picture"
       mode="aspectFill"

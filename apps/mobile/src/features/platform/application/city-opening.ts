@@ -31,11 +31,11 @@ export function isCityClosed(opening: CityOpening): boolean {
 export function openCityToSwitchTo(
   directory: CityDirectory | null,
   currentCode: string | null,
-  defaultCity: { code: string; name: string },
+  defaultCity: { code: string; name: string } | null,
 ): { code: string; name: string } | null {
   if (!directory) return null
   const open = allCities(directory).filter((city) => city.serviceStatus === 'OPEN' && city.code !== currentCode)
-  const preferred = open.find((city) => city.code === defaultCity.code) ?? directory.openCities?.find((city) => city.code !== currentCode) ?? open[0]
+  const preferred = open.find((city) => city.code === defaultCity?.code) ?? directory.openCities?.find((city) => city.code !== currentCode) ?? open[0]
   return preferred ? { code: preferred.code, name: preferred.name } : null
 }
 

@@ -1,8 +1,11 @@
 openapi: 3.1.0
 info:
   title: Home Recommend API
-  version: 1.1.0
+  version: 1.2.2
   description: >-
+    1.2.2 adds guest reads for operator images used in published records and streaming for published discovery videos in local development.
+    1.2.1 adds the inspection image directory to the local development media route.
+    1.2.0 adds the published city carousel, independent of the four recommendation blocks.
     The four blocks under the entries of the home "推荐" channel
     (docs/redesign/03-App实现任务计划.md §15.3), in one read-only request. It only joins lists
     that are already public: each item has the shape of its own list endpoint. A block whose
@@ -13,6 +16,121 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/dev-media/ops/videos/{fileName}:
+    parameters:
+      - name: fileName
+        in: path
+        required: true
+        schema: {type: string, pattern: '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}[.]mp4$'}
+    get:
+      operationId: getDevelopmentPublishedDiscoveryVideo
+      description: >-
+        Local storage in the dev profile only. Requires an exact reference from the playback URL of a
+        discovery video with a city that has reached its publication time and remains published.
+        Rechecks publication for full and partial requests. A course recording cannot authorize access.
+      security: []
+      parameters:
+        - {name: Range, in: header, required: false, schema: {type: string}}
+      responses:
+        '200':
+          description: Original MP4 with Cache-Control no-store.
+          content: {video/mp4: {schema: {type: string, format: binary}}}
+        '206':
+          description: Requested video bytes with Content-Range.
+          content: {video/mp4: {schema: {type: string, format: binary}}}
+        '404': {description: No currently published discovery video uses this local upload.}
+        '416': {description: Range cannot be satisfied for this video.}
+    head:
+      operationId: headDevelopmentPublishedDiscoveryVideo
+      security: []
+      responses:
+        '200': {description: Headers for this published video.}
+        '404': {description: No currently published discovery video uses this local upload.}
+  /api/v1/dev-media/ops/covers/{fileName}:
+    parameters:
+      - name: fileName
+        in: path
+        required: true
+        schema: {type: string, pattern: '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}[.](jpg|png|webp)$'}
+    get:
+      operationId: getDevelopmentPublishedOpsImage
+      description: >-
+        Local storage in the dev profile only. Returns a locally uploaded operator image while it is referenced
+        by a public display field. Every request checks the current publication state. Scheduled articles
+        become eligible at their publication time. Course lesson recordings and other private resources
+        cannot authorize a read. Documents, audio and video are outside this route.
+      security: []
+      responses:
+        '200':
+          description: Original display image with Cache-Control no-store.
+          content:
+            image/jpeg: {schema: {type: string, format: binary}}
+            image/png: {schema: {type: string, format: binary}}
+            image/webp: {schema: {type: string, format: binary}}
+        '404': {description: Image unavailable or no public record displays it.}
+    head:
+      operationId: headDevelopmentPublishedOpsImage
+      security: []
+      responses:
+        '200': {description: Headers for a currently displayed image.}
+        '404': {description: Image unavailable or no public record displays it.}
+  /api/v1/dev-media/{kind}/{group}/{name}:
+    parameters:
+      - {name: kind, in: path, required: true, schema: {type: string, enum: [images, videos]}}
+      - {name: group, in: path, required: true, schema: {type: string, enum: [preview, home, inspection]}}
+      - {name: name, in: path, required: true, schema: {type: string, pattern: "^[a-z0-9-]+[.](jpg|png|webp|mp4)$"}}
+    get:
+      operationId: readDevelopmentMedia
+      summary: Read a local development fixture image or MP4; registered only with the dev profile
+      security: []
+      parameters:
+        - {name: Range, in: header, required: false, schema: {type: string}}
+      responses:
+        "200": {description: Media file}
+        "206": {description: Requested byte range}
+        "404": {description: Asset unavailable}
+        "416": {description: Byte range unsatisfiable}
+    head:
+      operationId: inspectDevelopmentMedia
+      summary: Inspect a local fixture file without downloading its contents (dev profile only)
+      security: []
+      responses:
+        "200": {description: Media metadata}
+        "404": {description: Asset unavailable}
+  /api/v1/home/carousel:
+    get:
+      operationId: getHomeCarousel
+      summary: Published slides configured for the selected city, in display order
+      security: []
+      parameters:
+        - name: cityCode
+          in: query
+          required: true
+          schema: {type: string, pattern: "^[A-Z0-9]{4,16}$"}
+      responses:
+        "200":
+          description: An empty city returns an empty array.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 12
+                    items: {$ref: "#/components/schemas/HomeSlide"}
+        "400":
+          description: Missing or malformed city code
+          content:
+            application/json:
+              schema: {$ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"}
+        "503":
+          description: Configured operations media is unavailable (OPS_MEDIA_STORE_UNAVAILABLE).
+          content:
+            application/json:
+              schema: {$ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"}
   /api/v1/home/recommend:
     get:
       operationId: getHomeRecommend
@@ -40,6 +158,23 @@ paths:
                 $ref: "./openapi-mall-catalog.yaml#/components/schemas/ApiError"
 components:
   schemas:
+    HomeSlide:
+      type: object
+      additionalProperties: false
+      required: [id, tag, titleLines, descriptionLines, actionLabel, imageUrl, imageAlt, tone, target]
+      properties:
+        id: {type: string, pattern: "^[a-z0-9][a-z0-9-]{0,47}$"}
+        tag: {type: string}
+        titleLines: {type: array, minItems: 2, maxItems: 2, items: {type: string}}
+        descriptionLines: {type: array, minItems: 2, maxItems: 2, items: {type: string}}
+        actionLabel: {type: string}
+        imageUrl:
+          type: string
+          format: uri-reference
+          description: Controlled operations-media HTTPS URL or a same-origin development image.
+        imageAlt: {type: string}
+        tone: {type: string, enum: [SKY, SUN, VIOLET, MINT]}
+        target: {type: string, enum: [ACTIVITY, PLAY_GAMES, EXPERIENCE]}
     HomeRecommend:
       type: object
       additionalProperties: false

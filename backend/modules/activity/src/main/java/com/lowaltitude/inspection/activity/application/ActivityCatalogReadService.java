@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Predicate;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
+
 /**
  * 活动目录只读服务：频道列表、有场次的日期、活动详情（契约 contracts/openapi-activity.yaml）。
  * 报名状态全部在这里按容量、报名截止时间和开始时间计算，客户端不自行判断。
@@ -259,6 +261,9 @@ public final class ActivityCatalogReadService {
 
     /** 只放行带主机名的 HTTPS 地址（AGENTS.md §11）；其余当作没有图片。 */
     static ActivityMediaView secureMedia(String url, String alt) {
+        if (DevelopmentMediaPath.matches(url)) {
+            return new ActivityMediaView(url, alt);
+        }
         if (url == null || url.isBlank()) {
             return null;
         }

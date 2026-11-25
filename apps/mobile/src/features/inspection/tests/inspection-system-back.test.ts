@@ -56,7 +56,7 @@ function mountPage(source: string, filename: string): BackPressHandler {
       inspectionPlanApi: {},
     },
     // 2026-11-20: the per-category service picture.
-    '../../../data/inspection-service-images': { inspectionServiceImage: () => '' },
+    '../../../../../shared/http/business-media': { resolveBusinessMediaUrl: () => null },
     '@/shared/city/state/current-city': { useCurrentCityStore: () => ({ currentCity: null }) },
     '../../shared/service-flow-format': serviceFlowFormat,
     '../../../domain/service-flow/plan': planDomain,

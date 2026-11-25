@@ -2,13 +2,14 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { testApi as API } from './support/test-stack'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
 import { databaseAvailable, purgeBuyerOrders } from './support/trade-fixtures'
 
 // 购物车、收货地址、确认订单（D 步，停在“提交订单”）。真实后端、开发账号 dev-customer、商城示例数据。
 // 每条用例开始前清空这个账号的购物车和地址，所以可以反复跑。失效商品的样子用接口桩（让真实商品下架要改库）。
-const API = 'http://127.0.0.1:18420'
+
 const visualOutput = resolve(__dirname, '../../../.planning/mall-cart/visual')
 const CITY = '370500'
 const KIT_ID = 'c2000000-0000-4000-8000-000000000101'

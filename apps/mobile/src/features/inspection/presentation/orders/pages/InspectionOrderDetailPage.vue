@@ -6,7 +6,7 @@ import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import { providerCredentialLabel } from '@/shared/ui/qualification'
 import { openNodePayment } from '../../../application/service-flow/node-payment'
-import { inspectionServiceImage } from '../../../data/inspection-service-images'
+import { resolveBusinessMediaUrl } from '../../../../../shared/http/business-media'
 import type {
   InspectionDelivery,
   InspectionPlan,
@@ -149,7 +149,7 @@ async function runAction(): Promise<void> {
 
     <main v-else-if="order && plan && headline" class="order-detail__content">
       <PlanSummaryCard
-        :cover-url="inspectionServiceImage({ coverUrl: order.serviceSnapshot.serviceCoverUrl, title: order.serviceSnapshot.serviceTitle })"
+        :cover-url="(resolveBusinessMediaUrl(order.serviceSnapshot.serviceCoverUrl) ?? '')"
         :title="order.serviceSnapshot.serviceTitle"
         :provider-name="order.provider?.name ?? ''"
         :certification-label="providerCredentialLabel(order.provider?.qualificationReviewed, order.provider?.certificationLabel) ?? ''"

@@ -125,34 +125,38 @@ public interface AccountMapper {
     @Select(USER_COLUMNS + " WHERE u.mobile = #{phone}")
     UserRow findUserByMobile(@Param("phone") String phone);
 
+    @Select("SELECT id FROM identity_user WHERE mobile = #{phone} FOR UPDATE")
+    UUID lockUserIdByMobile(@Param("phone") String phone);
+
     @Select(USER_COLUMNS + " WHERE u.id = #{userId}")
     UserRow findUser(@Param("userId") UUID userId);
 
     @Select(USER_COLUMNS + " WHERE u.id = #{userId} FOR UPDATE")
     UserRow lockUser(@Param("userId") UUID userId);
 
-    /** 验证码注册的个人账号各自一家个人客户机构（登录要有默认机构；订单、报名都按账号归属，不看这家机构）。 */
-    @Select("""
-            INSERT INTO identity_organization (organization_code, organization_name, organization_type, created_at, updated_at)
-            VALUES (#{code}, #{name}, 'CUSTOMER', #{at}, #{at})
-            RETURNING id
-            """)
-    @Options(flushCache = Options.FlushCachePolicy.TRUE)
-    UUID insertCustomerOrganization(@Param("code") String code, @Param("name") String name,
-                                    @Param("at") OffsetDateTime at);
+    record PersonalRegistration(UUID userId, UUID organizationId) {}
 
-    /** 手机号已被别的账号占用时什么都不写，返回 null。口令摘要是不能通过校验的“!”：这种账号只能用验证码登录。 */
+    /** PostgreSQL checks the foreign key at the end of this statement. Only a newly claimed phone creates an organization. */
     @Select("""
-            INSERT INTO identity_user (login_name, display_name, password_hash, default_organization_id, mobile,
-                                       registered_via, created_at, updated_at)
-            VALUES (#{loginName}, #{displayName}, '!', #{organizationId}, #{phone}, 'PHONE', #{at}, #{at})
-            ON CONFLICT (mobile) WHERE mobile IS NOT NULL DO NOTHING
-            RETURNING id
+            WITH new_user AS (
+                INSERT INTO identity_user (login_name, display_name, password_hash, default_organization_id, mobile,
+                                           registered_via, created_at, updated_at)
+                VALUES (#{loginName}, #{displayName}, '!', gen_random_uuid(), #{phone}, 'PHONE', #{at}, #{at})
+                ON CONFLICT (mobile) WHERE mobile IS NOT NULL DO NOTHING
+                RETURNING id, default_organization_id
+            ), new_organization AS (
+                INSERT INTO identity_organization
+                    (id, organization_code, organization_name, organization_type, created_at, updated_at)
+                SELECT default_organization_id, #{organizationCode}, #{organizationName}, 'CUSTOMER', #{at}, #{at}
+                FROM new_user RETURNING id
+            )
+            SELECT u.id AS user_id, o.id AS organization_id
+            FROM new_user u JOIN new_organization o ON o.id = u.default_organization_id
             """)
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
-    UUID insertPhoneUser(@Param("loginName") String loginName, @Param("displayName") String displayName,
-                         @Param("organizationId") UUID organizationId, @Param("phone") String phone,
-                         @Param("at") OffsetDateTime at);
+    PersonalRegistration insertPhoneUser(@Param("loginName") String loginName, @Param("displayName") String displayName,
+                                         @Param("phone") String phone, @Param("organizationCode") String organizationCode,
+                                         @Param("organizationName") String organizationName, @Param("at") OffsetDateTime at);
 
     @Insert("""
             INSERT INTO identity_organization_member (organization_id, user_id, created_at, updated_at)
@@ -162,17 +166,17 @@ public interface AccountMapper {
     int insertOrganizationMember(@Param("organizationId") UUID organizationId, @Param("userId") UUID userId,
                                  @Param("at") OffsetDateTime at);
 
-    /** 新注册账号授全局的客户角色。 */
+    /** Role reads during token issuance use the transaction's timestamp. The new grant is effective in that transaction. */
     @Insert("""
             INSERT INTO identity_user_role (user_id, role_id, organization_id, valid_from)
-            SELECT #{userId}, r.id, NULL, #{at}
+            SELECT #{userId}, r.id, NULL, CURRENT_TIMESTAMP
               FROM identity_role r
              WHERE r.role_code = 'CUSTOMER'
                AND r.status = 'ACTIVE'
             ON CONFLICT (user_id, role_id, COALESCE(organization_id, '00000000-0000-0000-0000-000000000000'::uuid))
             DO NOTHING
             """)
-    int grantCustomerRole(@Param("userId") UUID userId, @Param("at") OffsetDateTime at);
+    int grantCustomerRole(@Param("userId") UUID userId);
 
     @Select("""
             SELECT count(*) > 0
@@ -189,6 +193,17 @@ public interface AccountMapper {
 
     @Update("UPDATE identity_user SET mobile = #{phone}, updated_at = #{at} WHERE id = #{userId}")
     int updateMobile(@Param("userId") UUID userId, @Param("phone") String phone, @Param("at") OffsetDateTime at);
+
+    @Update("UPDATE identity_login_session SET password_setup_until = NULL WHERE user_id = #{userId} AND password_setup_until IS NOT NULL")
+    int clearPasswordSetupProofs(@Param("userId") UUID userId);
+
+    @Update("""
+            UPDATE identity_sms_code SET consumed_at = #{at}
+            WHERE phone IN (#{oldPhone}, #{newPhone}) AND consumed_at IS NULL
+              AND (purpose = 'LOGIN' OR user_id = #{userId})
+            """)
+    int retirePhoneCredentials(@Param("userId") UUID userId, @Param("oldPhone") String oldPhone,
+                               @Param("newPhone") String newPhone, @Param("at") OffsetDateTime at);
 
     @Update("""
             UPDATE identity_user
@@ -256,8 +271,9 @@ public interface AccountMapper {
 
     @Select("""
             INSERT INTO identity_login_session (user_id, device_key, device_name, platform, city_code, login_method,
-                                                signed_in_at, last_active_at)
-            VALUES (#{userId}, #{deviceKey}, #{deviceName}, #{platform}, #{cityCode}, #{loginMethod}, #{at}, #{at})
+                                                signed_in_at, last_active_at, password_setup_until)
+            VALUES (#{userId}, #{deviceKey}, #{deviceName}, #{platform}, #{cityCode}, #{loginMethod}, #{at}, #{at},
+                    CASE WHEN #{loginMethod} = 'SMS_CODE' THEN CAST(#{at} AS timestamptz) + interval '5 minutes' END)
             RETURNING id
             """)
     @Options(flushCache = Options.FlushCachePolicy.TRUE)

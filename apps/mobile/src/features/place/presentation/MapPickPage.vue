@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
@@ -17,8 +17,8 @@ import {
 
 // Board MapPick: the search box, the sketch map with the pin in the middle (drag the map to move
 // it, 回到我的位置 when the position is known), the chosen place, 附近地点 or the search results, and
-// 确认地址. A spot picked by dragging has no name, so its address is typed by hand. Without the
-// device position the page says so and starts from the city's centre (the 定位被拒 frame).
+// 确认地址. A spot picked by dragging has no name, so its address is typed by hand. Without
+// a device position it opens on the first returned point in the selected city.
 const props = defineProps<{
   provider: MapPlaceProvider
   purpose: MapPickPurpose
@@ -39,33 +39,34 @@ const INFO_ICON = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 7.5h.01'
 const PIN_IMAGE = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 30"><path d="M12 29s-9-9.5-9-17a9 9 0 0 1 18 0c0 7.5-9 17-9 17z" fill="#ff6a00" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="3.6" fill="#fff"/></svg>')}`
 const LOCATE_ICON = 'M12 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12zM12 3v3M12 18v3M3 12h3M18 12h3'
 
-const pin = ref<MapPoint>(props.provider.center(props.city))
+const pin = ref<MapPoint | null>(null)
 const located = ref<MapPoint | null>(null)
 const locating = ref(true)
-const nearby = ref<MapPlace[]>([])
-const results = ref<MapPlace[]>([])
+const places = ref<MapPlace[]>([])
+const loading = ref(true)
+const loadFailed = ref(false)
 const keyword = ref('')
 const pick = ref<Pick>(null)
 const manualAddress = ref('')
 const offset = ref({ x: 0, y: 0 })
 let dragFrom: { x: number; y: number; point: MapPoint } | null = null
 let searchRevision = 0
+let active = true
 
 const typed = computed(() => keyword.value.trim())
-const places = computed(() => (typed.value ? results.value : nearby.value))
-const listTitle = computed(() => (typed.value ? '搜索结果' : located.value ? '附近地点' : '示例地点'))
+const listTitle = computed(() => (typed.value ? '搜索结果' : located.value ? '附近地点' : '本城地点'))
 const denied = computed(() => !locating.value && !located.value)
 const pinLabel = computed(() => {
   if (pick.value?.kind === 'PLACE') return pick.value.place.name
   if (pick.value?.kind === 'PIN') return '图钉位置'
-  return '拖动地图选点'
+  return pin.value ? '拖动地图选点' : '等待地点'
 })
 const picked = computed<PickedPlace | null>(() => {
   if (pick.value?.kind === 'PLACE') {
     const place = pick.value.place
     return { name: place.name, address: place.address, point: place.point }
   }
-  if (pick.value?.kind === 'PIN') {
+  if (pick.value?.kind === 'PIN' && pin.value) {
     const address = manualAddress.value.trim()
     return address.length >= 2 ? { name: address, address, point: pin.value } : null
   }
@@ -75,27 +76,37 @@ const tip = computed(() => MAP_PICK_TIPS[props.purpose])
 const title = computed(() => MAP_PICK_TITLES[props.purpose])
 
 function subLine(place: MapPlace): string {
-  return located.value ? `${formatDistance(distanceMetres(pin.value, place.point))} · ${place.address}` : place.address
+  return located.value && pin.value ? `${formatDistance(distanceMetres(pin.value, place.point))} · ${place.address}` : place.address
 }
 
-async function loadNearby(around: MapPoint): Promise<void> {
+async function loadPlaces(): Promise<void> {
+  const revision = ++searchRevision
+  loading.value = true
+  loadFailed.value = false
+  places.value = []
   try {
-    nearby.value = await props.provider.nearby(props.city, around)
+    const found = await props.provider.list(props.city, typed.value, pin.value)
+    if (revision !== searchRevision) return
+    places.value = found
+    if (!pin.value && found.length) pin.value = found[0].point
   } catch {
-    nearby.value = []
+    if (revision === searchRevision) loadFailed.value = true
+  } finally {
+    if (revision === searchRevision) loading.value = false
   }
 }
 
 async function locate(): Promise<void> {
   locating.value = true
   const point = await props.provider.locate()
+  if (!active) return
   locating.value = false
   located.value = point
   if (point) {
     pin.value = point
     pick.value = null
   }
-  await loadNearby(pin.value)
+  await loadPlaces()
 }
 
 // 回到我的位置: the pin back on the position, the search cleared (board).
@@ -106,19 +117,7 @@ function relocate(): void {
 
 function onInput(event: Event): void {
   keyword.value = ((event as Event & { detail?: { value?: string } }).detail?.value ?? '').toString().slice(0, 40)
-  const word = keyword.value.trim()
-  const requested = ++searchRevision
-  if (!word) {
-    results.value = []
-    return
-  }
-  props.provider.search(props.city, word, pin.value)
-    .then((found) => {
-      if (requested === searchRevision) results.value = found
-    })
-    .catch(() => {
-      if (requested === searchRevision) results.value = []
-    })
+  void loadPlaces()
 }
 
 function choose(place: MapPlace): void {
@@ -155,7 +154,7 @@ function onWindowRelease(): void {
 }
 
 function startDrag(event: Event): void {
-  if (dragFrom) return
+  if (dragFrom || !pin.value) return
   const at = pointOf(event as PointerEvent)
   if (!at) return
   dragFrom = { ...at, point: pin.value }
@@ -205,6 +204,12 @@ function confirm(): void {
 onMounted(() => {
   void locate()
 })
+onUnmounted(() => {
+  active = false
+  searchRevision++
+  dragFrom = null
+  endDrag()
+})
 </script>
 
 <template>
@@ -243,6 +248,7 @@ onMounted(() => {
     </view>
 
     <view
+      v-if="pin"
       class="map-pick__map"
       data-testid="map-pick-map"
       role="img"
@@ -272,6 +278,9 @@ onMounted(() => {
       </button>
       <text class="map-pick__sketch">示意地图 · 正式产品经地图适配器接入</text>
     </view>
+    <view v-else class="map-pick__none" role="status">
+      <text>{{ locating || loading ? '正在获取地图起点…' : '暂无可用于选点的坐标' }}</text>
+    </view>
 
     <view class="map-pick__body">
       <view class="map-pick__card" data-testid="map-pick-chosen">
@@ -284,7 +293,7 @@ onMounted(() => {
               <text class="map-pick__chosen-name">{{ pick.place.name }}</text>
               <text class="map-pick__chosen-address">{{ pick.place.address }}</text>
             </template>
-            <template v-else>
+            <template v-else-if="pin">
               <text class="map-pick__chosen-name">图钉位置 · {{ formatPoint(pin) }}</text>
               <input
                 class="map-pick__manual"
@@ -329,10 +338,16 @@ onMounted(() => {
           </view>
           <view v-else class="map-pick__radio" />
         </button>
-        <view v-if="typed && places.length === 0" class="map-pick__none" data-testid="map-pick-none">
-          <text>没有找到“{{ typed }}”相关的地点，换个关键词试试</text>
-          <button class="map-pick__use-typed" data-testid="map-pick-use-typed" @click="useTypedAddress">就用“{{ typed }}”作为图钉位置的地址</button>
+        <text v-if="loading" class="map-pick__none" role="status">正在查询地点…</text>
+        <view v-else-if="loadFailed" class="map-pick__none" role="alert">
+          <text>地点加载失败</text>
+          <button class="map-pick__use-typed" role="button" @click="loadPlaces">重新加载</button>
         </view>
+        <view v-else-if="typed && places.length === 0" class="map-pick__none" data-testid="map-pick-none">
+          <text>没有找到“{{ typed }}”相关的地点，换个关键词试试</text>
+          <button v-if="pin" class="map-pick__use-typed" data-testid="map-pick-use-typed" @click="useTypedAddress">就用“{{ typed }}”作为图钉位置的地址</button>
+        </view>
+        <text v-else-if="places.length === 0" class="map-pick__none">当前城市暂无已收录地点</text>
       </view>
     </view>
 

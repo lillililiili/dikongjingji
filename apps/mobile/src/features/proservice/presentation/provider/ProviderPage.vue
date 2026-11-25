@@ -15,10 +15,6 @@ import {
   shortCityName,
 } from '../../application/proservice-view'
 import { proServiceApi } from '../../data/proservice-api-client'
-import {
-  inspectionServicePicture,
-  resolveProServicePreviewCover,
-} from '../../data/preview/proservice-preview-covers'
 import type { ProServicePrice, ProServiceType, ProviderPage } from '../../domain/proservice'
 
 // A provider's page (ProviderPage board): who it is, what it offers in this city and where it
@@ -98,7 +94,7 @@ const scopeRows = computed<ScopeRow[]>(() => {
       title: service.title,
       summary: service.summary,
       typeLabel: `巡检 · ${service.categoryName}`,
-      picture: inspectionServicePicture(service.categoryName),
+      picture: null,
       price: service.price,
       sample: false,
     })),
@@ -109,7 +105,7 @@ const scopeRows = computed<ScopeRow[]>(() => {
       title: service.title,
       summary: service.summary,
       typeLabel: `${PRO_SERVICE_TYPE_INFO[service.type].label} · ${service.category.label}`,
-      picture: service.coverUrl ?? resolveProServicePreviewCover(service.type, service.category.code),
+      picture: service.coverUrl ?? null,
       price: service.price,
       sample: service.sample,
     })),

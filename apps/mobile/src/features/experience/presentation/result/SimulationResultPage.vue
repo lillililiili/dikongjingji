@@ -3,7 +3,6 @@ import { computed, ref, watch } from 'vue'
 
 import { MALL_PREVIEW_ENABLED } from '@/features/mall/application/mall-preview'
 import { mallApi } from '@/features/mall/data/mall-api-client'
-import { resolveMallPreviewCover } from '@/features/mall/data/preview/mall-preview-covers'
 import type { MallProductDetail } from '@/features/mall/domain/mall'
 import { formatMallAmount } from '@/features/mall/presentation/shared/mall-format'
 import { SUPPORT_PREVIEW_ENABLED } from '@/features/support/application/support-preview'
@@ -19,7 +18,6 @@ import { isUnauthorizedError, uploadLocalResult } from '../../application/simula
 import { experienceApi } from '../../data/experience-api-client'
 import { experienceRecordApi } from '../../data/experience-record-api-client'
 import { localSimulationResults } from '../../data/local-simulation-results'
-import { simulationScenePicture } from '../../data/preview/simulation-preview-pictures'
 import type { SimulationResultTarget } from '../../navigation/experience-routes'
 
 // Board ExpResult (390 wide). The result is the user's own: nothing is ordered, every way out is
@@ -55,9 +53,8 @@ const venueId = ref<string | null>(null)
 let requestVersion = 0
 
 const view = computed(() => (outcome.value ? describeSimulationOutcome(outcome.value) : null))
-const hero = computed(() => simulationScenePicture(outcome.value?.template ?? null))
 const productPicture = computed(() =>
-  product.value?.coverImage?.url ?? (product.value ? resolveMallPreviewCover(product.value.productId)?.url ?? null : null))
+  product.value?.coverImage?.url ?? null)
 const productPrice = computed(() => {
   const amounts = (product.value?.offers ?? [])
     .map((offer) => offer.amountMinor)
@@ -239,7 +236,6 @@ watch(() => [props.refreshKey, props.accessToken], () => { void load() }, { imme
         <text class="result__tag">虚拟仿真 · 不连接真实设备</text>
 
         <view :class="['result__hero', { 'result__hero--short': outcome.guest }]">
-          <image v-if="hero" class="result__hero-picture" :src="hero" :alt="outcome.title" mode="aspectFill" />
           <view class="result__hero-shade" />
           <text class="result__hero-tag">模拟场景</text>
           <view class="result__hero-copy">

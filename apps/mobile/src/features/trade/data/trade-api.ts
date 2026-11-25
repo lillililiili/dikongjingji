@@ -1,3 +1,4 @@
+import { businessImage } from '../../../shared/http/business-media'
 import {
   TRADE_CLOSE_REASONS,
   TRADE_ORDER_SOURCES,
@@ -169,7 +170,7 @@ export function toTradeOrder(dto: TradeOrderDto): TradeOrder {
       offerId: line.offerId,
       productName: line.productName,
       skuName: line.skuName,
-      coverImage: line.coverImage ?? null,
+      coverImage: businessImage(line.coverImage),
       unitAmountMinor: line.unitAmountMinor,
       quantity: line.quantity,
       subtotalMinor: line.subtotalMinor,

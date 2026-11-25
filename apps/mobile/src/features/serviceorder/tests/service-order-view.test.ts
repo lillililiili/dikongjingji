@@ -51,6 +51,8 @@ describe('service order status wording', () => {
       '已取消',
       '已终止 · 协商终止',
     ])
+    expect(describeServiceOrderHead({ ...orderIn('PLAN_PENDING'), plan: null }).title).toBe('待确认 · 方案已出')
+    expect(describeServiceOrderHead({ ...orderIn('DELIVERED'), deliveries: [] }).title).toBe('待验收 · 成果已交付')
     expect(describeServiceOrderHead(orderIn('PLAN_PENDING')).text).toBe('服务商 11/23 10:00 出具方案，请核对后确认')
     expect(describeServiceOrderHead(orderIn('DELIVERED')).text).toBe('第 1 次交付 11/26 16:00 已提交，请核对后验收')
     expect(describeServiceOrderHead(orderIn('CANCELLED')).text).toBe('你在开工前取消了订单；没有付款，不涉及费用')

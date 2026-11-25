@@ -61,7 +61,7 @@ class PhoneAccountServiceTest {
 
         assertThatThrownBy(() -> service.login("13900001111", "123456"))
                 .extracting(e -> ((AccountException) e).error()).isEqualTo(Error.UNAUTHORIZED);
-        verify(mapper, never()).insertPhoneUser(anyString(), anyString(), any(), anyString(), any());
+        verify(mapper, never()).insertPhoneUser(anyString(), anyString(), anyString(), anyString(), anyString(), any());
     }
 
     @Test
@@ -76,16 +76,23 @@ class PhoneAccountServiceTest {
     @Test
     void anUnknownNumberRegistersAPersonalCustomer() {
         UUID organization = UUID.randomUUID();
-        when(mapper.insertCustomerOrganization(startsWith("PERSONAL-"), eq("个人客户 139****1111"), any()))
-                .thenReturn(organization);
-        when(mapper.insertPhoneUser(startsWith("p-"), eq("用户1111"), eq(organization), eq("13900001111"), any()))
-                .thenReturn(USER);
+        when(mapper.insertPhoneUser(startsWith("p-"), eq("用户1111"), eq("13900001111"), startsWith("PERSONAL-"),
+                eq("个人客户 139****1111"), any())).thenReturn(new AccountMapper.PersonalRegistration(USER, organization));
 
         PhoneAccountService.PhoneLogin login = service.login("13900001111", "123456");
 
         assertThat(login.registered()).isTrue();
         verify(mapper).insertOrganizationMember(eq(organization), eq(USER), any());
-        verify(mapper).grantCustomerRole(eq(USER), any());
+        verify(mapper).grantCustomerRole(USER);
+    }
+
+    @Test
+    void registrationRaceReturnsTheWinningAccountWithoutCreatingAnotherOrganization() {
+        when(mapper.findUserByMobile("13900001111")).thenReturn(null, user("ACTIVE", "13900001111"));
+
+        assertThat(service.login("13900001111", "123456")).isEqualTo(new PhoneAccountService.PhoneLogin(USER, false));
+        verify(mapper, never()).insertOrganizationMember(any(), any(), any());
+        verify(mapper, never()).grantCustomerRole(any());
     }
 
     @Test

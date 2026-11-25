@@ -1,3 +1,4 @@
+import { resolveBusinessMediaUrl } from '../../../shared/http/business-media'
 import type { ActivityApi } from '../../activity/data/activity-api'
 import {
   ACTIVITY_STATUS_LABELS,
@@ -20,11 +21,6 @@ import { buildVenueDetailUrl } from '../../experience/navigation/experience-rout
 import { toBeijingDate } from '../../../shared/time/beijing-time'
 
 import { buildMallProductUrl } from '../../mall/navigation/mall-routes'
-import {
-  resolveRefPreviewCover,
-  resolveTopicActivityPreviewCover,
-  resolveTopicMerchantPreview,
-} from '../data/preview/content-preview-covers'
 import type { ContentRef, ContentRefType, ContentTopicMerchantItem } from '../domain/content'
 import { contentRefTargetUrl } from '../navigation/content-routes'
 import type { Tone } from './content-view'
@@ -74,8 +70,6 @@ const TONES = {
   venue: { background: '#e2f6ed', color: '#11804a' },
 } satisfies Record<string, Tone>
 
-const httpsOnly = (url: string | null | undefined): string | null =>
-  url && /^https:\/\//i.test(url) ? url : null
 
 const MALL_UNITS = { ITEM: '', DAY: '/天', HALF_DAY: '/半天' } as const
 
@@ -102,7 +96,7 @@ function productView(product: MallProductDetail): Omit<ContentRefView, 'key' | '
     price,
     actionLabel: rent ? '看设备' : '看商品',
     primary: false,
-    imageUrl: httpsOnly(product.coverImage?.url),
+    imageUrl: resolveBusinessMediaUrl(product.coverImage?.url),
   }
 }
 
@@ -127,7 +121,7 @@ async function resolveOne(ref: ContentRef, cityCode: string, apis: ContentLinked
         actionLabel: '看服务',
         primary: true,
         // The detail falls back to a bundled stand-in picture; only a picture from the server counts.
-        imageUrl: httpsOnly(service.heroImageUrl),
+        imageUrl: resolveBusinessMediaUrl(service.heroImageUrl),
       }
     }
     case 'PRO_SERVICE': {
@@ -142,7 +136,7 @@ async function resolveOne(ref: ContentRef, cityCode: string, apis: ContentLinked
         price: { amount: price.amount, unit: price.unit },
         actionLabel: '看服务',
         primary: true,
-        imageUrl: httpsOnly(service.coverUrl),
+        imageUrl: resolveBusinessMediaUrl(service.coverUrl),
       }
     }
     case 'PRODUCT':
@@ -158,7 +152,7 @@ async function resolveOne(ref: ContentRef, cityCode: string, apis: ContentLinked
         price: activityPrice(activity),
         actionLabel: activity.enrollmentStatus === 'OPEN' ? '去报名' : '看活动',
         primary: false,
-        imageUrl: httpsOnly(activity.coverImage?.url),
+        imageUrl: resolveBusinessMediaUrl(activity.coverImage?.url),
       }
     }
     case 'VENUE': {
@@ -176,7 +170,7 @@ async function resolveOne(ref: ContentRef, cityCode: string, apis: ContentLinked
           : { amount: formatVenuePrice(lowest), unit: lowest > 0 && new Set(prices).size > 1 ? '起' : '' },
         actionLabel: '看场馆',
         primary: false,
-        imageUrl: httpsOnly(venue.coverImage?.url),
+        imageUrl: resolveBusinessMediaUrl(venue.coverImage?.url),
       }
     }
   }
@@ -192,14 +186,7 @@ export async function resolveContentRefs(
   apis: ContentLinkedApis,
 ): Promise<ContentRefView[]> {
   const results = await Promise.allSettled(refs.map((ref) => resolveOne(ref, cityCode, apis)))
-  return results.flatMap((result) => (result.status === 'fulfilled' ? [withPreviewPicture(result.value)] : []))
-}
-
-// Preview builds draw the prototype's picture where the module gives none.
-function withPreviewPicture(view: ContentRefView): ContentRefView {
-  if (view.imageUrl) return view
-  const cover = resolveRefPreviewCover(view.type, view.refId)
-  return cover ? { ...view, imageUrl: cover.url, imageContain: cover.contain, imagePadded: cover.padded ?? false } : view
+  return results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []))
 }
 
 // ---- The topic page's 本季活动 and 到馆体验 ----
@@ -245,7 +232,7 @@ export function toTopicActivityView(activity: ActivityDetail, cityCode: string):
     statusTone: activity.enrollmentStatus === 'OPEN'
       ? 'ok'
       : activity.enrollmentStatus === 'CLOSED' || activity.enrollmentStatus === 'ENDED' ? 'off' : 'warn',
-    imageUrl: httpsOnly(activity.coverImage?.url) ?? resolveTopicActivityPreviewCover(activity.activityId),
+    imageUrl: resolveBusinessMediaUrl(activity.coverImage?.url),
     url: buildActivityDetailUrl(activity.activityId, cityCode),
   }
 }
@@ -370,7 +357,7 @@ export function toTopicMerchantView(
     title: product.name,
     amount,
     meta,
-    imageUrl: httpsOnly(product.coverImage?.url) ?? resolveTopicMerchantPreview(product.productId),
+    imageUrl: resolveBusinessMediaUrl(product.coverImage?.url),
     url: buildMallProductUrl(product.productId, cityCode),
   }
 }

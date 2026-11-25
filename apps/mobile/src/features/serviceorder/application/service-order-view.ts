@@ -70,7 +70,7 @@ export function describeServiceOrderHead(order: ServiceOrder): ServiceOrderHead 
       return { title: '待出方案 · 服务商正在出方案', text: `出方案后由你确认，确认后一次付清 ${amount}`, tone: 'ACTION' }
     case 'PLAN_PENDING':
       return {
-        title: `待确认 · 方案 v${order.plan?.version ?? 1} 已出`,
+        title: order.plan ? `待确认 · 方案 v${order.plan.version} 已出` : '待确认 · 方案已出',
         text: order.plan?.issuedAt
           ? `服务商 ${formatServiceInstant(order.plan.issuedAt)} 出具方案，请核对后确认`
           : '服务商已出方案，请核对后确认',
@@ -103,7 +103,7 @@ export function describeServiceOrderHead(order: ServiceOrder): ServiceOrderHead 
       }
     case 'DELIVERED':
       return {
-        title: `待验收 · 第 ${delivery?.round ?? 1} 次交付`,
+        title: delivery ? `待验收 · 第 ${delivery.round} 次交付` : '待验收 · 成果已交付',
         text: delivery?.deliveredAt
           ? `第 ${delivery.round} 次交付 ${formatServiceInstant(delivery.deliveredAt)} 已提交，请核对后验收`
           : '服务商已提交交付，请核对后验收',
@@ -111,7 +111,7 @@ export function describeServiceOrderHead(order: ServiceOrder): ServiceOrderHead 
       }
     case 'REWORK':
       return {
-        title: `整改中 · 第 ${delivery?.round ?? 1} 次交付已退回`,
+        title: delivery ? `整改中 · 第 ${delivery.round} 次交付已退回` : '整改中 · 交付已退回',
         text: '服务商整改后重新交付，再由你验收',
         tone: 'ACTION',
       }

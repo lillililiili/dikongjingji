@@ -23,7 +23,6 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 import { resolveMallIntent, type MallIntent } from '../../application/mall-intent'
 import { MALL_PREVIEW_ENABLED } from '../../application/mall-preview'
 import { cartApi } from '../../data/cart-api-client'
-import { resolveMallPreviewCover } from '../../data/preview/mall-preview-covers'
 import type { CheckoutLine, CheckoutPreview, CheckoutSource, DeliveryMode } from '../../domain/cart'
 import { MALL_MERCHANT_KIND_LABELS, formatMallAmount } from '../shared/mall-format'
 
@@ -91,7 +90,7 @@ function isUnauthorized(error: unknown): boolean {
 }
 
 function coverOf(line: CheckoutLine): string | null {
-  return line.coverImage?.url ?? resolveMallPreviewCover(line.productId)?.url ?? null
+  return line.coverImage?.url ?? null
 }
 
 async function load(): Promise<void> {

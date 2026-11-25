@@ -91,6 +91,7 @@ onMounted(() => {
       :loading="list.loading.value"
       :error="list.error.value"
       row-key="courseId"
+      origin-resource="COURSE"
       empty-text="没有符合条件的课程"
       @change-page="list.changePage"
       @change-size="list.changeSize"

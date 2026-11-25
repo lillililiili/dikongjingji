@@ -81,7 +81,7 @@ public class AuthenticationController {
         ));
     }
 
-    private static LoginResponse response(AuthenticationService.LoginToken token) {
+    static LoginResponse response(AuthenticationService.LoginToken token) {
         return new LoginResponse(
                 token.accessToken(), "Bearer", token.expiresInSeconds(),
                 token.refreshToken(), token.refreshExpiresInSeconds());

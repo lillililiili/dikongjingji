@@ -451,7 +451,7 @@ public class ActivityOpsService {
                 type.name(),
                 OpsText.required(draft.title(), MAX_TITLE, "title"),
                 OpsText.optional(draft.subtitle(), MAX_SUBTITLE, "subtitle"),
-                OpsText.httpsUrl(draft.coverUrl(), "coverUrl"),
+                OpsText.mediaUrl(draft.coverUrl(), current == null ? null : current.coverUrl(), "coverUrl"),
                 draft.organizerId(),
                 draft.coOrganizerId(),
                 city,

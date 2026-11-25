@@ -16,6 +16,7 @@ export interface ExperienceItemDetail {
   simulationTemplate: SimulationTemplate | null
   // Only software trials and course previews: how long one trial runs.
   trialMinutes: number | null
+  videoUrl?: string | null
 }
 
 export type ExperienceRecordStatus = 'COMPLETED' | 'UNFINISHED' | 'ACTIVE' | 'ENDED' | 'EXPIRED'

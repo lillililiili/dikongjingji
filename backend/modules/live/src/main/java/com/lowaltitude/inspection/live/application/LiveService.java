@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
 import com.lowaltitude.inspection.live.application.LiveException.Error;
 import com.lowaltitude.inspection.live.application.LiveStreamProvider.StreamCredentials;
 import com.lowaltitude.inspection.live.application.LiveStreamProvider.StreamEvent;
@@ -335,7 +336,7 @@ public class LiveService {
     public LiveHostRoomCreated createRoom(UUID hostOrgId, UUID idempotencyKey, LiveRoomDraft draft) {
         requireOrganization(hostOrgId);
         requireKey(idempotencyKey);
-        RoomFields fields = roomFields(draft);
+        RoomFields fields = roomFields(draft, null);
         String hash = hash(fingerprint(fields));
 
         mapper.lockActor(hostOrgId);
@@ -363,8 +364,8 @@ public class LiveService {
     @Transactional
     public LiveHostRoomView updateRoom(UUID hostOrgId, UUID roomId, LiveRoomDraft draft) {
         requireOrganization(hostOrgId);
-        RoomFields fields = roomFields(draft);
         RoomRow room = lockHostRoom(hostOrgId, roomId);
+        RoomFields fields = roomFields(draft, room.coverUrl());
         if (!LiveRoomStatus.SCHEDULED.name().equals(room.status())
                 || mapper.updatePreview(room.id(), fields, now()) == 0) {
             throw new LiveException(Error.NOT_SCHEDULED);
@@ -610,14 +611,14 @@ public class LiveService {
         }
     }
 
-    private RoomFields roomFields(LiveRoomDraft draft) {
+    private RoomFields roomFields(LiveRoomDraft draft, String existingCover) {
         if (draft == null) {
             throw new IllegalArgumentException("room is required");
         }
         String title = line(draft.title(), MAX_TITLE, "title");
         String subtitle = optional(draft.subtitle(), MAX_SUBTITLE, "subtitle");
         String cover = optional(draft.coverUrl(), MAX_URL, "cover");
-        if (cover != null) {
+        if (cover != null && !(cover.equals(existingCover) && DevelopmentMediaPath.matches(cover))) {
             requireHttps(cover, "cover");
         }
         String city = draft.cityCode() == null || draft.cityCode().isBlank() ? null : requireCity(draft.cityCode());

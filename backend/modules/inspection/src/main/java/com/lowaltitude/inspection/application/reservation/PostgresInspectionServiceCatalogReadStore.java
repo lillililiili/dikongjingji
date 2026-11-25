@@ -169,6 +169,7 @@ final class PostgresInspectionServiceCatalogReadStore
                         row.availability(),
                         row.primaryAction(),
                         row.completedCount(),
+                        row.demonstrationMetrics(),
                         row.providerId(),
                         row.providerName(),
                         row.providerLogoUrl(),

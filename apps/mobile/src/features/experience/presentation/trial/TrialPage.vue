@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import LineIcon from '@/shared/ui/LineIcon.vue'
+import { ApiRequestError } from '@/shared/http/public-api-request'
 
 import { isUnauthorizedError } from '../../application/simulation-sync'
 import {
@@ -14,17 +15,9 @@ import {
 } from '../../application/trial-view'
 import { experienceApi } from '../../data/experience-api-client'
 import { experienceRecordApi } from '../../data/experience-record-api-client'
-import { trialPicture } from '../../data/preview/simulation-preview-pictures'
 import type { ExperienceItemDetail, ExperienceRecord } from '../../domain/experience-record'
 
-// Board SoftwareTrial (390 wide): 启动中 → 试用中 → 已到期 / 已结束. The software would run in an
-// isolated environment and stream to the phone (a design assumption of the board); no streaming
-// service is connected yet, so the frame is a sample picture and says so. The course preview
-// (board CourseTrial is empty) uses the same page with its own words.
-//
-// Opening the page starts a trial, or goes back to the one still running; with a record it shows
-// that record. Starting and ending are recorded by the server; the countdown is the server's
-// expiresAt.
+// Starting, resuming and ending use the server's record and expiration time.
 const props = defineProps<{
   experienceId: string
   // A record to show (opened from 我的体验); otherwise the page starts or resumes one.
@@ -48,95 +41,54 @@ type LoadState =
   | { kind: 'error' }
   | { kind: 'unavailable' }
 
-const BOOT_MS = 2400
 
 const state = ref<LoadState>({ kind: 'loading' })
 const item = ref<ExperienceItemDetail | null>(null)
 const record = ref<ExperienceRecord | null>(null)
 const now = ref(Date.now())
-const booting = ref(false)
-const bootStep = ref(0)
 const sheetOpen = ref(false)
 const ending = ref(false)
 // The record this page is on, once known; a refresh reads it again instead of starting another.
 let currentRecordId: string | null = null
 let requestVersion = 0
 let clock: ReturnType<typeof setInterval> | null = null
-let bootTimer: ReturnType<typeof setTimeout> | null = null
 let expiryRead = false
 
 const course = computed(() => item.value?.type === 'COURSE_TRIAL')
 const word = computed(() => (course.value ? '试听' : '试用'))
 const pageTitle = computed(() => (course.value ? '课程试听' : '软件试用'))
 const stage = computed(() => (record.value ? trialStage(record.value) : null))
-const running = computed(() => stage.value === 'ACTIVE' && !booting.value)
+const running = computed(() => stage.value === 'ACTIVE')
 const over = computed(() => stage.value === 'ENDED' || stage.value === 'EXPIRED')
 const remaining = computed(() => (record.value ? trialRemainingMs(record.value, now.value) : 0))
 const summary = computed(() => (record.value ? summariseTrial(record.value, now.value) : null))
 const cardPicture = computed(() =>
-  item.value?.coverImage?.url ?? trialPicture(course.value ? 'course' : 'softwareCard'))
-const screenPicture = computed(() => trialPicture('softwareScreen'))
+  item.value?.coverImage?.url ?? null)
 const minutesText = computed(() => (item.value?.trialMinutes ? formatTrialLength(item.value.trialMinutes * 60000) : ''))
-const BOOT_STEPS = ['分配隔离环境', '加载软件', '连接画面']
-const bootSteps = computed(() => BOOT_STEPS.map((label, index) => ({
-  label,
-  done: index < bootStep.value,
-  current: index === bootStep.value,
-  state: index < bootStep.value ? '已完成' : index === bootStep.value ? '进行中' : '等待中',
-})))
-const rules = computed(() => (course.value
-  ? [
-    `试听期 ${minutesText.value}（示例时长），期内可以反复看`,
-    '课程素材待接入，接入后在这里观看',
-    '到期或结束后可以重新开始试听',
-    '试听不会自动购买课程，是否购买由你决定',
-  ]
-  : [
-    `单次试用 ${minutesText.value}，到期自动结束（示例时长）`,
-    '软件运行在隔离环境，不接触你的设备与数据',
-    '试用中的作品不保存，结束后环境即销毁',
-    '体验结束不会自动下单，是否购买由你决定',
-  ]))
+const rules = computed(() => [
+  `单次${word.value}${minutesText.value}，到期自动结束`,
+  '体验结束不会自动下单',
+])
 const CLOCK = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7v5l3 2'
 const CROSS = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM9 9l6 6M15 9l-6 6'
 
-function stopBoot(): void {
-  if (bootTimer) clearTimeout(bootTimer)
-  bootTimer = null
-  booting.value = false
-}
-
-// Board 启动中: three steps, then the software frame. Shown only for a trial started just now.
-function boot(): void {
-  if (course.value) return
-  booting.value = true
-  bootStep.value = 0
-  const advance = () => {
-    bootStep.value += 1
-    if (bootStep.value >= BOOT_STEPS.length) {
-      stopBoot()
-      return
-    }
-    bootTimer = setTimeout(advance, BOOT_MS / BOOT_STEPS.length)
-  }
-  bootTimer = setTimeout(advance, BOOT_MS / BOOT_STEPS.length)
-}
-
-async function findOrStart(token: string): Promise<{ record: ExperienceRecord; started: boolean }> {
+async function findOrStart(token: string): Promise<ExperienceRecord> {
+  const experienceId = props.experienceId
   const target = currentRecordId ?? props.recordId
-  if (target) return { record: await experienceRecordApi.read(token, target), started: false }
-  const latest = (await experienceRecordApi.list(token, { experienceId: props.experienceId, page: 1, size: 1 })).items[0]
-  if (latest && latest.status === 'ACTIVE') return { record: latest, started: false }
-  const started = await experienceRecordApi.startTrial(token, props.experienceId)
-  // A trial that began seconds ago was started by this tap (the server answers 200 for one already running).
-  return { record: started, started: Date.now() - new Date(started.startedAt).getTime() < 10000 }
+  if (target) return experienceRecordApi.read(token, target)
+  const latest = (await experienceRecordApi.list(token, { experienceId, page: 1, size: 1 })).items[0]
+  if (latest?.status === 'ACTIVE') return latest
+  if (experienceId !== props.experienceId || token !== props.accessToken) throw new Error('TRIAL_CHANGED')
+  return experienceRecordApi.startTrial(token, experienceId)
 }
 
 async function load(): Promise<void> {
   const requested = ++requestVersion
   if (!record.value) state.value = { kind: 'loading' }
   try {
-    if (!item.value || item.value.experienceId !== props.experienceId) {
+    const token = props.accessToken
+    const target = currentRecordId ?? props.recordId
+    if (!target) {
       const loaded = await experienceApi.loadExperienceItem(props.experienceId)
       if (requested !== requestVersion) return
       if ((loaded.type !== 'SOFTWARE_TRIAL' && loaded.type !== 'COURSE_TRIAL') || !loaded.trialMinutes) {
@@ -145,37 +97,46 @@ async function load(): Promise<void> {
       }
       item.value = loaded
     }
-    const token = props.accessToken
     if (!token) {
       state.value = { kind: 'guest' }
       return
     }
     const found = await findOrStart(token)
     if (requested !== requestVersion) return
-    record.value = found.record
-    currentRecordId = found.record.recordId
+    if (found.experience.experienceId !== props.experienceId
+      || (found.experience.type !== 'SOFTWARE_TRIAL' && found.experience.type !== 'COURSE_TRIAL')) {
+      state.value = { kind: 'unavailable' }
+      return
+    }
+    if (target) {
+      const minutes = found.expiresAt ? (Date.parse(found.expiresAt) - Date.parse(found.startedAt)) / 60000 : null
+      item.value = { ...found.experience, loginRequired: true, summary: null, trialMinutes: minutes }
+    }
+    record.value = found
+    currentRecordId = found.recordId
     expiryRead = false
     now.value = Date.now()
     state.value = { kind: 'ready' }
-    if (found.started) boot()
   } catch (error) {
     if (requested !== requestVersion) return
     if (isUnauthorizedError(error)) {
       emit('login')
       return
     }
-    state.value = { kind: 'error' }
+    state.value = { kind: error instanceof ApiRequestError && error.status === 404 ? 'unavailable' : 'error' }
   }
 }
 
 async function confirmEnd(): Promise<void> {
   const token = props.accessToken
   if (!token || !record.value || ending.value) return
+  const recordId = record.value.recordId
   ending.value = true
   try {
-    record.value = await experienceRecordApi.endTrial(token, record.value.recordId)
+    const result = await experienceRecordApi.endTrial(token, recordId)
+    if (record.value?.recordId !== recordId || token !== props.accessToken) return
+    record.value = result
     sheetOpen.value = false
-    stopBoot()
   } catch (error) {
     if (isUnauthorizedError(error)) emit('login')
     else uni.showToast({ title: '没有结束成功，请再试一次', icon: 'none' })
@@ -188,16 +149,24 @@ async function confirmEnd(): Promise<void> {
 async function readAtExpiry(): Promise<void> {
   const token = props.accessToken
   if (!token || !record.value || expiryRead) return
+  const recordId = record.value.recordId
   expiryRead = true
   try {
-    record.value = await experienceRecordApi.read(token, record.value.recordId)
-    stopBoot()
+    const result = await experienceRecordApi.read(token, recordId)
+    if (record.value?.recordId === recordId && token === props.accessToken && stage.value === 'ACTIVE') record.value = result
   } catch {
     // The countdown stays at zero; the next visit reads it again.
   }
 }
 
-watch(() => [props.refreshKey, props.accessToken, props.experienceId], () => { void load() }, { immediate: true })
+watch(() => [props.experienceId, props.recordId, props.accessToken] as const, () => {
+  currentRecordId = null
+  item.value = null
+  record.value = null
+  sheetOpen.value = false
+  void load()
+}, { immediate: true })
+watch(() => props.refreshKey, () => { void load() })
 
 onMounted(() => {
   clock = setInterval(() => {
@@ -208,7 +177,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (clock) clearInterval(clock)
-  stopBoot()
 })
 </script>
 
@@ -230,8 +198,7 @@ onBeforeUnmount(() => {
           <text class="trial__card-title">{{ item.title }}</text>
           <text v-if="item.summary" class="trial__card-note">{{ item.summary }}</text>
           <view class="trial__chips">
-            <text class="trial__chip trial__chip--green">{{ course ? '课程试听 · 图文预览' : '软件试用 · 隔离环境' }}</text>
-            <text v-if="!course" class="trial__chip">不安装到手机</text>
+            <text class="trial__chip trial__chip--green">{{ pageTitle }}</text>
           </view>
         </view>
       </view>
@@ -253,31 +220,10 @@ onBeforeUnmount(() => {
       </view>
 
       <template v-else-if="record">
-        <template v-if="booting">
-          <view class="trial__panel trial__panel--center" data-testid="trial-booting">
-            <view class="trial__ring"><LineIcon d="M12 3a9 9 0 1 0 9 9" :size="28" color="#ff6a00" :stroke-width="2" /></view>
-            <text class="trial__big">正在启动试用环境</text>
-            <text class="trial__note">启动好后自动进入软件画面</text>
-          </view>
-          <view class="trial__steps">
-            <view v-for="step in bootSteps" :key="step.label" class="trial__step">
-              <view :class="['trial__dot', { 'trial__dot--done': step.done, 'trial__dot--current': step.current }]">
-                <LineIcon v-if="step.done" name="check" :size="11" color="#ffffff" :stroke-width="4" />
-              </view>
-              <text :class="['trial__step-label', { 'trial__step-label--current': step.current }]">{{ step.label }}</text>
-              <text :class="['trial__step-state', { 'trial__step-state--current': step.current }]">{{ step.state }}</text>
-            </view>
-          </view>
-        </template>
-
-        <template v-else-if="running">
-          <view v-if="!course" class="trial__screen" data-testid="trial-screen">
-            <image v-if="screenPicture" class="trial__screen-picture" :src="screenPicture" alt="软件画面" mode="aspectFill" />
-            <text class="trial__screen-tag">软件画面 · 示例</text>
-            <view class="trial__screen-foot">
-              <text>串流服务待接入</text>
-              <text class="trial__screen-right">作品只在本次试用内有效</text>
-            </view>
+        <template v-if="running">
+          <view v-if="!course" class="trial__panel" data-testid="trial-screen">
+            <text class="trial__big">试用记录进行中</text>
+            <text class="trial__note">当前仅记录试用时间，暂未提供在线软件。</text>
           </view>
           <view v-else class="trial__panel" data-testid="trial-course-running">
             <text class="trial__big">试听中 · {{ formatTrialRemaining(remaining) }}</text>
@@ -299,7 +245,7 @@ onBeforeUnmount(() => {
             </view>
             <text class="trial__big" data-testid="trial-over-title">{{ stage === 'ENDED' ? `${word}已结束` : `${word}已到期` }}</text>
             <text class="trial__note">
-              {{ stage === 'ENDED' ? `你已结束本次${word}` : `${minutesText}${word}时间已用完（示例时长）` }}{{ course ? '' : '，隔离环境已销毁' }}
+              {{ stage === 'ENDED' ? `你已结束本次${word}` : `${minutesText}${word}时间已用完` }}
             </text>
           </view>
           <view class="trial__panel">
@@ -310,20 +256,19 @@ onBeforeUnmount(() => {
               <text class="trial__fact-key">时长</text><text>{{ summary.lengthText }}</text>
               <text class="trial__fact-key">再次{{ word }}</text><text>回到体验频道再点一次即可重新开始</text>
             </view>
-            <text class="trial__fine">{{ course ? '体验结束不会自动下单' : '试用中的作品不保存，环境已销毁；体验结束不会自动下单' }}</text>
+            <text class="trial__fine">体验结束不会自动下单</text>
           </view>
         </template>
       </template>
 
-      <button class="trial__records" data-testid="trial-records" @click="emit('openRecords')">
+      <button v-if="record && state.kind === 'ready'" class="trial__records" data-testid="trial-records" @click="emit('openRecords')">
         <text class="trial__records-text">本次{{ word }}记入“我的体验记录”</text>
         <text class="trial__records-go">查看 ›</text>
       </button>
     </view>
 
     <view class="trial__actions">
-      <button v-if="booting" class="trial__outline-wide" @click="emit('back')">取消启动</button>
-      <button v-else-if="running" class="trial__outline-wide" data-testid="trial-end" @click="sheetOpen = true">结束{{ word }}</button>
+      <button v-if="running" class="trial__outline-wide" data-testid="trial-end" @click="sheetOpen = true">结束{{ word }}</button>
       <button v-else class="trial__outline-wide" data-testid="trial-channel" @click="emit('openChannel')">返回体验频道</button>
       <button
         v-if="item?.productId"
@@ -340,7 +285,7 @@ onBeforeUnmount(() => {
       <view class="trial__sheet" role="dialog" aria-modal="true" :aria-label="`结束${word}`" data-testid="trial-end-sheet">
         <text class="trial__sheet-title">结束这次{{ word }}？</text>
         <text class="trial__sheet-copy">
-          {{ course ? `结束后要重新开始试听；剩余的时间不会保留。` : `结束后隔离环境立即销毁，试用中的作品不会保存；剩余的时间不会保留。` }}
+          结束后可在我的体验中查看记录，剩余时间不会保留。
         </text>
         <view class="trial__sheet-actions">
           <button class="trial__outline-wide" @click="sheetOpen = false">继续{{ word }}</button>
@@ -531,110 +476,6 @@ button::after {
   font-size: 16px;
   font-weight: 700;
   line-height: 22px;
-}
-
-.trial__steps {
-  display: flex;
-  padding: 4px 14px;
-  flex-direction: column;
-  border-radius: 14px;
-  background: #ffffff;
-}
-
-.trial__step {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 10px;
-  border-top: 1px solid #f0f1f3;
-}
-
-.trial__step:first-child {
-  border-top: 0;
-}
-
-.trial__dot {
-  display: flex;
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid #c9d3e1;
-  border-radius: 50%;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-
-.trial__dot--done {
-  border-color: #ff6a00;
-  background: #ff6a00;
-}
-
-.trial__dot--current {
-  border-color: #ff6a00;
-}
-
-.trial__step-label {
-  flex: 1;
-  color: #738096;
-  font-size: 14px;
-}
-
-.trial__step-label--current {
-  color: #202c42;
-}
-
-.trial__step-state {
-  color: #738096;
-  font-size: 12px;
-}
-
-.trial__step-state--current {
-  color: #ba470b;
-}
-
-.trial__screen {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 14px;
-  background: #ffffff;
-}
-
-.trial__screen-picture {
-  display: block;
-  width: 100%;
-  height: 214px;
-  background: #1c1d20;
-}
-
-.trial__screen-tag {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  color: #ffffff;
-  background: rgba(0, 0, 0, 0.55);
-  font-size: 12px;
-  line-height: 17px;
-}
-
-.trial__screen-foot {
-  display: flex;
-  padding: 10px 12px;
-  align-items: center;
-  gap: 8px;
-  color: #627187;
-  font-size: 12px;
-  line-height: 17px;
-}
-
-.trial__screen-right {
-  margin-left: auto;
-  white-space: nowrap;
 }
 
 .trial__rule {

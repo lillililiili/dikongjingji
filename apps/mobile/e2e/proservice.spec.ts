@@ -109,7 +109,7 @@ test.describe('专业服务目录、详情和服务商主页', () => {
     await expect(entry.locator('.pro-card__title')).toHaveText(['园区与工程航拍', '能源设施航拍', '文旅风光航拍'])
     await expect(page.getByTestId(`pro-service-card-${AERIAL_PARK}`)).toContainText('¥1,280')
     await expect(page.getByTestId(`pro-service-card-${AERIAL_PARK}`)).toContainText('示例')
-    await expect(page.getByTestId('service-entry-guarantees')).toContainText('成果可追溯')
+    await expect(page.getByTestId('service-entry-aerial')).toBeVisible()
 
     await page.getByTestId('service-entry-all').click()
     await expect(page).toHaveURL(new RegExp(`proservice/catalog\\?type=AERIAL&cityCode=${CITY}`))

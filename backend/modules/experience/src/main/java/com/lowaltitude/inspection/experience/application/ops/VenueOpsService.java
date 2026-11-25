@@ -485,7 +485,7 @@ public class VenueOpsService {
         if (existing != null) {
             return new Created(venue(venueId), false);
         }
-        CleanDevice clean = cleanDevice(draft, venue.cityCode());
+        CleanDevice clean = cleanDevice(draft, venue.cityCode(), null);
         UUID deviceId = UUID.randomUUID();
         OffsetDateTime at = now();
         mapper.insertDevice(deviceId, venueId, clean.category.name(), clean.name, clean.summary, clean.imageUrl,
@@ -501,7 +501,7 @@ public class VenueOpsService {
                                            Operator operator) {
         VenueRow venue = requireVenue(mapper.lockVenue(require(venueId)));
         DeviceRow current = lockDevice(venueId, deviceId, version);
-        CleanDevice clean = cleanDevice(draft, venue.cityCode());
+        CleanDevice clean = cleanDevice(draft, venue.cityCode(), current.imageUrl());
         OffsetDateTime at = now();
         if (mapper.updateDevice(venueId, deviceId, clean.category.name(), clean.name, clean.summary, clean.imageUrl,
                 clean.trialMode.name(), clean.productId, clean.sortOrder, version, at) != 1) {
@@ -600,7 +600,7 @@ public class VenueOpsService {
         String name = OpsText.required(draft.name(), MAX_NAME, "name");
         String cityCode = cityCode(draft.cityCode());
         String cityName = cities.cityName(cityCode).orElseThrow(() -> new OpsException(VenueOpsError.CITY_UNKNOWN));
-        String coverUrl = OpsText.httpsUrl(draft.coverUrl(), "coverUrl");
+        String coverUrl = OpsText.mediaUrl(draft.coverUrl(), current == null ? null : current.coverUrl(), "coverUrl");
         String address = OpsText.required(draft.address(), MAX_ADDRESS, "address");
         String phone = OpsText.optional(draft.phone(), MAX_PHONE, "phone");
         if (phone != null && !PHONE.matcher(phone).matches()) {
@@ -680,7 +680,7 @@ public class VenueOpsService {
                                VenueDeviceTrialMode trialMode, UUID productId, int sortOrder) {
     }
 
-    private CleanDevice cleanDevice(DeviceDraft draft, String cityCode) {
+    private CleanDevice cleanDevice(DeviceDraft draft, String cityCode, String existingImage) {
         if (draft == null) {
             throw new IllegalArgumentException("device is required");
         }
@@ -692,7 +692,7 @@ public class VenueOpsService {
                 OpsText.enumValue(VenueDeviceCategory.class, draft.category(), "category"),
                 OpsText.required(draft.name(), MAX_NAME, "name"),
                 OpsText.optional(draft.summary(), MAX_SUMMARY, "summary"),
-                OpsText.httpsUrl(draft.imageUrl(), "imageUrl"),
+                OpsText.mediaUrl(draft.imageUrl(), existingImage, "imageUrl"),
                 OpsText.enumValue(VenueDeviceTrialMode.class, draft.trialMode(), "trialMode"),
                 productId,
                 draft.sortOrder() == null ? 0 : bounded(draft.sortOrder(), 0, MAX_SORT_ORDER, "sortOrder"));

@@ -12,7 +12,7 @@ import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import ShareSheet from '@/shared/share/ShareSheet.vue'
 import type { ShareTarget } from '@/shared/share/share-link'
-import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
+import { chooseNavigation, viewDestination } from '@/shared/map/destination-actions'
 
 import {
   CHOOSE_SESSION_PROMPT,
@@ -24,7 +24,6 @@ import {
 } from '../../application/activity-intent'
 import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
 import { activityApi } from '../../data/activity-api-client'
-import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
 import {
   buildActivityDetailUrl,
@@ -70,10 +69,9 @@ const primaryAction = computed(() =>
       )
     : null,
 )
-// The server's picture when it has one, else the sample picture of a preview build.
 const coverUrl = computed(() =>
   activity.value
-    ? activity.value.coverImage?.url ?? resolveActivityPreviewCover(activity.value.activityId)
+    ? activity.value.coverImage?.url ?? null
     : null,
 )
 // Board ActDetail: the right of the price row says how many places a session has, and how many
@@ -214,29 +212,12 @@ function runPrimaryAction(): void {
   })
 }
 
-function copyAddress(address: string): void {
-  uni.setClipboardData({
-    data: address,
-    success: () => uni.showToast({ title: '已复制地址', icon: 'none' }),
-  })
+function openNavigation(): void {
+  if (activity.value?.location) chooseNavigation(activity.value.location)
 }
 
-function openNavigation(): void {
-  const location = activity.value?.location
-  if (!location) return
-  if (location.latitude === null || location.longitude === null) {
-    copyAddress(location.address)
-    return
-  }
-  const point = wgs84ToGcj02({ latitude: location.latitude, longitude: location.longitude })
-  uni.openLocation({
-    latitude: point.latitude,
-    longitude: point.longitude,
-    name: location.name,
-    address: location.address,
-    // Without a map on this device the address is still useful in another app.
-    fail: () => copyAddress(location.address),
-  })
+function openMap(): void {
+  if (activity.value?.location) viewDestination(activity.value.location)
 }
 
 function goBack(): void {
@@ -405,19 +386,16 @@ onLoad((query) => {
               <text class="activity-detail__row-label">承办/交付</text>
               <text class="activity-detail__row-value">{{ activity.coOrganizer.name }}</text>
             </view>
-            <button
-              class="activity-detail__row activity-detail__row--location"
-              data-testid="activity-detail-navigate"
-              aria-label="导航到活动地点"
-              @click="openNavigation"
-            >
+            <view class="activity-detail__row activity-detail__row--location">
               <text class="activity-detail__row-label">活动地点</text>
-              <view class="activity-detail__row-value">
+              <button class="activity-detail__row-value destination-address" data-testid="activity-detail-map" @click="openMap">
                 <text class="activity-detail__location-name">{{ activity.location.name }}</text>
                 <text class="activity-detail__location-address">{{ activity.location.address }}</text>
-              </view>
-              <LineIcon name="navigate" :size="18" color="#738096" />
-            </button>
+              </button>
+              <button class="destination-icon" data-testid="activity-detail-navigate" aria-label="导航到活动地点" @click="openNavigation">
+                <LineIcon name="navigate" :size="18" color="#738096" />
+              </button>
+            </view>
             <view v-if="activity.eligibilityNote || activity.seatNote" class="activity-detail__row activity-detail__row--top">
               <text class="activity-detail__row-label">参与条件</text>
               <view class="activity-detail__row-value">
@@ -922,4 +900,7 @@ button::after {
   background: #eef0f3;
   box-shadow: none;
 }
+.destination-address, .destination-icon { margin: 0; padding: 0; background: transparent; line-height: inherit; text-align: left; }
+.destination-icon { display: flex; align-items: center; justify-content: center; min-width: 72rpx; min-height: 72rpx; }
+.destination-address::after,.destination-icon::after { border: 0; }
 </style>

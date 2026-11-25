@@ -145,6 +145,27 @@ describe('silent login renewal', () => {
     expect(sent.filter(isRefresh)).toHaveLength(1)
   })
 
+  it('discards a late renewal after clearing the session on password change', async () => {
+    signIn()
+    reply = () => {
+      authContext.clearBookingAuthSession()
+      return renewedReply(2)
+    }
+    expect(await bookingHttp.accessTokenAfterUnauthorized('access-1')).toBeNull()
+    expect(authContext.readBookingRefreshToken()).toBeNull()
+    expect(authContext.getBookingAuthContext().getAccessToken()).toBeNull()
+  })
+
+  it('keeps a fresh login when a previous session finishes a failed renewal', async () => {
+    signIn()
+    reply = () => {
+      signIn('new-access', 'new-refresh')
+      return unauthorized
+    }
+    expect(await bookingHttp.accessTokenAfterUnauthorized('access-1')).toBeNull()
+    expect(authContext.readBookingRefreshToken()).toBe('new-refresh')
+  })
+
   it('sends later calls with the renewed token even when the page still holds the old one', async () => {
     signIn('access-2', 'refresh-2')
     reply = (request) => ({ statusCode: 200, data: bearer(request) })

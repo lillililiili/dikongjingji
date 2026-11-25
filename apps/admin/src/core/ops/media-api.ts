@@ -36,7 +36,13 @@ export function uploadedFileName(url: string): string | null {
   return UPLOADED.exec(url.trim())?.[1] ?? null
 }
 
-/** 受控地址：只收带主机名的 https 地址，最多 500 字（和后端 OpsText.httpsUrl 一致）。 */
+const DEVELOPMENT_MEDIA = /^\/api\/v1\/dev-media\/(?:images\/(?:home|preview|inspection)\/[a-z0-9-]+\.(?:jpg|png|webp)|videos\/preview\/[a-z0-9-]+\.mp4)$/
+
+/** 运营可以保留当前字段从后端读到的开发素材。 */
+export function isRetainedMediaUrl(value: string, existing?: string | null): boolean {
+  return isHttpsUrl(value) || (value === existing && DEVELOPMENT_MEDIA.test(value))
+}
+
 export function isHttpsUrl(value: string): boolean {
   const text = value.trim()
   if (text.length === 0 || text.length > 500 || /\s/.test(text)) return false

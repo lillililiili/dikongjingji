@@ -6,15 +6,14 @@ import { robotArtwork } from '@/app-shell/navigation/home-artwork'
 import {
   createPlaySession,
   describePlayOutcome,
-  findPlayGame,
   formatPlayDuration,
   movePlaySession,
   resolvePlayCells,
   type PlayDirection,
-  type PlayGame,
   type PlaySession,
 } from '../domain/play-game'
 import PlayPageHeader from './PlayPageHeader.vue'
+import { usePlayGames } from '../application/use-play-games'
 
 const PLAY_GAMES_PATH = '/pages/play/index'
 const CLOCK_TICK_MS = 300
@@ -36,8 +35,9 @@ const KEY_DIRECTIONS: Record<string, PlayDirection | undefined> = {
   ArrowRight: 'RIGHT',
 }
 
-const game = ref<PlayGame>()
-const loaded = ref(false)
+const { games, state, load } = usePlayGames()
+const gameId = ref('')
+const game = computed(() => games.value.find((item) => item.id === gameId.value))
 const session = ref<PlaySession>(createPlaySession())
 // The round clock starts with the first real move and stops at the win.
 const startedAt = ref(0)
@@ -118,8 +118,8 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 onLoad((query) => {
-  game.value = findPlayGame(query?.game)
-  loaded.value = true
+  gameId.value = typeof query?.game === 'string' ? query.game : ''
+  void load()
 })
 
 onMounted(() => {
@@ -140,10 +140,12 @@ onUnload(stopClock)
 
 <template>
   <view class="play-game" data-testid="play-game">
-    <PlayPageHeader :title="game?.title ?? '内容暂不可用'" @back="backToGames" />
+    <PlayPageHeader :title="game?.title ?? '趣玩挑战'" @back="backToGames" />
+    <text v-if="state === 'loading'" role="status">正在加载挑战…</text>
+    <button v-else-if="state === 'error'" @click="load">挑战加载失败，点击重试</button>
 
     <view
-      v-if="loaded && !game"
+      v-else-if="!game"
       class="play-game__content"
       data-testid="play-game-missing"
     >

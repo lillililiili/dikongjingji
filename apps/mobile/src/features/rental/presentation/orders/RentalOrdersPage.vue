@@ -13,7 +13,6 @@ import {
   type MergedSource,
 } from '@/shared/list/merged-pages'
 
-import { rentalCoverUrl } from '../../application/rental-cover'
 import { describeRentalOrderCard } from '../../application/rental-order-view'
 import { rentalApi } from '../../data/rental-api-client'
 import { RENTAL_PAGE_SIZE, type RentalInquiry, type RentalOrder } from '../../domain/rental'
@@ -80,7 +79,7 @@ async function loadCovers(token: string): Promise<void> {
     const page = await rentalApi.listInquiries(token, 'CONFIRMED', 1, 50)
     const next: Record<string, string | null> = {}
     page.items.forEach((inquiry: RentalInquiry) => {
-      next[inquiry.inquiryId] = rentalCoverUrl(inquiry.item.coverUrl, inquiry.item.productId)
+      next[inquiry.inquiryId] = inquiry.item.coverUrl
     })
     covers.value = next
   } catch {

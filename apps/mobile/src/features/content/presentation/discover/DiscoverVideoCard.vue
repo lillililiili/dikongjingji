@@ -5,7 +5,6 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { AUTHOR_AVATAR_COLORS, CONTENT_KIND_TONES, authorInitial, formatContentDay } from '../../application/content-view'
 import { formatVideoDuration } from '../../application/video-view'
-import { resolveVideoPreviewCover } from '../../data/preview/content-preview-videos'
 import type { ContentArticleCard } from '../../domain/content'
 
 // A video in the discover waterfall (board Discover): the poster with 视频 and the duration on it,
@@ -13,8 +12,7 @@ import type { ContentArticleCard } from '../../domain/content'
 const props = defineProps<{ card: ContentArticleCard }>()
 const emit = defineEmits<{ open: [] }>()
 
-// The server's cover, otherwise on preview builds the sample clip's first frame.
-const poster = computed(() => props.card.coverImage ?? resolveVideoPreviewCover(props.card.articleId))
+const poster = computed(() => props.card.coverImage ?? null)
 // Portrait videos stand taller in the waterfall, as the board's 236 and 200.
 const tall = computed(() => props.card.video?.orientation !== 'LANDSCAPE')
 const duration = computed(() => (props.card.video ? formatVideoDuration(props.card.video.durationSeconds) : ''))

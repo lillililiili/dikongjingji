@@ -4,6 +4,7 @@ import { activityModule } from '@/features/activity/activity-module'
 import { activityResultsModule } from '@/features/activity-results/activity-results-module'
 import { catalogModule } from '@/features/catalog/catalog-module'
 import { cityModule } from '@/features/city/city-module'
+import { pageContentModule } from '@/features/page-content/page-content-module'
 import { contentModule } from '@/features/content/content-module'
 import { courseModule } from '@/features/course/course-module'
 import { demandQuotesModule } from '@/features/demand-quotes/demand-quotes-module'
@@ -43,6 +44,7 @@ import { venueModule } from '@/features/venue/venue-module'
  * 机构过滤（没有卖货的服务商看到的商城订单是空的）；直播主办（LIVE_HOST）另有“直播间”。
  */
 export const ADMIN_MODULES: readonly AdminModule[] = [
+  pageContentModule,
   cityModule,
   organizationModule,
   catalogModule,

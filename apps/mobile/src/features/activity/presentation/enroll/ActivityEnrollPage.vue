@@ -24,7 +24,6 @@ import {
   enrollmentNoticeLead,
 } from '../../application/enrollment-view'
 import { activityApi } from '../../data/activity-api-client'
-import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import { enrollmentApi } from '../../data/enrollment-api-client'
 import type { ActivityDetail, ActivitySession } from '../../domain/activity'
 import { MAX_ENROLLMENT_PARTICIPANTS, type Participant } from '../../domain/enrollment'
@@ -91,10 +90,9 @@ const sessions = computed<ActivitySession[]>(() =>
   activity.value?.sessions.filter((session) => session.status !== 'ENDED') ?? [])
 const selectedSession = computed(() =>
   sessions.value.find((session) => session.sessionId === selectedSessionId.value) ?? null)
-// The server's picture when it has one, else the sample picture of a preview build.
 const coverUrl = computed(() =>
   activity.value
-    ? activity.value.coverImage?.url ?? resolveActivityPreviewCover(activity.value.activityId)
+    ? activity.value.coverImage?.url ?? null
     : null)
 // Board EventSignup's pill above the title: "研学 · 适合 6–12 岁".
 const typeLine = computed(() => {

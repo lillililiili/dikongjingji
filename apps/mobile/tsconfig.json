@@ -2,6 +2,8 @@
   "extends": "@vue/tsconfig/tsconfig.json",
   "compilerOptions": {
     "strict": true,
+    "allowJs": true,
+    "checkJs": true,
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {

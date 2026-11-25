@@ -41,8 +41,10 @@ const STAR = 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1
     <template v-if="total > 0 && average !== null">
       <view class="service-reviews__summary">
         <text class="service-reviews__average">{{ average.toFixed(1) }}</text>
-        <view class="service-reviews__stars" aria-label="五星评价">
-          <LineIcon v-for="star in 5" :key="star" :d="STAR" :size="17" color="#ff5c00" fill="#ff5c00" />
+        <view class="service-reviews__stars" :aria-label="`平均评分 ${average.toFixed(1)} 分，满分 5 分`">
+          <LineIcon v-for="star in 5" :key="star" :d="STAR" :size="17"
+            :color="star <= Math.round(average) ? '#ff5c00' : '#d1d5db'"
+            :fill="star <= Math.round(average) ? '#ff5c00' : 'none'" />
         </view>
         <text v-if="positiveRateLabel" class="service-reviews__meta">
           {{ positiveRateLabel }}　·　{{ total }}条评价

@@ -1568,6 +1568,15 @@ public class GlobalExceptionHandler {
             case PHONE_REQUIRED -> "请先绑定手机号";
             case PHONE_TAKEN -> "这个手机号已绑定其他账号";
             case PHONE_UNCHANGED -> "新手机号和当前手机号相同";
+            case PASSWORD_INVALID -> "密码须为 8–64 位，包含字母和数字，无空白，且不超过 72 个 UTF-8 字节";
+            case PASSWORD_NOT_ELIGIBLE -> "此账号无法在这里设置登录密码";
+            case PASSWORD_ALREADY_SET -> "已设置登录密码";
+            case PASSWORD_NOT_SET -> "请先设置登录密码";
+            case PASSWORD_CURRENT_INVALID -> "原密码不正确";
+            case PASSWORD_UNCHANGED -> "新密码与原密码相同，请更换";
+            case PASSWORD_CODE_REQUIRED -> "请验证当前绑定的手机号";
+            case PASSWORD_CREDENTIALS_INVALID -> "手机号或密码错误";
+            case PASSWORD_TRY_LATER -> "尝试次数过多，请稍后再试";
             case SESSION_IS_CURRENT -> "本机请在设置里退出登录";
             case CLOSURE_CONDITIONS_UNMET -> "还有未满足的注销条件";
             case CLOSURE_ALREADY_PENDING -> "注销申请已在处理中";

@@ -7,7 +7,6 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { formatResume, progressSegments } from '../../application/course-format'
 import { courseApi } from '../../data/course-api-client'
-import { resolveCoursePreviewCover } from '../../data/preview/course-preview-media'
 import {
   COURSE_PAGE_SIZE,
   type CourseEnrollmentBucket,
@@ -75,9 +74,6 @@ function pick(next: CourseEnrollmentBucket): void {
   void load()
 }
 
-function cover(courseId: string, image: { url: string } | null): string | null {
-  return image?.url ?? resolveCoursePreviewCover({ courseId })
-}
 
 function sourceLine(card: CourseEnrollmentCard): string {
   if (card.bundle) return `来源：${card.bundle.productName} · ${card.bundle.skuName.replace(/（.*）$/, '')}`
@@ -121,7 +117,7 @@ watch(() => [props.accessToken, props.refreshKey], () => { void load() }, { imme
             @click="emit('learn', card.enrollmentId, card.resume?.lessonId ?? null)"
           >
             <view class="my-courses__top">
-              <image v-if="cover(card.courseId, card.coverImage)" class="my-courses__cover" :src="cover(card.courseId, card.coverImage) ?? ''" mode="aspectFill" :alt="card.title" />
+              <image v-if="card.coverImage?.url" class="my-courses__cover" :src="card.coverImage?.url ?? ''" mode="aspectFill" :alt="card.title" />
               <view v-else class="my-courses__cover" />
               <view class="my-courses__copy">
                 <view class="my-courses__tag-row">
@@ -166,7 +162,7 @@ watch(() => [props.accessToken, props.refreshKey], () => { void load() }, { imme
             :data-testid="`my-course-trial-${trial.courseId}`"
             @click="emit('trial', trial.courseId)"
           >
-            <image v-if="cover(trial.courseId, trial.coverImage)" class="my-courses__cover" :src="cover(trial.courseId, trial.coverImage) ?? ''" mode="aspectFill" :alt="trial.title" />
+            <image v-if="trial.coverImage?.url" class="my-courses__cover" :src="trial.coverImage?.url ?? ''" mode="aspectFill" :alt="trial.title" />
             <view v-else class="my-courses__cover" />
             <view class="my-courses__copy">
               <view class="my-courses__tag-row">

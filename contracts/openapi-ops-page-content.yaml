@@ -1,0 +1,290 @@
+openapi: 3.1.0
+info:
+  title: 首页轮播、巡检入口与交付样图运营接口
+  version: 1.0.0
+  description: |
+    只允许 PLATFORM_OPERATOR。修改携带读取时的 version，过期返回 409。写入与操作留痕同事务。
+    首页按城市管理，新增时总是草稿，图片使用现有上传接口。每城最多同时发布 12 张。
+    巡检入口未指定城市时管理全国默认，横幅编码固定 DEFAULT。城市的启用条目按栏目覆盖默认，
+    场景说明按类目编码继承。交付样图使用所属服务的 version，更新后重新读取服务详情。
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/ops/home/carousel:
+    get:
+      operationId: listOpsHomeSlides
+      summary: 查询轮播
+      parameters:
+        - { name: cityCode, in: query, required: false, schema: { type: string } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: size, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlidePage' }
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+  /api/v1/ops/home/carousel/{city}:
+    post:
+      operationId: createOpsHomeSlide
+      summary: 新增草稿
+      parameters:
+        - { name: city, in: path, required: true, schema: { type: string, pattern: '^[0-9]{6}$' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SlideInput' }
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Saved' }
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+        '400': { description: 参数错误 }
+        '409': { description: 版本冲突或条目已存在 }
+  /api/v1/ops/home/carousel/{city}/{id}:
+    put:
+      operationId: updateOpsHomeSlide
+      summary: 修改或发布轮播
+      parameters:
+        - { name: city, in: path, required: true, schema: { type: string, pattern: '^[0-9]{6}$' } }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SlideInput' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Saved' }
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+        '400': { description: 参数错误 }
+        '409': { description: 版本冲突或条目已存在 }
+  /api/v1/ops/home/carousel/{city}/{id}/changes:
+    get:
+      operationId: listOpsHomeSlideChanges
+      summary: 轮播操作记录
+      parameters:
+        - { name: city, in: path, required: true, schema: { type: string, pattern: '^[0-9]{6}$' } }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Change' } }
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+  /api/v1/ops/inspection/portal-content:
+    get:
+      operationId: listOpsInspectionPortalContent
+      summary: 查询指定范围的入口内容
+      parameters:
+        - { name: cityCode, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Portal' } }
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+    post:
+      operationId: createOpsInspectionPortalContent
+      summary: 新建入口条目
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PortalInput' }
+      responses:
+        '201':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Saved' }
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+        '400': { description: 参数错误 }
+        '409': { description: 版本冲突或条目已存在 }
+  /api/v1/ops/inspection/portal-content/{id}:
+    put:
+      operationId: updateOpsInspectionPortalContent
+      summary: 修改入口条目
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PortalInput' }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Saved' }
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+        '400': { description: 参数错误 }
+        '409': { description: 版本冲突或条目已存在 }
+  /api/v1/ops/inspection/portal-content/{id}/changes:
+    get:
+      operationId: listOpsInspectionPortalChanges
+      summary: 入口改动记录
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Change' } }
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+  /api/v1/ops/inspection/services/{id}/deliverable-images:
+    get:
+      operationId: listOpsInspectionDeliverableImages
+      summary: 查看交付物的样图
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Deliverable' } }
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+  /api/v1/ops/inspection/services/{id}/deliverable-images/{code}:
+    put:
+      operationId: updateOpsInspectionDeliverableImage
+      summary: 修改或清除交付样图
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliverableImage' }
+      responses:
+        '204':
+          description: 成功
+        '401': { description: 未登录 }
+        '403': { description: 需要平台运营角色 }
+        '400': { description: 参数错误 }
+        '409': { description: 版本冲突或条目已存在 }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Saved:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+    SlideInput:
+      type: object
+      required: [tag, titleFirst, titleSecond, descriptionFirst, descriptionSecond, actionLabel, imageUrl, imageAlt, tone, target, status, sortOrder]
+      properties:
+        tag: { type: string }
+        titleFirst: { type: string }
+        titleSecond: { type: string }
+        descriptionFirst: { type: string }
+        descriptionSecond: { type: string }
+        actionLabel: { type: string }
+        imageUrl: { type: string }
+        imageAlt: { type: string }
+        tone: { type: string, enum: [SKY, SUN, VIOLET, MINT] }
+        target: { type: string, enum: [ACTIVITY, PLAY_GAMES, EXPERIENCE] }
+        status: { type: string, enum: [DRAFT, PUBLISHED, OFFLINE] }
+        sortOrder: { type: integer, minimum: 0 }
+        version: { type: integer, minimum: 0 }
+    Slide:
+      type: object
+      required: [tag, titleFirst, titleSecond, descriptionFirst, descriptionSecond, actionLabel, imageUrl, imageAlt, tone, target, status, sortOrder, version, id, cityCode]
+      properties:
+        tag: { type: string }
+        titleFirst: { type: string }
+        titleSecond: { type: string }
+        descriptionFirst: { type: string }
+        descriptionSecond: { type: string }
+        actionLabel: { type: string }
+        imageUrl: { type: string }
+        imageAlt: { type: string }
+        tone: { type: string, enum: [SKY, SUN, VIOLET, MINT] }
+        target: { type: string, enum: [ACTIVITY, PLAY_GAMES, EXPERIENCE] }
+        status: { type: string, enum: [DRAFT, PUBLISHED, OFFLINE] }
+        sortOrder: { type: integer, minimum: 0 }
+        version: { type: integer, minimum: 0 }
+        id: { type: string }
+        cityCode: { type: string }
+    SlidePage:
+      type: object
+      required: [items, page, size, total, hasMore]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Slide' } }
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+    PortalInput:
+      type: object
+      required: [contentType, itemCode, title, status, sortOrder]
+      properties:
+        cityCode: { type: [string, 'null'] }
+        contentType: { type: string, enum: [HERO, SCENE, PROCESS, GUARANTEE] }
+        itemCode: { type: string }
+        title: { type: string }
+        subtitle: { type: [string, 'null'] }
+        highlightedText: { type: [string, 'null'] }
+        imageUrl: { type: [string, 'null'] }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        sortOrder: { type: integer, minimum: 0 }
+        version: { type: integer, minimum: 0 }
+    Portal:
+      type: object
+      required: [id, contentType, itemCode, title, status, sortOrder, version]
+      properties:
+        id: { type: string, format: uuid }
+        cityCode: { type: [string, 'null'] }
+        contentType: { type: string, enum: [HERO, SCENE, PROCESS, GUARANTEE] }
+        itemCode: { type: string }
+        title: { type: string }
+        subtitle: { type: [string, 'null'] }
+        highlightedText: { type: [string, 'null'] }
+        imageUrl: { type: [string, 'null'] }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        sortOrder: { type: integer, minimum: 0 }
+        version: { type: integer, minimum: 0 }
+    Change:
+      type: object
+      required: [version, operatorName, status, changedAt]
+      properties:
+        version: { type: integer, minimum: 0 }
+        operatorName: { type: string }
+        status: { type: string }
+        changedAt: { type: string, format: date-time }
+    Deliverable:
+      type: object
+      required: [code, title, imageUrl]
+      properties:
+        code: { type: string }
+        title: { type: string }
+        imageUrl: { type: [string, 'null'] }
+    DeliverableImage:
+      type: object
+      required: [version, imageUrl]
+      properties:
+        version: { type: integer, minimum: 0 }
+        imageUrl: { type: [string, 'null'] }

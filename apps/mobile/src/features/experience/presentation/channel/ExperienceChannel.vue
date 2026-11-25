@@ -21,7 +21,6 @@ import {
   type ExperienceType,
   type VenueCard,
 } from '../../domain/experience'
-import { resolveExperiencePreviewCover } from '../../data/preview/experience-preview-covers'
 import { buildExperienceRecordsUrl, buildVenueDetailUrl } from '../../navigation/experience-routes'
 import {
   EXPERIENCE_TYPE_LABELS,
@@ -98,7 +97,6 @@ function openExperience(item: ExperienceItem): void {
     EXPERIENCE_PREVIEW_ENABLED,
   )
   if (resolution.action === 'NAVIGATE') uni.navigateTo({ url: resolution.url })
-  else if (resolution.action === 'SHOW_NOTICE') uni.showToast({ title: resolution.message, icon: 'none' })
 }
 
 // 我的体验记录 › (board ExpCenter): the page asks for a login itself; a guest sees the results kept here.
@@ -110,10 +108,6 @@ function openVenue(venue: VenueCard): void {
   uni.navigateTo({ url: buildVenueDetailUrl(venue.venueId, props.cityCode) })
 }
 
-// The server's picture when it has one, else the sample picture of a preview build.
-function coverOf(id: string, coverImage: { url: string } | null): string | null {
-  return coverImage?.url ?? resolveExperiencePreviewCover(id)
-}
 
 // The games are built into the App, so their picture ships with it (the same one the games page uses).
 const GAMES_PICTURE = robotArtwork
@@ -233,9 +227,9 @@ defineExpose({
         >
           <view :class="['experience-card__cover', `experience-card__cover--${item.type.toLowerCase()}`]">
             <image
-              v-if="coverOf(item.experienceId, item.coverImage)"
+              v-if="item.coverImage?.url"
               class="experience-card__image"
-              :src="coverOf(item.experienceId, item.coverImage) ?? ''"
+              :src="item.coverImage?.url ?? ''"
               :alt="item.title"
               mode="aspectFill"
               lazy-load
@@ -259,9 +253,9 @@ defineExpose({
         @click="openVenue(featuredVenue)"
       >
         <image
-          v-if="coverOf(featuredVenue.venueId, featuredVenue.coverImage)"
+          v-if="featuredVenue.coverImage?.url"
           class="experience-channel__venue-strip-picture"
-          :src="coverOf(featuredVenue.venueId, featuredVenue.coverImage) ?? ''"
+          :src="featuredVenue.coverImage?.url ?? ''"
           :alt="featuredVenue.name"
           mode="aspectFill"
         />
@@ -304,9 +298,9 @@ defineExpose({
         >
           <view class="venue-card__cover">
             <image
-              v-if="coverOf(venue.venueId, venue.coverImage)"
+              v-if="venue.coverImage?.url"
               class="venue-card__image"
-              :src="coverOf(venue.venueId, venue.coverImage) ?? ''"
+              :src="venue.coverImage?.url ?? ''"
               :alt="venue.name"
               mode="aspectFill"
               lazy-load

@@ -1,11 +1,12 @@
 import { readFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { testApi as API } from './support/test-stack'
 import { expect, test, type Page, type Route } from '@playwright/test'
 
 // 底栏“消息”：巡检服务进度通知（计划 §15.4）。行为用例用桩数据；最后一条对着本地后端真实登录。
 const visualOutput = resolve(__dirname, '../../../.planning/message/visual')
-const API = 'http://127.0.0.1:18420'
+
 const PLAN_ID = '50000000-0000-4000-8000-000000000001'
 const ORDER_ID = '60000000-0000-4000-8000-000000000001'
 const VISIT_ID = '61000000-0000-4000-8000-000000000001'
@@ -23,6 +24,8 @@ const notice = (number: number, overrides: Record<string, unknown> = {}) => ({
 })
 
 async function signIn(page: Page): Promise<void> {
+  await page.route('**/api/v1/conversations?**', route =>
+    route.fulfill({ json: { items: [], total: 0, hasMore: false } }))
   await page.addInitScript(() => {
     localStorage.setItem('inspection.accessToken', 'message-spec')
   })
@@ -38,6 +41,33 @@ async function stubInbox(page: Page, items: unknown[], unreadCount: number, hasM
 const messageBadge = (page: Page) => page.getByTestId('root-tab-message').locator('.root-tab-bar__badge')
 
 test.describe('消息', () => {
+  test('切换账号清除旧会话，新账号读失败后可独立重试', async ({ page }) => {
+    await signIn(page)
+    await stubInbox(page, [], 0)
+    let failed = true
+    await page.route('**/api/v1/conversations?**', route => {
+      const second = route.request().headers().authorization === 'Bearer message-second'
+      return second && failed
+        ? route.fulfill({ status: 503, json: {} })
+        : route.fulfill({ json: { items: [{
+          conversationId: second ? 'second' : 'first',
+          counterpart: { kind: 'PLATFORM', name: second ? '第二个账号的客服会话' : '第一个账号的客服会话' },
+          createdAt: '2026-11-25T07:00:00Z', unreadCount: 0,
+        }], hasMore: false, total: 1 } })
+    })
+    await page.goto('/#/pages/message/index')
+    await expect(page.getByText('第一个账号的客服会话')).toBeVisible()
+    await page.getByTestId('root-tab-home').click()
+    await page.evaluate(() => { localStorage.setItem('inspection.accessToken', 'message-second') })
+    await page.getByTestId('root-tab-message').click()
+    await expect(page.getByTestId('conversation-retry')).toBeVisible()
+    await expect(page.getByText('第一个账号的客服会话')).toHaveCount(0)
+    failed = false
+    await page.getByTestId('conversation-retry').click()
+    await expect(page.getByText('第二个账号的客服会话')).toBeVisible()
+    await expect(page.getByTestId('conversation-retry')).toHaveCount(0)
+  })
+
   test('MSG-001 未登录只提示登录，不请求通知；登录后回到消息页', async ({ page }) => {
     const calls: string[] = []
     page.on('request', (request) => {

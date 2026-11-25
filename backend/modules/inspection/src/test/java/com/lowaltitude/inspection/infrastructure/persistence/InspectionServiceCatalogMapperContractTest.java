@@ -16,7 +16,7 @@ class InspectionServiceCatalogMapperContractTest {
 
         assertThat(sql)
                 .contains("#{sort}")
-                .contains("THEN service.completed_count END DESC")
+                .contains("THEN metrics.completed_count END DESC")
                 .contains("COALESCE(category.sort_order, 9999)")
                 .contains("category.parent_code = #{categoryCode}")
                 .contains("service.title ILIKE #{keyword} ESCAPE")
@@ -73,7 +73,8 @@ class InspectionServiceCatalogMapperContractTest {
                     .doesNotContain("${");
         }
         assertThat(sqlOf("findMostCompleted"))
-                .contains("ORDER BY service.completed_count DESC, service.id ASC")
+                .contains("metrics.completed_count > 0")
+                .contains("ORDER BY metrics.completed_count DESC, service.id ASC")
                 .contains("LIMIT #{limit}");
     }
 

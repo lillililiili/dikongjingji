@@ -14,7 +14,6 @@ import { articleMetaLine } from '../../application/content-view'
 import { formatPlayerClock, formatVideoCount, formatVideoTags } from '../../application/video-view'
 import { contentLinkedApis } from '../../data/content-linked-apis'
 import type { ContentVideoApi } from '../../data/content-video-api'
-import { videoPlaySource, videoPoster } from '../../data/preview/content-preview-videos'
 import type { ContentVideo } from '../../domain/content'
 import { buildContentVideoUrl, contentAuthorHome } from '../../navigation/content-routes'
 
@@ -58,8 +57,8 @@ const shareTarget = ref<ShareTarget | null>(null)
 let requestVersion = 0
 
 const video = computed(() => (state.value.kind === 'ready' ? state.value.video : null))
-const source = computed(() => (video.value ? videoPlaySource(video.value) : null))
-const poster = computed(() => (video.value ? videoPoster(video.value) : null))
+const source = computed(() => (video.value ? video.value.playUrl : null))
+const poster = computed(() => (video.value ? video.value.coverImage : null))
 const home = computed(() => (video.value ? contentAuthorHome(video.value.author, props.cityCode) : { kind: 'NONE' as const }))
 const homeLabel = computed(() => (video.value?.author.kind === 'MERCHANT' ? '进店' : '主页'))
 const metaLine = computed(() => {

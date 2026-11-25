@@ -9,7 +9,7 @@ export interface MapPlace {
   name: string
   address: string
   point: MapPoint
-  // A place the local fake made up; the page marks it 示例.
+  // Supplied by the database for development examples.
   sample: boolean
 }
 

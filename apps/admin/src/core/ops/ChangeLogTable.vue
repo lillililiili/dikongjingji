@@ -9,6 +9,7 @@ import { actionLabel, type OpsChange } from './ops-common'
 
 withDefaults(defineProps<{
   changes: OpsChange[]
+  error?: string
   loading?: boolean
   subjectLabels?: Readonly<Record<string, string>>
   actionLabels?: Readonly<Record<string, string>>
@@ -16,7 +17,8 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-  <el-table v-loading="loading" :data="changes" row-key="changeId" size="small" border empty-text="还没有改动记录">
+  <el-alert v-if="error" type="error" :title="error" :closable="false" show-icon />
+  <el-table v-else v-loading="loading" :data="changes" row-key="changeId" size="small" border empty-text="还没有改动记录">
     <el-table-column label="时间" width="150">
       <template #default="{ row }">{{ formatDateTime((row as OpsChange).changedAt) }}</template>
     </el-table-column>

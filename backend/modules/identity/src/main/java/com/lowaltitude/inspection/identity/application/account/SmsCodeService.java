@@ -40,6 +40,8 @@ public class SmsCodeService {
     public static final String EXPORT = "EXPORT";
     /** 商家自助申请入驻时验证联系人手机号（迁移 V012）。 */
     public static final String SIGNUP = "SIGNUP";
+    public static final String PASSWORD_SETUP = "PASSWORD_SETUP";
+    public static final String PASSWORD_RESET = "PASSWORD_RESET";
     static final String CHANGE_TICKET = "CHANGE_TICKET";
 
     public static final Duration CODE_TTL = Duration.ofMinutes(5);
@@ -56,7 +58,9 @@ public class SmsCodeService {
             VERIFY_CURRENT, "验证当前手机号",
             BIND_NEW, "绑定新手机号",
             EXPORT, "申请导出个人信息",
-            SIGNUP, "商家入驻申请");
+            SIGNUP, "商家入驻申请",
+            PASSWORD_SETUP, "设置登录密码",
+            PASSWORD_RESET, "找回登录密码");
 
     private final AccountMapper mapper;
     private final AccountPorts.SmsGateway gateway;
@@ -77,6 +81,8 @@ public class SmsCodeService {
             throw new IllegalArgumentException("unknown purpose " + purpose);
         }
         OffsetDateTime now = now();
+        mapper.ensurePhoneGuard(phone, now);
+        mapper.lockPhoneGuard(phone);
         OffsetDateTime lockedUntil = mapper.findPhoneLockedUntil(phone);
         if (lockedUntil != null && lockedUntil.isAfter(now)) {
             throw new AccountException(Error.PHONE_LOCKED);

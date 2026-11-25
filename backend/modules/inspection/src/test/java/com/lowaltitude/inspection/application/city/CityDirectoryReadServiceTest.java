@@ -25,7 +25,7 @@ class CityDirectoryReadServiceTest {
     }
 
     @Test
-    void returnsSixDeterministicHotCitiesWhenAllSearchCountsAreZero() {
+    void leavesHotCitiesEmptyWhenThereIsNoSearchEvidence() {
         List<CityDirectoryReadService.StoredCity> zeroCountCities = rows().stream()
                 .map(city -> city(
                         city.cityCode(),
@@ -38,8 +38,8 @@ class CityDirectoryReadServiceTest {
 
         CityDirectoryReadService.DirectoryView view = service.directory();
 
-        assertThat(view.hotCities()).extracting(CityDirectoryReadService.CityView::code)
-                .containsExactly("370500", "340100", "370100", "371300", "370200", "370700");
+        assertThat(view.hotCities()).isEmpty();
+        assertThat(view.provinces()).hasSize(2);
     }
 
     @Test

@@ -1,3 +1,4 @@
+import { isRetainedMediaUrl } from '@/core/ops/media-api'
 import type { FormItemRule, FormRules } from 'element-plus'
 
 import { charCount } from '@/core/ui/format'
@@ -35,13 +36,13 @@ export function sellingPointProblem(existing: readonly string[], candidate: stri
 }
 
 /** 图片地址：受控地址（上传得到的）或带主机名的 https 地址；后端最后判断是不是受控的。 */
-export function imageUrlProblem(url: string): string | null {
+export function imageUrlProblem(url: string, existing?: string | null): string | null {
   const text = url.trim()
   if (text === '') return null
   if (text.length > L.url) return `地址最多 ${L.url} 个字符`
+  if (isRetainedMediaUrl(text, existing)) return null
   try {
     const parsed = new URL(text)
-    if (parsed.protocol === 'https:' && parsed.hostname) return null
     // 开发环境上传得到的受控地址是 http 的，也放行，由后端判断。
     if (parsed.protocol === 'http:' && parsed.pathname.startsWith('/api/v1/mall/media/')) return null
   } catch {

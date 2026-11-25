@@ -1,16 +1,12 @@
-import { resolveActivityPreviewCover } from '../../activity/data/preview/activity-preview-covers'
 import type { ActivityCard } from '../../activity/domain/activity'
 import { ACTIVITY_TYPE_LABELS, formatActivityPrice } from '../../activity/presentation/shared/activity-format'
-import { resolveArticlePreviewCover } from '../../content/data/preview/content-preview-covers'
 import type { ContentArticleCard, ContentArticleKind } from '../../content/domain/content'
 import { buildContentArticleUrl, buildContentVideoUrl, contentRefTargetUrl } from '../../content/navigation/content-routes'
-import { resolveExperiencePreviewCover } from '../../experience/data/preview/experience-preview-covers'
 import type { VenueCard } from '../../experience/domain/experience'
 import { formatVenueCardNote } from '../../experience/presentation/shared/experience-format'
 import { buildDemandPublishUrl } from '../../demand/navigation/demand-routes'
 import type { InspectionCatalogService } from '../../inspection/presentation/catalog/model/inspection-catalog'
 import { formatCatalogPrice } from '../../inspection/presentation/catalog/model/inspection-catalog'
-import { resolveMallPreviewCover } from '../../mall/data/preview/mall-preview-covers'
 import type { MallProductCard } from '../../mall/domain/mall'
 import {
   MALL_BADGE_LABELS,
@@ -18,7 +14,6 @@ import {
   formatMallCardPrice,
   formatMallSellers,
 } from '../../mall/presentation/shared/mall-format'
-import { resolveProServicePreviewCover } from '../../proservice/data/preview/proservice-preview-covers'
 import { PRO_SERVICE_TYPE_INFO, formatProServicePrice } from '../../proservice/application/proservice-view'
 import type { ProServiceCard } from '../../proservice/domain/proservice'
 import {
@@ -116,7 +111,7 @@ function productRow(card: MallProductCard, keyword: string, cityCode: string): S
     sellers: formatMallSellers(card),
     tag: '',
     sponsored: false,
-    image: card.coverImage?.url ?? resolveMallPreviewCover(card.productId)?.url ?? null,
+    image: card.coverImage?.url ?? null,
     imageAlt: card.coverImage?.alt ?? card.name,
     url: contentRefTargetUrl({ type: 'PRODUCT', refId: card.productId }, cityCode),
     demandUrl: null,
@@ -159,7 +154,7 @@ function proServiceRow(service: ProServiceCard, keyword: string, cityCode: strin
     sellers: '',
     tag: '',
     sponsored: false,
-    image: service.coverUrl ?? resolveProServicePreviewCover(service.type, service.category.code),
+    image: service.coverUrl ?? null,
     imageAlt: service.title,
     url: contentRefTargetUrl({ type: 'PRO_SERVICE', refId: service.serviceId }, cityCode),
     demandUrl: buildDemandPublishUrl({ type: service.type }),
@@ -179,7 +174,7 @@ function activityRow(card: ActivityCard, keyword: string, cityCode: string): Sea
     sellers: '',
     tag: ACTIVITY_TYPE_LABELS[card.type],
     sponsored: false,
-    image: card.coverImage?.url ?? resolveActivityPreviewCover(card.activityId),
+    image: card.coverImage?.url ?? null,
     imageAlt: card.coverImage?.alt ?? card.title,
     url: contentRefTargetUrl({ type: 'ACTIVITY', refId: card.activityId }, cityCode),
     demandUrl: null,
@@ -187,7 +182,6 @@ function activityRow(card: ActivityCard, keyword: string, cityCode: string): Sea
 }
 
 function contentRow(card: ContentArticleCard, keyword: string, cityCode: string): SearchRow {
-  const preview = resolveArticlePreviewCover(card.articleId)
   return {
     key: `content:${card.articleId}`,
     kind: 'CONTENT',
@@ -200,8 +194,8 @@ function contentRow(card: ContentArticleCard, keyword: string, cityCode: string)
     sellers: '',
     tag: CONTENT_KIND_LABELS[card.kind],
     sponsored: card.sponsored,
-    image: card.coverImage?.url ?? preview?.url ?? null,
-    imageAlt: card.coverImage?.alt ?? preview?.alt ?? card.title,
+    image: card.coverImage?.url ?? null,
+    imageAlt: card.coverImage?.alt ?? card.title,
     url: card.kind === 'VIDEO'
       ? buildContentVideoUrl(card.articleId, cityCode)
       : buildContentArticleUrl(card.articleId, cityCode),
@@ -222,7 +216,7 @@ function venueRow(card: VenueCard, keyword: string, cityCode: string): SearchRow
     sellers: '',
     tag: '',
     sponsored: false,
-    image: card.coverImage?.url ?? resolveExperiencePreviewCover(card.venueId),
+    image: card.coverImage?.url ?? null,
     imageAlt: card.coverImage?.alt ?? card.name,
     url: contentRefTargetUrl({ type: 'VENUE', refId: card.venueId }, cityCode),
     demandUrl: null,

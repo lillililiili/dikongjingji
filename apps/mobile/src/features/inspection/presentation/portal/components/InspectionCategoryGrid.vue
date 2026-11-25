@@ -7,6 +7,7 @@ defineProps<{
 
 defineEmits<{
   select: [category: InspectionPortalCategory]
+  more: []
 }>()
 </script>
 
@@ -22,14 +23,22 @@ defineEmits<{
     >
       <view class="category-grid__tile">
         <image
+          v-if="category.imageUrl"
           class="category-grid__icon"
           :src="category.imageUrl"
           mode="aspectFit"
           lazy-load
           :aria-label="category.name"
         />
+        <text v-else aria-hidden="true">{{ category.name.slice(0, 1) }}</text>
       </view>
       <text class="category-grid__name">{{ category.name }}</text>
+      <text v-if="category.subtitle" class="category-grid__description">{{ category.subtitle }}</text>
+    </button>
+    <button v-if="categories.length && !categories.some(category => category.code === 'MORE')" class="category-grid__item"
+      data-testid="portal-category-more" aria-label="更多" @click="$emit('more')">
+      <view class="category-grid__tile"><text aria-hidden="true">···</text></view>
+      <text class="category-grid__name">更多</text>
     </button>
   </view>
 </template>
@@ -105,5 +114,12 @@ defineEmits<{
   line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.category-grid__description {
+  max-width: 100%;
+  font-size: 10px;
+  line-height: 14px;
+  color: #5c687c;
+  overflow-wrap: anywhere;
 }
 </style>

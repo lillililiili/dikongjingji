@@ -11,8 +11,8 @@ describe('菜单', () => {
     const groups = buildMenu(ADMIN_MODULES, ['PLATFORM_OPERATOR'])
 
     expect(groups.map((group) => group.title)).toEqual(['平台运营', '客服'])
-    expect(groups[0]!.items.map((item) => item.title)).toEqual(['城市开通', '机构与资质', '商品与供给', '商家资料审核', '收款账户',
-      '对账下载', '批量导入', '活动与场次', '课程', '场馆与设备', '发现内容', '直播间', '巡检服务目录', '专业服务目录', '服务商资料审核',
+    expect(groups[0]!.items.map((item) => item.title)).toEqual(['首页轮播', '城市开通', '地图地点', '机构与资质', '商品与供给', '商家资料审核', '收款账户',
+      '对账下载', '批量导入', '活动与场次', '课程', '平台协议', '场馆与设备', '发现内容', '直播间', '巡检服务目录', '专业服务目录', '服务商资料审核',
       '系统通知'])
     expect(groups[1]!.items.map((item) => item.path)).toEqual(['/lookup/orders', '/lookup/users', '/support/conversations'])
   })
@@ -53,6 +53,13 @@ describe('菜单', () => {
 // 新增功能块时最容易漏的：菜单指向的路由不存在、路由忘了写角色、菜单和路由的角色不一致。
 describe('功能块登记', () => {
   const routes = ADMIN_MODULES.flatMap((module) => module.routes)
+
+  it('地点、协议、线上体验和趣玩关卡的管理入口仅向平台运营开放', () => {
+    // 趣玩关卡在发现内容页的 games 标签中维护。
+    for (const path of ['/cities/map-places', '/content/agreements', '/venues/online-experiences', '/content']) {
+      expect(routes.find(route => route.path === path)?.meta?.roles, path).toEqual(['PLATFORM_OPERATOR'])
+    }
+  })
 
   it('每个功能块的 key 和路由名不重复', () => {
     const keys = ADMIN_MODULES.map((module) => module.key)

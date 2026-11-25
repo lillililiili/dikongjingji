@@ -157,7 +157,7 @@ import { findDueNode, isDownPayment } from '../../shared/payment-view'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 import { providerCredentialLabel } from '@/shared/ui/qualification'
-import { inspectionServiceImage } from '../../../data/inspection-service-images'
+import { resolveBusinessMediaUrl } from '../../../../../shared/http/business-media'
 import { createBookingUuid } from '../../../application/service-flow/booking-crypto'
 import {
   canCancelInspectionOrder,
@@ -482,7 +482,7 @@ function showCustomerService(title: string): void {
       class="plan-confirmation__content"
     >
       <PlanSummaryCard
-        :cover-url="inspectionServiceImage({ coverUrl: reservation.serviceCoverUrl, title: reservation.serviceTitle })"
+        :cover-url="(resolveBusinessMediaUrl(reservation.serviceCoverUrl) ?? '')"
         :title="reservation.serviceTitle"
         :provider-name="plan.provider?.name ?? ''"
         :certification-label="providerCredentialLabel(plan.provider?.qualificationReviewed, plan.provider?.certificationLabel) ?? ''"

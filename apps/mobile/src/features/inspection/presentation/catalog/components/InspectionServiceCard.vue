@@ -38,7 +38,7 @@ const distanceLabel = computed(() =>
     @click="$emit('detail', service.id)"
   >
     <view :class="['inspection-card__media', { 'inspection-card__media--drawing': isDrawing }]">
-      <image
+      <image v-if="service.imageUrl"
         :class="['inspection-card__image', { 'inspection-card__image--drawing': isDrawing }]"
         :src="service.imageUrl"
         :mode="isDrawing ? 'aspectFit' : 'aspectFill'"

@@ -4,7 +4,6 @@ import { storeToRefs } from 'pinia'
 
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 
-import { composeInspectionPortalContentForRuntime } from '../../../data/preview/inspection-portal-preview'
 import { inspectionCatalogApi } from '../../../data/service-flow/uni-booking-http-client'
 import {
   buildPortalCategoryUrl,
@@ -40,9 +39,6 @@ const { currentCity } = storeToRefs(currentCityStore)
 const content = ref<InspectionPortalContent>(EMPTY_PORTAL_CONTENT)
 const isLoading = ref(true)
 const loadError = ref('')
-const portalPreviewEnabled =
-  import.meta.env.DEV ||
-  import.meta.env.VITE_PLATFORM_PREVIEW_ENABLED === 'true'
 const portalContentLoader = createInspectionPortalContentLoader(
   (cityCode) => inspectionCatalogApi.loadPortal(cityCode),
 )
@@ -85,11 +81,7 @@ async function loadPortalContent(): Promise<void> {
 
   const result = await portalContentLoader.load(cityCode)
   if (result.kind === 'stale') return
-  content.value = result.kind === 'loaded'
-    ? portalPreviewEnabled
-      ? composeInspectionPortalContentForRuntime(result.content)
-      : result.content
-    : EMPTY_PORTAL_CONTENT
+  content.value = result.kind === 'loaded' ? result.content : EMPTY_PORTAL_CONTENT
   loadError.value = result.kind === 'error'
     ? '巡检入口加载失败，请稍后重试'
     : ''
@@ -140,11 +132,21 @@ function viewAllServices(): void {
         </view>
 
         <template v-else-if="content.hero">
+          <view class="portal-hero" data-testid="portal-hero">
+            <view class="portal-hero__copy">
+              <text class="portal-hero__title">{{ content.hero.title }}</text>
+              <text v-if="content.hero.accent" class="portal-hero__accent">{{ content.hero.accent }}</text>
+              <text v-if="content.hero.description" class="portal-hero__description">{{ content.hero.description }}</text>
+            </view>
+            <image v-if="content.hero.imageUrl" class="portal-hero__image"
+              :src="content.hero.imageUrl" mode="aspectFill" :aria-label="content.hero.title" />
+          </view>
           <InspectionGuaranteeStrip :guarantees="content.guarantees" />
           <InspectionCategoryGrid
             v-if="content.categories.length"
             :categories="content.categories"
             @select="selectCategory"
+            @more="navigateToCatalog(buildPortalCategoryUrl(currentCity?.code, 'MORE'))"
           />
           <!-- Publishing a demand (F1) is open in preview builds only; the host says whether. -->
           <view v-if="props.showRequestAction" class="portal-request" data-testid="portal-request">
@@ -201,6 +203,31 @@ function viewAllServices(): void {
   background: #f5f7fc;
   box-sizing: border-box;
 }
+
+.portal-hero {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #edf4fc;
+}
+
+.portal-hero__copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+
+.portal-hero__title,
+.portal-hero__accent { color: #172941; font-size: 19px; font-weight: 700; line-height: 1.3; }
+.portal-hero__accent { color: #be4800; }
+.portal-hero__description { color: #465973; font-size: 12px; line-height: 1.5; }
+.portal-hero__image { flex: 0 0 38%; width: 38%; height: auto; min-height: 108px; }
 
 .portal-request {
   display: flex;

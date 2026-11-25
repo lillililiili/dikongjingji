@@ -24,6 +24,8 @@ describe('inspection service detail api', () => {
             unitLabel: '起',
           },
           priceNote: '最终报价以现场评估为准',
+          demonstrationMetrics: true,
+          completedCount: 8560,
           availability: 'RESERVABLE',
           primaryAction: 'RESERVE',
           provider: {
@@ -78,7 +80,7 @@ describe('inspection service detail api', () => {
               name: '缺陷清单',
               description: null,
               iconKey: 'list',
-              image: null,
+              image: { url: 'https://media.example.org/defects.jpg' },
               imageAssetCode: 'DEFECT_LIST_IMAGE',
             },
             {
@@ -131,23 +133,25 @@ describe('inspection service detail api', () => {
     expect(detail).toMatchObject({
       serviceId: '33333333-3333-3333-3333-333333333333',
       title: '输电线路无人机巡检',
-      heroImageUrl: '/static/images/inspection/service-power-line.webp',
+      demonstrationMetrics: true,
+      completedCountLabel: '已完成 8,560 单',
+      heroImageUrl: '',
       provider: {
         name: '云翼科技',
-        logoUrl: '/static/app-icons/feixiang-xxxhdpi.png',
+        logoUrl: '',
       },
       capabilities: [{ label: '高精度建模' }],
       inspectionItems: [{ description: '精细化巡检杆塔本体' }],
       deliverables: [
-        { imageUrl: '/static/images/inspection/service-power-line.webp' },
-        { imageUrl: '/static/images/inspection/detail-defect-list.png' },
-        { imageUrl: '/static/images/inspection/detail-report-cover.png' },
+        { imageUrl: '' },
+        { imageUrl: 'https://media.example.org/defects.jpg' },
+        { imageUrl: '' },
       ],
       reviewCount: 328,
       positiveRateLabel: '98%好评',
       reviews: [{
         maskedUserName: '李**',
-        imageUrls: ['/static/images/inspection/service-power-line.webp'],
+        imageUrls: [],
       }],
     })
   })
@@ -158,6 +162,7 @@ describe('inspection service detail api', () => {
         return {
           serviceId: 'service-no-review',
           serviceNo: 'INS-EMPTY',
+          completedCount: 0,
           category: { code: 'POWER', name: '输电巡检' },
           name: '输电线路无人机巡检',
           summary: '服务摘要',
@@ -186,6 +191,8 @@ describe('inspection service detail api', () => {
     const detail = await api.loadDetail('service-no-review', '370500')
 
     expect(detail.reviewCount).toBe(0)
+    expect(detail.completedCountLabel).toBe('已完成 0 单')
+    expect(detail.demonstrationMetrics).toBe(false)
     expect(detail.ratingAverage).toBeNull()
     expect(detail.reviews).toEqual([])
   })

@@ -26,7 +26,6 @@ import {
 } from '../../application/video-view'
 import { contentLinkedApis } from '../../data/content-linked-apis'
 import type { ContentVideoApi } from '../../data/content-video-api'
-import { videoPlaySource, videoPoster } from '../../data/preview/content-preview-videos'
 import type { ContentVideo, ContentVideoFeed } from '../../domain/content'
 import { buildContentVideoUrl, contentAuthorHome } from '../../navigation/content-routes'
 import { SEARCH_PRE_PATH } from '../../../search/navigation/search-routes'
@@ -93,8 +92,8 @@ const sheet = createCommentSheet({
 })
 
 const current = computed<ContentVideo | null>(() => currentVideo(state.value))
-const source = computed(() => (current.value ? videoPlaySource(current.value) : null))
-const poster = computed(() => (current.value ? videoPoster(current.value) : null))
+const source = computed(() => (current.value ? current.value.playUrl : null))
+const poster = computed(() => (current.value ? current.value.coverImage : null))
 const entry = computed(() => (current.value ? entries.value[current.value.videoId] : undefined))
 const canFollow = computed(() => Boolean(current.value?.author.organizationId))
 const atStart = computed(() => state.value.index === 0)

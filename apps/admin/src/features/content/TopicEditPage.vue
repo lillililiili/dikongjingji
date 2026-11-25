@@ -40,7 +40,7 @@ const dates = ref<[string, string] | null>(null)
 
 const topicId = computed(() => (route.params.topicId ? String(route.params.topicId) : null))
 const topic = computed(() => editor.entity.value)
-const problems = computed(() => topicProblems(form))
+const problems = computed(() => topicProblems(form, editor.entity.value))
 const counts = computed(() => ({
   activities: idsFromText(form.activityIdsText).ids.length,
   venues: idsFromText(form.venueIdsText).ids.length,
@@ -211,7 +211,7 @@ onMounted(() => {
 
       <template v-if="topic">
         <h3 class="topic-edit__section">改动记录</h3>
-        <ChangeLogTable :changes="editor.changes.value" :loading="editor.changesLoading.value" :subject-labels="SUBJECT_LABELS" />
+        <ChangeLogTable :changes="editor.changes.value" :error="editor.changesError.value" :loading="editor.changesLoading.value" :subject-labels="SUBJECT_LABELS" />
       </template>
     </div>
   </PageSection>

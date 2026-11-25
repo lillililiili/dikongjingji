@@ -1,3 +1,4 @@
+import { businessImage } from '../../../shared/http/business-media'
 import {
   MALL_INQUIRY_SORTS,
   MALL_INQUIRY_STATUSES,
@@ -191,9 +192,7 @@ export function toMallInquiry(dto: InquiryDto): MallInquiry {
     product: {
       productId: dto.product?.productId ?? '',
       name: dto.product?.name ?? '',
-      coverImage: dto.product?.coverImage?.url
-        ? { url: dto.product.coverImage.url, alt: dto.product.coverImage.alt ?? '' }
-        : null,
+      coverImage: businessImage(dto.product?.coverImage),
     },
     requirement: dto.requirement ?? '',
     quantity: dto.quantity ?? 1,

@@ -14,7 +14,8 @@ describe('existing-account inspection candidate visual shell', () => {
     expect(loginPageSource).toContain('登录后继续：')
     expect(loginPageSource).not.toContain('inspection-login__robot')
     expect(loginPageSource).toContain('inspectionAuthApi.login(')
-    expect(loginPageSource).not.toContain('注册')
+    expect(loginPageSource).toContain('未注册的手机号验证后自动注册')
+    expect(loginPageSource).toMatch(/v-if="ACCOUNT_PREVIEW_ENABLED"[^>]*class="inspection-login__links"[\s\S]*?data-testid="login-register"/)
   })
 
   it('presents the existing reservation form as the confirm-order screen', () => {

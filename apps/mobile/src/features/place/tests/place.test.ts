@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import pagesJson from '../../../pages.json?raw'
 import bookingPageSource from '../../inspection/presentation/booking/pages/InspectionBookingPage.vue?raw'
 import demandPageSource from '../../demand/presentation/publish/DemandPublishPage.vue?raw'
 import placeFlagSource from '../application/place-preview.ts?raw'
 import { distanceMetres, formatDistance, formatPoint, movePoint } from '../application/map-projection'
-import { FALLBACK_CENTRE, createFakeMapPlaceProvider } from '../data/fake-map-place-provider'
+import { createMapPlaceProvider } from '../data/map-place-api'
 import { buildMapPickUrl, parseMapPickTarget } from '../navigation/place-routes'
 
 function flagExpression(source: string, name: string): string {
@@ -35,22 +35,25 @@ describe('map projection (board MapPick sketch map)', () => {
   })
 })
 
-describe('fake map provider', () => {
-  it('opens on the city centre, or a fallback for a city it does not know', () => {
-    const provider = createFakeMapPlaceProvider(async () => null)
-    expect(provider.center(DONGYING)).toEqual({ latitude: 37.4347, longitude: 118.6749 })
-    expect(provider.center({ code: '999999', name: '某市' })).toEqual(FALLBACK_CENTRE)
+describe('platform map places API', () => {
+  it('passes the current city, search and coordinates and uses the returned point', async () => {
+    const request = vi.fn().mockResolvedValue([{
+      placeId: '370500:office', name: '新地点', address: '仓库南门', latitude: 37, longitude: 118, sample: false,
+    }])
+    const provider = createMapPlaceProvider({ request })
+    const places = await provider.list(DONGYING, 'A & B', { latitude: 37.5, longitude: 118.2 })
+    expect(request.mock.calls[0][0].url).toBe('/api/v1/platform/map-places?cityCode=370500&keyword=A%20%26%20B&latitude=37.5&longitude=118.2')
+    expect(places).toEqual([{
+      placeId: '370500:office', name: '新地点', address: '仓库南门', point: { latitude: 37, longitude: 118 }, sample: false,
+    }])
   })
 
-  it('makes three sample places marked 示例 and finds them by name', async () => {
-    const provider = createFakeMapPlaceProvider(async () => null)
-    const centre = provider.center(DONGYING)
-    const places = await provider.nearby(DONGYING, centre)
-    expect(places.map((place) => place.name)).toEqual(['示例路 88 号', '示例产业园 3 号门', '示例物流园区'])
-    expect(places.every((place) => place.sample && place.address.endsWith('（示例）'))).toBe(true)
-    expect((await provider.search(DONGYING, '产业园', centre)).map((place) => place.name)).toEqual(['示例产业园 3 号门'])
-    expect(await provider.search(DONGYING, '激光雷达', centre)).toEqual([])
-    expect(await provider.locate()).toBeNull()
+  it('keeps empty results empty and propagates lookup failures', async () => {
+    const request = vi.fn().mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('offline'))
+    const provider = createMapPlaceProvider({ request })
+    expect(await provider.list(DONGYING, '', null)).toEqual([])
+    expect(request.mock.calls[0][0].url).toBe('/api/v1/platform/map-places?cityCode=370500')
+    await expect(provider.list(DONGYING, '', null)).rejects.toThrow('offline')
   })
 })
 

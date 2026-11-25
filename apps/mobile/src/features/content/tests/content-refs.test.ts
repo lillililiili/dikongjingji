@@ -1,11 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import {
-  resolveArticleFigurePreview,
-  resolveArticlePreviewCover,
-  resolveRefPreviewCover,
-  resolveTopicMerchantPreview,
-  resolveTopicPreviewCover,
-} from '../data/preview/content-preview-covers'
 
 import type { VenueDetail, VenueSession } from '../../experience/domain/experience'
 import type { InspectionServiceDetail } from '../../inspection/domain/inspection-service-detail'
@@ -141,16 +134,11 @@ describe('内容中提到', () => {
       ['场馆', '东营低空与机器人体验馆', { amount: '¥39', unit: '起' }, '看场馆', false,
         `/pages/venue/detail?venueId=${VENUE}&cityCode=${CITY}`],
     ])
-    // The inspection detail's bundled stand-in picture is not a picture of the service; preview
-    // builds (tests run as one) draw the prototype's picture instead, whole on a tint.
-    expect(views[0].imageUrl).toBe('/static/images/preview/content-ref-park-security.webp')
-    expect(views[0].imageContain).toBe(true)
-    expect(views[0].imagePadded).toBe(true)
+    expect(views[0].imageUrl).toBeNull()
     // A picture from the server always wins.
     expect(views[1].imageUrl).toBe('https://cdn.example/survey.jpg')
-    // Goods and activities fall back to their own modules' preview pictures.
-    expect(views[2].imageUrl).toBe('/static/images/preview/robot-dog.jpg')
-    expect(views[3].imageUrl).toBe('/static/images/preview/robot-workshop.jpg')
+    expect(views[2].imageUrl).toBeNull()
+    expect(views[3].imageUrl).toBeNull()
   })
 
   it('leaves out a mention that cannot be read in this city', async () => {
@@ -295,30 +283,5 @@ describe('专题的商家内容（1.3.0）', () => {
       ['巡检机器狗', '示例设备租赁商'],
     ])
     expect(await loadTopicMerchantItems([], CITY, { mall: { loadProduct: async () => kit() } })).toEqual([])
-  })
-})
-
-describe('preview pictures', () => {
-  it('draw the board picture of a picture block and of a merchant product on preview builds only', () => {
-    expect(resolveArticleFigurePreview('f3000000-0000-4000-8000-000000000001', 0, true))
-      .toBe('/static/images/preview/content-patrol-drone.jpg')
-    expect(resolveArticleFigurePreview('f3000000-0000-4000-8000-000000000001', 1, true)).toBeNull()
-    expect(resolveArticleFigurePreview('f3000000-0000-4000-8000-000000000001', 0, false)).toBeNull()
-    expect(resolveTopicMerchantPreview('c2000000-0000-4000-8000-000000000101', true))
-      .toBe('/static/images/preview/content-topic-robot-kit.jpg')
-    // Other products fall back to the mall's own preview picture.
-    expect(resolveTopicMerchantPreview('c2000000-0000-4000-8000-000000000401', true))
-      .toBe('/static/images/preview/robot-dog.jpg')
-    expect(resolveTopicMerchantPreview('c2000000-0000-4000-8000-000000000101', false)).toBeNull()
-  })
-
-
-  it('only stand in on preview builds', () => {
-    expect(resolveArticlePreviewCover('f3000000-0000-4000-8000-000000000001', true)?.url).toBe('/static/images/preview/content-park-patrol.webp')
-    expect(resolveArticlePreviewCover('f3000000-0000-4000-8000-000000000005', true)?.cutout).toBe(true)
-    expect(resolveArticlePreviewCover('f3000000-0000-4000-8000-000000000001', false)).toBeNull()
-    expect(resolveTopicPreviewCover('f3100000-0000-4000-8000-000000000001', true)?.url).toBe('/static/images/preview/content-topic-workshop.jpg')
-    expect(resolveRefPreviewCover('VENUE', 'b2000000-0000-4000-8000-000000000001', true)?.url).toBe('/static/images/preview/venue-indoor.jpg')
-    expect(resolveRefPreviewCover('PRODUCT', 'c2000000-0000-4000-8000-000000000101', false)).toBeNull()
   })
 })

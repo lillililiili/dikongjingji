@@ -1,0 +1,48 @@
+name: inspection-e2e
+services:
+  postgres:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_DB: inspection_e2e
+      POSTGRES_USER: inspection_e2e
+      POSTGRES_PASSWORD: ${E2E_DATABASE_PASSWORD:?set E2E_DATABASE_PASSWORD}
+    ports:
+      - "127.0.0.1:15438:5432"
+    volumes:
+      - pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inspection_e2e -d inspection_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "127.0.0.1:16388:6379"
+    volumes:
+      - cache:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  minio:
+    image: ${E2E_MINIO_IMAGE:-minio/minio:RELEASE.2025-04-22T22-12-26Z}
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: inspection-e2e
+      MINIO_ROOT_PASSWORD: ${E2E_MINIO_PASSWORD:?set E2E_MINIO_PASSWORD}
+    ports:
+      - "127.0.0.1:19018:9000"
+      - "127.0.0.1:19019:9001"
+    volumes:
+      - storage:/data
+volumes:
+  pg: {}
+  cache: {}
+  storage: {}
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${E2E_DOCKER_SUBNET:-10.253.198.0/28}

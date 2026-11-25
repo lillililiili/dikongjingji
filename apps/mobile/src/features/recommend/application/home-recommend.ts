@@ -51,7 +51,7 @@ export function formatTodaySeats(slot: HomeTodaySlot): string {
  */
 export function createHomeRecommendLoader(
   source: { load(cityCode: string): Promise<HomeRecommendContent> },
-  options: { setContent(content: HomeRecommendContent): void },
+  options: { setContent(content: HomeRecommendContent): void; setFailed?(failed: boolean): void },
 ): { load(cityCode: string): Promise<void> } {
   let revision = 0
 
@@ -59,11 +59,12 @@ export function createHomeRecommendLoader(
     async load(cityCode) {
       const requested = ++revision
       options.setContent(EMPTY_HOME_RECOMMEND)
+      options.setFailed?.(false)
       try {
         const content = await source.load(cityCode)
         if (requested === revision) options.setContent(content)
       } catch {
-        // Already empty.
+        if (requested === revision) options.setFailed?.(true)
       }
     },
   }

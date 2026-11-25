@@ -66,7 +66,8 @@ class LiveMapperContractTest {
         assertThat(normalized(sql("updatePreview"))).endsWith("WHERE id = #{roomId} AND status = 'SCHEDULED'");
         assertThat(normalized(sql("addViewer"))).endsWith("WHERE id = #{roomId} AND status = 'LIVE'");
         assertThat(normalized(sql("nextCommentSeq")))
-                .isEqualTo("UPDATE live_room SET comment_count = comment_count + 1 WHERE id = #{roomId} RETURNING comment_count");
+                .isEqualTo("UPDATE live_room SET comment_count = comment_count + 1, "
+                        + "recorded_comment_count = recorded_comment_count + 1 WHERE id = #{roomId} RETURNING comment_count");
         assertThat(normalized(sql("claimReminders")))
                 .contains("SET notified_at = #{at}").contains("AND notified_at IS NULL").endsWith("RETURNING account_id");
         assertThat(normalized(sql("hideComment"))).endsWith("AND hidden_at IS NULL");

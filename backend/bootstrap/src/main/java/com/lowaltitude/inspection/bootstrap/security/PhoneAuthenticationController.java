@@ -4,6 +4,7 @@ import com.lowaltitude.inspection.identity.application.account.AccountException;
 import com.lowaltitude.inspection.identity.application.account.AccountViews.SmsCodeSentView;
 import com.lowaltitude.inspection.identity.application.account.PhoneAccountService;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -32,6 +33,7 @@ public class PhoneAuthenticationController {
     }
 
     @PostMapping("/api/v1/auth/phone-login")
+    @Transactional(noRollbackFor = AccountException.class)
     public PhoneLoginResponse login(@RequestBody PhoneLoginRequest request) {
         PhoneAccountService.PhoneLogin login = phones.login(request.phone(), request.code());
         AuthenticationService.LoginToken token = tokens.issueForVerifiedAccount(login.userId(),

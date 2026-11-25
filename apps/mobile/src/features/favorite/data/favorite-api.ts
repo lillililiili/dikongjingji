@@ -1,3 +1,4 @@
+import { resolveBusinessMediaUrl } from '../../../shared/http/business-media'
 import { MALL_CATEGORIES_FOR_FAVORITES } from './favorite-categories'
 import {
   FAVORITE_TARGET_TYPES,
@@ -61,9 +62,6 @@ function toPrice(dto: PriceDto | null | undefined): FavoritePrice | null {
 }
 
 // Only HTTPS pictures with a host (AGENTS.md §11); anything else is drawn as no picture.
-function secureUrl(value: string | null | undefined): string | null {
-  return typeof value === 'string' && /^https:\/\/[^/\s]+/.test(value.trim()) ? value.trim() : null
-}
 
 export function toFavoriteItem(dto: ItemDto): FavoriteItem | null {
   if (!isTargetType(dto.targetType) || !dto.targetId || !dto.title?.trim()) return null
@@ -78,7 +76,7 @@ export function toFavoriteItem(dto: ItemDto): FavoriteItem | null {
     meta: available ? dto.meta?.trim() || null : null,
     tag: available ? dto.tag?.trim() || null : null,
     price: available ? toPrice(dto.price) : null,
-    coverUrl: available ? secureUrl(dto.coverUrl) : null,
+    coverUrl: available ? resolveBusinessMediaUrl(dto.coverUrl) : null,
     productCategory: available && dto.targetType === 'PRODUCT' ? category : null,
   }
 }

@@ -30,7 +30,7 @@ npm run dev       # http://127.0.0.1:17430 ，/api 代理到 http://127.0.0.1:18
 
 - `dev-support`、`dev-provider` 的口令和其他示例账号一样，见 `backend/bootstrap/src/main/resources/db/development/identity/R__dev_identity_accounts.sql`。
 - `dev-operator` 的口令**不在仓库里**：平台运营权限大（跨租户读巡检、管机构和资质），所以只在启动后端时设了环境变量
-  `DEV_OPERATOR_PASSWORD`（至少 12 位，只在 `dev` 配置下生效）才建这个账号，口令就是你设的值；不设就没有这个账号。
+  `DEV_OPERATOR_PASSWORD`（至少 12 位）才在显式开启 `PLATFORM_DEMO_DATA_ENABLED=true` 的独立 `dev` 演示库建立该账号。日常维护库保留已有登录信息。空维护库请按[首次运营员引导](../../docs/delivery/配置与权限说明.md)配置自己的运营账号。
   改了这个值，下次启动后端时口令跟着改。种子：`backend/bootstrap/src/main/resources/db/development/identity-operator/`。
 - 客户账号（`dev-customer`）没有运营端角色，登录后会被拒绝。
 - 商家和服务商在身份模块里是同一个机构角色 PROVIDER_OPERATOR（没有单独的“商家”角色），所以菜单相同；每个页面的数据

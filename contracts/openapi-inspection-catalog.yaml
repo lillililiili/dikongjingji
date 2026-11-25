@@ -1,10 +1,13 @@
 openapi: 3.1.0
 info:
   title: Inspection Catalog API
-  version: 1.4.0
+  version: 1.4.1
   description: >
     巡检目录 I1 的逻辑契约。若宿主项目已有统一响应信封、分页或错误格式，
     实现时映射到宿主规范，但不得改变字段语义。
+    完成服务数按全部约定巡检次均由客户验收的一张服务单计一次。热门只列完成数大于零的服务。
+    评价列表、总数、平均分和好评率共用已验收同服务订单的可公开评价。独立演示库可以显示示例指标。
+    1.4.1（2026-11-25）：开发库可返回同源受控媒体引用，用于入口、目录、交付示意与评价中的原型素材。
     1.3.0（R6-4）：服务详情的服务商加 qualificationReviewed（平台审核过它的资质），页面据此显示“资质已审核”。
     1.4.0（2026-11-23，S4-4 后端补字段）：服务卡（入口的 hotServices 和目录列表）加 providerName——
     提供这项服务的在用服务商机构名，热门服务卡第二行显示（原型画板 HomeSvc）；机构停用或不是服务商时为 null。
@@ -251,7 +254,8 @@ components:
       properties:
         url:
           type: string
-          format: uri
+          format: uri-reference
+          description: 受控的 HTTPS 地址，或开发种子使用的同源媒体路径。
         width:
           type:
             - integer
@@ -771,6 +775,9 @@ components:
         completedCount:
           type: integer
           minimum: 0
+        demonstrationMetrics:
+          type: boolean
+          description: 此详情使用了显式启用的演示库统计口径，客户端展示来源标记。
         provider:
           anyOf:
             - $ref: "#/components/schemas/ServiceProvider"

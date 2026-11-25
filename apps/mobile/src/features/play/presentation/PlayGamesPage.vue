@@ -1,12 +1,17 @@
 <script setup lang="ts">
+import { onShow } from '@dcloudio/uni-app'
 import { droneArtwork, robotArtwork } from '@/app-shell/navigation/home-artwork'
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import { resolveVisibleHomeChannels } from '@/app-shell/navigation/home-channels'
 import { HOME_ROOT_PATH } from '@/app-shell/navigation/root-tabs'
 import { PLATFORM_PREVIEW_ENABLED } from '@/features/platform/application/platform-preview'
 
-import { PLAY_GAMES, type PlayGame } from '../domain/play-game'
+import { usePlayGames } from '../application/use-play-games'
+import type { PlayGame } from '../domain/play-game'
 import PlayPageHeader from './PlayPageHeader.vue'
+
+const { games, state, load } = usePlayGames()
+onShow(load)
 
 // The study-tour channel is not built yet, so its entry only shows where that channel is visible.
 const studyTourAvailable = resolveVisibleHomeChannels(PLATFORM_PREVIEW_ENABLED)
@@ -49,8 +54,11 @@ function openGame(game: PlayGame): void {
 
       <text class="play-games__note">虚拟小游戏 · 无需登录 · 不连接真实设备</text>
 
+      <text v-if="state === 'loading'" role="status">正在加载挑战…</text>
+      <button v-else-if="state === 'error'" @click="load">挑战加载失败，点击重试</button>
+      <text v-else-if="!games.length" role="status">暂无已发布的挑战</text>
       <button
-        v-for="game in PLAY_GAMES"
+        v-for="game in games"
         :key="game.id"
         :class="['play-games__card', `play-games__card--${game.tone.toLowerCase()}`]"
         :data-testid="`play-game-${game.id}`"

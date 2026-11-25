@@ -476,7 +476,7 @@ test.describe('专业服务子类型', () => {
 
     await page.getByTestId('service-type-aerial').click()
     await expect(placeholder).toContainText('搜索航拍服务、场景或关键词')
-    await expect(page.getByTestId('service-entry-guarantees')).toContainText('成果可追溯')
+    await expect(page.getByTestId('service-entry-aerial')).toBeVisible()
     // 发布需求 opens the demand form with the type picked (F1, preview builds); a guest signs in
     // first and comes back to it. demand.spec.ts follows the form itself.
     await page.getByTestId('service-entry-publish').click()

@@ -1,4 +1,4 @@
-import { inspectionServiceImage } from '../../data/inspection-service-images'
+import { resolveBusinessMediaUrl } from '../../../../shared/http/business-media'
 import type {
   InspectionOrderFilter,
   InspectionOrderPage,
@@ -273,7 +273,7 @@ export function toPlatformMineOrder(order: InspectionOrderSummary): PlatformMine
     title: order.serviceTitle,
     status: order.stage,
     statusText: getInspectionOrderStageText(order),
-    imageUrl: inspectionServiceImage({ coverUrl: order.serviceCoverUrl, title: order.serviceTitle }),
+    imageUrl: (resolveBusinessMediaUrl(order.serviceCoverUrl) ?? ''),
     locationText: order.locationSummary,
     scheduledAtText: getInspectionOrderScheduleText(order),
     orderNumber: order.reservationNo,

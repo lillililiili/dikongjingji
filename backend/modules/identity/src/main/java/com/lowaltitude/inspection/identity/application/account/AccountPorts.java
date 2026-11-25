@@ -13,7 +13,7 @@ public final class AccountPorts {
     }
 
     /**
-     * 短信发送（S5-8）。开发环境是本机模拟服务（验证码写日志和 identity_dev_sms_outbox），其他环境没配置短信服务商时抛
+     * 短信发送（S5-8）。开发环境是本机模拟服务（短信写入 identity_dev_sms_outbox），其他环境没配置短信服务商时抛
      * {@link SmsUnavailableException}，不假装发出。content 只含验证码和用途，不含账号信息。
      */
     public interface SmsGateway {

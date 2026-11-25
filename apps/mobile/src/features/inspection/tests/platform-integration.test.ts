@@ -77,7 +77,7 @@ describe('platform root page integration', () => {
   })
 
   it('uses one explicit preview gate across all three preview routes', () => {
-    for (const source of [homePageSource, mallPageSource]) {
+    for (const source of [homePageSource]) {
       expect(source).toContain('PLATFORM_PREVIEW_ENABLED')
       expect(source).not.toContain('import.meta.env.DEV')
     }

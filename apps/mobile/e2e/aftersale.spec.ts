@@ -194,19 +194,19 @@ test.describe('商品售后', () => {
     // 填写运单（承运商“其他承运商”时手填名称），提交带 If-Match。
     await page.getByTestId('aftersale-action-submit_return').click()
     await expect(page.getByTestId('aftersale-waybill-sheet')).toBeVisible()
+    await page.getByTestId('aftersale-carrier-name').locator('input').fill('顺丰速运')
     await page.getByTestId('aftersale-tracking-no').locator('input').fill('2026112300012')
     await page.waitForTimeout(150)
     await page.getByTestId('aftersale-waybill-submit').click()
     await expect(page.getByTestId('aftersale-waybill-sheet')).toHaveCount(0)
     await expect(page.getByTestId('aftersale-status-title')).toHaveText('等待商家收货')
-    await expect(page.getByTestId('aftersale-waybill-line')).toHaveText('示例快递 · 运单号 2026112300012')
+    await expect(page.getByTestId('aftersale-waybill-line')).toHaveText('顺丰速运 · 运单号 2026112300012')
     await expect(page.getByTestId('aftersale-action-edit_return')).toBeVisible()
     await expect(page.getByTestId('aftersale-action-revoke')).toHaveCount(0)
     await shootApp(page, folder, 'AftersaleFlow-待商家收货')
 
     // 改运单：换成其他承运商。
     await page.getByTestId('aftersale-action-edit_return').click()
-    await page.getByTestId('aftersale-carrier-other').click()
     await page.getByTestId('aftersale-carrier-name').locator('input').fill('圆通速递')
     await page.waitForTimeout(150)
     await page.getByTestId('aftersale-waybill-submit').click()

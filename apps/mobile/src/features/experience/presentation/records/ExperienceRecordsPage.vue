@@ -14,8 +14,6 @@ import { trialRecordLine, trialStage } from '../../application/trial-view'
 import { describeVenueBookingCard } from '../../application/venue-booking-view'
 import { experienceRecordApi } from '../../data/experience-record-api-client'
 import { localSimulationResults } from '../../data/local-simulation-results'
-import { simulationRecordPicture, trialPicture } from '../../data/preview/simulation-preview-pictures'
-import { resolveExperiencePreviewCover } from '../../data/preview/experience-preview-covers'
 import { venueBookingApi } from '../../data/venue-booking-api-client'
 import { EXPERIENCE_RECORD_PAGE_SIZE, type ExperienceRecord } from '../../domain/experience-record'
 import type { ExperienceType } from '../../domain/experience'
@@ -91,12 +89,7 @@ function day(iso: string): string {
 
 function recordRow(record: ExperienceRecord): Row {
   const experience = record.experience
-  const picture = experience.coverImage?.url
-    ?? (experience.simulationTemplate
-      ? simulationRecordPicture(experience.simulationTemplate)
-      : experience.type === 'SOFTWARE_TRIAL'
-        ? trialPicture('softwareCard')
-        : resolveExperiencePreviewCover(experience.experienceId))
+  const picture = experience.coverImage?.url ?? null
   const base = {
     key: record.recordId,
     type: experience.type,
@@ -145,7 +138,7 @@ const localRows = computed<Row[]>(() => {
         title: result.title,
         when: day(result.endedAt),
         line: summariseSimulationOutcome(outcome),
-        picture: simulationRecordPicture(result.template),
+        picture: null,
         productId: result.productId,
         primary: {
           label: '查看结果',
@@ -418,8 +411,12 @@ button::after {
 }
 
 .records__guest-login {
-  height: 36px;
+  display: inline-flex;
+  min-height: 44px;
   padding: 0 16px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   color: #ffffff;
   background: #ff6a00;

@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 
+import { testAdmin as admin } from './support/test-stack'
 import { expect, test as base, type APIResponse, type Response } from '@playwright/test'
 
 import { databaseAvailable, psql } from './support/trade-fixtures'
 
-const admin = process.env.ADMIN_BASE_URL ?? 'http://127.0.0.1:17430'
+
 const drone = 'b1000000-0000-4000-8000-000000000002'
 const robot = 'b1000000-0000-4000-8000-000000000001'
 const media = 'https://course-assets.example.test'

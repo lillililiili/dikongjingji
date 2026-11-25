@@ -25,7 +25,7 @@ describe('aftersale card (board AftersaleList)', () => {
       { key: 'note', text: '商家已同意，请在 11/12 15:40 前寄回', tone: 'ORANGE' },
     ])
     // The sample product has the prototype picture in a preview build (vitest runs as DEV).
-    expect(card.cover).toBe('/static/images/preview/robot-rover.jpg')
+    expect(card.cover).toBeNull()
     expect(card.url).toBe('/pages/trade/aftersale?aftersaleId=as-1')
     expect(card.actions.map((action) => [action.label, action.style, action.target])).toEqual([
       ['查看进度', 'OUTLINE', { kind: 'URL', url: '/pages/trade/aftersale?aftersaleId=as-1' }],

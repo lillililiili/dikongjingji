@@ -59,22 +59,35 @@ const center = createMessageCenter({
 // 客服会话 (step G1, preview builds): the account's conversations, newest message first. The
 // notifications below report a rejected login.
 const conversations = ref<MessageConversationRow[] | null>(null)
+const conversationError = ref(false)
 let conversationRevision = 0
+let visibleAccount: string | null = null
+
+function currentAccount(): string | null {
+  const auth = getBookingAuthContext()
+  const token = auth.getAccessToken()
+  return token ? auth.getPrincipalId() ?? token : null
+}
 
 async function loadConversations(): Promise<void> {
   const token = getBookingAuthContext().getAccessToken()
+  const account = currentAccount()
   const requested = ++conversationRevision
+  conversationError.value = false
+  conversations.value = null
   if (!SUPPORT_PREVIEW_ENABLED || !token) {
-    conversations.value = null
     return
   }
   try {
     const page = await supportApi.listConversations(token, 1, 20)
     if (requested !== conversationRevision) return
+    if (account !== currentAccount()) return loadConversations()
     const now = new Date()
     conversations.value = page.items.map((item) => toConversationRow(item, now))
   } catch {
-    // Rows already on screen stay; a list never read stays hidden.
+    if (requested !== conversationRevision) return
+    if (account !== currentAccount()) return loadConversations()
+    conversationError.value = true
   }
 }
 
@@ -99,6 +112,12 @@ function openLogin(): void {
 }
 
 onShow(() => {
+  const account = currentAccount()
+  if (account !== visibleAccount) {
+    visibleAccount = account
+    state.value = account ? { kind: 'loading' } : { kind: 'guest' }
+    badgeStore.setMessageUnread(0)
+  }
   void center.load()
   void loadConversations()
 })
@@ -113,9 +132,11 @@ onReachBottom(() => {
     <MessageCenterPage
       :state="state"
       :conversations="conversations"
+      :conversation-error="conversationError"
       :squares="squares"
       @login="openLogin"
       @retry="center.load()"
+      @retry-conversations="loadConversations"
       @open="openMessage"
       @mark-all-read="center.markAllRead()"
       @load-more="center.loadMore()"

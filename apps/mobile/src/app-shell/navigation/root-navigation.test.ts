@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import pages from '../../pages.json'
 import tabBarSource from '../components/RootAppTabBar.vue?raw'
 import { useHomeChannelStore } from '../state/home-channel'
-import { resolveHomeCarouselSlides } from './home-carousel'
 import {
   DEFAULT_HOME_CHANNEL,
   HOME_CHANNELS,
@@ -182,26 +181,6 @@ describe('home channels', () => {
       { type: 'PAGE', url: '/pages/play/index', publiclyAvailable: true },
       false,
     )).toBe(true)
-  })
-})
-
-describe('home carousel', () => {
-  it('shows the four operator picks of the revised prototype in preview builds', () => {
-    const slides = resolveHomeCarouselSlides(true)
-    expect(slides.map((slide) => slide.id))
-      .toEqual(['contest', 'study-tour', 'games', 'experience'])
-    expect(slides.map((slide) => slide.actionLabel)).toEqual([
-      '查看赛事 · 去报名',
-      '查看研学 · 去报名',
-      '开始趣玩挑战',
-      '探索体验 · 去预约',
-    ])
-    expect(slides[2].target).toMatchObject({ type: 'PAGE', url: '/pages/play/index' })
-    expect(slides[0].target).toEqual({ type: 'CHANNEL', channel: 'ACTIVITY' })
-  })
-
-  it('keeps sample slides out of public builds', () => {
-    expect(resolveHomeCarouselSlides(false)).toEqual([])
   })
 })
 

@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
   title: Activity API
-  version: 1.4.1
+  version: 1.4.2
   description: |-
+    1.4.2 exposes database-backed development media at /api/v1/dev-media/; production media uses HTTPS.
+
     1.0.0 (confirmed by the user on 2026-11-16, docs/redesign/03-App实现任务计划.md §7): the read-only
     catalog of contests, training, study tours and open days for the home "赛事研学" channel: list,
     session dates and detail with sessions. These three routes stay public.
@@ -1247,8 +1249,8 @@ components:
       properties:
         url:
           type: string
-          format: uri
-          description: Controlled HTTPS address only
+          format: uri-reference
+          description: Controlled HTTPS URL or, for development fixtures, a same-origin /api/v1/dev-media/ reference.
         alt:
           type: string
     ActivityType:

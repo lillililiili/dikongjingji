@@ -2,12 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createContentApi } from '../data/content-api'
 import { createContentVideoApi } from '../data/content-video-api'
-import {
-  resolveVideoPreviewCover,
-  resolveVideoPreviewSource,
-  videoPlaySource,
-  videoPoster,
-} from '../data/preview/content-preview-videos'
 import { CITY, articleCardDto } from './content-fixtures'
 
 const VIDEO = 'f3200000-0000-4000-8000-000000000001'
@@ -147,31 +141,5 @@ describe('content video api', () => {
       null,
       null,
     ])
-  })
-})
-
-describe('preview sample videos', () => {
-  it('stand in for the seeded videos on preview builds only; a server address wins', () => {
-    expect(resolveVideoPreviewSource(VIDEO, true)).toBe('/static/videos/preview/robot-coding.mp4')
-    expect(resolveVideoPreviewCover(VIDEO, true)?.url).toBe('/static/images/preview/video-robot-coding.jpg')
-    expect(resolveVideoPreviewSource(VIDEO, false)).toBeNull()
-    expect(resolveVideoPreviewSource('unknown', true)).toBeNull()
-    expect(videoPlaySource({ videoId: VIDEO, playUrl: 'https://media.example.com/a.mp4' }, true))
-      .toBe('https://media.example.com/a.mp4')
-    expect(videoPlaySource({ videoId: VIDEO, playUrl: null }, false)).toBeNull()
-    expect(videoPoster({ videoId: VIDEO, coverImage: { url: 'https://img.example.com/a.jpg', alt: '封面' } }, true)?.url)
-      .toBe('https://img.example.com/a.jpg')
-  })
-
-  it('cover all six seeded videos with files that exist', () => {
-    const files = import.meta.glob('../../../static/videos/preview/*.mp4', { eager: true, query: '?url', import: 'default' })
-    const posters = import.meta.glob('../../../static/images/preview/video-*.jpg', { eager: true, query: '?url', import: 'default' })
-    for (let index = 1; index <= 6; index += 1) {
-      const id = `f3200000-0000-4000-8000-00000000000${index}`
-      const clip = resolveVideoPreviewSource(id, true)?.split('/').pop()
-      const poster = resolveVideoPreviewCover(id, true)?.url.split('/').pop()
-      expect(Object.keys(files).some((path) => path.endsWith(`/${clip}`)), clip).toBe(true)
-      expect(Object.keys(posters).some((path) => path.endsWith(`/${poster}`)), poster).toBe(true)
-    }
   })
 })

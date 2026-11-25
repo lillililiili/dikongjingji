@@ -1,18 +1,18 @@
 import type { FormItemRule, FormRules } from 'element-plus'
 
-import { isHttpsUrl } from '@/core/ops/media-api'
+import { isRetainedMediaUrl } from '@/core/ops/media-api'
 import { yuanToMinor } from '@/core/ops/ops-common'
 import { maxChars, required } from '@/core/ui/form-rules'
 
 import { isoOfBeijingInput, LIMITS, type ActivityForm, type SessionForm } from './activity-api'
 
 /** 和后端 ActivityOpsService 的校验一致；后端还会再查一次。 */
-function httpsOrEmpty(label: string): FormItemRule {
+function httpsOrEmpty(label: string, existing: () => string | null | undefined): FormItemRule {
   return {
     trigger: 'change',
     validator: (_rule, value: unknown, callback) => {
       const text = typeof value === 'string' ? value.trim() : ''
-      callback(text !== '' && !isHttpsUrl(text) ? new Error(`${label}只能是 https 地址`) : undefined)
+      callback(text !== '' && !isRetainedMediaUrl(text, existing()) ? new Error(`${label}只能是 https 地址`) : undefined)
     },
   }
 }
@@ -54,12 +54,12 @@ function differentFrom(form: () => ActivityForm): FormItemRule {
   }
 }
 
-export function activityRules(form: () => ActivityForm): FormRules {
+export function activityRules(form: () => ActivityForm, existingCover: () => string | null | undefined = () => null): FormRules {
   return {
     type: [required('活动类型', 'change')],
     title: [required('活动名称'), maxChars('活动名称', LIMITS.title)],
     subtitle: [maxChars('一句话介绍', LIMITS.subtitle)],
-    coverUrl: [httpsOrEmpty('封面')],
+    coverUrl: [httpsOrEmpty('封面', existingCover)],
     organizerId: [required('主办机构', 'change')],
     coOrganizerId: [differentFrom(form)],
     cityCode: [required('城市', 'change')],

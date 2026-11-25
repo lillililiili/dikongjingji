@@ -1,12 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { decodeGame, listPlayGames } from '../data/play-game-api'
 
 import {
   PLAY_BOARD_SIZE,
-  PLAY_GAMES,
   PLAY_START_CELL,
   createPlaySession,
   describePlayOutcome,
-  findPlayGame,
   formatPlayDuration,
   movePlaySession,
   resolvePlayCells,
@@ -14,6 +13,12 @@ import {
   type PlayGame,
   type PlaySession,
 } from '../domain/play-game'
+
+const gameRows = [
+  { id: 'robot-maze', title: '机器人迷宫', subtitle: '', skillLabel: '', tone: 'VIOLET', avatar: 'ROBOT', board: '..S...WWW.S..W..W.W...S.G' },
+  { id: 'drone-route', title: '无人机寻星', subtitle: '', skillLabel: '', tone: 'SKY', avatar: 'DRONE', board: '....S.W.W..WSW....W.S...G' },
+] as const
+const games = gameRows.map(decodeGame)
 
 const DIRECTIONS: readonly PlayDirection[] = ['UP', 'DOWN', 'LEFT', 'RIGHT']
 
@@ -51,17 +56,18 @@ function findWinningRoute(game: PlayGame): PlayDirection[] | null {
   return null
 }
 
-const maze = findPlayGame('robot-maze')!
+const maze = games[0]
 
 describe('play games', () => {
-  it('offers the two levels of the revised prototype', () => {
-    expect(PLAY_GAMES.map((game) => game.title)).toEqual(['机器人迷宫', '无人机寻星'])
-    expect(findPlayGame('drone-route')?.avatar).toBe('DRONE')
-    expect(findPlayGame('unknown')).toBeUndefined()
-    expect(findPlayGame(undefined)).toBeUndefined()
+  it('loads only published games returned by the catalog', async () => {
+    const request = vi.fn().mockResolvedValueOnce([{ ...gameRows[1], title: '新关卡' }]).mockResolvedValueOnce([])
+    expect(await listPlayGames({ request })).toEqual([{ ...games[1], title: '新关卡' }])
+    expect(request).toHaveBeenCalledWith({ method: 'GET', url: '/api/v1/experience/play-games' })
+    expect(await listPlayGames({ request })).toEqual([])
+    expect(() => decodeGame({ ...gameRows[0], board: 'invalid' })).toThrow()
   })
 
-  it.each(PLAY_GAMES)('keeps $title solvable and its pieces apart', (game) => {
+  it.each(games)('keeps $title solvable and its pieces apart', (game) => {
     const cells = PLAY_BOARD_SIZE * PLAY_BOARD_SIZE
     const placed = [...game.walls, ...game.stars, game.goal, PLAY_START_CELL]
     expect(new Set(placed).size).toBe(placed.length)

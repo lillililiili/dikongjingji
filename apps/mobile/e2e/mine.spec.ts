@@ -128,6 +128,60 @@ test.describe('我的', () => {
   })
 })
 
+test('MINE-005 不同屏宽下个人和企业资料完整可见，切换按钮不遮挡文字', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('inspection.accessToken', 'mine-layout'))
+  await page.route('**/api/v1/**', (route) => route.abort())
+  for (const [identity, name] of [
+    ['PERSONAL', '王女士'],
+    ['PERSONAL', '王女士（示例账号）'],
+    ['ENTERPRISE', '东营港务物流'],
+    ['ENTERPRISE', '东营港务物流与低空智能装备技术服务有限公司'],
+  ]) {
+    const enterprise = identity === 'ENTERPRISE'
+    await page.route('**/api/v1/auth/me', (route) => route.fulfill({ json: {
+      displayName: enterprise ? '王女士' : name,
+      maskedPhone: '138****2026',
+      identity: { type: identity, enterpriseName: enterprise ? name : null, role: enterprise ? 'ADMIN' : null },
+    } }))
+    await page.goto('/#/pages/mine/index')
+    const card = page.getByTestId('mine-profile')
+    await expect(card.locator('.platform-mine__name')).toHaveText(name)
+    const switchButton = card.getByTestId('mine-switch-identity')
+    await expect(switchButton).toHaveText(enterprise ? '切换个人身份' : '切换企业身份')
+
+    for (const width of [320, 360, 375, 390, 430]) {
+      await page.setViewportSize({ width, height: 844 })
+      await expect(switchButton).toBeVisible()
+      const issues = await card.evaluate((element) => {
+        const bounds = element.getBoundingClientRect()
+        const button = element.querySelector('[data-testid="mine-switch-identity"]')!.getBoundingClientRect()
+        const copy = element.querySelector('.platform-mine__identity-copy')!
+        const textBounds = copy.getBoundingClientRect()
+        const issues: string[] = []
+        if (button.width === 0 || button.height === 0 || button.left < bounds.left || button.right > bounds.right ||
+            button.top < bounds.top || button.bottom > bounds.bottom) issues.push('切换按钮超出资料卡')
+        const nodes = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT)
+        while (nodes.nextNode()) {
+          const text = nodes.currentNode.textContent?.trim()
+          if (!text) continue
+          const range = document.createRange()
+          range.selectNodeContents(nodes.currentNode)
+          for (const rect of Array.from(range.getClientRects())) {
+            const clipped = rect.left < textBounds.left - 1 || rect.right > textBounds.right + 1
+            const covered = rect.left < button.right && rect.right > button.left &&
+              rect.top < button.bottom && rect.bottom > button.top
+            if (clipped || covered) issues.push(text)
+          }
+        }
+        return issues
+      })
+      expect(issues, `${width}px · ${name}`).toEqual([])
+    }
+    await page.unroute('**/api/v1/auth/me')
+    await page.goto('about:blank')
+  }
+})
+
 test.describe('我的：当前事项与数值', () => {
   test('MINE-004 待参加报名带核销码，订单角标和菜单数值都来自现有接口', async ({ page }) => {
     await page.addInitScript(() => {

@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { ApiRequestError } from '@/shared/http/public-api-request'
-import { wgs84ToGcj02 } from '@/shared/map/map-coordinate'
+import { chooseNavigation, viewDestination } from '@/shared/map/destination-actions'
 import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
@@ -241,29 +241,12 @@ async function cancel(ticketIds?: string[]): Promise<void> {
   }
 }
 
-function copyAddress(address: string): void {
-  uni.setClipboardData({
-    data: address,
-    success: () => uni.showToast({ title: '已复制地址', icon: 'none' }),
-  })
+function openNavigation(): void {
+  if (enrollment.value?.location) chooseNavigation(enrollment.value.location)
 }
 
-function openNavigation(): void {
-  const location = enrollment.value?.location
-  if (!location) return
-  if (location.latitude === null || location.longitude === null) {
-    copyAddress(location.address)
-    return
-  }
-  // The server keeps WGS84; maps in China expect GCJ-02.
-  const point = wgs84ToGcj02({ latitude: location.latitude, longitude: location.longitude })
-  uni.openLocation({
-    latitude: point.latitude,
-    longitude: point.longitude,
-    name: location.name,
-    address: location.address,
-    fail: () => copyAddress(location.address),
-  })
+function openMap(): void {
+  if (enrollment.value?.location) viewDestination(enrollment.value.location)
 }
 
 function askCancel(): void {
@@ -389,7 +372,7 @@ onBeforeUnmount(() => {
             <text class="ticket__place-label">原时间</text>
             <text class="ticket__place-text ticket__place-text--old">{{ previousTime }}（已改期）</text>
           </view>
-          <view class="ticket__place">
+          <view class="ticket__place" role="button" data-testid="ticket-map" @click="openMap">
             <text class="ticket__place-label">地点</text>
             <text class="ticket__place-text">{{ enrollment.location.name }} · {{ enrollment.location.address }}</text>
           </view>

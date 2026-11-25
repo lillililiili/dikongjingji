@@ -20,9 +20,9 @@ export const EXPERIENCE_TYPE_LABELS: Record<ExperienceType, string> = {
 // The tag on each card says what kind of experience it is, so nobody mistakes it for a real device.
 export const EXPERIENCE_TYPE_TAGS: Record<ExperienceType, string> = {
   SIMULATION: '虚拟仿真 · 不连接真实设备',
-  RECORDED_DEMO: '录播演示 · 厂家录制',
-  SOFTWARE_TRIAL: '软件试用 · 隔离环境',
-  COURSE_TRIAL: '课程试听 · 图文预览',
+  RECORDED_DEMO: '录播演示',
+  SOFTWARE_TRIAL: '软件试用',
+  COURSE_TRIAL: '课程试听',
 }
 
 export const VENUE_DEVICE_CATEGORY_LABELS: Record<VenueDeviceCategory, string> = {

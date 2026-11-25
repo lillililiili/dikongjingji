@@ -121,7 +121,7 @@ class ExperienceOpenApiContractTest {
 
         // 1.3.0：核销工作台（S3-3）的登记放行，路由和字段不变；1.4.0：线上体验记录（S5-4）；
         // 1.5.0（S4-4）：场馆卡的项目摘要、馆内设备的商品价格和在售家数。
-        assertThat(map(root.get("info")).get("version")).isEqualTo("1.5.0");
+        assertThat(map(root.get("info")).get("version")).isEqualTo("1.5.1");
         assertThat(map(map(root.get("components")).get("securitySchemes")).get("bearerAuth"))
                 .isEqualTo(Map.of("type", "http", "scheme", "bearer", "bearerFormat", "JWT"));
         assertThat(root).doesNotContainKey("security");

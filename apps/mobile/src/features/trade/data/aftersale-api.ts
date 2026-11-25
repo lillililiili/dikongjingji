@@ -1,3 +1,4 @@
+import { businessImage } from '../../../shared/http/business-media'
 import {
   AFTERSALE_ACTIONS,
   AFTERSALE_IMAGE_SLOTS,
@@ -150,7 +151,7 @@ function toLine(line: LineDto): TradeOrderLine {
     productName: line.productName,
     skuName: line.skuName,
     // 只认 HTTPS 图片，和订单的其他图片一样。
-    coverImage: line.coverImage && /^https:\/\//i.test(line.coverImage.url) ? { url: line.coverImage.url, alt: line.coverImage.alt } : null,
+    coverImage: businessImage(line.coverImage),
     unitAmountMinor: line.unitAmountMinor,
     quantity: line.quantity,
     subtotalMinor: line.subtotalMinor,

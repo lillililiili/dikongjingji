@@ -367,6 +367,7 @@ export interface LessonForm {
   durationText: string
   trial: boolean
   videoUrl: string
+  originalVideoUrl?: string | null
   /** 学过的人数（原有课时才有；大于 0 的不能删）。 */
   learnerCount: number
 }
@@ -399,6 +400,7 @@ export function outlineFormOf(chapters: readonly OpsCourseChapter[]): ChapterFor
       durationText: formatDuration(lesson.durationSeconds),
       trial: lesson.trial,
       videoUrl: lesson.videoUrl ?? '',
+    originalVideoUrl: lesson.videoUrl,
       learnerCount: lesson.learnerCount,
     })),
   }))

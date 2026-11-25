@@ -5,7 +5,7 @@ import LineIcon from '@/shared/ui/LineIcon.vue'
 
 import type { ChatState } from '../../application/chat-session'
 import { sendableSupportText } from '../../application/chat-session'
-import { SUPPORT_CARD_LABELS, resolveSupportCardPicture } from '../../application/support-card'
+import { SUPPORT_CARD_LABELS } from '../../application/support-card'
 import { PLATFORM_WELCOME_TEXT, buildChatLines, describeChatPeer, type ChatLine } from '../../application/chat-view'
 import { SUPPORT_TEXT_LIMIT, type SupportCard, type SupportMessage } from '../../domain/support'
 
@@ -53,7 +53,6 @@ const showWelcome = computed(() => {
   const current = ready.value
   return Boolean(current && peer.value?.initial === null && current.messages.length === 0 && !current.hasOlder)
 })
-const cardPicture = (card: SupportCard) => resolveSupportCardPicture(card)
 
 // Icons copied from the board Chat.
 const ICONS = {
@@ -191,14 +190,8 @@ watch(lines, async (next) => {
                 :data-testid="`support-card-${line.message.seq}`"
                 @click="emit('openCard', cardOf(line.message) as SupportCard)"
               >
-                <view :class="['support-chat__card-icon', { 'support-chat__card-icon--contain': cardPicture(cardOf(line.message) as SupportCard)?.contain }]">
-                  <image
-                    v-if="cardPicture(cardOf(line.message) as SupportCard)"
-                    class="support-chat__card-image"
-                    :src="cardPicture(cardOf(line.message) as SupportCard)?.url"
-                    :mode="cardPicture(cardOf(line.message) as SupportCard)?.contain ? 'aspectFit' : 'aspectFill'"
-                  />
-                  <LineIcon v-else :d="ICONS.card" :size="24" color="#ff6a00" />
+                <view class="support-chat__card-icon">
+                  <LineIcon :d="ICONS.card" :size="24" color="#ff6a00" />
                 </view>
                 <view class="support-chat__card-copy">
                   <text class="support-chat__card-title">{{ (cardOf(line.message) as SupportCard).title }}</text>
@@ -230,14 +223,8 @@ watch(lines, async (next) => {
               </button>
               <text v-else class="support-chat__sending">发送中</text>
               <view v-if="'card' in line.outgoing.body" class="support-chat__card support-chat__card--pending">
-                <view :class="['support-chat__card-icon', { 'support-chat__card-icon--contain': cardPicture(line.outgoing.body.card)?.contain }]">
-                  <image
-                    v-if="cardPicture(line.outgoing.body.card)"
-                    class="support-chat__card-image"
-                    :src="cardPicture(line.outgoing.body.card)?.url"
-                    :mode="cardPicture(line.outgoing.body.card)?.contain ? 'aspectFit' : 'aspectFill'"
-                  />
-                  <LineIcon v-else :d="ICONS.card" :size="24" color="#ff6a00" />
+                <view class="support-chat__card-icon">
+                  <LineIcon :d="ICONS.card" :size="24" color="#ff6a00" />
                 </view>
                 <view class="support-chat__card-copy">
                   <text class="support-chat__card-title">{{ line.outgoing.body.card.title }}</text>
@@ -252,14 +239,8 @@ watch(lines, async (next) => {
 
       <view v-if="pendingCard" class="support-chat__pin" data-testid="support-chat-pending-card">
         <button class="support-chat__pin-copy" @click="emit('openCard', pendingCard)">
-          <view :class="['support-chat__pin-icon', { 'support-chat__card-icon--contain': cardPicture(pendingCard)?.contain }]">
-            <image
-              v-if="cardPicture(pendingCard)"
-              class="support-chat__card-image"
-              :src="cardPicture(pendingCard)?.url"
-              :mode="cardPicture(pendingCard)?.contain ? 'aspectFit' : 'aspectFill'"
-            />
-            <LineIcon v-else :d="ICONS.card" :size="22" color="#ff6a00" />
+          <view class="support-chat__pin-icon">
+            <LineIcon :d="ICONS.card" :size="22" color="#ff6a00" />
           </view>
           <view class="support-chat__card-copy">
             <text class="support-chat__card-title">{{ pendingCard.title }}</text>

@@ -8,6 +8,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 
+import com.lowaltitude.inspection.media.DevelopmentMediaPath;
+
 import com.lowaltitude.inspection.mall.application.MallRows.OfferRow;
 import com.lowaltitude.inspection.mall.application.MallRows.ProductRow;
 
@@ -292,6 +294,9 @@ public final class MallCatalogReadService {
 
     /** 只放行带主机名的 HTTPS 地址（AGENTS.md §11）；其余当作没有图片。 */
     static MallMediaView secureMedia(String url, String alt) {
+        if (DevelopmentMediaPath.matches(url)) {
+            return new MallMediaView(url, alt);
+        }
         if (isBlank(url)) {
             return null;
         }

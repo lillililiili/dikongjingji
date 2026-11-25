@@ -1,6 +1,6 @@
 import type { FormItemRule, FormRules } from 'element-plus'
 
-import { isHttpsUrl } from '@/core/ops/media-api'
+import { isRetainedMediaUrl } from '@/core/ops/media-api'
 import { charCount } from '@/core/ui/format'
 import { maxChars, required } from '@/core/ui/form-rules'
 import { yuanToMinor } from '@/core/ui/money'
@@ -15,12 +15,12 @@ export function isUuid(value: string): boolean {
   return UUID.test(value.trim())
 }
 
-function httpsOrEmpty(label: string): FormItemRule {
+function httpsOrEmpty(label: string, existing: () => string | null | undefined): FormItemRule {
   return {
     trigger: 'change',
     validator: (_rule, value: unknown, callback) => {
       const text = typeof value === 'string' ? value.trim() : ''
-      callback(text !== '' && !isHttpsUrl(text) ? new Error(`${label}只能是 https 地址`) : undefined)
+      callback(text !== '' && !isRetainedMediaUrl(text, existing()) ? new Error(`${label}只能是 https 地址`) : undefined)
     },
   }
 }
@@ -131,12 +131,12 @@ export function createRules(form: () => CourseCreateForm): FormRules {
   }
 }
 
-export function courseRules(mode: CourseMode): FormRules {
+export function courseRules(mode: CourseMode, existingCover: () => string | null | undefined = () => null): FormRules {
   const common: FormRules = {
     topic: [required('子类目', 'change')],
     title: [required('课程名称'), maxChars('课程名称', LIMITS.title)],
     organizationId: [required('开课机构', 'change')],
-    coverUrl: [httpsOrEmpty('封面')],
+    coverUrl: [httpsOrEmpty('封面', existingCover)],
   }
   if (mode === 'OFFLINE') {
     return {
@@ -199,7 +199,7 @@ export function outlineProblems(chapters: readonly ChapterForm[]): string[] {
         problems.push(`${at}时长按“分:秒”（如 12:30）或秒数填，1 秒到 240 分钟`)
       }
       const video = lesson.videoUrl.trim()
-      if (video !== '' && !isHttpsUrl(video)) problems.push(`${at}视频地址只能是 https 地址`)
+      if (video !== '' && !isRetainedMediaUrl(video, lesson.originalVideoUrl)) problems.push(`${at}视频地址只能是 https 地址`)
     })
   })
   return problems

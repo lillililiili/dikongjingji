@@ -50,8 +50,8 @@ public interface LiveMapper {
                    r.replay_url,
                    r.replay_platform_name,
                    r.current_item_seq,
-                   r.viewer_count,
-                   r.like_count,
+                   CASE WHEN platform_demo_metrics() THEN r.viewer_count ELSE r.recorded_viewer_count END AS viewer_count,
+                   CASE WHEN platform_demo_metrics() THEN r.like_count ELSE r.recorded_like_count END AS like_count,
                    r.comment_count,
                    r.request_hash,
                    r.created_at,
@@ -218,20 +218,23 @@ public interface LiveMapper {
             @Param("at") OffsetDateTime at
     );
 
-    @Update("UPDATE live_room SET viewer_count = viewer_count + 1 WHERE id = #{roomId} AND status = 'LIVE'")
+    @Update("""
+            UPDATE live_room SET viewer_count = viewer_count + 1, recorded_viewer_count = recorded_viewer_count + 1
+            WHERE id = #{roomId} AND status = 'LIVE'
+            """)
     int addViewer(@Param("roomId") UUID roomId);
 
     @Select("""
-            UPDATE live_room SET like_count = like_count + #{count}
+            UPDATE live_room SET like_count = like_count + #{count}, recorded_like_count = recorded_like_count + #{count}
             WHERE id = #{roomId}
-            RETURNING like_count
+            RETURNING CASE WHEN platform_demo_metrics() THEN like_count ELSE recorded_like_count END
             """)
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     long addLikes(@Param("roomId") UUID roomId, @Param("count") int count);
 
     /** 下一条弹幕的序号。行锁到提交为止，所以序号按提交的先后递增，轮询不会漏掉晚提交的小序号。 */
     @Select("""
-            UPDATE live_room SET comment_count = comment_count + 1
+            UPDATE live_room SET comment_count = comment_count + 1, recorded_comment_count = recorded_comment_count + 1
             WHERE id = #{roomId}
             RETURNING comment_count
             """)
@@ -356,7 +359,8 @@ public interface LiveMapper {
     @Select(COMMENT_COLUMNS + "WHERE c.author_id = #{authorId} AND c.idempotency_key = #{idempotencyKey}")
     CommentRow findCommentByKey(@Param("authorId") UUID authorId, @Param("idempotencyKey") UUID idempotencyKey);
 
-    @Select(COMMENT_COLUMNS + "WHERE c.id = #{commentId} AND c.room_id = #{roomId}")
+    @Select(COMMENT_COLUMNS + "WHERE c.id = #{commentId} AND c.room_id = #{roomId} "
+            + "AND (platform_demo_metrics() OR c.author_id IS NOT NULL)")
     CommentRow findRoomComment(@Param("roomId") UUID roomId, @Param("commentId") UUID commentId);
 
     /** 这个账号最近一条观众弹幕的时间（限频；跨直播间）。 */
@@ -392,6 +396,7 @@ public interface LiveMapper {
     @Select(COMMENT_COLUMNS + """
             WHERE c.room_id = #{roomId}
               AND c.hidden_at IS NULL
+              AND (platform_demo_metrics() OR c.author_id IS NOT NULL)
               AND (CAST(#{since} AS bigint) IS NULL OR c.seq > CAST(#{since} AS bigint))
             ORDER BY c.seq DESC
             LIMIT #{limit}
@@ -402,6 +407,7 @@ public interface LiveMapper {
             SELECT c.seq FROM live_comment c
             WHERE c.room_id = #{roomId}
               AND c.hidden_at IS NOT NULL
+              AND (platform_demo_metrics() OR c.author_id IS NOT NULL)
               AND c.seq > #{fromSeq}
             ORDER BY c.seq
             """)

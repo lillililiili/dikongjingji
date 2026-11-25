@@ -52,6 +52,7 @@ const api = createCourseApi(http)
 const courseId = computed(() => (typeof route.params.courseId === 'string' ? route.params.courseId : ''))
 const course = ref<OpsCourse | null>(null)
 const changes = ref<OpsChange[]>([])
+const changesError = ref('')
 const changesLoading = ref(false)
 const loading = ref(false)
 const loadError = ref('')
@@ -62,7 +63,7 @@ const form = reactive<CourseForm>(courseFormOf(placeholderCourse()))
 const outline = ref<ChapterForm[]>([])
 
 const online = computed(() => course.value?.mode === 'ONLINE')
-const rules = computed(() => courseRules(course.value?.mode ?? 'ONLINE'))
+const rules = computed(() => courseRules(course.value?.mode ?? 'ONLINE', () => course.value?.coverUrl))
 const missingText = computed(() => listMissingText(course.value?.listMissing ?? []))
 const canPublish = computed(() => (course.value?.listMissing.length ?? 0) === 0)
 
@@ -114,10 +115,12 @@ function show(next: OpsCourse, reset: { info: boolean, outline: boolean }): void
 async function loadChanges(): Promise<void> {
   if (!courseId.value) return
   changesLoading.value = true
+  changesError.value = ''
   try {
     changes.value = await api.changes(courseId.value)
-  } catch {
+  } catch (failure) {
     changes.value = []
+    changesError.value = errorMessage(failure)
   } finally {
     changesLoading.value = false
   }
@@ -419,7 +422,7 @@ onMounted(() => {
         </el-tab-pane>
 
         <el-tab-pane label="改动记录" name="changes">
-          <ChangeLogTable :changes="changes" :loading="changesLoading" :subject-labels="CHANGE_SUBJECT_LABELS"
+          <ChangeLogTable :changes="changes" :error="changesError" :loading="changesLoading" :subject-labels="CHANGE_SUBJECT_LABELS"
                           :action-labels="CHANGE_ACTION_LABELS" />
         </el-tab-pane>
       </el-tabs>

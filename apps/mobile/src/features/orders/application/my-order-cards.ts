@@ -3,7 +3,6 @@ import {
   enrollmentPriceText,
   paymentRemainingMs as enrollmentPaymentRemainingMs,
 } from '../../activity/application/enrollment-view'
-import { resolveActivityPreviewCover } from '../../activity/data/preview/activity-preview-covers'
 import type { Enrollment } from '../../activity/domain/enrollment'
 import {
   buildActivityOrderUrl,
@@ -15,10 +14,8 @@ import {
   formatVenueAmount,
   venuePaymentRemainingMs,
 } from '../../experience/application/venue-booking-view'
-import { resolveExperiencePreviewCover } from '../../experience/data/preview/experience-preview-covers'
 import type { VenueBooking } from '../../experience/domain/venue-booking'
 import { buildVenueBookingUrl } from '../../experience/navigation/experience-routes'
-import { resolveMallPreviewCover } from '../../mall/data/preview/mall-preview-covers'
 import {
   beijingToday,
   daysBetween,
@@ -34,7 +31,6 @@ import type { RentalOrder } from '../../rental/domain/rental'
 import { buildRentalOrderUrl } from '../../rental/navigation/rental-routes'
 import { formatServiceAmount } from '../../serviceorder/application/service-order-format'
 import { describeServiceOrderCard } from '../../serviceorder/application/service-order-view'
-import { resolveServiceOrderPreviewCover } from '../../serviceorder/data/preview/serviceorder-preview-covers'
 import type { ServiceOrderSummary } from '../../serviceorder/domain/service-order'
 import {
   buildServiceOrderDeliveryUrl,
@@ -139,7 +135,7 @@ function goodsCard(order: TradeOrder, now: number): MyOrderCardView {
     tag: { label: '商品', tone: 'ORANGE' },
     head: order.merchant.name,
     status: { text: status.label, tone: TRADE_TONES[status.tone] },
-    cover: first ? first.coverImage?.url ?? resolveMallPreviewCover(first.productId)?.url ?? null : null,
+    cover: first ? first.coverImage?.url ?? null : null,
     coverAlt: first?.productName ?? '',
     title: goods.name,
     titleTail: '',
@@ -202,7 +198,7 @@ function serviceCard(order: ServiceOrderSummary): MyOrderCardView {
     tag: { label: '服务', tone: 'GREEN' },
     head: order.provider.name,
     status: { text: view.statusText, tone: SERVICE_TONES[view.tone] },
-    cover: resolveServiceOrderPreviewCover(order.type),
+    cover: null,
     coverAlt: order.title,
     title: order.title,
     titleTail: '',
@@ -262,7 +258,7 @@ function enrollCard(enrollment: Enrollment, now: number): MyOrderCardView {
     tag: { label: '报名', tone: 'PURPLE' },
     head: enrollment.activity.organizerName || enrollment.location.name,
     status: { text: view.statusText, tone: ENROLL_STATUS_TONES[view.statusTone] },
-    cover: enrollment.activity.coverImage?.url ?? resolveActivityPreviewCover(enrollment.activity.activityId),
+    cover: enrollment.activity.coverImage?.url ?? null,
     coverAlt: enrollment.activity.title,
     title: title.main,
     titleTail: title.tail,
@@ -303,7 +299,7 @@ function venueCard(booking: VenueBooking, now: number): MyOrderCardView {
     tag: { label: '体验', tone: 'PURPLE' },
     head: booking.venue.name,
     status: { text: view.statusText, tone: VENUE_STATUS_TONES[view.statusTone] },
-    cover: resolveExperiencePreviewCover(booking.project.projectId) ?? resolveExperiencePreviewCover(booking.venue.venueId),
+    cover: null,
     coverAlt: booking.project.name,
     title: view.title,
     titleTail: '',

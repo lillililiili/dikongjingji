@@ -1,49 +1,17 @@
 import { randomInt, randomUUID } from 'node:crypto'
 
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
-import { API, CITY, apiLogin, databaseAvailable, offerId, psql } from './support/trade-fixtures'
+import { field, forgetSentCodes, latestCode, mask, openSignedIn, randomPhone, signUpByApi } from './support/account-fixtures'
+import { API, CITY, apiLogin, databaseAvailable, offerId } from './support/trade-fixtures'
 
 // S5-7 企业组织与成员、S5-8 手机号登录与账号（contracts/openapi-identity-account.yaml 1.0.0）。
-// Runs against the dev stack: backend on 18420 with this branch (dev profile: the SMS is the local
+// Runs against the independent test stack with this branch (dev profile: the SMS is the local
 // fake, codes are read from identity_dev_sms_outbox), H5 dev server as PLAYWRIGHT_BASE_URL. Every
 // case signs up its own 199 numbers, so dev-customer and the seeded enterprise are not touched.
-test.skip(!databaseAvailable(), 'Needs the dev database (homerev-postgres-1) to read the fake SMS codes.')
+test.skip(!databaseAvailable(), 'Needs the isolated test database to read the fake SMS codes.')
 
 const KIT_STORE = offerId('101', '3')
-const randomPhone = () => `199${String(randomInt(0, 1e8)).padStart(8, '0')}`
-const mask = (phone: string) => `${phone.slice(0, 3)}****${phone.slice(7)}`
-
-function latestCode(phone: string): string {
-  const content = psql(`SELECT content FROM identity_dev_sms_outbox WHERE phone='${phone}' ORDER BY sent_at DESC LIMIT 1;`)
-  const match = /验证码 (\d{6})/.exec(content)
-  if (!match) throw new Error(`no code sent to ${phone}`)
-  return match[1]
-}
-
-// Codes of a number sent earlier in the run move to yesterday, so the 60 s and 10-a-day limits stay out of the way.
-function forgetSentCodes(phone: string): void {
-  psql(`UPDATE identity_sms_code SET sent_at = sent_at - interval '1 day' WHERE phone='${phone}';`)
-}
-
-async function signUpByApi(request: APIRequestContext, phone: string, deviceName = 'iPhone 15') {
-  forgetSentCodes(phone)
-  expect((await request.post(`${API}/api/v1/auth/sms-codes`, { data: { phone } })).status()).toBe(202)
-  const login = await request.post(`${API}/api/v1/auth/phone-login`, {
-    data: { phone, code: latestCode(phone), device: { deviceKey: randomUUID(), deviceName, platform: 'IOS', cityCode: CITY } },
-  })
-  expect(login.ok()).toBeTruthy()
-  const { accessToken } = await login.json()
-  return { token: accessToken as string, headers: { Authorization: `Bearer ${accessToken}` } }
-}
-
-// A fresh document each time (a changed query before # reloads; a hash-only change would keep the page).
-async function openSignedIn(page: Page, token: string, route: string): Promise<void> {
-  await page.goto(`/?e2e=${Date.now()}#/pages/mine/about`)
-  await page.evaluate((value) => localStorage.setItem('inspection.accessToken', value), token)
-  await page.goto(`/?e2e=${Date.now()}#${route}`)
-}
-
 // Hold the first real read until the UI has rendered, as on a slow connection.
 async function holdRead(page: Page, endpoint: string): Promise<() => void> {
   let release!: () => void
@@ -54,9 +22,6 @@ async function holdRead(page: Page, endpoint: string): Promise<() => void> {
   })
   return release
 }
-
-// uni puts the test id on its input wrapper; the native input is inside.
-const field = (page: Page, testId: string) => page.getByTestId(testId).locator('input')
 
 test.describe('手机号验证码登录（Login）', () => {
   test('ACC-001 新号码收验证码登录即开通账号，回到“我的”显示打码手机号', async ({ page }) => {
@@ -73,6 +38,7 @@ test.describe('手机号验证码登录（Login）', () => {
     await expect(page.getByTestId('login-phone-submit')).toHaveAttribute('disabled', /.*/)
     await page.getByTestId('login-agreement').click()
     await page.getByTestId('login-phone-submit').click()
+    await page.getByTestId('login-setup-skip').click()
 
     await expect(page.getByTestId('mine-page')).toBeVisible()
     await expect(page.getByTestId('mine-phone-line')).toContainText(mask(phone))
@@ -85,6 +51,8 @@ test.describe('手机号验证码登录（Login）', () => {
     await request.post(`${API}/api/v1/auth/sms-codes`, { data: { phone } })
     const wrong = latestCode(phone) === '000000' ? '111111' : '000000'
     await page.goto('/#/pages/service/inspection/login')
+    await expect(page.getByTestId('login-phone-form')).toBeVisible()
+    await expect(page.getByText(/本机号码一键登录/)).toHaveCount(0)
     await field(page, 'login-phone').fill(phone)
     await field(page, 'login-code').fill(wrong)
     await page.waitForTimeout(150)
@@ -94,7 +62,10 @@ test.describe('手机号验证码登录（Login）', () => {
 
     await page.getByTestId('login-switch-mode').click()
     await expect(page.locator('.inspection-login__form-title')).toHaveText('账号登录')
-    await page.getByTestId('login-carrier').count().then((count) => expect(count).toBe(0))
+    await expect(page.getByText(/本机号码一键登录/)).toHaveCount(0)
+    await page.getByTestId('login-switch-mode').click()
+    await expect(page.getByTestId('login-phone-form')).toBeVisible()
+    await expect(page.locator('.inspection-login__error')).toHaveCount(0)
   })
 })
 

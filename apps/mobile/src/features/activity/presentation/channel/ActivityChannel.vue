@@ -8,7 +8,6 @@ import {
 } from '../../application/activity-list-loader'
 import { activityApi } from '../../data/activity-api-client'
 import type { ActivityCard, ActivityType } from '../../domain/activity'
-import { resolveActivityPreviewCover } from '../../data/preview/activity-preview-covers'
 import { buildActivityDetailUrl } from '../../navigation/activity-routes'
 import {
   ACTIVITY_TYPE_LABELS,
@@ -119,9 +118,8 @@ function clearFilters(): void {
   void reloadList()
 }
 
-// The server's picture when it has one, else the sample picture of a preview build.
 function coverOf(card: ActivityCard): string | null {
-  return card.coverImage?.url ?? resolveActivityPreviewCover(card.activityId)
+  return card.coverImage?.url ?? null
 }
 
 function openDetail(card: ActivityCard): void {

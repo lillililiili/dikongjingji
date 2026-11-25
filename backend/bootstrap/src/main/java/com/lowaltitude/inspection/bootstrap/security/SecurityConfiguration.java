@@ -91,7 +91,10 @@ public class SecurityConfiguration {
                         // S5-8 手机号验证码登录（发码、登录）：不登录；频率和错误次数由身份模块限制。
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/sms-codes",
-                                "/api/v1/auth/phone-login").permitAll()
+                                "/api/v1/auth/phone-login",
+                                "/api/v1/auth/phone-password-login",
+                                "/api/v1/auth/password-reset-codes",
+                                "/api/v1/auth/password-reset").permitAll()
                         // 商家自助入驻（发码、申请）：不登录；验证码频率和错误次数由身份模块限制（OrganizationSignupService）。
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/organization-signups/sms-codes",
@@ -107,7 +110,10 @@ public class SecurityConfiguration {
                                 "/api/v1/inspection/discovery",
                                 "/api/v1/platform/weather/current").permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/api/v1/platform/cities").permitAll()
+                                "/api/v1/platform/cities",
+                                "/api/v1/platform/map-places",
+                                "/api/v1/platform/agreements/*",
+                                "/api/v1/experience/play-games").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/activities",
                                 "/api/v1/activities/*").permitAll()
@@ -128,7 +134,9 @@ public class SecurityConfiguration {
                                 "/api/v1/mall/merchants/*",
                                 // 开发环境回读运营端上传的商品图片（只在配置了本机目录时有这个接口）。
                                 "/api/v1/mall/media/products/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/home/recommend", "/api/v1/home/carousel",
+                                "/api/v1/dev-media/*/*/*").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/v1/dev-media/*/*/*").permitAll()
                         // 服务订单交付文件的短时下载链接（S4-3）：令牌本身就是授权，10 分钟内有效，浏览器直接打开。
                         .requestMatchers(HttpMethod.GET, "/api/v1/service-order-files/*").permitAll()
                         // 全局搜索（S5-1）：公开只读。

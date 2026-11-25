@@ -44,12 +44,12 @@ function isQuote(label: string): boolean {
       <view class="hot-services__track">
         <button
           v-for="service in services"
-          v-show="service.imageUrl"
           :key="service.id"
           class="hot-service-card"
           @click="$emit('select', service)"
         >
           <image
+            v-if="service.imageUrl"
             class="hot-service-card__visual"
             :src="service.imageUrl"
             mode="aspectFill"

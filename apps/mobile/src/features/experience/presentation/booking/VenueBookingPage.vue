@@ -22,7 +22,7 @@ import { venueBookingApi } from '../../data/venue-booking-api-client'
 import type { VenueSession } from '../../domain/experience'
 import type { VenueBooking, VenueOrderInfo } from '../../domain/venue-booking'
 import { formatVenueSessionTime } from '../shared/experience-format'
-import { openVenueNavigation } from '../shared/venue-navigation'
+import { chooseNavigation, viewDestination } from '@/shared/map/destination-actions'
 
 // Board VenueCode's 取消预约 mark: an arrow turning back.
 const UNDO_ICON = 'M9 7L4 12l5 5M4 12h11a5 5 0 0 1 5 5'
@@ -273,7 +273,7 @@ async function confirmMove(): Promise<void> {
   }
 }
 
-async function openNavigation(): Promise<void> {
+async function openLocation(action: typeof chooseNavigation): Promise<void> {
   const current = booking.value
   if (!current) return
   if (!place) {
@@ -281,10 +281,10 @@ async function openNavigation(): Promise<void> {
       const venue = await experienceApi.loadVenue(current.venue.venueId, current.venue.cityCode)
       place = { latitude: venue.latitude, longitude: venue.longitude }
     } catch {
-      // Without coordinates the address goes to the clipboard.
+      // Keep the booked address available even when the venue is offline.
     }
   }
-  openVenueNavigation({
+  action({
     name: current.venue.name,
     address: current.venue.address,
     latitude: place?.latitude ?? null,
@@ -380,7 +380,7 @@ onBeforeUnmount(() => {
               <text class="venue-code__fact-label">参与人</text>
               <text data-testid="venue-booking-people">{{ peopleLine }}</text>
               <text class="venue-code__fact-label">地点</text>
-              <view class="venue-code__place">
+              <view class="venue-code__place" role="button" data-testid="venue-booking-map" @click="openLocation(viewDestination)">
                 <text>{{ booking.venue.name }}</text>
                 <text class="venue-code__muted">{{ booking.venue.address }}</text>
               </view>
@@ -421,7 +421,7 @@ onBeforeUnmount(() => {
         </view>
 
         <view v-if="live" class="venue-code__tiles">
-          <button class="venue-code__tile" data-testid="venue-booking-navigate" @click="openNavigation">
+          <button class="venue-code__tile" data-testid="venue-booking-navigate" @click="openLocation(chooseNavigation)">
             <LineIcon name="navigate" :size="22" color="#ff6a00" />
             <text>导航到场馆</text>
           </button>

@@ -98,14 +98,11 @@ test.describe('体验频道', () => {
     await expect(page.getByTestId('root-tab-home')).toHaveClass(/root-tab-bar__item--active/)
   })
 
-  // S5-4 起虚拟仿真、软件试用、课程试听有自己的页面（e2e/experience-sim.spec.ts）；录播演示还没做。
-  test('EXP-003 还没做的体验形式点开只给提示，不跳走；虚拟仿真进任务页', async ({ page }) => {
+  test('EXP-003 录播和虚拟仿真分别进入项目页', async ({ page }) => {
     await openExperienceChannel(page)
-    const url = page.url()
-
     await page.getByTestId(`experience-item-${RECORDED_DEMO_ID}`).click()
-    await expect(page.locator('.uni-sample-toast')).toContainText('录播演示即将开放')
-    expect(page.url()).toBe(url)
+    await expect(page.getByTestId('recorded-page')).toContainText('该项目尚未配置录播视频')
+    await page.goBack()
 
     await page.getByTestId(`experience-item-${SIMULATION_ID}`).click()
     await expect(page.getByTestId('simulation-page')).toBeVisible()

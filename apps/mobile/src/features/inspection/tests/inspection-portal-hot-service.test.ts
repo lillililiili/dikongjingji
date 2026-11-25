@@ -39,7 +39,6 @@ function mountPortalPage(): PortalBindings {
     vue: { ...Vue, onMounted: () => undefined },
     pinia: { storeToRefs },
     '@/shared/city/state/current-city': { useCurrentCityStore },
-    '../../../data/preview/inspection-portal-preview': {},
     '../../../data/service-flow/uni-booking-http-client': {
       inspectionCatalogApi: { loadPortal: async () => ({}) },
     },

@@ -61,6 +61,7 @@ public class ModuleFlywayConfiguration {
     // 本地验收和联调用的两个示例账号，密码写在种子里；只有 dev 环境加载。
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn("identityFlyway")
     Flyway identityDevelopmentDataFlyway(DataSource dataSource) {
         return Flyway.configure()
@@ -80,6 +81,7 @@ public class ModuleFlywayConfiguration {
     // 改了口令校验和就变，下次启动重写摘要。只有 dev 环境加载。
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn("identityDevelopmentDataFlyway")
     Flyway identityOperatorDevelopmentDataFlyway(
             DataSource dataSource,
@@ -118,6 +120,7 @@ public class ModuleFlywayConfiguration {
 
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn("activityFlyway")
     Flyway activityDevelopmentDataFlyway(DataSource dataSource) {
         return datedDevelopmentSeed(dataSource, "activity", seedDatePlaceholder());
@@ -132,6 +135,7 @@ public class ModuleFlywayConfiguration {
 
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn("experienceFlyway")
     Flyway experienceDevelopmentDataFlyway(DataSource dataSource) {
         return datedDevelopmentSeed(dataSource, "experience", seedDatePlaceholder());
@@ -147,6 +151,7 @@ public class ModuleFlywayConfiguration {
     // 系统通知（S5-9）的示例公告“隐私政策更新摘要”；公告不引用账号，只要站内信的表建好。
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn("notificationFlyway")
     Flyway notificationDevelopmentDataFlyway(DataSource dataSource) {
         return Flyway.configure()
@@ -181,6 +186,7 @@ public class ModuleFlywayConfiguration {
     // 所以排在两份开发数据之后。
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn({"proserviceFlyway", "inspectionDevelopmentDataFlyway", "mallDevelopmentDataFlyway"})
     Flyway proserviceDevelopmentDataFlyway(DataSource dataSource) {
         return Flyway.configure()
@@ -228,6 +234,7 @@ public class ModuleFlywayConfiguration {
     // 发布时间和专题起止日期相对执行当天，用和活动一样的日期占位符让每天第一次启动重排。
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn({"contentFlyway", "proserviceDevelopmentDataFlyway", "activityDevelopmentDataFlyway",
             "experienceDevelopmentDataFlyway"})
     Flyway contentDevelopmentDataFlyway(DataSource dataSource) {
@@ -254,6 +261,7 @@ public class ModuleFlywayConfiguration {
     // 所以排在它们之后。预告时间相对执行当天，用和活动一样的日期占位符让每天第一次启动重排。
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn({"liveFlyway", "identityDevelopmentDataFlyway", "inspectionDevelopmentDataFlyway",
             "mallDevelopmentDataFlyway", "tradeDevelopmentDataFlyway"})
     Flyway liveDevelopmentDataFlyway(DataSource dataSource) {
@@ -272,6 +280,7 @@ public class ModuleFlywayConfiguration {
     // 开课机构的收款账户在交易的开发数据里，所以排在它们之后。
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn({"courseFlyway", "activityDevelopmentDataFlyway", "mallDevelopmentDataFlyway",
             "experienceDevelopmentDataFlyway", "tradeDevelopmentDataFlyway"})
     Flyway courseDevelopmentDataFlyway(DataSource dataSource) {
@@ -317,6 +326,7 @@ public class ModuleFlywayConfiguration {
     // 引用巡检开发数据建的服务商机构，所以也排在巡检开发数据之后。
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn({"tradeFlyway", "identityDevelopmentDataFlyway", "mallDevelopmentDataFlyway",
             "activityDevelopmentDataFlyway", "inspectionDevelopmentDataFlyway"})
     Flyway tradeDevelopmentDataFlyway(DataSource dataSource) {
@@ -331,6 +341,7 @@ public class ModuleFlywayConfiguration {
 
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn("mallFlyway")
     Flyway mallDevelopmentDataFlyway(DataSource dataSource) {
         return Flyway.configure()
@@ -344,6 +355,7 @@ public class ModuleFlywayConfiguration {
 
     @Bean(initMethod = "migrate")
     @Profile("dev")
+    @DemoDataEnabled
     @DependsOn("inspectionFlyway")
     Flyway inspectionDevelopmentDataFlyway(DataSource dataSource) {
         return Flyway.configure()
