@@ -132,6 +132,19 @@ public interface MallCatalogOpsMapper {
     int updateProductStatus(@Param("productId") UUID productId, @Param("status") String status,
                             @Param("version") int version, @Param("at") OffsetDateTime at);
 
+    /** 删除草稿：只标成 DELETED，资料和操作记录都留着。上架过的（PUBLISHED、OFFLINE）不会命中。 */
+    @Update("""
+            UPDATE mall_product
+            SET status = 'DELETED',
+                version = version + 1,
+                updated_at = #{at}
+            WHERE id = #{productId}
+              AND version = #{version}
+              AND status = 'DRAFT'
+            """)
+    int deleteDraft(@Param("productId") UUID productId, @Param("version") int version,
+                    @Param("at") OffsetDateTime at);
+
     /** 规格、供给变了：商品的版本号和更新时间跟着变（列表按更新时间排，页面上的版本号也就不再有效）。 */
     @Update("""
             UPDATE mall_product

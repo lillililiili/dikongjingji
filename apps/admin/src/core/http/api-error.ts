@@ -60,6 +60,7 @@ const MESSAGES: Record<string, string> = {
   OPS_MERCHANT_UNKNOWN: '选的商家不是在用的经营机构',
   OPS_MERCHANT_NOT_COLLECTING: '这家商家还没有有效的收款账户，标价商品不能启用；请先在“收款账户”里登记',
   OPS_MERCHANT_NOT_QUALIFIED: '商家的资质还没审核通过，暂时不能上架：商家在“入驻资料”里补齐资质附件，平台在“机构与资质”里审核通过后再上架',
+  OPS_PRODUCT_NOT_DELETABLE: '只能删除草稿，上架过的商品只能下架',
   // 账号模块（手机号、验证码）的码不带前缀：自助入驻的发码和申请会答这些。
   SMS_TOO_FREQUENT: '验证码发送太频繁，请稍后再试',
   PHONE_LOCKED: '验证码错误次数太多，请 30 分钟后再试',

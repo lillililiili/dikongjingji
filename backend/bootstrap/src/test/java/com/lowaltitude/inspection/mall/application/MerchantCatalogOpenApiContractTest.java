@@ -21,7 +21,7 @@ class MerchantCatalogOpenApiContractTest {
 
     @Test
     void everyRouteIsDeclaredUnderTheProviderPrefixAndNeedsALogin() {
-        assertThat(OpsContractChecker.map(checker.root().get("info")).get("version")).isEqualTo("1.0.0");
+        assertThat(OpsContractChecker.map(checker.root().get("info")).get("version")).isEqualTo("1.1.0");
         Map<String, Object> paths = OpsContractChecker.map(checker.root().get("paths"));
         Set<String> declared = new TreeSet<>();
         paths.forEach((path, item) -> OpsContractChecker.map(item).forEach((method, operation) -> {
@@ -32,7 +32,7 @@ class MerchantCatalogOpenApiContractTest {
         }));
         assertThat(declared).containsExactlyInAnyOrderElementsOf(
                 checker.operations().stream().map(OpsContractChecker.Operation::key).toList());
-        // 和运营端“商品与供给”一一对应：同样的路由，只换前缀；收款账户不在商家侧。
+        // 和运营端“商品与供给”一一对应：同样的路由，只换前缀；收款账户不在商家侧。删除草稿只有商家侧有。
         OpsContractChecker ops = new OpsContractChecker("openapi-ops-catalog.yaml", OpsCatalogController.class);
         Set<String> mirrored = new TreeSet<>();
         OpsContractChecker.map(ops.root().get("paths")).forEach((path, item) -> {
@@ -41,6 +41,7 @@ class MerchantCatalogOpenApiContractTest {
                         + path.replace("/api/v1/ops/catalog/", "/api/v1/provider/catalog/")));
             }
         });
+        mirrored.add("DELETE /api/v1/provider/catalog/products/{productId}");
         assertThat(declared).isEqualTo(mirrored);
         assertThat(checker.text()).contains("OPS_MERCHANT_NOT_QUALIFIED").contains("owner_organization_id");
     }

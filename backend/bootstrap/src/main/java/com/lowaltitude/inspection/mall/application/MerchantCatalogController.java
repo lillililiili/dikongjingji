@@ -17,10 +17,12 @@ import com.lowaltitude.inspection.mall.application.OpsCatalogController.UpdateOf
 import com.lowaltitude.inspection.mall.application.OpsCatalogController.UpdateProductRequest;
 import com.lowaltitude.inspection.mall.application.OpsCatalogController.UpdateSkuRequest;
 import com.lowaltitude.inspection.trade.application.TradeAftersaleSubjects;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,11 +31,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 商家工作台“我的商品”（契约 contracts/openapi-merchant-catalog.yaml 1.0.0）。接口形状和运营端“商品与供给”一样，
+ * 商家工作台“我的商品”（契约 contracts/openapi-merchant-catalog.yaml 1.1.0）。接口形状和运营端“商品与供给”一样，
  * 请求体直接复用 {@link OpsCatalogController} 的；要 PROVIDER_OPERATOR，机构只从令牌里取，别家的商品一律 404。
  */
 @RestController
@@ -93,6 +96,18 @@ public final class MerchantCatalogController {
                 request.category(), request.name(), request.summary(), request.coverUrl(), request.experienceBadge(),
                 request.sortOrder(), request.sellingPoints(), request.specs(), request.packItems(), request.gallery(),
                 request.introBlocks(), request.version()), merchant.operator());
+    }
+
+    /** 删除草稿（从没上架过的）；要带读到的版本号。 */
+    @DeleteMapping(PRODUCT)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(
+            Authentication authentication,
+            @PathVariable UUID productId,
+            @RequestParam Integer version
+    ) {
+        Merchant merchant = merchant(authentication);
+        service.delete(merchant.organizationId(), productId, version, merchant.operator());
     }
 
     @PostMapping(PRODUCT + "/status")

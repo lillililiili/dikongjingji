@@ -2,10 +2,12 @@ package com.lowaltitude.inspection.mall.application;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,7 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** 商家工作台“我的商品”的控制器（契约 openapi-merchant-catalog.yaml 1.0.0）。 */
+/** 商家工作台“我的商品”的控制器（契约 openapi-merchant-catalog.yaml 1.1.0）。 */
 class MerchantCatalogControllerTest {
 
     private static final UUID ORG = OpsTestSupport.PLATFORM_ORG;
@@ -85,6 +87,32 @@ class MerchantCatalogControllerTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"PUBLISH\",\"version\":0}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("OPS_MERCHANT_NOT_QUALIFIED"));
+    }
+
+    @Test
+    void deletesADraftWithItsVersion() throws Exception {
+        mockMvc.perform(delete("/api/v1/provider/catalog/products/{id}", PRODUCT).param("version", "3")
+                        .principal(OpsTestSupport.signedIn(MEMBER, "PROVIDER_OPERATOR")))
+                .andExpect(status().isNoContent());
+        verify(service).delete(ORG, PRODUCT, 3, OPERATOR);
+    }
+
+    @Test
+    void publishedProductsCannotBeDeleted() throws Exception {
+        doThrow(new MallOpsException(MallOpsException.Error.PRODUCT_NOT_DELETABLE))
+                .when(service).delete(ORG, PRODUCT, 3, OPERATOR);
+        mockMvc.perform(delete("/api/v1/provider/catalog/products/{id}", PRODUCT).param("version", "3")
+                        .principal(OpsTestSupport.signedIn(MEMBER, "PROVIDER_OPERATOR")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OPS_PRODUCT_NOT_DELETABLE"));
+    }
+
+    @Test
+    void platformOperatorsCannotDelete() throws Exception {
+        mockMvc.perform(delete("/api/v1/provider/catalog/products/{id}", PRODUCT).param("version", "0")
+                        .principal(OpsTestSupport.operator()))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(service);
     }
 
     @Test

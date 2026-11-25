@@ -139,6 +139,25 @@ class MallCatalogOpsServiceTest {
 
     // 身份 V013：平台运营代上架也一样，资质没审核通过的商家不能上架；别家合格的商家不受牵连。
     @Test
+    void onlyDraftsCanBeDeletedAndTheDeletionIsRecorded() {
+        given(product("RENT", "DRAFT", null), List.of(), List.of());
+        when(mapper.deleteDraft(PRODUCT, 3, AT)).thenReturn(1);
+        assertRejected(() -> service.deleteDraft(PRODUCT, 2, OPERATOR), Error.VERSION_CONFLICT);
+        service.deleteDraft(PRODUCT, 3, OPERATOR);
+        verify(mapper).insertOperation(eq(PRODUCT), eq("PRODUCT_DELETE"), eq("删除草稿“编程机器人探索套装”"),
+                eq(OPERATOR.accountId()), anyString(), eq(AT));
+
+        for (String status : List.of("PUBLISHED", "OFFLINE")) {
+            given(product("RENT", status, "一句话"), List.of(), List.of());
+            assertRejected(() -> service.deleteDraft(PRODUCT, 3, OPERATOR), Error.PRODUCT_NOT_DELETABLE);
+        }
+        verify(mapper).deleteDraft(PRODUCT, 3, AT);
+
+        when(mapper.lockProduct(PRODUCT)).thenReturn(null);
+        assertRejected(() -> service.deleteDraft(PRODUCT, 3, OPERATOR), Error.NOT_FOUND);
+    }
+
+    @Test
     void aProductNeedsAtLeastOneSellerWhoseQualificationIsNotPending() {
         suspended.add(MERCHANT);
         given(product("BUY", "DRAFT", "一句话"), List.of(sku("ACTIVE")), List.of(offer("ACTIVE", 129900L, "ITEM")));

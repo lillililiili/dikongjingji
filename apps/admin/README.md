@@ -154,6 +154,8 @@ src/
 - 工作台“入驻资料”（`features/organization-self/`）：看资质审核结果、改资料、传营业执照附件；审核仍在运营端“机构与资质”。
 - 工作台“我的商品”（`features/merchant-catalog/`，契约 `contracts/openapi-merchant-catalog.yaml`）：复用 `features/catalog/`
   的页面，`merchant` 模式下接口前缀是 `/api/v1/provider/catalog`、供给不选商家、不显示交易条款；上架要资质审核通过。
+  自己的草稿（从没上架过的）可以在列表或详情里删除，上架过的只能下架；运营端没有删除。
+- 窗口不到 960 像素宽时侧栏收成图标（`core/ui/use-narrow-screen.ts`），页头按钮放不下就换行。
 
 ## 新增一个运营菜单要改哪几处
 

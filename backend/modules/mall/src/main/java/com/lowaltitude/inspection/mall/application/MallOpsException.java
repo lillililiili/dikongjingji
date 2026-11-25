@@ -33,7 +33,9 @@ public final class MallOpsException extends RuntimeException {
         /** 图片存储没有配置。 */
         FILE_STORE_UNAVAILABLE,
         /** 机构资质还没审核通过，不能上架（商家工作台和平台运营代上架都拦）。 */
-        MERCHANT_NOT_QUALIFIED
+        MERCHANT_NOT_QUALIFIED,
+        /** 不是草稿，不能删除（上架过的只能下架）。 */
+        PRODUCT_NOT_DELETABLE
     }
 
     private final Error error;

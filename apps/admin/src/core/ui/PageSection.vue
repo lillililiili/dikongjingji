@@ -39,9 +39,16 @@ defineProps<{
 
 .page-section__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
+}
+
+/* 放不下时操作按钮换到下一行，标题和说明不被挤成一列字。 */
+.page-section__heading {
+  flex: 1 1 320px;
+  min-width: 0;
 }
 
 .page-section__title {
@@ -63,6 +70,8 @@ defineProps<{
 
 .page-section__actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 

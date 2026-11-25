@@ -88,6 +88,7 @@ async function change(): Promise<void> {
 <style scoped>
 .publish {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }

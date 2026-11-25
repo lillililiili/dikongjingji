@@ -19,6 +19,7 @@ import {
 import OfferPanel from './OfferPanel.vue'
 import ProductInfoPanel from './ProductInfoPanel.vue'
 import ProductPublishBar from './ProductPublishBar.vue'
+import { confirmAndRemoveDraft } from './remove-draft'
 import SkuPanel from './SkuPanel.vue'
 import { createTradeTermsApi } from './trade-terms-api'
 import TradeTermsPanel from './TradeTermsPanel.vue'
@@ -51,6 +52,18 @@ async function load(): Promise<void> {
   }
 }
 
+const removing = ref(false)
+
+async function remove(): Promise<void> {
+  if (!detail.value || removing.value) return
+  removing.value = true
+  try {
+    if (await confirmAndRemoveDraft(api, detail.value.product)) await router.replace({ name: 'workbench-products' })
+  } finally {
+    removing.value = false
+  }
+}
+
 function changed(next: OpsProductDetail): void {
   detail.value = next
 }
@@ -68,6 +81,8 @@ onMounted(() => {
   >
     <template #actions>
       <ProductPublishBar v-if="detail" :api="api" :detail="detail" @changed="changed" />
+      <el-button v-if="merchant && detail?.product.status === 'DRAFT'" type="danger" plain :loading="removing"
+                 data-testid="product-remove" @click="remove">删除草稿</el-button>
       <el-button @click="router.push({ name: merchant ? 'workbench-products' : 'catalog-products' })">返回列表</el-button>
     </template>
 

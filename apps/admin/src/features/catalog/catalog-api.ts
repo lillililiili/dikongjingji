@@ -1,8 +1,9 @@
 import { newIdempotencyKey, type ApiClient } from '@/core/http/api-client'
 import type { Page } from '@/core/ui/use-paged-list'
 
-// 契约 contracts/openapi-ops-catalog.yaml 1.1.0（商品、规格、在售供给、商品图片）。金额都是分。
-// 商家工作台“我的商品”（openapi-merchant-catalog.yaml）接口形状相同，只换前缀：createCatalogApi(http, MERCHANT_CATALOG_BASE)。
+// 契约 contracts/openapi-ops-catalog.yaml 1.3.0（商品、规格、在售供给、商品图片）。金额都是分。
+// 商家工作台“我的商品”（openapi-merchant-catalog.yaml）接口形状相同，只换前缀：createCatalogApi(http, MERCHANT_CATALOG_BASE)；
+// 多一个删除草稿（1.1.0），运营端没有。
 
 export type MallCategory = 'DRONE' | 'ROBOT' | 'PARTS' | 'RENTAL' | 'COURSE'
 export type MallSaleMode = 'BUY' | 'RENT' | 'INQUIRY'
@@ -17,8 +18,8 @@ export type OpsOfferStatusAction = 'ACTIVATE' | 'DEACTIVATE'
 export type OpsIntroBlockType = 'TEXT' | 'IMAGE'
 export type OpsPublishBlocker = 'SUMMARY_MISSING' | 'NO_ACTIVE_SKU' | 'NO_ACTIVE_OFFER'
 export type OpsCatalogAction =
-  | 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'PRODUCT_PUBLISH' | 'PRODUCT_UNPUBLISH' | 'SKU_CREATE' | 'SKU_UPDATE'
-  | 'OFFER_CREATE' | 'OFFER_UPDATE' | 'OFFER_PRICE_CHANGE' | 'OFFER_ACTIVATE' | 'OFFER_DEACTIVATE' | 'IMPORT'
+  | 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'PRODUCT_PUBLISH' | 'PRODUCT_UNPUBLISH' | 'PRODUCT_DELETE'
+  | 'SKU_CREATE' | 'SKU_UPDATE' | 'OFFER_CREATE' | 'OFFER_UPDATE' | 'OFFER_PRICE_CHANGE' | 'OFFER_ACTIVATE' | 'OFFER_DEACTIVATE' | 'IMPORT'
 
 type Option<T extends string> = { value: T, label: string }
 
@@ -70,6 +71,7 @@ export const ACTION_LABELS: Record<OpsCatalogAction, string> = {
   PRODUCT_UPDATE: '修改商品资料',
   PRODUCT_PUBLISH: '上架',
   PRODUCT_UNPUBLISH: '下架',
+  PRODUCT_DELETE: '删除草稿',
   SKU_CREATE: '新建规格',
   SKU_UPDATE: '修改规格',
   OFFER_CREATE: '新建供给',
@@ -369,6 +371,10 @@ export function createCatalogApi(http: ApiClient, base: string = OPS_CATALOG_BAS
     },
     changeStatus(productId: string, action: OpsProductStatusAction, version: number): Promise<OpsProductDetail> {
       return http.post<OpsProductDetail>(`${one(productId)}/status`, { action, version })
+    },
+    /** 删除自己的草稿（只有商家工作台有这个接口；上架过的后端不让删）。 */
+    removeDraft(productId: string, version: number): Promise<void> {
+      return http.delete<void>(one(productId), { query: { version } })
     },
     createSku(productId: string, draft: SkuDraft): Promise<OpsProductDetail> {
       return http.post<OpsProductDetail>(`${one(productId)}/skus`,

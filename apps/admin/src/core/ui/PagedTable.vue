@@ -68,4 +68,10 @@ const emit = defineEmits<{
   justify-content: flex-end;
   margin-top: 16px;
 }
+
+.paged-table__footer :deep(.el-pagination) {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 8px;
+}
 </style>

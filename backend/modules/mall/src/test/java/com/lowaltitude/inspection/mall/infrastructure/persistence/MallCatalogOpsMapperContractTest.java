@@ -71,6 +71,17 @@ class MallCatalogOpsMapperContractTest {
     }
 
     @Test
+    void deletingOnlyMarksADraft() throws Exception {
+        assertThat(sql(MallCatalogOpsMapper.class.getMethod("deleteDraft", java.util.UUID.class, int.class,
+                java.time.OffsetDateTime.class)))
+                .contains("SET status = 'DELETED'").contains("version = #{version}").contains("AND status = 'DRAFT'");
+        try (var stream = getClass().getResourceAsStream("/db/migration/mall/V007__mall_product_delete.sql")) {
+            assertThat(stream).isNotNull();
+            assertThat(new String(stream.readAllBytes(), StandardCharsets.UTF_8)).contains("'PRODUCT_DELETE'");
+        }
+    }
+
+    @Test
     void migrationAddsStockSellingPointsAndAnAuditTrailWithoutTouchingData() throws Exception {
         String sql;
         try (var stream = getClass().getResourceAsStream("/db/migration/mall/V004__mall_ops_catalog.sql")) {

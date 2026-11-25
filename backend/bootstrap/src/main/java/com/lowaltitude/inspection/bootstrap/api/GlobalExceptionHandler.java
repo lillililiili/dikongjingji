@@ -1493,6 +1493,11 @@ public class GlobalExceptionHandler {
                 code = "OPS_MERCHANT_NOT_QUALIFIED";
                 message = "资质审核通过前不能上架";
             }
+            case PRODUCT_NOT_DELETABLE -> {
+                status = HttpStatus.CONFLICT;
+                code = "OPS_PRODUCT_NOT_DELETABLE";
+                message = "只能删除草稿，上架过的商品只能下架";
+            }
             default -> throw new IllegalStateException("unmapped mall ops error " + exception.error());
         }
         return ResponseEntity.status(status).body(new ApiError(code, message, traceId(request), details));

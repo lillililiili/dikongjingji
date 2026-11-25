@@ -17,7 +17,7 @@ import com.lowaltitude.inspection.mall.infrastructure.persistence.MallCatalogOps
 import com.lowaltitude.inspection.mall.infrastructure.persistence.MallCatalogOpsMapper.ProductRow;
 import org.junit.jupiter.api.Test;
 
-/** 商家工作台“我的商品”在运营端商品服务外面加的三条规则：只碰自己的、供给只能是自己、上架看资质。 */
+/** 商家工作台“我的商品”在运营端商品服务外面加的规则：只碰自己的、供给只能是自己、上架看资质、只删自己的草稿。 */
 class MerchantCatalogServiceTest {
 
     private static final UUID MERCHANT = UUID.fromString("c1000000-0000-4000-8000-000000000001");
@@ -59,6 +59,20 @@ class MerchantCatalogServiceTest {
         assertThatThrownBy(() -> service.changeStatus(MERCHANT, PRODUCT, "UNPUBLISH", 0, OPERATOR))
                 .isInstanceOf(MallOpsException.class);
         verify(catalog, never()).changeStatus(eq(PRODUCT), eq("UNPUBLISH"), eq(0), eq(OPERATOR));
+    }
+
+    @Test
+    void deletesOnlyOwnProducts() {
+        when(mapper.findProduct(PRODUCT)).thenReturn(owned(OTHER));
+        assertThatThrownBy(() -> service.delete(MERCHANT, PRODUCT, 0, OPERATOR))
+                .isInstanceOf(MallOpsException.class)
+                .extracting(e -> ((MallOpsException) e).error())
+                .isEqualTo(MallOpsException.Error.NOT_FOUND);
+        verify(catalog, never()).deleteDraft(PRODUCT, 0, OPERATOR);
+
+        when(mapper.findProduct(PRODUCT)).thenReturn(owned(MERCHANT));
+        service.delete(MERCHANT, PRODUCT, 0, OPERATOR);
+        verify(catalog).deleteDraft(PRODUCT, 0, OPERATOR);
     }
 
     @Test

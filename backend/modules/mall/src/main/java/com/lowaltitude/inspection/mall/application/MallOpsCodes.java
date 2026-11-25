@@ -3,7 +3,7 @@ package com.lowaltitude.inspection.mall.application;
 // 运营端“商品与供给”的稳定编码（契约 contracts/openapi-ops-catalog.yaml 1.0.0），与迁移 V001、V004 的 CHECK 约束一致。
 // 放在一个文件里：都是只有几个值的小枚举。
 
-/** 商品状态：DRAFT 草稿；PUBLISHED 已上架；OFFLINE 已下架。（库里还有 DELETED，运营端不用、不显示。） */
+/** 商品状态：DRAFT 草稿；PUBLISHED 已上架；OFFLINE 已下架。（库里还有 DELETED：商家删掉的草稿，哪里都不显示。） */
 enum OpsProductStatus {
     DRAFT,
     PUBLISHED,
@@ -51,6 +51,8 @@ enum OpsCatalogAction {
     PRODUCT_UPDATE,
     PRODUCT_PUBLISH,
     PRODUCT_UNPUBLISH,
+    /** 商家删除自己的草稿（V007）。 */
+    PRODUCT_DELETE,
     SKU_CREATE,
     SKU_UPDATE,
     OFFER_CREATE,

@@ -25,6 +25,7 @@ import {
   type ProductFilters,
 } from './catalog-api'
 import ProductCreateDialog from './ProductCreateDialog.vue'
+import { confirmAndRemoveDraft } from './remove-draft'
 
 /** merchant：商家工作台“我的商品”（只列本机构建的，接口前缀不同，详情页也在工作台下）。 */
 const props = defineProps<{
@@ -46,6 +47,21 @@ function created(detail: OpsProductDetail): void {
   open(detail.product.productId)
 }
 
+const removing = ref('')
+
+async function remove(product: OpsProductSummary): Promise<void> {
+  if (removing.value) return
+  removing.value = product.productId
+  try {
+    if (!(await confirmAndRemoveDraft(api, product))) return
+    // 删的是这一页最后一条：退回上一页，不停在空页上。
+    if (list.items.value.length === 1 && list.page.value > 1) list.changePage(list.page.value - 1)
+    else await list.load()
+  } finally {
+    removing.value = ''
+  }
+}
+
 onMounted(() => {
   void list.load()
 })
@@ -55,7 +71,7 @@ onMounted(() => {
   <PageSection
     :title="merchant ? '我的商品' : '商品与供给'"
     :description="merchant
-      ? '本机构自己建的商品：资料、规格、在售供给（规格 × 城市 × 价格 × 库存）和上下架。新建的商品是草稿，补齐必填、启用供给，并且机构资质审核通过后才能上架；标价商品启用供给前还要平台登记收款账户。'
+      ? '本机构自己建的商品：资料、规格、在售供给（规格 × 城市 × 价格 × 库存）和上下架。新建的商品是草稿，补齐必填、启用供给，并且机构资质审核通过后才能上架；标价商品启用供给前还要平台登记收款账户。草稿可以删除，上架过的只能下架。'
       : '商品资料、规格、在售供给（商家 × 规格 × 城市 × 价格 × 库存）和上下架。新建的商品是草稿，补齐必填并启用供给后才能上架。商家在工作台自己建的商品也在这里，带“建自商家”。'"
     traced
   >
@@ -108,13 +124,14 @@ onMounted(() => {
       @change-size="list.changeSize"
       @retry="list.load()"
     >
-      <el-table-column label="商品" min-width="260">
+      <el-table-column label="商品" :min-width="merchant ? 200 : 260">
         <template #default="{ row }">
           <div class="product">
             <img v-if="(row as OpsProductSummary).coverUrl" class="product__cover"
                  :src="displayMediaUrl((row as OpsProductSummary).coverUrl)" alt="" />
             <div v-else class="product__cover product__cover--empty" />
-            <el-button link type="primary" @click="open((row as OpsProductSummary).productId)">
+            <el-button class="product__name" link type="primary"
+                       @click="open((row as OpsProductSummary).productId)">
               {{ (row as OpsProductSummary).name }}
             </el-button>
           </div>
@@ -141,6 +158,15 @@ onMounted(() => {
       <el-table-column label="更新时间" width="160">
         <template #default="{ row }">{{ formatDateTime((row as OpsProductSummary).updatedAt) }}</template>
       </el-table-column>
+      <el-table-column label="操作" :width="merchant ? 120 : 80" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" data-testid="product-edit"
+                     @click="open((row as OpsProductSummary).productId)">编辑</el-button>
+          <el-button v-if="merchant && (row as OpsProductSummary).status === 'DRAFT'" link type="danger"
+                     :disabled="removing !== ''" data-testid="product-remove"
+                     @click="remove(row as OpsProductSummary)">删除</el-button>
+        </template>
+      </el-table-column>
     </PagedTable>
   </PageSection>
 
@@ -152,6 +178,15 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* 名字长的换行，不被截断。 */
+.product__name {
+  height: auto;
+  min-width: 0;
+  line-height: 1.4;
+  white-space: normal;
+  text-align: left;
 }
 
 .product__cover {

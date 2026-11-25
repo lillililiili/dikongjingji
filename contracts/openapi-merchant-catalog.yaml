@@ -1,8 +1,12 @@
 openapi: "3.1.0"
 info:
   title: "Merchant Catalog API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
+    1.1.0（2026-11-25）：DELETE …/products/{productId} 删除自己的草稿（商城迁移 V007）。只有 DRAFT（从没上架过）能删，上架过的
+    （PUBLISHED、OFFLINE）409 OPS_PRODUCT_NOT_DELETABLE，只能下架。删掉后各处当作不存在，资料和操作记录留着，不能恢复。
+    运营端没有这个接口。
+
     1.0.0（2026-11-24 商家自助上架）：商家（服务商操作员）在 Web 工作台“我的商品”里自己建商品、改资料、管规格和供给、
     上下架。接口、请求体、响应和错误码和运营端“商品与供给”（openapi-ops-catalog.yaml 1.1.0）完全一样，只是前缀从
     /api/v1/ops/catalog/ 换成 /api/v1/provider/catalog/，下面的 $ref 直接指向那份契约；商城迁移 V006。
@@ -161,6 +165,37 @@ paths:
                 $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
         "422":
           description: "OPS_MEDIA_URL_UNCONTROLLED：封面、图集或图文里的图片地址不是受控地址。"
+          content:
+            application/json:
+              schema:
+                $ref: "openapi-ops-catalog.yaml#/components/schemas/ApiError"
+    delete:
+      operationId: "deleteMerchantProduct"
+      summary: "删除草稿（从没上架过的）"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "openapi-ops-catalog.yaml#/components/parameters/ProductId"
+        - name: "version"
+          in: "query"
+          required: true
+          description: "列表或详情里读到的版本号"
+          schema:
+            type: "integer"
+            minimum: 0
+      responses:
+        "204":
+          description: "已删除"
+        "400":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/BadRequest"
+        "401":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Unauthorized"
+        "403":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/Forbidden"
+        "404":
+          $ref: "openapi-ops-catalog.yaml#/components/responses/NotFound"
+        "409":
+          description: "OPS_VERSION_CONFLICT：别人刚改过；OPS_PRODUCT_NOT_DELETABLE：不是草稿，只能下架。"
           content:
             application/json:
               schema:

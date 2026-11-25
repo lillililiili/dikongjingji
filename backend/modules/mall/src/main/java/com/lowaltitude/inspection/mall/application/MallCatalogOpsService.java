@@ -261,6 +261,28 @@ public class MallCatalogOpsService {
         return detail(id);
     }
 
+    /** 删除草稿：只有从没上架过的能删（上架过的可能有订单、询价引用，只能下架）。商家工作台用。 */
+    @Transactional
+    public void deleteDraft(UUID productId, Integer version, Operator operator) {
+        requireOperator(operator);
+        if (version == null) {
+            throw new IllegalArgumentException("version is required");
+        }
+        UUID id = lock(productId);
+        ProductRow row = mapper.findProduct(id);
+        if (row.version() != version) {
+            throw new MallOpsException(Error.VERSION_CONFLICT);
+        }
+        if (!OpsProductStatus.DRAFT.name().equals(row.status())) {
+            throw new MallOpsException(Error.PRODUCT_NOT_DELETABLE);
+        }
+        OffsetDateTime at = now();
+        if (mapper.deleteDraft(id, version, at) != 1) {
+            throw new MallOpsException(Error.VERSION_CONFLICT);
+        }
+        record(id, OpsCatalogAction.PRODUCT_DELETE, "删除草稿“" + row.name() + "”", operator, at);
+    }
+
     // ---- 规格 ----
 
     @Transactional

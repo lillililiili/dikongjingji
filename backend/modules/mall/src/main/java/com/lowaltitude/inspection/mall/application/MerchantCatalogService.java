@@ -16,13 +16,14 @@ import com.lowaltitude.inspection.mall.infrastructure.persistence.MallCatalogOps
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 商家工作台“我的商品”（契约 contracts/openapi-merchant-catalog.yaml 1.0.0，迁移 V006）：商家自己建商品、改资料、
- * 管规格和供给、上下架。规则和运营端的 {@link MallCatalogOpsService} 完全一样（这里只是套一层），另加三条：
+ * 商家工作台“我的商品”（契约 contracts/openapi-merchant-catalog.yaml 1.1.0，迁移 V006、V007）：商家自己建商品、改资料、
+ * 管规格和供给、上下架。规则和运营端的 {@link MallCatalogOpsService} 完全一样（这里只是套一层），另加四条：
  * <ul>
  *   <li>只能看、改自己建的商品（owner_organization_id 是本机构）；别家的和平台建的一律当作不存在。</li>
  *   <li>供给的商家只能是自己：建供给时不认请求里的 merchantId，一律记本机构。</li>
  *   <li>上架前机构的资质要审核通过（身份模块的 qualification_reviewed_at），否则 409 OPS_MERCHANT_NOT_QUALIFIED；
  *       下架、建草稿、改资料不受此限。</li>
+ *   <li>可以删除自己的草稿（从没上架过的）；运营端没有删除。</li>
  * </ul>
  * 操作记录里的操作人是商家自己的账号；平台运营在“商品与供给”里能看到这些商品并下架。机构只从令牌里取，由控制器传入。
  */
@@ -70,6 +71,12 @@ public class MerchantCatalogService {
             throw new MallOpsException(Error.MERCHANT_NOT_QUALIFIED);
         }
         return catalog.changeStatus(id, action, version, operator);
+    }
+
+    /** 删除自己的草稿；上架过的只能下架。 */
+    @Transactional
+    public void delete(UUID merchantId, UUID productId, Integer version, Operator operator) {
+        catalog.deleteDraft(requireOwned(merchantId, productId), version, operator);
     }
 
     @Transactional
