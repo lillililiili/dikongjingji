@@ -36,7 +36,7 @@ const DOG_OFFER = offerId('401', '1')
 const OPEN_DAY_ID = 'a2000000-0000-4000-8000-000000000005'
 const OPEN_DAY_SESSION = 'a3000000-0000-4000-8000-000000000502'
 const RENTAL_ADDRESS = 'E2E 我的订单 东营港 示例港路 6 号'
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/fix-20261120/r6-orders')
+const compareOutput = resolve(__dirname, '../../../.planning/style-compare/fix-20261120/r6-orders')
 
 const buyerId = `(SELECT id FROM identity_user WHERE login_name = '${BUYER}')`
 

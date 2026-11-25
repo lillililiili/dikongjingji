@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 
 import { expect, test, type APIRequestContext, type Page, type Route } from '@playwright/test'
 
+import { PLANNING, boardUrl } from './support/board-compare'
 import {
   API,
   BUYER,
@@ -22,9 +23,8 @@ const AERIAL_PARK = 'f2100000-0000-4000-8000-000000000001'
 const SURVEY_MODEL = 'f2100000-0000-4000-8000-000000000005'
 const MAINT_GENERAL = 'f2100000-0000-4000-8000-000000000009'
 const INSPECTION_SOLAR = '66666666-6666-6666-6666-666666666666'
-const visualOutput = resolve(__dirname, '../../../../../.planning/proservice/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/proservice')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const visualOutput = resolve(PLANNING, 'proservice/visual')
+const compareOutput = resolve(PLANNING, 'style-compare/proservice')
 
 const buyerId = () => `(SELECT id FROM identity_user WHERE login_name = '${BUYER}')`
 
@@ -443,7 +443,7 @@ test.describe('专业服务页面视觉', () => {
     // The boards at 390 next to the App at 390.
     for (const board of ['SvcCatalog', 'SvcAerial', 'SvcMaint', 'ProviderPage']) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${resolve(boardDir, `${board}.html`)}`)
+      await page.goto(boardUrl(board))
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60

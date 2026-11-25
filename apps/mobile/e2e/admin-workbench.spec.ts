@@ -27,8 +27,8 @@ import {
 const ADMIN = process.env.ADMIN_BASE_URL ?? 'http://127.0.0.1:17430'
 const KIT_FACTORY = offerId('101', '1')
 const KIT_PRICE = 129900
-// 和 trade-orders.spec.ts 一样存到仓库外层的 .planning/style-compare（从 .worktrees/<名字>/apps/mobile/e2e 往上五层）。
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/admin-workbench')
+// 截图保存在当前检出的 .planning/style-compare。
+const compareOutput = resolve(__dirname, '../../../.planning/style-compare/admin-workbench')
 
 test.use({ viewport: { width: 1366, height: 860 } })
 

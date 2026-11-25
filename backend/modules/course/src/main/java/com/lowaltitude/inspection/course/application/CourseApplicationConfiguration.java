@@ -21,9 +21,10 @@ public class CourseApplicationConfiguration {
             CourseMapper mapper,
             CoursePorts.Payments payments,
             CoursePorts.Activities activities,
-            CoursePorts.Organizations organizations
+            CoursePorts.Organizations organizations,
+            CoursePorts.Simulations simulations
     ) {
-        return new CourseService(mapper, payments, activities, organizations, Clock.systemUTC());
+        return new CourseService(mapper, payments, activities, organizations, simulations, Clock.systemUTC());
     }
 
     @Bean
@@ -32,9 +33,10 @@ public class CourseApplicationConfiguration {
             CourseOpsMapper mapper,
             CoursePorts.Organizations organizations,
             CoursePorts.Payments payments,
-            CoursePorts.Activities activities
+            CoursePorts.Activities activities,
+            CoursePorts.Simulations simulations
     ) {
-        return new CourseOpsService(courses, mapper, organizations, payments, activities, Clock.systemUTC());
+        return new CourseOpsService(courses, mapper, organizations, payments, activities, simulations, Clock.systemUTC());
     }
 
     /** 运营端首页“经营概览”的汇总数（只读）。 */

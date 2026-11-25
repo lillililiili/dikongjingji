@@ -202,16 +202,21 @@ onUnmounted(() => {
         </template>
         <text class="data__fine">文件经受控链接下载，不显示存储地址；导出会留下记录</text>
       </view>
-      <text v-if="error" class="data__error">{{ error }}</text>
+      <view v-if="error" class="data__error" role="alert">
+        <text>{{ error }}</text>
+        <button @click="load">重新加载</button>
+      </view>
     </view>
 
     <view class="data__bar">
       <button
         :class="['data__apply', { 'data__apply--off': making }]"
         :disabled="making || !overview"
+        role="button"
+        :aria-disabled="making || !overview ? 'true' : 'false'"
         data-testid="data-apply"
         @click="openSheet"
-      >{{ making ? '副本生成中' : latest?.status === 'READY' ? '重新申请导出' : '申请导出' }}</button>
+      >{{ !overview ? (error ? '暂时无法申请' : '正在读取导出信息') : making ? '副本生成中' : latest?.status === 'READY' ? '重新申请导出' : '申请导出' }}</button>
     </view>
 
     <template v-if="sheetOpen && overview">

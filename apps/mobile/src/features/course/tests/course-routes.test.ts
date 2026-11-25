@@ -12,6 +12,7 @@ import {
   buildCourseLearnUrl,
   buildCourseTrialUrl,
   buildMyCoursesUrl,
+  courseTrialSimulationUrl,
   parseCourseBucket,
   parseCourseId,
   parseTrialTarget,
@@ -23,6 +24,14 @@ const ENROLLMENT = 'd7c90000-0000-4000-8000-000000000001'
 const EXPERIENCE = 'b1000000-0000-4000-8000-000000000005'
 
 describe('course routes', () => {
+  it('opens the configured simulation only when the experience feature is enabled', () => {
+    const id = 'db400000-0000-4000-8000-000000000099'
+    expect(courseTrialSimulationUrl(id, true)).toBe(`/pages/experience/simulation?experienceId=${id}`)
+    expect(courseTrialSimulationUrl(id, false)).toBeNull()
+    expect(courseTrialSimulationUrl(null, true)).toBeNull()
+    expect(courseTrialSimulationUrl('invalid', true)).toBeNull()
+  })
+
   it('carry only stable ids', () => {
     expect(buildCourseDetailUrl(COURSE)).toBe(`/pages/course/detail?courseId=${COURSE}`)
     expect(buildCourseDetailUrl(COURSE, { buy: true })).toBe(`/pages/course/detail?courseId=${COURSE}&buy=1`)
@@ -52,7 +61,7 @@ describe('course routes', () => {
   })
 
   it('stay behind the COURSE release switch everywhere they are entered', () => {
-    expect(flagSource).toContain(`export const COURSE_PREVIEW_ENABLED = ${moduleFlagExpression('COURSE')}\n`)
+    expect(flagSource.replace(/\r\n/g, '\n')).toContain(`export const COURSE_PREVIEW_ENABLED = ${moduleFlagExpression('COURSE')}\n`)
     expect(mallChannelSource).toContain("COURSE_PREVIEW_ENABLED && selectedCategory.value === 'COURSE'")
     expect(mineSource).toContain("COURSE_PREVIEW_ENABLED ? [{ code: 'MY_COURSES', title: '我的课程' }]")
     expect(experienceSource).toContain("item.type === 'COURSE_TRIAL' && COURSE_PREVIEW_ENABLED")

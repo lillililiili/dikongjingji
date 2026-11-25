@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+import { PLANNING, boardUrl } from './support/board-compare'
 import {
   API,
   BUYER,
@@ -34,9 +35,8 @@ const MAKER_OFFER = offerId('203', '4')
 const MERCHANT_2 = 'dev-merchant-2'
 const MODEL = '测绘版 · RTK · 五镜头倾斜相机'
 const ADDRESS_DETAIL = 'E2E 询价 东营港 示例港路 8 号'
-const visualOutput = resolve(__dirname, '../../../../../.planning/mall-inquiry/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/mall-inquiry')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const visualOutput = resolve(PLANNING, 'mall-inquiry/visual')
+const compareOutput = resolve(PLANNING, 'style-compare/mall-inquiry')
 
 const buyerId = () => `(SELECT id FROM identity_user WHERE login_name = '${BUYER}')`
 
@@ -529,7 +529,7 @@ test.describe('询价商品', () => {
     // The boards at 390 next to the App at 390.
     for (const board of ['PdInquiry', 'QuoteGoods']) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${resolve(boardDir, `${board}.html`)}`)
+      await page.goto(boardUrl(board))
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60

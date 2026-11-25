@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { droneArtwork, robotArtwork } from '@/app-shell/navigation/home-artwork'
 import { openHomeChannel } from '@/app-shell/navigation/home-entry'
 import { resolveVisibleHomeChannels } from '@/app-shell/navigation/home-channels'
 import { HOME_ROOT_PATH } from '@/app-shell/navigation/root-tabs'
@@ -41,7 +42,7 @@ function openGame(game: PlayGame): void {
         </view>
         <image
           class="play-games__intro-image"
-          src="/static/images/home/robot-rover.jpg"
+          :src="robotArtwork"
           mode="aspectFill"
         />
       </view>
@@ -56,7 +57,7 @@ function openGame(game: PlayGame): void {
         @click="openGame(game)"
       >
         <view class="play-games__cover">
-          <image class="play-games__cover-image" :src="game.coverUrl" mode="aspectFill" />
+          <image class="play-games__cover-image" :src="game.avatar === 'ROBOT' ? robotArtwork : droneArtwork" mode="aspectFill" />
           <text class="play-games__tag play-games__tag--cover">{{ game.skillLabel }}</text>
         </view>
         <view class="play-games__body">

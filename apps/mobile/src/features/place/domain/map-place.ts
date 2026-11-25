@@ -30,7 +30,7 @@ export const MAP_PICK_TITLES: Record<MapPickPurpose, string> = {
 
 // Board MapPick, the 巡检地点 frame.
 export const MAP_PICK_TIPS: Record<MapPickPurpose, string> = {
-  INSPECTION: '选中的位置作为巡检起点，线路长度在预约页填写',
+  INSPECTION: '选中的位置将填入预约页的巡检地点',
   DEMAND: '',
 }
 

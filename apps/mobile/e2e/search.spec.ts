@@ -16,7 +16,7 @@ import {
 // 全局搜索（计划 08 S5-1，画板 SearchPre、MallSearch、OrderSearch）。真实后端：GET /api/v1/search 读东营的开发种子
 // （商品“行业测绘无人机 RTK 版”、四类专业服务里的测绘服务等）；无结果、纠错和“到商城里筛选”用接口桩建前置条件。
 // 订单搜索用接口给 dev-customer 建一张商品订单，用例前后删掉。
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/s5-search')
+const compareOutput = resolve(__dirname, '../../../.planning/style-compare/s5-search')
 const KIT_FACTORY = offerId('101', '1')
 const KIT_PRICE = 129900
 

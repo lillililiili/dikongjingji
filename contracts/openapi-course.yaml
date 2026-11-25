@@ -1,9 +1,12 @@
 openapi: "3.1.0"
 info:
   title: "Course API"
-  version: "1.0.0"
+  version: "1.1.0"
   description: |-
+    1.1.0：课程详情和试听新增可空 simulationItemId，供试听后进入对应的仿真。
+
     2026-11-24（接口和字段不变）：开课机构资质没审核通过（身份迁移 V013）时，课程列表里没有、详情和试听 404、不能再买；已经开通的照常能学、能退款。
+
     1.0.0（S5-5，docs/redesign/08-后续开发计划.md §2 S5-5、§5 D15、D12；说明和设计假设见 docs/redesign/09-课程实现说明.md）：商城“课程”页、
     课程详情与购买、课程试听、我的课程、课程学习。只在预览构建显示（App 发布开关 COURSE）。运营端的课程管理见 openapi-ops-course.yaml。
 
@@ -759,6 +762,7 @@ components:
         - "purchasable"
         - "onlinePayment"
         - "experienceItemId"
+        - "simulationItemId"
       properties:
         courseId:
           type: "string"
@@ -851,6 +855,12 @@ components:
             - "null"
           format: "uuid"
           description: "体验中心里这门课的“课程试听”入口"
+        simulationItemId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "课程关联的已发布、已配置仿真模板的 SIMULATION 项目；未配置或项目已失效时为空。"
     CourseMine:
       type: "object"
       additionalProperties: false
@@ -920,6 +930,7 @@ components:
         - "lessonCount"
         - "price"
         - "purchasable"
+        - "simulationItemId"
         - "lessons"
       properties:
         courseId:
@@ -942,6 +953,12 @@ components:
             - type: "null"
         purchasable:
           type: "boolean"
+        simulationItemId:
+          type:
+            - "string"
+            - "null"
+          format: "uuid"
+          description: "课程关联的已发布、已配置仿真模板的 SIMULATION 项目；未配置或项目已失效时为空。"
         lessons:
           type: "array"
           items:

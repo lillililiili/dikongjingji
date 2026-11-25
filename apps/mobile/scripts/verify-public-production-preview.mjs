@@ -13,6 +13,7 @@ import { extname, join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 import { mobileRoot, productionBuildEnv, readReleaseFeatures, resolveReleaseFlags } from './release-flags.mjs'
+const publicAssetExclusions = JSON.parse(readFileSync(new URL('./public-asset-exclusions.json', import.meta.url), 'utf8'))
 
 const productionEnvPath = join(mobileRoot, '.env.production')
 const productionLocalEnvPath = join(mobileRoot, '.env.production.local')
@@ -26,6 +27,7 @@ const forbiddenMarkers = [
   'platform-discover.fixture',
   'platform-mall.fixture',
   'platform-service.fixture',
+  '/static/images/home/',
 ]
 // Home channels that open with a release switch, by the label the bundle carries.
 const homeChannels = { ACTIVITY: '赛事研学', EXPERIENCE: '体验', MALL: '商城' }
@@ -110,9 +112,9 @@ buildPublicProductionH5()
 const output = readOutputText(h5OutputPath)
 // The prototype's sample pictures and clips are not licensed; vite.config.ts drops them from
 // public builds (docs/ops/授权图片替换.md).
-for (const dir of ['static/images/preview', 'static/videos/preview']) {
-  if (existsSync(join(h5OutputPath, dir))) {
-    throw new Error(`Public build ships unlicensed preview assets: ${dir}`)
+for (const asset of publicAssetExclusions) {
+  if (existsSync(join(h5OutputPath, asset))) {
+    throw new Error(`Public build contains excluded asset: ${asset}`)
   }
 }
 const leakedMarkers = forbiddenMarkers.filter((marker) => output.includes(marker))

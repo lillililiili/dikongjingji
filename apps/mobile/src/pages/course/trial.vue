@@ -24,6 +24,10 @@ function openDetail(courseId: string): void {
   uni.navigateTo({ url: buildCourseDetailUrl(courseId) })
 }
 
+function openSimulation(url: string): void {
+  uni.navigateTo({ url })
+}
+
 onLoad((query) => {
   target.value = parseTrialTarget(query as Record<string, unknown> | undefined)
   loaded.value = true
@@ -37,6 +41,7 @@ onLoad((query) => {
     @back="goBack"
     @buy="openBuy"
     @detail="openDetail"
+    @simulation="openSimulation"
   />
   <CourseUnavailable v-else-if="!COURSE_PREVIEW_ENABLED" />
 </template>

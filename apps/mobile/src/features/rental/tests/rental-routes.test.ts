@@ -76,7 +76,7 @@ describe('rental routes', () => {
   it('opens the lessor conversation from 联系商家 (step G1) instead of a gate', () => {
     for (const page of ['quote/RentalQuotePage.vue', 'order/RentalOrderPage.vue', 'contract/RentalContractPage.vue']) {
       const source = rentalSources[`../presentation/${page}`]
-      expect(source).toContain("openSupportChat(\n    { kind: 'MERCHANT'")
+      expect(source.replace(/\r\n/g, '\n')).toContain("openSupportChat(\n    { kind: 'MERCHANT'")
       expect(source).not.toContain('咨询功能即将开放')
     }
   })

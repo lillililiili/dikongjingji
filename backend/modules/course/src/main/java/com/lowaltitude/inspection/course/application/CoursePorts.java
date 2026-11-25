@@ -68,6 +68,12 @@ public final class CoursePorts {
         }
     }
 
+    public interface Simulations {
+
+        /** 体验目录中已发布且配有可运行模板的仿真项目。 */
+        boolean isPlayable(UUID itemId);
+    }
+
     public interface Activities {
 
         /** 这个活动现在在这个城市公开可见（已上线、城市对得上）时的卡片信息；否则为空。 */

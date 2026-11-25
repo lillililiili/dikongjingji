@@ -1,10 +1,11 @@
 import { rmSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { resolve, sep } from 'node:path'
 
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import uni from '@dcloudio/vite-plugin-uni'
 
 import { releaseDefines } from './src/app-shell/release/feature-flags'
+import publicAssetExclusions from './scripts/public-asset-exclusions.json'
 
 // Turns the release configuration (src/app-shell/release/release-features.json and the
 // VITE_FEATURE_* / VITE_PLATFORM_PREVIEW_ENABLED variables) into compile-time constants
@@ -19,12 +20,8 @@ function releaseFlags(): Plugin {
   }
 }
 
-// The sample pictures and clips under static/images/preview and static/videos/preview come from
-// the prototype and are not licensed (docs/ops/授权图片替换.md). Preview builds and the dev server
-// show them; a public build must not ship them at all, so they are dropped from its output. Pages
-// in a public build never point at them (every preview resolver is switched off there).
-const PREVIEW_ASSET_DIRS = ['static/images/preview', 'static/videos/preview']
-
+// uni copies the whole static tree, including prototype artwork and retired illustrations.
+// Keep the source assets for previews and remove the listed paths from public H5 and App builds.
 function stripPreviewAssets(): Plugin {
   let publicBuild = false
   let outDir = ''
@@ -40,7 +37,12 @@ function stripPreviewAssets(): Plugin {
       sequential: true,
       handler() {
         if (!publicBuild) return
-        for (const dir of PREVIEW_ASSET_DIRS) rmSync(resolve(outDir, dir), { recursive: true, force: true })
+        const staticRoot = resolve(outDir, 'static') + sep
+        for (const asset of publicAssetExclusions) {
+          const target = resolve(outDir, asset)
+          if (!target.startsWith(staticRoot)) throw new Error(`Invalid public asset exclusion: ${asset}`)
+          rmSync(target, { recursive: true, force: true })
+        }
       },
     },
   }

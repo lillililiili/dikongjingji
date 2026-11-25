@@ -1,5 +1,6 @@
-import { DEMAND_PREVIEW_ENABLED } from '../../application/demand-preview'
 import type { DemandType } from '../../domain/demand'
+
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // A demand has no picture of its own (attachments are not built). The DemandList, Quote and
 // PlanCompare boards show a scene photo per demand type; preview builds use the same board pictures
@@ -16,7 +17,7 @@ const BY_TYPE: Record<DemandType, string> = {
 
 export function resolveDemandPreviewCover(
   type: DemandType,
-  previewEnabled: boolean = DEMAND_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   return previewEnabled ? `${DIRECTORY}/${BY_TYPE[type]}` : null
 }

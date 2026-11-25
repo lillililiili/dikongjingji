@@ -10,8 +10,8 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 
 test.use({ timezoneId: 'Asia/Shanghai' })
 
-// Run from the main worktree (.worktrees/app-impl) this is <repo>/.planning; elsewhere set S53_VISUAL.
-const visualOutput = process.env.S53_VISUAL ?? resolve(__dirname, '../../../../../.planning/activity-s53/visual')
+// S53_VISUAL overrides the screenshot directory for this checkout.
+const visualOutput = process.env.S53_VISUAL ?? resolve(__dirname, '../../../.planning/activity-s53/visual')
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': '*',

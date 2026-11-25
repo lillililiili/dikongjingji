@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Page, type Route } from '@playwright/test'
 
+import { PLANNING, boardUrl } from './support/board-compare'
 import { stubSupportChat } from './support/support-fixtures'
 import { BUYER, apiLogin, type Session } from './support/trade-fixtures'
 
@@ -27,9 +28,8 @@ const STUDY_CAMP = 'a2000000-0000-4000-8000-000000000003'
 const STUDY_ROBOT = 'a2000000-0000-4000-8000-000000000002'
 const TRAINING = 'a2000000-0000-4000-8000-000000000004'
 const VENUE = 'b2000000-0000-4000-8000-000000000001'
-const visualOutput = resolve(__dirname, '../../../../../.planning/content/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/content')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const visualOutput = resolve(PLANNING, 'content/visual')
+const compareOutput = resolve(PLANNING, 'style-compare/content')
 
 const discover = (page: Page) => page.getByTestId('content-discover')
 const article = (page: Page, id: string) => page.getByTestId(`discover-article-${id}`)
@@ -392,8 +392,7 @@ test.describe('发现页视觉', () => {
         ? resolve(compareOutput, `${name}-app.png`)
         : resolve(visualOutput, `${name}-${width}.png`)
 
-      await page.goto(at('#/pages/discover/index'))
-      await expect(discover(page)).toHaveAttribute('data-state', 'ready')
+      await openDiscoverFromHome(page)
       await expect(page.locator('[data-testid^="discover-article-"]')).toHaveCount(6)
       await assertNoHorizontalOverflow(page)
       await tallShot(page, shot('Discover'))
@@ -432,7 +431,7 @@ test.describe('发现页视觉', () => {
 
     for (const board of ['Discover', 'ContentArticle', 'ContentKnow2', 'Topic']) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${resolve(boardDir, `${board}.html`)}`)
+      await page.goto(boardUrl(board))
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60

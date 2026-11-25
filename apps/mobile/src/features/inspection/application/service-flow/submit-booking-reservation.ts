@@ -26,7 +26,7 @@ export async function submitBookingReservation(
   service: BookingServiceSnapshot,
   draft: BookingDraft,
 ): Promise<{ reservationId: string }> {
-  const errors = validateBookingDraft(draft, { allowPendingAttachments: true })
+  const errors = validateBookingDraft(draft, { allowPendingAttachments: true, categoryCode: service.categoryCode })
 
   if (errors.length > 0) {
     throw new Error(errors[0])

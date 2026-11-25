@@ -80,9 +80,7 @@ describe('platform service page integration', () => {
   it('hands the search box to the open service type and resets it when leaving', () => {
     expect(servicePageSource).toContain("emit('searchPlaceholderChange'")
     expect(servicePageSource).toContain('channelContent.value?.searchPlaceholder ?? null')
-    expect(servicePageSource).toMatch(
-      /watch\(\(\) => props\.active, \(active\) => \{\s*if \(active \|\| activeChannel\.value === DEFAULT_PLATFORM_CHANNEL\) return/,
-    )
+    expect(servicePageSource).toContain('activeServiceType: activeChannel')
     expect(homeRouteSource).toContain('@search-placeholder-change="serviceSearchPlaceholder = $event"')
   })
 

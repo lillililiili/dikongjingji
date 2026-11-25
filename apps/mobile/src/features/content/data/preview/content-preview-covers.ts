@@ -1,8 +1,9 @@
 import { resolveActivityPreviewCover } from '../../../activity/data/preview/activity-preview-covers'
 import { resolveExperiencePreviewCover } from '../../../experience/data/preview/experience-preview-covers'
 import { resolveMallPreviewCover } from '../../../mall/data/preview/mall-preview-covers'
-import { CONTENT_PREVIEW_ENABLED } from '../../application/content-preview'
 import type { ContentImage, ContentRefType } from '../../domain/content'
+
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // Pictures for the sample articles and the topic of the development seed (R__dev_content.sql),
 // keyed by id. They come from the 2026-11-14 prototype boards (Discover, ContentArticle,
@@ -51,7 +52,7 @@ const SERVICE_REFS: Record<string, { file: string; icon?: boolean }> = {
 
 export function resolveArticlePreviewCover(
   articleId: string,
-  previewEnabled: boolean = CONTENT_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): ContentPreviewCover | null {
   const entry = previewEnabled ? ARTICLES[articleId] : undefined
   return entry ? { url: `${DIRECTORY}/${entry.file}`, alt: entry.alt, cutout: Boolean(entry.cutout) } : null
@@ -59,7 +60,7 @@ export function resolveArticlePreviewCover(
 
 export function resolveTopicPreviewCover(
   topicId: string,
-  previewEnabled: boolean = CONTENT_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): ContentPreviewCover | null {
   const entry = previewEnabled ? TOPICS[topicId] : undefined
   return entry ? { url: `${DIRECTORY}/${entry.file}`, alt: entry.alt, cutout: false } : null
@@ -72,7 +73,7 @@ export function resolveTopicPreviewCover(
 export function resolveArticleFigurePreview(
   articleId: string,
   ordinal: number,
-  previewEnabled: boolean = CONTENT_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   const file = previewEnabled ? ARTICLE_FIGURES[articleId]?.[ordinal] : undefined
   return file ? `${DIRECTORY}/${file}` : null
@@ -81,7 +82,7 @@ export function resolveArticleFigurePreview(
 /** (1.3.0) A topic's merchant product without a picture of its own from the mall. */
 export function resolveTopicMerchantPreview(
   productId: string,
-  previewEnabled: boolean = CONTENT_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   if (!previewEnabled) return null
   const file = TOPIC_MERCHANT_PRODUCTS[productId]
@@ -103,7 +104,7 @@ export interface ContentRefPreviewCover {
 export function resolveRefPreviewCover(
   type: ContentRefType,
   refId: string,
-  previewEnabled: boolean = CONTENT_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): ContentRefPreviewCover | null {
   if (!previewEnabled) return null
   if (type === 'INSPECTION_SERVICE' || type === 'PRO_SERVICE') {
@@ -122,4 +123,4 @@ export function resolveRefPreviewCover(
 
 /** An activity of the topic page (本季活动). */
 export const resolveTopicActivityPreviewCover = (activityId: string): string | null =>
-  resolveActivityPreviewCover(activityId, CONTENT_PREVIEW_ENABLED)
+  resolveActivityPreviewCover(activityId, PREVIEW_SAMPLES)

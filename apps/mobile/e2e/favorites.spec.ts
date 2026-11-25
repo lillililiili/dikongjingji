@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { PLANNING, boardUrl } from './support/board-compare'
 import {
   BUYER,
   CITY,
@@ -28,9 +29,8 @@ const VIDEO_ROBOT = 'f3200000-0000-4000-8000-000000000001'
 // A product id nothing in the development data uses: stands for a product taken down after it was favorited.
 const GONE_PRODUCT = 'c2000000-0000-4000-8000-0000000009f1'
 const COMPARE_KEY = 'mall-compare-selection'
-const visualOutput = resolve(__dirname, '../../../../../.planning/favorites/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/favorites')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const visualOutput = resolve(PLANNING, 'favorites/visual')
+const compareOutput = resolve(PLANNING, 'style-compare/favorites')
 
 let buyer: Session
 
@@ -349,7 +349,7 @@ test.describe('收藏与对比', () => {
     // The boards at 390 next to the App at 390.
     for (const board of ['Favorites', 'MallCompare', 'Mall2', 'ActDetail', 'ContentVideo', 'PdFull', 'Mine']) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${resolve(boardDir, `${board}.html`)}`)
+      await page.goto(boardUrl(board))
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60

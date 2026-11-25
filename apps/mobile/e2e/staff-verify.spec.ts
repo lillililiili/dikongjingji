@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 
 import { expect, test, type Browser, type Page, type Route } from '@playwright/test'
 
+import { PLANNING, boardUrl } from './support/board-compare'
 import { purgeFreeEnrollments } from './support/activity-fixtures'
 import { API, BUYER, apiLogin, databaseAvailable, psql, type Session } from './support/trade-fixtures'
 
@@ -21,9 +22,8 @@ import { API, BUYER, apiLogin, databaseAvailable, psql, type Session } from './s
 const OPERATOR = 'dev-organizer'
 const OPEN_DAY_ID = 'a2000000-0000-4000-8000-000000000005'
 const OPEN_DAY_SESSION = 'a3000000-0000-4000-8000-000000000502'
-const visualOutput = resolve(__dirname, '../../../../../.planning/staff-verify/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/staff')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const visualOutput = resolve(PLANNING, 'staff-verify/visual')
+const compareOutput = resolve(PLANNING, 'style-compare/staff')
 
 let buyer: Session
 let organizer: Session
@@ -368,7 +368,7 @@ test.describe('核销工作台（工作模式）', () => {
     // 画板 390 宽和 App 390 宽并排。
     for (const board of ['StaffVerify', 'StaffRecords', 'StaffException', 'Mine']) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${resolve(boardDir, `${board}.html`)}`)
+      await page.goto(boardUrl(board))
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60

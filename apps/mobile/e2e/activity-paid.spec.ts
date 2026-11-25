@@ -30,7 +30,7 @@ const STUDY_ID = 'a2000000-0000-4000-8000-000000000002'
 const SESSION_A = 'a3000000-0000-4000-8000-000000000201'
 const UNIT = 16800
 const CHILD_NAMES = ['付费小禾', '付费小川']
-const visualOutput = resolve(__dirname, '../../../../../.planning/activity-paid/visual')
+const visualOutput = resolve(__dirname, '../../../.planning/activity-paid/visual')
 
 async function signIn(page: Page, session: Session): Promise<void> {
   await page.addInitScript((token) => {

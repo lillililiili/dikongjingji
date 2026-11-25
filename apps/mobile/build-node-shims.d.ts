@@ -6,4 +6,5 @@ declare module 'node:fs' {
 
 declare module 'node:path' {
   export function resolve(...paths: string[]): string
+  export const sep: '/' | '\\'
 }

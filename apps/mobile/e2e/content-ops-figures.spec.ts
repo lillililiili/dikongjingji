@@ -11,7 +11,7 @@ const CITY = '370500'
 const CASE_DOG = 'f3000000-0000-4000-8000-000000000001'
 const TOPIC = 'f3100000-0000-4000-8000-000000000001'
 const ROBOT_KIT = 'c2000000-0000-4000-8000-000000000101'
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/content')
+const compareOutput = resolve(__dirname, '../../../.planning/style-compare/content')
 
 async function assertNoHorizontalOverflow(page: Page): Promise<void> {
   const dimensions = await page.evaluate(() => ({

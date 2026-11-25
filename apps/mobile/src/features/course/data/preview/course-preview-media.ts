@@ -1,5 +1,6 @@
-import { COURSE_PREVIEW_ENABLED } from '../../application/course-preview'
 import { resolveActivityPreviewCover } from '../../../activity/data/preview/activity-preview-covers'
+
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // Pictures and clips for the sample courses of the development seed (R__dev_course.sql), keyed by
 // course id. There is no video storage in development, so the server gives no play address; preview
@@ -23,7 +24,7 @@ const CLIPS: Record<string, readonly string[]> = {
 /** The preview cover of a seeded course; for an offline class, the picture of its activity. */
 export function resolveCoursePreviewCover(
   course: { courseId: string; activityId?: string | null },
-  previewEnabled: boolean = COURSE_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   if (!previewEnabled) return null
   const name = COVERS[course.courseId]
@@ -36,7 +37,7 @@ export function coursePlaySource(
   courseId: string,
   lessonNo: number,
   playUrl: string | null,
-  previewEnabled: boolean = COURSE_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   if (playUrl) return playUrl
   const clips = previewEnabled ? CLIPS[courseId] : undefined

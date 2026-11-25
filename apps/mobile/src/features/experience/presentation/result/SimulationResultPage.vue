@@ -166,10 +166,11 @@ async function load(): Promise<void> {
       }
       const record = await experienceRecordApi.read(token, target.recordId)
       if (requested !== requestVersion) return
-      outcome.value = outcomeOfRecord(record)
+      outcome.value = record.experience.experienceId === target.experienceId ? outcomeOfRecord(record) : null
     } else {
       const local = localSimulationResults.find(target.localId)
-      if (!local) {
+      if (!local || local.experienceId !== target.experienceId) {
+        outcome.value = null
         state.value = { kind: 'missing' }
         return
       }

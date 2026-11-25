@@ -20,7 +20,7 @@ class InspectionServiceFlowOpenApiContractTest {
 
     @Test
     void everyServiceFlowRouteIsDeclaredInTheContract() throws Exception {
-        String contract = Files.readString(CONTRACT);
+        String contract = Files.readString(CONTRACT).replace("\r\n", "\n");
 
         List<String> routes = new ArrayList<>();
         routes.addAll(routes(InspectionPlanController.class));

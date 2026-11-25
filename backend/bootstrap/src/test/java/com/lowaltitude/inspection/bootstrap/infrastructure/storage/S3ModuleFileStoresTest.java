@@ -10,6 +10,7 @@ import java.time.Instant;
 
 import com.lowaltitude.inspection.bootstrap.infrastructure.S3ModuleFileStores;
 import com.lowaltitude.inspection.identity.application.OnboardingPorts;
+import com.lowaltitude.inspection.identity.application.account.AccountPorts;
 import com.lowaltitude.inspection.mall.application.MallOpsPorts;
 import com.lowaltitude.inspection.ops.media.OpsMediaStore;
 import com.lowaltitude.inspection.ops.media.S3OpsMediaStore;
@@ -149,6 +150,34 @@ class S3ModuleFileStoresTest {
                 .isInstanceOf(MallOpsPorts.MediaStoreUnavailableException.class);
         assertThatThrownBy(() -> new S3OpsMediaStore(storage).read("ops-media/" + UUID_1 + ".png"))
                 .isInstanceOf(OpsMediaStore.UnavailableException.class);
+    }
+
+    @Test
+    void personalDataExportsArePrivateZipsAndExpiryCanDeleteThemTwice() {
+        var exports = new S3ModuleFileStores.DataExports(storage);
+        String key = "data-exports/" + UUID_1 + "/" + UUID_2 + ".zip";
+        byte[] content = {80, 75, 3, 4};
+        exports.put(key, content);
+        assertThat(exports.read(key)).isEqualTo(content);
+        assertThat(server.object(PRIVATE, "identity/" + key)).isEqualTo(content);
+        assertThat(server.contentType(PRIVATE, "identity/" + key)).isEqualTo("application/zip");
+        assertThat(server.object(PUBLIC, "identity/" + key)).isNull();
+        exports.delete(key);
+        exports.delete(key);
+        assertThatThrownBy(() -> exports.read(key)).isInstanceOf(AccountPorts.ExportStoreUnavailableException.class);
+        assertThatThrownBy(() -> exports.read("../qualification/" + UUID_2))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void personalDataExportsReportS3FailuresToTheExistingAccountPort() {
+        var exports = new S3ModuleFileStores.DataExports(storage);
+        String key = "data-exports/" + UUID_1 + "/" + UUID_2 + ".zip";
+        server.failWith(503);
+        assertThatThrownBy(() -> exports.put(key, new byte[1]))
+                .isInstanceOf(AccountPorts.ExportStoreUnavailableException.class);
+        assertThatThrownBy(() -> exports.read(key)).isInstanceOf(AccountPorts.ExportStoreUnavailableException.class);
+        assertThatThrownBy(() -> exports.delete(key)).isInstanceOf(AccountPorts.ExportStoreUnavailableException.class);
     }
 
     @Test

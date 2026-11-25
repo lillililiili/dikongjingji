@@ -1,3 +1,4 @@
+import { buildSimulationUrl } from '../../experience/navigation/experience-routes'
 import type { CourseEnrollmentBucket } from '../domain/course'
 
 export const COURSE_DETAIL_PATH = '/pages/course/detail'
@@ -62,3 +63,7 @@ export function parseCourseBucket(query: Record<string, unknown> | undefined): C
 }
 
 export const wantsToBuy = (query: Record<string, unknown> | undefined): boolean => read(query, 'buy') === '1'
+
+export function courseTrialSimulationUrl(simulationItemId: string | null, experienceEnabled: boolean): string | null {
+  return simulationItemId && UUID.test(simulationItemId) && experienceEnabled ? buildSimulationUrl(simulationItemId) : null
+}

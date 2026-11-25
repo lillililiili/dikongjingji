@@ -7,6 +7,16 @@ test.skip(
 )
 
 test.describe('公开构建', () => {
+  test('PUB-ART 趣玩深链加载项目自绘图标', async ({ page }) => {
+    await page.goto('/#/pages/play/index')
+    await expect(page.getByTestId('play-games')).toBeVisible()
+    const images = page.locator('.play-games__cover-image img')
+    await expect(images).toHaveCount(2)
+    await expect(images.nth(0)).toHaveAttribute('src', /\/static\/images\/play\/avatar-robot\.svg$/)
+    await expect(images.nth(1)).toHaveAttribute('src', /\/static\/images\/play\/avatar-drone\.svg$/)
+    await expect.poll(() => images.evaluateAll((items) => items.every((item) => (item as HTMLImageElement).naturalWidth > 0))).toBe(true)
+  })
+
   test('PUB-001 只露出已闭环的频道和入口', async ({ page }) => {
     await page.goto('/#/pages/home/index')
     await expect(page.getByTestId('home-page')).toBeVisible()

@@ -1,3 +1,4 @@
+import { droneArtwork, robotArtwork, workshopArtwork } from './home-artwork'
 import {
   PLAY_GAMES_PATH,
   isHomeEntryTargetVisible,
@@ -20,8 +21,8 @@ export interface HomeCarouselSlide {
 
 export const HOME_CAROUSEL_INTERVAL_MS = 5500
 
-// Operator picks from the 2026-11-14 revised prototype. They are sample content until the
-// activity and experience back ends exist, so every slide is limited to preview builds.
+// The four editorial examples from the revised prototype are shown only in preview builds.
+// The first two cards open the actual city activity channel (App plan §7.1).
 const HOME_CAROUSEL_SLIDES: readonly HomeCarouselSlide[] = [
   {
     id: 'contest',
@@ -29,7 +30,7 @@ const HOME_CAROUSEL_SLIDES: readonly HomeCarouselSlide[] = [
     titleLines: ['小小飞行家', '挑战大舞台'],
     descriptionLines: ['青少年无人机编程挑战赛', '东营站 · 8–15 岁'],
     actionLabel: '查看赛事 · 去报名',
-    imageUrl: '/static/images/home/hero-world.jpg',
+    imageUrl: droneArtwork,
     imageAlt: '无人机与机器人探索场景',
     tone: 'SKY',
     target: { type: 'CHANNEL', channel: 'ACTIVITY' },
@@ -40,7 +41,7 @@ const HOME_CAROUSEL_SLIDES: readonly HomeCarouselSlide[] = [
     titleLines: ['把好奇心', '变成创造力'],
     descriptionLines: ['机器人研学体验', '动手编程 · 避障闯关'],
     actionLabel: '查看研学 · 去报名',
-    imageUrl: '/static/images/home/robot-workshop.jpg',
+    imageUrl: workshopArtwork,
     imageAlt: '孩子们在明亮课堂探索机器人',
     tone: 'SUN',
     target: { type: 'CHANNEL', channel: 'ACTIVITY' },
@@ -51,7 +52,7 @@ const HOME_CAROUSEL_SLIDES: readonly HomeCarouselSlide[] = [
     titleLines: ['动动脑筋', '一起闯关'],
     descriptionLines: ['机器人迷宫 · 无人机寻星', '虚拟小游戏 · 无需设备'],
     actionLabel: '开始趣玩挑战',
-    imageUrl: '/static/images/home/robot-rover.jpg',
+    imageUrl: robotArtwork,
     imageAlt: '可爱的编程机器人',
     tone: 'VIOLET',
     target: { type: 'PAGE', url: PLAY_GAMES_PATH, publiclyAvailable: false },
@@ -62,7 +63,7 @@ const HOME_CAROUSEL_SLIDES: readonly HomeCarouselSlide[] = [
     titleLines: ['先体验', '再决定'],
     descriptionLines: ['线上虚拟仿真 · 录播演示', '也可预约线下场馆'],
     actionLabel: '探索体验 · 去预约',
-    imageUrl: '/static/images/home/hero-world.jpg',
+    imageUrl: droneArtwork,
     imageAlt: '机器人与无人机的探索乐园',
     tone: 'MINT',
     target: { type: 'CHANNEL', channel: 'EXPERIENCE' },
@@ -72,6 +73,7 @@ const HOME_CAROUSEL_SLIDES: readonly HomeCarouselSlide[] = [
 export function resolveHomeCarouselSlides(
   previewEnabled: boolean,
 ): readonly HomeCarouselSlide[] {
+  if (!previewEnabled) return []
   return HOME_CAROUSEL_SLIDES
     .filter((slide) => isHomeEntryTargetVisible(slide.target, previewEnabled))
 }

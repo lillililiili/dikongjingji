@@ -133,6 +133,7 @@ export interface OpsCourse {
   extraSpecs: Array<{ label: string, value: string }>
   intro: string[]
   experienceItemId: string | null
+  simulationItemId: string | null
   bundledProductIds: string[]
   activityId: string | null
   scheduleLabel: string | null
@@ -202,6 +203,7 @@ export interface CourseForm {
   extraSpecs: Array<{ label: string, value: string }>
   intro: string[]
   experienceItemId: string
+  simulationItemId: string
   bundledProductIds: string[]
   activityId: string
   scheduleLabel: string
@@ -225,6 +227,7 @@ export interface CourseRequest {
   extraSpecs: Array<{ label: string, value: string }>
   intro: string[]
   experienceItemId: string | null
+  simulationItemId: string | null
   bundledProductIds: string[]
   activityId: string | null
   scheduleLabel: string | null
@@ -268,6 +271,7 @@ export function courseFormOf(course: OpsCourse): CourseForm {
     extraSpecs: course.extraSpecs.map((item) => ({ label: item.label, value: item.value })),
     intro: [...course.intro],
     experienceItemId: course.experienceItemId ?? '',
+    simulationItemId: course.simulationItemId ?? '',
     bundledProductIds: [...course.bundledProductIds],
     activityId: course.activityId ?? '',
     scheduleLabel: course.scheduleLabel ?? '',
@@ -307,6 +311,7 @@ export function courseRequestOf(mode: CourseMode, form: CourseForm, version: num
       extraSpecs: [],
       intro: [],
       experienceItemId: null,
+      simulationItemId: null,
       bundledProductIds: [],
       activityId: blankToNull(form.activityId),
       scheduleLabel: blankToNull(form.scheduleLabel),
@@ -325,6 +330,7 @@ export function courseRequestOf(mode: CourseMode, form: CourseForm, version: num
     extraSpecs: filledRows(form.extraSpecs).map((row) => ({ label: row.label.trim(), value: row.value.trim() })),
     intro: form.intro.map((paragraph) => paragraph.trim()).filter((paragraph) => paragraph !== ''),
     experienceItemId: blankToNull(form.experienceItemId),
+    simulationItemId: blankToNull(form.simulationItemId),
     bundledProductIds: [...form.bundledProductIds],
     activityId: null,
     scheduleLabel: null,

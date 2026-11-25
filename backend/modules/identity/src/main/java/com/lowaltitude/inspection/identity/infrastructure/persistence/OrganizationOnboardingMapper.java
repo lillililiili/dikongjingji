@@ -76,6 +76,44 @@ public interface OrganizationOnboardingMapper {
     @Select("SELECT id FROM identity_organization WHERE ops_create_key = #{createKey}")
     UUID findOrganizationByCreateKey(@Param("createKey") UUID createKey);
 
+    /** Serialize the entire signup, including its one-use SMS verification, across application instances. */
+    @Select("""
+            SELECT 1 FROM (
+                SELECT pg_advisory_xact_lock(hashtextextended('identity-signup:' || CAST(#{key} AS text), 0))
+            ) locked
+            """)
+    Integer lockSignupKey(@Param("key") UUID key);
+
+    @Select("SELECT id, signup_request_signature AS signature FROM identity_organization WHERE ops_create_key = #{key}")
+    SignupReceipt findSignupReceipt(@Param("key") UUID key);
+
+    @Update("UPDATE identity_organization SET signup_request_signature = #{signature} WHERE id = #{id}")
+    int saveSignupSignature(@Param("id") UUID id, @Param("signature") String signature);
+
+    /** V012 did not save a signature. Only compare business fields recoverable from the original signup. */
+    @Select("""
+            SELECT EXISTS (
+                SELECT 1 FROM identity_organization o
+                JOIN identity_organization_operation op ON op.organization_id = o.id AND op.action = 'SIGNUP'
+                JOIN identity_user u ON u.id = op.operator_id
+                JOIN identity_organization_qualification q ON q.organization_id = o.id
+                WHERE o.id = #{id} AND o.organization_name = #{name} AND o.city_code = #{city}
+                  AND q.subject_name = #{subject} AND q.license_number = #{license}
+                  AND q.business_scope IS NOT DISTINCT FROM CAST(#{scope} AS varchar)
+                  AND op.operator_name = #{contact} AND u.mobile = #{phone} AND u.login_name = #{login}
+                  AND u.updated_at = u.created_at
+                  AND NOT EXISTS (SELECT 1 FROM identity_organization_operation later
+                      WHERE later.organization_id = o.id AND later.action = 'QUALIFICATION_SUBMIT'
+                        AND later.occurred_at > op.occurred_at)
+            )
+            """)
+    boolean matchesLegacySignup(@Param("id") UUID id, @Param("name") String name, @Param("city") String city,
+                                @Param("subject") String subject, @Param("license") String license,
+                                @Param("scope") String scope, @Param("contact") String contact,
+                                @Param("phone") String phone, @Param("login") String login);
+
+    record SignupReceipt(UUID id, String signature) { }
+
     /** 新建机构；经营机构在资质审核通过前不能上架（V013）。同一个幂等键已经建过时什么都不写，返回 null。 */
     @Select("""
             INSERT INTO identity_organization (

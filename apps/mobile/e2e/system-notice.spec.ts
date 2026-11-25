@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+import { PLANNING, boardUrl } from './support/board-compare'
 import { purgeFreeEnrollments } from './support/activity-fixtures'
 import { API, BUYER, apiLogin, databaseAvailable, psql, type Session } from './support/trade-fixtures'
 
@@ -14,9 +15,8 @@ const NOTICE_ID = 'c5000000-0000-4000-8000-000000000001'
 const OPEN_DAY_ID = 'a2000000-0000-4000-8000-000000000005'
 const OPEN_DAY_SESSION = 'a3000000-0000-4000-8000-000000000502'
 const PUSH_ID = `e2e-system-notice-${Date.now()}`
-const visualOutput = resolve(__dirname, '../../../../../.planning/system-notice/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/system-notice')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const visualOutput = resolve(PLANNING, 'system-notice/visual')
+const compareOutput = resolve(PLANNING, 'style-compare/system-notice')
 
 const buyerId = `(SELECT id FROM identity_user WHERE login_name = '${BUYER}')`
 
@@ -307,7 +307,7 @@ test.describe('系统通知与通知设置', () => {
 
     for (const board of ['Messages', 'NoticeDetail', 'Settings', 'Agreement']) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${resolve(boardDir, `${board}.html`)}`)
+      await page.goto(boardUrl(board))
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60

@@ -14,6 +14,8 @@ import com.lowaltitude.inspection.account.application.AccountAddressService;
 import com.lowaltitude.inspection.activity.application.ActivityEnrollmentService;
 import com.lowaltitude.inspection.application.city.CityOperationsService;
 import com.lowaltitude.inspection.bootstrap.infrastructure.LocalDataExportStore;
+import com.lowaltitude.inspection.bootstrap.infrastructure.S3ModuleFileStores;
+import com.lowaltitude.inspection.bootstrap.infrastructure.storage.PlatformStorage;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.AccountMapper;
 import com.lowaltitude.inspection.trade.application.TradeEnterpriseAccess;
 import com.lowaltitude.inspection.trade.application.TradeOrderService;
@@ -24,13 +26,15 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 
 /**
  * 账号与企业组织（S5-7、S5-8）的端口接到外部服务和别的模块；身份模块不读别的模块的表。
  *
  * <ul>
- *   <li>短信：identity.sms.provider = fake 时是本机模拟服务（只在 application-dev.yml），其他值一律不可用（503）。</li>
- *   <li>导出存储：配置了 identity.data-export.local-dir（只在 application-dev.yml）时用本机目录，否则不可用。</li>
+ *   <li>短信：dev profile 且 identity.sms.provider=fake 时使用模拟服务，其余情况返回 503。</li>
+ *   <li>导出存储：S3 模式使用平台私有桶；本机模式按 identity.data-export.local-dir 配置。</li>
  *   <li>导出的数据源：参与人（活动）、收货地址（账号）、订单（交易）；注销条件：进行中的订单（交易）、待参加的报名（活动）；
  *       注销到期去标识：收货地址、参与人、订单配送快照。</li>
  *   <li>交易的付款主体和企业订单的成员校验接到企业服务。</li>
@@ -42,12 +46,21 @@ public class IdentityAccountPortsConfiguration {
 
     @Bean
     AccountPorts.SmsGateway accountSmsGateway(
-            @Value("${identity.sms.provider:none}") String provider, AccountMapper mapper, Clock identityClock) {
-        return "fake".equals(provider) ? new FakeSmsGateway(mapper, identityClock) : new FakeSmsGateway.Unavailable();
+            @Value("${identity.sms.provider:none}") String provider, AccountMapper mapper, Clock identityClock,
+            Environment environment) {
+        if ("fake".equals(provider) && environment.acceptsProfiles(Profiles.of("dev"))) {
+            return new FakeSmsGateway(mapper, identityClock);
+        }
+        return new FakeSmsGateway.Unavailable();
     }
 
     @Bean
-    AccountPorts.ExportFiles accountExportFiles(@Value("${identity.data-export.local-dir:}") String localDirectory) {
+    AccountPorts.ExportFiles accountExportFiles(@Value("${identity.data-export.local-dir:}") String localDirectory,
+                                               ObjectProvider<PlatformStorage> platformStorage) {
+        PlatformStorage storage = platformStorage.getIfAvailable(PlatformStorage::local);
+        if (storage.isS3()) {
+            return new S3ModuleFileStores.DataExports(storage);
+        }
         return localDirectory == null || localDirectory.isBlank()
                 ? new LocalDataExportStore.Unavailable()
                 : new LocalDataExportStore(Path.of(localDirectory));

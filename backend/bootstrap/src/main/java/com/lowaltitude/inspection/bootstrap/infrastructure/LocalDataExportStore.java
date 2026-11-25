@@ -10,12 +10,12 @@ import com.lowaltitude.inspection.identity.application.account.AccountPorts;
 
 /**
  * 个人信息导出文件的本机实现（S5-8，只给开发环境用：application-dev.yml 的 identity.data-export.local-dir）。
- * 真实环境接对象存储时另写一个 AccountPorts.ExportFiles 实现。只接受身份模块生成的键，路径必须落在配置的目录里。
+ * 只接受身份模块生成的键，路径必须落在配置的目录里；S3 实现也使用同一键格式。
  */
 public final class LocalDataExportStore implements AccountPorts.ExportFiles {
 
     private static final String UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-    private static final Pattern KEY = Pattern.compile("^data-exports/" + UUID + "/" + UUID + "\\.zip$");
+    static final Pattern KEY = Pattern.compile("^data-exports/" + UUID + "/" + UUID + "\\.zip$");
 
     private final Path root;
 

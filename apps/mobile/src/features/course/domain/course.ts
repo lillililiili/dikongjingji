@@ -89,6 +89,7 @@ export interface CourseDetail {
   purchasable: boolean
   onlinePayment: boolean
   experienceItemId: string | null
+  simulationItemId: string | null
 }
 
 export interface CourseMine {
@@ -108,6 +109,7 @@ export interface CourseTrialLesson {
 
 export interface CourseTrial {
   courseId: string
+  simulationItemId: string | null
   title: string
   coverImage: CourseImage | null
   organization: CourseOrganization

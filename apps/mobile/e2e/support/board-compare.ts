@@ -1,23 +1,17 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { expect, type Page } from '@playwright/test'
 
-// 和 2026-11-14 修订版原型画板同宽（390）并排对照（AGENTS §7）。仓库外层的 .planning 在工作区上面几层，
-// 主工作区（.worktrees/x）和 Claude 的 worktree（.claude/worktrees/x）深度不同，所以往上找。
-function planningRoot(): string {
-  let dir = __dirname
-  for (let i = 0; i < 10; i += 1) {
-    if (existsSync(resolve(dir, '.planning/prototype/v2-20261114'))) return resolve(dir, '.planning')
-    const parent = dirname(dir)
-    if (parent === dir) break
-    dir = parent
-  }
-  return resolve(__dirname, '../../../../../.planning')
-}
+// 画板随代码交付。每个检出把对照截图写入自己的 .planning。
+const repositoryRoot = resolve(__dirname, '../../../..')
+export const PLANNING = resolve(repositoryRoot, '.planning')
+export const BOARD_DIR = resolve(repositoryRoot, 'prototype/v2-20261114')
 
-export const PLANNING = planningRoot()
-export const BOARD_DIR = resolve(PLANNING, 'prototype/v2-20261114')
+export function boardUrl(board: string): string {
+  return pathToFileURL(resolve(BOARD_DIR, board + '.html')).href
+}
 
 export function compareFolder(name: string): string {
   const folder = resolve(PLANNING, 'style-compare', name)
@@ -49,7 +43,7 @@ export async function compareWithBoard(
 ): Promise<void> {
   const boardName = input.frame ? `${input.board}-${input.frame}` : input.board
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto(`file://${resolve(BOARD_DIR, `${input.board}.html`)}`)
+  await page.goto(boardUrl(input.board))
   if (input.frame) await page.locator('select[data-prop="frame"]').selectOption(input.frame)
   const frame = page.locator('#root > div').first()
   await expect(frame).toBeVisible()

@@ -1,7 +1,9 @@
-import { existsSync, mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { expect, test, type Page, type Route } from '@playwright/test'
+
+import { PLANNING } from './support/board-compare'
 
 // S5-3 候补与团队报名（docs/redesign/08-后续开发计划.md §5；boards EnrollWaitlist, TeamSignup, TeamOrder）.
 // The API is stubbed like inspection-payment.spec.ts (no backend needed); the dev build has the
@@ -9,16 +11,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 
 test.use({ timezoneId: 'Asia/Shanghai' })
 
-// The .planning folder sits beside the checkout (main work tree) or a few levels further up (a worktree).
-function planningDir(): string {
-  let dir = __dirname
-  while (dirname(dir) !== dir) {
-    if (existsSync(resolve(dir, '.planning/prototype'))) return resolve(dir, '.planning')
-    dir = dirname(dir)
-  }
-  return resolve(__dirname, '../../../../../.planning')
-}
-const visualOutput = resolve(planningDir(), 'activity-s53/visual')
+const visualOutput = resolve(PLANNING, 'activity-s53/visual')
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': '*',

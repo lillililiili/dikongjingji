@@ -27,7 +27,7 @@ class OrganizationSignupOpenApiContractTest {
 
     @Test
     void routesMatchAndOnlyTheTwoSignupRoutesArePublic() {
-        assertThat(OpsContractChecker.map(checker.root().get("info")).get("version")).isEqualTo("1.0.0");
+        assertThat(OpsContractChecker.map(checker.root().get("info")).get("version")).isEqualTo("1.0.1");
         checker.verifyRequestObjects();
         Map<String, Object> paths = OpsContractChecker.map(checker.root().get("paths"));
         Set<String> declared = new TreeSet<>();

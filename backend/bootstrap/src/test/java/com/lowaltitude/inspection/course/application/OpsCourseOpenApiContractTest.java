@@ -1,6 +1,7 @@
 package com.lowaltitude.inspection.course.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -11,6 +12,7 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lowaltitude.inspection.course.application.CourseContract.Operation;
 import com.lowaltitude.inspection.course.application.ops.CourseOpsError;
 import com.lowaltitude.inspection.course.application.ops.CourseOpsViews;
@@ -107,6 +109,24 @@ class OpsCourseOpenApiContractTest {
         Map<String, Object> change = CourseContract.map(CourseContract.map(contract.schemas().get("OpsChange")).get("properties"));
         assertThat(CourseContract.strings(CourseContract.map(change.get("action")).get("enum")))
                 .containsExactly("CREATE", "UPDATE", "OUTLINE", "LIST", "UNLIST");
+    }
+
+    @Test
+    void optionalSimulationIdDistinguishesAnOlderClientFromExplicitClear() throws Exception {
+        ObjectMapper json = new ObjectMapper();
+        var omitted = json.readValue("{}", OpsCourseController.CourseRequest.class).draft();
+        assertThat(omitted.simulationItemSpecified()).isFalse();
+        var clear = json.readValue("{\"simulationItemId\":null}", OpsCourseController.CourseRequest.class).draft();
+        assertThat(clear.simulationItemSpecified()).isTrue();
+        assertThat(clear.simulationItemId()).isNull();
+        var id = java.util.UUID.randomUUID();
+        var selected = json.readValue("{\"simulationItemId\":\"" + id + "\"}", OpsCourseController.CourseRequest.class).draft();
+        assertThat(selected.simulationItemSpecified()).isTrue();
+        assertThat(selected.simulationItemId()).isEqualTo(id);
+        for (String invalid : List.of("7", "[]", "\"x\"")) {
+            var body = json.readValue("{\"simulationItemId\":" + invalid + "}", OpsCourseController.CourseRequest.class);
+            assertThatThrownBy(body::draft).isInstanceOf(IllegalArgumentException.class);
+        }
     }
 
     @Test

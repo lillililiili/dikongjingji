@@ -25,12 +25,19 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.lowaltitude.inspection.course.application.CourseException.Error;
+import com.lowaltitude.inspection.course.application.ops.CourseOpsError;
+import com.lowaltitude.inspection.course.application.ops.CourseOpsService;
+import com.lowaltitude.inspection.course.application.ops.CourseOpsViews.CourseDraft;
+import com.lowaltitude.inspection.course.application.ops.CourseOpsViews.CreateCommand;
+import com.lowaltitude.inspection.course.application.ops.CourseOpsViews.Operator;
 import com.lowaltitude.inspection.course.infrastructure.persistence.CourseMapper;
 import com.lowaltitude.inspection.course.infrastructure.persistence.CourseMapper.BundleRow;
 import com.lowaltitude.inspection.course.infrastructure.persistence.CourseMapper.CourseRow;
 import com.lowaltitude.inspection.course.infrastructure.persistence.CourseMapper.EnrollmentRow;
 import com.lowaltitude.inspection.course.infrastructure.persistence.CourseMapper.LessonRow;
 import com.lowaltitude.inspection.course.infrastructure.persistence.CourseMapper.ProgressRow;
+import com.lowaltitude.inspection.course.infrastructure.persistence.CourseOpsMapper;
+import com.lowaltitude.inspection.ops.common.OpsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -61,7 +68,8 @@ class CourseServiceTest {
     private final CoursePorts.Payments payments = mock(CoursePorts.Payments.class);
     private final CoursePorts.Activities activities = mock(CoursePorts.Activities.class);
     private final CoursePorts.Organizations organizations = mock(CoursePorts.Organizations.class);
-    private final CourseService service = new CourseService(mapper, payments, activities, organizations,
+    private final CoursePorts.Simulations simulations = mock(CoursePorts.Simulations.class);
+    private final CourseService service = new CourseService(mapper, payments, activities, organizations, simulations,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @BeforeEach
@@ -96,6 +104,80 @@ class CourseServiceTest {
         assertThatThrownBy(() -> service.list("东营", null, null, null, 1, 20)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> service.list("370500", "COOKING", null, null, 1, 20))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void trialAndDetailOnlyExposeTheCoursesCurrentPlayableSimulation() {
+        UUID trialEntry = UUID.randomUUID();
+        UUID simulation = UUID.randomUUID();
+        CourseRow linked = online(FLY, 19900L, "LISTED", trialEntry, simulation);
+        when(mapper.findCourse(FLY)).thenReturn(linked);
+        when(mapper.findCourseByExperience(trialEntry)).thenReturn(linked);
+        when(simulations.isPlayable(simulation)).thenReturn(true);
+        assertThat(service.trial(FLY, null).simulationItemId()).isEqualTo(simulation);
+        assertThat(service.trial(null, trialEntry).simulationItemId()).isEqualTo(simulation);
+        assertThat(service.detail(FLY).simulationItemId()).isEqualTo(simulation);
+
+        when(simulations.isPlayable(simulation)).thenReturn(false);
+        assertThat(service.trial(null, trialEntry).simulationItemId()).isNull();
+        assertThat(service.detail(FLY).experienceItemId()).isEqualTo(trialEntry);
+        assertThat(service.detail(FLY).simulationItemId()).isNull();
+
+        when(mapper.findCourse(FLY)).thenReturn(online(FLY, 19900L, "LISTED", trialEntry, null));
+        assertThat(service.trial(FLY, null).simulationItemId()).isNull();
+        verify(simulations, never()).isPlayable(trialEntry);
+    }
+
+    @Test
+    void operationsRejectInvalidSimulationTargetsOnCreationAndUpdate() {
+        CourseOpsMapper writes = mock(CourseOpsMapper.class);
+        CourseOpsService operations = new CourseOpsService(mapper, writes, organizations, payments, activities,
+                simulations, Clock.fixed(NOW, ZoneOffset.UTC));
+        UUID item = UUID.randomUUID();
+        Operator operator = new Operator(ACCOUNT, "课程运营");
+        when(organizations.canHostCourses(ORG)).thenReturn(true);
+        when(mapper.lockCourse(FLY)).thenReturn(online(FLY, 19900L, "DRAFT"));
+        CreateCommand online = new CreateCommand("ONLINE", "DRONE", "录播课", ORG, null, item);
+        CourseDraft edit = new CourseDraft("DRONE", "录播课", null, ORG, null, List.of(), 19900L, 365,
+                null, null, null, List.of(), List.of(), List.of(), null, item, true, List.of(), null, null, 0);
+        assertThatThrownBy(() -> operations.create(online, operator)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("simulationItemId");
+        assertThatThrownBy(() -> operations.update(FLY, edit, 1, operator)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("simulationItemId");
+
+        when(simulations.isPlayable(item)).thenReturn(true);
+        CreateCommand offline = new CreateCommand("OFFLINE", "DRONE", "线下班", ORG, ACTIVITY, item);
+        assertThatThrownBy(() -> operations.create(offline, operator)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("simulationItemId");
+        org.mockito.Mockito.verifyNoInteractions(writes);
+    }
+
+    @Test
+    void listedCoursesRetainTheirRequiredFieldsAndOnlyUnlistOnce() {
+        CourseOpsMapper writes = mock(CourseOpsMapper.class);
+        CourseOpsService operations = new CourseOpsService(mapper, writes, organizations, payments, activities,
+                simulations, Clock.fixed(NOW, ZoneOffset.UTC));
+        CourseRow listed = online(FLY, 19900L, "LISTED");
+        when(mapper.lockCourse(FLY)).thenReturn(listed);
+        when(mapper.findCourse(FLY)).thenReturn(listed);
+        when(writes.bumpVersion(eq(FLY), eq(1), any())).thenReturn(1);
+        Operator operator = new Operator(ACCOUNT, "课程运营");
+
+        assertThatThrownBy(() -> operations.outline(FLY, 1, List.of(), operator)).isInstanceOfSatisfying(
+                OpsException.class, ex -> {
+                    assertThat(ex.error()).isEqualTo(CourseOpsError.PUBLISH_INCOMPLETE);
+                    assertThat(ex.details()).containsKey("missing");
+                });
+        assertThatThrownBy(() -> operations.list(FLY, 1, operator)).isInstanceOfSatisfying(OpsException.class,
+                ex -> assertThat(ex.error()).isEqualTo(CourseOpsError.STATUS_CONFLICT));
+
+        when(writes.setStatus(eq(FLY), eq(1), eq("UNLISTED"), any())).thenReturn(1);
+        CourseRow unlisted = online(FLY, 19900L, "UNLISTED");
+        when(mapper.findCourse(FLY)).thenReturn(unlisted);
+        assertThat(operations.unlist(FLY, 1, operator).status().name()).isEqualTo("UNLISTED");
+        when(mapper.lockCourse(FLY)).thenReturn(unlisted);
+        assertThatThrownBy(() -> operations.unlist(FLY, 1, operator)).isInstanceOfSatisfying(OpsException.class,
+                ex -> assertThat(ex.error()).isEqualTo(CourseOpsError.STATUS_CONFLICT));
     }
 
     // ---- 购买 ----
@@ -259,13 +341,17 @@ class CourseServiceTest {
     }
 
     private static CourseRow online(UUID id, Long price, String status) {
+        return online(id, price, status, null, null);
+    }
+
+    private static CourseRow online(UUID id, Long price, String status, UUID trialEntry, UUID simulation) {
         return new CourseRow(id, ORG, "ONLINE", "DRONE", "无人机飞行原理 线上课", "从升力到航线规划", null, "[]", price, 365,
-                null, null, null, "[]", "[]", "[]", null, null, null, 30, status, AT, 1, AT, AT);
+                null, null, null, "[]", "[]", "[]", trialEntry, simulation, null, null, 30, status, AT, 1, AT, AT);
     }
 
     private static CourseRow offline(UUID id, UUID activityId) {
         return new CourseRow(id, ORG, "OFFLINE", "ROBOT", "线下班", null, null, "[]", null, null, null, null, null, "[]",
-                "[]", "[]", null, activityId, "按场次", 20, "LISTED", AT, 1, AT, AT);
+                "[]", "[]", null, null, activityId, "按场次", 20, "LISTED", AT, 1, AT, AT);
     }
 
     private static LessonRow lesson(UUID id, boolean trial, int no) {

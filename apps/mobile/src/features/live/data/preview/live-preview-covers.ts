@@ -1,4 +1,4 @@
-import { LIVE_PREVIEW_ENABLED } from '../../application/live-preview'
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // Pictures for the sample rooms of the development seed (R__dev_live.sql), keyed by room id. They are
 // the 2026-11-14 board pictures (Discover, LiveNotice, LiveRoom) already bundled for the discover
@@ -22,7 +22,7 @@ export interface LivePreviewCover {
 
 export function resolveLivePreviewCover(
   roomId: string,
-  previewEnabled: boolean = LIVE_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): LivePreviewCover | null {
   const entry = previewEnabled ? ROOMS[roomId] : undefined
   return entry ? { url: `${DIRECTORY}/${entry.file}`, alt: entry.alt } : null
@@ -33,7 +33,7 @@ export function resolveLivePreviewCover(
 // address; every build accepts a https one.
 const SAMPLE_VIDEO = /^\/static\/videos\/preview\/live-[a-z-]+\.mp4$/
 
-export function acceptPlayUrl(url: string | null | undefined, previewEnabled: boolean = LIVE_PREVIEW_ENABLED): string | null {
+export function acceptPlayUrl(url: string | null | undefined, previewEnabled: boolean = PREVIEW_SAMPLES): string | null {
   const value = url?.trim()
   if (!value) return null
   if (/^https:\/\/\S+$/i.test(value)) return value

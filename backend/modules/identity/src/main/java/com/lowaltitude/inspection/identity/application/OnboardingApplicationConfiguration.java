@@ -4,6 +4,7 @@ import com.lowaltitude.inspection.identity.infrastructure.persistence.Organizati
 import com.lowaltitude.inspection.identity.infrastructure.persistence.OrganizationOnboardingMapper;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.PlatformOperatorBootstrapMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,9 +31,11 @@ public class OnboardingApplicationConfiguration {
             OrganizationOnboardingService onboarding,
             OnboardingPorts.Cities cities,
             OnboardingPorts.PasswordHasher hasher,
-            com.lowaltitude.inspection.identity.application.account.SmsCodeService smsCodes
+            com.lowaltitude.inspection.identity.application.account.SmsCodeService smsCodes,
+            @Value("${INSPECTION_DATA_ENCRYPTION_BASE64_KEY}") String dataKey
     ) {
-        return new OrganizationSignupService(mapper, onboarding, cities, hasher, smsCodes, java.time.Clock.systemUTC());
+        return new OrganizationSignupService(mapper, onboarding, cities, hasher, smsCodes, java.time.Clock.systemUTC(),
+                new SignupRequestSignature(dataKey));
     }
 
     /** 批量导入经营主体和操作员账号（S2-3）：口令生成和摘要沿用机构入驻。 */

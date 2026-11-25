@@ -8,7 +8,7 @@ export interface BookingCodeLabel {
 
 export interface BookingServiceSnapshot {
   serviceId: string
-  /** 类目编码，按类目配图用；旧快照里没有 */
+  /** 旧快照可能缺少类目编码。 */
   categoryCode?: string
   categoryName: string
   title: string
@@ -86,7 +86,7 @@ export interface CreateReservationPayload {
     longitude: number | null
     latitude: number | null
   }
-  lineLengthMeters: number
+  lineLengthMeters: number | null
   preferredServiceDate: string
   preferredTimeSlotCode: BookingTimeSlotCode
   inspectionItemCodes: string[]
@@ -150,9 +150,14 @@ export function createBookingLocationSelection(input: {
   }
 }
 
+// 旧快照沿用原表单。已知类目中，输电线路和燃气、热力管网按长度登记。
+export function bookingUsesLineLength(categoryCode?: string): boolean {
+  return !categoryCode || ['POWER', 'OIL_GAS', 'THERMAL'].includes(categoryCode)
+}
+
 export function validateBookingDraft(
   draft: BookingDraft,
-  options: { allowPendingAttachments?: boolean } = {},
+  options: { allowPendingAttachments?: boolean; categoryCode?: string } = {},
 ): string[] {
   const errors: string[] = []
 
@@ -165,7 +170,7 @@ export function validateBookingDraft(
     errors.push('请重新选择巡检地点')
   }
 
-  if (!toLineLengthMeters(draft.lineLengthKm)) {
+  if (bookingUsesLineLength(options.categoryCode) && !toLineLengthMeters(draft.lineLengthKm)) {
     errors.push('请填写有效的线路长度')
   }
 
@@ -208,9 +213,10 @@ export function createReservationPayload(
   service: BookingServiceSnapshot,
   draft: BookingDraft,
 ): CreateReservationPayload {
-  const lineLengthMeters = toLineLengthMeters(draft.lineLengthKm)
+  const usesLength = bookingUsesLineLength(service.categoryCode)
+  const lineLengthMeters = usesLength ? toLineLengthMeters(draft.lineLengthKm) : null
 
-  if (!lineLengthMeters) {
+  if (usesLength && !lineLengthMeters) {
     throw new Error('line length is invalid')
   }
 

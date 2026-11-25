@@ -1,9 +1,11 @@
+import { pathToFileURL } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
+import { BOARD_DIR, PLANNING } from './support/board-compare'
 import {
   API,
   BUYER,
@@ -32,9 +34,8 @@ const DOG_OFFER = offerId('401', '1')
 const UNPAID_OFFER = offerId('401', '6')
 const DAILY = 38_000
 const ADDRESS_DETAIL = 'E2E 租赁 东营港 示例港路 6 号'
-const visualOutput = resolve(__dirname, '../../../../../.planning/rental/visual')
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/rental')
-const boardDir = resolve(__dirname, '../../../../../.planning/prototype/v2-20261114')
+const visualOutput = resolve(PLANNING, 'rental/visual')
+const compareOutput = resolve(PLANNING, 'style-compare/rental')
 
 const buyerId = () => `(SELECT id FROM identity_user WHERE login_name = '${BUYER}')`
 
@@ -618,18 +619,18 @@ test.describe('设备租赁', () => {
     // The boards at 390 next to the App at 390. Contract opens in its rental frame (a copy of the
     // board with that frame chosen, resolving its files from the prototype folder).
     const contractCopy = resolve(compareOutput, 'Contract-rental-board.html')
-    writeFileSync(contractCopy, readFileSync(resolve(boardDir, 'Contract.html'), 'utf8')
-      .replace('<head>', `<head><base href="file://${boardDir}/">`)
+    writeFileSync(contractCopy, readFileSync(resolve(BOARD_DIR, 'Contract.html'), 'utf8')
+      .replace('<head>', `<head><base href="${pathToFileURL(BOARD_DIR).href}/">`)
       .replace('{"contract":"服务合同"}', '{"contract":"租赁合同"}'))
     const boards: Array<[string, string]> = [
-      ['RentalInquiry', resolve(boardDir, 'RentalInquiry.html')],
-      ['RentalQuote', resolve(boardDir, 'RentalQuote.html')],
-      ['OrderRental', resolve(boardDir, 'OrderRental.html')],
+      ['RentalInquiry', resolve(BOARD_DIR, 'RentalInquiry.html')],
+      ['RentalQuote', resolve(BOARD_DIR, 'RentalQuote.html')],
+      ['OrderRental', resolve(BOARD_DIR, 'OrderRental.html')],
       ['Contract', contractCopy],
     ]
     for (const [board, file] of boards) {
       await page.setViewportSize({ width: 390, height: 844 })
-      await page.goto(`file://${file}`)
+      await page.goto(pathToFileURL(file).href)
       const frame = page.locator('#root > div').first()
       await expect(frame).toBeVisible()
       const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60

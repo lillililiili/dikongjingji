@@ -3,6 +3,7 @@ package com.lowaltitude.inspection.course.application;
 import java.util.List;
 import java.util.UUID;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.lowaltitude.inspection.course.application.ops.CourseOpsService;
 import com.lowaltitude.inspection.course.application.ops.CourseOpsViews.ChapterDraft;
 import com.lowaltitude.inspection.course.application.ops.CourseOpsViews.CourseDraft;
@@ -27,7 +28,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 运营端“课程”（S5-5，契约 contracts/openapi-ops-course.yaml 1.0.0）。只给平台运营；写操作带版本号，
+ * 运营端“课程”（S5-5，契约 contracts/openapi-ops-course.yaml 1.1.0）。只给平台运营；写操作带版本号，
  * 每次改动记一条改动记录（操作人显示名取自身份资料）。
  */
 @RestController
@@ -62,7 +63,7 @@ public final class OpsCourseController {
     public ResponseEntity<OpsCourseView> create(Authentication authentication, @RequestBody CreateRequest request) {
         Operator operator = operator(authentication);
         return ResponseEntity.status(201).body(service.create(new CreateCommand(request.mode(), request.topic(),
-                request.title(), request.organizationId(), request.activityId()), operator));
+                request.title(), request.organizationId(), request.activityId(), request.simulationItemId()), operator));
     }
 
     @GetMapping(COURSE)
@@ -115,7 +116,8 @@ public final class OpsCourseController {
         return new Operator(actor.accountId(), actor.displayName());
     }
 
-    record CreateRequest(String mode, String topic, String title, UUID organizationId, UUID activityId) {
+    record CreateRequest(String mode, String topic, String title, UUID organizationId, UUID activityId,
+                         UUID simulationItemId) {
     }
 
     record CourseRequest(
@@ -135,6 +137,7 @@ public final class OpsCourseController {
             List<SpecRequest> extraSpecs,
             List<String> intro,
             UUID experienceItemId,
+            JsonNode simulationItemId,
             List<UUID> bundledProductIds,
             UUID activityId,
             String scheduleLabel,
@@ -147,7 +150,24 @@ public final class OpsCourseController {
                             .map(item -> item == null ? null : new IncludeDraft(item.name(), item.quantity())).toList(),
                     extraSpecs == null ? null : extraSpecs.stream()
                             .map(item -> item == null ? null : new SpecDraft(item.label(), item.value())).toList(),
-                    intro, experienceItemId, bundledProductIds, activityId, scheduleLabel, sortOrder);
+                    intro, experienceItemId, simulationId(), simulationItemId != null, bundledProductIds, activityId,
+                    scheduleLabel, sortOrder);
+        }
+
+        // Jackson supplies Java null for an absent tree property and a NullNode for an explicit JSON null.
+        private UUID simulationId() {
+            if (simulationItemId == null || simulationItemId.isNull()) {
+                return null;
+            }
+            String value = simulationItemId.textValue();
+            if (value == null || value.length() != 36) {
+                throw new IllegalArgumentException("simulationItemId must be a UUID or null");
+            }
+            UUID id = UUID.fromString(value);
+            if (!id.toString().equalsIgnoreCase(value)) {
+                throw new IllegalArgumentException("simulationItemId must be a UUID or null");
+            }
+            return id;
         }
     }
 

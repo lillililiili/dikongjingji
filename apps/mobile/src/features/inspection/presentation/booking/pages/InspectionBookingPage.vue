@@ -16,7 +16,7 @@ import { createBookingImageAttachments, pickBookingPdfAttachments } from '../../
 import { uniBookingFileAccessPort } from '../../../data/service-flow/booking-file-access'
 import { createUniBookingDocumentPicker, uniBookingDocumentPicker } from '../../../data/service-flow/uni-booking-document-picker'
 import { ApiRequestError, inspectionBookingApi, platformCityApi } from '../../../data/service-flow/uni-booking-http-client'
-import { createBookingLocationSelection, createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot, type BookingTimeSelection } from '../../../domain/service-flow/booking'
+import { bookingUsesLineLength, createBookingLocationSelection, createEmptyBookingDraft, type BookingAttachment, type BookingServiceSnapshot, type BookingTimeSelection } from '../../../domain/service-flow/booking'
 import { buildInspectionBookingSubmittedUrl, buildInspectionCatalogUrl, buildInspectionDetailUrl } from '../../../navigation/inspection-routes'
 import { useCurrentCityStore } from '@/shared/city/state/current-city'
 import BookingServiceSnapshotCard from '../components/BookingServiceSnapshotCard.vue'
@@ -450,7 +450,7 @@ const RULER = 'M3.5 16.5l13-13 4 4-13 13zM7 13l2 2M10 10l2.5 2.5M13 7l2 2'
             <text :class="['booking-row__location', { 'booking-row__location--empty': !draft.locationAddress }]">{{ draft.locationAddress || (isChoosingLocation ? '正在打开地图…' : '请选择巡检地点') }}</text>
             <LineIcon name="forward" :size="14" color="#91a0b4" :stroke-width="2" />
           </view>
-          <view class="booking-row">
+          <view v-if="bookingUsesLineLength(service.categoryCode)" class="booking-row">
             <LineIcon :d="RULER" :size="18" color="#ff6a00" />
             <text class="booking-row__label">线路长度</text>
             <input v-model="draft.lineLengthKm" class="booking-row__input" type="digit" placeholder="请输入预计公里数" />

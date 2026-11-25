@@ -1,4 +1,4 @@
-import { EXPERIENCE_PREVIEW_ENABLED } from '../../application/experience-preview'
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // Pictures for the sample experience items, venues and devices of the development seed
 // (R__dev_experience_catalog.sql), keyed by their ids. From the 2026-11-14 prototype; a picture
@@ -37,7 +37,7 @@ const COVERS: Record<string, string> = {
 
 export function resolveExperiencePreviewCover(
   id: string,
-  previewEnabled: boolean = EXPERIENCE_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   const name = previewEnabled ? COVERS[id] : undefined
   return name ? `${DIRECTORY}/${name}.jpg` : null

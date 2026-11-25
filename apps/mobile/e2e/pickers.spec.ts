@@ -8,7 +8,7 @@ import { BUYER, apiLogin, clearAddresses, type Session } from './support/trade-f
 // 公共页面（计划 08 S5-10，画板 MapPick、RegionPick、PhotoViewer、Scan、CityClosed），开发版（预览构建）。
 // uni-button 的禁用在 H5 上只看 disabled 属性（toBeDisabled 读不出来）。
 // 地图选点走本机模拟地图（浏览器里没有定位，落在“定位被拒”帧、从城市中心开始）；城市未开通用接口桩把东营在城市目录里标成“筹备中”。
-const compareOutput = resolve(__dirname, '../../../../../.planning/style-compare/s5-pickers')
+const compareOutput = resolve(__dirname, '../../../.planning/style-compare/s5-pickers')
 const SERVICE_ID = '33333333-3333-3333-3333-333333333333'
 const BOOKING_URL = `/#/pages/service/inspection/booking?serviceId=${SERVICE_ID}&cityCode=370500`
 const KIT_ID = 'c2000000-0000-4000-8000-000000000101'
@@ -48,7 +48,7 @@ test.describe('地图选点（MapPick）', () => {
     // 浏览器里没有定位：说明并从城市中心开始。
     await expect(page.getByTestId('map-pick-denied')).toContainText('未开启定位，可手动搜索')
     await expect(page.getByTestId('map-pick-chosen')).toContainText('在地图上拖动选点，或搜索地址')
-    await expect(page.getByTestId('map-pick-chosen')).toContainText('选中的位置作为巡检起点')
+    await expect(page.getByTestId('map-pick-chosen')).toContainText('选中的位置将填入预约页的巡检地点')
     await expect(page.getByTestId('map-pick-confirm')).toHaveAttribute('disabled', 'true')
     await shot(page, 'map-pick-denied')
 

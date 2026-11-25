@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { FormInstance } from 'element-plus'
-import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 
 import { http } from '@/core/http'
 import { newIdempotencyKey } from '@/core/http/api-client'
-import { errorMessage } from '@/core/http/api-error'
+import { ApiRequestError, errorMessage } from '@/core/http/api-error'
 import type { DirectoryCity } from '@/features/organization/organization-api'
 
 import {
@@ -12,6 +12,7 @@ import {
   emptySignupForm,
   PHONE,
   SIGNUP_LIMITS,
+  signupRequestBody,
   signupRules,
   type SignupApi,
   type SignupResult,
@@ -32,10 +33,15 @@ const countdown = ref(0)
 const submitting = ref(false)
 const error = ref('')
 const result = shallowRef<SignupResult | null>(null)
-let idempotencyKey = newIdempotencyKey()
+let idempotencyKey: string | undefined
 let timer: ReturnType<typeof setInterval> | null = null
 
 const phoneValid = computed(() => PHONE.test(form.phone.trim()))
+
+// 只在此次填写期间保留随机键。比较实际提交的字段，忽略确认口令及格式整理。
+watch(() => Object.values(signupRequestBody(form)), (current, previous) => {
+  if (current.some((value, i) => value !== previous[i])) idempotencyKey = undefined
+})
 
 async function loadCities(): Promise<void> {
   citiesLoading.value = true
@@ -75,15 +81,18 @@ async function sendCode(): Promise<void> {
 
 async function submit(): Promise<void> {
   if (!formRef.value || submitting.value) return
-  if (!(await formRef.value.validate().catch(() => false))) return
   submitting.value = true
-  error.value = ''
   try {
+    if (!(await formRef.value.validate().catch(() => false))) return
+    error.value = ''
+    idempotencyKey ??= newIdempotencyKey()
     result.value = await api.signUp(form, idempotencyKey)
   } catch (failure) {
     error.value = errorMessage(failure)
-    // 登录名、手机号被占或验证码不对时改了再交，是一次新的申请。
-    idempotencyKey = newIdempotencyKey()
+    // 只有接口明确拒绝时才开始新申请。断网、网关故障或成功响应损坏时可能已经建好账号。
+    if (failure instanceof ApiRequestError && [400, 409, 422, 429].includes(failure.status)) {
+      idempotencyKey = undefined
+    }
   } finally {
     submitting.value = false
   }

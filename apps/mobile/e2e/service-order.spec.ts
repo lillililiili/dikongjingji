@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { PLANNING, boardUrl } from './support/board-compare'
 import {
   DEMAND_ID,
   FILE_REPORT,
@@ -24,14 +25,7 @@ import {
 // 退回整改；开工前取消（已付款整笔原路退）；我的订单“服务”页签；需求与报价的页签计数和“查看订单”。
 // 全部用 page.route 桩数据（e2e/support/service-order-stubs.ts），不连后端；服务商没有页面，出方案、开工、交付
 // 由测试直接改桩的状态。E2E_SERVICE_ORDER_VISUAL=1 时另外截 390 宽对照图到 .planning/style-compare/service-order。
-// The project folder that holds .planning, however deep this checkout sits (a worktree or not).
-function planningRoot(): string {
-  let dir = __dirname
-  while (!existsSync(resolve(dir, '.planning/prototype')) && dirname(dir) !== dir) dir = dirname(dir)
-  return resolve(dir, '.planning')
-}
-const compareOutput = resolve(planningRoot(), 'style-compare/service-order')
-const boardDir = resolve(planningRoot(), 'prototype/v2-20261114')
+const compareOutput = resolve(PLANNING, 'style-compare/service-order')
 
 const at = (route: string) => `/#${route}`
 const detailUrl = at(`/pages/service-order/detail?orderId=${ORDER_ID}`)
@@ -271,7 +265,7 @@ test.describe('通用服务订单对照图', () => {
   async function boardShot(page: Page, board: string): Promise<string> {
     const path = resolve(compareOutput, `${board}-board.png`)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.goto(`file://${resolve(boardDir, `${board}.html`)}`)
+    await page.goto(boardUrl(board))
     const frame = page.locator('#root > div').first()
     await expect(frame).toBeVisible()
     const height = Math.ceil((await frame.boundingBox())?.height ?? 844) + 60

@@ -274,6 +274,22 @@ describe('F04 booking form boundary', () => {
     expect(payload).not.toHaveProperty('serviceCoverUrl')
   })
 
+  it('only collects line length for route-based categories and older service snapshots', () => {
+    const draft = createEmptyBookingDraft()
+    draft.preferredServiceTime = {
+      serviceDate: '2026-08-02', slotCode: 'MORNING', startTime: '09:00', endTime: '12:00',
+    }
+    for (const categoryCode of ['POWER', 'OIL_GAS', 'THERMAL', undefined]) {
+      expect(validateBookingDraft(draft, { categoryCode })).toContain('请填写有效的线路长度')
+      expect(() => createReservationPayload({ ...service, categoryCode }, draft)).toThrow('line length is invalid')
+    }
+    for (const categoryCode of ['PHOTOVOLTAIC', 'PARK', 'PERIODIC', 'EQUIPMENT']) {
+      expect(validateBookingDraft(draft, { categoryCode })).not.toContain('请填写有效的线路长度')
+      expect(createReservationPayload({ ...service, categoryCode }, draft).lineLengthMeters).toBeNull()
+      expect(createReservationPayload({ ...service, categoryCode }, { ...draft, lineLengthKm: '12' }).lineLengthMeters).toBeNull()
+    }
+  })
+
   it('normalizes a native map selection and submits its coordinates', () => {
     const location = createBookingLocationSelection({
       name: '黄河路 88 号',

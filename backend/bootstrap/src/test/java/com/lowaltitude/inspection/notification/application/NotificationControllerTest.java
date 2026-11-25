@@ -133,7 +133,7 @@ class NotificationControllerTest {
                 "GET /api/v1/system-notices/agreement-updates", "GET /api/v1/system-notices/{noticeId}");
         org.assertj.core.api.Assertions.assertThat(routes).noneMatch(route -> route.contains("/dev/"));
         String contract = java.nio.file.Files.readString(
-                java.nio.file.Path.of("..", "..", "contracts", "openapi-notification.yaml"));
+                java.nio.file.Path.of("..", "..", "contracts", "openapi-notification.yaml")).replace("\r\n", "\n");
         org.assertj.core.api.Assertions.assertThat(contract)
                 .contains("security:\n  - bearerAuth: []")
                 .contains("required: [id, category, eventCode, title, body, target, occurredAt, read]")

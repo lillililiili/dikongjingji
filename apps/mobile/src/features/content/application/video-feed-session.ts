@@ -80,6 +80,7 @@ const PRELOAD_DISTANCE = 1
 export function createVideoFeedSession(options: VideoFeedOptions): VideoFeedSession {
   const size = options.pageSize ?? CONTENT_VIDEO_STREAM_SIZE
   let revision = 0
+  let pendingPage: Promise<void> = Promise.resolve()
   const pendingLikes = new Set<string>()
   const pendingFollows = new Set<string>()
 
@@ -121,6 +122,11 @@ export function createVideoFeedSession(options: VideoFeedOptions): VideoFeedSess
     }
   }
 
+  function requestMore(): Promise<void> {
+    if (!options.getState().loadingMore) pendingPage = loadMore()
+    return pendingPage
+  }
+
   return {
     async load(feed, cityCode, startVideoId) {
       const requested = ++revision
@@ -155,13 +161,16 @@ export function createVideoFeedSession(options: VideoFeedOptions): VideoFeedSess
       if (state.index < state.items.length - 1) {
         options.setState({ ...state, index: state.index + 1 })
       } else if (state.nextCursor) {
-        await loadMore()
+        const requested = revision
+        await requestMore()
         const after = options.getState()
-        if (after.index < after.items.length - 1) options.setState({ ...after, index: after.index + 1 })
+        if (requested === revision && after.index === state.index && after.index < after.items.length - 1) {
+          options.setState({ ...after, index: after.index + 1 })
+        }
         return
       }
       const moved = options.getState()
-      if (moved.items.length - 1 - moved.index <= PRELOAD_DISTANCE) void loadMore()
+      if (moved.items.length - 1 - moved.index <= PRELOAD_DISTANCE) void requestMore()
     },
 
     prev() {

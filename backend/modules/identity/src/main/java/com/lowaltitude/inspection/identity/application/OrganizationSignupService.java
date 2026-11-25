@@ -14,8 +14,6 @@ import com.lowaltitude.inspection.identity.application.account.AccountException;
 import com.lowaltitude.inspection.identity.application.account.PhoneNumbers;
 import com.lowaltitude.inspection.identity.application.account.SmsCodeService;
 import com.lowaltitude.inspection.identity.infrastructure.persistence.OrganizationOnboardingMapper;
-import com.lowaltitude.inspection.identity.infrastructure.persistence.OrganizationOnboardingMapper.AccountRow;
-import com.lowaltitude.inspection.identity.infrastructure.persistence.OrganizationOnboardingMapper.OrganizationRow;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -44,16 +42,18 @@ public class OrganizationSignupService {
     private final OnboardingPorts.PasswordHasher hasher;
     private final SmsCodeService smsCodes;
     private final Clock clock;
+    private final SignupRequestSignature signatures;
 
     public OrganizationSignupService(OrganizationOnboardingMapper mapper, OrganizationOnboardingService onboarding,
                                      OnboardingPorts.Cities cities, OnboardingPorts.PasswordHasher hasher,
-                                     SmsCodeService smsCodes, Clock clock) {
+                                     SmsCodeService smsCodes, Clock clock, SignupRequestSignature signatures) {
         this.mapper = mapper;
         this.onboarding = onboarding;
         this.cities = cities;
         this.hasher = hasher;
         this.smsCodes = smsCodes;
         this.clock = clock;
+        this.signatures = signatures;
     }
 
     /** 给联系人手机号发入驻验证码（频率、每日上限和锁定由短信验证码服务管）。 */
@@ -63,7 +63,7 @@ public class OrganizationSignupService {
     }
 
     /** 申请入驻。先核验证码，再一次建齐机构、资质、账号和角色；同一个幂等键重放返回第一次的结果。 */
-    @Transactional
+    @Transactional(noRollbackFor = AccountException.class)
     public OrganizationSignupCreated signUp(UUID idempotencyKey, SignupDraft draft) {
         if (idempotencyKey == null) {
             throw new IllegalArgumentException("idempotency key is required");
@@ -76,9 +76,6 @@ public class OrganizationSignupService {
         String cityCode = draft.cityCode() == null ? "" : draft.cityCode().strip();
         if (!cityCode.matches("^[0-9]{6}$")) {
             throw new IllegalArgumentException("city code is invalid");
-        }
-        if (cities.cityName(cityCode).isEmpty()) {
-            throw new OnboardingException(Error.CITY_UNKNOWN);
         }
         String subjectName = text(draft.subjectName(), OrganizationOnboardingService.MAX_SUBJECT_NAME, "subject name");
         String licenseNumber = draft.licenseNumber() == null ? "" : draft.licenseNumber().strip().toUpperCase(Locale.ROOT);
@@ -96,15 +93,22 @@ public class OrganizationSignupService {
             throw new IllegalArgumentException("password is invalid");
         }
 
-        UUID existing = mapper.findOrganizationByCreateKey(idempotencyKey);
-        if (existing != null) {
-            OrganizationRow row = mapper.findOrganization(existing);
-            AccountRow account = mapper.findAccounts(existing).stream().findFirst().orElse(null);
-            if (row == null || account == null || !row.organizationName().equals(organizationName)
-                    || !account.loginName().equals(loginName)) {
+        String signature = signatures.sign(idempotencyKey, organizationName, cityCode, subjectName, licenseNumber,
+                scope, contactName, phone, loginName, draft.password(), draft.smsCode());
+        mapper.lockSignupKey(idempotencyKey);
+        var receipt = mapper.findSignupReceipt(idempotencyKey);
+        if (receipt != null) {
+            boolean same = receipt.signature() == null
+                    ? mapper.matchesLegacySignup(receipt.id(), organizationName, cityCode, subjectName, licenseNumber,
+                            scope, contactName, phone, loginName)
+                    : receipt.signature().equals(signature);
+            if (!same) {
                 throw new OnboardingException(Error.IDEMPOTENCY_CONFLICT);
             }
-            return new OrganizationSignupCreated(result(row, account), false);
+            return signupResult(receipt.id(), organizationName, loginName, false);
+        }
+        if (cities.cityName(cityCode).isEmpty()) {
+            throw new OnboardingException(Error.CITY_UNKNOWN);
         }
         // 验证码只能用一次；先查占用再用码，免得码用掉了却因为登录名被占而失败。
         if (mapper.countAccountsByLoginName(loginName) > 0) {
@@ -120,8 +124,8 @@ public class OrganizationSignupService {
         UUID organizationId = mapper.insertOrganization(onboarding.organizationCode(at), organizationName,
                 OpsOrganizationType.PROVIDER.name(), cityCode, idempotencyKey, at);
         if (organizationId == null) {
-            // 同一个键的另一次提交刚刚写进去了。
-            return signUp(idempotencyKey, draft);
+            // 自助申请按键排队；这里只可能与运营端建机构共用了键。
+            throw new OnboardingException(Error.IDEMPOTENCY_CONFLICT);
         }
         UUID accountId = mapper.insertSignupAccount(loginName, contactName, hasher.hash(draft.password()), phone,
                 organizationId, at);
@@ -139,12 +143,8 @@ public class OrganizationSignupService {
         mapper.insertOperation(organizationId, OpsOrganizationAction.QUALIFICATION_SUBMIT.name(),
                 "录入资质资料：主体“" + subjectName + "”，统一社会信用代码 " + licenseNumber + "，进入待审核",
                 applicant.accountId(), applicant.displayName(), at);
-        OrganizationRow row = mapper.findOrganization(organizationId);
-        AccountRow account = mapper.findAccounts(organizationId).stream()
-                .filter(candidate -> candidate.accountId().equals(accountId))
-                .findFirst()
-                .orElseThrow();
-        return new OrganizationSignupCreated(result(row, account), true);
+        mapper.saveSignupSignature(organizationId, signature);
+        return signupResult(organizationId, organizationName, loginName, true);
     }
 
     // ---- 工作台“入驻资料”：机构看自己的、改自己的 ----
@@ -180,11 +180,9 @@ public class OrganizationSignupService {
                 detail.providerProfileStatus());
     }
 
-    private OrganizationSignupResult result(OrganizationRow row, AccountRow account) {
-        var qualification = mapper.findQualification(row.organizationId());
-        return new OrganizationSignupResult(row.organizationId(), row.organizationName(), account.loginName(),
-                qualification == null ? OpsQualificationStatus.NOT_SUBMITTED
-                        : OpsQualificationStatus.valueOf(qualification.status()));
+    private static OrganizationSignupCreated signupResult(UUID id, String name, String login, boolean created) {
+        return new OrganizationSignupCreated(
+                new OrganizationSignupResult(id, name, login, OpsQualificationStatus.SUBMITTED), created);
     }
 
     private String cityLabel(String cityCode) {

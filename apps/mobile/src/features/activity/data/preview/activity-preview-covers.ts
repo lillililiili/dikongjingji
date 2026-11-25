@@ -1,4 +1,4 @@
-import { ACTIVITY_PREVIEW_ENABLED } from '../../application/activity-preview'
+const PREVIEW_SAMPLES = import.meta.env.DEV || __RELEASE_PREVIEW_BUILD__
 
 // Pictures for the sample activities of the development seed (R__dev_activity_catalog.sql),
 // keyed by activity id. From the 2026-11-14 prototype; a cover the server returns always wins.
@@ -14,7 +14,7 @@ const COVERS: Record<string, string> = {
 
 export function resolveActivityPreviewCover(
   activityId: string,
-  previewEnabled: boolean = ACTIVITY_PREVIEW_ENABLED,
+  previewEnabled: boolean = PREVIEW_SAMPLES,
 ): string | null {
   const name = previewEnabled ? COVERS[activityId] : undefined
   return name ? `${DIRECTORY}/${name}.jpg` : null

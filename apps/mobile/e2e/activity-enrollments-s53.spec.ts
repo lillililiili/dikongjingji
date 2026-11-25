@@ -1,7 +1,9 @@
-import { existsSync, mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import { expect, test, type Page, type Route } from '@playwright/test'
+
+import { PLANNING } from './support/board-compare'
 
 // S5-3 on 我的报名 (board EnrollList): a waitlist card on top of 待参加, a team card, a rescheduled
 // sign-up, finished sign-ups with results, and a cancelled one whose refund can be followed.
@@ -10,15 +12,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 
 test.use({ timezoneId: 'Asia/Shanghai' })
 
-function planningDir(): string {
-  let dir = __dirname
-  while (dirname(dir) !== dir) {
-    if (existsSync(resolve(dir, '.planning/prototype'))) return resolve(dir, '.planning')
-    dir = dirname(dir)
-  }
-  return resolve(__dirname, '../../../../../.planning')
-}
-const visualOutput = resolve(planningDir(), 'activity-s53/visual')
+const visualOutput = resolve(PLANNING, 'activity-s53/visual')
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': '*',

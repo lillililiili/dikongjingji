@@ -37,6 +37,16 @@ describe('course api', () => {
     expect(request.mock.calls[1][0].url).toBe(`/api/v1/course-trials?courseId=${COURSE}`)
   })
 
+  it('only links a trial to its configured simulation', async () => {
+    const simulation = 'b1000000-0000-4000-8000-000000000002'
+    const entry = 'b1000000-0000-4000-8000-000000000005'
+    const api = createCourseApi(vi.fn()
+      .mockResolvedValueOnce({ courseId: COURSE, experienceItemId: entry, simulationItemId: simulation })
+      .mockResolvedValueOnce({ courseId: COURSE, experienceItemId: entry }))
+    expect((await api.loadTrial({ experienceItemId: entry })).simulationItemId).toBe(simulation)
+    expect((await api.loadTrial({ courseId: COURSE })).simulationItemId).toBeNull()
+  })
+
   it('reads cards defensively: an offline class keeps its activity, unknown prices become 面议', () => {
     expect(toCourseCard({ courseId: 'c', mode: 'OFFLINE', topic: 'ROBOT', title: '机器人研学体验', price: { mode: 'FIXED', amountMinor: 16800 }, activityId: 'a-2', scheduleLabel: '按场次', lessonCount: 3 }))
       .toMatchObject({ mode: 'OFFLINE', activityId: 'a-2', lessonCount: null, price: { mode: 'FIXED', amountMinor: 16800 } })
